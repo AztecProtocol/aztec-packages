@@ -675,11 +675,19 @@ template <typename Flavor> class SumcheckProver {
         parallel_for(source_view.size(), [&](size_t j) {
             BB_BENCH_TRACY_NAME("Sumcheck::partially_evaluate");
             const auto& poly = source_view[j];
-            size_t limit = poly.end_index();
-            for (size_t i = 0; i < limit; i += 2) {
-                dest_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
+            const size_t limit = poly.end_index();
+            const size_t num_full_pairs = limit / 2;
+            for (size_t i = 0; i < num_full_pairs; ++i) {
+                const size_t idx = i << 1;
+                dest_view[j].at(i) = poly[idx] + round_challenge * (poly[idx + 1] - poly[idx]);
             }
-            dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
+            // If the active region has an odd length, fold the lone trailing coefficient against an
+            // implicit zero partner instead of reading poly[limit] (past end_index, would trip the
+            // virtual-zeroes assertion for polynomials with virtual_size == end_index).
+            if ((limit & 1) != 0) {
+                dest_view[j].at(num_full_pairs) = poly[limit - 1] * (FF(1) - round_challenge);
+            }
+            dest_view[j].shrink_end_index(num_full_pairs + (limit & 1));
         });
     };
 

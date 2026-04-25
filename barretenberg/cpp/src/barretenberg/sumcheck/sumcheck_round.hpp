@@ -160,15 +160,23 @@ template <typename Flavor> class SumcheckProverRound {
                       const size_t edge_idx)
     {
         for (auto [extended_edge, multivariate] : zip_view(extended_edges.get_all(), multivariates.get_all())) {
+            const size_t end = multivariate.end_index();
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
-                extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
+                // The main loop iterates up to effective_round_size, which rounds max_end_index up to even.
+                // For odd max_end_index, the second read of the final edge lands at index == end_index, which
+                // would trip the virtual-zeroes assertion for polynomials with virtual_size == end_index
+                // (e.g. gemini_masking_poly). Treat reads past end_index as zero directly.
+                const FF v0 = (edge_idx < end) ? FF(multivariate[edge_idx]) : FF::zero();
+                const FF v1 = (edge_idx + 1 < end) ? FF(multivariate[edge_idx + 1]) : FF::zero();
+                extended_edge = bb::Univariate<FF, 2>({ v0, v1 });
             } else {
-                if (multivariate.end_index() < edge_idx) {
+                if (end <= edge_idx) {
                     static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
                     extended_edge = zero_univariate;
                 } else {
-                    extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] })
-                                        .template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
+                    const FF v0 = multivariate[edge_idx];
+                    const FF v1 = (edge_idx + 1 < end) ? FF(multivariate[edge_idx + 1]) : FF::zero();
+                    extended_edge = bb::Univariate<FF, 2>({ v0, v1 }).template extend_to<MAX_PARTIAL_RELATION_LENGTH>();
                 }
             }
         }
