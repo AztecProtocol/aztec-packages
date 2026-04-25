@@ -299,10 +299,9 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
  * @details We instantiate this both to contain the actual gates of an execution trace, and also to describe different
  * trace structures (i.e., sets of capacities for each block type, which we use to optimize the folding prover).
  *
- * @note The ecc_op block must be first in the execution trace. The merge protocol shifts its
- * polynomials by TRACE_OFFSET + NUM_ZERO_ROWS leading zeros to match the circuit's ecc_op_wire
- * commitments. This only works if ecc_op is the first block (so its trace_offset equals
- * TRACE_OFFSET + NUM_ZERO_ROWS).
+ * @note The ecc_op block must be first in the execution trace so that the `ecc_op_wire` polynomials
+ * (populated by TraceToPolynomials::add_ecc_op_wires_to_prover_instance) align with the main wires via
+ * the `ecc_op_wire[r] == w_shift[r]` equality enforced by EccOpQueueRelation.
  *
  * @note The ecc_op block does NOT have a gate selector stored in the builder. Instead, the `lagrange_ecc_op`
  * selector polynomial is constructed during TraceToPolynomials::add_ecc_op_wires_to_prover_instance() as a
@@ -380,14 +379,12 @@ struct MegaTraceBlockData {
 class MegaExecutionTraceBlocks : public MegaTraceBlockData {
   public:
     static constexpr size_t NUM_WIRES = MegaTraceBlock::NUM_WIRES;
-    // The number of rows reserved at the top of the trace for row-disabling / ZK masking.
-    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     using FF = fr;
 
     MegaExecutionTraceBlocks() = default;
 
-    void compute_offsets(size_t trace_offset = TRACE_OFFSET)
+    void compute_offsets(size_t trace_offset)
     {
         uint32_t offset = static_cast<uint32_t>(trace_offset + NUM_ZERO_ROWS);
         for (auto& block : this->get()) {

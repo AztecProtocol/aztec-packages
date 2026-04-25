@@ -68,6 +68,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -105,6 +106,7 @@ TEST(TranslatorCircuitBuilder, MinimalOperations)
     using Fq = fq;
 
     auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -131,6 +133,7 @@ TEST(TranslatorCircuitBuilder, OnlyAddOperations)
     auto P2 = point::random_element();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -166,6 +169,7 @@ TEST(TranslatorCircuitBuilder, OnlyMulOperations)
     auto z2 = scalar::random_element();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -197,6 +201,7 @@ TEST(TranslatorCircuitBuilder, InterspersedNoOps)
     auto P = point::random_element();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -228,6 +233,7 @@ TEST(TranslatorCircuitBuilder, PointAtInfinity)
     auto P_infinity = point::infinity();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -260,6 +266,7 @@ TEST(TranslatorCircuitBuilder, ZeroScalar)
     auto zero = scalar::zero();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -289,6 +296,7 @@ TEST(TranslatorCircuitBuilder, ManyOperations)
     using Fq = fq;
 
     auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->no_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
@@ -332,6 +340,7 @@ TEST(TranslatorCircuitBuilder, Determinism)
 
     // Build first circuit
     auto op_queue1 = std::make_shared<ECCOpQueue>();
+    op_queue1->no_op_ultra_only();
     op_queue1->random_op_ultra_only();
     op_queue1->random_op_ultra_only();
     op_queue1->random_op_ultra_only();
@@ -348,6 +357,7 @@ TEST(TranslatorCircuitBuilder, Determinism)
 
     // Build second circuit with same operations
     auto op_queue2 = std::make_shared<ECCOpQueue>();
+    op_queue2->no_op_ultra_only();
     op_queue2->random_op_ultra_only();
     op_queue2->random_op_ultra_only();
     op_queue2->random_op_ultra_only();

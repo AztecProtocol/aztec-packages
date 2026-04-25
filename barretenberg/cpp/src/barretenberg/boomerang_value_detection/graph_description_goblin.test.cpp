@@ -50,10 +50,9 @@ class BoomerangGoblinRecursiveVerifierTests : public testing::Test {
         auto goblin_proof = goblin.prove();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
-        auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns(MergeProver::FULL_SHIFT);
-        auto T_prev = goblin.op_queue->construct_previous_ultra_ops_table_columns(MergeProver::FULL_SHIFT);
-        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows() +
-                                                       MergeProver::FULL_SHIFT);
+        auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
+        auto T_prev = goblin.op_queue->construct_previous_ultra_ops_table_columns();
+        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
             merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);
