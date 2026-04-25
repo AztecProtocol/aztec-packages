@@ -743,11 +743,6 @@ variable "RPC_INGRESS_LOG_SAMPLE_RATE" {
   type        = number
   nullable    = true
   default     = null
-
-  validation {
-    condition     = var.RPC_INGRESS_LOG_SAMPLE_RATE == null ? true : (var.RPC_INGRESS_LOG_SAMPLE_RATE >= 0 && var.RPC_INGRESS_LOG_SAMPLE_RATE <= 1)
-    error_message = "RPC_INGRESS_LOG_SAMPLE_RATE must be null or a float in [0.0, 1.0]."
-  }
 }
 
 variable "PROVER_FAILED_PROOF_STORE" {
