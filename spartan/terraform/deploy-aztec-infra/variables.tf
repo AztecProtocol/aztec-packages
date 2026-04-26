@@ -731,11 +731,6 @@ variable "RPC_INGRESS_SESSION_AFFINITY" {
   description = "Session affinity type for the RPC BackendConfig. One of NONE, CLIENT_IP, GENERATED_COOKIE. Leave empty for no affinity (GCE default)."
   type        = string
   default     = ""
-
-  validation {
-    condition     = contains(["", "NONE", "CLIENT_IP", "GENERATED_COOKIE"], var.RPC_INGRESS_SESSION_AFFINITY)
-    error_message = "RPC_INGRESS_SESSION_AFFINITY must be empty, NONE, CLIENT_IP, or GENERATED_COOKIE."
-  }
 }
 
 variable "RPC_INGRESS_LOG_SAMPLE_RATE" {
@@ -743,11 +738,6 @@ variable "RPC_INGRESS_LOG_SAMPLE_RATE" {
   type        = number
   nullable    = true
   default     = null
-
-  validation {
-    condition     = var.RPC_INGRESS_LOG_SAMPLE_RATE == null || (var.RPC_INGRESS_LOG_SAMPLE_RATE >= 0 && var.RPC_INGRESS_LOG_SAMPLE_RATE <= 1)
-    error_message = "RPC_INGRESS_LOG_SAMPLE_RATE must be null or a float in [0.0, 1.0]."
-  }
 }
 
 variable "PROVER_FAILED_PROOF_STORE" {
