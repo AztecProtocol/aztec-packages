@@ -52,10 +52,13 @@ void Polynomial<Fr>::allocate_backing_memory(size_t size, size_t virtual_size, s
 {
     BB_BENCH_NAME("Polynomial::allocate_backing_memory");
     BB_ASSERT_LTE(start_index + size, virtual_size);
+    // Sumcheck's hot loops read pairs (poly[i], poly[i+1]) and rely on virtual_size being even so
+    // the trailing pair never indexes past the virtual-zeroes region. Bake that invariant in here.
+    const size_t rounded_virtual_size = virtual_size + (virtual_size & 1);
     coefficients_ = SharedShiftedVirtualZeroesArray<Fr>{
-        start_index,        /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
-        size + start_index, /* end index, actual memory used is (end - start) */
-        virtual_size,       /* virtual size, i.e. until what size do we conceptually have zeroes */
+        start_index,          /* start index, used for shifted polynomials and offset 'islands' of non-zeroes */
+        size + start_index,   /* end index, actual memory used is (end - start) */
+        rounded_virtual_size, /* virtual size, i.e. until what size do we conceptually have zeroes */
         BackingMemory<Fr>::allocate(size)
     };
 }
