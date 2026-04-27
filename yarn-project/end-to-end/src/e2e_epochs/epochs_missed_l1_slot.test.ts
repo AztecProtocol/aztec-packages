@@ -26,9 +26,15 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
   const L1_SLOTS_PER_L2_SLOT = 6;
 
   beforeEach(async () => {
-    // Note: pipelining is NOT enabled for this test because it deliberately pauses L1 mining
-    // to simulate missed L1 slots, which conflicts with pipelining's assumption that previous
-    // checkpoints land on L1 promptly.
+    // Note: pipelining is NOT enabled for this test (tracked in A-916). The test deliberately
+    // pauses L1 mining (`setAutomine(false)` + `setIntervalMining(0)`) to simulate missed L1
+    // slots and assert that the sequencer can still reach PUBLISHING_CHECKPOINT. Pipelining
+    // gates the next checkpoint's L1 submission on the parent's propose tx having landed
+    // (`CheckpointProposalJob.waitForValidParentCheckpointOnL1`); with mining paused that gate
+    // never resolves, the pipelined work is discarded with reason `parent-not-on-l1`, and the
+    // sequencer would never reach PUBLISHING_CHECKPOINT — the very state the test waits on.
+    // Pipelining is fundamentally incompatible with this test's design — see PIPELINING.md
+    // §7.4 / Pattern C.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       minTxsPerBlock: 0,
