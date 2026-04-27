@@ -1,6 +1,7 @@
 #include <benchmark/benchmark.h>
 
 #include "barretenberg/benchmark/ultra_bench/mock_circuits.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 
 using namespace benchmark;
@@ -91,4 +92,18 @@ BENCHMARK(construct_proof_megahonk_power_of_2)
     ->DenseRange(15, 20)
     ->Unit(kMillisecond);
 
-BENCHMARK_MAIN();
+int main(int argc, char** argv)
+{
+    bb::detail::use_bb_bench = true;
+
+    ::benchmark::Initialize(&argc, argv);
+    if (::benchmark::ReportUnrecognizedArguments(argc, argv))
+        return 1;
+    ::benchmark::RunSpecifiedBenchmarks();
+    ::benchmark::Shutdown();
+
+    std::cout << "\n=== Detailed BB_BENCH Profiling Stats ===\n";
+    bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
+
+    return 0;
+}
