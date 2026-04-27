@@ -183,13 +183,11 @@ function block_capacity_bench_cmds {
 }
 
 function bench_10tps_cmds {
-  # Single 38-min sustained 10 TPS run on the bench-10tps network. Long enough
-  # for the sequencer to hit steady state beyond the initial mempool fill-up.
   local high_value_tps=10
   local low_value_tps=0
-  local test_duration=2280 # 38 min
-  local timeout=3600       # 1h — test plus drain/teardown buffer
-  echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+  local test_duration=${TEST_DURATION_SECONDS:-2280} # approx 1 epoch
+  local timeout=${BENCH_TIMEOUT_SECONDS:-3600}
+  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
 }
 
 function network_bench {
@@ -245,7 +243,98 @@ function bench_10tps {
   gcp_auth
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
+  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-${COMMIT_HASH:0:10}}"
   bench_10tps_cmds | parallelize 1
+
+  local metadata="/tmp/n_tps_timing_data.json"
+  local run_json="bench-out/bench-10tps-${BENCH_RUN_ID}.json"
+  if [[ -f "$metadata" ]]; then
+    local started=$(jq -r .startedAt < "$metadata")
+    local ended=$(jq -r .endedAt < "$metadata")
+    echo "Scraping bench-10tps run ${BENCH_RUN_ID} (started=${started} ended=${ended})"
+    NAMESPACE="$NAMESPACE" ./scripts/bench_10tps/bench_scrape.ts \
+      --run-id "$BENCH_RUN_ID" \
+      --started "$started" \
+      --ended "$ended" \
+      --target-tps 10 \
+      --workload sha256_hash_1024 \
+      --output "$run_json" \
+      || echo "[bench_10tps] scraper failed (non-fatal)"
+    network_bench_upload "$run_json" || echo "[network_bench] upload failed (non-fatal)"
+  else
+    echo "[bench_10tps] no timing metadata at ${metadata}; skipping scraper"
+  fi
+}
+
+function network_bench_upload {
+  local run_json=$1
+  if [[ "${CI:-0}" != "1" ]]; then
+    echo "[network_bench] CI != 1, skipping upload (run JSON at ${run_json})"
+    return 0
+  fi
+  if [[ ! -f "$run_json" ]]; then
+    echo "[network_bench] no run JSON at ${run_json}; skipping upload"
+    return 0
+  fi
+
+  # Reject anything that's not the schema we've designed the index against.
+  local schema=$(jq -r .schemaVersion "$run_json")
+  if [[ "$schema" != "3" ]]; then
+    echo "[network_bench] run JSON has schemaVersion '$schema', expected '3'; skipping upload"
+    return 0
+  fi
+
+  local bucket="gs://aztec-testnet/network_bench"
+  local run_id=$(jq -r .run.runId "$run_json")
+  local target="${bucket}/${run_id}.json"
+
+  echo "[network_bench] uploading ${run_json} to ${target}"
+  gcloud storage cp "$run_json" "$target"
+
+  local entry=$(jq '{
+    runId: .run.runId,
+    path: (.run.runId + ".json"),
+    startedAt: .run.startedAt,
+    endedAt: .run.endedAt,
+    targetTps: .run.targetTps,
+    workload: .run.workload,
+    testDurationSeconds: .run.testDurationSeconds,
+    namespace: .run.namespace,
+    headlineKpi: .summary.headlineKpi,
+    inclusionTpsMean: .summary.inclusionTpsMean,
+    inclusionTpsPeak: .summary.inclusionTpsPeak,
+    totalTxsMined: .summary.totalTxsMined,
+    reorgCount: .summary.reorgCount
+  }' "$run_json")
+
+  local idx_local
+  idx_local=$(mktemp)
+  trap "rm -f $idx_local ${idx_local}.new" RETURN
+  # Distinguish "index does not exist yet" (404 -> seed empty) from real errors
+  # (auth/network/permission -> fail closed). Without this probe, a naive
+  # `cp ... 2>/dev/null || seed_empty` would silently overwrite a healthy index
+  # with a single-entry one whenever GCS hiccups.
+  local desc_err
+  if desc_err=$(gcloud storage objects describe "${bucket}/index.json" 2>&1 >/dev/null); then
+    gcloud storage cp "${bucket}/index.json" "$idx_local"
+  elif echo "$desc_err" | grep -qiE 'not.?found|matched no objects|404'; then
+    echo "[network_bench] no remote index.json yet; seeding empty"
+    echo '{"schemaVersion":"1","runs":[]}' > "$idx_local"
+  else
+    echo "[network_bench] cannot read remote index.json:"
+    echo "$desc_err" | head -5
+    return 1
+  fi
+
+  jq --argjson entry "$entry" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    .schemaVersion = "1"
+    | .generatedAt = $ts
+    | .runs = ((.runs // []) | map(select(.runId != $entry.runId)) + [$entry]
+              | sort_by(.endedAt) | reverse)
+  ' "$idx_local" > "${idx_local}.new"
+
+  gcloud storage cp "${idx_local}.new" "${bucket}/index.json"
+  echo "[network_bench] updated ${bucket}/index.json"
 }
 
 function ensure_eth_balances {
