@@ -541,9 +541,11 @@ function generateExampleParam(paramType: string, paramName?: string): string {
 
   // Name-aware overrides for common parameter names so paired numeric args like
   // (from, limit) and (page) render as more illustrative examples than `12345, 12345`.
+  // `from` defaults to 1 because some schemas (BlockNumberPositiveSchema) require >= 1
+  // and 1 is also valid for the relaxed BlockNumberSchema.
   if (paramName && (t === 'number' || t === 'bigint')) {
     const stringify = (n: number) => (t === 'bigint' ? `"${n}"` : String(n));
-    if (paramName === 'from' || paramName === 'fromBlock') return stringify(0);
+    if (paramName === 'from' || paramName === 'fromBlock') return stringify(1);
     if (paramName === 'limit') return stringify(100);
     if (paramName === 'page') return stringify(0);
     if (paramName === 'checkpointNumber') return stringify(1);

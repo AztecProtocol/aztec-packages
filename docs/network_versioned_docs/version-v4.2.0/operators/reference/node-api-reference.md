@@ -173,7 +173,7 @@ Method to request blocks. Will attempt to return all requested blocks but will r
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getBlocks","params":[0,100],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getBlocks","params":[1,100],"id":1}'
 ```
 
 ### node_getBlockHeader
@@ -245,7 +245,7 @@ curl -X POST http://localhost:8080 \
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpointedBlocks","params":[0,100],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getCheckpointedBlocks","params":[1,100],"id":1}'
 ```
 
 ### node_getCheckpointsDataForEpoch
