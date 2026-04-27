@@ -38,8 +38,14 @@ import type {
 
 `WalletManager.configure()` returns a manager configured for one or more provider types. `getAvailableWallets()` broadcasts a discovery request and returns a `DiscoverySession` that streams `WalletProvider` instances as users approve the request inside each extension.
 
+`chainInfo` tells wallets which chain the dApp wants to connect to. Read it from the connected Aztec node so the values track whatever network the user is on:
+
 ```typescript
 import { Fr } from '@aztec/aztec.js/fields';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+
+const node = await createAztecNodeClient('http://localhost:8080');
+const { l1ChainId, rollupVersion } = await node.getNodeInfo();
 
 const manager = WalletManager.configure({
   extensions: { enabled: true },
@@ -47,9 +53,10 @@ const manager = WalletManager.configure({
 
 const discovery = manager.getAvailableWallets({
   appId: 'my-app',
-  // chainInfo is the chain the dApp wants to connect to. Wallets configured
-  // for a different chain will not respond to discovery.
-  chainInfo: { chainId: new Fr(31337), version: new Fr(1) },
+  chainInfo: {
+    chainId: new Fr(l1ChainId),
+    version: new Fr(rollupVersion),
+  },
   onWalletDiscovered: (provider) => {
     console.log(`Found wallet: ${provider.name} (${provider.id})`);
   },
@@ -59,7 +66,7 @@ await discovery.done;
 discovery.cancel();
 ```
 
-The `extensions` config also accepts an optional `allowList` and `blockList` of wallet IDs. `chainInfo` typically comes from the connected Aztec node: call `node.getNodeInfo()` to read `l1ChainId` and `rollupVersion`.
+Wallets configured for a different chain will not respond. The `extensions` config also accepts an optional `allowList` and `blockList` of wallet IDs.
 
 To discover web/iframe wallets alongside extensions, pass a `webWallets` block too. Both kinds of provider are returned in the same `DiscoverySession`:
 
