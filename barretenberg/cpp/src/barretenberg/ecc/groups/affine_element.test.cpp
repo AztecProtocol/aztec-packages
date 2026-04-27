@@ -417,6 +417,25 @@ TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
     }
 }
 
+// mul_const_time must agree with operator* on every input, including edge cases (0, 1, n-1, low and
+// high Hamming weight).
+TYPED_TEST(TestAffineElement, MulConstTimeMatchesOperatorMul)
+{
+    using element_t = typename TypeParam::element;
+    using Fr = typename TypeParam::Fr;
+    element_t G(element_t::random_element());
+
+    // Edge-case scalars
+    for (Fr s : { Fr::zero(), Fr::one(), -Fr::one(), Fr(2), Fr(uint256_t(1) << 128) }) {
+        EXPECT_EQ(G.mul_const_time(s), G * s);
+    }
+    // Random scalars
+    for (int i = 0; i < 50; ++i) {
+        Fr s = Fr::random_element();
+        EXPECT_EQ(G.mul_const_time(s), G * s);
+    }
+}
+
 // FrCodec is defined only for BN254 and Grumpkin (the two curves whose points appear in transcripts).
 TYPED_TEST(TestAffineElement, FrCodecRoundTrip)
 {
