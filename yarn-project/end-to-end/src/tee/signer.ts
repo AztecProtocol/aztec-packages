@@ -136,27 +136,13 @@ export interface SignTokenOperationOutput {
   exitMessageHashes: Tuple<Fr, typeof MAX_EXITS>;
 }
 
-/**
- * Input to `signExitFinalization`. The TEE recomputes the `TeeSignedData(EXIT, ...)`
- * preimage from `operation` + `initiation` so it can re-verify the Grumpkin Schnorr
- * sig it previously produced before wrapping it in an ECDSA attestation for L1.
- *
- * `archiveRoot` is the TEE's current L2-state anchor for L1 finalization. The TEE
- * verifies that the first-phase operation anchor block hash is a member of this
- * archive before signing it.
- *
- * `initiationEffects` and `initiationHints` prove that the first-phase DA tuple
- * was published by an L2 tx under the same `archiveRoot`. Without this,
- * finalization would only prove that the TEE can rebuild a previously signed
- * object, not that the object was committed into the rollup.
- */
 export interface ExitFinalizationInput {
-  operation: TokenOperation;
-  exitIndex: number;
-  initiation: SignTokenOperationOutput;
-  initiationEffects: TxEffect;
-  initiationHints: AncestorEffectsHints;
   archiveRoot: Fr;
+  creationEffects: TxEffect;
+  hints: AncestorEffectsHints;
+  signature: GrumpkinPoseidonSignature;
+  exit: OutboxExit;
+  // Path to check that the tx.anchorBlockHash in metadata is a member of archive root
   anchorBlockHashMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>;
 }
 
@@ -321,57 +307,6 @@ export class TeeSigner {
         throw new Error(`Attested exit message hash ${exitMessageHash} not found in creation tx l2ToL1Msgs`);
       }
     }
-  }
-
-  private validateTupleEquals(actual: readonly Fr[], expected: readonly Fr[], label: string): void {
-    if (actual.length !== expected.length) {
-      throw new Error(`${label} length ${actual.length} does not match expected length ${expected.length}`);
-    }
-    for (let i = 0; i < actual.length; i++) {
-      if (!actual[i].equals(expected[i])) {
-        throw new Error(`${label}[${i}] ${actual[i]} does not match expected ${expected[i]}`);
-      }
-    }
-  }
-
-  private async validateTeeNotesInEffects(
-    teeNotes: Tuple<Fr, typeof MAX_EFFECTS>,
-    initiationEffects: TxEffect,
-  ): Promise<void> {
-    for (const teeNote of teeNotes) {
-      if (teeNote.equals(Fr.zero())) {
-        continue;
-      }
-      await this.validateSiloedVsUniqueNoteHash(teeNote, initiationEffects);
-    }
-  }
-
-  private async validateCommittedInitiation(input: ExitFinalizationInput, anchorBlockHash: BlockHash): Promise<void> {
-    await checkAncestorEffectsHintsAtArchiveRoot(input.initiationEffects, input.initiationHints, input.archiveRoot);
-
-    const metadata = extractMetadata(input.initiationEffects);
-    if (!metadata.pubKeyX.equals(this.publicKey.x) || !metadata.pubKeyY.equals(this.publicKey.y)) {
-      throw new Error('Committed initiation metadata does not match this TEE public key');
-    }
-    if (!metadata.anchorBlockHash.equals(anchorBlockHash)) {
-      throw new Error(
-        `Committed initiation anchor ${metadata.anchorBlockHash} does not match operation anchor ${anchorBlockHash}`,
-      );
-    }
-
-    const requiredNullifiers = extractRequiredNullifiers(input.initiationEffects);
-    const teeNotes = extractTeeNotes(input.initiationEffects);
-    const exitMessageHashes = extractExitMessageHashes(input.initiationEffects);
-
-    // These equality checks bind the API-level initiation object to the DA actually
-    // published by the tx. The effect checks below then bind that DA to what the tx did.
-    this.validateTupleEquals(requiredNullifiers, input.initiation.requiredNullifiers, 'requiredNullifiers');
-    this.validateTupleEquals(teeNotes, input.initiation.teeNotes, 'teeNotes');
-    this.validateTupleEquals(exitMessageHashes, input.initiation.exitMessageHashes, 'exitMessageHashes');
-
-    this.validateRequiredNullifiers(requiredNullifiers, input.initiationEffects);
-    await this.validateTeeNotesInEffects(teeNotes, input.initiationEffects);
-    this.validateExitMessageHashesInL2ToL1Msgs(exitMessageHashes, input.initiationEffects);
   }
 
   /**
@@ -669,98 +604,75 @@ export class TeeSigner {
     };
   }
 
-  /**
-   * Second-phase L1 attestation: wraps an earlier `signTokenOperation` exit sig in
-   * an ECDSA signature consumed by `TEEPortal.withdraw`.
-   *
-   * The L1 finalization preimage is
-   *   `domain(1) || archiveRoot(32) || initiationDigest(32) || messageHash(32)`
-   * where `initiationDigest = sha256(TeeSignedData(EXIT, ...).toFields())` - i.e. the
-   * hash of the exact preimage the first-phase Grumpkin Schnorr sig was computed over.
-   * Binding that digest:
-   *   - gives L1 a unique-per-(operation, exit) nullifier key for `$isWithdrawalSpent`
-   *   - ties the L1 attestation to the first-phase TEE authorization, so a compromised
-   *     second-phase TEE cannot produce a valid L1 sig for an exit the first TEE
-   *     didn't authorize.
-   *
-   * This method does *not* verify outbox membership - that is L1's job via
-   * `OUTBOX.consume`. It verifies only the things needed to produce a sound ECDSA sig:
-   *   - `exitIndex` points at a real (non-zero-padded) exit in the signed preimage
-   *   - the first-phase Grumpkin Schnorr sig over that preimage is valid under
-   *     this signer's Grumpkin pubkey
-   *   - the operation anchor block hash and exact first-phase DA tuple are committed
-   *     under `archiveRoot`, and its required nullifiers / created notes / exits
-   *     are present in that tx's effects.
-   */
-  public async signExitFinalization(input: ExitFinalizationInput): Promise<ExitFinalizationOutput> {
-    if (input.exitIndex < 0 || input.exitIndex >= MAX_EXITS) {
-      throw new Error(`exitIndex ${input.exitIndex} out of bounds [0, ${MAX_EXITS})`);
+  private validateMessageHashInExitMessageHashes(
+    messageHash: Fr,
+    exitMessageHashes: Tuple<Fr, typeof MAX_EXITS>,
+  ): void {
+    if (!exitMessageHashes.some(exitMessageHash => exitMessageHash.equals(messageHash))) {
+      throw new Error(`Message hash ${messageHash} not found in exit message hashes`);
     }
-    const exitMessageHash = input.initiation.exitMessageHashes[input.exitIndex];
-    if (exitMessageHash.equals(Fr.zero())) {
-      throw new Error(`exitIndex ${input.exitIndex} is a zero-padded slot; no exit to finalize`);
-    }
-    if (input.initiation.exitSignatures.length > MAX_EXITS) {
-      throw new Error(
-        `initiation.exitSignatures length ${input.initiation.exitSignatures.length} exceeds max ${MAX_EXITS}`,
-      );
-    }
-    if (input.exitIndex >= input.initiation.exitSignatures.length) {
-      throw new Error(
-        `exitIndex ${input.exitIndex} has no matching exit signature; got ` +
-          `${input.initiation.exitSignatures.length} signatures`,
-      );
-    }
+  }
 
-    const commitments = await this.buildOperationCommitments(input.operation, false);
-    this.validateTupleEquals(
-      commitments.requiredNullifiers,
-      input.initiation.requiredNullifiers,
-      'operation requiredNullifiers',
-    );
-    this.validateTupleEquals(commitments.teeNotes, input.initiation.teeNotes, 'operation teeNotes');
-    this.validateTupleEquals(
-      commitments.paddedExitMessageHashes,
-      input.initiation.exitMessageHashes,
-      'operation exitMessageHashes',
-    );
+  public async signExitFinalization(input: ExitFinalizationInput): Promise<ExitFinalizationOutput> {
+    const content = getWithdrawContentHash(input.exit.l1Recipient, input.exit.amount);
+    const bridge = this.bridgeContext;
+    const exitMessageHash = computeL2ToL1MessageHash({
+      l2Sender: bridge.l2Bridge,
+      l1Recipient: bridge.l1Portal,
+      content,
+      rollupVersion: new Fr(bridge.rollupVersion),
+      chainId: new Fr(bridge.l1ChainId),
+    });
+
+    await checkAncestorEffectsHintsAtArchiveRoot(input.creationEffects, input.hints, input.archiveRoot);
+
+    const creationExitMessageHashes = extractExitMessageHashes(input.creationEffects);
+    this.validateMessageHashInExitMessageHashes(exitMessageHash, creationExitMessageHashes);
+
+    const creationRequiredNullifiers = extractRequiredNullifiers(input.creationEffects);
+    this.validateRequiredNullifiers(creationRequiredNullifiers, input.creationEffects);
+
+    this.validateExitMessageHashesInL2ToL1Msgs(creationExitMessageHashes, input.creationEffects);
+
+    const creationTeeNotes = extractTeeNotes(input.creationEffects);
+
+    const creationMetadata = extractMetadata(input.creationEffects);
+    //TODO: validate that the signer is registered on L1
+
     await verifyArchiveMembership(
-      commitments.anchorBlockHash.toBuffer(),
+      creationMetadata.anchorBlockHash.toBuffer(),
       input.anchorBlockHashMembershipWitness,
       input.archiveRoot,
       'operation anchor block',
     );
-    await this.validateCommittedInitiation(input, commitments.anchorBlockHash);
 
-    const preimage = new TeeSignedData(
+    await this.validateSignature(
+      input.signature,
       TeeSigDomain.EXIT,
-      commitments.anchorBlockHash,
       this.tokenAddress,
       exitMessageHash,
-      input.initiation.requiredNullifiers,
-      input.initiation.teeNotes,
-      input.initiation.exitMessageHashes,
+      creationMetadata,
+      creationRequiredNullifiers,
+      creationTeeNotes,
+      creationExitMessageHashes,
     );
 
-    const exitSignature = input.initiation.exitSignatures[input.exitIndex];
-    const ok = await grumpkinSchnorrVerify(this.publicKey, exitSignature, preimage.toFields());
-    if (!ok) {
-      throw new Error(`initiation exit signature at index ${input.exitIndex} failed Grumpkin Schnorr verification`);
-    }
+    // Check this is correct, this is to prevent replays of the withdrawal.
+    const withdrawalDigest = sha256(
+      Buffer.concat([input.creationEffects.txHash, exitMessageHash].map(f => f.toBuffer())),
+    );
 
-    const preimageBytes = Buffer.concat(preimage.toFields().map(f => f.toBuffer()));
-    const initiationDigest = sha256(preimageBytes);
     const messageHash = exitMessageHash.toBuffer();
 
     const finalDigest = buildWithdrawalFinalDigest({
       archiveRoot: input.archiveRoot.toBuffer(),
-      withdrawalDigest: initiationDigest,
+      withdrawalDigest,
       messageHash,
     });
 
     const ecdsa = this.ecdsaSigner.sign(Buffer32.fromBuffer(finalDigest));
     const signature = Buffer.concat([ecdsa.r.toBuffer(), ecdsa.s.toBuffer(), Buffer.from([ecdsa.v])]);
 
-    return { initiationDigest, messageHash, finalDigest, signature };
+    return { initiationDigest: withdrawalDigest, messageHash, finalDigest, signature };
   }
 }

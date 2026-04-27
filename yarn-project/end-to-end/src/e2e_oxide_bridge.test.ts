@@ -614,12 +614,11 @@ describe('e2e_oxide_bridge', () => {
         archiveAnchorBlockHash,
       );
       const finalization = await signer.signExitFinalization({
-        operation: withdrawOperation,
-        exitIndex: 0,
-        initiation: withdrawInitiation,
-        initiationEffects,
-        initiationHints,
         archiveRoot,
+        creationEffects: initiationEffects,
+        hints: initiationHints,
+        signature: withdrawInitiation.exitSignatures[0],
+        exit: { l1Recipient: bobL1Recipient, amount: DEPOSIT_AMOUNT },
         anchorBlockHashMembershipWitness,
       });
       expect(finalization.messageHash.equals(expectedMessageHash.toBuffer())).toBe(true);
