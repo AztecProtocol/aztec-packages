@@ -46,6 +46,13 @@ template <class Flavor> class TraceToPolynomials {
      */
     static void add_ecc_op_wires_to_prover_instance(Builder& builder, ProverPolynomials&)
         requires IsMegaFlavor<Flavor>;
+
+    /**
+     * @brief Copy the compressed-Poseidon2 auxiliary witness columns p2_w_5..p2_w_8 from the
+     * trace block's per-row fr storage into the prover's witness polynomials.
+     */
+    static void add_poseidon2_state_wires_to_prover_instance(Builder& builder, ProverPolynomials&)
+        requires IsMegaFlavor<Flavor>;
 };
 
 } // namespace bb

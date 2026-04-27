@@ -11,6 +11,7 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -217,6 +218,11 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     auto params = prover_inst->relation_parameters;
 
     auto relation_failures = RelationChecker<Flavor>::check_all(prover_polynomials, params);
+    for (const auto& [name, failures] : relation_failures) {
+        for (const auto& [subrel_idx, row_idx] : failures) {
+            info("Relation failure: ", name, " subrelation ", subrel_idx, " at row ", row_idx);
+        }
+    }
     EXPECT_TRUE(relation_failures.empty());
 }
 
@@ -235,6 +241,15 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
     create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
+    // Exercise the compressed-Poseidon2 path (K=8 internal + 2-per-row external) so the K=8
+    // selector polynomials are non-zero and the relation is satisfied by real witnesses.
+    {
+        std::vector<stdlib::field_t<MegaCircuitBuilder>> p2_input;
+        for (size_t i = 0; i < 4; ++i) {
+            p2_input.emplace_back(stdlib::witness_t<MegaCircuitBuilder>(&builder, Flavor::FF(i + 1)));
+        }
+        [[maybe_unused]] auto _p2_out = stdlib::poseidon2<MegaCircuitBuilder>::hash(p2_input);
+    }
     stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(builder);
 
     // Create a prover (it will compute proving key and witness)
@@ -255,5 +270,10 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     auto params = prover_inst->relation_parameters;
 
     auto relation_failures = RelationChecker<Flavor>::check_all(prover_polynomials, params);
+    for (const auto& [name, failures] : relation_failures) {
+        for (const auto& [subrel_idx, row_idx] : failures) {
+            info("Relation failure: ", name, " subrelation ", subrel_idx, " at row ", row_idx);
+        }
+    }
     EXPECT_TRUE(relation_failures.empty());
 }

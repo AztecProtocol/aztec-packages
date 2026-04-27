@@ -197,37 +197,44 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
         update_finalize_witnesses(column);
     }
 
-    // mock a poseidon external gate, with all zeros as input
-    blocks.poseidon2_external.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.poseidon2_external.q_m().emplace_back(0);
-    blocks.poseidon2_external.q_1().emplace_back(0);
-    blocks.poseidon2_external.q_2().emplace_back(0);
-    blocks.poseidon2_external.q_3().emplace_back(0);
-    blocks.poseidon2_external.q_c().emplace_back(0);
-    blocks.poseidon2_external.q_4().emplace_back(0);
-    blocks.poseidon2_external.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
+    // Standard Poseidon2 mock gates (Ultra only). Mega uses compressed K=8 / external_compressed
+    // blocks instead — TODO: add Mega-specific mock gates for the K=8 selectors once the builder
+    // path emits them.
+    if constexpr (requires { this->blocks.poseidon2_external; }) {
+        // mock a poseidon external gate, with all zeros as input
+        blocks.poseidon2_external.populate_wires(
+            this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+        blocks.poseidon2_external.q_m().emplace_back(0);
+        blocks.poseidon2_external.q_1().emplace_back(0);
+        blocks.poseidon2_external.q_2().emplace_back(0);
+        blocks.poseidon2_external.q_3().emplace_back(0);
+        blocks.poseidon2_external.q_c().emplace_back(0);
+        blocks.poseidon2_external.q_4().emplace_back(0);
+        blocks.poseidon2_external.set_gate_selector(1);
+        check_selector_length_consistency();
+        this->increment_num_gates();
 
-    // unconstrained gate to be read into by previous poseidon external gate via shifts
-    create_unconstrained_gate(
-        blocks.poseidon2_external, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+        // unconstrained gate to be read into by previous poseidon external gate via shifts
+        create_unconstrained_gate(
+            blocks.poseidon2_external, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
 
-    // mock a poseidon internal gate, with all zeros as input
-    blocks.poseidon2_internal.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.poseidon2_internal.q_m().emplace_back(0);
-    blocks.poseidon2_internal.q_1().emplace_back(0);
-    blocks.poseidon2_internal.q_2().emplace_back(0);
-    blocks.poseidon2_internal.q_3().emplace_back(0);
-    blocks.poseidon2_internal.q_c().emplace_back(0);
-    blocks.poseidon2_internal.q_4().emplace_back(0);
-    blocks.poseidon2_internal.set_gate_selector(1);
-    check_selector_length_consistency();
-    this->increment_num_gates();
+        // mock a poseidon internal gate, with all zeros as input
+        blocks.poseidon2_internal.populate_wires(
+            this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+        blocks.poseidon2_internal.q_m().emplace_back(0);
+        blocks.poseidon2_internal.q_1().emplace_back(0);
+        blocks.poseidon2_internal.q_2().emplace_back(0);
+        blocks.poseidon2_internal.q_3().emplace_back(0);
+        blocks.poseidon2_internal.q_c().emplace_back(0);
+        blocks.poseidon2_internal.q_4().emplace_back(0);
+        blocks.poseidon2_internal.set_gate_selector(1);
+        check_selector_length_consistency();
+        this->increment_num_gates();
 
-    // dummy gate to be read into by previous poseidon internal gate via shifts
-    create_unconstrained_gate(
-        blocks.poseidon2_internal, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+        // dummy gate to be read into by previous poseidon internal gate via shifts
+        create_unconstrained_gate(
+            blocks.poseidon2_internal, this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+    }
 }
 
 /**
@@ -1940,17 +1947,19 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::read_ROM_array_pai
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_external;
-    block.populate_wires(in.a, in.b, in.c, in.d);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-    block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
-    block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
-    block.q_c().emplace_back(0);
-    block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
-    block.set_gate_selector(1);
-    this->check_selector_length_consistency();
-    this->increment_num_gates();
+    if constexpr (requires { this->blocks.poseidon2_external; }) {
+        auto& block = this->blocks.poseidon2_external;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+        block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
+        block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
+        block.q_c().emplace_back(0);
+        block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
+        block.set_gate_selector(1);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    }
 }
 
 /**
@@ -1959,17 +1968,122 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_internal;
-    block.populate_wires(in.a, in.b, in.c, in.d);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.set_gate_selector(1);
-    this->check_selector_length_consistency();
-    this->increment_num_gates();
+    if constexpr (requires { this->blocks.poseidon2_internal; }) {
+        auto& block = this->blocks.poseidon2_internal;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.set_gate_selector(1);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    }
+}
+
+/**
+ * @brief Compressed external-round gate (Mega only): two external rounds per row.
+ * @details Wires a..d hold the standard 4-wide state at round 2k. The auxiliary fr values
+ * p2_w_5..p2_w_8 hold the full state at round 2k+1. Selectors q_l..q_4, q_m, q_c, q_5, q_6
+ * carry the 8 round constants for rounds 2k and 2k+1.
+ */
+template <typename FF>
+void UltraCircuitBuilder_<FF>::create_poseidon2_external_compressed_gate(
+    const poseidon2_external_compressed_gate_<FF>& in)
+{
+    if constexpr (requires { this->blocks.poseidon2_compressed; }) {
+        auto& block = this->blocks.poseidon2_compressed;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
+        // Round 2k constants → q_l..q_4 (= q_1..q_4) (lane 0..3 of M_E sbox).
+        block.q_1().emplace_back(rc[in.round_idx_start + 0][0]);
+        block.q_2().emplace_back(rc[in.round_idx_start + 0][1]);
+        block.q_3().emplace_back(rc[in.round_idx_start + 0][2]);
+        block.q_4().emplace_back(rc[in.round_idx_start + 0][3]);
+        // Round 2k+1 constants → q_m, q_c, q_5, q_6 (lane 0..3 of M_E sbox at the second round).
+        block.q_m().emplace_back(rc[in.round_idx_start + 1][0]);
+        block.q_c().emplace_back(rc[in.round_idx_start + 1][1]);
+        block.q_5().emplace_back(rc[in.round_idx_start + 1][2]);
+        block.q_6().emplace_back(rc[in.round_idx_start + 1][3]);
+        block.set_external_compressed_gate_selector(
+            1, in.p2_w_5_value, in.p2_w_6_value, in.p2_w_7_value, in.p2_w_8_value);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    } else {
+        throw_or_abort("create_poseidon2_external_compressed_gate is Mega-only");
+    }
+}
+
+/**
+ * @brief Transition-entry gate (Mega K=8): bridges standard external output to the K=8
+ * compressed internal block.
+ * @details Wires a..d hold the standard 4-wide state (s_0, s_1, s_2, s_3) at the start of the
+ * internal rounds. Auxiliary p2_w_5..p2_w_8 are zero on this row. The relation enforces that the
+ * successor (first K=8 row) has its s_0 witnesses at rounds 0..7 consistent with the recurrence
+ * applied to this row's standard state.
+ */
+template <typename FF>
+void UltraCircuitBuilder_<FF>::create_poseidon2_transition_entry_k8_gate(
+    const poseidon2_transition_entry_k8_gate_<FF>& in)
+{
+    if constexpr (requires { this->blocks.poseidon2_compressed; }) {
+        auto& block = this->blocks.poseidon2_compressed;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        // Entry row's relation steps through 7 internal rounds natively, reading round constants
+        // c_0..c_6 from q_l..q_5 (q_6 unused). c_k corresponds to internal round
+        // round_idx_start + k.
+        const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
+        block.q_1().emplace_back(rc[in.round_idx_start + 0][0]); // c_0 -> q_l
+        block.q_2().emplace_back(rc[in.round_idx_start + 1][0]); // c_1 -> q_r
+        block.q_3().emplace_back(rc[in.round_idx_start + 2][0]); // c_2 -> q_o
+        block.q_4().emplace_back(rc[in.round_idx_start + 3][0]); // c_3 -> q_4
+        block.q_m().emplace_back(rc[in.round_idx_start + 4][0]); // c_4 -> q_m
+        block.q_c().emplace_back(rc[in.round_idx_start + 5][0]); // c_5 -> q_c
+        block.q_5().emplace_back(rc[in.round_idx_start + 6][0]); // c_6 -> q_5
+        block.q_6().emplace_back(0);
+        block.set_transition_entry_k8_gate_selector(1);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    } else {
+        throw_or_abort("create_poseidon2_transition_entry_k8_gate is Mega-only");
+    }
+}
+
+/**
+ * @brief K=8 compressed internal-round gate (Mega): eight internal rounds per row.
+ * @details Wires a..d hold s_0 at rounds [start, start+1, start+2, start+3]; auxiliary fr values
+ * p2_w_5..p2_w_8 hold s_0 at rounds [start+4, start+5, start+6, start+7]. The 8 round constants
+ * for this row populate q_l..q_4 (rounds 0..3) and q_m, q_c, q_5, q_6 (rounds 4..7) in that order.
+ */
+template <typename FF>
+void UltraCircuitBuilder_<FF>::create_poseidon2_k8_internal_gate(const poseidon2_k8_internal_gate_<FF>& in)
+{
+    if constexpr (requires { this->blocks.poseidon2_compressed; }) {
+        auto& block = this->blocks.poseidon2_compressed;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
+        // Internal-round constants are stored on the s_0 channel (column 0 of round_constants).
+        block.q_1().emplace_back(rc[in.round_idx_start + 0][0]);
+        block.q_2().emplace_back(rc[in.round_idx_start + 1][0]);
+        block.q_3().emplace_back(rc[in.round_idx_start + 2][0]);
+        block.q_4().emplace_back(rc[in.round_idx_start + 3][0]);
+        block.q_m().emplace_back(rc[in.round_idx_start + 4][0]);
+        block.q_c().emplace_back(rc[in.round_idx_start + 5][0]);
+        block.q_5().emplace_back(rc[in.round_idx_start + 6][0]);
+        block.q_6().emplace_back(rc[in.round_idx_start + 7][0]);
+        if (in.is_terminal) {
+            block.set_k8_internal_terminal_gate_selector(
+                1, in.p2_w_5_value, in.p2_w_6_value, in.p2_w_7_value, in.p2_w_8_value);
+        } else {
+            block.set_k8_internal_gate_selector(1, in.p2_w_5_value, in.p2_w_6_value, in.p2_w_7_value, in.p2_w_8_value);
+        }
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    } else {
+        throw_or_abort("create_poseidon2_k8_internal_gate is Mega-only");
+    }
 }
 
 /**

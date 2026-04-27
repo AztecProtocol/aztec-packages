@@ -158,7 +158,9 @@ template <> class RelationChecker<bb::UltraFlavor> : public RelationChecker<void
     }
 };
 
-// Specialization for Mega
+// Specialization for Mega.
+// Mega does NOT inherit Ultra's standard Poseidon2External/Internal relations — those are replaced
+// by the compressed K=8 / external-compressed relations (see Poseidon2QuadInternalK8Relation etc.).
 template <> class RelationChecker<MegaFlavor> : public RelationChecker<void> {
     using Base = RelationChecker<void>;
 
@@ -166,24 +168,32 @@ template <> class RelationChecker<MegaFlavor> : public RelationChecker<void> {
     static AllSubrelationFailures check_all(const auto& polynomials, const auto& params)
     {
         using FF = MegaFlavor::FF;
+        AllSubrelationFailures all_subrelation_failures;
 
-        // Start with all relations that are shared with Ultra
-        AllSubrelationFailures all_subrelation_failures = RelationChecker<UltraFlavor>::check_all(polynomials, params);
+        // Ultra-shared relations (excluding standard Poseidon2 — replaced by compressed for Mega).
+        auto try_check = [&]<typename R, bool linearly_dependent = false>(const char* name) {
+            auto failures = Base::check<R, linearly_dependent>(polynomials, params, name);
+            if (!failures.empty()) {
+                all_subrelation_failures[name] = failures;
+            }
+        };
+        try_check.template operator()<ArithmeticRelation<FF>>("Arithmetic");
+        try_check.template operator()<UltraPermutationRelation<FF>>("UltraPermutation");
+        try_check.template operator()<DeltaRangeConstraintRelation<FF>>("DeltaRangeConstraint");
+        try_check.template operator()<EllipticRelation<FF>>("Elliptic");
+        try_check.template operator()<MemoryRelation<FF>>("Memory");
+        try_check.template operator()<NonNativeFieldRelation<FF>>("NonNativeField");
+        try_check.template operator()<LogDerivLookupRelation<FF>, true>("LogDerivLookup");
 
-        // Mega-specific relations
-        // There is one relation that does not `have_linearly_dependent`.
-        auto mega_ecc_op_queue_subrelation_failures =
-            Base::check<EccOpQueueRelation<FF>>(polynomials, params, "EccOpQueue");
-        if (!mega_ecc_op_queue_subrelation_failures.empty()) {
-            all_subrelation_failures["MegaEccOpQueue"] = mega_ecc_op_queue_subrelation_failures;
-        }
+        // Mega-specific relations.
+        try_check.template operator()<EccOpQueueRelation<FF>>("MegaEccOpQueue");
+        try_check.template operator()<DatabusLookupRelation<FF>, true>("MegaDatabusLookup");
 
-        // There is one one relation that satisfies `have_linearly_dependent`
-        auto mega_databus_lookup_subrelation_failures =
-            Base::check<DatabusLookupRelation<FF>, true>(polynomials, params, "DatabusLookup");
-        if (!mega_databus_lookup_subrelation_failures.empty()) {
-            all_subrelation_failures["MegaDatabusLookup"] = mega_databus_lookup_subrelation_failures;
-        }
+        // Compressed Poseidon2 relations (K=8 internal + 2-per-row external).
+        try_check.template operator()<Poseidon2ExternalCompressedRelation<FF>>("Poseidon2ExternalCompressed");
+        try_check.template operator()<Poseidon2QuadInternalK8Relation<FF>>("Poseidon2QuadInternalK8");
+        try_check.template operator()<Poseidon2QuadInternalK8TerminalRelation<FF>>("Poseidon2QuadInternalK8Terminal");
+        try_check.template operator()<Poseidon2TransitionEntryK8Relation<FF>>("Poseidon2TransitionEntryK8");
 
         return all_subrelation_failures;
     }

@@ -23,8 +23,10 @@
 #include "barretenberg/relations/memory_relation.hpp"
 #include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
-#include "barretenberg/relations/poseidon2_external_relation.hpp"
-#include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_external_compressed_relation.hpp"
+#include "barretenberg/relations/poseidon2_quad_internal_k8_relation.hpp"
+#include "barretenberg/relations/poseidon2_quad_internal_k8_terminal_relation.hpp"
+#include "barretenberg/relations/poseidon2_transition_entry_k8_relation.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -70,8 +72,10 @@ class MegaFlavor {
                                   bb::NonNativeFieldRelation<FF>,
                                   bb::EccOpQueueRelation<FF>,
                                   bb::DatabusLookupRelation<FF>,
-                                  bb::Poseidon2ExternalRelation<FF>,
-                                  bb::Poseidon2InternalRelation<FF>>;
+                                  bb::Poseidon2ExternalCompressedRelation<FF>,
+                                  bb::Poseidon2QuadInternalK8Relation<FF>,
+                                  bb::Poseidon2QuadInternalK8TerminalRelation<FF>,
+                                  bb::Poseidon2TransitionEntryK8Relation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -93,9 +97,10 @@ class MegaFlavor {
      * @details Used to build the proving key and verification key.
      *
      * These polynomials fall into several categories based on their origin:
-     * - **Circuit selectors** (q_m, q_c, q_l, q_r, q_o, q_4, q_busread, q_lookup, q_arith, q_delta_range,
-     *   q_elliptic, q_memory, q_nnf, q_poseidon2_external, q_poseidon2_internal): Populated directly from
-     *   the circuit builder's execution trace blocks.
+     * - **Circuit selectors** (q_m, q_c, q_l, q_r, q_o, q_4, q_5, q_6, q_busread, q_lookup, q_arith,
+     *   q_delta_range, q_elliptic, q_memory, q_nnf, q_poseidon2_external_compressed,
+     *   q_poseidon2_transition_entry_k8, q_poseidon2_k8_internal, q_poseidon2_k8_internal_terminal):
+     *   Populated directly from the circuit builder's execution trace blocks.
      * - **Permutation polynomials** (sigma_1-4, id_1-4): Computed from wire copy cycles.
      * - **Table polynomials** (table_1-4): Populated from lookup tables in the circuit.
      * - **Lagrange polynomials** (lagrange_first, lagrange_last): Standard Lagrange basis polynomials.
@@ -109,40 +114,44 @@ class MegaFlavor {
         bool operator==(const PrecomputedEntities&) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              q_m,                  // column 0
-                              q_c,                  // column 1
-                              q_l,                  // column 2
-                              q_r,                  // column 3
-                              q_o,                  // column 4
-                              q_4,                  // column 5
-                              q_busread,            // column 6
-                              q_lookup,             // column 7
-                              q_arith,              // column 8
-                              q_delta_range,        // column 9
-                              q_elliptic,           // column 10
-                              q_memory,             // column 11
-                              q_nnf,                // column 12
-                              q_poseidon2_external, // column 13
-                              q_poseidon2_internal, // column 14
-                              sigma_1,              // column 15
-                              sigma_2,              // column 16
-                              sigma_3,              // column 17
-                              sigma_4,              // column 18
-                              id_1,                 // column 19
-                              id_2,                 // column 20
-                              id_3,                 // column 21
-                              id_4,                 // column 22
-                              table_1,              // column 23
-                              table_2,              // column 24
-                              table_3,              // column 25
-                              table_4,              // column 26
-                              lagrange_first,       // column 27
-                              lagrange_last,        // column 28
-                              lagrange_ecc_op,      // column 29 // indicator poly for ecc op gates
-                              databus_id            // column 30 // id polynomial, i.e. id_i = i
+                              q_m,                             // column 0
+                              q_c,                             // column 1
+                              q_l,                             // column 2
+                              q_r,                             // column 3
+                              q_o,                             // column 4
+                              q_4,                             // column 5
+                              q_5,                             // column 6  // extra round-constant channel (K=8 layout)
+                              q_6,                             // column 7  // extra round-constant channel (K=8 layout)
+                              q_busread,                       // column 8
+                              q_lookup,                        // column 9
+                              q_arith,                         // column 10
+                              q_delta_range,                   // column 11
+                              q_elliptic,                      // column 12
+                              q_memory,                        // column 13
+                              q_nnf,                           // column 14
+                              q_poseidon2_external_compressed, // column 15 // 2-per-row compressed external
+                              q_poseidon2_transition_entry_k8, // column 16 // K=8 entry row
+                              q_poseidon2_k8_internal,         // column 17 // K=8 interior row
+                              q_poseidon2_k8_internal_terminal, // column 18 // K=8 terminal row
+                              sigma_1,                          // column 19
+                              sigma_2,                          // column 20
+                              sigma_3,                          // column 21
+                              sigma_4,                          // column 22
+                              id_1,                             // column 23
+                              id_2,                             // column 24
+                              id_3,                             // column 25
+                              id_4,                             // column 26
+                              table_1,                          // column 27
+                              table_2,                          // column 28
+                              table_3,                          // column 29
+                              table_4,                          // column 30
+                              lagrange_first,                   // column 31
+                              lagrange_last,                    // column 32
+                              lagrange_ecc_op,                  // column 33 // indicator poly for ecc op gates
+                              databus_id                        // column 34 // id polynomial, i.e. id_i = i
         )
 
-        auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
+        auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4, q_5, q_6 }; };
         auto get_gate_selectors()
         {
             return RefArray{
@@ -153,8 +162,10 @@ class MegaFlavor {
                 q_elliptic,
                 q_memory,
                 q_nnf,
-                q_poseidon2_external,
-                q_poseidon2_internal,
+                q_poseidon2_external_compressed,
+                q_poseidon2_transition_entry_k8,
+                q_poseidon2_k8_internal,
+                q_poseidon2_k8_internal_terminal,
             };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
@@ -172,6 +183,21 @@ class MegaFlavor {
                               w_r,  // column 1
                               w_o,  // column 2
                               w_4); // column 3
+    };
+
+    // Auxiliary witness columns local to compressed-Poseidon2 trace blocks (e.g. K=8 internal-round
+    // compression). They are committed to and shift-accessible (so the relation can read state across
+    // adjacent rows), but they are NOT permutation wires — they don't participate in σ/id copy
+    // constraints and do not grow NUM_WIRES. Outside the Poseidon2 blocks they are zero (Pippenger
+    // filters their commits).
+    template <typename DataType> class Poseidon2Entities {
+      public:
+        DEFINE_FLAVOR_MEMBERS(DataType,
+                              p2_w_5,  // s_0 at internal round 4 in K=8 layout
+                              p2_w_6,  // s_0 at internal round 5
+                              p2_w_7,  // s_0 at internal round 6
+                              p2_w_8); // s_0 at internal round 7
+        auto get_to_be_shifted() { return RefArray{ p2_w_5, p2_w_6, p2_w_7, p2_w_8 }; }
     };
 
     // DerivedEntities for derived witness entities
@@ -204,11 +230,14 @@ class MegaFlavor {
      * Combines WireEntities + DerivedEntities. ZK entities are added separately in AllEntities_.
      */
     template <typename DataType>
-    class WitnessEntities_ : public WireEntities<DataType>, public DerivedEntities<DataType> {
+    class WitnessEntities_ : public WireEntities<DataType>,
+                             public Poseidon2Entities<DataType>,
+                             public DerivedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, DerivedEntities<DataType>)
+        DEFINE_COMPOUND_GET_ALL(WireEntities<DataType>, Poseidon2Entities<DataType>, DerivedEntities<DataType>)
 
         auto get_wires() { return WireEntities<DataType>::get_all(); };
+        auto get_poseidon2_wires() { return Poseidon2Entities<DataType>::get_all(); };
         auto get_ecc_op_wires()
         {
             return RefArray{ this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
@@ -254,7 +283,12 @@ class MegaFlavor {
         }
         auto get_to_be_shifted()
         {
-            return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
+            // Order: wires (4), Poseidon2 wires (4), derived to-be-shifted (z_perm, 1).
+            // All are contiguous in the WitnessEntities layout so REPEATED_COMMITMENTS' first range
+            // can dedup them as a single block.
+            return concatenate(WireEntities<DataType>::get_all(),
+                               Poseidon2Entities<DataType>::get_to_be_shifted(),
+                               DerivedEntities<DataType>::get_to_be_shifted());
         }
     };
 
@@ -271,7 +305,14 @@ class MegaFlavor {
                               w_r_shift,    // column 1
                               w_o_shift,    // column 2
                               w_4_shift,    // column 3
-                              z_perm_shift) // column 4
+                              p2_w_5_shift, // column 4
+                              p2_w_6_shift, // column 5
+                              p2_w_7_shift, // column 6
+                              p2_w_8_shift, // column 7
+                              z_perm_shift, // column 8
+                              q_l_shift,    // column 9
+                              q_r_shift,    // column 10
+                              q_o_shift)    // column 11
     };
 
     /**
@@ -299,13 +340,27 @@ class MegaFlavor {
         auto get_witness() const { return WitnessEntities_<DataType>::get_all(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
         auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); };
+
+        // Precomputed selectors whose shifts are exposed in the relations (e.g. for next-row
+        // round-constant access in compressed Poseidon2 layouts). The prover must allocate these as
+        // shiftable polynomials (start_index >= 1) so `.shifted()` is well-defined.
+        auto get_shifted_precomputed() { return RefArray{ this->q_l, this->q_r, this->q_o }; }
+
+        // Override the default WitnessEntities-only to_be_shifted to include precomputed selectors
+        // q_l, q_r, q_o whose shifts are exposed for relations that need next-row round-constant access.
+        // Order must align with ShiftedEntities member order: witness shifts first, then q_l, q_r, q_o.
+        auto get_to_be_shifted()
+        {
+            return concatenate(WitnessEntities_<DataType>::get_to_be_shifted(), get_shifted_precomputed());
+        }
     };
 
     template <typename DataType> using AllEntities = AllEntities_<DataType>;
 
     // Derive entity counts from the actual struct definitions
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = PrecomputedEntities<FF>::_members_size;
-    static constexpr size_t NUM_WITNESS_ENTITIES = WireEntities<FF>::_members_size + DerivedEntities<FF>::_members_size;
+    static constexpr size_t NUM_WITNESS_ENTITIES =
+        WireEntities<FF>::_members_size + Poseidon2Entities<FF>::_members_size + DerivedEntities<FF>::_members_size;
     static constexpr size_t NUM_SHIFTED_ENTITIES = ShiftedEntities<FF>::_members_size;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
@@ -314,8 +369,24 @@ class MegaFlavor {
     // MegaAvmFlavor overrides to 0 (no masking needed).
     static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
 
+    // Witness shifts sit contiguously at the start of WitnessEntities in the order
+    // (w_l..w_4, p2_w_5..p2_w_8, z_perm) — matched by the first 9 entries of ShiftedEntities.
+    // Precomputed shifts (q_l, q_r, q_o) sit contiguously in PrecomputedEntities at indices
+    // [q_l..q_o], matched by the last 3 entries of ShiftedEntities.
+    static constexpr size_t NUM_WITNESS_SHIFTED = 9;
+    static constexpr size_t NUM_PRECOMPUTED_SHIFTED = 3;
+    static_assert(NUM_WITNESS_SHIFTED + NUM_PRECOMPUTED_SHIFTED == NUM_SHIFTED_ENTITIES,
+                  "Witness + precomputed shift counts must equal NUM_SHIFTED_ENTITIES.");
+    // Index of q_l in PrecomputedEntities (first of the precomputed shift triple).
+    static constexpr size_t Q_L_INDEX = 2;
+
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
+        /*first.original_start=*/NUM_PRECOMPUTED_ENTITIES,
+        /*first.duplicate_start=*/NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
+        /*first.count=*/NUM_WITNESS_SHIFTED,
+        /*second.original_start=*/Q_L_INDEX,
+        /*second.duplicate_start=*/NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_WITNESS_SHIFTED,
+        /*second.count=*/NUM_PRECOMPUTED_SHIFTED);
 
     // Size of the final PCS MSM after KZG adds quotient commitment:
     // 1 (Shplonk Q) + NUM_UNSHIFTED + (log_n - 1) Gemini folds + 1 (G1 identity) + 1 (KZG W)
@@ -400,11 +471,18 @@ class MegaFlavor {
             return_data_read_counts = "RETURN_DATA_READ_COUNTS";
             return_data_inverses = "RETURN_DATA_INVERSES";
 
+            p2_w_5 = "P2_W_5";
+            p2_w_6 = "P2_W_6";
+            p2_w_7 = "P2_W_7";
+            p2_w_8 = "P2_W_8";
+
             q_c = "Q_C";
             q_l = "Q_L";
             q_r = "Q_R";
             q_o = "Q_O";
             q_4 = "Q_4";
+            q_5 = "Q_5";
+            q_6 = "Q_6";
             q_m = "Q_M";
             q_busread = "Q_BUSREAD";
             q_lookup = "Q_LOOKUP";
@@ -413,8 +491,10 @@ class MegaFlavor {
             q_elliptic = "Q_ELLIPTIC";
             q_memory = "Q_MEMORY";
             q_nnf = "Q_NNF";
-            q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
-            q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
+            q_poseidon2_external_compressed = "Q_POSEIDON2_EXTERNAL_COMPRESSED";
+            q_poseidon2_transition_entry_k8 = "Q_POSEIDON2_TRANSITION_ENTRY_K8";
+            q_poseidon2_k8_internal = "Q_POSEIDON2_K8_INTERNAL";
+            q_poseidon2_k8_internal_terminal = "Q_POSEIDON2_K8_INTERNAL_TERMINAL";
             sigma_1 = "SIGMA_1";
             sigma_2 = "SIGMA_2";
             sigma_3 = "SIGMA_3";

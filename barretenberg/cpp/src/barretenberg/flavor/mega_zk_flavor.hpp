@@ -40,7 +40,12 @@ class MegaZKFlavor : public bb::MegaFlavor {
     // but no masking poly in its entities, the offset is 1 larger than the actual entity layout.
     // Compensate by shifting indices by -1 relative to MegaFlavor's REPEATED_COMMITMENTS.
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
-        NUM_PRECOMPUTED_ENTITIES - 1, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES - 1, NUM_SHIFTED_ENTITIES);
+        /*first.original_start=*/NUM_PRECOMPUTED_ENTITIES - 1,
+        /*first.duplicate_start=*/NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES - 1,
+        /*first.count=*/NUM_WITNESS_SHIFTED,
+        /*second.original_start=*/Q_L_INDEX - 1,
+        /*second.duplicate_start=*/NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES + NUM_WITNESS_SHIFTED - 1,
+        /*second.count=*/NUM_PRECOMPUTED_SHIFTED);
 
     // Size of the final PCS MSM for ZK = non-ZK size + NUM_LIBRA_COMMITMENTS (3)
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)

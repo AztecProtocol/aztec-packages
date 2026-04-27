@@ -87,6 +87,12 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
              zip_view(prover_instance->polynomials.get_databus_entities(), commitment_labels.get_databus_entities())) {
             batch.add_to_batch(polynomial, label);
         }
+        // Auxiliary Poseidon2-block witness columns (e.g. K=8 layout). Committed as ordinary witness
+        // polynomials; outside the Poseidon2 blocks they are zero so Pippenger filters them.
+        for (auto [polynomial, label] :
+             zip_view(prover_instance->polynomials.get_poseidon2_wires(), commitment_labels.get_poseidon2_wires())) {
+            batch.add_to_batch(polynomial, label);
+        }
     }
 
     auto computed_commitments = batch.commit_and_send_to_verifier(transcript);
@@ -100,6 +106,9 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_wires()
             commitment = computed_commitments[commitment_idx++];
         }
         for (auto& commitment : prover_instance->commitments.get_databus_entities()) {
+            commitment = computed_commitments[commitment_idx++];
+        }
+        for (auto& commitment : prover_instance->commitments.get_poseidon2_wires()) {
             commitment = computed_commitments[commitment_idx++];
         }
     }

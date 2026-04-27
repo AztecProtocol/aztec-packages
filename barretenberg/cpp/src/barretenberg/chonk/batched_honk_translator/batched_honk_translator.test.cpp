@@ -147,6 +147,10 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
                                    "RETURN_DATA_READ_COUNTS" }) {
             m.add_entry(round, label, G);
         }
+        // Auxiliary Poseidon2-block witness columns (e.g. K=8 layout). Order matches OinkProver.
+        for (const auto& label : { "P2_W_5", "P2_W_6", "P2_W_7", "P2_W_8" }) {
+            m.add_entry(round, label, G);
+        }
         m.add_challenge(round, "eta");
         round++;
 

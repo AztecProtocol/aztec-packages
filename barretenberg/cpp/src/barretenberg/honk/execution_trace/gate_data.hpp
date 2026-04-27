@@ -118,4 +118,46 @@ template <typename FF> struct poseidon2_internal_gate_ {
     uint32_t d;
     size_t round_idx;
 };
+
+// Compressed external gate (Mega only): two external rounds per row.
+// Wires a..d hold the standard 4-wide state at round 2k. The auxiliary fr values
+// p2_w_5..p2_w_8 hold the full state at round 2k+1.
+template <typename FF> struct poseidon2_external_compressed_gate_ {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+    FF p2_w_5_value;
+    FF p2_w_6_value;
+    FF p2_w_7_value;
+    FF p2_w_8_value;
+    size_t round_idx_start; // even-indexed external round; this row covers rounds [start, start+1]
+};
+
+// Transition-entry gate (Mega K=8): bridges standard external output to the K=8 compressed
+// internal block. Wires hold the standard 4-wide state (s_0, s_1, s_2, s_3) at the start of the
+// internal rounds. Aux wires are zero on this row.
+template <typename FF> struct poseidon2_transition_entry_k8_gate_ {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+    size_t round_idx_start; // first internal round index (used to fetch round constants)
+};
+
+// K=8 compressed internal-round gate (Mega): eight internal rounds per row.
+// Wires a..d hold s_0 at rounds [start, start+1, start+2, start+3]. The auxiliary fr values
+// p2_w_5..p2_w_8 hold s_0 at rounds [start+4, start+5, start+6, start+7].
+template <typename FF> struct poseidon2_k8_internal_gate_ {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+    FF p2_w_5_value;
+    FF p2_w_6_value;
+    FF p2_w_7_value;
+    FF p2_w_8_value;
+    size_t round_idx_start; // first internal round index of this row's K=8 sweep
+    bool is_terminal;       // true on the last K=8 row of a permutation (skips shift-side check)
+};
 } // namespace bb

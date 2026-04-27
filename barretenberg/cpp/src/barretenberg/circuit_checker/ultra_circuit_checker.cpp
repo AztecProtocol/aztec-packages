@@ -175,13 +175,17 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         if (!result) {
             return report_fail("Failed Lookup check relation at row idx = ", idx);
         }
-        result = result && check_relation<PoseidonInternal>(values, params);
-        if (!result) {
-            return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
-        }
-        result = result && check_relation<PoseidonExternal>(values, params);
-        if (!result) {
-            return report_fail("Failed PoseidonExternal relation at row idx = ", idx);
+        if constexpr (!IsMegaBuilder<Builder>) {
+            // Mega replaces standard Poseidon2 with the K=8 / external-compressed relations; those
+            // are not checked in the row-by-row builder checker (they span multiple rows).
+            result = result && check_relation<PoseidonInternal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonInternal relation at row idx = ", idx);
+            }
+            result = result && check_relation<PoseidonExternal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonExternal relation at row idx = ", idx);
+            }
         }
 
         if constexpr (IsMegaBuilder<Builder>) {
@@ -360,8 +364,10 @@ void UltraCircuitChecker::populate_values(
     values.q_memory = block.q_memory()[idx];
     values.q_nnf = block.q_nnf()[idx];
     values.q_lookup = block.q_lookup()[idx];
-    values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
-    values.q_poseidon2_external = block.q_poseidon2_external()[idx];
+    if constexpr (!IsMegaBuilder<Builder>) {
+        values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
+        values.q_poseidon2_external = block.q_poseidon2_external()[idx];
+    }
     if constexpr (IsMegaBuilder<Builder>) {
         values.q_busread = block.q_busread()[idx];
     }

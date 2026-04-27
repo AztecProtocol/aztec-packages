@@ -28,6 +28,7 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
         BB_BENCH_NAME("add_ecc_op_wires_to_prover_instance");
 
         add_ecc_op_wires_to_prover_instance(builder, polynomials);
+        add_poseidon2_state_wires_to_prover_instance(builder, polynomials);
     }
 
     // Compute the permutation argument polynomials (sigma/id) and add them to proving key
@@ -81,7 +82,11 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
         for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
             auto& selector = block_selectors[selector_idx];
-            for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
+            // A selector vector may be shorter than block_size if no gate creation site populates it
+            // (e.g. q_5/q_6 are only written by Poseidon2-K8 builder methods). The destination
+            // polynomial is already zero-initialized, so unpopulated rows fall through as zero.
+            const size_t populated_rows = std::min<size_t>(block_size, selector.size());
+            for (size_t row_idx = 0; row_idx < populated_rows; ++row_idx) {
                 size_t trace_row_idx = row_idx + offset;
                 selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
             }
@@ -105,6 +110,26 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
             ecc_op_wire.at(wire_start + i) = wire[wire_start + i];
             ecc_op_selector.at(wire_start + i) = 1;
         }
+    }
+}
+
+template <class Flavor>
+void TraceToPolynomials<Flavor>::add_poseidon2_state_wires_to_prover_instance(Builder& builder,
+                                                                              ProverPolynomials& polynomials)
+    requires IsMegaFlavor<Flavor>
+{
+    // Compressed-Poseidon2 layouts (K=8 internal, external 2-per-row, entry/terminal) commit raw
+    // fr values for p2_w_5..p2_w_8 per row, stored on the trace block as parallel
+    // SlabVectorSelector<fr> arrays. Copy them into the witness polynomials at the block's trace
+    // offset. Outside this block, the polynomials remain zero (sparse) so Pippenger filters them.
+    auto& block = builder.blocks.poseidon2_compressed;
+    const size_t offset = block.trace_offset();
+    const size_t block_size = block.size();
+    for (size_t i = 0; i < block_size; ++i) {
+        polynomials.p2_w_5.at(offset + i) = block.p2_w_5_aux()[i];
+        polynomials.p2_w_6.at(offset + i) = block.p2_w_6_aux()[i];
+        polynomials.p2_w_7.at(offset + i) = block.p2_w_7_aux()[i];
+        polynomials.p2_w_8.at(offset + i) = block.p2_w_8_aux()[i];
     }
 }
 

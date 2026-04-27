@@ -64,12 +64,19 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     //   Shifted:   [MZK_shifted(S) | Trans_shifted(TS)]
     //
     // Range 1 (Translator merged): ordered(5)+z_perm(1)+concat(5) in unshifted ↔ same in shifted
-    // Range 2 (MegaZK): witness[0..S-1] ↔ mega_zk_shifted[0..S-1]
+    // Range 2 (MegaZK): witness[0..NUM_WITNESS_SHIFTED-1] ↔ mega_zk_shifted[0..NUM_WITNESS_SHIFTED-1]
+    //
+    // MegaZK has additional precomputed-selector shifts (q_l, q_r, q_o → q_l_shift, q_r_shift,
+    // q_o_shift) at the tail of mega_zk_shifted whose originals live in PrecomputedEntities, not in
+    // WitnessEntities. The joint Shplemini config only supports two duplicate ranges, so those
+    // precomputed shifts remain as separate (un-deduped) entries in the MSM — a few extra scalar
+    // muls, but no soundness impact.
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = [] {
         constexpr size_t TU = TranslatorFlavor::NUM_PCS_UNSHIFTED; // includes masking(1)
         constexpr size_t P = MegaZKFlavorT::NUM_PRECOMPUTED_ENTITIES;
         constexpr size_t W = MegaZKFlavorT::NUM_WITNESS_ENTITIES;
         constexpr size_t S = MegaZKFlavorT::NUM_SHIFTED_ENTITIES;
+        constexpr size_t WS = MegaZKFlavorT::NUM_WITNESS_SHIFTED;
         // Translator repeated: ordered(5)+z_perm(1)+concat(5) in Trans_rest ↔ Trans_shifted
         // Trans_rest starts at virtual 0; repeated starts at ordered_extra(1)+op(1)=2
         constexpr size_t TRANS_REPEAT_START = TranslatorFlavor::REPEATED_COMMITMENTS.first.original_start;
@@ -82,7 +89,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
                                        TRANS_REPEAT_COUNT,                        // Translator count
                                        (TU - 1) + P,     // MegaZK original: witness start in unshifted
                                        (TU - 1) + P + W, // MegaZK duplicate: shifted start
-                                       S);               // MegaZK count
+                                       WS);              // MegaZK count: witness shifts only
     }();
 
     /**

@@ -98,6 +98,12 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
                                                  comm_labels.get_databus_entities())) {
             commitment = transcript->template receive_from_prover<Commitment>(label);
         }
+
+        // Receive auxiliary Poseidon2-block witness commitments (matches OinkProver order).
+        for (auto [commitment, label] : zip_view(verifier_instance->witness_commitments.get_poseidon2_wires(),
+                                                 comm_labels.get_poseidon2_wires())) {
+            commitment = transcript->template receive_from_prover<Commitment>(label);
+        }
     }
 }
 

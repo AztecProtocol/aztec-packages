@@ -350,7 +350,7 @@ TYPED_TEST(MegaHonkTests, RepeatedCommitmentsIndicesCorrect)
     auto to_be_shifted = prover_instance->polynomials.get_to_be_shifted();
 
     constexpr auto repeated = Flavor::REPEATED_COMMITMENTS;
-    ASSERT_EQ(to_be_shifted.size(), repeated.first.count);
+    ASSERT_EQ(to_be_shifted.size(), repeated.first.count + repeated.second.count);
 
     // Build the commitment vector exactly as Shplemini does: [Q, unshifted..., to_be_shifted...]
     std::vector<Commitment> commitments;
@@ -367,6 +367,11 @@ TYPED_TEST(MegaHonkTests, RepeatedCommitmentsIndicesCorrect)
     for (size_t i = 0; i < repeated.first.count; i++) {
         EXPECT_EQ(commitments[repeated.first.original_start + offset + i],
                   commitments[repeated.first.duplicate_start + offset + i])
-            << "REPEATED_COMMITMENTS commitment mismatch at index " << i;
+            << "REPEATED_COMMITMENTS first range mismatch at index " << i;
+    }
+    for (size_t i = 0; i < repeated.second.count; i++) {
+        EXPECT_EQ(commitments[repeated.second.original_start + offset + i],
+                  commitments[repeated.second.duplicate_start + offset + i])
+            << "REPEATED_COMMITMENTS second range mismatch at index " << i;
     }
 }

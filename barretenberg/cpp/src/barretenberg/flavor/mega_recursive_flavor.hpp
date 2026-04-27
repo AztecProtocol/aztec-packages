@@ -51,6 +51,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = MegaFlavor::NUM_PRECOMPUTED_ENTITIES;
     static constexpr size_t NUM_WITNESS_ENTITIES = MegaFlavor::NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
+    static constexpr size_t NUM_WITNESS_SHIFTED = MegaFlavor::NUM_WITNESS_SHIFTED;
+    static constexpr size_t NUM_PRECOMPUTED_SHIFTED = MegaFlavor::NUM_PRECOMPUTED_SHIFTED;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
 
     // define the tuple of Relations that comprise the Sumcheck relation

@@ -145,6 +145,14 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_wires()
     for (auto& wire : polynomials.get_wires()) {
         wire = Polynomial::shiftable(wire_size, dyadic_size(), Flavor::HasZK);
     }
+
+    // Auxiliary Poseidon2-block witness columns (e.g. K=8 layout). Same shiftable allocation as
+    // standard wires so `.shifted()` is well-defined; outside the Poseidon2 blocks they're zero.
+    if constexpr (requires { polynomials.get_poseidon2_wires(); }) {
+        for (auto& wire : polynomials.get_poseidon2_wires()) {
+            wire = Polynomial::shiftable(wire_size, dyadic_size(), Flavor::HasZK);
+        }
+    }
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::allocate_permutation_argument_polynomials()
@@ -185,6 +193,14 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_selectors(cons
     // Set the other non-gate selector polynomials (e.g. q_l, q_r, q_m etc.) to active trace size
     for (auto& selector : polynomials.get_non_gate_selectors()) {
         selector = Polynomial(trace_active_range_size(), dyadic_size());
+    }
+
+    // Re-allocate precomputed selectors whose shifts are exposed (e.g. q_l/q_r/q_o on Mega)
+    // as shiftable polynomials so `.shifted()` is well-defined.
+    if constexpr (requires { polynomials.get_shifted_precomputed(); }) {
+        for (auto& selector : polynomials.get_shifted_precomputed()) {
+            selector = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+        }
     }
 }
 
