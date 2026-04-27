@@ -56,6 +56,7 @@ export { SequencerState };
 export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<SequencerEvents>) {
   private runningPromise?: RunningPromise;
   private state = SequencerState.STOPPED;
+  private stateEnteredAtMs = performance.now();
   private metrics: SequencerMetrics;
   private checkpointProposalJobMetrics: CheckpointProposalJobMetrics;
 
@@ -549,6 +550,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       secondsIntoSlot,
       slot: slotNumber,
     });
+    if (proposedState !== this.state) {
+      this.metrics.recordStateDuration(performance.now() - this.stateEnteredAtMs, this.state);
+      this.stateEnteredAtMs = performance.now();
+    }
     this.state = proposedState;
   }
 
