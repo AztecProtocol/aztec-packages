@@ -7,7 +7,7 @@
 // Special public inputs designed propagate data between Chonk and Rollup circuits.
 //
 // These structures are binding several Chonk components:
-//   - KernelIO:        Standard kernel outputs (pairing points, databus, ecc_op_tables, accum hash)
+//   - KernelIO:        Standard kernel outputs (pairing points, databus, ecc_op_hash, accum hash)
 //   - HidingKernelIO:  Final kernel outputs (no accum hash since folding terminates)
 //   - AppIO/DefaultIO: App circuit outputs (just pairing points)
 //   - RollupIO:        Rollup circuit outputs (pairing points + IPA claim)
@@ -71,11 +71,11 @@ class KernelIO {
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
     using PublicFF = stdlib::PublicInputComponent<FF>;
 
-    PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
-    G1 kernel_return_data;          // Commitment to the return data of a kernel circuit
-    G1 app_return_data;             // Commitment to the return data of an app circuit
-    TableCommitments ecc_op_tables; // commitments to merged tables obtained from recursive Merge verification
-    FF output_hn_accum_hash;        // hash of the output HN verifier accumulator
+    PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
+    G1 kernel_return_data;        // Commitment to the return data of a kernel circuit
+    G1 app_return_data;           // Commitment to the return data of an app circuit
+    FF ecc_op_hash;               // Running Poseidon2 hash over ECC op column commitments
+    FF output_hn_accum_hash;      // hash of the output HN verifier accumulator
 
     // Total size of the kernel IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
@@ -99,10 +99,8 @@ class KernelIO {
         index += G1::PUBLIC_INPUTS_SIZE;
         app_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
         index += G1::PUBLIC_INPUTS_SIZE;
-        for (auto& table_commitment : ecc_op_tables) {
-            table_commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
-            index += G1::PUBLIC_INPUTS_SIZE;
-        }
+        ecc_op_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
+        index += FF::PUBLIC_INPUTS_SIZE;
         output_hn_accum_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
         index += FF::PUBLIC_INPUTS_SIZE;
     }
@@ -118,9 +116,7 @@ class KernelIO {
         pairing_inputs.set_public(builder);
         kernel_return_data.set_public();
         app_return_data.set_public();
-        for (auto& table_commitment : ecc_op_tables) {
-            table_commitment.set_public();
-        }
+        ecc_op_hash.set_public();
         output_hn_accum_hash.set_public();
 
         // Finalize the public inputs to ensure no more public inputs can be added hereafter.
@@ -138,12 +134,7 @@ class KernelIO {
         inputs.pairing_inputs = PairingInputs::construct_default();
         inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
         inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
-        for (auto& table_commitment : inputs.ecc_op_tables) {
-            table_commitment = G1(typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.x)),
-                                  typename G1::BaseField(nullptr, uint256_t(DEFAULT_ECC_COMMITMENT.y)),
-                                  /*assert_on_curve=*/false);
-            table_commitment.convert_constant_to_fixed_witness(&builder);
-        }
+        inputs.ecc_op_hash = FF::from_witness(&builder, typename FF::native(0));
         inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
         inputs.set_public();
     }

@@ -89,7 +89,7 @@ class Chonk : public IVCBase {
 
     struct PublicInputsResult {
         PairingPoints pairing_points;
-        std::optional<TableCommitments> T_prev_commitments; // set only for kernels
+        std::optional<StdlibFF> ecc_op_hash; // set only for kernels
     };
 
     /**
@@ -195,14 +195,16 @@ class Chonk : public IVCBase {
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
-    [[nodiscard("Pairing points should be accumulated")]] std::
-        tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, TableCommitments>
-        recursive_verification_and_consistency_checks(
-            ClientCircuit& circuit,
-            const StdlibVerifierInputs& verifier_inputs,
-            const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-            const TableCommitments& T_prev_commitments,
-            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+    [[nodiscard("Pairing points should be accumulated")]] std::tuple<std::optional<RecursiveVerifierAccumulator>,
+                                                                     std::vector<PairingPoints>,
+                                                                     StdlibFF,
+                                                                     std::optional<TableCommitments>>
+    recursive_verification_and_consistency_checks(
+        ClientCircuit& circuit,
+        const StdlibVerifierInputs& verifier_inputs,
+        const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
+        const StdlibFF& running_hash,
+        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
