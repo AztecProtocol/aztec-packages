@@ -53,7 +53,7 @@ Block numbers MUST be sequential starting from `INITIAL_L2_BLOCK_NUM = 1`. The b
 
 ### R6: Block Lifecycle Tracking
 
-Implementations MUST track blocks through their lifecycle stages: proposed, checkpointed, proven, and finalized. A block's lifecycle stage determines what guarantees can be made about its finality.
+Implementations SHOULD track blocks through their lifecycle stages: proposed, checkpointed, proven, and finalized. A block's lifecycle stage determines what guarantees can be made about its finality. An implementation MAY track a subset of stages only, such as ignoring proposed blocks and only sync from checkpointed blocks.
 
 **Rationale:** Different consumers require different finality guarantees. A wallet displaying a balance needs proven blocks; a block explorer can show proposed blocks.
 
@@ -110,7 +110,7 @@ The serialization order (22 field elements), hashing algorithm (Poseidon2 with `
 
 **`state`** — A `StateReference` containing snapshots of all four mutable state trees after this block's transaction effects have been applied. See Spec #4 for the `StateReference` and `PartialStateReference` structures. The L1-to-L2 message tree snapshot is updated only in the first block of each checkpoint; for subsequent blocks within the same checkpoint, it carries forward unchanged.
 
-**`sponge_blob_hash`** — The hash of the sponge blob state after absorbing this block's transaction effects. This is a cumulative commitment: it may include effects from previous blocks within the same checkpoint. To prove that specific effects belong to a particular block, the verifier compares the `sponge_blob_hash` of the current block against that of the previous block (whose header can be validated via an archive membership proof on `last_archive`).
+**`sponge_blob_hash`** — The hash of the sponge blob state after absorbing this block's full blob payload (both per-transaction blob data and the block-end region: `blockEndMarker`, `blockEndStateField`, archive root, all four state tree roots, and the optional L1-to-L2 message root). The sponge is a custom Poseidon2-based construction with a non-zero IV and a non-standard squeeze. This is a cumulative commitment: it may include effects from previous blocks within the same checkpoint. To prove that a specific block's payload was absorbed, the verifier compares the `sponge_blob_hash` of the current block against that of the previous block (whose header can be validated via an archive membership proof on `last_archive`).
 
 **`global_variables`** — Block-level parameters that are constant for all transactions within the block. See the Global Variables section below.
 
@@ -125,10 +125,10 @@ The `GlobalVariables` structure contains parameters that are fixed for the durat
 ```
 GlobalVariables {
     chain_id: Field,              // Ethereum chain ID (e.g., 1 for mainnet)
-    version: Field,               // Protocol version
+    version: Field,               // Rollup deployment version (the on-chain rollup contract's version)
     block_number: u32,            // L2 block number
     slot_number: Field,           // L2 slot number
-    timestamp: u64,               // Unix timestamp of the slot
+    timestamp: u64,               // Unix timestamp of the slot, in seconds
     coinbase: EthAddress,         // Ethereum address of the block proposer
     fee_recipient: AztecAddress,  // L2 address receiving fees (unchecked, set by builder)
     gas_fees: GasFees,            // Current gas prices
@@ -142,10 +142,10 @@ The serialization length is `GLOBAL_VARIABLES_LENGTH = 9` field elements (see Sp
 | Field | Type | Size (fields) | Description |
 |---|---|---|---|
 | `chain_id` | `Field` | 1 | Ethereum chain ID. Prevents cross-chain replay attacks. |
-| `version` | `Field` | 1 | Protocol version number. Prevents cross-version replay attacks. |
+| `version` | `Field` | 1 | Rollup deployment version. This is the version stored in the L1 rollup contract (`RollupConfig.version`, a `uint32` set at deployment) — it identifies the specific rollup deployment, not a protocol revision number. Prevents cross-deployment replay attacks. |
 | `block_number` | `u32` | 1 | Sequential L2 block number, starting from `INITIAL_L2_BLOCK_NUM = 1`. |
 | `slot_number` | `Field` | 1 | L2 slot number. All blocks in a checkpoint share the same slot. |
-| `timestamp` | `u64` | 1 | Unix timestamp derived from the slot number. All blocks in a checkpoint share the same timestamp. |
+| `timestamp` | `u64` | 1 | Unix timestamp in seconds derived from the slot number (`genesis_time + slot_number * slot_duration`, where `genesis_time` is the L1 `block.timestamp` at rollup deployment and `slot_duration` is also in seconds). All blocks in a checkpoint share the same timestamp. |
 | `coinbase` | `EthAddress` | 1 | Ethereum address of the proposer, used for L1 fee distribution. MUST be non-zero. |
 | `fee_recipient` | `AztecAddress` | 1 | Arbitrary L2 address set by the block builder. Unchecked by the protocol; enables off-chain arrangements between builders and transaction submitters. |
 | `gas_fees` | `GasFees` | 2 | Current gas prices (`fee_per_da_gas` and `fee_per_l2_gas`). |
@@ -193,7 +193,7 @@ The sequencer assembles a block by:
    - Note hash tree: insert note hashes (up to `MAX_NOTE_HASHES_PER_TX` per transaction).
    - Nullifier tree: insert nullifiers (up to `MAX_NULLIFIERS_PER_TX` per transaction).
    - Public data tree: apply public data writes (up to `MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX` per transaction).
-   - L1-to-L2 message tree: insert messages only in the first block of the checkpoint (up to `L1_TO_L2_MSG_SUBTREE_SIZE` messages per checkpoint).
+   - L1-to-L2 message tree: insert messages before the first block of the checkpoint. Each checkpoint consumes a fixed-size window of `NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP = 1 << L1_TO_L2_MSG_SUBTREE_HEIGHT = 1024` slots, padded with zero-messages if fewer real messages are available. The L1-to-L2 message tree's `next_available_leaf_index` advances by exactly 1024 per checkpoint.
 5. Computing the block header from the resulting tree state.
 6. Inserting the block header hash into the archive tree.
 
@@ -219,9 +219,21 @@ Checkpoint {
 }
 ```
 
-Checkpoint numbers start from `INITIAL_CHECKPOINT_NUMBER = 1` (the genesis checkpoint is 0).
+Checkpoint numbers start from `INITIAL_CHECKPOINT_NUMBER = 1` (the genesis checkpoint is 0) and are sequential.
 
-All blocks within a checkpoint share the same `slot_number`, `timestamp`, `coinbase`, `fee_recipient`, and `gas_fees` (from `GlobalVariables`). Block numbers are sequential within the checkpoint: if a checkpoint starts at block number `N` and contains `K` blocks, the blocks are numbered `N`, `N+1`, ..., `N+K-1`.
+All blocks within a checkpoint share the same `slot_number`, `timestamp`, `coinbase`, `fee_recipient`, and `gas_fees` (from `GlobalVariables`). Block numbers are sequential: if a checkpoint starts at block number `N` and contains `K` blocks, the blocks are numbered `N`, `N+1`, ..., `N+K-1`.
+
+### Empty Blocks
+
+Empty blocks (blocks without transactions) are permitted only as the first block of a checkpoint. Non-first blocks within a checkpoint MUST contain at least one transaction. For an empty first block, `total_fees` and `total_mana_used` are zero and the four state-tree snapshots carry forward from the previous block (with the L1-to-L2 message tree advanced by the standard 1024-message window since this is the first block of the checkpoint).
+
+### Block Count
+
+The number of blocks per checkpoint is not fixed by a protocol constant, though nodes MAY defensively block checkpoints with more than `MAX_BLOCKS_PER_CHECKPOINT = 72`. 
+
+In practice, this is limited by blob capacity: at 6 fields per block and 4 per smallest transaction, given `BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB = 6 * 4096 = 24576` fields available, yielding `2458` blocks. Given these blocks need to be validated by the entire committee, it is not an achievable limit.
+
+It is also limited by the maximum allowed gas per checkpoint, since each block contributes to the total mana used, as all blocks but the first one must have at least a transaction.
 
 #### Checkpoint Header
 
@@ -251,11 +263,11 @@ The serialization length is `CHECKPOINT_HEADER_LENGTH = 12` field elements. The 
 |---|---|---|---|
 | `last_archive_root` | `Field` | 32 | Archive root before this checkpoint. MUST match the L1-stored archive root. |
 | `block_headers_hash` | `Field` | 32 | Poseidon2 root of block header hashes (unbalanced tree). |
-| `blobs_hash` | `Field` | 32 | Commitment to EIP-4844 blob data for data availability. |
+| `blobs_hash` | `Field` | 32 | `sha256_to_field` over the concatenation of EIP-4844 versioned blob hashes (KZG-derived) for this checkpoint's blobs. Note this binds blob *commitments*, not raw blob field contents — field-level contents are bound separately via the `sponge_blob_hash` chain and the per-epoch blob accumulator. |
 | `in_hash` | `Field` | 32 | SHA-256 root of L1-to-L2 messages consumed in this checkpoint. |
 | `epoch_out_hash` | `Field` | 32 | Root of the epoch out hash balanced tree up to and including this checkpoint. |
 | `slot_number` | `Field` | 32 | L2 slot number for this checkpoint. |
-| `timestamp` | `u64` | 8 | Unix timestamp derived from slot number. |
+| `timestamp` | `u64` | 8 | Unix timestamp in seconds derived from the slot number. |
 | `coinbase` | `EthAddress` | 20 | Ethereum address of the proposer. |
 | `fee_recipient` | `AztecAddress` | 32 | L2 address receiving fees. |
 | `gas_fees.fee_per_da_gas` | `u128` | 16 | DA gas price (currently always 0). |
@@ -322,7 +334,7 @@ The `propose` function accepts:
 | `args.header` | `ProposedHeader` | Checkpoint header |
 | `attestations` | `CommitteeAttestations` | Validator committee signatures |
 | `signers` | `address[]` | Signing committee members |
-| `attestationsAndSignersSignature` | `Signature` | Signature over attestations and signers |
+| `attestationsAndSignersSignature` | `Signature` | Proposer signature over the packed `(attestations, signers)` bundle (separate domain separator from the attestation digest) |
 | `blobInput` | `bytes` | Blob commitment data |
 
 #### Propose Flow
@@ -330,41 +342,63 @@ The `propose` function accepts:
 The L1 `propose` function executes the following steps:
 
 1. **Prune**: If the proof submission window for unproven checkpoints has passed, prune them.
-2. **Validate blobs**: Verify blob commitments against actual EIP-4844 blob data.
-3. **Compute header hash**: Hash the `ProposedHeader` using `sha256ToField`.
-4. **Set up epoch**: If this is the first checkpoint of a new epoch, initialize epoch state.
-5. **Validate header**: Check all header constraints (see Validation Rules).
-6. **Verify proposer**: Validate that the proposer is the designated slot leader with sufficient attestations.
-7. **Update chain state**: Increment checkpoint number, update archive root, store checkpoint metadata.
-8. **Consume L1-to-L2 messages**: Consume pending messages from the inbox and validate against `in_hash`.
-9. **Emit event**: Emit `CheckpointProposed(checkpointNumber, archive, blobHashes, payloadDigest, attestationsHash)`.
+2. **Update L1 gas fee oracle**: Refresh the L1 base-fee oracle reading via `FeeLib.updateL1GasFeeOracle()` before fee derivation.
+3. **Validate blobs**: Verify blob commitments against actual EIP-4844 blob data.
+4. **Compute header hash**: Hash the `ProposedHeader` using `sha256ToField`.
+5. **Set up epoch**: If this is the first checkpoint of a new epoch, initialize epoch state.
+6. **Validate header**: Check all header constraints (see Validation Rules).
+7. **Verify proposer**: Validate that the proposer is the designated slot leader with sufficient attestations.
+8. **Update chain state**: Increment checkpoint number, update archive root, store checkpoint metadata.
+9. **Consume L1-to-L2 messages**: Consume pending messages from the inbox and validate against `in_hash`.
+10. **Emit event**: Emit `CheckpointProposed(checkpointNumber, archive, blobHashes, payloadDigest, attestationsHash)`.
+
+When the escape hatch is open for the current epoch, several of the above steps are altered: epoch setup is skipped, proposer verification uses an alternative single-proposer path, and the escape-hatch contract drives proof submission and bond punishment for the designated candidate. The full escape-hatch flow is specified in Spec #18 (Block Production & Consensus).
 
 ### Blob Data Encoding
 
-Block body data is encoded into EIP-4844 blobs for data availability. Each block is encoded into a sequence of field elements with the following structure:
+Block body data is encoded into EIP-4844 blobs for data availability. Each block contributes a sequence of field elements with the following layout (transactions come **first**, the block-end region comes **last** so the `BLOCK_END_PREFIX` sentinel can be located by scanning forward through the tx region):
 
 ```
 BlockBlobData {
-    blockEndMarker: {
-        numTxs: u32,              // Number of transactions in this block
-        timestamp: u64,           // Block timestamp
-        blockNumber: u32,         // Block number
-    },
-    blockEndStateField: {
-        l1ToL2MessageNextAvailableLeafIndex: u32,
-        noteHashNextAvailableLeafIndex: u32,
-        nullifierNextAvailableLeafIndex: u32,
-        publicDataNextAvailableLeafIndex: u32,
-        totalManaUsed: Field,
-    },
-    lastArchiveRoot: Field,       // last_archive.root from block header
-    noteHashRoot: Field,          // note hash tree root after block
-    nullifierRoot: Field,         // nullifier tree root after block
-    publicDataRoot: Field,        // public data tree root after block
-    l1ToL2MessageRoot: Field,     // Only present in first block of checkpoint
     txs: TxBlobData[],            // Per-transaction blob data
+    blockEndMarker: Field,         // Single packed field (see below)
+    blockEndStateField: Field,     // Single packed field (see below)
+    lastArchiveRoot: Field,        // last_archive.root from block header
+    noteHashRoot: Field,           // note hash tree root after block
+    nullifierRoot: Field,          // nullifier tree root after block
+    publicDataRoot: Field,         // public data tree root after block
+    l1ToL2MessageRoot: Field,      // Only present in first block of checkpoint
 }
 ```
+
+`blockEndMarker` and `blockEndStateField` are not multi-field structs; each is a single `Field` with the following bit-packed layout (MSB first):
+
+```
+blockEndMarker (one Field):
+    BLOCK_END_PREFIX  : 32 bits
+    timestamp         : 64 bits
+    blockNumber       : 32 bits
+    numTxs            : 16 bits
+
+blockEndStateField (one Field):
+    l1ToL2MessageNextAvailableLeafIndex : L1_TO_L2_MSG_TREE_HEIGHT bits (~40)
+    noteHashNextAvailableLeafIndex      : NOTE_HASH_TREE_HEIGHT bits     (~36)
+    nullifierNextAvailableLeafIndex     : NULLIFIER_TREE_HEIGHT bits     (~42)
+    publicDataNextAvailableLeafIndex    : PUBLIC_DATA_TREE_HEIGHT bits   (~42)
+    totalManaUsed                       : 48 bits
+```
+
+The full checkpoint blob payload concatenates one `BlockBlobData` per block in checkpoint order, followed by a `checkpointEndMarker`:
+
+```
+CheckpointBlobPayload = [
+    BlockBlobData_0, BlockBlobData_1, ..., BlockBlobData_{K-1},
+    checkpointEndMarker,    // Single Field: CHECKPOINT_END_PREFIX | numBlobFields | ...
+    0, 0, ..., 0,           // Zero-padding to BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB
+]
+```
+
+Decoders MUST verify that every blob field after `checkpointEndMarker` (out to the full padded blob capacity) is zero. The `numBlobFields` value carried in the marker tells decoders how many blob fields preceding the marker are part of the payload.
 
 Blob encoding uses three sentinel prefixes (defined in Spec #2: Constants) to delimit structure boundaries:
 
@@ -382,10 +416,10 @@ Blocks progress through four lifecycle stages:
 
 | Stage | Description | Guarantee |
 |---|---|---|
-| `proposed` | Block assembled by sequencer, gossiped on P2P network | No L1 guarantee. May be reorganized. |
+| `proposed` | Block assembled by sequencer, gossiped on P2P network, and verified by the current node by re-executing its transactions | Subject to pruning if it is not checkpointed to L1 before the end of its slot. |
 | `checkpointed` | Block included in a checkpoint submitted to L1 | Committed to L1 calldata/blobs. Subject to pruning if proof not submitted within window. |
-| `proven` | Block included in a verified epoch proof on L1 | Cryptographic proof verified on L1. Still subject to L1 reorg. |
-| `finalized` | Proven block on a finalized L1 block | Full finality. Cannot be reverted without an L1 reorg. |
+| `proven` | Block included in a verified epoch proof on L1 | Cryptographic proof verified on L1. Subject to pruning only if an L1 reorg removes its associated proof. |
+| `finalized` | Proven block on a finalized L1 block | Full finality guaranteed by L1. Cannot be reverted. |
 
 The chain maintains tips for each lifecycle stage:
 
@@ -553,18 +587,6 @@ classDiagram
 | `StateReference` | 8 | — | — |
 | `PartialStateReference` | 6 | — | — |
 
-### L2Block Serialization
-
-The `L2Block` binary serialization order is:
-
-| Order | Field | Serialization |
-|---|---|---|
-| 1 | `header` | `BlockHeader` (22 fields as field elements) |
-| 2 | `archive` | `AppendOnlyTreeSnapshot` (root: 32 bytes, index: 4 bytes) |
-| 3 | `body` | `Body` (length-prefixed array of `TxEffect`) |
-| 4 | `checkpoint_number` | 4-byte big-endian integer |
-| 5 | `index_within_checkpoint` | 4-byte big-endian integer |
-
 ### Checkpoint Header Byte Serialization
 
 The `CheckpointHeader` byte serialization for hashing is tightly packed (no padding) in this order:
@@ -617,7 +639,7 @@ The L1 rollup contract MUST validate the following on each `propose` call:
 | `coinbase` | MUST be non-zero. |
 | `totalManaUsed` | MUST NOT exceed the mana limit. |
 | `lastArchiveRoot` | MUST equal the current tip archive root stored on L1. |
-| `slotNumber` | MUST be greater than the slot of the last checkpointed checkpoint. |
+| `slotNumber` | MUST be greater than the slot of the *effective* pending checkpoint. The effective pending tip is the on-chain pending tip after accounting for any pruning that would apply at the current L1 timestamp. |
 | `slotNumber` | MUST equal the current L1 timestamp's slot. |
 | `timestamp` | MUST equal the timestamp derived from `slotNumber`. |
 | `timestamp` | MUST NOT be in the future relative to `block.timestamp`. |
@@ -652,17 +674,17 @@ The L1-to-L2 message tree MUST be updated only in the first block of each checkp
 
 ### V8: Archive Tree Update
 
-After each block, the block header hash MUST be appended to the archive tree at index `block_number`. The resulting archive snapshot MUST be stored in `L2Block.archive`.
+After each block, the block header hash MUST be appended to the archive tree at index `block_number`. The resulting archive snapshot MUST be stored in `L2Block.archive`. Note that archive index 0 holds the genesis block header (`GENESIS_BLOCK_HEADER_HASH`), so the first real block (`block_number = 1`) is appended at index 1.
 
 ### V9: Sponge Blob Consistency
 
-The `sponge_blob_hash` in each block header MUST correctly reflect the cumulative blob sponge state after absorbing the transaction effects of this block and all previous blocks in the same checkpoint.
+The `sponge_blob_hash` in each block header MUST correctly reflect the cumulative blob sponge state after absorbing the full blob payload of this block and all previous blocks in the same checkpoint. The absorbed payload includes both the per-transaction blob data and the block-end region (`blockEndMarker`, `blockEndStateField`, archive root, four state-tree roots, and the optional L1-to-L2 message root in the first block).
 
 ## Security Considerations
 
 **Chain Reorganizations**
 
-Blocks that are only `proposed` (not checkpointed) can be reorganized by the sequencer. Blocks that are `checkpointed` but not `proven` can be pruned if the proof submission window expires. Only `proven` blocks on `finalized` L1 blocks have full finality guarantees.
+Blocks that are only `proposed` (not checkpointed) can be reorganized by the sequencer if it fails to submit them to L1. Blocks that are `checkpointed` but not `proven` can be pruned if the proof submission window expires. Blocks that have been `proven` may be pruned under an L1 reorg that removes the submitted proof. Only `finalized` L1 blocks have full finality guarantees.
 
 **Mitigation:** Applications MUST choose the appropriate block tag for their finality requirements. Critical operations (e.g., L1 withdrawals) SHOULD wait for `proven` or `finalized` status.
 
@@ -674,7 +696,7 @@ A collision in the block header hash (Poseidon2) would allow two different block
 
 **Blob Data Withholding**
 
-A proposer could submit a valid checkpoint header to L1 without making the blob data available, preventing other nodes from reconstructing blocks.
+A proposer could submit a valid checkpoint header to L1 without making the blob data available, preventing other nodes from syncing blocks.
 
 **Mitigation:** EIP-4844 blob data availability is enforced by the Ethereum consensus layer. The `blobsHash` in the checkpoint header is validated against actual blob commitments on L1.
 
@@ -683,18 +705,6 @@ A proposer could submit a valid checkpoint header to L1 without making the blob 
 A proposer could attempt to manipulate timestamps to affect time-dependent logic.
 
 **Mitigation:** The L1 contract enforces that `timestamp` is derived from `slotNumber` (which is derived from L1 `block.timestamp`), and that the timestamp is not in the future. This binds L2 time to L1 time.
-
-## Open Questions
-
-1. **Variable blocks per checkpoint:** The number of blocks per checkpoint is not fixed by a protocol constant. What are the practical limits on blocks per checkpoint, beyond the blob capacity constraint (`BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB` total field elements)?
-
-2. **StateReference deprecation:** The codebase marks `StateReference` as deprecated in favor of `TreeSnapshots` (see Spec #4, Open Question #4). If `BlockHeader` migrates to `TreeSnapshots`, the serialization order and `BLOCK_HEADER_LENGTH` constant would remain unchanged, but the structural grouping would differ.
-
-3. **Sponge blob hash specification:** The exact sponge construction used for `sponge_blob_hash` (sponge parameters, absorption strategy, squeeze behavior) needs detailed specification for independent implementation.
-
-4. **Finalized block definition:** The `finalized` block tag is currently computed as blocks that are 2 epochs behind the proven tip. The proper definition should be based on L1 finalization of the block containing the epoch proof.
-
-5. **Empty block validity:** Can a checkpoint contain blocks with zero transactions? If so, what are the constraints on `total_fees`, `total_mana_used`, and state roots for empty blocks?
 
 ## References
 
