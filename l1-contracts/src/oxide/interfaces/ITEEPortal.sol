@@ -24,6 +24,8 @@ interface ITEEPortal {
     external
     returns (bytes32 key, uint256 index);
 
+  function freeze() external;
+
   function withdraw(
     address _recipient,
     uint256 _amount,
@@ -32,6 +34,30 @@ interface ITEEPortal {
     bytes32[] calldata _path,
     uint256 _checkpointNumber,
     bytes32 _withdrawalDigest,
+    bytes calldata _teeSignature
+  ) external;
+
+  function withdrawPendingMessage(
+    address _recipient,
+    uint256 _amount,
+    uint256 _epochNumber,
+    uint256 _leafIndex,
+    bytes32[] calldata _frozenPath,
+    bytes32[] calldata _currentPath,
+    bytes32 _withdrawalDigest,
+    bytes calldata _teeSignature
+  ) external;
+
+  /**
+   * @notice Exit directly from notes proven against a frozen archive.
+   * @dev `_nullifiers` is padded by the portal to `TEEPortal.FORCED_EXIT_NULLIFIER_COUNT`
+   *      public input slots before proof verification.
+   */
+  function withdrawFrozenNotes(
+    address _recipient,
+    uint256 _amount,
+    bytes32[] calldata _nullifiers,
+    bytes calldata _proof,
     bytes calldata _teeSignature
   ) external;
 

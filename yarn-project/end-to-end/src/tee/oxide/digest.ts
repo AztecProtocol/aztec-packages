@@ -18,6 +18,11 @@ type WithdrawalFinalDigestInput = {
   messageHash: Buffer;
 };
 
+type ForcedExitFinalDigestInput = {
+  /** Forced-exit verifier public inputs: archive, amount, recipient, padded nullifiers. */
+  publicInputs: Buffer[];
+};
+
 /**
  * Domain separator for the L1-verified finalization TEE attestation. Prepended
  * to the preimage so a signature produced for the finalization flow cannot
@@ -25,6 +30,12 @@ type WithdrawalFinalDigestInput = {
  * lockstep with `TEEPortal.sol::TEE_SIG_DOMAIN_EXIT_FINALIZED`.
  */
 const TEE_SIG_DOMAIN_EXIT_FINALIZED = 2;
+
+/**
+ * Domain separator for the L1-verified forced-exit TEE attestation. Must stay
+ * in lockstep with `TEEPortal.sol::TEE_SIG_DOMAIN_FORCED_EXIT`.
+ */
+const TEE_SIG_DOMAIN_FORCED_EXIT = 3;
 
 function assertLen(name: string, buf: Buffer, expected: number): void {
   if (buf.length !== expected) {
@@ -42,5 +53,13 @@ export function buildWithdrawalFinalDigest(input: WithdrawalFinalDigestInput): B
     input.withdrawalDigest,
     input.messageHash,
   ]);
+  return sha256(preimage);
+}
+
+export function buildForcedExitFinalDigest(input: ForcedExitFinalDigestInput): Buffer {
+  for (const [i, publicInput] of input.publicInputs.entries()) {
+    assertLen(`publicInputs[${i}]`, publicInput, FIELD_BYTES);
+  }
+  const preimage = Buffer.concat([Buffer.of(TEE_SIG_DOMAIN_FORCED_EXIT), ...input.publicInputs]);
   return sha256(preimage);
 }

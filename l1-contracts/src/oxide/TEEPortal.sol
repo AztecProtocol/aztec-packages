@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity >=0.8.27;
 
-import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {CheckpointLog, IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+import {IHaveVersion, IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -35,6 +38,15 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
   /// @notice Domain byte for final L1 withdrawal attestations; must match `oxide/digest.ts`.
   uint8 public constant TEE_SIG_DOMAIN_EXIT_FINALIZED = 2;
 
+  /// @notice Domain byte for forced-exit attestations; must match `oxide/digest.ts`.
+  uint8 public constant TEE_SIG_DOMAIN_FORCED_EXIT = 3;
+
+  /// @notice Number of source nullifier slots exposed by the forced-exit Noir circuit.
+  uint256 public constant FORCED_EXIT_NULLIFIER_COUNT = 10;
+
+  /// @notice Number of public inputs passed to the forced-exit Noir verifier.
+  uint256 public constant FORCED_EXIT_PUBLIC_INPUT_COUNT = FORCED_EXIT_NULLIFIER_COUNT + 3;
+
   /// @notice Authorisation predicate gating deposits.
   IPredicate public immutable PREDICATE;
 
@@ -54,6 +66,12 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
   /// @notice Aztec rollup used to authenticate archive roots.
   IRollup public immutable ROLLUP;
 
+  /// @notice Registry used to check whether `ROLLUP` is still canonical.
+  IRegistry public immutable REGISTRY;
+
+  /// @notice Noir verifier for frozen archive note exits.
+  IVerifier public immutable FORCED_EXIT_VERIFIER;
+
   /// @notice Aztec rollup version this portal is paired with.
   uint256 public immutable ROLLUP_VERSION;
 
@@ -70,8 +88,29 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
   /// @dev This replay guard is independent of outbox leaf consumption.
   mapping(bytes32 digest => bool spent) public $isWithdrawalSpent;
 
+  /// @notice Frozen archive note nullifiers already spent through forced exits.
+  mapping(bytes32 nullifier => bool spent) public $isForcedExitNullifierSpent;
+
+  /// @notice Whether the portal has been frozen for old-rollup recovery.
+  bool public $frozen;
+
+  /// @notice Proven checkpoint captured when the portal was frozen.
+  uint256 public $freezeCheckpointNumber;
+
+  /// @notice Epoch containing the frozen proven checkpoint.
+  uint256 public $freezeEpochNumber;
+
+  /// @notice Proven archive captured when the portal was frozen.
+  bytes32 public $freezeArchive;
+
+  /// @notice Accumulated epoch out hash captured when the portal was frozen.
+  bytes32 public $freezeEpochOutHash;
+
   /// @notice Emitted once when the portal is bound to its L2 counterpart.
   event Initialized(bytes32 l2Bridge);
+
+  /// @notice Emitted when the portal freezes normal operation for old-rollup recovery.
+  event Frozen(uint256 indexed checkpointNumber, uint256 indexed epochNumber, bytes32 archive, bytes32 epochOutHash);
 
   /// @notice Emitted when a deposit enqueues an L1 -> L2 claim message.
   event Deposit(bytes32 indexed recipientHash, uint256 amount, bytes32 key, uint256 index);
@@ -103,6 +142,30 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
   error AlreadyRegistered();
   /// @notice Raised when the rollup has no archive for the requested checkpoint.
   error UnknownCheckpoint();
+  /// @notice Raised when the withdrawal anchor is not proven yet.
+  error UnprovenCheckpoint();
+  /// @notice Raised when normal operation is attempted after the portal has frozen.
+  error FrozenPortal();
+  /// @notice Raised when recovery operation is attempted before the portal has frozen.
+  error NotFrozen();
+  /// @notice Raised when trying to freeze an already frozen portal.
+  error AlreadyFrozen();
+  /// @notice Raised when a non-owner tries to freeze while the rollup is still canonical.
+  error RollupStillCanonical();
+  /// @notice Raised when a frozen withdrawal targets an epoch after the freeze epoch.
+  error EpochAfterFreeze();
+  /// @notice Raised when frozen and current outbox paths do not identify the same occurrence.
+  error FrozenPathLengthMismatch();
+  /// @notice Raised when a forced exit does not publish any note nullifier.
+  error EmptyForcedExitNullifiers();
+  /// @notice Raised when a forced exit publishes more nullifiers than the Noir circuit accepts.
+  error TooManyForcedExitNullifiers(uint256 count);
+  /// @notice Raised when a forced exit includes the zero padding value as an active nullifier.
+  error ZeroForcedExitNullifier();
+  /// @notice Raised when a forced exit tries to reuse an already spent note nullifier.
+  error ForcedExitNullifierAlreadySpent(bytes32 nullifier);
+  /// @notice Raised when the Noir forced exit verifier rejects the proof.
+  error InvalidForcedExitProof();
 
   constructor(
     address _owner,
@@ -111,6 +174,8 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
     IInbox _inbox,
     IOutbox _outbox,
     IRollup _rollup,
+    IRegistry _registry,
+    IVerifier _forcedExitVerifier,
     uint256 _rollupVersion,
     uint256 _rate,
     uint256 _globalLimit,
@@ -121,6 +186,8 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
     INBOX = _inbox;
     OUTBOX = _outbox;
     ROLLUP = _rollup;
+    REGISTRY = _registry;
+    FORCED_EXIT_VERIFIER = _forcedExitVerifier;
     ROLLUP_VERSION = _rollupVersion;
   }
 
@@ -172,6 +239,7 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
     returns (bytes32 key, uint256 index)
   {
     require($initialized, Uninitialized());
+    require(!$frozen, FrozenPortal());
     require(_amount <= type(uint128).max, AmountTooLarge());
     require(PREDICATE.verify(msg.sender, _predicateAuth), PredicateFailed());
     _markUsage(_amount);
@@ -205,25 +273,130 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
     bytes calldata _teeSignature
   ) external override(ITEEPortal) {
     require($initialized, Uninitialized());
+    require(!$frozen, FrozenPortal());
     require(!$isWithdrawalSpent[_withdrawalDigest], WithdrawalAlreadyClaimed());
     $isWithdrawalSpent[_withdrawalDigest] = true;
 
-    DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor({actor: $l2Bridge, version: ROLLUP_VERSION}),
-      recipient: DataStructures.L1Actor({actor: address(this), chainId: block.chainid}),
-      content: Hash.sha256ToField(abi.encodeWithSignature("withdraw(address,uint256)", _recipient, _amount))
-    });
+    DataStructures.L2ToL1Msg memory message = _buildWithdrawalMessage(_recipient, _amount);
 
     bytes32 archiveRoot = ROLLUP.archiveAt(_checkpointNumber);
     require(archiveRoot != bytes32(0), UnknownCheckpoint());
+    // If not proven we should be failing at the OUTBOX anyway, but fails earlier and more explicit here.
+    require(_checkpointNumber <= ROLLUP.getProvenCheckpointNumber(), UnprovenCheckpoint());
 
     bytes32 messageHash = Hash.sha256ToField(message);
-    bytes32 finalDigest =
-      sha256(abi.encodePacked(TEE_SIG_DOMAIN_EXIT_FINALIZED, archiveRoot, _withdrawalDigest, messageHash));
+    _validateWithdrawalTeeSignature(archiveRoot, _withdrawalDigest, messageHash, _teeSignature);
+
+    OUTBOX.consume(message, Epoch.wrap(_epochNumber), _leafIndex, _path);
+
+    UNDERLYING.safeTransfer(_recipient, _amount);
+
+    emit WithdrawFromAztec(_recipient, _amount);
+  }
+
+  /**
+   * @notice Freeze normal portal operation and snapshot the old rollup's proven outbox boundary.
+   * @dev The owner may freeze explicitly. Otherwise the old rollup must already be non-canonical.
+   */
+  function freeze() external override(ITEEPortal) {
+    require($initialized, Uninitialized());
+    require(!$frozen, AlreadyFrozen());
+
+    if (msg.sender != owner()) {
+      IHaveVersion canonicalRollup = REGISTRY.getCanonicalRollup();
+      require(address(canonicalRollup) != address(ROLLUP), RollupStillCanonical());
+    }
+
+    uint256 checkpointNumber = ROLLUP.getProvenCheckpointNumber();
+    bytes32 archiveRoot = ROLLUP.archiveAt(checkpointNumber);
+    require(archiveRoot != bytes32(0), UnknownCheckpoint());
+
+    CheckpointLog memory checkpoint = ROLLUP.getCheckpoint(checkpointNumber);
+    uint256 epochNumber = Epoch.unwrap(ROLLUP.getEpochForCheckpoint(checkpointNumber));
+
+    $frozen = true;
+    $freezeCheckpointNumber = checkpointNumber;
+    $freezeEpochNumber = epochNumber;
+    $freezeArchive = archiveRoot;
+    $freezeEpochOutHash = checkpoint.outHash;
+
+    emit Frozen(checkpointNumber, epochNumber, archiveRoot, checkpoint.outHash);
+  }
+
+  /**
+   * @notice Exit directly from notes proven against the frozen archive.
+   * @dev Public inputs are encoded for the Noir verifier as
+   *      `[archive, amount, recipient, nullifier_0, ..., nullifier_n]`.
+   */
+  function withdrawFrozenNotes(
+    address _recipient,
+    uint256 _amount,
+    bytes32[] calldata _nullifiers,
+    bytes calldata _proof,
+    bytes calldata _teeSignature
+  ) external override(ITEEPortal) {
+    require($initialized, Uninitialized());
+    require($frozen, NotFrozen());
+    require(_nullifiers.length > 0, EmptyForcedExitNullifiers());
+    require(_nullifiers.length <= FORCED_EXIT_NULLIFIER_COUNT, TooManyForcedExitNullifiers(_nullifiers.length));
+
+    bytes32[] memory publicInputs = new bytes32[](FORCED_EXIT_PUBLIC_INPUT_COUNT);
+    publicInputs[0] = $freezeArchive;
+    publicInputs[1] = bytes32(_amount);
+    publicInputs[2] = bytes32(uint256(uint160(_recipient)));
+
+    for (uint256 i = 0; i < _nullifiers.length; i++) {
+      bytes32 nullifier = _nullifiers[i];
+      require(nullifier != bytes32(0), ZeroForcedExitNullifier());
+      publicInputs[i + 3] = nullifier;
+      require(!$isForcedExitNullifierSpent[nullifier], ForcedExitNullifierAlreadySpent(nullifier));
+      $isForcedExitNullifierSpent[nullifier] = true;
+    }
+
+    bytes32 finalDigest = sha256(abi.encodePacked(TEE_SIG_DOMAIN_FORCED_EXIT, publicInputs));
     address signer = ECDSA.recover(finalDigest, _teeSignature);
     require($teeBindings[signer].registered, UnregisteredTee());
 
-    OUTBOX.consume(message, Epoch.wrap(_epochNumber), _leafIndex, _path);
+    require(FORCED_EXIT_VERIFIER.verify(_proof, publicInputs), InvalidForcedExitProof());
+
+    UNDERLYING.safeTransfer(_recipient, _amount);
+
+    emit WithdrawFromAztec(_recipient, _amount);
+  }
+
+  /**
+   * @notice Recover a proven pre-freeze L2 -> L1 withdrawal after normal operation has stopped.
+   * @dev For the freeze epoch, `_frozenPath` proves the same occurrence against the frozen
+   *      epoch out hash. `_currentPath` is then consumed through the outbox so the normal
+   *      outbox nullifier remains the source of truth for replay protection.
+   */
+  function withdrawPendingMessage(
+    address _recipient,
+    uint256 _amount,
+    uint256 _epochNumber,
+    uint256 _leafIndex,
+    bytes32[] calldata _frozenPath,
+    bytes32[] calldata _currentPath,
+    bytes32 _withdrawalDigest,
+    bytes calldata _teeSignature
+  ) external override(ITEEPortal) {
+    require($initialized, Uninitialized());
+    require($frozen, NotFrozen());
+    require(_epochNumber <= $freezeEpochNumber, EpochAfterFreeze());
+    require(!$isWithdrawalSpent[_withdrawalDigest], WithdrawalAlreadyClaimed());
+    $isWithdrawalSpent[_withdrawalDigest] = true;
+
+    DataStructures.L2ToL1Msg memory message = _buildWithdrawalMessage(_recipient, _amount);
+    bytes32 messageHash = Hash.sha256ToField(message);
+
+    _validateWithdrawalTeeSignature($freezeArchive, _withdrawalDigest, messageHash, _teeSignature);
+
+    if (_epochNumber == $freezeEpochNumber) {
+      require(_frozenPath.length == _currentPath.length, FrozenPathLengthMismatch());
+      MerkleLib.verifyMembership(_frozenPath, messageHash, _leafIndex, $freezeEpochOutHash);
+    }
+
+    OUTBOX.consume(message, Epoch.wrap(_epochNumber), _leafIndex, _currentPath);
 
     UNDERLYING.safeTransfer(_recipient, _amount);
 
@@ -233,5 +406,30 @@ contract TEEPortal is Caps, Ownable, ITEEPortal {
   /// @notice Convenience view mirroring the pre-binding `isRegisteredTee` shape.
   function isRegisteredTee(address _tee) external view override(ITEEPortal) returns (bool) {
     return $teeBindings[_tee].registered;
+  }
+
+  function _buildWithdrawalMessage(address _recipient, uint256 _amount)
+    internal
+    view
+    returns (DataStructures.L2ToL1Msg memory)
+  {
+    return DataStructures.L2ToL1Msg({
+      sender: DataStructures.L2Actor({actor: $l2Bridge, version: ROLLUP_VERSION}),
+      recipient: DataStructures.L1Actor({actor: address(this), chainId: block.chainid}),
+      content: Hash.sha256ToField(abi.encodeWithSignature("withdraw(address,uint256)", _recipient, _amount))
+    });
+  }
+
+  function _validateWithdrawalTeeSignature(
+    bytes32 _archiveRoot,
+    bytes32 _withdrawalDigest,
+    bytes32 _messageHash,
+    bytes calldata _teeSignature
+  ) internal view {
+    bytes32 finalDigest = sha256(
+      abi.encodePacked(TEE_SIG_DOMAIN_EXIT_FINALIZED, _archiveRoot, _withdrawalDigest, _messageHash)
+    );
+    address signer = ECDSA.recover(finalDigest, _teeSignature);
+    require($teeBindings[signer].registered, UnregisteredTee());
   }
 }

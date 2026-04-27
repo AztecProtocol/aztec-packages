@@ -3,20 +3,23 @@ import type { InitialAccountData } from '@aztec/accounts/testing';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, waitForProven } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { deriveKeys } from '@aztec/aztec.js/keys';
+import { computeAppNullifierHidingKey, deriveKeys } from '@aztec/aztec.js/keys';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { AnvilTestWatcher, CheatCodes } from '@aztec/aztec/testing';
+import { DomainSeparator } from '@aztec/constants';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { Tuple } from '@aztec/foundation/serialize';
 import {
   MockPredicateAbi,
   MockPredicateBytecode,
+  MockVerifierAbi,
+  MockVerifierBytecode,
   TEEPortalAbi,
   TEEPortalBytecode,
   TestERC20Abi,
@@ -24,9 +27,10 @@ import {
 } from '@aztec/l1-artifacts';
 import { AssertedTokenContractContract } from '@aztec/noir-contracts.js/AssertedTokenContract';
 import { CompleteAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import { computeL2ToL1MessageHash, computeSecretHash } from '@aztec/stdlib/hash';
+import { computeL2ToL1MessageHash, computeSecretHash, siloNullifier } from '@aztec/stdlib/hash';
 import { computeL2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import { Capsule, ExecutionPayload, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
+import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
+import { type BlockHeader, Capsule, ExecutionPayload, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type Hex, decodeEventLog, getContract } from 'viem';
@@ -284,6 +288,58 @@ describe('e2e_oxide_bridge', () => {
     return { receipt, operation: tokenOperation, initiation };
   }
 
+  async function prepareFrozenNotesWithdrawal(
+    from: AztecAddress,
+    l1Recipient: EthAddress,
+    amount: bigint,
+    anchorBlockHeader: BlockHeader,
+  ): Promise<{ operation: TokenOperation; lowNullifierMembershipWitnesses: NullifierMembershipWitness[] }> {
+    const randomnessSeedCapsule = buildSeedCapsule();
+
+    logger.info(`Preparing frozen-notes withdrawal spend of ${amount} from ${from} to L1 ${l1Recipient}`);
+    const simulation = await contract.methods
+      .withdraw(from, l1Recipient, amount)
+      .with({ capsules: [randomnessSeedCapsule] })
+      .simulate({ from });
+
+    const collected = collectTokenEffects(contract.address, simulation.offchainEffects);
+    const spendMetadata = await Promise.all(
+      collected.nullifiedNotes.map(nullified => buildSpendMetadataFor(nullified.owner, nullified.randomness)),
+    );
+    const sourceNullifiers = await Promise.all(
+      collected.nullifiedNotes.map(async (note, i) => {
+        const metadata = spendMetadata[i]!;
+        const appNullifierHidingKey = await computeAppNullifierHidingKey(
+          metadata.masterNullifierSecretKey,
+          contract.address,
+        );
+        const innerNullifier = await poseidon2HashWithSeparator(
+          [note.provenNoteHash, appNullifierHidingKey],
+          DomainSeparator.NOTE_NULLIFIER,
+        );
+        return await siloNullifier(contract.address, innerNullifier);
+      }),
+    );
+    const anchorBlockHash = await anchorBlockHeader.hash();
+    const lowNullifierMembershipWitnesses = await Promise.all(
+      sourceNullifiers.map(async nullifier => {
+        const witness = await aztecNode.getLowNullifierMembershipWitness(anchorBlockHash, nullifier);
+        if (!witness) {
+          throw new Error(`Missing low-nullifier witness for frozen note nullifier ${nullifier}`);
+        }
+        return witness;
+      }),
+    );
+
+    const operation = await buildTokenOperation(
+      aztecNode,
+      anchorBlockHeader,
+      { nullifiedNotes: collected.nullifiedNotes, createdNotes: [] },
+      spendMetadata,
+    );
+    return { operation, lowNullifierMembershipWitnesses };
+  }
+
   async function transfer(signer: TeeSigner, from: AztecAddress, to: AztecAddress, amount: bigint): Promise<TxReceipt> {
     const randomnessSeedCapsule = buildSeedCapsule();
 
@@ -348,6 +404,29 @@ describe('e2e_oxide_bridge', () => {
     await retryUntil(async () => (await aztecNode.getBlockNumber()) > blockNumber, 'archive block', 60, 1);
   }
 
+  async function resolveArchiveForCheckpoint(rollup: RollupContract, checkpointNumber: CheckpointNumber) {
+    return await retryUntil(
+      async () => {
+        const root = await rollup.archiveAt(checkpointNumber);
+        if (root.equals(Fr.ZERO)) {
+          return undefined;
+        }
+        const checkpointEndBlock = await aztecNode.getBlockByArchive(root);
+        if (!checkpointEndBlock) {
+          return undefined;
+        }
+        const witnessReferenceBlock = await aztecNode.getBlock(BlockNumber(checkpointEndBlock.number + 1));
+        if (!witnessReferenceBlock?.header.lastArchive.root.equals(root)) {
+          return undefined;
+        }
+        return { checkpointNumber, root, checkpointEndBlock, witnessReferenceBlock };
+      },
+      'archive checkpoint',
+      60,
+      1,
+    );
+  }
+
   async function makeInboxMessageConsumable(owner: AztecAddress, messageKey: Fr) {
     // Mirror `CrossChainTestHarness.makeMessageConsumable`: first wait for the archiver
     // to index the inbox message, then push two public L2 txs so the subtree containing
@@ -360,13 +439,43 @@ describe('e2e_oxide_bridge', () => {
     await contract.methods.add_approved_signer_unchecked(dummy, dummy).send({ from: owner });
   }
 
-  it(
-    'L1 Alice deposits to L2 Alice, transfers to L2 Bob, then Bob withdraws to L1 Bob',
-    async () => {
+  const BridgeExitScenario = {
+    NormalWithdraw: 'normal-withdraw',
+    FrozenWithdraw: 'frozen-withdraw',
+    FrozenNotes: 'frozen-notes',
+  } as const;
+
+  type BridgeExitScenario = (typeof BridgeExitScenario)[keyof typeof BridgeExitScenario];
+
+  type BridgeExitCase = {
+    name: string;
+    scenario: BridgeExitScenario;
+  };
+
+  const bridgeExitCases: BridgeExitCase[] = [
+    {
+      name: 'L1 Alice deposits to L2 Alice, transfers to L2 Bob, then Bob withdraws to L1 Bob',
+      scenario: BridgeExitScenario.NormalWithdraw,
+    },
+    {
+      name: 'L1 Alice deposits to L2 Alice, transfers to L2 Bob, then Bob claims after freeze',
+      scenario: BridgeExitScenario.FrozenWithdraw,
+    },
+    {
+      name: 'L1 Alice deposits to L2 Alice, transfers to L2 Bob, then Bob withdraws frozen notes after freeze',
+      scenario: BridgeExitScenario.FrozenNotes,
+    },
+  ];
+
+  it.each(bridgeExitCases)(
+    '$name',
+    async ({ scenario }) => {
+      noteCreationTxHash.clear();
       const [alice, bob] = accounts;
       const l1Client = deployL1ContractsValues.l1Client;
       const { rollupVersion } = deployL1ContractsValues;
-      const { inboxAddress, outboxAddress, rollupAddress } = deployL1ContractsValues.l1ContractAddresses;
+      const { inboxAddress, outboxAddress, registryAddress, rollupAddress } =
+        deployL1ContractsValues.l1ContractAddresses;
       const l1ChainId = BigInt(l1Client.chain.id);
       // Anvil's default account funds the L1 deposit. Bob's L1 payout goes to a distinct
       // address so the end-state ERC20 balance check attributes the withdraw to Bob.
@@ -381,6 +490,11 @@ describe('e2e_oxide_bridge', () => {
       const { address: predicateAddress } = await deployL1Contract(l1Client, MockPredicateAbi, MockPredicateBytecode, [
         true,
       ]);
+      const { address: forcedExitVerifierAddress } = await deployL1Contract(
+        l1Client,
+        MockVerifierAbi,
+        MockVerifierBytecode,
+      );
       const { address: portalAddress } = await deployL1Contract(l1Client, TEEPortalAbi, TEEPortalBytecode, [
         l1Client.account.address,
         predicateAddress.toString(),
@@ -388,6 +502,8 @@ describe('e2e_oxide_bridge', () => {
         inboxAddress.toString(),
         outboxAddress.toString(),
         rollupAddress.toString(),
+        registryAddress.toString(),
+        forcedExitVerifierAddress.toString(),
         BigInt(rollupVersion),
         RATE,
         GLOBAL_LIMIT,
@@ -526,6 +642,82 @@ describe('e2e_oxide_bridge', () => {
       expect(await balanceOf(alice)).toBe(0n);
       expect(await balanceOf(bob)).toBe(DEPOSIT_AMOUNT);
 
+      if (scenario === BridgeExitScenario.FrozenNotes) {
+        const rollup = new RollupContract(l1Client, rollupAddress.toString());
+        const transferBlock = await aztecNode.getBlock(transferReceipt.blockNumber!);
+        if (!transferBlock) {
+          throw new Error(`Could not fetch transfer block ${transferReceipt.blockNumber}`);
+        }
+        const transferEpoch = await rollup.getEpochNumberForCheckpoint(transferBlock.checkpointNumber);
+        logger.info('Advancing L1 to next epoch and waiting for transfer tx to be proven');
+        await cheatCodes.rollup.advanceToEpoch(EpochNumber(transferEpoch + 1));
+        await waitForProven(aztecNode, transferReceipt, { provenTimeout: 500 });
+
+        logger.info('Freezing TEEPortal before Bob sends a normal L2 withdrawal');
+        await l1Client.waitForTransactionReceipt({ hash: await portal.write.freeze() });
+        const freezeCheckpointNumber = CheckpointNumber.fromBigInt(
+          (await portal.read.$freezeCheckpointNumber()) as bigint,
+        );
+        const frozenArchiveRoot = Fr.fromHexString((await portal.read.$freezeArchive()) as Hex);
+
+        logger.info('Advancing L2 once so the frozen archive root is available for witness generation');
+        await advanceL2Block(alice);
+
+        const archive = await resolveArchiveForCheckpoint(rollup, freezeCheckpointNumber);
+        if (!archive.root.equals(frozenArchiveRoot)) {
+          throw new Error(`Frozen archive ${frozenArchiveRoot} does not match resolved archive ${archive.root}`);
+        }
+
+        const { operation: frozenNotesOperation, lowNullifierMembershipWitnesses } = await prepareFrozenNotesWithdrawal(
+          bob,
+          bobL1Recipient,
+          DEPOSIT_AMOUNT,
+          archive.checkpointEndBlock.header,
+        );
+        const archiveAnchorBlockHash = await archive.witnessReferenceBlock.hash();
+        const operationAnchorBlockHash = await frozenNotesOperation.anchorBlockHeader.hash();
+        const anchorBlockHashMembershipWitness = await aztecNode.getBlockHashMembershipWitness(
+          archiveAnchorBlockHash,
+          operationAnchorBlockHash,
+        );
+        if (!anchorBlockHashMembershipWitness) {
+          throw new Error(`Operation anchor block ${operationAnchorBlockHash} is not in archive ${archive.root}`);
+        }
+
+        const finalization = await signer.signForcedExitFinalization({
+          operation: frozenNotesOperation,
+          archiveRoot: archive.root,
+          amount: DEPOSIT_AMOUNT,
+          recipient: bobL1Recipient,
+          anchorBlockHashMembershipWitness,
+          lowNullifierMembershipWitnesses,
+        });
+
+        const bobL1BalanceBefore = (await token.read.balanceOf([bobL1Recipient.toString()])) as bigint;
+
+        logger.info('Claiming frozen notes on L1 via TEEPortal.withdrawFrozenNotes');
+        await l1Client.waitForTransactionReceipt({
+          hash: await portal.write.withdrawFrozenNotes([
+            bobL1Recipient.toString() as Hex,
+            DEPOSIT_AMOUNT,
+            finalization.nullifiers.map(nullifier => `0x${nullifier.toString('hex')}` as Hex),
+            '0x',
+            `0x${finalization.signature.toString('hex')}` as Hex,
+          ]),
+        });
+
+        const bobL1BalanceAfter = (await token.read.balanceOf([bobL1Recipient.toString()])) as bigint;
+        expect(bobL1BalanceAfter - bobL1BalanceBefore).toBe(DEPOSIT_AMOUNT);
+
+        const portalBalanceAfterWithdraw = (await token.read.balanceOf([portalAddress.toString()])) as bigint;
+        expect(portalBalanceAfterWithdraw).toBe(0n);
+
+        logger.info(
+          `Bridge frozen-notes withdrawal succeeded: deposit=${DEPOSIT_AMOUNT} claim=${claimReceipt.txHash} transfer=${transferReceipt.txHash}`,
+        );
+        return;
+      }
+
       const {
         receipt: withdrawReceipt,
         operation: withdrawOperation,
@@ -570,34 +762,29 @@ describe('e2e_oxide_bridge', () => {
       const leafIndex = witness.leafIndex;
       const siblingPath = witness.siblingPath.toFields().map(field => field.toString() as Hex);
 
+      const isFrozenWithdraw = scenario === BridgeExitScenario.FrozenWithdraw;
+      let finalizationCheckpointNumber = withdrawBlock.checkpointNumber;
+      let frozenArchiveRoot: Fr | undefined;
+      if (isFrozenWithdraw) {
+        logger.info('Freezing TEEPortal before claiming the proven withdrawal on L1');
+        await l1Client.waitForTransactionReceipt({ hash: await portal.write.freeze() });
+        finalizationCheckpointNumber = CheckpointNumber.fromBigInt(
+          (await portal.read.$freezeCheckpointNumber()) as bigint,
+        );
+        frozenArchiveRoot = Fr.fromHexString((await portal.read.$freezeArchive()) as Hex);
+      }
+
       logger.info('Advancing L2 once so the checkpoint archive root is available for witness generation');
       await advanceL2Block(alice);
 
       // The TEE finalization signs the archive root that L1 will read from
-      // Rollup.archiveAt(checkpointNumber). Archive membership witnesses are
-      // produced against the following block's lastArchive root, which is the
-      // checkpoint archive root from the previous block.
-      const archive = await retryUntil(
-        async () => {
-          const checkpointNumber = withdrawBlock.checkpointNumber;
-          const root = await rollup.archiveAt(checkpointNumber);
-          if (root.equals(Fr.ZERO)) {
-            return undefined;
-          }
-          const checkpointEndBlock = await aztecNode.getBlockByArchive(root);
-          if (!checkpointEndBlock) {
-            return undefined;
-          }
-          const witnessReferenceBlock = await aztecNode.getBlock(BlockNumber(checkpointEndBlock.number + 1));
-          if (!witnessReferenceBlock?.header.lastArchive.root.equals(root)) {
-            return undefined;
-          }
-          return { checkpointNumber, root, witnessReferenceBlock };
-        },
-        'archive checkpoint',
-        60,
-        1,
-      );
+      // Rollup.archiveAt(checkpointNumber). For the frozen path this must be the
+      // checkpoint captured by TEEPortal.freeze, because withdrawPendingMessage verifies
+      // the same finalization signature against $freezeArchive.
+      const archive = await resolveArchiveForCheckpoint(rollup, finalizationCheckpointNumber);
+      if (frozenArchiveRoot && !archive.root.equals(frozenArchiveRoot)) {
+        throw new Error(`Frozen archive ${frozenArchiveRoot} does not match resolved archive ${archive.root}`);
+      }
       const archiveAnchorBlockHash = await archive.witnessReferenceBlock.hash();
       const archiveRoot = archive.root;
       const operationAnchorBlockHash = await withdrawOperation.anchorBlockHeader.hash();
@@ -613,31 +800,50 @@ describe('e2e_oxide_bridge', () => {
         withdrawReceipt.txHash,
         archiveAnchorBlockHash,
       );
-      const finalization = await signer.signExitFinalization({
+      const finalizationInput = {
         archiveRoot,
         creationEffects: initiationEffects,
         hints: initiationHints,
         signature: withdrawInitiation.exitSignatures[0],
         exit: { l1Recipient: bobL1Recipient, amount: DEPOSIT_AMOUNT },
         anchorBlockHashMembershipWitness,
-      });
+      };
+      const finalization = isFrozenWithdraw
+        ? await signer.signFrozenExitFinalization(finalizationInput)
+        : await signer.signExitFinalization(finalizationInput);
       expect(finalization.messageHash.equals(expectedMessageHash.toBuffer())).toBe(true);
 
       const bobL1BalanceBefore = (await token.read.balanceOf([bobL1Recipient.toString()])) as bigint;
 
-      logger.info('Claiming on L1 via TEEPortal.withdraw');
-      await l1Client.waitForTransactionReceipt({
-        hash: await portal.write.withdraw([
-          bobL1Recipient.toString() as Hex,
-          DEPOSIT_AMOUNT,
-          epochNumber,
-          leafIndex,
-          siblingPath,
-          BigInt(archive.checkpointNumber),
-          `0x${finalization.initiationDigest.toString('hex')}` as Hex,
-          `0x${finalization.signature.toString('hex')}` as Hex,
-        ]),
-      });
+      if (isFrozenWithdraw) {
+        logger.info('Claiming frozen proven withdrawal on L1 via TEEPortal.withdrawPendingMessage');
+        await l1Client.waitForTransactionReceipt({
+          hash: await portal.write.withdrawPendingMessage([
+            bobL1Recipient.toString() as Hex,
+            DEPOSIT_AMOUNT,
+            epochNumber,
+            leafIndex,
+            siblingPath,
+            siblingPath,
+            `0x${finalization.initiationDigest.toString('hex')}` as Hex,
+            `0x${finalization.signature.toString('hex')}` as Hex,
+          ]),
+        });
+      } else {
+        logger.info('Claiming on L1 via TEEPortal.withdraw');
+        await l1Client.waitForTransactionReceipt({
+          hash: await portal.write.withdraw([
+            bobL1Recipient.toString() as Hex,
+            DEPOSIT_AMOUNT,
+            epochNumber,
+            leafIndex,
+            siblingPath,
+            BigInt(archive.checkpointNumber),
+            `0x${finalization.initiationDigest.toString('hex')}` as Hex,
+            `0x${finalization.signature.toString('hex')}` as Hex,
+          ]),
+        });
+      }
 
       const bobL1BalanceAfter = (await token.read.balanceOf([bobL1Recipient.toString()])) as bigint;
       expect(bobL1BalanceAfter - bobL1BalanceBefore).toBe(DEPOSIT_AMOUNT);

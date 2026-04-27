@@ -2,7 +2,7 @@ import { Fr, GrumpkinScalar, Point } from '@aztec/aztec.js/fields';
 import { ARCHIVE_HEIGHT, DomainSeparator, L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { padArrayEnd } from '@aztec/foundation/collection';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
+import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -21,6 +21,7 @@ import {
 } from '@aztec/stdlib/hash';
 import { computeAddress, computeAppNullifierHidingKey, derivePublicKeyFromSecretKey } from '@aztec/stdlib/keys';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
+import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxEffect } from '@aztec/stdlib/tx';
 
 import {
@@ -41,7 +42,7 @@ import {
   grumpkinSchnorrVerify,
 } from './grumpkin_schnorr.js';
 import { computeStealthRecipientHash, getClaimContentHash, getWithdrawContentHash } from './oxide/content_hash.js';
-import { buildWithdrawalFinalDigest } from './oxide/digest.js';
+import { buildForcedExitFinalDigest, buildWithdrawalFinalDigest } from './oxide/digest.js';
 import {
   type AncestorEffectsHints,
   MAX_DEPOSITS,
@@ -53,6 +54,10 @@ import {
 } from './types.js';
 
 const BALANCES_STORAGE_SLOT = 3;
+const FIELD_BYTES = 32;
+const FORCED_EXIT_NULLIFIER_COUNT = MAX_EFFECTS;
+const FORCED_EXIT_PUBLIC_INPUT_COUNT = FORCED_EXIT_NULLIFIER_COUNT + 3;
+const UINT256_MAX = (1n << 256n) - 1n;
 
 export interface NoteData {
   amount: Fr;
@@ -159,6 +164,52 @@ export interface ExitFinalizationOutput {
   finalDigest: Buffer;
   /** 65-byte (r || s || v) ECDSA signature the portal recovers. */
   signature: Buffer;
+}
+
+/**
+ * Input to `signForcedExitFinalization`.
+ *
+ * `operation` must contain the notes being exited as `spentNotes`, and must not
+ * contain created notes, deposits, or L2->L1 exits. The signer validates those
+ * spent notes the same way it validates a normal spend, then signs the forced
+ * exit value that L1 will release.
+ */
+export interface ForcedExitFinalizationInput {
+  operation: TokenOperation;
+  archiveRoot: Fr;
+  amount: bigint;
+  recipient: EthAddress;
+  anchorBlockHashMembershipWitness: MembershipWitness<typeof ARCHIVE_HEIGHT>;
+  /** Low-nullifier witnesses, ordered by the spend nullifiers emitted by `operation.spentNotes`. */
+  lowNullifierMembershipWitnesses: NullifierMembershipWitness[];
+}
+
+export interface ForcedExitFinalizationOutput {
+  /** Active source nullifiers to pass to `TEEPortal.withdrawFrozenNotes`. */
+  nullifiers: Buffer[];
+  /** Public inputs signed for L1 and passed to the Noir verifier. */
+  publicInputs: Buffer[];
+  /** 32-byte ECDSA preimage hash `TEEPortal.withdrawFrozenNotes` recomputes. */
+  finalDigest: Buffer;
+  /** 65-byte (r || s || v) ECDSA signature the portal recovers. */
+  signature: Buffer;
+}
+
+function uint256ToBuffer(value: bigint, name: string): Buffer {
+  if (value < 0n || value > UINT256_MAX) {
+    throw new Error(`${name} must fit uint256, got ${value}`);
+  }
+  return Buffer.from(value.toString(16).padStart(FIELD_BYTES * 2, '0'), 'hex');
+}
+
+function recipientToPublicInput(recipient: EthAddress): Buffer {
+  return Buffer.from(
+    recipient
+      .toString()
+      .slice(2)
+      .padStart(FIELD_BYTES * 2, '0'),
+    'hex',
+  );
 }
 
 export class TeeSigner {
@@ -489,6 +540,47 @@ export class TeeSigner {
     return { requiredNullifiers, amountSpent };
   }
 
+  private async validateNullifiersNotInAnchorBlock(
+    nullifiers: Fr[],
+    nullifierRoot: Fr,
+    lowNullifierMembershipWitnesses: NullifierMembershipWitness[],
+  ): Promise<void> {
+    if (lowNullifierMembershipWitnesses.length !== nullifiers.length) {
+      throw new Error(
+        `Expected ${nullifiers.length} low-nullifier witnesses, got ${lowNullifierMembershipWitnesses.length}`,
+      );
+    }
+
+    for (let i = 0; i < nullifiers.length; i++) {
+      const nullifier = nullifiers[i]!;
+      if (nullifier.isZero()) {
+        throw new Error('Cannot prove non-inclusion for zero nullifier');
+      }
+
+      const witness = lowNullifierMembershipWitnesses[i]!;
+
+      const lowNullifier = witness.leafPreimage.leaf.nullifier;
+      if (!lowNullifier.lt(nullifier)) {
+        throw new Error(`Low-nullifier witness ${lowNullifier} is not below nullifier ${nullifier}`);
+      }
+
+      const nextNullifier = witness.leafPreimage.nextKey;
+      if (witness.leafPreimage.nextIndex !== 0n && !nullifier.lt(nextNullifier)) {
+        throw new Error(`Low-nullifier witness for ${nullifier} does not skip over it`);
+      }
+
+      const leafHash = await poseidon2Hash(witness.leafPreimage.toHashInputs());
+      const computedRoot = await computeRootFromSiblingPath(
+        leafHash.toBuffer(),
+        witness.siblingPath.toFields().map(field => field.toBuffer()),
+        Number(witness.index),
+      );
+      if (!Fr.fromBuffer(computedRoot).equals(nullifierRoot)) {
+        throw new Error(`Low-nullifier witness for ${nullifier} is not in the anchor block nullifier tree`);
+      }
+    }
+  }
+
   private async buildOperationCommitments(
     operation: TokenOperation,
     mintBypass: boolean,
@@ -674,5 +766,73 @@ export class TeeSigner {
     const signature = Buffer.concat([ecdsa.r.toBuffer(), ecdsa.s.toBuffer(), Buffer.from([ecdsa.v])]);
 
     return { initiationDigest: withdrawalDigest, messageHash, finalDigest, signature };
+  }
+
+  public async signForcedExitFinalization(input: ForcedExitFinalizationInput): Promise<ForcedExitFinalizationOutput> {
+    if (input.operation.createdNotes.length !== 0) {
+      throw new Error('Forced exit operation must not create notes');
+    }
+    if (input.operation.deposits.length !== 0) {
+      throw new Error('Forced exit operation must not consume deposits');
+    }
+    if (input.operation.exits.length !== 0) {
+      throw new Error('Forced exit operation must not emit L2->L1 messages');
+    }
+
+    const anchorBlockHash = await input.operation.anchorBlockHeader.hash();
+    const { requiredNullifiers, amountSpent } = await this.validateSpends(input.operation, anchorBlockHash);
+    if (requiredNullifiers.length === 0) {
+      throw new Error('Forced exit operation must spend at least one note');
+    }
+    if (requiredNullifiers.length > FORCED_EXIT_NULLIFIER_COUNT) {
+      throw new Error(`Forced exit spends ${requiredNullifiers.length} notes, max ${FORCED_EXIT_NULLIFIER_COUNT}`);
+    }
+    if (amountSpent !== input.amount) {
+      throw new Error(`Forced exit amount ${input.amount} does not match spent amount ${amountSpent}`);
+    }
+
+    await verifyArchiveMembership(
+      anchorBlockHash.toBuffer(),
+      input.anchorBlockHashMembershipWitness,
+      input.archiveRoot,
+      'forced exit operation anchor block',
+    );
+
+    await this.validateNullifiersNotInAnchorBlock(
+      requiredNullifiers,
+      input.operation.anchorBlockHeader.state.partial.nullifierTree.root,
+      input.lowNullifierMembershipWitnesses,
+    );
+
+    const nullifiers = requiredNullifiers.map(nullifier => nullifier.toBuffer());
+    const publicInputs = [
+      input.archiveRoot.toBuffer(),
+      uint256ToBuffer(input.amount, 'forced exit amount'),
+      recipientToPublicInput(input.recipient),
+      ...nullifiers,
+    ];
+    while (publicInputs.length < FORCED_EXIT_PUBLIC_INPUT_COUNT) {
+      publicInputs.push(Buffer.alloc(FIELD_BYTES));
+    }
+
+    const finalDigest = buildForcedExitFinalDigest({
+      publicInputs,
+    });
+
+    const ecdsa = this.ecdsaSigner.sign(Buffer32.fromBuffer(finalDigest));
+    const signature = Buffer.concat([ecdsa.r.toBuffer(), ecdsa.s.toBuffer(), Buffer.from([ecdsa.v])]);
+
+    return { nullifiers, publicInputs, finalDigest, signature };
+  }
+
+  /**
+   * Second-phase L1 attestation for `TEEPortal.withdrawPendingMessage`.
+   *
+   * The digest shape is intentionally identical to `signExitFinalization`; the
+   * difference is that L1 verifies it against the archive captured by
+   * `TEEPortal.freeze`, so callers must pass that frozen archive as `archiveRoot`.
+   */
+  public signFrozenExitFinalization(input: ExitFinalizationInput): Promise<ExitFinalizationOutput> {
+    return this.signExitFinalization(input);
   }
 }
