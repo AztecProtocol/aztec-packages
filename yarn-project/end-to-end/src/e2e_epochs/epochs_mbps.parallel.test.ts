@@ -81,30 +81,28 @@ describe('e2e_epochs/epochs_mbps', () => {
     });
 
     // Setup context with the given set of validators and MBPS configuration.
-    // Timing calculation for 3 blocks per checkpoint with 8s sub-slots:
-    // - initializationOffset ≈ 0.5s (test mode with ethereumSlotDuration < 8)
-    // - 3 blocks × 8s = 24s
-    // - checkpointFinalization = 0.5s (assemble) + 0 (p2p in test) + 2s (L1 publish) = 2.5s
-    // - finalBlockDuration = 8s
-    // - Total: 0.5 + 24 + 8 + 2.5 = 35s → use 36s for margin
+    // Pipelining is enabled, so we adopt the wider timing used by the dedicated
+    // epochs_mbps.pipeline.parallel test (72s L2 slots, 12s L1 slots, 5500ms blocks).
+    // The tighter 36s/4s timing produces CheckpointNumberNotSequentialError on non-proposer
+    // nodes when the pipelined proposer races ahead of L1 confirmation (see A-914).
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
+      enableProposerPipelining: true,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       startProverNode: true,
+      // Mirrors the pipeline-MBPS sibling: more blocks per slot needs a larger per-block gas
+      // allocation multiplier so each block can fit non-trivial txs.
+      perBlockAllocationMultiplier: 8,
       aztecEpochDuration: 4,
       enforceTimeTable: true,
-      // L1 slot duration - using < 8 to enable test mode optimizations
-      ethereumSlotDuration: 4,
-      // L2 slot duration - should fit 3 blocks (8s each) + overhead
-      aztecSlotDuration: 36,
-      // Block duration of 8s as specified
-      blockDurationMs: 8000,
-      // L1 publishing time
-      l1PublishingTime: 2,
-      // Reduce attestation propagation time for tests
-      attestationPropagationTime: 0.5,
+      // L1 slot duration - mirrors the pipeline-MBPS test for headroom on the parent's L1 tx
+      ethereumSlotDuration: 12,
+      // L2 slot duration - should fit several blocks (5.5s each) with pipelining overhead
+      aztecSlotDuration: 72,
+      // Block duration of 5.5s, matches the pipeline sibling
+      blockDurationMs: 5500,
       // Committee size of 3
       aztecTargetCommitteeSize: 3,
       // Additional options (minTxsPerBlock, maxTxsPerBlock, etc.)
