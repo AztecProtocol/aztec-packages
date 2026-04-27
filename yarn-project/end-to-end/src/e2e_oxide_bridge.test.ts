@@ -129,8 +129,8 @@ describe('e2e_oxide_bridge', () => {
     return new Capsule(contract.address, TEE_EXIT_MESSAGE_HASHES_DA_CAPSULE_KEY, exitMessageHashes);
   }
 
-  function createTeeSigner() {
-    return TeeSigner.random();
+  function createTeeSigner(bridgeContext: BridgeContext) {
+    return TeeSigner.random(bridgeContext);
   }
 
   beforeAll(async () => {
@@ -158,7 +158,6 @@ describe('e2e_oxide_bridge', () => {
     sharedSecret: Fr,
     messageLeafIndex: bigint,
     messageKey: Fr,
-    bridgeContext: BridgeContext,
   ): Promise<TxReceipt> {
     const randomnessSeedCapsule = buildSeedCapsule();
 
@@ -180,7 +179,7 @@ describe('e2e_oxide_bridge', () => {
       throw new Error(`Deposit witness leaf index ${witnessLeafIndex} does not match event index ${messageLeafIndex}`);
     }
 
-    const tokenOperation = await buildTokenOperation(aztecNode, contract.address, anchorBlockHeader, collected, [], {
+    const tokenOperation = await buildTokenOperation(aztecNode, anchorBlockHeader, collected, [], {
       deposits: [
         {
           recipient: owner,
@@ -191,7 +190,6 @@ describe('e2e_oxide_bridge', () => {
         },
       ],
       exits: [],
-      bridgeContext,
     });
 
     const { signatures, requiredNullifiers, teeNotes, exitMessageHashes } = await signer.signTokenOperation(
@@ -231,7 +229,6 @@ describe('e2e_oxide_bridge', () => {
     from: AztecAddress,
     l1Recipient: EthAddress,
     amount: bigint,
-    bridgeContext: BridgeContext,
   ): Promise<{ receipt: TxReceipt; operation: TokenOperation; initiation: SignTokenOperationOutput }> {
     const randomnessSeedCapsule = buildSeedCapsule();
 
@@ -249,14 +246,12 @@ describe('e2e_oxide_bridge', () => {
 
     const tokenOperation = await buildTokenOperation(
       aztecNode,
-      contract.address,
       await wallet.getSyncedBlockHeader(),
       collected,
       spendMetadata,
       {
         deposits: [],
         exits: [{ l1Recipient, amount }],
-        bridgeContext,
       },
     );
 
@@ -306,7 +301,6 @@ describe('e2e_oxide_bridge', () => {
 
     const tokenOperation = await buildTokenOperation(
       aztecNode,
-      contract.address,
       await wallet.getSyncedBlockHeader(),
       collected,
       spendMetadata,
@@ -414,9 +408,9 @@ describe('e2e_oxide_bridge', () => {
         hash: await portal.write.initialize([`0x${bridgeBytes32.toString('hex')}` as Hex]),
       });
 
-      // Bound into the signed TokenOperation whenever deposits/exits are non-empty so the TEE
-      // can rebuild the L2->L1 outbox message hash. constantSecret is Fr.ZERO for the oxide
-      // bridge (L1 emits claim messages with a pre-hashed recipient slot).
+      // Bound into the TEE signer at construction so deposits/exits resolve their bridge
+      // identity from the signer rather than per-operation input. constantSecret is Fr.ZERO
+      // for the oxide bridge (L1 emits claim messages with a pre-hashed recipient slot).
       const bridgeContext: BridgeContext = {
         l1Portal: EthAddress.fromString(portalAddress.toString()),
         l1ChainId,
@@ -426,7 +420,7 @@ describe('e2e_oxide_bridge', () => {
         constantSecretHash: await computeSecretHash(Fr.ZERO),
       };
 
-      const signer = await createTeeSigner();
+      const signer = await createTeeSigner(bridgeContext);
 
       // Register TEE on L1. This stores the binding (secp <-> grumpkin) and emits an L1 -> L2
       // message whose consumption on L2 populates `approved_signers`. The L2 map entry must
@@ -521,15 +515,7 @@ describe('e2e_oxide_bridge', () => {
       logger.info('Waiting for archiver to index the inbox message and advancing L2 by 2 blocks');
       await makeInboxMessageConsumable(alice, messageKey);
 
-      const claimReceipt = await claim(
-        signer,
-        DEPOSIT_AMOUNT,
-        alice,
-        sharedSecret,
-        messageLeafIndex,
-        messageKey,
-        bridgeContext,
-      );
+      const claimReceipt = await claim(signer, DEPOSIT_AMOUNT, alice, sharedSecret, messageLeafIndex, messageKey);
       expect(await balanceOf(alice)).toBe(DEPOSIT_AMOUNT);
 
       const portalBalanceAfterDeposit = (await token.read.balanceOf([portalAddress.toString()])) as bigint;
@@ -544,7 +530,7 @@ describe('e2e_oxide_bridge', () => {
         receipt: withdrawReceipt,
         operation: withdrawOperation,
         initiation: withdrawInitiation,
-      } = await withdraw(signer, bob, bobL1Recipient, DEPOSIT_AMOUNT, bridgeContext);
+      } = await withdraw(signer, bob, bobL1Recipient, DEPOSIT_AMOUNT);
       expect(await balanceOf(bob)).toBe(0n);
 
       // Reconstruct the L2->L1 message hash so we can look up the membership witness.

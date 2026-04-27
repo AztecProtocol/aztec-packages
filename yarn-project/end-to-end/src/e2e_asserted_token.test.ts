@@ -17,7 +17,7 @@ import { jest } from '@jest/globals';
 
 import { getLogger, setup } from './fixtures/utils.js';
 import { checkAncestorEffectsHints, produceAncestorEffectsHints } from './tee/index.js';
-import { TeeSigner } from './tee/signer.js';
+import { type BridgeContext, TeeSigner } from './tee/signer.js';
 import { type SpendMetadata, buildTokenOperation, collectTokenEffects } from './tee/token_operations_collector.js';
 import { type MAX_EFFECTS, type MAX_EXITS, TEEMetadata } from './tee/types.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
@@ -124,7 +124,17 @@ describe('e2e_asserted_token', () => {
   }
 
   function createTeeSigner() {
-    return TeeSigner.random();
+    // This test never exercises deposits/exits, so the L1 bridge fields are unused; only
+    // `l2Bridge` matters because the signer derives `tokenAddress` from it.
+    const bridgeContext: BridgeContext = {
+      l1Portal: EthAddress.ZERO,
+      l1ChainId: 0n,
+      l2Bridge: contract.address,
+      rollupVersion: 0n,
+      constantSecret: Fr.ZERO,
+      constantSecretHash: Fr.ZERO,
+    };
+    return TeeSigner.random(bridgeContext);
   }
 
   beforeAll(async () => {
@@ -147,13 +157,7 @@ describe('e2e_asserted_token', () => {
 
     const collected = collectTokenEffects(contract.address, simulation.offchainEffects);
     // Mint has no nullified notes, so no spend metadata is needed.
-    const tokenOperation = await buildTokenOperation(
-      aztecNode,
-      contract.address,
-      await wallet.getSyncedBlockHeader(),
-      collected,
-      [],
-    );
+    const tokenOperation = await buildTokenOperation(aztecNode, await wallet.getSyncedBlockHeader(), collected, []);
 
     const { signatures, requiredNullifiers, teeNotes, exitMessageHashes } = await signer.signTokenOperation(
       tokenOperation,
@@ -209,7 +213,6 @@ describe('e2e_asserted_token', () => {
 
     const tokenOperation = await buildTokenOperation(
       aztecNode,
-      contract.address,
       await wallet.getSyncedBlockHeader(),
       collected,
       spendMetadata,

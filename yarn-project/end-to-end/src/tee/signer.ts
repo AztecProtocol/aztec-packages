@@ -96,9 +96,11 @@ export interface OutboxExit {
 }
 
 /**
- * Bridge identity bound into each deposit's inbox message hash and referenced by the
- * TEE when rebuilding claim/withdraw content hashes. Required whenever `TokenOperation`
- * carries non-empty `deposits` or `exits`.
+ * Bridge identity bound at signer construction time: every operation this signer
+ * attests to is implicitly tied to this bridge, so callers cannot smuggle in a
+ * different `l2Bridge`/`l1Portal`/etc. per operation. `l2Bridge` doubles as the
+ * token contract address used for note siloing and for the `tokenAddress` slot
+ * in the signed preimage.
  *
  * `constantSecret` is the L2-side preimage (typically `Fr.ZERO` for the oxide bridge);
  * `constantSecretHash = computeSecretHash(constantSecret)` is cached to avoid recomputing
@@ -116,12 +118,10 @@ export interface BridgeContext {
 
 export interface TokenOperation {
   anchorBlockHeader: BlockHeader;
-  tokenAddress: AztecAddress;
   spentNotes: SpendValidationData[];
   createdNotes: NoteData[];
   deposits: DepositClaim[];
   exits: OutboxExit[];
-  bridgeContext?: BridgeContext;
 }
 
 /**
@@ -180,15 +180,20 @@ export class TeeSigner {
     private readonly privateKey: GrumpkinScalar,
     public readonly publicKey: Point,
     private readonly ecdsaSigner: Secp256k1Signer,
+    private readonly bridgeContext: BridgeContext,
   ) {}
 
   get ethAddress(): EthAddress {
     return this.ecdsaSigner.address;
   }
 
-  static async random(): Promise<TeeSigner> {
+  get tokenAddress(): AztecAddress {
+    return this.bridgeContext.l2Bridge;
+  }
+
+  static async random(bridgeContext: BridgeContext): Promise<TeeSigner> {
     const { privateKey, publicKey } = await generateGrumpkinKeypair();
-    return new TeeSigner(privateKey, publicKey, Secp256k1Signer.random());
+    return new TeeSigner(privateKey, publicKey, Secp256k1Signer.random(), bridgeContext);
   }
 
   private async validateOwnerPreimage(owner: AztecAddress, ownerAddressPreimage: CompleteAddress): Promise<void> {
@@ -386,10 +391,7 @@ export class TeeSigner {
     if (operation.deposits.length > MAX_DEPOSITS) {
       throw new Error(`Too many deposits: got ${operation.deposits.length}, max ${MAX_DEPOSITS}`);
     }
-    const bridge = operation.bridgeContext;
-    if (!bridge) {
-      throw new Error('TokenOperation.bridgeContext is required when deposits is non-empty');
-    }
+    const bridge = this.bridgeContext;
 
     const l1ToL2Root = operation.anchorBlockHeader.state.l1ToL2MessageTree.root;
 
@@ -455,10 +457,7 @@ export class TeeSigner {
     if (operation.exits.length > MAX_EXITS) {
       throw new Error(`Too many exits: got ${operation.exits.length}, max ${MAX_EXITS}`);
     }
-    const bridge = operation.bridgeContext;
-    if (!bridge) {
-      throw new Error('TokenOperation.bridgeContext is required when exits is non-empty');
-    }
+    const bridge = this.bridgeContext;
 
     const exitMessageHashes: Fr[] = [];
     let amountExited = 0n;
@@ -498,7 +497,7 @@ export class TeeSigner {
         [spend.note.amount, spend.note.owner, BALANCES_STORAGE_SLOT, spend.note.randomness],
         DomainSeparator.NOTE_HASH,
       );
-      const siloedNoteHash = await siloNoteHash(operation.tokenAddress, innerNoteHash);
+      const siloedNoteHash = await siloNoteHash(this.tokenAddress, innerNoteHash);
 
       // Check that the effects passed in existed
       await checkAncestorEffectsHints(spend.creationEffects, spend.hints, anchorBlockHash);
@@ -530,7 +529,7 @@ export class TeeSigner {
       await this.validateSignature(
         spend.signature,
         TeeSigDomain.NOTE,
-        operation.tokenAddress,
+        this.tokenAddress,
         siloedNoteHash,
         creationMetadata,
         creationRequiredNullifiers,
@@ -538,9 +537,9 @@ export class TeeSigner {
         creationExitMessageHashes,
       );
 
-      const appNsk = await computeAppNullifierHidingKey(spend.masterNullifierSecretKey, operation.tokenAddress);
+      const appNsk = await computeAppNullifierHidingKey(spend.masterNullifierSecretKey, this.tokenAddress);
       const innerNullifier = await poseidon2HashWithSeparator([uniqueNoteHash, appNsk], DomainSeparator.NOTE_NULLIFIER);
-      const nullifier = await siloNullifier(operation.tokenAddress, innerNullifier);
+      const nullifier = await siloNullifier(this.tokenAddress, innerNullifier);
 
       // Guard against spending the same note twice within this operation.
       if (localNullifierSet.has(nullifier.toBigInt())) {
@@ -593,7 +592,7 @@ export class TeeSigner {
           [createdNote.amount, createdNote.owner, BALANCES_STORAGE_SLOT, createdNote.randomness],
           DomainSeparator.NOTE_HASH,
         );
-        return siloNoteHash(operation.tokenAddress, innerNoteHash);
+        return siloNoteHash(this.tokenAddress, innerNoteHash);
       }),
     );
 
@@ -634,7 +633,7 @@ export class TeeSigner {
       new TeeSignedData(
         domain,
         commitments.anchorBlockHash,
-        operation.tokenAddress,
+        this.tokenAddress,
         signedCommitment,
         commitments.requiredNullifiers,
         commitments.teeNotes,
@@ -736,7 +735,7 @@ export class TeeSigner {
     const preimage = new TeeSignedData(
       TeeSigDomain.EXIT,
       commitments.anchorBlockHash,
-      input.operation.tokenAddress,
+      this.tokenAddress,
       exitMessageHash,
       input.initiation.requiredNullifiers,
       input.initiation.teeNotes,
