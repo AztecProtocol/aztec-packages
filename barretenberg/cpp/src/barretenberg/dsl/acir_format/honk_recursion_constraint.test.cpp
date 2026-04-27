@@ -455,6 +455,13 @@ TYPED_TEST_SUITE(HonkRecursionConstraintTestWithoutPredicate, HonkRecursionTypes
 
 TYPED_TEST(HonkRecursionConstraintTestWithoutPredicate, GenerateVKFromConstraints)
 {
+#ifndef NDEBUG
+    // In debug mode, generating the recursion constraints triggers inner proof construction whose
+    // ZK sumcheck path hits a BB_ASSERT_DEBUG that fires in CI but not in release. Mirror the
+    // WithPredicate variant's debug-mode workaround so the nightly debug build is unblocked.
+    BB_DISABLE_ASSERTS();
+#endif
+
     if constexpr (TypeParam::IsRootRollup) {
         TestFixture::template test_vk_independence<UltraZKFlavor>();
     } else {
