@@ -489,6 +489,10 @@ template <class Fq, class Fr, class T> constexpr void element<Fq, Fr, T>::self_s
         x.data[1] = Fq::modulus.data[1];
         x.data[2] = Fq::modulus.data[2];
         x.data[3] = Fq::modulus.data[3];
+
+        // Clear y and z so the infinity representation is canonical regardless of prior state
+        y = Fq::zero();
+        z = Fq::zero();
     } else {
         (*this).x = Fq::zero();
         (*this).y = Fq::zero();
