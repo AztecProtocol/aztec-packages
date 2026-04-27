@@ -76,17 +76,6 @@ Not sure which network to use? Jump to our [Network Selection Guide](#network-se
 | **Slashing Quorum** | 65% | 33% |
 | **Slashing Round Size** | 128 epochs | 64 epochs |
 
-<<<<<<< HEAD
-## Use Case Suitability
-
-| Use Case | Ignition (Mainnet) | Testnet |
-|----------|-------------------|---------|
-| **App Development** | ❌ | ✅ |
-| **Sequencer Testing** | ✅ | ✅ |
-| **Governance Testing** | ✅ | ✅ |
-
-=======
->>>>>>> 0e9889e2b3 (docs: update testnet to v4.2.0 and trim AI tooling guide)
 ---
 
 ## Network Selection Guide
