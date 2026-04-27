@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -66,6 +67,7 @@ TEST(EmitNullifierConstrainingTest, Positive)
         { C::execution_num_nullifiers_emitted, prev_num_nullifiers_emitted + 1 },
         { C::execution_nullifier_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
         { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+        { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
     } });
     check_relation<emit_nullifier>(trace);
 }
@@ -131,7 +133,8 @@ TEST(EmitNullifierConstrainingTest, Interactions)
     StrictMock<MockFieldGreaterThan> field_gt;
 
     EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_event_emitter);
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, indexed_tree_check_event_emitter);
 
     FF nullifier = 42;
     auto siloing_params = IndexedTreeSiloingParameters{
@@ -204,6 +207,7 @@ TEST(EmitNullifierConstrainingTest, Interactions)
         { C::execution_contract_address, siloing_params.address },
         { C::execution_nullifier_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
         { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+        { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
     } });
 
     IndexedTreeCheckTraceBuilder indexed_tree_check_trace_builder;
@@ -221,7 +225,8 @@ TEST(EmitNullifierConstrainingTest, InteractionsCollision)
     StrictMock<MockFieldGreaterThan> field_gt;
 
     EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_event_emitter);
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, indexed_tree_check_event_emitter);
 
     FF nullifier = 42;
     auto siloing_params = IndexedTreeSiloingParameters{
@@ -281,6 +286,7 @@ TEST(EmitNullifierConstrainingTest, InteractionsCollision)
         { C::execution_contract_address, siloing_params.address },
         { C::execution_nullifier_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
         { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+        { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
     } });
 
     IndexedTreeCheckTraceBuilder indexed_tree_check_trace_builder;

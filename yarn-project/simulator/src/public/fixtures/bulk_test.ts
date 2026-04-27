@@ -30,9 +30,7 @@ export async function bulkTest(
   // for it to use as "expected" values when testing contract instance retrieval.
   const expectContractInstance = avmTestContract;
   const argsField = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
-  const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8].map(x => new Fr(x));
-  argsU8.push(new Fr(2n ** 128n + 9n)); // Trigger truncation from large (> 128 bits) value (canonical decomposition event)
-  argsU8.push(new Fr(2n ** 125n + 10n)); // Trigger truncation from small (< 128 bits) value (no canonical decomposition event)
+  const argsU8 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(x => new Fr(x));
   const args = [
     argsField,
     argsU8,
@@ -62,7 +60,7 @@ export async function bulkTest(
       {
         address: avmTestContract.address,
         fnName: 'assert_calldata_copy',
-        args: [argsField.slice(3), /* with_selector: */ true],
+        args: [argsField.slice(0, 3), /* with_selector: */ true],
       },
       {
         address: avmTestContract.address,

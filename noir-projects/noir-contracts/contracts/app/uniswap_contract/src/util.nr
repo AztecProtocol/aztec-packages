@@ -1,4 +1,3 @@
-// docs:start:uniswap_public_content_hash
 use aztec::protocol::{address::{AztecAddress, EthAddress}, hash::sha256_to_field, traits::ToField};
 
 // This method computes the L2 to L1 message content hash for the public
@@ -54,9 +53,7 @@ pub fn compute_swap_public_content_hash(
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }
-// docs:end:uniswap_public_content_hash
 
-// docs:start:compute_swap_private_content_hash
 // This method computes the L2 to L1 message content hash for the private
 // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected
 pub fn compute_swap_private_content_hash(
@@ -106,4 +103,3 @@ pub fn compute_swap_private_content_hash(
     let content_hash = sha256_to_field(hash_bytes);
     content_hash
 }
-// docs:end:compute_swap_private_content_hash

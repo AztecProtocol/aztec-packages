@@ -1,9 +1,5 @@
 //! Standard PXE oracles.
 
-// docs:start:oracles-module
-/// Oracles module
-// docs:end:oracles-module
-
 pub mod avm;
 pub mod aes128_decrypt;
 pub mod auth_witness;

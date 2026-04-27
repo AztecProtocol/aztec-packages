@@ -291,8 +291,11 @@ while IFS= read -r to_path; do
     continue
   fi
 
+  # Strip fragment identifiers (#anchor) before validation
+  check_path="${to_path%%#*}"
+
   # Validate the path
-  if check_docs_path "$to_path"; then
+  if check_docs_path "$check_path"; then
     VALIDATED_COUNT=$((VALIDATED_COUNT + 1))
   else
     INVALID_PATHS="${INVALID_PATHS}  - ${to_path}\n"

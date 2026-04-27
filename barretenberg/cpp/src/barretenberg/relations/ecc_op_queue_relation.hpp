@@ -25,8 +25,9 @@ namespace bb {
  * @note In other words, the `ecc_op_wire`s are derived witnesses, which the prover "fills in". We wish that these
  * values are constrained to be `w_i_shift` when `i` is in the `ecc_op` range and 0 else. This tacitly assumes that
  * the ecc ops "come first" in the execution trace.
- * @note This relation utilizes the shifted wires so that the ecc op wires can store the data begining at index 0,
- * unlike the wires which contain an initial zero row to facilitate the left-shift-by-1 needed by other relations.
+ * @note This relation utilizes the shifted wires so that the ecc op wires can store the data beginning at index 0
+ * (non-ZK Mega) or at index TRACE_OFFSET (MegaZK), unlike the wires which contain an initial zero row to facilitate
+ * the left-shift-by-1 needed by other relations.
  */
 template <typename FF_> class EccOpQueueRelationImpl {
   public:

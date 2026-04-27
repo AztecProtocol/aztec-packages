@@ -33,5 +33,6 @@ environments/*
 !environments/kind-provers.env
 !environments/alpha-net.env
 !environments/mbps-pipeline.env
+!environments/bench-10tps.env
 *.tfvars
 !terraform/deploy-external-secrets/*.tfvars

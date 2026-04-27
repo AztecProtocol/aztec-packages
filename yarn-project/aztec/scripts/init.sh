@@ -16,11 +16,11 @@ Options:
   -h, --help     Print help
 
 This command creates a new Aztec Noir project in the current directory with
-a workspace containing a contract crate and a test crate, and automatically
-adds the Aztec.nr dependency to both.
+a workspace containing a Counter contract example with tests. The Counter
+demonstrates private state, private functions, and utility reads.
 
-If a workspace already exists in the current directory, use
-'aztec new <name>' instead to add another contract.
+Use 'aztec new <name>' to create a blank contract project, or to add another
+contract to an existing workspace.
 EOF
       exit 0
       ;;
@@ -36,4 +36,4 @@ done
 package_name="$(basename $(pwd))"
 
 echo "Initializing Aztec contract project..."
-$script_path/setup_workspace.sh "$package_name"
+$script_path/setup_workspace.sh "$package_name" counter

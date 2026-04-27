@@ -8,6 +8,7 @@ pub type UltraHonkVerificationKey = [Field; ULTRA_VK_LENGTH_IN_FIELDS];
 
 // Constants for Rollup-UltraHonk recursive verifier inputs (N.B. this is equivalent to UH plus IPA claim and proof)
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 4; // identifier for rollup-UltraHonk verfier
+pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 5; // identifier for root-rollup-UltraHonk verfier (closes the IPA accumulator)
 pub global IPA_CLAIM_SIZE: u32 = 6;
 pub global IPA_PROOF_LENGTH: u32 = 64;
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
@@ -59,11 +60,36 @@ pub fn verify_rolluphonk_proof<let N: u32>(
     );
 }
 
+// Verifies a non-zero-knowledge Rollup UltraHonk proof and closes the IPA accumulator in-circuit.
+//
+// Use this at the root of a rollup aggregation tree. The inner proof has the same RollupHonk shape
+// as `verify_rolluphonk_proof`, but instead of propagating an accumulated IPA claim out as a public
+// input, this variant performs a full native IPA verification inside the circuit. The outer circuit
+// should therefore be proved as a standard (non-rollup) UltraHonk circuit, producing a proof
+// suitable for verification by `verify_honk_proof` / `verify_honk_proof_non_zk`.
+//
+// When two RollupHonk inputs are verified this way in one circuit, their two IPA claims are first
+// accumulated into one, then the accumulated claim is fully verified.
+pub fn verify_root_rolluphonk_proof<let N: u32>(
+    verification_key: RollupHonkVerificationKey,
+    proof: RollupHonkProof,
+    public_inputs: [Field; N],
+    key_hash: Field, // Hash of the verification key
+) {
+    std::verify_proof_with_type(
+        verification_key,
+        proof,
+        public_inputs,
+        key_hash,
+        PROOF_TYPE_ROOT_ROLLUP_HONK,
+    );
+}
+
 // Verifies a zero-knowledge UltraHonk proof.
 //
 // This verifier is for UltraHonk proofs constructed with zero-knowledge, which hide the witness
 // values from the verifier.
-// Note: We intentionally choose the generic name "verify_honk_proof" for this function, as we 
+// Note: We intentionally choose the generic name "verify_honk_proof" for this function, as we
 // want ZK to be the default unless the user explicitly opts out.
 pub fn verify_honk_proof<let N: u32>(
     verification_key: UltraHonkVerificationKey,

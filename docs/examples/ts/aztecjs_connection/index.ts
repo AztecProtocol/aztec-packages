@@ -81,13 +81,17 @@ await deployMethod.send({
 });
 // docs:end:deploy_account_sponsored_fpc
 
-// Create a separate account to deploy with Fee Juice bridged from L1
+// docs:start:create_fee_juice_account
+// `feeJuiceAccount` is just another Schnorr account — the same kind as
+// `newAccount` above. It gets its own name here so both deploy paths
+// can coexist in one example; in your own code, pick whichever name fits.
 const feeJuiceSecret = Fr.random();
 const feeJuiceSalt = Fr.random();
 const feeJuiceAccount = await wallet.createSchnorrAccount(
   feeJuiceSecret,
   feeJuiceSalt,
 );
+// docs:end:create_fee_juice_account
 
 // docs:start:bridge_fee_juice_setup
 import { createExtendedL1Client } from "@aztec/ethereum/client";
@@ -165,6 +169,11 @@ await deployMethodBridged.send({
 // docs:end:bridge_fee_juice_claim
 
 // docs:start:verify_account_deployment
-const metadata = await wallet.getContractMetadata(feeJuiceAccount.address);
+// `newAccount` refers to whichever account you just deployed —
+// either the Sponsored FPC account or `feeJuiceAccount` from the Fee Juice path.
+const metadata = await wallet.getContractMetadata(newAccount.address);
 console.log("Account deployed:", metadata.initializationStatus);
 // docs:end:verify_account_deployment
+
+const feeJuiceMetadata = await wallet.getContractMetadata(feeJuiceAccount.address);
+console.log("Fee Juice account deployed:", feeJuiceMetadata.initializationStatus);

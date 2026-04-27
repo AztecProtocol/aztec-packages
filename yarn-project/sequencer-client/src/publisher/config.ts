@@ -120,7 +120,8 @@ export const proverTxSenderConfigMappings: ConfigMappingsType<Omit<ProverTxSende
   proverPublisherPrivateKeys: {
     env: `PROVER_PUBLISHER_PRIVATE_KEYS`,
     description: 'The private keys to be used by the prover publisher.',
-    parseEnv: (val: string) => val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}`)),
+    parseEnv: (val: string) =>
+      val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}` as `0x${string}`)),
     defaultValue: [],
     fallback: [`PROVER_PUBLISHER_PRIVATE_KEY`],
   },
@@ -137,7 +138,8 @@ export const sequencerTxSenderConfigMappings: ConfigMappingsType<Omit<SequencerT
   sequencerPublisherPrivateKeys: {
     env: `SEQ_PUBLISHER_PRIVATE_KEYS`,
     description: 'The private keys to be used by the sequencer publisher.',
-    parseEnv: (val: string) => val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}`)),
+    parseEnv: (val: string) =>
+      val.split(',').map(key => new SecretValue(`0x${key.replace('0x', '')}` as `0x${string}`)),
     defaultValue: [],
     fallback: [`SEQ_PUBLISHER_PRIVATE_KEY`],
   },
@@ -166,7 +168,7 @@ export const sequencerPublisherConfigMappings: ConfigMappingsType<SequencerPubli
   sequencerPublisherForwarderAddress: {
     env: `SEQ_PUBLISHER_FORWARDER_ADDRESS`,
     description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
-    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
+    parseEnv: (val: string) => EthAddress.fromString(val),
   },
   l1TxFailedStore: {
     env: 'L1_TX_FAILED_STORE',
@@ -192,7 +194,7 @@ export const proverPublisherConfigMappings: ConfigMappingsType<ProverPublisherCo
   proverPublisherForwarderAddress: {
     env: `PROVER_PUBLISHER_FORWARDER_ADDRESS`,
     description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
-    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
+    parseEnv: (val: string) => EthAddress.fromString(val),
   },
   ...publisherFundingConfigMappings,
 };

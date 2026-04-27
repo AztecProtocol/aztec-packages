@@ -1,6 +1,7 @@
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { NoCommitteeError, RollupContract } from '@aztec/ethereum/contracts';
+import { getFinalizedL1Block } from '@aztec/ethereum/queries';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -388,7 +389,7 @@ export class EpochCache implements EpochCacheInterface {
   private async refreshStaleEntry(stale: CachedEpochEntry, epoch: EpochNumber, ts: bigint): Promise<CachedEpochEntry> {
     const [blockAtOriginal, l1FinalizedBlock, latestBlock] = await Promise.all([
       this.rollup.client.getBlock({ blockNumber: stale.lastQueryL1BlockNumber, includeTransactions: false }),
-      this.rollup.client.getBlock({ blockTag: 'finalized', includeTransactions: false }),
+      getFinalizedL1Block(this.rollup.client),
       this.rollup.client.getBlock({ includeTransactions: false }),
     ]);
 
@@ -396,7 +397,9 @@ export class EpochCache implements EpochCacheInterface {
       // No reorg: the data is still valid. Check if we can now mark it as finalized.
       const samplingTs = this.getSamplingTimestamp(epoch);
       const finalized =
-        !!(stale.data.committee && stale.data.committee.length > 0) && samplingTs <= l1FinalizedBlock.timestamp;
+        !!(stale.data.committee && stale.data.committee.length > 0) &&
+        l1FinalizedBlock !== undefined &&
+        samplingTs <= l1FinalizedBlock.timestamp;
 
       const refreshed: CachedEpochEntry = {
         ...stale,
@@ -429,13 +432,13 @@ export class EpochCache implements EpochCacheInterface {
   private async fetchAndCache(
     epoch: EpochNumber,
     ts: bigint,
-    prefetched?: { latestBlock: L1BlockInfo; finalizedBlock: { timestamp: bigint } },
+    prefetched?: { latestBlock: L1BlockInfo; finalizedBlock: { timestamp: bigint } | undefined },
   ): Promise<CachedEpochEntry> {
     const [committee, seedBuffer, latestBlock, finalizedBlock, isEscapeHatchOpen] = await Promise.all([
       this.rollup.getCommitteeAt(ts),
       this.rollup.getSampleSeedAt(ts),
       prefetched?.latestBlock ?? this.rollup.client.getBlock({ includeTransactions: false }),
-      prefetched?.finalizedBlock ?? this.rollup.client.getBlock({ blockTag: 'finalized', includeTransactions: false }),
+      prefetched !== undefined ? prefetched.finalizedBlock : getFinalizedL1Block(this.rollup.client),
       this.rollup.isEscapeHatchOpen(epoch),
     ]);
 
@@ -450,8 +453,9 @@ export class EpochCache implements EpochCacheInterface {
     }
 
     // Empty committees are never marked finalized so they always get re-queried after TTL.
+    // If L1 has no finalized block yet (devnet startup), entries stay unfinalized.
     const hasCommittee = !!(committee && committee.length > 0);
-    const finalized = hasCommittee && samplingTs <= finalizedBlock.timestamp;
+    const finalized = hasCommittee && finalizedBlock !== undefined && samplingTs <= finalizedBlock.timestamp;
     const data: EpochCommitteeInfo = { committee, seed: seedBuffer.toBigInt(), epoch, isEscapeHatchOpen };
     const entry: CachedEpochEntry = {
       data,

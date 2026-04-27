@@ -174,6 +174,8 @@ export class PublicProcessor implements Traceable {
     let totalPublicGas = new Gas(0, 0);
     let totalBlockGas = new Gas(0, 0);
     let totalBlobFields = 0;
+    let silentlySkippedCount = 0;
+    let totalSilentlySkippedDurationMs = 0;
 
     for await (const tx of txs) {
       // Only process up to the max tx limit
@@ -244,7 +246,9 @@ export class PublicProcessor implements Traceable {
       this.contractsDB.createCheckpoint();
 
       try {
-        const [processedTx, returnValues, txDebugLogs] = await this.processTx(tx, deadline);
+        const [txProcessingTimeMs, [processedTx, returnValues, txDebugLogs]] = await elapsed(() =>
+          this.processTx(tx, deadline),
+        );
 
         // Inject a fake processing failure after N txs if requested
         const fakeThrowAfter = this.opts.fakeThrowAfterProcessingTxCount;
@@ -265,8 +269,12 @@ export class PublicProcessor implements Traceable {
               txBlobFields,
               totalBlobFields,
               maxBlobFields,
+              txProcessingTimeMs,
             },
           );
+          silentlySkippedCount += 1;
+          totalSilentlySkippedDurationMs += txProcessingTimeMs;
+          this.metrics.recordSilentlySkipped(txProcessingTimeMs);
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
           this.contractsDB.revertCheckpoint();
@@ -364,13 +372,24 @@ export class PublicProcessor implements Traceable {
     const rate = duration > 0 ? totalPublicGas.l2Gas / duration : 0;
     this.metrics.recordAllTxs(totalPublicGas, rate);
 
-    this.log.info(`Processed ${result.length} successful txs and ${failed.length} failed txs in ${duration}s`, {
-      duration,
-      rate,
-      totalPublicGas,
-      totalBlockGas,
-      totalSizeInBytes,
-    });
+    const silentlySkippedDurationMs = Math.round(totalSilentlySkippedDurationMs);
+    this.log.info(
+      `Processed ${result.length} successful txs and ${failed.length} failed txs ` +
+        `(${silentlySkippedCount} silently skipped, ${silentlySkippedDurationMs}ms wasted) ` +
+        `in ${duration}s`,
+      {
+        blockNumber: this.globalVariables.blockNumber,
+        successfulCount: result.length,
+        failedCount: failed.length,
+        duration,
+        rate,
+        totalPublicGas,
+        totalBlockGas,
+        totalSizeInBytes,
+        silentlySkippedCount,
+        silentlySkippedDurationMs,
+      },
+    );
 
     return [result, failed, usedTxs, returns, debugLogs];
   }

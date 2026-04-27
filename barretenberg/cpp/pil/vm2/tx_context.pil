@@ -376,9 +376,9 @@ namespace tx;
     (1 - SEL_CAN_EMIT_L2_L1_MSG) * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY]
-    (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;
+    (1 - sel_process_call_request) * (prev_retrieved_bytecodes_tree_root - next_retrieved_bytecodes_tree_root) = 0;
     #[RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY]
-    (1 - should_process_call_request) * (prev_retrieved_bytecodes_tree_size - next_retrieved_bytecodes_tree_size) = 0;
+    (1 - sel_process_call_request) * (prev_retrieved_bytecodes_tree_size - next_retrieved_bytecodes_tree_size) = 0;
 
     // Padded rows are not allowed to change the state
     #[NOTE_HASH_ROOT_PADDED_IMMUTABILITY]
@@ -412,9 +412,9 @@ namespace tx;
     is_padded * (prev_num_l2_to_l1_messages - next_num_l2_to_l1_messages) = 0;
 
     #[L2_GAS_USED_IMMUTABILITY]
-    (1 - should_process_call_request) * (prev_l2_gas_used - next_l2_gas_used) = 0;
+    (1 - sel_process_call_request) * (prev_l2_gas_used - next_l2_gas_used) = 0;
     #[DA_GAS_USED_IMMUTABILITY]
-    (1 - should_process_call_request) * (prev_da_gas_used - next_da_gas_used) = 0;
+    (1 - sel_process_call_request) * (prev_da_gas_used - next_da_gas_used) = 0;
 
 
     // ===== WRITE END COUNTERS TO PI =====
@@ -489,4 +489,4 @@ namespace tx;
     // We normally propagate the next context id, unless a call is issued, where the execution trace
     // controls the next row's next context id.
     #[NEXT_CONTEXT_ID_CONTINUITY]
-    NOT_LAST_ROW * (1 - should_process_call_request) * (next_context_id' - next_context_id) = 0;
+    NOT_LAST_ROW * (1 - sel_process_call_request) * (next_context_id' - next_context_id) = 0;

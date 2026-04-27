@@ -1,5 +1,4 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -10,7 +9,7 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { WASMSimulator } from '@aztec/simulator/client';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
+import { BlockHash, GENESIS_BLOCK_HEADER_HASH, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { SiloedTag } from '@aztec/stdlib/logs';

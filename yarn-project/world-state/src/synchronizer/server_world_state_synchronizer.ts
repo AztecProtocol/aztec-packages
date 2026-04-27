@@ -1,4 +1,4 @@
-import { GENESIS_BLOCK_HEADER_HASH, INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -6,6 +6,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   type BlockHash,
+  GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2Block,
   type L2BlockId,

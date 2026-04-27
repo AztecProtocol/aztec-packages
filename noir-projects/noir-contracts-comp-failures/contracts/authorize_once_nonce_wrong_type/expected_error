@@ -1,0 +1,1 @@
+Argument authwit_nonce in function foo must be of type Field, but is of type u64

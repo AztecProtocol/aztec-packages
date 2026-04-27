@@ -1,5 +1,5 @@
-import { SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import { CheckpointAttestationHash, SlotNumber } from '@aztec/foundation/branded-types';
+import type { BaseBuffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
@@ -16,11 +16,7 @@ import { Gossipable } from './gossipable.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
 import { TopicType } from './topic_type.js';
 
-export class CheckpointAttestationHash extends Buffer32 {
-  constructor(hash: Buffer) {
-    super(hash);
-  }
-}
+export type { CheckpointAttestationHash } from '@aztec/foundation/branded-types';
 
 /**
  * CheckpointAttestation
@@ -57,8 +53,8 @@ export class CheckpointAttestation extends Gossipable {
       .transform(obj => new CheckpointAttestation(obj.payload, obj.signature, obj.proposerSignature));
   }
 
-  override generateP2PMessageIdentifier(): Promise<Buffer32> {
-    return Promise.resolve(new CheckpointAttestationHash(keccak256(this.signature.toBuffer())));
+  override generateP2PMessageIdentifier(): Promise<BaseBuffer32> {
+    return Promise.resolve(CheckpointAttestationHash.fromBuffer(keccak256(this.signature.toBuffer())));
   }
 
   get archive(): Fr {

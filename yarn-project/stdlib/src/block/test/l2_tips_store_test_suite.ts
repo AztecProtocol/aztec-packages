@@ -1,4 +1,3 @@
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -13,6 +12,7 @@ import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/
 
 import { jestExpect as expect } from '@jest/expect';
 
+import { GENESIS_BLOCK_HEADER_HASH } from '../block_hash.js';
 import type { L2TipsStore } from '../l2_block_stream/index.js';
 
 export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {

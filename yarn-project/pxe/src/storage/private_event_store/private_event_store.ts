@@ -234,6 +234,10 @@ export class PrivateEventStore implements StagedStore {
    * IMPORTANT: This method must be called within a transaction to ensure atomicity.
    */
   public async rollback(blockNumber: number, synchedBlockNumber: number): Promise<void> {
+    if (this.#eventsForJob.size > 0) {
+      throw new Error('PXE private event store rollback is not allowed while jobs are running');
+    }
+
     // First pass: collect all event IDs for all blocks, starting reads during iteration to keep tx alive.
     const eventsByBlock: Map<number, { eventId: string; eventReadPromise: Promise<Buffer | undefined> }[]> = new Map();
 
