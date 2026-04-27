@@ -8,6 +8,7 @@
 
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/srs/global_crs.hpp"
@@ -41,6 +42,7 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
         std::conditional_t<Curve::is_stdlib_type, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
     using Proof = std::vector<FF>;
     using Transcript = TranscriptFor_t<Curve>;
+    using ShplonkVerifier = ShplonkVerifier_<Curve>;
 
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     static constexpr size_t MAX_MERGE_SIZE = MaxMergeSize;
@@ -139,16 +141,6 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
     bool check_hash_consistency(const FF& hash,
                                 const std::vector<FF>& calculated_hashes,
                                 const std::vector<FF>& indicator_array) const;
-
-    BatchOpeningClaim<Curve> compute_shplonk_opening_claim(const std::vector<Commitment>& flattened_cols,
-                                                           const TableCommitments& merged_commitments,
-                                                           const Commitment& degree_check_commitment,
-                                                           const Commitment& shplonk_batched_quotient,
-                                                           const FF& shplonk_opening_challenge,
-                                                           const std::vector<FF>& shplonk_batching_challenges,
-                                                           const FF& kappa,
-                                                           const FF& kappa_inv,
-                                                           const std::vector<FF>& evals) const;
 };
 
 // Type aliases for convenience

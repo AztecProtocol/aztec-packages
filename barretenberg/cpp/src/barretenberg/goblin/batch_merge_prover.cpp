@@ -43,103 +43,6 @@ typename BatchMergeProver::Polynomial BatchMergeProver::compute_degree_check_pol
     return reversed_batched_poly;
 }
 
-BatchMergeProver::Polynomial BatchMergeProver::compute_shplonk_batched_quotient(
-    const std::vector<Polynomial>& flattened_columns,
-    const std::array<Polynomial, NUM_WIRES>& merged_table,
-    const std::vector<FF>& shplonk_batching_challenges,
-    const FF& kappa,
-    const FF& kappa_inv,
-    const Polynomial& degree_check_poly,
-    const std::vector<FF>& evals) const
-{
-    // Q such that Q·(X - κ)·(X - κ⁻¹) = (X - κ⁻¹)·(Σᵢⱼ βᵢⱼ(Tᵢⱼ - tᵢⱼ) + Σⱼ βᴹⱼ(Mⱼ - mⱼ)) + (X - κ)·βᴳ(G - g)
-    const size_t M = max_subtables;
-    const size_t merged_table_challenge_offset = (M * NUM_WIRES) + (is_zk ? NUM_WIRES : 0);
-    Polynomial shplonk_batched_quotient(merged_table[0].size());
-
-    for (size_t idx = 0; idx < flattened_columns.size(); ++idx) {
-        const FF& challenge = shplonk_batching_challenges[idx];
-        const FF& eval = evals[idx];
-        shplonk_batched_quotient.add_scaled(flattened_columns[idx], challenge);
-        if (!shplonk_batched_quotient.is_empty()) {
-            shplonk_batched_quotient.at(0) -= challenge * eval;
-        }
-    }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        const size_t offset_idx = merged_table_challenge_offset + idx;
-        const FF& challenge = shplonk_batching_challenges[offset_idx];
-        const FF& eval = evals[offset_idx];
-        shplonk_batched_quotient.add_scaled(merged_table[idx], challenge);
-        if (!shplonk_batched_quotient.is_empty()) {
-            shplonk_batched_quotient.at(0) -= challenge * eval;
-        }
-    }
-
-    // Q /= (X - κ)
-    shplonk_batched_quotient.factor_roots(kappa);
-
-    // Add (G - g)/(X - κ⁻¹)·β^G
-    Polynomial degree_check_poly_copy(degree_check_poly);
-    if (!degree_check_poly_copy.is_empty()) {
-        degree_check_poly_copy.at(0) -= evals.back();
-    }
-    degree_check_poly_copy.factor_roots(kappa_inv);
-    shplonk_batched_quotient.add_scaled(degree_check_poly_copy, shplonk_batching_challenges.back());
-
-    return shplonk_batched_quotient;
-}
-
-BatchMergeProver::OpeningClaim BatchMergeProver::compute_shplonk_opening_claim(
-    Polynomial& shplonk_batched_quotient,
-    const FF& shplonk_opening_challenge,
-    const std::vector<Polynomial>& flattened_columns,
-    const std::array<Polynomial, NUM_WIRES>& merged_table,
-    const std::vector<FF>& shplonk_batching_challenges,
-    const FF& kappa,
-    const FF& kappa_inv,
-    Polynomial& degree_check_poly,
-    const std::vector<FF>& evals) const
-{
-    // Q' (partially evaluated batched quotient) =
-    //   -Q·(z - κ) + Σᵢⱼ βᵢⱼ(Tᵢⱼ - tᵢⱼ) + Σⱼ βᴹⱼ(Mⱼ - mⱼ) + (z - κ)/(z - κ⁻¹)·βᴳ(G - g)
-    const size_t M = max_subtables;
-    const size_t merged_table_challenge_offset = (M * NUM_WIRES) + (is_zk ? NUM_WIRES : 0);
-    Polynomial shplonk_partially_evaluated(std::move(shplonk_batched_quotient));
-    shplonk_partially_evaluated *= -(shplonk_opening_challenge - kappa);
-
-    for (size_t idx = 0; idx < flattened_columns.size(); ++idx) {
-        const FF& challenge = shplonk_batching_challenges[idx];
-        const FF& eval = evals[idx];
-        shplonk_partially_evaluated.add_scaled(flattened_columns[idx], challenge);
-        if (!shplonk_partially_evaluated.is_empty()) {
-            shplonk_partially_evaluated.at(0) -= challenge * eval;
-        }
-    }
-
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        const size_t offset_idx = merged_table_challenge_offset + idx;
-        const FF& challenge = shplonk_batching_challenges[offset_idx];
-        const FF& eval = evals[offset_idx];
-        shplonk_partially_evaluated.add_scaled(merged_table[idx], challenge);
-        if (!shplonk_partially_evaluated.is_empty()) {
-            shplonk_partially_evaluated.at(0) -= challenge * eval;
-        }
-    }
-
-    // Add (G - g)·(z - κ)/(z - κ⁻¹)·β^G
-    if (!degree_check_poly.is_empty()) {
-        degree_check_poly.at(0) -= evals.back();
-    }
-    shplonk_partially_evaluated.add_scaled(degree_check_poly,
-                                           shplonk_batching_challenges.back() * (shplonk_opening_challenge - kappa) *
-                                               (shplonk_opening_challenge - kappa_inv).invert());
-
-    OpeningClaim shplonk_opening_claim = { .polynomial = std::move(shplonk_partially_evaluated),
-                                           .opening_pair = { shplonk_opening_challenge, FF(0) } };
-
-    return shplonk_opening_claim;
-}
-
 typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
 {
     const size_t M = max_subtables;
@@ -223,7 +126,7 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     // -------------------------------------------------------------------------
     // Step 4: Construct and commit to T (full merged table)
     // -------------------------------------------------------------------------
-    std::array<Polynomial, NUM_WIRES> merged_table(op_queue->construct_ultra_ops_table_columns(0, is_zk));
+    std::array<Polynomial, NUM_WIRES> merged_table(op_queue->construct_ultra_ops_table_columns(is_zk));
     for (size_t col = 0; col < NUM_WIRES; ++col) {
         transcript->send_to_verifier("MERGED_COLUMN_" + std::to_string(col),
                                      pcs_commitment_key.commit(merged_table[col]));
@@ -247,27 +150,13 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     transcript->send_to_verifier("DEGREE_CHECK_POLY", pcs_commitment_key.commit(degree_check_poly));
 
     // -------------------------------------------------------------------------
-    // Step 7: Compute Shplonk batching challenges
-    //   α: for zk columns (one per column = NUM_WIRES)
-    //   β_0..β_{M-1}: for C_i(κ) (one per subtable per column = M * NUM_WIRES)
-    //   β_M: for T(κ)  (one per column = NUM_WIRES)
-    //   β_{M+1}: for G(κ^{-1}) (one)
-    // -------------------------------------------------------------------------
-    const size_t num_shplonk_challenges = ((M + 1) * NUM_WIRES) + 1 + (is_zk ? NUM_WIRES : 0);
-    const FF shplonk_batching_challenge = transcript->template get_challenge<FF>("SHPLONK_BATCHING_CHALLENGE");
-    std::vector<FF> shplonk_challenges = { FF(1), shplonk_batching_challenge };
-    for (size_t idx = 2; idx < num_shplonk_challenges; idx++) {
-        shplonk_challenges.push_back(shplonk_challenges.back() * shplonk_batching_challenge);
-    }
-
-    // -------------------------------------------------------------------------
-    // Step 8: Evaluation challenge κ
+    // Step 7: Evaluation challenge κ
     // -------------------------------------------------------------------------
     const FF kappa = transcript->template get_challenge<FF>("KAPPA");
     const FF kappa_inv = kappa.invert();
 
     // -------------------------------------------------------------------------
-    // Step 9: Compute and send evaluations C_i(κ), T(κ), G(κ^{-1})
+    // Step 8: Compute and send evaluations C_i(κ), T(κ), G(κ^{-1})
     // -------------------------------------------------------------------------
     // C_i_col(κ)
     std::vector<FF> evals;
@@ -289,33 +178,29 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     transcript->send_to_verifier("DEGREE_CHECK_EVAL", evals.back());
 
     // -------------------------------------------------------------------------
-    // Step 10: Construct the Shplonk batched quotient Q
-    //
-    //   Q(X) = [sum_i β_i*(C_i - c_i) + β_T*(T - t)] / (X - κ)
-    //         + [β_G*(G - g)] / (X - κ^{-1})
-    //
-    //   or in zk
-    //
-    //   Q(X) = [α * (C_zk - c_zk) + sum_i β_i*(C_i - c_i) + β_T*(T - t)] / (X - κ)
-    //         + [β_G*(G - g)] / (X - κ^{-1})
+    // Step 9: Shplonk to open
+    //   zk columns
+    //   for C_i(κ)
+    //   T(κ)
+    //   for G(κ^{-1})
     // -------------------------------------------------------------------------
-    Polynomial shplonk_batched_quotient = compute_shplonk_batched_quotient(
-        flattened_cols, merged_table, shplonk_challenges, kappa, kappa_inv, degree_check_poly, evals);
-    transcript->send_to_verifier("SHPLONK_Q", pcs_commitment_key.commit(shplonk_batched_quotient));
+    const size_t num_opening_claims = ((M + 1) * NUM_WIRES) + 1 + (is_zk ? NUM_WIRES : 0);
+    std::vector<OpeningClaim> opening_claims;
+    opening_claims.reserve(num_opening_claims);
+    for (size_t idx = 0; idx < num_flattened_col_evals; ++idx) {
+        if (idx < num_actual_flattened_cols) {
+            opening_claims.push_back({ std::move(flattened_cols[idx]), { kappa, evals[idx] } });
+        } else {
+            opening_claims.push_back({ Polynomial(), { kappa, FF(0) } });
+        }
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        opening_claims.push_back(
+            { std::move(merged_table[idx]), { kappa, evals[(M * NUM_WIRES) + (is_zk ? NUM_WIRES : 0) + idx] } });
+    }
+    opening_claims.push_back({ std::move(degree_check_poly), { kappa_inv, evals.back() } });
 
-    // -------------------------------------------------------------------------
-    // Step 11: Shplonk opening challenge z and KZG opening
-    // -------------------------------------------------------------------------
-    const FF z = transcript->template get_challenge<FF>("SHPLONK_OPENING_CHALLENGE");
-    OpeningClaim shplonk_opening_claim = compute_shplonk_opening_claim(shplonk_batched_quotient,
-                                                                       z,
-                                                                       flattened_cols,
-                                                                       merged_table,
-                                                                       shplonk_challenges,
-                                                                       kappa,
-                                                                       kappa_inv,
-                                                                       degree_check_poly,
-                                                                       evals);
+    auto shplonk_opening_claim = ShplonkProver::prove(pcs_commitment_key, opening_claims, transcript);
 
     PCS::compute_opening_proof(pcs_commitment_key, shplonk_opening_claim, transcript);
 

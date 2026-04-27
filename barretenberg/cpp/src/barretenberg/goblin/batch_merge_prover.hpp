@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
@@ -45,6 +46,7 @@ class BatchMergeProver {
     using PCS = KZG<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using Transcript = NativeTranscript;
+    using ShplonkProver = ShplonkProver_<Curve>;
 
   public:
     using MergeProof = std::vector<FF>;
@@ -91,24 +93,6 @@ class BatchMergeProver {
     static Polynomial compute_degree_check_polynomial(const std::vector<Polynomial>& flattened_columns,
                                                       const std::vector<FF>& degree_check_challenges,
                                                       const size_t max_size);
-
-    Polynomial compute_shplonk_batched_quotient(const std::vector<Polynomial>& flattened_columns,
-                                                const std::array<Polynomial, NUM_WIRES>& merged_table,
-                                                const std::vector<FF>& shplonk_batching_challenges,
-                                                const FF& kappa,
-                                                const FF& kappa_inv,
-                                                const Polynomial& degree_check_poly,
-                                                const std::vector<FF>& evals) const;
-
-    OpeningClaim compute_shplonk_opening_claim(Polynomial& shplonk_batched_quotient,
-                                               const FF& shplonk_opening_challenge,
-                                               const std::vector<Polynomial>& flattened_columns,
-                                               const std::array<Polynomial, NUM_WIRES>& merged_table,
-                                               const std::vector<FF>& shplonk_batching_challenges,
-                                               const FF& kappa,
-                                               const FF& kappa_inv,
-                                               Polynomial& degree_check_poly,
-                                               const std::vector<FF>& evals) const;
 };
 
 } // namespace bb

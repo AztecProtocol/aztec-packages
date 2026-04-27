@@ -60,6 +60,25 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     // Step 2: Receive N and shift sizes from the proof
     // -------------------------------------------------------------------------
     const FF N = transcript->template receive_from_prover<FF>("NUM_SUBTABLES");
+    if constexpr (IsRecursive) {
+        info("N: ", N.get_value());
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 2.a: Enforce 1 <= N <= MAX_MERGE_SIZE
+    // -------------------------------------------------------------------------
+    FF running_product = FF(1);
+    for (size_t idx = 0; idx < MAX_MERGE_SIZE; idx++) {
+        running_product *= (N - FF(idx + 1));
+    }
+
+    bool is_valid_num_subtables = true;
+    if constexpr (IsRecursive) {
+        is_valid_num_subtables = running_product.get_value().is_zero();
+        running_product.assert_equal(FF(0));
+    } else {
+        is_valid_num_subtables = running_product.is_zero();
+    }
 
     std::vector<FF> shift_sizes;
     shift_sizes.reserve((MAX_MERGE_SIZE + (is_zk ? 1 : 0)));
@@ -102,18 +121,7 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     Commitment degree_check_commitment = transcript->template receive_from_prover<Commitment>("DEGREE_CHECK_POLY");
 
     // -------------------------------------------------------------------------
-    // Step 6: Compute Shplonk batching challenges
-    // -------------------------------------------------------------------------
-    const size_t num_shplonk_challenges = ((MAX_MERGE_SIZE + 1) * NUM_WIRES) + 1 + (is_zk ? NUM_WIRES : 0);
-    const FF shplonk_batching_challenge = transcript->template get_challenge<FF>("SHPLONK_BATCHING_CHALLENGE");
-    std::vector<FF> shplonk_challenges = { FF(1), shplonk_batching_challenge };
-    shplonk_challenges.reserve(num_shplonk_challenges);
-    for (size_t idx = 2; idx < num_shplonk_challenges; idx++) {
-        shplonk_challenges.push_back(shplonk_challenges.back() * shplonk_batching_challenge);
-    }
-
-    // -------------------------------------------------------------------------
-    // Step 7: Compute evaluation challenge κ, powers of kappa and their inverses
+    // Step 6: Compute evaluation challenge κ, powers of kappa and their inverses
     // -------------------------------------------------------------------------
     const FF kappa = transcript->template get_challenge<FF>("KAPPA");
     const FF kappa_inv = kappa.invert();
@@ -142,7 +150,7 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     }
 
     // -------------------------------------------------------------------------
-    // Step 8: Receive evaluations
+    // Step 7: Receive evaluations
     // -------------------------------------------------------------------------
     // C_i_col(κ)
     std::vector<FF> evals;
@@ -162,48 +170,50 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     // G_col(κ^{-1})
     evals.push_back(transcript->template receive_from_prover<FF>("DEGREE_CHECK_EVAL"));
 
-    // Set origin tags for recursive circuit (evals are PCS-bound by kappa)
-    if constexpr (IsRecursive) {
-        for (auto& e : evals) {
-            e.set_origin_tag(kappa.get_origin_tag());
-        }
-        evals.back().set_origin_tag(kappa_inv.get_origin_tag());
-    }
-
     // -------------------------------------------------------------------------
     // Step 9: Verify concatenation identity, degree identity, and hash consistency
     // -------------------------------------------------------------------------
+
+    if constexpr (IsRecursive) {
+        // To prevent an OriginTag false positive, we re-tag the powers of kappa with the round
+        // provenance of evals
+        for (FF& kappa_pow : powers_of_kappa) {
+            kappa_pow.set_origin_tag(evals[0].get_origin_tag());
+        }
+        for (FF& kappa_pow : powers_of_kappa_inv) {
+            kappa_pow.set_origin_tag(evals[0].get_origin_tag());
+        }
+    }
+
     const bool concatenation_verified = check_concatenation_identity(evals, powers_of_kappa);
     const bool degree_check_verified =
         check_degree_identity(evals, powers_of_kappa_inv, kappa, degree_check_challenges);
     const bool hash_verified = check_hash_consistency(hash, calculated_hashes, indicator_array);
 
     // -------------------------------------------------------------------------
-    // Build Shplonk batch opening claim and reduce to KZG pairing check
-    //
-    //   Claim: { Q', (z, 0) }  where
-    //     Q'(X) = -Q*(z-κ)
-    //             + sum_{col} sum_i β_{i*NC+col} * ([C_i_col] - c_i_col)
-    //             + sum_{col} β_{N*NC+col} * ([T_col] - t_col)
-    //             + (z-κ)/(z-κ^{-1}) * sum_{col} β_{(N+1)*NC+col} * ([G_col] - g_col)
-    //
-    // Stored as: commitments = [Q, C_0_0, ..., C_{N-1}_{NC-1}, T_0, ..., T_{NC-1},
-    //                           G_0, ..., G_{NC-1}, ONE]
-    //            scalars    = [-(z-κ), β_{0*NC+0}, ..., β_{N*NC+NC-1} (scaled by (z-κ)/(z-κ^{-1}))
-    //                          for G, -constant_sum for ONE]
+    // Run Shplonk and reduce to KZG pairing check
     // -------------------------------------------------------------------------
-    const Commitment shplonk_batched_quotient = transcript->template receive_from_prover<Commitment>("SHPLONK_Q");
-    const FF z = transcript->template get_challenge<FF>("SHPLONK_OPENING_CHALLENGE");
+    const size_t num_opening_claims = ((MAX_MERGE_SIZE + 1) * NUM_WIRES) + 1 + (is_zk ? NUM_WIRES : 0);
+    std::vector<OpeningClaim<Curve>> opening_claims;
+    opening_claims.reserve(num_opening_claims);
+    for (size_t idx = 0; idx < num_evals_from_cols; ++idx) {
+        opening_claims.push_back(OpeningClaim<Curve>{ { kappa, evals[idx] }, flattened_cols[idx] });
+    }
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+        opening_claims.push_back(
+            OpeningClaim<Curve>{ { kappa, evals[num_evals_from_cols + idx] }, merged_commitments[idx] });
+    }
+    opening_claims.push_back(OpeningClaim<Curve>{ { kappa_inv, evals.back() }, degree_check_commitment });
 
-    BatchOpeningClaim<Curve> batch_claim = compute_shplonk_opening_claim(flattened_cols,
-                                                                         merged_commitments,
-                                                                         degree_check_commitment,
-                                                                         shplonk_batched_quotient,
-                                                                         z,
-                                                                         shplonk_challenges,
-                                                                         kappa,
-                                                                         kappa_inv,
-                                                                         evals);
+    ShplonkVerifier shplonk_verifier = ShplonkVerifier::reduce_verification_no_finalize(opening_claims, transcript);
+
+    Commitment g1_identity;
+    if constexpr (IsRecursive) {
+        g1_identity = Commitment::one(kappa.get_context());
+    } else {
+        g1_identity = Commitment::one();
+    }
+    BatchOpeningClaim<Curve> batch_claim = shplonk_verifier.export_batch_opening_claim(g1_identity);
 
     BB_ASSERT(batch_claim.commitments.size() == get_merge_batched_claim_size());
     BB_ASSERT(batch_claim.scalars.size() == get_merge_batched_claim_size());
@@ -213,8 +223,11 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     vinfo("BatchMergeVerifier: concatenation check passed: ", concatenation_verified ? "true" : "false");
     vinfo("BatchMergeVerifier: degree check passed: ", degree_check_verified ? "true" : "false");
     vinfo("BatchMergeVerifier: hash check passed: ", hash_verified ? "true" : "false");
+    vinfo("BatchMergeVerifier: is N in [1, MAX_MERGE_SIZE]: ", is_valid_num_subtables ? "true" : "false");
 
-    return { pairing_points, merged_commitments, degree_check_verified && concatenation_verified && hash_verified };
+    return { pairing_points,
+             merged_commitments,
+             degree_check_verified && concatenation_verified && hash_verified && is_valid_num_subtables };
 }
 
 template <typename Curve, size_t MaxMergeSize>
@@ -226,13 +239,8 @@ std::vector<typename BatchMergeVerifier_<Curve, MaxMergeSize>::FF> BatchMergeVer
     if constexpr (IsRecursive) {
         BB_ASSERT_GT(N.get_value(), 0U);
 
-        // Range constraint N
-        N.create_range_constraint(LOG_MAX_MERGE_SIZE + 1,
-                                  "BatchMergeVerifier: N must be fit in LOG_MAX_MERGE_SIZE + 1 bits.");
-
         // Create the array
-        // Note that even if N > MAX_MERGE_SIZE (which is not the case in the honest scenario) the fact that the loop
-        // runs up to MAX_MERGE_SIZE means that the ranged less than could be rewritten as idx < min(N, MAX_MERGE_SIZE)
+        // Note that N is automatically range constrainted because we assert that 1 <= N <= MAX_MERGE_SIZE
         for (size_t idx = 0; idx < MAX_MERGE_SIZE; idx++) {
             const FF idx_wit = FF(idx);
             indicator_array.push_back(idx_wit.template ranged_less_than<LOG_MAX_MERGE_SIZE + 1>(N));
@@ -383,61 +391,6 @@ bool BatchMergeVerifier_<Curve, MaxMergeSize>::check_hash_consistency(const FF& 
     }
 
     return verified;
-}
-
-template <typename Curve, size_t MaxMergeSize>
-BatchOpeningClaim<Curve> BatchMergeVerifier_<Curve, MaxMergeSize>::compute_shplonk_opening_claim(
-    const std::vector<Commitment>& flattened_cols,
-    const TableCommitments& merged_commitments,
-    const Commitment& degree_check_commitment,
-    const Commitment& shplonk_batched_quotient,
-    const FF& shplonk_opening_challenge,
-    const std::vector<FF>& shplonk_batching_challenges,
-    const FF& kappa,
-    const FF& kappa_inv,
-    const std::vector<FF>& evals) const
-{
-    // Claim {Q', (z, 0)} where Q' = -Q·(z - κ) + Σ_group commitments·β_group - Σ evals·β_group·correction
-    //                              + (z - κ)/(z - κ⁻¹)·β_G (G - g)
-    BatchOpeningClaim<Curve> batch_opening_claim;
-
-    // Commitments: [Q], table_commitments (T_i's, M, G in canonical order), [1]
-    batch_opening_claim.commitments = { std::move(shplonk_batched_quotient) };
-    for (auto& commitment : flattened_cols) {
-        batch_opening_claim.commitments.emplace_back(std::move(commitment));
-    }
-    for (auto& commitment : merged_commitments) {
-        batch_opening_claim.commitments.emplace_back(commitment);
-    }
-    batch_opening_claim.commitments.emplace_back(degree_check_commitment);
-    if constexpr (IsRecursive) {
-        batch_opening_claim.commitments.emplace_back(Commitment::one(kappa.get_context()));
-    } else {
-        batch_opening_claim.commitments.emplace_back(Commitment::one());
-    }
-
-    // Scalars: -(z - κ), β_1..β_{M-1}, β_M·(z - κ)/(z - κ⁻¹), -(Σ β·evals + β_M·g·(z-κ)/(z-κ⁻¹))
-    batch_opening_claim.scalars = { -(shplonk_opening_challenge - kappa) };
-    for (auto& scalar : shplonk_batching_challenges) {
-        batch_opening_claim.scalars.emplace_back(std::move(scalar));
-    }
-    batch_opening_claim.scalars.back() *=
-        (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_inv).invert();
-
-    batch_opening_claim.scalars.emplace_back(FF(0));
-    for (size_t idx = 0; idx < evals.size(); idx++) {
-        if (idx < evals.size() - 1) {
-            batch_opening_claim.scalars.back() -= evals[idx] * shplonk_batching_challenges[idx];
-        } else {
-            batch_opening_claim.scalars.back() -= shplonk_batching_challenges.back() * evals.back() *
-                                                  (shplonk_opening_challenge - kappa) *
-                                                  (shplonk_opening_challenge - kappa_inv).invert();
-        }
-    }
-
-    batch_opening_claim.evaluation_point = { shplonk_opening_challenge };
-
-    return batch_opening_claim;
 }
 
 // Explicit template instantiations
