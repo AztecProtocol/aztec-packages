@@ -12,13 +12,13 @@ const { AZTEC_NODE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://local
 describe('e2e_cheat_codes', () => {
   const logger = createLogger('e2e:cheat_codes');
   let aztecNode: AztecNode;
-  let nodeDebug: AztecNodeDebug;
+  let nodeDebug: AztecNode & AztecNodeDebug;
   let cheatCodes: CheatCodes;
 
   beforeAll(async () => {
     aztecNode = createAztecNodeClient(AZTEC_NODE_URL);
     await waitForNode(aztecNode, logger);
-    nodeDebug = createAztecNodeDebugClient(AZTEC_NODE_URL);
+    nodeDebug = Object.assign({}, aztecNode, createAztecNodeDebugClient(AZTEC_NODE_URL));
     const l1RpcUrls = ETHEREUM_HOSTS.split(',');
     cheatCodes = await CheatCodes.create(l1RpcUrls, aztecNode, new DateProvider());
   });

@@ -36,7 +36,7 @@ export class CheatCodes {
    * @param node - The Aztec node used to force an empty block to be mined.
    * @param targetTimestamp - The target timestamp to warp to (in seconds)
    */
-  async warpL2TimeAtLeastTo(node: AztecNodeDebug, targetTimestamp: bigint | number) {
+  async warpL2TimeAtLeastTo(node: AztecNode & AztecNodeDebug, targetTimestamp: bigint | number) {
     const targetBigInt = BigInt(targetTimestamp);
     const currentTimestamp = BigInt(await this.eth.lastBlockTimestamp());
 
@@ -50,6 +50,7 @@ export class CheatCodes {
     const targetSlot = await this.rollup.getSlotAt(targetBigInt);
 
     let effectiveTimestamp = targetBigInt;
+    let effectiveTargetSlot = targetSlot;
 
     if (targetSlot <= currentSlot) {
       // Target lands in the same (or earlier) slot — auto-adjust to the next slot's start.
@@ -60,10 +61,32 @@ export class CheatCodes {
           `Auto-adjusting to start of slot ${nextSlot} at timestamp ${nextSlotTimestamp}.`,
       );
       effectiveTimestamp = nextSlotTimestamp;
+      effectiveTargetSlot = nextSlot;
     }
 
     await this.eth.warp(effectiveTimestamp, { resetBlockInterval: true });
-    await node.mineBlock();
+
+    // The sequencer's polling loop may have a `work()` cycle in flight that captured pre-warp slot/timestamp values
+    // just before our warp landed. That cycle would mine an L2 block at the stale slot — the L1 sync prunes such a
+    // block from the canonical chain, but it lingers in local world state and the PXE will use it as the anchor for
+    // subsequent txs, leading to `expiration_timestamp` values that are already in the past relative to L1. Mine
+    // until we observe an L2 block at (or past) the post-warp slot, ensuring the next tx anchors to a fresh block.
+    const maxAttempts = 5;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      await node.mineBlock();
+      const header = await node.getBlockHeader();
+      const blockSlot = header?.globalVariables.slotNumber;
+      if (blockSlot !== undefined && BigInt(blockSlot) >= BigInt(effectiveTargetSlot)) {
+        return;
+      }
+      this.logger.warn(
+        `warpL2TimeAtLeastTo: mined L2 block at slot ${blockSlot}, expected at least ${effectiveTargetSlot}. ` +
+          `Retrying mineBlock (attempt ${attempt}/${maxAttempts}).`,
+      );
+    }
+    throw new Error(
+      `warpL2TimeAtLeastTo: failed to mine an L2 block at or past slot ${effectiveTargetSlot} after ${maxAttempts} attempts.`,
+    );
   }
 
   /**
@@ -73,7 +96,7 @@ export class CheatCodes {
    * @param node - The Aztec node used to force an empty block to be mined.
    * @param duration - The duration to advance time by (in seconds)
    */
-  async warpL2TimeAtLeastBy(node: AztecNodeDebug, duration: bigint | number) {
+  async warpL2TimeAtLeastBy(node: AztecNode & AztecNodeDebug, duration: bigint | number) {
     if (BigInt(duration) <= 0n) {
       throw new Error(`warpL2TimeAtLeastBy: duration must be positive, got ${duration} seconds.`);
     }
