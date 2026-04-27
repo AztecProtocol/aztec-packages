@@ -190,6 +190,45 @@ template <typename G1> class TestAffineElement : public testing::Test {
         EXPECT_EQ(element(result) == expected, true);
     }
 
+    // Regression test for the large-modulus mixed-addition path: element +/- affine_element must
+    // detect when the affine operand is the infinity sentinel (x = modulus, y = 0). Previously the
+    // operator only checked whether `*this` was infinity, so adding the infinity sentinel to a
+    // normal point fell through to the arithmetic and produced an off-curve garbage result.
+    // operator-=(affine) inherits the bug via its `to_add{other.x, -other.y}` delegation.
+    static void test_mixed_add_infinity_regression()
+    {
+        const element P = element::random_element();
+        const affine_element Q_inf = affine_element::infinity();
+
+        // P (+/-) infinity == P, both as out-of-place and compound-assignment.
+        EXPECT_EQ(P + Q_inf, P);
+        EXPECT_EQ(P - Q_inf, P);
+        {
+            element acc = P;
+            acc += Q_inf;
+            EXPECT_EQ(acc, P);
+        }
+        {
+            element acc = P;
+            acc -= Q_inf;
+            EXPECT_EQ(acc, P);
+        }
+
+        // infinity (+/-) P == +/-P
+        EXPECT_EQ(Q_inf + P, P);
+        EXPECT_EQ(Q_inf - P, -P);
+
+        // *this = infinity, other = infinity must remain infinity (not become {modulus, 0, 1}).
+        element inf_elem = element::zero();
+        ASSERT_TRUE(inf_elem.is_point_at_infinity());
+        EXPECT_TRUE((inf_elem + Q_inf).is_point_at_infinity());
+        EXPECT_TRUE((inf_elem - Q_inf).is_point_at_infinity());
+
+        // The result of mixing a normal point with the infinity sentinel must remain on-curve.
+        EXPECT_TRUE((P + Q_inf).on_curve());
+        EXPECT_TRUE((P - Q_inf).on_curve());
+    }
+
     // Regression test to ensure that the point at infinity is not equal to its coordinate-wise reduction, which may lie
     // on the curve, depending on the y-coordinate.
     static void test_infinity_regression()
@@ -334,6 +373,18 @@ TYPED_TEST_SUITE(TestAffineElement, TestTypes);
 TYPED_TEST(TestAffineElement, AddAffine)
 {
     TestFixture::test_add_affine();
+}
+
+// Regression test for element +/- affine_element when the affine operand is the infinity sentinel
+// on the large-modulus path. The small-modulus path uses a different sentinel (MSB-of-x) and was
+// not affected.
+TYPED_TEST(TestAffineElement, MixedAddInfinityRegression)
+{
+    if constexpr (TypeParam::Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+        TestFixture::test_mixed_add_infinity_regression();
+    } else {
+        GTEST_SKIP();
+    }
 }
 
 TYPED_TEST(TestAffineElement, ReadWrite)

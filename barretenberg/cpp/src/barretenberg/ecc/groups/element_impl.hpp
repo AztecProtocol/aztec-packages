@@ -159,6 +159,10 @@ template <class Fq, class Fr, class T>
 constexpr element<Fq, Fr, T> element<Fq, Fr, T>::operator+=(const affine_element<Fq, Fr, T>& other) noexcept
 {
     if constexpr (Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+        // If either point is infinity, return the other point
+        if (other.is_point_at_infinity()) {
+            return *this;
+        }
         if (is_point_at_infinity()) {
             *this = { other.x, other.y, Fq::one() };
             return *this;
