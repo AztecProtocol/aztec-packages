@@ -60,9 +60,6 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     // Step 2: Receive N and shift sizes from the proof
     // -------------------------------------------------------------------------
     const FF N = transcript->template receive_from_prover<FF>("NUM_SUBTABLES");
-    if constexpr (IsRecursive) {
-        info("N: ", N.get_value());
-    }
 
     // -------------------------------------------------------------------------
     // Step 2.a: Enforce 1 <= N <= MAX_MERGE_SIZE

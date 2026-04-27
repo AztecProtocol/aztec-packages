@@ -36,7 +36,7 @@ class MergeProver {
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          std::shared_ptr<Transcript> transcript,
-                         MergeSettings settings = MergeSettings::PREPEND);
+                         MergeMode mode = MergeMode::APPEND);
 
     BB_PROFILE MergeProof construct_proof();
 
@@ -47,7 +47,7 @@ class MergeProver {
   private:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
-    MergeSettings settings;
+    std::optional<size_t> fixed_append_shift_size;
 
     std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
                                                      "LEFT_TABLE_DEGREE_CHECK_1",
@@ -77,7 +77,8 @@ class MergeProver {
      * @return Polynomial
      */
     static Polynomial compute_degree_check_polynomial(const std::array<Polynomial, NUM_WIRES>& left_table,
-                                                      const std::vector<FF>& degree_check_challenges);
+                                                      const std::vector<FF>& degree_check_challenges,
+                                                      const size_t shift_size);
 
     /**
      * @brief Compute the batched Shplonk quotient polynomial.

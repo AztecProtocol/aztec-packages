@@ -74,7 +74,7 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
         op_queue->merge();
         add_mixed_ops(op_queue, circuit_size_param / 2);
         add_random_ops(op_queue, TranslatorCircuitBuilder::NUM_RANDOM_OPS_END);
-        op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
+        op_queue->merge_fixed_append(op_queue->get_append_offset());
 
         TranslatorCircuitBuilder circuit(batching_challenge_v, evaluation_input_x, op_queue);
         return std::make_shared<TranslatorProvingKey>(circuit);

@@ -50,6 +50,25 @@ template <typename Curve> class MergeTests : public testing::Test {
 
     enum class TamperProofMode : uint8_t { None, Shift, MCommitment, LEval };
 
+    static std::shared_ptr<ECCOpQueue> construct_final_merge_op_queue(const size_t num_subtables_up_to_tail = 1)
+    {
+        using InnerFlavor = MegaFlavor;
+        using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+
+        auto op_queue = std::make_shared<ECCOpQueue>();
+        for (size_t idx = 0; idx < num_subtables_up_to_tail; ++idx) {
+            InnerBuilder circuit{ op_queue };
+            GoblinMockCircuits::construct_simple_circuit(circuit);
+            op_queue->merge();
+        }
+
+        op_queue->construct_zk_columns();
+
+        InnerBuilder hiding_circuit{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(hiding_circuit);
+        return op_queue;
+    }
+
     /**
      * @brief Convert a stdlib type to its native value
      * @details In native context, returns value as-is; in recursive context, extracts the native value
@@ -151,19 +170,18 @@ template <typename Curve> class MergeTests : public testing::Test {
      * @details Creates a merge proof, optionally tampers with it, then verifies in the appropriate context
      */
     static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue,
-                                       const MergeSettings settings = MergeSettings::PREPEND,
                                        const TamperProofMode tampering_mode = TamperProofMode::None,
                                        const bool expected = true)
     {
         // Create native merge proof
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        MergeProver merge_prover{ op_queue, prover_transcript, settings };
+        MergeProver merge_prover{ op_queue, prover_transcript, MergeMode::FIXED_APPEND };
         auto native_proof = merge_prover.construct_proof();
         tamper_with_proof(native_proof, tampering_mode);
 
         // Construct shifted column polynomials matching the circuit's ecc_op_wire layout
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-        auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+        auto T_prev = op_queue->construct_table_columns_up_to_tail();
 
         std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments;
         std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments;
@@ -172,7 +190,7 @@ template <typename Curve> class MergeTests : public testing::Test {
             native_T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
         }
 
-        auto T_merged = op_queue->construct_ultra_ops_table_columns();
+        auto T_merged = op_queue->construct_ultra_ops_table_columns(/*include_zk_ops=*/true);
         std::array<curve::BN254::AffineElement, NUM_WIRES> expected_merged_commitments;
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
             expected_merged_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_merged[idx]);
@@ -191,7 +209,7 @@ template <typename Curve> class MergeTests : public testing::Test {
 
         // Verify the proof
         auto transcript = std::make_shared<Transcript>();
-        MergeVerifierType verifier{ settings, transcript };
+        MergeVerifierType verifier{ transcript };
         auto result = verifier.reduce_to_pairing_check(proof, input_commitments);
 
         // Perform pairing check and verify
@@ -220,15 +238,11 @@ template <typename Curve> class MergeTests : public testing::Test {
      */
     static void test_merge_proof_size()
     {
-        using InnerFlavor = MegaFlavor;
-        using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-
-        InnerBuilder builder;
-        GoblinMockCircuits::construct_simple_circuit(builder);
+        auto op_queue = construct_final_merge_op_queue();
 
         // Construct a merge proof and ensure its size matches expectation
         auto transcript = std::make_shared<NativeTranscript>();
-        MergeProver merge_prover{ builder.op_queue, transcript };
+        MergeProver merge_prover{ op_queue, transcript, MergeMode::FIXED_APPEND };
         auto merge_proof = merge_prover.construct_proof();
 
         EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
@@ -239,12 +253,7 @@ template <typename Curve> class MergeTests : public testing::Test {
      */
     static void test_single_merge()
     {
-        using InnerFlavor = MegaFlavor;
-        using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-
-        auto op_queue = std::make_shared<ECCOpQueue>();
-        InnerBuilder circuit{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit);
+        auto op_queue = construct_final_merge_op_queue();
 
         prove_and_verify_merge(op_queue);
     }
@@ -254,24 +263,7 @@ template <typename Curve> class MergeTests : public testing::Test {
      */
     static void test_multiple_merges_prepend()
     {
-        using InnerFlavor = MegaFlavor;
-        using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-
-        auto op_queue = std::make_shared<ECCOpQueue>();
-
-        // First circuit
-        InnerBuilder circuit1{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit1);
-        prove_and_verify_merge(op_queue);
-
-        // Second circuit
-        InnerBuilder circuit2{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit2);
-        prove_and_verify_merge(op_queue);
-
-        // Third circuit
-        InnerBuilder circuit3{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit3);
+        auto op_queue = construct_final_merge_op_queue(/*num_subtables_up_to_tail=*/3);
         prove_and_verify_merge(op_queue);
     }
 
@@ -280,70 +272,38 @@ template <typename Curve> class MergeTests : public testing::Test {
      */
     static void test_merge_prepend_then_append()
     {
-        using InnerFlavor = MegaFlavor;
-        using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-
-        auto op_queue = std::make_shared<ECCOpQueue>();
-
-        // First circuit with prepend
-        InnerBuilder circuit1{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit1);
+        auto op_queue = construct_final_merge_op_queue(/*num_subtables_up_to_tail=*/2);
         prove_and_verify_merge(op_queue);
-
-        // Second circuit with prepend
-        InnerBuilder circuit2{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit2);
-        prove_and_verify_merge(op_queue);
-
-        // Third circuit with append
-        InnerBuilder circuit3{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit3);
-        prove_and_verify_merge(op_queue, MergeSettings::APPEND);
     }
 
     /**
      * @brief Test failure when degree(l) > shift_size (as read from the proof)
      */
-    static void test_degree_check_failure(const MergeSettings settings = MergeSettings::PREPEND)
+    static void test_degree_check_failure()
     {
-        using InnerFlavor = MegaFlavor;
-        using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+        auto op_queue = construct_final_merge_op_queue();
 
-        auto op_queue = std::make_shared<ECCOpQueue>();
-        InnerBuilder circuit{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit);
-
-        prove_and_verify_merge(op_queue, settings, TamperProofMode::Shift, false);
+        prove_and_verify_merge(op_queue, TamperProofMode::Shift, false);
     }
 
     /**
      * @brief Test failure when m ≠ l + X^k r
      */
-    static void test_merge_failure(const MergeSettings settings = MergeSettings::PREPEND)
+    static void test_merge_failure()
     {
-        using InnerFlavor = MegaFlavor;
-        using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+        auto op_queue = construct_final_merge_op_queue();
 
-        auto op_queue = std::make_shared<ECCOpQueue>();
-        InnerBuilder circuit{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit);
-
-        prove_and_verify_merge(op_queue, settings, TamperProofMode::MCommitment, false);
+        prove_and_verify_merge(op_queue, TamperProofMode::MCommitment, false);
     }
 
     /**
      * @brief Test failure when g_j(kappa) ≠ kappa^{k-1} * l_j(1/kappa)
      */
-    static void test_eval_failure(const MergeSettings settings = MergeSettings::PREPEND)
+    static void test_eval_failure()
     {
-        using InnerFlavor = MegaFlavor;
-        using InnerBuilder = typename InnerFlavor::CircuitBuilder;
+        auto op_queue = construct_final_merge_op_queue();
 
-        auto op_queue = std::make_shared<ECCOpQueue>();
-        InnerBuilder circuit{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit);
-
-        prove_and_verify_merge(op_queue, settings, TamperProofMode::LEval, false);
+        prove_and_verify_merge(op_queue, TamperProofMode::LEval, false);
     }
 
     /**
@@ -474,16 +434,15 @@ template <typename Curve> class MergeTests : public testing::Test {
 
             auto native_proof = prover_transcript->export_proof();
 
-            // === Verify with unmodified verifier (which has BB_ASSERT_GT for shift_size > 0) ===
-            // Build input commitments: t = empty (zero commits), T_prev = right table
+            // Build input commitments: T_prev = empty (zero commits), t = right table
             InputCommitments input_commitments;
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {
-                input_commitments.t_commitments[idx] = ck.commit(left_table[idx]);
-                input_commitments.T_prev_commitments[idx] = ck.commit(right_table[idx]);
+                input_commitments.t_commitments[idx] = ck.commit(right_table[idx]);
+                input_commitments.T_prev_commitments[idx] = ck.commit(left_table[idx]);
             }
 
             auto verifier_transcript = std::make_shared<NativeTranscript>();
-            MergeVerifierType verifier{ MergeSettings::PREPEND, verifier_transcript };
+            MergeVerifierType verifier{ verifier_transcript };
             auto result = verifier.reduce_to_pairing_check(native_proof, input_commitments);
 
             bool pairing_verified = result.pairing_points.check();
@@ -522,32 +481,32 @@ TYPED_TEST(MergeTests, MergePrependThenAppend)
 
 TYPED_TEST(MergeTests, DegreeCheckFailurePrepend)
 {
-    TestFixture::test_degree_check_failure(MergeSettings::PREPEND);
+    TestFixture::test_degree_check_failure();
 }
 
 TYPED_TEST(MergeTests, DegreeCheckFailureAppend)
 {
-    TestFixture::test_degree_check_failure(MergeSettings::APPEND);
+    TestFixture::test_degree_check_failure();
 }
 
 TYPED_TEST(MergeTests, MergeFailurePrepend)
 {
-    TestFixture::test_merge_failure(MergeSettings::PREPEND);
+    TestFixture::test_merge_failure();
 }
 
 TYPED_TEST(MergeTests, MergeFailureAppend)
 {
-    TestFixture::test_merge_failure(MergeSettings::APPEND);
+    TestFixture::test_merge_failure();
 }
 
 TYPED_TEST(MergeTests, EvalFailurePrepend)
 {
-    TestFixture::test_eval_failure(MergeSettings::PREPEND);
+    TestFixture::test_eval_failure();
 }
 
 TYPED_TEST(MergeTests, EvalFailureAppend)
 {
-    TestFixture::test_eval_failure(MergeSettings::APPEND);
+    TestFixture::test_eval_failure();
 }
 
 TYPED_TEST(MergeTests, HonestEmptyLeftTable)
@@ -577,31 +536,25 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     using BuilderType = typename TestFixture::BuilderType;
     using MergeVerifierType = typename TestFixture::MergeVerifierType;
     using Transcript = typename TestFixture::Transcript;
-    using InnerFlavor = MegaFlavor;
-    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     constexpr size_t NUM_WIRES = TestFixture::NUM_WIRES;
 
     // Create single builder for both verifiers (realistic - both in same circuit)
     BuilderType builder;
 
     // === Generate two separate merge proofs (simulating two independent merge operations) ===
-    auto op_queue_1 = std::make_shared<ECCOpQueue>();
-    InnerBuilder circuit_1{ op_queue_1 };
-    GoblinMockCircuits::construct_simple_circuit(circuit_1);
+    auto op_queue_1 = TestFixture::construct_final_merge_op_queue();
     auto prover_transcript_1 = std::make_shared<NativeTranscript>();
-    MergeProver prover_1{ op_queue_1, prover_transcript_1 };
+    MergeProver prover_1{ op_queue_1, prover_transcript_1, MergeMode::FIXED_APPEND };
     auto proof_1 = prover_1.construct_proof();
 
-    auto op_queue_2 = std::make_shared<ECCOpQueue>();
-    InnerBuilder circuit_2{ op_queue_2 };
-    GoblinMockCircuits::construct_simple_circuit(circuit_2);
+    auto op_queue_2 = TestFixture::construct_final_merge_op_queue();
     auto prover_transcript_2 = std::make_shared<NativeTranscript>();
-    MergeProver prover_2{ op_queue_2, prover_transcript_2 };
+    MergeProver prover_2{ op_queue_2, prover_transcript_2, MergeMode::FIXED_APPEND };
     auto proof_2 = prover_2.construct_proof();
 
     // Get native commitments for proof 1 (shifted to match circuit ecc_op_wire layout)
     auto t_1 = op_queue_1->construct_current_ultra_ops_subtable_columns();
-    auto T_prev_1 = op_queue_1->construct_previous_ultra_ops_table_columns();
+    auto T_prev_1 = op_queue_1->construct_table_columns_up_to_tail();
     std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments_1;
     std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments_1;
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
@@ -611,7 +564,7 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
 
     // === Create first verifier with its own transcript instance ===
     auto transcript_1 = std::make_shared<Transcript>();
-    [[maybe_unused]] MergeVerifierType verifier_1{ MergeSettings::PREPEND, transcript_1 };
+    [[maybe_unused]] MergeVerifierType verifier_1{ transcript_1 };
 
     [[maybe_unused]] auto proof_1_recursive = TestFixture::create_proof(builder, proof_1);
 
@@ -627,7 +580,7 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     // === Create second verifier with a DIFFERENT transcript instance ===
     // This simulates having two independent merge verifiers in the same circuit
     auto transcript_2 = std::make_shared<Transcript>();
-    MergeVerifierType verifier_2{ MergeSettings::PREPEND, transcript_2 };
+    MergeVerifierType verifier_2{ transcript_2 };
 
     auto proof_2_recursive = TestFixture::create_proof(builder, proof_2);
 
@@ -738,18 +691,12 @@ class MergeTranscriptTests : public ::testing::Test {
  */
 TEST_F(MergeTranscriptTests, ProverManifestConsistency)
 {
-    using InnerFlavor = MegaFlavor;
-    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-
-    // Construct a simple circuit to generate merge proof
-    auto op_queue = std::make_shared<ECCOpQueue>();
-    InnerBuilder circuit{ op_queue };
-    GoblinMockCircuits::construct_simple_circuit(circuit);
+    auto op_queue = MergeTests<curve::BN254>::construct_final_merge_op_queue();
 
     // Construct merge proof with manifest enabled
     auto transcript = std::make_shared<NativeTranscript>();
     transcript->enable_manifest();
-    MergeProver merge_prover{ op_queue, transcript };
+    MergeProver merge_prover{ op_queue, transcript, MergeMode::FIXED_APPEND };
     auto merge_proof = merge_prover.construct_proof();
 
     // Check prover manifest matches expected manifest
@@ -770,24 +717,18 @@ TEST_F(MergeTranscriptTests, ProverManifestConsistency)
  */
 TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
 {
-    using InnerFlavor = MegaFlavor;
-    using InnerBuilder = typename InnerFlavor::CircuitBuilder;
-
-    // Construct a simple circuit
-    auto op_queue = std::make_shared<ECCOpQueue>();
-    InnerBuilder circuit{ op_queue };
-    GoblinMockCircuits::construct_simple_circuit(circuit);
+    auto op_queue = MergeTests<curve::BN254>::construct_final_merge_op_queue();
 
     // Generate merge proof with prover manifest enabled
     auto prover_transcript = std::make_shared<NativeTranscript>();
     prover_transcript->enable_manifest();
-    MergeProver merge_prover{ op_queue, prover_transcript };
+    MergeProver merge_prover{ op_queue, prover_transcript, MergeMode::FIXED_APPEND };
     auto merge_proof = merge_prover.construct_proof();
 
     // Construct commitments for verifier (shifted to match circuit ecc_op_wire layout)
     MergeVerifier::InputCommitments merge_commitments;
     auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-    auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+    auto T_prev = op_queue->construct_table_columns_up_to_tail();
     for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
         merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
         merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
@@ -796,7 +737,7 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     // Verify proof with verifier manifest enabled
     auto verifier_transcript = std::make_shared<NativeTranscript>();
     verifier_transcript->enable_manifest();
-    MergeVerifier merge_verifier{ MergeSettings::PREPEND, verifier_transcript };
+    MergeVerifier merge_verifier{ verifier_transcript };
     auto result = merge_verifier.reduce_to_pairing_check(merge_proof, merge_commitments);
 
     // Verification should succeed

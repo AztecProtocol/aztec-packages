@@ -31,8 +31,7 @@ namespace bb {
  * - Updates the native accumulator (shadow computation for verification)
  * - Appends to both ECCVM and Ultra tables
  *
- * Tables grow via prepending subtables (one per circuit in an IVC). The deque-based storage avoids
- * expensive memory reallocation. See ecc_ops_table.hpp for details.
+ * Tables grow by appending subtables (one per circuit in an IVC). See ecc_ops_table.hpp for details.
  *
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
@@ -88,21 +87,32 @@ class ECCOpQueue {
      * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
      * matching the appender flavor's ecc_op_wire layout.
      */
-    size_t get_append_offset() const
+    size_t get_append_offset(const bool include_zk_ops = false) const
     {
         constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots;
+        constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;
+        return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots - (include_zk_ops ? zk_op_slots : 0);
     }
 
-    void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
+    void merge()
     {
-        eccvm_ops_table.merge(settings);
-        ultra_ops_table.merge(settings, ultra_fixed_offset);
+        eccvm_ops_table.merge();
+        ultra_ops_table.merge();
+    }
+
+    void merge_fixed_append(std::optional<size_t> ultra_fixed_offset = std::nullopt)
+    {
+        eccvm_ops_table.merge();
+        ultra_ops_table.merge(MergeMode::FIXED_APPEND, ultra_fixed_offset);
     }
 
     std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_zk_columns()
     {
-        return ultra_ops_table.construct_zk_columns();
+        auto [column_polynomials, hiding_op] = ultra_ops_table.construct_zk_columns();
+        this->hiding_op_for_eccvm = hiding_op;
+        this->has_hiding_op = true;
+
+        return column_polynomials;
     }
 
     std::vector<std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH>> construct_subtable_columns() const
@@ -116,10 +126,10 @@ class ECCOpQueue {
         return ultra_ops_table.construct_table_columns(include_zk_ops);
     }
 
-    // Construct column polynomials for the aggregate table excluding the most recent subtable
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns() const
+    // Construct column polynomials for the aggregate table up to and including the tail subtable.
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_table_columns_up_to_tail() const
     {
-        return ultra_ops_table.construct_previous_table_columns();
+        return ultra_ops_table.construct_table_columns_up_to_tail();
     }
 
     // Construct column polynomials for the most recently merged subtable
@@ -137,7 +147,7 @@ class ECCOpQueue {
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.num_ultra_rows(); }
     size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); } // actual operation count without padding
     size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
-    size_t get_previous_ultra_ops_table_num_rows() const { return ultra_ops_table.previous_ultra_table_size(); }
+    size_t get_ultra_ops_table_num_rows_up_to_tail() const { return ultra_ops_table.ultra_table_size_up_to_tail(); }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops
     // getters more memory efficient

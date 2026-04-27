@@ -63,13 +63,10 @@ template <typename Curve> class MergeVerifier_ {
         bool reduction_succeeded = false; // Aggregate of degree and concatenation checks
     };
 
-    MergeSettings settings;
     std::shared_ptr<Transcript> transcript;
 
-    explicit MergeVerifier_(const MergeSettings settings = MergeSettings::PREPEND,
-                            std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
-        : settings(settings)
-        , transcript(std::move(transcript))
+    explicit MergeVerifier_(std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>())
+        : transcript(std::move(transcript))
     {}
 
     /**

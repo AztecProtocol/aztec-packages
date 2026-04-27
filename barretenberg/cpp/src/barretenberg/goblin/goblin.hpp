@@ -82,7 +82,7 @@ class Goblin {
      * @param transcript
      */
     void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-                     const MergeSettings merge_settings = MergeSettings::PREPEND);
+                     MergeMode mode = MergeMode::APPEND);
 
     /**
      * @brief Construct an ECCVM proof and IPA opening proof.
@@ -111,20 +111,17 @@ class Goblin {
      * @param builder The circuit in which the recursive verification will be performed.
      * @param inputs_commitments The commitment used by the Merge verifier
      * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
-     * @param merge_settings How the most recent ecc op subtable is going to be merged into the table of ecc ops
      * @return Pair of PairingPoints and commitments to the merged tables as read from the proof by the Merge verifier
      */
     std::pair<PairingPoints, RecursiveTableCommitments> recursively_verify_merge(
         MegaBuilder& builder,
         const RecursiveMergeCommitments& merge_commitments,
-        const std::shared_ptr<RecursiveTranscript>& transcript,
-        const MergeSettings merge_settings = MergeSettings::PREPEND);
+        const std::shared_ptr<RecursiveTranscript>& transcript);
 
     /**
      * @brief Construct a batch merge proof for all accumulated subtables.
      */
-    void prove_batch_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
-                           bool is_zk = true);
+    void prove_batch_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
      * @brief Recursively verify the delayed batch merge proof.
@@ -132,8 +129,7 @@ class Goblin {
     std::pair<PairingPoints, BatchRecursiveTableCommitments> recursively_verify_batch_merge(
         MegaBuilder& builder,
         const BatchMergeRecursiveVerifier::FF& hash,
-        const std::shared_ptr<RecursiveTranscript>& transcript = std::make_shared<RecursiveTranscript>(),
-        bool is_zk = true);
+        const std::shared_ptr<RecursiveTranscript>& transcript = std::make_shared<RecursiveTranscript>());
 };
 
 } // namespace bb

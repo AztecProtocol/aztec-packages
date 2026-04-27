@@ -61,7 +61,7 @@ std::shared_ptr<ECCOpQueue> make_op_queue_with_n_subtables(size_t n)
             op_queue->initialize_new_subtable();
         }
         populate_subtable(op_queue, ((1 + i) % max_op_queue_ops) + 1); // +1 to avoid empty subtables
-        op_queue->merge(MergeSettings::PREPEND);
+        op_queue->merge();
     }
     return op_queue;
 }
@@ -336,7 +336,7 @@ template <typename Param> class BatchMergeTests : public testing::Test {
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
 
     static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 10452 : 39210;
-    static constexpr size_t ZK_OFFSET = 665;
+    static constexpr size_t ZK_OFFSET = 666;
 
     struct VerifyResult {
         bool reduction_ok;

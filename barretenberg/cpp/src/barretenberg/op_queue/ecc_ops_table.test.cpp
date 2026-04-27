@@ -116,8 +116,8 @@ class EccOpsTableTest : public ::testing::Test {
     };
 };
 
-// Ensure UltraOpsTable correctly constructs a concatenated table from successively prepended subtables
-TEST(EccOpsTableTest, UltraOpsTablePrependOnly)
+// Ensure UltraOpsTable correctly constructs a concatenated table from successively appended subtables.
+TEST(EccOpsTableTest, UltraOpsTableAppendOnly)
 {
     using Fr = fr;
     using TableGenerator = EccOpsTableTest::UltraOpTableGenerator;
@@ -139,8 +139,7 @@ TEST(EccOpsTableTest, UltraOpsTablePrependOnly)
         ultra_ops_table.merge();
     }
 
-    std::reverse(subtables.begin(), subtables.end());
-    // Construct the mock ultra ops table which contains the subtables ordered in reverse (as if prepended)
+    // Construct the mock ultra ops table which contains the subtables in append order.
     EccOpsTableTest::MockUltraOpsTable expected_ultra_ops_table(subtables);
 
     // Check that the ultra ops table internal to the op queue has the correct size
@@ -158,7 +157,7 @@ TEST(EccOpsTableTest, UltraOpsTablePrependOnly)
     }
 }
 
-TEST(EccOpsTableTest, UltraOpsPrependThenAppend)
+TEST(EccOpsTableTest, UltraOpsAppendThenFixedAppend)
 {
     using Fr = fr;
     using TableGenerator = EccOpsTableTest::UltraOpTableGenerator;
@@ -172,25 +171,20 @@ TEST(EccOpsTableTest, UltraOpsPrependThenAppend)
 
     // Construct the concatenated table internal to the op queue
     UltraEccOpsTable ultra_ops_table;
-    std::array<MergeSettings, NUM_SUBTABLES> merge_settings = { MergeSettings::PREPEND,
-                                                                MergeSettings::PREPEND,
-                                                                MergeSettings::APPEND };
-    for (const auto& [subtable_ops, setting] : zip_view(subtables, merge_settings)) {
+    for (size_t idx = 0; idx < NUM_SUBTABLES; ++idx) {
         ultra_ops_table.create_new_subtable();
-        for (const auto& op : subtable_ops) {
+        for (const auto& op : subtables[idx]) {
             ultra_ops_table.push(op);
         }
-        ultra_ops_table.merge(setting);
-    }
-
-    std::vector<std::vector<UltraOp>> ordered_subtables;
-    for (auto [subtable, setting] : zip_view(subtables, merge_settings)) {
-        auto it = setting == MergeSettings::PREPEND ? ordered_subtables.begin() : ordered_subtables.end();
-        ordered_subtables.insert(it, subtable);
+        if (idx == NUM_SUBTABLES - 1) {
+            ultra_ops_table.merge(MergeMode::FIXED_APPEND);
+        } else {
+            ultra_ops_table.merge();
+        }
     }
 
     // Construct the mock ultra ops table. The final APPEND carries APPEND_TRACE_OFFSET preamble rows.
-    EccOpsTableTest::MockUltraOpsTable expected_ultra_ops_table(ordered_subtables,
+    EccOpsTableTest::MockUltraOpsTable expected_ultra_ops_table(subtables,
                                                                 /*last_subtable_has_preamble=*/true);
 
     // Check that the ultra ops table internal to the op queue has the correct size
@@ -222,23 +216,22 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendNoGap)
 
     // Construct the concatenated table with fixed-location append (no explicit offset)
     UltraEccOpsTable ultra_ops_table;
-    std::array<MergeSettings, NUM_SUBTABLES> merge_settings = { MergeSettings::PREPEND,
-                                                                MergeSettings::PREPEND,
-                                                                MergeSettings::APPEND };
-
     for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
         ultra_ops_table.create_new_subtable();
         for (const auto& op : subtables[i]) {
             ultra_ops_table.push(op);
         }
 
-        // For APPEND (last subtable), don't provide an offset (default to right after prepended tables)
-        ultra_ops_table.merge(merge_settings[i]);
+        if (i == NUM_SUBTABLES - 1) {
+            ultra_ops_table.merge(MergeMode::FIXED_APPEND);
+        } else {
+            ultra_ops_table.merge();
+        }
     }
 
-    // Expected order: subtable[1], subtable[0], subtable[2] (no gap). The final APPEND carries
+    // Expected order: subtable[0], subtable[1], subtable[2] (no gap). The final APPEND carries
     // APPEND_TRACE_OFFSET preamble rows.
-    std::vector<std::vector<UltraOp>> ordered_subtables = { subtables[1], subtables[0], subtables[2] };
+    std::vector<std::vector<UltraOp>> ordered_subtables = { subtables[0], subtables[1], subtables[2] };
 
     // Construct the mock ultra ops table
     EccOpsTableTest::MockUltraOpsTable expected_ultra_ops_table(ordered_subtables,
@@ -275,10 +268,6 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
 
     // Construct the concatenated table with fixed-location append at specific offset
     UltraEccOpsTable ultra_ops_table;
-    std::array<MergeSettings, NUM_SUBTABLES> merge_settings = { MergeSettings::PREPEND,
-                                                                MergeSettings::PREPEND,
-                                                                MergeSettings::APPEND };
-
     // Define a fixed offset at which to append the table (must be greater than the total size of the prepended tables)
     const size_t fixed_offset = 20;
     const size_t fixed_offset_num_rows = fixed_offset * ULTRA_ROWS_PER_OP;
@@ -292,11 +281,10 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
             ultra_ops_table.push(op);
         }
 
-        // For APPEND (last subtable), provide a fixed offset
-        if (merge_settings[i] == MergeSettings::APPEND) {
-            ultra_ops_table.merge(merge_settings[i], fixed_offset);
+        if (i == NUM_SUBTABLES - 1) {
+            ultra_ops_table.merge(MergeMode::FIXED_APPEND, fixed_offset);
         } else {
-            ultra_ops_table.merge(merge_settings[i]);
+            ultra_ops_table.merge();
         }
     }
 
@@ -318,8 +306,8 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
     }
 
     // Construct expected table with zeros in the gap
-    // Order: subtable[1], subtable[0], zeros, subtable[2]
-    std::vector<std::vector<UltraOp>> ordered_subtables = { subtables[1], subtables[0] };
+    // Order: subtable[0], subtable[1], zeros, subtable[2]
+    std::vector<std::vector<UltraOp>> ordered_subtables = { subtables[0], subtables[1] };
     EccOpsTableTest::MockUltraOpsTable expected_prepended_table(ordered_subtables);
 
     // Check prepended subtables are at the beginning
@@ -352,11 +340,11 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
         std::vector<UltraOp> expected_reconstructed;
         expected_reconstructed.reserve(expected_num_ops + fixed_offset);
 
-        // Order: subtable[1], subtable[0], no-ops range (including APPEND_TRACE_OFFSET preamble), subtable[2]
-        for (const auto& op : subtables[1]) {
+        // Order: subtable[0], subtable[1], no-ops range (including APPEND_TRACE_OFFSET preamble), subtable[2]
+        for (const auto& op : subtables[0]) {
             expected_reconstructed.push_back(op);
         }
-        for (const auto& op : subtables[0]) {
+        for (const auto& op : subtables[1]) {
             expected_reconstructed.push_back(op);
         }
 
@@ -379,7 +367,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
     }
 }
 
-// Ensure EccvmOpsTable correctly constructs a concatenated table from successively prepended subtables
+// Ensure EccvmOpsTable correctly constructs a concatenated table from successively appended subtables
 TEST(EccOpsTableTest, EccvmOpsTable)
 {
 
@@ -403,8 +391,7 @@ TEST(EccOpsTableTest, EccvmOpsTable)
         eccvm_ops_table.merge();
     }
 
-    std::reverse(subtables.begin(), subtables.end());
-    // Construct the mock eccvm ops table which contains the subtables ordered in reverse (as if prepended)
+    // Construct the mock eccvm ops table which contains the subtables in append order.
     EccOpsTableTest::MockEccvmOpsTable expected_eccvm_ops_table(subtables);
 
     // Check that the table has the correct size
@@ -420,9 +407,9 @@ TEST(EccOpsTableTest, EccvmOpsTable)
     EXPECT_EQ(expected_eccvm_ops_table.eccvm_ops, eccvm_ops_table.get_reconstructed());
 }
 
-// Ensure EccvmOpsTable correctly constructs a concatenated table from successively prepended and then appended
+// Ensure EccvmOpsTable correctly constructs a concatenated table from successively appended
 // subtables
-TEST(EccOpsTableTest, EccvmOpsTablePrependThenAppend)
+TEST(EccOpsTableTest, EccvmOpsTableAppendOnly)
 {
 
     // Construct sets of eccvm ops, each representing those added by a single circuit
@@ -435,27 +422,18 @@ TEST(EccOpsTableTest, EccvmOpsTablePrependThenAppend)
     TableGenerator table_generator;
     auto subtables = table_generator.generate_subtables(NUM_SUBTABLES, subtable_op_counts);
 
-    std::array<MergeSettings, NUM_SUBTABLES> merge_settings = { MergeSettings::PREPEND,
-                                                                MergeSettings::PREPEND,
-                                                                MergeSettings::APPEND };
     // Construct the concatenated eccvm ops table
     EccvmOpsTable eccvm_ops_table;
-    for (const auto& [subtable_ops, setting] : zip_view(subtables, merge_settings)) {
+    for (const auto& subtable_ops : subtables) {
         eccvm_ops_table.create_new_subtable();
         for (const auto& op : subtable_ops) {
             eccvm_ops_table.push(op);
         }
-        eccvm_ops_table.merge(setting);
+        eccvm_ops_table.merge();
     }
 
-    std::vector<std::vector<ECCVMOperation>> ordered_subtables;
-    for (auto [subtable, setting] : zip_view(subtables, merge_settings)) {
-        auto it = setting == MergeSettings::PREPEND ? ordered_subtables.begin() : ordered_subtables.end();
-        ordered_subtables.insert(it, subtable);
-    }
-
-    // Construct the mock ultra ops table which contains the subtables ordered in reverse (as if prepended)
-    EccOpsTableTest::MockEccvmOpsTable expected_eccvm_ops_table(ordered_subtables);
+    // Construct the mock eccvm ops table which contains the subtables in append order.
+    EccOpsTableTest::MockEccvmOpsTable expected_eccvm_ops_table(subtables);
 
     // Check that the table has the correct size
     auto expected_num_ops = std::accumulate(subtable_op_counts.begin(), subtable_op_counts.end(), size_t(0));

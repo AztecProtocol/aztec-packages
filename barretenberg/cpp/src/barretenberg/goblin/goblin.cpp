@@ -25,10 +25,10 @@ Goblin::Goblin(const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {}
 
-void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
+void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, MergeMode mode)
 {
     BB_BENCH_NAME("Goblin::prove_merge");
-    MergeProver merge_prover{ op_queue, transcript, merge_settings };
+    MergeProver merge_prover{ op_queue, transcript, mode };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
@@ -70,7 +70,7 @@ GoblinProof Goblin::prove()
 {
     BB_BENCH_NAME("Goblin::prove");
 
-    prove_merge(transcript, MergeSettings::APPEND); // Use shared transcript for merge proving
+    prove_merge(transcript, MergeMode::FIXED_APPEND); // Use shared transcript for merge proving
     info("Goblin: num ultra ops = ", op_queue->get_ultra_ops_count());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),
@@ -98,14 +98,13 @@ GoblinProof Goblin::prove()
 std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recursively_verify_merge(
     MegaBuilder& builder,
     const RecursiveMergeCommitments& merge_commitments,
-    const std::shared_ptr<RecursiveTranscript>& transcript,
-    const MergeSettings merge_settings)
+    const std::shared_ptr<RecursiveTranscript>& transcript)
 {
     BB_ASSERT(!merge_verification_queue.empty());
     const MergeProof& merge_proof = merge_verification_queue.front();
     const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
 
-    MergeRecursiveVerifier merge_verifier{ merge_settings, transcript };
+    MergeRecursiveVerifier merge_verifier{ transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(stdlib_merge_proof, merge_commitments);
 
     merge_verification_queue.pop_front(); // remove the processed proof from the queue
@@ -113,23 +112,22 @@ std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recu
     return { merge_result.pairing_points, merge_result.merged_commitments };
 }
 
-void Goblin::prove_batch_merge(const std::shared_ptr<Transcript>& transcript, bool is_zk)
+void Goblin::prove_batch_merge(const std::shared_ptr<Transcript>& transcript)
 {
     BB_BENCH_NAME("Goblin::prove_batch_merge");
-    BatchMergeProver prover{ op_queue, transcript, CHONK_MAX_NUM_CIRCUITS, is_zk };
+    BatchMergeProver prover{ op_queue, transcript, CHONK_MAX_NUM_CIRCUITS, /*is_zk=*/true };
     batch_merge_proof = prover.construct_proof();
 }
 
 std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments> Goblin::recursively_verify_batch_merge(
     MegaBuilder& builder,
     const BatchMergeRecursiveVerifier::FF& hash,
-    const std::shared_ptr<RecursiveTranscript>& transcript,
-    bool is_zk)
+    const std::shared_ptr<RecursiveTranscript>& transcript)
 {
     BB_ASSERT(batch_merge_proof.has_value(), "Goblin::recursively_verify_batch_merge: no batch merge proof available");
     const stdlib::Proof<MegaBuilder> stdlib_proof(builder, *batch_merge_proof);
 
-    BatchMergeRecursiveVerifier verifier{ transcript, is_zk };
+    BatchMergeRecursiveVerifier verifier{ transcript, /*is_zk=*/true };
     auto result = verifier.reduce_to_pairing_check(stdlib_proof, hash);
 
     batch_merge_proof.reset();

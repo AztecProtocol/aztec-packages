@@ -269,9 +269,6 @@ Chonk::recursive_verification_and_consistency_checks(
     const std::vector<RecursiveCommitment> ecc_op_col_commitments_vec(ecc_op_col_commitments.begin(),
                                                                       ecc_op_col_commitments.end());
     if (verifier_inputs.type == QUEUE_TYPE::OINK) {
-        for (const auto& com : ecc_op_col_commitments_vec) {
-            info("ECC op column commitment: ", com.get_value());
-        }
         updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec);
     } else if (verifier_inputs.type == QUEUE_TYPE::HN_FINAL) {
         updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
@@ -279,13 +276,13 @@ Chonk::recursive_verification_and_consistency_checks(
     } else {
         updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
     }
-    info("CALCULATED HASH in kernel: ", updated_hash.get_value());
 
     std::optional<TableCommitments> merged_table_commitments;
     std::vector<PairingPoints> batch_merge_points;
     if (verifier_inputs.type == QUEUE_TYPE::HN_FINAL) {
+        auto batch_merge_transcript = std::make_shared<RecursiveTranscript>();
         auto [batch_pairing_points, batch_merged_table_commitments] =
-            goblin.recursively_verify_batch_merge(circuit, updated_hash, accumulation_recursive_transcript);
+            goblin.recursively_verify_batch_merge(circuit, updated_hash, batch_merge_transcript);
         batch_merge_points.emplace_back(batch_pairing_points);
         merged_table_commitments = std::move(batch_merged_table_commitments);
     }
@@ -332,27 +329,11 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     bool is_init_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::OINK);
 
-    bool is_tail_kernel =
-        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_TAIL);
-
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);
 
     // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceding circuit's subtable
     // cannot affect the ECC-op accumulator for the kernel.
-    if (is_tail_kernel) {
-        BB_ASSERT_EQ(circuit.op_queue->get_current_subtable_size(),
-                     0U,
-                     "tail kernel ecc ops table should be empty at this point");
-        // Add a no-op to make the op queue wires in Translator shiftable
-        circuit.queue_ecc_no_op();
-        // Add randomness at the beginning of the tail kernel (whose ecc ops fall at the beginning of the op queue
-        // table) to ensure the CHONK proof doesn't leak information about the actual content of the op queue
-        hide_op_queue_content_in_tail(circuit);
-
-        // Add the hiding op with random (non-curve) Px, Py values for statistical hiding of accumulated_result.
-        hide_op_queue_accumulation_result(circuit);
-    }
     circuit.queue_ecc_eq();
 
     // Step 2: VERIFICATION LOOP - Recursively verify each proof in the queue
@@ -571,7 +552,8 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
     // Delayed merge: keep one subtable per folded circuit and prove the batched merge after the tail kernel.
     goblin.op_queue->merge();
     if (queue_type == QUEUE_TYPE::HN_FINAL) {
-        goblin.prove_batch_merge(prover_accumulation_transcript);
+        auto batch_merge_transcript = std::make_shared<Transcript>();
+        goblin.prove_batch_merge(batch_merge_transcript);
     }
 
     num_circuits_accumulated++;
@@ -652,7 +634,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
  *
  * @details Orchestrates the batched proving flow on a shared transcript:
  *   1. MegaZK Oink (pre-sumcheck commitments for the hiding kernel)
- *   2. Merge proof (APPEND — final subtable from hiding kernel)
+ *   2. Merge proof (FIXED_APPEND — final subtable from hiding kernel)
  *   3. ECCVM proof (produces translation challenges v, x)
  *   4. IPA proof (separate transcript)
  *   5. Translator Oink + Joint sumcheck + Joint PCS
@@ -673,8 +655,8 @@ ChonkProof Chonk::prove()
     BatchedHonkTranslatorProver batched_prover(hiding_prover_inst, hiding_vk, transcript);
     auto hiding_oink_proof = batched_prover.prove_mega_zk_oink();
 
-    // Phase 2: Merge proof on the shared transcript (APPEND — hiding kernel's subtable).
-    goblin.prove_merge(transcript, MergeSettings::APPEND);
+    // Phase 2: Merge proof on the shared transcript (fixed append — hiding kernel's subtable).
+    goblin.prove_merge(transcript, MergeMode::FIXED_APPEND);
     BB_ASSERT_EQ(goblin.merge_verification_queue.size(),
                  1U,
                  "Chonk::prove: merge_verification_queue should contain only a single proof at this stage.");
