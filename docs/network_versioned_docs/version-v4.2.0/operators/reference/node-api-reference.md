@@ -109,9 +109,9 @@ Get a block specified by its block number or 'latest'.
 
 **Parameters**:
 
-1. `blockParameter` - `number | "latest"` - The block parameter (block number, block hash, or 'latest').
+1. `blockParameter` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest').
 
-**Returns**: `L2Block` - The requested block.
+**Returns**: `L2Block | undefined` - The requested block.
 
 **Example**:
 
@@ -129,7 +129,7 @@ Get a block specified by its hash.
 
 1. `blockHash` - `BlockHash` - The block hash being requested.
 
-**Returns**: `L2Block` - The requested block.
+**Returns**: `L2Block | undefined` - The requested block.
 
 **Example**:
 
@@ -147,7 +147,7 @@ Get a block specified by its archive root.
 
 1. `archive` - `Fr` - The archive root being requested.
 
-**Returns**: `L2Block` - The requested block.
+**Returns**: `L2Block | undefined` - The requested block.
 
 **Example**:
 
@@ -182,9 +182,9 @@ Returns the block header for a given block number, block hash, or 'latest'.
 
 **Parameters**:
 
-1. `block` - `number | "latest" | undefined` - The block parameter (block number, block hash, or 'latest'). Defaults to 'latest'.
+1. `block` - `BlockHash | number | "latest" | undefined` - The block parameter (block number, block hash, or 'latest'). Defaults to 'latest'.
 
-**Returns**: `BlockHeader` - The requested block header.
+**Returns**: `BlockHeader | undefined` - The requested block header.
 
 **Example**:
 
@@ -202,7 +202,7 @@ Get a block header specified by its archive root.
 
 1. `archive` - `Fr` - The archive root being requested.
 
-**Returns**: `BlockHeader` - The requested block header.
+**Returns**: `BlockHeader | undefined` - The requested block header.
 
 **Example**:
 
@@ -332,7 +332,7 @@ Method to retrieve a single pending tx.
 
 1. `txHash` - `TxHash` - The transaction hash to return.
 
-**Returns**: `Tx` - The pending tx if it exists.
+**Returns**: `Tx | undefined` - The pending tx if it exists.
 
 **Example**:
 
@@ -442,9 +442,12 @@ curl -X POST http://localhost:8080 \
 
 Gets the storage value at the given contract storage slot.
 
+**Remarks**: The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
+Aztec's version of `eth_getStorageAt`.
+
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `contract` - `AztecAddress` - Address of the contract to query.
 3. `slot` - `Fr` - Slot to query.
 
@@ -483,7 +486,7 @@ the leaves were inserted.
 
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `treeId` - `MerkleTreeId` - The tree to search in.
 3. `leafValues` - `Fr[]` - The values to search for.
 
@@ -503,10 +506,10 @@ Returns a nullifier membership witness for a given nullifier at a given block.
 
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `nullifier` - `Fr` - Nullifier we try to find witness for.
 
-**Returns**: `NullifierMembershipWitness` - The nullifier membership witness (if found).
+**Returns**: `NullifierMembershipWitness | undefined` - The nullifier membership witness (if found).
 
 **Example**:
 
@@ -520,12 +523,16 @@ curl -X POST http://localhost:8080 \
 
 Returns a low nullifier membership witness for a given nullifier at a given block.
 
+**Remarks**: Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
+list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
+we are trying to prove non-inclusion for.
+
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `nullifier` - `Fr` - Nullifier we try to find the low nullifier witness for.
 
-**Returns**: `NullifierMembershipWitness` - The low nullifier membership witness (if found).
+**Returns**: `NullifierMembershipWitness | undefined` - The low nullifier membership witness (if found).
 
 **Example**:
 
@@ -539,12 +546,16 @@ curl -X POST http://localhost:8080 \
 
 Returns a public data tree witness for a given leaf slot at a given block.
 
+**Remarks**: The witness can be used to compute the current value of the public data tree leaf. If the low leaf preimage corresponds to an
+"in range" slot, means that the slot doesn't exist and the value is 0. If the low leaf preimage corresponds to the exact slot, the current value
+is contained in the leaf preimage.
+
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `leafSlot` - `Fr` - The leaf slot we try to find the witness for.
 
-**Returns**: `PublicDataWitness` - The public data witness (if found).
+**Returns**: `PublicDataWitness | undefined` - The public data witness (if found).
 
 **Example**:
 
@@ -565,7 +576,7 @@ a specific block exists in the chain's history.
 
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data
 (which contains the root of the archive tree in which we are searching for the block hash).
 2. `blockHash` - `BlockHash` - The block hash to find in the archive tree.
 
@@ -585,7 +596,7 @@ Returns a membership witness for a given note hash at a given block.
 
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `noteHash` - `Fr` - The note hash we try to find the witness for.
 
 **Returns**: `MembershipWitness | undefined`
@@ -606,7 +617,7 @@ Returns the index and a sibling path for a leaf in the committed l1 to l2 data t
 
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `l1ToL2Message` - `Fr` - The l1ToL2Message to get the index / sibling path for.
 
 **Returns**: `[bigint, SiblingPath] | undefined` - A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
@@ -838,7 +849,7 @@ given mana usage estimate. Defaults to target usage (steady state).
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPredictedMinFees","params":[1],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getPredictedMinFees","params":["target"],"id":1}'
 ```
 
 ### node_getMaxPriorityFees

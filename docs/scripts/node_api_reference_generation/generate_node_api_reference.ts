@@ -275,6 +275,15 @@ function splitTopLevelArgs(text: string): string[] {
 function simplifyZodType(expr: string): string {
   const e = expr.trim();
 
+  // Optional handling must run first so `.optional()` suffixes aren't swallowed by
+  // broader patterns below (e.g. `^(\w+)\.schema\b` would otherwise strip the optional
+  // from expressions like `L2Block.schema.optional()`).
+  if (e.endsWith('.optional()')) {
+    return simplifyZodType(e.replace(/\.optional\(\)$/, '')) + ' | undefined';
+  }
+  const optionalWrapperMatch = e.match(/^optional\(([\s\S]+)\)$/);
+  if (optionalWrapperMatch) return simplifyZodType(optionalWrapperMatch[1]) + ' | undefined';
+
   // Simple types
   if (e === 'z.string()') return 'string';
   if (e === 'z.number()') return 'number';
@@ -295,7 +304,7 @@ function simplifyZodType(expr: string): string {
   if (e === 'CheckpointNumberSchema') return 'number';
   if (e === 'CheckpointNumberPositiveSchema') return 'number';
   if (e === 'EpochNumberSchema') return 'number';
-  if (e === 'BlockParameterSchema') return 'number | "latest"';
+  if (e === 'BlockParameterSchema') return 'BlockHash | number | "latest"';
 
   // Known schema objects
   if (e === 'L2TipsSchema') return 'L2Tips';
@@ -321,15 +330,6 @@ function simplifyZodType(expr: string): string {
   // TxHash.schema, L2Block.schema, etc
   const classSchemaMatch2 = e.match(/^(\w+)\.schema\b/);
   if (classSchemaMatch2) return classSchemaMatch2[1];
-
-  // z.string().optional() / z.number().optional()
-  if (e.endsWith('.optional()')) {
-    return simplifyZodType(e.replace(/\.optional\(\)$/, '')) + ' | undefined';
-  }
-
-  // optional(X)
-  const optionalMatch = e.match(/^optional\(([\s\S]+)\)$/);
-  if (optionalMatch) return simplifyZodType(optionalMatch[1]) + ' | undefined';
 
   // z.array(...) — use balanced paren matching to extract inner type
   if (e.startsWith('z.array(')) {
@@ -398,12 +398,6 @@ function simplifyZodType(expr: string): string {
   if (schemaRefMatch) {
     // Convert FooBarSchema to FooBar
     return schemaRefMatch[1];
-  }
-
-  // Chained expressions with .optional()
-  if (e.includes('.optional()')) {
-    const base = e.replace(/\.optional\(\)\s*$/, '');
-    return simplifyZodType(base) + ' | undefined';
   }
 
   // Admin config schemas
@@ -559,13 +553,13 @@ function generateExampleParam(paramType: string, paramName?: string): string {
   if (t === 'bigint') return '"100"';
   if (t === 'string') return '"0x1234..."';
   if (t === 'boolean') return 'true';
-  if (t === 'number | "latest"') return '"latest"';
+  if (t === 'number | "latest"' || t === 'BlockHash | number | "latest"') return '"latest"';
   if (/['"]all['"]|['"]current['"]/.test(t)) return '"current"';
   if (t === 'Fr' || t === 'AztecAddress' || t === 'BlockHash') return '"0x1234..."';
   if (t === 'EthAddress') return '"0x1234..."';
   if (t === 'SlotNumber') return '"100"';
   if (t === 'MerkleTreeId') return '1';
-  if (t === 'ManaUsageEstimate') return '1';
+  if (t === 'ManaUsageEstimate') return '"target"';
   if (t.endsWith('[]')) return `[${generateExampleParam(t.slice(0, -2), paramName)}]`;
   if (t === 'Tx') return '{"data":"0x..."}';
   if (t === 'TxHash') return '"0x1234..."';
@@ -591,6 +585,11 @@ function generateMethodMarkdown(method: MethodInfo, isAdmin: boolean): string {
 
   if (method.jsdoc.deprecated) {
     lines.push(`**Deprecated**: ${method.jsdoc.deprecated}`);
+    lines.push('');
+  }
+
+  if (method.jsdoc.remarks) {
+    lines.push(`**Remarks**: ${method.jsdoc.remarks}`);
     lines.push('');
   }
 
