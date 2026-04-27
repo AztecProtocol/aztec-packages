@@ -143,39 +143,40 @@ template <typename FF_> class Poseidon2TransitionEntryK8RelationImpl {
         const auto q_times_scaling = Accumulator(q_times_scaling_m);
 
         // Round 0 -> 1 using w_l as s_0 input.
+        // Internal-round transition: s_0^{(k+1)} = D_1 * u_k + (s_1 + s_2 + s_3) at round k.
         auto u_0 = pow5(Accumulator(w_l + q_l));
-        auto t0 = u_0 + s1 + s2 + s3;
+        auto t0 = u_0 * D1 + s1 + s2 + s3;
         std::get<0>(evals) += q_times_scaling * (t0 - Accumulator(w_r_shift));
         step(s1, s2, s3, u_0);
 
         // Round 1 -> 2 using w_r_shift (degree firewall) as s_0_1 input.
         auto u_1 = pow5(Accumulator(w_r_shift + q_r));
-        auto t1 = u_1 + s1 + s2 + s3;
+        auto t1 = u_1 * D1 + s1 + s2 + s3;
         std::get<1>(evals) += q_times_scaling * (t1 - Accumulator(w_o_shift));
         step(s1, s2, s3, u_1);
 
         auto u_2 = pow5(Accumulator(w_o_shift + q_o));
-        auto t2 = u_2 + s1 + s2 + s3;
+        auto t2 = u_2 * D1 + s1 + s2 + s3;
         std::get<2>(evals) += q_times_scaling * (t2 - Accumulator(w_4_shift));
         step(s1, s2, s3, u_2);
 
         auto u_3 = pow5(Accumulator(w_4_shift + q_4));
-        auto t3 = u_3 + s1 + s2 + s3;
+        auto t3 = u_3 * D1 + s1 + s2 + s3;
         std::get<3>(evals) += q_times_scaling * (t3 - Accumulator(p2_w_5_shift));
         step(s1, s2, s3, u_3);
 
         auto u_4 = pow5(Accumulator(p2_w_5_shift + q_m));
-        auto t4 = u_4 + s1 + s2 + s3;
+        auto t4 = u_4 * D1 + s1 + s2 + s3;
         std::get<4>(evals) += q_times_scaling * (t4 - Accumulator(p2_w_6_shift));
         step(s1, s2, s3, u_4);
 
         auto u_5 = pow5(Accumulator(p2_w_6_shift + q_c));
-        auto t5 = u_5 + s1 + s2 + s3;
+        auto t5 = u_5 * D1 + s1 + s2 + s3;
         std::get<5>(evals) += q_times_scaling * (t5 - Accumulator(p2_w_7_shift));
         step(s1, s2, s3, u_5);
 
         auto u_6 = pow5(Accumulator(p2_w_7_shift + q_5));
-        auto t6 = u_6 + s1 + s2 + s3;
+        auto t6 = u_6 * D1 + s1 + s2 + s3;
         std::get<6>(evals) += q_times_scaling * (t6 - Accumulator(p2_w_8_shift));
     }
 };

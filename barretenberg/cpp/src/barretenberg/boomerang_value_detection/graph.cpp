@@ -272,8 +272,14 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             try_pattern(ARITHMETIC, blk.q_arith());
             try_pattern(ELLIPTIC, blk.q_elliptic());
             try_pattern(LOOKUP, blk.q_lookup());
-            try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
-            try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());
+            // Standard Poseidon2 selectors only exist on Ultra-style flavors; Mega replaces them
+            // with the compressed K=8 / external-compressed selectors.
+            if constexpr (requires { blk.q_poseidon2_internal(); }) {
+                try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
+            }
+            if constexpr (requires { blk.q_poseidon2_external(); }) {
+                try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());
+            }
             try_pattern(NON_NATIVE_FIELD, blk.q_nnf());
             try_pattern(MEMORY, blk.q_memory()); // consistency gates only; access gates via ROM/RAM transcripts
             try_pattern(DELTA_RANGE, blk.q_delta_range());
@@ -1244,21 +1250,23 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_delta_range_gate_info(size_t gat
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_poseidon2s_gate_info(size_t gate_index, auto& block)
 {
-    auto internal_selector = block.q_poseidon2_internal()[gate_index];
-    auto external_selector = block.q_poseidon2_external()[gate_index];
-    if (!internal_selector.is_zero() || !external_selector.is_zero()) {
-        info("q_poseidon2_internal == ", internal_selector);
-        info("q_poseidon2_external == ", external_selector);
-        info("w_1 == ", block.w_l()[gate_index]);
-        info("w_2 == ", block.w_r()[gate_index]);
-        info("w_3 == ", block.w_o()[gate_index]);
-        info("w_4 == ", block.w_4()[gate_index]);
-        info("w_1_shift == ", block.w_l()[gate_index + 1]);
-        info("w_2_shift == ", block.w_r()[gate_index + 1]);
-        info("w_3_shift == ", block.w_o()[gate_index + 1]);
-        info("w_4_shift == ", block.w_4()[gate_index + 1]);
-    } else {
-        return;
+    // Standard Poseidon2 selectors only exist on Ultra-style flavors; Mega replaces them with the
+    // compressed K=8 / external-compressed selectors. Skip print on flavors without them.
+    if constexpr (requires { block.q_poseidon2_internal(); }) {
+        auto internal_selector = block.q_poseidon2_internal()[gate_index];
+        auto external_selector = block.q_poseidon2_external()[gate_index];
+        if (!internal_selector.is_zero() || !external_selector.is_zero()) {
+            info("q_poseidon2_internal == ", internal_selector);
+            info("q_poseidon2_external == ", external_selector);
+            info("w_1 == ", block.w_l()[gate_index]);
+            info("w_2 == ", block.w_r()[gate_index]);
+            info("w_3 == ", block.w_o()[gate_index]);
+            info("w_4 == ", block.w_4()[gate_index]);
+            info("w_1_shift == ", block.w_l()[gate_index + 1]);
+            info("w_2_shift == ", block.w_r()[gate_index + 1]);
+            info("w_3_shift == ", block.w_o()[gate_index + 1]);
+            info("w_4_shift == ", block.w_4()[gate_index + 1]);
+        }
     }
 }
 

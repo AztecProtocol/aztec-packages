@@ -11,6 +11,7 @@
 
 #include "gate_patterns.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
@@ -29,6 +30,7 @@ using namespace bb::gate_patterns;
 
 using FF = fr;
 using Entities = MegaFlavor::AllValues;
+using UltraEntities = UltraFlavor::AllValues;
 
 Entities get_random_entities()
 {
@@ -286,18 +288,6 @@ TEST(PatternTest, MemoryRamConsistency)
     });
 }
 
-TEST(PatternTest, Poseidon2Internal)
-{
-    verify_pattern<Poseidon2InternalRelation<FF>>(POSEIDON2_INTERNAL,
-                                                  [](Entities& e) { return e.q_poseidon2_internal = FF(1); });
-}
-
-TEST(PatternTest, Poseidon2External)
-{
-    verify_pattern<Poseidon2ExternalRelation<FF>>(POSEIDON2_EXTERNAL,
-                                                  [](Entities& e) { return e.q_poseidon2_external = FF(1); });
-}
-
 TEST(PatternTest, LookupBasic)
 {
     verify_pattern<LogDerivLookupRelation<FF>>(LOOKUP, [](Entities& e) {
@@ -323,6 +313,116 @@ TEST(PatternTest, LookupWithShiftedWires)
 TEST(PatternTest, DatabusRead)
 {
     verify_pattern<DatabusLookupRelation<FF>>(DATABUS, [](Entities& e) { return e.q_busread = FF(1); });
+}
+
+// =============================================================================
+// Ultra-only pattern tests (standard Poseidon2 internal/external)
+// Mega replaces these with the compressed K=8 / external-compressed relations,
+// so the tests below run against UltraFlavor::AllValues.
+// =============================================================================
+
+namespace ultra_pattern_test {
+
+UltraEntities get_random_entities()
+{
+    UltraEntities entities;
+    for (auto& field : entities.get_all()) {
+        field = FF::random_element();
+    }
+    return entities;
+}
+
+FF& get_wire(UltraEntities& entities, Wire wire)
+{
+    switch (wire) {
+    case Wire::W_L:
+        return entities.w_l;
+    case Wire::W_R:
+        return entities.w_r;
+    case Wire::W_O:
+        return entities.w_o;
+    case Wire::W_4:
+        return entities.w_4;
+    case Wire::W_L_SHIFT:
+        return entities.w_l_shift;
+    case Wire::W_R_SHIFT:
+        return entities.w_r_shift;
+    case Wire::W_O_SHIFT:
+        return entities.w_o_shift;
+    case Wire::W_4_SHIFT:
+        return entities.w_4_shift;
+    }
+    __builtin_unreachable();
+}
+
+Selectors make_selectors(const UltraEntities& entities, int64_t gate_selector_value)
+{
+    return Selectors{
+        .gate_selector = gate_selector_value,
+        .q_m_nz = !entities.q_m.is_zero(),
+        .q_1_nz = !entities.q_l.is_zero(),
+        .q_2_nz = !entities.q_r.is_zero(),
+        .q_3_nz = !entities.q_o.is_zero(),
+        .q_4_nz = !entities.q_4.is_zero(),
+        .q_c_nz = !entities.q_c.is_zero(),
+    };
+}
+
+template <typename Relation>
+std::set<Wire> get_actually_constrained_wires(const UltraEntities& entities, const auto& parameters)
+{
+    std::set<Wire> constrained;
+    typename Relation::SumcheckArrayOfValuesOverSubrelations base_result{};
+    Relation::accumulate(base_result, entities, parameters, FF(1));
+
+    for (Wire wire : { Wire::W_L,
+                       Wire::W_R,
+                       Wire::W_O,
+                       Wire::W_4,
+                       Wire::W_L_SHIFT,
+                       Wire::W_R_SHIFT,
+                       Wire::W_O_SHIFT,
+                       Wire::W_4_SHIFT }) {
+        UltraEntities perturbed = entities;
+        get_wire(perturbed, wire) += FF::random_element();
+
+        typename Relation::SumcheckArrayOfValuesOverSubrelations perturbed_result{};
+        Relation::accumulate(perturbed_result, perturbed, parameters, FF(1));
+
+        if (base_result != perturbed_result) {
+            constrained.insert(wire);
+        }
+    }
+    return constrained;
+}
+
+template <typename Relation> void verify_pattern(const GatePattern& pattern, auto configure_selectors)
+{
+    UltraEntities entities = get_random_entities();
+    FF gate_selector = configure_selectors(entities);
+    int64_t gate_selector_value = static_cast<int64_t>(uint64_t(gate_selector));
+
+    Selectors selectors = make_selectors(entities, gate_selector_value);
+    auto pattern_claims = get_pattern_wires(pattern, selectors);
+
+    auto parameters = RelationParameters<FF>::get_random();
+    auto actually_constrained = get_actually_constrained_wires<Relation>(entities, parameters);
+
+    EXPECT_EQ(actually_constrained, pattern_claims);
+}
+
+} // namespace ultra_pattern_test
+
+TEST(PatternTest, Poseidon2InternalUltra)
+{
+    ultra_pattern_test::verify_pattern<Poseidon2InternalRelation<FF>>(
+        POSEIDON2_INTERNAL, [](UltraEntities& e) { return e.q_poseidon2_internal = FF(1); });
+}
+
+TEST(PatternTest, Poseidon2ExternalUltra)
+{
+    ultra_pattern_test::verify_pattern<Poseidon2ExternalRelation<FF>>(
+        POSEIDON2_EXTERNAL, [](UltraEntities& e) { return e.q_poseidon2_external = FF(1); });
 }
 
 // =============================================================================

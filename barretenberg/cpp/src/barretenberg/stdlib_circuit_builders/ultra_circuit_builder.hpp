@@ -490,6 +490,13 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         block.q_3().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_4().emplace_back(0);
+        // Keep extra round-constant selectors aligned when the block exposes them.
+        if constexpr (requires { block.q_5(); }) {
+            block.q_5().emplace_back(0);
+        }
+        if constexpr (requires { block.q_6(); }) {
+            block.q_6().emplace_back(0);
+        }
         block.set_gate_selector(0); // all selectors zero
 
         check_selector_length_consistency();

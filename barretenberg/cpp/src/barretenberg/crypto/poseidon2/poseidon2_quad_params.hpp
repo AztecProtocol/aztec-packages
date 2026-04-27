@@ -60,6 +60,22 @@ struct Poseidon2QuadBn254Params {
     static constexpr FF alpha_3_1 = D2 * D3 * inv_denom_3;
     static constexpr FF alpha_3_2 = -(D2 + D3) * inv_denom_3;
     static constexpr FF alpha_3_3 = inv_denom_3;
+
+    // Sanity: verify V * alpha = identity at compile time. V[i][j] = D_{j+2}^i for i,j in {0,1,2}.
+    // (V * alpha)[i][k] = sum_j V[i][j] * alpha_{j+1}_{i+1}... wait that's weird. Let me check column k
+    // of (V * alpha)^T = alpha^T * V^T. The j-th row of alpha gives the inverse such that for the
+    // node D_{j+1}, the polynomial alpha_{j}_1 + alpha_{j}_2 * x + alpha_{j}_3 * x^2 evaluates to
+    // delta_{j, k} at x = D_{k+2}.
+    // Row j evaluates at node D_{2}: alpha_{j}_1 + alpha_{j}_2 * D2 + alpha_{j}_3 * D2^2 = (j == 1).
+    static_assert(alpha_1_1 + alpha_1_2 * D2 + alpha_1_3 * D2 * D2 == FF(1));
+    static_assert(alpha_1_1 + alpha_1_2 * D3 + alpha_1_3 * D3 * D3 == FF(0));
+    static_assert(alpha_1_1 + alpha_1_2 * D4 + alpha_1_3 * D4 * D4 == FF(0));
+    static_assert(alpha_2_1 + alpha_2_2 * D2 + alpha_2_3 * D2 * D2 == FF(0));
+    static_assert(alpha_2_1 + alpha_2_2 * D3 + alpha_2_3 * D3 * D3 == FF(1));
+    static_assert(alpha_2_1 + alpha_2_2 * D4 + alpha_2_3 * D4 * D4 == FF(0));
+    static_assert(alpha_3_1 + alpha_3_2 * D2 + alpha_3_3 * D2 * D2 == FF(0));
+    static_assert(alpha_3_1 + alpha_3_2 * D3 + alpha_3_3 * D3 * D3 == FF(0));
+    static_assert(alpha_3_1 + alpha_3_2 * D4 + alpha_3_3 * D4 * D4 == FF(1));
 };
 
 } // namespace bb::crypto

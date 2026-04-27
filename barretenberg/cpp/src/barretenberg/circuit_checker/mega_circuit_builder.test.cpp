@@ -199,11 +199,11 @@ TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
             if (&block != &builder.blocks.busread) {
                 EXPECT_EQ(block.q_busread()[i], 0);
             }
-            if (&block != &builder.blocks.poseidon2_external) {
-                EXPECT_EQ(block.q_poseidon2_external()[i], 0);
-            }
-            if (&block != &builder.blocks.poseidon2_internal) {
-                EXPECT_EQ(block.q_poseidon2_internal()[i], 0);
+            if (&block != &builder.blocks.poseidon2_compressed) {
+                EXPECT_EQ(block.q_poseidon2_external_compressed()[i], 0);
+                EXPECT_EQ(block.q_poseidon2_transition_entry_k8()[i], 0);
+                EXPECT_EQ(block.q_poseidon2_k8_internal()[i], 0);
+                EXPECT_EQ(block.q_poseidon2_k8_internal_terminal()[i], 0);
             }
         }
     }
