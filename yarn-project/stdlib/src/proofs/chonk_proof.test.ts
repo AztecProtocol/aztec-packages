@@ -1,3 +1,4 @@
+import { BarretenbergSync } from '@aztec/bb.js';
 import { CHONK_PROOF_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
@@ -5,6 +6,10 @@ import { numToUInt32BE } from '@aztec/foundation/serialize';
 import { ChonkProof, ChonkProofWithPublicInputs } from './chonk_proof.js';
 
 describe('ChonkProof', () => {
+  it('initializes BarretenbergSync at module load so sync deserialization works', () => {
+    expect(() => BarretenbergSync.getSingleton()).not.toThrow();
+  });
+
   it('should throw error with incorrect length', () => {
     const fields = Array.from({ length: CHONK_PROOF_LENGTH + 1 }, () => Fr.random());
     expect(() => new ChonkProof(fields)).toThrow(`Invalid ChonkProof length: ${CHONK_PROOF_LENGTH + 1}`);

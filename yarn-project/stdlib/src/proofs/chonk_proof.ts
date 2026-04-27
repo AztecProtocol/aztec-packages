@@ -6,6 +6,12 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, numToUInt32BE, serializeToBuffer } from '@aztec/foundation/serialize';
 
+// ChonkProof.fromCompressedBytes uses BarretenbergSync synchronously, which throws if the
+// singleton has not been initialized. Tx.fromBuffer is sync and called from many code paths
+// (RPC handlers, P2P deserialization), so we cannot make initialization lazy. Init at module
+// load so any process that imports ChonkProof can deserialize compressed proofs.
+await BarretenbergSync.initSingleton();
+
 /**
  * Serialization format detection for ChonkProof is size-based:
  *   - UNCOMPRESSED (legacy): [field_count=1632: uint32] [fields...]  → total ≈ 52KB (>= 40KB)
