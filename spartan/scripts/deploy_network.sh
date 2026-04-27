@@ -286,6 +286,18 @@ if [[ "${DESTROY_NAMESPACE:-}" == "true" ]]; then
   "${SCRIPT_DIR}/network_teardown.sh"
 fi
 
+# Drop any stale terraform state locks left behind by a prior crashed run —
+# an ungraceful exit (OOM, spot eviction, CI timeout) leaves a `.tflock` GCS
+# object that poisons every future run for the same namespace. Only runs for
+# ephemeral namespaces (DESTROY_NAMESPACE=true) on a GCS backend, and only
+# touches state under this namespace's prefix, so it cannot affect production.
+if [[ "${DESTROY_NAMESPACE:-false}" == "true" && "${CLUSTER}" != "kind" ]]; then
+  log "Clearing any stale terraform state locks under gs://aztec-terraform/${BASE_STATE_PATH}/"
+  for module in deploy-eth-devnet deploy-rollup-contracts deploy-aztec-infra; do
+    gcloud storage rm --quiet "gs://aztec-terraform/${BASE_STATE_PATH}/${module}/terraform.tfstate/default.tflock" 2>/dev/null || true
+  done
+fi
+
 # Create the namespace if it doesn't exist
 kubectl get namespace "${NAMESPACE}" >/dev/null 2>&1 || kubectl create namespace "${NAMESPACE}"
 

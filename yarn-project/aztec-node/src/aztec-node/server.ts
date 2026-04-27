@@ -157,6 +157,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     protected readonly slasherClient: SlasherClientInterface | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
     protected readonly epochPruneWatcher: EpochPruneWatcher | undefined,
+    protected readonly attestationsBlockWatcher: AttestationsBlockWatcher | undefined,
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
@@ -403,7 +404,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       let validatorClient: ValidatorClient | undefined;
 
-      if (!proverOnly) {
+      if (!config.disableValidator) {
         // Create validator client if required
         validatorClient = await createValidatorClient(config, {
           checkpointsBuilder: validatorCheckpointsBuilder,
@@ -494,9 +495,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       void archiver
         .waitForInitialSync()
         .then(async () => {
-          await validatorsSentinel?.start();
-          await epochPruneWatcher?.start();
-          await attestationsBlockWatcher?.start();
+          if (validatorsSentinel) {
+            await validatorsSentinel.start();
+            started.push(validatorsSentinel);
+          }
+          if (epochPruneWatcher) {
+            await epochPruneWatcher.start();
+            started.push(epochPruneWatcher);
+          }
+          if (attestationsBlockWatcher) {
+            await attestationsBlockWatcher.start();
+            started.push(attestationsBlockWatcher);
+          }
           log.info(`All p2p services started`);
         })
         .catch(err => log.error('Failed to start p2p services after archiver sync', err));
@@ -627,6 +637,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         slasherClient,
         validatorsSentinel,
         epochPruneWatcher,
+        attestationsBlockWatcher,
         ethereumChain.chainInfo.id,
         config.rollupVersion,
         globalVariableBuilder,
@@ -966,10 +977,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       // If the tx is in the pool but not in the archiver, it's pending.
       // This handles race conditions between archiver and p2p, where the archiver
       // has pruned the block in which a tx was mined, but p2p has not caught up yet.
-      receipt = new TxReceipt(txHash, TxStatus.PENDING, undefined, undefined);
+      receipt = new TxReceipt(txHash, TxStatus.PENDING, /*executionResult=*/ undefined, /*error=*/ undefined);
     } else {
       // Otherwise, if we don't know the tx, we consider it dropped.
-      receipt = new TxReceipt(txHash, TxStatus.DROPPED, undefined, 'Tx dropped by P2P node');
+      receipt = new TxReceipt(
+        txHash,
+        TxStatus.DROPPED,
+        /*executionResult=*/ undefined,
+        /*error=*/ 'Tx dropped by P2P node',
+      );
     }
 
     this.debugLogStore.decorateReceiptWithLogs(txHash.toString(), receipt);
@@ -986,6 +1002,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    */
   public async stop() {
     this.log.info(`Stopping Aztec Node`);
+    await tryStop(this.attestationsBlockWatcher);
     await tryStop(this.validatorsSentinel);
     await tryStop(this.epochPruneWatcher);
     await tryStop(this.slasherClient);
