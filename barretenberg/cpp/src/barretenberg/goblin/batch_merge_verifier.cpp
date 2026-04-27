@@ -130,9 +130,9 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     powers_of_kappa.reserve(shift_sizes.size());
     for (const FF& shift_size : shift_sizes) {
         if constexpr (IsRecursive) {
-            // Shift sizes are at most 2^CONST_ECCVM_LOG_N so the implicit range constraint enforced by pow is always
-            // satisfied
-            powers_of_kappa.push_back(kappa.template pow<CONST_ECCVM_LOG_N>(shift_size));
+            // Shift sizes are at most 2^CONST_OP_QUEUE_LOG_SIZE so the implicit range constraint enforced by pow is
+            // always satisfied
+            powers_of_kappa.push_back(kappa.template pow<CONST_OP_QUEUE_LOG_SIZE + 1>(shift_size));
         } else {
             powers_of_kappa.push_back(kappa.pow(shift_size));
         }

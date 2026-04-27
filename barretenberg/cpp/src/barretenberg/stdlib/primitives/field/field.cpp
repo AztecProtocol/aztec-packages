@@ -1355,10 +1355,10 @@ template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow<32UL
 template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow<32UL>(
     const field_t<bb::MegaCircuitBuilder>&) const;
 
-template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow<CONST_ECCVM_LOG_N>(
+template field_t<bb::UltraCircuitBuilder> field_t<UltraCircuitBuilder>::pow<CONST_OP_QUEUE_LOG_SIZE + 1>(
     const field_t<bb::UltraCircuitBuilder>&) const;
 
-template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow<CONST_ECCVM_LOG_N>(
+template field_t<bb::MegaCircuitBuilder> field_t<MegaCircuitBuilder>::pow<CONST_OP_QUEUE_LOG_SIZE + 1>(
     const field_t<bb::MegaCircuitBuilder>&) const;
 
 template class field_t<bb::UltraCircuitBuilder>;
