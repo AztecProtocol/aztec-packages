@@ -728,6 +728,7 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
  * @brief Batch affine point doubling using Montgomery's trick
  * @tparam AffineElement Affine point type
  * @tparam Fq Base field type
+ * @tparam T Curve parameters type (for adding `a` in slope calculation)
  *
  * @warning ASSUMES NO EDGE CASES:
  *   - All points must be valid (not point at infinity)
@@ -737,7 +738,7 @@ __attribute__((always_inline)) inline void batch_affine_add_interleaved(AffineEl
  * @note This is the "unsafe" fast path. For general point doubling with edge case handling,
  *       use Jacobian arithmetic or check for edge cases before calling this function.
  */
-template <typename AffineElement, typename Fq>
+template <typename AffineElement, typename Fq, typename T>
 __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElement* points,
                                                                     const size_t num_points,
                                                                     Fq* scratch_space) noexcept
@@ -747,6 +748,9 @@ __attribute__((always_inline)) inline void batch_affine_double_impl(AffineElemen
     // Forward pass: prepare batch inversion
     for (size_t i = 0; i < num_points; ++i) {
         scratch_space[i] = points[i].x.sqr();
+        if constexpr (T::has_a) {
+            scratch_space[i] += T::a; // adjust slope in numerator
+        }
         scratch_space[i] = scratch_space[i] + scratch_space[i] + scratch_space[i];
         scratch_space[i] *= batch_inversion_accumulator;
         batch_inversion_accumulator *= (points[i].y + points[i].y);
@@ -873,7 +877,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
 
         // Perform point doubling in parallel
         const auto double_chunked = [&](affine_element* lhs) {
-            batch_affine_double_impl<affine_element, Fq>(&lhs[start], end - start, &scratch_space[start]);
+            batch_affine_double_impl<affine_element, Fq, T>(&lhs[start], end - start, &scratch_space[start]);
         };
 
         // Initialize first entries in lookup table
