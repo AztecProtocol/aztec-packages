@@ -185,7 +185,9 @@ This writes to `docs/docs-operate/operators/reference/node-api-reference.md`
 using the source files from the currently checked-out tag. The generator parses
 `yarn-project/stdlib/src/interfaces/aztec-node.ts` and
 `yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` directly (no
-yarn-project build needed).
+yarn-project build needed, but `yarn-project/node_modules/` must be installed
+so `npx tsx` can resolve `typescript` — run `yarn install` from `yarn-project`
+if needed).
 
 Verify the output lists the expected number of methods and has no ungrouped
 methods warnings.
@@ -308,8 +310,9 @@ Check for stash conflicts. Then report to the user:
   a yarn-project build. Only `yarn` (for the docs build), `curl`/`jq` (for
   the RPC query), and `cast` (for on-chain address queries) are needed.
 - **Node API reference is auto-generated**: Run `yarn generate:node-api-reference`
-  (Step 5a) before building. The generator parses TypeScript source directly and
-  does not require a yarn-project build.
+  (Step 5a) before building. The generator parses TypeScript source directly, so
+  no yarn-project build is required — but `yarn-project/node_modules/` must exist
+  (run `yarn install` from `yarn-project` if missing).
 - **Build must pass**: Do not cut versioned docs until `yarn build` succeeds.
 - **COMMIT_TAG needs `v` prefix**: The preprocessor uses COMMIT_TAG for GitHub
   URLs and git tag references. Omitting the `v` will break links in versioned

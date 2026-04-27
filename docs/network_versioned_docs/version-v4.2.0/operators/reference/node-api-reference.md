@@ -173,7 +173,7 @@ Method to request blocks. Will attempt to return all requested blocks but will r
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getBlocks","params":[12345,12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getBlocks","params":[0,100],"id":1}'
 ```
 
 ### node_getBlockHeader
@@ -228,7 +228,7 @@ Retrieves a collection of checkpoints.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpoints","params":[12345,12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getCheckpoints","params":[1,100],"id":1}'
 ```
 
 ### node_getCheckpointedBlocks
@@ -245,7 +245,7 @@ curl -X POST http://localhost:8080 \
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpointedBlocks","params":[12345,12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getCheckpointedBlocks","params":[0,100],"id":1}'
 ```
 
 ### node_getCheckpointsDataForEpoch
@@ -376,7 +376,7 @@ Method to retrieve pending txs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPendingTxs","params":[12345,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getPendingTxs","params":[100,"0x1234..."],"id":1}'
 ```
 
 ### node_getPendingTxCount
@@ -487,7 +487,7 @@ the leaves were inserted.
 2. `treeId` - `MerkleTreeId` - The tree to search in.
 3. `leafValues` - `Fr[]` - The values to search for.
 
-**Returns**: `DataInBlock<bigint> | undefined[]` - The indices of leaves and the block metadata of a block in which the leaves were inserted.
+**Returns**: `(DataInBlock<bigint> | undefined)[]` - The indices of leaves and the block metadata of a block in which the leaves were inserted.
 
 **Example**:
 
@@ -736,7 +736,7 @@ for a tag, the caller should fetch the next page to check for more logs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPrivateLogsByTags","params":[["0x1234..."],12345,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getPrivateLogsByTags","params":[["0x1234..."],0,"0x1234..."],"id":1}'
 ```
 
 ### node_getPublicLogsByTagsFromContract
@@ -762,7 +762,7 @@ for a tag, the caller should fetch the next page to check for more logs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPublicLogsByTagsFromContract","params":["0x1234...",["0x1234..."],12345,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getPublicLogsByTagsFromContract","params":["0x1234...",["0x1234..."],0,"0x1234..."],"id":1}'
 ```
 
 ## Contract queries
@@ -819,6 +819,26 @@ Method to fetch the current min fees.
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"node_getCurrentMinFees","params":[],"id":1}'
+```
+
+### node_getPredictedMinFees
+
+Returns predicted min fees for the current slot and next N slots.
+Each entry accounts for the L1 gas oracle transition and congestion growth based on the
+given mana usage estimate. Defaults to target usage (steady state).
+
+**Parameters**:
+
+1. `manaUsage` - `ManaUsageEstimate | undefined` - Expected mana usage per checkpoint (none, target, or limit).
+
+**Returns**: `GasFees[]` - An array of GasFees, one per slot in the prediction window.
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"node_getPredictedMinFees","params":[1],"id":1}'
 ```
 
 ### node_getMaxPriorityFees
@@ -1169,6 +1189,8 @@ Pauses syncing and rolls back the database to the target L2 block number.
 **Parameters**:
 
 1. `targetBlockNumber` - `number` - The block number to roll back to.
+2. `force` - `boolean | undefined` - If true, clears the world state db and p2p dbs if rolling back to behind the finalized block.
+3. `resumeSync` - `boolean | undefined` - If true (default), resumes archiver and world state sync after rollback.
 
 **Returns**: `void`
 
@@ -1177,7 +1199,7 @@ Pauses syncing and rolls back the database to the target L2 block number.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345,true,true],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1185,7 +1207,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345,true,true],"id":1}'
 ```
 
 ### nodeAdmin_startSnapshotUpload
@@ -1214,30 +1236,6 @@ docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_startSnapshotUpload","params":["0x1234..."],"id":1}'
 ```
 
-### nodeAdmin_getSlashPayloads
-
-Returns all monitored payloads by the slasher for the current round.
-
-**Parameters**: None
-
-**Returns**: `SlashPayloadRound[]`
-
-**Example (CLI)**:
-
-```bash
-curl -X POST http://localhost:8880 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashPayloads","params":[],"id":1}'
-```
-
-**Example (Docker)**:
-
-```bash
-docker exec -it aztec-node curl -X POST http://localhost:8880 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashPayloads","params":[],"id":1}'
-```
-
 ### nodeAdmin_getSlashOffenses
 
 Returns all offenses applicable for the given round.
@@ -1253,7 +1251,7 @@ Returns all offenses applicable for the given round.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1261,7 +1259,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```
 
 ### nodeAdmin_reloadKeystore

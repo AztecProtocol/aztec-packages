@@ -48,9 +48,23 @@ done
 
 OUTPUT_PATH="$OUTPUT_DIR/$OUTPUT_FILE"
 
-# Verify yarn-project is built
-if [[ ! -d "$YARN_PROJECT_DIR/stdlib/dest" ]]; then
-    echo_error "yarn-project/stdlib/dest/ not found. Run 'yarn build' from yarn-project first."
+# Verify the source files the generator parses are present.
+# The generator reads .ts source via the TS Compiler API, so no build is required —
+# but yarn-project must have node_modules installed so that `npx tsx` can resolve typescript.
+REQUIRED_SOURCES=(
+    "$YARN_PROJECT_DIR/stdlib/src/interfaces/aztec-node.ts"
+    "$YARN_PROJECT_DIR/stdlib/src/interfaces/aztec-node-admin.ts"
+    "$YARN_PROJECT_DIR/stdlib/src/block/l2_block_source.ts"
+)
+for src in "${REQUIRED_SOURCES[@]}"; do
+    if [[ ! -f "$src" ]]; then
+        echo_error "Required source file not found: $src"
+        exit 1
+    fi
+done
+
+if [[ ! -d "$YARN_PROJECT_DIR/node_modules" ]]; then
+    echo_error "yarn-project/node_modules/ not found. Run 'yarn install' from yarn-project first."
     exit 1
 fi
 

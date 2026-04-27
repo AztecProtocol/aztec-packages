@@ -173,7 +173,7 @@ Method to request blocks. Will attempt to return all requested blocks but will r
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getBlocks","params":[12345,12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getBlocks","params":[0,100],"id":1}'
 ```
 
 ### node_getBlockHeader
@@ -228,7 +228,7 @@ Retrieves a collection of checkpoints.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpoints","params":[12345,12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getCheckpoints","params":[1,100],"id":1}'
 ```
 
 ### node_getCheckpointedBlocks
@@ -245,7 +245,7 @@ curl -X POST http://localhost:8080 \
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpointedBlocks","params":[12345,12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getCheckpointedBlocks","params":[0,100],"id":1}'
 ```
 
 ### node_getCheckpointsDataForEpoch
@@ -376,7 +376,7 @@ Method to retrieve pending txs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPendingTxs","params":[12345,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getPendingTxs","params":[100,"0x1234..."],"id":1}'
 ```
 
 ### node_getPendingTxCount
@@ -487,7 +487,7 @@ the leaves were inserted.
 2. `treeId` - `MerkleTreeId` - The tree to search in.
 3. `leafValues` - `Fr[]` - The values to search for.
 
-**Returns**: `DataInBlock<bigint> | undefined[]` - The indices of leaves and the block metadata of a block in which the leaves were inserted.
+**Returns**: `(DataInBlock<bigint> | undefined)[]` - The indices of leaves and the block metadata of a block in which the leaves were inserted.
 
 **Example**:
 
@@ -736,7 +736,7 @@ for a tag, the caller should fetch the next page to check for more logs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPrivateLogsByTags","params":[["0x1234..."],12345,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getPrivateLogsByTags","params":[["0x1234..."],0,"0x1234..."],"id":1}'
 ```
 
 ### node_getPublicLogsByTagsFromContract
@@ -762,7 +762,7 @@ for a tag, the caller should fetch the next page to check for more logs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPublicLogsByTagsFromContract","params":["0x1234...",["0x1234..."],12345,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getPublicLogsByTagsFromContract","params":["0x1234...",["0x1234..."],0,"0x1234..."],"id":1}'
 ```
 
 ## Contract queries
@@ -1251,7 +1251,7 @@ Returns all offenses applicable for the given round.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1259,7 +1259,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```
 
 ### nodeAdmin_reloadKeystore

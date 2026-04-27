@@ -69,7 +69,7 @@ function extractJSDocFromNode(node: ts.Node): MethodJSDoc | undefined {
   const jsDocs = (node as any).jsDoc as ts.JSDoc[] | undefined;
   if (!jsDocs || jsDocs.length === 0) return undefined;
 
-  const jsDoc = jsDocs[jsDocs.length - 1];
+  const jsDoc = jsDocs[0];
   const description = extractJSDocComment(jsDoc);
 
   const params: { name: string; description: string }[] = [];
@@ -335,8 +335,11 @@ function simplifyZodType(expr: string): string {
   if (e.startsWith('z.array(')) {
     const innerEnd = findMatchingParen(e, 8 - 1); // 8 = 'z.array('.length, -1 to point at '('
     if (innerEnd !== -1) {
-      const inner = e.substring(8, innerEnd);
-      return simplifyZodType(inner) + '[]';
+      const inner = simplifyZodType(e.substring(8, innerEnd));
+      // Parenthesize unions so `optional(Foo)` inside an array renders as `(Foo | undefined)[]`,
+      // not the (incorrectly parsed) `Foo | undefined[]`.
+      const wrapped = inner.includes('|') ? `(${inner})` : inner;
+      return wrapped + '[]';
     }
   }
 
@@ -406,7 +409,8 @@ function simplifyZodType(expr: string): string {
   // Admin config schemas
   if (e.includes('ConfigSchema')) return 'object';
 
-  // Fallback
+  // Fallback — surface unrecognized expressions so they can be added to the mapping.
+  console.warn(`[simplifyZodType] unrecognized expression, falling back to 'object': ${e}`);
   return 'object';
 }
 
@@ -532,27 +536,37 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
       'resumeSync',
       'rollbackTo',
       'startSnapshotUpload',
-      'getSlashPayloads',
       'getSlashOffenses',
       'reloadKeystore',
     ],
   },
 ];
 
-function generateExampleParam(paramType: string): string {
+function generateExampleParam(paramType: string, paramName?: string): string {
   const t = paramType.replace(/\s*\|\s*undefined$/, '').trim();
+
+  // Name-aware overrides for common parameter names so paired numeric args like
+  // (from, limit) and (page) render as more illustrative examples than `12345, 12345`.
+  if (paramName && (t === 'number' || t === 'bigint')) {
+    const stringify = (n: number) => (t === 'bigint' ? `"${n}"` : String(n));
+    if (paramName === 'from' || paramName === 'fromBlock') return stringify(0);
+    if (paramName === 'limit') return stringify(100);
+    if (paramName === 'page') return stringify(0);
+    if (paramName === 'checkpointNumber') return stringify(1);
+  }
+
   if (t === 'number') return '12345';
   if (t === 'bigint') return '"100"';
   if (t === 'string') return '"0x1234..."';
   if (t === 'boolean') return 'true';
   if (t === 'number | "latest"') return '"latest"';
-  if (t.includes('"all"') || t.includes('"current"')) return '"current"';
+  if (/['"]all['"]|['"]current['"]/.test(t)) return '"current"';
   if (t === 'Fr' || t === 'AztecAddress' || t === 'BlockHash') return '"0x1234..."';
   if (t === 'EthAddress') return '"0x1234..."';
   if (t === 'SlotNumber') return '"100"';
   if (t === 'MerkleTreeId') return '1';
   if (t === 'ManaUsageEstimate') return '1';
-  if (t.endsWith('[]')) return `[${generateExampleParam(t.slice(0, -2))}]`;
+  if (t.endsWith('[]')) return `[${generateExampleParam(t.slice(0, -2), paramName)}]`;
   if (t === 'Tx') return '{"data":"0x..."}';
   if (t === 'TxHash') return '"0x1234..."';
   if (t === 'SiloedTag') return '"0x1234..."';
@@ -602,7 +616,9 @@ function generateMethodMarkdown(method: MethodInfo, isAdmin: boolean): string {
   lines.push('');
 
   // Example
-  const exampleParams = method.paramTypes.map(t => generateExampleParam(t)).join(',');
+  const exampleParams = method.paramTypes
+    .map((t, i) => generateExampleParam(t, method.paramNames[i]))
+    .join(',');
 
   if (isAdmin) {
     lines.push('**Example (CLI)**:');
@@ -790,6 +806,9 @@ function main() {
   for (const name of nodeMethodNames) {
     const schema = nodeSchemaInfo.get(name)!;
     const jsdoc = mergedJSDoc.get(name) || { description: '', params: [], returns: '' };
+    if (!mergedJSDoc.has(name)) {
+      console.warn(`WARNING: node_${name} is missing JSDoc — rendered without description`);
+    }
     const paramNames = mergedParamNames.get(name) || [];
 
     allMethods.set(`node:${name}`, {
@@ -805,6 +824,9 @@ function main() {
   for (const name of adminMethodNames) {
     const schema = adminSchemaInfo.get(name)!;
     const jsdoc = adminInterface.jsdoc.get(name) || { description: '', params: [], returns: '' };
+    if (!adminInterface.jsdoc.has(name)) {
+      console.warn(`WARNING: nodeAdmin_${name} is missing JSDoc — rendered without description`);
+    }
     const paramNames = adminInterface.paramNames.get(name) || [];
 
     allMethods.set(`nodeAdmin:${name}`, {
