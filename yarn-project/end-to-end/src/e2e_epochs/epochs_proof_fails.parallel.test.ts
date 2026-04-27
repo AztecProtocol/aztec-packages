@@ -36,9 +36,15 @@ describe('e2e_epochs/epochs_proof_fails', () => {
   let test: EpochsTestContext;
 
   beforeEach(async () => {
-    // Note: pipelining is NOT enabled for this test because it deliberately manipulates L1 tx timing
-    // (via proverDelayer/sequencerDelayer with cancelTxOnTimeout: false and maxSpeedUpAttempts: 0),
-    // which conflicts with pipelining's assumption that previous checkpoints land on L1 promptly.
+    // Note: pipelining is NOT enabled for this test (tracked in A-915). The test deliberately
+    // holds L1 txs in the mempool indefinitely (via proverDelayer/sequencerDelayer with
+    // `cancelTxOnTimeout: false` and `maxSpeedUpAttempts: 0`) to drive a proof-deadline-miss
+    // re-org. Pipelining gates the next checkpoint's L1 submission on the parent's propose tx
+    // having landed (`CheckpointProposalJob.waitForValidParentCheckpointOnL1`); holding the
+    // parent tx forever causes the pipelined work to be discarded with reason
+    // `parent-not-on-l1`, which suppresses the very rollback-triggering tx the first `it` block
+    // asserts on. There is no per-slot pipelining bypass, so enabling pipelining is fundamentally
+    // incompatible with this test's design — see PIPELINING.md §7.3 / Pattern C.
     test = await EpochsTestContext.setup({
       maxSpeedUpAttempts: 0, // No speed ups
       startProverNode: false, // Avoid early proving
