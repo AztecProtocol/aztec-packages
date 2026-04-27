@@ -8,6 +8,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
@@ -1082,6 +1083,7 @@ class TestLibP2PService extends LibP2PService {
       epochCache,
       mockProofVerifier,
       mockWorldStateSynchronizer,
+      { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       telemetry,
       logger,
     );

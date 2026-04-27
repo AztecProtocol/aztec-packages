@@ -168,9 +168,20 @@ describe('e2e_p2p_network', () => {
     const initialOnChainPrice = await rollup.getEthPerFeeAsset();
     t.logger.info(`Initial on-chain price: ${initialOnChainPrice}, target oracle price: ${targetOraclePrice}`);
 
-    // Gather signers from attestations downloaded from L1
+    // Gather signers from attestations downloaded from L1.
+    // The checkpoint may not have been published to L1 yet when nodes finish syncing blocks,
+    // so retry until the archiver has it.
     const blockNumber = await nodes[0].getBlockNumber();
-    const [publishedCheckpoint] = await nodes[0].getCheckpoints(CheckpointNumber.fromBlockNumber(blockNumber), 1);
+    const checkpointNum = CheckpointNumber.fromBlockNumber(blockNumber);
+    const [publishedCheckpoint] = await retryUntil(
+      async () => {
+        const cps = await nodes[0].getCheckpoints(checkpointNum, 1);
+        return cps.length > 0 ? cps : undefined;
+      },
+      `checkpoint ${checkpointNum} to be published`,
+      60,
+      2,
+    );
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())

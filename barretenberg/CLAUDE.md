@@ -2,7 +2,7 @@ THE PROJECT ROOT IS AT ONE LEVEL ABOVE THIS FOLDER. Typically, the repository is
 
 # Git workflow for barretenberg
 
-**IMPORTANT**: When comparing branches or looking at diffs for barretenberg work, use `origin/merge-train/barretenberg` as the base branch, NOT `master` or `next`. Create new branches off `origin/merge-train/barretenberg` and target PRs to `merge-train/barretenberg`.
+Base branch is `merge-train/barretenberg`; see root `CLAUDE.md` under `<git_workflow>` for the full component→base mapping. The sections below are barretenberg-specific workflow commands.
 
 ## Creating a new branch
 
@@ -31,8 +31,6 @@ git push -f  # Force push after rebase (only when necessary)
 - `git log origin/merge-train/barretenberg..HEAD` (not `git log master..HEAD`)
 - `gh pr create --base merge-train/barretenberg` (target PRs to merge-train)
 
-**Do NOT include `Co-Authored-By: Claude` lines in commit messages or `Generated with Claude Code` in PR descriptions.**
-
 Barretenberg issues are tracked at `AztecProtocol/barretenberg` (separate repo), not `AztecProtocol/aztec-packages`. PRs go to `AztecProtocol/aztec-packages` but should reference issues from `AztecProtocol/barretenberg`.
 
 Run ./bootstrap.sh at the top-level to be sure the repo fully builds.
@@ -45,6 +43,10 @@ Add GitHub labels to PRs to control what CI runs. Choose based on what changed:
 - **`ci-barretenberg`** — Barretenberg-only builds (default for `merge-train/barretenberg` branch). Core tests, no cross-compilation.
 - **`ci-barretenberg-full`** or **`ci-full`** — Full builds including cross-compilation (macOS, iOS, ARM64 Linux), SMT verification, ASAN, and GCC syntax checks. Use when changing CMake presets, bootstrap.sh, or build infrastructure.
 - **`ci-release-pr`** — Creates a test release tag for pre-release validation. Use when changing release packaging or publish workflows.
+
+## Code comments
+
+Comments must describe the code as it is, not relative to what it used to be. Never write comments like "replaces the old X", "no longer needs Y", "previously this was Z", or "eliminates the need for W". These become stale immediately after the commit lands. Instead, describe what the code does and why.
 
 ## Handling noir/noir-repo submodule
 

@@ -11,7 +11,7 @@ pub contract SimulatedEcdsaAccount {
         context::PrivateContext,
         macros::functions::{allow_phase_change, external, view},
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,
-        oracle::{notes::set_sender_for_tags, random::random},
+        oracle::random::random,
     };
 
     // Stub constructor matching the EcdsaKAccount / EcdsaRAccount constructor signature.
@@ -39,10 +39,9 @@ pub contract SimulatedEcdsaAccount {
         // and is therefore never nullified, so in practice the log will never be squashed. We
         // pass the note hash counter anyway for correctness.
         let dummy_log: [Field; MESSAGE_CIPHERTEXT_LEN] = [seed + 2; MESSAGE_CIPHERTEXT_LEN];
-        self.context.emit_raw_note_log_unsafe(
+        self.context.emit_raw_note_log_vec_unsafe(
             seed + 3,
-            dummy_log,
-            MESSAGE_CIPHERTEXT_LEN,
+            BoundedVec::from_array(dummy_log),
             self.context.side_effect_counter,
         );
     }
@@ -51,10 +50,6 @@ pub contract SimulatedEcdsaAccount {
     #[external("private")]
     #[allow_phase_change]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
-        // Safety: The sender for tags is only used to compute unconstrained shared secrets for
-        // emitting logs. It is not used in any constrained logic, so it is safe to set here.
-        unsafe { set_sender_for_tags(self.address) };
-
         let actions = AccountActions::init(self.context, is_valid_impl);
         actions.entrypoint(app_payload, fee_payment_method, cancellable);
     }

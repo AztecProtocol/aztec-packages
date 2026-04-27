@@ -20,7 +20,7 @@ describe('e2e_epochs/manual_rollback', () => {
   let test: EpochsTestContext;
 
   const setup = async (opts: Partial<EpochsTestOpts> = {}) => {
-    test = await EpochsTestContext.setup({ ...opts });
+    test = await EpochsTestContext.setup({ ...opts, enableProposerPipelining: true });
     ({ context, logger, rollup } = test);
     ({ aztecNode: node } = context);
   };
@@ -39,7 +39,8 @@ describe('e2e_epochs/manual_rollback', () => {
       logger.info(`Starting manual rollback test to unfinalized block`);
       context.sequencer?.updateConfig({ minTxsPerBlock: 0 });
       const targetCheckpointNumber = CheckpointNumber(4);
-      await test.waitUntilCheckpointNumber(targetCheckpointNumber, test.L2_SLOT_DURATION_IN_S * 6);
+      // With pipelining, each checkpoint takes ~2 L2 slots on a solo-sequencer setup.
+      await test.waitUntilCheckpointNumber(targetCheckpointNumber, test.L2_SLOT_DURATION_IN_S * 12);
       await retryUntil(async () => await node.getBlockNumber().then(b => b >= 4), 'sync to 4', 10, 0.1);
 
       logger.info(`Synced to checkpoint 4. Pausing syncing and rolling back the chain.`);

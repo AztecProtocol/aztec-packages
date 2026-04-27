@@ -1,4 +1,3 @@
-// docs:start:error-boundary
 import React from 'react';
 
 interface ErrorBoundaryState {
@@ -46,4 +45,3 @@ export class ErrorBoundary extends React.Component<
     return this.props.children;
   }
 }
-// docs:end:error-boundary

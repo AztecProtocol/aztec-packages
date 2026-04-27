@@ -15,7 +15,6 @@ import {
   CapsuleService,
   CapsuleStore,
   type ContractStore,
-  type ContractSyncService,
   NoteStore,
   ORACLE_VERSION_MAJOR,
   PrivateEventStore,
@@ -116,7 +115,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
-    private readonly contractSyncService: ContractSyncService,
   ) {
     this.logger = createLogger('txe:top_level_context');
     this.logger.debug('Entering Top Level Context');
@@ -406,6 +404,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       senderForTags: from,
       simulator,
       messageContextService: this.stateMachine.messageContextService,
+      l2TipsStore: this.stateMachine.node,
     });
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
@@ -513,11 +512,17 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       }
     }
 
+    // Walk the nested private-call tree and collect every offchain effect the transaction emitted.
+    // PXE stores these on each `PrivateCallExecutionResult` and they never reach TXE via the
+    // `aztec_utl_emitOffchainEffect` foreign-call path (that path only fires at the top-level), so
+    // we pull them out here and the RPC wrapper will hand them to `TXESession` for buffering.
+    const offchainEffects = collectNested([executionResult], r => r.offchainEffects.map(e => e.data));
+
     if (isStaticCall) {
       await checkpoint!.revert();
 
       await forkedWorldTrees.close();
-      return executionResult.returnValues ?? [];
+      return { returnValues: executionResult.returnValues ?? [], offchainEffects };
     }
 
     const txEffect = TxEffect.empty();
@@ -539,7 +544,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     await forkedWorldTrees.close();
 
-    return executionResult.returnValues ?? [];
+    return { returnValues: executionResult.returnValues ?? [], offchainEffects };
   }
 
   async publicCallNewFlow(
@@ -763,7 +768,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         capsuleService: new CapsuleService(this.capsuleStore, scopes),
         privateEventStore: this.privateEventStore,
         messageContextService: this.stateMachine.messageContextService,
-        contractSyncService: this.contractSyncService,
+        contractSyncService: this.stateMachine.contractSyncService,
+        l2TipsStore: this.stateMachine.node,
         jobId,
         scopes,
       });

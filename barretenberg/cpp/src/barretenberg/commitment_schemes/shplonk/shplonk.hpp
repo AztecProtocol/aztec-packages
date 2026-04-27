@@ -9,6 +9,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -257,6 +258,7 @@ template <typename Curve> class ShplonkProver_ {
                                            std::span<ProverOpeningClaim<Curve>> sumcheck_round_claims = {},
                                            const size_t virtual_log_n = 0)
     {
+        BB_BENCH_NAME("ShplonkProver::prove");
         const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");
 
         // Compute the evaluations Fold_i(r^{2^i}) for i>0.

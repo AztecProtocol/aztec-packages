@@ -1,11 +1,16 @@
+mod test;
+
 use aztec::macros::aztec;
 
 /// This contract is used to test that emitting offchain effects works correctly.
 #[aztec]
 contract OffchainEffect {
     use aztec::{
-        macros::{events::event, functions::external, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        macros::{events::event, functions::{external, view}, storage::storage},
+        messages::{
+            encoding::MESSAGE_CIPHERTEXT_LEN, message_delivery::MessageDelivery,
+            offchain_messages::deliver_offchain_message,
+        },
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
         protocol::{address::AztecAddress, traits::Serialize},
@@ -61,6 +66,27 @@ contract OffchainEffect {
             self.msg_sender(),
             MessageDelivery.OFFCHAIN,
         );
+    }
+
+    /// Emits a single offchain message in a regular (non-static) private call. The matching
+    /// view function below lets tests contrast the two call shapes.
+    #[external("private")]
+    fn call_deliver_offchain_message(
+        ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN],
+        recipient: AztecAddress,
+    ) {
+        deliver_offchain_message(ciphertext, recipient);
+    }
+
+    /// Static variant of `call_deliver_offchain_message`. Used to verify that TXE correctly captures and exposes the call context
+    /// of offchain effects emitted during a static call.
+    #[external("private")]
+    #[view]
+    fn view_deliver_offchain_message(
+        ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN],
+        recipient: AztecAddress,
+    ) {
+        deliver_offchain_message(ciphertext, recipient);
     }
 
     #[external("utility")]

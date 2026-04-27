@@ -26,6 +26,9 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
   const L1_SLOTS_PER_L2_SLOT = 6;
 
   beforeEach(async () => {
+    // Note: pipelining is NOT enabled for this test because it deliberately pauses L1 mining
+    // to simulate missed L1 slots, which conflicts with pipelining's assumption that previous
+    // checkpoints land on L1 promptly.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       minTxsPerBlock: 0,

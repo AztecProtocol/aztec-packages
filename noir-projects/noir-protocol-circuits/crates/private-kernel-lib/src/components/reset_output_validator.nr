@@ -243,6 +243,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             tree_root: tree_snapshots.note_hash_tree.root,
             propagated_read_requests: output.note_hash_read_requests,
             hints: self.reset_hints.note_hash_read_request_hints,
+            // Note-hash tree is append-only and shares DOM_SEP__MERKLE_HASH for internal nodes.
+            merkle_hasher: types::merkle_tree::merkle_hash,
         }
             .validate::<NoteHashPendingReadAmount, NoteHashSettledReadAmount>();
 
@@ -253,6 +255,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
             tree_root: tree_snapshots.nullifier_tree.root,
             propagated_read_requests: output.nullifier_read_requests,
             hints: self.reset_hints.nullifier_read_request_hints,
+            // Nullifier tree is an indexed tree with a tree-specific merkle separator.
+            merkle_hasher: types::merkle_tree::nullifier_merkle_hash,
         }
             .validate::<NullifierPendingReadAmount, NullifierSettledReadAmount>();
 

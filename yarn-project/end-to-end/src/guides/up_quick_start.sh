@@ -18,10 +18,8 @@ aztec-wallet() {
 
 aztec-wallet import-test-accounts
 
-# docs:start:declare-accounts
 aztec-wallet create-account -a alice -f test0
 aztec-wallet create-account -a bob -f test0
-# docs:end:declare-accounts
 
 aztec-wallet bridge-fee-juice 1000000000000000000000 accounts:alice --mint --no-wait
 

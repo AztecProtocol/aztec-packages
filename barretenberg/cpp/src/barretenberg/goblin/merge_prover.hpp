@@ -32,6 +32,7 @@ class MergeProver {
 
   public:
     using MergeProof = std::vector<FF>;
+    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
     explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
                          std::shared_ptr<Transcript> transcript,
@@ -39,7 +40,8 @@ class MergeProver {
 
     BB_PROFILE MergeProof construct_proof();
 
-    // Public for test access (computing commitments)
+    using Table = std::array<Polynomial, NUM_WIRES>;
+
     CommitmentKey pcs_commitment_key;
 
   private:
@@ -47,7 +49,6 @@ class MergeProver {
     std::shared_ptr<ECCOpQueue> op_queue;
     MergeSettings settings;
 
-    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
     std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
                                                      "LEFT_TABLE_DEGREE_CHECK_1",
                                                      "LEFT_TABLE_DEGREE_CHECK_2",

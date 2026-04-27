@@ -1,5 +1,6 @@
 #include "aes128.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -60,4 +61,22 @@ TEST(aes128, decrypt_buffer_cbc)
     for (size_t i = 0; i < 64; ++i) {
         EXPECT_EQ(in[i], out[i]);
     }
+}
+
+// Regression: aes128_encrypt_buffer_cbc and aes128_decrypt_buffer_cbc require block-aligned length.
+// Prior to the guard, non-aligned lengths silently skipped the tail bytes.
+TEST(aes128, encrypt_buffer_cbc_rejects_non_block_aligned_length)
+{
+    uint8_t key[16]{};
+    uint8_t iv[16]{};
+    uint8_t buf[17]{};
+    EXPECT_THROW_OR_ABORT(crypto::aes128_encrypt_buffer_cbc(buf, iv, key, 17), ".*multiple of 16.*");
+}
+
+TEST(aes128, decrypt_buffer_cbc_rejects_non_block_aligned_length)
+{
+    uint8_t key[16]{};
+    uint8_t iv[16]{};
+    uint8_t buf[17]{};
+    EXPECT_THROW_OR_ABORT(crypto::aes128_decrypt_buffer_cbc(buf, iv, key, 17), ".*multiple of 16.*");
 }

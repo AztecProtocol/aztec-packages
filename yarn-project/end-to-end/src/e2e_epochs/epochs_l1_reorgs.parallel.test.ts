@@ -60,6 +60,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   };
 
   beforeEach(async () => {
+    // Note: pipelining is NOT enabled for this test because it manipulates L1 state directly
+    // (reorgs, tx cancellation) with cancelTxOnTimeout: false and maxSpeedUpAttempts: 0,
+    // which conflicts with pipelining's assumption that previous checkpoints land on L1 promptly.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
       maxSpeedUpAttempts: 0, // Do not speed up l1 txs, we dont want them to land

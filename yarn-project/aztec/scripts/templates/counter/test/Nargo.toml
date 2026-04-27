@@ -1,0 +1,7 @@
+[package]
+name = "__CRATE_NAME___test"
+type = "lib"
+
+[dependencies]
+aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="v__AZTEC_VERSION__", directory="aztec" }
+__CRATE_NAME___contract = { path = "../__CRATE_NAME___contract" }

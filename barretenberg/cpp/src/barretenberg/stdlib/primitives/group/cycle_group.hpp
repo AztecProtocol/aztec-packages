@@ -14,6 +14,7 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/group/cycle_scalar.hpp"
 #include "barretenberg/stdlib/primitives/group/straus_lookup_table.hpp"
+#include "barretenberg/stdlib/primitives/group/straus_plookup_table.hpp"
 #include "barretenberg/stdlib/primitives/group/straus_scalar_slice.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base_params.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
@@ -52,6 +53,7 @@ template <typename Builder> class cycle_group {
     using BigScalarField = stdlib::bigfield<Builder, bb::fq::Params>;
     using cycle_scalar = ::bb::stdlib::cycle_scalar<Builder>;
     using straus_lookup_table = ::bb::stdlib::straus_lookup_table<Builder>;
+    using straus_plookup_table = ::bb::stdlib::straus_plookup_table<Builder>;
     using straus_scalar_slices = ::bb::stdlib::straus_scalar_slices<Builder>;
 
     // Bit-size for scalars represented in the ROM lookup tables used in the variable-base MSM algorithm
@@ -128,6 +130,22 @@ template <typename Builder> class cycle_group {
     static cycle_group batch_mul(const std::vector<cycle_group>& base_points,
                                  const std::vector<cycle_scalar>& scalars,
                                  const GeneratorContext& context = {});
+
+    static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
+                                       const std::vector<BigScalarField>& scalars,
+                                       GeneratorContext context = {},
+                                       size_t table_bits = ROM_TABLE_BITS)
+    {
+        std::vector<cycle_scalar> cycle_scalars;
+        for (auto scalar : scalars) {
+            cycle_scalars.emplace_back(scalar);
+        }
+        return fixed_batch_mul(constant_points, cycle_scalars, context, table_bits);
+    }
+    static cycle_group fixed_batch_mul(const std::vector<cycle_group>& constant_points,
+                                       const std::vector<cycle_scalar>& scalars,
+                                       const GeneratorContext& context = {},
+                                       size_t table_bits = ROM_TABLE_BITS);
     cycle_group operator*(const cycle_scalar& scalar) const;
     cycle_group& operator*=(const cycle_scalar& scalar);
     cycle_group operator*(const BigScalarField& scalar) const;
@@ -205,8 +223,9 @@ template <typename Builder> class cycle_group {
     }
 
   private:
-    // Allow straus_lookup_table to access the private constructor for efficiency
+    // Allow straus_lookup_table and straus_plookup_table to access the private constructor for efficiency
     friend class ::bb::stdlib::straus_lookup_table<Builder>;
+    friend class ::bb::stdlib::straus_plookup_table<Builder>;
 
     // Private constructor that allows explicit control over infinity flag.
     // Use public constructors or factory methods instead - they auto-detect infinity from coordinates.
@@ -224,6 +243,12 @@ template <typename Builder> class cycle_group {
 
     static batch_mul_internal_output _fixed_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                     std::span<AffineElement> base_points);
+
+    static batch_mul_internal_output _fixed_base_plookup_batch_mul_internal(
+        std::span<cycle_scalar> scalars,
+        std::span<AffineElement const> base_points,
+        std::span<AffineElement const> offset_generators,
+        size_t table_bits = ROM_TABLE_BITS);
 
     // Internal implementation for unconditional_add and unconditional_subtract
     cycle_group _unconditional_add_or_subtract(const cycle_group& other,

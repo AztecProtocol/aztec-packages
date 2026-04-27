@@ -232,6 +232,7 @@ Chonk::recursive_verification_and_consistency_checks(
     const TableCommitments& T_prev_commitments,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
+    BB_BENCH_NAME("Chonk::recursive_verification_and_consistency_checks");
     using MergeCommitments = Goblin::MergeRecursiveVerifier::InputCommitments;
 
     auto verifier_instance = std::make_shared<RecursiveVerifierInstance>(verifier_inputs.honk_vk_and_hash);
@@ -301,6 +302,7 @@ Chonk::recursive_verification_and_consistency_checks(
  */
 void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 {
+    BB_BENCH_NAME("Chonk::complete_kernel_circuit_logic");
     // Step 1: SETUP - Initialize state and determine kernel type
 
     // Transcript is shared across recursive verification of the folding of K_{i-1} (kernel) and A_{i} (app)
@@ -324,18 +326,16 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);
 
-    // For ZK: Tail kernel adds masking at op queue start
-    // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceeding circuit's subtable
-    // cannot affect the ECC-op accumulator for the kernel. For the tail kernel, we additionally add a preceeding no-op
-    // to ensure the op queue wires in translator are shiftable, i.e. their 0th coefficient is 0. (The tail kernel
-    // subtable is at the top of the final aggregate table since it is the last to be prepended).
+    // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceding circuit's subtable
+    // cannot affect the ECC-op accumulator for the kernel.
     if (is_tail_kernel) {
         BB_ASSERT_EQ(circuit.op_queue->get_current_subtable_size(),
                      0U,
                      "tail kernel ecc ops table should be empty at this point");
+        // Add a no-op to make the op queue wires in Translator shiftable
         circuit.queue_ecc_no_op();
-        // Add randomness at the begining of the tail kernel (whose ecc ops fall at the beginning of the op queue table)
-        // to ensure the CHONK proof doesn't leak information about the actual content of the op queue
+        // Add randomness at the beginning of the tail kernel (whose ecc ops fall at the beginning of the op queue
+        // table) to ensure the CHONK proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_tail(circuit);
 
         // Add the hiding op with random (non-curve) Px, Py values for statistical hiding of accumulated_result.
@@ -450,8 +450,9 @@ Chonk::QUEUE_TYPE Chonk::get_queue_type() const
  */
 void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
+    BB_BENCH_NAME("Chonk::accumulate_hiding_kernel");
     vinfo("Constructing hiding kernel instance (proving deferred to prove())");
-    hiding_prover_inst = std::make_shared<DeciderZKProvingKey>(circuit);
+    hiding_prover_inst = std::make_shared<HidingKernelProverInstance>(circuit);
     // Free circuit block memory now that trace data has been copied to prover polynomials
     for (auto& block : circuit.blocks.get()) {
         block.free_data();
@@ -479,6 +480,7 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
                                 QUEUE_TYPE queue_type,
                                 std::shared_ptr<ProverInstance> prover_instance)
 {
+    BB_BENCH_NAME("Chonk::accumulate_and_fold");
     // Construct the prover instance for circuit (may already exist from debug path)
     if (!prover_instance) {
         prover_instance = std::make_shared<ProverInstance>(circuit);
@@ -566,6 +568,7 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
  */
 void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk)
 {
+    BB_BENCH_NAME("Chonk::accumulate");
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
     BB_ASSERT(precomputed_vk != nullptr, "Chonk::accumulate - VK expected for the provided circuit");
@@ -639,6 +642,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
  */
 ChonkProof Chonk::prove()
 {
+    BB_BENCH_NAME("Chonk::prove");
     // Deallocate the HN accumulator — no longer needed.
     prover_accumulator = ProverAccumulator();
 

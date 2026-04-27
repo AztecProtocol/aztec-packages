@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/aztec/aztec_hash_policy.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
@@ -52,7 +53,8 @@ TEST(AvmSimulationPublicDataTree, ReadExists)
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) {
         return RawPoseidon2::hash(input);
     });
-    EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
+    EXPECT_CALL(merkle_check,
+                assert_membership(DOM_SEP__PUBLIC_DATA_MERKLE, low_leaf_hash, low_leaf_index, _, snapshot.root))
         .WillRepeatedly(Return());
 
     public_data_tree_check.assert_read(slot, contract_address, value, low_leaf, low_leaf_index, sibling_path, snapshot);
@@ -105,7 +107,8 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToInfinity)
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) {
         return RawPoseidon2::hash(input);
     });
-    EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
+    EXPECT_CALL(merkle_check,
+                assert_membership(DOM_SEP__PUBLIC_DATA_MERKLE, low_leaf_hash, low_leaf_index, _, snapshot.root))
         .WillRepeatedly(Return());
     EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.leaf.slot)).WillRepeatedly(Return(true));
 
@@ -163,7 +166,8 @@ TEST(AvmSimulationPublicDataTree, ReadNotExistsLowPointsToAnotherLeaf)
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) {
         return RawPoseidon2::hash(input);
     });
-    EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, snapshot.root))
+    EXPECT_CALL(merkle_check,
+                assert_membership(DOM_SEP__PUBLIC_DATA_MERKLE, low_leaf_hash, low_leaf_index, _, snapshot.root))
         .WillRepeatedly(Return());
     EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.leaf.slot)).WillRepeatedly(Return(true));
     EXPECT_CALL(field_gt, ff_gt(low_leaf.nextKey, leaf_slot)).WillRepeatedly(Return(true));
@@ -210,7 +214,7 @@ TEST(AvmSimulationPublicDataTree, WriteExists)
     FF leaf_slot = RawPoseidon2::hash(leaf_slot_inputs);
     FF new_value = 27;
 
-    MemoryTree<Poseidon2HashPolicy> public_data_tree(8);
+    MemoryTree<aztec::PublicDataMerkleHashPolicy> public_data_tree(8);
 
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(leaf_slot, 1), 0, 0);
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
@@ -239,7 +243,9 @@ TEST(AvmSimulationPublicDataTree, WriteExists)
         return RawPoseidon2::hash(input);
     });
 
-    EXPECT_CALL(merkle_check, write(low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
+    EXPECT_CALL(
+        merkle_check,
+        write(DOM_SEP__PUBLIC_DATA_MERKLE, low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
         .WillRepeatedly(Return(intermediate_root));
 
     AppendOnlyTreeSnapshot result_snapshot = public_data_tree_check.write(slot,
@@ -289,7 +295,7 @@ TEST(AvmSimulationPublicDataTree, WriteAndUpdate)
     FF new_value = 27;
     FF low_leaf_slot = 40;
 
-    MemoryTree<Poseidon2HashPolicy> public_data_tree(8);
+    MemoryTree<aztec::PublicDataMerkleHashPolicy> public_data_tree(8);
 
     PublicDataTreeLeafPreimage low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(low_leaf_slot, 1), 0, 0);
     FF low_leaf_hash = RawPoseidon2::hash(low_leaf.get_hash_inputs());
@@ -324,11 +330,18 @@ TEST(AvmSimulationPublicDataTree, WriteAndUpdate)
     EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) {
         return RawPoseidon2::hash(input);
     });
-    EXPECT_CALL(merkle_check, write(low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
+    EXPECT_CALL(
+        merkle_check,
+        write(DOM_SEP__PUBLIC_DATA_MERKLE, low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
         .WillRepeatedly(Return(intermediate_root));
     EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.leaf.slot)).WillRepeatedly(Return(true));
     EXPECT_CALL(merkle_check,
-                write(FF(0), new_leaf_hash, prev_snapshot.next_available_leaf_index, _, intermediate_root))
+                write(DOM_SEP__PUBLIC_DATA_MERKLE,
+                      FF(0),
+                      new_leaf_hash,
+                      prev_snapshot.next_available_leaf_index,
+                      _,
+                      intermediate_root))
         .WillRepeatedly(Return(next_snapshot.root));
 
     AppendOnlyTreeSnapshot snapshot_after_write = public_data_tree_check.write(slot,
@@ -382,7 +395,9 @@ TEST(AvmSimulationPublicDataTree, WriteAndUpdate)
     next_snapshot = AppendOnlyTreeSnapshot{ .root = intermediate_root,
                                             .next_available_leaf_index = prev_snapshot.next_available_leaf_index };
 
-    EXPECT_CALL(merkle_check, write(low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
+    EXPECT_CALL(
+        merkle_check,
+        write(DOM_SEP__PUBLIC_DATA_MERKLE, low_leaf_hash, updated_low_leaf_hash, low_leaf_index, _, prev_snapshot.root))
         .WillRepeatedly(Return(intermediate_root));
     AppendOnlyTreeSnapshot snapshot_after_update = public_data_tree_check.write(slot,
                                                                                 contract_address,

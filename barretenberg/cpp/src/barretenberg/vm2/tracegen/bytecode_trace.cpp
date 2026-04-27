@@ -5,8 +5,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
@@ -286,6 +286,7 @@ void BytecodeTraceBuilder::process_retrieval(
 
                 // Retrieved bytecodes tree context (for lookup into indexed_tree_check)
                 { C::bc_retrieval_retrieved_bytecodes_tree_height, AVM_RETRIEVED_BYTECODES_TREE_HEIGHT },
+                { C::bc_retrieval_retrieved_bytecodes_merkle_separator, DOM_SEP__RETRIEVED_BYTECODES_MERKLE },
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_root, event.retrieved_bytecodes_snapshot_before.root },
                 { C::bc_retrieval_prev_retrieved_bytecodes_tree_size,
                   event.retrieved_bytecodes_snapshot_before.next_available_leaf_index },
@@ -520,27 +521,27 @@ void BytecodeTraceBuilder::process_instruction_fetching(
 const InteractionDefinition BytecodeTraceBuilder::interactions =
     InteractionDefinition()
         // Bytecode Hashing
-        .add<perm_bc_hashing_bytecode_length_bytes_settings, InteractionType::Permutation>()
+        .add<InteractionType::Permutation, perm_bc_hashing_bytecode_length_bytes_settings>()
         .add<InteractionType::MultiPermutation,
              perm_bc_hashing_get_packed_field_0_settings,
              perm_bc_hashing_get_packed_field_1_settings,
              perm_bc_hashing_get_packed_field_2_settings>(C::bc_decomposition_sel_packed)
-        .add<lookup_bc_hashing_poseidon2_hash_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_bc_hashing_poseidon2_hash_settings>()
         // Bytecode Retrieval
-        .add<lookup_bc_retrieval_contract_instance_retrieval_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_retrieval_class_id_derivation_settings, InteractionType::LookupGeneric>()
-        .add<lookup_bc_retrieval_is_new_class_check_settings, InteractionType::LookupSequential>()
-        .add<lookup_bc_retrieval_retrieved_bytecodes_insertion_settings, InteractionType::LookupSequential>()
+        .add<InteractionType::LookupSequential, lookup_bc_retrieval_contract_instance_retrieval_settings>()
+        .add<InteractionType::LookupGeneric, lookup_bc_retrieval_class_id_derivation_settings>()
+        .add<InteractionType::LookupSequential, lookup_bc_retrieval_is_new_class_check_settings>()
+        .add<InteractionType::LookupSequential, lookup_bc_retrieval_retrieved_bytecodes_insertion_settings>()
         // Bytecode Decomposition
-        .add<lookup_bc_decomposition_bytes_are_bytes_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_bc_decomposition_bytes_are_bytes_settings>()
         // Instruction Fetching
-        .add<lookup_instr_fetching_pc_abs_diff_positive_settings, InteractionType::LookupGeneric>()
-        .add<lookup_instr_fetching_instr_abs_diff_positive_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_instr_fetching_tag_value_validation_settings, InteractionType::LookupIntoIndexedByRow>()
+        .add<InteractionType::LookupGeneric, lookup_instr_fetching_pc_abs_diff_positive_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_instr_fetching_instr_abs_diff_positive_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_instr_fetching_tag_value_validation_settings>()
         // The lookups into bc_decomposition cannnot be sequential because we deduplicate instruction
         // fetches. Additionally the instruction rows are not necessarily ordered by bytecode position.
-        .add<lookup_instr_fetching_bytecode_size_from_bc_dec_settings, InteractionType::LookupGeneric>()
-        .add<lookup_instr_fetching_bytes_from_bc_dec_settings, InteractionType::LookupGeneric>()
-        .add<lookup_instr_fetching_wire_instruction_info_settings, InteractionType::LookupIntoIndexedByRow>();
+        .add<InteractionType::LookupGeneric, lookup_instr_fetching_bytecode_size_from_bc_dec_settings>()
+        .add<InteractionType::LookupGeneric, lookup_instr_fetching_bytes_from_bc_dec_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_instr_fetching_wire_instruction_info_settings>();
 
 } // namespace bb::avm2::tracegen

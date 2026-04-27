@@ -10,9 +10,11 @@ export class ParityBasePrivateInputs {
     public readonly msgs: Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY>,
     /** Root of the VK tree */
     public readonly vkTreeRoot: Fr,
+    /** Prover identity committed to by the circuit, for sybil protection. */
+    public readonly proverId: Fr,
   ) {}
 
-  public static fromSlice(array: Fr[], index: number, vkTreeRoot: Fr): ParityBasePrivateInputs {
+  public static fromSlice(array: Fr[], index: number, vkTreeRoot: Fr, proverId: Fr): ParityBasePrivateInputs {
     // Can't use Tuple<Fr, typeof NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP> due to length
     if (array.length !== NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP) {
       throw new Error(
@@ -22,12 +24,12 @@ export class ParityBasePrivateInputs {
     const start = index * NUM_MSGS_PER_BASE_PARITY;
     const end = start + NUM_MSGS_PER_BASE_PARITY;
     const msgs = array.slice(start, end);
-    return new ParityBasePrivateInputs(msgs as Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY>, vkTreeRoot);
+    return new ParityBasePrivateInputs(msgs as Tuple<Fr, typeof NUM_MSGS_PER_BASE_PARITY>, vkTreeRoot, proverId);
   }
 
   /** Serializes the inputs to a buffer. */
   toBuffer() {
-    return serializeToBuffer(this.msgs, this.vkTreeRoot);
+    return serializeToBuffer(this.msgs, this.vkTreeRoot, this.proverId);
   }
 
   /** Serializes the inputs to a hex string. */
@@ -41,7 +43,11 @@ export class ParityBasePrivateInputs {
    */
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
-    return new ParityBasePrivateInputs(reader.readArray(NUM_MSGS_PER_BASE_PARITY, Fr), Fr.fromBuffer(reader));
+    return new ParityBasePrivateInputs(
+      reader.readArray(NUM_MSGS_PER_BASE_PARITY, Fr),
+      Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
+    );
   }
 
   /**

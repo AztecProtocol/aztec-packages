@@ -4,6 +4,7 @@ import { randomInt } from '@aztec/foundation/crypto/random';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { Tag } from '@aztec/stdlib/logs';
 import { makeBlockHeader, randomTxScopedPrivateL2Log } from '@aztec/stdlib/testing';
@@ -48,6 +49,7 @@ describe('LogService', () => {
       logService = new LogService(
         aztecNode,
         anchorBlockHeader,
+        mock<L2TipsProvider>(),
         keyStore,
         recipientTaggingStore,
         senderAddressBookStore,

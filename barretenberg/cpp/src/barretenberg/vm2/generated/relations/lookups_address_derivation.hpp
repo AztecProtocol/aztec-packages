@@ -22,7 +22,7 @@ struct lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings
     static constexpr Column COUNTS = Column::lookup_address_derivation_salted_initialization_hash_poseidon2_0_counts;
     static constexpr Column INVERSES = Column::lookup_address_derivation_salted_initialization_hash_poseidon2_0_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::address_derivation_partial_address_domain_separator,
+        ColumnAndShifts::address_derivation_salted_init_hash_domain_separator,
         ColumnAndShifts::address_derivation_salt,
         ColumnAndShifts::address_derivation_init_hash,
         ColumnAndShifts::address_derivation_salted_init_hash,

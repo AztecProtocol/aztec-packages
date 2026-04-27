@@ -470,6 +470,7 @@ function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): Pa
     sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
     converted_root: mapFieldToNoir(parityPublicInputs.convertedRoot),
     vk_tree_root: mapFieldToNoir(parityPublicInputs.vkTreeRoot),
+    prover_id: mapFieldToNoir(parityPublicInputs.proverId),
   };
 }
 
@@ -502,6 +503,7 @@ export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicIn
     mapFieldFromNoir(parityPublicInputs.sha_root),
     mapFieldFromNoir(parityPublicInputs.converted_root),
     mapFieldFromNoir(parityPublicInputs.vk_tree_root),
+    mapFieldFromNoir(parityPublicInputs.prover_id),
   );
 }
 
@@ -701,6 +703,7 @@ export function mapParityBasePrivateInputsToNoir(inputs: ParityBasePrivateInputs
   return {
     msgs: mapTuple(inputs.msgs, mapFieldToNoir),
     vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
+    prover_id: mapFieldToNoir(inputs.proverId),
   };
 }
 
