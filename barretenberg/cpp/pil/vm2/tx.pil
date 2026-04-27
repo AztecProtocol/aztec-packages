@@ -696,11 +696,13 @@ namespace tx;
     // Retrieve fee_payer_balance
     #[BALANCE_READ]
     is_collect_fee {
+       precomputed.zero, // write = 0 (read)
        fee_payer_balance,
        fee_juice_contract_address,
        fee_juice_balance_slot,
        prev_public_data_tree_root
     } in public_data_check.sel {
+       public_data_check.write,
        public_data_check.value,
        public_data_check.address,
        public_data_check.slot,
