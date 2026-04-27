@@ -218,11 +218,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.blockSource.getL2Tips();
   }
 
-  public getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
-    if (number === BlockNumber.ZERO) {
-      return Promise.resolve(this.worldStateSynchronizer.getCommitted().getInitialHeader());
+  public async getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
+    const resolvedNumber = number === 'latest' ? await this.blockSource.getBlockNumber() : number;
+    if (resolvedNumber === BlockNumber.ZERO) {
+      return this.worldStateSynchronizer.getCommitted().getInitialHeader();
     }
-    return this.blockSource.getBlockHeader(number);
+    return this.blockSource.getBlockHeader(resolvedNumber);
   }
 
   public async getCheckpointedBlocks(from: BlockNumber, limit: number) {

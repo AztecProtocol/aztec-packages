@@ -128,6 +128,26 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBeUndefined();
   });
 
+  it('getBlockDataWithCheckpointContext', async () => {
+    const result = await context.client.getBlockDataWithCheckpointContext(BlockNumber(1));
+    expect(result).toBeUndefined();
+  });
+
+  it('getCheckpointData', async () => {
+    const result = await context.client.getCheckpointData(CheckpointNumber(1));
+    expect(result).toBeUndefined();
+  });
+
+  it('getCheckpointDataRange', async () => {
+    const result = await context.client.getCheckpointDataRange(CheckpointNumber(1), 1);
+    expect(result).toEqual([]);
+  });
+
+  it('getCheckpointNumberBySlot', async () => {
+    const result = await context.client.getCheckpointNumberBySlot(SlotNumber(1));
+    expect(result).toBeUndefined();
+  });
+
   it('getBlockHeaderByHash', async () => {
     const result = await context.client.getBlockHeaderByHash(BlockHash.random());
     expect(result).toBeInstanceOf(BlockHeader);

@@ -164,6 +164,31 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeUndefined();
   });
 
+  it('getBlockHeader', async () => {
+    const response = await context.client.getBlockHeader(BlockNumber(1));
+    expect(response).toEqual(BlockHeader.empty());
+  });
+
+  it('getCheckpointedBlocks', async () => {
+    const response = await context.client.getCheckpointedBlocks(BlockNumber(1), 1);
+    expect(response).toEqual([]);
+  });
+
+  it('getL2Tips', async () => {
+    const response = await context.client.getL2Tips();
+    const tipId = {
+      block: { number: 1, hash: `0x01` },
+      checkpoint: { number: 1, hash: `0x01` },
+    };
+    expect(response).toEqual({
+      proposed: { number: 1, hash: `0x01` },
+      checkpointed: tipId,
+      proposedCheckpoint: tipId,
+      proven: tipId,
+      finalized: tipId,
+    });
+  });
+
   it('getCheckpoint', async () => {
     const response = await context.client.getCheckpoint(CheckpointNumber(1));
     expect(response).toBeUndefined();
