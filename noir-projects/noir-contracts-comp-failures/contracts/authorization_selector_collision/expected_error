@@ -1,0 +1,6 @@
+Trait crate::authwit::authorization_interface::AuthorizationInterface not found
+Could not resolve 'authwit' in path
+check_trait_impl_where_clause_matches_trait_where_clause: missing trait ID
+check_parent_traits_are_implemented: missing trait ID
+check_trait_impl_method_matches_declaration: missing trait impl
+Selector collision detected between authorizations 'EventCollision8370082250' and 'EventCollision'
