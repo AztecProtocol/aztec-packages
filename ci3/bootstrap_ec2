@@ -353,7 +353,7 @@ start_build() {
     --pids-limit=65536 \
     --shm-size=2g \
     --ulimit nofile=1048576:1048576 \
-    aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
+    aztecprotocol/devbox:3.1 bash -c $(printf '%q' "$container_script")
 }
 
 # If stdout is a tty, run in foreground, otherwise run in background and handle spot termination notices.
