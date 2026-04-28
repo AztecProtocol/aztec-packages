@@ -477,7 +477,14 @@ describe('e2e_synching', () => {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
-      await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
+      await publisher.enqueueProposeCheckpoint(
+        checkpoint,
+        CommitteeAttestationsAndSigners.empty({
+          chainId: 31337,
+          rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+        }),
+        Signature.empty(),
+      );
 
       await cheatCodes.rollup.markAsProven(CheckpointNumber(provenThrough));
     }

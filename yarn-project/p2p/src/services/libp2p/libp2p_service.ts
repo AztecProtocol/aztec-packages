@@ -232,10 +232,18 @@ export class LibP2PService extends WithTracer implements P2PService {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
       p2pPropagationTime,
+      signatureContext: {
+        chainId: config.l1ChainId,
+        rollupAddress: config.l1Contracts.rollupAddress,
+      },
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
-    const attestationValidatorOpts = { l1PublishingTime: config.l1PublishingTime, p2pPropagationTime };
+    const attestationValidatorOpts = {
+      l1PublishingTime: config.l1PublishingTime,
+      p2pPropagationTime,
+      signatureContext: proposalValidatorOpts.signatureContext,
+    };
     this.checkpointAttestationValidator = config.fishermanMode
       ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, attestationValidatorOpts)
       : new CheckpointAttestationValidator(epochCache, attestationValidatorOpts);

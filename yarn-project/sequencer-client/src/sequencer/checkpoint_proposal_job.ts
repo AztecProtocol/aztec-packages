@@ -48,6 +48,7 @@ import type {
   BlockProposalOptions,
   CheckpointProposal,
   CheckpointProposalOptions,
+  CoordinationSignatureContext,
 } from '@aztec/stdlib/p2p';
 import { orderAttestations, trimAttestations } from '@aztec/stdlib/p2p';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
@@ -104,6 +105,10 @@ export class CheckpointProposalJob implements Traceable {
   /** Pipelined parent chain state used while building and later submitting this checkpoint. */
   private pipelinedParentSimulationOverridesPlan?: SimulationOverridesPlan;
 
+  private getSignatureContext(): CoordinationSignatureContext {
+    return this.signatureContext;
+  }
+
   constructor(
     private readonly slotNow: SlotNumber,
     private readonly targetSlot: SlotNumber,
@@ -124,6 +129,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly checkpointsBuilder: FullNodeCheckpointsBuilder,
     private readonly blockSink: L2BlockSink,
     private readonly l1Constants: SequencerRollupConstants,
+    private readonly signatureContext: CoordinationSignatureContext,
     protected config: ResolvedSequencerConfig,
     protected timetable: SequencerTimetable,
     private readonly slasherClient: SlasherClientInterface | undefined,
@@ -1048,7 +1054,7 @@ export class CheckpointProposalJob implements Traceable {
   ): Promise<CommitteeAttestationsAndSigners | undefined> {
     if (this.config.fishermanMode) {
       this.log.debug('Skipping attestation collection in fisherman mode');
-      return CommitteeAttestationsAndSigners.empty();
+      return CommitteeAttestationsAndSigners.empty(this.getSignatureContext());
     }
 
     const slotNumber = proposal.slotNumber;
@@ -1058,7 +1064,7 @@ export class CheckpointProposalJob implements Traceable {
       throw new Error('No committee when collecting attestations');
     } else if (committee.length === 0) {
       this.log.verbose(`Attesting committee is empty`);
-      return CommitteeAttestationsAndSigners.empty();
+      return CommitteeAttestationsAndSigners.empty(this.getSignatureContext());
     } else {
       this.log.debug(`Attesting committee length is ${committee.length}`, { committee });
     }
@@ -1068,7 +1074,10 @@ export class CheckpointProposalJob implements Traceable {
     if (this.config.skipCollectingAttestations) {
       this.log.warn('Skipping attestation collection as per config (attesting with own keys only)');
       const attestations = await this.validatorClient?.collectOwnAttestations(proposal, this.checkpointNumber);
-      return new CommitteeAttestationsAndSigners(orderAttestations(attestations ?? [], committee));
+      return new CommitteeAttestationsAndSigners(
+        orderAttestations(attestations ?? [], committee),
+        this.getSignatureContext(),
+      );
     }
 
     const attestationTimeAllowed = this.config.enforceTimeTable
@@ -1115,7 +1124,7 @@ export class CheckpointProposalJob implements Traceable {
         return this.manipulateAttestations(proposal.slotNumber, epoch, seed, committee, sorted);
       }
 
-      return new CommitteeAttestationsAndSigners(sorted);
+      return new CommitteeAttestationsAndSigners(sorted, this.getSignatureContext());
     } catch (err) {
       if (err && err instanceof AttestationTimeoutError) {
         collectedAttestationsCount = err.collectedCount;
@@ -1175,7 +1184,7 @@ export class CheckpointProposalJob implements Traceable {
           unfreeze(attestations[targetIndex]).signature = generateRecoverableSignature();
         }
       }
-      return new CommitteeAttestationsAndSigners(attestations);
+      return new CommitteeAttestationsAndSigners(attestations, this.getSignatureContext());
     }
 
     if (this.config.shuffleAttestationOrdering) {
@@ -1197,11 +1206,11 @@ export class CheckpointProposalJob implements Traceable {
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
-      const signers = new CommitteeAttestationsAndSigners(attestations).getSigners();
-      return new MaliciousCommitteeAttestationsAndSigners(shuffled, signers);
+      const signers = new CommitteeAttestationsAndSigners(attestations, this.getSignatureContext()).getSigners();
+      return new MaliciousCommitteeAttestationsAndSigners(shuffled, signers, this.getSignatureContext());
     }
 
-    return new CommitteeAttestationsAndSigners(attestations);
+    return new CommitteeAttestationsAndSigners(attestations, this.getSignatureContext());
   }
 
   private async dropFailedTxsFromP2P(failedTxs: FailedTx[]) {

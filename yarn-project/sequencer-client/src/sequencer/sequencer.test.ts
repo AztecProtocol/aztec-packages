@@ -29,6 +29,7 @@ import {
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import {
@@ -76,6 +77,7 @@ describe('sequencer', () => {
   let newBlockNumber: BlockNumber;
   let newSlotNumber: number;
   let hash: string;
+  let signatureContext: { chainId: number; rollupAddress: EthAddress };
 
   let block: L2Block;
   let globalVariables: GlobalVariables;
@@ -153,7 +155,7 @@ describe('sequencer', () => {
   };
 
   const expectPublisherProposeL2Block = () => {
-    const attestationsAndSigners = new CommitteeAttestationsAndSigners(getSignatures());
+    const attestationsAndSigners = new CommitteeAttestationsAndSigners(getSignatures(), signatureContext);
     expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
     expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledWith(
       expect.any(Checkpoint),
@@ -350,7 +352,13 @@ describe('sequencer', () => {
 
     dateProvider = new TestDateProvider();
 
-    const config: SequencerConfig = { enforceTimeTable: true, maxTxsPerBlock: 4 };
+    signatureContext = { chainId: chainId.toNumber(), rollupAddress: EthAddress.random() };
+    const config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'l1Contracts'> = {
+      enforceTimeTable: true,
+      maxTxsPerBlock: 4,
+      l1ChainId: signatureContext.chainId,
+      l1Contracts: { rollupAddress: signatureContext.rollupAddress },
+    };
     sequencer = new TestSequencer(
       publisherFactory,
       validatorClient,
@@ -586,7 +594,7 @@ describe('sequencer', () => {
         await sequencer.work();
         await sequencer.awaitLastProposalSubmission();
 
-        const attestationsAndSigners = new CommitteeAttestationsAndSigners(getSignatures());
+        const attestationsAndSigners = new CommitteeAttestationsAndSigners(getSignatures(), signatureContext);
         expect(publishers[i].enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
         expect(publishers[i].enqueueProposeCheckpoint).toHaveBeenCalledWith(
           expect.any(Checkpoint),

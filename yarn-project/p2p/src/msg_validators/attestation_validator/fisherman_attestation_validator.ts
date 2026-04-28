@@ -1,5 +1,10 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type CheckpointAttestation, PeerErrorSeverity, type ValidationResult } from '@aztec/stdlib/p2p';
+import {
+  type CheckpointAttestation,
+  type CoordinationSignatureContext,
+  PeerErrorSeverity,
+  type ValidationResult,
+} from '@aztec/stdlib/p2p';
 import { Attributes, Metrics, type TelemetryClient, createUpDownCounterWithDefault } from '@aztec/telemetry-client';
 
 import type { AttestationPoolApi } from '../../mem_pools/attestation_pool/attestation_pool.js';
@@ -23,7 +28,8 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
     opts: {
       l1PublishingTime?: number;
       p2pPropagationTime?: number;
-    } = {},
+      signatureContext: CoordinationSignatureContext;
+    },
   ) {
     super(epochCache, opts);
     this.logger = this.logger.createChild('[FISHERMAN]');

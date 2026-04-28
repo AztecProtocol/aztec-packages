@@ -41,7 +41,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
+import { BlockProposal, CheckpointProposal, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
@@ -121,6 +121,10 @@ describe('CheckpointProposalJob', () => {
   const committee = [signer.address];
   const attestorAddress = EthAddress.random();
   const proposer = EthAddress.random();
+  const signatureContext: CoordinationSignatureContext = {
+    chainId: chainId.toNumber(),
+    rollupAddress: EthAddress.random(),
+  };
 
   const getSignatures = () => [mockedAttestation];
 
@@ -247,22 +251,36 @@ describe('CheckpointProposalJob', () => {
           archiveRoot,
           txHashes,
           mockedSig,
+          signatureContext,
         );
       },
     );
     validatorClient.createCheckpointProposal.mockImplementation(
       async (checkpointHeader, archiveRoot, _checkpointNumber, feeAssetPriceModifier, lastBlockInfo) => {
         if (!lastBlockInfo) {
-          return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig);
+          return new CheckpointProposal(
+            checkpointHeader,
+            archiveRoot,
+            feeAssetPriceModifier,
+            mockedSig,
+            signatureContext,
+          );
         }
         const txHashes = await Promise.all((lastBlockInfo.txs ?? []).map((tx: Tx) => tx.getTxHash()));
-        return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig, {
-          blockHeader: lastBlockInfo.blockHeader,
-          indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
-          txHashes,
-          signature: mockedSig,
-          // Note: signedTxs omitted since publishTxsWithProposals is false in tests
-        });
+        return new CheckpointProposal(
+          checkpointHeader,
+          archiveRoot,
+          feeAssetPriceModifier,
+          mockedSig,
+          signatureContext,
+          {
+            blockHeader: lastBlockInfo.blockHeader,
+            indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
+            txHashes,
+            signature: mockedSig,
+            // Note: signedTxs omitted since publishTxsWithProposals is false in tests
+          },
+        );
       },
     );
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
@@ -635,6 +653,7 @@ describe('CheckpointProposalJob', () => {
       checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
       blockSink,
       l1Constants,
+      signatureContext,
       config,
       timetable,
       slasherClient,

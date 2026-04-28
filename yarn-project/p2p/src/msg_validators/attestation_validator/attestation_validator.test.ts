@@ -4,7 +4,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { makeCheckpointAttestation } from '@aztec/stdlib/testing';
+import { TEST_COORDINATION_SIGNATURE_CONTEXT, makeCheckpointAttestation } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -22,9 +22,26 @@ describe('CheckpointAttestationValidator', () => {
       slotDuration: 72,
       ethereumSlotDuration: 12,
     } as any);
-    validator = new CheckpointAttestationValidator(epochCache, { l1PublishingTime: 12 });
+    validator = new CheckpointAttestationValidator(epochCache, {
+      l1PublishingTime: 12,
+      signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+    });
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
+  });
+
+  it('rejects foreign signature context with low tolerance error', async () => {
+    const mockAttestation = makeCheckpointAttestation({
+      attesterSigner: attester,
+      proposerSigner: proposer,
+      signatureContext: {
+        ...TEST_COORDINATION_SIGNATURE_CONTEXT,
+        chainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId + 1,
+      },
+    });
+
+    const result = await validator.validate(mockAttestation);
+    expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
   });
 
   it('returns high tolerance error if slot number is not current or next slot (outside clock tolerance)', async () => {

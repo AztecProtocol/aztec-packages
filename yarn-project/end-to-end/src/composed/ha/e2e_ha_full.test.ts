@@ -89,6 +89,10 @@ describe('HA Full Setup', () => {
   let governanceProposer: GovernanceProposerContract;
   /** Per-node initial keystore JSON (all 4 attesters, node's own publisher) for restore after reload test */
   let initialKeystoreJsons: string[];
+  const getSignatureContext = () => ({
+    chainId: config.l1ChainId,
+    rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+  });
 
   beforeAll(async () => {
     // Check required environment variables
@@ -783,16 +787,19 @@ describe('HA Full Setup', () => {
       const [publishedCheckpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1, {
         includeAttestations: true,
       });
-      const attestationInfos = getAttestationInfoFromPublishedCheckpoint({
-        attestations: publishedCheckpoint.attestations ?? [],
-        checkpoint: new Checkpoint(
-          publishedCheckpoint.archive,
-          publishedCheckpoint.header,
-          [],
-          publishedCheckpoint.number,
-          publishedCheckpoint.feeAssetPriceModifier,
-        ),
-      });
+      const attestationInfos = getAttestationInfoFromPublishedCheckpoint(
+        {
+          attestations: publishedCheckpoint.attestations ?? [],
+          checkpoint: new Checkpoint(
+            publishedCheckpoint.archive,
+            publishedCheckpoint.header,
+            [],
+            publishedCheckpoint.number,
+            publishedCheckpoint.feeAssetPriceModifier,
+          ),
+        },
+        getSignatureContext(),
+      );
 
       // Filter to only valid attestations with recovered addresses
       const validAttestations = attestationInfos.filter(

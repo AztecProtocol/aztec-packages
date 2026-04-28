@@ -14,7 +14,12 @@ import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } f
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeBlockHeader,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+} from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -77,7 +82,10 @@ describe('ProposalHandler checkpoint validation', () => {
     dateProvider = new TestDateProvider();
     metrics = mock<ValidatorMetrics>();
 
-    config = {} as ValidatorClientFullConfig;
+    config = {
+      l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
+      l1Contracts: { rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress },
+    } as ValidatorClientFullConfig;
 
     handler = new ProposalHandler(
       checkpointsBuilder,
