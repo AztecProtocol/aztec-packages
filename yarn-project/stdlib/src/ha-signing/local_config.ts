@@ -26,7 +26,7 @@ export const localSignerConfigMappings: ConfigMappingsType<LocalSignerConfig> = 
     env: 'SIGNING_PROTECTION_MAP_SIZE_KB',
     description:
       'Maximum size of the local signing-protection LMDB store in KB. Overwrites the general dataStoreMapSizeKb.',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
   },
 };
 

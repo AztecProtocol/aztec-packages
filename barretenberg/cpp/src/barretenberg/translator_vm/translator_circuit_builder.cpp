@@ -15,6 +15,7 @@
  */
 #include "translator_circuit_builder.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
@@ -424,6 +425,7 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput&
 
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue>& ecc_op_queue)
 {
+    BB_BENCH_NAME("TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit");
     using Fq = bb::fq;
     const auto& ultra_ops = ecc_op_queue->get_ultra_ops();
     std::vector<Fq> accumulator_trace;
@@ -432,7 +434,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         return;
     }
 
-    // Handle the initial UltraOp (a no-op) by filling the start of all other wire polynomials with zeros. This ensures
+    // Handle the initial UltraOp (a no-op) by filling the start of all wire polynomials with zeros. This ensures
     // all translator wire polynomials begin with 0, which is necessary for shifted polynomials in the proving system.
     // Although only the first index needs to be zero, we add two zeros to maintain consistency since each actual
     // UltraOp populates two polynomial indices.
@@ -442,12 +444,13 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
     }
     increment_num_gates(2);
 
-    // When encountering the random operations in the op queue, populate the op wire without creating accumulation gates
-    // These are present in the op queue at the beginning and end to ensure commitments and evaluations to op queue
-    // polynomials do not reveal information about data in the op queue
-    // The position and number of these random ops are explained in Chonk::hide_op_queue_content_tail_kernel
-    // and Chonk::hide_op_queue_content_hiding_kernel
-    for (size_t i = NUM_NO_OPS_START; i <= NUM_RANDOM_OPS_START; ++i) {
+    for (size_t i = 0; i < NUM_NO_OPS_START; i++) {
+        BB_ASSERT(ultra_ops[i].op_code.value() == 0, "Expected no-op at the start of the op queue");
+    }
+
+    // Process random operations at the start of the op queue (after the initial no-op), no accumulation gates needed.
+    // These ensure commitments and evaluations do not reveal information about op queue content.
+    for (size_t i = NUM_NO_OPS_START; i < NUM_NO_OPS_START + NUM_RANDOM_OPS_START; ++i) {
         process_random_op(ultra_ops[i]);
     }
 
@@ -462,11 +465,11 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
     // Pre-compute accumulator values for each step since the circuit processes values in reverse order
     // and requires knowledge of the previous accumulator to construct each gate. Both accumulator computation
-    // and gate creation skip the initial no-ops and also the random operations at the beginning and end of the oqueue ,
-    // as these should not influence the final accumulation result (located at index RESULT_ROW). The accumulation
-    // result is sent as part of the Chonk proof, and so we add a genuine operation with randomly generated values
-    // during Chonk execution to ensure no information about the rest of the ops is leaked. Acccumulator pre-computation
-    // is achieved by processing the queue in reverse order.
+    // and gate creation skip the random operations at the beginning and end of the op queue and any zero-opcode
+    // padding ops, as these should not influence the final accumulation result (located at index RESULT_ROW).
+    // The accumulation result is sent as part of the Chonk proof, and so we add a genuine operation with
+    // randomly generated values during Chonk execution to ensure no information about the rest of the ops is
+    // leaked. Accumulator pre-computation is achieved by processing the queue in reverse order.
     for (const auto& ultra_op : std::ranges::reverse_view(ultra_ops_span)) {
         if (ultra_op.op_code.value() == 0) {
             //  Skip no-ops as they should not affect the computation of the accumulator

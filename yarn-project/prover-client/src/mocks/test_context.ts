@@ -24,6 +24,7 @@ import {
   StateReference,
   TreeSnapshots,
 } from '@aztec/stdlib/tx';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import type { MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
@@ -84,14 +85,13 @@ export class TestContext {
     const feePayer = AztecAddress.fromNumber(42222);
     const initialFeePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
-    const prefilledPublicData = [new PublicDataTreeLeaf(feePayerSlot, initialFeePayerBalance)];
+    const genesis: GenesisData = {
+      prefilledPublicData: [new PublicDataTreeLeaf(feePayerSlot, initialFeePayerBalance)],
+      genesisTimestamp: 0n,
+    };
 
     // Separated dbs for public processor and prover - see public_processor for context
-    const ws = await NativeWorldStateService.tmp(
-      /*rollupAddress=*/ undefined,
-      /*cleanupTmpDir=*/ true,
-      prefilledPublicData,
-    );
+    const ws = await NativeWorldStateService.tmp(/*rollupAddress=*/ undefined, /*cleanupTmpDir=*/ true, genesis);
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);

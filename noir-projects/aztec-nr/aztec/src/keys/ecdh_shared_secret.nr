@@ -19,7 +19,9 @@ use std::{embedded_curve_ops::multi_scalar_mul, ops::Neg};
 ///
 /// See also: https://en.wikipedia.org/wiki/Elliptic-curve_Diffie%E2%80%93Hellman
 pub fn derive_ecdh_shared_secret(secret: Scalar, public_key: Point) -> Point {
-    multi_scalar_mul([public_key], [secret])
+    // TODO(F-553): Drop the `.to_embedded()` / `.into()` round-trip once the custom `Point` wrapper is removed and we
+    // use `EmbeddedCurvePoint` directly.
+    multi_scalar_mul([public_key.to_embedded()], [secret]).into()
 }
 
 /// Computes an app-siloed shared secret from a raw ECDH shared secret point and a contract address.
@@ -76,8 +78,8 @@ unconstrained fn test_shared_secret_computation_in_both_directions() {
     let secret_a = Scalar { lo: 0x1234, hi: 0x2345 };
     let secret_b = Scalar { lo: 0x3456, hi: 0x4567 };
 
-    let pk_a = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
-    let pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(secret_b);
+    let pk_a: Point = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a).into();
+    let pk_b: Point = std::embedded_curve_ops::fixed_base_scalar_mul(secret_b).into();
 
     let shared_secret = derive_ecdh_shared_secret(secret_a, pk_b);
     let shared_secret_alt = derive_ecdh_shared_secret(secret_b, pk_a);
@@ -90,8 +92,8 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
     let secret_a = Scalar { lo: 0x1234, hi: 0x2345 };
     let secret_b = Scalar { lo: 0x3456, hi: 0x4567 };
 
-    let mut pk_a = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a);
-    let mut pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(secret_b);
+    let mut pk_a: Point = std::embedded_curve_ops::fixed_base_scalar_mul(secret_a).into();
+    let mut pk_b: Point = std::embedded_curve_ops::fixed_base_scalar_mul(secret_b).into();
 
     let address_b = AztecAddress::from_field(pk_b.x);
 
@@ -118,7 +120,7 @@ unconstrained fn test_shared_secret_computation_from_address_in_both_directions(
 #[test]
 unconstrained fn test_app_siloed_shared_secret_differs_per_contract() {
     let secret_a = Scalar { lo: 0x1234, hi: 0x2345 };
-    let pk_b = std::embedded_curve_ops::fixed_base_scalar_mul(Scalar { lo: 0x3456, hi: 0x4567 });
+    let pk_b: Point = std::embedded_curve_ops::fixed_base_scalar_mul(Scalar { lo: 0x3456, hi: 0x4567 }).into();
 
     let shared_secret = derive_ecdh_shared_secret(secret_a, pk_b);
 

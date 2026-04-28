@@ -12,14 +12,14 @@ The Aztec Protocol operates across multiple networks, each serving specific purp
 Not sure which network to use? Jump to our [Network Selection Guide](#network-selection-guide).
 
 :::note Developer SDK vs Node Versions
-The developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version listed below. For example, aztec-nr `4.2.0-aztecnr-rc.2` and other versions may be compatible with node version `4.1.3`. Use the version from the developer docs for contract development — use the version below for running nodes.
+The developer SDK/aztec-nr version (used for writing and compiling contracts) may differ from the node version listed below. Use the version from the developer docs for contract development — use the version below for running nodes.
 :::
 
 ## Network Technical Information
 
 | Parameter | Alpha (Mainnet) | Testnet |
 |-----------|-------------------|---------|
-| **Version** | `4.1.3` (node operators)<br/>`4.2.0-aztecnr-rc.2` (developer SDK) | `4.1.0-rc.2` |
+| **Version** | `4.2.0` | `4.2.0` |
 | **L1 Chain ID** | `1` (Mainnet) | `11155111` (Sepolia) |
 | **Rollup Version** | `2934756905` | `4127419662` |
 | **RPC Endpoint** | `https://aztec-mainnet.drpc.org` | `https://rpc.testnet.aztec-labs.com` |
@@ -28,7 +28,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Getting Started** | [Run a sequencer →](/operate/operators/setup/sequencer_management) | [Run a node →](/operate/operators/setup/running_a_node) |
 
 :::tip Network Roles (Post-Alpha)
-**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first. Note: Sponsored FPC is not available on Testnet.
+**Testnet is your production path.** It's decentralized, live, and stable — treat it as your staging environment for Alpha. If you want to deploy on Alpha, validate on Testnet first.
 :::
 
 ## Contract Addresses
@@ -47,17 +47,17 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Fee Asset Handler** | N/A | [`0x5602c39a6e9c5ace589f64f754927bcda4f4bfc9`](https://sepolia.etherscan.io/address/0x5602c39a6e9c5ace589f64f754927bcda4f4bfc9) |
 | **Coin Issuer** | [`0x02fadf157d551aa6d761b2a2237d03af68e41ca6`](https://etherscan.io/address/0x02fadf157d551aa6d761b2a2237d03af68e41ca6) | [`0xe05d0a62045b4237556c1ec423e59eea9a24eaee`](https://sepolia.etherscan.io/address/0xe05d0a62045b4237556c1ec423e59eea9a24eaee) |
 | **Reward Distributor** | [`0x3d6a1b00c830c5f278fc5dfb3f6ff0b74db6dfe0`](https://etherscan.io/address/0x3d6a1b00c830c5f278fc5dfb3f6ff0b74db6dfe0) | [`0x030d2780e70f085c31d490268d3900d4cea16606`](https://sepolia.etherscan.io/address/0x030d2780e70f085c31d490268d3900d4cea16606) |
-| **Reward Booster** | [`0x7101a6703491a4d808aeabe9f62bc1dc6a20bdf4`](https://etherscan.io/address/0x7101a6703491a4d808aeabe9f62bc1dc6a20bdf4) | [`0x49711056D1EaDcDD3F2eF676DC8EA3F924fB916c`](https://sepolia.etherscan.io/address/0x49711056D1EaDcDD3F2eF676DC8EA3F924fB916c) |
+| **Reward Booster** | [`0x1cbb707bd7b4fd2bced6d96d84372fb428e93d80`](https://etherscan.io/address/0x1cbb707bd7b4fd2bced6d96d84372fb428e93d80) | [`0x49711056D1EaDcDD3F2eF676DC8EA3F924fB916c`](https://sepolia.etherscan.io/address/0x49711056D1EaDcDD3F2eF676DC8EA3F924fB916c) |
 | **Governance Proposer** | [`0x06ef1dcf87e419c48b94a331b252819fadbd63ef`](https://etherscan.io/address/0x06ef1dcf87e419c48b94a331b252819fadbd63ef) | [`0x01c7d4ca153748d2377968fef22894cb162e9480`](https://sepolia.etherscan.io/address/0x01c7d4ca153748d2377968fef22894cb162e9480) |
 | **Governance** | [`0x1102471eb3378fee427121c9efcea452e4b6b75e`](https://etherscan.io/address/0x1102471eb3378fee427121c9efcea452e4b6b75e) | [`0xcaf7447721447b22cd0076ac7c63877c3afd329f`](https://sepolia.etherscan.io/address/0xcaf7447721447b22cd0076ac7c63877c3afd329f) |
 | **Governance Staking Escrow** | [`0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f`](https://etherscan.io/address/0xa92ecfd0e70c9cd5e5cd76c50af0f7da93567a4f) | [`0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac`](https://sepolia.etherscan.io/address/0xb6a38a51a6c1de9012f9d8ea9745ef957212eaac) |
 | **Staking Registry** | [`0x042dF8f42790d6943F41C25C2132400fd727f452`](https://etherscan.io/address/0x042dF8f42790d6943F41C25C2132400fd727f452) | [`0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2`](https://sepolia.etherscan.io/address/0xC6EcC1832c8BF6a41c927BEb4E9ec610FBeDd1C2) |
 | **Slash Factory** | N/A | [`0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17`](https://sepolia.etherscan.io/address/0x9CF4a0094c8696d5110dd0f0cF3FA5deA174BB17) |
-| **Slasher** | [`0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb`](https://etherscan.io/address/0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb) | [`0xf6D0D42aCE06829bECB78C74F49879528fC632c1`](https://sepolia.etherscan.io/address/0xf6D0D42aCE06829bECB78C74F49879528fC632c1) |
-| **Tally Slashing Proposer** | [`0x7a318c3daa9f21f8fc8238c65755eb0394fbf189`](https://etherscan.io/address/0x7a318c3daa9f21f8fc8238c65755eb0394fbf189) | [`0x158eCC4B24675dc399031c7D144786e3da2060A8`](https://sepolia.etherscan.io/address/0x158eCC4B24675dc399031c7D144786e3da2060A8) |
-| **Honk Verifier** | N/A | [`0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97`](https://sepolia.etherscan.io/address/0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97) |
+| **Slasher** | [`0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb`](https://etherscan.io/address/0x64E6e9Bb9f1E33D319578B9f8a9C719Ca6D46eBb) | [`0xCF750B724558098E5db67B651f03a31AE2b252f4`](https://sepolia.etherscan.io/address/0xCF750B724558098E5db67B651f03a31AE2b252f4) |
+| **Tally Slashing Proposer** | [`0xa4a38fD0108C00983E75616b638Ff3321FD26958`](https://etherscan.io/address/0xa4a38fD0108C00983E75616b638Ff3321FD26958) | [`0x158eCC4B24675dc399031c7D144786e3da2060A8`](https://sepolia.etherscan.io/address/0x158eCC4B24675dc399031c7D144786e3da2060A8) |
+| **Honk Verifier** | [`0x70aedda427f26480d240bc0f4308cedec8d31348`](https://etherscan.io/address/0x70aedda427f26480d240bc0f4308cedec8d31348) | [`0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97`](https://sepolia.etherscan.io/address/0x800FbC88054ba6c228B7d822F1DCAf4d627E8F97) |
 | **Register New Rollup Version Payload** | N/A | [`0x11f7Ab2324CA94af929A388477a7959E0108C3d6`](https://sepolia.etherscan.io/address/0x11f7Ab2324CA94af929A388477a7959E0108C3d6) |
-| **Slash Payload Cloneable** | N/A | [`0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F`](https://sepolia.etherscan.io/address/0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F) | |
+| **Slash Payload Cloneable** | [`0xAA43220b7eb7c8Ffe75bc9C483f3C07b0a55B445`](https://etherscan.io/address/0xAA43220b7eb7c8Ffe75bc9C483f3C07b0a55B445) | [`0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F`](https://sepolia.etherscan.io/address/0xe66d9eeBfF5490E6bfA263cF08028dE7d265321F) |
 
 ### L2 Contract Addresses
 
@@ -67,7 +67,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Class Registry** | `0x0000000000000000000000000000000000000000000000000000000000000003` | `0x0000000000000000000000000000000000000000000000000000000000000003` |
 | **MultiCall Entrypoint** | `0x0000000000000000000000000000000000000000000000000000000000000004` | `0x0000000000000000000000000000000000000000000000000000000000000004` |
 | **Fee Juice** | `0x0000000000000000000000000000000000000000000000000000000000000005` | `0x0000000000000000000000000000000000000000000000000000000000000005` |
-| **SponsoredFPC** | Not deployed | Not deployed |
+| **SponsoredFPC** | Not deployed | `0x254082b62f9108d044b8998f212bb145619d91bfcd049461d74babb840181257` |
 
 ## Governance Parameters
 
@@ -76,17 +76,9 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Proposer Quorum** | 600/1000 | 60/100 |
 | **Voting Delay** | 3 days | 12 hours |
 | **Voting Duration** | 7 days | 24 hours |
-| **Execution Delay** | 7 days | 12 hours |
+| **Execution Delay** | 30 days | 12 hours |
 | **Slashing Quorum** | 65% | 33% |
 | **Slashing Round Size** | 128 epochs | 64 epochs |
-
-## Use Case Suitability
-
-| Use Case | Alpha (Mainnet) | Testnet |
-|----------|-------------------|---------|
-| **App Development** | ❌ | ✅ |
-| **Sequencer Testing** | ✅ | ✅ |
-| **Governance Testing** | ✅ | ✅ |
 
 ---
 
@@ -94,7 +86,7 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 
 ### Alpha (Mainnet)
 
-Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active.
+Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active. Alpha is live but early — bugs, including critical ones, are expected. For a full explanation of what this means, see the **[Alpha Network](/participate/alpha)** page.
 
 #### Overview
 
@@ -132,7 +124,7 @@ Testnet is ideal for testing node configurations, governance proposals, and unde
 - Fully decentralized sequencer set
 - Connected to Ethereum Sepolia
 - Transactions are proven
-- No Sponsored FPC — you must handle fee payment
+- Sponsored FPC available for free transactions
 - Good environment for testing node operations
 
 ## Next Steps

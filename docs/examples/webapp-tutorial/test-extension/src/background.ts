@@ -1,4 +1,3 @@
-// docs:start:background
 /**
  * Background service worker for the Aztec Tutorial Wallet.
  *
@@ -162,7 +161,6 @@ async function sendToOffscreen(message: any, _retried = false): Promise<any> {
 }
 // docs:end:send-to-offscreen
 
-// docs:start:pending-state
 // Store pending transactions, session verifications, and capability requests.
 // Discovery and session tracking uses only the SDK handler.
 let pendingTransactions: PendingTransaction[] = [];
@@ -179,9 +177,7 @@ const capabilitiesApprovedSessions = new Set<string>();
  * This prevents the dApp from bypassing verification by sending messages immediately.
  */
 const queuedMessages: Map<string, { session: ActiveSession; message: any }[]> = new Map();
-// docs:end:pending-state
 
-// docs:start:trusted-origins
 /**
  * Trusted origins persistence for auto-reconnect. (#30)
  *
@@ -229,9 +225,7 @@ async function getStoredCapabilities(origin: string, appId: string): Promise<Arr
   const entry = trusted.find(t => t.origin === origin && t.appId === appId);
   return entry?.grantedCapabilities ?? null;
 }
-// docs:end:trusted-origins
 
-// docs:start:state-persistence
 /**
  * Persists critical state to chrome.storage.session. (#8)
  *
@@ -280,9 +274,7 @@ async function restoreState(): Promise<void> {
     log.warn('[background] Failed to restore state:', err);
   }
 }
-// docs:end:state-persistence
 
-// docs:start:background-tasks
 /**
  * Background task tracker for long-running operations.
  * Tasks survive popup close/reopen. The popup receives real-time updates
@@ -322,9 +314,7 @@ function cleanupTasks() {
     (t) => t.status === 'running' || t.startedAt > cutoff
   );
 }
-// docs:end:background-tasks
 
-// docs:start:popup-port
 /**
  * Persistent port connection to the popup.
  * Allows the background to push real-time updates without polling.
@@ -421,9 +411,7 @@ function getFullState() {
     tasks: backgroundTasks,
   };
 }
-// docs:end:popup-port
 
-// docs:start:auto-lock
 /**
  * Auto-lock via chrome.alarms. (#28)
  * Resets the timer on every popup interaction.
@@ -450,7 +438,6 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     pushStateToPopup();
   }
 });
-// docs:end:auto-lock
 
 /**
  * Updates the extension badge to show pending items count.
@@ -783,7 +770,6 @@ chrome.tabs.onRemoved.addListener((tabId) => {
  * Handle messages from popup and offscreen for approvals and account management.
  */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // docs:start:storage-proxy
   /**
    * Storage proxy for the offscreen document. (#7)
    * Validates that the request comes from the extension itself (not content scripts or external).
@@ -812,7 +798,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     return true; // async response (#23)
   }
-  // docs:end:storage-proxy
 
   if (message.target !== MessageTarget.BACKGROUND) {
     return false;
@@ -1215,7 +1200,6 @@ async function handleTransactionApproval(
 }
 // docs:end:popup-messages
 
-// docs:start:lifecycle
 /**
  * Extension lifecycle handlers. (#17)
  */
@@ -1250,5 +1234,3 @@ ensureOffscreenDocument().then(() => {
 }).catch((err) => {
   log.error('[background] Offscreen preload failed (will retry on demand):', err);
 });
-// docs:end:lifecycle
-// docs:end:background

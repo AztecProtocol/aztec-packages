@@ -70,7 +70,6 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             decompose_non_native_field_double_width_limb(context, low_bits_in.get_witness_index());
         limb_0.witness_index = limb_witnesses[0];
         limb_1.witness_index = limb_witnesses[1];
-        field_t<Builder>::evaluate_linear_identity(low_bits_in, -limb_0, -limb_1 * shift_1, field_t<Builder>(0));
     } else {
         uint256_t slice_0 = uint256_t(low_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
         uint256_t slice_1 = uint256_t(low_bits_in.additive_constant).slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS);
@@ -97,7 +96,6 @@ bigfield<Builder, T>::bigfield(const field_t<Builder>& low_bits_in,
             context, high_bits_in.get_witness_index(), static_cast<size_t>(num_high_limb_bits));
         limb_2.witness_index = limb_witnesses[0];
         limb_3.witness_index = limb_witnesses[1];
-        field_t<Builder>::evaluate_linear_identity(high_bits_in, -limb_2, -limb_3 * shift_1, field_t<Builder>(0));
     } else {
         uint256_t slice_2 = uint256_t(high_bits_in.additive_constant).slice(0, NUM_LIMB_BITS);
         uint256_t slice_3 = uint256_t(high_bits_in.additive_constant).slice(NUM_LIMB_BITS, num_high_limb_bits);
@@ -2263,13 +2261,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
     uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
 
-    if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
-        carry_lo_msb = 0;
-    }
-    if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
-        carry_hi_msb = 0;
-    }
-
     // The custom bigfield multiplication gate requires inputs are witnesses.
     // If we're using constant values, instantiate them as circuit variables
     //
@@ -2717,13 +2708,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiple_multiply_add(const std::vect
     uint64_t carry_lo_msb = max_lo_bits - (2 * NUM_LIMB_BITS);
     uint64_t carry_hi_msb = max_hi_bits - (2 * NUM_LIMB_BITS);
 
-    if (max_lo_bits < (2 * NUM_LIMB_BITS)) {
-        carry_lo_msb = 0;
-    }
-    if (max_hi_bits < (2 * NUM_LIMB_BITS)) {
-        carry_hi_msb = 0;
-    }
-
     // if both the hi and lo output limbs have less than 70 bits, we can use our custom
     // limb accumulation gate (accumulates 2 field elements, each composed of 5 14-bit limbs, in 3 gates)
     if (carry_lo_msb <= 70 && carry_hi_msb <= 70) {
@@ -2863,9 +2847,7 @@ std::pair<uint512_t, uint512_t> bigfield<Builder, T>::compute_partial_schoolbook
 
 /**
  * @brief Decompose a single witness into two limbs, range constrained to NUM_LIMB_BITS (68) and
- * num_limb_bits - NUM_LIMB_BITS, respectively.
- *
- * @details Doesn't create gates constraining the limbs to each other.
+ * num_limb_bits - NUM_LIMB_BITS, respectively, and constrain low + hi * 2^NUM_LIMB_BITS == original.
  *
  * @param ctx The circuit context
  * @param limb_idx The index of the limb that will be decomposed
@@ -2892,6 +2874,12 @@ std::array<uint32_t, 2> bigfield<Builder, T>::decompose_non_native_field_double_
     const size_t hi_bits = num_limb_bits - NUM_LIMB_BITS;
     ctx->range_constrain_two_limbs(
         low_idx, hi_idx, lo_bits, hi_bits, "decompose_non_native_field_double_width_limb: limbs too large");
+
+    // Constrain: original == low + hi * 2^NUM_LIMB_BITS
+    field_t<Builder> original = field_t<Builder>::from_witness_index(ctx, limb_idx);
+    field_t<Builder> lo_field = field_t<Builder>::from_witness_index(ctx, low_idx);
+    field_t<Builder> hi_field = field_t<Builder>::from_witness_index(ctx, hi_idx);
+    field_t<Builder>::evaluate_linear_identity(original, -lo_field, -hi_field * shift_1, field_t<Builder>(0));
 
     return std::array<uint32_t, 2>{ low_idx, hi_idx };
 }

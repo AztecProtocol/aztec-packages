@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LogFn } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type { FeeOptions } from '@aztec/wallet-sdk/base-wallet';
 
 import { Option } from 'commander';
@@ -257,13 +257,35 @@ export class CLIFeeArgs {
   ) {}
 
   async toUserFeeOptions(node: AztecNode, wallet: Wallet, from: AztecAddress): Promise<ParsedFeeOptions> {
-    const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1 + MIN_FEE_PADDING);
-    const gasSettings = GasSettings.default({ ...this.gasSettings, maxFeesPerGas });
+    const minFees = await this.getMinFees(node);
+    const maxFeesPerGas = minFees.mul(1 + MIN_FEE_PADDING);
+    const gasSettings = GasSettings.fallback({ ...this.gasSettings, maxFeesPerGas });
     const paymentMethod = await this.paymentMethod(wallet, from, gasSettings);
     return {
       paymentMethod,
       gasSettings,
     };
+  }
+
+  /**
+   * Returns the worst-case min fee across predicted future slots.
+   * Falls back to getCurrentMinFees if the node doesn't support getPredictedMinFees.
+   */
+  private async getMinFees(node: AztecNode): Promise<GasFees> {
+    try {
+      const predicted = await node.getPredictedMinFees(ManaUsageEstimate.Limit);
+      if (predicted.length === 0) {
+        return node.getCurrentMinFees();
+      }
+      return predicted.reduce((worst, fees) => (fees.feePerL2Gas > worst.feePerL2Gas ? fees : worst));
+    } catch (err: any) {
+      // Fallback for old nodes that don't support getPredictedMinFees.
+      // Only fall back on method-not-found errors (JSON-RPC code -32601); rethrow others.
+      if (err?.cause?.code === -32601 || err?.message?.includes('Method not found')) {
+        return node.getCurrentMinFees();
+      }
+      throw err;
+    }
   }
 
   static parse(args: RawCliFeeArgs, log: LogFn, db?: WalletDB): CLIFeeArgs {
@@ -296,7 +318,7 @@ function formatGasEstimate(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGa
 }
 
 function getEstimatedCost(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>, maxFeesPerGas: GasFees) {
-  return GasSettings.default({ ...estimate, maxFeesPerGas })
+  return GasSettings.fallback({ ...estimate, maxFeesPerGas })
     .getFeeLimit()
     .toBigInt();
 }

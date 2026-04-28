@@ -51,9 +51,9 @@ jobs:
           secrets: |
             github_token=${{ secrets.GITHUB_TOKEN }}
           labels: |
-            com.aztec.source-repo=${{ github.repository }}
-            com.aztec.source-branch=${{ github.ref_name }}
-            com.aztec.commit=${{ github.sha }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision.branch=${{ github.ref_name }}
             com.aztec.visibility=private
 
       - name: Install oras
@@ -65,7 +65,7 @@ jobs:
           docker cp manifest-extract:/home/fuzzer/aztec-packages/barretenberg/cpp/fuzzer_manifest.json ./fuzzer_manifest.json
           docker rm manifest-extract
           oras attach ghcr.io/aztecprotocol/fuzzing-container-private@${{ steps.build.outputs.digest }} \
-            --artifact-type application/vnd.aztec.fuzzer-manifest+json \
+            --artifact-type application/vnd.contfuzzer.manifest+json \
             fuzzer_manifest.json
 
       - name: Install cosign

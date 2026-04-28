@@ -125,9 +125,9 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-
-    // Add a no-op, then random start ops, then mixed ops, merge, more mixed ops, random end ops, final merge
     op_queue->no_op_ultra_only();
+
+    // Add random start ops, then mixed ops, merge, more mixed ops, random end ops, final merge
     for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_START; i++) {
         op_queue->random_op_ultra_only();
     }
@@ -145,7 +145,7 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
     for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_END; i++) {
         op_queue->random_op_ultra_only();
     }
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
@@ -265,6 +265,64 @@ TEST_F(TranslatorRelationFailureTests, PermutationFailsOnZPermCorruption)
     auto failures =
         RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(pp, params, "TranslatorPermutationRelation");
     EXPECT_FALSE(failures.empty()) << "Permutation should fail after z_perm corruption";
+}
+
+/**
+ * @brief Test that z_perm must be zero at the lagrange_first row.
+ *
+ * @details The permutation grand product relies on z_perm[0] = 0 so that (z_perm + lagrange_first)
+ * evaluates to 1 at the first row. Sub-relation 2 (lagrange_first * z_perm = 0) enforces this.
+ *
+ * We cross-check the lagrange_first position two ways:
+ *   1. Structurally: z_perm.start_index() - 1 (the zero row before the shiftable region)
+ *   2. By scanning the lagrange_first polynomial for its non-zero entry
+ */
+TEST_F(TranslatorRelationFailureTests, PermutationFailsOnZPermNonZeroAtFirstRow)
+{
+    auto [key, params] = build_valid_translator_state();
+    auto& pp = key.proving_key->polynomials;
+
+    // Baseline: permutation relation passes
+    auto baseline =
+        RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(pp, params, "TranslatorPermutationRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline permutation should pass";
+
+    // Derive expected lagrange_first position from z_perm shiftable structure
+    ASSERT_TRUE(pp.z_perm.is_shiftable());
+    size_t structural_first_row = pp.z_perm.start_index() - 1;
+
+    // Independently scan lagrange_first for its non-zero entry
+    const auto& lagrange_first = pp.lagrange_first;
+    size_t scanned_first_row = 0;
+    bool found = false;
+    for (size_t i = lagrange_first.start_index(); i < lagrange_first.end_index(); ++i) {
+        if (lagrange_first[i] != FF(0)) {
+            scanned_first_row = i;
+            found = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found) << "lagrange_first has no non-zero entry";
+    ASSERT_EQ(structural_first_row, scanned_first_row)
+        << "lagrange_first position doesn't match z_perm shiftable structure";
+
+    const size_t first_row = scanned_first_row;
+
+    // Expand to full polynomials so we can write at the zero row
+    pp.z_perm = pp.z_perm.full();
+    pp.z_perm_shift = pp.z_perm_shift.full();
+
+    ASSERT_EQ(pp.z_perm[first_row], FF(0));
+
+    // Tamper: set z_perm to non-zero where lagrange_first is active
+    pp.z_perm.at(first_row) = FF(1);
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(
+        pp, params, "TranslatorPermutationRelation - After setting z_perm != 0 at lagrange_first");
+    EXPECT_FALSE(failures.empty()) << "Permutation should fail after z_perm init corruption";
+    // Sub-relation 2 (lagrange_first * z_perm = 0) should catch this
+    EXPECT_TRUE(failures.contains(2)) << "Sub-relation 2 (z_perm init) should catch the corruption";
+    EXPECT_EQ(failures.at(2), static_cast<uint32_t>(first_row)) << "Failure should be at lagrange_first row";
 }
 
 /**

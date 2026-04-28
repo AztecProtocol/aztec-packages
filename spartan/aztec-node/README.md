@@ -132,7 +132,6 @@ service:
 | network | - | Network name - predefined network (alpha-testnet, devnet) |
 | customNetwork.l1ChainId | - | L1 chain ID for custom network |
 | customNetwork.registryContractAddress | - | Registry contract address for custom network |
-| customNetwork.slashFactoryAddress | - | Slash factory address for custom network |
 | customNetwork.feeAssetHandlerContractAddress | - | Fee asset handler contract address for custom network |
 | rollupVersion | "canonical" | Which rollup contract to follow from the registry |
 | hostNetwork | false | Use host network (disables nodePort service) |

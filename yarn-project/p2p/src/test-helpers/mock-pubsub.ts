@@ -1,8 +1,10 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { BlockMinFeesProvider } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
@@ -55,6 +57,7 @@ export function getMockPubSubP2PServiceFactory(
       proofVerifier: ClientProtocolCircuitVerifier;
       worldStateSynchronizer: WorldStateSynchronizer;
       peerStore: AztecAsyncKVStore;
+      blockMinFeesProvider: BlockMinFeesProvider;
       telemetry: TelemetryClient;
       logger: Logger;
     },
@@ -75,6 +78,7 @@ export function getMockPubSubP2PServiceFactory(
       deps.epochCache,
       deps.proofVerifier,
       deps.worldStateSynchronizer,
+      deps.blockMinFeesProvider,
       deps.telemetry,
       deps.logger,
     );
@@ -100,6 +104,7 @@ class MockReqResp implements ReqRespInterface {
   }
 
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
+  setShouldRejectPeer(): void {}
 
   start(
     subProtocolHandlers: Partial<ReqRespSubProtocolHandlers>,
@@ -138,6 +143,11 @@ class MockReqResp implements ReqRespInterface {
     const responses: InstanceType<SubProtocolMap[SubProtocol]['response']>[] = [];
     const peers = this.network.getReqRespPeers().filter(p => !p.peerId.equals(this.peerId));
     const targetPeers = pinnedPeer ? peers.filter(p => p.peerId.equals(pinnedPeer)) : peers;
+    const delayMs = this.network.getPropagationDelayMs();
+
+    if (delayMs > 0) {
+      await sleep(delayMs);
+    }
 
     for (const request of requests) {
       const requestBuffer = request.toBuffer();
@@ -174,7 +184,12 @@ class MockReqResp implements ReqRespInterface {
       return { status: ReqRespStatus.SUCCESS, data: Buffer.from([]) };
     }
     try {
+      const delayMs = this.network.getPropagationDelayMs();
+      if (delayMs > 0) {
+        await sleep(delayMs);
+      }
       const data = await handler(this.peerId, payload);
+
       return { status: ReqRespStatus.SUCCESS, data };
     } catch {
       return { status: ReqRespStatus.FAILURE };
@@ -242,10 +257,10 @@ class MockGossipSubService extends TypedEventEmitter<GossipsubEvents> implements
     score: (_peerId: PeerIdStr) => 0,
   };
 
-  publish(topic: TopicStr, data: Uint8Array, _opts?: PublishOpts): Promise<PublishResult> {
+  async publish(topic: TopicStr, data: Uint8Array, _opts?: PublishOpts): Promise<PublishResult> {
     this.logger.debug(`Publishing message on topic ${topic}`, { topic, sender: this.peerId.toString() });
-    this.network.publishToPeers(topic, data, this.peerId);
-    return Promise.resolve({ recipients: this.network.getPeers().filter(peer => !this.peerId.equals(peer)) });
+    await this.network.publishToPeers(topic, data, this.peerId);
+    return { recipients: this.network.getPeers().filter(peer => !this.peerId.equals(peer)) };
   }
 
   receive(msg: GossipsubMessage) {
@@ -281,7 +296,8 @@ class MockGossipSubService extends TypedEventEmitter<GossipsubEvents> implements
 
 /**
  * Mock gossip sub network used for testing.
- * All instances of MockGossipSubService connected to the same network will instantly receive the same messages.
+ * All instances of MockGossipSubService connected to the same network receive the same messages,
+ * optionally delayed by a configurable propagation time.
  */
 export class MockGossipSubNetwork {
   private peers: MockGossipSubService[] = [];
@@ -289,6 +305,15 @@ export class MockGossipSubNetwork {
   private nextMsgId = 0;
 
   private logger = createLogger('p2p:test:mock-gossipsub-network');
+
+  constructor(
+    /** Artificial propagation delay in milliseconds applied to each message delivery. */
+    private propagationDelayMs: number = 0,
+  ) {}
+
+  public getPropagationDelayMs(): number {
+    return this.propagationDelayMs;
+  }
 
   public getPeers(): PeerId[] {
     return this.peers.map(peer => peer.peerId);
@@ -306,7 +331,7 @@ export class MockGossipSubNetwork {
     return this.reqRespPeers;
   }
 
-  public publishToPeers(topic: TopicStr, data: Uint8Array, sender: PeerId): void {
+  public async publishToPeers(topic: TopicStr, data: Uint8Array, sender: PeerId): Promise<void> {
     const msgId = (this.nextMsgId++).toString();
     this.logger.debug(`Network is distributing message on topic ${topic}`, {
       topic,
@@ -314,6 +339,10 @@ export class MockGossipSubNetwork {
       sender: sender.toString(),
       msgId,
     });
+
+    if (this.propagationDelayMs > 0) {
+      await sleep(this.propagationDelayMs);
+    }
 
     const gossipSubMsg: GossipsubMessage = { msgId, msg: { type: 'unsigned', topic, data }, propagationSource: sender };
     for (const peer of this.peers) {

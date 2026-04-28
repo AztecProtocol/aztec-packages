@@ -1,13 +1,19 @@
 #include "polynomial_arithmetic.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/polynomials/backing_memory.hpp"
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "polynomial.hpp"
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <gtest/gtest.h>
+#include <limits>
+#include <span>
 #include <utility>
+#include <vector>
 
 using namespace bb;
 
@@ -67,30 +73,55 @@ TEST(polynomials, ifft_consistency)
     }
 }
 
-TEST(polynomials, linear_poly_product)
-{
-    constexpr size_t n = 64;
-    std::array<fr, n> roots;
-
-    fr z = fr::random_element();
-    fr expected = 1;
-    for (size_t i = 0; i < n; ++i) {
-        roots[i] = fr::random_element();
-        expected *= (z - roots[i]);
-    }
-
-    fr dest[n + 1];
-    polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest, n);
-    fr result = polynomial_arithmetic::evaluate(dest, z, n + 1);
-
-    EXPECT_EQ(result, expected);
-}
-
 template <typename FF> class PolynomialTests : public ::testing::Test {};
 
 using FieldTypes = ::testing::Types<bb::fr, grumpkin::fr>;
 
 TYPED_TEST_SUITE(PolynomialTests, FieldTypes);
+
+TYPED_TEST(PolynomialTests, linear_poly_product)
+{
+    using FF = TypeParam;
+    // Cover both BN254 and Grumpkin for the production SUBGROUP_SIZE range (87 Grumpkin, 256 BN254).
+    constexpr size_t n = 256;
+    std::array<FF, n> roots;
+
+    FF z = FF::random_element();
+    FF expected = 1;
+    for (size_t i = 0; i < n; ++i) {
+        roots[i] = FF::random_element();
+        expected *= (z - roots[i]);
+    }
+
+    std::array<FF, n + 1> dest{};
+    polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest.data(), n);
+    FF result = polynomial_arithmetic::evaluate(dest.data(), z, n + 1);
+
+    EXPECT_EQ(result, expected);
+}
+
+// compute_linear_polynomial_product handles the n=1 and n=2 boundaries of the incremental update.
+TYPED_TEST(PolynomialTests, LinearPolyProductSmallN)
+{
+    using FF = TypeParam;
+    // n=1: dest should represent (X - roots[0]) = [-r0, 1].
+    {
+        std::array<FF, 1> roots = { FF(7) };
+        std::array<FF, 2> dest{};
+        polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest.data(), 1);
+        EXPECT_EQ(dest[0], -FF(7));
+        EXPECT_EQ(dest[1], FF(1));
+    }
+    // n=2: (X - 1)(X - 2) = X^2 - 3X + 2 → [2, -3, 1].
+    {
+        std::array<FF, 2> roots = { FF(1), FF(2) };
+        std::array<FF, 3> dest{};
+        polynomial_arithmetic::compute_linear_polynomial_product(roots.data(), dest.data(), 2);
+        EXPECT_EQ(dest[0], FF(2));
+        EXPECT_EQ(dest[1], -FF(3));
+        EXPECT_EQ(dest[2], FF(1));
+    }
+}
 
 TYPED_TEST(PolynomialTests, evaluation_domain)
 {
@@ -100,6 +131,22 @@ TYPED_TEST(PolynomialTests, evaluation_domain)
 
     EXPECT_EQ(domain.size, 256UL);
     EXPECT_EQ(domain.log2_size, 8UL);
+}
+
+// EvaluationDomain::operator=(EvaluationDomain&&) is a no-op under self-assignment and preserves
+// the precomputed round-roots tables.
+TYPED_TEST(PolynomialTests, EvaluationDomainMoveSelfAssign)
+{
+    using FF = TypeParam;
+    auto domain = EvaluationDomain<FF>(256);
+    domain.compute_lookup_table();
+    const size_t round_roots_before = domain.get_round_roots().size();
+    EXPECT_GT(round_roots_before, 0UL);
+
+    domain = std::move(domain);
+
+    EXPECT_EQ(domain.size, 256UL);
+    EXPECT_EQ(domain.get_round_roots().size(), round_roots_before);
 }
 
 TYPED_TEST(PolynomialTests, domain_roots)
@@ -365,4 +412,80 @@ TYPED_TEST(PolynomialTests, default_construct_then_assign)
         EXPECT_EQ(poly[i], interesting_poly[i]);
     }
     EXPECT_EQ(poly.size(), interesting_poly.size());
+}
+
+// factor_roots produces the correct quotient when (X - r) divides p(X) cleanly.
+TEST(polynomials, FactorRootsExactDivisionRegression)
+{
+    using FF = fr;
+    // p(X) = X^2 - 1 = (X - 1)(X + 1): exact division by (X - 1) produces q(X) = X + 1.
+    std::array<FF, 3> exact_poly = { -FF(1), FF(0), FF(1) };
+    polynomial_arithmetic::factor_roots(std::span<FF>(exact_poly), FF(1));
+    EXPECT_EQ(exact_poly[0], FF(1));
+    EXPECT_EQ(exact_poly[1], FF(1));
+    EXPECT_EQ(exact_poly[2], FF(0));
+}
+
+// factor_roots asserts when the exact-divisibility precondition is violated.
+TEST(polynomials, FactorRootsNonExactDivisionAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    std::array<FF, 3> bad_poly = { FF(1), FF(0), FF(1) }; // p(X) = X^2 + 1, p(1) = 2 != 0
+    ASSERT_THROW_OR_ABORT(polynomial_arithmetic::factor_roots(std::span<FF>(bad_poly), FF(1)), ".*");
+}
+
+// Polynomial's interpolation constructor asserts when interpolation_points and evaluations differ in size.
+TEST(polynomials, InterpolationCtorMismatchedSpansAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    std::vector<FF> points = { FF(1), FF(2), FF(3), FF(4) };
+    std::vector<FF> evals = { FF(10), FF(20) }; // shorter than points
+    ASSERT_THROW_OR_ABORT(
+        bb::Polynomial<FF>(std::span<const FF>(points), std::span<const FF>(evals), /*virtual_size=*/4), ".*");
+}
+
+// parse_size_string throws when value * multiplier overflows size_t.
+TEST(polynomials, ParseSizeStringOverflowAsserts)
+{
+    // Sanity: well-formed inputs still parse correctly.
+    EXPECT_EQ(parse_size_string("1k"), 1024U);
+    EXPECT_EQ(parse_size_string("2g"), 2UL * 1024 * 1024 * 1024);
+
+    // 2^54 * 1024 == 2^64 wraps to 0 without a guard.
+    ASSERT_THROW_OR_ABORT(parse_size_string("18014398509481984k"), ".*");
+}
+
+#ifndef NDEBUG
+// compute_efficient_interpolation asserts (debug-only) when evaluation points are not all distinct.
+TEST(polynomials, ComputeEfficientInterpolationDuplicatePointsAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    constexpr size_t n = 3;
+    std::array<FF, n> src = { FF(10), FF(20), FF(30) };
+    std::array<FF, n> dest{};
+    std::array<FF, n> points = { FF(1), FF(2), FF(2) }; // duplicate
+    ASSERT_THROW_OR_ABORT(
+        polynomial_arithmetic::compute_efficient_interpolation<FF>(src.data(), dest.data(), points.data(), n), ".*");
+}
+#endif
+
+// fft_inner_parallel asserts when called in-place (coeffs == target).
+TEST(polynomials, FftInnerParallelInPlaceAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = fr;
+    constexpr size_t n = 16;
+    auto domain = bb::EvaluationDomain<FF>(n);
+    domain.compute_lookup_table();
+
+    std::array<FF, n> coeffs{};
+    for (size_t i = 0; i < n; ++i) {
+        coeffs[i] = FF(i + 1);
+    }
+    ASSERT_THROW_OR_ABORT(
+        polynomial_arithmetic::fft_inner_parallel(coeffs.data(), coeffs.data(), domain, FF(), domain.get_round_roots()),
+        ".*");
 }

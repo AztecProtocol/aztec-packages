@@ -36,8 +36,7 @@ TYPED_TEST(AcirFormatTests, ExpressionWithOnlyConstantTermFails)
         .return_values = {},
     };
 
-    EXPECT_THROW_WITH_MESSAGE(circuit_serde_to_acir_format(circuit),
-                              "split_into_mul_quad_gates: resulted in zero gates.");
+    EXPECT_THROW_WITH_MESSAGE(circuit_serde_to_acir_format(circuit), "circuit is unsatisfiable");
 }
 
 TYPED_TEST(AcirFormatTests, ExpressionWithCancellingCoefficientsFails)

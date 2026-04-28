@@ -70,10 +70,9 @@ describe('e2e_epochs/epochs_mbps', () => {
     minTxsPerBlock?: number;
     maxTxsPerBlock?: number;
     buildCheckpointIfEmpty?: boolean;
-    deployCrossChainContract?: boolean;
     skipPushProposedBlocksToArchiver?: boolean;
   }) {
-    const { syncChainTip = 'checkpointed', deployCrossChainContract = false, ...setupOpts } = opts;
+    const { syncChainTip = 'checkpointed', ...setupOpts } = opts;
 
     validators = times(NODE_COUNT, i => {
       const privateKey = bufferToHex(getPrivateKeyFromIndex(i + 3)!);
@@ -89,7 +88,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     // - finalBlockDuration = 8s
     // - Total: 0.5 + 24 + 8 + 2.5 = 35s → use 36s for margin
     test = await EpochsTestContext.setup({
-      numberOfAccounts: 1,
+      numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
@@ -112,25 +111,15 @@ describe('e2e_epochs/epochs_mbps', () => {
       ...setupOpts,
       // PXE options for chain tip syncing
       pxeOpts: { syncChainTip },
+      skipInitialSequencer: true,
+      inboxLag: 2,
     });
 
     ({ context, logger, rollup } = test);
     wallet = context.wallet;
-    from = context.accounts[0];
+    from = context.accounts[0]; // auto-created by setup
 
-    // Deploy cross-chain contract if needed (before stopping the initial node).
-    // Unlike emit_nullifier (which has #[noinitcheck]), cross-chain methods require a deployed contract.
-    if (deployCrossChainContract) {
-      logger.warn(`Deploying cross-chain test contract before stopping initial sequencer`);
-      ({ contract: crossChainContract } = await TestContract.deploy(wallet).send({ from }));
-      logger.warn(`Cross-chain test contract deployed at ${crossChainContract!.address}`);
-    }
-
-    // Halt block building in initial aztec node, which was not set up as a validator.
-    logger.warn(`Stopping sequencer in initial aztec node.`);
-    await context.sequencer!.stop();
-
-    // Start the validator nodes (but don't start sequencers yet)
+    // Start the validator nodes
     logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
     nodes = await asyncMap(validators, ({ privateKey }) =>
       test.createValidatorNode([privateKey], { dontStartSequencer: true }),
@@ -276,7 +265,15 @@ describe('e2e_epochs/epochs_mbps', () => {
   });
 
   it('builds multiple blocks per slot with L2 to L1 messages', async () => {
-    await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 2, deployCrossChainContract: true });
+    await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
+
+    // Start sequencers first, then deploy cross-chain contract (needs running sequencer to mine).
+    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    logger.warn(`Started all sequencers`);
+
+    logger.warn(`Deploying cross-chain test contract`);
+    ({ contract: crossChainContract } = await TestContract.deploy(wallet).send({ from }));
+    logger.warn(`Cross-chain test contract deployed at ${crossChainContract!.address}`);
 
     // Pre-prove all L2→L1 message transactions
     const l2ToL1Recipient = EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address);
@@ -289,10 +286,6 @@ describe('e2e_epochs/epochs_mbps', () => {
       ),
     );
     logger.warn(`Pre-proved ${txs.length} L2→L1 message transactions`);
-
-    // Start the sequencers
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
-    logger.warn(`Started all sequencers`);
 
     // Send all transactions at once
     const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
@@ -324,7 +317,15 @@ describe('e2e_epochs/epochs_mbps', () => {
   });
 
   it('builds multiple blocks per slot with L1 to L2 messages', async () => {
-    await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1, deployCrossChainContract: true });
+    await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
+
+    // Start sequencers first, then deploy cross-chain contract (needs running sequencer to mine).
+    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    logger.warn(`Started all sequencers`);
+
+    logger.warn(`Deploying cross-chain test contract`);
+    ({ contract: crossChainContract } = await TestContract.deploy(wallet).send({ from }));
+    logger.warn(`Cross-chain test contract deployed at ${crossChainContract!.address}`);
 
     const L1_TO_L2_COUNT = 4;
     const FILLER_TX_COUNT = 5; // Enough txs to advance the chain so messages become ready
@@ -346,16 +347,12 @@ describe('e2e_epochs/epochs_mbps', () => {
     });
     logger.warn(`Seeded ${l1ToL2Messages.length} L1→L2 messages`);
 
-    // Pre-prove filler txs before starting sequencers (using unique nullifiers to avoid conflicts)
+    // Pre-prove filler txs (using unique nullifiers to avoid conflicts)
     logger.warn(`Pre-proving ${FILLER_TX_COUNT} filler txs to advance the chain`);
     const fillerTxs = await timesAsync(FILLER_TX_COUNT, i =>
       proveInteraction(wallet, contract.methods.emit_nullifier(new Fr(1000 + i)), { from }),
     );
     logger.warn(`Pre-proved ${fillerTxs.length} filler txs`);
-
-    // Start the sequencers
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
-    logger.warn(`Started all sequencers`);
 
     // Send all filler txs at once (without waiting for them to be mined)
     const fillerTxHashes = await Promise.all(fillerTxs.map(tx => tx.send({ wait: NO_WAIT })));

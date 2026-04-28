@@ -7,10 +7,10 @@
 #include <string>
 #include <utility>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 using bb::crypto::Poseidon2Bn254ScalarFieldParams;
 using bb::crypto::Poseidon2Permutation;

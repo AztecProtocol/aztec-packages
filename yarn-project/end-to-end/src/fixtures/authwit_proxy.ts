@@ -17,6 +17,10 @@ async function buildProxyCall(proxy: GenericProxyContract, action: ContractFunct
     return proxy.methods.forward_private_3(call.to, call.selector, call.args);
   } else if (argCount === 4) {
     return proxy.methods.forward_private_4(call.to, call.selector, call.args);
+  } else if (argCount === 5) {
+    return proxy.methods.forward_private_5(call.to, call.selector, call.args);
+  } else if (argCount === 6) {
+    return proxy.methods.forward_private_6(call.to, call.selector, call.args);
   }
   throw new Error(`No forward_private_${argCount} method on proxy`);
 }

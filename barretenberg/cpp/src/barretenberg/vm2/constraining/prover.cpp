@@ -129,7 +129,7 @@ void AvmProver::execute_log_derivative_inverse_round()
 
             AVM_TRACK_TIME(std::string("prove/log_derivative_inverse_round/") + std::string(Relation::NAME),
                            (compute_logderivative_inverse<FF, Relation, Flavor::ProverPolynomials, false>(
-                               prover_polynomials, relation_parameters, ProvingKey::circuit_size)));
+                               prover_polynomials, relation_parameters)));
         });
     });
 

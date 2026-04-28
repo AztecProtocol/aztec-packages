@@ -61,7 +61,7 @@ contract Tmnt419Test is RollupBase {
   uint256 internal SLOT_DURATION;
   uint256 internal EPOCH_DURATION;
   uint256 internal PROOF_SUBMISSION_EPOCHS;
-  uint256 internal MANA_TARGET = 0;
+  uint256 internal MANA_TARGET = 1e6;
 
   address internal sequencer = address(bytes20("sequencer"));
 
@@ -171,11 +171,7 @@ contract Tmnt419Test is RollupBase {
     header.coinbase = address(bytes20("coinbase"));
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = SafeCast.toUint128(rollup.getManaMinFeeAt(Timestamp.wrap(block.timestamp), true));
-    if (MANA_TARGET > 0) {
-      header.totalManaUsed = MANA_TARGET;
-    } else {
-      header.totalManaUsed = 0;
-    }
+    header.totalManaUsed = MANA_TARGET;
 
     ProposeArgs memory proposeArgs =
       ProposeArgs({header: header, archive: archiveRoot, oracleInput: OracleInput({feeAssetPriceModifier: 0})});

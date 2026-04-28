@@ -115,7 +115,7 @@ describe('e2e_p2p_network', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -128,7 +128,7 @@ describe('e2e_p2p_network', () => {
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
       { dateProvider: t.ctx.dateProvider! },
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
     ));
@@ -168,10 +168,23 @@ describe('e2e_p2p_network', () => {
     const initialOnChainPrice = await rollup.getEthPerFeeAsset();
     t.logger.info(`Initial on-chain price: ${initialOnChainPrice}, target oracle price: ${targetOraclePrice}`);
 
-    // Gather signers from attestations downloaded from L1
-    const blockNumber = await nodes[0].getBlockNumber();
+    // Gather signers from attestations downloaded from L1. setupAccount() no longer sends a tx,
+    // so when the test reaches here no checkpoint may have been published yet; wait for the
+    // archiver to index the first published checkpoint before reading attestations.
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(CheckpointNumber.fromBlockNumber(blockNumber), 1);
+    t.logger.warn('Waiting for first checkpoint to be published and indexed by the archiver');
+    const publishedCheckpoint = await retryUntil(
+      async () => {
+        const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
+        const checkpointNumber = (await t.monitor.run()).checkpointNumber;
+        t.logger.info(`Current block numbers ${blockNumbers} (checkpoint number on L1 is ${checkpointNumber})`);
+        const [checkpoint] = await dataStore.getCheckpoints(CheckpointNumber(1), 1);
+        return checkpoint;
+      },
+      'published checkpoint to be indexed',
+      120,
+      1,
+    );
     const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())

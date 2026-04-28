@@ -1,13 +1,15 @@
+import { MEGA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import { PublicKeys } from '@aztec/stdlib/keys';
-import { OFFCHAIN_MESSAGE_IDENTIFIER, type OffchainEffect, type TxSimulationResult } from '@aztec/stdlib/tx';
+import { OFFCHAIN_MESSAGE_IDENTIFIER, type OffchainEffect } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { Wallet } from '../wallet/wallet.js';
 import type { ContractBase } from './contract_base.js';
 import { DeployMethod } from './deploy_method.js';
@@ -29,7 +31,7 @@ describe('DeployMethod', () => {
         returnTypes: [],
         errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
+        verificationKey: Buffer.alloc(MEGA_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES).toString('base64'),
       },
       {
         name: 'public_dispatch',
@@ -70,7 +72,7 @@ describe('DeployMethod', () => {
       },
     ];
 
-    const txSimResult = mock<TxSimulationResult>();
+    const txSimResult = mock<TxSimulationResultWithAppOffset>();
     Object.defineProperty(txSimResult, 'offchainEffects', { value: offchainEffects });
     Object.defineProperty(txSimResult, 'publicInputs', {
       value: {

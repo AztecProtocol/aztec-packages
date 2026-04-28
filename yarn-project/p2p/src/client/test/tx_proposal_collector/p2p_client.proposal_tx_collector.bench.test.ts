@@ -118,8 +118,13 @@ describe('ProposalTxCollector Benchmarks', () => {
     }
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     logger.info(`Starting test ${expect.getState().currentTestName}`);
+    // Ensure aggregator has sufficient peer connections before each case
+    // to prevent degraded connectivity from previous cases propagating
+    if (workerManager) {
+      await workerManager.waitForConnectivity(Math.floor(PEERS_PER_RUN * 0.8), 15_000);
+    }
   });
 
   describe.each(CASES)('$name (missing=$missingTxCount)', benchCase => {

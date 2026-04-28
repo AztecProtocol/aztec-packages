@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -214,7 +215,8 @@ TEST(SStoreConstrainingTest, Interactions)
     NiceMock<MockExecutionIdManager> execution_id_manager;
 
     EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_emitter);
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__WRITTEN_SLOTS_MERKLE, indexed_tree_check_emitter);
 
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(indexed_tree_check,
                                                                          build_public_data_slots_tree());
@@ -246,12 +248,13 @@ TEST(SStoreConstrainingTest, Interactions)
     });
 
     EXPECT_CALL(merkle_check, write)
-        .WillRepeatedly([]([[maybe_unused]] FF current_leaf,
+        .WillRepeatedly([]([[maybe_unused]] uint64_t domain_separator,
+                           [[maybe_unused]] FF current_leaf,
                            FF new_leaf,
                            uint64_t leaf_index,
                            std::span<const FF> sibling_path,
                            [[maybe_unused]] FF prev_root) {
-            return unconstrained_root_from_path(new_leaf, leaf_index, sibling_path);
+            return unconstrained_root_from_path(DOM_SEP__WRITTEN_SLOTS_MERKLE, new_leaf, leaf_index, sibling_path);
         });
 
     written_public_data_slots_tree_check.contains(contract_address, slot);
@@ -274,6 +277,7 @@ TEST(SStoreConstrainingTest, Interactions)
             { C::execution_contract_address, contract_address },
             { C::execution_sel_gas_sstore, 1 },
             { C::execution_written_slots_tree_height, AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT },
+            { C::execution_written_slots_merkle_separator, DOM_SEP__WRITTEN_SLOTS_MERKLE },
             { C::execution_written_slots_tree_siloing_separator, DOM_SEP__PUBLIC_LEAF_SLOT },
             { C::execution_dynamic_da_gas_factor, 1 },
             { C::execution_register_0_, value },
@@ -329,7 +333,8 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
     NiceMock<MockExecutionIdManager> execution_id_manager;
 
     EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_emitter);
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__WRITTEN_SLOTS_MERKLE, indexed_tree_check_emitter);
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(indexed_tree_check,
                                                                          build_public_data_slots_tree());
 
@@ -360,12 +365,13 @@ TEST(SStoreConstrainingTest, NegativeFullAttackWithAllTraces)
         return static_cast<uint256_t>(a) > static_cast<uint256_t>(b);
     });
     EXPECT_CALL(merkle_check, write)
-        .WillRepeatedly([]([[maybe_unused]] FF current_leaf,
+        .WillRepeatedly([]([[maybe_unused]] uint64_t domain_separator,
+                           [[maybe_unused]] FF current_leaf,
                            FF new_leaf,
                            uint64_t leaf_index,
                            std::span<const FF> sibling_path,
                            [[maybe_unused]] FF prev_root) {
-            return unconstrained_root_from_path(new_leaf, leaf_index, sibling_path);
+            return unconstrained_root_from_path(DOM_SEP__WRITTEN_SLOTS_MERKLE, new_leaf, leaf_index, sibling_path);
         });
 
     // Generate cryptographically valid events via simulation (same as legitimate operation)

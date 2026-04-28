@@ -46,7 +46,9 @@ EOF
   echo 'testuser:$2y$05$R1tRwE1mM3iT1dJ8hG16fOCTq7tFhFJ0IWrZ1bMCGJ6W9unQF3H3K' > /tmp/htpasswd
 
   if ! command -v verdaccio &>/dev/null; then
-    npm i -g verdaccio
+    # Install to a local prefix to avoid requiring root for global npm install.
+    npm i -g --prefix /tmp/verdaccio-pkg verdaccio
+    export PATH="/tmp/verdaccio-pkg/bin:$PATH"
   fi
 
   local base_hash=$(cache_content_hash ^aztec-up/Dockerfile.base)
@@ -85,7 +87,7 @@ EOF
       echo $root/barretenberg/ts
       $root/noir/bootstrap.sh get_projects
       $root/yarn-project/bootstrap.sh get_projects
-    } | DRY_RUN= parallel --tag --line-buffer --halt now,fail=1 "retry 'cd {} && dump_fail \"deploy_npm latest $version\" >/dev/null'"
+    } | DRY_RUN= parallel --tag --line-buffer --halt now,fail=1 "retry 'cd {} && dump_fail \"deploy_npm $version\" >/dev/null'"
 
     # Prime the verdaccio cache by installing the packages we'll use in tests.
     # This fetches all transitive dependencies from npmjs and caches them locally.

@@ -383,19 +383,24 @@ impl AvmCircuitPublicInputs {
         );
 
         // Previous non-revertible accumulated data array lengths
-        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
+        cols[0][
+            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
             self.previous_non_revertible_accumulated_data_array_lengths.note_hashes as Field;
-        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
+        cols[0][
+            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
             self.previous_non_revertible_accumulated_data_array_lengths.nullifiers as Field;
         cols[0][
-    AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+            AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
             self.previous_non_revertible_accumulated_data_array_lengths.l2_to_l1_msgs as Field;
         // Previous revertible accumulated data array lengths
-        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX] =
-            self.previous_revertible_accumulated_data_array_lengths.note_hashes as Field;
-        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX] =
-            self.previous_revertible_accumulated_data_array_lengths.nullifiers as Field;
-        cols[0][AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
+        cols[0][
+            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NOTE_HASHES_ROW_IDX
+            ] = self.previous_revertible_accumulated_data_array_lengths.note_hashes as Field;
+        cols[0][
+            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_NULLIFIERS_ROW_IDX
+            ] = self.previous_revertible_accumulated_data_array_lengths.nullifiers as Field;
+        cols[0][
+            AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_ARRAY_LENGTHS_L2_TO_L1_MSGS_ROW_IDX] =
             self.previous_revertible_accumulated_data_array_lengths.l2_to_l1_msgs as Field;
 
         // Previous non-revertible accumulated data

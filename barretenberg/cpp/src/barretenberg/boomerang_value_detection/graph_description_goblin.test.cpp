@@ -4,6 +4,7 @@
 
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/goblin_verifier.hpp"
+#include "barretenberg/goblin/merge_prover.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"

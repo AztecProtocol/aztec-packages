@@ -3,6 +3,8 @@ import type { Fq } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
+import type { AccountType } from '../wallet_db.js';
+
 /**
  * Provides account contract implementations and stub accounts for the EmbeddedWallet.
  * Two implementations exist:
@@ -13,7 +15,7 @@ export interface AccountContractsProvider {
   getSchnorrAccountContract(signingKey: Fq): Promise<AccountContract>;
   getEcdsaRAccountContract(signingKey: Buffer): Promise<AccountContract>;
   getEcdsaKAccountContract(signingKey: Buffer): Promise<AccountContract>;
-  getStubAccountContractArtifact(): Promise<ContractArtifact>;
+  getStubAccountContractArtifact(type: AccountType): Promise<ContractArtifact>;
   getMulticallContract(): Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }>;
-  createStubAccount(address: CompleteAddress): Promise<Account>;
+  createStubAccount(address: CompleteAddress, type: AccountType): Promise<Account>;
 }

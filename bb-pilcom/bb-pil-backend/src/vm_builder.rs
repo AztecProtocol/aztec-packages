@@ -157,12 +157,25 @@ fn get_all_col_names<F: FieldElement>(
             .map(|name| sanitize_name(name.as_str()))
             .collect_vec(),
     );
+    // Collect shifted column references from every expression in every identity:
+    // both selectors and tuple expressions on each side. Looking only at
+    // left.selector misses shifts that appear exclusively in lookup/permutation
+    // tuples (e.g. `{ ..., temp_x', temp_y', ... } in ...`).
     let to_be_shifted = sort_cols(
         &get_shifted_polys(
             analyzed
                 .identities_with_inlined_intermediate_polynomials()
                 .iter()
-                .map(|i| i.left.selector.clone().unwrap())
+                .flat_map(|i| {
+                    i.left
+                        .selector
+                        .iter()
+                        .chain(i.left.expressions.iter())
+                        .chain(i.right.selector.iter())
+                        .chain(i.right.expressions.iter())
+                        .cloned()
+                        .collect_vec()
+                })
                 .collect_vec(),
         )
         .iter()

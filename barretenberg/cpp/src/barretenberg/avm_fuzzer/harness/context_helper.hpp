@@ -99,7 +99,8 @@ class GadgetFuzzerContextHelper {
     // Gadgets:
     MerkleCheck merkle_check;
     Poseidon2 poseidon2;
-    IndexedTreeCheck indexed_tree_check;
+    IndexedTreeCheck indexed_tree_check_written_slots;
+    IndexedTreeCheck indexed_tree_check_retrieved_bytecodes;
     WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check;
     RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check;
     std::unique_ptr<TxBytecodeManager> tx_bytecode_manager;

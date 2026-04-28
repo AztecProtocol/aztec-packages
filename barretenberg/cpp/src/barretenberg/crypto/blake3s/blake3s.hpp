@@ -61,7 +61,7 @@ enum blake3s_constant {
     BLAKE3_MAX_DEPTH = 54
 };
 
-using key_array = std::array<uint32_t, BLAKE3_KEY_LEN>;
+using key_array = std::array<uint32_t, BLAKE3_KEY_LEN / sizeof(uint32_t)>;
 using block_array = std::array<uint8_t, BLAKE3_BLOCK_LEN>;
 using state_array = std::array<uint32_t, 16>;
 using out_array = std::array<uint8_t, BLAKE3_OUT_LEN>;

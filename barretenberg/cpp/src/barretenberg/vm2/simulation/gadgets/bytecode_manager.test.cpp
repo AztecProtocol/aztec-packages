@@ -7,13 +7,17 @@
 #include <optional>
 #include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bytecode_hashing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
+#include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
@@ -270,6 +274,102 @@ TEST_F(BytecodeManagerTest, ContractAddressNullifierNotFoundError)
     EXPECT_FALSE(contract_retrieval_events_dump[0].is_protocol_contract);
     EXPECT_EQ(contract_retrieval_events_dump[0].deployment_nullifier, address);
     EXPECT_EQ(contract_retrieval_events_dump[0].contract_instance, ContractInstance{});
+}
+
+TEST_F(BytecodeManagerTest, InstructionFetching)
+{
+    TxBytecodeManager tx_bytecode_manager(contract_db,
+                                          merkle_db,
+                                          bytecode_hasher,
+                                          range_check,
+                                          contract_instance_manager,
+                                          retrieved_bytecodes_tree_check,
+                                          retrieval_events,
+                                          decomposition_events,
+                                          instruction_fetching_events);
+
+    // Taken from /constraining/relations/instr_fetching.test.cpp:
+    Instruction add_8_instruction = {
+        .opcode = WireOpCode::ADD_8,
+        .addressing_mode = 3,
+        .operands = { Operand::from<uint8_t>(0x34), Operand::from<uint8_t>(0x35), Operand::from<uint8_t>(0x36) },
+    };
+
+    std::vector<uint8_t> bytecode = add_8_instruction.serialize();
+    FF bytecode_commitment = FF::random_element();
+    PC pc = 0;
+
+    EXPECT_CALL(range_check, assert_range(bytecode.size() - pc - 1, AVM_PC_SIZE_IN_BITS));
+
+    // Base case - simple successful fetching.
+    Instruction result = tx_bytecode_manager.read_instruction(
+        bytecode_commitment, std::make_shared<std::vector<uint8_t>>((bytecode)), pc);
+
+    // Verify the decoded instruction.
+    EXPECT_EQ(result.opcode, WireOpCode::ADD_8);
+    EXPECT_EQ(result.addressing_mode, add_8_instruction.addressing_mode);
+    ASSERT_THAT(result.operands, SizeIs(3));
+    EXPECT_EQ(result.operands[0], add_8_instruction.operands[0]);
+    EXPECT_EQ(result.operands[1], add_8_instruction.operands[1]);
+    EXPECT_EQ(result.operands[2], add_8_instruction.operands[2]);
+
+    // Verify one InstructionFetchingEvent was emitted with no error.
+    auto fetching_events_dump = instruction_fetching_events.dump_events();
+    ASSERT_THAT(fetching_events_dump, SizeIs(1));
+    EXPECT_EQ(fetching_events_dump[0].bytecode_id, bytecode_commitment);
+    EXPECT_EQ(fetching_events_dump[0].pc, pc);
+    EXPECT_FALSE(fetching_events_dump[0].error.has_value());
+
+    // Error cases - PC_OUT_OF_RANGE (set pc to be above the bytecode size).
+    pc = static_cast<PC>(bytecode.size() + 2);
+    // The absolute diff between bytecode size and pc is now 2:
+    EXPECT_CALL(range_check, assert_range(2, AVM_PC_SIZE_IN_BITS));
+    EXPECT_THROW_WITH_MESSAGE(tx_bytecode_manager.read_instruction(
+                                  bytecode_commitment, std::make_shared<std::vector<uint8_t>>((bytecode)), pc),
+                              "Instruction fetching error: .*");
+
+    // Error cases - OPCODE_OUT_OF_RANGE (set the opcode byte to be above LAST_OPCODE_SENTINEL).
+    pc = 0;
+    bytecode[0] = static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL) + 2;
+    EXPECT_CALL(range_check, assert_range(bytecode.size() - pc - 1, AVM_PC_SIZE_IN_BITS));
+    EXPECT_THROW_WITH_MESSAGE(tx_bytecode_manager.read_instruction(
+                                  bytecode_commitment, std::make_shared<std::vector<uint8_t>>((bytecode)), pc),
+                              "Instruction fetching error: .*");
+
+    // Error cases - INSTRUCTION_OUT_OF_RANGE (set pc such that pc + instruction_size > bytecode_size, but pc <
+    // bytecode_size to avoid triggering PC_OUT_OF_RANGE).
+    bytecode[0] = static_cast<uint8_t>(add_8_instruction.opcode);
+    pc = static_cast<PC>(bytecode.size() - add_8_instruction.size_in_bytes() + 1);
+    EXPECT_CALL(range_check, assert_range(bytecode.size() - pc - 1, AVM_PC_SIZE_IN_BITS));
+    EXPECT_THROW_WITH_MESSAGE(tx_bytecode_manager.read_instruction(
+                                  bytecode_commitment, std::make_shared<std::vector<uint8_t>>((bytecode)), pc),
+                              "Instruction fetching error: .*");
+
+    // Error cases - TAG_OUT_OF_RANGE (set the tag operand to be above the maximum value).
+
+    // Taken from /constraining/relations/instr_fetching.test.cpp (SET_16 has a tag operand at op2 = index 1):
+    Instruction set_16_instruction = {
+        .opcode = WireOpCode::SET_16,
+        .addressing_mode = 0,
+        .operands = { Operand::from<uint16_t>(0x1234),
+                      Operand::from<uint8_t>(static_cast<uint8_t>(MemoryTag::MAX) + 1),
+                      Operand::from<uint16_t>(0x5678) },
+    };
+
+    pc = 0;
+    bytecode = set_16_instruction.serialize();
+    EXPECT_CALL(range_check, assert_range(bytecode.size() - pc - 1, AVM_PC_SIZE_IN_BITS));
+    EXPECT_THROW_WITH_MESSAGE(tx_bytecode_manager.read_instruction(
+                                  bytecode_commitment, std::make_shared<std::vector<uint8_t>>((bytecode)), pc),
+                              "Instruction fetching error.*");
+
+    fetching_events_dump = instruction_fetching_events.dump_events();
+    ASSERT_THAT(fetching_events_dump, SizeIs(4));
+
+    EXPECT_EQ(fetching_events_dump[0].error.value(), InstrDeserializationEventError::PC_OUT_OF_RANGE);
+    EXPECT_EQ(fetching_events_dump[1].error.value(), InstrDeserializationEventError::OPCODE_OUT_OF_RANGE);
+    EXPECT_EQ(fetching_events_dump[2].error.value(), InstrDeserializationEventError::INSTRUCTION_OUT_OF_RANGE);
+    EXPECT_EQ(fetching_events_dump[3].error.value(), InstrDeserializationEventError::TAG_OUT_OF_RANGE);
 }
 
 } // namespace

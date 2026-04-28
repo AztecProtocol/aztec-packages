@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -97,6 +97,7 @@ void NoteHashTreeCheckTraceBuilder::process(
                         prev_leaf_value_unique_note_hash_diff }, // Will be inverted in batch later
                       { C::note_hash_tree_check_next_leaf_value, write ? unique_note_hash : 0 },
                       { C::note_hash_tree_check_note_hash_tree_height, NOTE_HASH_TREE_HEIGHT },
+                      { C::note_hash_tree_check_merkle_hash_separator, DOM_SEP__MERKLE_HASH },
                       { C::note_hash_tree_check_sel_write_to_public_inputs, write && (!discard) },
                       { C::note_hash_tree_check_public_inputs_index,
                         AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX + note_hash_counter } } });
@@ -109,12 +110,12 @@ void NoteHashTreeCheckTraceBuilder::process(
 
 const InteractionDefinition NoteHashTreeCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_note_hash_tree_check_silo_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_note_hash_tree_check_read_first_nullifier_settings, InteractionType::LookupIntoIndexedByRow>()
-        .add<lookup_note_hash_tree_check_nonce_computation_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings, InteractionType::LookupSequential>()
-        .add<lookup_note_hash_tree_check_merkle_check_settings, InteractionType::LookupSequential>()
-        .add<lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByRow>();
+        .add<InteractionType::LookupSequential, lookup_note_hash_tree_check_silo_poseidon2_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_note_hash_tree_check_read_first_nullifier_settings>()
+        .add<InteractionType::LookupSequential, lookup_note_hash_tree_check_nonce_computation_poseidon2_settings>()
+        .add<InteractionType::LookupSequential, lookup_note_hash_tree_check_unique_note_hash_poseidon2_settings>()
+        .add<InteractionType::LookupSequential, lookup_note_hash_tree_check_merkle_check_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow,
+             lookup_note_hash_tree_check_write_note_hash_to_public_inputs_settings>();
 
 } // namespace bb::avm2::tracegen

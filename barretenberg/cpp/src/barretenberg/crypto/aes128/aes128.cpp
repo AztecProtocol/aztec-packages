@@ -6,6 +6,7 @@
 
 #include "aes128.hpp"
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/hmac/hmac.hpp"
 #include "memory.h"
 #include <array>
@@ -195,6 +196,7 @@ void aes128_expand_key(const uint8_t* key, uint8_t* round_key)
         round_key[j + 2] = round_key[k + 2] ^ temp[2];
         round_key[j + 3] = round_key[k + 3] ^ temp[3];
     }
+    secure_erase_bytes(temp, sizeof(temp));
 }
 
 void aes128_inverse_cipher(uint8_t* input, const uint8_t* round_key)
@@ -231,6 +233,8 @@ void aes128_cipher(uint8_t* state, const uint8_t* round_key)
 
 void aes128_encrypt_buffer_cbc(uint8_t* buffer, uint8_t* iv, const uint8_t* key, const size_t length)
 {
+    BB_ASSERT(length % 16 == 0, "aes128_encrypt_buffer_cbc: length must be a multiple of 16");
+
     uint8_t round_key[176];
     aes128_expand_key(key, round_key);
 
@@ -252,6 +256,8 @@ void aes128_encrypt_buffer_cbc(uint8_t* buffer, uint8_t* iv, const uint8_t* key,
 
 void aes128_decrypt_buffer_cbc(uint8_t* buffer, uint8_t* iv, const uint8_t* key, const size_t length)
 {
+    BB_ASSERT(length % 16 == 0, "aes128_decrypt_buffer_cbc: length must be a multiple of 16");
+
     uint8_t round_key[176];
     aes128_expand_key(key, round_key);
     uint8_t block_state[16]{};

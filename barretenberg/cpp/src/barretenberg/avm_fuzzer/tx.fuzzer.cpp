@@ -6,7 +6,7 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 #include "barretenberg/avm_fuzzer/fuzzer_lib.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 
 using namespace bb::avm2::fuzzer;
 using namespace bb::avm2::simulation;
