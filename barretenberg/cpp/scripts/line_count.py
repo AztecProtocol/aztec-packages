@@ -54,7 +54,6 @@ weights = {"acir_formal_proofs": 0,
            "ultra_honk": 1,
            "vm": 0,
            "vm2": 0,
-           "wasi": 0,
            "world_state": 0, }
 
 new_dirs = list(filter(lambda x: x not in sorted(all_dirs), all_dirs))

@@ -1,6 +1,6 @@
 .cache/
 build*/
-src/wasi-sdk*
+src/emsdk*
 src/barretenberg/honk/proving_key/fixtures
 src/barretenberg/rollup/proofs/*/fixtures
 srs_db/*/*/transcript*

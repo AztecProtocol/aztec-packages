@@ -135,6 +135,20 @@ Various presets are defined in CMakePresets.json for scenarios such as instrumen
 
 #### WASM build
 
+The wasm preset uses **Emscripten** (emsdk). The exact emsdk version is pinned
+in `.emsdk-version` at the repo root; activate it before configuring:
+
+```bash
+git clone https://github.com/emscripten-core/emsdk.git ~/emsdk
+cd ~/emsdk
+./emsdk install $(cat /path/to/repo/.emsdk-version)
+./emsdk activate $(cat /path/to/repo/.emsdk-version)
+source ./emsdk_env.sh
+```
+
+You also need **Node.js >= 22** on PATH; tests are launched under Node by
+the `cpp/scripts/wasm-run` wrapper.
+
 To build:
 
 ```bash
@@ -142,25 +156,26 @@ cmake --preset wasm
 cmake --build --preset wasm --target barretenberg.wasm
 ```
 
-The resulting wasm binary will be at `./build-wasm/bin/barretenberg.wasm`.
+Emscripten emits a JS loader plus a sibling `.wasm` per executable. The
+artifacts are at `./build-wasm/bin/barretenberg.js` + `./build-wasm/bin/barretenberg.wasm`.
 
-To run the tests, you'll need to install `wasmtime`.
-
-```
-curl https://wasmtime.dev/install.sh -sSf | bash
-```
-
-Tests can be built and run like:
+Tests can be built and run via the `wasm-run` wrapper:
 
 ```bash
 cmake --build --preset wasm --target ecc_tests
-wasmtime --dir=.. ./bin/ecc_tests
+./scripts/wasm-run --dir=.. ./build-wasm/bin/ecc_tests
 ```
 
 To add gtest filter parameters in a wasm context:
 
+```bash
+./scripts/wasm-run --dir=.. ./build-wasm/bin/ecc_tests --gtest_filter=filtertext
 ```
-wasmtime --dir=.. ./bin/ecc_tests run --gtest_filter=filtertext
+
+Or, more idiomatically, build and run via the CMake-generated custom target:
+
+```bash
+cmake --build --preset wasm --target run_ecc_tests
 ```
 
 #### Fuzzing build

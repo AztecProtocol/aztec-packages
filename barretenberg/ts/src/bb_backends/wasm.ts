@@ -52,16 +52,19 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
    * @param options.threads Number of threads (defaults to hardware max, up to 32 for parallel proving)
    * @param options.wasmPath Optional path to WASM files
    * @param options.logger Optional logging function
-   * @param options.memory Optional initial and maximum memory configuration
    * @param options.useWorker Run on worker thread (default: true for browser safety)
    * @param options.unref Unref worker handles so they don't prevent process exit
+   *
+   * INITIAL_MEMORY / MAXIMUM_MEMORY are link-time settings baked into the
+   * wasm binary's memory section under MODULARIZE=1; the loader does not
+   * honor a runtime override. To change them, edit
+   * `cmake/toolchains/wasm-emscripten.cmake` and rebuild.
    */
   static async new(
     options: {
       threads?: number;
       wasmPath?: string;
       logger?: (msg: string) => void;
-      memory?: { initial?: number; maximum?: number };
       useWorker?: boolean;
       unref?: boolean;
     } = {},
@@ -74,13 +77,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       const worker = await createMainWorker();
       const wasm = getRemoteBarretenbergWasm<BarretenbergWasmMainWorker>(worker);
       const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
-      await wasm.init(
-        module,
-        threads,
-        proxy(options.logger ?? (() => {})),
-        options.memory?.initial,
-        options.memory?.maximum,
-      );
+      await wasm.init(module, threads, proxy(options.logger ?? (() => {})));
       if (options.unref) {
         worker.unref();
       }
@@ -89,7 +86,7 @@ export class BarretenbergWasmAsyncBackend implements IMsgpackBackendAsync {
       // Direct mode: runs on calling thread (faster but blocks thread)
       const wasm = new BarretenbergWasmMain();
       const { module, threads } = await fetchModuleAndThreads(options.threads, options.wasmPath, options.logger);
-      await wasm.init(module, threads, options.logger, options.memory?.initial, options.memory?.maximum, options.unref);
+      await wasm.init(module, threads, options.logger, options.unref);
       return new BarretenbergWasmAsyncBackend(wasm);
     }
   }

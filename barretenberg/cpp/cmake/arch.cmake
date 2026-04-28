@@ -2,7 +2,8 @@ if(WASM)
     # Disable SLP vectorization on WASM as it's brokenly slow. To give an idea, with this off it still takes
     # 2m:18s to compile scalar_multiplication.cpp, and with it on I estimate it's 50-100 times longer. I never
     # had the patience to wait it out...
-    add_compile_options(-fno-exceptions -fno-slp-vectorize)
+    # Exception handling is owned by toolchains/wasm-emscripten.cmake (WASM_EXCEPTIONS option).
+    add_compile_options(-fno-slp-vectorize)
 endif()
 
 # Auto-detect TARGET_ARCH on x86_64 if not explicitly set (native builds only).

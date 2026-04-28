@@ -1,0 +1,1 @@
+barretenberg_module(wasm_threads_tests common ecc)

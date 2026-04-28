@@ -1,7 +1,7 @@
 # cspell: disable
 
 ########################################################################################################################
-# Base build. Used as base in subsequent builds of foundry, wasi-sdk, etc.
+# Base build. Used as base in subsequent builds of foundry, emsdk, etc.
 FROM ubuntu:noble AS base-build
 RUN export DEBIAN_FRONTEND="noninteractive" \
     && apt update && apt install --no-install-recommends -y \
@@ -120,13 +120,15 @@ RUN wget https://apt.llvm.org/llvm.sh && \
     ./llvm.sh 20 all && \
     rm llvm.sh
 
-# Install wasi-sdk.
-RUN arch=$(uname -m) && \
-    if [ "$arch" = "aarch64" ]; then arch="arm64"; fi && \
-    wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-${arch}-linux.tar.gz && \
-    tar xvf wasi-sdk-27.0-${arch}-linux.tar.gz && \
-    mv wasi-sdk-27.0-${arch}-linux /opt/wasi-sdk && \
-    rm wasi-sdk-27.0-${arch}-linux.tar.gz
+# Install Emscripten SDK (emsdk). Pinned via .emsdk-version at the repo root.
+ARG EMSDK_VERSION=4.0.7
+RUN git clone --depth 1 https://github.com/emscripten-core/emsdk.git /opt/emsdk \
+    && cd /opt/emsdk \
+    && ./emsdk install "${EMSDK_VERSION}" \
+    && ./emsdk activate "${EMSDK_VERSION}"
+ENV EMSDK=/opt/emsdk
+# Make the activated tooling visible on PATH for non-login shells too.
+ENV PATH="/opt/emsdk:/opt/emsdk/upstream/emscripten:/opt/emsdk/node/current/bin:${PATH}"
 
 # Install foundry.
 COPY --from=foundry /opt/foundry /opt/foundry
@@ -155,11 +157,6 @@ RUN curl -fsSL https://releases.hashicorp.com/terraform/1.7.5/terraform_1.7.5_li
     && unzip terraform.zip -d /usr/local/bin \
     && chmod +x /usr/local/bin/terraform \
     && rm terraform.zip
-
-# Install wasmtime.
-RUN curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v20.0.2/wasmtime-v20.0.2-$(uname -m)-linux.tar.xz | tar xJ \
-    && mv wasmtime-v20.0.2-$(uname -m)-linux/wasmtime /usr/local/bin \
-    && rm -rf wasmtime*
 
 # Install zig.
 RUN arch=$(uname -m) && \

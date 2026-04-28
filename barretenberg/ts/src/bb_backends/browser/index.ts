@@ -19,7 +19,6 @@ export async function createAsyncBackend(
         threads: options.threads,
         wasmPath: options.wasmPath,
         logger,
-        memory: options.memory,
         useWorker,
       });
       return new Barretenberg(wasm, options);

@@ -1,0 +1,7 @@
+{
+  "comment": "Perf baseline for the wasm-emscripten perf gate. Set baseline_ms once a stable run on the CI hardware has been captured. Until then, the gate runs but warns (does not fail).",
+  "benchmark": "construct_proof_ultrahonk_power_of_2/16",
+  "baseline_ms": null,
+  "snapshotted_at": null,
+  "tolerance_pct": 5.0
+}

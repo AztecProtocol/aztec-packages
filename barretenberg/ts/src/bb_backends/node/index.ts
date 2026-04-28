@@ -57,7 +57,6 @@ export async function createAsyncBackend(
         threads: options.threads,
         wasmPath: options.wasmPath,
         logger: options.logger,
-        memory: options.memory,
         useWorker,
         unref: options.unref,
       });

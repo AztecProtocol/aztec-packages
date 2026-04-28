@@ -11,6 +11,21 @@
       "require": "./dest/node-cjs/index.js",
       "browser": "./dest/browser/index.js",
       "default": "./dest/node/index.js"
+    },
+    "./barretenberg.wasm": {
+      "browser": "./dest/browser/barretenberg_wasm/barretenberg.wasm",
+      "require": "./dest/node-cjs/barretenberg_wasm/barretenberg.wasm",
+      "default": "./dest/node/barretenberg_wasm/barretenberg.wasm"
+    },
+    "./barretenberg.js": {
+      "browser": "./dest/browser/barretenberg_wasm/barretenberg.js",
+      "require": "./dest/node-cjs/barretenberg_wasm/barretenberg.js",
+      "default": "./dest/node/barretenberg_wasm/barretenberg.js"
+    },
+    "./barretenberg.worker.mjs": {
+      "browser": "./dest/browser/barretenberg_wasm/barretenberg.worker.mjs",
+      "require": "./dest/node-cjs/barretenberg_wasm/barretenberg.worker.mjs",
+      "default": "./dest/node/barretenberg_wasm/barretenberg.worker.mjs"
     }
   },
   "bin": {
@@ -20,7 +35,19 @@
     "src/",
     "dest/",
     "build/",
-    "README.md"
+    "README.md",
+    "dest/node/barretenberg_wasm/barretenberg.js",
+    "dest/node/barretenberg_wasm/barretenberg.wasm",
+    "dest/node/barretenberg_wasm/barretenberg.wasm.gz",
+    "dest/node/barretenberg_wasm/barretenberg.worker.mjs",
+    "dest/node-cjs/barretenberg_wasm/barretenberg.js",
+    "dest/node-cjs/barretenberg_wasm/barretenberg.wasm",
+    "dest/node-cjs/barretenberg_wasm/barretenberg.wasm.gz",
+    "dest/node-cjs/barretenberg_wasm/barretenberg.worker.mjs",
+    "dest/browser/barretenberg_wasm/barretenberg.js",
+    "dest/browser/barretenberg_wasm/barretenberg.wasm",
+    "dest/browser/barretenberg_wasm/barretenberg.wasm.gz",
+    "dest/browser/barretenberg_wasm/barretenberg.worker.mjs"
   ],
   "scripts": {
     "clean": "rm -rf ./dest .tsbuildinfo .tsbuildinfo.cjs ./src/cbind/generated",

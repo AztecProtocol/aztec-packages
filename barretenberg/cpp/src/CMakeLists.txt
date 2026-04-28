@@ -42,14 +42,16 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     add_compile_options(-fconstexpr-ops-limit=100000000 -Wno-psabi)
 endif()
 
-# We enable -O1 level optimsations, even when compiling debug wasm, otherwise we get "local count too large" at runtime.
-# We prioritize reducing size of final artifacts in release with -Oz.
+# Optimisation defaults under Emscripten. -Oz skews the JS glue, so for
+# release artifacts we keep -O3 (the toolchain already passes that). Debug
+# stays at -O1 -g to avoid "local count too large" at link time.
 if(WASM)
     set(CMAKE_CXX_FLAGS_DEBUG "-O1 -g")
     set(CMAKE_C_FLAGS_DEBUG "-O1 -g")
-    set(CMAKE_CXX_FLAGS_RELEASE "-Oz -DNDEBUG")
-    set(CMAKE_C_FLAGS_RELEASE "-Oz -DNDEBUG")
-    add_link_options(-Wl,--export-memory,--import-memory,--stack-first,-z,stack-size=1048576,--max-memory=4294967296)
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+    set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")
+    # Memory shape (initial / max / stack) is set by the Emscripten toolchain
+    # via -sINITIAL_MEMORY / -sMAXIMUM_MEMORY / -sSTACK_SIZE.
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${MSGPACK_INCLUDE} ${TRACY_INCLUDE} ${LMDB_INCLUDE} ${LIBDEFLATE_INCLUDE} ${HTTPLIB_INCLUDE} ${BACKWARD_INCLUDE} ${NLOHMANN_JSON_INCLUDE})
@@ -113,7 +115,13 @@ add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
-add_subdirectory(barretenberg/wasi)
+
+# wasm_threads_tests is a wasm-only regression suite for the bug class that
+# motivated the toolchain migration (pool exhaustion + memory.grow under
+# threads). The module compiles to a no-op outside the WASM preset.
+if(WASM AND MULTITHREADING)
+    add_subdirectory(barretenberg/wasm_threads_tests)
+endif()
 
 if(NOT BB_LITE)
     add_subdirectory(barretenberg/lmdblib)
@@ -147,10 +155,12 @@ endif()
 
 include(GNUInstallDirs)
 
-# For this library we include everything but the env and wasi modules, as it is the responsibility of the
+# For this library we include everything but the env module, as it is the responsibility of the
 # consumer of this library to define how and in what environment its artifact will run.
-# libbarretenberg + libwasi = a wasi "reactor" that implements it's own env (e.g. logstr), e.g. barretenberg.wasm.
-# libbarretenberg + env = a wasi "command" that expects a full wasi runtime (e.g. wasmtime), e.g. test binaries.
+# libbarretenberg + env = a native command/library, e.g. test binaries linked against the host runtime.
+# Under the WASM preset, the Emscripten glue handles environment setup and we link an executable
+# directly off libbarretenberg with no env shim required (Emscripten runs static ctors before any
+# exported function becomes callable, so there is no `_initialize` handshake to perform).
 message(STATUS "Compiling all-in-one barretenberg archive")
 
 set(BARRETENBERG_TARGET_OBJECTS
@@ -208,16 +218,13 @@ if(NOT WASM AND NOT FUZZING AND NOT BB_LITE)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_objects>)
 endif()
 
-add_library(
-    barretenberg
-    STATIC
-    ${BARRETENBERG_TARGET_OBJECTS}
-)
-
-# bb-external: static library for external consumers (e.g. barretenberg-rs).
-# Uses the core object list without lmdb/world_state — FFI consumers only need bbapi().
-# Built with -fvisibility=hidden; only WASM_EXPORT symbols remain visible.
 if(NOT WASM)
+    add_library(
+        barretenberg
+        STATIC
+        ${BARRETENBERG_TARGET_OBJECTS}
+    )
+
     add_library(
         bb-external
         STATIC
@@ -228,54 +235,39 @@ if(NOT WASM)
 endif()
 
 if(WASM)
-    # When building this wasm "executable", we include the wasi module but exclude the env module.
-    # That's because we expect this wasm to be run as a wasi "reactor" and for the host environment
-    # to implement the functions in env.
+    # Under Emscripten the executable suffix is `.js` (set by the toolchain),
+    # and Emscripten emits a sibling `.wasm` next to it. We therefore name the
+    # CMake target `barretenberg` -- the artifacts on disk are
+    # `bin/barretenberg.js` + `bin/barretenberg.wasm`.
     add_executable(
-        barretenberg-debug.wasm
+        barretenberg
         ${BARRETENBERG_TARGET_OBJECTS}
-        $<TARGET_OBJECTS:wasi_objects>
         # This is an object library, so doesn't need _objects.
         $<TARGET_OBJECTS:vm2_stub>
     )
 
     target_link_options(
-        barretenberg-debug.wasm
+        barretenberg
         PRIVATE
-        -nostartfiles -Wl,--no-entry,--export-dynamic
+        # `-sEXPORT_ALL=1` keeps the WASM_EXPORT symbols on the Module object.
+        # The toolchain already sets MODULARIZE / EXPORT_ES6 / EXPORT_NAME /
+        # PTHREAD_POOL_SIZE / PTHREAD_POOL_SIZE_STRICT / PROXY_TO_PTHREAD /
+        # ALLOW_BLOCKING_ON_MAIN_THREAD / MALLOC=mimalloc.
+        "SHELL:-sEXPORT_ALL=1"
     )
 
-    # Strip debug info to create the release version.
-    add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
-        COMMAND ${CMAKE_STRIP} ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm -o ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
-        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm
-        COMMENT "Stripping debug info to create release version."
-    )
+    # Aliases to keep historical target names working. Downstream scripts
+    # invoke `cmake --build --target barretenberg.wasm`; that resolves to the
+    # main executable target which produces `barretenberg.wasm` as a sibling
+    # of `barretenberg.js`.
+    add_custom_target(barretenberg.wasm ALL DEPENDS barretenberg)
+    add_custom_target(barretenberg-debug.wasm ALL DEPENDS barretenberg)
 
-    add_custom_target(
-        barretenberg.wasm ALL
-        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
-    )
-
-    # Create a gzipped version of barretenberg-debug.wasm
-    add_custom_command(
-        OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
-        COMMAND gzip -c ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
-        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm
-        COMMENT "Creating gzipped version of barretenberg-debug.wasm"
-    )
-
-    add_custom_target(
-        barretenberg-debug.wasm.gz ALL
-        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
-    )
-
-    # Create a gzipped version of barretenberg.wasm
+    # Gzipped artifacts for the bb.js packaging step.
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
-        COMMAND gzip -c ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
-        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+        COMMAND gzip -kf ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
+        DEPENDS barretenberg
         COMMENT "Creating gzipped version of barretenberg.wasm"
     )
 
@@ -284,14 +276,26 @@ if(WASM)
         DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
     )
 
+    add_custom_command(
+        OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
+        COMMAND gzip -kf -c ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
+        DEPENDS barretenberg
+        COMMENT "Creating gzipped debug copy of barretenberg.wasm"
+    )
+
+    add_custom_target(
+        barretenberg-debug.wasm.gz ALL
+        DEPENDS ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
+    )
+
     if(ENABLE_STACKTRACES)
         target_link_libraries(
-            barretenberg.wasm
+            barretenberg
             PUBLIC
             Backward::Interface
         )
         target_link_options(
-            barretenberg.wasm
+            barretenberg
             PRIVATE
             -ldw -lelf
         )

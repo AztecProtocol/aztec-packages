@@ -437,9 +437,9 @@ static void DoPippengerSetup(const benchmark::State&)
 }
 
 /**
- * @brief Run pippenger benchmarks (can be used with wasmtime)
+ * @brief Run pippenger benchmarks (can be launched under wasm-run)
  *
- *@details(Wasmtime) -----------------------------------------------
+ *@details(wasm) -----------------------------------------------
 Benchmark                          Time             CPU   Iterations
 --------------------------------------------------------------------
 pippenger/16/iterations:5     133089 us   1.3309e+11 us            5

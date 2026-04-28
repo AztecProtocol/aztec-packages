@@ -139,16 +139,26 @@ EOF
 chmod +x /etc/profile.d/rust.sh
 
 # =============================================================================
-# SECTION 5: wasi-sdk
+# SECTION 5: Emscripten SDK (emsdk)
 # =============================================================================
-log_info "Installing wasi-sdk 27..."
+# Pin lives in /.emsdk-version at the repo root; this container layer reads it
+# at build time so a single edit drives every CI image.
+EMSDK_VERSION=$(cat /.emsdk-version 2>/dev/null || echo "4.0.7")
+log_info "Installing emsdk ${EMSDK_VERSION}..."
 
-arch=$(uname -m)
-if [ "$arch" = "aarch64" ]; then arch="arm64"; fi
-wget https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-27/wasi-sdk-27.0-${arch}-linux.tar.gz
-tar xvf wasi-sdk-27.0-${arch}-linux.tar.gz
-mv wasi-sdk-27.0-${arch}-linux /opt/wasi-sdk
-rm wasi-sdk-27.0-${arch}-linux.tar.gz
+git clone --depth 1 https://github.com/emscripten-core/emsdk.git /opt/emsdk
+cd /opt/emsdk
+./emsdk install "${EMSDK_VERSION}"
+./emsdk activate "${EMSDK_VERSION}"
+cd -
+
+# Expose emsdk on every login shell.
+cat >> /etc/profile.d/emsdk.sh << 'EOF'
+export EMSDK=/opt/emsdk
+# shellcheck disable=SC1091
+. /opt/emsdk/emsdk_env.sh > /dev/null 2>&1 || true
+EOF
+chmod +x /etc/profile.d/emsdk.sh
 
 # =============================================================================
 # SECTION 6: Foundry
@@ -203,13 +213,11 @@ curl -sL https://github.com/ProcursusTeam/ldid/releases/download/v2.1.5-procursu
     -o /usr/local/bin/ldid && chmod +x /usr/local/bin/ldid
 
 # =============================================================================
-# SECTION 10: wasmtime
+# SECTION 10: (intentionally left blank)
 # =============================================================================
-log_info "Installing wasmtime..."
-
-curl -fsSL https://github.com/bytecodealliance/wasmtime/releases/download/v20.0.2/wasmtime-v20.0.2-$(uname -m)-linux.tar.xz | tar xJ
-mv wasmtime-v20.0.2-$(uname -m)-linux/wasmtime /usr/local/bin
-rm -rf wasmtime*
+# The previous wasm host-runtime layer has been removed. wasm test harnesses
+# now run under Node via barretenberg/cpp/scripts/wasm-run, and Node itself is
+# installed earlier in this script.
 
 # =============================================================================
 # SECTION 11: npm global packages
@@ -455,8 +463,8 @@ zig version
 echo -n "Foundry (forge): "
 /opt/foundry/bin/forge --version
 
-echo -n "wasi-sdk: "
-cat /opt/wasi-sdk/VERSION
+echo -n "emsdk: "
+( . /opt/emsdk/emsdk_env.sh > /dev/null 2>&1 && emcc --version | head -n1 ) || echo "(not found)"
 
 echo -n "yq: "
 yq --version

@@ -203,8 +203,24 @@ function(barretenberg_module_with_sources MODULE_NAME)
             add_dependencies(${MODULE_NAME}_tests lmdb_repo)
         endif()
         if(NOT WASM)
-            # Currently haven't found a way to easily wrap the calls in wasmtime when run from ctest.
+            # gtest_discover_tests can't wrap test invocations in wasm-run from ctest, so for
+            # the wasm preset we expose a `run_<module>_tests` custom target instead and let
+            # CI / developers invoke it directly.
             gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR} TEST_FILTER -*_SKIP_CI* DISCOVERY_TIMEOUT 30)
+        else()
+            # Under Emscripten the test binary lands as bin/<module>_tests.js with sibling
+            # bin/<module>_tests.wasm. wasm-run resolves the .js automatically.
+            add_custom_target(
+                run_${MODULE_NAME}_tests
+                COMMAND ${CMAKE_SOURCE_DIR}/scripts/wasm-run
+                        --dir=$ENV{HOME}/.bb-crs
+                        --dir=${CMAKE_BINARY_DIR}
+                        ${CMAKE_BINARY_DIR}/bin/${MODULE_NAME}_tests
+                DEPENDS ${MODULE_NAME}_tests
+                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+                COMMENT "Running ${MODULE_NAME}_tests under wasm-run"
+                USES_TERMINAL
+            )
         endif()
     endif()
 

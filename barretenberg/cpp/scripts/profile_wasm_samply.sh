@@ -14,6 +14,6 @@ cmake --preset wasm-threads -DCMAKE_MESSAGE_LOG_LEVEL=Warning
 cmake --build --preset wasm-threads --target $BENCHMARK
 
 cd build-wasm-threads
-# Consistency with _wasm.sh targets / shorter $COMMAND.
-cp ./bin/$BENCHMARK .
-samply record wasmtime run --profile=perfmap --env HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY -Wthreads=y -Sthreads=y --dir=.. $COMMAND
+# samply wraps the Node-driven wasm-run command. Emscripten's perfmap support
+# is provided by the JS glue; samply attaches to the launched Node process.
+HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY samply record ../scripts/wasm-run --dir=.. $COMMAND

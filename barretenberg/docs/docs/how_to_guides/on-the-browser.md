@@ -120,15 +120,9 @@ const api = await Barretenberg.new({ threads: 1 });
 
 ### Memory Management
 
-It can be useful to manage memory manually, specially if targeting specific memory-constrained environments (ex. Safari):
-
-```typescript
-// Configure initial and maximum memory
-const api = await Barretenberg.new({
-  threads: 4,
-  memory: {
-    initial: 128 * 1024 * 1024,  // 128MB
-    maximum: 512 * 1024 * 1024   // 512MB
-  }
-});
-```
+The wasm binary's initial and maximum memory are link-time constants baked
+into the Emscripten-built artifact. They cannot be tuned per `Barretenberg.new`
+call -- the underlying `MODULARIZE=1` loader does not honor a runtime
+override. To target a memory-constrained environment, rebuild bb.js with a
+toolchain that pins the memory shape you need (see
+`cmake/toolchains/wasm-emscripten.cmake`).

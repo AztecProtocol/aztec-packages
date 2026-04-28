@@ -1,0 +1,218 @@
+#!/usr/bin/env sh
+# wasm-run -- launch an Emscripten-built barretenberg binary under Node.
+#
+# Usage:
+#   wasm-run [--dir=PATH ...] [--mem=BYTES] PROGRAM [ARGS...]
+#
+# CLI surface:
+#   * --dir=PATH (repeatable) — exposes the directory(ies) to the wasm process
+#                               and chdirs into the FIRST --dir so absolute and
+#                               relative path lookups resolve identically to
+#                               the prior runtime's --dir behaviour. NODERAWFS=1
+#                               is set so Emscripten resolves host paths
+#                               directly (no virtual FS staging).
+#   * --mem=BYTES             — INFORMATIONAL ONLY. Surfaces a requested
+#                               INITIAL_MEMORY via BB_WASM_INITIAL_MEMORY for
+#                               caller code that wants to read it. Under
+#                               Emscripten with MODULARIZE=1 the wasm
+#                               binary's INITIAL_MEMORY is a link-time
+#                               setting baked into the memory section; the
+#                               loader does NOT honor a runtime override.
+#                               To change INITIAL_MEMORY, edit
+#                               cmake/toolchains/wasm-emscripten.cmake and
+#                               rebuild.
+#
+# A leading `run` keyword (a vestige of the older wasm test harness) is
+# rejected with a hard error; do not silently strip it.
+#
+# PROGRAM may be either the Emscripten loader (`prog.js`) or the basename of
+# the binary. We always launch Node on the `.js` glue; the sibling `.wasm` is
+# loaded by Emscripten itself.
+
+set -eu
+
+usage() {
+    cat <<'EOF' >&2
+usage: wasm-run [--dir=PATH ...] [--mem=BYTES] PROGRAM [ARGS...]
+
+Launches PROGRAM (either prog.js or its bare name) under Node. The first
+--dir=PATH is used as the cwd; additional --dir entries are aggregated into
+BB_WASM_DIRS for binaries that consult an explicit allowlist.
+
+  --dir=PATH    expose PATH to the wasm process (repeatable; first sets cwd)
+  --mem=BYTES   INFORMATIONAL: surfaces a requested INITIAL_MEMORY budget
+                via BB_WASM_INITIAL_MEMORY. INITIAL_MEMORY is a link-time
+                constant baked into the wasm binary by the toolchain
+                (cmake/toolchains/wasm-emscripten.cmake); to actually
+                change it, edit the toolchain and rebuild.
+
+PROGRAM is resolved to its sibling .js (Emscripten emits prog.js + prog.wasm).
+EOF
+}
+
+dirs=""
+first_dir=""
+mem=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --dir=*)
+            d=${1#--dir=}
+            if [ -z "$first_dir" ]; then
+                first_dir="$d"
+                dirs="$d"
+            else
+                dirs="$dirs:$d"
+            fi
+            shift
+            ;;
+        --mem=*)
+            mem=${1#--mem=}
+            shift
+            ;;
+        --help|-h)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        --*)
+            echo "wasm-run: unknown option: $1" >&2
+            usage
+            exit 2
+            ;;
+        run)
+            echo "wasm-run: leading 'run' keyword is no longer accepted." >&2
+            echo "         The CLI is 'wasm-run [opts] PROGRAM [args]', not" >&2
+            echo "         'wasm-run run PROGRAM [args]'. Drop the 'run'." >&2
+            exit 2
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if [ $# -lt 1 ]; then
+    echo "wasm-run: missing PROGRAM argument" >&2
+    usage
+    exit 2
+fi
+
+program=$1
+shift
+
+# Resolve to the .js loader. Emscripten emits prog.js + prog.wasm; if a caller
+# passed the .wasm we still launch the .js.
+case "$program" in
+    *.js)
+        loader=$program
+        ;;
+    *.wasm)
+        loader=${program%.wasm}.js
+        ;;
+    *)
+        if [ -f "$program.js" ]; then
+            loader="$program.js"
+        elif [ -f "$program" ] && [ -r "$program" ]; then
+            loader=$program
+        else
+            echo "wasm-run: cannot find loader for '$program' (expected '$program.js' next to it)." >&2
+            exit 2
+        fi
+        ;;
+esac
+
+if [ ! -f "$loader" ]; then
+    echo "wasm-run: loader '$loader' does not exist." >&2
+    exit 2
+fi
+
+# Resolve the loader to an absolute path BEFORE any cwd change so the chdir
+# below does not invalidate the relative path the caller supplied.
+case "$loader" in
+    /*) abs_loader=$loader ;;
+    *)  abs_loader="$PWD/$loader" ;;
+esac
+
+# Forward configuration via the environment.
+#  - NODERAWFS=1 lets Emscripten resolve host paths directly.
+#  - BB_WASM_DIRS exposes the requested allowlist to test code that wants to
+#    enumerate which host paths it may touch.
+export NODERAWFS=1
+if [ -n "$dirs" ]; then
+    export BB_WASM_DIRS="$dirs"
+fi
+
+# NOTE on --mem: under Emscripten with MODULARIZE=1, INITIAL_MEMORY is a
+# LINK-TIME setting baked into the wasm binary's memory section -- the loader
+# does NOT honor a runtime override. The toolchain's link-time
+# INITIAL_MEMORY (see cmake/toolchains/wasm-emscripten.cmake) is the
+# authoritative source. We accept --mem here only as a sanity-check (rejects
+# obvious garbage like "--mem=abc") and surface it via BB_WASM_INITIAL_MEMORY
+# for any caller code that wants to read its requested budget. We deliberately
+# do NOT generate a preamble that pretends to override INITIAL_MEMORY -- that
+# pattern leaks tmp files (exec defeats EXIT traps) AND is a no-op under
+# MODULARIZE=1 (preamble file would set globalThis.Module which the loader
+# does not consult).
+if [ -n "$mem" ]; then
+    case "$mem" in
+        ''|*[!0-9]*)
+            echo "wasm-run: --mem=BYTES must be a positive integer (got '$mem')" >&2
+            exit 2
+            ;;
+    esac
+    export BB_WASM_INITIAL_MEMORY="$mem"
+    echo "wasm-run: note: --mem=$mem is informational only; INITIAL_MEMORY is a link-time" >&2
+    echo "         setting baked into the wasm binary (see cmake/toolchains/wasm-emscripten.cmake)." >&2
+fi
+
+# Default Node flags:
+#  --no-warnings keeps gtest output readable. WebAssembly threads are on by
+#  default in Node >= 22, so we do NOT pass --experimental-wasm-threads
+#  (Node 22+ prints a deprecation warning for it).
+#  --max-old-space-size mirrors the historical wasm test heap budget.
+NODE_BIN=${NODE:-node}
+
+# Choose cwd: if --dir was given, run under the first directory so absolute
+# and relative path lookups resolve identically to the prior runtime's
+# --dir behaviour. Otherwise inherit the caller's cwd.
+if [ -n "$first_dir" ]; then
+    cd "$first_dir"
+fi
+
+# With MODULARIZE=1 + EXPORT_ES6=1, the loader is a *factory module* — the
+# program is not invoked by importing it. Generate a small launcher that
+# imports the factory, calls it with the gtest argv, and propagates the
+# Emscripten exit code. We use a temp file (no `node --eval` heredoc) so
+# `import.meta.url` inside the loader resolves correctly via a real path.
+launcher=$(mktemp --suffix=.mjs)
+trap 'rm -f "$launcher"' EXIT INT TERM
+cat > "$launcher" <<'LAUNCHER_MJS'
+import { pathToFileURL } from 'node:url';
+const target = process.argv[2];
+const m = await import(pathToFileURL(target).href);
+const factory = m.default ?? m.createBarretenbergModule;
+process.exitCode = 0;
+try {
+  await factory({
+    arguments: process.argv.slice(3),
+    print: (...a) => process.stdout.write(a.join(' ') + '\n'),
+    printErr: (...a) => process.stderr.write(a.join(' ') + '\n'),
+    onExit: (code) => { process.exitCode = code; },
+  });
+} catch (e) {
+  if (e && typeof e.status === 'number') process.exitCode = e.status;
+  else { console.error('wasm-run launcher: factory threw:', e); process.exitCode = 1; }
+}
+LAUNCHER_MJS
+
+set +e
+"$NODE_BIN" \
+    --no-warnings \
+    --max-old-space-size=8192 \
+    "$launcher" "$abs_loader" "$@"
+status=$?
+exit "$status"

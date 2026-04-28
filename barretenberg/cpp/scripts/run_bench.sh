@@ -30,7 +30,7 @@ case $arch in
     LD_PRELOAD="${BENCH_PRELOAD}" memusage $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
     ;;
   wasm)
-    memusage ./scripts/wasmtime.sh $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
+    memusage ./scripts/wasm-run --dir=$HOME/.bb-crs --dir=. $bin --benchmark_out=./bench-out/$name.json --benchmark_filter=$filter
     ;;
 esac
 
