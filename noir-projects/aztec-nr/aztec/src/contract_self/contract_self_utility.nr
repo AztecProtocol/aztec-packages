@@ -50,11 +50,24 @@ impl<Storage> ContractSelfUtility<Storage> {
     /// ```noir
     /// self.call(Token::at(address).get_balance_of(owner));
     /// ```
-    pub unconstrained fn call<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
+    pub unconstrained fn call<let M: u32, let N: u32, T>(self_contract: Self, call: UtilityCall<M, N, T>) -> T
     where
         T: Deserialize,
     {
+        // TODO(F-29): We want to support cross-contract utility calls, but doing so safely requires wallets to have
+        // a way to authorize which contracts can be called transitively, since those calls may expose private state.
+        // Until that is in place, restrict nested utility calls to the same contract only.
+        assert(call.target_contract == self_contract.address, "Cross-contract utility calls are not yet supported");
         let returns = call_utility_function(call.target_contract, call.selector, call.args);
         Deserialize::deserialize(returns)
     }
+}
+
+#[test(should_fail_with = "Cross-contract utility calls are not yet supported")]
+unconstrained fn test_cross_contract_utility_call_is_rejected() {
+    let self_contract: ContractSelfUtility<()> =
+        ContractSelfUtility { context: std::mem::zeroed(), storage: (), address: AztecAddress { inner: 1 } };
+    let other_contract = AztecAddress { inner: 2 };
+    let call = UtilityCall::<0, 0, Field>::new(other_contract, std::mem::zeroed(), "", []);
+    let _: Field = self_contract.call(call);
 }

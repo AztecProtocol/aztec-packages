@@ -915,6 +915,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     functionSelector: FunctionSelector,
     args: Fr[],
   ): Promise<Fr[]> {
+    // TODO(F-29): We want to support cross-contract utility calls, but doing so safely requires wallets to have
+    // a way to authorize which contracts can be called transitively, since those calls may expose private state.
+    // Until that is in place, restrict nested utility calls to the same contract only.
+    if (!targetContractAddress.equals(this.contractAddress)) {
+      throw new Error(
+        `Cross-contract utility calls are not yet supported: cannot call ${targetContractAddress} from utility function on ${this.contractAddress}.`,
+      );
+    }
+
     if (!this.simulator) {
       throw new Error(
         `Cannot perform nested utility call from ${this.contractAddress} to ` +
