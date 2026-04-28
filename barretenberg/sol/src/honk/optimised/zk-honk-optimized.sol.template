@@ -1994,7 +1994,6 @@ contract BlakeOptZKHonkVerifier is IVerifier {
     bytes4 internal constant VALUE_GE_FIELD_ORDER_SELECTOR = 0x20a33589;
     bytes4 internal constant SUMCHECK_FAILED_SELECTOR = 0x9fc3a218;
     bytes4 internal constant SHPLEMINI_FAILED_SELECTOR = 0xa5d82e8a;
-    bytes4 internal constant POINT_AT_INFINITY_SELECTOR = 0x4ddaa5e5;
 
     bytes4 internal constant PROOF_LENGTH_WRONG_WITH_LOG_N_SELECTOR = 0x59895a53;
     bytes4 internal constant PUBLIC_INPUTS_LENGTH_WRONG_SELECTOR = 0xfa066593;

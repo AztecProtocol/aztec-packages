@@ -16,18 +16,23 @@ import {Errors} from "src/honk/Errors.sol";
  * - Optimized Blake Honk verifier (BlakeOptHonkVerifier)
  *
  * SECURITY OBSERVATION:
- * Both verifiers reject the point at infinity (0,0) at the input boundary:
- * - Standard: bytesToG1Point checks (x | y) != 0 during deserialization
- * - Optimized: inline point-at-infinity check after calldatacopy
+ * The verifier accepts (0,0) (the EIP-196 identity encoding) for commitment-position
+ * points: legitimate polynomial commitments to identically-zero polynomials encode this
+ * way, and the ecAdd/ecMul precompiles treat it as the additive identity. Soundness
+ * against (0,0) substitution for a non-zero commitment is upheld downstream by
+ * sumcheck/Shplemini, which fails on inconsistent evaluations. Off-curve points other
+ * than the identity are caught when precompile operations fail, or indirectly via
+ * transcript corruption → SumcheckFailed.
  *
- * On-curve validation (y² = x³ + 3) is delegated to the ecAdd/ecMul precompiles
- * per EIP-196. Off-curve points that pass the (0,0) check are caught when
- * precompile operations fail, or indirectly via transcript corruption → SumcheckFailed.
+ * Pairing points (P_0_other, P_1_other) reconstructed from the proof's
+ * pairing_point_object public input are the one position where (0,0) is still rejected:
+ * a (0,0) there would no-op the recursive aggregation and give the prover a free pass.
+ * The arePairingPointsDefault() short-circuit handles the legitimate "no recursion" case.
  *
  * Test categories:
  * 1. Basic validation (proof length, public inputs length)
  * 2. Sumcheck failures (round check, final check)
- * 3. Point validation (point-at-infinity + off-curve via precompiles)
+ * 3. Off-curve point validation via precompiles
  * 4. Shplemini/pairing failures
  * 5. Q+1 attacks (field modulus aliasing)
  * 6. Pairing point limb overflow
