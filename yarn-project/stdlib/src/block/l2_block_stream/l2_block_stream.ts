@@ -17,10 +17,7 @@ export class L2BlockStream {
   private hasStarted = false;
 
   constructor(
-    private l2BlockSource: Pick<
-      L2BlockSource,
-      'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'
-    >,
+    private l2BlockSource: Pick<L2BlockSource, 'getBlocks' | 'getBlockData' | 'getL2Tips' | 'getCheckpoints'>,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:block_stream'),
@@ -97,8 +94,9 @@ export class L2BlockStream {
       }
 
       // If we are just starting, use the starting block number from the options.
-      if (latestBlockNumber === 0 && this.opts.startingBlock !== undefined) {
-        latestBlockNumber = BlockNumber(Math.max(this.opts.startingBlock - 1, 0));
+      const startingBlock = this.opts.startingBlock !== undefined ? BlockNumber(this.opts.startingBlock) : undefined;
+      if (latestBlockNumber === 0 && startingBlock !== undefined) {
+        latestBlockNumber = BlockNumber(Math.max(startingBlock - 1, 0));
       }
 
       // Only log this entry once (for sanity)
@@ -112,21 +110,18 @@ export class L2BlockStream {
 
       // When startingBlock is set, also skip ahead for checkpoints.
       if (
-        this.opts.startingBlock !== undefined &&
-        this.opts.startingBlock >= 1 &&
+        startingBlock !== undefined &&
+        startingBlock >= 1 &&
         nextCheckpointToEmit <= sourceTips.checkpointed.checkpoint.number
       ) {
-        const startingBlockCheckpoints = await this.l2BlockSource.getCheckpointedBlocks(
-          BlockNumber(this.opts.startingBlock),
-          1,
-        );
-        if (startingBlockCheckpoints.length > 0) {
-          nextCheckpointToEmit = CheckpointNumber(
-            Math.max(nextCheckpointToEmit, startingBlockCheckpoints[0].checkpointNumber),
-          );
-        } else {
+        if (startingBlock > sourceTips.checkpointed.block.number) {
           // startingBlock is past all checkpointed blocks; skip Loop 1 entirely.
           nextCheckpointToEmit = CheckpointNumber(sourceTips.checkpointed.checkpoint.number + 1);
+        } else {
+          const startingBlockData = await this.l2BlockSource.getBlockData({ number: startingBlock });
+          if (startingBlockData) {
+            nextCheckpointToEmit = CheckpointNumber(Math.max(nextCheckpointToEmit, startingBlockData.checkpointNumber));
+          }
         }
       }
 
@@ -184,9 +179,9 @@ export class L2BlockStream {
 
       // Find the starting checkpoint number
       if (nextBlockNumber <= sourceTips.checkpointed.block.number) {
-        const blocks = await this.l2BlockSource.getCheckpointedBlocks(BlockNumber(nextBlockNumber), 1);
-        if (blocks.length > 0) {
-          nextCheckpointNumber = blocks[0].checkpointNumber;
+        const blockData = await this.l2BlockSource.getBlockData({ number: BlockNumber(nextBlockNumber) });
+        if (blockData) {
+          nextCheckpointNumber = blockData.checkpointNumber;
         }
       }
 
@@ -234,7 +229,7 @@ export class L2BlockStream {
       while (nextBlockNumber <= sourceTips.proposed.number) {
         const limit = Math.min(this.opts.batchSize ?? 50, sourceTips.proposed.number - nextBlockNumber + 1);
         this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit}`);
-        const blocks = await this.l2BlockSource.getBlocks(BlockNumber(nextBlockNumber), BlockNumber(limit));
+        const blocks = await this.l2BlockSource.getBlocks({ from: BlockNumber(nextBlockNumber), limit });
         if (blocks.length === 0) {
           break;
         }
@@ -291,8 +286,8 @@ export class L2BlockStream {
 
   private getBlockHashFromSource(blockNumber: BlockNumber) {
     return this.l2BlockSource
-      .getBlockHeader(blockNumber)
-      .then(h => h?.hash())
+      .getBlockData({ number: blockNumber })
+      .then(d => d?.header.hash())
       .then(hash => hash?.toString());
   }
 

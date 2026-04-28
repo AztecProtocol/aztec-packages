@@ -7,10 +7,16 @@ import times from 'lodash.times';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
 import type { BlockHeader } from '../../tx/block_header.js';
+import type { BlockData } from '../block_data.js';
 import { BlockHash, GENESIS_BLOCK_HEADER_HASH } from '../block_hash.js';
-import type { CheckpointedL2Block } from '../checkpointed_l2_block.js';
 import type { L2Block } from '../l2_block.js';
-import { GENESIS_CHECKPOINT_HEADER_HASH, type L2BlockId, type L2BlockSource, type L2Tips } from '../l2_block_source.js';
+import {
+  type BlocksQuery,
+  GENESIS_CHECKPOINT_HEADER_HASH,
+  type L2BlockId,
+  type L2BlockSource,
+  type L2Tips,
+} from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 import { L2BlockStream } from './l2_block_stream.js';
 import { L2TipsMemoryStore } from './l2_tips_memory_store.js';
@@ -39,11 +45,12 @@ describe('L2BlockStream', () => {
       hash: () => Promise.resolve(new BlockHash(new Fr(number))),
     }) as L2Block;
 
-  const makeCheckpointedBlock = (number: number, checkpointNum: number): CheckpointedL2Block =>
+  const makeBlockData = (number: number, checkpointNum: number): BlockData =>
     ({
-      block: makeBlock(number),
-      checkpointNumber: checkpointNum,
-    }) as CheckpointedL2Block;
+      header: makeHeader(number),
+      checkpointNumber: CheckpointNumber(checkpointNum),
+      indexWithinCheckpoint: 0,
+    }) as unknown as BlockData;
 
   const makeHeader = (number: number) =>
     ({ hash: () => Promise.resolve(new BlockHash(new Fr(number))) }) as BlockHeader;
@@ -107,27 +114,22 @@ describe('L2BlockStream', () => {
   beforeEach(() => {
     blockSource = mock<L2BlockSource>();
 
-    // Archiver returns headers with hashes equal to the block number for simplicity
-    // Note that we only return block headers for blocks that have not been pruned
-    blockSource.getBlockHeader.mockImplementation(number =>
-      Promise.resolve(
-        typeof number === 'number' && number > latest ? undefined : makeHeader(number === 'latest' ? 1 : number),
-      ),
-    );
-
     // Returns blocks up until what was reported as the latest block (for uncheckpointed blocks)
-    blockSource.getBlocks.mockImplementation((from, limit) =>
-      Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
+    blockSource.getBlocks.mockImplementation((query: BlocksQuery) =>
+      'from' in query
+        ? Promise.resolve(
+            compactArray(times(query.limit, i => (query.from + i > latest ? undefined : makeBlock(query.from + i)))),
+          )
+        : Promise.resolve([]),
     );
 
-    // Returns checkpointed blocks (for blocks up to checkpointed tip)
-    blockSource.getCheckpointedBlocks.mockImplementation((from, limit) =>
-      Promise.resolve(
-        compactArray(
-          times(limit, i => (from + i > checkpointed ? undefined : makeCheckpointedBlock(from + i, from + i))),
-        ),
-      ),
-    );
+    // Returns block data for any known block that has not been pruned.
+    blockSource.getBlockData.mockImplementation(query => {
+      if (!('number' in query)) {
+        return Promise.resolve(undefined);
+      }
+      return Promise.resolve(query.number > latest ? undefined : makeBlockData(query.number, query.number));
+    });
 
     // Returns published checkpoints - each checkpoint contains just the one block for simplicity
     // Respects the limit parameter and returns up to `limit` checkpoints
@@ -179,7 +181,7 @@ describe('L2BlockStream', () => {
       localData.proposed.number = BlockNumber(10);
 
       await blockStream.work();
-      expect(blockSource.getBlocks).toHaveBeenCalledWith(BlockNumber(11), 5);
+      expect(blockSource.getBlocks).toHaveBeenCalledWith({ from: BlockNumber(11), limit: 5 });
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 11)) },
       ] satisfies L2BlockStreamEvent[]);
@@ -274,7 +276,7 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([5]),
         expectCheckpointed(),
       ]);
-      expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(1);
+      expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
       expect(blockSource.getBlocks).not.toHaveBeenCalled();
     });
 
@@ -294,8 +296,8 @@ describe('L2BlockStream', () => {
         expectCheckpointed(),
         expectBlocksAdded([4, 5]),
       ]);
-      expect(blockSource.getCheckpointedBlocks).toHaveBeenCalledTimes(1);
-      expect(blockSource.getBlocks).toHaveBeenCalledWith(BlockNumber(4), 2);
+      expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
+      expect(blockSource.getBlocks).toHaveBeenCalledWith({ from: BlockNumber(4), limit: 2 });
     });
 
     it('handles reorg with uncheckpointed reason when pruned to checkpointed tip', async () => {
@@ -376,17 +378,6 @@ describe('L2BlockStream', () => {
     /** Gets the last block number in a checkpoint */
     const getLastBlockInCheckpoint = (checkpointNum: number) => checkpointNum * blocksPerCheckpoint;
 
-    /** Makes a block with correct checkpoint info */
-    const makeBlockInCheckpoint = (blockNum: number) => {
-      const checkpointNum = getCheckpointForBlock(blockNum);
-      const firstBlockInCheckpoint = getFirstBlockInCheckpoint(checkpointNum);
-      return {
-        number: BlockNumber(blockNum),
-        checkpointNumber: CheckpointNumber(checkpointNum),
-        indexWithinCheckpoint: blockNum - firstBlockInCheckpoint,
-      } as L2Block;
-    };
-
     /** Makes a block with hash method (for use in mocks that need hash) */
     const makeBlockInCheckpointWithHash = (blockNum: number) => {
       const checkpointNum = getCheckpointForBlock(blockNum);
@@ -399,12 +390,13 @@ describe('L2BlockStream', () => {
       } as L2Block;
     };
 
-    /** Makes a checkpointed block */
-    const makeCheckpointedBlockInCheckpoint = (blockNum: number): CheckpointedL2Block =>
+    /** Makes block data for a checkpointed block */
+    const makeBlockDataInCheckpoint = (blockNum: number): BlockData =>
       ({
-        block: makeBlockInCheckpoint(blockNum),
-        checkpointNumber: getCheckpointForBlock(blockNum),
-      }) as CheckpointedL2Block;
+        header: makeHeader(blockNum),
+        checkpointNumber: CheckpointNumber(getCheckpointForBlock(blockNum)),
+        indexWithinCheckpoint: blockNum - getFirstBlockInCheckpoint(getCheckpointForBlock(blockNum)),
+      }) as unknown as BlockData;
 
     /** Sets the remote tips with correct checkpoint numbers for multi-block checkpoints. */
     const setRemoteTipsMultiBlock = (
@@ -458,14 +450,13 @@ describe('L2BlockStream', () => {
       handler = new TestL2BlockStreamEventHandler();
       blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
 
-      // Override the mocks to support multiple blocks per checkpoint
-      blockSource.getCheckpointedBlocks.mockImplementation((from, limit) =>
-        Promise.resolve(
-          compactArray(
-            times(limit, i => (from + i > checkpointed ? undefined : makeCheckpointedBlockInCheckpoint(from + i))),
-          ),
-        ),
-      );
+      // Override the mock to support multiple blocks per checkpoint
+      blockSource.getBlockData.mockImplementation(query => {
+        if (!('number' in query)) {
+          return Promise.resolve(undefined);
+        }
+        return Promise.resolve(query.number > latest ? undefined : makeBlockDataInCheckpoint(query.number));
+      });
 
       // Returns published checkpoints with multiple blocks each, respecting the limit parameter
       blockSource.getCheckpoints.mockImplementation((checkpointNumber: CheckpointNumber, limit: number) => {
@@ -811,8 +802,29 @@ describe('L2BlockStream', () => {
         expect(checkpointEvents).toHaveLength(5);
       });
 
-      it('does not call getCheckpointedBlocks(0) when startingBlock is 0', async () => {
-        // getCheckpointedBlocks rejects block 0
+      it('skips Loop 1 entirely when startingBlock is past the checkpointed tip', async () => {
+        // proposed=15, checkpointed=9 (ckpt 3 covers blocks 7-9). startingBlock=12 is past the
+        // checkpointed tip, in the proposed range. Loop 1 must skip without an RPC for block 12.
+        setRemoteTipsMultiBlock(15, 9);
+        blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+          batchSize: 10,
+          startingBlock: 12,
+        });
+
+        await blockStream.work();
+
+        // No chain-checkpointed events because startingBlock is past the checkpointed tip.
+        const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
+        expect(checkpointEvents).toHaveLength(0);
+        // Loop 1 must not query block 12 — past-the-tip is decided from sourceTips alone.
+        const loop1Calls = blockSource.getBlockData.mock.calls.filter(
+          c => 'number' in c[0] && (c[0] as { number: number }).number === 12,
+        );
+        expect(loop1Calls).toHaveLength(0);
+      });
+
+      it('does not call getBlockData with block 0 when startingBlock is 0', async () => {
+        // The stream should skip the checkpoint lookup when startingBlock is 0
         setRemoteTipsMultiBlock(15, 15);
         blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
           batchSize: 10,
@@ -821,8 +833,8 @@ describe('L2BlockStream', () => {
 
         await blockStream.work();
 
-        const calls = blockSource.getCheckpointedBlocks.mock.calls;
-        expect(calls.every(([blockNum]) => blockNum >= 1)).toBe(true);
+        const calls = blockSource.getBlockData.mock.calls;
+        expect(calls.every(c => !('number' in c[0]) || (c[0] as { number: number }).number >= 1)).toBe(true);
       });
     });
 

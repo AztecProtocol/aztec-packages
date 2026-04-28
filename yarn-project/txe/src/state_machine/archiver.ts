@@ -47,17 +47,18 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   public async getL2Tips(): Promise<L2Tips> {
     // In TXE there is no possibility of reorgs and no blocks are ever getting proven so we just set 'latest', 'proven'
     // and 'finalized' to the latest block.
-    const blockHeader = await this.getBlockHeader('latest');
-    if (!blockHeader) {
+    const latestBlockNumber = await this.stores.blocks.getLatestL2BlockNumber();
+    if (latestBlockNumber === 0) {
+      throw new Error('L2Tips requested from TXE Archiver but no block found');
+    }
+    const latestBlockData = await this.stores.blocks.getBlockData({ number: latestBlockNumber });
+    if (!latestBlockData) {
       throw new Error('L2Tips requested from TXE Archiver but no block header found');
     }
 
-    const number = blockHeader.globalVariables.blockNumber;
-    const hash = (await blockHeader.hash()).toString();
-    const checkpointedBlock = await this.getCheckpointedBlock(number);
-    if (!checkpointedBlock) {
-      throw new Error(`L2Tips requested from TXE Archiver but no checkpointed block found for block number ${number}`);
-    }
+    const number = latestBlockData.header.globalVariables.blockNumber;
+    const hash = latestBlockData.blockHash.toString();
+
     // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
     // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
     const checkpoint = await this.stores.blocks.getRangeOfCheckpoints(CheckpointNumber.fromBlockNumber(number), 1);

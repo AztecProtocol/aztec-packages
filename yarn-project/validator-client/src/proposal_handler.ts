@@ -292,7 +292,7 @@ export class ProposalHandler {
     proposalInfo.blockNumber = blockNumber;
 
     // Check that this block number does not exist already
-    const existingBlock = await this.blockSource.getBlockHeader(blockNumber);
+    const existingBlock = await this.blockSource.getBlockData({ number: blockNumber });
     if (existingBlock) {
       this.log.warn(`Block number ${blockNumber} already exists, skipping processing`, proposalInfo);
       return { isValid: false, blockNumber, reason: 'block_number_already_exists' };
@@ -393,11 +393,12 @@ export class ProposalHandler {
 
     try {
       return (
-        (await this.blockSource.getBlockDataByArchive(parentArchive)) ??
+        (await this.blockSource.getBlockData({ archive: parentArchive })) ??
         (timeoutDurationMs <= 0
           ? undefined
           : await retryUntil(
-              () => this.blockSource.syncImmediate().then(() => this.blockSource.getBlockDataByArchive(parentArchive)),
+              () =>
+                this.blockSource.syncImmediate().then(() => this.blockSource.getBlockData({ archive: parentArchive })),
               'force archiver sync',
               timeoutDurationMs / 1000,
               0.5,
@@ -794,7 +795,7 @@ export class ProposalHandler {
       lastBlockHeader = await retryUntil(
         async () => {
           await this.blockSource.syncImmediate();
-          return this.blockSource.getBlockHeaderByArchive(proposal.archive);
+          return (await this.blockSource.getBlockData({ archive: proposal.archive }))?.header;
         },
         `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
         timeoutSeconds,
@@ -953,7 +954,7 @@ export class ProposalHandler {
   /** Uploads blobs for a checkpoint to the filestore. */
   protected async uploadBlobsForCheckpoint(proposal: CheckpointProposalCore, proposalInfo: LogData): Promise<void> {
     try {
-      const lastBlockHeader = await this.blockSource.getBlockHeaderByArchive(proposal.archive);
+      const lastBlockHeader = (await this.blockSource.getBlockData({ archive: proposal.archive }))?.header;
       if (!lastBlockHeader) {
         this.log.warn(`Failed to get last block header for blob upload`, proposalInfo);
         return;
@@ -987,7 +988,7 @@ export class ProposalHandler {
     if (!this.archiver) {
       return false;
     }
-    const blockData = await this.blockSource.getBlockDataByArchive(proposal.archive);
+    const blockData = await this.blockSource.getBlockData({ archive: proposal.archive });
     if (!blockData) {
       this.log.debug(`Block data not found for checkpoint proposal archive, cannot set proposed checkpoint`, {
         archive: proposal.archive.toString(),
@@ -1015,7 +1016,7 @@ export class ProposalHandler {
     if (!this.archiver) {
       return false;
     }
-    let blockData = await this.blockSource.getBlockDataByArchive(proposal.archive);
+    let blockData = await this.blockSource.getBlockData({ archive: proposal.archive });
 
     if (!blockData) {
       // The checkpoint proposal often arrives before the last block finishes re-execution.
@@ -1025,7 +1026,7 @@ export class ProposalHandler {
       const timeoutSeconds = Math.max(1, Number(timeOfNextSlot) - Math.floor(this.dateProvider.now() / 1000));
 
       blockData = await retryUntil(
-        () => this.blockSource.getBlockDataByArchive(proposal.archive),
+        () => this.blockSource.getBlockData({ archive: proposal.archive }),
         'block data for own checkpoint proposal',
         timeoutSeconds,
         0.25,

@@ -14,7 +14,7 @@ import times from 'lodash.times';
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { DataInBlock } from '../block/in_block.js';
-import { BlockHash, type BlockParameter, type CheckpointedL2Block } from '../block/index.js';
+import { BlockHash, type BlockParameter } from '../block/index.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import {
   type ContractClassPublic,
@@ -75,7 +75,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   afterEach(() => {
-    tested.add(/^AztecNodeApiSchema\s+([^(]+)/.exec(expect.getState().currentTestName!)![1]);
+    tested.add(/^AztecNodeApiSchema\s+([^(]+?)\s*(\(|$)/.exec(expect.getState().currentTestName!)![1]);
     context.httpServer.close();
   });
 
@@ -93,6 +93,21 @@ describe('AztecNodeApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
+      proven: expectedTipId,
+      finalized: expectedTipId,
+    });
+  });
+
+  it('getL2Tips', async () => {
+    const result = await context.client.getL2Tips();
+    const expectedTipId = {
+      block: { number: 1, hash: `0x01` },
+      checkpoint: { number: 1, hash: `0x01` },
+    };
+    expect(result).toEqual({
+      proposed: { number: 1, hash: `0x01` },
+      checkpointed: expectedTipId,
+      proposedCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
@@ -166,27 +181,12 @@ describe('AztecNodeApiSchema', () => {
 
   it('getBlockHeader', async () => {
     const response = await context.client.getBlockHeader(BlockNumber(1));
-    expect(response).toEqual(BlockHeader.empty());
+    expect(response).toBeInstanceOf(BlockHeader);
   });
 
   it('getCheckpointedBlocks', async () => {
-    const response = await context.client.getCheckpointedBlocks(BlockNumber(1), 1);
+    const response = await context.client.getCheckpointedBlocks(BlockNumber(1), 10);
     expect(response).toEqual([]);
-  });
-
-  it('getL2Tips', async () => {
-    const response = await context.client.getL2Tips();
-    const tipId = {
-      block: { number: 1, hash: `0x01` },
-      checkpoint: { number: 1, hash: `0x01` },
-    };
-    expect(response).toEqual({
-      proposed: { number: 1, hash: `0x01` },
-      checkpointed: tipId,
-      proposedCheckpoint: tipId,
-      proven: tipId,
-      finalized: tipId,
-    });
   });
 
   it('getCheckpoint', async () => {
@@ -347,6 +347,25 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(Fr);
   });
 
+  it.each<[string, BlockParameter]>([
+    ['BlockNumber', BlockNumber(7)],
+    ['BlockHash', new BlockHash(new Fr(0x1234))],
+    ['{ archive }', { archive: new Fr(0x5678) }],
+    ['tag latest', 'latest'],
+    ['tag proven', 'proven'],
+  ])('getPublicStorageAt (round-trips %s)', async (_, block) => {
+    handler.lastReferenceBlock = undefined;
+    await context.client.getPublicStorageAt(block, await AztecAddress.random(), Fr.random());
+    if (typeof block === 'object' && 'archive' in block) {
+      expect(handler.lastReferenceBlock).toEqual({ archive: expect.any(Fr) });
+    } else if (BlockHash.isBlockHash(block)) {
+      expect(BlockHash.isBlockHash(handler.lastReferenceBlock)).toBe(true);
+      expect((handler.lastReferenceBlock as unknown as BlockHash).toString()).toEqual(block.toString());
+    } else {
+      expect(handler.lastReferenceBlock).toEqual(block);
+    }
+  });
+
   it('getValidatorsStats', async () => {
     handler.validatorStats = {
       stats: {
@@ -502,6 +521,7 @@ describe('AztecNodeApiSchema', () => {
 class MockAztecNode implements AztecNode {
   public validatorStats: ValidatorsStats | undefined;
   public singleValidatorStats: SingleValidatorStats | undefined;
+  public lastReferenceBlock: BlockParameter | undefined;
 
   constructor(private artifact: ContractArtifact) {}
 
@@ -580,7 +600,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(BlockHeader.empty());
   }
 
-  getCheckpointedBlocks(_from: BlockNumber, _limit: number): Promise<CheckpointedL2Block[]> {
+  getCheckpointedBlocks(_from: BlockNumber, _limit: number): Promise<BlockResponse[]> {
     return Promise.resolve([]);
   }
 
@@ -790,9 +810,15 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve([Tx.random()]);
   }
   getPublicStorageAt(block: BlockParameter, contract: AztecAddress, slot: Fr): Promise<Fr> {
-    expect(block === 'latest' || block instanceof Fr || typeof block === 'number').toBe(true);
+    expect(
+      typeof block === 'number' ||
+        typeof block === 'string' ||
+        BlockHash.isBlockHash(block) ||
+        (typeof block === 'object' && block !== null),
+    ).toBe(true);
     expect(contract).toBeInstanceOf(AztecAddress);
     expect(slot).toBeInstanceOf(Fr);
+    this.lastReferenceBlock = block;
     return Promise.resolve(Fr.random());
   }
   getValidatorsStats(): Promise<ValidatorsStats> {

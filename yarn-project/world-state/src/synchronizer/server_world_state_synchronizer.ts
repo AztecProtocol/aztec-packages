@@ -409,16 +409,15 @@ export class ServerWorldStateSynchronizer
     if (this.historyToKeep === undefined) {
       return;
     }
-    // Get the checkpointed block for the finalized block number
-    const finalisedCheckpoint = await this.l2BlockSource.getCheckpointedBlock(summary.finalizedBlockNumber);
-    if (finalisedCheckpoint === undefined) {
+    const finalisedBlockData = await this.l2BlockSource.getBlockData({ number: summary.finalizedBlockNumber });
+    if (finalisedBlockData === undefined) {
       this.log.warn(
         `Failed to retrieve checkpointed block for finalized block number: ${summary.finalizedBlockNumber}`,
       );
       return;
     }
     // Compute the required historic checkpoint number
-    const newHistoricCheckpointNumber = finalisedCheckpoint.checkpointNumber - this.historyToKeep + 1;
+    const newHistoricCheckpointNumber = finalisedBlockData.checkpointNumber - this.historyToKeep + 1;
     if (newHistoricCheckpointNumber <= 1) {
       return;
     }

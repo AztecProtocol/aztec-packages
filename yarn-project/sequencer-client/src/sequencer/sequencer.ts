@@ -658,7 +658,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       };
     }
 
-    const blockData = await this.l2BlockSource.getBlockData(blockNumber);
+    const blockData = await this.l2BlockSource.getBlockData({ number: blockNumber });
     if (!blockData) {
       // this shouldn't really happen because a moment ago we checked that all components were in sync
       this.log.error(`Failed to get L2 block data ${blockNumber} from the archiver with all components in sync`);

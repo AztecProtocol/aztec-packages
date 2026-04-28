@@ -177,16 +177,19 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     let checkedFullCheckpoints = 0;
     for (const checkpointBlocks of checkpoints) {
       const first = checkpointBlocks[0];
-      const slotStartTimestamp = getTimestampForSlot(first.block.slot, test.constants);
-      const l1OffsetInSlot = Number(first.l1.timestamp - slotStartTimestamp) / ethereumSlotDuration;
+      const firstSlot = first.header.globalVariables.slotNumber;
+      const slotStartTimestamp = getTimestampForSlot(firstSlot, test.constants);
+      const l1OffsetInSlot = first.l1?.published
+        ? Number(first.l1.timestamp - slotStartTimestamp) / ethereumSlotDuration
+        : undefined;
       logger.warn(
-        `Checkpoint ${first.checkpointNumber} (target slot ${first.block.slot}) mined at L1 block ${first.l1.blockNumber} ` +
+        `Checkpoint ${first.checkpointNumber} (target slot ${firstSlot}) mined at L1 block ${first.l1?.published ? first.l1.blockNumber : 'pending'} ` +
           `(offset ${l1OffsetInSlot} into L2 slot) with ${checkpointBlocks.length} blocks`,
         {
-          blocks: checkpointBlocks.map(b => ({ number: b.block.number, txs: b.block.body.txEffects.length })),
+          blocks: checkpointBlocks.map(b => ({ number: b.number, txs: b.body?.txEffects.length })),
         },
       );
-      if (first.block.slot < targetSlot || checkedFullCheckpoints >= CHECKPOINTS_TO_CHECK) {
+      if (firstSlot < targetSlot || checkedFullCheckpoints >= CHECKPOINTS_TO_CHECK) {
         continue;
       }
 
@@ -195,7 +198,7 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
 
       for (const block of checkpointBlocks) {
         // We don't test for exactly TXS_PER_BLOCK since CI delays make this flakey
-        const txCount = block.block.body.txEffects.length;
+        const txCount = block.body!.txEffects.length;
         expect(txCount).toBeGreaterThanOrEqual(1);
         expect(txCount).toBeLessThanOrEqual(TXS_PER_BLOCK);
       }

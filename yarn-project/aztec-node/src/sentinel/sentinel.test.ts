@@ -607,7 +607,7 @@ describe('sentinel', () => {
       epochCache.getTargetSlot.mockReturnValue(slot);
       epochCache.getEpochNow.mockReturnValue(epochNumber);
       epochCache.getTargetEpoch.mockReturnValue(epochNumber);
-      archiver.getBlockHeader.calledWith(blockNumber).mockResolvedValue(mockBlock.header);
+      archiver.getBlockData.mockResolvedValue({ header: mockBlock.header } as any);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
       epochCache.getL1Constants.mockReturnValue(l1Constants);
 
@@ -729,7 +729,7 @@ describe('sentinel', () => {
       const epochNumber = getEpochAtSlot(blockSlot, l1Constants);
       const validator1 = EthAddress.random();
 
-      archiver.getBlockHeader.calledWith(blockNumber).mockResolvedValue(mockBlock.header);
+      archiver.getBlockData.mockResolvedValue({ header: mockBlock.header } as any);
 
       epochCache.getCommittee.mockResolvedValue({
         committee: [validator1],

@@ -616,7 +616,7 @@ describe('e2e_synching', () => {
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           expect(await archiver.getCheckpointNumber()).toBeGreaterThan(provenThrough);
-          const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
+          const blockTip = (await archiver.getBlock({ number: await archiver.getBlockNumber() }))!;
           const txHash = blockTip.body.txEffects[0].txHash;
 
           const contractClassIds = await archiver.getContractClassIds();

@@ -53,7 +53,9 @@ export class L2TipsCache {
     const beforeInitialBlockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
 
     const getBlockData = (blockNumber: BlockNumber) =>
-      blockNumber > beforeInitialBlockNumber ? this.blockStore.getBlockData(blockNumber) : genesisBlockHeader;
+      blockNumber > beforeInitialBlockNumber
+        ? this.blockStore.getBlockData({ number: blockNumber })
+        : genesisBlockHeader;
 
     const [latestBlockData, provenBlockData, proposedCheckpointBlockData, checkpointedBlockData, finalizedBlockData] =
       await Promise.all(
