@@ -216,6 +216,9 @@ export interface P2PConfig
 
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
+
+  /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
+  skipIncomingProposals?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -516,6 +519,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   broadcastEquivocatedProposals: {
     description:
       'Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).',
+    ...booleanConfigHelper(false),
+  },
+  skipIncomingProposals: {
+    description: 'Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only)',
     ...booleanConfigHelper(false),
   },
   minTxPoolAgeMs: {
