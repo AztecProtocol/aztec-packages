@@ -1,14 +1,10 @@
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
-import type { BlockNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import type { FunctionSelector } from '@aztec/stdlib/abi';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { UInt64 } from '@aztec/stdlib/types';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
 
 import { join } from 'path';
 
+import { ArchiverContractDataSourceAdapter } from '../modules/contract_data_source_adapter.js';
 import { BlockStore } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
@@ -103,34 +99,10 @@ export async function backupArchiverDataStores(
 }
 
 /**
- * Returns a thin {@link ContractDataSource} adapter over {@link ArchiverDataStores}.
+ * Returns a {@link ContractDataSource} adapter over {@link ArchiverDataStores}.
  * Used by contexts (e.g. offline epoch re-prover tools) that need a ContractDataSource
  * but do not need a full archiver instance.
  */
 export function createContractDataSource(stores: ArchiverDataStores): ContractDataSource {
-  return {
-    getBlockNumber: () => stores.blocks.getLatestL2BlockNumber(),
-    getContractClass: (id: Fr) => stores.contractClasses.getContractClass(id),
-    getBytecodeCommitment: (id: Fr) => stores.contractClasses.getBytecodeCommitment(id),
-    getContract: async (
-      address: AztecAddress,
-      maybeTimestamp?: UInt64,
-    ): Promise<ContractInstanceWithAddress | undefined> => {
-      let timestamp = maybeTimestamp;
-      if (timestamp === undefined) {
-        const latest = await stores.blocks.getLatestL2BlockNumber();
-        if ((latest as BlockNumber) === 0) {
-          timestamp = 0n;
-        } else {
-          const [header] = await stores.blocks.getBlockHeaders(latest, 1);
-          timestamp = header ? header.globalVariables.timestamp : 0n;
-        }
-      }
-      return stores.contractInstances.getContractInstance(address, timestamp);
-    },
-    getContractClassIds: () => stores.contractClasses.getContractClassIds(),
-    getDebugFunctionName: (_address: AztecAddress, selector: FunctionSelector) =>
-      Promise.resolve(stores.functionNames.get(selector)),
-    registerContractFunctionSignatures: (signatures: string[]) => stores.functionNames.register(signatures),
-  };
+  return new ArchiverContractDataSourceAdapter(stores);
 }

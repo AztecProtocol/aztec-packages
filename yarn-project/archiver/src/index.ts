@@ -16,6 +16,7 @@ export {
   getArchiverSynchPoint,
 } from './store/data_stores.js';
 export { FunctionNamesCache } from './store/function_names_cache.js';
+export { ArchiverContractDataSourceAdapter } from './modules/contract_data_source_adapter.js';
 export { BlockStore } from './store/block_store.js';
 export { LogStore } from './store/log_store.js';
 export { MessageStore } from './store/message_store.js';
