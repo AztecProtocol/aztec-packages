@@ -12,12 +12,12 @@ use crate::protocol::{address::AztecAddress, traits::Packable};
 
 /// A note that was created in the current contract call.
 pub struct NewNote<Note> {
-    pub(crate) note: Note,
-    pub(crate) owner: AztecAddress,
-    pub(crate) storage_slot: Field,
-    pub(crate) randomness: Field,
+    pub note: Note,
+    pub owner: AztecAddress,
+    pub storage_slot: Field,
+    pub randomness: Field,
     /// The [`PrivateContext`] side-effect counter associated with the creation of this note.
-    pub(crate) note_hash_counter: u32,
+    pub note_hash_counter: u32,
 }
 
 impl<Note> NewNote<Note> {
