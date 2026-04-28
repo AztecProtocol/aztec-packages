@@ -245,7 +245,7 @@ std::vector<typename BatchMergeVerifier_<Curve, MaxMergeSize>::FF> BatchMergeVer
     } else {
         BB_ASSERT_GT(static_cast<uint32_t>(N), 0U);
         for (size_t idx = 0; idx < MAX_MERGE_SIZE; idx++) {
-            indicator_array.push_back(idx < static_cast<size_t>(N) ? FF(1) : FF(0));
+            indicator_array.push_back(idx < static_cast<uint32_t>(N) ? FF(1) : FF(0));
         }
     }
 
