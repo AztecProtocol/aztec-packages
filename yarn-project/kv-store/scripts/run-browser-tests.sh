@@ -1,24 +1,20 @@
 #!/usr/bin/env bash
-# Runs vitest browser tests one test file per vitest invocation.
+# Local-dev entrypoint for `yarn test:browser`: runs every browser test file
+# in its own vitest process, sequentially. Delegates per-file dispatch to
+# scripts/run_test.sh (which CI also uses for per-file fan-out).
 #
 # Why not a single `vitest run` over all files: vitest+chromium have a CDP
 # teardown deadlock at test-file transitions under CPU-constrained
 # environments (CI3 ISOLATE: --cpus=2). Vitest closes a cohort of CDP TCP
 # connections when switching files; chromium's network service can't drain
 # them fast enough under contention; vitest's teardown blocks indefinitely
-# on the close-handshake. See scripts/repro-browser-hang.sh for the repro.
-#
-# By running each file in a separate vitest process, the close-handshake
-# only happens at process exit (where the OS reaps everything), avoiding
-# the cross-file teardown path entirely. Cost is ~5-10s of vite startup
-# per file, which is acceptable for ~10 files.
+# on the close-handshake. By running each file in a separate vitest process
+# the close-handshake only happens at process exit, avoiding the cross-file
+# teardown path entirely. See scripts/repro-browser-hang.sh for the repro.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Mirror vitest.config.ts include patterns. Bench tests are excluded —
-# benchmarks should be run via `yarn bench:browser`, which is already a
-# one-shot invocation.
 files=$(find src/indexeddb src/sqlite-opfs -name '*.test.ts' 2>/dev/null | sort)
 
 if [ -z "$files" ]; then
@@ -33,5 +29,5 @@ i=0
 for f in $files; do
   i=$((i + 1))
   echo "==> [$i/$count] $f"
-  yarn vitest run --config ./vitest.config.ts "$f"
+  bash scripts/run_test.sh "$f"
 done
