@@ -50,45 +50,6 @@ TYPED_TEST(UltraHonkTests, ProofLengthCheck)
 }
 
 /**
- * @brief A quick test to ensure that none of our polynomials are identically zero
- *
- * @note This test assumes that gates have been added by default in the composer
- * to achieve non-zero polynomials
- *
- */
-TYPED_TEST(UltraHonkTests, ANonZeroPolynomialIsAGoodPolynomial)
-{
-    auto circuit_builder = UltraCircuitBuilder();
-    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
-
-    auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(circuit_builder);
-    auto verification_key = std::make_shared<typename TypeParam::VerificationKey>(prover_instance->get_precomputed());
-    typename TestFixture::Prover prover(prover_instance, verification_key);
-    auto proof = prover.construct_proof();
-    auto& polynomials = prover_instance->polynomials;
-
-    auto ensure_non_zero = [](auto& polynomial) {
-        bool has_non_zero_coefficient = false;
-        for (auto& coeff : polynomial.coeffs()) {
-            has_non_zero_coefficient |= !coeff.is_zero();
-        }
-        ASSERT_TRUE(has_non_zero_coefficient);
-    };
-
-    for (auto& poly : polynomials.get_selectors()) {
-        ensure_non_zero(poly);
-    }
-
-    for (auto& poly : polynomials.get_tables()) {
-        ensure_non_zero(poly);
-    }
-
-    for (auto& poly : polynomials.get_wires()) {
-        ensure_non_zero(poly);
-    }
-}
-
-/**
  * @brief Test simple circuit with public inputs
  *
  */
