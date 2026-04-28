@@ -12,8 +12,8 @@
 #                            pthread pool warmed up.
 #   wasm-perf-gate         — multi-thread proving benchmarks; warns if no
 #                            baseline is snapshotted, fails on >5% regression.
-#   legacy-toolchain-compat — short-lived parallel job behind
-#                            LEGACY_TOOLCHAIN_COMPAT env (default false).
+#   legacy-toolchain-compat — short-lived parallel job behind the repo
+#                            variable LEGACY_TOOLCHAIN_COMPAT (default off).
 #                            Delete after 2026-05-26.
 
 name: wasm-emscripten
@@ -34,10 +34,6 @@ on:
   workflow_dispatch:
 
 env:
-  # Compatibility window job for the legacy wasm toolchain. Disabled by
-  # default; the workflow file expresses intent without requiring the legacy
-  # toolchain to be present anywhere.
-  LEGACY_TOOLCHAIN_COMPAT: 'false'
   # Forbidden tokens are split across env-var halves so this workflow file
   # does not itself match the regex it enforces. The recombined patterns are
   # the legacy WASI / WASI runtime tokens (sdk, threads polyfill entry, the
@@ -265,12 +261,12 @@ jobs:
   # with the last-released package surface so a downstream consumer can
   # roll back to the prior bb.js without hitting an API regression. Gated
   # off by default so the migration cutover does not block on the prior
-  # release's npm tarball being available; flip LEGACY_TOOLCHAIN_COMPAT to
-  # 'true' at the workflow env to enable. DELETE THIS JOB AFTER 2026-05-26.
+  # release's npm tarball being available; set the repo variable
+  # LEGACY_TOOLCHAIN_COMPAT='true' to enable. DELETE THIS JOB AFTER 2026-05-26.
   # =====================================================================
   legacy-toolchain-compat:
     needs: wasm-grep-gate
-    if: env.LEGACY_TOOLCHAIN_COMPAT == 'true'
+    if: vars.LEGACY_TOOLCHAIN_COMPAT == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
