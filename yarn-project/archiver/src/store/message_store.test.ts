@@ -33,7 +33,7 @@ describe('MessageStore', () => {
       messages: message,
       contractClasses: undefined as never,
       contractInstances: undefined as never,
-      functionNames: new Map<string, string>(),
+      functionNames: undefined as never,
     });
 
   beforeEach(async () => {

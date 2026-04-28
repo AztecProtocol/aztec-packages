@@ -14,9 +14,8 @@ export {
   createArchiverDataStores,
   createContractDataSource,
   getArchiverSynchPoint,
-  getDebugFunctionName,
-  registerContractFunctionSignatures,
 } from './store/data_stores.js';
+export { FunctionNamesCache } from './store/function_names_cache.js';
 export { BlockStore } from './store/block_store.js';
 export { LogStore } from './store/log_store.js';
 export { MessageStore } from './store/message_store.js';

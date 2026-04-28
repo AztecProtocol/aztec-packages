@@ -24,7 +24,7 @@ import type { BlockHeader, IndexedTxEffect, TxHash, TxReceipt } from '@aztec/std
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiverDataSource } from '../interfaces.js';
-import { type ArchiverDataStores, registerContractFunctionSignatures } from '../store/data_stores.js';
+import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { ValidateCheckpointResult } from './validation.js';
 
 /**
@@ -249,12 +249,12 @@ export abstract class ArchiverDataSourceBase
 
   /** Looks up a public function name given a selector. */
   public getDebugFunctionName(_address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return Promise.resolve(this.stores.functionNames.get(selector.toString()));
+    return Promise.resolve(this.stores.functionNames.get(selector));
   }
 
   /** Register public function signatures so they can be looked up by selector. */
   public registerContractFunctionSignatures(signatures: string[]): Promise<void> {
-    return registerContractFunctionSignatures(this.stores, signatures);
+    return this.stores.functionNames.register(signatures);
   }
 
   public getL1ToL2Messages(checkpointNumber: CheckpointNumber): Promise<Fr[]> {

@@ -24,12 +24,7 @@ import { Archiver, type ArchiverDeps } from './archiver.js';
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
-import {
-  ARCHIVER_DB_VERSION,
-  type ArchiverDataStores,
-  createArchiverDataStores,
-  registerContractFunctionSignatures,
-} from './store/data_stores.js';
+import { ARCHIVER_DB_VERSION, type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 
 export const ARCHIVER_STORE_NAME = 'archiver';
@@ -201,7 +196,7 @@ export async function registerProtocolContracts(stores: ArchiverDataStores) {
       .filter(fn => fn.functionType === FunctionType.PUBLIC)
       .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
-    await registerContractFunctionSignatures(stores, publicFunctionSignatures);
+    await stores.functionNames.register(publicFunctionSignatures);
     await stores.contractClasses.addContractClasses([contractClassPublic], BlockNumber(blockNumber));
     await stores.contractInstances.addContractInstances([contract.instance], BlockNumber(blockNumber));
   }

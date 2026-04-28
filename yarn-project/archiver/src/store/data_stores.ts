@@ -1,9 +1,8 @@
 import type { L1BlockId } from '@aztec/ethereum/l1-types';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -13,12 +12,11 @@ import { join } from 'path';
 import { BlockStore } from './block_store.js';
 import { ContractClassStore } from './contract_class_store.js';
 import { ContractInstanceStore } from './contract_instance_store.js';
+import { FunctionNamesCache } from './function_names_cache.js';
 import { LogStore } from './log_store.js';
 import { MessageStore } from './message_store.js';
 
 export const ARCHIVER_DB_VERSION = 6;
-export const MAX_FUNCTION_SIGNATURES = 1000;
-export const MAX_FUNCTION_NAME_LEN = 256;
 
 /**
  * Represents the latest L1 block processed by the archiver for various objects in L2.
@@ -50,8 +48,8 @@ export type ArchiverDataStores = {
   contractClasses: ContractClassStore;
   /** Contract instances and contract instance updates. */
   contractInstances: ContractInstanceStore;
-  /** In-memory cache of public function selectors -> names, populated by `registerContractFunctionSignatures`. */
-  functionNames: Map<string, string>;
+  /** In-memory cache of public function selectors -> names. */
+  functionNames: FunctionNamesCache;
 };
 
 /** Options used by {@link createArchiverDataStores}. */
@@ -76,7 +74,7 @@ export function createArchiverDataStores(
     messages: new MessageStore(db),
     contractClasses: new ContractClassStore(db),
     contractInstances: new ContractInstanceStore(db),
-    functionNames: new Map(),
+    functionNames: new FunctionNamesCache(),
   };
 }
 
@@ -102,38 +100,6 @@ export async function backupArchiverDataStores(
 ): Promise<string> {
   await stores.db.backupTo(path, compress);
   return join(path, 'data.mdb');
-}
-
-const registerSignaturesLog = createLogger('archiver:data-stores');
-
-/**
- * Adds the given public function signatures to the in-memory selector -> name cache held by `stores`.
- * Used so that contract debug names can be resolved when displaying logs/traces.
- */
-export async function registerContractFunctionSignatures(
-  stores: ArchiverDataStores,
-  signatures: string[],
-): Promise<void> {
-  for (const sig of signatures) {
-    if (stores.functionNames.size > MAX_FUNCTION_SIGNATURES) {
-      return;
-    }
-    try {
-      const selector = await FunctionSelector.fromSignature(sig);
-      stores.functionNames.set(selector.toString(), sig.slice(0, sig.indexOf('(')).slice(0, MAX_FUNCTION_NAME_LEN));
-    } catch {
-      registerSignaturesLog.warn(`Failed to parse signature: ${sig}. Ignoring`);
-    }
-  }
-}
-
-/** Looks up a public function name from the in-memory cache held by `stores`. */
-export function getDebugFunctionName(
-  stores: ArchiverDataStores,
-  _address: AztecAddress,
-  selector: FunctionSelector,
-): Promise<string | undefined> {
-  return Promise.resolve(stores.functionNames.get(selector.toString()));
 }
 
 /**
@@ -163,9 +129,8 @@ export function createContractDataSource(stores: ArchiverDataStores): ContractDa
       return stores.contractInstances.getContractInstance(address, timestamp);
     },
     getContractClassIds: () => stores.contractClasses.getContractClassIds(),
-    getDebugFunctionName: (address: AztecAddress, selector: FunctionSelector) =>
-      getDebugFunctionName(stores, address, selector),
-    registerContractFunctionSignatures: (signatures: string[]) =>
-      registerContractFunctionSignatures(stores, signatures),
+    getDebugFunctionName: (_address: AztecAddress, selector: FunctionSelector) =>
+      Promise.resolve(stores.functionNames.get(selector)),
+    registerContractFunctionSignatures: (signatures: string[]) => stores.functionNames.register(signatures),
   };
 }
