@@ -67,6 +67,7 @@ import {
   type GetPublicLogsResponse,
   GetPublicLogsResponseSchema,
 } from './get_logs_response.js';
+import { type PublicDataTreeOverride, PublicDataTreeOverrideSchema } from './public_data_tree_override.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 /**
@@ -462,8 +463,14 @@ export interface AztecNode
    * Simulates the public part of a transaction with the current state.
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
+   * @param skipFeeEnforcement - If true, fee enforcement is skipped.
+   * @param publicDataOverrides - Optional public state overrides injected into the ephemeral world-state fork before simulation.
    **/
-  simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(
+    tx: Tx,
+    skipFeeEnforcement?: boolean,
+    publicDataOverrides?: PublicDataTreeOverride[],
+  ): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
@@ -659,7 +666,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(schemas.EthAddress, optional(schemas.SlotNumber), optional(schemas.SlotNumber))
     .returns(SingleValidatorStatsSchema.optional()),
 
-  simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
+  simulatePublicCalls: z
+    .function()
+    .args(Tx.schema, optional(z.boolean()), optional(z.array(PublicDataTreeOverrideSchema)))
+    .returns(PublicSimulationOutput.schema),
 
   isValidTx: z
     .function()
