@@ -113,7 +113,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
-inline constexpr size_t CHONK_RECURSION_GATES = 1474690;
+inline constexpr size_t CHONK_RECURSION_GATES = 1474677;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -123,22 +123,22 @@ inline constexpr size_t CHONK_RECURSION_GATES = 1474690;
 inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel gate counts (verifies OINK proof)
-inline constexpr size_t INIT_KERNEL_GATE_COUNT = 24464;
+inline constexpr size_t INIT_KERNEL_GATE_COUNT = 24457;
 inline constexpr size_t INIT_KERNEL_ECC_ROWS = 815 + MSM_ROWS_OFFSET;
 inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 86;
 
 // Inner kernel gate counts (verifies HN proof for previous kernel + HN for app)
-inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 59265;
+inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 59251;
 inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1634 + MSM_ROWS_OFFSET;
 inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 173;
 
 // Tail kernel gate counts (verifies HN_TAIL proof)
-inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 32256;
+inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 32249;
 inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 881 + MSM_ROWS_OFFSET;
-inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 92;
+inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 93;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 35629;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 35622;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 1374 + MSM_ROWS_OFFSET;
 inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 124;
 

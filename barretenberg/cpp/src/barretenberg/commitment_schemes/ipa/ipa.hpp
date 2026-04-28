@@ -152,6 +152,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                const ProverOpeningClaim<Curve>& opening_claim,
                                                const std::shared_ptr<Transcript>& transcript)
     {
+        BB_BENCH_NAME("IPA::compute_opening_proof");
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
 
         // Step 1.
@@ -189,7 +190,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Copy the SRS into a local data structure as we need to mutate this vector for every round
         parallel_for_heuristic(
-            poly_length, [&](size_t i) { G_vec_local[i] = srs_elements[i]; }, thread_heuristics::FF_COPY_COST);
+            poly_length,
+            [&](size_t i) {
+                BB_BENCH_TRACY_NAME("IPA::copy_srs");
+                G_vec_local[i] = srs_elements[i];
+            },
+            thread_heuristics::FF_COPY_COST);
 
         // Step 5.
         // Compute vector b (vector of the powers of the challenge)
@@ -198,6 +204,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         parallel_for_heuristic(
             poly_length,
             [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
+                BB_BENCH_TRACY_NAME("IPA::compute_b_vec");
                 Fr b_power = opening_pair.challenge.pow(start);
                 for (size_t i = start; i < end; i++) {
                     b_vec[i] = b_power;
@@ -222,6 +229,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 round_size,
                 std::pair{ Fr::zero(), Fr::zero() },
                 [&](size_t j, std::pair<Fr, Fr>& inner_prod_left_right) {
+                    BB_BENCH_TRACY_NAME("IPA::inner_product");
                     // Compute inner_prod_L := < a_vec_lo, b_vec_hi >
                     inner_prod_left_right.first += a_vec[j] * b_vec[round_size + j];
                     // Compute inner_prod_R := < a_vec_hi, b_vec_lo >
@@ -277,6 +285,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             parallel_for_heuristic(
                 round_size,
                 [&](size_t j) {
+                    BB_BENCH_TRACY_NAME("IPA::fold_vecs");
                     a_vec.at(j) += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                 },

@@ -1,0 +1,1 @@
+Function foo does not have a authwit_nonce. Please specify which one to use in #[authorize_once("from", "...")]

@@ -56,6 +56,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     const std::shared_ptr<Transcript>& transcript,
     bool has_zk)
 {
+    BB_BENCH_NAME("GeminiProver::prove");
     // To achieve fixed proof size in Ultra and Mega, the multilinear opening challenge is be padded to a fixed size.
     const size_t virtual_log_n = multilinear_challenge.size();
     const size_t log_n = numeric::get_msb(circuit_size);

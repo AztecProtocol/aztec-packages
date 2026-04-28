@@ -1,5 +1,4 @@
 // docs:start:run_recursion
-// docs:start:imports
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
 import type { FieldLike } from "@aztec/aztec.js/abi";
 import { getSponsoredFPCInstance } from "./scripts/sponsored_fpc.js";
@@ -10,9 +9,7 @@ import { NO_FROM } from "@aztec/aztec.js/account";
 import { Fr } from "@aztec/aztec.js/fields";
 import assert from "node:assert";
 import fs from "node:fs";
-// docs:end:imports
 
-// docs:start:sample_data
 if (!fs.existsSync("data.json")) {
   console.error(
     "data.json not found. Run 'yarn data' first to generate proof data.",
@@ -20,11 +17,9 @@ if (!fs.existsSync("data.json")) {
   process.exit(1);
 }
 const data = JSON.parse(fs.readFileSync("data.json", "utf-8"));
-// docs:end:sample_data
 
 export const NODE_URL = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
 
-// docs:start:setup_wallet
 // Setup sponsored fee payment - the FPC pays transaction fees for us
 const sponsoredFPC = await getSponsoredFPCInstance();
 const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
@@ -47,9 +42,7 @@ export const setupWallet = async (): Promise<EmbeddedWallet> => {
     throw error;
   }
 };
-// docs:end:setup_wallet
 
-// docs:start:main
 async function main() {
   // Step 1: Setup wallet and create account
   // Accounts in Aztec are smart contracts (account abstraction)
@@ -120,7 +113,6 @@ async function main() {
 
   assert(counterValue === 11n, "Counter should be 11 after verification");
 }
-// docs:end:main
 
 main().catch((error) => {
   console.error(error);

@@ -238,6 +238,11 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // information about the op queue content linked to the circuits being proven
     static constexpr size_t RESULT_ROW = 8;
 
+    // Number of no-ops at the beginning of Translator trace (provides the 2 leading zero rows required for
+    // polynomial shiftability of op queue wires). Contributed by the tail kernel's queue_ecc_no_op().
+    static constexpr size_t NUM_NO_OPS_START = 1;
+    static_assert(NUM_NO_OPS_START == 1);
+
     // Number of random ops at the beginning of Translator trace
     static constexpr size_t NUM_RANDOM_OPS_START = 3;
     static_assert(NUM_RANDOM_OPS_START == 3);

@@ -14,8 +14,8 @@ template <typename FF_> class merkle_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 23> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 4, 3,
-                                                                            4, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3 };
+    static constexpr std::array<size_t, 24> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 5, 3, 3, 3, 4, 3,
+                                                                            4, 3, 3, 3, 4, 4, 3, 3, 3, 3, 3, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -50,10 +50,11 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static constexpr size_t SR_READ_RIGHT_NODE = 15;
     static constexpr size_t SR_WRITE_LEFT_NODE = 16;
     static constexpr size_t SR_WRITE_RIGHT_NODE = 17;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 19;
-    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 20;
-    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 21;
-    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 22;
+    static constexpr size_t SR_PROPAGATE_MERKLE_HASH_SEPARATOR = 19;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 20;
+    static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 21;
+    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 22;
+    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 23;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -86,6 +87,8 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
             return "WRITE_LEFT_NODE";
         case SR_WRITE_RIGHT_NODE:
             return "WRITE_RIGHT_NODE";
+        case SR_PROPAGATE_MERKLE_HASH_SEPARATOR:
+            return "PROPAGATE_MERKLE_HASH_SEPARATOR";
         case SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE:
             return "OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE";
         case SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE:

@@ -80,21 +80,13 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Slashing Quorum** | 65% | 33% |
 | **Slashing Round Size** | 128 epochs | 64 epochs |
 
-## Use Case Suitability
-
-| Use Case | Alpha (Mainnet) | Testnet |
-|----------|-------------------|---------|
-| **App Development** | ❌ | ✅ |
-| **Sequencer Testing** | ✅ | ✅ |
-| **Governance Testing** | ✅ | ✅ |
-
 ---
 
 ## Network Selection Guide
 
 ### Alpha (Mainnet)
 
-Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active.
+Alpha is the Aztec **mainnet** in its initial operational phase, with governance, networking, and transaction processing fully active. Alpha is live but early — bugs, including critical ones, are expected. For a full explanation of what this means, see the **[Alpha Network](/participate/alpha)** page.
 
 #### Overview
 
