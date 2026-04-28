@@ -106,9 +106,7 @@ template <class base_uint> uintx<base_uint> uintx<base_uint>::unsafe_invmod(cons
 template <class base_uint> uintx<base_uint> uintx<base_uint>::invmod(const uintx& modulus) const
 {
     BB_ASSERT((*this) != 0);
-    if (modulus == 0) {
-        return 0;
-    }
+    BB_ASSERT(modulus != 0);
     if (modulus.get_msb() >= (2 * base_uint::length() - 1)) {
         uintx<uintx<base_uint>> a_expanded(*this);
         uintx<uintx<base_uint>> modulus_expanded(modulus);
