@@ -279,14 +279,33 @@ function check_toolchains {
     echo -e "${bold}${yellow}WARN: Rust ${expected_abs_rust_version} is not installed. Update build-image.${reset}"
   fi
   # Check emsdk: must be activated and pinned to the expected version.
+  # On Linux (incl. CI runners whose build-image predates the Emscripten
+  # migration), auto-install if the directory is missing or the pinned
+  # version isn't active. macOS still expects a manual install.
   local emsdk_dir=${EMSDK:-/opt/emsdk}
   if [ ! -x "$emsdk_dir/upstream/emscripten/emcc" ] && [ ! -x "$emsdk_dir/emcc" ]; then
-    echo "emsdk not found at \$EMSDK ($emsdk_dir). Source emsdk_env.sh from your install."
-    toolchain_incompatible
+    if [ "$(uname)" = "Linux" ] && command -v sudo >/dev/null 2>&1; then
+      echo "emsdk not found at \$EMSDK ($emsdk_dir); installing..."
+      install_emsdk
+    else
+      echo "emsdk not found at \$EMSDK ($emsdk_dir). Source emsdk_env.sh from your install."
+      toolchain_incompatible
+    fi
   fi
   if ! grep -F "$expected_abs_emsdk_version" "$emsdk_dir/.emscripten" >/dev/null 2>&1; then
-    echo "emsdk version $expected_abs_emsdk_version not active (see .emsdk-version)."
-    toolchain_incompatible
+    if [ "$(uname)" = "Linux" ] && command -v sudo >/dev/null 2>&1; then
+      echo "emsdk version $expected_abs_emsdk_version not active; reinstalling..."
+      install_emsdk
+    else
+      echo "emsdk version $expected_abs_emsdk_version not active (see .emsdk-version)."
+      toolchain_incompatible
+    fi
+  fi
+  # Source emsdk_env.sh so emcc/em++ are on PATH for downstream build steps;
+  # bootstrap.sh runs as a non-login shell and won't pick up /etc/profile.d.
+  if [ -f "$emsdk_dir/emsdk_env.sh" ]; then
+    # shellcheck disable=SC1091
+    . "$emsdk_dir/emsdk_env.sh" >/dev/null 2>&1 || true
   fi
   # Check foundry version.
   for tool in forge anvil; do

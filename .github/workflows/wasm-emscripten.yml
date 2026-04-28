@@ -133,8 +133,13 @@ jobs:
           # shellcheck disable=SC1091
           source ./emsdk_env.sh
           echo "EMSDK=${EMSDK}" >> "$GITHUB_ENV"
-          echo "${EMSDK}" >> "$GITHUB_PATH"
           echo "${EMSDK}/upstream/emscripten" >> "$GITHUB_PATH"
+      # setup-node runs AFTER emsdk install so the action's PATH prepend
+      # outranks emsdk's bundled (older) node and the wasm-run script picks
+      # up the node 22+ runtime the migration requires.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Verify Node >= 22
         run: |
           node --version
