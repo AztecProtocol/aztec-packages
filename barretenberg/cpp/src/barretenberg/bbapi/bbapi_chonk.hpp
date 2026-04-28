@@ -184,8 +184,11 @@ struct ChonkComputeVk {
     };
 
     CircuitInputNoVK circuit;
+    /** @brief When true, derive VK using MegaZKFlavor; otherwise MegaFlavor.
+     * The caller sets this to true for the hiding-kernel circuit. */
+    bool use_zk_flavor = false;
     Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit);
+    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
     bool operator==(const ChonkComputeVk&) const = default;
 };
 
@@ -213,9 +216,12 @@ struct ChonkCheckPrecomputedVk {
 
     /** @brief Circuit with its precomputed verification key */
     CircuitInput circuit;
+    /** @brief When true, derive VK using MegaZKFlavor; otherwise MegaFlavor.
+     * The caller sets this to true for the hiding-kernel circuit. */
+    bool use_zk_flavor = false;
 
     Response execute(const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit);
+    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
     bool operator==(const ChonkCheckPrecomputedVk&) const = default;
 };
 

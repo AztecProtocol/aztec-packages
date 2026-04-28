@@ -385,3 +385,26 @@ TYPED_TEST(BigQuadOpcodeGateCountTest, OpcodeGateCount)
 
     EXPECT_EQ(program.constraints.gates_per_opcode, std::vector<size_t>({ BIG_QUAD<TypeParam> }));
 }
+
+TEST(AssertZeroConstraintTest, UnsatisfiableCircuitWithNonZeroConstantOnly)
+{
+    // An AssertZero opcode with no variables and a non-zero constant is fundamentally unsatisfiable:
+    // it asserts `nonzero_constant == 0` which can never hold.
+    Acir::Expression expr{ .q_c = bb::fr::one().to_buffer() };
+    Acir::Opcode::AssertZero assert_zero{ .value = expr };
+    AcirFormat af;
+    EXPECT_THROW_WITH_MESSAGE(
+        assert_zero_to_quad_constraints(assert_zero, af, 0),
+        "circuit is unsatisfiable. An AssertZero opcode contains no variables but has a non-zero constant");
+}
+
+TEST(AssertZeroConstraintTest, SatisfiableCircuitWithZeroConstantOnly)
+{
+    // An AssertZero opcode with no variables and a zero constant is trivially satisfiable (0 == 0),
+    // but should still be rejected since it produces a zero gate.
+    Acir::Expression expr{ .q_c = bb::fr::zero().to_buffer() };
+    Acir::Opcode::AssertZero assert_zero{ .value = expr };
+    AcirFormat af;
+    EXPECT_THROW_WITH_MESSAGE(assert_zero_to_quad_constraints(assert_zero, af, 0),
+                              "split_into_mul_quad_gates: resulted in zero gates");
+}

@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -53,7 +53,7 @@ TEST(GasConstrainingTest, AllSubrelations)
     uint64_t total_gas_da = prev_da_gas_used + base_da_gas + (dynamic_da_gas * dynamic_da_gas_factor);
 
     TestTraceContainer trace({ {
-        { C::execution_sel_should_check_gas, 1 },
+        { C::execution_sel_check_gas, 1 },
         // looked up in execution.pil
         { C::execution_opcode_gas, opcode_l2_gas },
         { C::execution_addressing_gas, addressing_gas },
@@ -137,7 +137,7 @@ TEST(GasConstrainingTest, OutOfGasBase)
     uint64_t total_gas_da = prev_da_gas_used + base_da_gas + (dynamic_da_gas * dynamic_da_gas_factor);
 
     TestTraceContainer trace({ {
-        { C::execution_sel_should_check_gas, 1 },
+        { C::execution_sel_check_gas, 1 },
         // looked up in execution.pil
         { C::execution_opcode_gas, opcode_l2_gas },
         { C::execution_addressing_gas, addressing_gas },
@@ -215,7 +215,7 @@ TEST(GasConstrainingTest, OutOfGasDynamic)
     uint64_t total_gas_da = prev_da_gas_used + base_da_gas + (dynamic_da_gas * dynamic_da_gas_factor);
 
     TestTraceContainer trace({ {
-        { C::execution_sel_should_check_gas, 1 },
+        { C::execution_sel_check_gas, 1 },
         // looked up in execution.pil
         { C::execution_opcode_gas, opcode_l2_gas },
         { C::execution_addressing_gas, addressing_gas },
@@ -276,7 +276,7 @@ TEST(GasConstrainingTest, OutOfGasDynamic)
 TEST(GasConstrainingTest, NoCheckNoOOG)
 {
     TestTraceContainer trace({ {
-        { C::execution_sel_should_check_gas, 0 },
+        { C::execution_sel_check_gas, 0 },
         // out
         { C::execution_out_of_gas_l2, 0 },
         { C::execution_out_of_gas_da, 0 },
@@ -328,7 +328,7 @@ TEST(GasConstrainingTest, DynGasFactorToRadix)
               { C::execution_sel, 1 },
               { C::execution_register_1_, radix },
               { C::execution_register_2_, num_limbs },
-              { C::execution_sel_should_check_gas, 1 },
+              { C::execution_sel_check_gas, 1 },
               // To Radix BE Dynamic Gas
               { C::execution_sel_gas_to_radix, 1 },
               { C::execution_dyn_gas_id, AVM_DYN_GAS_ID_TORADIX },
@@ -378,7 +378,7 @@ TEST(GasConstrainingTest, DynGasFactorInvalidRadix)
               { C::execution_sel, 1 },
               { C::execution_register_1_, radix },
               { C::execution_register_2_, num_limbs },
-              { C::execution_sel_should_check_gas, 1 },
+              { C::execution_sel_check_gas, 1 },
               // To Radix BE Dynamic Gas
               { C::execution_sel_gas_to_radix, 1 },
               { C::execution_dyn_gas_id, AVM_DYN_GAS_ID_TORADIX },
@@ -426,7 +426,7 @@ TEST(GasConstrainingTest, DynGasFactorToRadixInvalidRadixLt2)
                                    { C::execution_sel, 1 },
                                    { C::execution_register_1_, radix },
                                    { C::execution_register_2_, num_limbs },
-                                   { C::execution_sel_should_check_gas, 1 },
+                                   { C::execution_sel_check_gas, 1 },
                                    // To Radix BE Dynamic Gas
                                    { C::execution_sel_gas_to_radix, 1 },
                                    { C::execution_dyn_gas_id, AVM_DYN_GAS_ID_TORADIX },

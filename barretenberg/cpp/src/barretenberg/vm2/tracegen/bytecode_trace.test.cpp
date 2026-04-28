@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <vector>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
@@ -801,27 +801,27 @@ TEST(BytecodeTraceGenTest, InstrDecompositionInBytesEachOpcode)
         // Check size_in_bytes column
         const auto expected_size_in_bytes = get_wire_instruction_spec().at(w_opcode).size_in_bytes;
         ASSERT_EQ(instr_encoded.size(), expected_size_in_bytes);
-        EXPECT_EQ(FF(expected_size_in_bytes), trace.get(C::instr_fetching_instr_size, i + 1));
+        EXPECT_EQ(FF(expected_size_in_bytes), trace.get(C::instr_fetching_instr_size, i));
 
         // Inspect each byte
         for (size_t j = 0; j < static_cast<size_t>(expected_size_in_bytes); j++) {
-            EXPECT_EQ(FF(instr_encoded.at(j)), trace.get(bd_columns.at(j), i + 1));
+            EXPECT_EQ(FF(instr_encoded.at(j)), trace.get(bd_columns.at(j), i));
         }
 
         // Check exection opcode
         EXPECT_EQ(FF(static_cast<uint8_t>(get_wire_instruction_spec().at(w_opcode).exec_opcode)),
-                  trace.get(C::instr_fetching_exec_opcode, i + 1));
+                  trace.get(C::instr_fetching_exec_opcode, i));
 
         // Check indirect
-        EXPECT_EQ(FF(instr.addressing_mode), trace.get(C::instr_fetching_addressing_mode, i + 1));
+        EXPECT_EQ(FF(instr.addressing_mode), trace.get(C::instr_fetching_addressing_mode, i));
 
         // Check PCs
-        EXPECT_EQ(FF(pcs.at(i)), trace.get(C::instr_fetching_pc, i + 1));
+        EXPECT_EQ(FF(pcs.at(i)), trace.get(C::instr_fetching_pc, i));
 
         // Check operands
         size_t operand_idx = 0;
         for (const auto& operand : instr.operands) {
-            EXPECT_EQ(FF(operand), trace.get(operand_columns.at(operand_idx++), i + 1));
+            EXPECT_EQ(FF(operand), trace.get(operand_columns.at(operand_idx++), i));
         }
     }
 }
@@ -849,10 +849,9 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
 
     builder.process_instruction_fetching(events, trace);
 
-    // One extra empty row is prepended.
     const auto rows = trace.as_rows();
     const auto bytecode_size = bytecode.size();
-    EXPECT_EQ(rows.size(), num_of_opcodes + 1);
+    EXPECT_EQ(rows.size(), num_of_opcodes);
 
     for (size_t i = 0; i < num_of_opcodes; i++) {
         const auto pc = pcs.at(i);
@@ -871,7 +870,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingSingleBytecode)
 
         ASSERT_LE(bytecode_size, UINT16_MAX);
 
-        EXPECT_THAT(rows.at(i + 1),
+        EXPECT_THAT(rows.at(i),
                     AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
                           ROW_FIELD_EQ(instr_fetching_pc, pc),
                           ROW_FIELD_EQ(instr_fetching_bd0, static_cast<uint8_t>(opcodes.at(i))),
@@ -919,12 +918,11 @@ TEST(BytecodeTraceGenTest, InstrFetchingMultipleBytecodes)
 
     builder.process_instruction_fetching(events, trace);
 
-    // One extra empty row is prepended.
     const auto rows = trace.as_rows();
-    EXPECT_EQ(rows.size(), 6 + 1);
+    EXPECT_EQ(rows.size(), 6);
 
     for (size_t i = 0; i < 3; i++) {
-        EXPECT_THAT(rows.at((2 * i) + 1), ROW_FIELD_EQ(instr_fetching_pc, 0));
+        EXPECT_THAT(rows.at(2 * i), ROW_FIELD_EQ(instr_fetching_pc, 0));
     }
 }
 
@@ -974,11 +972,10 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
 
     builder.process_instruction_fetching(events, trace);
 
-    // One extra empty row is prepended.
     const auto rows = trace.as_rows();
-    ASSERT_EQ(rows.size(), 3 + 1);
+    ASSERT_EQ(rows.size(), 3);
 
-    EXPECT_THAT(rows.at(1),
+    EXPECT_THAT(rows.at(0),
                 AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
                       ROW_FIELD_EQ(instr_fetching_sel_pc_in_range, 1),
                       ROW_FIELD_EQ(instr_fetching_pc, 0),
@@ -990,7 +987,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(instr_fetching_pc_abs_diff, 19), // bytecode_size - pc - 1   if bytecode_size > pc
                       ROW_FIELD_EQ(instr_fetching_opcode_out_of_range, 1)));
 
-    EXPECT_THAT(rows.at(2),
+    EXPECT_THAT(rows.at(1),
                 AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
                       ROW_FIELD_EQ(instr_fetching_sel_pc_in_range, 1),
                       ROW_FIELD_EQ(instr_fetching_pc, 19), // OR_16 opcode
@@ -1003,7 +1000,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingParsingErrors)
                       ROW_FIELD_EQ(instr_fetching_instr_out_of_range, 1)));
 
     EXPECT_THAT(
-        rows.at(3),
+        rows.at(2),
         AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
               ROW_FIELD_EQ(instr_fetching_sel_pc_in_range, 0),
               ROW_FIELD_EQ(instr_fetching_pc, 38),
@@ -1062,11 +1059,10 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
 
     builder.process_instruction_fetching(events, trace);
 
-    // One extra empty row is prepended.
     const auto rows = trace.as_rows();
-    ASSERT_EQ(rows.size(), 2 + 1);
+    ASSERT_EQ(rows.size(), 2);
 
-    EXPECT_THAT(rows.at(1),
+    EXPECT_THAT(rows.at(0),
                 AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
                       ROW_FIELD_EQ(instr_fetching_sel_pc_in_range, 1),
                       ROW_FIELD_EQ(instr_fetching_sel_has_tag, 1),
@@ -1083,7 +1079,7 @@ TEST(BytecodeTraceGenTest, InstrFetchingErrorTagOutOfRange)
                       ROW_FIELD_EQ(instr_fetching_tag_out_of_range, 1)));
 
     EXPECT_THAT(
-        rows.at(2),
+        rows.at(1),
         AllOf(ROW_FIELD_EQ(instr_fetching_sel, 1),
               ROW_FIELD_EQ(instr_fetching_sel_pc_in_range, 1),
               ROW_FIELD_EQ(instr_fetching_sel_has_tag, 1),

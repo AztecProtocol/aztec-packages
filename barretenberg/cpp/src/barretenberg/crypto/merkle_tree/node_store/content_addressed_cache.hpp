@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -89,7 +89,6 @@ template <typename LeafValueType> class ContentAddressedCache {
         TreeMeta meta_;
         // Captures the cache's node hashes at the time of checkpoint. If the node does not exist in the cache, the
         // optional will == nullopt
-        // TODO (PhilWindle): Consider where a more optimal approach is a single unordered map, instead of 1 per level
         std::vector<std::unordered_map<index_t, std::optional<fr>>> nodes_by_index_;
         // Captures the cache's leaf pre-images at the time of checkpoint. Again, if the leaf does not exist in the
         // cache, the optional will == nullopt

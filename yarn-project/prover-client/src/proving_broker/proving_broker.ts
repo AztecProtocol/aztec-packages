@@ -321,6 +321,10 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   private cleanUpProvingJobState(ids: ProvingJobId[]) {
     for (const id of ids) {
       this.jobsCache.delete(id);
+      const deferred = this.promises.get(id);
+      if (deferred) {
+        deferred.resolve({ status: 'rejected', reason: 'Proving job cleaned up' });
+      }
       this.promises.delete(id);
       this.resultsCache.delete(id);
       this.inProgress.delete(id);
@@ -608,7 +612,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     const jobsToClean: ProvingJobId[] = [];
     for (const id of jobIds) {
       const job = this.jobsCache.get(id)!;
-      if (this.isJobStale(job)) {
+      if (this.isJobStale(job) && !this.inProgress.has(id) && !this.resultsCache.has(id)) {
         jobsToClean.push(id);
       }
     }
@@ -632,10 +636,26 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       const now = this.msTimeSource();
       const msSinceLastUpdate = now - metadata.lastUpdatedAt;
       if (msSinceLastUpdate >= this.jobTimeoutMs) {
-        this.logger.warn(`Proving job id=${id} timed out. Adding it back to the queue.`, { provingJobId: id });
         this.inProgress.delete(id);
-        this.enqueueJobInternal(item);
         this.instrumentation.incTimedOutJobs(item.type);
+
+        const retries = this.retries.get(id) ?? 0;
+        if (retries + 1 < this.maxRetries && !this.isJobStale(item)) {
+          this.logger.warn(`Proving job id=${id} timed out. Re-enqueueing (retry ${retries + 1}/${this.maxRetries}).`, {
+            provingJobId: id,
+          });
+          this.retries.set(id, retries + 1);
+          this.enqueueJobInternal(item);
+        } else {
+          this.logger.error(`Proving job id=${id} timed out after ${retries + 1} attempts. Marking as failed.`, {
+            provingJobId: id,
+          });
+          const result: ProvingJobSettledResult = { status: 'rejected', reason: 'Timed out' };
+          this.resultsCache.set(id, result);
+          this.promises.get(id)?.resolve(result);
+          this.completedJobNotifications.push(id);
+          this.instrumentation.incRejectedJobs(item.type);
+        }
       }
     }
   }

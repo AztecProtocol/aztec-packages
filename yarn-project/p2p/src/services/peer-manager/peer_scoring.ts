@@ -135,6 +135,12 @@ export class PeerScoring {
     }
   }
 
+  /** Resets all peer scores. Useful for benchmarks to prevent cross-case contamination. */
+  resetAllScores(): void {
+    this.scores.clear();
+    this.lastUpdateTime.clear();
+  }
+
   removePeer(peerId: string): void {
     this.scores.delete(peerId);
     this.lastUpdateTime.delete(peerId);

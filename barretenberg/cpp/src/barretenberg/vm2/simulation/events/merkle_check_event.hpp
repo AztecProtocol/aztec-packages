@@ -15,6 +15,7 @@ namespace bb::avm2::simulation {
  * leaf_value, leaf_index, sibling_path, root are common to both flavors and are explicitly set for both flavors.
  */
 struct MerkleCheckEvent {
+    uint64_t merkle_hash_domain_separator = 0;
     FF leaf_value = 0;
     std::optional<FF> new_leaf_value;
     uint64_t leaf_index = 0;

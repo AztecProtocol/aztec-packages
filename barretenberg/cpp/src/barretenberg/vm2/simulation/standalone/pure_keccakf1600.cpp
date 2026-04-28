@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/crypto/keccak/keccak.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/interfaces/memory.hpp"
 

@@ -258,6 +258,21 @@ bool process_aztec_artifact(const std::string& input_path, const std::string& ou
         return true;
     }
 
+    // Strip __aztec_nr_internals__ prefix from function names.
+    // The #[aztec] macro generates wrapper functions with this prefix; we strip it so
+    // the exported ABI exposes the original developer-written names.
+    const std::string internal_prefix = "__aztec_nr_internals__";
+    for (auto& function : artifact_json["functions"]) {
+        auto& name = function["name"];
+        if (name.is_string()) {
+            std::string fn_name = name.get<std::string>();
+            if (fn_name.size() >= internal_prefix.size() &&
+                fn_name.compare(0, internal_prefix.size(), internal_prefix) == 0) {
+                name = fn_name.substr(internal_prefix.size());
+            }
+        }
+    }
+
     // Filter to private constrained functions
     std::vector<nlohmann::json*> private_functions;
     for (auto& function : artifact_json["functions"]) {
@@ -266,13 +281,12 @@ bool process_aztec_artifact(const std::string& input_path, const std::string& ou
         }
     }
 
-    if (private_functions.empty()) {
+    if (!private_functions.empty()) {
+        // Generate VKs
+        generate_vks_for_functions(cache_dir, private_functions, force);
+    } else {
         info("No private constrained functions found");
-        return true;
     }
-
-    // Generate VKs
-    generate_vks_for_functions(cache_dir, private_functions, force);
 
     // Write updated JSON back to file
     std::ofstream out_file(output_path);

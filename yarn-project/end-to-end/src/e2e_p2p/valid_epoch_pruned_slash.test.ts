@@ -94,7 +94,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    const { rollup, slashingProposer, slashFactory } = await t.getContracts();
+    const { rollup, slashingProposer } = await t.getContracts();
     const [activationThreshold, ejectionThreshold, localEjectionThreshold] = await Promise.all([
       rollup.getActivationThreshold(),
       rollup.getEjectionThreshold(),
@@ -117,7 +117,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -135,6 +135,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
 
     // Set up a wallet and keep it out of reorgs
     await t.ctx.cheatCodes.rollup.markAsProven();
+    t.setupWalletOnNode(nodes[0]);
     await t.setupAccount();
     await t.ctx.cheatCodes.rollup.markAsProven();
 
@@ -156,9 +157,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     // t.logger.warn(`Submitting tx with public function execution to the network`);
     // await spamContract.methods.spam(1, 1, true).send({ from: t.defaultAccountAddress! });
 
-    // Initial node receives the txs, so we cannot stop it before that one is mined
-    // Yes, that means that there are probably two nodes running the same validator key (the initial node and nodes[0])
-    // This will come back and haunt us eventually, not just here but in most e2e p2p tests that make the same mistake
+    // Remove initial node (it's a lightweight archiver with no P2P/validator/sequencer, but clean up anyway)
     t.logger.warn(`Removing initial node`);
     await t.removeInitialNode();
 
@@ -181,7 +180,6 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       rollup,
       cheatCodes: t.ctx.cheatCodes.rollup,
       committee,
-      slashFactory,
       slashingProposer,
       slashingRoundSize,
       aztecSlotDuration,

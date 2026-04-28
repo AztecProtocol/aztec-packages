@@ -1,4 +1,26 @@
+import type { AztecNode } from '@aztec/aztec.js/node';
+import type { GasFees } from '@aztec/stdlib/gas';
+
 export const METRICS_PORT = 4318;
+
+/** Default fee padding applied to predicted min fees in e2e tests. */
+export const DEFAULT_MIN_FEE_PADDING = 5;
+
+/**
+ * Large fee padding for txs that may be mined significantly later than when they were created,
+ * such as cloned txs in throughput/capacity benchmarks, where fees may spike between creation and mining.
+ */
+export const LARGE_MIN_FEE_PADDING = 15;
+
+/** Returns worst-case predicted min fees with padding applied, mirroring the BaseWallet pattern. */
+export async function getPaddedMaxFeesPerGas(node: AztecNode, padding = DEFAULT_MIN_FEE_PADDING): Promise<GasFees> {
+  const predicted = await node.getPredictedMinFees();
+  const worstCase =
+    predicted.length > 0
+      ? predicted.reduce((worst, fees) => (fees.feePerL2Gas > worst.feePerL2Gas ? fees : worst))
+      : await node.getCurrentMinFees();
+  return worstCase.mul(1 + padding);
+}
 
 export const shouldCollectMetrics = () => {
   if (process.env.COLLECT_METRICS) {

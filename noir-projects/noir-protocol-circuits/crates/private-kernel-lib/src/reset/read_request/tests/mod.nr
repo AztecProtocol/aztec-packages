@@ -182,6 +182,7 @@ impl TestBuilder {
             tree_root: self.tree_root,
             propagated_read_requests: self.propagated_read_requests,
             hints: self.hints.to_hints(),
+            merkle_hasher: types::merkle_tree::merkle_hash,
         }
             .validate::<PendingReadAmount, SettledReadAmount>();
     }

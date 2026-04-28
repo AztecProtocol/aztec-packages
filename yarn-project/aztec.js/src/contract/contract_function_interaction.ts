@@ -130,8 +130,9 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
       const call = await this.getFunctionCall();
+      const scopes = [...(options.additionalScopes ?? [])];
       const utilityResult = await this.wallet.executeUtility(call, {
-        scopes: options.from === NO_FROM ? [] : [options.from],
+        scopes: options.from === NO_FROM ? scopes : [options.from, ...scopes],
         authWitnesses: options.authWitnesses,
       });
 
@@ -154,14 +155,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
     let rawReturnValues;
     if (this.functionDao.functionType == FunctionType.PRIVATE) {
-      if (simulatedTx.getPrivateReturnValues().nested.length > 0) {
-        // The function invoked is private and it was called via an account contract
-        // TODO(#10631): There is a bug here: this branch might be triggered when there is no-account contract as well
-        rawReturnValues = simulatedTx.getPrivateReturnValues().nested[0].values;
-      } else {
-        // The function invoked is private and it was called directly (without account contract)
-        rawReturnValues = simulatedTx.getPrivateReturnValues().values;
-      }
+      rawReturnValues = simulatedTx.getPrivateReturnValuesOfAppCall(0)?.values;
     } else {
       // For public functions we retrieve the first values directly from the public output.
       rawReturnValues = simulatedTx.getPublicReturnValues()?.[0]?.values;

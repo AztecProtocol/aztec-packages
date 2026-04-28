@@ -1,4 +1,3 @@
-// docs:start:account-utils
 /**
  * Shared account contract instantiation logic.
  *
@@ -59,4 +58,3 @@ export async function instantiateAccount(secret: string, salt: string) {
     instance,
   };
 }
-// docs:end:account-utils

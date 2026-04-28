@@ -1,0 +1,31 @@
+{{- if .Values.grafana }}
+{{- if .Values.grafana.enabled }}
+{{- $folderMap := dict
+  "aztec" "Aztec"
+  "cloudprover" "Cloud Prover"
+  "metrics" "Metrics"
+  "l1" "L1"
+-}}
+{{- range $path, $_ := .Files.Glob "grafana/dashboards/*.json" }}
+{{- $filename := base $path }}
+{{- $name := trimSuffix ".json" $filename }}
+{{- $folder := "" }}
+{{- if contains "_" $name }}
+  {{- $prefix := index (splitList "_" $name) 0 }}
+  {{- $folder = index $folderMap $prefix | default $prefix }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-{{ $name | lower | replace "_" "-" }}
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    grafana_dashboard_folder: {{ $folder | quote }}
+data:
+  {{ $filename }}: |-
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}
+{{- end }}
+{{- end }}

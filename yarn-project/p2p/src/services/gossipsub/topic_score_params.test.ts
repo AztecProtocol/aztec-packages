@@ -20,8 +20,10 @@ describe('Topic Score Params', () => {
   // Standard network parameters for testing (matching production values)
   const standardParams = {
     slotDurationMs: 72000, // 72 seconds
+    ethereumSlotDuration: 12,
     heartbeatIntervalMs: 700, // 700ms gossipsub heartbeat
     targetCommitteeSize: 48,
+    l1PublishingTime: 12,
   };
 
   describe('calculateBlocksPerSlot', () => {
@@ -42,10 +44,19 @@ describe('Topic Score Params', () => {
       expect(result).toBeGreaterThanOrEqual(1);
     });
 
-    it('returns at least 1 block per slot', () => {
-      // Even with very long block duration, should return at least 1
-      const result = calculateBlocksPerSlot(72000, 60000);
-      expect(result).toBeGreaterThanOrEqual(1);
+    it('uses the same compressed timing allowances as the sequencer for test configs', () => {
+      expect(() =>
+        calculateBlocksPerSlot(24000, 4000, {
+          ethereumSlotDuration: 8,
+          l1PublishingTime: 1,
+        }),
+      ).not.toThrow();
+    });
+
+    it('throws for an impossible timing configuration', () => {
+      expect(() => calculateBlocksPerSlot(72000, 60000)).toThrow(
+        'Invalid timing configuration: only -6s available for block building, which is less than one blockDuration (60s).',
+      );
     });
   });
 

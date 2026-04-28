@@ -178,7 +178,9 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
 
     const auto native_index = uint256_t(index.get_value());
     if (native_index >= length) {
+        // Set a failure when the index is out of bounds. Return early to avoid OOB vector access.
         context->failure("rom_table: ROM array access out of bounds");
+        return field_pt::from_witness_index(context, context->zero_idx());
     }
 
     uint32_t output_idx = context->read_ROM_array(rom_id, index.get_witness_index());
@@ -188,7 +190,6 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
 
     // If the index is legitimate, restore the tag
     if (native_index < length) {
-
         element.set_origin_tag(_tags[cast_index]);
     }
     return element;

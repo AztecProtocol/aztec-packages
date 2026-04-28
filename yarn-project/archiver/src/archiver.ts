@@ -11,7 +11,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import {
   type ArchiverEmitter,
   L2Block,
@@ -31,6 +31,7 @@ import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@a
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { BlockAlreadyCheckpointedError, NoBlobBodiesFoundError } from './errors.js';
+import { validateAndLogHistoricalLogsAvailability } from './l1/validate_historical_logs.js';
 import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
 import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
@@ -85,13 +86,15 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   public readonly tracer: Tracer;
 
+  private readonly instrumentation: ArchiverInstrumentation;
+
   /**
    * Creates a new instance of the Archiver.
    * @param publicClient - A client for interacting with the Ethereum node.
    * @param debugClient - A client for interacting with the Ethereum node for debug/trace methods.
    * @param rollup - Rollup contract instance.
    * @param inbox - Inbox contract instance.
-   * @param l1Addresses - L1 contract addresses (registry, governance proposer, slash factory, slashing proposer).
+   * @param l1Addresses - L1 contract addresses (registry, governance proposer, slashing proposer).
    * @param dataStore - An archiver data store for storage & retrieval of blocks, encrypted logs & contract data.
    * @param config - Archiver configuration options.
    * @param blobClient - Client for retrieving blob data.
@@ -106,8 +109,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     private readonly rollup: RollupContract,
     private readonly l1Addresses: Pick<
       L1ContractAddresses,
-      'registryAddress' | 'governanceProposerAddress' | 'slashFactoryAddress'
-    > & { slashingProposerAddress: EthAddress },
+      'rollupAddress' | 'registryAddress' | 'inboxAddress' | 'governanceProposerAddress'
+    > & {
+      slashingProposerAddress: EthAddress;
+    },
     readonly dataStore: KVArchiverDataStore,
     private config: {
       pollingIntervalMs: number;
@@ -115,6 +120,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       skipValidateCheckpointAttestations?: boolean;
       maxAllowedEthClientDriftSeconds: number;
       ethereumAllowNoDebugHosts?: boolean;
+      skipHistoricalLogsCheck?: boolean;
     },
     private readonly blobClient: BlobClientInterface,
     instrumentation: ArchiverInstrumentation,
@@ -130,6 +136,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     super(dataStore, l1Constants);
 
     this.tracer = instrumentation.tracer;
+    this.instrumentation = instrumentation;
     this.initialSyncPromise = promiseWithResolvers();
     this.synchronizer = synchronizer;
     this.events = events;
@@ -168,6 +175,17 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     await validateAndLogTraceAvailability(
       this.debugClient,
       this.config.ethereumAllowNoDebugHosts ?? false,
+      this.log.getBindings(),
+    );
+    await validateAndLogHistoricalLogsAvailability(
+      this.publicClient,
+      {
+        rollupAddress: this.l1Addresses.rollupAddress,
+        inboxAddress: this.l1Addresses.inboxAddress,
+        registryAddress: this.l1Addresses.registryAddress,
+        governanceProposerAddress: this.l1Addresses.governanceProposerAddress,
+      },
+      this.config.skipHistoricalLogsCheck ?? false,
       this.log.getBindings(),
     );
 
@@ -245,7 +263,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       }
 
       try {
-        await this.updater.addProposedBlock(block);
+        const [durationMs] = await elapsed(() => this.updater.addProposedBlock(block));
+        this.instrumentation.processNewProposedBlock(durationMs, block);
         this.log.debug(`Added block ${block.number} to store`);
         resolve();
       } catch (err: any) {

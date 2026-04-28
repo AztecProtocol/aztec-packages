@@ -45,6 +45,8 @@ export const BLOCK_NUMBER = 'aztec.block.number';
 export const BLOCK_HASH = 'aztec.block.hash';
 /** The slot number */
 export const SLOT_NUMBER = 'aztec.slot.number';
+/** Whether an event happened before or after a slot boundary. */
+export const SLOT_BOUNDARY_SIDE = 'aztec.slot_boundary_side';
 /** The checkpoint number */
 export const CHECKPOINT_NUMBER = 'aztec.checkpoint.number';
 /** The parent's block number */

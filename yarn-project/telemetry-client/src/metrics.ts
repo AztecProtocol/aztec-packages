@@ -308,6 +308,12 @@ export const ARCHIVER_SYNC_PER_BLOCK: MetricDefinition = {
   unit: 'ms',
   valueType: ValueType.INT,
 };
+export const ARCHIVER_SYNC_PER_CHECKPOINT: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint.sync_per_item_duration',
+  description: 'Duration to sync a checkpoint',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
 export const ARCHIVER_SYNC_BLOCK_COUNT: MetricDefinition = {
   name: 'aztec.archiver.block.sync_count',
   description: 'Number of blocks synced from L1',
@@ -357,6 +363,12 @@ export const ARCHIVER_CHECKPOINT_L1_INCLUSION_DELAY: MetricDefinition = {
   valueType: ValueType.INT,
 };
 
+export const ARCHIVER_CHECKPOINT_PROMOTED_COUNT: MetricDefinition = {
+  name: 'aztec.archiver.checkpoint_promoted_count',
+  description: 'Number of checkpoints promoted from proposed (blob fetch skipped)',
+  valueType: ValueType.INT,
+};
+
 export const NODE_RECEIVE_TX_DURATION: MetricDefinition = {
   name: 'aztec.node.receive_tx.duration',
   description: 'The duration of the receiveTx method',
@@ -403,6 +415,12 @@ export const SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND: MetricDefinition = {
 export const SEQUENCER_BLOCK_COUNT: MetricDefinition = {
   name: 'aztec.sequencer.block.count',
   description: 'Number of blocks built by this sequencer',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_BLOCK_INTER_BLOCK_TIME: MetricDefinition = {
+  name: 'aztec.sequencer.block.inter_block_time',
+  description: 'Wall-clock time elapsed between consecutive blocks being built by this sequencer',
+  unit: 'ms',
   valueType: ValueType.INT,
 };
 export const SEQUENCER_CURRENT_SLOT_REWARDS: MetricDefinition = {
@@ -477,6 +495,25 @@ export const SEQUENCER_CHECKPOINT_BUILD_DURATION: MetricDefinition = {
   unit: 'ms',
   valueType: ValueType.INT,
 };
+export const SEQUENCER_CHECKPOINT_START_TO_FIRST_BLOCK_DURATION: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.start_to_first_block_duration',
+  description: 'Time from starting checkpoint work to the first block finishing build',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_CHECKPOINT_LAST_BLOCK_TO_BROADCAST_DURATION: MetricDefinition = {
+  name: 'aztec.sequencer.checkpoint.last_block_to_broadcast_duration',
+  description: 'Time from the final block finishing build to the checkpoint proposal being broadcast',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_PIPELINED_CHECKPOINT_BUILD_START_OFFSET_FROM_SLOT_BOUNDARY: MetricDefinition = {
+  name: 'aztec.sequencer.pipelined_checkpoint.build_start_offset_from_slot_boundary',
+  description:
+    'Absolute offset from the wall-clock slot boundary when a pipelined checkpoint build starts. Use aztec.slot_boundary_side to distinguish before vs after the boundary.',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
 export const SEQUENCER_CHECKPOINT_BLOCK_COUNT: MetricDefinition = {
   name: 'aztec.sequencer.checkpoint.block_count',
   description: 'Number of blocks built in a checkpoint',
@@ -512,6 +549,11 @@ export const SEQUENCER_PIPELINE_DEPTH: MetricDefinition = {
 export const SEQUENCER_PIPELINE_DISCARDS_COUNT: MetricDefinition = {
   name: 'aztec.sequencer.pipeline.discards_count',
   description: 'The number of times a pipeline was discarded',
+  valueType: ValueType.INT,
+};
+export const SEQUENCER_PIPELINE_PARENT_CHECKPOINT_MISMATCH_COUNT: MetricDefinition = {
+  name: 'aztec.sequencer.pipeline.parent_checkpoint_mismatch_count',
+  description: 'The number of times a pipelined checkpoint was discarded because the parent did not match expectations',
   valueType: ValueType.INT,
 };
 
@@ -678,6 +720,24 @@ export const L1_PUBLISHER_BALANCE: MetricDefinition = {
 export const L1_PUBLISHER_TX_TOTAL_FEE: MetricDefinition = {
   name: 'aztec.l1_publisher.tx_total_fee',
   description: 'How much L1 tx costs',
+  unit: 'eth',
+  valueType: ValueType.DOUBLE,
+};
+export const PROVER_NODE_ESTIMATED_SUBMISSION_GAS: MetricDefinition = {
+  name: 'aztec.prover_node.estimated_submission.gas',
+  description: 'Estimated gas for a proof submission tx (proof publishing disabled, not actually sent)',
+  unit: 'gas',
+  valueType: ValueType.INT,
+};
+export const PROVER_NODE_ESTIMATED_SUBMISSION_GAS_PRICE: MetricDefinition = {
+  name: 'aztec.prover_node.estimated_submission.gas_price',
+  description: 'Estimated effective gas price for a proof submission tx (proof publishing disabled, not actually sent)',
+  unit: 'gwei',
+  valueType: ValueType.DOUBLE,
+};
+export const PROVER_NODE_ESTIMATED_SUBMISSION_TOTAL_FEE: MetricDefinition = {
+  name: 'aztec.prover_node.estimated_submission.total_fee',
+  description: 'Estimated total L1 fee for a proof submission tx (proof publishing disabled, not actually sent)',
   unit: 'eth',
   valueType: ValueType.DOUBLE,
 };
@@ -909,6 +969,12 @@ export const P2P_GOSSIP_AGG_MESSAGE_VALIDATION_DURATION_AVG: MetricDefinition = 
   valueType: ValueType.INT,
 };
 
+export const P2P_GOSSIP_SLOW_VALIDATION_COUNT: MetricDefinition = {
+  name: 'aztec.p2p.gossip.slow_validation_count',
+  description: 'Number of gossip validations that exceeded 75% of the mcache eviction window',
+  valueType: ValueType.INT,
+};
+
 export const PUBLIC_PROCESSOR_TX_DURATION: MetricDefinition = {
   name: 'aztec.public_processor.tx_duration',
   description: 'Duration to process a public transaction',
@@ -969,6 +1035,17 @@ export const PUBLIC_PROCESSOR_GAS_RATE: MetricDefinition = {
 export const PUBLIC_PROCESSOR_TREE_INSERTION: MetricDefinition = {
   name: 'aztec.public_processor.tree_insertion',
   description: 'Duration of tree insertion in public processor',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PUBLIC_PROCESSOR_SILENTLY_SKIPPED_COUNT: MetricDefinition = {
+  name: 'aztec.public_processor.silently_skipped_count',
+  description: 'Public txs fully processed then skipped (e.g. blob-field limit); not counted as processed or failed',
+  valueType: ValueType.INT,
+};
+export const PUBLIC_PROCESSOR_SILENTLY_SKIPPED_DURATION: MetricDefinition = {
+  name: 'aztec.public_processor.silently_skipped_duration',
+  description: 'Wall-clock time spent processing txs that were then silently skipped',
   unit: 'ms',
   valueType: ValueType.INT,
 };
@@ -1284,6 +1361,19 @@ export const VALIDATOR_RE_EXECUTION_TX_COUNT: MetricDefinition = {
   name: 'aztec.validator.re_execution_tx_count',
   description: 'The number of txs in a block proposal',
   unit: 'tx',
+  valueType: ValueType.INT,
+};
+export const VALIDATOR_CHECKPOINT_PROPOSAL_TO_PIPELINED_STATE_DURATION: MetricDefinition = {
+  name: 'aztec.validator.checkpoint_proposal_to_pipelined_state_duration',
+  description: 'Time from receiving a checkpoint proposal to setting proposed checkpoint state for pipelining',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const VALIDATOR_CHECKPOINT_PROPOSAL_RECEIVE_OFFSET_FROM_NEXT_SLOT_BOUNDARY: MetricDefinition = {
+  name: 'aztec.validator.checkpoint.proposal_receive_offset_from_next_slot_boundary',
+  description:
+    'Absolute offset from the next slot boundary when a foreign checkpoint proposal is received. Use aztec.slot_boundary_side to distinguish before vs after the boundary.',
+  unit: 'ms',
   valueType: ValueType.INT,
 };
 

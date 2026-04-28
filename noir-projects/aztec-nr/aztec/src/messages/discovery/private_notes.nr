@@ -18,7 +18,6 @@ pub(crate) unconstrained fn process_private_note_msg(
     compute_note_nullifier: ComputeNoteNullifier,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-    recipient: AztecAddress,
 ) {
     let decoded = decode_private_note_message(msg_metadata, msg_content);
 
@@ -37,7 +36,6 @@ pub(crate) unconstrained fn process_private_note_msg(
             randomness,
             note_type_id,
             packed_note,
-            recipient,
         );
     } else {
         aztecnr_warn_log_format!(
@@ -62,7 +60,6 @@ pub unconstrained fn attempt_note_discovery(
     randomness: Field,
     note_type_id: Field,
     packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
-    recipient: AztecAddress,
 ) {
     let discovered_notes = attempt_note_nonce_discovery(
         unique_note_hashes_in_tx,
@@ -105,7 +102,6 @@ pub unconstrained fn attempt_note_discovery(
             discovered_note.note_hash,
             discovered_note.inner_nullifier,
             tx_hash,
-            recipient,
         );
     });
 }

@@ -4,8 +4,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -161,7 +161,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                           { C::tx_sel_read_phase_length, is_first_call ? 1 : 0 },
                           // Lookup Precomputed Table Values
                           { C::tx_is_public_call_request, 1 },
-                          { C::tx_should_process_call_request, 1 },
+                          { C::tx_sel_process_call_request, 1 },
                           { C::tx_read_pi_start_offset, AVM_PUBLIC_INPUTS_PUBLIC_SETUP_CALL_REQUESTS_ROW_IDX },
                           { C::tx_read_pi_offset, read_pi_offset },
                           { C::tx_read_pi_length_offset,
@@ -251,7 +251,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                           { C::tx_sel_read_phase_length, is_first_call ? 1 : 0 },
                           // Lookup Precomputed Table Values
                           { C::tx_is_public_call_request, 1 },
-                          { C::tx_should_process_call_request, 1 },
+                          { C::tx_sel_process_call_request, 1 },
                           { C::tx_read_pi_start_offset, AVM_PUBLIC_INPUTS_PUBLIC_APP_LOGIC_CALL_REQUESTS_ROW_IDX },
                           { C::tx_read_pi_offset, read_pi_offset },
                           { C::tx_read_pi_length_offset,
@@ -660,7 +660,7 @@ TEST_F(TxExecutionConstrainingTestHelper, CollectFees)
 
     trace.set(10,
               { {
-                  { C::tx_should_process_call_request, 1 },
+                  { C::tx_sel_process_call_request, 1 },
                   { C::tx_remaining_phase_counter, 1 },
                   { C::tx_remaining_phase_inv, 1 },
                   // Public Input Loaded Values
@@ -849,4 +849,43 @@ TEST_F(TxExecutionConstrainingWithCalldataTest, SimpleHandleCalldata)
     check_relation<bb::avm2::calldata_hashing<FF>>(trace);
     check_all_interactions<tracegen::CalldataTraceBuilder>(trace);
 }
+
+// Verify that the nullifier state increment is unconditional when sel_nullifier_append = 1.
+// A malicious prover cannot set reverted = 1 to skip the state increment.
+TEST(TxExecutionConstrainingTest, NegativeNullifierStateIncrementIsUnconditional)
+{
+    // #[NULLIFIER_TREE_SIZE_INCREMENT]: sel_nullifier_append * (prev_nullifier_tree_size + 1 -
+    // next_nullifier_tree_size) =
+    // 0
+    // #[NUM_NULLIFIERS_EMITTED_INCREMENT]: sel_nullifier_append * (prev_num_nullifiers_emitted + 1 -
+    // next_num_nullifiers_emitted) = 0
+    TestTraceContainer trace({
+        {
+            // Row 0
+            { C::precomputed_first_row, 1 },
+        },
+        {
+            // Row 1: Nullifier append with sel_nullifier_append = 1 but state not incremented.
+            { C::tx_sel, 1 },
+            { C::tx_sel_nullifier_append, 1 },
+            { C::tx_reverted, 1 }, // Prover tries to cheat by setting reverted = 1.
+            { C::tx_prev_nullifier_tree_size, 5 },
+            { C::tx_next_nullifier_tree_size, 5 }, // Should be 6.
+            { C::tx_prev_num_nullifiers_emitted, 3 },
+            { C::tx_next_num_nullifiers_emitted, 3 }, // Should be 4.
+        },
+    });
+
+    // Tree size must increment unconditionally.
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NULLIFIER_TREE_SIZE_INCREMENT),
+                              "NULLIFIER_TREE_SIZE_INCREMENT");
+    // Fix tree size, break emitted count.
+    trace.set(C::tx_next_nullifier_tree_size, 1, 6);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_NULLIFIER_EMITTED_COUNT_INCREMENT),
+                              "NULLIFIER_EMITTED_COUNT_INCREMENT");
+    // Fix emitted count — both should pass now.
+    trace.set(C::tx_next_num_nullifiers_emitted, 1, 4);
+    check_relation<tx>(trace, tx::SR_NULLIFIER_TREE_SIZE_INCREMENT, tx::SR_NULLIFIER_EMITTED_COUNT_INCREMENT);
+}
+
 } // namespace bb::avm2::constraining

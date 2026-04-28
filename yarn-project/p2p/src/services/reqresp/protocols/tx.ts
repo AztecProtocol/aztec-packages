@@ -51,9 +51,7 @@ export function reqRespTxHandler(mempools: MemPools): ReqRespSubProtocolHandler 
  *  Per: https://github.com/AztecProtocol/aztec-packages/issues/15149#issuecomment-2999054485
  *  we define Q as max number of transactions per batch, the comment explains why we use 8.
  */
-//TODO: (mralj) chunk size should by default be 8, this is just temporary until the protocol is implemented correctly
-//more info:  https://github.com/AztecProtocol/aztec-packages/pull/15516#pullrequestreview-2995474321
-export function chunkTxHashesRequest(hashes: TxHash[], chunkSize = 1): Array<TxHashArray> {
+export function chunkTxHashesRequest(hashes: TxHash[], chunkSize = 8): Array<TxHashArray> {
   return chunk(hashes, chunkSize).map(chunk => new TxHashArray(...chunk));
 }
 

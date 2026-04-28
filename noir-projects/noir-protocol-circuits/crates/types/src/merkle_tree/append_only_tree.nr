@@ -41,7 +41,7 @@ pub fn insert_subtree_root_to_snapshot<let TreeHeight: u32, let SubtreeHeight: u
     )
 }
 
-fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let SubtreeHeight: u32>(
+pub fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let SubtreeHeight: u32>(
     snapshot: AppendOnlyTreeSnapshot,
     sibling_path: [Field; TreeHeight - SubtreeHeight],
     subtree_root_to_insert: Field,

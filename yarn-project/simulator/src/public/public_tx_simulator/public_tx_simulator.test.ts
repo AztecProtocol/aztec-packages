@@ -1,11 +1,4 @@
-import {
-  GAS_ESTIMATION_DA_GAS_LIMIT,
-  GAS_ESTIMATION_L2_GAS_LIMIT,
-  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
-  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
-  MAX_PROCESSABLE_L2_GAS,
-  NULLIFIER_SUBTREE_HEIGHT,
-} from '@aztec/constants';
+import { MAX_PROCESSABLE_L2_GAS, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -14,7 +7,15 @@ import { PublicDataWrite, PublicSimulatorConfig, PublicTxResult, RevertCode } fr
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import {
+  GAS_ESTIMATION_DA_GAS_LIMIT,
+  GAS_ESTIMATION_L2_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
+  GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
+  Gas,
+  GasFees,
+  GasSettings,
+} from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { countAccumulatedItems } from '@aztec/stdlib/kernel';
@@ -1091,8 +1092,9 @@ describe('public_tx_simulator', () => {
     });
   });
 
-  it('nullifier collision in insertRevertiblesFromPrivate skips app logic but executes teardown', async () => {
-    // Mock a transaction with all three phases
+  it('nullifier collision in insertRevertiblesFromPrivate is unrecoverable', async () => {
+    // A nullifier collision during revertible insertions is unprovable (matches AVM circuit behavior).
+    // The NullifierCollisionError propagates out of simulate() rather than triggering a soft revert.
     const tx = await mockTxWithPublicCalls({
       numberOfSetupCalls: 1,
       numberOfAppLogicCalls: 1,
@@ -1103,16 +1105,7 @@ describe('public_tx_simulator', () => {
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = duplicateNullifier;
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[1] = duplicateNullifier;
 
-    // Simulate the transaction
-    const txResult = await simulator.simulate(tx);
-
-    // Verify that the transaction has app logic reverted code
-    expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
-
-    // Verify that the SimulationError contains information about the nullifier collision
-    const revertReason = txResult.findRevertReason();
-    expect(revertReason).toBeDefined();
-    expect(revertReason?.getOriginalMessage()).toContain('Nullifier collision');
+    await expect(simulator.simulate(tx)).rejects.toThrow(/Nullifier collision/);
   });
 
   describe('prover id', () => {

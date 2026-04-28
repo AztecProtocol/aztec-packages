@@ -8,6 +8,10 @@ displayed_sidebar: participateSidebar
 
 Welcome to the Participate section. Here you'll find educational content about how the Aztec network operates, the $AZTEC token, and how governance works.
 
+:::caution Alpha Network
+Aztec is currently in its **Alpha** phase, a live mainnet where bugs, including critical ones, are expected. Before using the network, read the [Alpha Network](/participate/alpha) page to understand current limitations, security expectations, and what to expect from rollup upgrades.
+:::
+
 ## Basics of Aztec
 
 New to Aztec? Start here to understand the fundamentals:
