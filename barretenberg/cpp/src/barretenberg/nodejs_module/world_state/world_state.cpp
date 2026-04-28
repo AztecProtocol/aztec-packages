@@ -119,19 +119,39 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         throw Napi::TypeError::New(env, "Header generator point needs to be a number");
     }
 
+    uint64_t genesis_timestamp = 0;
+    size_t genesis_timestamp_index = 5;
+    if (info.Length() > genesis_timestamp_index) {
+        if (info[genesis_timestamp_index].IsNumber()) {
+            genesis_timestamp = static_cast<uint64_t>(info[genesis_timestamp_index].As<Napi::Number>().Int64Value());
+        } else {
+            throw Napi::TypeError::New(env, "Genesis timestamp needs to be a number");
+        }
+    }
+
     // optional parameters
-    size_t map_size_index = 5;
+    size_t map_size_index = 6;
     if (info.Length() > map_size_index) {
         if (info[map_size_index].IsObject()) {
             Napi::Object obj = info[map_size_index].As<Napi::Object>();
 
             for (auto tree_id : tree_ids) {
                 if (obj.Has(tree_id)) {
-                    map_size[tree_id] = obj.Get(tree_id).As<Napi::Number>().Uint32Value();
+                    // Int64Value is the widest integer accessor in N-API (no Uint64Value exists)
+                    int64_t val = obj.Get(tree_id).As<Napi::Number>().Int64Value();
+                    if (val <= 0) {
+                        throw Napi::TypeError::New(env, "Map size must be a positive number");
+                    }
+                    map_size[tree_id] = static_cast<uint64_t>(val);
                 }
             }
         } else if (info[map_size_index].IsNumber()) {
-            uint64_t size = info[map_size_index].As<Napi::Number>().Uint32Value();
+            // Int64Value is the widest integer accessor in N-API (no Uint64Value exists)
+            int64_t val = info[map_size_index].As<Napi::Number>().Int64Value();
+            if (val <= 0) {
+                throw Napi::TypeError::New(env, "Map size must be a positive number");
+            }
+            uint64_t size = static_cast<uint64_t>(val);
             for (auto tree_id : tree_ids) {
                 map_size[tree_id] = size;
             }
@@ -140,7 +160,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         }
     }
 
-    size_t thread_pool_size_index = 6;
+    size_t thread_pool_size_index = 7;
     if (info.Length() > thread_pool_size_index) {
         if (!info[thread_pool_size_index].IsNumber()) {
             throw Napi::TypeError::New(env, "Thread pool size must be a number");
@@ -155,7 +175,8 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
                                        tree_height,
                                        tree_prefill,
                                        prefilled_public_data,
-                                       initial_header_generator_point);
+                                       initial_header_generator_point,
+                                       genesis_timestamp);
 
     _dispatcher.register_target(
         WorldStateMessageType::GET_TREE_INFO,

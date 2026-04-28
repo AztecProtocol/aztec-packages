@@ -29,21 +29,21 @@ Aztec.nr provides pre-built note types for common use cases:
 
 ```toml
 # In Nargo.toml
-uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/uint-note" }
+uint_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="uint-note" }
 ```
 
 **FieldNote** - For storing single Field values:
 
 ```toml
 # In Nargo.toml
-field_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/field-note" }
+field_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="field-note" }
 ```
 
 **AddressNote** - For storing Aztec addresses:
 
 ```toml
 # In Nargo.toml
-address_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/aztec-nr/address-note" }
+address_note = { git="https://github.com/AztecProtocol/aztec-nr", tag="#include_aztec_version", directory="address-note" }
 ```
 
 :::
@@ -64,7 +64,7 @@ The `#[note]` macro generates the following for your struct:
 
 Your note struct must derive:
 
-- `Packable` - Required by the `#[note]` macro for serialization
+- `Packable` - Required by the `#[note]` macro for note hash computation. You can manually implement this for tighter packing — see [Data Packing and Serialization](./data_packing.md).
 - `Eq` - Required by storage types like `PrivateSet` for note comparisons
 
 The `#[note]` macro handles the `NoteType`, `NoteHash`, and `NoteProperties` traits automatically.

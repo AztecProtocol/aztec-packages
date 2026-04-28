@@ -121,6 +121,7 @@ export async function createArchiver(
       batchSize: 100,
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: false,
+      skipHistoricalLogsCheck: false,
     },
     mapArchiverConfig(config),
   );

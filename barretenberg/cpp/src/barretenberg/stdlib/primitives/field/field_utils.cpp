@@ -22,6 +22,11 @@ void validate_split_in_field_unsafe(const field_t<Builder>& lo,
     const uint256_t r_lo = field_modulus.slice(0, lo_bits);
     const uint256_t r_hi = field_modulus.slice(lo_bits, field_modulus.get_msb() + 1);
 
+    // Precondition: r_lo must be nonzero. If r_lo == 0, the borrow logic below breaks.
+    // The fields of our concern (bn254 Fr/Fq, secp256k1 Fq) have nonzero low bits, so this
+    // precondition holds for all current uses.
+    BB_ASSERT(r_lo != 0, "validate_split_in_field_unsafe: low bits of modulus are zero, borrow logic is unsound");
+
     // Algorithm: Validate lo + hi * 2^lo_bits < field_modulus using borrow logic
     //
     // We want: value < modulus, i.e., value <= modulus - 1

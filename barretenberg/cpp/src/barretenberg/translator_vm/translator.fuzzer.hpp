@@ -82,7 +82,7 @@ std::optional<std::tuple<Fq, Fq, std::shared_ptr<ECCOpQueue>>> parse_and_constru
     if (size_left < sizeof(uint256_t)) {
         return {};
     }
-    const auto x = Fq(read_uint256(data));
+    const auto x = Fq(read_uint256(data + sizeof(uint256_t)));
     if (x.is_zero()) {
         return {};
     }

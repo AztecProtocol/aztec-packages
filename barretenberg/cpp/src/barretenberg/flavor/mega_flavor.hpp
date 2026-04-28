@@ -5,6 +5,8 @@
 // =====================
 
 #pragma once
+#include <utility>
+
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -186,35 +188,14 @@ class MegaFlavor {
                               ecc_op_wire_4,                  // column 11
                               calldata,                       // column 12
                               calldata_read_counts,           // column 13
-                              calldata_read_tags,             // column 14
-                              calldata_inverses,              // column 15
-                              secondary_calldata,             // column 16
-                              secondary_calldata_read_counts, // column 17
-                              secondary_calldata_read_tags,   // column 18
-                              secondary_calldata_inverses,    // column 19
-                              return_data,                    // column 20
-                              return_data_read_counts,        // column 21
-                              return_data_read_tags,          // column 22
-                              return_data_inverses);          // column 23
+                              calldata_inverses,              // column 14
+                              secondary_calldata,             // column 15
+                              secondary_calldata_read_counts, // column 16
+                              secondary_calldata_inverses,    // column 17
+                              return_data,                    // column 18
+                              return_data_read_counts,        // column 19
+                              return_data_inverses);          // column 20
         auto get_to_be_shifted() { return RefArray{ z_perm }; };
-    };
-
-    /**
-     * @brief ZK-specific entities (only used when HasZK = true)
-     * @details Contains the Gemini masking polynomial used for zero-knowledge
-     */
-    template <typename DataType, bool HasZK_ = false> class MaskingEntities {
-      public:
-        // When ZK is disabled, this class is empty
-        auto get_all() { return RefArray<DataType, 0>{}; }
-        auto get_all() const { return RefArray<const DataType, 0>{}; }
-        static auto get_labels() { return std::vector<std::string>{}; }
-    };
-
-    // Specialization for when ZK is enabled
-    template <typename DataType> class MaskingEntities<DataType, true> {
-      public:
-        DEFINE_FLAVOR_MEMBERS(DataType, gemini_masking_poly)
     };
 
     /**
@@ -232,73 +213,48 @@ class MegaFlavor {
         {
             return RefArray{ this->ecc_op_wire_1, this->ecc_op_wire_2, this->ecc_op_wire_3, this->ecc_op_wire_4 };
         }
+
+        // Per-bus entity groups. Keeps the mapping from bus_idx to the named DerivedEntities members
+        // in one place; the indexed getters below build their RefArrays by unpacking over 0..NUM_BUS_COLUMNS-1.
+        template <size_t bus_idx> auto databus_entities_for_bus()
+        {
+            if constexpr (bus_idx == 0) {
+                return RefArray{ this->calldata, this->calldata_read_counts };
+            } else if constexpr (bus_idx == 1) {
+                return RefArray{ this->secondary_calldata, this->secondary_calldata_read_counts };
+            } else {
+                static_assert(bus_idx == 2);
+                return RefArray{ this->return_data, this->return_data_read_counts };
+            }
+        }
+        template <size_t bus_idx> auto databus_inverse_for_bus()
+        {
+            if constexpr (bus_idx == 0) {
+                return RefArray{ this->calldata_inverses };
+            } else if constexpr (bus_idx == 1) {
+                return RefArray{ this->secondary_calldata_inverses };
+            } else {
+                static_assert(bus_idx == 2);
+                return RefArray{ this->return_data_inverses };
+            }
+        }
+
         auto get_databus_entities() // Excludes the derived inverse polynomials
         {
-            return RefArray{
-                this->calldata,           this->calldata_read_counts,           this->calldata_read_tags,
-                this->secondary_calldata, this->secondary_calldata_read_counts, this->secondary_calldata_read_tags,
-                this->return_data,        this->return_data_read_counts,        this->return_data_read_tags
-            };
+            return [this]<size_t... Is>(std::index_sequence<Is...>) {
+                return concatenate(this->template databus_entities_for_bus<Is>()...);
+            }(std::make_index_sequence<NUM_BUS_COLUMNS>{});
         }
 
         auto get_databus_inverses()
         {
-            return RefArray{
-                this->calldata_inverses,
-                this->secondary_calldata_inverses,
-                this->return_data_inverses,
-            };
+            return [this]<size_t... Is>(std::index_sequence<Is...>) {
+                return concatenate(this->template databus_inverse_for_bus<Is>()...);
+            }(std::make_index_sequence<NUM_BUS_COLUMNS>{});
         }
         auto get_to_be_shifted()
         {
             return concatenate(WireEntities<DataType>::get_all(), DerivedEntities<DataType>::get_to_be_shifted());
-        }
-
-        // Entities masked in ZK mode: all witness except ECC op wires (masked via random ops)
-        // and calldata (left unmasked).
-        auto get_masked()
-        {
-            return RefArray{ this->w_l,
-                             this->w_r,
-                             this->w_o,
-                             this->w_4,
-                             this->z_perm,
-                             this->lookup_inverses,
-                             this->lookup_read_counts,
-                             this->lookup_read_tags,
-                             this->calldata_read_counts,
-                             this->calldata_read_tags,
-                             this->calldata_inverses,
-                             this->secondary_calldata,
-                             this->secondary_calldata_read_counts,
-                             this->secondary_calldata_read_tags,
-                             this->secondary_calldata_inverses,
-                             this->return_data,
-                             this->return_data_read_counts,
-                             this->return_data_read_tags,
-                             this->return_data_inverses };
-        }
-        auto get_masked() const
-        {
-            return RefArray{ this->w_l,
-                             this->w_r,
-                             this->w_o,
-                             this->w_4,
-                             this->z_perm,
-                             this->lookup_inverses,
-                             this->lookup_read_counts,
-                             this->lookup_read_tags,
-                             this->calldata_read_counts,
-                             this->calldata_read_tags,
-                             this->calldata_inverses,
-                             this->secondary_calldata,
-                             this->secondary_calldata_read_counts,
-                             this->secondary_calldata_read_tags,
-                             this->secondary_calldata_inverses,
-                             this->return_data,
-                             this->return_data_read_counts,
-                             this->return_data_read_tags,
-                             this->return_data_inverses };
         }
     };
 
@@ -324,24 +280,19 @@ class MegaFlavor {
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
      * polynomials; the univariates constructed during sumcheck; the evaluations produced by sumcheck.
      *
-     * Symbolically we have: AllEntities = MaskingEntities + PrecomputedEntities + WitnessEntities + ShiftedEntities.
+     * Symbolically we have: AllEntities = PrecomputedEntities + WitnessEntities + ShiftedEntities.
+     * Note: Mega has no MaskingEntities — ZK masking is provided by the Translator in Chonk.
      */
-    template <typename DataType, bool HasZK_ = HasZK>
-    class AllEntities_ : public MaskingEntities<DataType, HasZK_>,
-                         public PrecomputedEntities<DataType>,
+    template <typename DataType>
+    class AllEntities_ : public PrecomputedEntities<DataType>,
                          public WitnessEntities_<DataType>,
                          public ShiftedEntities<DataType> {
       public:
-        DEFINE_COMPOUND_GET_ALL(MaskingEntities<DataType, HasZK_>,
-                                PrecomputedEntities<DataType>,
-                                WitnessEntities_<DataType>,
-                                ShiftedEntities<DataType>)
+        DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities_<DataType>, ShiftedEntities<DataType>)
 
         auto get_unshifted()
         {
-            return concatenate(MaskingEntities<DataType, HasZK_>::get_all(),
-                               PrecomputedEntities<DataType>::get_all(),
-                               WitnessEntities_<DataType>::get_all());
+            return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities_<DataType>::get_all());
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities_<DataType>::get_all(); };
@@ -350,8 +301,7 @@ class MegaFlavor {
         auto get_shifted() const { return ShiftedEntities<DataType>::get_all(); };
     };
 
-    // Default AllEntities alias (no ZK)
-    template <typename DataType> using AllEntities = AllEntities_<DataType, HasZK>;
+    template <typename DataType> using AllEntities = AllEntities_<DataType>;
 
     // Derive entity counts from the actual struct definitions
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = PrecomputedEntities<FF>::_members_size;
@@ -359,6 +309,9 @@ class MegaFlavor {
     static constexpr size_t NUM_SHIFTED_ENTITIES = ShiftedEntities<FF>::_members_size;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
+
+    // Rows reserved at the top of the trace for row-disabling / ZK masking.
+    static constexpr size_t TRACE_OFFSET = 0;
 
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_ENTITIES);
@@ -375,21 +328,12 @@ class MegaFlavor {
      * @brief A field element for each entity of the flavor. These entities represent the prover polynomials evaluated
      * at one point.
      */
-    template <bool HasZK_ = HasZK> class AllValues_ : public AllEntities_<FF, HasZK_> {
-      public:
-        using Base = AllEntities_<FF, HasZK_>;
-        using Base::Base;
-    };
-
-    using AllValues = AllValues_<HasZK>;
+    using AllValues = AllEntities_<FF>;
 
     /**
      * @brief A container for the prover polynomials handles.
      */
-    template <bool HasZK_ = HasZK>
-    using ProverPolynomials_ = ProverPolynomialsBase<AllEntities_<Polynomial, HasZK_>, AllValues_<HasZK_>, Polynomial>;
-
-    using ProverPolynomials = ProverPolynomials_<HasZK>;
+    using ProverPolynomials = ProverPolynomialsBase<AllEntities_<Polynomial>, AllValues, Polynomial>;
 
     using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
 
@@ -404,11 +348,8 @@ class MegaFlavor {
     /**
      * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
      */
-    template <bool HasZK_ = HasZK>
-    using PartiallyEvaluatedMultivariates_ =
-        PartiallyEvaluatedMultivariatesBase<AllEntities_<Polynomial, HasZK_>, ProverPolynomials_<HasZK_>, Polynomial>;
-
-    using PartiallyEvaluatedMultivariates = PartiallyEvaluatedMultivariates_<HasZK>;
+    using PartiallyEvaluatedMultivariates =
+        PartiallyEvaluatedMultivariatesBase<AllEntities_<Polynomial>, ProverPolynomials, Polynomial>;
 
     /**
      * @brief A container for univariates used in sumcheck.
@@ -450,15 +391,12 @@ class MegaFlavor {
             ecc_op_wire_4 = "ECC_OP_WIRE_4";
             calldata = "CALLDATA";
             calldata_read_counts = "CALLDATA_READ_COUNTS";
-            calldata_read_tags = "CALLDATA_READ_TAGS";
             calldata_inverses = "CALLDATA_INVERSES";
             secondary_calldata = "SECONDARY_CALLDATA";
             secondary_calldata_read_counts = "SECONDARY_CALLDATA_READ_COUNTS";
-            secondary_calldata_read_tags = "SECONDARY_CALLDATA_READ_TAGS";
             secondary_calldata_inverses = "SECONDARY_CALLDATA_INVERSES";
             return_data = "RETURN_DATA";
             return_data_read_counts = "RETURN_DATA_READ_COUNTS";
-            return_data_read_tags = "RETURN_DATA_READ_TAGS";
             return_data_inverses = "RETURN_DATA_INVERSES";
 
             q_c = "Q_C";
@@ -497,8 +435,8 @@ class MegaFlavor {
     /**
      * Note: Made generic for use in MegaRecursive.
      **/
-    template <typename Commitment, typename VerificationKey, bool HasZK_ = HasZK>
-    class VerifierCommitments_ : public AllEntities_<Commitment, HasZK_> {
+    template <typename Commitment, typename VerificationKey>
+    class VerifierCommitments_ : public AllEntities_<Commitment> {
       public:
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key,
                              const std::optional<WitnessEntities<Commitment>>& witness_commitments = std::nullopt)
@@ -525,7 +463,7 @@ class MegaFlavor {
         }
     };
     // Specialize for Mega (general case used in MegaRecursive).
-    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey, HasZK>;
+    using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
 
 } // namespace bb

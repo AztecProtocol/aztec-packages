@@ -3,10 +3,6 @@
 pragma solidity >=0.8.27;
 
 import {RewardLibBase} from "./RewardLibBase.sol";
-import {RewardLibWrapper, FakeFeePortal} from "./RewardLibWrapper.sol";
-import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {SubmitEpochRootProofArgs, PublicInputArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Math} from "@oz/utils/math/Math.sol";
@@ -66,6 +62,7 @@ contract HandleRewardsTest is RewardLibBase {
     args.args.proverId = makeAddr("prover2");
     args.end = args.start + 1;
     args.fees = _fees(2, sequencer);
+    _addFeeHeaders(1);
 
     vm.record();
     wrapper.handleRewardsAndFees(args, Epoch.wrap(0));
@@ -97,6 +94,7 @@ contract HandleRewardsTest is RewardLibBase {
     args.args.proverId = makeAddr("prover2");
     args.end = args.start + checkpointCount - 1;
     args.fees = _fees(checkpointCount, sequencer);
+    _addFeeHeaders(checkpointCount - 1);
 
     uint256 initialSequencerRewards = wrapper.getSequencerRewards(sequencer);
     uint256 initialProverRewards = wrapper.getCollectiveProverRewardsForEpoch(Epoch.wrap(0));

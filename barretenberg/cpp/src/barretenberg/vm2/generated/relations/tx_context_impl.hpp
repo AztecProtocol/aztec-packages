@@ -34,10 +34,10 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX = FF(522);
     const auto constants_AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX = FF(4684);
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT =
-        FF(uint256_t{ 18071747219918308973UL, 16614632998898105071UL, 15723772623334795496UL, 2914032580688149866UL });
+        FF(uint256_t{ 7857218953590834006UL, 1035077911422412533UL, 9995325351514877897UL, 1411117032600729283UL });
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE = FF(1);
     const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT =
-        FF(uint256_t{ 17709766335633262877UL, 1850405195690305185UL, 13873207743118759083UL, 1156198508456480057UL });
+        FF(uint256_t{ 1521641569468562450UL, 665739211013355724UL, 15332520522532078145UL, 1150206617693738821UL });
     const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE = FF(1);
     const auto tx_NOT_LAST_ROW = in.get(C::tx_sel) * in.get(C::tx_sel_shift);
     const auto tx_SEL_CAN_EMIT_NOTE_HASH = in.get(C::tx_is_public_call_request) +
@@ -424,14 +424,14 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // RETRIEVED_BYTECODES_TREE_ROOT_IMMUTABILITY
         using View = typename std::tuple_element_t<54, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_sel_process_call_request))) *
                    (static_cast<View>(in.get(C::tx_prev_retrieved_bytecodes_tree_root)) -
                     static_cast<View>(in.get(C::tx_next_retrieved_bytecodes_tree_root)));
         std::get<54>(evals) += (tmp * scaling_factor);
     }
     { // RETRIEVED_BYTECODES_TREE_SIZE_IMMUTABILITY
         using View = typename std::tuple_element_t<55, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::tx_sel_process_call_request))) *
                    (static_cast<View>(in.get(C::tx_prev_retrieved_bytecodes_tree_size)) -
                     static_cast<View>(in.get(C::tx_next_retrieved_bytecodes_tree_size)));
         std::get<55>(evals) += (tmp * scaling_factor);
@@ -523,14 +523,14 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // L2_GAS_USED_IMMUTABILITY
         using View = typename std::tuple_element_t<68, ContainerOverSubrelations>::View;
         auto tmp =
-            (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+            (FF(1) - static_cast<View>(in.get(C::tx_sel_process_call_request))) *
             (static_cast<View>(in.get(C::tx_prev_l2_gas_used)) - static_cast<View>(in.get(C::tx_next_l2_gas_used)));
         std::get<68>(evals) += (tmp * scaling_factor);
     }
     { // DA_GAS_USED_IMMUTABILITY
         using View = typename std::tuple_element_t<69, ContainerOverSubrelations>::View;
         auto tmp =
-            (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+            (FF(1) - static_cast<View>(in.get(C::tx_sel_process_call_request))) *
             (static_cast<View>(in.get(C::tx_prev_da_gas_used)) - static_cast<View>(in.get(C::tx_next_da_gas_used)));
         std::get<69>(evals) += (tmp * scaling_factor);
     }
@@ -571,7 +571,7 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // NEXT_CONTEXT_ID_CONTINUITY
         using View = typename std::tuple_element_t<75, ContainerOverSubrelations>::View;
         auto tmp =
-            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_should_process_call_request))) *
+            CView(tx_NOT_LAST_ROW) * (FF(1) - static_cast<View>(in.get(C::tx_sel_process_call_request))) *
             (static_cast<View>(in.get(C::tx_next_context_id_shift)) - static_cast<View>(in.get(C::tx_next_context_id)));
         std::get<75>(evals) += (tmp * scaling_factor);
     }

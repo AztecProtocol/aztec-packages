@@ -139,10 +139,8 @@ void TranslatorProver::execute_relation_check_rounds()
     //  i = 0, ..., NUM_SUBRELATIONS- 1.
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-    std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
-    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-        gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-    }
+    std::vector<FF> gate_challenges = transcript->template get_dyadic_powers_of_challenge<FF>(
+        "Sumcheck:gate_challenge", Flavor::CONST_TRANSLATOR_LOG_N);
 
     const size_t circuit_size = key->proving_key->circuit_size;
 

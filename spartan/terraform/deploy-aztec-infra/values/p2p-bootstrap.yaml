@@ -2,6 +2,10 @@ nameOverride: "node"
 
 replicaCount: 1
 
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
 node:
   env:
     OTEL_SERVICE_NAME: "boot-node"

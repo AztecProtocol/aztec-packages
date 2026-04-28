@@ -190,17 +190,16 @@ void parallel_for_heuristic(size_t num_points,
     // Parallelize over chunks
     parallel_for(num_cpus, [num_points, chunk_size, &func](size_t chunk_index) {
         // If num_points is small, sometimes we need fewer CPUs
-        if (chunk_size * chunk_index > num_points) {
+        if ((chunk_size * chunk_index) > num_points) {
             return;
         }
         // Compute the current chunk size (can differ in case it's the last chunk)
-        size_t current_chunk_size = std::min(num_points - (chunk_size * chunk_index), chunk_size);
+        const size_t current_chunk_size = std::min(num_points - (chunk_size * chunk_index), chunk_size);
         if (current_chunk_size == 0) {
             return;
         }
-        size_t start = chunk_index * chunk_size;
-        size_t end = chunk_index * chunk_size + current_chunk_size;
-
+        const size_t start = chunk_index * chunk_size;
+        const size_t end = start + current_chunk_size;
         func(start, end, chunk_index);
     });
 };

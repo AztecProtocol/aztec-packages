@@ -9,7 +9,7 @@ import {
   getAttestationInfoFromPayload,
 } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { type L1RollupConstants, computeQuorum, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { ConsensusPayload } from '@aztec/stdlib/p2p';
 
 export type { ValidateCheckpointResult };
@@ -66,7 +66,7 @@ export async function validateCheckpointAttestations(
     return { valid: true };
   }
 
-  const requiredAttestationCount = Math.floor((committee.length * 2) / 3) + 1;
+  const requiredAttestationCount = computeQuorum(committee.length);
 
   const failedValidationResult = <TReason extends ValidateCheckpointNegativeResult['reason']>(reason: TReason) => ({
     valid: false as const,

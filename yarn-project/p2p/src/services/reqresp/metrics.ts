@@ -26,7 +26,6 @@ export class ReqRespMetrics {
         ReqRespSubProtocol.STATUS,
         ReqRespSubProtocol.GOODBYE,
         ReqRespSubProtocol.TX,
-        ReqRespSubProtocol.BLOCK,
         ReqRespSubProtocol.AUTH,
         ReqRespSubProtocol.BLOCK_TXS,
       ],

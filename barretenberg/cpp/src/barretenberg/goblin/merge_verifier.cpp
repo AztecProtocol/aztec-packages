@@ -19,6 +19,7 @@ bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& eval
     bool concatenation_verified = true;
     FF concatenation_diff(0);
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
+        // Identity: L(κ) + κ^ℓ · R(κ) = M(κ)
         concatenation_diff = evals[idx] + (pow_kappa * evals[idx + NUM_WIRES]) - evals[idx + (2 * NUM_WIRES)];
         if constexpr (IsRecursive) {
             concatenation_verified &= concatenation_diff.get_value() == 0;
@@ -32,7 +33,7 @@ bool MergeVerifier_<Curve>::check_concatenation_identities(std::vector<FF>& eval
 }
 
 template <typename Curve>
-bool MergeVerifier_<Curve>::check_degree_identity(std::vector<FF>& evals,
+bool MergeVerifier_<Curve>::check_degree_identity(const std::vector<FF>& evals,
                                                   const FF& pow_kappa_minus_one,
                                                   const std::vector<FF>& degree_check_challenges) const
 {
@@ -122,13 +123,6 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // For native: shift_size is uint32_t
     // For stdlib: shift_size is FF (we'll get the value later)
     const FF shift_size = transcript->template receive_from_prover<FF>("shift_size");
-    ;
-    if constexpr (IsRecursive) {
-        BB_ASSERT_GT(uint32_t(shift_size.get_value()), 0U, "Shift size should always be bigger than 0");
-    } else {
-
-        BB_ASSERT_GT(shift_size, 0U, "Shift size should always be bigger than 0");
-    }
 
     // Store T_commitments of the verifier
     TableCommitments merged_table_commitments;

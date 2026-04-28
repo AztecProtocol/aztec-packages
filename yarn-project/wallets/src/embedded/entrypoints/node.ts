@@ -7,7 +7,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import { BundleAccountContractsProvider } from '../account-contract-providers/bundle.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
-import { EmbeddedWallet, type EmbeddedWalletOptions } from '../embedded_wallet.js';
+import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
 import { WalletDB } from '../wallet_db.js';
 
 export class NodeEmbeddedWallet extends EmbeddedWallet {
@@ -27,10 +27,15 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
     const l1Contracts = await aztecNode.getL1ContractAddresses();
 
+    // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
+    const { config: pxeConfigFromPxe, creation: pxeCreationFromPxe } = splitPxeOptions(options.pxe);
+    const mergedConfigOverrides = { ...options.pxeConfig, ...pxeConfigFromPxe };
+    const mergedCreationOverrides: PXECreationOptions = { ...options.pxeOptions, ...pxeCreationFromPxe };
+
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
-      proverEnabled: options.pxeConfig?.proverEnabled ?? false,
+      proverEnabled: mergedConfigOverrides.proverEnabled ?? false,
       dataDirectory: `pxe_data_${l1Contracts.rollupAddress}`,
-      ...options.pxeConfig,
+      ...mergedConfigOverrides,
     });
 
     if (options.ephemeral) {
@@ -38,35 +43,37 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     }
 
     const pxeOptions: PXECreationOptions = {
-      ...options.pxeOptions,
+      ...mergedCreationOverrides,
       loggers: {
         store: rootLogger.createChild('pxe:data'),
         pxe: rootLogger.createChild('pxe:service'),
         prover: rootLogger.createChild('pxe:prover'),
-        ...options.pxeOptions?.loggers,
+        ...mergedCreationOverrides.loggers,
       },
     };
 
     const pxe = await createPXE(aztecNode, pxeConfig, pxeOptions);
 
-    const walletDBStore = options.ephemeral
-      ? await openTmpStore(
-          `wallet_data_${l1Contracts.rollupAddress}`,
-          true,
-          undefined,
-          undefined,
-          rootLogger.createChild('wallet:data').getBindings(),
-        )
-      : await createStore(
-          'wallet_data',
-          1,
-          {
-            dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
-            dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-            l1Contracts,
-          },
-          rootLogger.createChild('wallet:data').getBindings(),
-        );
+    const walletDBStore =
+      options.walletDb?.store ??
+      (options.ephemeral
+        ? await openTmpStore(
+            `wallet_data_${l1Contracts.rollupAddress}`,
+            true,
+            undefined,
+            undefined,
+            rootLogger.createChild('wallet:data').getBindings(),
+          )
+        : await createStore(
+            'wallet_data',
+            1,
+            {
+              dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
+              dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
+              l1Contracts,
+            },
+            rootLogger.createChild('wallet:data').getBindings(),
+          ));
     const walletDB = WalletDB.init(walletDBStore, rootLogger.createChild('wallet:db').info);
 
     return new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
@@ -74,6 +81,6 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
 }
 
 export { NodeEmbeddedWallet as EmbeddedWallet };
-export type { EmbeddedWalletOptions } from '../embedded_wallet.js';
+export type { EmbeddedWalletOptions, EmbeddedWalletPXEOptions } from '../embedded_wallet.js';
 export { WalletDB } from '../wallet_db.js';
 export type { AccountType } from '../wallet_db.js';

@@ -6,6 +6,7 @@
 
 #include "merge_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 
 namespace bb {
@@ -25,8 +26,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
     // Merge the current subtable (for which a merge proof is being constructed) prior to
     // procedeing with proving.
     if (settings == MergeSettings::APPEND) {
-        size_t last_subtable_size = op_queue->get_current_subtable_size();
-        op_queue->merge(settings, ECCOpQueue::OP_QUEUE_SIZE - last_subtable_size);
+        op_queue->merge(settings, op_queue->get_append_offset());
 
     } else {
         op_queue->merge(settings);
@@ -75,7 +75,9 @@ MergeProver::Polynomial MergeProver::compute_shplonk_batched_quotient(
                 shplonk_batched_quotient.add_scaled(merged_table[idx], challenge);
             }
             // Q -= eval·βᵢ
-            shplonk_batched_quotient.at(0) -= challenge * eval;
+            if (!shplonk_batched_quotient.is_empty()) {
+                shplonk_batched_quotient.at(0) -= challenge * eval;
+            }
         }
     }
     // Q /= (X - κ)
@@ -83,7 +85,9 @@ MergeProver::Polynomial MergeProver::compute_shplonk_batched_quotient(
 
     // Q += (G - g)/(X - κ⁻¹)·β
     Polynomial reversed_batched_left_tables_copy(reversed_batched_left_tables);
-    reversed_batched_left_tables_copy.at(0) -= evals.back();
+    if (!reversed_batched_left_tables_copy.is_empty()) {
+        reversed_batched_left_tables_copy.at(0) -= evals.back();
+    }
     reversed_batched_left_tables_copy.factor_roots(kappa_inv);
     shplonk_batched_quotient.add_scaled(reversed_batched_left_tables_copy, shplonk_batching_challenges.back());
 
@@ -123,12 +127,16 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
                 shplonk_partially_evaluated_batched_quotient.add_scaled(merged_table[idx], challenge);
             }
             // Q' -= eval·βᵢ
-            shplonk_partially_evaluated_batched_quotient.at(0) -= challenge * eval;
+            if (!shplonk_partially_evaluated_batched_quotient.is_empty()) {
+                shplonk_partially_evaluated_batched_quotient.at(0) -= challenge * eval;
+            }
         }
     }
 
     // Q' += (G - g)·(z - κ)/(z - κ⁻¹)·β
-    reversed_batched_left_tables.at(0) -= evals.back();
+    if (!reversed_batched_left_tables.is_empty()) {
+        reversed_batched_left_tables.at(0) -= evals.back();
+    }
     shplonk_partially_evaluated_batched_quotient.add_scaled(reversed_batched_left_tables,
                                                             shplonk_batching_challenges.back() *
                                                                 (shplonk_opening_challenge - kappa) *
@@ -153,18 +161,19 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
-
+    BB_BENCH_NAME("MergeProver::construct_proof");
     std::array<Polynomial, NUM_WIRES> left_table;
     std::array<Polynomial, NUM_WIRES> right_table;
     std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
-    std::array<Polynomial, NUM_WIRES> left_table_reversed;
 
     if (settings == MergeSettings::PREPEND) {
         left_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
         right_table = op_queue->construct_previous_ultra_ops_table_columns();  // T_prev
     } else {
         left_table = op_queue->construct_previous_ultra_ops_table_columns();    // T_prev
-        right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
+        right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t (hiding kernel subtable,
+                                                                                // carries MegaZKFlavor::TRACE_OFFSET
+                                                                                // leading zeros internally)
     }
 
     // Send shift_size to the verifier

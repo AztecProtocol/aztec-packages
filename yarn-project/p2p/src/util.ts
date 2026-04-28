@@ -7,7 +7,7 @@ import type { GossipSub } from '@chainsafe/libp2p-gossipsub';
 import { generateKeyPair, marshalPrivateKey, unmarshalPrivateKey } from '@libp2p/crypto/keys';
 import type { Identify } from '@libp2p/identify';
 import type { PeerId, PrivateKey } from '@libp2p/interface';
-import type { AddressManager, ConnectionManager } from '@libp2p/interface-internal';
+import type { ConnectionManager } from '@libp2p/interface-internal';
 import { createFromPrivKey } from '@libp2p/peer-id-factory';
 import { resolve } from 'dns/promises';
 import { promises as fs } from 'fs';
@@ -31,10 +31,6 @@ export interface PubSubLibp2p extends Pick<Libp2p, 'status' | 'start' | 'stop' |
       | 'direct'
       | 'getMeshPeers'
     > & { score: Pick<GossipSub['score'], 'score'> };
-    components: {
-      connectionManager: ConnectionManager;
-      addressManager: AddressManager;
-    };
   };
 }
 
@@ -43,7 +39,6 @@ export type FullLibp2p = Libp2p<{
   pubsub: GossipSub;
   components: {
     connectionManager: ConnectionManager;
-    addressManager: AddressManager;
   };
 }>;
 
@@ -107,15 +102,24 @@ function addressToMultiAddressType(address: string): 'ip4' | 'ip6' | 'dns' {
   }
 }
 
-export function configureP2PClientAddresses(_config: P2PConfig & DataStoreConfig): P2PConfig & DataStoreConfig {
+export async function configureP2PClientAddresses(
+  _config: P2PConfig & DataStoreConfig,
+): Promise<P2PConfig & DataStoreConfig> {
   const config = { ..._config };
-  const { p2pBroadcastPort, p2pPort } = config;
+  const { p2pIp, queryForIp, p2pBroadcastPort, p2pPort } = config;
 
   // If no broadcast port is provided, use the given p2p port as the broadcast port
   if (!p2pBroadcastPort) {
     config.p2pBroadcastPort = p2pPort;
   }
 
+  // check if no announce IP was provided
+  if (!p2pIp) {
+    if (queryForIp) {
+      const publicIp = await getPublicIp();
+      config.p2pIp = publicIp;
+    }
+  }
   // TODO(md): guard against setting a local ip address as the announce ip
 
   return config;

@@ -3,10 +3,10 @@ import { getBlobsPerL1Block, getPrefixedEthBlobCommitments } from '@aztec/blob-l
 import type { EpochCache } from '@aztec/epoch-cache';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
-  type EmpireSlashingProposerContract,
   type GovernanceProposerContract,
   Multicall3,
   type RollupContract,
+  type SlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import {
   type GasPrice,
@@ -24,7 +24,6 @@ import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
-import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
@@ -46,11 +45,10 @@ import { type Action, SequencerPublisher, compareActions } from './sequencer-pub
 // Ensures proposal actions are sorted before slashing votes/signals
 
 describe('compareActions sorting', () => {
-  it('places propose before empire-slashing-signal and vote-offenses', () => {
-    const actions: Action[] = ['empire-slashing-signal', 'propose', 'vote-offenses'];
+  it('places propose before vote-offenses', () => {
+    const actions: Action[] = ['propose', 'vote-offenses'];
     const sorted = [...actions].sort(compareActions);
 
-    expect(sorted.indexOf('propose')).toBeLessThan(sorted.indexOf('empire-slashing-signal'));
     expect(sorted.indexOf('propose')).toBeLessThan(sorted.indexOf('vote-offenses'));
   });
 });
@@ -61,9 +59,8 @@ const mockForwarderAddress = EthAddress.random().toString();
 
 describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
-  let slashingProposerContract: MockProxy<EmpireSlashingProposerContract>;
+  let slashingProposerContract: MockProxy<SlashingProposerContract>;
   let governanceProposerContract: MockProxy<GovernanceProposerContract>;
-  let slashFactoryContract: MockProxy<SlashFactoryContract>;
   let l1TxUtils: MockProxy<L1TxUtils>;
   let l1Metrics: MockProxy<SequencerPublisherMetrics>;
   let forwardSpy: jest.SpiedFunction<typeof Multicall3.forward>;
@@ -132,11 +129,10 @@ describe('SequencerPublisher', () => {
     (rollup as any).address = mockRollupAddress;
     forwardSpy = jest.spyOn(Multicall3, 'forward');
 
-    slashingProposerContract = mock<EmpireSlashingProposerContract>();
+    slashingProposerContract = mock<SlashingProposerContract>();
     l1Metrics = mock<SequencerPublisherMetrics>();
 
     governanceProposerContract = mock<GovernanceProposerContract>();
-    slashFactoryContract = mock<SlashFactoryContract>();
 
     const epochCache = mock<EpochCache>();
     epochCache.getEpochAndSlotNow.mockReturnValue({ epoch: EpochNumber(1), slot: SlotNumber(2), ts: 3n, nowMs: 3000n });
@@ -156,7 +152,6 @@ describe('SequencerPublisher', () => {
       epochCache,
       slashingProposerContract,
       governanceProposerContract,
-      slashFactoryContract,
       dateProvider: new TestDateProvider(),
       metrics: l1Metrics,
       lastActions: {},
@@ -222,7 +217,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -341,7 +335,6 @@ describe('SequencerPublisher', () => {
           epochCache,
           slashingProposerContract,
           governanceProposerContract,
-          slashFactoryContract,
           dateProvider: new TestDateProvider(),
           metrics: l1Metrics,
           lastActions: {},
@@ -504,6 +497,64 @@ describe('SequencerPublisher', () => {
     expect((publisher as any).requests.length).toEqual(0);
   });
 
+  it('discards only the request whose preCheck fails before sending', async () => {
+    const currentL2Slot = publisher.getCurrentL2Slot();
+    const keptRequest = {
+      to: mockGovernanceProposerAddress,
+      data: encodeFunctionData({
+        abi: EmpireBaseAbi,
+        functionName: 'signal',
+        args: [EthAddress.random().toString()],
+      }),
+    };
+    const failedRequest = {
+      to: mockRollupAddress,
+      data: encodeFunctionData({
+        abi: EmpireBaseAbi,
+        functionName: 'signal',
+        args: [EthAddress.random().toString()],
+      }),
+    };
+
+    const keptPreCheck = jest.fn(() => Promise.resolve());
+    const failedPreCheck = jest.fn(() => Promise.reject(new Error('preCheck failed')));
+
+    publisher.addRequest({
+      action: 'vote-offenses',
+      request: keptRequest,
+      lastValidL2Slot: currentL2Slot,
+      preCheck: keptPreCheck,
+      checkSuccess: () => true,
+    });
+    publisher.addRequest({
+      action: 'governance-signal',
+      request: failedRequest,
+      lastValidL2Slot: currentL2Slot,
+      preCheck: failedPreCheck,
+      checkSuccess: () => true,
+    });
+
+    forwardSpy.mockResolvedValue({
+      receipt: proposeTxReceipt,
+      errorMsg: undefined,
+    });
+
+    const result = await publisher.sendRequestsAt(new Date((publisher as any).dateProvider.now()));
+
+    expect(keptPreCheck).toHaveBeenCalledTimes(1);
+    expect(failedPreCheck).toHaveBeenCalledTimes(1);
+    expect(result?.sentActions).toEqual(['vote-offenses']);
+    expect(forwardSpy).toHaveBeenCalledTimes(1);
+    expect(forwardSpy).toHaveBeenCalledWith(
+      [keptRequest],
+      l1TxUtils,
+      { gasLimit: undefined, txTimeoutAt: undefined },
+      undefined,
+      mockRollupAddress,
+      expect.anything(),
+    );
+  });
+
   it('does not send requests if no valid requests are found', async () => {
     publisher.addRequest({
       action: 'propose',
@@ -589,7 +640,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -604,7 +654,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -619,7 +668,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -634,7 +682,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -648,7 +695,6 @@ describe('SequencerPublisher', () => {
     await publisher.enqueueGovernanceCastSignal(
       govPayload,
       SlotNumber(2),
-      1n,
       EthAddress.fromString(testHarnessAttesterAccount.address),
       msg => testHarnessAttesterAccount.signTypedData(msg),
     );
@@ -656,7 +702,6 @@ describe('SequencerPublisher', () => {
     await publisher.enqueueGovernanceCastSignal(
       govPayload,
       SlotNumber(3),
-      2n,
       EthAddress.fromString(testHarnessAttesterAccount.address),
       msg => testHarnessAttesterAccount.signTypedData(msg),
     );
@@ -675,7 +720,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -690,7 +734,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -706,7 +749,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(2),
-        1n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
@@ -717,7 +759,6 @@ describe('SequencerPublisher', () => {
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
         SlotNumber(3),
-        2n,
         EthAddress.fromString(testHarnessAttesterAccount.address),
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),

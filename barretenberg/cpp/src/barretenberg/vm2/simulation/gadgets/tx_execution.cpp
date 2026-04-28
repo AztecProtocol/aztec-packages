@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -17,6 +17,23 @@ class TxExecutionException : public std::runtime_error {
         : std::runtime_error(message)
     {}
 };
+
+std::string get_halting_information(const EnqueuedCallResult& result)
+{
+    std::string halting_message =
+        result.halting_message.has_value() ? " with message: " + result.halting_message.value() : "";
+
+    switch (result.halting_mode) {
+    case HaltingMode::RETURN:
+        return "RETURN" + halting_message;
+    case HaltingMode::REVERT:
+        return "REVERT" + halting_message;
+    case HaltingMode::EXCEPTIONAL_HALT:
+        return "EXCEPTIONAL_HALT";
+    default:
+        return "UNKNOWN" + halting_message;
+    }
+}
 
 } // namespace
 
@@ -41,9 +58,12 @@ class TxExecutionException : public std::runtime_error {
  * - Cleanup (11)
  *
  * If an error occurs during non-revertible insertions or a Setup phase enqueued call fails,
- * the transaction is considered unprovable and an unrecoverable TxExecutionException is thrown.
- * If an error occurs during revertible insertions or App Logic phase, all the state changes are reverted
- * to the post-setup state and we continue with the Teardown phase.
+ * the transaction is considered unprovable and an unrecoverable exception is thrown.
+ * If a side-effect limit is reached during revertible insertions or App Logic phase fails, all the state
+ * changes are reverted to the post-setup state and we continue with the Teardown phase.
+ * A nullifier collision during revertible insertions is ALSO unprovable (not revertible): the nullifier
+ * originated from private, so a collision indicates the tx should never have been proposed. The
+ * NullifierCollisionException propagates out of simulate() as-is.
  * If an error occurs during Teardown phase, all the state changes are reverted to the post-setup state and
  * we continue with the Collect Gas Fees phase.
  *
@@ -52,9 +72,11 @@ class TxExecutionException : public std::runtime_error {
  *
  * @param tx The transaction to simulate.
  * @return The result of the transaction simulation.
+ * @throws NullifierCollisionException if a private nullifier collision occurs in either the non-revertible
+ *         or revertible insertion phase.
  * @throws TxExecutionException if
- *         - there is a nullifier collision or the maximum number of
- *           nullifiers, note hashes, or L2 to L1 messages is reached as part of the non-revertible insertions.
+ *         - the maximum number of nullifiers, note hashes, or L2 to L1 messages is reached as part of the
+ *           non-revertible insertions.
  *         - a Setup phase enqueued call fails.
  *         - the fee payer does not have enough balance to pay the fee.
  * Note: Other low-level exceptions of other types are not caught and will be thrown.
@@ -115,6 +137,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             // This call should not throw unless it's an unexpected unrecoverable failure.
             EnqueuedCallResult result = call_execution.execute(std::move(context));
             tx_context.gas_used = result.gas_used;
+            vinfo("[SETUP] Enqueued call to ",
+                  call.request.contract_address,
+                  " halted via ",
+                  get_halting_information(result));
+
             emit_public_call_request(call,
                                      TransactionPhase::SETUP,
                                      /*transaction_fee=*/FF(0),
@@ -139,8 +166,9 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
     call_stack_metadata_collector.set_phase(CoarseTransactionPhase::APP_LOGIC);
 
     try {
-        // Insert revertibles. This can throw if there is a nullifier collision.
-        // Such an exception should be handled and the tx be provable.
+        // Insert revertibles. This can throw TxExecutionException on a side-effect limit error
+        // (handled here, tx is provable) or NullifierCollisionException on a collision
+        // (not handled here - propagates as unrecoverable, since the tx is unprovable).
         // We catch separately here to record the revert reason in call stack metadata,
         // since no calls have populated the metadata yet at this point.
         try {
@@ -175,6 +203,10 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
                 // This call should not throw unless it's an unexpected unrecoverable failure.
                 EnqueuedCallResult result = call_execution.execute(std::move(context));
                 tx_context.gas_used = result.gas_used;
+                vinfo("[APP_LOGIC] Enqueued call to ",
+                      call.request.contract_address,
+                      " halted via ",
+                      get_halting_information(result));
 
                 emit_public_call_request(call,
                                          TransactionPhase::APP_LOGIC,
@@ -239,6 +271,11 @@ TxExecutionResult TxExecution::simulate(const Tx& tx)
             // This call should not throw unless it's an unexpected unrecoverable failure.
             EnqueuedCallResult result = call_execution.execute(std::move(context));
             gas_used_by_teardown = result.gas_used;
+            vinfo("[TEARDOWN] Enqueued call to ",
+                  teardown_enqueued_call.request.contract_address,
+                  " halted via ",
+                  get_halting_information(result));
+
             emit_public_call_request(teardown_enqueued_call,
                                      TransactionPhase::TEARDOWN,
                                      fee,
@@ -335,7 +372,8 @@ void TxExecution::emit_public_call_request(const PublicCallRequestWithCalldata& 
  *
  * @param revertible Whether the nullifier is revertible.
  * @param nullifier The nullifier to insert.
- * @throws TxExecutionException if the maximum number of nullifiers is reached or a nullifier collision occurs.
+ * @throws TxExecutionException if the maximum number of nullifiers is reached.
+ * @throws NullifierCollisionException if the nullifier collides with an existing one (unrecoverable).
  */
 void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
 {
@@ -352,7 +390,13 @@ void TxExecution::emit_nullifier(bool revertible, const FF& nullifier)
         try {
             merkle_db.siloed_nullifier_write(nullifier);
         } catch (const NullifierCollisionException& e) {
-            throw TxExecutionException(e.what());
+            // Do not handle the NullifierCollisionException as any collision at the tx execution
+            // level is unprovable (i.e. this is an unrecoverable error).
+            // Rethrow with more information - note that this exception isn't being caught in this file
+            throw NullifierCollisionException(format("[",
+                                                     revertible ? "R" : "NR",
+                                                     "_NULLIFIER_INSERTION] UNRECOVERABLE ERROR! Nullifier collision: ",
+                                                     e.what()));
         }
 
         events.emit(TxPhaseEvent{ .phase = phase,
@@ -458,11 +502,11 @@ void TxExecution::emit_l2_to_l1_message(bool revertible, const ScopedL2ToL1Messa
 /**
  * @brief Insert the non-revertible accumulated data into the Merkle DB and emit corresponding events.
  *        It might error if the limits for the number of allowable inserts are exceeded or a nullifier collision occurs,
- *        but this results in an unprovable tx.
+ *        either of which results in an unprovable tx.
  *
  * @param tx The transaction to insert the non-revertible accumulated data into.
- * @throws TxExecutionException if the maximum number of nullifiers, note hashes, L2 to L1 messages is reached, or a
- *         nullifier collision occurs.
+ * @throws TxExecutionException if the maximum number of nullifiers, note hashes, or L2 to L1 messages is reached.
+ * @throws NullifierCollisionException if a nullifier collision occurs (unrecoverable).
  */
 void TxExecution::insert_non_revertibles(const Tx& tx)
 {
@@ -510,11 +554,12 @@ void TxExecution::insert_non_revertibles(const Tx& tx)
 
 /**
  * @brief Insert the revertible accumulated data into the Merkle DB and emit corresponding events.
- *        It might error if the limits for the number of allowable inserts are exceeded or a nullifier collision occurs.
+ *        A side-effect limit error is recoverable (the caller reverts to post-setup); a nullifier
+ *        collision is unrecoverable (the tx is unprovable).
  *
  * @param tx The transaction to insert the revertible accumulated data into.
- * @throws TxExecutionException if the maximum number of nullifiers, note hashes, L2 to L1 messages is reached, or a
- *         nullifier collision occurs.
+ * @throws TxExecutionException if the maximum number of nullifiers, note hashes, or L2 to L1 messages is reached.
+ * @throws NullifierCollisionException if a nullifier collision occurs (unrecoverable).
  */
 void TxExecution::insert_revertibles(const Tx& tx)
 {

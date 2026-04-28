@@ -15,6 +15,14 @@ resource "google_container_cluster" "primary" {
     channel = "UNSPECIFIED"
   }
 
+  # NOTE: Enabling workload identity at the cluster level means new node pools may default to GKE_METADATA mode. 
+  dynamic "workload_identity_config" {
+    for_each = var.enable_workload_identity ? [1] : []
+    content {
+      workload_pool = "${var.project}.svc.id.goog"
+    }
+  }
+
   # Network configuration
   network    = "default"
   subnetwork = "default"
@@ -351,6 +359,13 @@ resource "google_container_node_pool" "infra_nodes_8core_highmem" {
       "https://www.googleapis.com/auth/cloud-platform"
     ]
 
+    dynamic "workload_metadata_config" {
+      for_each = var.enable_workload_identity ? [1] : []
+      content {
+        mode = "GKE_METADATA"
+      }
+    }
+
     labels = {
       env       = "production"
       local-ssd = "false"
@@ -386,6 +401,13 @@ resource "google_container_node_pool" "infra_nodes_16core_highmem" {
     oauth_scopes = [
       "https://www.googleapis.com/auth/cloud-platform"
     ]
+
+    dynamic "workload_metadata_config" {
+      for_each = var.enable_workload_identity ? [1] : []
+      content {
+        mode = "GKE_METADATA"
+      }
+    }
 
     labels = {
       env       = "production"

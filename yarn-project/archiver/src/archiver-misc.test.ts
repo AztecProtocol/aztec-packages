@@ -64,9 +64,10 @@ describe('Archiver misc', () => {
       publicClient,
       rollupContract,
       {
+        rollupAddress: EthAddress.random(),
         registryAddress: EthAddress.random(),
+        inboxAddress: EthAddress.random(),
         governanceProposerAddress: EthAddress.random(),
-        slashFactoryAddress: EthAddress.random(),
         slashingProposerAddress: EthAddress.random(),
       },
       archiverStore,

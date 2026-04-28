@@ -6,8 +6,13 @@ import {
   ContractInstancePublishedEvent,
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
-import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
-import { type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { CommitteeAttestation, L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import {
+  type L1PublishedData,
+  type ProposedCheckpointInput,
+  type PublishedCheckpoint,
+  validateCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import {
   type ContractClassPublicWithCommitment,
   computeContractAddressFromInstance,
@@ -79,17 +84,28 @@ export class ArchiverDataStoreUpdater {
    * Adds new checkpoints to the store with contract class/instance extraction from logs.
    * Prunes any local blocks that conflict with checkpoint data (by comparing archive roots).
    * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events from the checkpoint block logs.
+   * If `promoteProposed` is supplied, the proposed-checkpoint promotion runs inside the same transaction
+   * as the added checkpoints so both updates are applied atomically.
    *
-   * @param checkpoints - The published checkpoints to add.
+   * @param checkpoints - The published checkpoints to add (excluding any being promoted from proposed).
    * @param pendingChainValidationStatus - Optional validation status to set.
+   * @param promoteProposed - Optional promotion of the current proposed checkpoint (fast path when blocks are already local).
    * @returns Result with information about any pruned blocks.
    */
   public async addCheckpoints(
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateCheckpointResult,
+    promoteProposed?: {
+      l1: L1PublishedData;
+      attestations: CommitteeAttestation[];
+      checkpoint: PublishedCheckpoint;
+    },
   ): Promise<ReconcileCheckpointsResult> {
     for (const checkpoint of checkpoints) {
       validateCheckpoint(checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
+    }
+    if (promoteProposed) {
+      validateCheckpoint(promoteProposed.checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
     }
 
     const result = await this.store.transactionAsync(async () => {
@@ -110,11 +126,28 @@ export class ArchiverDataStoreUpdater {
         this.store.addLogs(newBlocks),
         // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
         ...newBlocks.map(block => this.addContractDataToDb(block)),
+        // Promote the proposed checkpoint if requested
+        promoteProposed
+          ? this.store.promoteProposedToCheckpointed(
+              promoteProposed.l1,
+              promoteProposed.attestations,
+              promoteProposed.checkpoint.checkpoint.archive.root,
+            )
+          : undefined,
       ]);
 
       await this.l2TipsCache?.refresh();
       return { prunedBlocks, lastAlreadyInsertedBlockNumber };
     });
+    return result;
+  }
+
+  public async setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
+    const result = await this.store.transactionAsync(async () => {
+      await this.store.setProposedCheckpoint(proposedCheckpoint);
+      await this.l2TipsCache?.refresh();
+    });
+
     return result;
   }
 
@@ -211,6 +244,10 @@ export class ArchiverDataStoreUpdater {
       }
 
       const result = await this.removeBlocksAfter(blockNumber);
+
+      // Clear the proposed checkpoint if it exists, since its blocks have been pruned
+      await this.store.deleteProposedCheckpoint();
+
       await this.l2TipsCache?.refresh();
       return result;
     });

@@ -86,6 +86,9 @@ enum BasicTableId {
     KECCAK_RHO_7,
     KECCAK_RHO_8,
     KECCAK_RHO_9,
+    // Used by straus_plookup_table for fixed-base MSM with constant EC points (e.g. IPA verifier SRS elements).
+    // Each table instance gets this id; uniqueness within a circuit is ensured by table_index, not id.
+    STRAUS_EC_POINT,
 };
 
 enum MultiTableId {
@@ -193,7 +196,7 @@ struct MultiTable {
         column_2_coefficients.emplace_back(1);
         column_3_coefficients.emplace_back(1);
 
-        for (size_t i = 0; i < num_lookups; ++i) {
+        for (size_t i = 1; i < num_lookups; ++i) {
             column_1_coefficients.emplace_back(column_1_coefficients.back() * col_1_repeated_coeff);
             column_2_coefficients.emplace_back(column_2_coefficients.back() * col_2_repeated_coeff);
             column_3_coefficients.emplace_back(column_3_coefficients.back() * col_3_repeated_coeff);

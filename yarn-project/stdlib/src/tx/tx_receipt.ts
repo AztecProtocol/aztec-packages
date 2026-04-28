@@ -31,9 +31,16 @@ export const SortedTxStatuses: TxStatus[] = [
 /** Execution result - only set when tx is in a block. */
 export enum TxExecutionResult {
   SUCCESS = 'success',
-  APP_LOGIC_REVERTED = 'app_logic_reverted',
-  TEARDOWN_REVERTED = 'teardown_reverted',
-  BOTH_REVERTED = 'both_reverted',
+  REVERTED = 'reverted',
+  /** @deprecated Use REVERTED instead. */
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
+  APP_LOGIC_REVERTED = 'reverted',
+  /** @deprecated Use REVERTED instead. */
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
+  TEARDOWN_REVERTED = 'reverted',
+  /** @deprecated Use REVERTED instead. */
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values
+  BOTH_REVERTED = 'reverted',
 }
 
 /**
@@ -143,16 +150,6 @@ export class TxReceipt {
   }
 
   public static executionResultFromRevertCode(revertCode: RevertCode): TxExecutionResult {
-    if (revertCode.equals(RevertCode.OK)) {
-      return TxExecutionResult.SUCCESS;
-    } else if (revertCode.equals(RevertCode.APP_LOGIC_REVERTED)) {
-      return TxExecutionResult.APP_LOGIC_REVERTED;
-    } else if (revertCode.equals(RevertCode.TEARDOWN_REVERTED)) {
-      return TxExecutionResult.TEARDOWN_REVERTED;
-    } else if (revertCode.equals(RevertCode.BOTH_REVERTED)) {
-      return TxExecutionResult.BOTH_REVERTED;
-    } else {
-      throw new Error(`Unknown revert code: ${revertCode.getCode()}`);
-    }
+    return revertCode.isOK() ? TxExecutionResult.SUCCESS : TxExecutionResult.REVERTED;
   }
 }

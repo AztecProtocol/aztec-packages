@@ -249,9 +249,9 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         }
 
         // The domain separation IV depends on the input size, therefore, the hashes must not coincide.
+        EXPECT_NE(hashes[0], hashes[1]);
         EXPECT_NE(hashes[1], hashes[2]);
-        EXPECT_NE(hashes[2], hashes[3]);
-        EXPECT_NE(hashes[1], hashes[3]);
+        EXPECT_NE(hashes[0], hashes[2]);
     }
 
     // Test vectors and the expected values are taken from https://github.com/zemse/poseidon2-evm

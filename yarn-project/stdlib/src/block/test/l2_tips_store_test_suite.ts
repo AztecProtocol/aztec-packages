@@ -1,4 +1,3 @@
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -13,6 +12,7 @@ import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/
 
 import { jestExpect as expect } from '@jest/expect';
 
+import { GENESIS_BLOCK_HEADER_HASH } from '../block_hash.js';
 import type { L2TipsStore } from '../l2_block_stream/index.js';
 
 export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
@@ -67,11 +67,18 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     checkpoint: makeCheckpointIdForBlock(blockNumber),
   });
 
-  const makeTips = (proposed: number, proven: number, finalized: number, checkpointed: number = 0) => ({
+  const makeTips = (
+    proposed: number,
+    proven: number,
+    finalized: number,
+    checkpointed: number = 0,
+    proposedCheckpoint: number = 0,
+  ) => ({
     proposed: makeTip(proposed),
     proven: makeTipId(proven),
     finalized: makeTipId(finalized),
     checkpointed: makeTipId(checkpointed),
+    proposedCheckpoint: makeTipId(proposedCheckpoint),
   });
 
   const makeCheckpoint = async (checkpointNumber: number, blocks: L2Block[]): Promise<PublishedCheckpoint> => {

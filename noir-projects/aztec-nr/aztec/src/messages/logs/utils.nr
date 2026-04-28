@@ -21,7 +21,9 @@ pub(crate) fn compute_discovery_tag(recipient: AztecAddress) -> Field {
 }
 
 mod test {
+    use crate::oracle::notes::set_sender_for_tags;
     use crate::protocol::{address::AztecAddress, traits::FromField};
+    use crate::test::helpers::test_environment::TestEnvironment;
     use super::compute_discovery_tag;
     use std::test::OracleMock;
 
@@ -41,5 +43,22 @@ mod test {
         let _ = OracleMock::mock("aztec_prv_getSenderForTags").returns(Option::some(sender));
         let _ = OracleMock::mock("aztec_prv_getNextAppTagAsSender").returns(expected_tag);
         assert_eq(compute_discovery_tag(recipient), expected_tag);
+    }
+
+    #[test]
+    unconstrained fn does_not_fail_on_an_invalid_recipient() {
+        let mut env = TestEnvironment::new();
+
+        let sender = env.create_light_account();
+
+        env.private_context(|_context| {
+            set_sender_for_tags(sender);
+
+            // The recipient is an invalid address
+            let recipient = AztecAddress { inner: 3 };
+            assert(!recipient.is_valid());
+
+            let _ = compute_discovery_tag(recipient);
+        });
     }
 }

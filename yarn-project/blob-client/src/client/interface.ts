@@ -6,9 +6,7 @@ import type { Blob } from '@aztec/blob-lib';
 export interface GetBlobSidecarOptions {
   /**
    * True if the archiver is catching up (historical sync), false if near tip.
-   * This affects source ordering:
-   * - Historical: FileStore first (data should exist), then L1 consensus, then archive (eg. blobscan)
-   * - Near tip: FileStore first with no retries (data should exist), L1 consensus second (freshest data), then FileStore with retries, then archive (eg. blobscan)
+   * Historical sync uses a shorter retry backoff since blobs should already exist.
    */
   isHistoricalSync?: boolean;
   /**

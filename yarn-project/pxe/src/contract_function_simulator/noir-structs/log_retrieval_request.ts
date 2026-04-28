@@ -5,7 +5,7 @@ import { Tag } from '@aztec/stdlib/logs';
 
 /**
  * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle expects values of this
- * type to be stored in a `CapsuleArray`.
+ * type to be stored in a `EphemeralArray`.
  */
 export class LogRetrievalRequest {
   constructor(

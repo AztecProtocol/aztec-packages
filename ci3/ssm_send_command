@@ -94,6 +94,7 @@ fi
 # first 24KB of output. Each poll returns the *full* buffer so far, so we track
 # how many characters we've already printed and only emit the new portion.
 poll_start=$SECONDS
+last_log=$SECONDS
 
 while true; do
   if (( SECONDS - poll_start >= SSM_POLL_TIMEOUT )); then
@@ -115,7 +116,22 @@ while true; do
     Success|Cancelled|TimedOut|Failed)
       break
       ;;
+    Unknown)
+      # SSM API failed — instance may have shut down. Check before waiting.
+      inst_state=$(aws ec2 describe-instance-status --region "$region" \
+        --instance-ids "$iid" --include-all-instances \
+        --query 'InstanceStatuses[0].InstanceState.Name' --output text 2>/dev/null || echo "unknown")
+      if [[ "$inst_state" == "terminated" || "$inst_state" == "stopped" || "$inst_state" == "shutting-down" ]]; then
+        echo "Instance $iid is $inst_state; aborting SSM poll." >&2
+        exit 1
+      fi
+      ;;
     *)
+      if (( SECONDS - last_log >= 600 )); then
+        elapsed=$(( (SECONDS - poll_start) / 60 ))
+        echo "SSM command $command_id still $status after ${elapsed}m." >&2
+        last_log=$SECONDS
+      fi
       sleep 5
       ;;
   esac

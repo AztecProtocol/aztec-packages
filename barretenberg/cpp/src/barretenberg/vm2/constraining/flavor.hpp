@@ -20,7 +20,7 @@
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/avm_fixed_vk.hpp"
 #include "barretenberg/vm2/constraining/flavor_macros.hpp"
@@ -55,6 +55,7 @@ class AvmFlavor {
     static constexpr bool USE_SHORT_MONOMIALS = false;
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
+    static constexpr size_t TRACE_OFFSET = 0;
     // Padding in Sumcheck and Shplemini
     static constexpr bool USE_PADDING = true;
 

@@ -3,7 +3,7 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -124,7 +124,7 @@ TEST(ExecOpIdConstrainingTest, Decomposition)
         TestTraceContainer trace({
             {
                 { C::execution_sel_exec_dispatch_execution, 1 },
-                { C::execution_sel_should_execute_opcode, 1 },
+                { C::execution_sel_execute_opcode, 1 },
                 { C::execution_subtrace_operation_id, OPERATION_IDS.at(i) },
                 { SELECTOR_COLUMNS.at(i), 1 },
             },
@@ -179,10 +179,10 @@ TEST(ExecOpIdConstrainingTest, InteractionWithExecInstructionSpec)
     // Set the execution opcode for each row.
     for (size_t i = 0; i < WIRE_OPCODES.size(); i++) {
         trace.set(C::execution_sel_instruction_fetching_success, static_cast<uint32_t>(i + 1), 1);
-        trace.set(C::execution_sel_should_execute_opcode, static_cast<uint32_t>(i + 1), 1);
+        trace.set(C::execution_sel_execute_opcode, static_cast<uint32_t>(i + 1), 1);
         trace.set(C::execution_sel_exec_dispatch_execution, static_cast<uint32_t>(i + 1), 1);
         trace.set(SELECTOR_COLUMNS.at(i), static_cast<uint32_t>(i + 1), 1);
-        trace.set(C::execution_ex_opcode,
+        trace.set(C::execution_exec_opcode,
                   static_cast<uint32_t>(i + 1),
                   static_cast<uint8_t>(events.at(i).wire_instruction.get_exec_opcode()));
     }

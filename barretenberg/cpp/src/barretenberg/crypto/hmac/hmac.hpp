@@ -136,8 +136,8 @@ Fr deterministic_nonce_rfc6979(const MessageContainer& message, const KeyContain
     secure_erase(message_buffer);
     // Round trip reduces the hash modulo Fr::modulus
     Fr hashed_message_fr = Fr::serialize_from_buffer(hashed_message.data());
-    hashed_message = {};
-    Fr::serialize_to_buffer(hashed_message_fr, &hashed_message[0]);
+    secure_erase(hashed_message);
+    Fr::serialize_to_buffer(hashed_message_fr, hashed_message.data());
 
     // Concatenate the private key and the hashed message
     std::vector<uint8_t> seed_material;

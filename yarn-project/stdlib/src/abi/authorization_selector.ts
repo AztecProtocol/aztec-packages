@@ -7,18 +7,12 @@ import { BufferReader } from '@aztec/foundation/serialize';
 
 import { Selector } from './selector.js';
 
-/* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-
-/** Authorization selector branding */
-export interface AuthorizationSelector {
-  /** Brand. */
-  _branding: 'AuthorizationSelector';
-}
-
 /**
  * An authorization selector is the first 4 bytes of the hash of an authorization struct signature.
  */
 export class AuthorizationSelector extends Selector {
+  /** Branding for nominal typing. */
+  declare private readonly _branding: 'AuthorizationSelector';
   /**
    * Deserializes from a buffer or reader, corresponding to a write in cpp.
    * @param buffer - Buffer  or BufferReader to read from.

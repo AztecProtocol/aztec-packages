@@ -152,6 +152,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                                                const ProverOpeningClaim<Curve>& opening_claim,
                                                const std::shared_ptr<Transcript>& transcript)
     {
+        BB_BENCH_NAME("IPA::compute_opening_proof");
         const bb::Polynomial<Fr>& polynomial = opening_claim.polynomial;
 
         // Step 1.
@@ -189,7 +190,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Copy the SRS into a local data structure as we need to mutate this vector for every round
         parallel_for_heuristic(
-            poly_length, [&](size_t i) { G_vec_local[i] = srs_elements[i]; }, thread_heuristics::FF_COPY_COST);
+            poly_length,
+            [&](size_t i) {
+                BB_BENCH_TRACY_NAME("IPA::copy_srs");
+                G_vec_local[i] = srs_elements[i];
+            },
+            thread_heuristics::FF_COPY_COST);
 
         // Step 5.
         // Compute vector b (vector of the powers of the challenge)
@@ -198,6 +204,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         parallel_for_heuristic(
             poly_length,
             [&](size_t start, size_t end, BB_UNUSED size_t chunk_index) {
+                BB_BENCH_TRACY_NAME("IPA::compute_b_vec");
                 Fr b_power = opening_pair.challenge.pow(start);
                 for (size_t i = start; i < end; i++) {
                     b_vec[i] = b_power;
@@ -222,6 +229,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 round_size,
                 std::pair{ Fr::zero(), Fr::zero() },
                 [&](size_t j, std::pair<Fr, Fr>& inner_prod_left_right) {
+                    BB_BENCH_TRACY_NAME("IPA::inner_product");
                     // Compute inner_prod_L := < a_vec_lo, b_vec_hi >
                     inner_prod_left_right.first += a_vec[j] * b_vec[round_size + j];
                     // Compute inner_prod_R := < a_vec_hi, b_vec_lo >
@@ -277,6 +285,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             parallel_for_heuristic(
                 round_size,
                 [&](size_t j) {
+                    BB_BENCH_TRACY_NAME("IPA::fold_vecs");
                     a_vec.at(j) += round_challenge * a_vec[round_size + j];
                     b_vec[j] += round_challenge_inv * b_vec[round_size + j];
                 },
@@ -409,7 +418,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
 
         // Step 5.
         // Compute C_zero = C' + ∑_{j ∈ [k]} u_j^{-1}L_j + ∑_{j ∈ [k]} u_jR_j
-        GroupElement LR_sums = scalar_multiplication::pippenger_unsafe<Curve>(
+        GroupElement LR_sums = scalar_multiplication::pippenger<Curve>(
             { 0, { &msm_scalars[0], /*size*/ pippenger_size } }, { &msm_elements[0], /*size*/ pippenger_size });
         GroupElement C_zero = C_prime + LR_sums;
 
@@ -474,8 +483,10 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             G_zero =
                 scalar_multiplication::pippenger_unsafe<Curve>(data.s_vec, { &srs_elements[0], /*size*/ poly_length });
         }
-        BB_ASSERT_EQ(
-            G_zero, data.G_zero_from_prover, "G_0 should be equal to G_0 sent in transcript. IPA verification fails.");
+        if (G_zero != data.G_zero_from_prover) {
+            info("IPA verification failed: G_0 mismatch");
+            return false;
+        }
 
         // Step 10.
         // Compute C_right = a_0 * G_s + a_0 * b_0 * U
@@ -668,8 +679,14 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         requires(!Curve::is_stdlib_type)
     {
         const size_t num_claims = opening_claims.size();
-        BB_ASSERT(num_claims == transcripts.size());
-        BB_ASSERT(num_claims > 0);
+        if (num_claims != transcripts.size()) {
+            info("IPA batch verification failed: claims/transcripts size mismatch");
+            return false;
+        }
+        if (num_claims == 0) {
+            info("IPA batch verification failed: no claims provided");
+            return false;
+        }
 
         // Phase 1: Per-proof transcript processing (sequential, each proof is cheap)
         std::vector<GroupElement> C_zeros(num_claims);
@@ -769,6 +786,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     static bool full_verify_recursive(const VK& vk, const OpeningClaim<Curve>& opening_claim, auto& transcript)
         requires Curve::is_stdlib_type
     {
+        // Check SRS size up front before any circuit construction
+        if (vk.get_monomial_points().size() < poly_length) {
+            throw_or_abort("IPA recursive verification: not enough SRS points (need " + std::to_string(poly_length) +
+                           ", have " + std::to_string(vk.get_monomial_points().size()) + ")");
+        }
+
         add_claim_to_hash_buffer(opening_claim, transcript);
         VerifierAccumulator verifier_accumulator = reduce_verify_internal_recursive(opening_claim, transcript);
         auto round_challenges_inv = verifier_accumulator.u_challenges_inv;
@@ -803,14 +826,22 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         }
 
         // Compute G_zero
-        // In the native verifier, this uses pippenger. Here we use batch_mul.
+        // In the native verifier, this uses pippenger. Here we use fixed_batch_mul since all SRS points are
+        // circuit constants, which uses plookup tables instead of ROM tables and is significantly cheaper.
+        // We use 8-bit tables (table_bits=8, 32 rounds) to minimise gate count. However, with N=32768 SRS points
+        // and 8-bit tables, the total table rows = 32768 × 256 = 2^23 exactly. The 5 mandatory overhead rows
+        // (NUM_DISABLED_ROWS_IN_SUMCHECK=4, NUM_ZERO_ROWS=1) push the total to 2^23+5, forcing dyadic_size = 2^24.
+        // To stay within 2^23 we handle the first SRS point separately using operator*.
         std::vector<Commitment> srs_elements = vk.get_monomial_points();
-        BB_ASSERT_GTE(srs_elements.size(), poly_length, "Not enough SRS points for IPA!");
         srs_elements.resize(poly_length);
-        Commitment computed_G_zero = Commitment::batch_mul(srs_elements, s_vec);
+        std::vector<Commitment> remaining_srs(srs_elements.begin() + 1, srs_elements.end());
+        std::vector<Fr> remaining_s(s_vec.begin() + 1, s_vec.end());
+        Commitment first_term = srs_elements[0] * s_vec[0];
+        Commitment remaining_term = Commitment::fixed_batch_mul(remaining_srs, remaining_s, {}, /*table_bits=*/8);
+        Commitment computed_G_zero = first_term + remaining_term;
         // check the computed G_zero and the claimed G_zero are the same.
-        claimed_G_zero.assert_equal(computed_G_zero);
-        BB_ASSERT_EQ(computed_G_zero.get_value(), claimed_G_zero.get_value(), "G_zero doesn't match received G_zero.");
+        // The circuit constraint enforces correctness; mismatched witnesses will produce an unsatisfiable circuit.
+        claimed_G_zero.assert_equal(computed_G_zero, "G_zero doesn't match received G_zero.");
 
         bool running_truth_value = verifier_accumulator.running_truth_value;
         return running_truth_value;
@@ -832,7 +863,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     {
         // Extract batch_mul arguments from the accumulator
         const auto& commitments = batch_opening_claim.commitments;
-        const auto& scalars = batch_opening_claim.scalars;
+        auto scalars = batch_opening_claim.scalars; // mutable copy: batch_mul temporarily modifies scalars
         const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
         // Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
         GroupElement shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);

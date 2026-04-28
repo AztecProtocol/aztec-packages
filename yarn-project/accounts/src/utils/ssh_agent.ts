@@ -41,6 +41,7 @@ type StoredKey = {
 export function getIdentities(): Promise<StoredKey[]> {
   return new Promise((resolve, reject) => {
     const stream = connectToAgent();
+    stream.on('error', reject);
     stream.on('connect', () => {
       const request = Buffer.concat([
         Buffer.from([0, 0, 0, 5 + 4]), // length
@@ -96,6 +97,7 @@ export function getIdentities(): Promise<StoredKey[]> {
 export function signWithAgent(keyType: Buffer, curveName: Buffer, publicKey: Buffer, data: Buffer) {
   return new Promise<Buffer>((resolve, reject) => {
     const stream = connectToAgent();
+    stream.on('error', reject);
     stream.on('connect', () => {
       // Construct the key blob
       const keyBlob = Buffer.concat([

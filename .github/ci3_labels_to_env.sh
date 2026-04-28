@@ -57,6 +57,9 @@ function main {
         fi
       fi
     fi
+  elif has_label "ci-skip"; then
+    echo "WARNING: Skipping CI due to the ci-skipok label! Make sure this is intended!" >&2
+    ci_mode="skip"
   elif has_label "ci-release-pr"; then
     ci_mode="release-pr"
   elif has_label "ci-full"; then
@@ -73,9 +76,6 @@ function main {
     ci_mode="barretenberg"
   elif [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
     ci_mode="release"
-  elif has_label "ci-skip"; then
-    echo "WARNING: Skipping CI due to the ci-skipok label! Make sure this is intended!" >&2
-    ci_mode="skip"
   else
     ci_mode="fast"
   fi

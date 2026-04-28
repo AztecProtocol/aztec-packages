@@ -341,8 +341,9 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // MEM_CONTINUITY
         using View = typename std::tuple_element_t<46, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel))) * static_cast<View>(in.get(C::memory_sel_shift));
+        auto tmp =
+            ((FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) - static_cast<View>(in.get(C::memory_sel))) *
+            static_cast<View>(in.get(C::memory_sel_shift));
         std::get<46>(evals) += (tmp * scaling_factor);
     }
     { // SEL_RNG_CHK

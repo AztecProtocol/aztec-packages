@@ -30,11 +30,10 @@ GoblinAvm::GoblinAvm(MegaBuilder& builder, const std::shared_ptr<Transcript>& av
 
     /**
      * Add required initial ops to the op queue:
-     * - Add 1 no-op (for shiftability)
+     * - Add 1 no-op (for shiftability of Translator op queue wires)
      * - Add 3 random ops (for ZK hiding of accumulation result).
-     * This matches the structure expected by Translator. In Chonk, these ops are added automatically during
-     * circuit accumulation, but AVM uses Goblin directly without the full Chonk IVC flow.
-     *
+     * This matches the structure expected by Translator. In Chonk, these ops are added by the tail kernel; AVM uses
+     * Goblin directly without the full Chonk IVC flow, so it queues them explicitly here.
      */
     builder.queue_ecc_no_op();
     builder.queue_ecc_random_op();

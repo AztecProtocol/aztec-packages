@@ -10,6 +10,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -43,6 +44,7 @@ template <typename Curve_> class KZG {
                                       const ProverOpeningClaim<Curve>& opening_claim,
                                       const std::shared_ptr<Transcript>& prover_trancript)
     {
+        BB_BENCH_NAME("KZG::compute_opening_proof");
         Polynomial quotient = opening_claim.polynomial;
         OpeningPair<Curve> pair = opening_claim.opening_pair;
         Commitment quotient_commitment;
@@ -91,7 +93,10 @@ template <typename Curve_> class KZG {
                                                       quotient_commitment,
                                                       GroupElement::one(builder) };
             std::vector<Fr> scalars = { one, claim.opening_pair.challenge, -claim.opening_pair.evaluation };
-            P_0 = GroupElement::batch_mul(commitments, scalars);
+
+            // Compute C + r*[W]_1 + (-v)*[1]_1 as a batch_mul, no need of edge case handling since we don't expect the
+            // points to be linearly dependent.
+            P_0 = GroupElement::batch_mul(commitments, scalars, /*max_num_bits=*/0, /*with_edgecases=*/false);
 
         } else {
             P_0 = claim.commitment;
@@ -151,7 +156,11 @@ template <typename Curve_> class KZG {
 
         // Validate the final MSM size if expected size is provided
         if (expected_final_msm_size != 0) {
-            BB_ASSERT_EQ(batch_opening_claim.commitments.size(), expected_final_msm_size);
+            if (batch_opening_claim.commitments.size() != expected_final_msm_size) {
+                throw_or_abort("KZG verification: unexpected final MSM size " +
+                               std::to_string(batch_opening_claim.commitments.size()) + " (expected " +
+                               std::to_string(expected_final_msm_size) + ")");
+            }
         }
 
         // Compute C + [W]₁ ⋅ z

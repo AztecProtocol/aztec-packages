@@ -54,8 +54,8 @@ contract FeeHeaderOverflowTest is DecoderBase {
 
   DecoderBase.Full full = load("empty_checkpoint_1");
 
-  uint256 internal constant SLOT_DURATION = 36;
-  uint256 internal constant EPOCH_DURATION = 32;
+  uint256 internal constant SLOT_DURATION = TestConstants.AZTEC_SLOT_DURATION;
+  uint256 internal constant EPOCH_DURATION = TestConstants.AZTEC_EPOCH_DURATION;
   uint256 internal constant MANA_TARGET = 100_000_000;
 
   address internal coinbase = address(bytes20("MONEY MAKER"));

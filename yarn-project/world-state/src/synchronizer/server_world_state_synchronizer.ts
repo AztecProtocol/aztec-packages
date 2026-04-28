@@ -1,4 +1,4 @@
-import { GENESIS_BLOCK_HEADER_HASH, INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { INITIAL_CHECKPOINT_NUMBER, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -6,6 +6,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   type BlockHash,
+  GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2Block,
   type L2BlockId,
@@ -293,6 +294,10 @@ export class ServerWorldStateSynchronizer
         block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
       },
+      proposedCheckpoint: {
+        block: { number: INITIAL_L2_BLOCK_NUM, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+        checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
+      },
       finalized: {
         block: { number: status.finalizedBlockNumber, hash: finalizedBlockHash ?? '' },
         checkpoint: { number: INITIAL_CHECKPOINT_NUMBER, hash: genesisCheckpointHeaderHash },
@@ -453,7 +458,9 @@ export class ServerWorldStateSynchronizer
   private async handleChainPruned(blockNumber: BlockNumber) {
     this.log.info(`Chain pruned to block ${blockNumber}`);
     const status = await this.merkleTreeDb.unwindBlocks(blockNumber);
-    this.provenBlockNumber = undefined;
+    if (this.provenBlockNumber !== undefined && this.provenBlockNumber > blockNumber) {
+      this.provenBlockNumber = undefined;
+    }
     this.instrumentation.updateWorldStateMetrics(status);
   }
 

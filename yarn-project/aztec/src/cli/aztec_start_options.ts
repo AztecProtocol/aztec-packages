@@ -36,7 +36,7 @@ export interface AztecStartOption {
   parseVal?: (val: string) => any;
 }
 
-export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping>) => {
+export const getOptions = (namespace: string, configMappings: Record<string, ConfigMapping<unknown>>) => {
   const options: AztecStartOption[] = [];
   for (const [key, { env, defaultValue: def, parseEnv, description, printDefault, fallback }] of Object.entries(
     configMappings,
@@ -58,7 +58,11 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
   return options;
 };
 
-const configToFlag = (flag: string, configMapping: ConfigMapping, overrideDefaultValue?: any): AztecStartOption => {
+const configToFlag = (
+  flag: string,
+  configMapping: ConfigMapping<unknown>,
+  overrideDefaultValue?: any,
+): AztecStartOption => {
   if (!configMapping.isBoolean) {
     flag += ' <value>';
   }
@@ -125,6 +129,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: DefaultMnemonic,
       env: 'MNEMONIC',
     },
+    {
+      flag: '--local-network.testAccounts',
+      description: 'Deploy test accounts on local network start',
+      env: 'TEST_ACCOUNTS',
+      ...booleanConfigHelper(true),
+    },
   ],
   API: [
     {
@@ -164,6 +174,13 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: false,
       env: 'AZTEC_RESET_ADMIN_API_KEY',
       parseVal: val => val === 'true' || val === '1',
+    },
+    {
+      flag: '--node-debug',
+      description: 'Expose debug endpoints (e.g. mineBlock) on the main RPC port',
+      defaultValue: false,
+      env: 'AZTEC_NODE_DEBUG',
+      parseVal: val => val === undefined || val === 'true' || val === '1',
     },
     {
       flag: '--api-prefix <value>',

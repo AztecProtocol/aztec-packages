@@ -228,7 +228,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     }
 
     const inactiveValidators = getEntries(performance)
-      .filter(([_, { missed, total }]) => missed / total >= this.config.slashInactivityTargetPercentage)
+      .filter(([_, { missed, total }]) => total > 0 && missed / total >= this.config.slashInactivityTargetPercentage)
       .map(([address]) => address);
 
     this.logger.debug(`Found ${inactiveValidators.length} inactive validators in epoch ${epoch}`, {

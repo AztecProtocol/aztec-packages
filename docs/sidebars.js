@@ -19,10 +19,6 @@ const sidebar = {
       id: "developers/getting_started_on_local_network",
     },
     {
-      type: "doc",
-      id: "developers/getting_started_on_devnet",
-    },
-    {
       type: "link",
       label: "Aztec Starter Repository",
       href: "https://github.com/AztecProtocol/aztec-starter",

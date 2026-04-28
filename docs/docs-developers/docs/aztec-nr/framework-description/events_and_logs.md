@@ -1,7 +1,7 @@
 ---
 title: Events and Logs
 tags: [contracts, events]
-sidebar_position: 7
+sidebar_position: 8
 description: Learn how to emit events from your Aztec smart contracts for offchain applications to consume.
 ---
 
@@ -34,7 +34,7 @@ use aztec::messages::message_delivery::MessageDelivery;
 
 #[external("private")]
 fn transfer(to: AztecAddress, amount: u128) {
-    let from = self.msg_sender().unwrap();
+    let from = self.msg_sender();
 
     // ... transfer logic ...
 

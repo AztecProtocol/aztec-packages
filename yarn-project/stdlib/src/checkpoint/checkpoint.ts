@@ -100,7 +100,16 @@ export class Checkpoint {
    * checkpoints up to and including this one in the epoch.
    */
   public getCheckpointOutHash(): Fr {
-    const msgs = this.blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs));
+    return Checkpoint.getCheckpointOutHash(this.blocks);
+  }
+
+  /**
+   * Returns the out hash computed from all l2-to-l1 messages in this checkpoint.
+   * Note: This value is different from the out hash in the header, which is the **accumulated** out hash over all
+   * checkpoints up to and including this one in the epoch.
+   */
+  static getCheckpointOutHash(blocks: L2Block[]): Fr {
+    const msgs = blocks.map(block => block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs));
     return computeCheckpointOutHash(msgs);
   }
 
@@ -165,6 +174,7 @@ export class Checkpoint {
     let lastArchive = previousArchive;
     for (let i = 0; i < numBlocks; i++) {
       const block = await L2Block.random(BlockNumber(startBlockNumber + i), {
+        checkpointNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(i),
         ...options,
         ...(lastArchive ? { lastArchive } : {}),

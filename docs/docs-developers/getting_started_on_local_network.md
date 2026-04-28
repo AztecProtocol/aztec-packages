@@ -8,7 +8,7 @@ tags: [local_network, testnet]
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Get started on your local environment using a local network. If you'd rather jump into devnet, read the [getting started on devnet guide](./getting_started_on_devnet.md).
+Get started on your local environment using a local network. If you'd rather deploy to a live network, read the [getting started on testnet guide](./getting_started_on_testnet.md).
 
 The local network is a local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The local network makes it faster and easier to develop and test your Aztec applications.
 
@@ -27,6 +27,11 @@ import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 
 - <General.node_ver />
 
+### macOS-specific requirements
+
+- **Homebrew**: [Homebrew](https://brew.sh/) is required for installing dependencies on macOS.
+- **Bash**: macOS ships with an outdated version of Bash (v3.2) that is known to cause issues with the Aztec installer. Install a modern version with `brew install bash`. Even if you use zsh as your default shell, the installer explicitly invokes `bash`. If the installer still picks up the old version, add the Homebrew `bash` to your `$PATH` or [set it as your default shell](https://support.apple.com/en-gb/guide/terminal/trml113/mac).
+
 ## Install and run the local network
 
 ### Install the Aztec toolchain
@@ -37,11 +42,16 @@ Run:
 VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
 ```
 
-This will install the following tools:
+This will install the following tools and add them to your `PATH`:
 
-- **aztec** - compiles and tests aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, pxe, etc) and provides utility commands to interact with the network
+- **nargo** - the Noir programming language compiler and simulator
+- **noir-profiler** - a profiler for analyzing and visualizing Noir programs
+- **bb** - the Barretenberg proving backend
+- **aztec** - compiles and tests Aztec contracts and launches various infrastructure subsystems (full local network, sequencer, prover, PXE, etc.) and provides utility commands to interact with the network
 - **aztec-up** - a version manager for the Aztec toolchain. Use `aztec-up install <version>` to install a new version, `aztec-up use <version>` to switch between installed versions, or `aztec-up list` to see installed versions.
-- **aztec-wallet** - a tool for interacting with the aztec network
+- **aztec-wallet** - a tool for interacting with the Aztec network
+
+For syntax highlighting and LSP support while editing contracts, see the [Noir VSCode Extension guide](./docs/aztec-nr/installation.md).
 
 ### Start the local network
 
@@ -252,4 +262,5 @@ Simulation result:  25n
 Want to build something cool on Aztec?
 
 - Check out the [Token Contract Tutorial](./docs/tutorials/contract_tutorials/token_contract.md) for a beginner tutorial, or jump into more advanced ones
+- Ready for a live network? Try [deploying on testnet](./getting_started_on_testnet.md)
 - Start on your own thing and check out the How To Guides to help you!

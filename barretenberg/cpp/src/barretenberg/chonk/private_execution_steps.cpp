@@ -86,7 +86,12 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
     T result;
     std::string encoded_data(fsize, '\0');
     fin.read(encoded_data.data(), static_cast<std::streamsize>(fsize));
-    msgpack::unpack(encoded_data.data(), fsize).get().convert(result);
+    std::size_t offset = 0;
+    msgpack::unpack(encoded_data.data(), fsize, offset).get().convert(result);
+    if (offset != fsize) {
+        THROW std::invalid_argument("msgpack input has trailing data (" + std::to_string(fsize - offset) +
+                                    " extra bytes)");
+    }
     return result;
 }
 
@@ -121,7 +126,12 @@ std::vector<PrivateExecutionStepRaw> PrivateExecutionStepRaw::parse_uncompressed
 {
     std::vector<PrivateExecutionStepRaw> raw_steps;
     // Read with msgpack
-    msgpack::unpack(reinterpret_cast<const char*>(buf.data()), buf.size()).get().convert(raw_steps);
+    std::size_t offset = 0;
+    msgpack::unpack(reinterpret_cast<const char*>(buf.data()), buf.size(), offset).get().convert(raw_steps);
+    if (offset != buf.size()) {
+        THROW std::invalid_argument("msgpack input has trailing data (" + std::to_string(buf.size() - offset) +
+                                    " extra bytes)");
+    }
     // Unlike load_and_decompress, we don't need to decompress the bytecode and witness fields
     return raw_steps;
 }

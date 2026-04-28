@@ -39,7 +39,7 @@ use crate::protocol::{
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, MAX_TX_LIFETIME,
         NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_CIPHERTEXT_LEN,
     },
-    hash::poseidon2_hash,
+    hash::compute_contract_class_log_hash,
     messaging::l2_to_l1_message::L2ToL1Message,
     side_effect::{Counted, scoped::Scoped},
     traits::{Empty, Hash, ToField},
@@ -557,11 +557,20 @@ impl PrivateContext {
     /// counter.
     ///
     pub fn end_setup(&mut self) {
-        // Incrementing the side effect counter when ending setup ensures non ambiguity for the counter where we change
-        // phases.
+        // We bump the counter twice: once so that `min_revertible_side_effect_counter` sits strictly above any
+        // non-revertible side effect counter (including queries made via `in_revertible_phase` before this call), and
+        // once more so that the next revertible side effect counter is strictly greater than
+        // `min_revertible_side_effect_counter`. This ensures `min_revertible_side_effect_counter` occupies a gap that
+        // no side effect takes, which the kernel relies on when validating the phase split.
         self.side_effect_counter += 1;
-        aztecnr_trace_log_format!("Ending setup at counter {0}")([self.side_effect_counter as Field]);
-        self.min_revertible_side_effect_counter = self.next_counter();
+        self.min_revertible_side_effect_counter = self.side_effect_counter;
+        self.side_effect_counter += 1;
+
+        aztecnr_trace_log_format!(
+            "Ending setup, minimum revertible side effect counter is {0}",
+        )(
+            [self.min_revertible_side_effect_counter as Field],
+        );
         notify_revertible_phase_start(self.min_revertible_side_effect_counter);
     }
 
@@ -900,11 +909,22 @@ impl PrivateContext {
     /// happen to share a raw tag value become indistinguishable. Prefer the higher-level APIs
     /// ([`crate::messages::message_delivery::MessageDelivery`] for messages, `self.emit(event)` for events) which
     /// handle tagging automatically.
+    // TODO(F-555): remove this function in favor of `emit_private_log_vec_unsafe`
+    #[deprecated("use `emit_private_log_vec_unsafe` instead")]
     pub fn emit_private_log_unsafe(&mut self, tag: Field, log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32) {
         let counter = self.next_counter();
         let full_log = [tag].concat(log);
         self.private_logs.push(PrivateLogData { log: PrivateLog::new(full_log, length + 1), note_hash_counter: 0 }
             .count(counter));
+    }
+
+    /// `BoundedVec`-based variant of [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe).
+    ///
+    /// See [`emit_private_log_unsafe`](PrivateContext::emit_private_log_unsafe) for the full description of private
+    /// log semantics.
+    // TODO(F-555): once `emit_private_log_unsafe` is removed, rename this function to drop the `_vec` suffix.
+    pub fn emit_private_log_vec_unsafe(&mut self, tag: Field, log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>) {
+        self.emit_raw_note_log_vec_unsafe(tag, log, 0);
     }
 
     // TODO: rename.
@@ -929,6 +949,8 @@ impl PrivateContext {
     /// ## Safety
     ///
     /// Same as [`PrivateContext::emit_private_log_unsafe`]: the `tag` should be domain-separated.
+    // TODO(F-555): remove this function in favor of `emit_raw_note_log_vec_unsafe`
+    #[deprecated("use `emit_raw_note_log_vec_unsafe` instead")]
     pub fn emit_raw_note_log_unsafe(
         &mut self,
         tag: Field,
@@ -942,6 +964,30 @@ impl PrivateContext {
         self.private_logs.push(private_log.count(counter));
     }
 
+    /// `BoundedVec`-based variant of [`emit_raw_note_log_unsafe`](PrivateContext::emit_raw_note_log_unsafe).
+    ///
+    /// See [`emit_raw_note_log_unsafe`](PrivateContext::emit_raw_note_log_unsafe) for the full description of
+    /// note-tied private log semantics.
+    // TODO(F-555): once `emit_raw_note_log_unsafe` is removed, rename this function to drop the `_vec` suffix.
+    pub fn emit_raw_note_log_vec_unsafe(
+        &mut self,
+        tag: Field,
+        log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>,
+        note_hash_counter: u32,
+    ) {
+        let counter = self.next_counter();
+        let full_log = [tag].concat(log.storage());
+        let private_log = PrivateLogData { log: PrivateLog::new(full_log, log.len() + 1), note_hash_counter };
+        self.private_logs.push(private_log.count(counter));
+    }
+
+    /// Emits large data blobs.
+    ///
+    /// This reuses the Contract Class Log channel to emit blobs of up to [`CONTRACT_CLASS_LOG_SIZE_IN_FIELDS`].
+    ///
+    /// ## Privacy
+    ///
+    /// The address of the contract emitting these blobs is revelead.
     pub fn emit_contract_class_log<let N: u32>(&mut self, log: [Field; N]) {
         let contract_address = self.this_address();
         let counter = self.next_counter();
@@ -953,10 +999,10 @@ impl PrivateContext {
         // Safety: The below length is constrained in the base rollup, which will make sure that all the fields beyond
         // length are zero. However, it won't be able to check that we didn't add extra padding (trailing zeroes) or
         // that we cut trailing zeroes from the end.
-        let length = unsafe { trimmed_array_length_hint(log_to_emit) };
+        let length = unsafe { trimmed_array_length_hint(log) };
         // We hash the entire padded log to ensure a user cannot pass a shorter length and so emit incorrect shorter
         // bytecode.
-        let log_hash = poseidon2_hash(log_to_emit);
+        let log_hash = compute_contract_class_log_hash(log_to_emit);
         // Safety: the below only exists to broadcast the raw log, so we can provide it to the base rollup later to be
         // constrained.
         unsafe {
@@ -1147,16 +1193,12 @@ impl PrivateContext {
             },
         );
 
-        // TODO (fees) figure out why this crashes the prover and enable it we need this in order to pay fees inside
-        // child call contexts assert(
-        //     (item.public_inputs.min_revertible_side_effect_counter == 0 as u32)
-        //     | (item.public_inputs.min_revertible_side_effect_counter
-        //         > self.min_revertible_side_effect_counter)
-        // ); if item.public_inputs.min_revertible_side_effect_counter
-        //     > self.min_revertible_side_effect_counter { self.min_revertible_side_effect_counter =
-        // item.public_inputs.min_revertible_side_effect_counter; }
-        self.side_effect_counter = end_side_effect_counter + 1; // TODO: call `next_counter`
-        // instead, for consistency
+        // The kernel circuits ensure that end_side_effect_counter is greater than start_side_effect_counter, and that
+        // all side effects emitted in the child call have counters within the range [start_side_effect_counter,
+        // end_side_effect_counter]. Therefore, we only need to ensure that the next side effect from the current call
+        // starts after the end side effect from the child call.
+        self.side_effect_counter = end_side_effect_counter + 1;
+
         ReturnsHash::new(returns_hash)
     }
 

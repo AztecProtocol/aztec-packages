@@ -33,6 +33,7 @@ import {
 } from '@aztec/stdlib/tx';
 import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
+import { computeTxExpirationTimestamp } from './hints/compute_tx_expiration_timestamp.js';
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/private_kernel_reset_private_inputs_builder.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
 
@@ -267,15 +268,9 @@ export class PrivateKernelExecutionProver {
     // TODO: Enable padding once we better understand the final amounts to pad to.
     const paddedSideEffectAmounts = PaddedSideEffectAmounts.empty();
 
-    // Use the aggregated expirationTimestamp set throughout the tx execution.
-    // TODO: Call `computeTxExpirationTimestamp` to round the value down and reduce precision, improving privacy.
-    const expirationTimestampUpperBound = previousKernelData.publicInputs.expirationTimestamp;
-    const anchorBlockTimestamp = previousKernelData.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp;
-    if (expirationTimestampUpperBound <= anchorBlockTimestamp) {
-      throw new Error(
-        `Include-by timestamp must be greater than the anchor block timestamp. Anchor block timestamp: ${anchorBlockTimestamp}. Include-by timestamp: ${expirationTimestampUpperBound}.`,
-      );
-    }
+    // Round the aggregated expirationTimestamp down to reduce precision and avoid leaking which private
+    // functions were called via their exact expiration offsets.
+    const expirationTimestampUpperBound = computeTxExpirationTimestamp(previousKernelData.publicInputs);
 
     const privateInputs = new PrivateKernelTailCircuitPrivateInputs(
       previousKernelData,

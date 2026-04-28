@@ -1,7 +1,7 @@
 ---
 title: Aztec Macros
 description: Learn about macros available in Aztec.nr for code generation and abstraction.
-sidebar_position: 8
+sidebar_position: 9
 tags: [contracts, functions]
 ---
 
@@ -22,8 +22,8 @@ Aztec.nr provides macros (attributes) that transform your code during compilatio
 | `#[external("private")]` | Client-side private execution with proofs |
 | `#[external("public")]` | Sequencer-side public execution |
 | `#[external("utility")]` | Unconstrained queries, not included in transactions |
-| `#[internal("private")]` | Private helper, inlined at call sites |
-| `#[internal("public")]` | Public helper, inlined at call sites |
+| `#[internal("private")]` | Private helper, only callable within the same contract |
+| `#[internal("public")]` | Public helper, only callable within the same contract |
 | `#[view]` | Prevents state modification |
 | `#[initializer]` | Contract constructor |
 | `#[noinitcheck]` | Callable before contract initialization |

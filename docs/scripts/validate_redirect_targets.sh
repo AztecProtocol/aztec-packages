@@ -30,23 +30,16 @@ echo "Validating redirect targets in $NETLIFY_TOML..."
 DEVELOPER_VERSION_FILE="$DOCS_ROOT/developer_versions.json"
 NETWORK_VERSION_FILE="$DOCS_ROOT/network_versions.json"
 
-# Get the default developer version (last version ending in devnet.* or the first version)
+# Get the default developer version (first entry in the array = highest priority, typically mainnet)
 if [[ -f "$DEVELOPER_VERSION_FILE" ]]; then
-  # Get versions with -devnet suffix, prefer the devnet version for production
-  DEVELOPER_DEFAULT_VERSION=$(jq -r '.[] | select(contains("devnet"))' "$DEVELOPER_VERSION_FILE" | head -n1)
-  if [[ -z "$DEVELOPER_DEFAULT_VERSION" ]]; then
-    DEVELOPER_DEFAULT_VERSION=$(jq -r '.[0]' "$DEVELOPER_VERSION_FILE")
-  fi
+  DEVELOPER_DEFAULT_VERSION=$(jq -r '.[0]' "$DEVELOPER_VERSION_FILE")
 else
   DEVELOPER_DEFAULT_VERSION=""
 fi
 
-# Get the default network version (ignition version)
+# Get the default network version (first entry = mainnet)
 if [[ -f "$NETWORK_VERSION_FILE" ]]; then
-  NETWORK_DEFAULT_VERSION=$(jq -r '.[] | select(contains("ignition"))' "$NETWORK_VERSION_FILE" | head -n1)
-  if [[ -z "$NETWORK_DEFAULT_VERSION" ]]; then
-    NETWORK_DEFAULT_VERSION=$(jq -r '.[0]' "$NETWORK_VERSION_FILE")
-  fi
+  NETWORK_DEFAULT_VERSION=$(jq -r '.[0]' "$NETWORK_VERSION_FILE")
 else
   NETWORK_DEFAULT_VERSION=""
 fi
@@ -298,8 +291,11 @@ while IFS= read -r to_path; do
     continue
   fi
 
+  # Strip fragment identifiers (#anchor) before validation
+  check_path="${to_path%%#*}"
+
   # Validate the path
-  if check_docs_path "$to_path"; then
+  if check_docs_path "$check_path"; then
     VALIDATED_COUNT=$((VALIDATED_COUNT + 1))
   else
     INVALID_PATHS="${INVALID_PATHS}  - ${to_path}\n"
