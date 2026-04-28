@@ -251,7 +251,7 @@ TEST(UltraCircuitSMT, LookupRelation2)
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config, /*base=*/16, /*bvsize=*/256);
     UltraCircuit cir(circuit_info, &s, TermType::BVTerm);
-    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient();
+    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient());
 
     cir["a"] == a.get_value();
     cir["b"] == b.get_value();
