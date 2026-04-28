@@ -92,12 +92,16 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
         connectionReject = null;
         connectionResolve = null;
       }
-      // Reject all pending callbacks
+      // Reject all pending callbacks and destroy socket to prevent further writes
       const error = new Error(`Native backend process error: ${err.message}`);
       for (const callback of this.pendingCallbacks) {
         callback.reject(error);
       }
       this.pendingCallbacks = [];
+      if (this.socket) {
+        this.socket.destroy();
+        this.socket = null;
+      }
     });
 
     this.process.on('exit', (code, signal) => {
@@ -113,12 +117,16 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
         connectionReject = null;
         connectionResolve = null;
       }
-      // Reject all pending callbacks
+      // Reject all pending callbacks and destroy socket to prevent further writes
       const error = new Error(errorMsg);
       for (const callback of this.pendingCallbacks) {
         callback.reject(error);
       }
       this.pendingCallbacks = [];
+      if (this.socket) {
+        this.socket.destroy();
+        this.socket = null;
+      }
     });
 
     // Wait for bb to create socket file, then connect
@@ -306,6 +314,7 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
         // Unref so socket doesn't keep event loop alive
         // this.socket.unref();
         this.socket.destroy();
+        this.socket = null;
       }
     } catch (e) {
       // Ignore errors during cleanup

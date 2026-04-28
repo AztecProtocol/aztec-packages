@@ -59,6 +59,10 @@ export class MockEpochCache implements EpochCacheInterface {
     return false;
   }
 
+  pipeliningOffset(): number {
+    return 0;
+  }
+
   getProposerIndexEncoding(_epoch: EpochNumber, _slot: SlotNumber, _seed: bigint): `0x${string}` {
     return '0x00';
   }

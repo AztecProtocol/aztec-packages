@@ -61,11 +61,17 @@ Aztec offers flexible fee payment:
 ### Pay Directly
 If you have $AZTEC, pay for your own transactions directly from your account.
 
-### Sponsored Transactions
-Some applications pay fees on behalf of their users, enabling "free" transactions. The application covers the cost, not you.
-
 ### Fee-Paying Contracts
-Specialized contracts can accept other tokens and pay fees in $AZTEC for you. This is useful if you only hold other tokens.
+
+A fee-paying contract (FPC) pays $AZTEC (referred to as "Fee Juice" in the developer docs) on your behalf, typically in exchange for another token. This lets applications accept fees in tokens their users already hold and lets brand-new accounts transact without first acquiring $AZTEC.
+
+- **Sponsored FPC** — available on testnet, devnet, and local network, covers transaction costs for free. Useful for development and onboarding.
+- **Third-party FPCs** — deployed by ecosystem teams for use on testnet and mainnet. These accept various tokens and handle $AZTEC fee payment behind the scenes. As one example, Nethermind offers a [Private Multi Asset FPC](https://github.com/NethermindEth/aztec-fpc) that supports multiple tokens with private fee transfers.
+
+### Private Fee Payment
+Some apps pay fees through a fully private fee-paying contract, so the fee payment itself leaks no information about who you are. The more apps that route private fee payments through the *same* contract address, the stronger your privacy — every payment shares one large anonymity set instead of many small ones.
+
+If you care about fee privacy, look for apps that use a shared private FPC. For example, [DeFi Wonderland](https://github.com/defi-wonderland/aztec-fee-payment) has built a community implementation where every app can derive the same contract address from a common deployment salt. Note that the derived address depends on the compiled contract bytecode, which changes between Aztec versions — always verify the address matches the network you are using.
 
 ## Understanding Your Fee
 

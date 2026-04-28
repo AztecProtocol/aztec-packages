@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../styles.css">
+<script defer src="../../nargo_doc.js"></script>
+<title>Module hash documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">hash</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../index.html">aztec-nr</a></h1>
+<div><a href="../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module hash</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#functions">Functions</a></li>
+</ul>
+<h2>In module protocol_types</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../abis/index.html">abis</a></div></li>
+<li><a href="../address/index.html">address</a></div></li>
+<li><a href="../blob_data/index.html">blob_data</a></div></li>
+<li><a href="../constants/index.html">constants</a></div></li>
+<li><a href="../contract_class_id/index.html">contract_class_id</a></div></li>
+<li><a href="../contract_instance/index.html">contract_instance</a></div></li>
+<li><a href="../data/index.html">data</a></div></li>
+<li><a href="../debug/index.html">debug</a></div></li>
+<li><a href="../delayed_public_mutable/index.html">delayed_public_mutable</a></div></li>
+<li><a href="../hash/index.html">hash</a></div></li>
+<li><a href="../logging/index.html">logging</a></div></li>
+<li><a href="../merkle_tree/index.html">merkle_tree</a></div></li>
+<li><a href="../messaging/index.html">messaging</a></div></li>
+<li><a href="../meta/index.html">meta</a></div></li>
+<li><a href="../point/index.html">point</a></div></li>
+<li><a href="../poseidon2/index.html">poseidon2</a></div></li>
+<li><a href="../proof/index.html">proof</a></div></li>
+<li><a href="../public_keys/index.html">public_keys</a></div></li>
+<li><a href="../scalar/index.html">scalar</a></div></li>
+<li><a href="../side_effect/index.html">side_effect</a></div></li>
+<li><a href="../storage/index.html">storage</a></div></li>
+<li><a href="../traits/index.html">traits</a></div></li>
+<li><a href="../utils/index.html">utils</a></div></li>
+<li><a href="../validate/index.html">validate</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">protocol_types</a>::hash</div>
+<h1>Module <span id="mod" class="module">hash</span></h1>
+<h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.accumulate_sha256.html" class="fn">accumulate_sha256</a></div><div class="item-description">Computes sha256 hash of 2 input fields.</div></li>
+<li><div class="item-name"><a href="fn.compute_app_siloed_secret_key.html" class="fn">compute_app_siloed_secret_key</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.compute_contract_class_log_hash.html" class="fn">compute_contract_class_log_hash</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.compute_l2_to_l1_message_hash.html" class="fn">compute_l2_to_l1_message_hash</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.compute_log_tag.html" class="fn">compute_log_tag</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.compute_note_hash_nonce.html" class="fn">compute_note_hash_nonce</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.compute_note_nonce_and_unique_note_hash.html" class="fn">compute_note_nonce_and_unique_note_hash</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.compute_siloed_note_hash.html" class="fn">compute_siloed_note_hash</a></div><div class="item-description">Siloing in the context of Aztec refers to the process of hashing a note hash with a contract address (this way
+the note hash is scoped to a specific contract). This is used to prevent intermingling of notes between contracts.</div></li>
+<li><div class="item-name"><a href="fn.compute_siloed_nullifier.html" class="fn">compute_siloed_nullifier</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.compute_siloed_private_log.html" class="fn">compute_siloed_private_log</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.compute_siloed_private_log_first_field.html" class="fn">compute_siloed_private_log_first_field</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.compute_unique_note_hash.html" class="fn">compute_unique_note_hash</a></div><div class="item-description">Computes unique, siloed note hashes from siloed note hashes.</div></li>
+<li><div class="item-name"><a href="fn.create_protocol_nullifier.html" class="fn">create_protocol_nullifier</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.poseidon2_absorb_in_chunks_existing_sponge.html" class="fn">poseidon2_absorb_in_chunks_existing_sponge</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.poseidon2_hash.html" class="fn">poseidon2_hash</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.poseidon2_hash_bytes.html" class="fn">poseidon2_hash_bytes</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.poseidon2_hash_subarray.html" class="fn">poseidon2_hash_subarray</a></div><div class="item-description">Computes a Poseidon2 hash over a dynamic-length subarray of the given input.
+Only the first <code>in_len</code> fields of <code>input</code> are absorbed; any remaining fields are ignored.
+The caller is responsible for ensuring that the input is padded with zeros if required.</div></li>
+<li><div class="item-name"><a href="fn.poseidon2_hash_with_separator.html" class="fn">poseidon2_hash_with_separator</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.poseidon2_hash_with_separator_bounded_vec.html" class="fn">poseidon2_hash_with_separator_bounded_vec</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.private_functions_root_from_siblings.html" class="fn">private_functions_root_from_siblings</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="fn.sha256_to_field.html" class="fn">sha256_to_field</a></div><div class="item-description"></div></li>
+</ul>
+</main>
+</span>
+</body>
+</html>

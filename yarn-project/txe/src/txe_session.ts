@@ -3,13 +3,12 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import type { AccessScopes } from '@aztec/pxe/client/lazy';
 import {
   AddressStore,
   AnchorBlockStore,
+  CapsuleService,
   CapsuleStore,
   ContractStore,
-  ContractSyncService,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -43,7 +42,7 @@ import { GasSettings } from '@aztec/stdlib/gas';
 import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
-import { CallContext, GlobalVariables, TxContext } from '@aztec/stdlib/tx';
+import { CallContext, GlobalVariables, OFFCHAIN_MESSAGE_IDENTIFIER, TxContext } from '@aztec/stdlib/tx';
 
 import { z } from 'zod';
 
@@ -118,6 +117,65 @@ export interface TXESessionStateHandler {
   // TODO(F-335): Exposing the job info is abstraction breakage - drop the following 2 functions.
   cycleJob(): Promise<string>;
   getCurrentJob(): string;
+
+  /**
+   * Runs an executor-style top-level call (private/public call, utility execution) with last-call tracking.
+   */
+  withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T>;
+
+  /**
+   * Captures a raw offchain effect payload for consumption from test environment. Called by the `emit_offchain_effect`
+   * oracle handler whenever a contract function emits an offchain message, at any call depth.
+   */
+  recordOffchainEffect(data: Fr[]): void;
+
+  /**
+   * Returns the raw offchain effect payloads emitted by the last top-level call. Each payload follows the protocol
+   * convention documented on `OFFCHAIN_MESSAGE_IDENTIFIER`, i.e. `[identifier, recipient, ...ciphertext]`. Decoding into
+   * `OffchainMessage` structs happens on the Noir side of the test helper. Marks the buffer as queried so the
+   * unqueried-messages warning doesn't fire on the next reset.
+   */
+  getLastCallOffchainEffects(): { effects: Fr[][] };
+
+  /**
+   * Returns the context of the last top-level call: its tx hash (`Fr.ZERO` if the call was tx-less) and the anchor
+   * block timestamp captured at the start of the call. Does *not* mark the buffer as queried — context reads are
+   * metadata, not effect consumption.
+   */
+  getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint };
+}
+
+/**
+ * Session state tracking the most recently completed top-level call: the offchain effect buffer it produced, and the
+ * call's context (tx hash + anchor block timestamp). The context is refreshed on every top-level call, independently
+ * of whether the call produced offchain effects.
+ */
+interface LastCallState {
+  /**
+   * Raw offchain effect payloads emitted by the currently-executing (or most recently completed) top-level call. Wiped
+   * at the start of every top-level entry point, appended to on every `emit_offchain_effect` oracle invocation.
+   */
+  offchainEffects: Fr[][];
+  /**
+   * Tracks whether the test has queried `effects` since the last reset. If a new top-level call clobbers the buffer
+   * without it being queried first, any accumulated messages are lost and we emit a warning so tests don't silently
+   * drop delivery.
+   */
+  queried: boolean;
+  /**
+   * Tx hash of the most recently completed top-level call, or `Fr.ZERO` if the call was tx-less (context setters,
+   * utility execution). Populated by call executor handlers after execution completes.
+   */
+  txHash: Fr;
+  /**
+   * Anchor block timestamp of the most recently completed top-level call, captured from the anchor block header that
+   * was active when the call started. Populated by call executor handlers after execution completes.
+   */
+  anchorBlockTimestamp: bigint;
+}
+
+function emptyLastCallState(): LastCallState {
+  return { offchainEffects: [], queried: false, txHash: Fr.ZERO, anchorBlockTimestamp: 0n };
 }
 
 /**
@@ -127,6 +185,7 @@ export interface TXESessionStateHandler {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
+  private lastCallInfo: LastCallState = emptyLastCallState();
 
   constructor(
     private logger: Logger,
@@ -151,7 +210,6 @@ export class TXESession implements TXESessionStateHandler {
     private chainId: Fr,
     private version: Fr,
     private nextBlockTimestamp: bigint,
-    private contractSyncService: ContractSyncService,
   ) {}
 
   static async init(contractStore: ContractStore) {
@@ -179,7 +237,7 @@ export class TXESession implements TXESessionStateHandler {
 
     const archiver = new TXEArchiver(store);
     const anchorBlockStore = new AnchorBlockStore(store);
-    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore, keyStore);
+    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());
@@ -188,13 +246,6 @@ export class TXESession implements TXESessionStateHandler {
     const initialJobId = jobCoordinator.beginJob();
 
     const logger = createLogger('txe:session');
-    const contractSyncService = new ContractSyncService(
-      stateMachine.node,
-      contractStore,
-      noteStore,
-      () => keyStore.getAccounts(),
-      logger,
-    );
 
     const topLevelOracleHandler = new TXEOracleTopLevelContext(
       stateMachine,
@@ -212,7 +263,6 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
-      contractSyncService,
     );
     await topLevelOracleHandler.advanceBlocksBy(1);
 
@@ -235,7 +285,6 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       nextBlockTimestamp,
-      contractSyncService,
     );
   }
 
@@ -281,6 +330,50 @@ export class TXESession implements TXESessionStateHandler {
     return this.currentJobId;
   }
 
+  private resetLastCall(): void {
+    const notQueriedMessageCount = this.lastCallInfo.queried
+      ? 0
+      : this.lastCallInfo.offchainEffects.filter(payload => payload[0]?.equals(OFFCHAIN_MESSAGE_IDENTIFIER)).length;
+    if (notQueriedMessageCount > 0) {
+      this.logger.warn(
+        `Dropping ${notQueriedMessageCount} unqueried offchain message(s) from the previous top-level call. ` +
+          `To deliver them, call \`env.offchain_messages()\` and forward the result to the recipient contract's ` +
+          `\`offchain_receive\` utility before issuing another top-level call. To intentionally discard, assign ` +
+          `to \`let _ = env.offchain_messages()\` to silence this warning.`,
+      );
+    }
+    this.lastCallInfo = emptyLastCallState();
+  }
+
+  recordOffchainEffect(data: Fr[]): void {
+    this.lastCallInfo.offchainEffects.push(data);
+  }
+
+  private setLastCallContext(txHash: Fr, anchorBlockTimestamp: bigint): void {
+    this.lastCallInfo.txHash = txHash;
+    this.lastCallInfo.anchorBlockTimestamp = anchorBlockTimestamp;
+  }
+
+  async withTopLevelCallTracking<T>(work: () => Promise<{ result: T; txHash?: Fr }>): Promise<T> {
+    this.resetLastCall();
+    // Capture the anchor *before* `work` runs: private/public executor calls mine a new block as a
+    // side effect, and that block's timestamp should not be attributed to this call's anchor.
+    const anchorBlockTimestamp = (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.timestamp;
+    const { result, txHash } = await work();
+    this.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
+    return result;
+  }
+
+  getLastCallOffchainEffects(): { effects: Fr[][] } {
+    this.lastCallInfo.queried = true;
+    return { effects: this.lastCallInfo.offchainEffects };
+  }
+
+  getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
+    const { txHash, anchorBlockTimestamp } = this.lastCallInfo;
+    return { txHash, anchorBlockTimestamp };
+  }
+
   async enterTopLevelState() {
     switch (this.state.name) {
       case 'PRIVATE': {
@@ -322,7 +415,6 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
-      this.contractSyncService,
     );
 
     this.state = { name: 'TOP_LEVEL' };
@@ -334,6 +426,7 @@ export class TXESession implements TXESessionStateHandler {
     anchorBlockNumber?: BlockNumber,
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
+    this.resetLastCall();
 
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
@@ -342,7 +435,7 @@ export class TXESession implements TXESessionStateHandler {
 
     await new NoteService(this.noteStore, this.stateMachine.node, anchorBlock!, this.currentJobId).syncNoteNullifiers(
       contractAddress,
-      'ALL_SCOPES',
+      await this.keyStore.getAccounts(),
     );
     const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
 
@@ -378,11 +471,12 @@ export class TXESession implements TXESessionStateHandler {
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
+      l2TipsStore: this.stateMachine.node,
       jobId: this.currentJobId,
-      scopes: 'ALL_SCOPES',
+      scopes: await this.keyStore.getAccounts(),
       messageContextService: this.stateMachine.messageContextService,
     });
 
@@ -394,17 +488,22 @@ export class TXESession implements TXESessionStateHandler {
     this.state = { name: 'PRIVATE', nextBlockGlobalVariables, noteCache, taggingIndexCache };
     this.logger.debug(`Entered state ${this.state.name}`);
 
+    // Record the *resolved* anchor's timestamp — if the caller pinned the anchor to a past block
+    // via `anchorBlockNumber`, "latest" would be the wrong anchor for offchain-message semantics.
+    this.setLastCallContext(Fr.ZERO, anchorBlock!.globalVariables.timestamp);
+
     return (this.oracleHandler as PrivateExecutionOracle).getPrivateContextInputs();
   }
 
   async enterPublicState(contractAddress?: AztecAddress) {
     this.exitTopLevelState();
+    this.resetLastCall();
 
     // The PublicContext will create a block with a single transaction in it, containing the effects of what was done in
     // the test. The block therefore gets the *next* block number and timestamp.
-    const latestBlockNumber = (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.blockNumber;
+    const latestHeader = (await this.stateMachine.node.getBlockHeader('latest'))!;
     const globalVariables = makeGlobalVariables(undefined, {
-      blockNumber: BlockNumber(latestBlockNumber + 1),
+      blockNumber: BlockNumber(latestHeader.globalVariables.blockNumber + 1),
       timestamp: this.nextBlockTimestamp,
       version: this.version,
       chainId: this.chainId,
@@ -419,10 +518,14 @@ export class TXESession implements TXESessionStateHandler {
 
     this.state = { name: 'PUBLIC' };
     this.logger.debug(`Entered state ${this.state.name}`);
+
+    // Public state is anchored at the latest block.
+    this.setLastCallContext(Fr.ZERO, latestHeader.globalVariables.timestamp);
   }
 
   async enterUtilityState(contractAddress: AztecAddress = DEFAULT_ADDRESS) {
     this.exitTopLevelState();
+    this.resetLastCall();
 
     const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
@@ -436,7 +539,7 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.node,
       anchorBlockHeader,
       this.currentJobId,
-    ).syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
+    ).syncNoteNullifiers(contractAddress, await this.keyStore.getAccounts());
 
     this.oracleHandler = new UtilityExecutionOracle({
       contractAddress,
@@ -450,16 +553,20 @@ export class TXESession implements TXESessionStateHandler {
       aztecNode: this.stateMachine.node,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleStore: this.capsuleStore,
+      capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       messageContextService: this.stateMachine.messageContextService,
-      contractSyncService: this.contractSyncService,
+      contractSyncService: this.stateMachine.contractSyncService,
+      l2TipsStore: this.stateMachine.node,
       jobId: this.currentJobId,
-      scopes: 'ALL_SCOPES',
+      scopes: await this.keyStore.getAccounts(),
     });
 
     this.state = { name: 'UTILITY' };
     this.logger.debug(`Entered state ${this.state.name}`);
+
+    // Utility state anchors at whatever the anchor block store is pointing to (tracked as latest).
+    this.setLastCallContext(Fr.ZERO, anchorBlockHeader.globalVariables.timestamp);
   }
 
   private exitTopLevelState() {
@@ -524,7 +631,7 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   private utilityExecutorForContractSync(anchorBlock: any) {
-    return async (call: FunctionCall, scopes: AccessScopes) => {
+    return async (call: FunctionCall, scopes: AztecAddress[]) => {
       const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
       if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
         throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -543,10 +650,11 @@ export class TXESession implements TXESessionStateHandler {
           aztecNode: this.stateMachine.node,
           recipientTaggingStore: this.recipientTaggingStore,
           senderAddressBookStore: this.senderAddressBookStore,
-          capsuleStore: this.capsuleStore,
+          capsuleService: new CapsuleService(this.capsuleStore, scopes),
           privateEventStore: this.privateEventStore,
           messageContextService: this.stateMachine.messageContextService,
-          contractSyncService: this.contractSyncService,
+          contractSyncService: this.stateMachine.contractSyncService,
+          l2TipsStore: this.stateMachine.node,
           jobId: this.currentJobId,
           scopes,
         });

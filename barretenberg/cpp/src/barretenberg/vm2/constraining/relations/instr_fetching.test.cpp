@@ -77,7 +77,7 @@ TEST(InstrFetchingConstrainingTest, Add8WithTraceGen)
                                          trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    EXPECT_EQ(trace.get_num_rows(), 2);
+    EXPECT_EQ(trace.get_num_rows(), 1);
     check_relation<instr_fetching>(trace);
 }
 
@@ -109,7 +109,7 @@ TEST(InstrFetchingConstrainingTest, EcaddWithTraceGen)
                                          trace);
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
-    EXPECT_EQ(trace.get_num_rows(), 2);
+    EXPECT_EQ(trace.get_num_rows(), 1);
     check_relation<instr_fetching>(trace);
 }
 
@@ -157,7 +157,7 @@ TEST(InstrFetchingConstrainingTest, EachOpcodeWithTraceGen)
     precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
 
     constexpr auto num_opcodes = static_cast<size_t>(WireOpCode::LAST_OPCODE_SENTINEL);
-    EXPECT_EQ(trace.get_num_rows(), num_opcodes + 1);
+    EXPECT_EQ(trace.get_num_rows(), num_opcodes);
     check_relation<instr_fetching>(trace);
 }
 
@@ -205,7 +205,7 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
 
         check_relation<instr_fetching>(trace);
 
-        EXPECT_EQ(trace.get_num_rows(), 2);
+        EXPECT_EQ(trace.get_num_rows(), 1);
 
         for (size_t i = 0; i < operand_cols.size(); i++) {
             auto mutated_trace = trace;
@@ -275,7 +275,7 @@ TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
                       lookup_instr_fetching_bytes_from_bc_dec_settings,
                       lookup_instr_fetching_bytecode_size_from_bc_dec_settings>(trace);
 
-    // BC Decomposition trace is the longest here.
+    // BC Decomposition trace is the longest here and requires an extra prepended row.
     EXPECT_EQ(trace.get_num_rows(), instr_fetch_events.at(0).bytecode->size() + 1);
 
     check_relation<instr_fetching>(trace);
@@ -602,8 +602,8 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions
         // Mutate execution opcode
         for (const auto& col : mutated_cols) {
             auto mutated_trace = trace;
-            const FF mutated_value = trace.get(col, 1) + 1; // Mutate to value + 1
-            mutated_trace.set(col, 1, mutated_value);
+            const FF mutated_value = trace.get(col, 0) + 1; // Mutate to value + 1
+            mutated_trace.set(col, 0, mutated_value);
 
             EXPECT_THROW_WITH_MESSAGE(
                 (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_wire_instruction_info_settings>(
@@ -659,8 +659,8 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBcDecompositionInteractions)
         // Mutate execution opcode
         for (const auto& col : mutated_cols) {
             auto mutated_trace = trace;
-            const FF mutated_value = trace.get(col, 1) + 1; // Mutate to value + 1
-            mutated_trace.set(col, 1, mutated_value);
+            const FF mutated_value = trace.get(col, 0) + 1; // Mutate to value + 1
+            mutated_trace.set(col, 0, mutated_value);
 
             EXPECT_THROW_WITH_MESSAGE(
                 (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytes_from_bc_dec_settings>(
@@ -713,8 +713,8 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInte
         check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytecode_size_from_bc_dec_settings>(valid_trace);
 
         auto mutated_trace = trace;
-        const FF mutated_value = trace.get(C::instr_fetching_bytecode_size, 1) + 1; // Mutate to value + 1
-        mutated_trace.set(C::instr_fetching_bytecode_size, 1, mutated_value);
+        const FF mutated_value = trace.get(C::instr_fetching_bytecode_size, 0) + 1; // Mutate to value + 1
+        mutated_trace.set(C::instr_fetching_bytecode_size, 0, mutated_value);
 
         EXPECT_THROW_WITH_MESSAGE(
             (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_bytecode_size_from_bc_dec_settings>(
@@ -853,8 +853,8 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongTagValidationInteractions)
 
         // Mutate tag out-of-range error
         auto mutated_trace = trace;
-        ASSERT_EQ(trace.get(C::instr_fetching_tag_out_of_range, 1), 0);
-        mutated_trace.set(C::instr_fetching_tag_out_of_range, 1, 1); // Mutate by toggling the error.
+        ASSERT_EQ(trace.get(C::instr_fetching_tag_out_of_range, 0), 0);
+        mutated_trace.set(C::instr_fetching_tag_out_of_range, 0, 1); // Mutate by toggling the error.
 
         EXPECT_THROW_WITH_MESSAGE(
             (check_interaction<BytecodeTraceBuilder, lookup_instr_fetching_tag_value_validation_settings>(
@@ -899,7 +899,6 @@ TEST(InstrFetchingConstrainingTest, NegativeTagOutOfRangeNoTag)
 TEST(InstrFetchingConstrainingTest, NegativeNotTogglingInstrOutOfRange)
 {
     TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
         {
             { C::instr_fetching_bytes_to_read, 11 },
             { C::instr_fetching_instr_abs_diff, 0 },
@@ -911,7 +910,7 @@ TEST(InstrFetchingConstrainingTest, NegativeNotTogglingInstrOutOfRange)
 
     check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE);
 
-    trace.set(C::instr_fetching_instr_out_of_range, 1, 0); // Mutate to wrong value
+    trace.set(C::instr_fetching_instr_out_of_range, 0, 0); // Mutate to wrong value
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE),
                               "INSTR_OUT_OF_RANGE_TOGGLE");
@@ -921,7 +920,6 @@ TEST(InstrFetchingConstrainingTest, NegativeNotTogglingInstrOutOfRange)
 TEST(InstrFetchingConstrainingTest, NegativeTogglingInstrInRange)
 {
     TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
         {
             { C::instr_fetching_bytes_to_read, 12 },
             { C::instr_fetching_instr_abs_diff, 0 },
@@ -933,7 +931,7 @@ TEST(InstrFetchingConstrainingTest, NegativeTogglingInstrInRange)
 
     check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE);
 
-    trace.set(C::instr_fetching_instr_out_of_range, 1, 1); // Mutate to wrong value
+    trace.set(C::instr_fetching_instr_out_of_range, 0, 1); // Mutate to wrong value
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_INSTR_OUT_OF_RANGE_TOGGLE),
                               "INSTR_OUT_OF_RANGE_TOGGLE");
@@ -943,7 +941,6 @@ TEST(InstrFetchingConstrainingTest, NegativeTogglingInstrInRange)
 TEST(InstrFetchingConstrainingTest, NegativeNotTogglingPcOutOfRange)
 {
     TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
         {
             { C::instr_fetching_bytecode_size, 12 },
             { C::instr_fetching_pc, 12 },
@@ -955,7 +952,7 @@ TEST(InstrFetchingConstrainingTest, NegativeNotTogglingPcOutOfRange)
 
     check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE);
 
-    trace.set(C::instr_fetching_pc_out_of_range, 1, 0); // Mutate to wrong value
+    trace.set(C::instr_fetching_pc_out_of_range, 0, 0); // Mutate to wrong value
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE),
                               "PC_OUT_OF_RANGE_TOGGLE");
@@ -989,7 +986,6 @@ TEST(InstrFetchingConstrainingTest, NegativeTagSelPcOutOfRange)
 TEST(InstrFetchingConstrainingTest, NegativeTogglingPcInRange)
 {
     TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
         {
             { C::instr_fetching_bytecode_size, 12 },
             { C::instr_fetching_pc, 11 },
@@ -1001,7 +997,7 @@ TEST(InstrFetchingConstrainingTest, NegativeTogglingPcInRange)
 
     check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE);
 
-    trace.set(C::instr_fetching_pc_out_of_range, 1, 1); // Mutate to wrong value
+    trace.set(C::instr_fetching_pc_out_of_range, 0, 1); // Mutate to wrong value
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace, instr_fetching::SR_PC_OUT_OF_RANGE_TOGGLE),
                               "PC_OUT_OF_RANGE_TOGGLE");
@@ -1013,7 +1009,6 @@ TEST(InstrFetchingConstrainingTest, ErrorFlagSetButSelParsingErrIsZero)
     // that should enforce sel_parsing_err = pc_out_of_range + opcode_out_of_range + instr_out_of_range +
     // tag_out_of_range
     TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
         {
             { C::instr_fetching_sel, 1 },
             // Error flags - pc_out_of_range is SET to 1
@@ -1041,17 +1036,16 @@ TEST(InstrFetchingConstrainingTest, ErrorFlagSetButSelParsingErrIsZero)
     });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<instr_fetching>(trace),
-                              "Relation instr_fetching, subrelation 5 failed at row 1");
+                              "Relation instr_fetching, subrelation .* failed at row 0");
 }
 
 /**
  * This test verifies that when sel_parsing_err is correctly set to 1 when errors occur,
  * the relation passes. This should continue to pass after the fix.
  */
-TEST(InstrFetchingConstrainingTest, CorrectBehavior_SelParsingErrMatchesErrors)
+TEST(InstrFetchingConstrainingTest, CorrectBehaviorSelParsingErrMatchesErrors)
 {
     TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
         {
             { C::instr_fetching_sel, 1 },
             { C::instr_fetching_pc_out_of_range, 1 },
@@ -1077,10 +1071,9 @@ TEST(InstrFetchingConstrainingTest, CorrectBehavior_SelParsingErrMatchesErrors)
 /**
  * No errors means sel_parsing_err should be 0
  */
-TEST(InstrFetchingConstrainingTest, CorrectBehavior_NoErrorsMeansSelParsingErrIsZero)
+TEST(InstrFetchingConstrainingTest, CorrectBehaviorNoErrorsMeansSelParsingErrIsZero)
 {
     TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
         {
             { C::instr_fetching_sel, 1 },
             { C::instr_fetching_pc_out_of_range, 0 },

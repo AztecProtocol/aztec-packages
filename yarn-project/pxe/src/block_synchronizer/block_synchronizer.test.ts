@@ -116,6 +116,43 @@ describe('BlockSynchronizer', () => {
     expect(rollback).toHaveBeenCalledWith(3, 4);
   });
 
+  describe('stop', () => {
+    it('resolves immediately when no sync is in progress', async () => {
+      await synchronizer.stop();
+      expect(blockStream.stop).toHaveBeenCalled();
+    });
+
+    it('waits for in-progress sync to complete', async () => {
+      let resolveSync!: () => void;
+      const syncBlocker = new Promise<void>(resolve => {
+        resolveSync = resolve;
+      });
+      blockStream.sync.mockReturnValue(syncBlocker);
+      aztecNode.getBlockHeader.mockResolvedValue((await L2Block.random(BlockNumber(0))).header);
+
+      // Start a sync (don't await)
+      const syncPromise = synchronizer.sync();
+
+      // stop() should not resolve until the sync finishes
+      let stopped = false;
+      const stopPromise = synchronizer.stop().then(() => {
+        stopped = true;
+      });
+
+      // Give the event loop a tick
+      await new Promise(resolve => setTimeout(resolve, 10));
+      expect(stopped).toBe(false);
+
+      // Release the sync
+      resolveSync();
+      await syncPromise;
+      await stopPromise;
+
+      expect(stopped).toBe(true);
+      expect(blockStream.stop).toHaveBeenCalled();
+    });
+  });
+
   describe('syncChainTip config', () => {
     it('updates anchor on blocks-added when syncChainTip is proposed (default)', async () => {
       synchronizer = createSynchronizer({ syncChainTip: 'proposed' });

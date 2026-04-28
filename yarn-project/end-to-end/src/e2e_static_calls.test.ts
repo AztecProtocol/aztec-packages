@@ -195,10 +195,7 @@ describe('e2e_static_calls', () => {
     it('fails when performing non-static enqueue calls to poorly written public static functions', async () => {
       await expect(
         parentContract.methods
-          .enqueue_call(childContract.address, await childContract.methods.pub_illegal_inc_value.selector(), [
-            42n,
-            owner,
-          ])
+          .enqueue_call(childContract.address, await childContract.methods.pub_illegal_inc_value.selector(), [42n])
           .simulate({ from: owner }),
       ).rejects.toThrow(STATIC_CONTEXT_ASSERTION_ERROR);
     });

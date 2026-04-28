@@ -1025,11 +1025,16 @@ TEST_F(PersistedContentAddressedAppendOnlyTreeTest, retrieves_historic_leaves)
     uint64_t block_tree_size = 0;
 
     for (uint32_t i = 0; i < num_blocks; i++) {
-        tree.get_meta_data(i + 1, false, [&](auto response) -> void { block_tree_size = response.inner.meta.size; });
+        Signal meta_signal;
+        tree.get_meta_data(i + 1, false, [&](auto response) -> void {
+            block_tree_size = response.inner.meta.size;
+            meta_signal.signal_level();
+        });
+        meta_signal.wait_for_level();
         for (uint32_t j = 0; j < num_blocks; j++) {
             index_t indexToQuery = j * batch_size;
             fr expectedLeaf = j <= i ? get_value(indexToQuery) : fr::zero();
-            check_historic_leaf(tree, i + 1, expectedLeaf, indexToQuery, indexToQuery <= block_tree_size, true, false);
+            check_historic_leaf(tree, i + 1, expectedLeaf, indexToQuery, indexToQuery < block_tree_size, true, false);
         }
     }
 }

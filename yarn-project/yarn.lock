@@ -1481,6 +1481,7 @@ __metadata:
     "@aztec/native": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
+    "@sqlite.org/sqlite-wasm": "npm:3.50.4-build1"
     "@types/chai": "npm:^5.0.1"
     "@types/chai-as-promised": "npm:^8.0.1"
     "@types/jest": "npm:^30.0.0"
@@ -1622,7 +1623,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noir_codegen@portal:../noir/packages/noir_codegen::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.19"
+    "@aztec/noir-types": "npm:1.0.0-beta.20"
     glob: "npm:^13.0.6"
     ts-command-line-args: "npm:^2.5.1"
   bin:
@@ -1631,13 +1632,14 @@ __metadata:
   linkType: soft
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
-  version: 1.0.0-beta.19
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=c0ce11&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  version: 1.0.0-beta.20
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=f2abb5&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-acvm_js": "npm:1.0.0-beta.19"
-    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.19"
-    "@aztec/noir-types": "npm:1.0.0-beta.19"
+    "@aztec/noir-acvm_js": "npm:1.0.0-beta.20"
+    "@aztec/noir-noirc_abi": "npm:1.0.0-beta.20"
+    "@aztec/noir-types": "npm:1.0.0-beta.20"
     pako: "npm:^2.1.0"
+  checksum: 10/c912de5a448dda5ca1b4b8ee6935c96735645c0f12c4880ea303bfbb7376f9fe0444a9bb994a16539ddf2dc346c23c5ec7951b145b5a7e9320c88f04d0d21b0c
   languageName: node
   linkType: hard
 
@@ -1645,7 +1647,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/noir-noirc_abi@portal:../noir/packages/noirc_abi::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
-    "@aztec/noir-types": "npm:1.0.0-beta.19"
+    "@aztec/noir-types": "npm:1.0.0-beta.20"
   languageName: node
   linkType: soft
 
@@ -6941,6 +6943,15 @@ __metadata:
   dependencies:
     tslib: "npm:^2.6.2"
   checksum: 10/26acc5b818d219ec049c1877857afc783dd9c4cb62234b61d1c18b1465ec731ec0aea902bdf6f58f730a4bf72d9564559b1fb14c94ceaafe3d41f6923745a97c
+  languageName: node
+  linkType: hard
+
+"@sqlite.org/sqlite-wasm@npm:3.50.4-build1":
+  version: 3.50.4-build1
+  resolution: "@sqlite.org/sqlite-wasm@npm:3.50.4-build1"
+  bin:
+    sqlite-wasm: bin/index.js
+  checksum: 10/5c486213552029065d8b90de823186465972d9a71b921e2303a6834d271e66fd5c2181c63c4452c2847e0745e8fde4b25b5f6baacf53f377093b16e27bacb2a6
   languageName: node
   linkType: hard
 

@@ -18,7 +18,6 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     // Types for Chonk
-    using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
 
     // Public inputs added by bb to a Chonk proof
@@ -93,6 +92,7 @@ TEST_F(ChonkRecursionConstraintTest, GenerateRecursiveChonkVerifierVKFromConstra
     using VerificationKey = ChonkRecursionConstraintTest::VerificationKey;
     using ChonkData = ChonkRecursionConstraintTest::ChonkData;
 
+    BB_DISABLE_ASSERTS();
     ChonkData chonk_data = ChonkRecursionConstraintTest::get_chonk_data();
 
     std::shared_ptr<VerificationKey> vk_from_valid_witness;

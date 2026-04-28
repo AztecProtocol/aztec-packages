@@ -276,3 +276,30 @@ TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsDoubleFailure)
     // Should fail because the middle operation (doubling) has an invalid result
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
+
+// Demonstrates that a doubling gate with off-curve input (0,0) does not constrain the output.
+// The elliptic relation substitutes x1^3 = y1^2 - b, which is invalid for off-curve points.
+// When (x1,y1) = (0,0), both the x- and y-coordinate subrelations become 0 = 0 for any output.
+// Production code (cycle_group::dbl) prevents this by substituting y1 = 1 for points at infinity.
+// See CycleGroupTest.TestDblWitnessPoints (cycle_group.test.cpp) for the complementary test
+// that verifies the mitigation works correctly.
+TEST_F(UltraCircuitBuilderElliptic, DoubleOffCurveOriginUnconstrainedOutput)
+{
+    // (0,0) is not on grumpkin (y^2 = x^3 - 17), so this is an off-curve input
+    auto x1_val = bb::fr(0);
+    auto y1_val = bb::fr(0);
+    // Claim an arbitrary output point
+    auto x3_val = bb::fr::random_element();
+    auto y3_val = bb::fr::random_element();
+
+    UltraCircuitBuilder builder;
+    auto x1 = builder.add_variable(x1_val);
+    auto y1 = builder.add_variable(y1_val);
+    auto x3 = builder.add_variable(x3_val);
+    auto y3 = builder.add_variable(y3_val);
+    builder.create_ecc_dbl_gate({ x1, y1, x3, y3 });
+
+    // The circuit checker passes because the relation is trivially satisfied for (0,0) input.
+    // This is NOT a bug — production code never lets (0,0) reach a doubling gate.
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}

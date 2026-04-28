@@ -208,11 +208,9 @@ for contract_pkg in side_effect_contract parent_contract; do
             --silence-warnings --inliner-aggressiveness 0 --package ${contract_pkg}
         /usr/src/barretenberg/cpp/build/bin/bb-avm aztec_process \
             -i target/${artifact}.json
-        jq '.functions |= map(.name |= sub(\"^__aztec_nr_internals__\"; \"\"))' \
-            target/${artifact}.json > /tmp/${artifact}.json
     "
 
-    docker cp "${CONTAINER_NAME}:/tmp/${artifact}.json" \
+    docker cp "${CONTAINER_NAME}:/tmp/nightly-build/target/${artifact}.json" \
         "${CONTRACTS_DIR}/target/${artifact}.json"
     log "Artifact copied to contracts/target/${artifact}.json"
 done

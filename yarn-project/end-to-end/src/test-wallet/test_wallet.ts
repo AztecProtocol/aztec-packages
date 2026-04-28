@@ -1,7 +1,9 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
+import type { CompleteAddress } from '@aztec/aztec.js/addresses';
 import {
   type CallIntent,
   type ContractFunctionInteractionCallIntent,
@@ -13,6 +15,7 @@ import {
 } from '@aztec/aztec.js/authorization';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type SendOptions } from '@aztec/aztec.js/wallet';
+import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
@@ -25,17 +28,19 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoteDao } from '@aztec/stdlib/note';
-import type {
-  BlockHeader,
+import {
+  type BlockHeader,
+  type ContractOverrides,
   SimulationOverrides,
-  TxExecutionRequest,
-  TxHash,
-  TxReceipt,
-  TxSimulationResult,
+  type TxExecutionRequest,
+  type TxHash,
+  type TxReceipt,
 } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
+import type { AccountType } from '@aztec/wallets/embedded';
 
+import { DEFAULT_MIN_FEE_PADDING } from '../fixtures/fixtures.js';
 import { AztecNodeProxy, ProvenTx } from './utils.js';
 
 /**
@@ -44,6 +49,7 @@ import { AztecNodeProxy, ProvenTx } from './utils.js';
 export interface AccountData {
   secret: Fr;
   salt: Fr;
+  type?: AccountType;
   contract: AccountContract;
 }
 
@@ -58,6 +64,7 @@ export class TestWallet extends BaseWallet {
     private readonly nodeRef: AztecNodeProxy,
   ) {
     super(pxe, nodeRef);
+    this.minFeePadding = DEFAULT_MIN_FEE_PADDING;
   }
 
   static async create(
@@ -84,50 +91,81 @@ export class TestWallet extends BaseWallet {
 
   createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq): Promise<AccountManager> {
     signingKey = signingKey ?? deriveSigningKey(secret);
-    const accountData = {
-      secret,
-      salt,
-      contract: new SchnorrAccountContract(signingKey),
-    };
-    return this.createAccount(accountData);
+    return this.createAccount({ secret, salt, type: 'schnorr', contract: new SchnorrAccountContract(signingKey) });
   }
 
   createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager> {
-    const accountData = {
+    return this.createAccount({
       secret,
       salt,
+      type: 'ecdsasecp256r1',
       contract: new EcdsaRAccountContract(signingKey),
-    };
-    return this.createAccount(accountData);
+    });
   }
 
   createECDSAKAccount(secret: Fr, salt: Fr, signingKey: Buffer): Promise<AccountManager> {
-    const accountData = {
+    return this.createAccount({
       secret,
       salt,
+      type: 'ecdsasecp256k1',
       contract: new EcdsaKAccountContract(signingKey),
-    };
-    return this.createAccount(accountData);
+    });
   }
 
-  async getFakeAccountDataFor(address: AztecAddress) {
-    const originalAccount = await this.getAccountFromAddress(address);
-    const originalAddress = originalAccount.getCompleteAddress();
-    const contractInstance = await this.pxe.getContractInstance(originalAddress.address);
-    if (!contractInstance) {
-      throw new Error(`No contract instance found for address: ${originalAddress.address}`);
+  /**
+   * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
+   */
+  protected async buildAccountOverrides(addresses: AztecAddress[]): Promise<ContractOverrides> {
+    const accounts = await this.getAccounts();
+    const contracts: ContractOverrides = {};
+
+    const filtered = accounts.filter(acc => addresses.some(addr => addr.equals(acc.item)));
+
+    for (const account of filtered) {
+      const address = account.item;
+      const originalAccount = await this.getAccountFromAddress(address);
+      const completeAddress = originalAccount.getCompleteAddress();
+      const contractInstance = await this.pxe.getContractInstance(completeAddress.address);
+      if (!contractInstance) {
+        throw new Error(
+          `No contract instance found for address: ${completeAddress.address} during account override building. This is a bug!`,
+        );
+      }
+
+      const stubArtifact = this.getStubArtifactFor(address);
+      const stubConstructorArgs =
+        this.getTypeFor(address) === 'schnorr' ? [Fr.ZERO, Fr.ZERO] : [Buffer.alloc(32), Buffer.alloc(32)];
+      const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
+        salt: Fr.random(),
+        constructorArgs: stubConstructorArgs,
+      });
+
+      contracts[address.toString()] = {
+        instance: stubInstance,
+        artifact: stubArtifact,
+      };
     }
-    const stubAccount = createStubAccount(originalAddress);
-    const instance = await getContractInstanceFromInstantiationParams(StubAccountContractArtifact, {
-      salt: Fr.random(),
-    });
-    return {
-      account: stubAccount,
-      instance,
-      artifact: StubAccountContractArtifact,
-    };
+
+    return contracts;
   }
-  protected accounts: Map<string, Account> = new Map();
+
+  protected accounts: Map<string, { account: Account; type: AccountType }> = new Map();
+
+  private getTypeFor(address: AztecAddress): AccountType {
+    return this.accounts.get(address.toString())?.type ?? 'schnorr';
+  }
+
+  private getStubArtifactFor(address: AztecAddress) {
+    return this.getTypeFor(address) === 'schnorr'
+      ? StubSchnorrAccountContractArtifact
+      : StubEcdsaAccountContractArtifact;
+  }
+
+  private getStubAccountFor(address: AztecAddress, completeAddress: CompleteAddress) {
+    return this.getTypeFor(address) === 'schnorr'
+      ? createStubSchnorrAccount(completeAddress)
+      : createStubEcdsaAccount(completeAddress);
+  }
 
   /**
    * Controls how the test wallet simulates transactions:
@@ -142,26 +180,29 @@ export class TestWallet extends BaseWallet {
   }
 
   setMinFeePadding(value?: number) {
-    this.minFeePadding = value ?? 0.5;
+    this.minFeePadding = value ?? DEFAULT_MIN_FEE_PADDING;
   }
 
   protected getAccountFromAddress(address: AztecAddress): Promise<Account> {
-    const account = this.accounts.get(address?.toString() ?? '');
+    const entry = this.accounts.get(address?.toString() ?? '');
 
-    if (!account) {
+    if (!entry) {
       throw new Error(`Account not found in wallet for address: ${address}`);
     }
 
-    return Promise.resolve(account);
+    return Promise.resolve(entry.account);
   }
 
   getAccounts() {
-    return Promise.resolve(Array.from(this.accounts.values()).map(acc => ({ alias: '', item: acc.getAddress() })));
+    return Promise.resolve(
+      Array.from(this.accounts.values()).map(entry => ({ alias: '', item: entry.account.getAddress() })),
+    );
   }
 
   async createAccount(accountData?: AccountData): Promise<AccountManager> {
     const secret = accountData?.secret ?? Fr.random();
     const salt = accountData?.salt ?? Fr.random();
+    const type = accountData?.type ?? 'schnorr';
     const contract = accountData?.contract ?? new SchnorrAccountContract(GrumpkinScalar.random());
 
     const accountManager = await AccountManager.create(this, secret, contract, salt);
@@ -171,7 +212,8 @@ export class TestWallet extends BaseWallet {
 
     await this.registerContract(instance, artifact, secret);
 
-    this.accounts.set(accountManager.address.toString(), await accountManager.getAccount());
+    const address = accountManager.address.toString();
+    this.accounts.set(address, { account: await accountManager.getAccount(), type });
 
     return accountManager;
   }
@@ -217,9 +259,12 @@ export class TestWallet extends BaseWallet {
   protected override async simulateViaEntrypoint(
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
-  ): Promise<TxSimulationResult> {
-    const { from, feeOptions, scopes, skipTxValidation, skipFeeEnforcement } = opts;
+  ): Promise<TxSimulationResultWithAppOffset> {
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement, sendMessagesAs } = opts;
+    const scopes = this.scopesFrom(from, additionalScopes);
     const skipKernels = this.simulationMode !== 'full';
+    const useOverride = this.simulationMode === 'kernelless-override';
+
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
     const finalExecutionPayload = feeExecutionPayload
       ? mergeExecutionPayloads([feeExecutionPayload, executionPayload])
@@ -228,18 +273,19 @@ export class TestWallet extends BaseWallet {
 
     let overrides: SimulationOverrides | undefined;
     let txRequest: TxExecutionRequest;
+    if (useOverride) {
+      const accountOverrides = await this.buildAccountOverrides(scopes);
+      overrides = new SimulationOverrides(accountOverrides);
+    }
+
     if (from === NO_FROM) {
       const entrypoint = new DefaultEntrypoint();
       txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
     } else {
-      const useOverride = this.simulationMode === 'kernelless-override';
       let fromAccount: Account;
       if (useOverride) {
-        const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
-        fromAccount = account;
-        overrides = {
-          contracts: { [from.toString()]: { instance, artifact } },
-        };
+        const originalAccount = await this.getAccountFromAddress(from);
+        fromAccount = this.getStubAccountFor(from, originalAccount.getCompleteAddress());
       } else {
         fromAccount = await this.getAccountFromAddress(from);
       }
@@ -257,20 +303,30 @@ export class TestWallet extends BaseWallet {
       );
     }
 
-    return this.pxe.simulateTx(txRequest, {
+    const result = await this.pxe.simulateTx(txRequest, {
       simulatePublic: true,
       skipKernels,
       skipFeeEnforcement,
       skipTxValidation,
       overrides,
       scopes,
+      senderForTags: this.senderForTagsFrom(from, sendMessagesAs),
     });
+    const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
+    return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
   }
 
   async proveTx(exec: ExecutionPayload, opts: Omit<SendOptions, 'wait'>): Promise<ProvenTx> {
-    const fee = await this.completeFeeOptions(opts.from, exec.feePayer, opts.fee?.gasSettings);
+    const fee = await this.completeFeeOptions({
+      from: opts.from,
+      feePayer: exec.feePayer,
+      gasSettings: opts.fee?.gasSettings,
+    });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
-    const txProvingResult = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
+    const txProvingResult = await this.pxe.proveTx(txRequest, {
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
+    });
     return new ProvenTx(
       this.aztecNode,
       await txProvingResult.toTx(),

@@ -151,8 +151,10 @@ export class FakeL1State {
   // Computed from checkpoints based on L1 block visibility
   private pendingCheckpointNumber: CheckpointNumber = CheckpointNumber(0);
 
-  // The L1 block number reported as "finalized" (defaults to the start block)
-  private finalizedL1BlockNumber: bigint;
+  // The L1 block number reported as "finalized" (defaults to the start block).
+  // `undefined` simulates the startup window on a fresh devnet where
+  // `getBlock({ blockTag: 'finalized' })` fails with "finalized block not found".
+  private finalizedL1BlockNumber: bigint | undefined;
 
   constructor(private readonly config: FakeL1StateConfig) {
     this.l1BlockNumber = config.l1StartBlock;
@@ -288,8 +290,11 @@ export class FakeL1State {
     this.updatePendingCheckpointNumber();
   }
 
-  /** Sets the L1 block number that will be reported as "finalized". */
-  setFinalizedL1BlockNumber(blockNumber: bigint): void {
+  /**
+   * Sets the L1 block number that will be reported as "finalized". Pass `undefined` to
+   * simulate a chain that does not yet have a finalized block (devnet startup).
+   */
+  setFinalizedL1BlockNumber(blockNumber: bigint | undefined): void {
     this.finalizedL1BlockNumber = blockNumber;
   }
 
@@ -329,6 +334,21 @@ export class FakeL1State {
    */
   removeCheckpoint(checkpointNumber: CheckpointNumber): void {
     this.checkpoints = this.checkpoints.filter(cpData => cpData.checkpointNumber !== checkpointNumber);
+    this.updatePendingCheckpointNumber();
+  }
+
+  /**
+   * Moves a checkpoint to a different L1 block number (simulates L1 reorg that
+   * re-includes the same checkpoint transaction in a different block).
+   * The checkpoint content stays the same — only the L1 metadata changes.
+   * Auto-updates pending status.
+   */
+  moveCheckpointToL1Block(checkpointNumber: CheckpointNumber, newL1BlockNumber: bigint): void {
+    for (const cpData of this.checkpoints) {
+      if (cpData.checkpointNumber === checkpointNumber) {
+        cpData.l1BlockNumber = newL1BlockNumber;
+      }
+    }
     this.updatePendingCheckpointNumber();
   }
 
@@ -451,19 +471,33 @@ export class FakeL1State {
   createMockInboxContract(_publicClient: MockProxy<ViemPublicClient>): MockProxy<InboxContract> {
     const mockInbox = mock<InboxContract>();
 
-    mockInbox.getState.mockImplementation(() => {
+    mockInbox.getState.mockImplementation((opts: { blockTag?: string; blockNumber?: bigint } = {}) => {
+      // Filter messages visible at the given block number (or all if not specified)
+      const blockNumber = opts.blockNumber ?? this.l1BlockNumber;
+      const visibleMessages = this.messages.filter(m => m.l1BlockNumber <= blockNumber);
+
       // treeInProgress must be > any sealed checkpoint. On L1, a checkpoint can only be proposed
       // after its messages are sealed, so treeInProgress > checkpointNumber for all published checkpoints.
       const maxFromMessages =
-        this.messages.length > 0 ? Math.max(...this.messages.map(m => Number(m.checkpointNumber))) + 1 : 0;
+        visibleMessages.length > 0 ? Math.max(...visibleMessages.map(m => Number(m.checkpointNumber))) + 1 : 0;
       const maxFromCheckpoints =
         this.checkpoints.length > 0
-          ? Math.max(...this.checkpoints.filter(cp => !cp.pruned).map(cp => Number(cp.checkpointNumber))) + 1
+          ? Math.max(
+              ...this.checkpoints
+                .filter(cp => !cp.pruned && cp.l1BlockNumber <= blockNumber)
+                .map(cp => Number(cp.checkpointNumber)),
+              0,
+            ) + 1
           : 0;
       const treeInProgress = Math.max(maxFromMessages, maxFromCheckpoints, INITIAL_CHECKPOINT_NUMBER);
+
+      // Compute rolling hash only for visible messages
+      const rollingHash =
+        visibleMessages.length > 0 ? visibleMessages[visibleMessages.length - 1].rollingHash : Buffer16.ZERO;
+
       return Promise.resolve({
-        messagesRollingHash: this.messagesRollingHash,
-        totalMessagesInserted: BigInt(this.messages.length),
+        messagesRollingHash: rollingHash,
+        totalMessagesInserted: BigInt(visibleMessages.length),
         treeInProgress: BigInt(treeInProgress),
       });
     });
@@ -473,8 +507,8 @@ export class FakeL1State {
       Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock)),
     );
 
-    mockInbox.getMessageSentEventByHash.mockImplementation((hash: string, fromBlock: bigint, toBlock: bigint) =>
-      Promise.resolve(this.getMessageSentLogs(fromBlock, toBlock, hash)),
+    mockInbox.getMessageSentEventByHash.mockImplementation((msgHash: string, aroundL1BlockNumber: bigint) =>
+      Promise.resolve(this.getMessageSentLogByHash(msgHash, aroundL1BlockNumber) as MessageSentLog),
     );
 
     return mockInbox;
@@ -490,6 +524,11 @@ export class FakeL1State {
     publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint; blockTag?: string } = {}) => {
       let blockNum: bigint;
       if (args.blockTag === 'finalized') {
+        if (this.finalizedL1BlockNumber === undefined) {
+          throw Object.assign(new Error('finalized block not found'), {
+            details: 'finalized block not found',
+          });
+        }
         blockNum = this.finalizedL1BlockNumber;
       } else {
         blockNum = args.blockNumber ?? (await publicClient.getBlockNumber());
@@ -515,10 +554,10 @@ export class FakeL1State {
   createMockBlobClient(): MockProxy<BlobClientInterface> {
     const blobClient = mock<BlobClientInterface>();
 
-    // The blockId is the transaction's blockHash, which we set to the checkpoint's archive root
+    // The blockId is the L1 block hash, which we derive from the L1 block number
     blobClient.getBlobSidecar.mockImplementation((blockId: `0x${string}`) =>
       Promise.resolve(
-        this.checkpoints.find(cpData => cpData.checkpoint.archive.root.toString() === blockId)?.blobs ?? [],
+        this.checkpoints.find(cpData => Buffer32.fromBigInt(cpData.l1BlockNumber).toString() === blockId)?.blobs ?? [],
       ),
     );
 
@@ -592,6 +631,29 @@ export class FakeL1State {
           rollingHash: msg.rollingHash,
         },
       }));
+  }
+
+  private getMessageSentLogByHash(msgHash: string, aroundL1BlockNumber: bigint): MessageSentLog | undefined {
+    const msg = this.messages.find(
+      msg =>
+        msg.leaf.toString() === msgHash &&
+        msg.l1BlockNumber >= aroundL1BlockNumber - 5n &&
+        msg.l1BlockNumber <= aroundL1BlockNumber + 5n,
+    );
+    if (!msg) {
+      return undefined;
+    }
+    return {
+      l1BlockNumber: msg.l1BlockNumber,
+      l1BlockHash: Buffer32.fromBigInt(msg.l1BlockNumber),
+      l1TransactionHash: `0x${msg.l1BlockNumber.toString(16)}` as `0x${string}`,
+      args: {
+        checkpointNumber: msg.checkpointNumber,
+        index: msg.index,
+        leaf: msg.leaf,
+        rollingHash: msg.rollingHash,
+      },
+    };
   }
 
   private async makeRollupTx(

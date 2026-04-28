@@ -1,5 +1,11 @@
-import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
+import {
+  BlockNumber,
+  BlockProposalHash,
+  type CheckpointNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
+import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -23,11 +29,7 @@ import {
 import { SignedTxs } from './signed_txs.js';
 import { TopicType } from './topic_type.js';
 
-export class BlockProposalHash extends Buffer32 {
-  constructor(hash: Buffer) {
-    super(hash);
-  }
-}
+export type { BlockProposalHash } from '@aztec/foundation/branded-types';
 
 export type BlockProposalOptions = {
   /**
@@ -77,8 +79,8 @@ export class BlockProposal extends Gossipable {
     super();
   }
 
-  override generateP2PMessageIdentifier(): Promise<Buffer32> {
-    return Promise.resolve(new BlockProposalHash(keccak256(this.signature.toBuffer())));
+  override generateP2PMessageIdentifier(): Promise<BaseBuffer32> {
+    return Promise.resolve(BlockProposalHash.fromBuffer(keccak256(this.signature.toBuffer())));
   }
 
   get archive(): Fr {
@@ -126,6 +128,7 @@ export class BlockProposal extends Gossipable {
 
   static async createProposalFromSigner(
     blockHeader: BlockHeader,
+    checkpointNumber: CheckpointNumber,
     indexWithinCheckpoint: IndexWithinCheckpoint,
     inHash: Fr,
     archiveRoot: Fr,
@@ -147,6 +150,7 @@ export class BlockProposal extends Gossipable {
     const blockContext: SigningContext = {
       slot: blockHeader.globalVariables.slotNumber,
       blockNumber: blockHeader.globalVariables.blockNumber,
+      checkpointNumber,
       blockIndexWithinCheckpoint: indexWithinCheckpoint,
       dutyType: DutyType.BLOCK_PROPOSAL,
     };

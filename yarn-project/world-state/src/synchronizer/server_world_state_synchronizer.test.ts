@@ -1,9 +1,14 @@
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { BlockHash, L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
+import {
+  BlockHash,
+  GENESIS_BLOCK_HEADER_HASH,
+  L2Block,
+  type L2BlockSource,
+  type L2BlockStream,
+} from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -56,9 +61,9 @@ describe('ServerWorldStateSynchronizer', () => {
 
     merkleTreeRead = mock<MerkleTreeReadOperations>();
     merkleTreeRead.getInitialHeader.mockReturnValue({
-      hash: () => Promise.resolve(new BlockHash(Fr.random())),
+      hash: () => Promise.resolve(BlockHash.random()),
     } as BlockHeader);
-    merkleTreeRead.getLeafValue.mockResolvedValue(Fr.random());
+    merkleTreeRead.getLeafValue.mockResolvedValue(BlockHash.random());
 
     merkleTreeDb = mock<MerkleTreeAdminDatabase>();
     merkleTreeDb.getCommitted.mockReturnValue(merkleTreeRead);
@@ -307,6 +312,7 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
       checkpointed: makeTipId(this.latest),
       proven: makeTipId(this.proven),
       finalized: makeTipId(this.finalized),
+      proposedCheckpoint: makeTipId(this.latest),
     });
   }
 }

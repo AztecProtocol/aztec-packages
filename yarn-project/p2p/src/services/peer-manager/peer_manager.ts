@@ -226,18 +226,28 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   /**
-   * Cleans up expired timeouts.
+   * Cleans up expired timeouts and stale failed-auth-handshake entries.
    *
    * When peers fail to dial after a number of retries, they are temporarily timed out.
    * This function removes any peers that have been in the timed out state for too long.
    * To give them a chance to reconnect.
+   *
+   * Also evicts entries from the failed-auth-handshake map whose expiry window has passed.
+   * Without this, peers that probe once and never reconnect would leave their entries in the
+   * map forever, causing an unbounded memory leak.
    */
   private cleanupExpiredTimeouts() {
-    // Clean up expired timeouts
     const now = this.dateProvider.now();
+
     for (const [peerId, timedOutPeer] of this.timedOutPeers.entries()) {
       if (now >= timedOutPeer.timeoutUntilMs) {
         this.timedOutPeers.delete(peerId);
+      }
+    }
+
+    for (const [id, entry] of this.failedAuthHandshakes.entries()) {
+      if (now - entry.lastFailureTimestamp > FAILED_AUTH_HANDSHAKE_EXPIRY_MS) {
+        this.failedAuthHandshakes.delete(id);
       }
     }
   }
@@ -303,15 +313,20 @@ export class PeerManager implements PeerManagerInterface {
    */
   private handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
+    const peerIdStr = peerId.toString();
     this.metrics.peerDisconnected(peerId);
-    this.logger.verbose(`Disconnected from peer ${peerId.toString()}`);
-    const validatorAddress = this.authenticatedPeerIdToValidatorAddress.get(peerId.toString());
+    this.logger.verbose(`Disconnected from peer ${peerIdStr}`);
+    const validatorAddress = this.authenticatedPeerIdToValidatorAddress.get(peerIdStr);
     if (validatorAddress !== undefined) {
       this.logger.info(
-        `Removing authentication for validator ${validatorAddress} at peer id ${peerId.toString()} due to disconnection`,
+        `Removing authentication for validator ${validatorAddress} at peer id ${peerIdStr} due to disconnection`,
       );
       this.authenticatedValidatorAddressToPeerId.delete(validatorAddress.toString());
-      this.authenticatedPeerIdToValidatorAddress.delete(peerId.toString());
+      this.authenticatedPeerIdToValidatorAddress.delete(peerIdStr);
+    }
+
+    if (this.peerScoring.getScoreState(peerIdStr) === PeerScoreState.Healthy) {
+      this.peerScoring.removePeer(peerIdStr);
     }
   }
 
@@ -713,6 +728,12 @@ export class PeerManager implements PeerManagerInterface {
       return;
     }
 
+    // Don't dial peers that have exceeded the auth failure threshold
+    if (!this.isNodeAllowedToConnect(peerId)) {
+      this.logger.trace(`Skipping peer ${peerId} due to failed auth handshake attempts`);
+      return;
+    }
+
     const [multiaddrTcp] = await Promise.all([enr.getFullMultiaddr('tcp')]);
 
     this.logger.trace(`Handling discovered peer ${peerId} at ${multiaddrTcp?.toString() ?? 'undefined address'}`);
@@ -970,14 +991,14 @@ export class PeerManager implements PeerManagerInterface {
     const peerIdStr = peerId.toString();
 
     const existingEntry = this.failedAuthHandshakes.get(peerIdStr);
+    const failureCount = (existingEntry?.count || 0) + 1;
     this.failedAuthHandshakes.set(peerIdStr, {
-      count: (existingEntry?.count || 0) + 1,
+      count: failureCount,
       lastFailureTimestamp: now,
     });
 
     const connections = this.libP2PNode.getConnections(peerId);
     connections.forEach(conn => {
-      // We mark the IP address
       const address = conn.remoteAddr.nodeAddress().address;
       const existingAddressEntry = this.failedAuthHandshakes.get(address);
       this.failedAuthHandshakes.set(address, {
@@ -985,6 +1006,15 @@ export class PeerManager implements PeerManagerInterface {
         lastFailureTimestamp: now,
       });
     });
+
+    // Ban the peer from being re-dialed for a cooldown period (exponential backoff)
+    const banTimeMs = this.config.peerFailedBanTimeMs ?? DEFAULT_FAILED_PEER_BAN_TIME_MS;
+    const backoffMs = banTimeMs * Math.pow(2, Math.min(failureCount - 1, 5));
+    this.timedOutPeers.set(peerIdStr, {
+      peerId: peerIdStr,
+      timeoutUntilMs: now + backoffMs,
+    });
+    this.cachedPeers.delete(peerIdStr);
   }
 
   /*

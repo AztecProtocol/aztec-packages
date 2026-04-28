@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 pub struct Fr(pub [u8; 32]);
 
 impl Fr {
-    /// Create a new field element from a u64 value (little-endian encoding)
+    /// Create a new field element from a u64 value (big-endian encoding, matching C++ msgpack format)
     pub fn from_u64(value: u64) -> Self {
         let mut bytes = [0u8; 32];
-        bytes[0..8].copy_from_slice(&value.to_le_bytes());
+        bytes[24..32].copy_from_slice(&value.to_be_bytes());
         Fr(bytes)
     }
 

@@ -2,7 +2,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { type AztecNode, createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
-import type { Tx, TxHash } from '@aztec/stdlib/tx';
+import type { Tx, TxHash, TxValidator } from '@aztec/stdlib/tx';
 import { type ComponentsVersions, getComponentsVersionsFromConfig } from '@aztec/stdlib/versioning';
 import { makeTracedFetch } from '@aztec/telemetry-client';
 
@@ -16,12 +16,13 @@ export interface TxSource {
 export class NodeRpcTxSource implements TxSource {
   constructor(
     private readonly client: Pick<AztecNode, 'getTxsByHash'>,
+    private readonly txValidator: TxValidator,
     private readonly info: string,
   ) {}
 
-  public static fromUrl(nodeUrl: string, versions: ComponentsVersions): NodeRpcTxSource {
+  public static fromUrl(nodeUrl: string, txValidator: TxValidator, versions: ComponentsVersions): NodeRpcTxSource {
     const client = createAztecNodeClient(nodeUrl, versions, makeTracedFetch([1, 2, 3], false));
-    return new NodeRpcTxSource(client, nodeUrl);
+    return new NodeRpcTxSource(client, txValidator, nodeUrl);
   }
 
   public getInfo() {
@@ -38,8 +39,8 @@ export class NodeRpcTxSource implements TxSource {
     const invalidTxHashes: string[] = [];
     await Promise.all(
       txs.map(async tx => {
-        const isValid = await tx.validateTxHash();
-        if (isValid) {
+        const validation = await this.txValidator.validateTx(tx);
+        if (validation.result === 'valid') {
           validTxs.push(tx);
         } else {
           invalidTxHashes.push(tx.getTxHash().toString());
@@ -50,7 +51,7 @@ export class NodeRpcTxSource implements TxSource {
   }
 }
 
-export function createNodeRpcTxSources(urls: string[], chainConfig: ChainConfig) {
+export function createNodeRpcTxSources(urls: string[], txValidator: TxValidator, chainConfig: ChainConfig) {
   const versions = getComponentsVersionsFromConfig(chainConfig, protocolContractsHash, getVKTreeRoot());
-  return urls.map(url => NodeRpcTxSource.fromUrl(url, versions));
+  return urls.map(url => NodeRpcTxSource.fromUrl(url, txValidator, versions));
 }

@@ -39,7 +39,7 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     if (size < (TOTAL_SIZE)) {
         return 0;
     }
-    size_t op = data[0] & 3;
+    size_t op = data[0] & 0xF;
     EccOpCode op_code;
     switch (op) {
     case 3:

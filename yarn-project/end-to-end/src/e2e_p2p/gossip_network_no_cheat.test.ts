@@ -8,6 +8,7 @@ import { addL1Validator } from '@aztec/cli/l1/validators';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
@@ -63,6 +64,10 @@ describe('e2e_p2p_network', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         aztecSlotDuration: 24,
         listenAddress: '127.0.0.1',
+        // Allow empty blocks so the first checkpoint can be published before any txs are submitted.
+        // Without this, no blocks are built until txs arrive, and a failed checkpoint during tx
+        // submission causes block pruning that invalidates tx references.
+        minTxsPerBlock: 0,
       },
     });
 
@@ -90,8 +95,6 @@ describe('e2e_p2p_network', () => {
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
-
-    t.ctx.aztecNodeConfig.validatorReexecute = true;
 
     expect(t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress).toBeDefined();
 
@@ -189,7 +192,7 @@ describe('e2e_p2p_network', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -198,10 +201,25 @@ describe('e2e_p2p_network', () => {
     // wait a bit for peers to discover each other
     await sleep(8000);
 
+    // Wait for the first checkpoint to be published to L1 before submitting transactions.
+    // With skipInitialSequencer, no blocks exist from setup, so the first blocks are built by the
+    // validator committee. If we submit txs before a checkpoint lands on L1, a failed checkpoint
+    // publish can prune locally-proposed blocks, causing txs to reference pruned block headers.
+    t.logger.info('Waiting for first checkpoint to be published');
+    await retryUntil(async () => (await nodes[0].getCheckpointedBlockNumber()) > 0, 'first checkpoint published', 120);
+    t.logger.info('First checkpoint published');
+
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
     // blocks without them (since targetCommitteeSize is set to the number of nodes)
     await t.setupAccount();
+
+    // Wait for the next L1 block so that all nodes' getCurrentMinFees() caches are
+    // refreshed after the first L2 checkpoint is published. Without this, some wallets
+    // may estimate fees based on pre-checkpoint values (very low due to fee decay),
+    // while receiving nodes already see the post-checkpoint fees (much higher).
+    const ethereumSlotDuration = t.ctx.aztecNodeConfig.ethereumSlotDuration ?? 4;
+    await sleep((ethereumSlotDuration + 1) * 1000);
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {

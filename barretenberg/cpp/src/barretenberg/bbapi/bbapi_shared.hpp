@@ -243,6 +243,19 @@ template <typename Flavor>
 inline typename Flavor::Transcript::Proof concatenate_proof(const std::vector<uint256_t>& public_inputs,
                                                             const std::vector<uint256_t>& proof)
 {
+    using FF = typename Flavor::FF;
+    // Reject non-canonical field encodings (values >= field modulus) to ensure consistent
+    // verifier behavior across native and Solidity targets.
+    for (const auto& val : public_inputs) {
+        if (val >= FF::modulus) {
+            throw_or_abort("Non-canonical public input: value >= field modulus");
+        }
+    }
+    for (const auto& val : proof) {
+        if (val >= FF::modulus) {
+            throw_or_abort("Non-canonical proof element: value >= field modulus");
+        }
+    }
     typename Flavor::Transcript::Proof result;
     result.reserve(public_inputs.size() + proof.size());
     result.insert(result.end(), public_inputs.begin(), public_inputs.end());

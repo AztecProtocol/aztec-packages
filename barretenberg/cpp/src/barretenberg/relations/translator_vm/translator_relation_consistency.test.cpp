@@ -106,6 +106,10 @@ TEST_F(TranslatorRelationConsistency, PermutationRelation)
         auto contribution_2 = z_perm_shift * lagrange_last;
         expected_values[1] = contribution_2;
 
+        // (Contribution 3)
+        auto contribution_3 = lagrange_first * z_perm;
+        expected_values[2] = contribution_3;
+
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };
     run_test(/*random_inputs=*/false);

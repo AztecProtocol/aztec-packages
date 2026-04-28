@@ -3,7 +3,7 @@
 use crate::protocol::{
     abis::block_header::BlockHeader,
     hash::{compute_siloed_note_hash, compute_siloed_nullifier, compute_unique_note_hash},
-    merkle_tree::root::root_from_sibling_path,
+    merkle_tree::membership::check_membership,
 };
 
 use crate::{
@@ -34,9 +34,12 @@ where
 
     // Note inclusion is fairly straightforward, since all we need to prove is that a note exists in the note tree - we
     // don't even care _where_ in the tree it is stored. This is because entries in the note hash tree are unique.
-    assert_eq(
-        block_header.state.partial.note_hash_tree.root,
-        root_from_sibling_path(unique_note_hash, witness.leaf_index, witness.sibling_path),
+    assert(
+        check_membership(
+            unique_note_hash,
+            witness,
+            block_header.state.partial.note_hash_tree.root,
+        ),
         "Proving note inclusion failed",
     );
 

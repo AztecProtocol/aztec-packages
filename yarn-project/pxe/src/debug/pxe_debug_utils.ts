@@ -1,9 +1,9 @@
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { NoteDao } from '@aztec/stdlib/note';
 import type { ContractOverrides } from '@aztec/stdlib/tx';
 
-import type { AccessScopes } from '../access_scopes.js';
 import type { BlockSynchronizer } from '../block_synchronizer/block_synchronizer.js';
 import type { ContractFunctionSimulator } from '../contract_function_simulator/contract_function_simulator.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
@@ -22,7 +22,7 @@ export class PXEDebugUtils {
     contractFunctionSimulator: ContractFunctionSimulator,
     call: FunctionCall,
     authWitnesses: AuthWitness[] | undefined,
-    scopes: AccessScopes,
+    scopes: AztecAddress[],
     jobId: string,
   ) => Promise<any>;
 
@@ -41,7 +41,7 @@ export class PXEDebugUtils {
       contractFunctionSimulator: ContractFunctionSimulator,
       call: FunctionCall,
       authWitnesses: AuthWitness[] | undefined,
-      scopes: AccessScopes,
+      scopes: AztecAddress[],
       jobId: string,
     ) => Promise<any>,
   ) {

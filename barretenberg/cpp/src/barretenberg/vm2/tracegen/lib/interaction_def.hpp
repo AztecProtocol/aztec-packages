@@ -31,14 +31,6 @@ class InteractionDefinition {
   public:
     InteractionDefinition() = default;
 
-    // Old format with InteractionSettings first. TODO: Migrate.
-    template <typename InteractionSettings, InteractionType type> InteractionDefinition& add(auto&&... args)
-    {
-        std::string name = std::string(InteractionSettings::NAME);
-        interactions[name] = get_interaction_factory<type, InteractionSettings>(std::forward<decltype(args)>(args)...);
-        return *this;
-    }
-
     template <InteractionType type, typename... InteractionSettings> InteractionDefinition& add(auto&&... args)
     {
         std::string name = (std::string(InteractionSettings::NAME) + ...);

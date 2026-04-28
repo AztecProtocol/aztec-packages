@@ -29,6 +29,7 @@ namespace {
 template <typename G1> class TestAffineElement : public testing::Test {
     using element = typename G1::element;
     using affine_element = typename G1::affine_element;
+    using Fr = typename G1::Fr;
 
   public:
     static void test_read_write_buffer()
@@ -36,19 +37,12 @@ template <typename G1> class TestAffineElement : public testing::Test {
         // a generic point
         {
             affine_element P = affine_element(element::random_element());
-            affine_element Q;
             affine_element R;
 
-            std::vector<uint8_t> v(65); // extra byte to allow a bad read
+            std::vector<uint8_t> v(64);
             uint8_t* ptr = v.data();
             affine_element::serialize_to_buffer(P, ptr);
 
-            // bad read
-            Q = affine_element::serialize_from_buffer(ptr + 1);
-            ASSERT_FALSE(Q.on_curve() && !Q.is_point_at_infinity());
-            ASSERT_FALSE(P == Q);
-
-            // good read
             R = affine_element::serialize_from_buffer(ptr);
             ASSERT_TRUE(R.on_curve());
             ASSERT_TRUE(P == R);
@@ -67,6 +61,28 @@ template <typename G1> class TestAffineElement : public testing::Test {
             R = affine_element::serialize_from_buffer(ptr);
             ASSERT_TRUE(R.is_point_at_infinity());
             ASSERT_TRUE(P == R);
+        }
+    }
+
+    // Verify that serialize_from_buffer rejects off-curve bytes by throwing.
+    static void test_deserialize_off_curve_throws()
+    {
+        using Fq = typename G1::Fq;
+        // Take a valid on-curve point and corrupt its y-coordinate.
+        // P.y + 1 satisfies (y+1)^2 != y^2 (i.e. off-curve) unless 2y + 1 = 0 (prob ~1/p).
+        affine_element P = affine_element(element::random_element());
+        affine_element off_curve;
+        off_curve.x = P.x;
+        off_curve.y = P.y + Fq::one();
+
+        std::vector<uint8_t> v(sizeof(affine_element));
+        uint8_t* ptr = v.data();
+        affine_element::serialize_to_buffer(off_curve, ptr);
+
+        if (!off_curve.on_curve()) {
+#ifndef __wasm__
+            EXPECT_THROW_OR_ABORT(affine_element::serialize_from_buffer(ptr), "not on the curve");
+#endif
         }
     }
 
@@ -192,6 +208,24 @@ template <typename G1> class TestAffineElement : public testing::Test {
         EXPECT_NE(P < Q, Q < P);
     }
 
+    // Verify that from_compressed with an x that has no y on the curve returns the (0,0) sentinel.
+    static void test_point_compression_invalid_x()
+    {
+        using Fq = typename G1::Fq;
+        size_t invalid_count = 0;
+        for (size_t i = 0; i < 20; ++i) {
+            affine_element result = affine_element::from_compressed(uint256_t(Fq::random_element()));
+            if (!result.on_curve()) {
+                ++invalid_count;
+                // from_compressed returns (0, 0) when x has no valid y
+                EXPECT_EQ(result.x, Fq::zero());
+                EXPECT_EQ(result.y, Fq::zero());
+            }
+        }
+        // With 20 trials ~10 should have no valid y, so we almost certainly exercise this path
+        EXPECT_GT(invalid_count, 0U);
+    }
+
     /**
      * @brief A regression test to make sure the -1 case is covered
      *
@@ -222,6 +256,59 @@ template <typename G1> class TestAffineElement : public testing::Test {
         affine_element R = affine_element(element::random_element());
         EXPECT_EQ(P, Q);
         EXPECT_NE(P, R);
+    }
+
+    static void test_infinity_mul_by_scalar_is_infinity()
+    {
+        auto result = affine_element::infinity() * Fr::random_element();
+        EXPECT_TRUE(result.is_point_at_infinity());
+    }
+
+    static void test_batch_mul_matches_non_batch_mul()
+    {
+        constexpr size_t num_points = 512;
+        std::vector<affine_element> affine_points(num_points - 1, affine_element::infinity());
+        affine_points.push_back(affine_element::infinity());
+        Fr exponent = Fr::random_element();
+        std::vector<affine_element> expected;
+        std::transform(affine_points.begin(),
+                       affine_points.end(),
+                       std::back_inserter(expected),
+                       [exponent](const auto& el) { return el * exponent; });
+        std::vector<affine_element> result = element::batch_mul_with_endomorphism(affine_points, exponent);
+        EXPECT_THAT(result, ElementsAreArray(expected));
+    }
+
+    static void test_infinity_batch_mul_by_scalar_is_infinity()
+    {
+        constexpr size_t num_points = 1024;
+        std::vector<affine_element> affine_points(num_points, affine_element::infinity());
+        std::vector<affine_element> result = element::batch_mul_with_endomorphism(affine_points, Fr::random_element());
+        EXPECT_THAT(result, Each(Property(&affine_element::is_point_at_infinity, Eq(true))));
+    }
+
+    static void test_batch_mul_endomorphism_even_scalars()
+    {
+        const affine_element P = affine_element::one();
+        const std::vector<affine_element> points(4, P);
+        for (const Fr scalar : { Fr(0), Fr(2), Fr(4), Fr(6) }) {
+            const auto result = element::batch_mul_with_endomorphism(points, scalar);
+            const affine_element expected(element(P) * scalar);
+            for (size_t i = 0; i < points.size(); ++i) {
+                EXPECT_EQ(result[i], expected);
+            }
+        }
+    }
+
+    static void test_frc_codec_round_trip()
+    {
+        using FrField = FrCodec::DataType;
+        affine_element point = affine_element::random_element();
+        std::vector<FrField> public_inputs = FrCodec::serialize_to_fields(point);
+        std::span<FrField, affine_element::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(),
+                                                                     affine_element::PUBLIC_INPUTS_SIZE);
+        auto reconstructed = FrCodec::deserialize_from_fields<affine_element>(limbs);
+        EXPECT_EQ(reconstructed, point);
     }
 };
 
@@ -298,92 +385,73 @@ class TestElementPrivate {
 };
 } // namespace bb::group_elements
 
-// Our endomorphism-specialized multiplication should match our generic multiplication
+// Our endomorphism-specialized multiplication should match our generic multiplication.
+// Previously only tested on Grumpkin; now runs on every curve that has USE_ENDOMORPHISM.
 TYPED_TEST(TestAffineElement, MulWithEndomorphismMatchesMulWithoutEndomorphism)
 {
-    for (int i = 0; i < 100; i++) {
-        auto x1 = bb::group_elements::element(grumpkin::g1::affine_element::random_element());
-        auto f1 = grumpkin::fr::random_element();
-        auto r1 = bb::group_elements::TestElementPrivate::mul_without_endomorphism(x1, f1);
-        auto r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, f1);
-        EXPECT_EQ(r1, r2);
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        using element_t = typename TypeParam::element;
+        using Fr = typename TypeParam::Fr;
+        for (int i = 0; i < 100; i++) {
+            element_t x1(element_t::random_element());
+            Fr f1 = Fr::random_element();
+            element_t r1 = bb::group_elements::TestElementPrivate::mul_without_endomorphism(x1, f1);
+            element_t r2 = bb::group_elements::TestElementPrivate::mul_with_endomorphism(x1, f1);
+            EXPECT_EQ(r1, r2);
+        }
     }
 }
 
-TEST(AffineElementFromPublicInputs, Bn254FromPublicInputs)
+// FrCodec is defined only for BN254 and Grumpkin (the two curves whose points appear in transcripts).
+TYPED_TEST(TestAffineElement, FrCodecRoundTrip)
 {
-    using Curve = curve::BN254;
-    using Fr = Curve::ScalarField;
-    using AffineElement = Curve::AffineElement;
-
-    AffineElement point = AffineElement::random_element();
-
-    // Construct public inputs using FrCodec format (2 limbs of 136 bits per coordinate)
-    std::vector<Fr> public_inputs = FrCodec::serialize_to_fields(point);
-
-    std::span<Fr, AffineElement::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(), AffineElement::PUBLIC_INPUTS_SIZE);
-
-    auto reconstructed = FrCodec::deserialize_from_fields<AffineElement>(limbs);
-
-    EXPECT_EQ(reconstructed, point);
+    if constexpr (std::is_same_v<TypeParam, bb::g1> || std::is_same_v<TypeParam, grumpkin::g1>) {
+        TestFixture::test_frc_codec_round_trip();
+    } else {
+        GTEST_SKIP();
+    }
 }
 
-TEST(AffineElementFromPublicInputs, GrumpkinFromPublicInputs)
+// Verify that batch_mul_with_endomorphism gives correct results for even scalars (where k1 or k2 in the
+// GLV decomposition is even), exercising the skew-correction path that uses affine_element::operator+.
+// Scalar 0 gives k1 = k2 = 0 (both skews), and even scalars like 2 and 4 trigger the k1-skew path.
+// These are regression tests for the operator+ fix: reverting to add_chunked would abort when the
+// accumulated result happens to equal ±P during the skew correction.
+TYPED_TEST(TestAffineElement, BatchMulEndomorphismEvenScalars)
 {
-    using Curve = curve::Grumpkin;
-    using AffineElement = Curve::AffineElement;
-    using Fr = bb::fr;
-
-    AffineElement point = AffineElement::random_element();
-
-    // Construct public inputs using FrCodec format
-    std::vector<Fr> public_inputs = FrCodec::serialize_to_fields(point);
-
-    std::span<Fr, AffineElement::PUBLIC_INPUTS_SIZE> limbs(public_inputs.data(), AffineElement::PUBLIC_INPUTS_SIZE);
-
-    auto reconstructed = FrCodec::deserialize_from_fields<AffineElement>(limbs);
-
-    EXPECT_EQ(reconstructed, point);
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_endomorphism_even_scalars();
+    }
 }
 
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/909): These tests are not typed for no reason
 // Multiplication of a point at infinity by a scalar should be a point at infinity
-TEST(AffineElement, InfinityMulByScalarIsInfinity)
+TYPED_TEST(TestAffineElement, InfinityMulByScalarIsInfinity)
 {
-    auto result = grumpkin::g1::affine_element::infinity() * grumpkin::fr::random_element();
-    EXPECT_TRUE(result.is_point_at_infinity());
+    TestFixture::test_infinity_mul_by_scalar_is_infinity();
 }
 
-// Batched multiplication of points should match
-TEST(AffineElement, BatchMulMatchesNonBatchMul)
+// Batched multiplication of points should match non-batched multiplication
+TYPED_TEST(TestAffineElement, BatchMulMatchesNonBatchMul)
 {
-    constexpr size_t num_points = 512;
-    std::vector<grumpkin::g1::affine_element> affine_points(num_points - 1, grumpkin::g1::affine_element::infinity());
-    // Include a point at infinity to test the mixed infinity + non-infinity case
-    affine_points.push_back(grumpkin::g1::affine_element::infinity());
-    grumpkin::fr exponent = grumpkin::fr::random_element();
-    std::vector<grumpkin::g1::affine_element> expected;
-    std::transform(affine_points.begin(),
-                   affine_points.end(),
-                   std::back_inserter(expected),
-                   [exponent](const auto& el) { return el * exponent; });
-
-    std::vector<grumpkin::g1::affine_element> result =
-        grumpkin::g1::element::batch_mul_with_endomorphism(affine_points, exponent);
-
-    EXPECT_THAT(result, ElementsAreArray(expected));
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_matches_non_batch_mul();
+    }
 }
 
 // Batched multiplication of a point at infinity by a scalar should result in points at infinity
-TEST(AffineElement, InfinityBatchMulByScalarIsInfinity)
+TYPED_TEST(TestAffineElement, InfinityBatchMulByScalarIsInfinity)
 {
-    constexpr size_t num_points = 1024;
-    std::vector<grumpkin::g1::affine_element> affine_points(num_points, grumpkin::g1::affine_element::infinity());
-
-    std::vector<grumpkin::g1::affine_element> result =
-        grumpkin::g1::element::batch_mul_with_endomorphism(affine_points, grumpkin::fr::random_element());
-
-    EXPECT_THAT(result, Each(Property(&grumpkin::g1::affine_element::is_point_at_infinity, Eq(true))));
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_infinity_batch_mul_by_scalar_is_infinity();
+    }
 }
 
 TYPED_TEST(TestAffineElement, BatchEndomoprhismByMinusOne)
@@ -392,6 +460,22 @@ TYPED_TEST(TestAffineElement, BatchEndomoprhismByMinusOne)
         TestFixture::test_batch_endomorphism_by_minus_one();
     } else {
         GTEST_SKIP();
+    }
+}
+
+// Verify that serialize_from_buffer rejects off-curve bytes by throwing (tests the invalid-curve attack fix).
+TYPED_TEST(TestAffineElement, DeserializeOffCurveThrows)
+{
+    TestFixture::test_deserialize_off_curve_throws();
+}
+
+// Verify that from_compressed returns the (0,0) sentinel for x values with no valid y.
+TYPED_TEST(TestAffineElement, PointCompressionInvalidX)
+{
+    if constexpr (TypeParam::Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
+        GTEST_SKIP(); // from_compressed is not used on large-modulus curves
+    } else {
+        TestFixture::test_point_compression_invalid_x();
     }
 }
 

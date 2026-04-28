@@ -1,7 +1,0 @@
-[package]
-name = "reserved_emit_public_init_nullifier"
-type = "contract"
-authors = [""]
-
-[dependencies]
-aztec = { path = "../../../aztec" }

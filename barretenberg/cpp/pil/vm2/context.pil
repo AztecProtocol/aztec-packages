@@ -9,24 +9,27 @@ include "opcodes/internal_call.pil";
 // This subtrace has interactions with context_stack.pil.
 namespace execution;
 
-    // This the same sel as in execution
+    // This is the same sel as in execution
     #[skippable_if]
     sel = 0;
 
     // Guaranteed to be boolean because sel_execute_call & sel_execute_static_call are mutually exclusive
+    // (by #[EXEC_OP_ID_DECOMPOSITION] in execution.pil, which makes sel_execute_call, sel_execute_static_call,
+    // sel_execute_return, and sel_execute_revert pairwise mutually exclusive).
     pol commit sel_enter_call; // @boolean (by definition)
     // The following selectors will be 0 if there is an error during execution (before the opcode execution step).
     sel_enter_call = sel_execute_call + sel_execute_static_call;
-    // sel_enter_call and precomputed.first_row are mutually exclusive because
-    // `sel == 0` ==> `sel_enter_call == 0` as explained in execution.pil and `sel` has a shift and
-    // must be 0 on the first row.
+    // sel_enter_call is mutually exclusive with:
+    //  - precomputed.first_row: `sel == 0` ==> `sel_enter_call == 0` as explained in execution.pil,
+    //    and `sel` has a shift and must be 0 on the first row.
+    //  - sel_exit_call: `sel_error == 1` deactivates (cascade) sel_execute_call and sel_execute_static_call.
 
-    // sel_exit_call is used to flag if we are returning or reverting or there has been ANY error during execution
-    // sel_execute_revert & sel_execute_return are mutually exclusive.
-    // By #[INFALLIBLE_OPCODES_SUCCESS] in execution.pil, sel_opcode_error is mutually exclusive
-    // with sel_execute_revert and sel_execute_return. As sel_opcode_error is a specific error of the last temporality
-    // group, sel_error is mutually exclusive with sel_execute_revert and sel_execute_return. Namely, if
-    // an error occurs earlier neither sel_execute_revert nor sel_execute_return can be activated.
+    // sel_exit_call is used to flag if we are returning or reverting or there has been ANY error during execution.
+    // It is boolean because sel_execute_revert, sel_execute_return, and sel_error are pairwise mutually exclusive:
+    //  - sel_execute_revert and sel_execute_return: by #[EXEC_OP_ID_DECOMPOSITION] in execution.pil.
+    //  - sel_opcode_error with sel_execute_revert/_return: by #[INFALLIBLE_OPCODES_SUCCESS] in execution.pil.
+    //    Since sel_opcode_error is the error of the last temporality group, sel_error is mutually exclusive
+    //    with sel_execute_revert and sel_execute_return.
     pol commit sel_exit_call; // @boolean (by definition)
     sel_exit_call = sel_failure + sel_execute_return; // sel_failure = sel_error + sel_execute_revert (discard.pil)
 
@@ -164,7 +167,7 @@ namespace execution;
 
     /* Partitioning of an active row:
      *
-     * In what most of the constraints below, we partition the active rows into the following cases:
+     * In most of the constraints below, we partition the active rows into the following cases:
      * - Enter nested call: sel_enter_call == 1
      * - Nested return: nested_return == 1
      * - Nested failure: nested_failure == 1
@@ -251,9 +254,9 @@ namespace execution;
     //         PC and NEXT_PC
     // =============================
 
-    // `instr_length` is from execution.pil and constrained when `sel_instruction_fetching_success == 1`.
+    // `instr_size` is from execution.pil and constrained when `sel_instruction_fetching_success == 1`.
     #[NEXT_PC]
-    sel_instruction_fetching_success * (pc + instr_length - next_pc) = 0;
+    sel_instruction_fetching_success * (pc + instr_size - next_pc) = 0;
 
     // Initialization: enqueued_call_start = 1 ==> pc = 0;
     //                 sel_enter_call      = 1 ==> pc' = 0;

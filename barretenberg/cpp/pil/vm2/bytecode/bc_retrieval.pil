@@ -245,6 +245,9 @@ should_retrieve {
 pol commit retrieved_bytecodes_tree_height;
 sel * (retrieved_bytecodes_tree_height - constants.AVM_RETRIEVED_BYTECODES_TREE_HEIGHT) = 0;
 
+pol commit retrieved_bytecodes_merkle_separator;
+sel * (retrieved_bytecodes_merkle_separator - constants.DOM_SEP__RETRIEVED_BYTECODES_MERKLE) = 0;
+
 // This constrains that is_new_class is on iff the bytecode does not exist in the transient tree (i.e. this
 // bytecode has not been used in this tx).
 // Note: instance_exists can only be non-zero on active rows.
@@ -254,12 +257,14 @@ instance_exists {
     current_class_id, // value
     prev_retrieved_bytecodes_tree_root,
     retrieved_bytecodes_tree_height,
+    retrieved_bytecodes_merkle_separator,
     precomputed.zero // sel_silo = 0 (no siloing)
 } in indexed_tree_check.sel {
     indexed_tree_check.not_exists,
     indexed_tree_check.value,
     indexed_tree_check.root,
     indexed_tree_check.tree_height,
+    indexed_tree_check.merkle_hash_separator,
     indexed_tree_check.sel_silo
 };
 
@@ -272,6 +277,7 @@ should_retrieve {
     prev_retrieved_bytecodes_tree_size,
     next_retrieved_bytecodes_tree_size,
     retrieved_bytecodes_tree_height,
+    retrieved_bytecodes_merkle_separator,
     precomputed.zero // sel_silo = 0 (no siloing)
 } in indexed_tree_check.write {
     indexed_tree_check.value,
@@ -280,6 +286,7 @@ should_retrieve {
     indexed_tree_check.tree_size_before_write,
     indexed_tree_check.tree_size_after_write,
     indexed_tree_check.tree_height,
+    indexed_tree_check.merkle_hash_separator,
     indexed_tree_check.sel_silo
 };
 

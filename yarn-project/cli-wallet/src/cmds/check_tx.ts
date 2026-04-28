@@ -1,5 +1,5 @@
 import type { ContractArtifact } from '@aztec/aztec.js/abi';
-import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
@@ -87,12 +87,13 @@ async function inspectTx(wallet: CLIWallet, aztecNode: AztecNode, txHash: TxHash
   // Nullifiers
   const nullifierCount = effects.nullifiers.length;
   const { deployNullifiers, initNullifiers, classNullifiers } = await getKnownNullifiers(wallet, artifactMap);
+  const accounts = (await wallet.getAccounts()).map(a => a.item);
   if (nullifierCount > 0) {
     log(' Nullifiers:');
     for (const nullifier of effects.nullifiers) {
       const deployed = deployNullifiers[nullifier.toString()];
       const note = deployed
-        ? (await wallet.getNotes({ siloedNullifier: nullifier, contractAddress: deployed, scopes: 'ALL_SCOPES' }))[0]
+        ? (await wallet.getNotes({ siloedNullifier: nullifier, contractAddress: deployed, scopes: accounts }))[0]
         : undefined;
       const initialized = initNullifiers[nullifier.toString()];
       const registered = classNullifiers[nullifier.toString()];

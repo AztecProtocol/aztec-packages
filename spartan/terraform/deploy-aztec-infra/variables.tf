@@ -123,6 +123,12 @@ variable "PROVER_AGENT_DOCKER_IMAGE" {
   default     = ""
 }
 
+variable "VALIDATOR_HA_DOCKER_IMAGE" {
+  description = "Docker image for HA validator releases. When set, HA releases (idx > 0) use this image instead of AZTEC_DOCKER_IMAGE."
+  type        = string
+  default     = ""
+}
+
 variable "VALIDATOR_VALUES" {
   description = "The values file to apply"
   type        = string
@@ -172,11 +178,6 @@ variable "L1_CONSENSUS_HOST_API_KEY_HEADERS" {
 
 variable "REGISTRY_CONTRACT_ADDRESS" {
   description = "The registry contract address"
-  type        = string
-}
-
-variable "SLASH_FACTORY_CONTRACT_ADDRESS" {
-  description = "The slash factory contract address"
   type        = string
 }
 
@@ -239,6 +240,12 @@ variable "VALIDATOR_HA_REPLICAS" {
   description = "Number of additional HA validator releases (0 = no HA, 1 = primary + 1 HA, etc.)"
   type        = number
   default     = 0
+}
+
+variable "VALIDATOR_HA_REPLICA_COUNT" {
+  description = "Number of pod replicas per HA validator release. Defaults to VALIDATOR_REPLICAS if not set."
+  type        = number
+  default     = null
 }
 
 variable "VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" {
@@ -309,11 +316,6 @@ variable "PROVER_NODE_DISABLE_PROOF_PUBLISH" {
   default     = false
 }
 
-variable "P2P_MAX_TX_POOL_SIZE" {
-  description = "Maximum size of the P2P transaction pool"
-  type        = string
-  default     = "100000000"
-}
 variable "FISHERMAN_MNEMONIC" {
   description = "The fisherman mnemonic for RPC nodes (used when validators are disabled, e.g., fisherman mode)"
   type        = string
@@ -331,6 +333,20 @@ variable "OTEL_COLLECTOR_ENDPOINT" {
   type        = string
   default     = null
   nullable    = true
+}
+
+variable "OTEL_COLLECT_INTERVAL_MS" {
+  description = "Interval in ms at which OTEL metrics are exported from nodes"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
+variable "OTEL_EXPORT_TIMEOUT_MS" {
+  description = "Timeout in ms for OTEL metric exports (must be <= OTEL_COLLECT_INTERVAL_MS)"
+  type        = string
+  nullable    = true
+  default     = null
 }
 
 variable "LOG_LEVEL" {
@@ -413,22 +429,23 @@ variable "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" {
   default     = null
 }
 
+variable "SEQ_ENABLE_PROPOSER_PIPELINING" {
+  description = "Whether to enable build-ahead proposer pipelining"
+  type        = string
+  default     = "false"
+}
+
+variable "AZTEC_EPOCHS_LAG" {
+  description = "Epoch lag override for validator nodes"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "SENTINEL_ENABLED" {
   description = "Whether to enable sentinel"
   type        = string
   default     = true
-}
-
-variable "SLASH_MIN_PENALTY_PERCENTAGE" {
-  description = "The slash min penalty percentage"
-  type        = string
-  nullable    = true
-}
-
-variable "SLASH_MAX_PENALTY_PERCENTAGE" {
-  description = "The slash max penalty percentage"
-  type        = string
-  nullable    = true
 }
 
 variable "SLASH_INACTIVITY_TARGET_PERCENTAGE" {
@@ -704,6 +721,25 @@ variable "RPC_INGRESS_SSL_CERT_NAMES" {
   default     = []
 }
 
+variable "RPC_CLOUD_ARMOR_POLICY_NAME" {
+  description = "Name of a Cloud Armor security policy to attach to the RPC ingress BackendConfig. Leave empty to disable."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_SESSION_AFFINITY" {
+  description = "Session affinity type for the RPC BackendConfig. One of NONE, CLIENT_IP, GENERATED_COOKIE. Leave empty for no affinity (GCE default)."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_LOG_SAMPLE_RATE" {
+  description = "LB access-log sample rate for the RPC BackendConfig (0.0-1.0). When set, logs include the Cloud Armor matched rule priority. Leave null to disable logging (GCE default)."
+  type        = number
+  nullable    = true
+  default     = null
+}
+
 variable "PROVER_FAILED_PROOF_STORE" {
   description = "Optional GCS/URI to store failed proofs from the prover"
   type        = string
@@ -811,10 +847,10 @@ variable "FULL_NODE_INCLUDE_METRICS" {
   default     = null
 }
 
-variable "FISHERMAN_MODE" {
-  description = "Whether to run in fisherman mode"
-  type        = bool
-  default     = false
+variable "FISHERMAN_REPLICAS" {
+  description = "Number of dedicated fisherman node replicas (separate from the rpc-node)"
+  type        = number
+  default     = 0
 }
 
 variable "P2P_GOSSIPSUB_D" {

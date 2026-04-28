@@ -60,6 +60,8 @@ Configure blob sources using environment variables:
 | `L1_CONSENSUS_HOST_API_KEY_HEADERS` | Header names for API keys | `Authorization` |
 | `BLOB_ARCHIVE_API_URL` | Archive API URL (e.g., Blobscan) | `https://api.blobscan.com` |
 | `BLOB_ALLOW_EMPTY_SOURCES` | Allow no blob sources (default: false) | `false` |
+| `BLOB_PREFER_FILESTORES` | Try file stores before consensus clients (default: false) | `false` |
+| `BLOB_FILE_STORE_TIMEOUT_MS` | Timeout for HTTP requests to blob file stores in ms (default: 10000) | `10000` |
 
 :::tip
 If you want to contribute to the network by hosting a blob file store, see the [Blob upload guide](./blob_upload.md).
@@ -153,18 +155,16 @@ For R2, these credentials come from your Cloudflare R2 API tokens.
 
 ## How blob retrieval works
 
-When a node needs blobs for a block, the blob client follows this retrieval order:
+When a node needs blobs for a block, the blob client alternates between two primary sources in a retry loop, then falls back to the archive:
 
-### During historical sync
-1. **File Store** - Quick lookup in configured file stores
-2. **L1 Consensus** - Query beacon nodes using slot number
-3. **Archive API** - Fall back to Blobscan or similar service
+1. **Primary source A** (default: L1 Consensus) - Query supernode beacon nodes using slot number
+2. **Primary source B** (default: File Store) - Quick lookup in configured file stores
+3. If blobs are still missing, retry with backoff (handles eventual consistency)
+4. **Archive API** - Final fallback (e.g., Blobscan)
 
-### During near-tip sync
-1. **File Store** - Quick lookup (no retries)
-2. **L1 Consensus** - Query beacon nodes
-3. **File Store with retries** - Retry with backoff for eventual consistency
-4. **Archive API** - Final fallback
+The default order is consensus first, then file stores. Set `BLOB_PREFER_FILESTORES=true` to reverse this order if your file stores are more reliable or faster than your consensus clients.
+
+Non-supernode consensus hosts are automatically detected at startup and skipped during blob fetching.
 
 ## Troubleshooting
 

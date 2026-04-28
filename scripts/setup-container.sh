@@ -218,7 +218,7 @@ log_info "Installing npm global packages (corepack, yarn, solhint)..."
 
 npm install --global corepack
 corepack enable
-corepack install --global yarn@4.5.2
+corepack install --global yarn@4.13.0
 npm install --global solhint
 
 # =============================================================================

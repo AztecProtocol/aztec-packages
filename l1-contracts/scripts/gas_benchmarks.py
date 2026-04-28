@@ -19,6 +19,7 @@ BENCHMARK_CONFIGS = {
                 "command": [
                     "forge",
                     "test",
+                    "--offline",
                     "--match-contract",
                     "BenchmarkRollupTest",
                     "--match-test",
@@ -44,6 +45,7 @@ BENCHMARK_CONFIGS = {
                 "command": [
                     "forge",
                     "test",
+                    "--offline",
                     "--match-contract",
                     "BenchmarkRollupTest",
                     "--match-test",
@@ -59,6 +61,7 @@ BENCHMARK_CONFIGS = {
                 "command": [
                     "forge",
                     "test",
+                    "--offline",
                     "--match-contract",
                     "BenchmarkRollupTest",
                     "--match-test",
@@ -81,17 +84,13 @@ BENCHMARK_CONFIGS = {
 }
 
 
-def run_forge_test(command: List[str], ignition: bool = False) -> Dict[str, Any]:
+def run_forge_test(command: List[str]) -> Dict[str, Any]:
     """Run a forge test command and return the JSON output."""
     print(f"Running: {' '.join(command)}")
-    print(f"IGNITION environment variable set to: {ignition}")
 
     # Add FORGE_GAS_REPORT environment variable
     env = os.environ.copy()
     env["FORGE_GAS_REPORT"] = "true"
-
-    # Set IGNITION environment variable based on config
-    env["IGNITION"] = "true" if ignition else "false"
 
     try:
         result = subprocess.run(
@@ -107,13 +106,14 @@ def run_forge_test(command: List[str], ignition: bool = False) -> Dict[str, Any]
         return {}
 
 
-def extract_config(ignition: bool = False) -> Dict[str, int]:
+def extract_config() -> Dict[str, int]:
     """Run the test_log_config test to extract configuration values."""
-    print(f"Extracting configuration for IGNITION={ignition}")
+    print("Extracting benchmark configuration")
 
     command = [
         "forge",
         "test",
+        "--offline",
         "--match-contract",
         "BenchmarkRollupTest",
         "--match-test",
@@ -124,10 +124,7 @@ def extract_config(ignition: bool = False) -> Dict[str, int]:
         "--json",
     ]
 
-    # Add IGNITION environment variable but NOT FORGE_GAS_REPORT
     env = os.environ.copy()
-    env["IGNITION"] = "true" if ignition else "false"
-    # Remove FORGE_GAS_REPORT if it exists to get decoded_logs
     env.pop("FORGE_GAS_REPORT", None)
 
     try:
@@ -296,9 +293,7 @@ def merge_gas_data_with_priority(
     return merged
 
 
-def run_benchmark_config(
-    config: Dict[str, Any], ignition: bool = False
-) -> Dict[str, Dict]:
+def run_benchmark_config(config: Dict[str, Any]) -> Dict[str, Dict]:
     """Run all tests for a configuration and return merged gas data."""
     all_gas_data = []
     priorities = []
@@ -306,8 +301,7 @@ def run_benchmark_config(
     for test in config["tests"]:
         # First run without FORGE_GAS_REPORT to get decoded logs with calldata sizes
         env = os.environ.copy()
-        env["IGNITION"] = "true" if ignition else "false"
-        env.pop("FORGE_GAS_REPORT", None)  # Remove to get decoded_logs
+        env.pop("FORGE_GAS_REPORT", None)
 
         print(f"Extracting calldata sizes for: {' '.join(test['command'])}")
 
@@ -323,7 +317,7 @@ def run_benchmark_config(
             print(f"Error extracting calldata sizes: {e}")
 
         # Then run with gas report to get gas data
-        forge_output = run_forge_test(test["command"], ignition)
+        forge_output = run_forge_test(test["command"])
 
         # Extract gas data
         gas_data = extract_gas_data_from_forge_output(
@@ -356,14 +350,19 @@ def seconds_to_hms(seconds: int) -> str:
 
 
 def generate_markdown_report(
-    ignition_results: Dict[str, Dict[str, Dict]],
-    alpha_results: Dict[str, Dict[str, Dict]],
-    ignition_config: Dict[str, int],
-    alpha_config: Dict[str, int],
+    results: Dict[str, Dict[str, Dict]],
+    config: Dict[str, int],
     output_file: str = "gas_benchmark.md",
 ):
     """Generate a human-readable markdown report from benchmark results."""
     lines = []
+    required_config_keys = {
+        "SLOT_DURATION",
+        "EPOCH_DURATION",
+        "TARGET_COMMITTEE_SIZE",
+        "MANA_TARGET",
+        "PROOFS_PER_EPOCH",
+    }
 
     # Sort functions in desired order
     function_order = [
@@ -375,30 +374,23 @@ def generate_markdown_report(
 
     # Add header
     lines.append("# Gas Benchmark Report\n")
+    if config:
+        lines.append("## Configuration\n")
 
-    # First, add all IGNITION results
-    lines.append("## IGNITION\n")
-
-    # Add IGNITION configuration
-    if ignition_config:
-        lines.append("### Configuration\n")
-
-        # Define the configuration parameters to display
+        mana_target = f"{config['MANA_TARGET']:,}" if "MANA_TARGET" in config else "N/A"
+        proofs_per_epoch = (
+            f"{config['PROOFS_PER_EPOCH'] / 100:.2f}"
+            if "PROOFS_PER_EPOCH" in config
+            else "N/A"
+        )
         config_params = [
-            ("Slot Duration", ignition_config.get("SLOT_DURATION", "N/A")),
-            ("Epoch Duration", ignition_config.get("EPOCH_DURATION", "N/A")),
-            (
-                "Target Committee Size",
-                ignition_config.get("TARGET_COMMITTEE_SIZE", "N/A"),
-            ),
-            ("Mana Target", f"{ignition_config.get('MANA_TARGET', 0):,}"),
-            (
-                "Proofs per Epoch",
-                f"{ignition_config.get('PROOFS_PER_EPOCH', 200) / 100:.2f}",
-            ),
+            ("Slot Duration", config.get("SLOT_DURATION", "N/A")),
+            ("Epoch Duration", config.get("EPOCH_DURATION", "N/A")),
+            ("Target Committee Size", config.get("TARGET_COMMITTEE_SIZE", "N/A")),
+            ("Mana Target", mana_target),
+            ("Proofs per Epoch", proofs_per_epoch),
         ]
 
-        # Calculate column widths
         param_col_width = max(
             len("Parameter"), max(len(param[0]) for param in config_params)
         )
@@ -406,23 +398,21 @@ def generate_markdown_report(
             len("Value"), max(len(str(param[1])) for param in config_params)
         )
 
-        # Table header with proper spacing
         header = f"| {'Parameter':<{param_col_width}} | {'Value':>{value_col_width}} |"
         separator = f"|{'-' * (param_col_width + 2)}|{'-' * (value_col_width + 2)}|"
 
         lines.append(header)
         lines.append(separator)
 
-        # Add data rows with proper spacing
         for param_name, param_value in config_params:
             row = f"| {param_name:<{param_col_width}} | {param_value:>{value_col_width}} |"
             lines.append(row)
 
         lines.append("")
 
-    for config_name, gas_data in ignition_results.items():
+    for config_name, gas_data in results.items():
         config_display_name = BENCHMARK_CONFIGS[config_name]["name"]
-        lines.append(f"### {config_display_name} (IGNITION)\n")
+        lines.append(f"## {config_display_name}\n")
 
         # Get functions for this config in the desired order
         config_functions = [f for f in function_order if f in gas_data]
@@ -492,170 +482,17 @@ def generate_markdown_report(
 
         lines.append("")  # Empty line between tables
 
-        # Calculate and add gas cost per second for IGNITION mode
+        # Calculate and add gas cost per second
         if (
             all(
                 func in gas_data
                 for func in ["setupEpoch", "propose", "submitEpochRootProof"]
             )
-            and ignition_config
+            and required_config_keys.issubset(config)
         ):
-            slot_duration = ignition_config.get("SLOT_DURATION", 1)
-            epoch_duration = ignition_config.get("EPOCH_DURATION", 1)
-            proofs_per_epoch = (
-                ignition_config.get("PROOFS_PER_EPOCH", 200) / 100
-            )  # Convert from e2 to decimal
-
-            # Get average gas values
-            setup_epoch_gas = gas_data["setupEpoch"].get("mean", 0)
-            propose_gas = gas_data["propose"].get("mean", 0)
-            submit_proof_gas = gas_data["submitEpochRootProof"].get("mean", 0)
-
-            # Calculate gas cost per second
-            total_epoch_gas = (
-                setup_epoch_gas
-                + (propose_gas * epoch_duration)
-                + (submit_proof_gas * proofs_per_epoch)
-            )
-            epoch_duration_seconds = slot_duration * epoch_duration
-            gas_per_second = (
-                total_epoch_gas / epoch_duration_seconds
-                if epoch_duration_seconds > 0
-                else 0
-            )
-
-            lines.append(
-                f"**Avg Gas Cost per Second**: {gas_per_second:,.1f} gas/second"
-            )
-            lines.append(f"*Epoch duration*: {seconds_to_hms(epoch_duration_seconds)}")
-            lines.append("")
-
-    # Then, add all Alpha results
-    lines.append("\n## Alpha\n")
-
-    # Add Alpha configuration
-    if alpha_config:
-        lines.append("### Configuration\n")
-
-        # Define the configuration parameters to display
-        config_params = [
-            ("Slot Duration", alpha_config.get("SLOT_DURATION", "N/A")),
-            ("Epoch Duration", alpha_config.get("EPOCH_DURATION", "N/A")),
-            ("Target Committee Size", alpha_config.get("TARGET_COMMITTEE_SIZE", "N/A")),
-            ("Mana Target", f"{alpha_config.get('MANA_TARGET', 0):,}"),
-            (
-                "Proofs per Epoch",
-                f"{alpha_config.get('PROOFS_PER_EPOCH', 200) / 100:.2f}",
-            ),
-        ]
-
-        # Calculate column widths
-        param_col_width = max(
-            len("Parameter"), max(len(param[0]) for param in config_params)
-        )
-        value_col_width = max(
-            len("Value"), max(len(str(param[1])) for param in config_params)
-        )
-
-        # Table header with proper spacing
-        header = f"| {'Parameter':<{param_col_width}} | {'Value':>{value_col_width}} |"
-        separator = f"|{'-' * (param_col_width + 2)}|{'-' * (value_col_width + 2)}|"
-
-        lines.append(header)
-        lines.append(separator)
-
-        # Add data rows with proper spacing
-        for param_name, param_value in config_params:
-            row = f"| {param_name:<{param_col_width}} | {param_value:>{value_col_width}} |"
-            lines.append(row)
-
-        lines.append("")
-
-    for config_name, gas_data in alpha_results.items():
-        config_display_name = BENCHMARK_CONFIGS[config_name]["name"]
-        lines.append(f"### {config_display_name} (Alpha)\n")
-
-        # Get functions for this config in the desired order
-        config_functions = [f for f in function_order if f in gas_data]
-
-        if not config_functions:
-            lines.append("*No gas data available*\n")
-            continue
-
-        # Calculate column widths for proper alignment
-        func_col_width = max(len("Function"), max(len(f) for f in config_functions))
-        avg_col_width = max(
-            len("Avg Gas"),
-            max(len(f"{gas_data[f].get('mean', 0):,}") for f in config_functions),
-        )
-        max_col_width = max(
-            len("Max Gas"),
-            max(len(f"{gas_data[f].get('max', 0):,}") for f in config_functions),
-        )
-
-        # Calldata columns - check if any function has calldata size
-        has_calldata = any("calldata_size" in gas_data[f] for f in config_functions)
-        if has_calldata:
-            calldata_size_col_width = max(
-                len("Calldata Size"),
-                max(
-                    len(f"{gas_data[f].get('calldata_size', 0):,}")
-                    for f in config_functions
-                    if "calldata_size" in gas_data[f]
-                ),
-            )
-            calldata_gas_col_width = max(
-                len("Calldata Gas"),
-                max(
-                    len(f"{gas_data[f].get('calldata_gas', 0):,}")
-                    for f in config_functions
-                    if "calldata_gas" in gas_data[f]
-                ),
-            )
-
-        # Table header with proper spacing
-        if has_calldata:
-            header = f"| {'Function':<{func_col_width}} | {'Avg Gas':>{avg_col_width}} | {'Max Gas':>{max_col_width}} | {'Calldata Size':>{calldata_size_col_width}} | {'Calldata Gas':>{calldata_gas_col_width}} |"
-            separator = f"|{'-' * (func_col_width + 2)}|{'-' * (avg_col_width + 2)}|{'-' * (max_col_width + 2)}|{'-' * (calldata_size_col_width + 2)}|{'-' * (calldata_gas_col_width + 2)}|"
-        else:
-            header = f"| {'Function':<{func_col_width}} | {'Avg Gas':>{avg_col_width}} | {'Max Gas':>{max_col_width}} |"
-            separator = f"|{'-' * (func_col_width + 2)}|{'-' * (avg_col_width + 2)}|{'-' * (max_col_width + 2)}|"
-
-        lines.append(header)
-        lines.append(separator)
-
-        # Add data rows with proper spacing
-        for func_name in config_functions:
-            func_data = gas_data[func_name]
-            avg_value = func_data.get("mean", 0)
-            max_value = func_data.get("max", 0)
-
-            if has_calldata and "calldata_size" in func_data:
-                calldata_size = func_data["calldata_size"]
-                calldata_gas = func_data.get("calldata_gas", 0)
-                row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} | {calldata_size:>{calldata_size_col_width},} | {calldata_gas:>{calldata_gas_col_width},} |"
-            elif has_calldata:
-                # Add empty cells for functions without calldata info
-                row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} | {'-':>{calldata_size_col_width}} | {'-':>{calldata_gas_col_width}} |"
-            else:
-                row = f"| {func_name:<{func_col_width}} | {avg_value:>{avg_col_width},} | {max_value:>{max_col_width},} |"
-            lines.append(row)
-
-        lines.append("")  # Empty line between tables
-
-        # Calculate and add gas cost per second for Alpha mode
-        if (
-            all(
-                func in gas_data
-                for func in ["setupEpoch", "propose", "submitEpochRootProof"]
-            )
-            and alpha_config
-        ):
-            slot_duration = alpha_config.get("SLOT_DURATION", 1)
-            epoch_duration = alpha_config.get("EPOCH_DURATION", 1)
-            proofs_per_epoch = (
-                alpha_config.get("PROOFS_PER_EPOCH", 200) / 100
-            )  # Convert from e2 to decimal
+            slot_duration = config["SLOT_DURATION"]
+            epoch_duration = config["EPOCH_DURATION"]
+            proofs_per_epoch = config["PROOFS_PER_EPOCH"] / 100
 
             # Get average gas values
             setup_epoch_gas = gas_data["setupEpoch"].get("mean", 0)
@@ -692,55 +529,26 @@ def generate_markdown_report(
 def main():
     """Main entry point."""
 
-    # Run benchmarks for each configuration with both IGNITION modes
-    ignition_results = {}
-    alpha_results = {}
+    results = {}
 
     # Extract configurations
     print("Extracting configurations...")
-    ignition_config = extract_config(ignition=True)
-    alpha_config = extract_config(ignition=False)
+    benchmark_parameters = extract_config()
 
-    # First, run all configurations with IGNITION=true
     print(f"\n{'='*60}")
-    print("Running benchmarks with IGNITION=true")
+    print("Running benchmarks")
     print(f"{'='*60}")
 
-    for config_name, config in BENCHMARK_CONFIGS.items():
+    for config_name, benchmark_config in BENCHMARK_CONFIGS.items():
         print(f"\n{'='*60}")
-        print(f"Running benchmark: {config['name']} (IGNITION)")
+        print(f"Running benchmark: {benchmark_config['name']}")
         print(f"{'='*60}")
 
-        gas_data = run_benchmark_config(config, ignition=True)
-        ignition_results[config_name] = gas_data
+        gas_data = run_benchmark_config(benchmark_config)
+        results[config_name] = gas_data
 
         # Show summary
-        print(f"\nExtracted gas data for {config['name']} (IGNITION):")
-        for func_name, data in gas_data.items():
-            calldata_info = (
-                f", calldata_size={data.get('calldata_size', 'N/A')}"
-                if "calldata_size" in data
-                else ""
-            )
-            print(
-                f"  - {func_name}: max={data.get('max', 'N/A'):,}, mean={data.get('mean', 'N/A'):,}{calldata_info}"
-            )
-
-    # Then, run all configurations with IGNITION=false (Alpha)
-    print(f"\n\n{'='*60}")
-    print("Running benchmarks with IGNITION=false (Alpha)")
-    print(f"{'='*60}")
-
-    for config_name, config in BENCHMARK_CONFIGS.items():
-        print(f"\n{'='*60}")
-        print(f"Running benchmark: {config['name']} (Alpha)")
-        print(f"{'='*60}")
-
-        gas_data = run_benchmark_config(config, ignition=False)
-        alpha_results[config_name] = gas_data
-
-        # Show summary
-        print(f"\nExtracted gas data for {config['name']} (Alpha):")
+        print(f"\nExtracted gas data for {benchmark_config['name']}:")
         for func_name, data in gas_data.items():
             calldata_info = (
                 f", calldata_size={data.get('calldata_size', 'N/A')}"
@@ -752,15 +560,12 @@ def main():
             )
 
     # Save raw results
-    all_results = {"ignition": ignition_results, "alpha": alpha_results}
     with open("gas_benchmark_results.json", "w") as f:
-        json.dump(all_results, f, indent=2)
+        json.dump(results, f, indent=2)
     print(f"\nRaw results saved to: gas_benchmark_results.json")
 
     # Generate markdown report
-    generate_markdown_report(
-        ignition_results, alpha_results, ignition_config, alpha_config
-    )
+    generate_markdown_report(results, benchmark_parameters)
 
 
 if __name__ == "__main__":

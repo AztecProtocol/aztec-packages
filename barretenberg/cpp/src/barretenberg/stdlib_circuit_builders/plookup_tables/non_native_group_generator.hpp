@@ -11,6 +11,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include <array>
+#include <mutex>
 
 namespace bb::plookup::ecc_generator_tables {
 
@@ -39,7 +40,7 @@ template <typename G1> class ecc_generator_table {
     inline static std::array<std::pair<fr, fr>, 256> generator_yhi_table;
     inline static std::array<std::pair<fr, fr>, 256> generator_xyprime_table;
     inline static std::array<std::pair<fr, fr>, 256> generator_endo_xyprime_table;
-    inline static bool init = false;
+    inline static std::once_flag init_flag;
 
     static void init_generator_tables();
 

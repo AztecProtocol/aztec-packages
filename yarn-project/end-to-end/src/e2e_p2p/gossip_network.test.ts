@@ -29,7 +29,7 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
-const BOOT_NODE_UDP_PORT = 4500;
+const BOOT_NODE_UDP_PORT = process.env.BOOT_NODE_UDP_PORT ? parseInt(process.env.BOOT_NODE_UDP_PORT) : 4500;
 const AZTEC_SLOT_DURATION = 36;
 const AZTEC_EPOCH_DURATION = 4;
 
@@ -98,8 +98,6 @@ describe('e2e_p2p_network', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    t.ctx.aztecNodeConfig.validatorReexecute = true;
-
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
@@ -112,7 +110,7 @@ describe('e2e_p2p_network', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -126,7 +124,7 @@ describe('e2e_p2p_network', () => {
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
       { dateProvider: t.ctx.dateProvider },
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
     ));
@@ -138,7 +136,7 @@ describe('e2e_p2p_network', () => {
       t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 2,
       t.bootstrapNodeEnr,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-monitor`,
       shouldCollectMetrics(),
     );

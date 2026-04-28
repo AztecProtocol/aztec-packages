@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -416,9 +416,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_sibling_path(cons
     auto job = [=, this]() {
         execute_and_report<GetSiblingPathResponse>(
             [=, this](TypedResponse<GetSiblingPathResponse>& response) {
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to get sibling path at block 0");
-                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -560,6 +557,12 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
     ReadTransaction& tx,
     bool updateNodesByIndexCache) const
 {
+    // Note: reads at leaf_index >= max_size_ are treated as out-of-range and rejected. This helper
+    // returns std::nullopt only for valid in-range positions whose subtree is unwritten.
+    if (leaf_index >= max_size_) {
+        throw std::runtime_error(format("Leaf index ", leaf_index, " out of range for tree of depth ", depth_));
+    }
+
     fr hash = requestContext.root;
     // std::cout << "Finding leaf hash for root " << hash << " at index " << leaf_index << std::endl;
     index_t mask = static_cast<index_t>(1) << (depth_ - 1);
@@ -575,8 +578,6 @@ std::optional<fr> ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_lea
         }
         // std::cout << "Found root at depth " << i << " : " << hash << std::endl;
 
-        // TODO(#17755): This does not consider maximum leaf index and will wrap around to give incorrect values.
-        // e.g. if leaf_index = maximum + 1, returns the leaf at index + 1. See #17684
         // Do we need to go right or left
         bool is_right = static_cast<bool>(leaf_index & mask);
         // std::cout << "Mask " << mask << " depth " << depth_ << std::endl;
@@ -673,6 +674,9 @@ ContentAddressedAppendOnlyTree<Store, HashingPolicy>::OptionalSiblingPath Conten
     return path;
 }
 
+// Leaf read semantics
+// - If leaf_index >= max_size_ -> failure (index out of tree range)
+// - If leaf_index < max_size_ but leaf not written -> return 0 with success = true
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t& leaf_index,
                                                                     bool includeUncommitted,
@@ -682,9 +686,9 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
         execute_and_report<GetLeafResponse>(
             [=, this](TypedResponse<GetLeafResponse>& response) {
                 ReadTransactionPtr tx = store_->create_read_transaction();
-                if (max_size_ < leaf_index) {
-                    // TODO(#17755): Throw error to world state -> TS? (native_world_state_instance.ts -> call()
-                    // translates this to null)
+                if (max_size_ <= leaf_index) {
+                    // Note: leaf_index >= max_size_ is out of tree range and returns failure. Valid in-range but
+                    // unwritten leaves return zero with success = true.
                     response.message =
                         format("Unable to get leaf at index ", leaf_index, ", leaf index out of tree range.");
                     response.success = false;
@@ -700,9 +704,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 } else {
                     // We have an unwritten leaf, so return a 0 value, which is not a failure:
                     response.inner.leaf = fr::zero();
-                    // TODO(#17755): The below is now redundant (we will always set response.success = true at this
-                    // point), but keeping it in case we want to handle specific (non out of range index) errors e.g. no
-                    // root
                     response.success = true;
                     response.message = format("Failed to find leaf hash at index ", leaf_index);
                 }
@@ -712,6 +713,10 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
     workers_->enqueue(job);
 }
 
+// Leaf read semantics
+// - If leaf_index >= max_size_ -> failure (index out of tree range)
+// - If leaf_index >= blockData.size -> failure (index out of block range)
+// - If leaf_index < blockData.size but traversal encounters an unwritten subtree -> return 0 with success = true
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_t& leaf_index,
                                                                     const block_number_t& blockNumber,
@@ -721,9 +726,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
     auto job = [=, this]() {
         execute_and_report<GetLeafResponse>(
             [=, this](TypedResponse<GetLeafResponse>& response) {
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to get leaf at block 0");
-                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -733,9 +735,8 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                                                     blockNumber,
                                                     ", failed to get block data."));
                 }
-                if (max_size_ < leaf_index) {
-                    // TODO(#17755): Throw error to world state -> TS? (native_world_state_instance.ts -> call()
-                    // translates this to null)
+                if (max_size_ <= leaf_index) {
+                    // Note: leaf_index >= max_size_ is out of tree range and returns failure.
                     response.message = format("Unable to get leaf at index ",
                                               leaf_index,
                                               " for block ",
@@ -744,10 +745,10 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                     response.success = false;
                     return;
                 }
-                if (blockData.size < leaf_index) {
+                if (blockData.size <= leaf_index) {
                     // Note: this failure does diverge from the below behaviour (unwritten leaf at valid index returns a
                     // 0 value with success = true) but is intentional for snapshot-reliant trees where failure is
-                    // expected when reading unwritten leaves. Should be considered with #17755.
+                    // expected when reading unwritten leaves.
                     response.message = format("Unable to get leaf at index ",
                                               leaf_index,
                                               " for block ",
@@ -767,9 +768,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::get_leaf(const index_
                 } else {
                     // We have an unwritten leaf, so return a 0 value, which is not a failure:
                     response.inner.leaf = fr::zero();
-                    // TODO(#17755): The below is now redundant (we will always set response.success = true at this
-                    // point), but keeping it in case we want to handle specific (non out of range index) errors e.g. no
-                    // root
                     response.success = true;
                     response.message =
                         format("Failed to find leaf hash at index ", leaf_index, " for block number ", blockNumber);
@@ -838,9 +836,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_indices_fro
         execute_and_report<FindLeafIndexResponse>(
             [=, this](TypedResponse<FindLeafIndexResponse>& response) {
                 response.inner.leaf_indices.reserve(leaves.size());
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to find leaf index for block number 0");
-                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -913,9 +908,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::find_leaf_sibling_pat
         execute_and_report<FindLeafPathResponse>(
             [=, this](TypedResponse<FindLeafPathResponse>& response) {
                 response.inner.leaf_paths.reserve(leaves.size());
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to find leaf index for block number 0");
-                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -996,11 +988,6 @@ void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::rollback(const Rollba
     auto job = [=, this]() { execute_and_report([=, this]() { store_->rollback(); }, on_completion); };
     workers_->enqueue(job);
 }
-
-// TODO(PhilWindle): One possible optimisation is for the following 3 functions
-// checkpoint, commit_checkpoint and revert_checkpoint to not use the thread pool
-// It is not stricly necessary for these operations to use it. The balance is whether
-// the cost of using it outweighs the benefit or checkpointing/reverting all tree concurrently
 
 template <typename Store, typename HashingPolicy>
 void ContentAddressedAppendOnlyTree<Store, HashingPolicy>::checkpoint(const CheckpointCallback& on_completion)

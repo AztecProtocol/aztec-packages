@@ -16,5 +16,4 @@ pub mod logs;
 // here from protocol_types.
 pub use protocol_types::logging;
 
-// version oracle is defined in aztec-nr and re-exported here as re-defining versions is not practical.
-pub use aztec::oracle::version;
+pub mod version;

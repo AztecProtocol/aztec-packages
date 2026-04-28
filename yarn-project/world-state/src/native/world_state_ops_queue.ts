@@ -96,7 +96,7 @@ export class WorldStateOpsQueue {
     // then send the request immediately
     // If a mutating request is in flight then we must wait
     // If a mutating request is not in flight but something is queued then it must be a mutating request
-    if (this.inFlightMutatingCount == 0 && this.requests.length == 0) {
+    if (this.inFlightMutatingCount === 0 && this.requests.length === 0) {
       this.sendEnqueuedRequest(op);
     } else {
       this.requests.push(op);
@@ -122,7 +122,7 @@ export class WorldStateOpsQueue {
     --this.inFlightCount;
 
     // If there are still requests in flight then do nothing further
-    if (this.inFlightCount != 0) {
+    if (this.inFlightCount !== 0) {
       return;
     }
 
@@ -134,7 +134,7 @@ export class WorldStateOpsQueue {
     while (this.requests.length > 0) {
       const next = this.requests[0];
       if (next.mutating) {
-        if (this.inFlightCount == 0) {
+        if (this.inFlightCount === 0) {
           // send the mutating request
           this.requests.shift();
           this.sendEnqueuedRequest(next);
@@ -149,7 +149,7 @@ export class WorldStateOpsQueue {
     }
 
     // If the queue is empty, there is nothing in flight and we have been told to stop, then resolve the stop promise
-    if (this.inFlightCount == 0 && this.stopResolve !== undefined) {
+    if (this.inFlightCount === 0 && this.stopResolve !== undefined) {
       this.stopResolve();
     }
   }
@@ -182,7 +182,7 @@ export class WorldStateOpsQueue {
     });
 
     // If no outstanding requests then immediately resolve the promise
-    if (this.requests.length == 0 && this.inFlightCount == 0 && this.stopResolve !== undefined) {
+    if (this.requests.length === 0 && this.inFlightCount === 0 && this.stopResolve !== undefined) {
       this.stopResolve();
     }
     return this.stopPromise;

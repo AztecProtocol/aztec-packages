@@ -156,6 +156,27 @@ describe('rate limiter', () => {
     multiProtocolRateLimiter.stop();
   });
 
+  it('Should not consume global quota when a peer is denied', () => {
+    // peer1 has a limit of 5/s; peer2 is a different peer
+    const spammingPeer = makePeer('spammer');
+    const legitimatePeer = makePeer('legit');
+
+    // Exhaust spammingPeer's per-peer quota (5 requests)
+    for (let i = 0; i < 5; i++) {
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, spammingPeer)).toBe(RateLimitStatus.Allowed);
+    }
+
+    // All further spammer requests are denied at the peer level
+    // With the bug, each of these would also consume a global token
+    for (let i = 0; i < 9; i++) {
+      expect(rateLimiter.allow(ReqRespSubProtocol.TX, spammingPeer)).toBe(RateLimitStatus.DeniedPeer);
+    }
+
+    // The legitimate peer should still be allowed: the global quota (10/s) must not
+    // have been consumed by the spammer's peer-denied requests
+    expect(rateLimiter.allow(ReqRespSubProtocol.TX, legitimatePeer)).toBe(RateLimitStatus.Allowed);
+  });
+
   it('Should allow requests if no rate limiter is configured', () => {
     const rateLimiter = new RequestResponseRateLimiter(peerScoring, {} as ReqRespSubProtocolRateLimits);
     expect(rateLimiter.allow(ReqRespSubProtocol.TX, makePeer('peer1'))).toBe(RateLimitStatus.Allowed);

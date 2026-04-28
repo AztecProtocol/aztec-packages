@@ -24,7 +24,7 @@ template <typename Flavor>
 void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomial, 4>& table_polynomials,
                                         const typename Flavor::CircuitBuilder& circuit)
 {
-    size_t offset = 0;
+    size_t offset = circuit.blocks.lookup.trace_offset();
     for (const auto& table : circuit.get_lookup_tables()) {
         for (size_t i = 0; i < table.size(); ++i) {
             table_polynomials[0].at(offset) = table.column_1[i];
@@ -34,6 +34,8 @@ void construct_lookup_table_polynomials(const RefArray<typename Flavor::Polynomi
             offset++;
         }
     }
+    BB_ASSERT(offset <= table_polynomials[0].end_index(),
+              "construct_lookup_table_polynomials: total lookup table entries exceed polynomial size");
 }
 
 /**
@@ -49,7 +51,7 @@ void construct_lookup_read_counts(typename Flavor::Polynomial& read_counts,
                                   typename Flavor::CircuitBuilder& circuit)
 {
     // loop over all tables used in the circuit; each table contains data about the lookups made on it
-    size_t table_offset = 0;
+    size_t table_offset = circuit.blocks.lookup.trace_offset();
     for (auto& table : circuit.get_lookup_tables()) {
         table.initialize_index_map();
 

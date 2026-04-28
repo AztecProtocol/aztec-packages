@@ -133,7 +133,7 @@ COPY --from=foundry /opt/foundry /opt/foundry
 ENV PATH="/opt/foundry/bin:$PATH"
 
 # Install corepack and yarn.
-RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.5.2
+RUN npm install --global corepack && corepack enable && corepack install --global yarn@4.13.0
 
 # Install solhint.
 RUN npm install --global solhint

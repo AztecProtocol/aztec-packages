@@ -20,11 +20,7 @@ The `simulate` method executes a contract function locally and returns its resul
 
 #include_code simulate_function /docs/examples/ts/aztecjs_connection/index.ts typescript
 
-The `from` option specifies which address context to use for the simulation. This is required for all simulations, though it only affects private function execution (public functions ignore this value).
-
-### Basic simulation
-
-#include_code simulate_function docs/examples/ts/aztecjs_connection/index.ts typescript
+The `from` option specifies which account context to use for the simulation. This is required for all simulations. For private functions, it determines which account's private state is accessed. For public functions, it sets the `msg_sender` context.
 
 ### Handling return values
 
@@ -32,7 +28,7 @@ For functions returning multiple values, destructure the result:
 
 ```typescript
 // contract and callerAddress are from the example above
-const [value1, value2] = await contract.methods
+const { result: [value1, value2] } = await contract.methods
   .get_multiple_values()
   .simulate({ from: callerAddress });
 ```
@@ -41,38 +37,17 @@ const [value1, value2] = await contract.methods
 
 Set `includeMetadata: true` to get additional information about the simulation:
 
-```typescript
-// contract and callerAddress are from the examples above
-const result = await contract.methods
-  .balance_of_public(address)
-  .simulate({ from: callerAddress, includeMetadata: true });
+#include_code simulate_with_metadata /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
-// Result includes:
-// - result: the function return value
-// - stats: execution statistics (timing, circuit sizes)
-// - offchainEffects: any offchain effects emitted
-// - estimatedGas: gas limit estimates (gasLimits and teardownGasLimits)
-console.log("Balance:", result.result);
-console.log("L2 gas limit:", result.estimatedGas.gasLimits.l2Gas);
-console.log("DA gas limit:", result.estimatedGas.gasLimits.daGas);
-```
+The result includes `result` (the function return value), `stats` (execution statistics), `offchainEffects`, and `estimatedGas` (with `gasLimits` and `teardownGasLimits`).
 
 ### Private function considerations
 
 When simulating private functions, the caller must have access to any private state being read. The PXE only has visibility into notes belonging to registered accounts.
 
-```typescript
-// contract and callerAddress are from the examples above
-// This works if callerAddress owns the notes
-const balance = await contract.methods
-  .balance_of_private(callerAddress)
-  .simulate({ from: callerAddress });
+#include_code simulate_private_access /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
-// This fails if callerAddress doesn't have access to otherAddress's notes
-const otherBalance = await contract.methods
-  .balance_of_private(otherAddress)
-  .simulate({ from: callerAddress }); // Error: cannot access private state
-```
+If the caller doesn't have access to another address's notes, the simulation will fail with an error.
 
 :::warning
 Simulation runs locally without generating proofs. No correctness guarantees are provided on the result. See [Call Types](../foundational-topics/call_types.md#simulate) for more details.
@@ -95,20 +70,11 @@ Contracts emit data in two forms you can read:
 
 Use `aztecNode.getPublicLogs()` to retrieve raw log data:
 
-```typescript
-// aztecNode is from createAztecNodeClient() in the connection guide
-// receipt is from a transaction's send() call
-// Get logs for a specific transaction
-const logs = await aztecNode.getPublicLogs({ txHash: receipt.txHash });
-const rawFields = logs.logs[0].log.getEmittedFields(); // Fr[]
+#include_code read_public_logs /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
-// Get logs for a block range
-const logFilter = {
-  fromBlock: startBlock,
-  toBlock: endBlock,
-};
-const publicLogs = (await aztecNode.getPublicLogs(logFilter)).logs;
-```
+You can also filter by transaction hash or block range:
+
+#include_code read_logs_by_filter /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
 ## Reading events
 
@@ -118,9 +84,7 @@ Events provide typed access to contract emissions. The event metadata from your 
 
 Use the `getPublicEvents` helper to retrieve typed public events:
 
-```typescript
-import { getPublicEvents } from "@aztec/aztec.js/events";
-```
+#include_code import_get_public_events /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
 #include_code get_public_events yarn-project/end-to-end/src/e2e_event_logs.test.ts typescript
 
@@ -140,10 +104,7 @@ Each returned event includes both the decoded `event` data and `metadata` (block
 
 Private events are stored in the PXE with privacy scoping. Use `wallet.getPrivateEvents()` to retrieve them:
 
-```typescript
-import type { PrivateEventFilter } from "@aztec/aztec.js/wallet";
-import { BlockNumber } from "@aztec/foundation/branded-types";
-```
+#include_code import_private_event_types /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
 The `BlockNumber` type is a branded type that wraps raw numbers for type safety. Use it when setting `fromBlock` and `toBlock` in filters.
 

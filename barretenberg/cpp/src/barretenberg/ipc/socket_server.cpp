@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -217,6 +218,9 @@ bool SocketServer::listen()
         return false;
     }
 
+    // Restrict socket to owner only, matching the 0600 mode used for SHM transport
+    ::chmod(socket_path_.c_str(), 0600);
+
     // Listen with backlog
     int backlog = initial_max_clients_ > 0 ? initial_max_clients_ : 10;
     if (::listen(listen_fd_, backlog) < 0) {
@@ -417,6 +421,9 @@ bool SocketServer::listen()
         listen_fd_ = -1;
         return false;
     }
+
+    // Restrict socket to owner only, matching the 0600 mode used for SHM transport
+    ::chmod(socket_path_.c_str(), 0600);
 
     // Listen with backlog
     int backlog = initial_max_clients_ > 0 ? initial_max_clients_ : 10;

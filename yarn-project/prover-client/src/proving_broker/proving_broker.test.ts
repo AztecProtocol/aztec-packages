@@ -889,9 +889,62 @@ describe.each([
         inputsUri: makeInputsUri(),
       });
 
-      // advance time again so job times out. This time it should be not-found as it will have been removed
+      // advance time again so job times out. Since the job was in-progress, it won't be cleaned up as stale
+      // but will be rejected when it times out
       await sleep(jobTimeoutMs + brokerIntervalMs);
+      await assertJobStatus(id, 'rejected');
+    });
+
+    it('rejects jobs that time out more than maxRetries times', async () => {
+      const id = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      });
+
+      for (let i = 0; i < maxRetries; i++) {
+        await assertJobStatus(id, 'in-queue');
+        await getAndAssertNextJobId(id);
+        await assertJobStatus(id, 'in-progress');
+
+        await sleep(jobTimeoutMs);
+        await assertJobTransition(id, 'in-progress', i + 1 < maxRetries ? 'in-queue' : 'rejected');
+      }
+
+      await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
+        status: 'rejected',
+        reason: 'Timed out',
+      });
+    });
+
+    it('settles pending promises with a rejected status when a stale job is cleaned up', async () => {
+      const id = makeRandomProvingJobId();
+      await broker.enqueueProvingJob({
+        id,
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      });
+
+      const jobPromise = (broker as any).promises.get(id)?.promise;
+      expect(jobPromise).toBeDefined();
+
+      // Advance the epoch height so epoch 1 becomes stale (oldestEpochToKeep = 3 - 1 = 2)
+      await broker.enqueueProvingJob({
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(3),
+        inputsUri: makeInputsUri(),
+      });
+
+      // Wait for the cleanup pass to run and clean up the stale job
+      await sleep(brokerIntervalMs * 2);
       await assertJobStatus(id, 'not-found');
+
+      // The promise must have been settled (resolved with a rejected status) rather than left pending
+      await expect(jobPromise).resolves.toEqual({ status: 'rejected', reason: 'Proving job cleaned up' });
     });
 
     it('keeps the jobs in progress while it is alive', async () => {
@@ -1021,10 +1074,11 @@ describe.each([
 
       await sleep(brokerIntervalMs);
 
-      // job will have been removed
+      // job was in-progress so it won't be cleaned up as stale, but will be rejected on error
       await broker.reportProvingJobError(id, 'test error', true);
       await expect(broker.getProvingJobStatus(id)).resolves.toEqual({
-        status: 'not-found',
+        status: 'rejected',
+        reason: 'test error',
       });
     });
   });

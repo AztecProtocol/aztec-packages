@@ -77,6 +77,72 @@ describe('e2e_note_getter', () => {
     });
   });
 
+  describe('sub-field property selector', () => {
+    let contract: NoteGetterContract;
+
+    beforeAll(async () => {
+      ({ contract } = await NoteGetterContract.deploy(wallet).send({ from: defaultAddress }));
+
+      // Insert packed notes with (high, low) pairs.
+      // PackedNote packs two u8s into one Field: (high << 8) + low.
+      // Sub-field selectors use Noir's LSB convention to extract individual u8 values.
+      await Promise.all([
+        contract.methods.insert_packed_note(1, 10).send({ from: defaultAddress }),
+        contract.methods.insert_packed_note(2, 10).send({ from: defaultAddress }),
+        contract.methods.insert_packed_note(1, 20).send({ from: defaultAddress }),
+        contract.methods.insert_packed_note(3, 30).send({ from: defaultAddress }),
+      ]);
+    });
+
+    it('filters by high sub-field', async () => {
+      // high occupies offset=1, length=1 in the packed Field (second LSB)
+      const { result } = await contract.methods
+        .select_packed_notes_by_high(defaultAddress, Comparator.EQ, 1)
+        .simulate({ from: defaultAddress });
+
+      const notes = boundedVecToArray(result) as bigint[][];
+      expect(notes).toHaveLength(2);
+      expect(notes.map(([h, l]) => [Number(h), Number(l)]).sort()).toEqual(
+        [
+          [1, 10],
+          [1, 20],
+        ].sort(),
+      );
+    });
+
+    it('filters by low sub-field', async () => {
+      // low occupies offset=0, length=1 in the packed Field (LSB)
+      const { result } = await contract.methods
+        .select_packed_notes_by_low(defaultAddress, Comparator.EQ, 10)
+        .simulate({ from: defaultAddress });
+
+      const notes = boundedVecToArray(result) as bigint[][];
+      expect(notes).toHaveLength(2);
+      expect(notes.map(([h, l]) => [Number(h), Number(l)]).sort()).toEqual(
+        [
+          [1, 10],
+          [2, 10],
+        ].sort(),
+      );
+    });
+
+    it('filters with GT comparator on sub-field', async () => {
+      // low > 10 should match (1,20) and (3,30)
+      const { result } = await contract.methods
+        .select_packed_notes_by_low(defaultAddress, Comparator.GT, 10)
+        .simulate({ from: defaultAddress });
+
+      const notes = boundedVecToArray(result) as bigint[][];
+      expect(notes).toHaveLength(2);
+      expect(notes.map(([h, l]) => [Number(h), Number(l)]).sort()).toEqual(
+        [
+          [1, 20],
+          [3, 30],
+        ].sort(),
+      );
+    });
+  });
+
   describe('status filter', () => {
     let contract: TestContract;
     let owner: AztecAddress;

@@ -56,13 +56,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
     raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1;   // read data that was just added
     read_idx = this->add_variable(FF(raw_read_idx));
     update_finalize_witnesses({ read_idx, read_return_data(read_idx) });
-
-    if (op_queue->get_current_subtable_size() == 0) {
-        // Add a mul dummy op in the subtable to avoid column polynomial being zero (it has to be a mul rather than an
-        // add to ensure all 4 column polynomials contain some data)
-        this->queue_ecc_mul_accum(bb::g1::affine_element::one(), 2, /*in_finalize=*/true);
-        this->queue_ecc_eq(/*in_finalize=*/true);
-    }
 }
 
 /**
@@ -136,8 +129,9 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool i
 }
 
 /**
- * @brief Logic for a no-op operation.
- *
+ * @brief Add a no-op to the op queue and populate two zero rows in the ecc_op block.
+ * @details Used by the tail kernel to give the Translator's op queue wires two leading zero rows (shiftability).
+ * The no-op does not generate any ECCVM operation.
  * @return ecc_op_tuple with all its fields set to zero
  */
 template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
@@ -297,26 +291,11 @@ void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate
 template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(const BusId bus_idx)
 {
     auto& block = this->blocks.busread;
-    switch (bus_idx) {
-    case BusId::CALLDATA: {
-        block.q_1().emplace_back(1);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        break;
-    }
-    case BusId::SECONDARY_CALLDATA: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        break;
-    }
-    case BusId::RETURNDATA: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(1);
-        break;
-    }
-    }
+    // Bus column k is selected by q_{k+1}; all other wire-linear selectors stay zero on this row.
+    const size_t idx = static_cast<size_t>(bus_idx);
+    block.q_1().emplace_back(idx == 0 ? 1 : 0);
+    block.q_2().emplace_back(idx == 1 ? 1 : 0);
+    block.q_3().emplace_back(idx == 2 ? 1 : 0);
     block.q_4().emplace_back(0);
     block.q_m().emplace_back(0);
     block.q_c().emplace_back(0);

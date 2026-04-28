@@ -183,34 +183,25 @@ namespace data_copy;
     ///////////////////////////////
     // Trace Shape
     ///////////////////////////////
-    // Trace is contiguous.
-    #[TRACE_CONTINUITY]
-    (1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+    // Multi-row computation selectors.
+    // See recipe: https://github.com/AztecProtocol/aztec-packages/blob/next/barretenberg/cpp/pil/vm2/docs/recipes.md#contiguous-multi-rows-computation-trace
 
-    pol commit sel_start; // @boolean
-    sel_start * (1 - sel_start) = 0;
+    pol commit start; // @boolean
+    start * (1 - start) = 0;
     // End controls most of the row propagation, so if we error we also set end to turn off row propagation
-    pol commit sel_end; // @boolean
-    sel_end * (1 - sel_end) = 0;
+    pol commit end; // @boolean
+    end * (1 - end) = 0;
 
-    // sel_end = 1 OR sel_start ==> sel = 1
-    (sel_start + sel_end) * (1 - sel) = 0;
+    pol LATCH_CONDITION = end + precomputed.first_row;
 
-    // This prevents a computation to be stopped prematurely, i.e., truncating last rows before
-    // we reach a row where sel_end == 1.
-    #[COMPUTATION_FINISH_AT_END]
-    sel * (1 - sel') * (1 - sel_end) = 0;
+    #[SEL_ON_START_OR_END]
+    (start + end) * (1 - sel) = 0;
 
-    // Latch condition is boolean because sel_end cannot be activated at first row
-    // because sel is shifted and sel_end implies sel == 1.
-    pol LATCH_CONDITION = sel_end + precomputed.first_row;
+    #[TRACE_CONTINUITY]
+    (1 - LATCH_CONDITION) * (sel - sel') = 0;
 
-    // By enforcing the start of a new computation after a latch, we ensure that no superfluous rows are added.
-    // In combination with the permutations from the execution trace, it follows that each active row is
-    // part of a genuine computation. We particularly need to be careful that no malicious memory write is
-    // performed.
     #[START_AFTER_LATCH]
-    sel' * (sel_start' - LATCH_CONDITION) = 0;
+    sel' * (start' - LATCH_CONDITION) = 0;
 
     ////////////////////////////////////////////////
     // Dispatch Permutation Selectors
@@ -218,13 +209,13 @@ namespace data_copy;
     // These permutations are defined in execution.pil. See #[DISPATCH_TO_CD_COPY] and #[DISPATCH_TO_RD_COPY].
 
     pol commit sel_cd_copy_start; // @boolean (by definition)
-    sel_cd_copy_start = sel_start * sel_cd_copy;
+    sel_cd_copy_start = start * sel_cd_copy;
 
     pol commit sel_rd_copy_start; // @boolean (by definition)
-    sel_rd_copy_start = sel_start * (1 - sel_cd_copy);
+    sel_rd_copy_start = start * (1 - sel_cd_copy);
 
     // It follows from the above equations that sel_cd_copy_start and sel_rd_copy_start are mutually exclusive
-    // and that sel_cd_copy_start + sel_rd_copy_start = sel_start.
+    // and that sel_cd_copy_start + sel_rd_copy_start = start.
     // sel_cd_copy also the correct value on the start row:
     // sel_cd_copy_start == 1 ==> sel_cd_copy == 1
     // sel_rd_copy_start == 1 ==> sel_cd_copy == 0
@@ -253,14 +244,14 @@ namespace data_copy;
     // 2) (offset + copy_size) <= src_data_size
     // if (1) then read_index_upper_bound = src_data_size, otherwise read_index_upper_bound = (offset + copy_size)
     pol commit offset_plus_size;
-    offset_plus_size = sel_start * (offset + copy_size);
+    offset_plus_size = start * (offset + copy_size);
     pol commit offset_plus_size_is_gt; // @boolean (by lookup into gt)
 
     // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
     // `offset_plus_size` = offset + copy_size (both U32, so < 2^33). `src_data_size` is U32.
     // (All involved values are U32 by PRECONDITIONS at the top of this file.)
     #[OFFSET_PLUS_SIZE_IS_GT_DATA_SIZE]
-    sel_start { offset_plus_size, src_data_size, offset_plus_size_is_gt }
+    start { offset_plus_size, src_data_size, offset_plus_size_is_gt }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
@@ -277,19 +268,19 @@ namespace data_copy;
 
     // AVM_MEMORY_SIZE == AVM_HIGHEST_MEM_ADDRESS + 1.
     pol commit mem_size; // Lookup constant support: We need this temporarily while we do not allow for aliases in the lookup tuple
-    sel_start * (mem_size - constants.AVM_MEMORY_SIZE) = 0;
+    start * (mem_size - constants.AVM_MEMORY_SIZE) = 0;
 
     pol commit src_reads_exceed_mem; // @boolean (by lookup into gt) — clamping flag
 
     pol commit read_addr_upper_bound; // the upper bound of the address that is accessed
-    read_addr_upper_bound = sel_start * (src_addr + READ_INDEX_UPPER_BOUND);
+    read_addr_upper_bound = start * (src_addr + READ_INDEX_UPPER_BOUND);
     // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
     // `read_addr_upper_bound` = src_addr + read_index_upper_bound (former is U32, latter is < 2^33, so < 2^34).
     // `mem_size` = AVM_MEMORY_SIZE = 2^32.
-    // Note that for a top-level call, src_addr == 0 (enforced in context.pil (#[CD_OFFSET_ENQUEUED_CALL_IS_ZERO]))
+    // Note that for a top-level call, src_addr == 0 (enforced in context.pil (#[CD_ADDR_ENQUEUED_CALL_IS_ZERO]))
     // and src_reads_exceed_mem == 0.
     #[CHECK_SRC_ADDR_IN_RANGE]
-    sel_start { read_addr_upper_bound, mem_size, src_reads_exceed_mem }
+    start { read_addr_upper_bound, mem_size, src_reads_exceed_mem }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
@@ -305,7 +296,7 @@ namespace data_copy;
     // Used to compute reads_left = max(0, clamped - offset), which determines how many rows
     // are real memory/column reads vs. zero-padded writes.
     pol commit clamped_read_index_upper_bound;
-    clamped_read_index_upper_bound = sel_start * (READ_INDEX_UPPER_BOUND * (1 - src_reads_exceed_mem) + (mem_size - src_addr) * src_reads_exceed_mem);
+    clamped_read_index_upper_bound = start * (READ_INDEX_UPPER_BOUND * (1 - src_reads_exceed_mem) + (mem_size - src_addr) * src_reads_exceed_mem);
 
     //////////////////////////////
     // Error Handling
@@ -315,40 +306,40 @@ namespace data_copy;
     pol commit dst_out_of_range_err; // @boolean (by lookup into gt)
 
     pol commit write_addr_upper_bound;
-    write_addr_upper_bound = sel_start * (dst_addr + copy_size);
+    write_addr_upper_bound = start * (dst_addr + copy_size);
     // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
     // `write_addr_upper_bound` = dst_addr + copy_size (both U32, so < 2^33).
     // `mem_size` = AVM_MEMORY_SIZE = 2^32.
     #[CHECK_DST_ADDR_IN_RANGE]
-    sel_start { write_addr_upper_bound, mem_size, dst_out_of_range_err }
+    start { write_addr_upper_bound, mem_size, dst_out_of_range_err }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     //////////////////////////////
     // Control flow management
     //////////////////////////////
-    pol commit sel_start_no_err; // @boolean (by definition)
-    sel_start_no_err = sel_start * (1 - dst_out_of_range_err);
+    pol commit start_no_err; // @boolean (by definition)
+    start_no_err = start * (1 - dst_out_of_range_err);
 
     pol commit sel_write_count_is_zero; // @boolean
     sel_write_count_is_zero * (1 - sel_write_count_is_zero) = 0;
     pol commit write_count_zero_inv;
-    // sel_write_count_is_zero = 1 IFF copy_size = 0 (conditioned by sel_start = 1 and there are no errors)
+    // sel_write_count_is_zero = 1 IFF copy_size = 0 (conditioned by start = 1 and there are no errors)
     #[ZERO_SIZED_WRITE]
-    sel_start_no_err * (copy_size * (sel_write_count_is_zero * (1 - write_count_zero_inv) + write_count_zero_inv) - 1 + sel_write_count_is_zero) = 0;
+    start_no_err * (copy_size * (sel_write_count_is_zero * (1 - write_count_zero_inv) + write_count_zero_inv) - 1 + sel_write_count_is_zero) = 0;
     #[END_IF_WRITE_IS_ZERO]
-    sel_start_no_err * sel_write_count_is_zero * (sel_end - 1) = 0;
+    start_no_err * sel_write_count_is_zero * (end - 1) = 0;
 
-    pol SEL_PERFORM_COPY = sel_start_no_err * (1 - sel_write_count_is_zero) + sel * (1 - sel_start);
+    pol SEL_PERFORM_COPY = start_no_err * (1 - sel_write_count_is_zero) + sel * (1 - start);
 
     pol WRITE_COUNT_MINUS_ONE = copy_size - 1;
     pol commit write_count_minus_one_inv;
-    // sel_end = 1 IFF copy_size - 1 = 0;
+    // end = 1 IFF copy_size - 1 = 0;
     #[END_WRITE_CONDITION]
-    SEL_PERFORM_COPY * (WRITE_COUNT_MINUS_ONE * (sel_end * (1 - write_count_minus_one_inv) + write_count_minus_one_inv) - 1 + sel_end) = 0;
+    SEL_PERFORM_COPY * (WRITE_COUNT_MINUS_ONE * (end * (1 - write_count_minus_one_inv) + write_count_minus_one_inv) - 1 + end) = 0;
 
-    #[END_ON_ERR] // sel_end = 1 if error
-    sel_start * dst_out_of_range_err * (sel_end - 1) = 0;
+    #[END_ON_ERR] // end = 1 if error
+    start * dst_out_of_range_err * (end - 1) = 0;
 
     pol commit reads_left; // Number of reads of the src data, if reads_left = 0 but copy_size != 0 then it is a padding row
     // src data elements are read from indices [offset, clamped_read_index_upper_bound), therefore reads_left = clamped_read_index_upper_bound - offset
@@ -358,14 +349,14 @@ namespace data_copy;
     // Preconditions to `gt` gadget require both inputs to be bounded by 2^128.
     // `clamped_read_index_upper_bound` is at most `src_data_size` which is U32. `offset` is U32.
     #[SEL_HAS_READS]
-    sel_start_no_err { clamped_read_index_upper_bound, offset, sel_has_reads }
+    start_no_err { clamped_read_index_upper_bound, offset, sel_has_reads }
     in
     gt.sel_others { gt.input_a, gt.input_b, gt.res };
 
     // If sel_has_reads = 0 (i.e. when offset >= clamped_read_index_upper_bound), reads_left = 0
     // otherwise, reads_left = clamped_read_index_upper_bound - offset
     #[INIT_READS_LEFT]
-    sel_start_no_err * (1 - sel_write_count_is_zero) * (reads_left - (clamped_read_index_upper_bound - offset) * sel_has_reads) = 0;
+    start_no_err * (1 - sel_write_count_is_zero) * (reads_left - (clamped_read_index_upper_bound - offset) * sel_has_reads) = 0;
 
     //////////////////////////////
     // Execute Data Copy
@@ -377,11 +368,11 @@ namespace data_copy;
 
     // Data copy size decrements for each row until we end
     #[DECR_COPY_SIZE]
-    sel * (1 - sel_end) * (copy_size' - copy_size + 1) = 0;
+    sel * (1 - end) * (copy_size' - copy_size + 1) = 0;
 
     // Write address decrements for each row until we end
     #[INCR_WRITE_ADDR]
-    sel * (1 - sel_end) * (dst_addr' - dst_addr - 1) = 0;
+    sel * (1 - end) * (dst_addr' - dst_addr - 1) = 0;
 
     // Propagate the context ids, clk, and sel_cd_copy
     #[SRC_CONTEXT_ID_PROPAGATION]
@@ -401,14 +392,14 @@ namespace data_copy;
     // ===== Reading for nested call =====
     pol commit read_addr;  // The addr to start reading the data from: src_addr + offset;
     #[INIT_READ_ADDR] // Only occurs at the start if we have not errored
-    sel_start_no_err * (1 - sel_write_count_is_zero) * (read_addr - src_addr - offset) = 0;
+    start_no_err * (1 - sel_write_count_is_zero) * (read_addr - src_addr - offset) = 0;
     // Subsequent read addrs are incremented by 1 unless this is a padding row
     #[INCR_READ_ADDR]
-    sel * (1 - padding) * (1 - sel_end) * (read_addr' - read_addr - 1) = 0;
+    sel * (1 - padding) * (1 - end) * (read_addr' - read_addr - 1) = 0;
 
     // Read count decrements
     #[DECR_READ_COUNT]
-    sel * (1 - padding) * (1 - sel_end) * (reads_left' - reads_left + 1) = 0;
+    sel * (1 - padding) * (1 - end) * (reads_left' - reads_left + 1) = 0;
     pol commit padding; // @boolean If we write, padding = 1 iff reads_left = 0
     padding * (1 - padding) = 0;
     pol commit reads_left_inv; //@zero-check
@@ -418,7 +409,7 @@ namespace data_copy;
 
     // Once we enter into padding region, we do not get out of it until the end.
     #[PADDING_PROPAGATION]
-    (1 - sel_end) * padding * (1 - padding') = 0;
+    (1 - end) * padding * (1 - padding') = 0;
 
     // Top level condition:
     // is_top_level == 1 if this is an enqueued call, i.e., iff parent_id == 0

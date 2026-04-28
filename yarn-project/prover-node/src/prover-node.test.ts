@@ -1,4 +1,3 @@
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
@@ -8,7 +7,12 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { P2PClient, TxProvider } from '@aztec/p2p';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
-import { CommitteeAttestation, GENESIS_CHECKPOINT_HEADER_HASH, type L2BlockSource } from '@aztec/stdlib/block';
+import {
+  CommitteeAttestation,
+  GENESIS_BLOCK_HEADER_HASH,
+  GENESIS_CHECKPOINT_HEADER_HASH,
+  type L2BlockSource,
+} from '@aztec/stdlib/block';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
@@ -158,6 +162,10 @@ describe('prover-node', () => {
     l2BlockSource.getL2Tips.mockResolvedValue({
       proposed: { number: latestBlockNumber, hash: latestHash },
       checkpointed: {
+        block: { number: latestBlockNumber, hash: latestHash },
+        checkpoint: { number: checkpoints.at(-1)!.number, hash: latestHash },
+      },
+      proposedCheckpoint: {
         block: { number: latestBlockNumber, hash: latestHash },
         checkpoint: { number: checkpoints.at(-1)!.number, hash: latestHash },
       },

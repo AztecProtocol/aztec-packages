@@ -29,6 +29,8 @@ import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {GSE} from "@aztec/governance/GSE.sol";
+import {SlashPayload} from "@aztec/periphery/SlashPayload.sol";
+import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {ValidatorSelectionTestBase} from "./ValidatorSelectionBase.sol";
 
 import {NaiveMerkle} from "../merkle/Naive.sol";
@@ -295,7 +297,12 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function testNukeFromOrbit() public setup(4, 4) progressEpochsToInclusion {
+  function testNukeFromOrbit() public {
+    enableSlasher = true;
+    _testNukeFromOrbit();
+  }
+
+  function _testNukeFromOrbit() internal setup(4, 4) progressEpochsToInclusion {
     // We propose some checkpoints, and have a bunch of validators attest to them.
     // Then we slash EVERYONE that was in the committees because the epoch never
     // got finalized.
@@ -306,7 +313,6 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     address[] memory attesters = getAttesters();
     uint256[] memory stakes = new uint256[](attesters.length);
-    uint128[][] memory offenses = new uint128[][](attesters.length);
     uint96[] memory amounts = new uint96[](attesters.length);
 
     // We say, these things are bad, call the baba yaga to take care of them!
@@ -315,11 +321,11 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       AttesterView memory attesterView = rollup.getAttesterView(attesters[i]);
       stakes[i] = attesterView.effectiveBalance;
       amounts[i] = slashAmount;
-      offenses[i] = new uint128[](0); // Empty array of offenses for each validator
       assertTrue(attesterView.status == Status.VALIDATING, "Invalid status");
     }
 
-    IPayload slashPayload = slashFactory.createSlashPayload(attesters, amounts, offenses);
+    IPayload slashPayload =
+      IPayload(address(new SlashPayload(attesters, amounts, IValidatorSelection(address(rollup)))));
     vm.prank(address(slasher.PROPOSER()));
     slasher.slash(slashPayload);
 
@@ -378,9 +384,9 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     ProposeTestData memory ree =
       _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
 
-    // the invalid attestation is the first one
-    _invalidateByAttestationSig(ree, 1, Errors.Rollup__AttestationsAreValid.selector);
-    _invalidateByAttestationSig(ree, 0, NO_REVERT);
+    uint256 validIdx = _findSignedIndexExcept(ree, ree.invalidSignatureIndex);
+    _invalidateByAttestationSig(ree, validIdx, Errors.Rollup__AttestationsAreValid.selector);
+    _invalidateByAttestationSig(ree, ree.invalidSignatureIndex, NO_REVERT);
   }
 
   function testInvalidAddressAttestation() public setup(4, 4) progressEpochsToInclusion {
@@ -443,14 +449,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
     _testCheckpoint("mixed_checkpoint_2", NO_REVERT, 3, 4, TestFlagsLib.empty());
 
-    _invalidateByAttestationSig(ree, 0, NO_REVERT, initialCheckpointNumber + 1);
+    _invalidateByAttestationSig(ree, ree.invalidSignatureIndex, NO_REVERT, initialCheckpointNumber + 1);
   }
 
   function testProposeCheckpointAfterInvalidate() public setup(4, 4) progressEpochsToInclusion {
     uint256 initialCheckpointNumber = rollup.getPendingCheckpointNumber();
     ProposeTestData memory ree =
       _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty().invalidateAttestationSigner());
-    _invalidateByAttestationSig(ree, 0, NO_REVERT);
+    _invalidateByAttestationSig(ree, ree.invalidSignatureIndex, NO_REVERT);
 
     _testCheckpoint("mixed_checkpoint_1", NO_REVERT, 3, 4, TestFlagsLib.empty());
     assertEq(
@@ -591,11 +597,14 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
 
     if (_flags.invalidAttestationSigner) {
-      // Change the fist element in the committee to a random address
+      // Corrupt a non-proposer signed slot. Avoiding the proposer's slot is required, otherwise
+      // `verifyProposer` would revert with SignatureLib__InvalidSignature before any invalidation test can run.
       uint256 invalidAttesterKey = uint256(keccak256(abi.encode("invalid", block.timestamp)));
       address invalidAttester = vm.addr(invalidAttesterKey);
       attesterPrivateKeys[invalidAttester] = invalidAttesterKey;
-      ree.attestations[0] = _createAttestation(invalidAttester, digest);
+      uint256 i = _findFirstSignedNonProposerIndex(ree);
+      ree.attestations[i] = _createAttestation(invalidAttester, digest);
+      ree.invalidSignatureIndex = i;
     }
 
     if (_flags.invalidAddressAttestation) {
@@ -622,35 +631,26 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     if (_flags.invalidSignatureSValue) {
       // Need to find a member that have a signature. And update it to have a WAY too big S value.
-      for (uint256 i = 0; i < ree.attestationsCount; i++) {
-        if (ree.attestations[i].signature.r != 0 && ree.committee[i] != ree.proposer) {
-          ree.attestations[i].signature.s = bytes32(type(uint256).max);
-          ree.invalidSignatureIndex = i;
-          break;
-        }
-      }
+      uint256 i = _findFirstSignedNonProposerIndex(ree);
+      ree.attestations[i].signature.s = bytes32(type(uint256).max);
+      ree.invalidSignatureIndex = i;
     }
 
     if (_flags.invalidSignatureAddress0) {
       // Need to find a member that have a signature. And update it such that the signature would recover to 0
-      for (uint256 i = 0; i < ree.attestationsCount; i++) {
-        if (ree.attestations[i].signature.r != 0 && ree.committee[i] != ree.proposer) {
-          // digest
-          Signature memory signature = ree.attestations[i].signature;
+      uint256 i = _findFirstSignedNonProposerIndex(ree);
+      Signature memory signature = ree.attestations[i].signature;
 
-          (address recovered,,) = ECDSA.tryRecover(digest, signature.v, signature.r, signature.s);
+      (address recovered,,) = ECDSA.tryRecover(digest, signature.v, signature.r, signature.s);
 
-          // Mess up the signature until we find one that is invalid
-          while (recovered != address(0)) {
-            signature.v = signature.v + 1;
-            (recovered,,) = ECDSA.tryRecover(digest, signature.v, signature.r, signature.s);
-          }
-
-          ree.attestations[i].signature.v = signature.v;
-          ree.invalidSignatureIndex = i;
-          break;
-        }
+      // Mess up the signature until we find one that is invalid
+      while (recovered != address(0)) {
+        signature.v = signature.v + 1;
+        (recovered,,) = ECDSA.tryRecover(digest, signature.v, signature.r, signature.s);
       }
+
+      ree.attestations[i].signature.v = signature.v;
+      ree.invalidSignatureIndex = i;
     }
 
     if (_flags.invalidSigners) {
@@ -777,5 +777,23 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   function _createEmptyAttestation(address _signer) internal pure returns (CommitteeAttestation memory) {
     Signature memory emptySignature = Signature({v: 0, r: 0, s: 0});
     return CommitteeAttestation({addr: _signer, signature: emptySignature});
+  }
+
+  function _findSignedIndexExcept(ProposeTestData memory ree, uint256 _except) internal pure returns (uint256) {
+    for (uint256 i = 0; i < ree.attestationsCount; i++) {
+      if (i != _except && ree.attestations[i].signature.r != 0) {
+        return i;
+      }
+    }
+    revert("no other signed attestation found");
+  }
+
+  function _findFirstSignedNonProposerIndex(ProposeTestData memory ree) internal pure returns (uint256) {
+    for (uint256 i = 0; i < ree.attestationsCount; i++) {
+      if (ree.attestations[i].signature.r != 0 && ree.committee[i] != ree.proposer) {
+        return i;
+      }
+    }
+    revert("no signed non-proposer attestation found");
   }
 }

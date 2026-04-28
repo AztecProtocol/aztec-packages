@@ -8,10 +8,8 @@ import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IBoosterCore} from "@aztec/core/reward-boost/RewardBooster.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {EthValue, EthPerFeeAssetE12} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {GenesisState, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
@@ -20,7 +18,6 @@ interface IRollupConfiguration {
   function loadConfig() external;
   function useRealVerifier() external view returns (bool);
   function getFeeJuicePortalInitialBalance() external view returns (uint256);
-  function getEarliestRewardsClaimableTimestamp() external view returns (Timestamp);
   function getGenesisState() external view returns (GenesisState memory);
   function getRewardConfiguration(IRewardDistributor rewardDistributor) external view returns (RewardConfig memory);
   function getRewardBoostConfiguration() external pure returns (RewardBoostConfig memory);
@@ -47,16 +44,6 @@ contract RollupConfiguration is IRollupConfiguration, Test {
 
   function getFeeJuicePortalInitialBalance() external view returns (uint256) {
     return vm.envOr("FEE_JUICE_PORTAL_INITIAL_BALANCE", uint256(0));
-  }
-
-  function getEarliestRewardsClaimableTimestamp() public view returns (Timestamp) {
-    // We only set a delay on mainnet.
-    // Since we don't plan to redeploy on mainnet (knock on wood), this is mostly documentation in code form.
-    if (block.chainid == 1) {
-      return Timestamp.wrap(block.timestamp + 90 days);
-    } else {
-      return Timestamp.wrap(0);
-    }
   }
 
   function getGenesisState() external view returns (GenesisState memory) {
@@ -102,48 +89,43 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     view
     returns (RollupConfigInput memory)
   {
-    uint256 aztecSlotDuration = vm.envUint("AZTEC_SLOT_DURATION");
-    uint256 aztecEpochDuration = vm.envUint("AZTEC_EPOCH_DURATION");
-    uint256 roundSizeInEpochs = vm.envUint("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS");
-    uint256 slashingRoundSize = roundSizeInEpochs * aztecEpochDuration;
-    // The slashing quorum, i.e. how many slots must signal for the same payload in a round for it to be submittable to
-    // the Slasher (defaults to slashRoundSize / 2 + 1)
-    uint256 slashingQuorum = vm.envOr("AZTEC_SLASHING_QUORUM", slashingRoundSize / 2 + 1);
-
-    // Build config without version first
-    RollupConfigInput memory config = RollupConfigInput({
-      aztecSlotDuration: aztecSlotDuration,
-      aztecEpochDuration: aztecEpochDuration,
-      targetCommitteeSize: vm.envUint("AZTEC_TARGET_COMMITTEE_SIZE"),
-      lagInEpochsForValidatorSet: vm.envUint("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET"),
-      lagInEpochsForRandao: vm.envUint("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO"),
-      inboxLag: vm.envUint("AZTEC_INBOX_LAG"),
-      aztecProofSubmissionEpochs: vm.envUint("AZTEC_PROOF_SUBMISSION_EPOCHS"),
-      localEjectionThreshold: vm.envUint("AZTEC_LOCAL_EJECTION_THRESHOLD"),
-      slashingQuorum: slashingQuorum,
-      slashingRoundSize: slashingRoundSize,
-      slashingLifetimeInRounds: vm.envUint("AZTEC_SLASHING_LIFETIME_IN_ROUNDS"),
-      slashingExecutionDelayInRounds: vm.envUint("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS"),
-      slashAmounts: _getSlashAmounts(),
-      slashingOffsetInRounds: _getSlashingOffset(),
-      slasherFlavor: _getSlasherFlavor(),
-      slashingVetoer: vm.envAddress("AZTEC_SLASHING_VETOER"),
-      slashingDisableDuration: vm.envUint("AZTEC_SLASHING_DISABLE_DURATION"),
-      manaTarget: vm.envUint("AZTEC_MANA_TARGET"),
-      exitDelaySeconds: vm.envUint("AZTEC_EXIT_DELAY_SECONDS"),
-      version: 0, // Computed below
-      provingCostPerMana: EthValue.wrap(vm.envUint("AZTEC_PROVING_COST_PER_MANA")),
-      initialEthPerFeeAsset: EthPerFeeAssetE12.wrap(vm.envUint("AZTEC_INITIAL_ETH_PER_FEE_ASSET")),
-      rewardConfig: this.getRewardConfiguration(_rewardDistributor),
-      rewardBoostConfig: this.getRewardBoostConfiguration(),
-      stakingQueueConfig: this.getStakingQueueConfiguration(),
-      earliestRewardsClaimableTimestamp: getEarliestRewardsClaimableTimestamp()
-    });
+    RollupConfigInput memory config = _getBaseRollupConfiguration();
+    config.rewardConfig = this.getRewardConfiguration(_rewardDistributor);
+    config.rewardBoostConfig = this.getRewardBoostConfiguration();
+    config.stakingQueueConfig = this.getStakingQueueConfiguration();
 
     // Compute version as first 4 bytes of hash(abi.encode(config, genesisState))
     config.version = _computeConfigVersion(config, this.getGenesisState());
 
     return config;
+  }
+
+  function _getBaseRollupConfiguration() private view returns (RollupConfigInput memory config) {
+    uint256 aztecEpochDuration = vm.envUint("AZTEC_EPOCH_DURATION");
+    uint256 slashingRoundSize = vm.envUint("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS") * aztecEpochDuration;
+
+    config.aztecSlotDuration = vm.envUint("AZTEC_SLOT_DURATION");
+    config.aztecEpochDuration = aztecEpochDuration;
+    config.targetCommitteeSize = vm.envUint("AZTEC_TARGET_COMMITTEE_SIZE");
+    config.lagInEpochsForValidatorSet = vm.envUint("AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET");
+    config.lagInEpochsForRandao = vm.envUint("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO");
+    config.inboxLag = vm.envUint("AZTEC_INBOX_LAG");
+    config.aztecProofSubmissionEpochs = vm.envUint("AZTEC_PROOF_SUBMISSION_EPOCHS");
+    config.localEjectionThreshold = vm.envUint("AZTEC_LOCAL_EJECTION_THRESHOLD");
+    config.slashingQuorum = vm.envOr("AZTEC_SLASHING_QUORUM", slashingRoundSize / 2 + 1);
+    config.slashingRoundSize = slashingRoundSize;
+    config.slashingLifetimeInRounds = vm.envUint("AZTEC_SLASHING_LIFETIME_IN_ROUNDS");
+    config.slashingExecutionDelayInRounds = vm.envUint("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS");
+    config.slashAmounts = _getSlashAmounts();
+    config.slashingOffsetInRounds = _getSlashingOffset();
+    config.slasherEnabled = vm.envOr("AZTEC_SLASHER_ENABLED", true);
+    config.slashingVetoer = vm.envAddress("AZTEC_SLASHING_VETOER");
+    config.slashingDisableDuration = vm.envUint("AZTEC_SLASHING_DISABLE_DURATION");
+    config.manaTarget = vm.envUint("AZTEC_MANA_TARGET");
+    config.exitDelaySeconds = vm.envUint("AZTEC_EXIT_DELAY_SECONDS");
+    config.version = 0; // Computed below
+    config.provingCostPerMana = EthValue.wrap(vm.envUint("AZTEC_PROVING_COST_PER_MANA"));
+    config.initialEthPerFeeAsset = EthPerFeeAssetE12.wrap(vm.envUint("AZTEC_INITIAL_ETH_PER_FEE_ASSET"));
   }
 
   /// @notice Compute rollup config version by hashing config + genesis state
@@ -156,11 +138,9 @@ contract RollupConfiguration is IRollupConfiguration, Test {
   {
     bytes32 hash = keccak256(abi.encode(_config, _genesisState));
     // Extract first 4 bytes as uint32 (big-endian)
+    // Casting to bytes4 is intentional because the config version is defined as the first 4 bytes of the hash.
+    // forge-lint: disable-next-line(unsafe-typecast)
     return uint32(bytes4(hash));
-  }
-
-  function _getSlasherFlavor() private view returns (SlasherFlavor) {
-    return _parseSlasherFlavor(vm.envString("AZTEC_SLASHER_FLAVOR"));
   }
 
   function _getSlashingOffset() private view returns (uint256) {
@@ -224,11 +204,5 @@ contract RollupConfiguration is IRollupConfiguration, Test {
       y0: validatorsJson.readUint(string.concat(basePath, ".publicKeyInG2.y0")),
       y1: validatorsJson.readUint(string.concat(basePath, ".publicKeyInG2.y1"))
     });
-  }
-
-  function _parseSlasherFlavor(string memory flavor) private pure returns (SlasherFlavor) {
-    if (keccak256(bytes(flavor)) == keccak256("empire")) return SlasherFlavor.EMPIRE;
-    if (keccak256(bytes(flavor)) == keccak256("tally")) return SlasherFlavor.TALLY;
-    return SlasherFlavor.NONE;
   }
 }

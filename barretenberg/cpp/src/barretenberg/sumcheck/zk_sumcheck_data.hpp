@@ -11,6 +11,7 @@
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include <array>
+#include <tuple>
 #include <vector>
 
 namespace bb {
@@ -76,8 +77,7 @@ template <typename Flavor> struct ZKSumcheckData {
             transcript->send_to_verifier("Libra:concatenation_commitment", libra_commitment);
         }
         // Compute the total sum of the Libra polynomials
-        libra_scaling_factor = FF(1);
-        libra_total_sum = compute_libra_total_sum(libra_univariates, libra_scaling_factor, constant_term);
+        std::tie(libra_total_sum, libra_scaling_factor) = compute_libra_total_sum(libra_univariates, constant_term);
 
         // Send the Libra total sum to the transcript
         transcript->send_to_verifier("Libra:Sum", libra_total_sum);
@@ -106,13 +106,12 @@ template <typename Flavor> struct ZKSumcheckData {
         : constant_term(FF::random_element())
         , libra_univariates(generate_libra_univariates(multivariate_d, univariate_length))
         , log_circuit_size(multivariate_d)
-        , libra_scaling_factor(FF(1))
         , libra_challenge(FF::random_element())
-        , libra_total_sum(compute_libra_total_sum(libra_univariates, libra_scaling_factor, constant_term))
-        , libra_running_sum(libra_total_sum * libra_challenge)
         , univariate_length(univariate_length)
 
     {
+        std::tie(libra_total_sum, libra_scaling_factor) = compute_libra_total_sum(libra_univariates, constant_term);
+        libra_running_sum = libra_total_sum * libra_challenge;
         setup_auxiliary_data(libra_univariates, libra_scaling_factor, libra_challenge, libra_running_sum);
     }
     /**
@@ -137,15 +136,14 @@ template <typename Flavor> struct ZKSumcheckData {
      * the Boolean hypercube.
      *
      * @param libra_univariates
-     * @param scaling_factor
-     * @return FF
+     * @param constant_term
+     * @return A pair of (total_sum, scaling_factor), where scaling_factor = 2^{d-1}.
      */
-    static FF compute_libra_total_sum(const std::vector<Polynomial<FF>>& libra_univariates,
-                                      FF& scaling_factor,
-                                      const FF& constant_term)
+    static std::pair<FF, FF> compute_libra_total_sum(const std::vector<Polynomial<FF>>& libra_univariates,
+                                                     const FF& constant_term)
     {
         FF total_sum = 0;
-        scaling_factor *= one_half;
+        FF scaling_factor = one_half;
 
         for (auto& univariate : libra_univariates) {
             total_sum += univariate.at(0) + univariate.evaluate(FF(1));
@@ -153,7 +151,7 @@ template <typename Flavor> struct ZKSumcheckData {
         }
         total_sum *= scaling_factor;
 
-        return total_sum + constant_term * (1 << libra_univariates.size());
+        return { total_sum + constant_term * (1UL << libra_univariates.size()), scaling_factor };
     }
 
     /**

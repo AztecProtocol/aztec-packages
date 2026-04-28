@@ -132,6 +132,7 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const size_t
     if (index >= length) {
         BB_ASSERT(context != nullptr);
         context->failure("twin_rom_table: ROM array access out of bounds");
+        return raw_entries[0];
     }
 
     return raw_entries[index];
@@ -149,7 +150,10 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
 
     initialize_table();
     if (uint256_t(index.get_value()) >= length) {
+        // Set a failure when the index is out of bounds. Return early to avoid OOB vector access.
         context->failure("twin_rom_table: ROM array access out of bounds");
+        return { field_pt::from_witness_index(context, context->zero_idx()),
+                 field_pt::from_witness_index(context, context->zero_idx()) };
     }
 
     auto output_indices = context->read_ROM_array_pair(rom_id, index.get_witness_index());

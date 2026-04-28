@@ -28,8 +28,6 @@ export class AztecDatastore implements Datastore {
   #memoryDatastore: Map<string, MemoryItem>;
   #dbDatastore: AztecAsyncMap<string, Uint8Array>;
 
-  #batchOps: BatchOp[] = [];
-
   private maxMemoryItems: number;
 
   constructor(db: AztecAsyncKVStore, { maxMemoryItems } = { maxMemoryItems: 50 }) {
@@ -92,23 +90,17 @@ export class AztecDatastore implements Datastore {
   }
 
   batch(): Batch {
+    const ops: BatchOp[] = [];
     return {
       put: (key, value) => {
-        this.#batchOps.push({
-          type: 'put',
-          key,
-          value,
-        });
+        ops.push({ type: 'put', key, value });
       },
       delete: key => {
-        this.#batchOps.push({
-          type: 'del',
-          key,
-        });
+        ops.push({ type: 'del', key });
       },
       commit: async () => {
         await this.#db.transactionAsync(async () => {
-          for (const op of this.#batchOps) {
+          for (const op of ops) {
             if (op.type === 'put' && op.value) {
               await this.put(op.key, op.value);
             } else if (op.type === 'del') {
@@ -116,7 +108,7 @@ export class AztecDatastore implements Datastore {
             }
           }
         });
-        this.#batchOps = []; // Clear operations after commit
+        ops.length = 0;
       },
     };
   }
