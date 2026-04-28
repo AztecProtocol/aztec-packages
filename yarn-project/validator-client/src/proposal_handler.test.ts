@@ -189,8 +189,8 @@ describe('ProposalHandler checkpoint validation', () => {
         checkpointHandler = handler;
       });
 
-      const archiver = mock<Pick<Archiver, 'setProposedCheckpoint' | 'getL1Constants'>>();
-      archiver.setProposedCheckpoint.mockResolvedValue(undefined);
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>>();
+      archiver.addProposedCheckpoint.mockResolvedValue(undefined);
 
       const blockData = {
         checkpointNumber: CheckpointNumber(3),
@@ -206,7 +206,7 @@ describe('ProposalHandler checkpoint validation', () => {
       handler.register(p2p, true, archiver);
       await checkpointHandler!(proposal, {} as any);
 
-      expect(archiver.setProposedCheckpoint).toHaveBeenCalled();
+      expect(archiver.addProposedCheckpoint).toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalToPipelinedStateDuration).toHaveBeenCalledWith(expect.any(Number));
     });
   });

@@ -179,12 +179,12 @@ export abstract class ArchiverDataSourceBase
     return this.store.getSettledTxReceipt(txHash, this.l1Constants);
   }
 
-  public getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
-    return this.store.getProposedCheckpoint();
+  public getLastCheckpoint(): Promise<CommonCheckpointData | undefined> {
+    return this.store.getLastCheckpoint();
   }
 
-  public getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
-    return this.store.getProposedCheckpointOnly();
+  public getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    return this.store.getLastProposedCheckpoint();
   }
 
   public isPendingChainInvalid(): Promise<boolean> {

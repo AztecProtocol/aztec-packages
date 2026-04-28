@@ -626,13 +626,13 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /** Returns the checkpoint data at the proposed tip */
-  public getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
-    return this.#blockStore.getProposedCheckpoint();
+  public getLastCheckpoint(): Promise<CommonCheckpointData | undefined> {
+    return this.#blockStore.getLastCheckpoint();
   }
 
   /** Returns the proposed checkpoint data, or undefined if no proposed checkpoint exists. No fallback to confirmed. */
-  public getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
-    return this.#blockStore.getProposedCheckpointOnly();
+  public getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    return this.#blockStore.getLastProposedCheckpoint();
   }
 
   /**
@@ -640,26 +640,48 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param proposedCheckpoint
    * @returns
    */
-  public setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput): Promise<void> {
-    return this.#blockStore.setProposedCheckpoint(proposedCheckpoint);
+  public addProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput): Promise<void> {
+    return this.#blockStore.addProposedCheckpoint(proposedCheckpoint);
   }
 
-  /** Deletes the proposed checkpoint from storage. */
-  public deleteProposedCheckpoint(): Promise<void> {
-    return this.#blockStore.deleteProposedCheckpoint();
+  /** Deletes all pending proposed checkpoints from storage. */
+  public deleteProposedCheckpoints(): Promise<void> {
+    return this.#blockStore.deleteProposedCheckpoints();
+  }
+
+  /** Returns the pending checkpoint for a specific checkpoint number, or undefined if not found. */
+  public getProposedCheckpointByNumber(n: CheckpointNumber): Promise<ProposedCheckpointData | undefined> {
+    return this.#blockStore.getProposedCheckpointByNumber(n);
+  }
+
+  /** Returns all pending checkpoints in ascending checkpoint-number order. */
+  public getProposedCheckpoints(): Promise<ProposedCheckpointData[]> {
+    return this.#blockStore.getProposedCheckpoints();
   }
 
   /**
-   * Promotes the proposed checkpoint to a confirmed checkpoint entry.
+   * Evicts all pending checkpoints with checkpoint number >= fromNumber.
+   * Used for divergent-mined-checkpoint cleanup.
+   */
+  public evictProposedCheckpointsFrom(fromNumber: CheckpointNumber): Promise<void> {
+    return this.#blockStore.evictProposedCheckpointsFrom(fromNumber);
+  }
+
+  /**
+   * Promotes a specific pending checkpoint to a confirmed checkpoint entry.
    * Should only be called after the checkpoint has been validated.
+   * @param checkpointNumber - The checkpoint number to promote.
+   * @param l1 - L1 published data for the checkpoint.
+   * @param attestations - Committee attestations.
    * @param expectedArchiveRoot - The archive root to match against the proposed checkpoint, to guard against races.
    */
   public promoteProposedToCheckpointed(
+    checkpointNumber: CheckpointNumber,
     l1: L1PublishedData,
     attestations: CommitteeAttestation[],
     expectedArchiveRoot: Fr,
   ): Promise<void> {
-    return this.#blockStore.promoteProposedToCheckpointed(l1, attestations, expectedArchiveRoot);
+    return this.#blockStore.promoteProposedToCheckpointed(checkpointNumber, l1, attestations, expectedArchiveRoot);
   }
 
   /**

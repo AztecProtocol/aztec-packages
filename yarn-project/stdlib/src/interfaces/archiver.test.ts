@@ -378,8 +378,8 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1n);
   });
 
-  it('getProposedCheckpoint', async () => {
-    const result = await context.client.getProposedCheckpoint();
+  it('getLastCheckpoint', async () => {
+    const result = await context.client.getLastCheckpoint();
     expect(result).toEqual({
       checkpointNumber: 1,
       header: expect.any(CheckpointHeader),
@@ -392,8 +392,8 @@ describe('ArchiverApiSchema', () => {
     });
   });
 
-  it('getProposedCheckpointOnly', async () => {
-    const result = await context.client.getProposedCheckpointOnly();
+  it('getLastProposedCheckpoint', async () => {
+    const result = await context.client.getLastProposedCheckpoint();
     expect(result).toEqual({
       checkpointNumber: 1,
       header: expect.any(CheckpointHeader),
@@ -439,10 +439,10 @@ class MockArchiver implements ArchiverApi {
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
   }
-  getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
-    return this.getProposedCheckpointOnly();
+  getLastCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    return this.getLastProposedCheckpoint();
   }
-  getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
+  getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
     return Promise.resolve({
       checkpointNumber: CheckpointNumber(1),
       header: CheckpointHeader.random(),

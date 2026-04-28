@@ -168,8 +168,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args()
     .returns(z.object({ genesisArchiveRoot: schemas.Fr })),
   getL1Timestamp: z.function().args().returns(schemas.BigInt.optional()),
-  getProposedCheckpoint: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
-  getProposedCheckpointOnly: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
+  getLastCheckpoint: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
+  getLastProposedCheckpoint: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
   syncImmediate: z.function().args().returns(z.void()),
   isPendingChainInvalid: z.function().args().returns(z.boolean()),
   getPendingChainValidationStatus: z.function().args().returns(ValidateCheckpointResultSchema),

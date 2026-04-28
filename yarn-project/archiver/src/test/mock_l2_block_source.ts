@@ -579,11 +579,11 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve({ valid: true });
   }
 
-  getProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+  getLastCheckpoint(): Promise<ProposedCheckpointData | undefined> {
     return Promise.resolve(undefined);
   }
 
-  getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
+  getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
     return Promise.resolve(undefined);
   }
 

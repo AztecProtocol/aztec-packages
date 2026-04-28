@@ -270,10 +270,10 @@ export interface L2BlockSource {
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult>;
 
   /** Returns the checkpoint at the proposed chain tip. */
-  getProposedCheckpoint(): Promise<CommonCheckpointData | undefined>;
+  getLastCheckpoint(): Promise<CommonCheckpointData | undefined>;
 
   /** Returns proposed checkpoint, if set, undefined if not*/
-  getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined>;
+  getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined>;
 
   /** Force a sync. */
   syncImmediate(): Promise<void>;

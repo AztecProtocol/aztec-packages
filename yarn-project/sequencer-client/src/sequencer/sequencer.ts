@@ -378,7 +378,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       // and the archive at that checkpoint so L1 simulation sees the correct chain tip.
       const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
       l1SimulationOverridesBuilder.forPendingCheckpoint(parentCheckpointNumber).withPendingArchive(syncedTo.archive);
-      this.metrics.recordPipelineDepth(1);
+      this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
 
       this.log.verbose(
         `Building on top of proposed checkpoint (pending=${syncedTo.proposedCheckpointData?.checkpointNumber})`,
@@ -586,7 +586,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.l2BlockSource.getPendingChainValidationStatus(),
-      this.l2BlockSource.getProposedCheckpointOnly(),
+      this.l2BlockSource.getLastProposedCheckpoint(),
     ] as const);
 
     const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpointData] =

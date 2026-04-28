@@ -777,11 +777,14 @@ export class ArchiverL1Synchronizer implements Traceable {
         },
       );
 
-      // Check if the last checkpoint matches the proposed one (so we can skip blob fetch).
-      // We only check the last one because the proposed checkpoint is always the most recent one,
-      // and if it's in a multi-checkpoint batch it will always be last (sorted by L1 block number).
+      // Check if the last checkpoint matches a local pending entry (so we can skip blob fetch).
+      // We only check the last one; if it matches, the blob fetch is skipped for that entry.
+      // TODO(palla/pipelining): We may have more than a single checkpoint to promote
       const lastCalldataCheckpoint = calldataCheckpoints[calldataCheckpoints.length - 1];
-      const checkpointToPromote = await this.tryBuildPublishedCheckpointFromProposed(lastCalldataCheckpoint);
+      const promoteResult = await this.tryBuildPublishedCheckpointFromProposed(lastCalldataCheckpoint);
+      const checkpointToPromote = promoteResult && !('diverged' in promoteResult) ? promoteResult : undefined;
+      const evictProposedFrom =
+        promoteResult && 'diverged' in promoteResult ? promoteResult.fromCheckpointNumber : undefined;
 
       // Then fetch blobs in parallel and build the full published checkpoints
       const toFetchBlobs = checkpointToPromote ? calldataCheckpoints.slice(0, -1) : calldataCheckpoints;
@@ -904,6 +907,7 @@ export class ArchiverL1Synchronizer implements Traceable {
                 attestations: lastCalldataCheckpoint.attestations,
                 checkpoint: maybeValidCheckpointToPromote,
               },
+              evictProposedFrom,
             ),
           ),
         );
@@ -975,17 +979,24 @@ export class ArchiverL1Synchronizer implements Traceable {
     return { ...rollupStatus, lastRetrievedCheckpoint, lastL1BlockWithCheckpoint };
   }
 
-  /** Checks if this checkpoint matches the local proposed one, and if so, loads local data to build a synthetic published checkpoint. */
+  /**
+   * Checks if a specific checkpoint matches a local pending entry, and if so, loads local data to build
+   * a synthetic published checkpoint (skipping blob fetch).
+   *
+   * Returns { diverged: true, fromCheckpointNumber } when the L1 checkpoint does NOT match local pending
+   * data for that number, so the caller can evict the entire pending suffix >= fromCheckpointNumber
+   * (those entries chain off the now-invalid local state) within the same addCheckpoints transaction.
+   */
   private async tryBuildPublishedCheckpointFromProposed(
     calldataCheckpoint: RetrievedCheckpointFromCalldata | undefined,
-  ): Promise<PublishedCheckpoint | undefined> {
-    const proposed = await this.store.getProposedCheckpointOnly();
-    if (
-      this.config.skipPromoteProposedCheckpointDuringL1Sync ||
-      !proposed ||
-      !calldataCheckpoint ||
-      proposed.checkpointNumber !== calldataCheckpoint.checkpointNumber
-    ) {
+  ): Promise<PublishedCheckpoint | { diverged: true; fromCheckpointNumber: CheckpointNumber } | undefined> {
+    if (this.config.skipPromoteProposedCheckpointDuringL1Sync || !calldataCheckpoint) {
+      return undefined;
+    }
+
+    // Look up the specific pending entry for the checkpoint being mined, not just the tip
+    const proposed = await this.store.getProposedCheckpointByNumber(calldataCheckpoint.checkpointNumber);
+    if (!proposed) {
       return undefined;
     }
 
@@ -1004,7 +1015,8 @@ export class ArchiverL1Synchronizer implements Traceable {
           calldataArchiveRoot: calldataCheckpoint.archiveRoot.toString(),
         },
       );
-      return undefined;
+      // Return a divergence signal so the caller can evict pending >= this number
+      return { diverged: true, fromCheckpointNumber: proposed.checkpointNumber };
     }
 
     this.log.debug(
