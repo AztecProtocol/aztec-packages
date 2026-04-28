@@ -27,11 +27,21 @@ export class L1Metrics {
   }
 
   start() {
-    this.meter.addBatchObservableCallback(this.observe, [this.l1BalanceEth, this.l1BlockHeight]);
+    this.meter.addBatchObservableCallback(this.observe, [
+      this.l1BalanceEth,
+      this.l1BlockHeight,
+      this.gasPriceWei,
+      this.blobBaseFeeWei,
+    ]);
   }
 
   stop() {
-    this.meter.removeBatchObservableCallback(this.observe, [this.l1BalanceEth, this.l1BlockHeight]);
+    this.meter.removeBatchObservableCallback(this.observe, [
+      this.l1BalanceEth,
+      this.l1BlockHeight,
+      this.gasPriceWei,
+      this.blobBaseFeeWei,
+    ]);
   }
 
   private observe = async (observer: BatchObservableResult) => {
