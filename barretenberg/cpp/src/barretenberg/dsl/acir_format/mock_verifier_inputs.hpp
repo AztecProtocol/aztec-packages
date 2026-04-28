@@ -105,6 +105,12 @@ std::pair<bb::HonkProof, std::shared_ptr<typename Flavor::VerificationKey>> cons
 bb::Goblin::MergeProof create_mock_merge_proof();
 
 /**
+ * @brief Create a mock batch merge proof which has the correct structure but is not necessarily valid
+ *
+ */
+bb::HonkProof create_mock_batch_merge_proof(bool is_zk = true);
+
+/**
  * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid
  *
  * @details An ECCVM proof is made of a pre-ipa proof and an ipa-proof. Here we mock the pre-ipa part.

@@ -37,13 +37,13 @@ using namespace bb;
  * @details Analyzes the constraint types to determine what mock data is needed (Oink proof, HN proof, etc.)
  *
  * @param constraints The IVC recursion constraints from an Aztec kernel program
- * @return A Chonk instance with mock verification queue entries and merge proofs
+ * @return A Chonk instance with mock verification queue entries and, for hiding kernels, a batch merge proof
  */
 std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<RecursionConstraint>& constraints);
 
 /**
  * @brief Add mock accumulation data to a Chonk instance
- * @details Populates the verification queue with a mock proof/VK entry and adds a mock merge proof.
+ * @details Populates the verification queue with a mock proof/VK entry. HN_FINAL also gets a mock batch merge proof.
  * Also initializes the recursive verifier accumulator which is hashed into the circuit.
  *
  * @param ivc The Chonk instance to populate
