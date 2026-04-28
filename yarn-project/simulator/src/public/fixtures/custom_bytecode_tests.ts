@@ -1,8 +1,10 @@
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+
 import { strict as assert } from 'assert';
 
 import { TypeTag } from '../avm/avm_memory_types.js';
 import { Addressing, AddressingMode } from '../avm/opcodes/addressing_mode.js';
-import { Add, CalldataCopy, Cast, Jump, Return, Set } from '../avm/opcodes/index.js';
+import { Add, Call, CalldataCopy, Cast, Jump, Return, Set, Sha256Compression, Xor } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import {
   MAX_OPCODE_VALUE,
@@ -10,7 +12,7 @@ import {
   OperandType,
   getOperandSize,
 } from '../avm/serialization/instruction_serialization.js';
-import { deployAndExecuteCustomBytecode } from './custom_bytecode_tester.js';
+import { deployAndExecuteCustomBytecode, deployCustomBytecode } from './custom_bytecode_tester.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
 // First instruction resolved a base address (offset 0) which is uninitialized and therefore
@@ -363,4 +365,100 @@ function getTagOffsetInInstruction(wireFormat: OperandType[]): number {
     offset += getOperandSize(operand);
   }
   return offset;
+}
+
+/**
+ * Deploys a pair of contracts that together trigger a bitwise/sha256 error-row collision.
+ *
+ * The inner contract executes XOR on two operands with mismatched tags (U32 vs U16), which
+ * raises a tag-mismatch exception and emits a bitwise error row with the 5-tuple
+ * (0, 0, 0, XOR, U32). The outer contract CALLs the inner (which reverts), then runs a
+ * SHA256COMPRESSION whose sigma0(w[1]=0) emits XOR(U32(0), U32(0)) — the same 5-tuple as
+ * the inner's bitwise error row. The lookup machinery keeps the first-inserted (error) row
+ * and sets bitwise_start_sha256=1 on it, which violates the PIL constraint
+ * (start_sha256 + start_keccak) * err = 0.
+ *
+ * The outer receives the inner contract's address as calldata[0] (Field element).
+ *
+ * @returns The deployed inner and outer contract instances.
+ */
+export async function deployBitwiseSha256ErrorRowCollisionContracts(
+  tester: PublicTxSimulationTester,
+): Promise<{ innerContract: ContractInstanceWithAddress; outerContract: ContractInstanceWithAddress }> {
+  const innerBytecode = encodeToBytecode([
+    // [0] = U32(0)
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+    // [1] = U16(0) — mismatched tag
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT16, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+    // XOR_8 [0] [1] → [2] — tag mismatch exception: context reverts
+    new Xor(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.XOR_8, Xor.wireFormat8),
+    // Unreachable but valid.
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  ]);
+
+  const outerInstructions = [
+    // [0] = U32(0) — cdStart / argsSize / RETURN size
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+    // [1] = U32(1) — copySize for CALLDATACOPY
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, /*value=*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+    // [2] = U32(100_000) — gas cap for CALL. Must be small: the inner's tag-mismatch XOR
+    // triggers an exceptional halt, which clears all allocated gas (no refund). We only need
+    // enough for the inner's 2 SET_8s + the base gas of XOR_8 before it throws.
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, TypeTag.UINT32, /*value=*/ 100_000).as(
+      Opcode.SET_32,
+      Set.wireFormat32,
+    ),
+    // Copy calldata[0] (inner contract address) into [3].
+    new CalldataCopy(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 1, /*cdStartOffset=*/ 0, /*dstOffset=*/ 3),
+    // CALL l2Gas=[2], daGas=[2], addr=[3], argsSize=[0], args=[0].
+    new Call(
+      /*addressing_mode=*/ 0,
+      /*l2GasOffset=*/ 2,
+      /*daGasOffset=*/ 2,
+      /*addrOffset=*/ 3,
+      /*argsSizeOffset=*/ 0,
+      /*argsOffset=*/ 0,
+    ),
+  ];
+
+  // SHA256 state: 8 x U32(0) at offsets 10..17.
+  for (let i = 0; i < 8; i++) {
+    outerInstructions.push(
+      new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 10 + i, TypeTag.UINT32, /*value=*/ 0).as(
+        Opcode.SET_8,
+        Set.wireFormat8,
+      ),
+    );
+  }
+
+  // w[0] = 0x61626364 ("abcd" message).
+  outerInstructions.push(
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 18, TypeTag.UINT32, /*value=*/ 0x61626364).as(
+      Opcode.SET_32,
+      Set.wireFormat32,
+    ),
+  );
+
+  // w[1..15] = U32(0). w[1] = 0 is what triggers sigma0(0) -> XOR(U32(0), U32(0)).
+  // The remaining words (w[2..15]) only need to be well-tagged U32; we don't care about
+  // the final hash, only that the compression executes and emits the colliding XOR row.
+  for (let i = 0; i < 15; i++) {
+    outerInstructions.push(
+      new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 19 + i, TypeTag.UINT32, /*value=*/ 0).as(
+        Opcode.SET_8,
+        Set.wireFormat8,
+      ),
+    );
+  }
+
+  outerInstructions.push(
+    new Sha256Compression(/*addressing_mode=*/ 0, /*outputOffset=*/ 34, /*stateOffset=*/ 10, /*inputsOffset=*/ 18),
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  );
+
+  const outerBytecode = encodeToBytecode(outerInstructions);
+
+  const innerContract = await deployCustomBytecode(innerBytecode, tester, 'BitwiseSha256CollisionInner');
+  const outerContract = await deployCustomBytecode(outerBytecode, tester, 'BitwiseSha256CollisionOuter');
+  return { innerContract, outerContract };
 }

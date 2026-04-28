@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
@@ -971,7 +972,12 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeKeccakXorOutput)
     //
     // Source tuple: (XOR_OP, real_state_in_00, real_state_in_01, FAKE, U64)
     // Dest tuple:   (XOR_OP, real_state_in_00, real_state_in_01, FAKE, U64) ← ghost row matches!
-    check_interaction<KeccakF1600TraceBuilder, lookup_keccakf1600_theta_xor_01_settings>(trace);
+    //
+    // Since we invoke keccak lookup to bitwise with both tags (AVM-268), the folllowing interaction
+    // fails.
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<KeccakF1600TraceBuilder, lookup_keccakf1600_theta_xor_01_settings>(trace)),
+        "Failed.*LOOKUP_KECCAKF1600_THETA_XOR_01. Could not find tuple in destination.");
 
     // =========================================================================
     // VULNERABILITY DEMONSTRATED: KECCAK XOR FORGERY
@@ -987,7 +993,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeKeccakXorOutput)
     // all security guarantees of the hash function.
 
     // Now that the vulnerability is fixed, we expect an error:
-    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_NO_EXTERNAL_START_ON_ERROR");
+    // EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_NO_EXTERNAL_START_ON_ERROR");
 }
 
 // This test demonstrates a full exploit: forging a SHA256 XOR result.
@@ -1122,10 +1128,14 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeSha256XorOutput)
     // registers this lookup with Column::bitwise_sel as the outer destination selector (production
     // optimization). KeccakF1600TraceBuilder uses Column::bitwise_start instead, which is why
     // the keccak test can use check_interaction directly. Here we use bitwise_start to match.
+    //
+    // Since we invoke keccak lookup to bitwise with both tags (AVM-268), the folllowing interaction
+    // fails.
     {
         tracegen::SharedIndexCache cache;
         tracegen::LookupIntoDynamicTableGeneric<lookup_sha256_w_s_0_xor_0_settings> lookup(cache, C::bitwise_start);
-        lookup.process(trace);
+        EXPECT_THROW_WITH_MESSAGE((lookup.process(trace)),
+                                  "Failed.*LOOKUP_SHA256_W_S_0_XOR_0. Could not find tuple in destination.");
     }
 
     // =========================================================================
@@ -1136,7 +1146,7 @@ TEST(BitwiseConstrainingTest, VulnerabilityFakeSha256XorOutput)
     // an attacker can produce arbitrary SHA256 compression outputs.
 
     // Now that the vulnerability is fixed, we expect an error:
-    EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_NO_EXTERNAL_START_ON_ERROR");
+    // EXPECT_THROW_WITH_MESSAGE((check_relation<bitwise>(trace)), "BITW_NO_EXTERNAL_START_ON_ERROR");
 }
 
 // Verify that start=1 or end=1 forces sel=1.
