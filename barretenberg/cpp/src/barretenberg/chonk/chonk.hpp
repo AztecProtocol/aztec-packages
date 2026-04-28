@@ -101,7 +101,7 @@ class Chonk : public IVCBase {
      * State machine transitions based on `num_circuits_accumulated`:
      *   - OINK:     First app (circuit 0) - no prior accumulator, just Oink verification
      *   - HN:       Apps 1..n-3, inner kernels, and reset kernels - full HyperNova folding verification
-     *   - HN_TAIL:  Circuit n-3 (last kernel before tail) - adds ZK masking at op queue start
+     *   - HN_TAIL:  Circuit n-3 (last kernel before tail)
      *   - HN_FINAL: Circuit n-2 (tail kernel) - final folding + decider verification
      *   - MEGA:     Circuit n-1 (hiding kernel) - MegaZK proof, no folding
      *
@@ -221,8 +221,6 @@ class Chonk : public IVCBase {
 
     ChonkProof prove();
 
-    static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
-    static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
     static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
 
     /**

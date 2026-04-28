@@ -70,7 +70,7 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         RecursiveBuilder outer_circuit;
 
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        MergeProver merge_prover{ op_queue, prover_transcript, MergeMode::FIXED_APPEND };
+        MergeProver merge_prover{ op_queue, prover_transcript };
         auto merge_proof = merge_prover.construct_proof();
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
@@ -111,15 +111,9 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         }
     }
 
-    static void test_recursive_merge_verification_prepend()
+    static void test_recursive_merge_verification()
     {
         auto op_queue = construct_final_merge_op_queue(/*num_subtables_up_to_tail=*/3);
-        prove_and_verify_merge(op_queue, /*run_analyzer=*/true);
-    }
-
-    static void test_recursive_merge_verification_append()
-    {
-        auto op_queue = construct_final_merge_op_queue(/*num_subtables_up_to_tail=*/2);
         prove_and_verify_merge(op_queue, /*run_analyzer=*/true);
     }
 };
@@ -128,14 +122,9 @@ using Builder = testing::Types<MegaCircuitBuilder>;
 
 TYPED_TEST_SUITE(BoomerangRecursiveMergeVerifierTest, Builder);
 
-TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveVerificationPrepend)
+TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveMergeVerification)
 {
-    TestFixture::test_recursive_merge_verification_prepend();
-};
-
-TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveVerificationAppend)
-{
-    TestFixture::test_recursive_merge_verification_append();
+    TestFixture::test_recursive_merge_verification();
 };
 
 } // namespace bb::stdlib::recursion::goblin

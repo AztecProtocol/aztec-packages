@@ -303,7 +303,7 @@ Chonk::recursive_verification_and_consistency_checks(
  * proofs for each circuit, this method adds recursive verification constraints to kernel circuits.
  *
  * The method performs the following steps:
- *   1. SETUP: Initialize transcript, determine kernel type, add ZK masking for tail kernel
+ *   1. SETUP: Initialize transcript and determine kernel type
  *   2. VERIFICATION LOOP: Process each entry in stdlib_verification_queue (folding + merge + databus)
  *   3. OUTPUT: Set public inputs (KernelIO or HidingKernelIO) for propagation to next kernel
  *
@@ -591,34 +591,6 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 }
 
 /**
- * @brief Add a hiding op with fully random Px, Py field elements to prevent information leakage in Translator proof.
- *
- * @details The Translator circuit builder evaluates a batched polynomial (representing the four op queue polynomials
- * in UltraOp format) at a random challenge x. This evaluation result (called accumulated_result in translator) is
- * included in the translator proof and verified against the equivalent computation performed by ECCVM (in
- * verify_translation, establishing equivalence between ECCVM and UltraOp format).
- *
- */
-void Chonk::hide_op_queue_accumulation_result(ClientCircuit& circuit)
-{
-    // Use random Fq field elements as Px and Py.
-    using Fq = curve::Grumpkin::ScalarField; // Same as BN254::BaseField
-    circuit.queue_ecc_hiding_op(Fq::random_element(), Fq::random_element());
-}
-
-/**
- * @brief Adds three random non-ops to the tail kernel for zero-knowledge.
- *
- * @details See MERGE_PROTOCOL.md (ZK Considerations) for detailed analysis.
- */
-void Chonk::hide_op_queue_content_in_tail(ClientCircuit& circuit)
-{
-    circuit.queue_ecc_random_op();
-    circuit.queue_ecc_random_op();
-    circuit.queue_ecc_random_op();
-}
-
-/**
  * @brief Adds two random non-ops to the hiding kernel for zero-knowledge.
  *
  * @details See MERGE_PROTOCOL.md (ZK Considerations) for detailed analysis.
@@ -656,7 +628,7 @@ ChonkProof Chonk::prove()
     auto hiding_oink_proof = batched_prover.prove_mega_zk_oink();
 
     // Phase 2: Merge proof on the shared transcript (fixed append — hiding kernel's subtable).
-    goblin.prove_merge(transcript, MergeMode::FIXED_APPEND);
+    goblin.prove_merge(transcript);
     BB_ASSERT_EQ(goblin.merge_verification_queue.size(),
                  1U,
                  "Chonk::prove: merge_verification_queue should contain only a single proof at this stage.");

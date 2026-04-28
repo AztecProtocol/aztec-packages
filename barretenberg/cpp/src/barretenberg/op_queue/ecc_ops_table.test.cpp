@@ -61,7 +61,7 @@ class EccOpsTableTest : public ::testing::Test {
         }
     };
 
-    // Mock ultra ops table that constructs a concatenated table from successively prepended subtables
+    // Mock ultra ops table that constructs a concatenated table from successively appended subtables.
     struct MockUltraOpsTable {
         std::array<std::vector<Scalar>, 4> columns;
         void append(const UltraOp& op)
@@ -101,7 +101,7 @@ class EccOpsTableTest : public ::testing::Test {
         size_t size() const { return columns[0].size(); }
     };
 
-    // Mock eccvm ops table that constructs a concatenated table from successively prepended subtables
+    // Mock eccvm ops table that constructs a concatenated table from successively appended subtables.
     struct MockEccvmOpsTable {
         std::vector<ECCVMOperation> eccvm_ops;
 
@@ -141,51 +141,6 @@ TEST(EccOpsTableTest, UltraOpsTableAppendOnly)
 
     // Construct the mock ultra ops table which contains the subtables in append order.
     EccOpsTableTest::MockUltraOpsTable expected_ultra_ops_table(subtables);
-
-    // Check that the ultra ops table internal to the op queue has the correct size
-    auto expected_num_ops = std::accumulate(subtable_op_counts.begin(), subtable_op_counts.end(), size_t(0));
-    EXPECT_EQ(ultra_ops_table.num_ops(), expected_num_ops);
-
-    // Construct polynomials corresponding to the columns of the ultra ops table
-    std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
-
-    // Check that the ultra ops table constructed by the op queue matches the expected table
-    for (auto [expected_column, poly] : zip_view(expected_ultra_ops_table.columns, ultra_ops_table_polynomials)) {
-        for (auto [expected_value, value] : zip_view(expected_column, poly.coeffs())) {
-            EXPECT_EQ(expected_value, value);
-        }
-    }
-}
-
-TEST(EccOpsTableTest, UltraOpsAppendThenFixedAppend)
-{
-    using Fr = fr;
-    using TableGenerator = EccOpsTableTest::UltraOpTableGenerator;
-
-    // Construct sets of ultra ops, each representing those added by a single circuit
-    const size_t NUM_SUBTABLES = 3;
-    std::vector<size_t> subtable_op_counts = { 4, 2, 7 };
-
-    TableGenerator table_generator;
-    auto subtables = table_generator.generate_subtables(NUM_SUBTABLES, subtable_op_counts);
-
-    // Construct the concatenated table internal to the op queue
-    UltraEccOpsTable ultra_ops_table;
-    for (size_t idx = 0; idx < NUM_SUBTABLES; ++idx) {
-        ultra_ops_table.create_new_subtable();
-        for (const auto& op : subtables[idx]) {
-            ultra_ops_table.push(op);
-        }
-        if (idx == NUM_SUBTABLES - 1) {
-            ultra_ops_table.merge(MergeMode::FIXED_APPEND);
-        } else {
-            ultra_ops_table.merge();
-        }
-    }
-
-    // Construct the mock ultra ops table. The final APPEND carries APPEND_TRACE_OFFSET preamble rows.
-    EccOpsTableTest::MockUltraOpsTable expected_ultra_ops_table(subtables,
-                                                                /*last_subtable_has_preamble=*/true);
 
     // Check that the ultra ops table internal to the op queue has the correct size
     auto expected_num_ops = std::accumulate(subtable_op_counts.begin(), subtable_op_counts.end(), size_t(0));
@@ -268,11 +223,11 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
 
     // Construct the concatenated table with fixed-location append at specific offset
     UltraEccOpsTable ultra_ops_table;
-    // Define a fixed offset at which to append the table (must be greater than the total size of the prepended tables)
+    // Define a fixed offset at which to append the table (must be greater than the total size of the prior tables).
     const size_t fixed_offset = 20;
     const size_t fixed_offset_num_rows = fixed_offset * ULTRA_ROWS_PER_OP;
-    const size_t prepended_size = (subtable_op_counts[0] + subtable_op_counts[1]) * ULTRA_ROWS_PER_OP;
-    BB_ASSERT(fixed_offset_num_rows > prepended_size);
+    const size_t prior_subtables_size = (subtable_op_counts[0] + subtable_op_counts[1]) * ULTRA_ROWS_PER_OP;
+    BB_ASSERT(fixed_offset_num_rows > prior_subtables_size);
 
     // Construct the ultra ops table
     for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
@@ -308,19 +263,18 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
     // Construct expected table with zeros in the gap
     // Order: subtable[0], subtable[1], zeros, subtable[2]
     std::vector<std::vector<UltraOp>> ordered_subtables = { subtables[0], subtables[1] };
-    EccOpsTableTest::MockUltraOpsTable expected_prepended_table(ordered_subtables);
+    EccOpsTableTest::MockUltraOpsTable expected_prior_table(ordered_subtables);
 
-    // Check prepended subtables are at the beginning
-    for (auto [ultra_op_poly, expected_poly] :
-         zip_view(ultra_ops_table_polynomials, expected_prepended_table.columns)) {
-        for (size_t row = 0; row < prepended_size; ++row) {
+    // Check prior subtables are at the beginning.
+    for (auto [ultra_op_poly, expected_poly] : zip_view(ultra_ops_table_polynomials, expected_prior_table.columns)) {
+        for (size_t row = 0; row < prior_subtables_size; ++row) {
             EXPECT_EQ(ultra_op_poly.at(row), expected_poly[row]);
         }
     }
 
-    // Check gap from prepended tables up to (fixed_offset + preamble) is filled with zeros.
+    // Check gap from prior tables up to (fixed_offset + preamble) is filled with zeros.
     for (auto ultra_op_poly : ultra_ops_table_polynomials) {
-        for (size_t row = prepended_size; row < fixed_offset_num_rows + LEADING_ZEROS; ++row) {
+        for (size_t row = prior_subtables_size; row < fixed_offset_num_rows + LEADING_ZEROS; ++row) {
             EXPECT_EQ(ultra_op_poly.at(row), Fr::zero());
         }
     }

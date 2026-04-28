@@ -16,21 +16,14 @@ namespace bb {
  * @details We require an SRS at least as large as the current ultra ecc ops table
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
-MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         std::shared_ptr<Transcript> transcript,
-                         MergeMode mode)
+MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::shared_ptr<Transcript> transcript)
     : transcript(std::move(transcript))
     , op_queue(op_queue)
 {
-    // Merge the current subtable (for which a merge proof is being constructed) prior to
-    // procedeing with proving.
-    if (mode == MergeMode::FIXED_APPEND) {
-        const size_t append_offset = op_queue->get_append_offset(/*include_zk_ops=*/true);
-        fixed_append_shift_size = UltraEccOpsTable::ZK_ULTRA_OPS + (append_offset * UltraEccOpsTable::NUM_ROWS_PER_OP);
-        op_queue->merge_fixed_append(append_offset);
-    } else {
-        op_queue->merge();
-    }
+    // MergeProver is used only for the final merge, where the hiding kernel subtable is appended at a fixed offset.
+    const size_t append_offset = op_queue->get_append_offset(/*include_zk_ops=*/true);
+    fixed_append_shift_size = UltraEccOpsTable::ZK_ULTRA_OPS + (append_offset * UltraEccOpsTable::NUM_ROWS_PER_OP);
+    op_queue->merge_fixed_append(append_offset);
 
     pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + UltraEccOpsTable::ZK_ULTRA_OPS);
 };
@@ -173,8 +166,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
                                                                             // APPEND_TRACE_OFFSET leading zeros)
 
     // Send shift_size to the verifier
-    const size_t shift_size = fixed_append_shift_size.value_or(left_table[0].size());
-    transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
+    transcript->send_to_verifier("shift_size", static_cast<uint32_t>(fixed_append_shift_size));
 
     // Compute commitments [M_j] and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
@@ -186,7 +178,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // verifier
     std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(labels_degree_check);
     Polynomial reversed_batched_left_tables =
-        compute_degree_check_polynomial(left_table, degree_check_challenges, shift_size);
+        compute_degree_check_polynomial(left_table, degree_check_challenges, fixed_append_shift_size);
     transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
                                  pcs_commitment_key.commit(reversed_batched_left_tables));
 

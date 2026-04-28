@@ -34,9 +34,7 @@ class MergeProver {
     using MergeProof = std::vector<FF>;
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
-    explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         std::shared_ptr<Transcript> transcript,
-                         MergeMode mode = MergeMode::APPEND);
+    explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::shared_ptr<Transcript> transcript);
 
     BB_PROFILE MergeProof construct_proof();
 
@@ -47,7 +45,7 @@ class MergeProver {
   private:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
-    std::optional<size_t> fixed_append_shift_size;
+    size_t fixed_append_shift_size = 0;
 
     std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
                                                      "LEFT_TABLE_DEGREE_CHECK_1",

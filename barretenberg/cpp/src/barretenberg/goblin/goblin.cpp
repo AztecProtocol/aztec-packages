@@ -25,10 +25,10 @@ Goblin::Goblin(const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {}
 
-void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, MergeMode mode)
+void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
 {
     BB_BENCH_NAME("Goblin::prove_merge");
-    MergeProver merge_prover{ op_queue, transcript, mode };
+    MergeProver merge_prover{ op_queue, transcript };
     merge_verification_queue.push_back(merge_prover.construct_proof());
 }
 
@@ -70,7 +70,7 @@ GoblinProof Goblin::prove()
 {
     BB_BENCH_NAME("Goblin::prove");
 
-    prove_merge(transcript, MergeMode::FIXED_APPEND); // Use shared transcript for merge proving
+    prove_merge(transcript); // Use shared transcript for merge proving
     info("Goblin: num ultra ops = ", op_queue->get_ultra_ops_count());
 
     BB_ASSERT_EQ(merge_verification_queue.size(),

@@ -124,7 +124,7 @@ TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
 }
 
 // Check that the ECC op queue correctly reconstructs subtables via successive appending of subtables.
-TEST(ECCOpQueueTest, ColumnPolynomialConstructionAppendOnly)
+TEST(ECCOpQueueTest, ColumnPolynomialConstruction)
 {
     using Fq = curve::Grumpkin::ScalarField;
 
@@ -142,32 +142,6 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionAppendOnly)
         ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue, /*initialize=*/false);
         op_queue->merge();
     }
-
-    ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue);
-}
-
-TEST(ECCOpQueueTest, ColumnPolynomialConstructionAppendThenAppend)
-{
-    using Fq = curve::Grumpkin::ScalarField;
-
-    // Instantiate an EccOpQueue and populate it with several subtables of ECC ops
-    auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    // Check that the table polynomials have the correct form after each subtable concatenation
-    const size_t NUM_SUBTABLES = 2;
-    for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
-        op_queue->initialize_new_subtable();
-        // Add hiding op to the first subtable so the Ultra and ECCVM opcode streams have matching order.
-        if (i == 0) {
-            op_queue->append_hiding_op(Fq::random_element(), Fq::random_element());
-        }
-        ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue, /*initialize=*/false);
-        op_queue->merge();
-    }
-
-    // Do a single append operation (goes at end, after prepended subtables)
-    ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
-    op_queue->merge();
 
     ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue);
 }

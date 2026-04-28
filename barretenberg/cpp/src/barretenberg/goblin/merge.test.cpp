@@ -175,7 +175,7 @@ template <typename Curve> class MergeTests : public testing::Test {
     {
         // Create native merge proof
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        MergeProver merge_prover{ op_queue, prover_transcript, MergeMode::FIXED_APPEND };
+        MergeProver merge_prover{ op_queue, prover_transcript };
         auto native_proof = merge_prover.construct_proof();
         tamper_with_proof(native_proof, tampering_mode);
 
@@ -242,7 +242,7 @@ template <typename Curve> class MergeTests : public testing::Test {
 
         // Construct a merge proof and ensure its size matches expectation
         auto transcript = std::make_shared<NativeTranscript>();
-        MergeProver merge_prover{ op_queue, transcript, MergeMode::FIXED_APPEND };
+        MergeProver merge_prover{ op_queue, transcript };
         auto merge_proof = merge_prover.construct_proof();
 
         EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
@@ -259,20 +259,11 @@ template <typename Curve> class MergeTests : public testing::Test {
     }
 
     /**
-     * @brief Test multiple merge proofs with prepend mode
+     * @brief Test a final merge proof with multiple historical subtables up to the tail.
      */
-    static void test_multiple_merges_prepend()
+    static void test_multiple_merges()
     {
         auto op_queue = construct_final_merge_op_queue(/*num_subtables_up_to_tail=*/3);
-        prove_and_verify_merge(op_queue);
-    }
-
-    /**
-     * @brief Test merge proof with append mode
-     */
-    static void test_merge_prepend_then_append()
-    {
-        auto op_queue = construct_final_merge_op_queue(/*num_subtables_up_to_tail=*/2);
         prove_and_verify_merge(op_queue);
     }
 
@@ -469,42 +460,22 @@ TYPED_TEST(MergeTests, SingleMerge)
     TestFixture::test_single_merge();
 }
 
-TYPED_TEST(MergeTests, MultipleMergesPrepend)
+TYPED_TEST(MergeTests, MultipleMerges)
 {
-    TestFixture::test_multiple_merges_prepend();
+    TestFixture::test_multiple_merges();
 }
 
-TYPED_TEST(MergeTests, MergePrependThenAppend)
-{
-    TestFixture::test_merge_prepend_then_append();
-}
-
-TYPED_TEST(MergeTests, DegreeCheckFailurePrepend)
+TYPED_TEST(MergeTests, DegreeCheckFailure)
 {
     TestFixture::test_degree_check_failure();
 }
 
-TYPED_TEST(MergeTests, DegreeCheckFailureAppend)
-{
-    TestFixture::test_degree_check_failure();
-}
-
-TYPED_TEST(MergeTests, MergeFailurePrepend)
+TYPED_TEST(MergeTests, MergeFailure)
 {
     TestFixture::test_merge_failure();
 }
 
-TYPED_TEST(MergeTests, MergeFailureAppend)
-{
-    TestFixture::test_merge_failure();
-}
-
-TYPED_TEST(MergeTests, EvalFailurePrepend)
-{
-    TestFixture::test_eval_failure();
-}
-
-TYPED_TEST(MergeTests, EvalFailureAppend)
+TYPED_TEST(MergeTests, EvalFailure)
 {
     TestFixture::test_eval_failure();
 }
@@ -544,12 +515,12 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     // === Generate two separate merge proofs (simulating two independent merge operations) ===
     auto op_queue_1 = TestFixture::construct_final_merge_op_queue();
     auto prover_transcript_1 = std::make_shared<NativeTranscript>();
-    MergeProver prover_1{ op_queue_1, prover_transcript_1, MergeMode::FIXED_APPEND };
+    MergeProver prover_1{ op_queue_1, prover_transcript_1 };
     auto proof_1 = prover_1.construct_proof();
 
     auto op_queue_2 = TestFixture::construct_final_merge_op_queue();
     auto prover_transcript_2 = std::make_shared<NativeTranscript>();
-    MergeProver prover_2{ op_queue_2, prover_transcript_2, MergeMode::FIXED_APPEND };
+    MergeProver prover_2{ op_queue_2, prover_transcript_2 };
     auto proof_2 = prover_2.construct_proof();
 
     // Get native commitments for proof 1 (shifted to match circuit ecc_op_wire layout)
@@ -696,7 +667,7 @@ TEST_F(MergeTranscriptTests, ProverManifestConsistency)
     // Construct merge proof with manifest enabled
     auto transcript = std::make_shared<NativeTranscript>();
     transcript->enable_manifest();
-    MergeProver merge_prover{ op_queue, transcript, MergeMode::FIXED_APPEND };
+    MergeProver merge_prover{ op_queue, transcript };
     auto merge_proof = merge_prover.construct_proof();
 
     // Check prover manifest matches expected manifest
@@ -722,7 +693,7 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     // Generate merge proof with prover manifest enabled
     auto prover_transcript = std::make_shared<NativeTranscript>();
     prover_transcript->enable_manifest();
-    MergeProver merge_prover{ op_queue, prover_transcript, MergeMode::FIXED_APPEND };
+    MergeProver merge_prover{ op_queue, prover_transcript };
     auto merge_proof = merge_prover.construct_proof();
 
     // Construct commitments for verifier (shifted to match circuit ecc_op_wire layout)
