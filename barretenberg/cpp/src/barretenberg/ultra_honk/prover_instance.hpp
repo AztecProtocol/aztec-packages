@@ -88,7 +88,7 @@ template <typename Flavor_> class ProverInstance_ {
 
     size_t compute_dyadic_size(Circuit&);
 
-    void allocate_wires();
+    void allocate_wires(const Circuit& circuit);
 
     void allocate_permutation_argument_polynomials();
 

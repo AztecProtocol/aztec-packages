@@ -55,7 +55,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         vinfo("allocating polynomials object in prover instance...");
 
         populate_memory_records(circuit);
-        allocate_wires();
+        allocate_wires(circuit);
         allocate_permutation_argument_polynomials();
         allocate_selectors(circuit);
         allocate_table_lookup_polynomials(circuit);
@@ -136,21 +136,40 @@ template <typename Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(C
     return circuit.get_circuit_subgroup_size(total_num_gates);
 }
 
-template <typename Flavor> void ProverInstance_<Flavor>::allocate_wires()
+template <typename Flavor> void ProverInstance_<Flavor>::allocate_wires(const Circuit& circuit)
 {
     BB_BENCH_NAME("allocate_wires");
 
     const size_t wire_size = trace_active_range_size();
+    static_cast<void>(circuit); // unused except in the Mega/Poseidon2 specialization below
 
     for (auto& wire : polynomials.get_wires()) {
         wire = Polynomial::shiftable(wire_size, dyadic_size(), Flavor::HasZK);
     }
 
-    // Auxiliary Poseidon2-block witness columns (e.g. K=8 layout). Same shiftable allocation as
-    // standard wires so `.shifted()` is well-defined; outside the Poseidon2 blocks they're zero.
+    // Auxiliary Poseidon2-block witness columns (e.g. K=8 layout). Sparse-allocated to cover only
+    // the poseidon2_compressed block range, with start_index at the block's trace offset and size
+    // equal to the block size. Outside the block these wires are identically zero by definition of
+    // the K=8 layout, so we don't need storage there. `.shifted()` decrements start_/end_ by 1 and
+    // is well-defined since start_index >= 1 (block is past the disabled head region).
+    //
+    // Masking is skipped on these wires (HasZK passed as false) because they are deterministically
+    // derived from the masked standard wires via the K=8 internal/terminal relations: any verifier
+    // eval-point query on p2_w_k is a fixed polynomial function of the already-masked w_l..w_4
+    // coefficients inside the poseidon block, plus public-zero coefficients elsewhere. No
+    // independent witness information is exposed by leaving these unmasked.
     if constexpr (requires { polynomials.get_poseidon2_wires(); }) {
+        const auto& p2_block = circuit.blocks.poseidon2_compressed;
+        const size_t p2_offset = p2_block.trace_offset();
+        const size_t p2_size = p2_block.size();
         for (auto& wire : polynomials.get_poseidon2_wires()) {
-            wire = Polynomial::shiftable(wire_size, dyadic_size(), Flavor::HasZK);
+            if (p2_size == 0) {
+                // Empty poseidon block: allocate a minimal single-element shiftable poly so
+                // .shifted() and downstream entity iteration remain valid. Storage is 1 fr.
+                wire = Polynomial(/*size=*/1, /*virtual_size=*/dyadic_size(), /*start_index=*/1);
+            } else {
+                wire = Polynomial(/*size=*/p2_size, /*virtual_size=*/dyadic_size(), /*start_index=*/p2_offset);
+            }
         }
     }
 }
