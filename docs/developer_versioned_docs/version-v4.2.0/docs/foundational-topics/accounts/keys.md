@@ -5,8 +5,6 @@ description: Understand the specialized key pairs used in Aztec accounts - nulli
 references: ["noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr"]
 ---
 
-import Image from "@theme/IdealImage";
-
 ## Account Keys in Aztec
 
 Unlike traditional blockchains where accounts use a single key pair, Aztec accounts use **multiple specialized key pairs**, each serving a distinct cryptographic purpose. This separation is fundamental to Aztec's privacy model and enables powerful security features that aren't possible with single-key systems.
@@ -114,7 +112,7 @@ Unlike nullifier and incoming viewing keys which are protocol-mandated, signing 
 
 When using signatures, the account contract validates the signature against a stored public key. Here's an example from the Schnorr account contract:
 
-```rust title="is_valid_impl" showLineNumbers 
+```rust title="is_valid_impl" showLineNumbers
 // Load public key from storage
 let storage = Storage::init(context);
 let public_key = storage.signing_public_key.get_note();
@@ -142,7 +140,7 @@ The flexibility of signing key storage and rotation is entirely up to your accou
 
 Your Aztec address is deterministically computed from your public keys and account contract. This enables anyone to encrypt notes to your address without needing additional information.
 
-<Image img={require("@site/static/img/address_derivation.png")} />
+![Address derivation](/img/address_derivation.svg)
 
 ```text
 pre_address = hash(public_keys_hash, partial_address)
