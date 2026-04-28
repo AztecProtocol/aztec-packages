@@ -79,12 +79,7 @@ export class GasSettings {
     public readonly maxPriorityFeesPerGas: GasFees,
   ) {}
 ```
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/foundational-topics/fees.md
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.1.0-rc.2/yarn-project/stdlib/src/gas/gas_settings.ts#L17-L26" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/gas/gas_settings.ts#L17-L26</a></sub></sup>
-=======
->>>>>>> 8b748b9c52 (feat(docs): apply FPC docs to developer versioned docs (#22541)):docs/developer_versioned_docs/version-v4.2.0/docs/foundational-topics/fees.md
-
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/yarn-project/stdlib/src/gas/gas_settings.ts#L26-L35" target="_blank" rel="noopener noreferrer">Source code: yarn-project/stdlib/src/gas/gas_settings.ts#L26-L35</a></sub></sup>
 
 <Gas_Settings_Components />
 
@@ -100,12 +95,6 @@ An account with Fee Juice can pay for its transactions directly. A new account c
 
 Alternatively, accounts can use [fee-paying contracts (FPCs)](../aztec-js/how_to_pay_fees.md#use-fee-payment-contracts) to pay for transactions. FPCs accept tokens and pay fees in Fee Juice on behalf of users. Common patterns include:
 
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/foundational-topics/fees.md
-- **Sponsored FPCs**: Pay fees unconditionally, enabling free transactions for users
-- **Token-accepting FPCs**: Accept a specific token in exchange for paying fees
-
-FPCs can contain arbitrary logic to authorize fee payments and can operate privately or publicly.
-=======
 The **Sponsored FPC** pays fees unconditionally, enabling free transactions. It is available on testnet, devnet, and local network. On mainnet, ecosystem-deployed FPCs are the practical option: the built-in reference FPC contract does not work on mainnet alpha because custom token class IDs are not included in the default public setup allowlist. As an example, Nethermind's [Private Multi Asset FPC](https://github.com/NethermindEth/aztec-fpc) demonstrates one such design; it accepts multiple tokens and routes fee payments as private notes.
 
 ### How FPCs work
@@ -130,17 +119,12 @@ Key properties for developers integrating with an FPC:
 - **Cold-start variant.** Some FPCs offer a cold-start entrypoint where a brand-new account can bridge tokens from L1, claim them on L2, and pay the fee in one transaction, with no prior L2 balance or authwit needed, because the FPC itself claims and distributes the bridged tokens. The user still needs L1 tokens and ETH for the initial bridge transaction.
 
 Fee payments themselves can also be made private via a fully private FPC that holds Fee Juice internally and nominates itself as the fee payer during the setup phase, without revealing who initiated the transaction. See [Pay Fees Privately](../aztec-js/how_to_use_private_fee_juice.md) for how this pattern works and an example implementation.
->>>>>>> 8b748b9c52 (feat(docs): apply FPC docs to developer versioned docs (#22541)):docs/developer_versioned_docs/version-v4.2.0/docs/foundational-topics/fees.md
 
 ### Teardown phase
 
 <Tx_Teardown_Phase />
 
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.1.0-rc.2/docs/foundational-topics/fees.md
-This enables FPCs to calculate the actual transaction cost and refund any overpayment to the user.
-=======
 This enables FPCs to calculate the actual transaction cost and refund any overpayment to the user. Not all FPC designs use the teardown phase; some charge a fixed quoted amount with no refund, keeping unused Fee Juice in the FPC's balance for future transactions.
->>>>>>> 8b748b9c52 (feat(docs): apply FPC docs to developer versioned docs (#22541)):docs/developer_versioned_docs/version-v4.2.0/docs/foundational-topics/fees.md
 
 ### Operator rewards
 

@@ -158,13 +158,6 @@ const { receipt: tx } = await bananaCoin.methods
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0-aztecnr-rc.2/yarn-project/end-to-end/src/e2e_fees/sponsored_payments.test.ts#L57-L68" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_fees/sponsored_payments.test.ts#L57-L68</a></sub></sup>
 
 
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.2.0-aztecnr-rc.2/docs/aztec-js/how_to_pay_fees.md
-### Use other Fee Paying Contracts
-
-Third-party FPCs can pay for your fees using custom logic, such as accepting different tokens instead of Fee Juice.
-
-#### Set gas settings
-=======
 ### Private fee payment
 
 For transactions where the fee payment itself should be private, you can use a fully private FPC, one that holds Fee Juice claimed from L1 as an internal private balance, works on every network, and never needs an onchain deployment. See [Pay Fees Privately](./how_to_use_private_fee_juice.md) for how this pattern works and a walkthrough using a community-built example.
@@ -172,16 +165,12 @@ For transactions where the fee payment itself should be private, you can use a f
 :::tip Shared salt for privacy
 When multiple apps derive the same private FPC address (using the same artifact and salt), every private fee payment joins a single, larger privacy set. See [recommended salt](./how_to_use_private_fee_juice.md#recommended-salt-0) for details.
 :::
->>>>>>> 8b748b9c52 (feat(docs): apply FPC docs to developer versioned docs (#22541)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-js/how_to_pay_fees.md
+
+### Third-party FPCs on testnet and mainnet
 
 ```typescript
 import { GasSettings } from "@aztec/stdlib/gas";
 
-<<<<<<< HEAD:docs/developer_versioned_docs/version-v4.2.0-aztecnr-rc.2/docs/aztec-js/how_to_pay_fees.md
-// node is from createAztecNodeClient() in the connection guide (see prerequisites)
-const maxFeesPerGas = (await node.getCurrentMinFees()).mul(1.5); //adjust this to your needs
-const gasSettings = GasSettings.default({ maxFeesPerGas });
-=======
 On networks where the Sponsored FPC is unavailable, third-party FPCs deployed by ecosystem teams let you pay fees in tokens other than Fee Juice. Each FPC provider typically offers an SDK or API that handles payment method construction on the client side. This may include quote fetching and authwit creation, though the exact flow depends on the FPC design. For background on how FPCs work at the protocol level, see [how FPCs work](../foundational-topics/fees.md#how-fpcs-work).
 
 #### Example: Nethermind Private Multi Asset FPC
@@ -223,7 +212,6 @@ const payment = await fpcClient.createPaymentMethod({
 // Use it like any other payment method
 const tx = await myContract.methods.myMethod(args).send({ fee: payment.fee });
 await tx.wait();
->>>>>>> 8b748b9c52 (feat(docs): apply FPC docs to developer versioned docs (#22541)):docs/developer_versioned_docs/version-v4.2.0/docs/aztec-js/how_to_pay_fees.md
 ```
 
 Private FPCs enable fee payments without revealing the payer's identity onchain:
