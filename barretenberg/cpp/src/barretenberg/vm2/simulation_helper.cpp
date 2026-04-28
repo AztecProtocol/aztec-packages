@@ -46,6 +46,7 @@
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
 
 // Gadgets.
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/gadgets/addressing.hpp"
 #include "barretenberg/vm2/simulation/gadgets/alu.hpp"
 #include "barretenberg/vm2/simulation/gadgets/bitwise.hpp"
@@ -182,13 +183,20 @@ std::tuple<EventsContainer, TxSimulationResult> AvmSimulationHelper::simulate_fo
     Poseidon2 poseidon2(
         execution_id_manager, greater_than, poseidon2_hash_emitter, poseidon2_perm_emitter, poseidon2_perm_mem_emitter);
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
+
     PublicDataTreeCheck public_data_tree_check(
         poseidon2, merkle_check, field_gt, execution_id_manager, public_data_tree_check_emitter);
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_emitter);
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, indexed_tree_check_emitter);
+    IndexedTreeCheck indexed_tree_check_written_slots(
+        poseidon2, merkle_check, field_gt, DOM_SEP__WRITTEN_SLOTS_MERKLE, indexed_tree_check_emitter);
+    IndexedTreeCheck indexed_tree_check_retrieved_bytecodes(
+        poseidon2, merkle_check, field_gt, DOM_SEP__RETRIEVED_BYTECODES_MERKLE, indexed_tree_check_emitter);
 
-    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(indexed_tree_check,
+    WrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(indexed_tree_check_written_slots,
                                                                          build_public_data_slots_tree());
-    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(indexed_tree_check, build_retrieved_bytecodes_tree());
+    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(indexed_tree_check_retrieved_bytecodes,
+                                                               build_retrieved_bytecodes_tree());
 
     // The protocol requires at least one non-revertible nullifier in the transaction (used for uniqueness of note
     // hashes).
@@ -411,8 +419,10 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
     PurePoseidon2 poseidon2;
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     PureWrittenPublicDataSlotsTreeCheck written_public_data_slots_tree_check(poseidon2);
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_emitter);
-    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(indexed_tree_check, build_retrieved_bytecodes_tree());
+    IndexedTreeCheck indexed_tree_check_retrieved_bytecodes(
+        poseidon2, merkle_check, field_gt, DOM_SEP__RETRIEVED_BYTECODES_MERKLE, indexed_tree_check_emitter);
+    RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check(indexed_tree_check_retrieved_bytecodes,
+                                                               build_retrieved_bytecodes_tree());
     EmitPublicLog emit_public_log_component(execution_id_manager, greater_than, emit_public_log_emitter);
     PureAlu alu;
     PureBitwise bitwise;

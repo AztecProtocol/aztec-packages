@@ -11,7 +11,7 @@ import { L2Block } from '../block/l2_block.js';
 import { type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
 import { ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
-import { CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
+import { CheckpointDataSchema, ProposedCheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
   ContractClassPublicSchema,
@@ -60,8 +60,14 @@ export type ArchiverSpecificConfig = {
   /** Whether to allow starting the archiver without debug/trace method support on Ethereum hosts */
   ethereumAllowNoDebugHosts?: boolean;
 
+  /** Skip the startup check that probes the L1 RPC for historical logs on the Rollup contract. */
+  archiverSkipHistoricalLogsCheck?: boolean;
+
   /** Skip validating checkpoint attestations (for testing purposes only) */
   skipValidateCheckpointAttestations?: boolean;
+
+  /** Skip promoting proposed checkpoints during L1 sync (for testing purposes only) */
+  skipPromoteProposedCheckpointDuringL1Sync?: boolean;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -72,7 +78,9 @@ export const ArchiverSpecificConfigSchema = z.object({
   archiverStoreMapSizeKb: schemas.Integer.optional(),
   maxAllowedEthClientDriftSeconds: schemas.Integer.optional(),
   ethereumAllowNoDebugHosts: z.boolean().optional(),
+  archiverSkipHistoricalLogsCheck: z.boolean().optional(),
   skipValidateCheckpointAttestations: z.boolean().optional(),
+  skipPromoteProposedCheckpointDuringL1Sync: z.boolean().optional(),
 });
 
 export type ArchiverApi = Omit<
@@ -150,6 +158,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args()
     .returns(z.object({ genesisArchiveRoot: schemas.Fr })),
   getL1Timestamp: z.function().args().returns(schemas.BigInt.optional()),
+  getProposedCheckpoint: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
+  getProposedCheckpointOnly: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
   syncImmediate: z.function().args().returns(z.void()),
   isPendingChainInvalid: z.function().args().returns(z.boolean()),
   getPendingChainValidationStatus: z.function().args().returns(ValidateCheckpointResultSchema),

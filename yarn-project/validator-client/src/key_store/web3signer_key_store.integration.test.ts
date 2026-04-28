@@ -1,4 +1,4 @@
-import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { makeEthSignDigest, recoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -15,7 +15,7 @@ import { Web3SignerKeyStore } from './web3signer_key_store.js';
 function createMockContext(): SigningContext {
   return {
     slot: SlotNumber(1),
-    blockNumber: BlockNumber(1),
+    checkpointNumber: CheckpointNumber(0),
     dutyType: DutyType.ATTESTATION,
   };
 }

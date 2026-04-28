@@ -4,7 +4,7 @@
 #include <limits>
 #include <stdexcept>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/events/checkpoint_event_type.hpp"
 
 namespace bb::avm2::simulation {
@@ -71,7 +71,8 @@ void PublicDataTreeCheck::assert_read(const FF& slot,
     FF leaf_slot = compute_leaf_slot(contract_address, slot);
     // Low leaf membership
     FF low_leaf_hash = poseidon2.hash(low_leaf_preimage.get_hash_inputs());
-    merkle_check.assert_membership(low_leaf_hash, low_leaf_index, sibling_path, snapshot.root);
+    merkle_check.assert_membership(
+        DOM_SEP__PUBLIC_DATA_MERKLE, low_leaf_hash, low_leaf_index, sibling_path, snapshot.root);
 
     // Low leaf and value validation
     bool exists = low_leaf_preimage.leaf.slot == leaf_slot;
@@ -149,8 +150,12 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
 
     FF updated_low_leaf_hash = poseidon2.hash(updated_low_leaf_preimage.get_hash_inputs());
 
-    FF intermediate_root = merkle_check.write(
-        low_leaf_hash, updated_low_leaf_hash, low_leaf_index, low_leaf_sibling_path, prev_snapshot.root);
+    FF intermediate_root = merkle_check.write(DOM_SEP__PUBLIC_DATA_MERKLE,
+                                              low_leaf_hash,
+                                              updated_low_leaf_hash,
+                                              low_leaf_index,
+                                              low_leaf_sibling_path,
+                                              prev_snapshot.root);
 
     AppendOnlyTreeSnapshot next_snapshot = AppendOnlyTreeSnapshot{
         .root = intermediate_root,
@@ -164,8 +169,12 @@ AppendOnlyTreeSnapshot PublicDataTreeCheck::write(const FF& slot,
             PublicDataLeafValue(leaf_slot, value), low_leaf_preimage.nextIndex, low_leaf_preimage.nextKey);
 
         new_leaf_hash = poseidon2.hash(new_leaf.get_hash_inputs());
-        next_snapshot.root = merkle_check.write(
-            FF(0), new_leaf_hash, prev_snapshot.next_available_leaf_index, insertion_sibling_path, intermediate_root);
+        next_snapshot.root = merkle_check.write(DOM_SEP__PUBLIC_DATA_MERKLE,
+                                                FF(0),
+                                                new_leaf_hash,
+                                                prev_snapshot.next_available_leaf_index,
+                                                insertion_sibling_path,
+                                                intermediate_root);
         next_snapshot.next_available_leaf_index++;
     }
 

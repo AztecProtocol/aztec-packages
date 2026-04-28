@@ -18,7 +18,11 @@ using FlavorTypes = testing::Types<UltraFlavor, UltraZKFlavor, UltraKeccakFlavor
 #endif
 template <typename T> using PermutationTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(PermutationTests, FlavorTypes);
-using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor>;
+#ifdef STARKNET_GARAGA_FLAVORS
+using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, MegaFlavor>;
+#else
+using NonZKFlavorTypes = testing::Types<UltraFlavor, UltraKeccakFlavor, MegaFlavor>;
+#endif
 template <typename T> using PermutationNonZKTests = UltraHonkTests<T>;
 TYPED_TEST_SUITE(PermutationNonZKTests, NonZKFlavorTypes);
 
@@ -256,6 +260,93 @@ TYPED_TEST(PermutationNonZKTests, ZPermZeroedOutFailure)
 }
 
 /**
+ * @brief Test that z_perm must be zero at the lagrange_first row (row TRACE_OFFSET).
+ *
+ * @details The permutation argument includes an initialization constraint: lagrange_first * z_perm = 0.
+ * The grand product relies on z_perm being 0 at the lagrange_first row so that
+ * (z_perm + lagrange_first) evaluates to 1 there.
+ *
+ * This test:
+ *   1. Builds a valid circuit and verifies the permutation relation holds
+ *   2. Expands z_perm to a full polynomial to access the lagrange_first row
+ *   3. Tampers with z_perm at that row, making it non-zero
+ *   4. Verifies the permutation relation now fails (sub-relation 2: lagrange_first * z_perm = 0)
+ *
+ * @note This test excludes ZK flavors because we manually tamper with z_perm, which would
+ * conflict with the ZK masking applied to witness polynomials.
+ */
+TYPED_TEST(PermutationNonZKTests, ZPermNonZeroAtFirstRowFailure)
+{
+    using Flavor = TypeParam;
+    using Builder = typename Flavor::CircuitBuilder;
+
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = Flavor::VerificationKey;
+
+    using Prover = TestFixture::Prover;
+
+    Builder builder;
+
+    auto a = fr::random_element();
+    auto b = fr::random_element();
+    auto c = a + b;
+
+    uint32_t a_idx = builder.add_variable(a);
+    uint32_t a_copy_idx = builder.add_variable(a);
+    uint32_t b_idx = builder.add_variable(b);
+    uint32_t c_idx = builder.add_variable(c);
+
+    builder.create_add_gate({ a_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    builder.create_add_gate({ a_copy_idx, b_idx, c_idx, 1, 1, -1, 0 });
+    builder.assert_equal(a_copy_idx, a_idx);
+
+    TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(builder);
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    // Verify the permutation relation holds before tampering.
+    auto permutation_relation_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+        prover_instance->polynomials, prover_instance->relation_parameters, "UltraPermutation - Before Tampering");
+    EXPECT_TRUE(permutation_relation_failures.empty());
+
+    // lagrange_first is at row TRACE_OFFSET.
+    const size_t first_row = ProverInstance::TRACE_OFFSET;
+
+    // Verify lagrange_first is indeed 1 at the expected position.
+    ASSERT_EQ(prover_instance->polynomials.lagrange_first[first_row], fr(1))
+        << "lagrange_first should be 1 at row TRACE_OFFSET";
+
+    auto& z_perm = prover_instance->polynomials.z_perm;
+    auto& z_perm_shift = prover_instance->polynomials.z_perm_shift;
+
+    // z_perm is shiftable (start_index = 1), so z_perm at first_row may be a virtual zero.
+    // Expand to a full polynomial to write at that index. Also expand z_perm_shift independently
+    // (it cannot be derived via shifted() from a full polynomial with start_index = 0).
+    prover_instance->polynomials.z_perm = z_perm.full();
+    prover_instance->polynomials.z_perm_shift = z_perm_shift.full();
+
+    // Sanity check: z_perm is currently 0 at the lagrange_first row
+    ASSERT_EQ(prover_instance->polynomials.z_perm[first_row], fr(0));
+
+    // Tamper: set z_perm to non-zero where lagrange_first is active
+    prover_instance->polynomials.z_perm.at(first_row) = fr(1);
+
+    // Verify the permutation relation now fails.
+    auto tampered_failures = RelationChecker<Flavor>::template check<UltraPermutationRelation<fr>>(
+        prover_instance->polynomials,
+        prover_instance->relation_parameters,
+        "UltraPermutation - After setting z_perm != 0 at lagrange_first");
+    EXPECT_FALSE(tampered_failures.empty());
+    // Sub-relation 2 (lagrange_first * z_perm = 0) should fail at the lagrange_first row
+    ASSERT_TRUE(tampered_failures.contains(2)) << "Expected sub-relation 2 (z_perm init) to fail";
+    ASSERT_EQ(tampered_failures.at(2), first_row) << "Expected failure at lagrange_first row";
+}
+
+/**
  * @brief Test that z_perm_shift must be zero at the last row (where lagrange_last = 1).
  *
  * @details The permutation argument includes a boundary constraint: z_perm_shift * lagrange_last = 0.
@@ -352,7 +443,7 @@ TYPED_TEST(PermutationNonZKTests, SigmaCorruptionFailure)
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = typename TestFixture::Prover;
 
-    auto builder = UltraCircuitBuilder();
+    auto builder = typename Flavor::CircuitBuilder();
 
     // Create variables with a copy constraint
     auto a = fr::random_element();
@@ -459,7 +550,7 @@ TYPED_TEST(PermutationNonZKTests, PublicInputDeltaMismatch)
     using VerificationKey = typename Flavor::VerificationKey;
     using Prover = typename TestFixture::Prover;
 
-    auto builder = UltraCircuitBuilder();
+    auto builder = typename Flavor::CircuitBuilder();
 
     // Add a public input
     fr public_value = fr(314159);

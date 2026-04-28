@@ -133,10 +133,9 @@ void contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // NEXT_PC
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::execution_sel_instruction_fetching_success)) *
-            ((static_cast<View>(in.get(C::execution_pc)) + static_cast<View>(in.get(C::execution_instr_length))) -
-             static_cast<View>(in.get(C::execution_next_pc)));
+        auto tmp = static_cast<View>(in.get(C::execution_sel_instruction_fetching_success)) *
+                   ((static_cast<View>(in.get(C::execution_pc)) + static_cast<View>(in.get(C::execution_instr_size))) -
+                    static_cast<View>(in.get(C::execution_next_pc)));
         std::get<15>(evals) += (tmp * scaling_factor);
     }
     { // PC_NEW_CONTEXT_INIT

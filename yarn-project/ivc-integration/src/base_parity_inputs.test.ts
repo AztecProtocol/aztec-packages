@@ -37,7 +37,7 @@ describe('Base Parity Benchmark Inputs', () => {
 
     // Create base parity inputs for the first slice
     const vkTreeRoot = getVKTreeRoot();
-    const baseParityInputs = ParityBasePrivateInputs.fromSlice(l1ToL2Messages, 0, vkTreeRoot);
+    const baseParityInputs = ParityBasePrivateInputs.fromSlice(l1ToL2Messages, 0, vkTreeRoot, Fr.random());
     logger.info('Created base parity inputs');
 
     // Convert inputs to Noir format (inline the mapping since it's simple)
@@ -45,6 +45,8 @@ describe('Base Parity Benchmark Inputs', () => {
       msgs: baseParityInputs.msgs.map(m => m.toString()),
       // eslint-disable-next-line camelcase
       vk_tree_root: baseParityInputs.vkTreeRoot.toString(),
+      // eslint-disable-next-line camelcase
+      prover_id: baseParityInputs.proverId.toString(),
     };
     logger.info('Converted inputs to Noir format');
 

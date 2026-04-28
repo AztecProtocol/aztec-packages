@@ -58,10 +58,9 @@ describe('Registry', () => {
       genesisArchiveRoot: Fr.random(),
       realVerifier: false,
     });
-    // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
+    // Since the registry cannot "see" these periphery contracts, we omit them from the addresses for this test
     deployedAddresses = omit(
       deployed.l1ContractAddresses,
-      'slashFactoryAddress',
       'feeAssetHandlerAddress',
       'stakingAssetHandlerAddress',
       'zkPassportVerifierAddress',

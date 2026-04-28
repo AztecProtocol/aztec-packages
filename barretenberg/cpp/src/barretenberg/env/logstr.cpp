@@ -23,7 +23,6 @@
 // clang-format on
 #endif
 
-namespace {
 //---------------------------------------------------------------------
 // peak_rss_bytes()
 //---------------------------------------------------------------------
@@ -52,8 +51,6 @@ std::size_t peak_rss_bytes()
 
     return 0; // fallback on error / unknown OS
 }
-
-} // namespace
 
 //---------------------------------------------------------------------
 // C-linkage wrapper: log_with_mem_usage()

@@ -76,11 +76,8 @@ class Poseidon2FailureTests : public ::testing::Test {
         // Generate challenges via transcript for Fiat-Shamir
         SubrelationSeparator subrelation_separator = prover_transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-        std::vector<FF> gate_challenges(virtual_log_n);
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            gate_challenges[idx] =
-                prover_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        std::vector<FF> gate_challenges =
+            prover_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
         // Set gate challenges on prover instance
         prover_instance->gate_challenges = gate_challenges;
@@ -98,16 +95,12 @@ class Poseidon2FailureTests : public ::testing::Test {
 
         SubrelationSeparator verifier_subrelation_separator =
             verifier_transcript->template get_challenge<FF>("Sumcheck:alpha");
-        std::vector<FF> verifier_gate_challenges(virtual_log_n);
-        for (size_t idx = 0; idx < virtual_log_n; idx++) {
-            verifier_gate_challenges[idx] =
-                verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        std::vector<FF> verifier_gate_challenges =
+            verifier_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
         // Run sumcheck verifier
         SumcheckVerifier verifier(verifier_transcript, verifier_subrelation_separator, virtual_log_n);
-        auto result = verifier.verify(
-            prover_instance->relation_parameters, verifier_gate_challenges, std::vector<FF>(virtual_log_n, 1));
+        auto result = verifier.verify(prover_instance->relation_parameters, verifier_gate_challenges);
         EXPECT_EQ(result.verified, expected_result);
     };
 };

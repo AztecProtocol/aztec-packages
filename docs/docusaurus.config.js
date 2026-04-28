@@ -18,18 +18,44 @@ const path = require("path");
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
 
-// Load separate version files for each docs instance
-const developerVersions = require("./developer_versions.json");
-const networkVersions = require("./network_versions.json");
+// Version config files are the source of truth for type→version mappings.
+// Generate *_versions.json: config-mapped versions first (preserving config order),
+// then any extra directories not yet in the config (e.g. freshly cut versions).
+function syncVersionsFromConfig(configFile, versionsFile, versionedDocsDir) {
+  const config = require(configFile);
+  const docsDir = path.join(__dirname, versionedDocsDir);
+  const configVersions = [...new Set(Object.values(config).filter(
+    (v) => v && fs.existsSync(path.join(docsDir, `version-${v}`))
+  ))];
+  const configVersionSet = new Set(Object.values(config).filter(Boolean));
+  const extraVersions = fs.existsSync(docsDir)
+    ? fs.readdirSync(docsDir)
+        .filter((d) => d.startsWith("version-"))
+        .map((d) => d.replace("version-", ""))
+        .filter((v) => !configVersionSet.has(v))
+    : [];
+  fs.writeFileSync(
+    path.join(__dirname, versionsFile),
+    JSON.stringify([...configVersions, ...extraVersions], null, 2) + "\n"
+  );
+  return config;
+}
 
-// Find specific versions dynamically for Developer docs
-const nightlyVersion = developerVersions.find((v) => v.includes("nightly"));
-const devnetVersion = developerVersions.find((v) => v.includes("devnet"));
-const developerTestnetVersion = developerVersions.find((v) => v.includes("rc"));
+const developerVersionConfig = syncVersionsFromConfig(
+  "./developer_version_config.json",
+  "developer_versions.json",
+  "developer_versioned_docs"
+);
+const mainnetDeveloperVersion = developerVersionConfig.mainnet || null;
+const developerTestnetVersion = developerVersionConfig.testnet || null;
 
-// Find specific versions dynamically for Network docs
-const ignitionVersion = networkVersions.find((v) => v.includes("ignition"));
-const testnetVersion = networkVersions.find((v) => !v.includes("ignition"));
+const networkVersionConfig = syncVersionsFromConfig(
+  "./network_version_config.json",
+  "network_versions.json",
+  "network_versioned_docs"
+);
+const mainnetNetworkVersion = networkVersionConfig.mainnet || null;
+const testnetVersion = networkVersionConfig.testnet || null;
 
 // Always serve from processed-docs (with resolved macros)
 // Preprocessing runs on both `yarn start` and `yarn build`
@@ -108,7 +134,7 @@ const config = {
     },
   ],
   plugins: [
-    // Developer docs instance - testnet/devnet/nightly versions
+    // Developer docs instance - mainnet/testnet versions
     [
       "@docusaurus/plugin-content-docs",
       {
@@ -124,26 +150,22 @@ const config = {
         },
         // Version configuration for Build docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: developerTestnetVersion,
+        lastVersion: mainnetDeveloperVersion || developerTestnetVersion,
         versions: {
-          ...(developerTestnetVersion && {
-            [developerTestnetVersion]: {
-              label: `Testnet (${developerTestnetVersion})`,
+          ...(mainnetDeveloperVersion && {
+            [mainnetDeveloperVersion]: {
+              label: mainnetDeveloperVersion === developerTestnetVersion
+                ? `Alpha / Testnet (${mainnetDeveloperVersion})`
+                : `Alpha (${mainnetDeveloperVersion})`,
               path: "",
               banner: "none",
             },
           }),
-          ...(devnetVersion && {
-            [devnetVersion]: {
-              label: `Devnet (${devnetVersion})`,
-              path: "devnet",
+          ...(developerTestnetVersion && developerTestnetVersion !== mainnetDeveloperVersion && {
+            [developerTestnetVersion]: {
+              label: `Testnet (${developerTestnetVersion})`,
+              path: mainnetDeveloperVersion ? "testnet" : "",
               banner: "none",
-            },
-          }),
-          ...(nightlyVersion && {
-            [nightlyVersion]: {
-              path: "nightly",
-              banner: "unreleased",
             },
           }),
           ...(process.env.CONTEXT !== "production" && {
@@ -157,7 +179,7 @@ const config = {
         rehypePlugins,
       },
     ],
-    // Operate docs instance (node operators) - testnet/ignition versions
+    // Operate docs instance (node operators) - alpha/testnet versions
     // Note: Plugin ID remains "network" for versioned docs compatibility (network_versioned_docs/)
     [
       "@docusaurus/plugin-content-docs",
@@ -174,16 +196,21 @@ const config = {
         },
         // Version configuration for Operate docs
         includeCurrentVersion: process.env.CONTEXT !== "production",
-        lastVersion: process.env.CONTEXT !== "production" ? "current" : ignitionVersion,
+        lastVersion:
+          process.env.CONTEXT !== "production"
+            ? "current"
+            : mainnetNetworkVersion,
         versions: {
-          ...(ignitionVersion && {
-            [ignitionVersion]: {
-              label: `Ignition (${ignitionVersion.replace("-ignition", "")})`,
-              path: process.env.CONTEXT !== "production" ? "ignition" : "",
+          ...(mainnetNetworkVersion && {
+            [mainnetNetworkVersion]: {
+              label: mainnetNetworkVersion === testnetVersion
+                ? `Alpha / Testnet (${mainnetNetworkVersion})`
+                : `Alpha (${mainnetNetworkVersion})`,
+              path: process.env.CONTEXT !== "production" ? "alpha" : "",
               banner: "none",
             },
           }),
-          ...(testnetVersion && {
+          ...(testnetVersion && testnetVersion !== mainnetNetworkVersion && {
             [testnetVersion]: {
               label: `Testnet (${testnetVersion})`,
               path: "testnet",
@@ -193,7 +220,7 @@ const config = {
           ...(process.env.CONTEXT !== "production" && {
             current: {
               label: "dev",
-              path: "", // Default path during development
+              path: "",
             },
           }),
         },
@@ -237,12 +264,10 @@ const config = {
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
-        docsDir: developerTestnetVersion
-          ? `developer_versioned_docs/version-${developerTestnetVersion}/`
-          : `developer_versioned_docs/version-${developerVersions[0]}/`,
+        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}/`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
-        version: developerTestnetVersion || developerVersions[0],
+        version: mainnetDeveloperVersion || developerTestnetVersion,
         pathTransformation: {
           ignorePaths: ["docs"],
         },

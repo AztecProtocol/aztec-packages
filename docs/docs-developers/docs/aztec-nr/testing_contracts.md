@@ -2,7 +2,7 @@
 title: Testing Contracts
 tags: [contracts, tests, testing, noir]
 keywords: [tests, testing, noir]
-sidebar_position: 5
+sidebar_position: 6
 description: Write and run tests for your Aztec smart contracts using Noir's TestEnvironment.
 ---
 
@@ -44,38 +44,30 @@ aztec test
 Always use `aztec test` instead of `nargo test`. The `TestEnvironment` requires the TXE (Test eXecution Environment) oracle resolver.
 :::
 
-## Keep tests in the test crate
-
-When you create a project with `aztec new` or `aztec init`, the generated workspace has two crates: `<name>_contract` and `<name>_test`. It is important that all tests live in the `<name>_test` crate, **not** in the `<name>_contract` crate.
-
-If you place `#[test]` functions inside the contract crate, `aztec compile` will emit a warning:
-
-```
-WARNING: Found tests in contract crate(s):
-  my_contract::test_something
-Tests should be in a dedicated test crate, not in the contract crate.
-```
-
-The reason is **unnecessary recompilation**: the contract artifact depends on everything inside the contract crate. If tests live there too, editing a test changes the crate and forces the contract to be recompiled and reprocessed, even though the contract logic itself has not changed. By keeping tests in a separate crate, you can iterate on tests without triggering a full contract rebuild.
-
 ## Basic test structure
 
-Tests live in `<name>_test/src/lib.nr` and import the contract crate by name (not `crate::`):
+Tests live in the same crate as your contract. `aztec new` creates a single-crate project, and the convention is to place `#[test]` functions in a `mod tests` block alongside the contract (or in submodules of the crate):
 
 ```rust
-use my_contract::MyContract;
-use aztec::{
-    protocol::address::AztecAddress,
-    test::helpers::test_environment::TestEnvironment,
-};
+use aztec::macros::aztec;
 
-#[test]
-unconstrained fn test_basic_flow() {
-    // 1. Create test environment
-    let mut env = TestEnvironment::new();
+#[aztec]
+pub contract MyContract {
+    // ...contract functions...
+}
 
-    // 2. Create accounts
-    let owner = env.create_light_account();
+mod tests {
+    use super::MyContract;
+    use aztec::test::helpers::test_environment::TestEnvironment;
+
+    #[test]
+    unconstrained fn test_basic_flow() {
+        // 1. Create test environment
+        let mut env = TestEnvironment::new();
+
+        // 2. Create accounts
+        let _owner = env.create_light_account();
+    }
 }
 ```
 
@@ -83,17 +75,19 @@ unconstrained fn test_basic_flow() {
 
 - Tests run in parallel by default
 - Use `unconstrained` functions for faster execution
-- See all `TestEnvironment` methods [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/test/helpers/test_environment.nr)
+- See all `TestEnvironment` methods [here](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/test/helpers/test_environment/struct.TestEnvironment)
 
 :::
 
 :::tip Organizing test files
-Tests live in the separate `<name>_test` crate that `aztec new` creates. You can organize them into modules:
+For larger test suites, split tests into submodules of your crate rather than keeping them all inside `main.nr`:
 
-- Split tests into modules like `<name>_test/src/transfer_tests.nr`, `<name>_test/src/auth_tests.nr`
-- Import them in `<name>_test/src/lib.nr` with `mod transfer_tests;`, `mod auth_tests;`
-- Share setup functions in `<name>_test/src/utils.nr`
-  :::
+- Create modules like `src/transfer_tests.nr`, `src/auth_tests.nr`
+- Declare them from `src/main.nr` with `mod transfer_tests;`, `mod auth_tests;`
+- Share setup functions in `src/test_utils.nr`
+
+See the [aztec-standards token contract](https://github.com/defi-wonderland/aztec-standards/tree/dev/src/token_contract) for a worked example of this layout.
+:::
 
 ## Deploying contracts
 
@@ -107,7 +101,7 @@ let deployer = env.deploy("../other_contract");
 ```
 
 :::warning
-It is always necessary to deploy a contract in order to test it. **It is important to compile before testing**, as `aztec test` does not recompile them on changes. Think of it as regenerating the bytecode and ABI so it becomes accessible externally.
+It is always necessary to deploy a contract in order to test it. `aztec test` automatically compiles contracts when changes are detected, but you can also manually compile with `aztec compile` to regenerate the bytecode and ABI.
 :::
 
 You can then choose whatever you need to initialize by interfacing with your initializer and calling it:
@@ -169,7 +163,7 @@ let balance = env.view_public(Token::at(token_address).balance_of_public(owner))
 
 ```rust
 // Simulate utility/view functions (unconstrained)
-let total = env.simulate_utility(Token::at(token_address).balance_of_private(owner));
+let total = env.execute_utility(Token::at(token_address).balance_of_private(owner));
 ```
 
 :::tip Helper function pattern
@@ -183,7 +177,7 @@ pub unconstrained fn check_balance(
     expected: u128,
 ) {
     assert_eq(
-        env.simulate_utility(Token::at(token_address).balance_of_private(owner)),
+        env.execute_utility(Token::at(token_address).balance_of_private(owner)),
         expected
     );
 }
@@ -282,7 +276,7 @@ unconstrained fn test_public_authwit() {
     let (env, token_address, owner, spender) = setup(true);
 
     // Create public action that needs authorization
-    let transfer_call = Token::at(token_address).transfer_public(owner, recipient, 100, nonce);
+    let transfer_call = Token::at(token_address).transfer_in_public(owner, recipient, 100, nonce);
 
     // Grant public authorization
     add_public_authwit_from_call(env, owner, spender, transfer_call);
@@ -294,7 +288,7 @@ unconstrained fn test_public_authwit() {
 
 ## Time traveling
 
-Contract calls do not advance the timestamp by default, despite each of them resulting in a block with a single transaction. Block timestamp can instead by manually manipulated by any of the following methods:
+Contract calls do not advance the timestamp by default, despite each of them resulting in a block with a single transaction. Block timestamp can instead be manually manipulated by any of the following methods:
 
 ```rust
 // Sets the timestamp of the next block to be mined, i.e. of the next public execution. Does not affect private execution.
@@ -305,7 +299,7 @@ env.advance_next_block_timestamp_by(duration);
 
 // Mines an empty block at a given timestamp, causing the next public execution to occur at this time (like `set_next_block_timestamp`), but also allowing for private execution to happen using this empty block as the anchor block.
 env.mine_block_at(block_timestamp);
-````
+```
 
 ## Testing failure cases
 

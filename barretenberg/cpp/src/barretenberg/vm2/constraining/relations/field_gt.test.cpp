@@ -336,7 +336,7 @@ TEST(FieldGreaterThanConstrainingTest, NegativeSelectorConsistency)
     // Disable the selector after the first row
     trace.set(Column::ff_gt_sel, 2, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_SEL_CONSISTENCY), "SEL_CONSISTENCY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<ff_gt>(trace, ff_gt::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
 }
 
 TEST(FieldGreaterThanConstrainingTest, NegativeEraseShift)

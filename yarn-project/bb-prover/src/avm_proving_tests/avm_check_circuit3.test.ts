@@ -1,4 +1,4 @@
-import { DEFAULT_L2_GAS_LIMIT, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
+import { MAX_NULLIFIERS_PER_TX, MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
@@ -106,13 +106,18 @@ describe('AVM check-circuit – unhappy paths 3', () => {
   );
 
   it(
-    'top-level exceptional halt during revertible nullifiers (collision), remaining revertibles are skipped, and teardown is fine',
+    'top-level exceptional halt during revertible nullifiers (limit reached), remaining revertibles are skipped, and teardown is fine',
     async () => {
+      // Note: nullifier *collisions* during revertible insertions are unprovable (not revertible),
+      // so we use the side-effect limit path to exercise the skip-to-teardown behavior.
+      // 1 non-revertible + MAX_NULLIFIERS_PER_TX revertible exceeds the limit on the last revertible
+      // nullifier insertion; subsequent revertible note hashes and L2→L1 messages are skipped.
+      const revertibleNullifiers = Array.from({ length: MAX_NULLIFIERS_PER_TX }, (_, i) => new Fr(100_000 + i));
       await tester.simProveVerify(
         sender,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
-          // skipped after nullifier collision
+          // skipped after the revertible insertion failure
           { address: avmTestContractInstance.address, fnName: 'add_args_return', args: [new Fr(1), new Fr(2)] },
         ],
         // and progression to teardown should be fine!
@@ -125,14 +130,7 @@ describe('AVM check-circuit – unhappy paths 3', () => {
         /*feePayer=*/ sender,
         /*privateInsertions=*/ {
           revertible: {
-            // nullifier collision ends revertible insertions and skips to teardown
-            nullifiers: [
-              new Fr(66666),
-              new Fr(42000),
-              /*duplicate*/ new Fr(66666),
-              /*rest are skipped*/ new Fr(11111),
-              new Fr(22222),
-            ],
+            nullifiers: revertibleNullifiers,
             // skipped ...
             noteHashes: [new Fr(11111), new Fr(22222), new Fr(33333), new Fr(44444), new Fr(55555)],
             // skipped ...
@@ -190,8 +188,9 @@ describe('AVM check-circuit – unhappy paths 3', () => {
     'a nested exceptional halt is recovered from in caller',
     async () => {
       // The contract requires >200k DA gas (it allocates da_gas_left - 200_000 to the nested call).
-      // Use a higher DA gas limit than the default since DEFAULT_DA_GAS_LIMIT is ~196k.
-      const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, DEFAULT_L2_GAS_LIMIT);
+      // Use a higher DA gas limit than the default since APPROXIMATE_MAX_DA_GAS_PER_BLOCK is ~196k.
+      // For more information, refer to yarn-project/stdlib/src/gas/gas_settings.ts
+      const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
       await tester.simProveVerifyAppLogic(
         { address: avmTestContractInstance.address, fnName: 'external_call_to_divide_by_zero_recovers', args: [] },
         /*expectRevert=*/ false,

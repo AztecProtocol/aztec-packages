@@ -103,6 +103,16 @@ export function executeBB(
       }, timeout);
     }
 
+    // Forward termination signals so bb doesn't survive as an orphan when the node parent exits.
+    const forwardSignal = (signal: NodeJS.Signals) => {
+      if (bb.pid) {
+        bb.kill(signal);
+      }
+    };
+    process.on('SIGINT', forwardSignal);
+    process.on('SIGTERM', forwardSignal);
+    process.on('SIGHUP', forwardSignal);
+
     readline.createInterface({ input: bb.stdout }).on('line', logger);
     readline.createInterface({ input: bb.stderr }).on('line', logger);
 
@@ -110,6 +120,9 @@ export function executeBB(
       if (timeoutId) {
         clearTimeout(timeoutId);
       }
+      process.off('SIGINT', forwardSignal);
+      process.off('SIGTERM', forwardSignal);
+      process.off('SIGHUP', forwardSignal);
       if (resultParser(exitCode)) {
         resolve({ status: BB_RESULT.SUCCESS, exitCode, signal });
       } else {

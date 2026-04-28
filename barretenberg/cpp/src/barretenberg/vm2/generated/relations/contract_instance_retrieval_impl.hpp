@@ -20,6 +20,7 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
     const auto constants_CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS = FF(2);
     const auto constants_AVM_PUBLIC_INPUTS_PROTOCOL_CONTRACTS_ROW_IDX = FF(8);
     const auto constants_DOM_SEP__SILOED_NULLIFIER = FF(57496191);
+    const auto constants_DOM_SEP__NULLIFIER_MERKLE = FF(1157584160);
     const auto contract_instance_retrieval_NOT_EXISTS = (FF(1) - in.get(C::contract_instance_retrieval_exists));
 
     {
@@ -103,62 +104,69 @@ void contract_instance_retrievalImpl<FF_>::accumulate(ContainerOverSubrelations&
                     CView(constants_DOM_SEP__SILOED_NULLIFIER));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
-    { // UNCHANGED_ADDRESS_NON_PROTOCOL
+    {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_should_check_nullifier)) *
+                   (static_cast<View>(in.get(C::contract_instance_retrieval_nullifier_merkle_separator)) -
+                    CView(constants_DOM_SEP__NULLIFIER_MERKLE));
+        std::get<11>(evals) += (tmp * scaling_factor);
+    }
+    { // UNCHANGED_ADDRESS_NON_PROTOCOL
+        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_sel)) *
                    (FF(1) - static_cast<View>(in.get(C::contract_instance_retrieval_is_protocol_contract))) *
                    (static_cast<View>(in.get(C::contract_instance_retrieval_derived_address)) -
                     static_cast<View>(in.get(C::contract_instance_retrieval_address)));
-        std::get<11>(evals) += (tmp * scaling_factor);
-    }
-    { // INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE
-        using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_sel)) *
-                   (FF(1) - static_cast<View>(in.get(C::contract_instance_retrieval_exists))) *
-                   static_cast<View>(in.get(C::contract_instance_retrieval_salt));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
-    { // INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE
+    { // INSTANCE_MEMBER_SALT_IS_ZERO_IF_DNE
         using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_sel)) *
                    (FF(1) - static_cast<View>(in.get(C::contract_instance_retrieval_exists))) *
-                   static_cast<View>(in.get(C::contract_instance_retrieval_deployer_addr));
+                   static_cast<View>(in.get(C::contract_instance_retrieval_salt));
         std::get<13>(evals) += (tmp * scaling_factor);
     }
-    { // INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE
+    { // INSTANCE_MEMBER_DEPLOYER_IS_ZERO_IF_DNE
         using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_sel)) *
                    (FF(1) - static_cast<View>(in.get(C::contract_instance_retrieval_exists))) *
-                   static_cast<View>(in.get(C::contract_instance_retrieval_current_class_id));
+                   static_cast<View>(in.get(C::contract_instance_retrieval_deployer_addr));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
-    { // INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE
+    { // INSTANCE_MEMBER_CLASS_ID_IS_ZERO_IF_DNE
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_sel)) *
                    (FF(1) - static_cast<View>(in.get(C::contract_instance_retrieval_exists))) *
-                   static_cast<View>(in.get(C::contract_instance_retrieval_original_class_id));
+                   static_cast<View>(in.get(C::contract_instance_retrieval_current_class_id));
         std::get<15>(evals) += (tmp * scaling_factor);
     }
-    { // INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE
+    { // INSTANCE_MEMBER_ORIGINAL_CLASS_ID_IS_ZERO_IF_DNE
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_sel)) *
                    (FF(1) - static_cast<View>(in.get(C::contract_instance_retrieval_exists))) *
-                   static_cast<View>(in.get(C::contract_instance_retrieval_init_hash));
+                   static_cast<View>(in.get(C::contract_instance_retrieval_original_class_id));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
-    { // PROTOCOL_CONTRACT_CLASS_ID_IS_ORIGINAL
+    { // INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_sel)) *
+                   (FF(1) - static_cast<View>(in.get(C::contract_instance_retrieval_exists))) *
+                   static_cast<View>(in.get(C::contract_instance_retrieval_init_hash));
+        std::get<17>(evals) += (tmp * scaling_factor);
+    }
+    { // PROTOCOL_CONTRACT_CLASS_ID_IS_ORIGINAL
+        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::contract_instance_retrieval_is_protocol_contract)) *
                    (static_cast<View>(in.get(C::contract_instance_retrieval_current_class_id)) -
                     static_cast<View>(in.get(C::contract_instance_retrieval_original_class_id)));
-        std::get<17>(evals) += (tmp * scaling_factor);
+        std::get<18>(evals) += (tmp * scaling_factor);
     }
     {
-        using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::contract_instance_retrieval_should_check_for_update)) -
                     static_cast<View>(in.get(C::contract_instance_retrieval_should_check_nullifier)) *
                         static_cast<View>(in.get(C::contract_instance_retrieval_exists)));
-        std::get<18>(evals) += (tmp * scaling_factor);
+        std::get<19>(evals) += (tmp * scaling_factor);
     }
 }
 

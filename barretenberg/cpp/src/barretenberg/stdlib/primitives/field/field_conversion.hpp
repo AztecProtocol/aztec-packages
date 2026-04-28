@@ -54,7 +54,9 @@ template <typename Field> class StdlibCodec {
             // All challenges must be circuit witnesses.
             BB_ASSERT(builder);
             BB_ASSERT(!challenge.is_constant());
-            return T(challenge, fr::from_witness_index(builder, builder->zero_idx()));
+            auto high_limb = fr::from_witness_index(builder, builder->zero_idx());
+            high_limb.set_origin_tag(challenge.get_origin_tag());
+            return T(challenge, high_limb);
         }
     }
 

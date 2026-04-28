@@ -17,7 +17,7 @@ export expected_min_zig_version=0.15.1
 export expected_abs_rust_version=1.89.0
 export expected_abs_wasi_version=27.0
 export expected_abs_foundry_version=1.4.1
-export expected_abs_yarn_version=4.5.2
+export expected_abs_yarn_version=4.13.0
 
 function ensure {
   command -v $1 &>/dev/null
@@ -783,6 +783,31 @@ case "$cmd" in
     bench_merge
     cache_upload spartan-block-capacity-bench-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
+  "ci-network-bench-10tps")
+    # Args: <env_file> <namespace> [docker_image]
+    # Deploys bench-10tps and runs the 38-min sustained 10 TPS benchmark.
+    # Cleanup is done separately via ci-network-teardown.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    build
+    # If no docker image provided, build and push to aztecdev
+    if [ -z "$docker_image" ]; then
+      release-image/bootstrap.sh push_pr
+      docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+    fi
+    # Set up environment and deploy using spartan
+    export NAMESPACE="$namespace"
+    export AZTEC_DOCKER_IMAGE="$docker_image"
+    spartan/bootstrap.sh network_deploy "${env_file}"
+    # Run the 10 TPS benchmark
+    spartan/bootstrap.sh bench_10tps "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload spartan-bench-10tps-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    ;;
   "ci-network-teardown")
     # Args: <env_file> <namespace>
     # Tears down a deployed network.
@@ -844,7 +869,8 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export AVM=0
     export AVM_TRANSPILER=0
-    make bb-cpp-native-tests
+    barretenberg/crs/bootstrap.sh
+    barretenberg/cpp/bootstrap.sh ci
     ;;
   "ci-barretenberg-full")
     export CI=1
@@ -854,7 +880,7 @@ case "$cmd" in
     export AVM_TRANSPILER=0
     pull_submodules
     noir/bootstrap.sh build_native  # Build nargo for acir_tests
-    make bb-tests bb-full-tests
+    barretenberg/bootstrap.sh ci
     ;;
 
   #######################

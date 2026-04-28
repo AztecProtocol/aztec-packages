@@ -12,6 +12,7 @@
 #include <limits>
 namespace bb::numeric {
 
+// De Bruijn MSB. Returns 0 for input 0 (by convention; many callers rely on this).
 // from http://supertech.csail.mit.edu/papers/debruijn.pdf
 constexpr inline uint32_t get_msb32(const uint32_t in)
 {

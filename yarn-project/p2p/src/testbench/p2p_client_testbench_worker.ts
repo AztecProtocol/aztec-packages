@@ -17,6 +17,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { type BlockProposal, P2PMessage } from '@aztec/stdlib/p2p';
@@ -116,6 +117,7 @@ class TestLibP2PService extends LibP2PService {
       epochCache,
       proofVerifier,
       worldStateSynchronizer,
+      { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
       telemetry,
       logger,
     );
@@ -202,6 +204,25 @@ function installUnlimitedRateLimits(client: P2PClient): void {
 
   rateLimiter.getRateLimits = () => UNLIMITED_RATE_LIMIT_QUOTA;
   rateLimiter.allow = () => RateLimitStatus.Allowed;
+}
+
+/** Resets peer scores to prevent cross-case contamination in benchmarks. */
+function resetPeerScores(client: P2PClient): void {
+  const peerManager = (client as any).p2pService.peerManager;
+  const peerScoring = peerManager?.peerScoring;
+  if (peerScoring?.resetAllScores) {
+    peerScoring.resetAllScores();
+  }
+}
+
+/** Returns the number of connected peers for connectivity checks. */
+function getConnectedPeerCount(client: P2PClient): number {
+  const p2pService = (client as any).p2pService;
+  const connectionSampler = p2pService?.reqresp?.getConnectionSampler?.();
+  if (connectionSampler?.getPeerListSortedByConnectionCountAsc) {
+    return connectionSampler.getPeerListSortedByConnectionCountAsc().length;
+  }
+  return 0;
 }
 
 async function runAggregatorBenchmark(
@@ -321,6 +342,37 @@ let workerConfig: P2PConfig | null = null;
 let workerLogger: Logger | null = null;
 let kvStore: Awaited<ReturnType<typeof openTmpStore>> | null = null;
 
+async function stopWorker() {
+  try {
+    if (workerClient) {
+      await workerClient.stop();
+      workerClient = null;
+    }
+  } catch (e) {
+    workerLogger?.error('Error stopping worker client', e);
+  }
+  try {
+    if (kvStore?.close) {
+      await kvStore.close();
+      kvStore = null;
+    }
+  } catch (e) {
+    workerLogger?.error('Error closing kv store', e);
+  }
+}
+
+function gracefulExit(code: number = 0) {
+  try {
+    if (process.connected) {
+      process.disconnect();
+    }
+  } catch {
+    // IPC channel already closed
+  }
+  // Safety fallback if lingering handles prevent the event loop from draining
+  setTimeout(() => process.exit(code), 5000).unref();
+}
+
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 process.on('message', async msg => {
   const {
@@ -367,6 +419,7 @@ process.on('message', async msg => {
         proofVerifier as ClientProtocolCircuitVerifier,
         worldState,
         epochCache,
+        { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
         'test-p2p-bench-worker',
         undefined,
         telemetry as TelemetryClient,
@@ -410,13 +463,8 @@ process.on('message', async msg => {
     const cmd = msg as any;
     switch (cmd.type) {
       case 'STOP':
-        if (workerClient) {
-          await workerClient.stop();
-        }
-        if (kvStore?.close) {
-          await kvStore.close();
-        }
-        process.exit(0);
+        await stopWorker();
+        gracefulExit(0);
         break;
 
       case 'SEND_TX':
@@ -424,6 +472,13 @@ process.on('message', async msg => {
           await workerClient.sendTx(Tx.fromBuffer(Buffer.from(cmd.tx)));
           process.send!({ type: 'TX_SENT' });
         }
+        break;
+
+      case 'GET_PEER_COUNT':
+        process.send!({
+          type: 'PEER_COUNT',
+          count: workerClient ? getConnectedPeerCount(workerClient) : 0,
+        });
         break;
 
       case 'BENCH_REQRESP': {
@@ -442,6 +497,7 @@ process.on('message', async msg => {
         // Reset state before each benchmark run to avoid cross-run contamination
         workerTxPool.resetState();
         workerAttestationPool.resetState();
+        resetPeerScores(workerClient);
 
         installUnlimitedRateLimits(workerClient);
 
@@ -493,7 +549,12 @@ process.on('message', async msg => {
       }
     }
   } catch (err: any) {
-    process.send!({ type: 'ERROR', error: err.message });
-    process.exit(1);
+    try {
+      process.send!({ type: 'ERROR', error: err.message });
+    } catch {
+      // IPC channel may be closed
+    }
+    await stopWorker();
+    gracefulExit(1);
   }
 });

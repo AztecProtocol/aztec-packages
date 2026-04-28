@@ -5,35 +5,17 @@ import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 import { inspect } from 'util';
 import { z } from 'zod';
 
-/**
- * Tracks which revertible phases of a transaction's public execution reverted.
- *
- * A transaction executes in three sequential phases:
- *   1. SETUP     – non-revertible; if this fails the entire transaction is rejected.
- *   2. APP_LOGIC – revertible; its state changes are rolled back on failure.
- *   3. TEARDOWN  – revertible; always runs (even after app-logic revert) so the fee-payment contract can clean up.
- *
- * Only APP_LOGIC and TEARDOWN can produce a revert code. SETUP failures throw instead and discard the transaction
- * entirely.
- */
+/** Whether a transaction's public execution reverted. */
 export enum RevertCodeEnum {
   /** All phases completed successfully; no state was rolled back. */
   OK = 0,
-  /** APP_LOGIC reverted; its state changes were discarded. If present, TEARDOWN still ran and succeeded. */
-  APP_LOGIC_REVERTED = 1,
-  /** TEARDOWN reverted; its state changes were discarded. APP_LOGIC succeeded. */
-  TEARDOWN_REVERTED = 2,
-  /** Both APP_LOGIC and TEARDOWN reverted; only SETUP effects are kept. */
-  BOTH_REVERTED = 3,
+  /** One or more revertible phases reverted; their state changes were discarded. */
+  REVERTED = 1,
 }
 
-function isRevertCodeEnum(value: number): value is RevertCodeEnum {
-  return (
-    (value as RevertCodeEnum) === RevertCodeEnum.OK ||
-    (value as RevertCodeEnum) === RevertCodeEnum.APP_LOGIC_REVERTED ||
-    (value as RevertCodeEnum) === RevertCodeEnum.TEARDOWN_REVERTED ||
-    (value as RevertCodeEnum) === RevertCodeEnum.BOTH_REVERTED
-  );
+/** Returns a valid RevertCodeEnum, coercing any value >= 1 to REVERTED. */
+function toRevertCodeEnum(value: number): RevertCodeEnum {
+  return value >= 1 ? RevertCodeEnum.REVERTED : RevertCodeEnum.OK;
 }
 
 /**
@@ -45,9 +27,13 @@ export class RevertCode {
     this.code = e.valueOf();
   }
   static readonly OK: RevertCode = new RevertCode(RevertCodeEnum.OK);
-  static readonly APP_LOGIC_REVERTED: RevertCode = new RevertCode(RevertCodeEnum.APP_LOGIC_REVERTED);
-  static readonly TEARDOWN_REVERTED: RevertCode = new RevertCode(RevertCodeEnum.TEARDOWN_REVERTED);
-  static readonly BOTH_REVERTED: RevertCode = new RevertCode(RevertCodeEnum.BOTH_REVERTED);
+  static readonly REVERTED: RevertCode = new RevertCode(RevertCodeEnum.REVERTED);
+  /** @deprecated Use REVERTED instead. */
+  static readonly APP_LOGIC_REVERTED: RevertCode = RevertCode.REVERTED;
+  /** @deprecated Use REVERTED instead. */
+  static readonly TEARDOWN_REVERTED: RevertCode = RevertCode.REVERTED;
+  /** @deprecated Use REVERTED instead. */
+  static readonly BOTH_REVERTED: RevertCode = RevertCode.REVERTED;
 
   public getCode(): RevertCodeEnum {
     return this.code;
@@ -65,12 +51,8 @@ export class RevertCode {
     switch (this.code as RevertCodeEnum) {
       case RevertCodeEnum.OK:
         return 'OK';
-      case RevertCodeEnum.APP_LOGIC_REVERTED:
-        return 'Application logic reverted';
-      case RevertCodeEnum.TEARDOWN_REVERTED:
-        return 'Teardown reverted';
-      case RevertCodeEnum.BOTH_REVERTED:
-        return 'Both reverted';
+      case RevertCodeEnum.REVERTED:
+        return 'Reverted';
       default:
         return `Unknown RevertCode: ${this.code}`;
     }
@@ -81,7 +63,11 @@ export class RevertCode {
   }
 
   static get schema(): ZodFor<RevertCode> {
-    return z.nativeEnum(RevertCodeEnum).transform(value => new RevertCode(value));
+    return z
+      .number()
+      .int()
+      .min(0)
+      .transform(value => new RevertCode(toRevertCodeEnum(value)));
   }
 
   /**
@@ -96,10 +82,10 @@ export class RevertCode {
       return obj;
     }
     const code = typeof obj === 'number' ? obj : (obj.code ?? obj);
-    if (!isRevertCodeEnum(code)) {
+    if (typeof code !== 'number' || code < 0) {
       throw new Error(`Invalid RevertCode: ${code}`);
     }
-    return new RevertCode(code);
+    return new RevertCode(toRevertCodeEnum(code));
   }
 
   /**
@@ -131,10 +117,10 @@ export class RevertCode {
   }
 
   public static fromNumber(code: number): RevertCode {
-    if (!isRevertCodeEnum(code)) {
+    if (code < 0) {
       throw new Error(`Invalid RevertCode: ${code}`);
     }
-    return new RevertCode(code);
+    return new RevertCode(toRevertCodeEnum(code));
   }
 
   public static fromField(field: Fr): RevertCode {
@@ -152,7 +138,7 @@ export class RevertCode {
     return RevertCode.fromNumber(code);
   }
 
-  private static readonly NUM_OPTIONS = 4;
+  private static readonly NUM_OPTIONS = 2;
   static random(): RevertCode {
     return new RevertCode(Math.floor(Math.random() * RevertCode.NUM_OPTIONS));
   }

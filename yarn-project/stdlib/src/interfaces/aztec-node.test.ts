@@ -93,6 +93,7 @@ describe('AztecNodeApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
+      proposedCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
@@ -175,7 +176,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getBlockHeader', async () => {
-    const response = await context.client.getBlockHeader(new BlockHash(Fr.random()));
+    const response = await context.client.getBlockHeader(BlockHash.random());
     expect(response).toBeInstanceOf(BlockHeader);
   });
 
@@ -187,6 +188,11 @@ describe('AztecNodeApiSchema', () => {
   it('getCurrentMinFees', async () => {
     const response = await context.client.getCurrentMinFees();
     expect(response).toEqual(GasFees.empty());
+  });
+
+  it('getPredictedMinFees', async () => {
+    const response = await context.client.getPredictedMinFees();
+    expect(response).toEqual([GasFees.empty()]);
   });
 
   it('getMaxPriorityFees', async () => {
@@ -299,13 +305,13 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getPrivateLogsByTags', async () => {
-    const response = await context.client.getPrivateLogsByTags([new SiloedTag(Fr.random())]);
+    const response = await context.client.getPrivateLogsByTags([SiloedTag.random()]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('getPublicLogsByTagsFromContract', async () => {
     const contractAddress = await AztecAddress.random();
-    const response = await context.client.getPublicLogsByTagsFromContract(contractAddress, [new Tag(Fr.random())]);
+    const response = await context.client.getPublicLogsByTagsFromContract(contractAddress, [Tag.random()]);
     expect(response).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
@@ -529,6 +535,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
+      proposedCheckpoint: tipId,
       proven: tipId,
       finalized: tipId,
     });
@@ -547,9 +554,9 @@ class MockAztecNode implements AztecNode {
     treeId: MerkleTreeId,
     leafValues: Fr[],
   ): Promise<(DataInBlock<bigint> | undefined)[]> {
-    expect(referenceBlock === 'latest' || referenceBlock instanceof Fr || typeof referenceBlock === 'number').toBe(
-      true,
-    );
+    expect(
+      referenceBlock === 'latest' || BlockHash.isBlockHash(referenceBlock) || typeof referenceBlock === 'number',
+    ).toBe(true);
     expect(leafValues).toHaveLength(2);
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
@@ -562,9 +569,9 @@ class MockAztecNode implements AztecNode {
     referenceBlock: BlockParameter,
     l1ToL2Message: Fr,
   ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>] | undefined> {
-    expect(referenceBlock === 'latest' || referenceBlock instanceof Fr || typeof referenceBlock === 'number').toBe(
-      true,
-    );
+    expect(
+      referenceBlock === 'latest' || BlockHash.isBlockHash(referenceBlock) || typeof referenceBlock === 'number',
+    ).toBe(true);
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve([1n, SiblingPath.random(L1_TO_L2_MSG_TREE_HEIGHT)]);
   }
@@ -572,9 +579,9 @@ class MockAztecNode implements AztecNode {
     referenceBlock: BlockParameter,
     blockHash: BlockHash,
   ): Promise<MembershipWitness<typeof ARCHIVE_HEIGHT> | undefined> {
-    expect(referenceBlock === 'latest' || referenceBlock instanceof Fr || typeof referenceBlock === 'number').toBe(
-      true,
-    );
+    expect(
+      referenceBlock === 'latest' || BlockHash.isBlockHash(referenceBlock) || typeof referenceBlock === 'number',
+    ).toBe(true);
     expect(blockHash).toBeInstanceOf(BlockHash);
     return Promise.resolve(MembershipWitness.random(ARCHIVE_HEIGHT));
   }
@@ -582,9 +589,9 @@ class MockAztecNode implements AztecNode {
     referenceBlock: BlockParameter,
     noteHash: Fr,
   ): Promise<MembershipWitness<typeof NOTE_HASH_TREE_HEIGHT> | undefined> {
-    expect(referenceBlock === 'latest' || referenceBlock instanceof Fr || typeof referenceBlock === 'number').toBe(
-      true,
-    );
+    expect(
+      referenceBlock === 'latest' || BlockHash.isBlockHash(referenceBlock) || typeof referenceBlock === 'number',
+    ).toBe(true);
     expect(noteHash).toBeInstanceOf(Fr);
     return Promise.resolve(MembershipWitness.random(NOTE_HASH_TREE_HEIGHT));
   }
@@ -611,9 +618,9 @@ class MockAztecNode implements AztecNode {
     referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    expect(referenceBlock === 'latest' || referenceBlock instanceof Fr || typeof referenceBlock === 'number').toBe(
-      true,
-    );
+    expect(
+      referenceBlock === 'latest' || BlockHash.isBlockHash(referenceBlock) || typeof referenceBlock === 'number',
+    ).toBe(true);
     expect(nullifier).toBeInstanceOf(Fr);
     return Promise.resolve(NullifierMembershipWitness.random());
   }
@@ -621,16 +628,16 @@ class MockAztecNode implements AztecNode {
     referenceBlock: BlockParameter,
     nullifier: Fr,
   ): Promise<NullifierMembershipWitness | undefined> {
-    expect(referenceBlock === 'latest' || referenceBlock instanceof Fr || typeof referenceBlock === 'number').toBe(
-      true,
-    );
+    expect(
+      referenceBlock === 'latest' || BlockHash.isBlockHash(referenceBlock) || typeof referenceBlock === 'number',
+    ).toBe(true);
     expect(nullifier).toBeInstanceOf(Fr);
     return Promise.resolve(NullifierMembershipWitness.random());
   }
   getPublicDataWitness(referenceBlock: BlockParameter, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    expect(referenceBlock === 'latest' || referenceBlock instanceof Fr || typeof referenceBlock === 'number').toBe(
-      true,
-    );
+    expect(
+      referenceBlock === 'latest' || BlockHash.isBlockHash(referenceBlock) || typeof referenceBlock === 'number',
+    ).toBe(true);
     expect(leafSlot).toBeInstanceOf(Fr);
     return Promise.resolve(PublicDataWitness.random());
   }
@@ -655,6 +662,9 @@ class MockAztecNode implements AztecNode {
   }
   getCurrentMinFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
+  }
+  getPredictedMinFees(): Promise<GasFees[]> {
+    return Promise.resolve([GasFees.empty()]);
   }
   getMaxPriorityFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());

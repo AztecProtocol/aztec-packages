@@ -59,6 +59,12 @@ export interface BlobClientConfig extends BlobArchiveApiConfig {
 
   /** Timeout for HTTP requests to the L1 RPC node in ms. */
   l1HttpTimeoutMS?: number;
+
+  /** Whether to prefer filestores over consensus clients when fetching blobs. Default: false (consensus first). */
+  blobPreferFilestores?: boolean;
+
+  /** Timeout in ms for HTTP requests to the blob file store. Default: 10000 (10s). */
+  blobFileStoreTimeoutMs?: number;
 }
 
 export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
@@ -87,7 +93,7 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
   blobSinkMapSizeKb: {
     env: 'BLOB_SINK_MAP_SIZE_KB',
     description: 'The maximum possible size of the blob sink DB in KB. Overwrites the general dataStoreMapSizeKb.',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
   },
   blobAllowEmptySources: {
     env: 'BLOB_ALLOW_EMPTY_SOURCES',
@@ -110,11 +116,21 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
   blobHealthcheckUploadIntervalMinutes: {
     env: 'BLOB_HEALTHCHECK_UPLOAD_INTERVAL_MINUTES',
     description: 'Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    parseEnv: (val: string) => +val,
   },
   l1HttpTimeoutMS: {
     env: 'ETHEREUM_HTTP_TIMEOUT_MS',
     description: 'Timeout for HTTP requests to the L1 RPC node in ms.',
+    ...optionalNumberConfigHelper(),
+  },
+  blobPreferFilestores: {
+    env: 'BLOB_PREFER_FILESTORES',
+    description: 'Whether to prefer filestores over consensus clients when fetching blobs. Default: false.',
+    ...booleanConfigHelper(false),
+  },
+  blobFileStoreTimeoutMs: {
+    env: 'BLOB_FILE_STORE_TIMEOUT_MS',
+    description: 'Timeout in ms for HTTP requests to the blob file store. Default: 10000 (10s).',
     ...optionalNumberConfigHelper(),
   },
   ...blobArchiveApiConfigMappings,

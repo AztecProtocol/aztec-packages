@@ -20,11 +20,12 @@ provider "google" {
 module "gke_cluster_private" {
   source = "./cluster"
 
-  cluster_name    = "aztec-gke-private"
-  project         = var.project
-  region          = var.region
-  zone            = var.zone
-  service_account = google_service_account.gke_sa.email
+  cluster_name             = "aztec-gke-private"
+  project                  = var.project
+  region                   = var.region
+  zone                     = var.zone
+  service_account          = google_service_account.gke_sa.email
+  enable_workload_identity = true
 }
 
 module "gke_cluster_public" {

@@ -103,18 +103,28 @@ template <typename Fr> class Polynomial {
 
     /**
      * @brief Utility to create a shiftable polynomial of given virtual size.
+     * @param masked If true, write random values at positions {1,2,3} for ZK masking.
      */
-    static Polynomial shiftable(size_t virtual_size)
+    static Polynomial shiftable(size_t virtual_size, bool masked = false)
     {
-        return Polynomial(
+        auto p = Polynomial(
             /*actual size*/ virtual_size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
+        if (masked) {
+            p.add_masking();
+        }
+        return p;
     }
     /**
      * @brief Utility to create a shiftable polynomial of given size and virtual size.
+     * @param masked If true, write random values at positions {1,2,3} for ZK masking.
      */
-    static Polynomial shiftable(size_t size, size_t virtual_size)
+    static Polynomial shiftable(size_t size, size_t virtual_size, bool masked = false)
     {
-        return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
+        auto p = Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS);
+        if (masked) {
+            p.add_masking();
+        }
+        return p;
     }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
@@ -370,6 +380,16 @@ template <typename Fr> class Polynomial {
         BB_ASSERT_LTE(vec.size() - start_index(), size());
         for (size_t i = start_index(); i < vec.size(); i++) {
             at(i) = vec[i];
+        }
+    }
+
+    /**
+     * @brief Write random ZK masking values at positions {1, 2, 3} (the disabled head region after the zero row).
+     */
+    void add_masking()
+    {
+        for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
+            at(NUM_ZERO_ROWS + j) = Fr::random_element();
         }
     }
 

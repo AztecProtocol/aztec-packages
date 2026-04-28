@@ -1,7 +1,5 @@
 #pragma once
 
-#include "barretenberg/numeric/uint128/uint128.hpp"
-#include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
@@ -80,10 +78,10 @@ struct InstrDeserializationError {
  *        checks that the WireOpCode value is in the defined range and extracts the operands
  *        for each WireOpCode based on the specification from OPCODE_WIRE_FORMAT.
  *
- * @param bytecode The bytecode to be parsed as a vector of bytes/uint8_t
- * @param pos Bytecode position
- * @throws runtime_error exception when the bytecode is invalid or pos is out-of-range
- * @return The instruction
+ * @param bytecode The bytecode to be parsed as a vector of bytes/uint8_t.
+ * @param pos The program counter (pc) to start from.
+ * @throws InstrDeserializationError exception when the pos, opcode byte, or instruction is out-of-range.
+ * @return The instruction.
  */
 Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
 

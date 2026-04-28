@@ -59,10 +59,19 @@ export class Aes128 {
    * @param iv - AES initialization vector.
    * @param key - Key to decrypt with.
    * @returns Decrypted data.
+   * @throws If the decrypted buffer has invalid PKCS#7 padding.
    */
   public async decryptBufferCBC(data: Uint8Array, iv: Uint8Array, key: Uint8Array) {
     const paddedBuffer = await this.decryptBufferCBCKeepPadding(data, iv, key);
-    const paddingToRemove = paddedBuffer[paddedBuffer.length - 1];
-    return paddedBuffer.subarray(0, paddedBuffer.length - paddingToRemove);
+    const paddingLen = paddedBuffer[paddedBuffer.length - 1];
+    if (paddingLen === 0 || paddingLen > 16) {
+      throw new Error(`Invalid PKCS#7 padding length: ${paddingLen}`);
+    }
+    for (let i = paddedBuffer.length - paddingLen; i < paddedBuffer.length; i++) {
+      if (paddedBuffer[i] !== paddingLen) {
+        throw new Error('Invalid PKCS#7 padding');
+      }
+    }
+    return paddedBuffer.subarray(0, paddedBuffer.length - paddingLen);
   }
 }

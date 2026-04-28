@@ -232,15 +232,13 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
         ShplonkVerifier::compute_inverted_gemini_denominators(shplonk_eval_challenge, r_squares);
 
     Fr expected_constant_term_accumulator{ 0 };
-    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
 
     std::vector<Fr> gemini_fold_pos_evaluations = GeminiVerifier_<Curve>::compute_fold_pos_evaluations(
-        padding_indicator_array, expected_constant_term_accumulator, mle_opening_point, r_squares, prover_evaluations);
+        expected_constant_term_accumulator, mle_opening_point, r_squares, prover_evaluations);
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
 
-    ShpleminiVerifier::batch_gemini_claims_received_from_prover(padding_indicator_array,
-                                                                prover_commitments,
+    ShpleminiVerifier::batch_gemini_claims_received_from_prover(prover_commitments,
                                                                 prover_evaluations,
                                                                 gemini_fold_pos_evaluations,
                                                                 inverse_vanishing_evals,
@@ -339,11 +337,8 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Run Shplemini
-    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
-
     auto [batch_opening_claim, consistency_checked] =
-        ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                       mock_claims.claim_batcher,
+        ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
                                                        mle_opening_point,
                                                        this->vk().get_g1_identity(),
                                                        verifier_transcript,
@@ -446,10 +441,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Run Shplemini
-    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
-
-    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                              mock_claims.claim_batcher,
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
                                                                               challenge,
                                                                               this->vk().get_g1_identity(),
                                                                               verifier_transcript,
@@ -532,12 +524,9 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackAccept)
     // Verifier side
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
-    std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
-
-    auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(
-            padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript)
-            .batch_opening_claim;
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+                                   mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript)
+                                   .batch_opening_claim;
 
     // Verify claim - should succeed because the polynomial was crafted to fold correctly
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
@@ -603,12 +592,9 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
     // Verifier side
     auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
 
-    std::vector<Fr> padding_indicator_array(small_log_n, Fr{ 1 });
-
-    auto batch_opening_claim =
-        ShpleminiVerifier::compute_batch_opening_claim(
-            padding_indicator_array, mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript)
-            .batch_opening_claim;
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+                                   mock_claims.claim_batcher, u, this->vk().get_g1_identity(), verifier_transcript)
+                                   .batch_opening_claim;
 
     // Verify claim - should fail because the random polynomial doesn't fold correctly
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
@@ -707,10 +693,7 @@ TYPED_TEST(ShpleminiTest, LibraConsistencyCheckFailsOnCorruptedEvaluation)
     libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Run Shplemini - verifier uses the corrupted evaluation received from the transcript
-    std::vector<Fr> padding_indicator_array(this->log_n, Fr{ 1 });
-
-    auto shplemini_output = ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                                           mock_claims.claim_batcher,
+    auto shplemini_output = ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
                                                                            mle_opening_point,
                                                                            this->vk().get_g1_identity(),
                                                                            verifier_transcript,
@@ -800,11 +783,8 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
         libra_commitments[idx] = libra_commitments[idx] + Commitment::one();
     }
 
-    std::vector<Fr> padding_indicator_array(test->log_n, Fr{ 1 });
-
     auto [batch_opening_claim, consistency_checked] =
-        ShpleminiVerifier::compute_batch_opening_claim(padding_indicator_array,
-                                                       mock_claims.claim_batcher,
+        ShpleminiVerifier::compute_batch_opening_claim(mock_claims.claim_batcher,
                                                        mle_opening_point,
                                                        test->vk().get_g1_identity(),
                                                        verifier_transcript,
@@ -816,9 +796,8 @@ void run_libra_tampering_test(ShpleminiTest<TypeParam>* test,
 
     // PCS verification should always fail when tampering occurred
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        EXPECT_THROW(ShpleminiTest<TypeParam>::IPA::reduce_verify_batch_opening_claim(
-                         batch_opening_claim, test->vk(), verifier_transcript),
-                     std::runtime_error);
+        EXPECT_FALSE(ShpleminiTest<TypeParam>::IPA::reduce_verify_batch_opening_claim(
+            batch_opening_claim, test->vk(), verifier_transcript));
     } else {
         const auto pairing_points =
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);

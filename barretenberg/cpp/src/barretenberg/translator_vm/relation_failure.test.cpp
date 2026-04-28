@@ -29,6 +29,10 @@
  *   AccumulatorTransferFailsAtFirstTransferRow        — row 9 (left boundary of transfer chain)
  *   AccumulatorTransferFailsAtLastTransferRow         — row 8185 (right boundary before zero-init)
  *
+ * Non-native field relation (TranslatorNonNativeFieldRelation) — 1 test:
+ *   NonNativeFieldRejectsAccumulatorAlias              — #2492 regression: acc += q, quot -= 1 caught
+ *                                                       by higher carry check (subrelation 1)
+ *
  * Pipeline correctness — 1 test:
  *   InRangeValueInMaskingFlowsToOrderedTail           — trace FF(42) from wire masking through
  *                                                       concatenation into ordered poly tail
@@ -121,9 +125,9 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-
-    // Add a no-op, then random start ops, then mixed ops, merge, more mixed ops, random end ops, final merge
     op_queue->no_op_ultra_only();
+
+    // Add random start ops, then mixed ops, merge, more mixed ops, random end ops, final merge
     for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_START; i++) {
         op_queue->random_op_ultra_only();
     }
@@ -141,7 +145,7 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
     for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_END; i++) {
         op_queue->random_op_ultra_only();
     }
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
@@ -156,6 +160,26 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
                                   pp.accumulators_binary_limbs_1[Flavor::RESULT_ROW],
                                   pp.accumulators_binary_limbs_2[Flavor::RESULT_ROW],
                                   pp.accumulators_binary_limbs_3[Flavor::RESULT_ROW] };
+
+    // Populate evaluation_input_x and batching_challenge_v limbs + native values
+    // (needed by TranslatorNonNativeFieldRelation; harmless for other relations)
+    static constexpr size_t NUM_LIMB_BITS = Flavor::CircuitBuilder::NUM_LIMB_BITS;
+    auto uint_input_x = uint256_t(evaluation_input_x);
+    params.evaluation_input_x = { uint_input_x.slice(0, NUM_LIMB_BITS),
+                                  uint_input_x.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+                                  uint_input_x.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+                                  uint_input_x.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
+                                  uint_input_x };
+    auto v_power = BF::one();
+    for (size_t i = 0; i < 4; i++) {
+        v_power *= batching_challenge_v;
+        auto uint_v_power = uint256_t(v_power);
+        params.batching_challenge_v.at(i) = { uint_v_power.slice(0, NUM_LIMB_BITS),
+                                              uint_v_power.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),
+                                              uint_v_power.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3),
+                                              uint_v_power.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4),
+                                              uint_v_power };
+    }
 
     return { std::move(key), params };
 }
@@ -241,6 +265,64 @@ TEST_F(TranslatorRelationFailureTests, PermutationFailsOnZPermCorruption)
     auto failures =
         RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(pp, params, "TranslatorPermutationRelation");
     EXPECT_FALSE(failures.empty()) << "Permutation should fail after z_perm corruption";
+}
+
+/**
+ * @brief Test that z_perm must be zero at the lagrange_first row.
+ *
+ * @details The permutation grand product relies on z_perm[0] = 0 so that (z_perm + lagrange_first)
+ * evaluates to 1 at the first row. Sub-relation 2 (lagrange_first * z_perm = 0) enforces this.
+ *
+ * We cross-check the lagrange_first position two ways:
+ *   1. Structurally: z_perm.start_index() - 1 (the zero row before the shiftable region)
+ *   2. By scanning the lagrange_first polynomial for its non-zero entry
+ */
+TEST_F(TranslatorRelationFailureTests, PermutationFailsOnZPermNonZeroAtFirstRow)
+{
+    auto [key, params] = build_valid_translator_state();
+    auto& pp = key.proving_key->polynomials;
+
+    // Baseline: permutation relation passes
+    auto baseline =
+        RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(pp, params, "TranslatorPermutationRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline permutation should pass";
+
+    // Derive expected lagrange_first position from z_perm shiftable structure
+    ASSERT_TRUE(pp.z_perm.is_shiftable());
+    size_t structural_first_row = pp.z_perm.start_index() - 1;
+
+    // Independently scan lagrange_first for its non-zero entry
+    const auto& lagrange_first = pp.lagrange_first;
+    size_t scanned_first_row = 0;
+    bool found = false;
+    for (size_t i = lagrange_first.start_index(); i < lagrange_first.end_index(); ++i) {
+        if (lagrange_first[i] != FF(0)) {
+            scanned_first_row = i;
+            found = true;
+            break;
+        }
+    }
+    ASSERT_TRUE(found) << "lagrange_first has no non-zero entry";
+    ASSERT_EQ(structural_first_row, scanned_first_row)
+        << "lagrange_first position doesn't match z_perm shiftable structure";
+
+    const size_t first_row = scanned_first_row;
+
+    // Expand to full polynomials so we can write at the zero row
+    pp.z_perm = pp.z_perm.full();
+    pp.z_perm_shift = pp.z_perm_shift.full();
+
+    ASSERT_EQ(pp.z_perm[first_row], FF(0));
+
+    // Tamper: set z_perm to non-zero where lagrange_first is active
+    pp.z_perm.at(first_row) = FF(1);
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(
+        pp, params, "TranslatorPermutationRelation - After setting z_perm != 0 at lagrange_first");
+    EXPECT_FALSE(failures.empty()) << "Permutation should fail after z_perm init corruption";
+    // Sub-relation 2 (lagrange_first * z_perm = 0) should catch this
+    EXPECT_TRUE(failures.contains(2)) << "Sub-relation 2 (z_perm init) should catch the corruption";
+    EXPECT_EQ(failures.at(2), static_cast<uint32_t>(first_row)) << "Failure should be at lagrange_first row";
 }
 
 /**
@@ -688,4 +770,92 @@ TEST_F(TranslatorRelationFailureTests, PermutationFailsOnConcatenatedBlockBounda
     auto failures =
         RelationChecker<Flavor>::check<TranslatorPermutationRelation<FF>>(pp, params, "TranslatorPermutationRelation");
     EXPECT_FALSE(failures.empty()) << "Permutation should fail after block boundary corruption";
+}
+
+// ======================== Non-Native Field Relation: Accumulator Alias ========================
+
+/**
+ * @brief Regression for AztecProtocol/barretenberg#2492: verify that the accumulator alias
+ * attack (current_acc += q, quotient -= 1) is caught by the higher carry check.
+ *
+ * @details The Fq accumulation formula holds in integers:
+ *   prev * x + stuff - quotient * p - current_acc = 0
+ * Replacing current_acc with current_acc + p and quotient with quotient - 1 preserves this
+ * equation, plus its mod-2^272 and mod-r projections. However, the limb-level carry witnesses
+ * (relation_wide_limbs) become stale: the new intermediate sums at limbs 2-3 no longer match
+ * the old high carry value, and subrelation 1 (higher mod 2^136 check) detects the mismatch.
+ */
+TEST_F(TranslatorRelationFailureTests, NonNativeFieldRejectsAccumulatorAlias)
+{
+    using BF = typename Flavor::BF;
+    static constexpr size_t NUM_LIMB_BITS = Flavor::CircuitBuilder::NUM_LIMB_BITS;
+
+    auto [key, params] = build_valid_accumulator_transfer_state();
+    auto& pp = key.proving_key->polynomials;
+
+    // Baseline: all three NonNativeField subrelations pass
+    auto baseline = RelationChecker<Flavor>::check<TranslatorNonNativeFieldRelation<FF>>(
+        pp, params, "TranslatorNonNativeFieldRelation");
+    EXPECT_TRUE(baseline.empty()) << "Baseline non-native field should pass";
+
+    constexpr size_t ROW = Flavor::RESULT_ROW; // 8
+
+    // --- Read old accumulator and quotient at RESULT_ROW ---
+    // Accumulator limbs are at the even row (current acc = row ROW, previous acc = row ROW+1 via shift)
+    auto read_limbs = [](const auto& l0, const auto& l1, const auto& l2, const auto& l3, size_t row) {
+        return uint256_t(l0[row]) | (uint256_t(l1[row]) << NUM_LIMB_BITS) |
+               (uint256_t(l2[row]) << (2 * NUM_LIMB_BITS)) | (uint256_t(l3[row]) << (3 * NUM_LIMB_BITS));
+    };
+
+    uint256_t old_acc = read_limbs(pp.accumulators_binary_limbs_0,
+                                   pp.accumulators_binary_limbs_1,
+                                   pp.accumulators_binary_limbs_2,
+                                   pp.accumulators_binary_limbs_3,
+                                   ROW);
+
+    // Quotient: limbs 0,1 from quotient_low at rows ROW, ROW+1; limbs 2,3 from quotient_high at rows ROW, ROW+1
+    uint256_t old_quot = uint256_t(pp.quotient_low_binary_limbs[ROW]) |
+                         (uint256_t(pp.quotient_low_binary_limbs[ROW + 1]) << NUM_LIMB_BITS) |
+                         (uint256_t(pp.quotient_high_binary_limbs[ROW]) << (2 * NUM_LIMB_BITS)) |
+                         (uint256_t(pp.quotient_high_binary_limbs[ROW + 1]) << (3 * NUM_LIMB_BITS));
+
+    // --- Apply the alias mutation: acc += p, quotient -= 1 ---
+    const uint256_t p_mod = BF::modulus;
+    uint256_t new_acc = old_acc + p_mod;
+    uint256_t new_quot = old_quot - uint256_t(1);
+
+    auto split = [](const uint256_t& val) -> std::array<FF, 4> {
+        return { FF(val.slice(0, NUM_LIMB_BITS)),
+                 FF(val.slice(NUM_LIMB_BITS, 2 * NUM_LIMB_BITS)),
+                 FF(val.slice(2 * NUM_LIMB_BITS, 3 * NUM_LIMB_BITS)),
+                 FF(val.slice(3 * NUM_LIMB_BITS, 4 * NUM_LIMB_BITS)) };
+    };
+
+    auto new_acc_limbs = split(new_acc);
+    auto new_quot_limbs = split(new_quot);
+
+    // Write mutated accumulator limbs
+    pp.accumulators_binary_limbs_0.at(ROW) = new_acc_limbs[0];
+    pp.accumulators_binary_limbs_1.at(ROW) = new_acc_limbs[1];
+    pp.accumulators_binary_limbs_2.at(ROW) = new_acc_limbs[2];
+    pp.accumulators_binary_limbs_3.at(ROW) = new_acc_limbs[3];
+
+    // Write mutated quotient limbs
+    pp.quotient_low_binary_limbs.at(ROW) = new_quot_limbs[0];
+    pp.quotient_low_binary_limbs.at(ROW + 1) = new_quot_limbs[1];
+    pp.quotient_high_binary_limbs.at(ROW) = new_quot_limbs[2];
+    pp.quotient_high_binary_limbs.at(ROW + 1) = new_quot_limbs[3];
+
+    // Deliberately do NOT update relation_wide_limbs (carry witnesses) — the stale carries
+    // should cause the higher mod-2^136 check to fail.
+
+    auto failures = RelationChecker<Flavor>::check<TranslatorNonNativeFieldRelation<FF>>(
+        pp, params, "TranslatorNonNativeFieldRelation");
+
+    // The higher carry check (subrelation 1) must fail at RESULT_ROW.
+    EXPECT_TRUE(failures.contains(1)) << "Subrelation 1 (higher carry check) should reject the alias";
+    EXPECT_EQ(failures.at(1), static_cast<uint32_t>(ROW)) << "Failure should be at RESULT_ROW";
+
+    // The native-field check (subrelation 2) should still pass — the mod-r projection is preserved.
+    EXPECT_FALSE(failures.contains(2)) << "Subrelation 2 (native check) should pass under the alias mutation";
 }

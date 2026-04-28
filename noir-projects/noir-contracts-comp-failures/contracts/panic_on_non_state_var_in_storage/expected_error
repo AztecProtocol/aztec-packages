@@ -1,1 +1,3 @@
 Type NonStateVar does not implement StateVariable and hence cannot be placed in Storage struct.
+Could not resolve 'init' in path
+Type annotation needed

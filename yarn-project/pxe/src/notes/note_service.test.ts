@@ -41,13 +41,13 @@ describe('NoteService', () => {
 
     contractAddress = await AztecAddress.random();
 
-    const notes = await noteStore.getNotes({ contractAddress, scopes: 'ALL_SCOPES' }, 'test');
+    recipient = await keyStore.addAccount(new Fr(69), Fr.random());
+
+    const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] }, 'test');
     expect(notes).toHaveLength(0);
 
     const accounts = await keyStore.getAccounts();
-    expect(accounts).toHaveLength(0);
-
-    recipient = await keyStore.addAccount(new Fr(69), Fr.random());
+    expect(accounts).toHaveLength(1);
 
     setSyncedBlockNumber(BlockNumber(syncedBlockNumber));
   });
@@ -65,7 +65,7 @@ describe('NoteService', () => {
     const nullifierIndex = randomDataInBlock(123n);
     aztecNode.findLeavesIndexes.mockResolvedValue([nullifierIndex]);
 
-    await noteService.syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
+    await noteService.syncNoteNullifiers(contractAddress, [recipient.address]);
 
     const remainingNotes = await noteStore.getNotes(
       {
@@ -103,7 +103,7 @@ describe('NoteService', () => {
     // No nullifier found in merkle tree
     aztecNode.findLeavesIndexes.mockResolvedValue([undefined]);
 
-    await noteService.syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
+    await noteService.syncNoteNullifiers(contractAddress, [recipient.address]);
 
     const remainingNotes = await noteStore.getNotes(
       {
@@ -148,7 +148,7 @@ describe('NoteService', () => {
       return Promise.resolve([undefined]);
     });
 
-    await noteService.syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
+    await noteService.syncNoteNullifiers(contractAddress, [recipient.address]);
 
     // Verify note still exists
     const remainingNotes = await noteStore.getNotes(
@@ -186,7 +186,7 @@ describe('NoteService', () => {
 
     const getNotesSpy = jest.spyOn(noteStore, 'getNotes');
 
-    await noteService.syncNoteNullifiers(contractAddress, 'ALL_SCOPES');
+    await noteService.syncNoteNullifiers(contractAddress, [recipient.address]);
 
     // Verify applyNullifiers was called once for all accounts
     expect(getNotesSpy).toHaveBeenCalledTimes(1);

@@ -1,6 +1,10 @@
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { NO_FROM } from '@aztec/aztec.js/account';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT, toSendOptions } from '@aztec/aztec.js/contracts';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
+import { AccountManager } from '@aztec/aztec.js/wallet';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
@@ -11,6 +15,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { type Gas, GasFees } from '@aztec/stdlib/gas';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
@@ -18,15 +23,11 @@ import { jest } from '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 
-import { getSponsoredFPCAddress } from '../fixtures/utils.js';
+import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
 import { PrometheusClient } from '../quality_of_service/prometheus_client.js';
-import { TestWallet } from '../test-wallet/test_wallet.js';
-import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
-import {
-  type WalletWrapper,
-  createWalletAndAztecNodeClient,
-  deploySponsoredTestAccounts,
-} from './setup_test_wallets.js';
+import { ProvenTx } from '../test-wallet/utils.js';
+import type { WorkerWallet } from '../test-wallet/worker_wallet.js';
+import { type WorkerWalletWrapper, createWorkerWalletClient } from './setup_test_wallets.js';
 import { TxInclusionMetrics } from './tx_metrics.js';
 import {
   type ServiceEndpoint,
@@ -101,9 +102,13 @@ describe('sustained N TPS test', () => {
   const logger = createLogger(`e2e:spartan-test:sustained-tps`);
   const TEST_DURATION_SECONDS = parseInt(process.env.TEST_DURATION_SECONDS || '600', 10);
 
-  let testWallets: WalletWrapper[];
-  let lowValueWallets: TestWallet[];
-  let highValueWallets: TestWallet[];
+  let testWallets: WorkerWalletWrapper[];
+  let lowValueWallets: WorkerWallet[];
+  let highValueWallets: WorkerWallet[];
+  let lowValueAddresses: AztecAddress[];
+  let highValueAddresses: AztecAddress[];
+  let lowValueTestWallets: WorkerWalletWrapper[];
+  let highValueTestWallets: WorkerWalletWrapper[];
 
   let aztecNode: AztecNode;
   let benchmarkContract: BenchmarkingContract;
@@ -290,81 +295,181 @@ describe('sustained N TPS test', () => {
     const initialBlockNumber = await aztecNode.getBlockNumber();
     logger.info('Initial block mined', { blockNumber: initialBlockNumber });
 
+    // One WorkerWallet per test wallet: each runs its own PXE in a worker_threads.Worker,
+    // so the per-wallet proveTx (for the prototype build) and any reorg-triggered
+    // prototype rebuilds run in parallel instead of serialising on a single main-thread PXE.
+    // config.REAL_VERIFIER threads through to proverEnabled on each worker's PXE: false
+    // makes the client-side prover skip proof and witness generation entirely.
     testWallets = await timesParallel(lowValueAccounts + highValueAccounts, i => {
       logger.info(`Creating wallet and pxe for wallet ${i + 1}/${lowValueAccounts + highValueAccounts}`);
-      return createWalletAndAztecNodeClient(rpcUrl, config.REAL_VERIFIER, logger);
+      return createWorkerWalletClient(rpcUrl, config.REAL_VERIFIER, logger);
     });
     logger.info('Wallet provisioning complete', { walletCount: testWallets.length });
 
-    // this function creates n + 1 accounts. We only want one for each wallet
-    const localTestAccounts = await Promise.all(
-      testWallets.map(lw => deploySponsoredTestAccounts(lw.wallet, aztecNode, logger, 0, { estimateGas: true })),
+    const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+    const wallets = testWallets.map(tw => tw.wallet);
+    const accountAddresses = await Promise.all(
+      wallets.map(async wallet => {
+        const secret = Fr.random();
+        const salt = Fr.random();
+        const address = await wallet.registerAccount(secret, salt);
+        await registerSponsoredFPC(wallet);
+        const manager = await AccountManager.create(
+          wallet,
+          secret,
+          new SchnorrAccountContract(deriveSigningKey(secret)),
+          salt,
+        );
+        const deployMethod = await manager.getDeployMethod();
+        await deployMethod.send({
+          from: NO_FROM,
+          fee: { paymentMethod: sponsor },
+          wait: { timeout: 2400 },
+        });
+        return address;
+      }),
     );
 
-    lowValueWallets = localTestAccounts.slice(0, lowValueAccounts).map(({ wallet }) => wallet);
-    highValueWallets = localTestAccounts.slice(lowValueAccounts).map(({ wallet }) => wallet);
+    lowValueWallets = wallets.slice(0, lowValueAccounts);
+    highValueWallets = wallets.slice(lowValueAccounts);
+    lowValueAddresses = accountAddresses.slice(0, lowValueAccounts);
+    highValueAddresses = accountAddresses.slice(lowValueAccounts);
+    lowValueTestWallets = testWallets.slice(0, lowValueAccounts);
+    highValueTestWallets = testWallets.slice(lowValueAccounts);
     logger.info('Test accounts deployed', {
-      totalAccounts: localTestAccounts.length,
+      totalAccounts: accountAddresses.length,
       lowValueWallets: lowValueWallets.length,
       highValueWallets: highValueWallets.length,
     });
 
     logger.info('Deploying benchmark contract...');
-    const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-    const deployInteraction = BenchmarkingContract.deploy(localTestAccounts[0].wallet);
+    const deployInteraction = BenchmarkingContract.deploy(wallets[0]);
     const deploySim = await deployInteraction.simulate({
-      from: localTestAccounts[0].recipientAddress,
+      from: accountAddresses[0],
       fee: { paymentMethod: sponsor },
     });
     logger.info('Benchmark contract deploy estimated gas', { gasLimits: deploySim.estimatedGas?.gasLimits });
     ({ contract: benchmarkContract } = await deployInteraction.send({
-      from: localTestAccounts[0].recipientAddress,
+      from: accountAddresses[0],
       fee: { paymentMethod: sponsor, gasSettings: deploySim.estimatedGas },
     }));
     logger.info('Benchmark contract deployed', { address: benchmarkContract.address.toString() });
+
+    // Estimate benchmark-tx gas ONCE, up-front, using wallets[0]'s address (the only
+    // one registered in benchmarkContract.wallet's PXE). Doing this lazily from
+    // submitProven meant any wallet losing the race to be first to simulate would
+    // throw `Account not found in wallet for address` from wallets[0]'s worker PXE.
+    // Gas estimate is sender-independent, so one pre-warmed value for all senders.
+    const estimateSim = await benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)).simulate({
+      from: accountAddresses[0],
+      fee: { paymentMethod: sponsor, estimateGas: true },
+    });
+    benchmarkGasEstimate = estimateSim.estimatedGas;
+    logger.info('Benchmark tx estimated gas', { gasLimits: benchmarkGasEstimate?.gasLimits });
+
+    // Pre-fetch the network's current minimum priority fee and bake in a 10× buffer
+    // for the whole run. Priority fee is sponsor-paid, so over-bidding is free; the
+    // only risk is under-bidding (network rejects with `Tx does not meet minimum
+    // priority fee`). 10× keeps us well above mempool-pressure-driven ratcheting
+    // over a ~10 min run. If you see those rejections on longer runs, switch to
+    // periodic refresh or on-error refresh inside buildAndSend.
+    const currentMinFees = await aztecNode.getCurrentMinFees();
+    priorityFeeBase = new GasFees(currentMinFees.feePerDaGas * 10n, currentMinFees.feePerL2Gas * 10n);
+    logger.info('Priority fee base (10x current min)', {
+      daGas: priorityFeeBase.feePerDaGas.toString(),
+      l2Gas: priorityFeeBase.feePerL2Gas.toString(),
+    });
 
     logger.info(`Test setup complete`);
   });
 
   let benchmarkGasEstimate: { gasLimits: Gas; teardownGasLimits: Gas } | undefined;
+  let priorityFeeBase: GasFees;
 
   const submitProven = async (
-    wallet: TestWallet,
+    wallet: WorkerWallet,
+    walletNode: AztecNode,
+    from: AztecAddress,
     maxPriorityFeesPerGas: GasFees = GasFees.empty(),
   ): Promise<ProvenTx> => {
     const sponsor = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
-
-    if (!benchmarkGasEstimate) {
-      const sim = await benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)).simulate({
-        from: (await benchmarkContract.wallet.getAccounts())[0].item,
-        fee: { paymentMethod: sponsor, estimateGas: true },
-      });
-      benchmarkGasEstimate = sim.estimatedGas;
-      logger.info('Benchmark tx estimated gas', { gasLimits: benchmarkGasEstimate?.gasLimits });
-    }
-
-    const tx = await proveInteraction(wallet, benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42)), {
-      from: (await wallet.getAccounts())[0].item,
+    const interaction = benchmarkContract.methods.sha256_hash_1024(Array(1024).fill(42));
+    const interactionOptions = {
+      from,
       fee: {
         paymentMethod: sponsor,
         gasSettings: { maxPriorityFeesPerGas, ...benchmarkGasEstimate },
       },
-    });
-
-    return tx;
+    };
+    const execPayload = await interaction.request(interactionOptions);
+    // WorkerWallet.proveTx returns a plain Tx (the ProvenTx's node + offchainEffects are
+    // stripped at the worker-thread boundary). Rehydrate into a ProvenTx bound to the
+    // wallet's OWN AztecNode so .send() goes through a per-wallet JSON-RPC client.
+    // A shared node client coalesces concurrent sendTx calls from all 10 wallets into
+    // one HTTP POST (batchWindowMS=0 still batches same-tick calls), which can exceed
+    // the server's 1 MB body limit and produce "request entity too large" errors.
+    const tx = await wallet.proveTx(execPayload, toSendOptions(interactionOptions));
+    return new ProvenTx(walletNode, tx, [], undefined);
   };
 
   const prototypeTxs = new Map<string, ProvenTx>();
-  const submitUnproven = async (wallet: TestWallet, priorytFee: GasFees = GasFees.empty()) => {
-    const from = (await wallet.getAccounts())[0].item;
-    let prototypeTx = prototypeTxs.get(from.toString());
+  const submitUnproven = async (
+    wallet: WorkerWallet,
+    walletNode: AztecNode,
+    from: AztecAddress,
+    priorytFee: GasFees = GasFees.empty(),
+  ) => {
+    const key = from.toString();
+    let prototypeTx = prototypeTxs.get(key);
     if (!prototypeTx) {
-      prototypeTx = await submitProven(wallet);
-      prototypeTxs.set(from.toString(), prototypeTx);
+      prototypeTx = await submitProven(wallet, walletNode, from);
+      prototypeTxs.set(key, prototypeTx);
     }
 
     const tx = await cloneTx(prototypeTx, priorytFee, logger);
     return tx;
+  };
+
+  // The prototype's anchor block header is bound into the private kernel proof. If the
+  // chain reorgs past that block — or on very long runs the header ages out of
+  // WS_NUM_HISTORIC_BLOCKS — the node rejects clones with `Block header not found`.
+  // Detect this on send, invalidate the cached prototype, and retry once.
+  const STALE_ANCHOR_MESSAGE = 'Block header not found';
+  const isStaleAnchorError = (err: unknown): boolean => {
+    const msg = err instanceof Error ? err.message : String(err);
+    return msg.includes(STALE_ANCHOR_MESSAGE);
+  };
+
+  const buildAndSend = async (
+    wallet: WorkerWallet,
+    walletNode: AztecNode,
+    from: AztecAddress,
+    fee: GasFees,
+    beforeSend?: (tx: ProvenTx) => void,
+  ): Promise<{ txHash: string; cloneMs: number; sendMs: number }> => {
+    for (let attempt = 1; ; attempt++) {
+      const t0 = performance.now();
+      const tx = await (config.REAL_VERIFIER
+        ? submitProven(wallet, walletNode, from, fee)
+        : submitUnproven(wallet, walletNode, from, fee));
+      const t1 = performance.now();
+      beforeSend?.(tx);
+      try {
+        const txHash = await tx.send({ wait: NO_WAIT });
+        const t2 = performance.now();
+        return { txHash: txHash.toString(), cloneMs: Math.round(t1 - t0), sendMs: Math.round(t2 - t1) };
+      } catch (err) {
+        if (isStaleAnchorError(err) && attempt === 1) {
+          logger.warn('Stale anchor on send; invalidating prototype and retrying', {
+            walletKey: from.toString(),
+            err: err instanceof Error ? err.message : String(err),
+          });
+          prototypeTxs.delete(from.toString());
+          continue;
+        }
+        throw err;
+      }
+    }
   };
 
   it(`can send ${highValueTps}TPS of high-value txs`, async () => {
@@ -378,57 +483,67 @@ describe('sustained N TPS test', () => {
     });
 
     let lowValueTxs = 0;
-    const lowValueSendTx = async (wallet: TestWallet) => {
+    const lowValueSendTx = async (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => {
       lowValueTxs++;
-      const feeAmount = Math.floor(lowValueTxs / 1000) + 1;
-      const fee = new GasFees(0, feeAmount);
+      // Low-value lane stays near the network min — it's allowed to fail fee checks
+      // (simulates "cheap txs" that should be displaced by high-value). Scale with
+      // txs sent so late txs pay more than early txs, preserving ordering semantics.
+      const bumpL2 = (priorityFeeBase.feePerL2Gas / 10n) * BigInt(Math.floor(lowValueTxs / 1000) + 1);
+      const fee = new GasFees(0n, bumpL2);
 
-      const t0 = performance.now();
-      const tx = await (config.REAL_VERIFIER ? submitProven(wallet, fee) : submitUnproven(wallet, fee));
-      const t1 = performance.now();
-
-      const txHash = await tx.send({ wait: NO_WAIT });
-      const t2 = performance.now();
+      const { txHash, cloneMs, sendMs } = await buildAndSend(wallet, walletNode, from, fee);
 
       logger.info('Low value tx sent', {
         txNum: lowValueTxs,
-        feeAmount,
-        cloneMs: Math.round(t1 - t0),
-        sendMs: Math.round(t2 - t1),
-        totalMs: Math.round(t2 - t0),
+        feeL2: bumpL2.toString(),
+        cloneMs,
+        sendMs,
+        totalMs: cloneMs + sendMs,
       });
-      return txHash.toString();
+      return txHash;
     };
 
     let highValueTxs = 0;
-    const highValueSendTx = async (wallet: TestWallet) => {
+    const highValueSendTx = async (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => {
       highValueTxs++;
-      const feeAmount = Number(randomBigInt(10n)) + 1000;
-      const fee = new GasFees(0, feeAmount);
+      // High-value lane pays 10× the pre-fetched network min + tiny jitter to preserve
+      // fee-ordering diversity between wallets. Safely above any mempool-pressure
+      // ratcheting observed during a ~10 min run.
+      const jitter = BigInt(Number(randomBigInt(10n)));
+      const fee = new GasFees(priorityFeeBase.feePerDaGas, priorityFeeBase.feePerL2Gas + jitter);
+      const feeAmount = Number(fee.feePerL2Gas);
 
-      const t0 = performance.now();
-      const tx = await (config.REAL_VERIFIER ? submitProven(wallet, fee) : submitUnproven(wallet, fee));
-      const t1 = performance.now();
-
-      metrics.recordSentTx(tx, 'tx_inclusion_time');
-
-      const txHash = await tx.send({ wait: NO_WAIT });
-      const t2 = performance.now();
+      const { txHash, cloneMs, sendMs } = await buildAndSend(wallet, walletNode, from, fee, tx =>
+        metrics.recordSentTx(tx, 'tx_inclusion_time'),
+      );
 
       logger.info('High value tx sent', {
         txNum: highValueTxs,
         feeAmount,
-        cloneMs: Math.round(t1 - t0),
-        sendMs: Math.round(t2 - t1),
-        totalMs: Math.round(t2 - t0),
+        cloneMs,
+        sendMs,
+        totalMs: cloneMs + sendMs,
       });
-      return txHash.toString();
+      return txHash;
     };
 
     const abortController = new AbortController();
+    // Bind each lane to its wallet's OWN aztecNode (not the shared outer `aztecNode`).
+    // Per-wallet clients prevent JSON-RPC batch coalescence from packing all 10 sends
+    // into one HTTP POST that can exceed the server's 1 MB body limit.
+    const lowValueLanes = lowValueWallets.map((wallet, i) => ({
+      wallet,
+      aztecNode: lowValueTestWallets[i].aztecNode,
+      address: lowValueAddresses[i],
+    }));
+    const highValueLanes = highValueWallets.map((wallet, i) => ({
+      wallet,
+      aztecNode: highValueTestWallets[i].aztecNode,
+      address: highValueAddresses[i],
+    }));
 
-    sendTxsAtTps(logger, abortController.signal, lowValueWallets, lowValueTps, lowValueSendTx);
-    const sentTxHashes = sendTxsAtTps(logger, abortController.signal, highValueWallets, highValueTps, highValueSendTx);
+    sendTxsAtTps(logger, abortController.signal, lowValueLanes, lowValueTps, lowValueSendTx);
+    const sentTxHashes = sendTxsAtTps(logger, abortController.signal, highValueLanes, highValueTps, highValueSendTx);
 
     await sleep(TEST_DURATION_SECONDS * 1000);
     abortController.abort();
@@ -494,15 +609,17 @@ describe('sustained N TPS test', () => {
   });
 });
 
+type WalletLane = { wallet: WorkerWallet; aztecNode: AztecNode; address: AztecAddress };
+
 function sendTxsAtTps(
   logger: Logger,
   signal: AbortSignal,
-  wallets: TestWallet[],
+  lanes: WalletLane[],
   targetTps: number,
-  sendTx: (wallet: TestWallet) => Promise<string>,
+  sendTx: (wallet: WorkerWallet, walletNode: AztecNode, from: AztecAddress) => Promise<string>,
 ): string[] {
   const promiseCount = Math.ceil(targetTps);
-  if (wallets.length < promiseCount) {
+  if (lanes.length < promiseCount) {
     throw new Error('Not enough wallets to achieve desired TPS');
   }
 
@@ -510,7 +627,7 @@ function sendTxsAtTps(
   const targetTpsPerPromise = targetTps / promiseCount;
   logger.info('Starting TPS sender', {
     targetTps,
-    walletCount: wallets.length,
+    walletCount: lanes.length,
     promiseCount,
     targetTpsPerPromise,
   });
@@ -521,11 +638,11 @@ function sendTxsAtTps(
     i =>
       new RunningPromise(
         async () => {
-          const wallet = wallets[i];
+          const { wallet, aztecNode: walletNode, address } = lanes[i];
 
           const start = performance.now(); // ms
           try {
-            const txHash = await sendTx(wallet);
+            const txHash = await sendTx(wallet, walletNode, address);
             txHashes.push(txHash);
           } catch (err) {
             logger.error('Failed to submit tx', { walletIndex: i, err });
@@ -572,7 +689,17 @@ async function cloneTx(tx: ProvenTx, priorityFee: GasFees, logger: Logger): Prom
   const clonedTxData = Tx.clone(tx, false);
   const t1 = performance.now();
 
+  // effective_priority = min(maxPriorityFeesPerGas, maxFeesPerGas - baseFeePerGas).
+  // The prototype was built at simulate-time with maxFeesPerGas ≈ current baseFee + margin.
+  // As baseFee ratchets up under sustained load, the (maxFees - baseFee) term shrinks below
+  // our maxPriorityFees bid, so effective_priority collapses and we trip the mempool min
+  // priority-fee check. Override maxFeesPerGas with a huge static value — sponsor pays, so
+  // over-capping is free. 1000× the priority gives us >> any conceivable baseFee growth.
   (clonedTxData.data.constants.txContext.gasSettings as any).maxPriorityFeesPerGas = priorityFee;
+  (clonedTxData.data.constants.txContext.gasSettings as any).maxFeesPerGas = new GasFees(
+    priorityFee.feePerDaGas * 1000n,
+    priorityFee.feePerL2Gas * 1000n,
+  );
 
   if (clonedTxData.data.forRollup) {
     for (let i = 0; i < clonedTxData.data.forRollup?.end.nullifiers.length; i++) {

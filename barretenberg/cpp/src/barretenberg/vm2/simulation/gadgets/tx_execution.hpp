@@ -76,9 +76,11 @@ class TxExecution final {
     TxContext tx_context;
     bool skip_fee_enforcement;
 
-    // This function can throw if there is a nullifier collision.
+    // Throws TxExecutionException on a side-effect limit error, or NullifierCollisionException on a
+    // nullifier collision. Both are unrecoverable — they result in an unprovable tx.
     void insert_non_revertibles(const Tx& tx);
-    // This function can throw if there is a nullifier collision.
+    // Throws TxExecutionException on a side-effect limit error (recoverable — caller reverts to
+    // post-setup), or NullifierCollisionException on a nullifier collision (unrecoverable — unprovable tx).
     void insert_revertibles(const Tx& tx);
     void emit_public_call_request(const PublicCallRequestWithCalldata& call,
                                   TransactionPhase phase,

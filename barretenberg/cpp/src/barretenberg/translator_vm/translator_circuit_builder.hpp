@@ -233,11 +233,15 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // Maximum size of z limbs
     static constexpr auto MAX_Z_LIMB_SIZE = (uint256_t(1) << NUM_Z_BITS) - 1;
 
-    // Index at which the accumulation result is stored in the circuit, preceeded by one no-op that ensures translator
-    // polynomials are shiftable and three random ops that contribute to ensuring the Translator proof does not leak
+    // Index at which the accumulation result is stored in the circuit, preceded by 2 shiftability zeros
+    // and three random ops that contribute to ensuring the Translator proof does not leak
     // information about the op queue content linked to the circuits being proven
     static constexpr size_t RESULT_ROW = 8;
+
+    // Number of no-ops at the beginning of Translator trace (provides the 2 leading zero rows required for
+    // polynomial shiftability of op queue wires). Contributed by the tail kernel's queue_ecc_no_op().
     static constexpr size_t NUM_NO_OPS_START = 1;
+    static_assert(NUM_NO_OPS_START == 1);
 
     // Number of random ops at the beginning of Translator trace
     static constexpr size_t NUM_RANDOM_OPS_START = 3;
@@ -269,7 +273,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     static constexpr uint512_t NEGATIVE_PRIME_MODULUS = BINARY_BASIS_MODULUS - MODULUS_U512;
 
     // Negated modulus of the target emulated field in the binary modulus split into 4 binary limbs + the final limb is
-    // the negated modulus of the target emulated field in the scalar field
+    // the negated modulus of the target emulated field in the scalar field.
     static constexpr std::array<Fr, 5> NEGATIVE_MODULUS_LIMBS = {
         Fr(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
         Fr(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
@@ -279,10 +283,22 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     };
 
     /**
+     * @brief Compute ((-q) mod 2^4L) for an arbitrary field type FF where L = 68.
+     */
+    template <typename FF> static std::array<FF, 5> compute_negative_modulus_limbs()
+    {
+        return { FF(NEGATIVE_PRIME_MODULUS.slice(0, NUM_LIMB_BITS).lo),
+                 FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2).lo),
+                 FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3).lo),
+                 FF(NEGATIVE_PRIME_MODULUS.slice(NUM_LIMB_BITS * 3, NUM_LIMB_BITS * 4).lo),
+                 -FF(Fq::modulus) };
+    }
+
+    /**
      * @brief The accumulation input structure contains all the necessary values to initalize an accumulation gate as
      * well as additional values for checking its correctness
      *
-     * @details For example, we don't really need the prime limbs, but they serve to check the correctness of over
+     * @details For example, we don't really need the prime limbs, but they serve to check the correctness of other
      * values. We also don't need the values of x's and v's limbs during circuit construction, since they are added to
      * relations directly, but this allows us to check correctness of the computed accumulator
      */
@@ -359,14 +375,9 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
 
     TranslatorCircuitBuilder() = default;
     TranslatorCircuitBuilder(const TranslatorCircuitBuilder& other) = delete;
-    TranslatorCircuitBuilder(TranslatorCircuitBuilder&& other) noexcept
-        : CircuitBuilderBase(std::move(other)) {};
+    TranslatorCircuitBuilder(TranslatorCircuitBuilder&& other) = delete;
     TranslatorCircuitBuilder& operator=(const TranslatorCircuitBuilder& other) = delete;
-    TranslatorCircuitBuilder& operator=(TranslatorCircuitBuilder&& other) noexcept
-    {
-        CircuitBuilderBase::operator=(std::move(other));
-        return *this;
-    };
+    TranslatorCircuitBuilder& operator=(TranslatorCircuitBuilder&& other) = delete;
     ~TranslatorCircuitBuilder() override = default;
 
     /**

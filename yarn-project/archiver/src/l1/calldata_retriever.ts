@@ -1,6 +1,7 @@
 import { MULTI_CALL_3_ADDRESS, type ViemCommitteeAttestations, type ViemHeader } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { LruSet } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
@@ -44,7 +45,7 @@ type CheckpointData = {
  */
 export class CalldataRetriever {
   /** Tx hashes we've already logged for trace+debug failure (log once per tx per process). */
-  private static readonly traceFailureWarnedTxHashes = new Set<string>();
+  private static readonly traceFailureWarnedTxHashes = new LruSet<string>(1000);
 
   /** Clears the trace-failure warned set. For testing only. */
   static resetTraceFailureWarnedForTesting(): void {

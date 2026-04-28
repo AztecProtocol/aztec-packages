@@ -216,18 +216,23 @@ bool ChonkBatchVerifier::batch_check(const std::vector<ReduceResult>& results, c
 
     set_parallel_for_concurrency(num_cores_);
 
-    // Collect IPA claims and transcripts for batch verification
-    std::vector<OpeningClaim<curve::Grumpkin>> claims;
-    std::vector<std::shared_ptr<NativeTranscript>> transcripts;
-    claims.reserve(indices.size());
-    transcripts.reserve(indices.size());
-    for (size_t idx : indices) {
-        claims.push_back(results[idx].ipa_claim);
-        transcripts.push_back(std::make_shared<NativeTranscript>(results[idx].ipa_proof));
-    }
+    try {
+        // Collect IPA claims and transcripts for batch verification
+        std::vector<OpeningClaim<curve::Grumpkin>> claims;
+        std::vector<std::shared_ptr<NativeTranscript>> transcripts;
+        claims.reserve(indices.size());
+        transcripts.reserve(indices.size());
+        for (size_t idx : indices) {
+            claims.push_back(results[idx].ipa_claim);
+            transcripts.push_back(std::make_shared<NativeTranscript>(results[idx].ipa_proof));
+        }
 
-    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    return IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, claims, transcripts);
+        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        return IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, claims, transcripts);
+    } catch (const std::exception& e) {
+        info("ChonkBatchVerifier: batch_check exception: ", e.what());
+        return false;
+    }
 }
 
 void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,

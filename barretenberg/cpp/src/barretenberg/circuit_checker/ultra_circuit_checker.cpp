@@ -48,6 +48,10 @@ MegaCircuitBuilder_<bb::fr> UltraCircuitChecker::prepare_circuit<MegaCircuitBuil
 
 template <typename Builder> bool UltraCircuitChecker::check(const Builder& builder_in)
 {
+    if (builder_in.failed()) {
+        info("CircuitChecker: circuit contains invalid witnesses: ", builder_in.err());
+    }
+
     Builder builder = UltraCircuitChecker::prepare_circuit(builder_in);
 
     // Construct a hash table for lookup table entries to efficiently determine if a lookup gate is valid
@@ -237,26 +241,21 @@ template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& v
         auto raw_read_idx = static_cast<size_t>(uint256_t(values.w_r));
         auto value = values.w_l;
 
-        // Determine the type of read based on selector values
-        bool is_calldata_read = (values.q_l == 1);
-        bool is_secondary_calldata_read = (values.q_r == 1);
-        bool is_return_data_read = (values.q_o == 1);
-        BB_ASSERT(is_calldata_read || is_secondary_calldata_read || is_return_data_read);
+        // Map bus_idx → wire-linear selector on the values struct (mirrors BusData<i>::selector in the relation).
+        const std::array<const FF*, NUM_BUS_COLUMNS> bus_selectors{ &values.q_l, &values.q_r, &values.q_o };
 
-        // Check that the claimed value is present in the calldata/return data at the corresponding index
-        FF bus_value;
-        if (is_calldata_read) {
-            auto calldata = builder.get_calldata();
-            bus_value = builder.get_variable(calldata[raw_read_idx]);
+        // Locate the bus column being read (exactly one selector should be active on a busread row) and look up the
+        // expected value from the builder's bus vector.
+        FF bus_value{};
+        bool read_matched = false;
+        for (size_t bus_idx = 0; bus_idx < NUM_BUS_COLUMNS; ++bus_idx) {
+            if (*bus_selectors[bus_idx] == 1) {
+                const auto& bus_vec = builder.get_bus_vector(bus_idx);
+                bus_value = builder.get_variable(bus_vec[raw_read_idx]);
+                read_matched = true;
+            }
         }
-        if (is_secondary_calldata_read) {
-            auto secondary_calldata = builder.get_secondary_calldata();
-            bus_value = builder.get_variable(secondary_calldata[raw_read_idx]);
-        }
-        if (is_return_data_read) {
-            auto return_data = builder.get_return_data();
-            bus_value = builder.get_variable(return_data[raw_read_idx]);
-        }
+        BB_ASSERT(read_matched);
         return (value == bus_value);
     }
     return true;

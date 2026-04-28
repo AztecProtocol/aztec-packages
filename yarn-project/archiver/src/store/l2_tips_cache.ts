@@ -1,6 +1,12 @@
-import { GENESIS_BLOCK_HEADER_HASH, INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { type BlockData, type CheckpointId, GENESIS_CHECKPOINT_HEADER_HASH, type L2Tips } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  type CheckpointId,
+  GENESIS_BLOCK_HEADER_HASH,
+  GENESIS_CHECKPOINT_HEADER_HASH,
+  type L2Tips,
+} from '@aztec/stdlib/block';
 
 import type { BlockStore } from './block_store.js';
 
@@ -26,9 +32,16 @@ export class L2TipsCache {
   }
 
   private async loadFromStore(): Promise<L2Tips> {
-    const [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber] = await Promise.all([
-      this.blockStore.getLatestBlockNumber(),
+    const [
+      latestBlockNumber,
+      provenBlockNumber,
+      proposedCheckpointBlockNumber,
+      checkpointedBlockNumber,
+      finalizedBlockNumber,
+    ] = await Promise.all([
+      this.blockStore.getLatestL2BlockNumber(),
       this.blockStore.getProvenBlockNumber(),
+      this.blockStore.getProposedCheckpointL2BlockNumber(),
       this.blockStore.getCheckpointedL2BlockNumber(),
       this.blockStore.getFinalizedL2BlockNumber(),
     ]);
@@ -42,25 +55,44 @@ export class L2TipsCache {
     const getBlockData = (blockNumber: BlockNumber) =>
       blockNumber > beforeInitialBlockNumber ? this.blockStore.getBlockData(blockNumber) : genesisBlockHeader;
 
-    const [latestBlockData, provenBlockData, checkpointedBlockData, finalizedBlockData] = await Promise.all(
-      [latestBlockNumber, provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber].map(getBlockData),
-    );
+    const [latestBlockData, provenBlockData, proposedCheckpointBlockData, checkpointedBlockData, finalizedBlockData] =
+      await Promise.all(
+        [
+          latestBlockNumber,
+          provenBlockNumber,
+          proposedCheckpointBlockNumber,
+          checkpointedBlockNumber,
+          finalizedBlockNumber,
+        ].map(getBlockData),
+      );
 
-    if (!latestBlockData || !provenBlockData || !finalizedBlockData || !checkpointedBlockData) {
+    if (
+      !latestBlockData ||
+      !provenBlockData ||
+      !finalizedBlockData ||
+      !checkpointedBlockData ||
+      !proposedCheckpointBlockData
+    ) {
       throw new Error('Failed to load block data for L2 tips');
     }
 
-    const [provenCheckpointId, finalizedCheckpointId, checkpointedCheckpointId] = await Promise.all([
-      this.getCheckpointIdForBlock(provenBlockData),
-      this.getCheckpointIdForBlock(finalizedBlockData),
-      this.getCheckpointIdForBlock(checkpointedBlockData),
-    ]);
+    const [provenCheckpointId, finalizedCheckpointId, proposedCheckpointId, checkpointedCheckpointId] =
+      await Promise.all([
+        this.getCheckpointIdForBlock(provenBlockData),
+        this.getCheckpointIdForBlock(finalizedBlockData),
+        this.getCheckpointIdForProposedCheckpoint(checkpointedBlockData),
+        this.getCheckpointIdForBlock(checkpointedBlockData),
+      ]);
 
     return {
       proposed: { number: latestBlockNumber, hash: latestBlockData.blockHash.toString() },
       proven: {
         block: { number: provenBlockNumber, hash: provenBlockData.blockHash.toString() },
         checkpoint: provenCheckpointId,
+      },
+      proposedCheckpoint: {
+        block: { number: proposedCheckpointBlockNumber, hash: proposedCheckpointBlockData.blockHash.toString() },
+        checkpoint: proposedCheckpointId,
       },
       finalized: {
         block: { number: finalizedBlockNumber, hash: finalizedBlockData.blockHash.toString() },
@@ -70,6 +102,19 @@ export class L2TipsCache {
         block: { number: checkpointedBlockNumber, hash: checkpointedBlockData.blockHash.toString() },
         checkpoint: checkpointedCheckpointId,
       },
+    };
+  }
+
+  private async getCheckpointIdForProposedCheckpoint(
+    checkpointedBlockData: Pick<BlockData, 'checkpointNumber'>,
+  ): Promise<CheckpointId> {
+    const checkpointData = await this.blockStore.getProposedCheckpointOnly();
+    if (!checkpointData) {
+      return this.getCheckpointIdForBlock(checkpointedBlockData);
+    }
+    return {
+      number: checkpointData.checkpointNumber,
+      hash: checkpointData.header.hash().toString(),
     };
   }
 

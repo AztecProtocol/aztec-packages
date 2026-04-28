@@ -1,7 +1,71 @@
-pub use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
-use crate::{hash::poseidon2_hash, traits::{Deserialize, Empty, Hash, Packable, Serialize}};
+use crate::{
+    hash::poseidon2_hash,
+    traits::{Deserialize, Empty, Hash, Packable, Serialize},
+    utils::{reader::Reader, writer::Writer},
+};
+use std::embedded_curve_ops::EmbeddedCurvePoint;
 
 pub global POINT_LENGTH: u32 = 3;
+
+// TODO(F-553): This custom `Point` struct is a temporary workaround. A newer version of Noir dropped the `is_infinite`
+// field from `EmbeddedCurvePoint` and changed its serialization from 3 fields to 2. To preserve backwards compatibility
+// of our onchain serialization format we re-introduced our own `Point` that wraps `EmbeddedCurvePoint` and keeps the
+// old 3-field layout. Once we're ready to take the breaking change (e.g. alongside the v5 oracle changes), delete this
+// struct, use `EmbeddedCurvePoint` directly and reduce `POINT_LENGTH` to 2.
+pub struct Point {
+    pub x: Field,
+    pub y: Field,
+    pub is_infinite: bool,
+}
+
+impl Point {
+    pub fn generator() -> Self {
+        let g = EmbeddedCurvePoint::generator();
+        Point { x: g.x, y: g.y, is_infinite: false }
+    }
+
+    pub fn point_at_infinity() -> Self {
+        Point { x: 0, y: 0, is_infinite: true }
+    }
+
+    pub fn double(self) -> Self {
+        self.to_embedded().double().into()
+    }
+
+    pub fn to_embedded(self) -> EmbeddedCurvePoint {
+        EmbeddedCurvePoint { x: self.x, y: self.y }
+    }
+}
+
+impl From<EmbeddedCurvePoint> for Point {
+    fn from(p: EmbeddedCurvePoint) -> Self {
+        Point { x: p.x, y: p.y, is_infinite: p.is_infinite() }
+    }
+}
+
+impl std::ops::Add for Point {
+    fn add(self, other: Point) -> Point {
+        (self.to_embedded() + other.to_embedded()).into()
+    }
+}
+
+impl std::ops::Sub for Point {
+    fn sub(self, other: Point) -> Point {
+        (self.to_embedded() - other.to_embedded()).into()
+    }
+}
+
+impl std::ops::Neg for Point {
+    fn neg(self) -> Point {
+        Point { x: self.x, y: -self.y, is_infinite: self.is_infinite }
+    }
+}
+
+impl Eq for Point {
+    fn eq(self, other: Point) -> bool {
+        (self.x == other.x) & (self.y == other.y) & (self.is_infinite == other.is_infinite)
+    }
+}
 
 impl Hash for Point {
     fn hash(self) -> Field {
@@ -14,6 +78,33 @@ impl Empty for Point {
     /// empty/unpopulated value in an array of points).
     fn empty() -> Self {
         Point { x: 0, y: 0, is_infinite: false }
+    }
+}
+
+impl Serialize for Point {
+    let N: u32 = POINT_LENGTH;
+
+    fn serialize(self) -> [Field; Self::N] {
+        [self.x, self.y, self.is_infinite as Field]
+    }
+
+    fn stream_serialize<let K: u32>(self, writer: &mut Writer<K>) {
+        writer.write(self.x);
+        writer.write(self.y);
+        writer.write(self.is_infinite as Field);
+    }
+}
+
+impl Deserialize for Point {
+    let N: u32 = POINT_LENGTH;
+
+    fn deserialize(fields: [Field; Self::N]) -> Self {
+        Point { x: fields[0], y: fields[1], is_infinite: fields[2] != 0 }
+    }
+
+    #[inline_always]
+    fn stream_deserialize<let K: u32>(reader: &mut Reader<K>) -> Self {
+        Point { x: reader.read(), y: reader.read(), is_infinite: reader.read_bool() }
     }
 }
 
@@ -44,8 +135,7 @@ impl Packable for Point {
 }
 
 mod tests {
-    use super::validate_on_curve;
-    use std::embedded_curve_ops::EmbeddedCurvePoint as Point;
+    use super::{Point, validate_on_curve};
 
     #[test]
     unconstrained fn test_validate_on_curve_generator() {

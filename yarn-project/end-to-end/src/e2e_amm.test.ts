@@ -12,6 +12,8 @@ import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 120_000;
 
+// TODO(F-560): Consider whether it makes sense to drop this
+// https://linear.app/aztec-labs/issue/F-560/add-more-tests-to-forward-compatibility-testing
 describe('AMM', () => {
   jest.setTimeout(TIMEOUT);
 

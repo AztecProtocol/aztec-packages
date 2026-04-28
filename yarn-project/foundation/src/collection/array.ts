@@ -315,3 +315,17 @@ export function partition<T>(items: T[], predicate: (item: T) => boolean): [T[],
   }
   return [pass, fail];
 }
+
+/** Partitions the given iterable into two arrays based on the predicate. */
+export async function partitionAsync<T>(items: T[], predicate: (item: T) => Promise<boolean>): Promise<[T[], T[]]> {
+  const pass: T[] = [];
+  const fail: T[] = [];
+  for (const item of items) {
+    if (await predicate(item)) {
+      pass.push(item);
+    } else {
+      fail.push(item);
+    }
+  }
+  return [pass, fail];
+}

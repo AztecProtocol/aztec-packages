@@ -11,6 +11,7 @@ describe('e2e_slasher_config', () => {
 
   beforeAll(async () => {
     ({ aztecNodeAdmin, aztecNode, teardown } = await setup(0, {
+      anvilSlotsInAnEpoch: 4,
       slashInactivityTargetPercentage: 1,
       slashInactivityPenalty: 42n,
     }));

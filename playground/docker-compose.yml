@@ -52,6 +52,7 @@ services:
       L1_CHAIN_ID: 31337
       FORCE_COLOR: ${FORCE_COLOR:-1}
       BROWSER: ${BROWSER:-chromium}
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
     depends_on:
       aztec:
         condition: service_healthy

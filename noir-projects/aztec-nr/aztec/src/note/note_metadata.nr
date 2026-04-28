@@ -31,7 +31,7 @@ struct NoteStageEnum {
     PENDING_PREVIOUS_PHASE: u8,
     /// A note created in a prior transaction.
     ///
-    /// Settled notes have alrady been inserted into the note hash tree.
+    /// Settled notes have already been inserted into the note hash tree.
     SETTLED: u8,
 }
 

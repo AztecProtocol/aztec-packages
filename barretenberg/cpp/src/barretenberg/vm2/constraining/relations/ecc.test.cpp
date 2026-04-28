@@ -939,8 +939,7 @@ TEST(ScalarMulConstrainingTest, NegativeDisableSel)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Disable the selector in one of the rows between start and end
     trace.set(Column::scalar_mul_sel, 5, 0);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SELECTOR_CONSISTENCY),
-                              "SELECTOR_CONSISTENCY");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_TRACE_CONTINUITY), "TRACE_CONTINUITY");
 }
 
 TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
@@ -971,8 +970,8 @@ TEST(ScalarMulConstrainingTest, NegativeEnableStartFirstRow)
     builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
     // Enable the start in the first row
     trace.set(Column::scalar_mul_start, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SELECTOR_ON_START_OR_END),
-                              "SELECTOR_ON_START_OR_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<scalar_mul>(trace, scalar_mul::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
 }
 
 TEST(ScalarMulConstrainingTest, NegativeMutateScalarOnEnd)

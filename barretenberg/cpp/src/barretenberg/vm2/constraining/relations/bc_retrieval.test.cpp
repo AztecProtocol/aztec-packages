@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -151,6 +151,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
               .prev_snapshot = snapshot_before,
               .next_snapshot = snapshot_before,
               .tree_height = AVM_RETRIEVED_BYTECODES_TREE_HEIGHT,
+              .merkle_hash_separator = FF(DOM_SEP__RETRIEVED_BYTECODES_MERKLE),
               .low_leaf_data = IndexedTreeLeafData{ .value = 0, .next_value = 0, .next_index = 0 },
               .low_leaf_hash = 0,
               .low_leaf_index = 0,
@@ -161,6 +162,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, SuccessfulRetrieval)
               .prev_snapshot = snapshot_before,
               .next_snapshot = snapshot_after,
               .tree_height = AVM_RETRIEVED_BYTECODES_TREE_HEIGHT,
+              .merkle_hash_separator = FF(DOM_SEP__RETRIEVED_BYTECODES_MERKLE),
               .low_leaf_data = IndexedTreeLeafData{ .value = 0, .next_value = 0, .next_index = 0 },
               .low_leaf_hash = 0,
               .low_leaf_index = 0,
@@ -260,6 +262,7 @@ TEST_F(BytecodeRetrievalConstrainingTest, NonExistentInstance)
             { C::bc_retrieval_prev_retrieved_bytecodes_tree_size, 1 },
             { C::bc_retrieval_next_retrieved_bytecodes_tree_size, 1 },
             { C::bc_retrieval_retrieved_bytecodes_tree_height, AVM_RETRIEVED_BYTECODES_TREE_HEIGHT },
+            { C::bc_retrieval_retrieved_bytecodes_merkle_separator, DOM_SEP__RETRIEVED_BYTECODES_MERKLE },
             { C::bc_retrieval_remaining_bytecodes_inv, FF(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS).invert() },
             { C::bc_retrieval_error, 1 },
         } });
@@ -307,8 +310,8 @@ class BytecodeRetrievalConstrainingTestFewerMocks : public BytecodeRetrievalCons
     MerkleCheck merkle_check = MerkleCheck(poseidon2, merkle_check_emitter);
     RangeCheck range_check = RangeCheck(range_check_emitter);
     FieldGreaterThan field_gt = FieldGreaterThan(range_check, field_gt_emitter);
-    IndexedTreeCheck indexed_tree_check =
-        IndexedTreeCheck(poseidon2, merkle_check, field_gt, indexed_tree_check_event_emitter);
+    IndexedTreeCheck indexed_tree_check = IndexedTreeCheck(
+        poseidon2, merkle_check, field_gt, DOM_SEP__RETRIEVED_BYTECODES_MERKLE, indexed_tree_check_event_emitter);
 
     RetrievedBytecodesTreeCheck retrieved_bytecodes_tree_check =
         RetrievedBytecodesTreeCheck(indexed_tree_check, simulation::build_retrieved_bytecodes_tree());

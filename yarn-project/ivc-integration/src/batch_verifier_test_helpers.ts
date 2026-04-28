@@ -5,8 +5,8 @@ import type { IVCProofVerificationResult } from '@aztec/stdlib/interfaces/server
 export function corruptProofFields(fields: Uint8Array[]): Uint8Array[] {
   const corrupted = fields.map(f => Uint8Array.from(f));
   corrupted[2] = Uint8Array.from(corrupted[2]);
-  corrupted[2][0] ^= 0xff;
-  corrupted[2][1] ^= 0xff;
+  corrupted[2][30] ^= 0xff;
+  corrupted[2][31] ^= 0xff;
   return corrupted;
 }
 

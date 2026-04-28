@@ -24,7 +24,7 @@ impl Packable for Order {
     }
 
     fn unpack(packed: [Field; Self::N]) -> Self {
-        let bid_token_is_zero = (packed[0] as u1) != 0;
+        let bid_token_is_zero = (packed[0] as u8) % 2 != 0;
         let bid_amount = ((packed[0] - bid_token_is_zero as Field) / 2.pow_32(1)) as u128;
         let ask_amount = packed[1] as u128;
         Self { bid_amount, ask_amount, bid_token_is_zero }

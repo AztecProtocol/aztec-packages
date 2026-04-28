@@ -77,6 +77,10 @@ std::vector<typename Curve::BaseField> pedersen_hash_base<Curve>::convert_buffer
 template <typename Curve>
 typename Curve::BaseField pedersen_hash_base<Curve>::hash(const std::vector<Fq>& inputs, const GeneratorContext context)
 {
+    if (inputs.empty()) {
+        throw_or_abort("pedersen hash: empty input");
+    }
+
     Element result = length_generator * Fr(inputs.size());
     return (result + pedersen_commitment_base<Curve>::commit_native(inputs, context)).normalize().x;
 }
@@ -88,6 +92,10 @@ template <typename Curve>
 typename Curve::BaseField pedersen_hash_base<Curve>::hash_buffer(const std::vector<uint8_t>& input,
                                                                  const GeneratorContext context)
 {
+    if (input.empty()) {
+        throw_or_abort("pedersen hash_buffer: empty input");
+    }
+
     std::vector<Fq> converted = convert_buffer(input);
 
     if (converted.size() < 2) {

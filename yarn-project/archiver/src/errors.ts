@@ -26,9 +26,13 @@ export class InitialCheckpointNumberNotSequentialError extends Error {
 }
 
 export class CheckpointNumberNotSequentialError extends Error {
-  constructor(newCheckpointNumber: number, previous: number | undefined) {
+  constructor(
+    newCheckpointNumber: number,
+    previous: number | undefined,
+    source: 'confirmed' | 'proposed' = 'confirmed',
+  ) {
     super(
-      `Cannot insert new checkpoint ${newCheckpointNumber} given previous checkpoint number in batch is ${previous ?? 'undefined'}`,
+      `Cannot insert new checkpoint ${newCheckpointNumber} given previous ${source} checkpoint number is ${previous ?? 'undefined'}`,
     );
   }
 }
@@ -101,6 +105,64 @@ export class L1ToL2MessagesNotReadyError extends Error {
         `inbox tree in progress is ${inboxTreeInProgress}, messages not yet sealed`,
     );
     this.name = 'L1ToL2MessagesNotReadyError';
+  }
+}
+
+/** Thrown when a proposed checkpoint number is stale (already processed). */
+export class ProposedCheckpointStaleError extends Error {
+  constructor(
+    public readonly proposedCheckpointNumber: number,
+    public readonly currentProposedNumber: number,
+  ) {
+    super(`Stale proposed checkpoint ${proposedCheckpointNumber}: current proposed is ${currentProposedNumber}`);
+    this.name = 'ProposedCheckpointStaleError';
+  }
+}
+
+/** Thrown when a proposed checkpoint number is not the expected confirmed + 1. */
+export class ProposedCheckpointNotSequentialError extends Error {
+  constructor(
+    public readonly proposedCheckpointNumber: number,
+    public readonly confirmedCheckpointNumber: number,
+  ) {
+    super(
+      `Proposed checkpoint ${proposedCheckpointNumber} is not sequential: expected ${confirmedCheckpointNumber + 1} (confirmed + 1)`,
+    );
+    this.name = 'ProposedCheckpointNotSequentialError';
+  }
+}
+
+/** Thrown when attempting to promote a proposed checkpoint but no proposed checkpoint exists in the store. */
+export class NoProposedCheckpointToPromoteError extends Error {
+  constructor() {
+    super('Cannot promote proposed checkpoint: no proposed checkpoint exists');
+    this.name = 'NoProposedCheckpointToPromoteError';
+  }
+}
+
+/** Thrown when the archive root of the proposed checkpoint does not match the expected one. */
+export class ProposedCheckpointArchiveRootMismatchError extends Error {
+  constructor(
+    public readonly expectedArchiveRoot: Fr,
+    public readonly actualArchiveRoot: Fr,
+  ) {
+    super(
+      `Cannot promote proposed checkpoint: archive root mismatch (expected ${expectedArchiveRoot}, got ${actualArchiveRoot})`,
+    );
+    this.name = 'ProposedCheckpointArchiveRootMismatchError';
+  }
+}
+
+/** Thrown when the proposed checkpoint does not directly follow the latest confirmed checkpoint. */
+export class ProposedCheckpointPromotionNotSequentialError extends Error {
+  constructor(
+    public readonly proposedCheckpointNumber: number,
+    public readonly latestCheckpointNumber: number,
+  ) {
+    super(
+      `Cannot promote proposed checkpoint: not sequential (latest ${latestCheckpointNumber}, proposed ${proposedCheckpointNumber})`,
+    );
+    this.name = 'ProposedCheckpointPromotionNotSequentialError';
   }
 }
 

@@ -287,7 +287,7 @@ fq12 reduced_ate_pairing_batch_precomputed(const g1::affine_element* P_affines,
 {
     for (size_t i = 0; i < num_points; ++i) {
         if (!P_affines[i].on_curve()) {
-            throw_or_abort("reduced_ate_pairing_batch_precomputed: one of the points is not on the curve.");
+            bb::assert_failure("reduced_ate_pairing_batch_precomputed: one of the points is not on the curve.");
         }
     }
 
@@ -307,10 +307,10 @@ fq12 reduced_ate_pairing_batch(const g1::affine_element* P_affines,
     bool has_infinity_pair = false;
     for (size_t i = 0; i < num_points; ++i) {
         if (!P_affines[i].on_curve()) {
-            throw_or_abort("reduced_ate_pairing_batch: one of the P points is not on the curve.");
+            bb::assert_failure("reduced_ate_pairing_batch: one of the P points is not on the curve.");
         }
         if (!Q_affines[i].on_curve()) {
-            throw_or_abort("reduced_ate_pairing_batch: one of the Q points is not on the curve.");
+            bb::assert_failure("reduced_ate_pairing_batch: one of the Q points is not on the curve.");
         }
 
         // If either P_i or Q_i is the point at infinity, then e(P_i, Q_i) = 1, so we can skip the calculation of

@@ -46,41 +46,41 @@ template <typename Flavor> typename Flavor::ProverPolynomials create_satisfiable
         poly = Polynomial(circuit_size);
     }
 
-    // Create a simple arithmetic circuit with a few gates
-    // Row 1: Addition gate: w_l + w_r = w_o (1 + 1 = 2)
-    if (circuit_size > 1) {
-        full_polynomials.w_l.at(1) = FF(1);
-        full_polynomials.w_r.at(1) = FF(1);
-        full_polynomials.w_o.at(1) = FF(2);
-        full_polynomials.q_l.at(1) = FF(1);
-        full_polynomials.q_r.at(1) = FF(1);
-        full_polynomials.q_o.at(1) = FF(-1);
-        full_polynomials.q_arith.at(1) = FF(1);
+    // Create a simple arithmetic circuit with a few gates.
+    // Gates start after the disabled region (NUM_DISABLED_ROWS_IN_SUMCHECK = 4) for flavors with row disabling.
+    constexpr size_t gate_start = UseRowDisablingPolynomial<Flavor> ? NUM_DISABLED_ROWS_IN_SUMCHECK : 1;
+
+    // Gate 0: Addition gate: w_l + w_r = w_o (1 + 1 = 2)
+    if (circuit_size > gate_start) {
+        full_polynomials.w_l.at(gate_start) = FF(1);
+        full_polynomials.w_r.at(gate_start) = FF(1);
+        full_polynomials.w_o.at(gate_start) = FF(2);
+        full_polynomials.q_l.at(gate_start) = FF(1);
+        full_polynomials.q_r.at(gate_start) = FF(1);
+        full_polynomials.q_o.at(gate_start) = FF(-1);
+        full_polynomials.q_arith.at(gate_start) = FF(1);
     }
 
-    // Row 2: Multiplication gate: w_l * w_r = w_o (2 * 2 = 4)
-    if (circuit_size > 2) {
-        full_polynomials.w_l.at(2) = FF(2);
-        full_polynomials.w_r.at(2) = FF(2);
-        full_polynomials.w_o.at(2) = FF(4);
-        full_polynomials.q_m.at(2) = FF(1);
-        full_polynomials.q_o.at(2) = FF(-1);
-        full_polynomials.q_arith.at(2) = FF(1);
+    // Gate 1: Multiplication gate: w_l * w_r = w_o (2 * 2 = 4)
+    if (circuit_size > gate_start + 1) {
+        full_polynomials.w_l.at(gate_start + 1) = FF(2);
+        full_polynomials.w_r.at(gate_start + 1) = FF(2);
+        full_polynomials.w_o.at(gate_start + 1) = FF(4);
+        full_polynomials.q_m.at(gate_start + 1) = FF(1);
+        full_polynomials.q_o.at(gate_start + 1) = FF(-1);
+        full_polynomials.q_arith.at(gate_start + 1) = FF(1);
     }
 
-    // For ZK flavors: add randomness to the last rows (which will be masked by row-disabling polynomial)
-    // These rows don't need to satisfy the relation because they're disabled
+    // For ZK flavors: add randomness to the disabled rows (first 4 rows) which are masked by row-disabling polynomial.
+    // These rows don't need to satisfy the relation because they're disabled.
     if constexpr (Flavor::HasZK) {
-        constexpr size_t NUM_DISABLED_ROWS = 3; // Matches the number of disabled rows in ZK sumcheck
-        if (circuit_size > NUM_DISABLED_ROWS) {
-            for (size_t i = circuit_size - NUM_DISABLED_ROWS; i < circuit_size; ++i) {
-                full_polynomials.w_l.at(i) = FF::random_element();
-                full_polynomials.w_r.at(i) = FF::random_element();
-                full_polynomials.w_o.at(i) = FF::random_element();
-                full_polynomials.w_4.at(i) = FF::random_element();
-                full_polynomials.w_test_1.at(i) = FF::random_element();
-                full_polynomials.w_test_2.at(i) = FF::random_element();
-            }
+        for (size_t i = 1; i < NUM_DISABLED_ROWS_IN_SUMCHECK; ++i) { // start at 1 (row 0 is zero row for shiftable)
+            full_polynomials.w_l.at(i) = FF::random_element();
+            full_polynomials.w_r.at(i) = FF::random_element();
+            full_polynomials.w_o.at(i) = FF::random_element();
+            full_polynomials.w_4.at(i) = FF::random_element();
+            full_polynomials.w_test_1.at(i) = FF::random_element();
+            full_polynomials.w_test_2.at(i) = FF::random_element();
         }
     }
 
@@ -171,7 +171,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
     void test_prover()
     {
-        const size_t multivariate_d(2);
+        // Need at least 4 rounds for row-disabling flavors (disabled region = 4 rows = 2^2, needs n > 2^2)
+        const size_t multivariate_d = UseRowDisablingPolynomial<Flavor> ? 4 : 2;
         const size_t multivariate_n(1 << multivariate_d);
 
         // Randomly construct the prover polynomials that are input to Sumcheck.
@@ -186,11 +187,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
-        std::vector<FF> gate_challenges(multivariate_d);
-        for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
-            gate_challenges[idx] =
-                transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
-        }
+        auto gate_challenges =
+            transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", CONST_PROOF_SIZE_LOG_N);
 
         SumcheckProver<Flavor> sumcheck(
             multivariate_n, full_polynomials, transcript, alpha, gate_challenges, {}, CONST_PROOF_SIZE_LOG_N);
@@ -198,10 +196,9 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         SumcheckOutput<Flavor> output;
 
         if constexpr (Flavor::HasZK) {
-            ZKData zk_sumcheck_data = ZKData(multivariate_d, transcript);
-            MaskingTailData<Flavor> masking_tail;
-            masking_tail.dyadic_size = multivariate_n;
-            output = sumcheck.prove(zk_sumcheck_data, masking_tail);
+            // ZKData needs univariates for ALL rounds (real + virtual) since libra covers the full range
+            ZKData zk_sumcheck_data = ZKData(CONST_PROOF_SIZE_LOG_N, transcript);
+            output = sumcheck.prove(zk_sumcheck_data);
         } else {
             output = sumcheck.prove();
         }
@@ -226,7 +223,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
     // TODO(#225): make the inputs to this test more interesting, e.g. non-trivial permutations
     void test_prover_verifier_flow()
     {
-        const size_t multivariate_d(3);
+        const size_t multivariate_d = UseRowDisablingPolynomial<Flavor> ? 4 : 3;
         const size_t multivariate_n(1 << multivariate_d);
 
         const size_t virtual_log_n = 6;
@@ -252,9 +249,8 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
         SumcheckOutput<Flavor> output;
         if constexpr (Flavor::HasZK) {
-            ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
-            MaskingTailData<Flavor> masking_tail;
-            output = sumcheck_prover.prove(zk_sumcheck_data, masking_tail);
+            ZKData zk_sumcheck_data = ZKData(virtual_log_n, prover_transcript);
+            output = sumcheck_prover.prove(zk_sumcheck_data);
         } else {
             output = sumcheck_prover.prove();
         }
@@ -269,15 +265,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         verifier_gate_challenges =
             verifier_transcript->template get_dyadic_powers_of_challenge<FF>("Sumcheck:gate_challenge", virtual_log_n);
 
-        std::vector<FF> padding_indicator_array(virtual_log_n, 1);
-        if constexpr (Flavor::HasZK) {
-            for (size_t idx = 0; idx < virtual_log_n; idx++) {
-                padding_indicator_array[idx] = (idx < multivariate_d) ? FF{ 1 } : FF{ 0 };
-            }
-        }
-
-        auto verifier_output =
-            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
+        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges);
 
         auto verified = verifier_output.verified;
 
@@ -286,19 +274,15 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
 
     void test_failure_prover_verifier_flow()
     {
-        // Since the last 4 rows in ZK Flavors are disabled, we extend an invalid circuit of size 4 to size 8 by padding
-        // with 0.
-        const size_t multivariate_d(3);
+        const size_t multivariate_d = UseRowDisablingPolynomial<Flavor> ? 4 : 3;
         const size_t multivariate_n(1 << multivariate_d);
 
         // Start with a satisfiable trace, then break it
         auto full_polynomials = create_satisfiable_trace<Flavor>(multivariate_n);
 
-        // Break the circuit by changing w_l[1] from 1 to 0
-        // This makes the arithmetic relation unsatisfied:
-        // q_arith[1] * (q_l[1] * w_l[1] + q_r[1] * w_r[1] + q_o[1] * w_o[1]) = 1 * (1 * 0 + 1 * 1 + (-1) * 2) = -1 ≠
-        // 0
-        full_polynomials.w_l.at(1) = FF(0);
+        // Break the circuit at the first active gate (after disabled region for row-disabling flavors).
+        constexpr size_t gate_row = UseRowDisablingPolynomial<Flavor> ? NUM_DISABLED_ROWS_IN_SUMCHECK : 1;
+        full_polynomials.w_l.at(gate_row) = FF(0);
 
         // SumcheckTestFlavor doesn't need complex relation parameters
         RelationParameters<FF> relation_parameters{};
@@ -320,8 +304,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
         if constexpr (Flavor::HasZK) {
             // construct libra masking polynomials and compute auxiliary data
             ZKData zk_sumcheck_data = ZKData(multivariate_d, prover_transcript);
-            MaskingTailData<Flavor> masking_tail;
-            output = sumcheck_prover.prove(zk_sumcheck_data, masking_tail);
+            output = sumcheck_prover.prove(zk_sumcheck_data);
         } else {
             output = sumcheck_prover.prove();
         }
@@ -338,10 +321,7 @@ template <typename Flavor> class SumcheckTests : public ::testing::Test {
                 verifier_transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
         }
 
-        std::vector<FF> padding_indicator_array(multivariate_d);
-        std::ranges::fill(padding_indicator_array, FF{ 1 });
-        auto verifier_output =
-            sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges, padding_indicator_array);
+        auto verifier_output = sumcheck_verifier.verify(relation_parameters, verifier_gate_challenges);
 
         auto verified = verifier_output.verified;
 

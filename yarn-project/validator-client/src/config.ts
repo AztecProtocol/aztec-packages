@@ -49,11 +49,6 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Interval between polling for new attestations',
     ...numberConfigHelper(200),
   },
-  validatorReexecute: {
-    env: 'VALIDATOR_REEXECUTE',
-    description: 'Re-execute transactions before attesting',
-    ...booleanConfigHelper(true),
-  },
   alwaysReexecuteBlockProposals: {
     description:
       'Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).',
@@ -80,22 +75,22 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   validateMaxL2BlockGas: {
     env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
     description: 'Maximum L2 block gas for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   validateMaxDABlockGas: {
     env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
     description: 'Maximum DA block gas for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   validateMaxTxsPerBlock: {
     env: 'VALIDATOR_MAX_TX_PER_BLOCK',
     description: 'Maximum transactions per block for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   validateMaxTxsPerCheckpoint: {
     env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
     description: 'Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => parseInt(val, 10),
   },
   ...localSignerConfigMappings,
   ...validatorHASignerConfigMappings,

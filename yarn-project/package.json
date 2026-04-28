@@ -1,6 +1,6 @@
 {
   "name": "@aztec/aztec3-packages",
-  "packageManager": "yarn@4.5.2",
+  "packageManager": "yarn@4.13.0",
   "private": true,
   "scripts": {
     "ci": "../ci.sh",

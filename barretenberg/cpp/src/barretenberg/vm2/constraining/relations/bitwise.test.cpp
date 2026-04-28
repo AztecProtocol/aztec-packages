@@ -21,7 +21,7 @@
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 // Imports for keccak/sha256 vulnerability exploit tests
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/generated/relations/keccakf1600.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_keccakf1600.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"

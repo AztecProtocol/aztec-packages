@@ -4,6 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 
@@ -45,6 +46,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
 
     // Pass 1: Each thread converts from Montgomery and collects nonzero indices into its own vector
     parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("MSM::convert_scalars");
         BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         auto range = chunk.range(scalars.size());
         if (range.empty()) {
@@ -71,6 +73,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
 
     // Pass 2: Copy each thread's indices to the output vector (no branching)
     parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("MSM::copy_indices");
         BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         size_t offset = 0;
         for (size_t i = 0; i < chunk.thread_index; ++i) {
@@ -439,6 +442,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     std::span<std::span<ScalarField>> scalars,
     bool handle_edge_cases) noexcept
 {
+    BB_BENCH_NAME("MSM::batch_multi_scalar_mul");
     BB_ASSERT_EQ(points.size(), scalars.size());
     const size_t num_msms = points.size();
 
@@ -454,45 +458,58 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         handle_edge_cases ? jacobian_pippenger_with_transformed_scalars : affine_pippenger_with_transformed_scalars;
 
     // Once we have our work units, each thread can independently evaluate its assigned msms
-    parallel_for(num_cpus, [&](size_t thread_idx) {
-        if (!thread_work_units[thread_idx].empty()) {
-            const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
-            std::vector<std::pair<Element, size_t>>& msm_results = thread_msm_results[thread_idx];
-            msm_results.reserve(msms.size());
+    {
+        BB_BENCH_NAME("MSM::batch_multi_scalar_mul/evaluate_work_units");
+        parallel_for(num_cpus, [&](size_t thread_idx) {
+            BB_BENCH_TRACY_NAME("MSM::evaluate_work_units");
+            if (!thread_work_units[thread_idx].empty()) {
+                const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
+                std::vector<std::pair<Element, size_t>>& msm_results = thread_msm_results[thread_idx];
+                msm_results.reserve(msms.size());
 
-            // Point schedule buffer for this thread - avoids per-work-unit heap allocation
-            std::vector<uint64_t> point_schedule_buffer;
+                // Point schedule buffer for this thread - avoids per-work-unit heap allocation
+                std::vector<uint64_t> point_schedule_buffer;
 
-            for (const MSMWorkUnit& msm : msms) {
-                point_schedule_buffer.resize(msm.size);
-                MSMData msm_data =
-                    MSMData::from_work_unit(scalars, points, msm_scalar_indices, point_schedule_buffer, msm);
-                Element msm_result =
-                    (msm.size < PIPPENGER_THRESHOLD) ? small_mul<Curve>(msm_data) : pippenger_impl(msm_data);
+                for (const MSMWorkUnit& msm : msms) {
+                    point_schedule_buffer.resize(msm.size);
+                    MSMData msm_data =
+                        MSMData::from_work_unit(scalars, points, msm_scalar_indices, point_schedule_buffer, msm);
+                    Element msm_result =
+                        (msm.size < PIPPENGER_THRESHOLD) ? small_mul<Curve>(msm_data) : pippenger_impl(msm_data);
 
-                msm_results.emplace_back(msm_result, msm.batch_msm_index);
-            }
-        }
-    });
-
-    // Accumulate results. This part needs to be single threaded, but amount of work done here should be small
-    // TODO(@zac-williamson) check this? E.g. if we are doing a 2^16 MSM with 256 threads this single-threaded part
-    // will be painful.
-    std::vector<Element> results(num_msms, Curve::Group::point_at_infinity);
-    for (const auto& single_thread_msm_results : thread_msm_results) {
-        for (const auto& [element, index] : single_thread_msm_results) {
-            results[index] += element;
-        }
-    }
-    Element::batch_normalize(results.data(), num_msms);
-
-    // Convert scalars back TO Montgomery form so they remain unchanged from caller's perspective
-    for (auto& scalar_span : scalars) {
-        parallel_for_range(scalar_span.size(), [&](size_t start, size_t end) {
-            for (size_t i = start; i < end; ++i) {
-                scalar_span[i].self_to_montgomery_form();
+                    msm_results.emplace_back(msm_result, msm.batch_msm_index);
+                }
             }
         });
+    }
+
+    // Accumulate results. Single-threaded, but negligible in practice.
+    // Benchmarked (192-core, 256 threads): ~512us for 2^16 MSM (~1.2% of total), ~207us for 2^20 (<0.1%).
+    std::vector<Element> results(num_msms, Curve::Group::point_at_infinity);
+    {
+        BB_BENCH_NAME("MSM::batch_multi_scalar_mul/accumulate_results");
+        for (const auto& single_thread_msm_results : thread_msm_results) {
+            for (const auto& [element, index] : single_thread_msm_results) {
+                results[index] += element;
+            }
+        }
+    }
+    {
+        BB_BENCH_NAME("MSM::batch_multi_scalar_mul/batch_normalize");
+        Element::batch_normalize(results.data(), num_msms);
+    }
+
+    // Convert scalars back TO Montgomery form so they remain unchanged from caller's perspective
+    {
+        BB_BENCH_NAME("MSM::batch_multi_scalar_mul/scalars_to_montgomery");
+        for (auto& scalar_span : scalars) {
+            parallel_for_range(scalar_span.size(), [&](size_t start, size_t end) {
+                BB_BENCH_TRACY_NAME("MSM::scalars_to_montgomery/chunk");
+                for (size_t i = start; i < end; ++i) {
+                    scalar_span[i].self_to_montgomery_form();
+                }
+            });
+        }
     }
 
     return std::vector<AffineElement>(results.begin(), results.end());

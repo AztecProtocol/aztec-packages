@@ -53,7 +53,7 @@ Only runs on validator nodes. Non-validator nodes use a default handler that tri
 
 **Escape hatch**: during escape hatch periods (`isEscapeHatchOpenAtSlot`), re-execution and slashing are both disabled, and the proposal is rejected locally.
 
-**Conditional re-execution**: rules 22-24 only run when at least one condition is true: `fishermanMode` enabled, `slashBroadcastedInvalidBlockPenalty > 0` with `validatorReexecute`, committee membership with `validatorReexecute`, `alwaysReexecuteBlockProposals`, or `blobClient.canUpload()`.
+**Conditional re-execution**: rules 22-24 only run when at least one condition is true: `fishermanMode` enabled, `slashBroadcastedInvalidBlockPenalty > 0`, committee membership, `alwaysReexecuteBlockProposals`, or `blobClient.canUpload()`.
 
 **Slashing**: only `state_mismatch` and `failed_txs` trigger on-chain slashing (`OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL`, gated by `slashBroadcastedInvalidBlockPenalty > 0`). Unknown errors during re-execution do NOT slash.
 

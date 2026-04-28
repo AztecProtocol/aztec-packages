@@ -38,7 +38,11 @@ export type ContractOverrides = Record<
  * set, it *must* be run without the kernel circuits, or validations will fail
  */
 export class SimulationOverrides {
-  constructor(public contracts?: ContractOverrides) {}
+  public contracts?: ContractOverrides;
+
+  constructor(contracts: ContractOverrides = {}) {
+    this.contracts = Object.keys(contracts).length > 0 ? contracts : undefined;
+  }
 
   static get schema() {
     return z
@@ -157,7 +161,7 @@ export class TxSimulationResult {
 }
 
 /**
- * Recursively accummulate the return values of a call result and its nested executions,
+ * Recursively accumulate the return values of a call result and its nested executions,
  * so they can be retrieved in order.
  * @param executionResult
  * @returns

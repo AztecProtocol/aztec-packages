@@ -15,12 +15,6 @@ impl FromField for bool {
         value != 0
     }
 }
-impl FromField for u1 {
-    #[inline_always]
-    fn from_field(value: Field) -> Self {
-        value as u1
-    }
-}
 impl FromField for u8 {
     #[inline_always]
     fn from_field(value: Field) -> Self {

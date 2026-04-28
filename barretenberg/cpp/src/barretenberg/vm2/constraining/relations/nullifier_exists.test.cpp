@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -57,6 +58,7 @@ TEST(NullifierExistsConstrainingTest, PositiveTest)
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
                                  { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                                 { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     check_relation<nullifier_exists>(trace);
@@ -72,6 +74,7 @@ TEST(NullifierExistsConstrainingTest, PositiveNullifierNotExists)
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
                                  { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                                 { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     check_relation<nullifier_exists>(trace);
@@ -87,6 +90,7 @@ TEST(NullifierExistsConstrainingTest, NegativeInvalidOutputTag)
                                  { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
                                  { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U8) }, // WRONG!
                                  { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                                 { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
                                  { C::execution_sel_opcode_error, 0 },
                                  { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS } } });
     EXPECT_THROW_WITH_MESSAGE(
@@ -115,7 +119,8 @@ TEST(NullifierExistsConstrainingTest, Interactions)
     FieldGreaterThan field_gt(range_check, event_emitter);
 
     EventEmitter<IndexedTreeCheckEvent> indexed_tree_check_event_emitter;
-    IndexedTreeCheck indexed_tree_check(poseidon2, merkle_check, field_gt, indexed_tree_check_event_emitter);
+    IndexedTreeCheck indexed_tree_check(
+        poseidon2, merkle_check, field_gt, DOM_SEP__NULLIFIER_MERKLE, indexed_tree_check_event_emitter);
 
     // Siloed nullifier (no siloing happens in the opcode now)
     FF siloed_nullifier = 42;
@@ -151,6 +156,7 @@ TEST(NullifierExistsConstrainingTest, Interactions)
         { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U1) },
         { C::execution_prev_nullifier_tree_root, nullifier_tree_snapshot.root },
         { C::execution_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+        { C::execution_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
         { C::execution_sel_opcode_error, 0 },
         { C::execution_subtrace_operation_id, AVM_EXEC_OP_ID_NULLIFIER_EXISTS },
     } });

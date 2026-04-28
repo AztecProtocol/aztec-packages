@@ -186,6 +186,20 @@ describe('L1TxUtils', () => {
       expect((await l1Client.getTransaction({ hash: txHash })).nonce).toBe(expectedNonce);
     }, 30_000);
 
+    it('concurrent sendTransaction calls use sequential nonces (A-810 nonce race fix)', async () => {
+      // Fire two sends concurrently on the same L1TxUtils. Without the mutex, both could read
+      // the same nonce before either updates lastSentNonce, causing a duplicate-nonce failure.
+      const req1 = { ...request, value: 1n };
+      const req2 = { ...request, value: 2n };
+
+      const [result1, result2] = await Promise.all([gasUtils.sendTransaction(req1), gasUtils.sendTransaction(req2)]);
+
+      expect(result1.state.nonce).not.toBe(result2.state.nonce);
+      expect(Math.abs(result1.state.nonce - result2.state.nonce)).toBe(1);
+      expect((await l1Client.getTransaction({ hash: result1.txHash })).nonce).toBe(result1.state.nonce);
+      expect((await l1Client.getTransaction({ hash: result2.txHash })).nonce).toBe(result2.state.nonce);
+    }, 30_000);
+
     // Regression for TMNT-312
     it('speed-up of blob tx sets non-zero maxFeePerBlobGas', async () => {
       await cheatCodes.setAutomine(false);

@@ -47,7 +47,7 @@ module "web3signer" {
   MNEMONIC                                 = var.VALIDATOR_MNEMONIC
   ADDRESS_CONFIGMAP_NAME                   = "${var.RELEASE_PREFIX}-attester-addresses"
   ATTESTERS_PER_NODE                       = tonumber(var.VALIDATORS_PER_NODE)
-  NODE_COUNT                               = tonumber(var.VALIDATOR_REPLICAS)
+  NODE_COUNT                               = local.max_validator_nodes
   VALIDATOR_HA_REPLICAS                    = tonumber(var.VALIDATOR_HA_REPLICAS)
   VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
   VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
@@ -89,6 +89,16 @@ locals {
     tag        = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[1]
   } : local.aztec_image
 
+  validator_ha_image = var.VALIDATOR_HA_DOCKER_IMAGE != "" ? {
+    repository = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[0]
+    tag        = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[1]
+  } : local.aztec_image
+
+  # Max node count: max of primary (VALIDATOR_REPLICAS) and HA pod counts
+  # Determines how many attester keystores and publisher key ranges to generate
+  effective_ha_count  = var.VALIDATOR_HA_REPLICAS > 0 ? coalesce(var.VALIDATOR_HA_REPLICA_COUNT, tonumber(var.VALIDATOR_REPLICAS)) : 0
+  max_validator_nodes = max(tonumber(var.VALIDATOR_REPLICAS), local.effective_ha_count)
+
   # Detect local kind context (e.g., "kind-kind") to gate Service types
   is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
 
@@ -105,7 +115,6 @@ locals {
     "global.useGcloudLogging"                                  = true
     "global.aztecNetwork"                                      = var.NETWORK
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
-    "global.customAztecNetwork.slashFactoryContractAddress"    = var.SLASH_FACTORY_CONTRACT_ADDRESS
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
@@ -136,6 +145,7 @@ locals {
   p2p_port_p2p_bootstrap = 40400 + (parseint(substr(md5("${var.NAMESPACE}-p2p-bootstrap"), 0, 4), 16) % 100)
   p2p_port_prover        = 40400 + (parseint(substr(md5("${var.NAMESPACE}-prover"), 0, 4), 16) % 100)
   p2p_port_rpc           = 40400 + (parseint(substr(md5("${var.NAMESPACE}-rpc"), 0, 4), 16) % 100)
+  p2p_port_fisherman     = 40400 + (parseint(substr(md5("${var.NAMESPACE}-fisherman"), 0, 4), 16) % 100)
   p2p_port_full_node     = 40400 + (parseint(substr(md5("${var.NAMESPACE}-full-node"), 0, 4), 16) % 100)
   p2p_port_archive       = 40400 + (parseint(substr(md5("${var.NAMESPACE}-archive"), 0, 4), 16) % 100)
 
@@ -187,10 +197,7 @@ locals {
     "validator.validatorsPerNode"                                 = var.VALIDATORS_PER_NODE
     "validator.publishersPerReplica"                              = var.VALIDATOR_PUBLISHERS_PER_REPLICA
     "validator.publisherMnemonicStartIndex"                       = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-    "validator.replicaCount"                                      = var.VALIDATOR_REPLICAS
     "validator.sentinel.enabled"                                  = var.SENTINEL_ENABLED
-    "validator.slash.minPenaltyPercentage"                        = var.SLASH_MIN_PENALTY_PERCENTAGE
-    "validator.slash.maxPenaltyPercentage"                        = var.SLASH_MAX_PENALTY_PERCENTAGE
     "validator.slash.inactivityTargetPercentage"                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
     "validator.slash.inactivityPenalty"                           = var.SLASH_INACTIVITY_PENALTY
     "validator.slash.prunePenalty"                                = var.SLASH_PRUNE_PENALTY
@@ -217,12 +224,13 @@ locals {
     "validator.node.env.SEQ_BLOCK_DURATION_MS"                    = var.SEQ_BLOCK_DURATION_MS
     "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
+    "validator.node.env.SEQ_ENABLE_PROPOSER_PIPELINING"           = var.SEQ_ENABLE_PROPOSER_PIPELINING
+    "validator.node.env.AZTEC_EPOCHS_LAG"                         = var.AZTEC_EPOCHS_LAG
     "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                   = var.SEQ_ENFORCE_TIME_TABLE
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"       = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
     "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"          = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
     "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE"    = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
     "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"                 = var.BLOB_ALLOW_EMPTY_SOURCES
-    "validator.node.env.P2P_MAX_TX_POOL_SIZE"                     = var.P2P_MAX_TX_POOL_SIZE
     "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"        = var.PROVER_TEST_VERIFICATION_DELAY_MS
     "validator.node.env.BB_CHONK_VERIFY_MAX_BATCH"                = var.BB_CHONK_VERIFY_MAX_BATCH
     "validator.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"        = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
@@ -262,11 +270,17 @@ locals {
         local.validator_common_settings,
         local.validator_ha_settings,
         {
+          "validator.replicaCount"                        = idx > 0 ? coalesce(var.VALIDATOR_HA_REPLICA_COUNT, var.VALIDATOR_REPLICAS) : var.VALIDATOR_REPLICAS
           "validator.node.env.VALIDATOR_HA_REPLICA_INDEX" = tostring(idx)
-          "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * var.VALIDATOR_REPLICAS))
+          "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * local.max_validator_nodes))
           "validator.service.p2p.announcePort"            = local.p2p_port_validators[idx]
           "validator.service.p2p.port"                    = local.p2p_port_validators[idx]
-        }
+        },
+        # Override image for HA releases (idx > 0) when VALIDATOR_HA_DOCKER_IMAGE is set
+        idx > 0 && var.VALIDATOR_HA_DOCKER_IMAGE != "" ? {
+          "global.aztecImage.repository" = local.validator_ha_image.repository
+          "global.aztecImage.tag"        = local.validator_ha_image.tag
+        } : {}
       )
     })
   } : {}
@@ -380,7 +394,6 @@ locals {
           "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
           "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
           "node.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
-          "node.node.env.P2P_MAX_TX_POOL_SIZE"                  = var.P2P_MAX_TX_POOL_SIZE
           "node.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
           "node.node.env.BB_CHONK_VERIFY_MAX_BATCH"             = var.BB_CHONK_VERIFY_MAX_BATCH
           "node.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"     = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
@@ -444,11 +457,7 @@ locals {
             type    = local.is_kind ? "ClusterIP" : "LoadBalancer"
           }
         }
-        })], var.FISHERMAN_MODE ? [yamlencode({
-        node = {
-          logLevel = var.FISHERMAN_LOG_LEVEL
-        }
-      })] : [])
+      })])
 
       custom_settings = merge({
         "replicaCount"                = var.RPC_REPLICAS
@@ -464,7 +473,6 @@ locals {
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
         "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
         "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
@@ -477,23 +485,50 @@ locals {
         "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
         "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
         "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
-        },
-        # Only set RPC mnemonic config in fisherman mode)
-        var.FISHERMAN_MODE ? {
-          "node.secret.envEnabled"       = true
-          "node.env.FISHERMAN_MODE"      = "true"
-          "node.secret.mnemonic"         = var.FISHERMAN_MNEMONIC
-          "node.secret.mnemonicIndex"    = var.FISHERMAN_MNEMONIC_START_INDEX
-          "node.env.KEY_INDEX_START"     = var.FISHERMAN_MNEMONIC_START_INDEX
-          "node.env.VALIDATORS_PER_NODE" = "1"
-          "node.preStartScript"          = "source /scripts/get-private-key.sh"
-        } : {}
-      )
+      })
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true
     }
 
+    fisherman = tonumber(var.FISHERMAN_REPLICAS) > 0 ? {
+      name  = "${var.RELEASE_PREFIX}-fisherman"
+      chart = "aztec-node"
+      values = [
+        "common.yaml",
+        "rpc.yaml",
+        "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
+      ]
+      inline_values = [yamlencode({
+        service = {
+          p2p = { publicIP = var.P2P_PUBLIC_IP }
+        }
+        node = {
+          logLevel = var.FISHERMAN_LOG_LEVEL
+        }
+      })]
+      custom_settings = {
+        "replicaCount"                                = var.FISHERMAN_REPLICAS
+        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
+        "service.p2p.announcePort"                    = local.p2p_port_fisherman
+        "service.p2p.port"                            = local.p2p_port_fisherman
+        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
+        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
+        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
+        "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
+        "node.secret.envEnabled"                      = true
+        "node.env.FISHERMAN_MODE"                     = "true"
+        "node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"      = "true"
+        "node.secret.mnemonic"                        = var.FISHERMAN_MNEMONIC
+        "node.secret.mnemonicIndex"                   = var.FISHERMAN_MNEMONIC_START_INDEX
+        "node.env.KEY_INDEX_START"                    = var.FISHERMAN_MNEMONIC_START_INDEX
+        "node.env.VALIDATORS_PER_NODE"                = "1"
+        "node.preStartScript"                         = "source /scripts/get-private-key.sh"
+      }
+      boot_node_host_path  = "node.env.BOOT_NODE_HOST"
+      bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
+      wait                 = true
+    } : null
 
     full_node = tonumber(var.FULL_NODE_REPLICAS) > 0 ? {
       name  = "${var.RELEASE_PREFIX}-full-node"
@@ -520,7 +555,6 @@ locals {
         "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
         "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
         "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
         "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
@@ -566,7 +600,6 @@ locals {
         "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
         "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
         "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_MAX_TX_POOL_SIZE"               = var.P2P_MAX_TX_POOL_SIZE
         "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
         "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
         "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
@@ -759,16 +792,34 @@ resource "kubernetes_manifest" "rpc_ingress_backend" {
       name      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
       namespace = var.NAMESPACE
     }
-    spec = {
-      healthCheck = {
-        checkIntervalSec   = 15
-        timeoutSec         = 5
-        healthyThreshold   = 2
-        unhealthyThreshold = 2
-        type               = "HTTP"
-        port               = 8080
-        requestPath        = "/status"
-      }
-    }
+    spec = merge(
+      {
+        healthCheck = {
+          checkIntervalSec   = 15
+          timeoutSec         = 5
+          healthyThreshold   = 2
+          unhealthyThreshold = 2
+          type               = "HTTP"
+          port               = 8080
+          requestPath        = "/status"
+        }
+      },
+      var.RPC_CLOUD_ARMOR_POLICY_NAME != "" ? {
+        securityPolicy = {
+          name = var.RPC_CLOUD_ARMOR_POLICY_NAME
+        }
+      } : {},
+      var.RPC_INGRESS_SESSION_AFFINITY != "" ? {
+        sessionAffinity = {
+          affinityType = var.RPC_INGRESS_SESSION_AFFINITY
+        }
+      } : {},
+      var.RPC_INGRESS_LOG_SAMPLE_RATE != null ? {
+        logging = {
+          enable     = true
+          sampleRate = var.RPC_INGRESS_LOG_SAMPLE_RATE
+        }
+      } : {}
+    )
   }
 }

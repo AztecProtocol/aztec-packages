@@ -229,12 +229,24 @@ export class TxInclusionMetrics {
     p99: number;
   } {
     const histogram = createHistogram({});
+    let nonPositive = 0;
     for (const tx of this.data.values()) {
       if (!tx.blocknumber || tx.group !== group || tx.minedAt === -1) {
         continue;
       }
 
-      histogram.record(tx.minedAt - tx.sentAt);
+      // `minedAt` is the block's L2 slot timestamp (seconds) while `sentAt` is the wall-clock
+      // send time. Because the slot timestamp can precede or equal the send time, the delta
+      // can be <= 0, which perf_hooks.createHistogram rejects. Skip those instead of crashing.
+      const delta = tx.minedAt - tx.sentAt;
+      if (delta <= 0) {
+        nonPositive++;
+        continue;
+      }
+      histogram.record(delta);
+    }
+    if (nonPositive > 0) {
+      this.logger?.debug(`Dropped ${nonPositive} tx inclusion samples with non-positive delta`, { group });
     }
 
     if (histogram.count === 0) {

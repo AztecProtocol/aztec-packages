@@ -26,6 +26,11 @@ contract InitializeTest is TestBase {
 
   FeeLibWrapper private feeLibWrapper = new FeeLibWrapper();
 
+  function test_WhenManaTargetIsZero() external {
+    vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__InvalidManaTarget.selector, 1, 0));
+    feeLibWrapper.initialize(0, TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
+  }
+
   function test_WhenManaLimitGTUint32(uint256 _manaTarget) external {
     // it reverts with {FeeLib__InvalidManaLimit}
 
@@ -40,7 +45,7 @@ contract InitializeTest is TestBase {
     // it store the config
     // it store the l1 gas oracle values
 
-    uint256 manaTarget = bound(_manaTarget, 0, type(uint32).max / 2);
+    uint256 manaTarget = bound(_manaTarget, 1, type(uint32).max / 2);
 
     feeLibWrapper.initialize(manaTarget, TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
 

@@ -1,6 +1,6 @@
 {
   "name": "@aztec/examples",
-  "packageManager": "yarn@4.5.2",
+  "packageManager": "yarn@4.13.0",
   "version": "0.5.0",
   "type": "module",
   "scripts": {

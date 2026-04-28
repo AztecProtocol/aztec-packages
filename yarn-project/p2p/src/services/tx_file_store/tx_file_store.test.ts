@@ -1,10 +1,11 @@
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { type FileStore, createFileStore } from '@aztec/stdlib/file-store';
-import { Tx } from '@aztec/stdlib/tx';
+import { Tx, type TxValidator } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mkdtemp, readdir, rm } from 'fs/promises';
+import { type MockProxy, mock } from 'jest-mock-extended';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -19,6 +20,7 @@ describe('TxFileStore', () => {
   let txPool: InMemoryTxPool;
   let config: TxFileStoreConfig;
   let txFileStore: TxFileStore | undefined;
+  let mockValidator: MockProxy<TxValidator>;
   const log = createLogger('test:tx_file_store');
   const basePath = 'aztec-1-1-0x1234';
 
@@ -52,6 +54,8 @@ describe('TxFileStore', () => {
 
     fileStore = await createFileStore(`file://${tmpDir}`);
     txPool = new InMemoryTxPool();
+    mockValidator = mock<TxValidator>();
+    mockValidator.validateTx.mockResolvedValue({ result: 'valid' });
 
     config = {
       txFileStoreEnabled: true,
@@ -310,50 +314,44 @@ describe('TxFileStore', () => {
   });
 
   describe('tx download validation', () => {
-    it('rejects tx with invalid hash when reading from file store', async () => {
-      // Write a tx with a mismatched hash directly to the file store
-      const invalidTx = Tx.random(); // random hash does not match computed hash
-      await fileStore.save(`${basePath}/txs/${invalidTx.txHash.toString()}.bin`, invalidTx.toBuffer(), {
-        compress: false,
-      });
+    it('rejects tx when validator returns invalid', async () => {
+      const tx = await makeTx();
+      await fileStore.save(`${basePath}/txs/${tx.txHash.toString()}.bin`, tx.toBuffer(), { compress: false });
 
-      // Read it back via FileStoreTxSource
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log))!;
-      const result = await source.getTxsByHash([invalidTx.txHash]);
+      mockValidator.validateTx.mockResolvedValueOnce({ result: 'invalid', reason: ['invalid'] });
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log))!;
+      const result = await source.getTxsByHash([tx.txHash]);
 
       expect(result.validTxs).toHaveLength(0);
-      expect(result.invalidTxHashes).toEqual([invalidTx.txHash.toString()]);
+      expect(result.invalidTxHashes).toEqual([tx.txHash.toString()]);
     });
 
-    it('rejects tx when tx with wrong hash is returned', async () => {
-      // Write a tx with a mismatched hash directly to the file store
-      const invalidTx = Tx.random(); // random hash does not match computed hash
-      const validTx = await makeTx();
-      await fileStore.save(`${basePath}/txs/${invalidTx.txHash.toString()}.bin`, validTx.toBuffer(), {
-        compress: false,
-      });
+    it('accepts tx when validator returns valid', async () => {
+      const tx = await makeTx();
+      await fileStore.save(`${basePath}/txs/${tx.txHash.toString()}.bin`, tx.toBuffer(), { compress: false });
 
-      // Read it back via FileStoreTxSource
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log))!;
-      const result = await source.getTxsByHash([invalidTx.txHash]);
-
-      expect(result.validTxs).toHaveLength(0);
-      expect(result.invalidTxHashes).toEqual([validTx.txHash.toString()]);
-    });
-
-    it('accepts correct tx', async () => {
-      // Write a tx with a correct hash directly to the file store
-      const validTx = await makeTx();
-      await fileStore.save(`${basePath}/txs/${validTx.txHash.toString()}.bin`, validTx.toBuffer(), {
-        compress: false,
-      });
-
-      // Read it back via FileStoreTxSource
-      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log))!;
-      const result = await source.getTxsByHash([validTx.txHash]);
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log))!;
+      const result = await source.getTxsByHash([tx.txHash]);
 
       expect(result.validTxs).toHaveLength(1);
       expect(result.invalidTxHashes).toHaveLength(0);
+    });
+
+    it('partitions txs based on validator result', async () => {
+      const tx1 = await makeTx();
+      const tx2 = await makeTx();
+      await fileStore.save(`${basePath}/txs/${tx1.txHash.toString()}.bin`, tx1.toBuffer(), { compress: false });
+      await fileStore.save(`${basePath}/txs/${tx2.txHash.toString()}.bin`, tx2.toBuffer(), { compress: false });
+
+      mockValidator.validateTx
+        .mockResolvedValueOnce({ result: 'valid' })
+        .mockResolvedValueOnce({ result: 'invalid', reason: ['bad'] });
+
+      const source = (await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log))!;
+      const result = await source.getTxsByHash([tx1.txHash, tx2.txHash]);
+
+      expect(result.validTxs).toHaveLength(1);
+      expect(result.invalidTxHashes).toHaveLength(1);
     });
   });
 
@@ -388,7 +386,7 @@ describe('TxFileStore', () => {
       await txFileStore!.flush();
 
       // Read back via FileStoreTxSource using the same local file store
-      const txSource = await FileStoreTxSource.create(`file://${tmpDir}`, basePath, log);
+      const txSource = await FileStoreTxSource.create(`file://${tmpDir}`, basePath, mockValidator, log);
       expect(txSource).toBeDefined();
 
       const results = await txSource!.getTxsByHash([tx.getTxHash()]);

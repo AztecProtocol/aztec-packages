@@ -31,7 +31,10 @@ use types::{
         PRIVATE_KERNEL_INNER_VK_INDEX,
     },
     hash::{compute_app_siloed_secret_key, compute_siloed_nullifier},
-    merkle_tree::{LeafPreimage, MembershipWitness, test_utils::SingleSubtreeMerkleTree},
+    merkle_tree::{
+        LeafPreimage, MembershipWitness, nullifier_merkle_hash, test_utils::SingleSubtreeMerkleTree,
+    },
+    point::Point,
     side_effect::{Counted, Scoped},
     traits::Empty,
     utils::arrays::find_first_index,
@@ -102,7 +105,10 @@ impl TestBuilder {
                 next_index: 0,
             },
         ]);
-        let nullifier_tree = SingleSubtreeMerkleTree::new(nullifier_preimages.map(|n| n.as_leaf()));
+        let nullifier_tree = SingleSubtreeMerkleTree::new_with_hasher(
+            nullifier_preimages.map(|n| n.as_leaf()),
+            nullifier_merkle_hash,
+        );
         previous_kernel.anchor_block_header.state.partial.nullifier_tree.root =
             nullifier_tree.get_root();
         previous_kernel.anchor_block_header.state.partial.nullifier_tree.next_available_leaf_index =
@@ -193,7 +199,7 @@ impl TestBuilder {
 
     pub fn add_key_validation_request(&mut self, sk: Field) {
         let sk_m = EmbeddedCurveScalar::from_field(sk);
-        let pk_m = derive_public_key(sk_m);
+        let pk_m: Point = derive_public_key(sk_m).into();
 
         let key_type_domain_separator = 123321;
         let contract_address = self.previous_kernel.contract_address;
