@@ -139,7 +139,7 @@ export async function createArchiver(
   const events = new EventEmitter() as ArchiverEmitter;
 
   // Create L2 tips cache shared by archiver and synchronizer
-  const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+  const l2TipsCache = new L2TipsCache(archiverStore.blocks);
 
   // Create the L1 synchronizer
   const synchronizer = new ArchiverL1Synchronizer(
@@ -187,7 +187,7 @@ export async function registerProtocolContracts(stores: ArchiverDataStores) {
     const contract = await provider.getProtocolContractArtifact(name);
 
     // Skip if already registered (happens on node restart with a persisted store).
-    if (await stores.contractClassStore.getContractClass(contract.contractClass.id)) {
+    if (await stores.contractClasses.getContractClass(contract.contractClass.id)) {
       continue;
     }
 
@@ -202,7 +202,7 @@ export async function registerProtocolContracts(stores: ArchiverDataStores) {
       .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
     await registerContractFunctionSignatures(stores, publicFunctionSignatures);
-    await stores.contractClassStore.addContractClasses([contractClassPublic], BlockNumber(blockNumber));
-    await stores.contractInstanceStore.addContractInstances([contract.instance], BlockNumber(blockNumber));
+    await stores.contractClasses.addContractClasses([contractClassPublic], BlockNumber(blockNumber));
+    await stores.contractInstances.addContractInstances([contract.instance], BlockNumber(blockNumber));
   }
 }

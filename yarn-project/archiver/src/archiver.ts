@@ -150,7 +150,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     this.initialSyncPromise = promiseWithResolvers();
     this.synchronizer = synchronizer;
     this.events = events;
-    this.l2TipsCache = l2TipsCache ?? new L2TipsCache(this.dataStores.blockStore);
+    this.l2TipsCache = l2TipsCache ?? new L2TipsCache(this.dataStores.blocks);
     this.updater = new ArchiverDataStoreUpdater(this.dataStores, this.l2TipsCache, {
       rollupManaLimit: l1Constants.rollupManaLimit,
     });
@@ -421,9 +421,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     }
 
     let slotFromCheckpoint: SlotNumber | undefined;
-    const latestCheckpointNumber = await this.stores.blockStore.getLatestCheckpointNumber();
+    const latestCheckpointNumber = await this.stores.blocks.getLatestCheckpointNumber();
     if (latestCheckpointNumber > 0) {
-      const checkpointData = await this.stores.blockStore.getCheckpointData(latestCheckpointNumber);
+      const checkpointData = await this.stores.blocks.getCheckpointData(latestCheckpointNumber);
       if (checkpointData) {
         slotFromCheckpoint = checkpointData.header.slotNumber;
       }
@@ -512,14 +512,14 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     if (targetL2BlockNumber >= currentL2Block) {
       throw new Error(`Target L2 block ${targetL2BlockNumber} must be less than current L2 block ${currentL2Block}`);
     }
-    const targetL2Block = await this.stores.blockStore.getCheckpointedBlock(targetL2BlockNumber);
+    const targetL2Block = await this.stores.blocks.getCheckpointedBlock(targetL2BlockNumber);
     if (!targetL2Block) {
       throw new Error(`Target L2 block ${targetL2BlockNumber} not found`);
     }
     const targetCheckpointNumber = targetL2Block.checkpointNumber;
 
     // Rollback operates at checkpoint granularity: the target block must be the last block of its checkpoint.
-    const checkpointData = await this.stores.blockStore.getCheckpointData(targetCheckpointNumber);
+    const checkpointData = await this.stores.blocks.getCheckpointData(targetCheckpointNumber);
     if (checkpointData) {
       const lastBlockInCheckpoint = BlockNumber(checkpointData.startBlock + checkpointData.blockCount - 1);
       if (targetL2BlockNumber !== lastBlockInCheckpoint) {
@@ -548,10 +548,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     );
     await this.updater.removeCheckpointsAfter(targetCheckpointNumber);
     this.log.info(`Rolling back L1 to L2 messages to checkpoint ${targetCheckpointNumber}`);
-    await this.stores.messageStore.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
+    await this.stores.messages.rollbackL1ToL2MessagesToCheckpoint(targetCheckpointNumber);
     this.log.info(`Setting L1 syncpoints to ${targetL1BlockNumber}`);
-    await this.stores.blockStore.setSynchedL1BlockNumber(targetL1BlockNumber);
-    await this.stores.messageStore.setMessageSyncState(
+    await this.stores.blocks.setSynchedL1BlockNumber(targetL1BlockNumber);
+    await this.stores.messages.setMessageSyncState(
       { l1BlockNumber: targetL1BlockNumber, l1BlockHash: targetL1BlockHash },
       undefined,
     );

@@ -123,7 +123,7 @@ describe('Archiver Sync', () => {
     const events = new EventEmitter() as ArchiverEmitter;
 
     // Create L2 tips cache shared by archiver and synchronizer
-    const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+    const l2TipsCache = new L2TipsCache(archiverStore.blocks);
 
     // Create the L1 synchronizer
     synchronizer = new ArchiverL1Synchronizer(
@@ -1218,9 +1218,9 @@ describe('Archiver Sync', () => {
       // Manually advance the sync point past where the new checkpoint will appear.
       // This simulates a scenario where the sync point was advanced (e.g., via invalid
       // attestation handling at line 204), placing it ahead of a new checkpoint.
-      await archiverStore.blockStore.setSynchedL1BlockNumber(200n);
+      await archiverStore.blocks.setSynchedL1BlockNumber(200n);
       // checkForNewCheckpointsBeforeL1SyncPoint requires validationResult?.valid to be true
-      await archiverStore.blockStore.setPendingChainValidationStatus({ valid: true });
+      await archiverStore.blocks.setPendingChainValidationStatus({ valid: true });
 
       // Add checkpoint 2 at L1 block 150 (behind the manual sync point of 200).
       // This simulates an L1 reorg that added a new checkpoint in a range already scanned.
@@ -1587,10 +1587,10 @@ describe('Archiver Sync', () => {
 
       // Add blocks from BOTH checkpoints locally (matching the L1 checkpoints)
       for (const block of cp2.blocks) {
-        await archiverStore.blockStore.addProposedBlock(block, { force: true });
+        await archiverStore.blocks.addProposedBlock(block, { force: true });
       }
       for (const block of cp3.blocks) {
-        await archiverStore.blockStore.addProposedBlock(block, { force: true });
+        await archiverStore.blocks.addProposedBlock(block, { force: true });
       }
 
       // Verify all blocks are visible locally
@@ -1878,7 +1878,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastProvisionalBlockNumber);
 
       // Proposed checkpoint should still be set
-      expect(await archiverStore.blockStore.getLastProposedCheckpoint()).toBeDefined();
+      expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeDefined();
 
       // Proposed tip should be ahead of the checkpointed tip
       const tips = await archiver.getL2Tips();
@@ -1948,7 +1948,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Proposed checkpoint should be cleared, so proposed tip falls back to checkpointed tip
-      expect(await archiverStore.blockStore.getLastProposedCheckpoint()).toBeUndefined();
+      expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeUndefined();
       const tips = await archiver.getL2Tips();
       expect(tips.proposedCheckpoint.checkpoint.number).toEqual(tips.checkpointed.checkpoint.number);
       expect(tips.proposedCheckpoint.block.number).toEqual(tips.checkpointed.block.number);

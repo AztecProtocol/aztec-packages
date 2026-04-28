@@ -57,7 +57,7 @@ describe('Archiver misc', () => {
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
     const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'), { logsMaxPageSize: 1000 });
     const events = new EventEmitter() as ArchiverEmitter;
-    const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+    const l2TipsCache = new L2TipsCache(archiverStore.blocks);
 
     archiver = new Archiver(
       publicClient,

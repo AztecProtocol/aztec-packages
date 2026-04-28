@@ -34,22 +34,22 @@ export type ArchiverL1SynchPoint = {
  * Bundle of archiver-owned LMDB substores plus the in-memory caches that span them.
  *
  * Replaces the former `KVArchiverDataStore` pass-through wrapper. Callers reach into
- * the relevant substore directly (e.g. `stores.blockStore.getBlock`) and use
+ * the relevant substore directly (e.g. `stores.blocks.getBlock`) and use
  * {@link createArchiverDataStores} to wire them up against a shared KV store.
  */
 export type ArchiverDataStores = {
   /** The underlying key-value store. Use {@link AztecAsyncKVStore.transactionAsync} to compose updates atomically. */
   db: AztecAsyncKVStore;
   /** Blocks, checkpoints, tx effects, proven/finalized state. */
-  blockStore: BlockStore;
+  blocks: BlockStore;
   /** Public, private and contract class logs. */
-  logStore: LogStore;
+  logs: LogStore;
   /** L1 to L2 messages and message sync state. */
-  messageStore: MessageStore;
+  messages: MessageStore;
   /** Contract classes (with bytecode commitments). */
-  contractClassStore: ContractClassStore;
+  contractClasses: ContractClassStore;
   /** Contract instances and contract instance updates. */
-  contractInstanceStore: ContractInstanceStore;
+  contractInstances: ContractInstanceStore;
   /** In-memory cache of public function selectors -> names, populated by `registerContractFunctionSignatures`. */
   functionNames: Map<string, string>;
 };
@@ -68,14 +68,14 @@ export function createArchiverDataStores(
   db: AztecAsyncKVStore,
   opts: CreateArchiverDataStoresOptions = {},
 ): ArchiverDataStores {
-  const blockStore = new BlockStore(db);
+  const blocks = new BlockStore(db);
   return {
     db,
-    blockStore,
-    logStore: new LogStore(db, blockStore, opts.logsMaxPageSize ?? 1000),
-    messageStore: new MessageStore(db),
-    contractClassStore: new ContractClassStore(db),
-    contractInstanceStore: new ContractInstanceStore(db),
+    blocks,
+    logs: new LogStore(db, blocks, opts.logsMaxPageSize ?? 1000),
+    messages: new MessageStore(db),
+    contractClasses: new ContractClassStore(db),
+    contractInstances: new ContractInstanceStore(db),
     functionNames: new Map(),
   };
 }
@@ -86,8 +86,8 @@ export function createArchiverDataStores(
  */
 export async function getArchiverSynchPoint(stores: ArchiverDataStores): Promise<ArchiverL1SynchPoint> {
   const [blocksSynchedTo, messagesSynchedTo] = await Promise.all([
-    stores.blockStore.getSynchedL1BlockNumber(),
-    stores.messageStore.getSynchedL1Block(),
+    stores.blocks.getSynchedL1BlockNumber(),
+    stores.messages.getSynchedL1Block(),
   ]);
   return { blocksSynchedTo, messagesSynchedTo };
 }
@@ -143,26 +143,26 @@ export function getDebugFunctionName(
  */
 export function createContractDataSource(stores: ArchiverDataStores): ContractDataSource {
   return {
-    getBlockNumber: () => stores.blockStore.getLatestL2BlockNumber(),
-    getContractClass: (id: Fr) => stores.contractClassStore.getContractClass(id),
-    getBytecodeCommitment: (id: Fr) => stores.contractClassStore.getBytecodeCommitment(id),
+    getBlockNumber: () => stores.blocks.getLatestL2BlockNumber(),
+    getContractClass: (id: Fr) => stores.contractClasses.getContractClass(id),
+    getBytecodeCommitment: (id: Fr) => stores.contractClasses.getBytecodeCommitment(id),
     getContract: async (
       address: AztecAddress,
       maybeTimestamp?: UInt64,
     ): Promise<ContractInstanceWithAddress | undefined> => {
       let timestamp = maybeTimestamp;
       if (timestamp === undefined) {
-        const latest = await stores.blockStore.getLatestL2BlockNumber();
+        const latest = await stores.blocks.getLatestL2BlockNumber();
         if ((latest as BlockNumber) === 0) {
           timestamp = 0n;
         } else {
-          const [header] = await stores.blockStore.getBlockHeaders(latest, 1);
+          const [header] = await stores.blocks.getBlockHeaders(latest, 1);
           timestamp = header ? header.globalVariables.timestamp : 0n;
         }
       }
-      return stores.contractInstanceStore.getContractInstance(address, timestamp);
+      return stores.contractInstances.getContractInstance(address, timestamp);
     },
-    getContractClassIds: () => stores.contractClassStore.getContractClassIds(),
+    getContractClassIds: () => stores.contractClasses.getContractClassIds(),
     getDebugFunctionName: (address: AztecAddress, selector: FunctionSelector) =>
       getDebugFunctionName(stores, address, selector),
     registerContractFunctionSignatures: (signatures: string[]) =>

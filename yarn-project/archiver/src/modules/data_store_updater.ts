@@ -62,14 +62,14 @@ export class ArchiverDataStoreUpdater {
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
     const result = await this.stores.db.transactionAsync(async () => {
-      await this.stores.blockStore.addProposedBlock(block);
+      await this.stores.blocks.addProposedBlock(block);
 
       const opResults = await Promise.all([
         // Update the pending chain validation status if provided
         pendingChainValidationStatus &&
-          this.stores.blockStore.setPendingChainValidationStatus(pendingChainValidationStatus),
+          this.stores.blocks.setPendingChainValidationStatus(pendingChainValidationStatus),
         // Add any logs emitted during the retrieved block
-        this.stores.logStore.addLogs([block]),
+        this.stores.logs.addLogs([block]),
         // Unroll all logs emitted during the retrieved block and extract any contract classes and instances from it
         this.addContractDataToDb(block),
       ]);
@@ -114,7 +114,7 @@ export class ArchiverDataStoreUpdater {
       // Before adding checkpoints, check for conflicts with local blocks if any
       const { prunedBlocks, lastAlreadyInsertedBlockNumber } = await this.pruneMismatchingLocalBlocks(checkpoints);
 
-      await this.stores.blockStore.addCheckpoints(checkpoints);
+      await this.stores.blocks.addCheckpoints(checkpoints);
 
       // Filter out blocks that were already inserted via addProposedBlock() to avoid duplicating logs/contract data
       const newBlocks = checkpoints
@@ -124,14 +124,14 @@ export class ArchiverDataStoreUpdater {
       await Promise.all([
         // Update the pending chain validation status if provided
         pendingChainValidationStatus &&
-          this.stores.blockStore.setPendingChainValidationStatus(pendingChainValidationStatus),
+          this.stores.blocks.setPendingChainValidationStatus(pendingChainValidationStatus),
         // Add any logs emitted during the retrieved blocks
-        this.stores.logStore.addLogs(newBlocks),
+        this.stores.logs.addLogs(newBlocks),
         // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
         ...newBlocks.map(block => this.addContractDataToDb(block)),
         // Promote the proposed checkpoint if requested (uses explicit checkpoint number)
         promoteProposed
-          ? this.stores.blockStore.promoteProposedToCheckpointed(
+          ? this.stores.blocks.promoteProposedToCheckpointed(
               promoteProposed.checkpoint.checkpoint.number,
               promoteProposed.l1,
               promoteProposed.attestations,
@@ -140,7 +140,7 @@ export class ArchiverDataStoreUpdater {
           : undefined,
         // Evict pending checkpoints that diverged from what L1 mined
         evictProposedFrom !== undefined
-          ? this.stores.blockStore.evictProposedCheckpointsFrom(evictProposedFrom)
+          ? this.stores.blocks.evictProposedCheckpointsFrom(evictProposedFrom)
           : undefined,
       ]);
 
@@ -152,7 +152,7 @@ export class ArchiverDataStoreUpdater {
 
   public async addProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
     const result = await this.stores.db.transactionAsync(async () => {
-      await this.stores.blockStore.addProposedCheckpoint(proposedCheckpoint);
+      await this.stores.blocks.addProposedCheckpoint(proposedCheckpoint);
       await this.l2TipsCache?.refresh();
     });
 
@@ -167,8 +167,8 @@ export class ArchiverDataStoreUpdater {
    */
   private async pruneMismatchingLocalBlocks(checkpoints: PublishedCheckpoint[]): Promise<ReconcileCheckpointsResult> {
     const [lastCheckpointedBlockNumber, lastBlockNumber] = await Promise.all([
-      this.stores.blockStore.getCheckpointedL2BlockNumber(),
-      this.stores.blockStore.getLatestL2BlockNumber(),
+      this.stores.blocks.getCheckpointedL2BlockNumber(),
+      this.stores.blocks.getLatestL2BlockNumber(),
     ]);
 
     // Exit early if there are no local uncheckpointed blocks
@@ -177,7 +177,7 @@ export class ArchiverDataStoreUpdater {
     }
 
     // Get all uncheckpointed local blocks
-    const uncheckpointedLocalBlocks = await this.stores.blockStore.getBlocks(
+    const uncheckpointedLocalBlocks = await this.stores.blocks.getBlocks(
       BlockNumber.add(lastCheckpointedBlockNumber, 1),
       lastBlockNumber - lastCheckpointedBlockNumber,
     );
@@ -244,7 +244,7 @@ export class ArchiverDataStoreUpdater {
   public async removeUncheckpointedBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
     const result = await this.stores.db.transactionAsync(async () => {
       // Verify we're only removing uncheckpointed blocks
-      const lastCheckpointedBlockNumber = await this.stores.blockStore.getCheckpointedL2BlockNumber();
+      const lastCheckpointedBlockNumber = await this.stores.blocks.getCheckpointedL2BlockNumber();
       if (blockNumber < lastCheckpointedBlockNumber) {
         throw new Error(
           `Cannot remove blocks after ${blockNumber} because checkpointed blocks exist up to ${lastCheckpointedBlockNumber}`,
@@ -254,7 +254,7 @@ export class ArchiverDataStoreUpdater {
       const result = await this.removeBlocksAfter(blockNumber);
 
       // Clear all pending proposed checkpoints since their blocks have been pruned
-      await this.stores.blockStore.deleteProposedCheckpoints();
+      await this.stores.blocks.deleteProposedCheckpoints();
 
       await this.l2TipsCache?.refresh();
       return result;
@@ -268,11 +268,11 @@ export class ArchiverDataStoreUpdater {
    */
   private async removeBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
     // First get the blocks to be removed so we can clean up contract data
-    const removedBlocks = await this.stores.blockStore.removeBlocksAfter(blockNumber);
+    const removedBlocks = await this.stores.blocks.removeBlocksAfter(blockNumber);
 
     // Clean up contract data and logs for the removed blocks
     await Promise.all([
-      this.stores.logStore.deleteLogs(removedBlocks),
+      this.stores.logs.deleteLogs(removedBlocks),
       ...removedBlocks.map(block => this.removeContractDataFromDb(block)),
     ]);
 
@@ -290,14 +290,14 @@ export class ArchiverDataStoreUpdater {
    */
   public async removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<boolean> {
     return await this.stores.db.transactionAsync(async () => {
-      const { blocksRemoved = [] } = await this.stores.blockStore.removeCheckpointsAfter(checkpointNumber);
+      const { blocksRemoved = [] } = await this.stores.blocks.removeCheckpointsAfter(checkpointNumber);
 
       const opResults = await Promise.all([
         // Prune rolls back to the last proven block, which is by definition valid
-        this.stores.blockStore.setPendingChainValidationStatus({ valid: true }),
+        this.stores.blocks.setPendingChainValidationStatus({ valid: true }),
         // Remove contract data for all blocks being removed
         ...blocksRemoved.map(block => this.removeContractDataFromDb(block)),
-        this.stores.logStore.deleteLogs(blocksRemoved),
+        this.stores.logs.deleteLogs(blocksRemoved),
       ]);
 
       await this.l2TipsCache?.refresh();
@@ -311,7 +311,7 @@ export class ArchiverDataStoreUpdater {
    */
   public async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
     await this.stores.db.transactionAsync(async () => {
-      await this.stores.blockStore.setProvenCheckpointNumber(checkpointNumber);
+      await this.stores.blocks.setProvenCheckpointNumber(checkpointNumber);
       await this.l2TipsCache?.refresh();
     });
   }
@@ -322,7 +322,7 @@ export class ArchiverDataStoreUpdater {
    */
   public async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
     await this.stores.db.transactionAsync(async () => {
-      await this.stores.blockStore.setFinalizedCheckpointNumber(checkpointNumber);
+      await this.stores.blocks.setFinalizedCheckpointNumber(checkpointNumber);
       await this.l2TipsCache?.refresh();
     });
   }
@@ -368,7 +368,7 @@ export class ArchiverDataStoreUpdater {
       const contractClasses = contractClassPublishedEvents.map(e => e.toContractClassPublic());
       if (contractClasses.length > 0) {
         contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
-        return await this.stores.contractClassStore.deleteContractClasses(contractClasses, blockNum);
+        return await this.stores.contractClasses.deleteContractClasses(contractClasses, blockNum);
       }
       return true;
     }
@@ -394,7 +394,7 @@ export class ArchiverDataStoreUpdater {
 
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
-      return await this.stores.contractClassStore.addContractClasses(contractClasses, blockNum);
+      return await this.stores.contractClasses.addContractClasses(contractClasses, blockNum);
     }
     return true;
   }
@@ -433,9 +433,9 @@ export class ArchiverDataStoreUpdater {
         this.log.verbose(`${Operation[operation]} contract instance at ${c.address.toString()}`),
       );
       if (operation == Operation.Store) {
-        return await this.stores.contractInstanceStore.addContractInstances(contractInstances, blockNum);
+        return await this.stores.contractInstances.addContractInstances(contractInstances, blockNum);
       } else if (operation == Operation.Delete) {
-        return await this.stores.contractInstanceStore.deleteContractInstances(contractInstances);
+        return await this.stores.contractInstances.deleteContractInstances(contractInstances);
       }
     }
     return true;
@@ -459,9 +459,9 @@ export class ArchiverDataStoreUpdater {
         this.log.verbose(`${Operation[operation]} contract instance update at ${c.address.toString()}`),
       );
       if (operation == Operation.Store) {
-        return await this.stores.contractInstanceStore.addContractInstanceUpdates(contractUpdates, timestamp);
+        return await this.stores.contractInstances.addContractInstanceUpdates(contractUpdates, timestamp);
       } else if (operation == Operation.Delete) {
-        return await this.stores.contractInstanceStore.deleteContractInstanceUpdates(contractUpdates, timestamp);
+        return await this.stores.contractInstances.deleteContractInstanceUpdates(contractUpdates, timestamp);
       }
     }
     return true;

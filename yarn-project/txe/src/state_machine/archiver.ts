@@ -60,7 +60,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     }
     // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
     // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
-    const checkpoint = await this.stores.blockStore.getRangeOfCheckpoints(CheckpointNumber.fromBlockNumber(number), 1);
+    const checkpoint = await this.stores.blocks.getRangeOfCheckpoints(CheckpointNumber.fromBlockNumber(number), 1);
     if (checkpoint.length === 0) {
       throw new Error(`L2Tips requested from TXE Archiver but no checkpoint found for block number ${number}`);
     }

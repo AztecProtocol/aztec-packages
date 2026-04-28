@@ -28,11 +28,11 @@ describe('MessageStore', () => {
   const getSynchPoint = (block: BlockStore, message: MessageStore) =>
     getArchiverSynchPoint({
       db: undefined as never,
-      blockStore: block,
-      logStore: undefined as never,
-      messageStore: message,
-      contractClassStore: undefined as never,
-      contractInstanceStore: undefined as never,
+      blocks: block,
+      logs: undefined as never,
+      messages: message,
+      contractClasses: undefined as never,
+      contractInstances: undefined as never,
       functionNames: new Map<string, string>(),
     });
 
