@@ -1,4 +1,5 @@
 #include "schnorr.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include <gtest/gtest.h>
@@ -170,4 +171,102 @@ TEST(schnorr, bbapi_byte_interface_round_trip)
     auto sig = schnorr_construct_signature<Fr, G1>(deserialized_message, account);
     bool result = schnorr_verify_signature<Fr, G1>(original_message, public_key, sig);
     EXPECT_TRUE(result);
+}
+
+namespace {
+
+/**
+ * @brief Build a fully-deterministic Schnorr signature by inlining the construction logic with a fixed
+ * nonce k. Mirrors schnorr_construct_signature exactly but exposes (R, e, e_fr, s) for pinning.
+ *
+ * Used to produce hardcoded test vectors that the noir circuit can match against.
+ */
+struct DeterministicSig {
+    G1::affine_element public_key;
+    G1::affine_element R;
+    Fq e_fq; // raw Poseidon2 output (grumpkin base = bb::fr)
+    Fr e_fr; // serialized into grumpkin scalar (bb::fq)
+    Fr s;    // s = k - priv * e_fr
+    schnorr_signature sig;
+};
+
+DeterministicSig build_deterministic_sig(const Fr& private_key, const Fr& nonce_k, const Fq& message_field)
+{
+    DeterministicSig out;
+    out.public_key = G1::affine_element(G1::one * private_key);
+    out.R = G1::affine_element(G1::one * nonce_k);
+    out.e_fq = Poseidon2<Poseidon2Bn254ScalarFieldParams>::hash(
+        { out.R.x, out.public_key.x, out.public_key.y, message_field });
+    std::array<uint8_t, 32> e_buf;
+    Fq::serialize_to_buffer(out.e_fq, e_buf.data());
+    out.e_fr = Fr::serialize_from_buffer(e_buf.data());
+    out.s = nonce_k - private_key * out.e_fr;
+    Fr::serialize_to_buffer(out.s, &out.sig.s[0]);
+    Fr::serialize_to_buffer(out.e_fr, &out.sig.e[0]);
+    return out;
+}
+
+void dump_vector(const char* label, const Fr& private_key, const Fr& nonce_k, const Fq& message_field)
+{
+    auto v = build_deterministic_sig(private_key, nonce_k, message_field);
+    info("=== ", label, " ===");
+    info("  private_key  = ", private_key);
+    info("  nonce_k      = ", nonce_k);
+    info("  message      = ", message_field);
+    info("  public_key.x = ", v.public_key.x);
+    info("  public_key.y = ", v.public_key.y);
+    info("  R.x          = ", v.R.x);
+    info("  R.y          = ", v.R.y);
+    info("  s            = ", v.s);
+    info("  e            = ", v.e_fr);
+}
+
+} // namespace
+
+/**
+ * @brief Pinned test vector #1: small inputs.
+ *
+ * Hardcoded (private_key, nonce_k, message) -> (public_key, signature). The expected outputs are
+ * pinned; any change to the schnorr scheme (e.g. hash function, challenge ordering) will break this.
+ * Round-trip verification ensures the recomputed values still satisfy the verifier.
+ */
+TEST(schnorr, pinned_test_vector_small)
+{
+    Fr private_key(std::string("0x000000000000000000000000000000000000000000000000000000000000007b"));   // 123
+    Fr nonce_k(std::string("0x00000000000000000000000000000000000000000000000000000000000001c8"));       // 456
+    Fq message_field(std::string("0x00000000000000000000000000000000000000000000000000000000000002bc")); // 700
+
+    auto v = build_deterministic_sig(private_key, nonce_k, message_field);
+    dump_vector("pinned_test_vector_small", private_key, nonce_k, message_field);
+
+    bool ok = schnorr_verify_signature<Fr, G1>(message_field, v.public_key, v.sig);
+    EXPECT_TRUE(ok);
+
+    EXPECT_EQ(v.public_key.x, Fq(std::string("0x2c39bbbde2d0ffcb5c4317dcbfa1771cf554a2f33c647446632fa707a5bf5f3f")));
+    EXPECT_EQ(v.public_key.y, Fq(std::string("0x2b9c81935298af5ebe22f1a7279bb76781e6cadba3fb6c5c41ed942392dc687c")));
+    EXPECT_EQ(v.R.x, Fq(std::string("0x2f410c5089a00d9a4664f262272dbc091b121acf58abdf919c1bc8b974fb720e")));
+    EXPECT_EQ(v.s, Fr(std::string("0x2e5369edb9c537abb7009429f27005e428a5278efa70b5bed7a1a00db7874926")));
+    EXPECT_EQ(v.e_fr, Fr(std::string("0x0aa3af2d0820967a929db740196db453f8885875459c1bfb37a446223a323f52")));
+}
+
+/**
+ * @brief Pinned test vector #2: random-looking large inputs.
+ */
+TEST(schnorr, pinned_test_vector_large)
+{
+    Fr private_key(std::string("0x1f2e3d4c5b6a79880f1e2d3c4b5a69788f9e0d1c2b3a4958e7f6d5c4b3a29180"));
+    Fr nonce_k(std::string("0x2a1b3c4d5e6f78890a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f6071"));
+    Fq message_field(std::string("0x0123456789abcdef0fedcba9876543210123456789abcdef0fedcba987654321"));
+
+    auto v = build_deterministic_sig(private_key, nonce_k, message_field);
+    dump_vector("pinned_test_vector_large", private_key, nonce_k, message_field);
+
+    bool ok = schnorr_verify_signature<Fr, G1>(message_field, v.public_key, v.sig);
+    EXPECT_TRUE(ok);
+
+    EXPECT_EQ(v.public_key.x, Fq(std::string("0x065812e335a97c2108ea8cf4ccfe2f9dd6b117a0714f5e18461575be93f61da6")));
+    EXPECT_EQ(v.public_key.y, Fq(std::string("0x1a915003e8ec534f9a15d926a7ded478e178468ccc4f28e236e67450a55ac622")));
+    EXPECT_EQ(v.R.x, Fq(std::string("0x04e780bc3d2b86b5f41f3b8d2820c1f2c3164cd5efc607cd48c428495a8f47b7")));
+    EXPECT_EQ(v.s, Fr(std::string("0x079b7d2ee637567708798f1fc5d1d9b9daf71612d4c3e50e9166fce768e6fa9a")));
+    EXPECT_EQ(v.e_fr, Fr(std::string("0x02371e738a5ae0234b416beb3903d9ab4aba6c0ac04353fb9fd87a6b03067106")));
 }
