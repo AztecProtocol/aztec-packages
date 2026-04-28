@@ -44,13 +44,9 @@ export class SequencerMetrics {
   private checkpointProposalFailed: UpDownCounter;
   private checkpointSuccess: UpDownCounter;
   private slashingAttempts: UpDownCounter;
-  private checkpointAttestationDelay: Histogram;
-  private checkpointBuildDuration: Histogram;
-  private checkpointBlockCount: Gauge;
-  private checkpointTxCount: Gauge;
-  private checkpointTotalMana: Gauge;
   private pipelineDepth: Gauge;
   private pipelineDiscards: UpDownCounter;
+  private pipelineParentCheckpointMismatches: UpDownCounter;
 
   // Fisherman fee analysis metrics
   private fishermanWouldBeIncluded: UpDownCounter;
@@ -67,6 +63,10 @@ export class SequencerMetrics {
   private fishermanEstimatedOverpayment: Histogram;
   private fishermanMinedBlobTxPriorityFee: Histogram;
   private fishermanMinedBlobTxTotalCost: Histogram;
+
+  private blockInterBlockTime: Histogram;
+  private lastBlockBuiltTimestamp?: number;
+  private lastBlockBuiltSlot?: SlotNumber;
 
   private lastSeenSlot?: SlotNumber;
 
@@ -86,9 +86,9 @@ export class SequencerMetrics {
 
     this.blockBuildManaPerSecond = this.meter.createGauge(Metrics.SEQUENCER_BLOCK_BUILD_MANA_PER_SECOND);
 
-    this.stateTransitionBufferDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION);
+    this.blockInterBlockTime = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_INTER_BLOCK_TIME);
 
-    this.checkpointAttestationDelay = this.meter.createHistogram(Metrics.SEQUENCER_CHECKPOINT_ATTESTATION_DELAY);
+    this.stateTransitionBufferDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION);
 
     this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_SLOT_REWARDS);
 
@@ -138,15 +138,23 @@ export class SequencerMetrics {
       Metrics.SEQUENCER_CHECKPOINT_PROPOSAL_FAILED_COUNT,
     );
 
-    this.checkpointBuildDuration = this.meter.createHistogram(Metrics.SEQUENCER_CHECKPOINT_BUILD_DURATION);
-    this.checkpointBlockCount = this.meter.createGauge(Metrics.SEQUENCER_CHECKPOINT_BLOCK_COUNT);
-    this.checkpointTxCount = this.meter.createGauge(Metrics.SEQUENCER_CHECKPOINT_TX_COUNT);
-    this.checkpointTotalMana = this.meter.createGauge(Metrics.SEQUENCER_CHECKPOINT_TOTAL_MANA);
-
     this.slashingAttempts = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_SLASHING_ATTEMPTS_COUNT);
 
     this.pipelineDepth = this.meter.createGauge(Metrics.SEQUENCER_PIPELINE_DEPTH);
     this.pipelineDiscards = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_PIPELINE_DISCARDS_COUNT);
+    this.pipelineParentCheckpointMismatches = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_PIPELINE_PARENT_CHECKPOINT_MISMATCH_COUNT,
+      {
+        [Attributes.ERROR_TYPE]: [
+          'archiver-sync-timeout',
+          'parent-not-on-l1',
+          'parent-hash-mismatch',
+          'parent-invalid-attestations',
+          'unexpected-parent-appeared',
+        ],
+      },
+    );
     this.pipelineDepth.record(0);
 
     // Fisherman fee analysis metrics
@@ -211,21 +219,25 @@ export class SequencerMetrics {
     this.timeToCollectAttestations.record(0);
   }
 
-  public recordCheckpointAttestationDelay(duration: number) {
-    this.checkpointAttestationDelay.record(duration);
-  }
-
   public recordCollectedAttestations(count: number, durationMs: number) {
     this.collectedAttestions.record(count);
     this.timeToCollectAttestations.record(Math.ceil(durationMs));
   }
 
-  recordBuiltBlock(buildDurationMs: number, totalMana: number) {
+  recordBuiltBlock(buildDurationMs: number, totalMana: number, slot: SlotNumber) {
     this.blockCounter.add(1, {
       [Attributes.STATUS]: 'built',
     });
     this.blockBuildDuration.record(Math.ceil(buildDurationMs));
     this.blockBuildManaPerSecond.record(Math.ceil((totalMana * 1000) / buildDurationMs));
+
+    // Only record inter-block time between blocks built within the same slot.
+    const now = Date.now();
+    if (this.lastBlockBuiltTimestamp !== undefined && this.lastBlockBuiltSlot === slot) {
+      this.blockInterBlockTime.record(now - this.lastBlockBuiltTimestamp);
+    }
+    this.lastBlockBuiltTimestamp = now;
+    this.lastBlockBuiltSlot = slot;
   }
 
   recordFailedBlock() {
@@ -246,6 +258,12 @@ export class SequencerMetrics {
 
   recordPipelineDiscard(count = 1) {
     this.pipelineDiscards.add(count);
+  }
+
+  recordPipelineParentCheckpointMismatch(reason: string) {
+    this.pipelineParentCheckpointMismatches.add(1, {
+      [Attributes.ERROR_TYPE]: reason,
+    });
   }
 
   incOpenSlot(slot: SlotNumber, proposer: string) {
@@ -304,14 +322,6 @@ export class SequencerMetrics {
     this.checkpointProposalFailed.add(1, {
       ...(reason && { [Attributes.ERROR_TYPE]: reason }),
     });
-  }
-
-  /** Records aggregate metrics for a completed checkpoint build. */
-  recordCheckpointBuild(durationMs: number, blockCount: number, txCount: number, totalMana: number) {
-    this.checkpointBuildDuration.record(Math.ceil(durationMs));
-    this.checkpointBlockCount.record(blockCount);
-    this.checkpointTxCount.record(txCount);
-    this.checkpointTotalMana.record(totalMana);
   }
 
   recordSlashingAttempt(actionCount: number) {

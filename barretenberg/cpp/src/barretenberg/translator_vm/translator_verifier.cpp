@@ -213,10 +213,7 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
-    // Create padding indicator array
-    std::vector<FF> padding_indicator_array(TranslatorFlavor::CONST_TRANSLATOR_LOG_N, FF(1));
-
-    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges, padding_indicator_array);
+    auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
 
     libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
@@ -239,10 +236,12 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
         combined_shifted_evals.push_back(eval);
     }
 
-    BB_ASSERT_EQ(combined_unshifted_comms.size(), TranslatorFlavor::NUM_PCS_UNSHIFTED);
-    BB_ASSERT_EQ(combined_unshifted_evals.size(), TranslatorFlavor::NUM_PCS_UNSHIFTED);
-    BB_ASSERT_EQ(combined_shifted_comms.size(), TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED);
-    BB_ASSERT_EQ(combined_shifted_evals.size(), TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED);
+    if (combined_unshifted_comms.size() != TranslatorFlavor::NUM_PCS_UNSHIFTED ||
+        combined_unshifted_evals.size() != TranslatorFlavor::NUM_PCS_UNSHIFTED ||
+        combined_shifted_comms.size() != TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED ||
+        combined_shifted_evals.size() != TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED) {
+        throw_or_abort("Translator verifier: PCS commitment/evaluation size mismatch");
+    }
 
     ClaimBatcher claim_batcher{ .unshifted = ClaimBatch{ combined_unshifted_comms, combined_unshifted_evals },
                                 .shifted = ClaimBatch{ combined_shifted_comms, combined_shifted_evals } };
@@ -255,8 +254,7 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     }
 
     auto [opening_claim, consistency_checked] =
-        Shplemini::compute_batch_opening_claim(padding_indicator_array,
-                                               claim_batcher,
+        Shplemini::compute_batch_opening_claim(claim_batcher,
                                                sumcheck_output.challenge,
                                                commitment_one,
                                                transcript,

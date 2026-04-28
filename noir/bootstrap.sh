@@ -103,11 +103,33 @@ function build {
   echo_header "noir build"
 
   if semver check $REF_NAME; then
+    # REF_NAME matches semver meaning we are doing a release
+
     git -C noir-repo fetch --tags
     if ! git -C noir-repo describe --tags --exact-match HEAD &>/dev/null; then
       echo_stderr "We're building a release but the noir-repo HEAD is not an official release."
       exit 1
     fi
+
+    # Check that the noir release has nargo binaries available for download. Without this check, we could push an aztec
+    # release that errors out with a 404/gzip error on install (the install scripts invoke noirup which would fail).
+    local noir_tag=$(git -C noir-repo describe --tags --exact-match HEAD)
+    echo "Checking noir release $noir_tag for nargo binary assets..."
+    local asset_count
+    asset_count=$(gh release view "$noir_tag" \
+      --repo noir-lang/noir \
+      --json assets \
+      --jq '[.assets[] | select(.name | test("^nargo-"))] | length') || {
+      echo_stderr "Error: Failed to query noir-lang/noir release '$noir_tag'. Does the release exist?"
+      exit 1
+    }
+    if [ "$asset_count" -eq 0 ]; then
+      echo_stderr "Error: Noir release '$noir_tag' exists but has no nargo binary assets."
+      echo_stderr "Users will get 404 errors when trying to install nargo via noirup."
+      echo_stderr "Ensure the noir release pipeline has finished uploading binaries before releasing aztec-packages."
+      exit 1
+    fi
+    echo "Found $asset_count nargo binary asset(s) in noir release $noir_tag."
   fi
 
   denoise "retry install_deps"
@@ -121,7 +143,6 @@ function get_projects {
 }
 
 function release {
-  local dist_tag=$(dist_tag)
   local version=${REF_NAME#v}
   cd packages
 
@@ -132,7 +153,7 @@ function release {
     jq --arg v $version '.version = $v' package.json >tmp.json
     mv tmp.json package.json
 
-    retry "deploy_npm $dist_tag $version"
+    retry "deploy_npm $version"
     cd ..
   done
 }

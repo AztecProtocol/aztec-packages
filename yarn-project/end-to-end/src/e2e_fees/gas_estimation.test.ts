@@ -2,17 +2,19 @@ import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type FeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { Logger } from '@aztec/foundation/log';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import {
   GAS_ESTIMATION_DA_GAS_LIMIT,
   GAS_ESTIMATION_L2_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT,
   GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT,
-} from '@aztec/constants';
-import type { Logger } from '@aztec/foundation/log';
-import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
-import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
-import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+  Gas,
+  GasFees,
+  GasSettings,
+} from '@aztec/stdlib/gas';
 
 import { inspect } from 'util';
 

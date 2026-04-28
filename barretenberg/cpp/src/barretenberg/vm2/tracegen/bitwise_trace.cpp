@@ -151,7 +151,7 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
 
 const InteractionDefinition BitwiseTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_bitwise_byte_operations_settings, InteractionType::LookupIntoBitwise>()
-        .add<lookup_bitwise_integral_tag_length_settings, InteractionType::LookupIntoIndexedByRow>();
+        .add<InteractionType::LookupIntoBitwise, lookup_bitwise_byte_operations_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_bitwise_integral_tag_length_settings>();
 
 } // namespace bb::avm2::tracegen

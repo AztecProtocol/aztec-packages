@@ -1,4 +1,3 @@
-// docs:start:app
 // docs:start:app-imports
 import React, { useState } from 'react';
 import type { Wallet } from '@aztec/aztec.js/wallet';
@@ -130,4 +129,3 @@ function App() {
 }
 
 export { App };
-// docs:end:app

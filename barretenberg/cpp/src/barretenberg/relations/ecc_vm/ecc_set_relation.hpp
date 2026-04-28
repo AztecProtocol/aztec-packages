@@ -30,12 +30,14 @@ template <typename FF_> class ECCVMSetRelationImpl {
     enum SubrelationIndex : size_t {
         GRAND_PRODUCT = 0,
         LEFT_SHIFTABLE = 1,
+        Z_PERM_INIT = 2,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 2> SUBRELATION_PARTIAL_LENGTHS{
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS{
         22, // grand product construction sub-relation
-        3   // left-shiftable polynomial sub-relation
+        3,  // left-shiftable polynomial sub-relation
+        3   // z_perm initialization sub-relation
     };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
     // prover optimization to allow for skipping the computation of sub-relations at certain points in sumcheck.

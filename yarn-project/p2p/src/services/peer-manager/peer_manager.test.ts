@@ -277,6 +277,37 @@ describe('PeerManager', () => {
       expect(timedOutPeer?.status).toBe('cached');
     });
 
+    it('should not dial a discovered peer that has exceeded auth failure threshold', async () => {
+      const enr = await createMockENR();
+      const peerId = await enr.peerId();
+      const peerIdStr = peerId.toString();
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: '192.168.1.100' }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      const pm = createMockPeerManager('test', mockLibP2PNode, 3, [], [], [], {
+        p2pMaxFailedAuthAttemptsAllowed: 2,
+      });
+      // Re-capture the discoveredPeerCallback for this new peer manager
+      const onCalls = mockPeerDiscoveryService.on.mock.calls;
+      const lastPeerCb = onCalls[onCalls.length - 1][1];
+
+      // Mark auth handshake as failed 3 times (exceeding threshold of 2)
+      for (let i = 0; i < 3; i++) {
+        (pm as any).markAuthHandshakeFailed(peerId);
+      }
+
+      expect(pm.isNodeAllowedToConnect(peerIdStr)).toBe(false);
+
+      mockLibP2PNode.dial.mockClear();
+      await lastPeerCb(enr);
+      expect(mockLibP2PNode.dial).not.toHaveBeenCalled();
+    });
+
     it('should handle multiple peer discoveries and timeouts', async () => {
       const enr1 = await createMockENR();
       const enr2 = await createMockENR();
@@ -1918,6 +1949,57 @@ describe('PeerManager', () => {
       const failedHandshakes = (peerManager as any).failedAuthHandshakes;
       expect(failedHandshakes.has(peerIdStr)).toBe(false);
       expect(failedHandshakes.has(ipAddress)).toBe(false);
+    });
+
+    it('should add peer to timedOutPeers with exponential backoff on auth failure', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: '192.168.1.100' }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // First failure: ban time should be 5 minutes (base)
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      const timedOutPeers = (peerManager as any).timedOutPeers;
+      expect(timedOutPeers.has(peerIdStr)).toBe(true);
+
+      const firstTimeout = timedOutPeers.get(peerIdStr).timeoutUntilMs;
+      const now = Date.now();
+      // 5 min base * 2^0 = 5 min
+      expect(firstTimeout - now).toBeGreaterThanOrEqual(4 * 60 * 1000);
+      expect(firstTimeout - now).toBeLessThanOrEqual(6 * 60 * 1000);
+
+      // Second failure: ban time should double
+      jest.advanceTimersByTime(10000);
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+      const secondTimeout = timedOutPeers.get(peerIdStr).timeoutUntilMs;
+      const now2 = Date.now();
+      // 5 min base * 2^1 = 10 min
+      expect(secondTimeout - now2).toBeGreaterThanOrEqual(9 * 60 * 1000);
+      expect(secondTimeout - now2).toBeLessThanOrEqual(11 * 60 * 1000);
+    });
+
+    it('should remove peer from cachedPeers on auth failure', async () => {
+      const peerId = await createSecp256k1PeerId();
+      const peerIdStr = peerId.toString();
+
+      const mockConnection = {
+        remoteAddr: {
+          nodeAddress: () => ({ address: '192.168.1.100' }),
+        },
+      };
+      mockLibP2PNode.getConnections.mockReturnValue([mockConnection]);
+
+      // Manually add peer to cached peers
+      (peerManager as any).cachedPeers.set(peerIdStr, { peerId });
+
+      (peerManager as any).markAuthHandshakeFailed(peerId);
+
+      expect((peerManager as any).cachedPeers.has(peerIdStr)).toBe(false);
     });
 
     it('should handle auth failure during actual handshake process', async () => {

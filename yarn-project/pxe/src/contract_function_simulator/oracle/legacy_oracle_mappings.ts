@@ -10,6 +10,8 @@ import type { Oracle } from './oracle.js';
  * TODO(F-416): Remove these aliases on v5 when protocol contracts are redeployed.
  */
 export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
+  // If you are about to add a new mapping ensure that the old oracle name is different from the new one - this can
+  // commonly occur when only the args are getting modified.
   return {
     // Simple prefix renames (privateXxx/utilityXxx → aztec_prv_/aztec_utl_)
     utilityLog: (
@@ -19,7 +21,11 @@ export function buildLegacyOracleCallbacks(oracle: Oracle): ACIRCallback {
       fields: ACVMField[],
     ): Promise<ACVMField[]> => oracle.aztec_utl_log(level, message, _ignoredFieldsSize, fields),
     utilityAssertCompatibleOracleVersion: (version: ACVMField[]): Promise<ACVMField[]> =>
-      oracle.aztec_utl_assertCompatibleOracleVersion(version),
+      oracle.aztec_utl_assertCompatibleOracleVersionV2(version, [toACVMField(0)]),
+    // Old 1-arg oracle before minor/major split. Maps to V2 with minor=0.
+    // eslint-disable-next-line camelcase
+    aztec_utl_assertCompatibleOracleVersion: (version: ACVMField[]): Promise<ACVMField[]> =>
+      oracle.aztec_utl_assertCompatibleOracleVersionV2(version, [toACVMField(0)]),
     utilityLoadCapsule: (
       contractAddress: ACVMField[],
       slot: ACVMField[],

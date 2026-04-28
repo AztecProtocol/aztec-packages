@@ -87,6 +87,16 @@ $$
 
 This ensures the grand product "closes".
 
+### The Initialization Constraint (Subrelation 2)
+
+At the first row (where $L_0 = 1$), we require:
+
+$$
+L_0 \cdot Z_{\text{perm}} = 0
+$$
+
+This explicitly enforces $Z_{\text{perm}}(0) = 0$, which is necessary for the grand product to start at $1$ (via the $Z_{\text{perm}} + L_0$ term in the recurrence).
+
 ## The Generalized Permutation Argument: Tags and Multiset Equality
 
 The generalized permutation argument extends the basic copy-constraint mechanism to also enforce **multiset equality** between tagged sets of values.

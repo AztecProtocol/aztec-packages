@@ -91,8 +91,20 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition, is_pri
     let nonce_check_quote = f"{nonce_arg_name_quoted} == 0".quoted_contents();
 
     let fn_call = if is_private {
-        let args_len = f.parameters().len();
-        quote { aztec::authwit::auth::assert_current_call_valid_authwit::<$args_len> }
+        let params = f.parameters();
+        let serialized_len_quote = if params.len() == 0 {
+            quote { 0 }
+        } else {
+            let params_quote_without_parentheses = params
+                .map(|(_, param_type): (Quoted, Type)| {
+                    quote {
+                    <$param_type as aztec::protocol::traits::Serialize>::N
+                }
+                })
+                .join(quote {+});
+            quote { ($params_quote_without_parentheses) }
+        };
+        quote { aztec::authwit::auth::assert_current_call_valid_authwit::<($serialized_len_quote)> }
     } else {
         quote { aztec::authwit::auth::assert_current_call_valid_authwit_public }
     };

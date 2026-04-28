@@ -197,7 +197,7 @@ class TranslatorTests : public ::testing::Test {
         op_queue->merge();
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_END);
-        op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+        op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
         return CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }
@@ -313,6 +313,7 @@ TEST_F(TranslatorTests, BasicAvmMode)
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
+    // Seed a no-op to supply the 2 leading zero rows Translator's op-queue wires need for shiftability.
     op_queue->no_op_ultra_only();
     add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
     add_mixed_ops(op_queue, 100);
@@ -517,6 +518,60 @@ TEST_F(TranslatorTests, EvaluationPartition)
  * @details Start from all-zeros, call set_minicircuit_evaluations + complete_full_circuit_evaluations
  * with random inputs, and check that no entity remains zero (with overwhelming probability).
  */
+/**
+ * @brief Verify that REPEATED_COMMITMENTS indices correctly pair to-be-shifted and shifted commitments.
+ * @details The Translator has two duplicate ranges and uses get_pcs_unshifted()/get_pcs_to_be_shifted()
+ * instead of the standard get_unshifted()/get_to_be_shifted(). This test commits to all PCS-level polynomials
+ * and verifies the commitments at original and duplicate positions match.
+ */
+TEST_F(TranslatorTests, RepeatedCommitmentsIndicesCorrect)
+{
+    using Flavor = TranslatorFlavor;
+    using Commitment = Flavor::Commitment;
+
+    fq batching_challenge_v = fq::random_element();
+    fq evaluation_challenge_x = fq::random_element();
+    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
+    auto pk = std::make_shared<TranslatorProvingKey>(circuit_builder);
+
+    pk->proving_key->commitment_key = Flavor::CommitmentKey(pk->proving_key->circuit_size);
+
+    auto pcs_unshifted = pk->proving_key->polynomials.get_pcs_unshifted();
+    auto pcs_to_be_shifted = pk->proving_key->polynomials.get_pcs_to_be_shifted();
+
+    // Commit to all PCS polynomials
+    const auto& ck = pk->proving_key->commitment_key;
+    std::vector<Commitment> unshifted_comms;
+    for (auto& poly : pcs_unshifted) {
+        unshifted_comms.push_back(ck.commit(poly));
+    }
+    std::vector<Commitment> shifted_comms;
+    for (auto& poly : pcs_to_be_shifted) {
+        shifted_comms.push_back(ck.commit(poly));
+    }
+
+    // Build the commitment vector exactly as Shplemini does: [Q, pcs_unshifted..., pcs_to_be_shifted...]
+    std::vector<Commitment> commitments;
+    commitments.push_back(Commitment::one()); // dummy Q
+    commitments.insert(commitments.end(), unshifted_comms.begin(), unshifted_comms.end());
+    commitments.insert(commitments.end(), shifted_comms.begin(), shifted_comms.end());
+
+    constexpr auto repeated = Flavor::REPEATED_COMMITMENTS;
+    // Same offset logic as remove_repeated_commitments
+    constexpr size_t offset = Flavor::HasZK ? 2 : 1;
+
+    // Verify both ranges using the same indexing as remove_repeated_commitments
+    auto check_range = [&](const auto& range, const std::string& label) {
+        for (size_t i = 0; i < range.count; i++) {
+            EXPECT_EQ(commitments[range.original_start + offset + i], commitments[range.duplicate_start + offset + i])
+                << label << " commitment mismatch at index " << i;
+        }
+    };
+
+    check_range(repeated.first, "Range 1");
+    check_range(repeated.second, "Range 2");
+}
+
 TEST_F(TranslatorTests, VerifierPopulatesAllEntities)
 {
     using Flavor = TranslatorFlavor;

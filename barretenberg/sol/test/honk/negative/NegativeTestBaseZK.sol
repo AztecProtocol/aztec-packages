@@ -4,7 +4,6 @@ pragma solidity ^0.8.21;
 import {TestBase} from "test/base/TestBase.sol";
 import {DifferentialFuzzer} from "test/base/DifferentialFuzzer.sol";
 import {IVerifier} from "src/interfaces/IVerifier.sol";
-import {BaseZKHonkVerifier} from "src/honk/BaseZKHonkVerifier.sol";
 import {Errors} from "src/honk/Errors.sol";
 
 /**

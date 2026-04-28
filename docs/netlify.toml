@@ -334,11 +334,11 @@
 # FaceID wallet redirect (page removed)
 [[redirects]]
     from = "/developers/tutorials/codealong/faceid_wallet"
-    to = "/developers/docs/tutorials"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
 
 [[redirects]]
     from = "/developers/docs/tutorials/faceid_wallet"
-    to = "/developers/docs/tutorials"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
 
 # Legacy network paths - SPECIFIC PATHS MUST COME BEFORE WILDCARDS
 # (Netlify processes redirects top-to-bottom, first match wins)
@@ -594,7 +594,7 @@
 
 [[redirects]]
     from = "/developers/docs/guides/local_env/advanced/faceid_wallet"
-    to = "/developers/docs/tutorials/faceid_wallet"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
 
 [[redirects]]
     from = "/developers/docs/guides/local_env/*"
@@ -802,7 +802,7 @@
 [[redirects]]
     # PXE: incompatible oracle version between contract and PXE
     from = "/errors/8"
-    to = "/developers/docs/foundational-topics/pxe"
+    to = "/developers/docs/foundational-topics/pxe#oracle-versioning"
 
 [[redirects]]
     # CLI: aztec dep version in Nargo.toml does not match the CLI version

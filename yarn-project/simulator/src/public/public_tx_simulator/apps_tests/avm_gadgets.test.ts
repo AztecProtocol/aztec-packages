@@ -169,7 +169,7 @@ describe('Public TX simulator apps tests: gadgets', () => {
           {
             address: avmGadgetsTestContract.address,
             fnName: 'keccak_hash_1400',
-            args: [/*input=*/ Array.from({ length: 2400 }, () => randomInt(2 ** 8))],
+            args: [/*input=*/ Array.from({ length: 1400 }, () => randomInt(2 ** 8))],
           },
         ],
       );

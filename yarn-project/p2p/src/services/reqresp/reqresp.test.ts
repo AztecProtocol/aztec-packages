@@ -1,8 +1,5 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
@@ -22,7 +19,6 @@ import {
 import type { PeerManager } from '../peer-manager/peer_manager.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { type ReqRespResponse, ReqRespSubProtocol, RequestableBuffer } from './interface.js';
-import { reqRespBlockHandler } from './protocols/block.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
 import { ReqRespStatus } from './status.js';
 
@@ -370,36 +366,103 @@ describe('ReqResp', () => {
     });
   });
 
-  describe('Block protocol', () => {
-    it('should handle block requests', async () => {
-      const blockNumber = 1;
-      const blockNumberFr = Fr.ONE;
-      const block = await L2Block.random(BlockNumber(blockNumber));
-
-      const l2BlockSource: MockProxy<L2BlockSource> = mock<L2BlockSource>();
-      l2BlockSource.getBlock.mockImplementation((_blockNumber: number) => {
-        return Promise.resolve(block);
-      });
-
-      const protocolHandlers = MOCK_SUB_PROTOCOL_HANDLERS;
-      protocolHandlers[ReqRespSubProtocol.BLOCK] = reqRespBlockHandler(l2BlockSource);
-
+  describe('Authentication gating', () => {
+    it('should reject unauthenticated peers on all data protocols', async () => {
       nodes = await createNodes(peerScoring, 2);
 
-      await startNodes(nodes, protocolHandlers);
+      await startNodes(nodes);
       await sleep(500);
       await connectToPeers(nodes);
       await sleep(500);
 
-      const resp = await nodes[0].req.sendRequestToPeer(
-        nodes[1].p2p.peerId,
-        ReqRespSubProtocol.BLOCK,
-        blockNumberFr.toBuffer(),
-      );
-      expectSuccess(resp);
+      // Set up auth checker that rejects all peers (simulates p2pAllowOnlyValidators=true with no authenticated peers)
+      nodes[1].req.setShouldRejectPeer(() => true);
 
-      const res = L2Block.fromBuffer(resp.data);
-      expect(res).toEqual(block);
+      // All data protocols should be rejected
+      for (const protocol of [ReqRespSubProtocol.TX, ReqRespSubProtocol.BLOCK_TXS]) {
+        const resp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, protocol, Buffer.from('request'));
+        expect(resp.status).toEqual(ReqRespStatus.FAILURE);
+      }
+
+      // PING is an allowed protocol — should succeed
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+      expect(pingResp.data.toString('utf-8')).toEqual('pong');
+    });
+
+    it('should allow handshake protocols for unauthenticated peers', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      // Reject all peers on gated protocols
+      nodes[1].req.setShouldRejectPeer(() => true);
+
+      // PING, STATUS, AUTH, GOODBYE should still work
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+
+      const statusResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.STATUS,
+        Buffer.from('status'),
+      );
+      expectSuccess(statusResp);
+
+      const authResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.AUTH,
+        Buffer.from('auth'),
+      );
+      expectSuccess(authResp);
+    });
+
+    it('should allow authenticated peers on all protocols', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      // Set up auth checker that allows all peers (simulates authenticated validator)
+      nodes[1].req.setShouldRejectPeer(() => false);
+
+      // Data protocols should succeed for authenticated peers
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+      expect(pingResp.data.toString('utf-8')).toEqual('pong');
+
+      const txResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.TX,
+        Buffer.from('request'),
+      );
+      expectSuccess(txResp);
+    });
+
+    it('should allow all protocols when no auth checker is set', async () => {
+      nodes = await createNodes(peerScoring, 2);
+
+      await startNodes(nodes);
+      await sleep(500);
+      await connectToPeers(nodes);
+      await sleep(500);
+
+      // No setShouldRejectPeer called — all protocols should work (backwards compatible)
+      const pingResp = await nodes[0].req.sendRequestToPeer(nodes[1].p2p.peerId, ReqRespSubProtocol.PING, PING_REQUEST);
+      expectSuccess(pingResp);
+      expect(pingResp.data.toString('utf-8')).toEqual('pong');
+
+      const txResp = await nodes[0].req.sendRequestToPeer(
+        nodes[1].p2p.peerId,
+        ReqRespSubProtocol.TX,
+        Buffer.from('request'),
+      );
+      expectSuccess(txResp);
     });
   });
 

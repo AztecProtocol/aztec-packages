@@ -4,7 +4,7 @@
 #include <cassert>
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_data_copy.hpp"
@@ -74,7 +74,7 @@ void DataCopyTraceBuilder::process(
                       // Unconditional values
                       { C::data_copy_sel, 1 },
                       { C::data_copy_clk, event.execution_clk },
-                      { C::data_copy_sel_start, 1 },
+                      { C::data_copy_start, 1 },
                       { C::data_copy_sel_cd_copy, is_cd_copy ? 1 : 0 },
                       { C::data_copy_sel_cd_copy_start, is_cd_copy ? 1 : 0 },
                       { C::data_copy_sel_rd_copy_start, is_rd_copy ? 1 : 0 },
@@ -113,7 +113,7 @@ void DataCopyTraceBuilder::process(
         if (write_address_overflow) {
             trace.set(row,
                       { {
-                          { C::data_copy_sel_end, 1 },
+                          { C::data_copy_end, 1 },
                           { C::data_copy_dst_out_of_range_err, 1 },
                       } });
             row++;
@@ -131,8 +131,8 @@ void DataCopyTraceBuilder::process(
         if (copy_size == 0) {
             trace.set(row,
                       { {
-                          { C::data_copy_sel_start_no_err, 1 },
-                          { C::data_copy_sel_end, 1 },
+                          { C::data_copy_start_no_err, 1 },
+                          { C::data_copy_end, 1 },
                           { C::data_copy_sel_write_count_is_zero, 1 },
                           { C::data_copy_sel_has_reads, clamped_read_index_upper_bound > data_offset ? 1 : 0 },
                       } });
@@ -175,8 +175,8 @@ void DataCopyTraceBuilder::process(
                     { C::data_copy_dst_context_id, event.write_context_id },
                     { C::data_copy_dst_addr, event.dst_addr + i },
 
-                    { C::data_copy_sel_start_no_err, start ? 1 : 0 },
-                    { C::data_copy_sel_end, end ? 1 : 0 },
+                    { C::data_copy_start_no_err, start ? 1 : 0 },
+                    { C::data_copy_end, end ? 1 : 0 },
                     { C::data_copy_copy_size, current_copy_size },
                     { C::data_copy_write_count_minus_one_inv,
                       current_copy_size - 1 }, // Will be inverted in batch later
@@ -223,10 +223,10 @@ void DataCopyTraceBuilder::process(
 const InteractionDefinition DataCopyTraceBuilder::interactions =
     InteractionDefinition()
         // Enqueued Call Col Read
-        .add<lookup_data_copy_col_read_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::LookupGeneric, lookup_data_copy_col_read_settings>()
         // GT checks
-        .add<lookup_data_copy_offset_plus_size_is_gt_data_size_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_sel_has_reads_settings, InteractionType::LookupGeneric>(Column::gt_sel);
+        .add<InteractionType::LookupGeneric, lookup_data_copy_offset_plus_size_is_gt_data_size_settings>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_data_copy_check_src_addr_in_range_settings>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_data_copy_check_dst_addr_in_range_settings>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_data_copy_sel_has_reads_settings>(Column::gt_sel);
 } // namespace bb::avm2::tracegen

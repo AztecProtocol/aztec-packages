@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2 {
 

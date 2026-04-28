@@ -10,9 +10,20 @@ import {DeployAztecL1Contracts} from "../../script/deploy/DeployAztecL1Contracts
 contract DeployAztecL1ContractsTest is Test {
   using stdJson for string;
 
+  modifier skipWhenCoverage() {
+    if (isCoverage()) {
+      vm.skip(true);
+    }
+    _;
+  }
+
+  function isCoverage() internal view returns (bool) {
+    return vm.envOr("FORGE_COVERAGE", false);
+  }
+
   // Load environment variables from generated/default.json
   // This file is copied from spartan/environments/default.json by bootstrap.sh
-  function setUp() public {
+  function setUp() public skipWhenCoverage {
     string memory root = vm.projectRoot();
     string memory path = string.concat(root, "/generated/default.json");
     string memory json = vm.readFile(path);
@@ -38,7 +49,7 @@ contract DeployAztecL1ContractsTest is Test {
     vm.setEnv("AZTEC_INITIAL_ETH_PER_FEE_ASSET", vm.toString(json.readUint(".AZTEC_INITIAL_ETH_PER_FEE_ASSET")));
 
     // Slashing config
-    vm.setEnv("AZTEC_SLASHER_FLAVOR", json.readString(".AZTEC_SLASHER_FLAVOR"));
+    vm.setEnv("AZTEC_SLASHER_ENABLED", vm.toString(json.readBool(".AZTEC_SLASHER_ENABLED")));
     vm.setEnv("AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS", vm.toString(json.readUint(".AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS")));
     vm.setEnv("AZTEC_SLASHING_OFFSET_IN_ROUNDS", vm.toString(json.readUint(".AZTEC_SLASHING_OFFSET_IN_ROUNDS")));
     vm.setEnv("AZTEC_SLASHING_LIFETIME_IN_ROUNDS", vm.toString(json.readUint(".AZTEC_SLASHING_LIFETIME_IN_ROUNDS")));

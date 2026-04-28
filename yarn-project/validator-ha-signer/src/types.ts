@@ -2,11 +2,14 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { DateProvider } from '@aztec/foundation/timer';
 import {
+  type AttestationSigningContext,
+  type CheckpointProposalSigningContext,
   DutyType,
   type HAProtectedSigningContext,
   type SigningContext,
   type ValidatorHASignerConfig,
   getBlockNumberFromSigningContext as getBlockNumberFromSigningContextFromStdlib,
+  getCheckpointNumberFromSigningContext as getCheckpointNumberFromSigningContextFromStdlib,
   isHAProtectedContext,
 } from '@aztec/stdlib/ha-signing';
 import type { TelemetryClient } from '@aztec/telemetry-client';
@@ -25,8 +28,10 @@ import type {
 } from './db/types.js';
 
 export type {
+  AttestationSigningContext,
   BlockProposalDutyIdentifier,
   CheckAndRecordParams,
+  CheckpointProposalSigningContext,
   DeleteDutyParams,
   DutyIdentifier,
   DutyRow,
@@ -40,6 +45,7 @@ export type {
 export { DutyStatus, DutyType, getBlockIndexFromDutyIdentifier, normalizeBlockIndex } from './db/types.js';
 export { isHAProtectedContext };
 export { getBlockNumberFromSigningContextFromStdlib as getBlockNumberFromSigningContext };
+export { getCheckpointNumberFromSigningContextFromStdlib as getCheckpointNumberFromSigningContext };
 
 /**
  * Result of tryInsertOrGetExisting operation

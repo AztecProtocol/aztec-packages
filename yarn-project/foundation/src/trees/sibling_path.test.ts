@@ -1,6 +1,7 @@
 import { Fr } from '../curves/bn254/index.js';
 import { jsonStringify } from '../json-rpc/index.js';
 import { type MerkleTree, MerkleTreeCalculator } from '../trees/index.js';
+import { makePoseidonMerkleHash } from './hasher.js';
 import { SiblingPath, computeRootFromSiblingPath } from './sibling_path.js';
 
 describe('SiblingPath', () => {
@@ -21,8 +22,11 @@ describe('SiblingPath', () => {
   describe('sibling path', () => {
     let tree: MerkleTree;
 
+    // Matches DomainSeparator.MERKLE_HASH / DOM_SEP__MERKLE_HASH.
+    const hasher = makePoseidonMerkleHash(2982624097);
+
     beforeAll(async () => {
-      const calculator = await MerkleTreeCalculator.create(4);
+      const calculator = await MerkleTreeCalculator.create(4, undefined, hasher);
       const leaves = Array.from({ length: 5 }).map((_, i) => new Fr(i).toBuffer());
       tree = await calculator.computeTree(leaves);
     });
@@ -32,7 +36,7 @@ describe('SiblingPath', () => {
       async index => {
         const leaf = tree.leaves[index];
         const siblingPath = tree.getSiblingPath(index);
-        expect(await computeRootFromSiblingPath(leaf, siblingPath, index)).toEqual(tree.root);
+        expect(await computeRootFromSiblingPath(leaf, siblingPath, index, hasher)).toEqual(tree.root);
       },
     );
   });

@@ -56,22 +56,25 @@ Slashing is managed through governance voting based on evidence collected both o
 
 ## Unstaking
 
-When you want to withdraw your staked tokens, you must go through an unstaking process with a mandatory exit delay.
+When you want to withdraw your staked tokens, you must go through an unstaking process with mandatory delays.
 
-#if(testnet)
-The exit delay for testnet is **2 days**.
-#else
-The exit delay for mainnet is **4 days**.
-#endif
+### Exit Delays
 
-The exit delay exists to allow time for pending slashing conditions to be detected and to prevent validators from quickly exiting after misbehaving.
+| Delay Type | Alpha (Mainnet) | Testnet |
+|-----------|-----------------|---------|
+| **Staking Exit Delay** | 4 days | 2 days |
+| **Governance Withdrawal Delay** | ~38 days | ~1.6 days |
+
+The **staking exit delay** is the minimum time after initiating withdrawal before you can claim your tokens. It allows time for pending slashing conditions to be detected.
+
+If your tokens are deposited in the Governance Staking Escrow (GSE) for voting, the **governance withdrawal delay** also applies. This delay is calculated as `votingDelay/5 + votingDuration + executionDelay` to ensure voted-on proposals can be executed before voters exit. On mainnet this is approximately 38 days (0.6 + 7 + 30 days).
 
 ### How to Unstake
 
 To unstake your tokens, use the [Aztec Staking Dashboard](https://stake.aztec.network/). The dashboard guides you through the unstaking process:
 
 1. **Initiate withdrawal**: Select your validator and begin the exit process
-2. **Wait for the exit delay**: Your tokens remain locked during this period
+2. **Wait for the exit delay**: Your tokens remain locked during this period (if your tokens are also in the Governance Staking Escrow, the longer governance withdrawal delay applies)
 3. **Finalize withdrawal**: After the delay, complete the withdrawal to receive your tokens
 
 If you've delegated stake, contact your operator or use the delegation interface to request unstaking.

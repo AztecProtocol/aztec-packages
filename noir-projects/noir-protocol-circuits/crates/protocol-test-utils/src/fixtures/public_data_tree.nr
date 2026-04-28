@@ -1,7 +1,8 @@
 use types::{
     constants::PUBLIC_DATA_TREE_HEIGHT,
     data::public_data_tree_leaf_preimage::PublicDataTreeLeafPreimage,
-    merkle_tree::test_utils::SingleSubtreeMerkleTree, traits::Hash,
+    merkle_tree::{public_data_merkle_hash, test_utils::SingleSubtreeMerkleTree},
+    traits::Hash,
 };
 
 pub fn empty_public_data_tree<let SubtreeWidth: u32, let SubtreeHeight: u32>(
@@ -26,5 +27,5 @@ pub fn empty_public_data_tree<let SubtreeWidth: u32, let SubtreeHeight: u32>(
     };
     leaves[prefill_count - 1] = last_leaf.hash();
 
-    SingleSubtreeMerkleTree::new(leaves)
+    SingleSubtreeMerkleTree::new_with_hasher(leaves, public_data_merkle_hash)
 }

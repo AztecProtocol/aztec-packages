@@ -15,6 +15,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
 import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
 
+import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { buildLegacyOracleCallbacks } from './legacy_oracle_mappings.js';
 import { packAsHintedNote } from './note_packing_utils.js';
@@ -111,12 +112,67 @@ export class Oracle {
       return acc;
     }, {} as ACIRCallback);
 
-    return { ...callback, ...buildLegacyOracleCallbacks(this) };
+    const allCallbacks = { ...callback, ...buildLegacyOracleCallbacks(this) };
+
+    // Wrap in a Proxy to intercept access to missing oracle names and provide enhanced error messages when the
+    // contract's minor version is higher than the PXE's (i.e. the contract expects oracles that were added in a newer
+    // minor version).
+    const handler = this.handler;
+    return new Proxy(allCallbacks, {
+      get(target, prop: string) {
+        if (prop in target) {
+          return target[prop];
+        }
+        // Return a function that throws with an enhanced error message if applicable
+        return () => {
+          type NonOracleFunctionGetContractOracleVersion = {
+            nonOracleFunctionGetContractOracleVersion(): { major: number; minor: number } | undefined;
+          };
+
+          let contractVersion = undefined;
+          if ('nonOracleFunctionGetContractOracleVersion' in handler) {
+            contractVersion = (
+              handler as unknown as NonOracleFunctionGetContractOracleVersion
+            ).nonOracleFunctionGetContractOracleVersion();
+          }
+          if (!contractVersion) {
+            throw new Error(
+              `Oracle '${prop}' not found and the contract's oracle version is unknown (the version check oracle ` +
+                `was not called before '${prop}'). This usually means the contract was not compiled with the ` +
+                `#[aztec] macro, which injects the version check as the first oracle call in every private/utility ` +
+                `external function. If you're using a custom entry point, ensure assert_compatible_oracle_version() ` +
+                `is called before any other oracle calls. See https://docs.aztec.network/errors/8`,
+            );
+          } else if (contractVersion.minor > ORACLE_VERSION_MINOR) {
+            throw new Error(
+              `Oracle '${prop}' not found.` +
+                ` This usually means the contract requires a newer private execution environment than you have.` +
+                ` Upgrade your private execution environment to a compatible version. The contract was compiled with` +
+                ` Aztec.nr oracle version ${contractVersion.major}.${contractVersion.minor}, but this private` +
+                ` execution environment only supports up to ${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}.` +
+                ` See https://docs.aztec.network/errors/8`,
+            );
+          } else {
+            throw new Error(
+              `Oracle '${prop}' not found.` +
+                ` The contract's oracle version (${contractVersion.major}.${contractVersion.minor}) is compatible` +
+                ` with this private execution environment (${ORACLE_VERSION_MAJOR}.${ORACLE_VERSION_MINOR}), so all` +
+                ` standard oracles should be available. This could mean the contract was compiled against a modified` +
+                ` version of Aztec.nr, or that it references an oracle that does not exist.` +
+                ` See https://docs.aztec.network/errors/8`,
+            );
+          }
+        };
+      },
+    });
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion([version]: ACVMField[]) {
-    this.handlerAsMisc().assertCompatibleOracleVersion(Fr.fromString(version).toNumber());
+  aztec_utl_assertCompatibleOracleVersionV2([major]: ACVMField[], [minor]: ACVMField[]) {
+    this.handlerAsMisc().assertCompatibleOracleVersion(
+      Fr.fromString(major).toNumber(),
+      Fr.fromString(minor).toNumber(),
+    );
     return Promise.resolve([]);
   }
 
@@ -524,6 +580,12 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_getPendingTaggedLogs_v2([scope]: ACVMField[]): Promise<ACVMField[]> {
+    const slot = await this.handlerAsUtility().getPendingTaggedLogsV2(AztecAddress.fromString(scope));
+    return [toACVMField(slot)];
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
     [contractAddress]: ACVMField[],
     [noteValidationRequestsArrayBaseSlot]: ACVMField[],
@@ -541,6 +603,24 @@ export class Oracle {
       AztecAddress.fromString(scope),
     );
 
+    return [];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_validateAndStoreEnqueuedNotesAndEvents_v2(
+    [noteValidationRequestsArrayBaseSlot]: ACVMField[],
+    [eventValidationRequestsArrayBaseSlot]: ACVMField[],
+    [maxNotePackedLen]: ACVMField[],
+    [maxEventSerializedLen]: ACVMField[],
+    [scope]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEventsV2(
+      Fr.fromString(noteValidationRequestsArrayBaseSlot),
+      Fr.fromString(eventValidationRequestsArrayBaseSlot),
+      Fr.fromString(maxNotePackedLen).toNumber(),
+      Fr.fromString(maxEventSerializedLen).toNumber(),
+      AztecAddress.fromString(scope),
+    );
     return [];
   }
 
@@ -574,6 +654,20 @@ export class Oracle {
       AztecAddress.fromString(scope),
     );
     return [];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getLogsByTag_v2([requestArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    const responseSlot = await this.handlerAsUtility().getLogsByTagV2(Fr.fromString(requestArrayBaseSlot));
+    return [toACVMField(responseSlot)];
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getMessageContextsByTxHash_v2([requestArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    const responseSlot = await this.handlerAsUtility().getMessageContextsByTxHashV2(
+      Fr.fromString(requestArrayBaseSlot),
+    );
+    return [toACVMField(responseSlot)];
   }
 
   // eslint-disable-next-line camelcase
@@ -646,6 +740,52 @@ export class Oracle {
       AztecAddress.fromField(Fr.fromString(scope)),
     );
     return [];
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_pushEphemeral([slot]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
+    const newLen = this.handlerAsUtility().pushEphemeral(Fr.fromString(slot), elements.map(Fr.fromString));
+    return Promise.resolve([toACVMField(newLen)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_popEphemeral([slot]: ACVMField[]): Promise<ACVMField[][]> {
+    const element = this.handlerAsUtility().popEphemeral(Fr.fromString(slot));
+    return Promise.resolve([element.map(toACVMField)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEphemeral([slot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[][]> {
+    const element = this.handlerAsUtility().getEphemeral(Fr.fromString(slot), Fr.fromString(index).toNumber());
+    return Promise.resolve([element.map(toACVMField)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_setEphemeral([slot]: ACVMField[], [index]: ACVMField[], elements: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().setEphemeral(
+      Fr.fromString(slot),
+      Fr.fromString(index).toNumber(),
+      elements.map(Fr.fromString),
+    );
+    return Promise.resolve([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEphemeralLen([slot]: ACVMField[]): Promise<ACVMField[]> {
+    const len = this.handlerAsUtility().getEphemeralLen(Fr.fromString(slot));
+    return Promise.resolve([toACVMField(len)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_removeEphemeral([slot]: ACVMField[], [index]: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().removeEphemeral(Fr.fromString(slot), Fr.fromString(index).toNumber());
+    return Promise.resolve([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_clearEphemeral([slot]: ACVMField[]): Promise<ACVMField[]> {
+    this.handlerAsUtility().clearEphemeral(Fr.fromString(slot));
+    return Promise.resolve([]);
   }
 
   // eslint-disable-next-line camelcase

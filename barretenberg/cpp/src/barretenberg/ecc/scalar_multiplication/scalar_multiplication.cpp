@@ -4,6 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/ecc/groups/precomputed_generators_grumpkin_impl.hpp"
 
@@ -45,6 +46,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
 
     // Pass 1: Each thread converts from Montgomery and collects nonzero indices into its own vector
     parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("MSM::convert_scalars");
         BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         auto range = chunk.range(scalars.size());
         if (range.empty()) {
@@ -71,6 +73,7 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
 
     // Pass 2: Copy each thread's indices to the output vector (no branching)
     parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("MSM::copy_indices");
         BB_ASSERT_EQ(chunk.total_threads, thread_indices.size());
         size_t offset = 0;
         for (size_t i = 0; i < chunk.thread_index; ++i) {
@@ -458,6 +461,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     {
         BB_BENCH_NAME("MSM::batch_multi_scalar_mul/evaluate_work_units");
         parallel_for(num_cpus, [&](size_t thread_idx) {
+            BB_BENCH_TRACY_NAME("MSM::evaluate_work_units");
             if (!thread_work_units[thread_idx].empty()) {
                 const std::vector<MSMWorkUnit>& msms = thread_work_units[thread_idx];
                 std::vector<std::pair<Element, size_t>>& msm_results = thread_msm_results[thread_idx];
@@ -500,6 +504,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         BB_BENCH_NAME("MSM::batch_multi_scalar_mul/scalars_to_montgomery");
         for (auto& scalar_span : scalars) {
             parallel_for_range(scalar_span.size(), [&](size_t start, size_t end) {
+                BB_BENCH_TRACY_NAME("MSM::scalars_to_montgomery/chunk");
                 for (size_t i = start; i < end; ++i) {
                     scalar_span[i].self_to_montgomery_form();
                 }

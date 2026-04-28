@@ -1,6 +1,6 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr, Point } from '@aztec/aztec.js/fields';
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import {
   type IMiscOracle,
@@ -10,7 +10,6 @@ import {
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash } from '@aztec/stdlib/block';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -20,6 +19,7 @@ import {
   addressFromSingle,
   arrayOfArraysToBoundedVecOfArrays,
   arrayToBoundedVec,
+  blockHashFromSingle,
   bufferToU8Array,
   fromArray,
   fromSingle,
@@ -264,10 +264,11 @@ export class RPCTranslator {
   // PXE oracles
 
   // eslint-disable-next-line camelcase
-  aztec_utl_assertCompatibleOracleVersion(foreignVersion: ForeignCallSingle) {
-    const version = fromSingle(foreignVersion).toNumber();
+  aztec_utl_assertCompatibleOracleVersionV2(foreignMajor: ForeignCallSingle, foreignMinor: ForeignCallSingle) {
+    const major = fromSingle(foreignMajor).toNumber();
+    const minor = fromSingle(foreignMinor).toNumber();
 
-    this.handlerAsMisc().assertCompatibleOracleVersion(version);
+    this.handlerAsMisc().assertCompatibleOracleVersion(major, minor);
 
     return toForeignCallResult([]);
   }
@@ -295,6 +296,46 @@ export class RPCTranslator {
       ...arrayToBoundedVec(toArray(noteHashes), MAX_NOTE_HASHES_PER_TX),
       ...arrayToBoundedVec(toArray(nullifiers), MAX_NULLIFIERS_PER_TX),
     ]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_txe_getLastCallOffchainEffects() {
+    // This oracle returns all offchain effect payloads (messages, authwit requests, etc.) emitted by the last top-level call,
+    // MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY is arbitrarily set at 64 because we need a bound. Nothing inherent about it.
+    const MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY = 64;
+    // Must match MAX_OFFCHAIN_EFFECT_LEN in txe_oracles.nr.
+    const MAX_OFFCHAIN_EFFECT_LEN = 2 + PRIVATE_LOG_CIPHERTEXT_LEN;
+
+    const { effects } = this.stateHandler.getLastCallOffchainEffects();
+
+    if (effects.length > MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY) {
+      throw new Error(`${effects.length} offchain effects exceed max ${MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY}`);
+    }
+    if (effects.some(e => e.length > MAX_OFFCHAIN_EFFECT_LEN)) {
+      throw new Error(`Some offchain effect has length larger than max ${MAX_OFFCHAIN_EFFECT_LEN}`);
+    }
+
+    const rawArrayStorage = effects
+      .map(e => e.concat(Array(MAX_OFFCHAIN_EFFECT_LEN - e.length).fill(new Fr(0))))
+      .concat(
+        Array(MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY - effects.length).fill(Array(MAX_OFFCHAIN_EFFECT_LEN).fill(new Fr(0))),
+      )
+      .flat();
+
+    const effectLengths = effects
+      .map(e => new Fr(e.length))
+      .concat(Array(MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY - effects.length).fill(new Fr(0)));
+
+    const count = new Fr(effects.length);
+
+    return toForeignCallResult([toArray(rawArrayStorage), toArray(effectLengths), toSingle(count)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_txe_getLastCallContext() {
+    const { txHash, anchorBlockTimestamp } = this.stateHandler.getLastCallContext();
+    const isSome = txHash.isZero() ? 0 : 1;
+    return toForeignCallResult([toSingle(isSome), toSingle(txHash), toSingle(new Fr(anchorBlockTimestamp))]);
   }
 
   // eslint-disable-next-line camelcase
@@ -384,7 +425,7 @@ export class RPCTranslator {
     foreignStartStorageSlot: ForeignCallSingle,
     foreignNumberOfElements: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const contractAddress = addressFromSingle(foreignContractAddress);
     const startStorageSlot = fromSingle(foreignStartStorageSlot);
     const numberOfElements = fromSingle(foreignNumberOfElements).toNumber();
@@ -401,7 +442,7 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_getPublicDataWitness(foreignBlockHash: ForeignCallSingle, foreignLeafSlot: ForeignCallSingle) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const leafSlot = fromSingle(foreignLeafSlot);
 
     const witness = await this.handlerAsUtility().getPublicDataWitness(blockHash, leafSlot);
@@ -628,7 +669,7 @@ export class RPCTranslator {
     foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().getNullifierMembershipWitness(blockHash, nullifier);
@@ -692,7 +733,7 @@ export class RPCTranslator {
     foreignAnchorBlockHash: ForeignCallSingle,
     foreignNoteHash: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const blockHash = blockHashFromSingle(foreignAnchorBlockHash);
     const noteHash = fromSingle(foreignNoteHash);
 
     const witness = await this.handlerAsUtility().getNoteHashMembershipWitness(blockHash, noteHash);
@@ -708,8 +749,8 @@ export class RPCTranslator {
     foreignAnchorBlockHash: ForeignCallSingle,
     foreignBlockHash: ForeignCallSingle,
   ) {
-    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const anchorBlockHash = blockHashFromSingle(foreignAnchorBlockHash);
+    const blockHash = blockHashFromSingle(foreignBlockHash);
 
     const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash);
 
@@ -726,7 +767,7 @@ export class RPCTranslator {
     foreignBlockHash: ForeignCallSingle,
     foreignNullifier: ForeignCallSingle,
   ) {
-    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+    const blockHash = blockHashFromSingle(foreignBlockHash);
     const nullifier = fromSingle(foreignNullifier);
 
     const witness = await this.handlerAsUtility().getLowNullifierMembershipWitness(blockHash, nullifier);
@@ -751,6 +792,13 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_getPendingTaggedLogs_v2(foreignScope: ForeignCallSingle) {
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
+    const slot = await this.handlerAsUtility().getPendingTaggedLogsV2(scope);
+    return toForeignCallResult([toSingle(slot)]);
+  }
+
+  // eslint-disable-next-line camelcase
   public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents(
     foreignContractAddress: ForeignCallSingle,
     foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
@@ -768,6 +816,31 @@ export class RPCTranslator {
 
     await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEvents(
       contractAddress,
+      noteValidationRequestsArrayBaseSlot,
+      eventValidationRequestsArrayBaseSlot,
+      maxNotePackedLen,
+      maxEventSerializedLen,
+      scope,
+    );
+
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  public async aztec_utl_validateAndStoreEnqueuedNotesAndEvents_v2(
+    foreignNoteValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignEventValidationRequestsArrayBaseSlot: ForeignCallSingle,
+    foreignMaxNotePackedLen: ForeignCallSingle,
+    foreignMaxEventSerializedLen: ForeignCallSingle,
+    foreignScope: ForeignCallSingle,
+  ) {
+    const noteValidationRequestsArrayBaseSlot = fromSingle(foreignNoteValidationRequestsArrayBaseSlot);
+    const eventValidationRequestsArrayBaseSlot = fromSingle(foreignEventValidationRequestsArrayBaseSlot);
+    const maxNotePackedLen = fromSingle(foreignMaxNotePackedLen).toNumber();
+    const maxEventSerializedLen = fromSingle(foreignMaxEventSerializedLen).toNumber();
+    const scope = AztecAddress.fromField(fromSingle(foreignScope));
+
+    await this.handlerAsUtility().validateAndStoreEnqueuedNotesAndEventsV2(
       noteValidationRequestsArrayBaseSlot,
       eventValidationRequestsArrayBaseSlot,
       maxNotePackedLen,
@@ -820,6 +893,20 @@ export class RPCTranslator {
     );
 
     return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getLogsByTag_v2(foreignRequestArrayBaseSlot: ForeignCallSingle) {
+    const requestArrayBaseSlot = fromSingle(foreignRequestArrayBaseSlot);
+    const responseSlot = await this.handlerAsUtility().getLogsByTagV2(requestArrayBaseSlot);
+    return toForeignCallResult([toSingle(responseSlot)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getMessageContextsByTxHash_v2(foreignRequestArrayBaseSlot: ForeignCallSingle) {
+    const requestArrayBaseSlot = fromSingle(foreignRequestArrayBaseSlot);
+    const responseSlot = await this.handlerAsUtility().getMessageContextsByTxHashV2(requestArrayBaseSlot);
+    return toForeignCallResult([toSingle(responseSlot)]);
   }
 
   // eslint-disable-next-line camelcase
@@ -898,6 +985,64 @@ export class RPCTranslator {
     return toForeignCallResult([]);
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_utl_pushEphemeral(foreignSlot: ForeignCallSingle, foreignElements: ForeignCallArray) {
+    const slot = fromSingle(foreignSlot);
+    const elements = fromArray(foreignElements);
+    const newLen = this.handlerAsUtility().pushEphemeral(slot, elements);
+    return toForeignCallResult([toSingle(new Fr(newLen))]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_popEphemeral(foreignSlot: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    const element = this.handlerAsUtility().popEphemeral(slot);
+    return toForeignCallResult([toArray(element)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEphemeral(foreignSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    const index = fromSingle(foreignIndex).toNumber();
+    const element = this.handlerAsUtility().getEphemeral(slot, index);
+    return toForeignCallResult([toArray(element)]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_setEphemeral(
+    foreignSlot: ForeignCallSingle,
+    foreignIndex: ForeignCallSingle,
+    foreignElements: ForeignCallArray,
+  ) {
+    const slot = fromSingle(foreignSlot);
+    const index = fromSingle(foreignIndex).toNumber();
+    const elements = fromArray(foreignElements);
+    this.handlerAsUtility().setEphemeral(slot, index, elements);
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getEphemeralLen(foreignSlot: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    const len = this.handlerAsUtility().getEphemeralLen(slot);
+    return toForeignCallResult([toSingle(new Fr(len))]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_removeEphemeral(foreignSlot: ForeignCallSingle, foreignIndex: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    const index = fromSingle(foreignIndex).toNumber();
+    this.handlerAsUtility().removeEphemeral(slot, index);
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_clearEphemeral(foreignSlot: ForeignCallSingle) {
+    const slot = fromSingle(foreignSlot);
+    this.handlerAsUtility().clearEphemeral(slot);
+    return toForeignCallResult([]);
+  }
+
   // TODO: I forgot to add a corresponding function here, when I introduced an oracle method to txe_oracle.ts.
   // The compiler didn't throw an error, so it took me a while to learn of the existence of this file, and that I need
   // to implement this function here. Isn't there a way to programmatically identify that this is missing, given the
@@ -966,8 +1111,13 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_emitOffchainEffect(_foreignData: ForeignCallArray) {
-    throw new Error('Offchain effects are not yet supported in the TestEnvironment');
+  aztec_utl_emitOffchainEffect(foreignData: ForeignCallArray) {
+    // Record the raw payload against the currently-executing top-level call. The Noir side
+    // (via `env.offchain_messages()`) is responsible for decoding the protocol-reserved prefix
+    // (`OFFCHAIN_MESSAGE_IDENTIFIER`, recipient) and turning each payload into an `OffchainMessage` struct suitable
+    // for `offchain_receive`.
+    this.stateHandler.recordOffchainEffect(fromArray(foreignData));
+    return Promise.resolve(toForeignCallResult([]));
   }
 
   // AVM opcodes
@@ -1176,18 +1326,38 @@ export class RPCTranslator {
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const returnValues = await this.handlerAsTxe().privateCallNewFlow(
-      from,
-      targetContractAddress,
-      functionSelector,
-      args,
-      argsHash,
-      isStaticCall,
-      this.stateHandler.getCurrentJob(),
-    );
+    const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
+      const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
+        from,
+        targetContractAddress,
+        functionSelector,
+        args,
+        argsHash,
+        isStaticCall,
+        this.stateHandler.getCurrentJob(),
+      );
 
-    // TODO(F-335): Avoid doing the following call here.
-    await this.stateHandler.cycleJob();
+      // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than
+      // round-tripping them through `aztec_utl_emitOffchainEffect`, so the session buffer is empty
+      // at this point. Drain the effects from the execution tree into the session buffer so the
+      // next `env.offchain_messages()` call in the test sees them.
+      for (const data of offchainEffects) {
+        this.stateHandler.recordOffchainEffect(data);
+      }
+
+      // TODO(F-335): Avoid doing the following call here.
+      await this.stateHandler.cycleJob();
+
+      if (isStaticCall) {
+        // Static calls revert their checkpoint and mine no block, so there is no tx hash to tag
+        // offchain effects with. Querying `getLastTxEffects()` here would return an unrelated
+        // predecessor tx.
+        return { result: returnValues };
+      }
+      const { txHash } = await this.handlerAsTxe().getLastTxEffects();
+      return { result: returnValues, txHash: txHash.hash };
+    });
+
     return toForeignCallResult([toArray(returnValues)]);
   }
 
@@ -1201,15 +1371,20 @@ export class RPCTranslator {
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
 
-    const returnValues = await this.handlerAsTxe().executeUtilityFunction(
-      targetContractAddress,
-      functionSelector,
-      args,
-      this.stateHandler.getCurrentJob(),
-    );
+    const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
+      const returnValues = await this.handlerAsTxe().executeUtilityFunction(
+        targetContractAddress,
+        functionSelector,
+        args,
+        this.stateHandler.getCurrentJob(),
+      );
 
-    // TODO(F-335): Avoid doing the following call here.
-    await this.stateHandler.cycleJob();
+      // TODO(F-335): Avoid doing the following call here.
+      await this.stateHandler.cycleJob();
+
+      return { result: returnValues };
+    });
+
     return toForeignCallResult([toArray(returnValues)]);
   }
 
@@ -1225,10 +1400,20 @@ export class RPCTranslator {
     const calldata = fromArray(foreignCalldata);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
 
-    const returnValues = await this.handlerAsTxe().publicCallNewFlow(from, address, calldata, isStaticCall);
+    const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
+      const returnValues = await this.handlerAsTxe().publicCallNewFlow(from, address, calldata, isStaticCall);
 
-    // TODO(F-335): Avoid doing the following call here.
-    await this.stateHandler.cycleJob();
+      // TODO(F-335): Avoid doing the following call here.
+      await this.stateHandler.cycleJob();
+
+      if (isStaticCall) {
+        // See equivalent branch in `aztec_txe_privateCallNewFlow`.
+        return { result: returnValues };
+      }
+      const { txHash } = await this.handlerAsTxe().getLastTxEffects();
+      return { result: returnValues, txHash: txHash.hash };
+    });
+
     return toForeignCallResult([toArray(returnValues)]);
   }
 

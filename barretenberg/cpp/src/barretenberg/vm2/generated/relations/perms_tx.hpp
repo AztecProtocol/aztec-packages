@@ -17,7 +17,7 @@ struct perm_tx_read_calldata_hash_settings_ {
     static constexpr std::string_view NAME = "PERM_TX_READ_CALLDATA_HASH";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t COLUMNS_PER_SET = 3;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_process_call_request;
     static constexpr Column DST_SELECTOR = Column::calldata_hashing_end;
     static constexpr Column INVERSES = Column::perm_tx_read_calldata_hash_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = { ColumnAndShifts::tx_calldata_hash,
@@ -40,7 +40,7 @@ struct perm_tx_dispatch_exec_start_settings_ {
     static constexpr std::string_view NAME = "PERM_TX_DISPATCH_EXEC_START";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t COLUMNS_PER_SET = 26;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_process_call_request;
     static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_start;
     static constexpr Column INVERSES = Column::perm_tx_dispatch_exec_start_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {
@@ -111,7 +111,7 @@ struct perm_tx_dispatch_exec_end_settings_ {
     static constexpr std::string_view NAME = "PERM_TX_DISPATCH_EXEC_END";
     static constexpr std::string_view RELATION_NAME = "tx";
     static constexpr size_t COLUMNS_PER_SET = 20;
-    static constexpr Column SRC_SELECTOR = Column::tx_should_process_call_request;
+    static constexpr Column SRC_SELECTOR = Column::tx_sel_process_call_request;
     static constexpr Column DST_SELECTOR = Column::execution_enqueued_call_end;
     static constexpr Column INVERSES = Column::perm_tx_dispatch_exec_end_inv;
     static constexpr std::array<ColumnAndShifts, COLUMNS_PER_SET> SRC_COLUMNS = {

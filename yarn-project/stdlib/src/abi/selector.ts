@@ -4,7 +4,7 @@ import { bufferToHex } from '@aztec/foundation/string';
 
 import { inspect } from 'util';
 
-/** A selector is the first 4 bytes of the hash of a signature. */
+/** A selector is the low 4 bytes of the poseidon2 hash of a signature. */
 export abstract class Selector {
   /** The size of the selector in bytes. */
   public static SIZE = 4;

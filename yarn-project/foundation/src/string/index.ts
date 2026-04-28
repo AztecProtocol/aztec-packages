@@ -58,7 +58,7 @@ export function urlJoin(...args: string[]): string {
       end--;
     }
 
-    if (start < end) {
+    if (start <= end) {
       processed.push(arg.slice(start, end + 1));
     }
   }

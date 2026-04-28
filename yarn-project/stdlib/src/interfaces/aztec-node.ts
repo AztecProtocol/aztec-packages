@@ -37,6 +37,7 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
+import { ManaUsageEstimate } from '../gas/fee_math.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { SiloedTag, Tag, TxScopedL2Log } from '../logs/index.js';
 import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
@@ -271,6 +272,15 @@ export interface AztecNode
    * @returns The current min fees.
    */
   getCurrentMinFees(): Promise<GasFees>;
+
+  /**
+   * Returns predicted min fees for the current slot and next N slots.
+   * Each entry accounts for the L1 gas oracle transition and congestion growth based on the
+   * given mana usage estimate. Defaults to target usage (steady state).
+   * @param manaUsage - Expected mana usage per checkpoint (none, target, or limit).
+   * @returns An array of GasFees, one per slot in the prediction window.
+   */
+  getPredictedMinFees(manaUsage?: ManaUsageEstimate): Promise<GasFees[]>;
 
   /**
    * Method to fetch the current max priority fee of txs in the mempool.
@@ -577,6 +587,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
 
   getCurrentMinFees: z.function().returns(GasFees.schema),
+
+  getPredictedMinFees: z
+    .function()
+    .args(optional(z.nativeEnum(ManaUsageEstimate)))
+    .returns(z.array(GasFees.schema)),
 
   getMaxPriorityFees: z.function().returns(GasFees.schema),
 

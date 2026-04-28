@@ -9,7 +9,7 @@ include "../scalar_mul.pil";
  * during contract instance retrieval (contract_instance_retrieval.pil) in our execution flow.
  * The address is defined by the following flow, where the hash function H() is Poseidon2, and G1
  * is the Grumpkin curve's generator point:
- *   1. salted_init_hash  = H(DOM_SEP__PARTIAL_ADDRESS, salt, init_hash, deployer_addr)
+ *   1. salted_init_hash  = H(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr)
  *   2. partial_address   = H(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
  *   3. public_keys_hash  = H(DOM_SEP__PUBLIC_KEYS_HASH,
  *                             nullifier_key_x, nullifier_key_y, nullifier_key_is_infinity,
@@ -24,10 +24,6 @@ include "../scalar_mul.pil";
  * curve. See the 'Hash Computations', 'Elliptic Curve Operations', and 'INTERACTIONS' sections
  * for details on how we enforce each step. This process follows Noir's AztecAddress::compute().
  *
- * Note: DOM_SEP__PARTIAL_ADDRESS is reused for both the salted initialization hash and the partial
- * address computations (steps 1 and 2). This cannot lead to a collision since the preimages are of
- * different lengths, hence will have different IV values. Unfortunately, why this is the case is not
- * documented in the protocol.
  *
  * PRECONDITIONS: The correctness of the preimage members is not constrained here and must be
  *               enforced by the calling circuits. Like class_id_derivation, this trace can be seen
@@ -121,7 +117,7 @@ namespace address_derivation;
     ///////////////////////////////
     //
     // This trace constrains the result of four Poseidon2 hashes:
-    //   1. salted_init_hash  = H(DOM_SEP__PARTIAL_ADDRESS, salt, init_hash, deployer_addr)
+    //   1. salted_init_hash  = H(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr)
     //   2. partial_address   = H(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
     //   3. public_keys_hash  = H(DOM_SEP__PUBLIC_KEYS_HASH,
     //                             nullifier_key_x, nullifier_key_y, 0,
@@ -140,6 +136,8 @@ namespace address_derivation;
     sel * (const_four - 4) = 0;
     pol commit const_thirteen;
     sel * (const_thirteen - 13) = 0;
+    pol commit salted_init_hash_domain_separator;
+    sel * (salted_init_hash_domain_separator - constants.DOM_SEP__SALTED_INITIALIZATION_HASH) = 0;
     pol commit partial_address_domain_separator;
     sel * (partial_address_domain_separator - constants.DOM_SEP__PARTIAL_ADDRESS) = 0;
     pol commit public_keys_hash_domain_separator;
@@ -151,14 +149,14 @@ namespace address_derivation;
     pol commit salted_init_hash;
 
     // Since Poseidon2 processes inputs in chunks of 3, we need 2 permutation rounds to cover our 4 inputs:
-    //  salted_init_hash = H(DOM_SEP__PARTIAL_ADDRESS, salt, init_hash, deployer_addr)
-    //   Round 1 (start, input_len=4): (DOM_SEP__PARTIAL_ADDRESS, salt, init_hash)
+    //  salted_init_hash = H(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr)
+    //   Round 1 (start, input_len=4): (DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash)
     //   Round 2 (end):                (deployer_addr, 0, 0)
 
     // Enforces the first round of salted_init_hash. Note that we must lookup poseidon2_hash.input_len == 4
     // here since it is constrained in the poseidon trace on the start row.
     #[SALTED_INITIALIZATION_HASH_POSEIDON2_0]
-    sel { partial_address_domain_separator, salt, init_hash, salted_init_hash, const_four }
+    sel { salted_init_hash_domain_separator, salt, init_hash, salted_init_hash, const_four }
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output, poseidon2_hash.input_len };
 
     // Enforces the second and final round of salted_init_hash. Note that we must enforce the padded values are zero here.

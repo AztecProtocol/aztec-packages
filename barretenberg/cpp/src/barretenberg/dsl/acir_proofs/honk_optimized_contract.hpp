@@ -5,383 +5,9 @@
 // =====================
 
 #pragma once
-#include <filesystem>
-#include <fstream>
-#include <iostream>
+#include "honk_optimized_common.hpp"
 #include <sstream>
 #include <vector>
-
-// Complete implementation of generate_offsets.py converted to C++
-inline std::string generate_memory_offsets(int log_n)
-{
-    const int BATCHED_RELATION_PARTIAL_LENGTH = 8;
-    const int NUMBER_OF_SUBRELATIONS = 28;
-    const int NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1;
-    const int START_POINTER = 0x1000;
-    const int BARYCENTRIC_DOMAIN_SIZE = 8;
-
-    std::ostringstream out;
-
-    // Helper lambdas
-    auto print_header_centered = [&](const std::string& text) {
-        const std::string top = "/*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/";
-        const std::string bottom = "/*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/";
-        size_t width = static_cast<size_t>(top.length()) - 4; // exclude /* and */
-        std::string centered =
-            "/*" + std::string(static_cast<size_t>((width - text.length()) / 2), ' ') + text +
-            std::string(static_cast<size_t>(width - text.length() - (width - text.length()) / 2), ' ') + "*/";
-        out << "\n" << top << "\n" << centered << "\n" << bottom << "\n";
-    };
-
-    auto print_loc = [&](int pointer, const std::string& name) {
-        out << "uint256 internal constant " << name << " = " << std::showbase << std::hex << pointer << ";\n";
-    };
-
-    auto print_fr = print_loc;
-
-    auto print_g1 = [&](int pointer, const std::string& name) {
-        print_loc(pointer, name + "_X_LOC");
-        print_loc(pointer + 32, name + "_Y_LOC");
-    };
-
-    // Data arrays from Python script
-    const std::vector<std::string> vk_g1 = { "Q_M",
-                                             "Q_C",
-                                             "Q_L",
-                                             "Q_R",
-                                             "Q_O",
-                                             "Q_4",
-                                             "Q_LOOKUP",
-                                             "Q_ARITH",
-                                             "Q_DELTA_RANGE",
-                                             "Q_ELLIPTIC",
-                                             "Q_MEMORY",
-                                             "Q_NNF",
-                                             "Q_POSEIDON_2_EXTERNAL",
-                                             "Q_POSEIDON_2_INTERNAL",
-                                             "SIGMA_1",
-                                             "SIGMA_2",
-                                             "SIGMA_3",
-                                             "SIGMA_4",
-                                             "ID_1",
-                                             "ID_2",
-                                             "ID_3",
-                                             "ID_4",
-                                             "TABLE_1",
-                                             "TABLE_2",
-                                             "TABLE_3",
-                                             "TABLE_4",
-                                             "LAGRANGE_FIRST",
-                                             "LAGRANGE_LAST" };
-
-    const std::vector<std::string> proof_fr = { "PROOF_CIRCUIT_SIZE",
-                                                "PROOF_NUM_PUBLIC_INPUTS",
-                                                "PROOF_PUB_INPUTS_OFFSET" };
-
-    const std::vector<std::string> pairing_points = { "PAIRING_POINT_0_X_0_LOC", "PAIRING_POINT_0_X_1_LOC",
-                                                      "PAIRING_POINT_0_Y_0_LOC", "PAIRING_POINT_0_Y_1_LOC",
-                                                      "PAIRING_POINT_1_X_0_LOC", "PAIRING_POINT_1_X_1_LOC",
-                                                      "PAIRING_POINT_1_Y_0_LOC", "PAIRING_POINT_1_Y_1_LOC" };
-
-    const std::vector<std::string> proof_g1 = {
-        "W_L", "W_R", "W_O", "LOOKUP_READ_COUNTS", "LOOKUP_READ_TAGS", "W_4", "LOOKUP_INVERSES", "Z_PERM"
-    };
-
-    const std::vector<std::string> entities = { "QM",
-                                                "QC",
-                                                "QL",
-                                                "QR",
-                                                "QO",
-                                                "Q4",
-                                                "QLOOKUP",
-                                                "QARITH",
-                                                "QRANGE",
-                                                "QELLIPTIC",
-                                                "QMEMORY",
-                                                "QNNF",
-                                                "QPOSEIDON2_EXTERNAL",
-                                                "QPOSEIDON2_INTERNAL",
-                                                "SIGMA1",
-                                                "SIGMA2",
-                                                "SIGMA3",
-                                                "SIGMA4",
-                                                "ID1",
-                                                "ID2",
-                                                "ID3",
-                                                "ID4",
-                                                "TABLE1",
-                                                "TABLE2",
-                                                "TABLE3",
-                                                "TABLE4",
-                                                "LAGRANGE_FIRST",
-                                                "LAGRANGE_LAST",
-                                                "W1",
-                                                "W2",
-                                                "W3",
-                                                "W4",
-                                                "Z_PERM",
-                                                "LOOKUP_INVERSES",
-                                                "LOOKUP_READ_COUNTS",
-                                                "LOOKUP_READ_TAGS",
-                                                "W1_SHIFT",
-                                                "W2_SHIFT",
-                                                "W3_SHIFT",
-                                                "W4_SHIFT",
-                                                "Z_PERM_SHIFT" };
-
-    const std::vector<std::string> challenges = { "ETA",
-                                                  "ETA_TWO",
-                                                  "ETA_THREE",
-                                                  "BETA",
-                                                  "GAMMA",
-                                                  "RHO",
-                                                  "GEMINI_R",
-                                                  "SHPLONK_NU",
-                                                  "SHPLONK_Z",
-                                                  "PUBLIC_INPUTS_DELTA_NUMERATOR",
-                                                  "PUBLIC_INPUTS_DELTA_DENOMINATOR" };
-
-    const std::vector<std::string> subrelation_intermediates = { "AUX_NON_NATIVE_FIELD_IDENTITY",
-                                                                 "AUX_LIMB_ACCUMULATOR_IDENTITY",
-                                                                 "AUX_RAM_CONSISTENCY_CHECK_IDENTITY",
-                                                                 "AUX_ROM_CONSISTENCY_CHECK_IDENTITY",
-                                                                 "AUX_MEMORY_CHECK_IDENTITY" };
-
-    const std::vector<std::string> general_intermediates = { "FINAL_ROUND_TARGET_LOC", "POW_PARTIAL_EVALUATION_LOC" };
-
-    int pointer = START_POINTER;
-
-    // VK INDICIES
-    print_header_centered("VK INDICIES");
-    for (const auto& item : vk_g1) {
-        print_g1(pointer, item);
-        pointer += 64;
-    }
-
-    // PROOF INDICIES
-    print_header_centered("PROOF INDICIES");
-    for (const auto& item : pairing_points) {
-        print_fr(pointer, item);
-        pointer += 32;
-    }
-    for (const auto& item : proof_g1) {
-        print_g1(pointer, item);
-        pointer += 64;
-    }
-
-    // SUMCHECK UNIVARIATES
-    print_header_centered("PROOF INDICIES - SUMCHECK UNIVARIATES");
-    for (int size = 0; size < log_n; ++size) {
-        for (int relation_len = 0; relation_len < BATCHED_RELATION_PARTIAL_LENGTH; ++relation_len) {
-            std::string name =
-                "SUMCHECK_UNIVARIATE_" + std::to_string(size) + "_" + std::to_string(relation_len) + "_LOC";
-            print_fr(pointer, name);
-            pointer += 32;
-        }
-    }
-
-    // SUMCHECK EVALUATIONS
-    print_header_centered("PROOF INDICIES - SUMCHECK EVALUATIONS");
-    for (const auto& entity : entities) {
-        print_fr(pointer, entity + "_EVAL_LOC");
-        pointer += 32;
-    }
-
-    // SHPLEMINI - GEMINI FOLDING COMMS
-    print_header_centered("PROOF INDICIES - GEMINI FOLDING COMMS");
-    for (int size = 0; size < log_n - 1; ++size) {
-        print_g1(pointer, "GEMINI_FOLD_UNIVARIATE_" + std::to_string(size));
-        pointer += 64;
-    }
-
-    // GEMINI FOLDING EVALUATIONS
-    print_header_centered("PROOF INDICIES - GEMINI FOLDING EVALUATIONS");
-    for (int size = 0; size < log_n; ++size) {
-        print_fr(pointer, "GEMINI_A_EVAL_" + std::to_string(size));
-        pointer += 32;
-    }
-    print_g1(pointer, "SHPLONK_Q");
-    pointer += 64;
-    print_g1(pointer, "KZG_QUOTIENT");
-    pointer += 64;
-
-    print_header_centered("PROOF INDICIES - COMPLETE");
-
-    // CHALLENGES
-    print_header_centered("CHALLENGES");
-    for (const auto& chall : challenges) {
-        print_fr(pointer, chall + "_CHALLENGE");
-        pointer += 32;
-    }
-    for (int alpha = 0; alpha < NUMBER_OF_ALPHAS; ++alpha) {
-        print_fr(pointer, "ALPHA_CHALLENGE_" + std::to_string(alpha));
-        pointer += 32;
-    }
-    for (int gate = 0; gate < log_n; ++gate) {
-        print_fr(pointer, "GATE_CHALLENGE_" + std::to_string(gate));
-        pointer += 32;
-    }
-    for (int sum_u = 0; sum_u < log_n; ++sum_u) {
-        print_fr(pointer, "SUM_U_CHALLENGE_" + std::to_string(sum_u));
-        pointer += 32;
-    }
-    print_header_centered("CHALLENGES - COMPLETE");
-
-    // RUNTIME MEMORY
-    print_header_centered("SUMCHECK - RUNTIME MEMORY");
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC");
-
-    // Barycentric domain
-    for (int i = 0; i < BARYCENTRIC_DOMAIN_SIZE; ++i) {
-        print_fr(pointer, "BARYCENTRIC_LAGRANGE_DENOMINATOR_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-    for (int i = 0; i < log_n; ++i) {
-        for (int j = 0; j < BARYCENTRIC_DOMAIN_SIZE; ++j) {
-            print_fr(pointer,
-                     "BARYCENTRIC_DENOMINATOR_INVERSES_" + std::to_string(i) + "_" + std::to_string(j) + "_LOC");
-            pointer += 32;
-        }
-    }
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - BARYCENTRIC COMPLETE");
-
-    // SUBRELATION EVALUATIONS
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION EVALUATIONS");
-    for (int i = 0; i < NUMBER_OF_SUBRELATIONS; ++i) {
-        print_fr(pointer, "SUBRELATION_EVAL_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION EVALUATIONS COMPLETE");
-
-    // SUBRELATION INTERMEDIATES
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - SUBRELATION INTERMEDIATES");
-    for (const auto& item : general_intermediates) {
-        print_fr(pointer, item);
-        pointer += 32;
-    }
-    for (const auto& item : subrelation_intermediates) {
-        print_fr(pointer, item);
-        pointer += 32;
-    }
-    print_header_centered("SUMCHECK - RUNTIME MEMORY - COMPLETE");
-
-    // SHPLEMINI RUNTIME MEMORY
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY");
-    print_header_centered("SHPLEMINI - POWERS OF EVALUATION CHALLENGE");
-    out << "/// {{ UNROLL_SECTION_START POWERS_OF_EVALUATION_CHALLENGE }}\n";
-    for (int i = 0; i < log_n; ++i) {
-        print_fr(pointer, "POWERS_OF_EVALUATION_CHALLENGE_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-    out << "/// {{ UNROLL_SECTION_END POWERS_OF_EVALUATION_CHALLENGE }}\n";
-    print_header_centered("SHPLEMINI - POWERS OF EVALUATION CHALLENGE COMPLETE");
-
-    // BATCH SCALARS
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS");
-    const int BATCH_SIZE = 69;
-    for (int i = 1; i < BATCH_SIZE; ++i) {
-        print_fr(pointer, "BATCH_SCALAR_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY - BATCH SCALARS COMPLETE");
-
-    // INVERSIONS
-    print_header_centered("SHPLEMINI - RUNTIME MEMORY - INVERSIONS");
-
-    print_fr(pointer, "GEMINI_R_INV_LOC");
-    pointer += 32;
-
-    // Batched evaluation accumulator inversions
-    for (int i = 0; i < log_n; ++i) {
-        print_fr(pointer, "BATCH_EVALUATION_ACCUMULATOR_INVERSION_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-
-    out << "\n";
-    print_fr(pointer, "CONSTANT_TERM_ACCUMULATOR_LOC");
-    pointer += 32;
-
-    out << "\n";
-    print_fr(pointer, "POS_INVERTED_DENOMINATOR");
-    pointer += 32;
-    print_fr(pointer, "NEG_INVERTED_DENOMINATOR");
-    pointer += 32;
-
-    out << "\n";
-    out << "// LOG_N challenge pow minus u\n";
-    for (int i = 0; i < log_n; ++i) {
-        print_fr(pointer, "INVERTED_CHALLENGE_POW_MINUS_U_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-
-    out << "\n";
-    out << "// LOG_N pos_inverted_off\n";
-    for (int i = 0; i < log_n; ++i) {
-        print_fr(pointer, "POS_INVERTED_DENOM_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-
-    out << "\n";
-    out << "// LOG_N neg_inverted_off\n";
-    for (int i = 0; i < log_n; ++i) {
-        print_fr(pointer, "NEG_INVERTED_DENOM_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-
-    out << "\n";
-    for (int i = 0; i < log_n; ++i) {
-        print_fr(pointer, "FOLD_POS_EVALUATIONS_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-
-    print_header_centered("SHPLEMINI RUNTIME MEMORY - INVERSIONS - COMPLETE");
-    print_header_centered("SHPLEMINI RUNTIME MEMORY - COMPLETE");
-
-    out << "\n";
-    for (int i = 0; i < 8 * log_n; ++i) {
-        print_fr(pointer, "BARYCENTRIC_TEMP_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-
-    print_fr(pointer, "PUBLIC_INPUTS_DENOM_TEMP_LOC");
-    pointer += 32;
-    print_fr(pointer, "GEMINI_R_INV_TEMP_LOC");
-    pointer += 32;
-    print_fr(pointer, "BATCH_PRODUCT_TEMP_LOC");
-    pointer += 32;
-
-    // Temporary space
-    print_header_centered("Temporary space");
-    for (int i = 0; i < 3 * log_n; ++i) {
-        print_fr(pointer, "TEMP_" + std::to_string(i) + "_LOC");
-        pointer += 32;
-    }
-    print_fr(pointer, "LATER_SCRATCH_SPACE");
-    pointer += 32;
-    print_header_centered("Temporary space - COMPLETE");
-
-    // Scratch space aliases
-    out << "\n";
-    out << "// Aliases for scratch space\n";
-    out << "// Scratch space aliases at 0x00-0x40\n";
-    out << "// Phase 1 (sumcheck rounds): CHALL_POW_LOC, SUMCHECK_U_LOC, GEMINI_A_LOC\n";
-    out << "// Phase 2 (shplemini batch scalars): SS_POS_INV_DENOM_LOC, SS_NEG_INV_DENOM_LOC, SS_GEMINI_EVALS_LOC\n";
-    out << "// These phases do not overlap in execution time.\n";
-
-    print_fr(0x00, "CHALL_POW_LOC");
-    print_fr(0x20, "SUMCHECK_U_LOC");
-    print_fr(0x40, "GEMINI_A_LOC");
-    out << "\n";
-    print_fr(0x00, "SS_POS_INV_DENOM_LOC");
-    print_fr(0x20, "SS_NEG_INV_DENOM_LOC");
-    print_fr(0x40, "SS_GEMINI_EVALS_LOC");
-
-    // EC aliases
-    out << "\n\n";
-    print_header_centered("SUMCHECK - MEMORY ALIASES");
-
-    return out.str();
-}
 
 // Source code for the Ultrahonk Solidity verifier.
 // It's expected that the AcirComposer will inject a library which will load the verification key into memory.
@@ -397,7 +23,7 @@ interface IVerifier {
 
 
 
-uint256 constant NUMBER_OF_SUBRELATIONS = 28;
+uint256 constant NUMBER_OF_SUBRELATIONS = 29;
 uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
 uint256 constant ZK_BATCHED_RELATION_PARTIAL_LENGTH = 9;
 uint256 constant NUMBER_OF_ENTITIES = 41;
@@ -410,7 +36,7 @@ uint256 constant CIRCUIT_SIZE = {{ CIRCUIT_SIZE }};
 uint256 constant LOG_N = {{ LOG_CIRCUIT_SIZE }};
 uint256 constant NUMBER_PUBLIC_INPUTS = {{ NUM_PUBLIC_INPUTS }};
 uint256 constant REAL_NUMBER_PUBLIC_INPUTS = {{ REAL_NUM_PUBLIC_INPUTS }};
-uint256 constant PUBLIC_INPUTS_OFFSET = 1;
+uint256 constant PUBLIC_INPUTS_OFFSET = 5; // NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS = 4 + 1
 
 contract HonkVerifier is IVerifier {
     /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -870,7 +496,7 @@ contract HonkVerifier is IVerifier {
 
                 // Compute powers of alpha: alpha^2, alpha^3, ..., alpha^26
                 let alpha_off_set := ALPHA_CHALLENGE_1
-                for {} lt(alpha_off_set, add(ALPHA_CHALLENGE_26, 0x20)) {} {
+                for {} lt(alpha_off_set, add(ALPHA_CHALLENGE_27, 0x20)) {} {
                     let prev_alpha := mload(sub(alpha_off_set, 0x20))
                     mstore(alpha_off_set, mulmod(prev_alpha, alpha, p))
                     alpha_off_set := add(alpha_off_set, 0x20)
@@ -1624,6 +1250,16 @@ contract HonkVerifier is IVerifier {
                         )
                         mstore(SUBRELATION_EVAL_3_LOC, acc)
                     }
+
+                    // Contribution 4: z_perm initialization (lagrange_first * z_perm = 0)
+                    {
+                        let acc := mulmod(
+                            mulmod(mload(LAGRANGE_FIRST_EVAL_LOC), mload(Z_PERM_EVAL_LOC), p),
+                            mload(POW_PARTIAL_EVALUATION_LOC),
+                            p
+                        )
+                        mstore(SUBRELATION_EVAL_4_LOC, acc)
+                    }
                 }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -1687,9 +1323,9 @@ contract HonkVerifier is IVerifier {
                     let read_tag_boolean_relation := mulmod(read_tag, addmod(read_tag, sub(p, 1), p), p)
                     read_tag_boolean_relation := mulmod(read_tag_boolean_relation, mload(POW_PARTIAL_EVALUATION_LOC), p)
 
-                    mstore(SUBRELATION_EVAL_4_LOC, accumulator_none)
-                    mstore(SUBRELATION_EVAL_5_LOC, accumulator_one)
-                    mstore(SUBRELATION_EVAL_6_LOC, read_tag_boolean_relation)
+                    mstore(SUBRELATION_EVAL_5_LOC, accumulator_none)
+                    mstore(SUBRELATION_EVAL_6_LOC, accumulator_one)
+                    mstore(SUBRELATION_EVAL_7_LOC, read_tag_boolean_relation)
                 }
 
                 /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/
@@ -1712,7 +1348,7 @@ contract HonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_1, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_7_LOC, acc)
+                        mstore(SUBRELATION_EVAL_8_LOC, acc)
                     }
 
                     {
@@ -1722,7 +1358,7 @@ contract HonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_2, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_8_LOC, acc)
+                        mstore(SUBRELATION_EVAL_9_LOC, acc)
                     }
 
                     {
@@ -1732,7 +1368,7 @@ contract HonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_3, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_9_LOC, acc)
+                        mstore(SUBRELATION_EVAL_10_LOC, acc)
                     }
 
                     {
@@ -1742,7 +1378,7 @@ contract HonkVerifier is IVerifier {
                         acc := mulmod(acc, addmod(delta_4, minus_three, p), p)
                         acc := mulmod(acc, mload(QRANGE_EVAL_LOC), p)
                         acc := mulmod(acc, mload(POW_PARTIAL_EVALUATION_LOC), p)
-                        mstore(SUBRELATION_EVAL_10_LOC, acc)
+                        mstore(SUBRELATION_EVAL_11_LOC, acc)
                     }
                 }
 
@@ -1767,7 +1403,7 @@ contract HonkVerifier is IVerifier {
                         let eval := mulmod(x_add_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         eval := mulmod(eval, mload(QELLIPTIC_EVAL_LOC), p)
                         eval := mulmod(eval, addmod(1, sub(p, mload(EC_Q_IS_DOUBLE)), p), p)
-                        mstore(SUBRELATION_EVAL_11_LOC, eval)
+                        mstore(SUBRELATION_EVAL_12_LOC, eval)
                     }
 
                     {
@@ -1784,7 +1420,7 @@ contract HonkVerifier is IVerifier {
                         let eval := mulmod(y_add_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         eval := mulmod(eval, mload(QELLIPTIC_EVAL_LOC), p)
                         eval := mulmod(eval, addmod(1, sub(p, mload(EC_Q_IS_DOUBLE)), p), p)
-                        mstore(SUBRELATION_EVAL_12_LOC, eval)
+                        mstore(SUBRELATION_EVAL_13_LOC, eval)
                     }
 
                     {
@@ -1800,10 +1436,10 @@ contract HonkVerifier is IVerifier {
 
                         let acc := mulmod(ep_x_double_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         acc := mulmod(mulmod(acc, mload(QELLIPTIC_EVAL_LOC), p), mload(EC_Q_IS_DOUBLE), p)
-                        acc := addmod(acc, mload(SUBRELATION_EVAL_11_LOC), p)
+                        acc := addmod(acc, mload(SUBRELATION_EVAL_12_LOC), p)
 
                         // Add to existing contribution - and double check that numbers here
-                        mstore(SUBRELATION_EVAL_11_LOC, acc)
+                        mstore(SUBRELATION_EVAL_12_LOC, acc)
                     }
 
                     {
@@ -1826,10 +1462,10 @@ contract HonkVerifier is IVerifier {
 
                         let acc := mulmod(y_double_identity, mload(POW_PARTIAL_EVALUATION_LOC), p)
                         acc := mulmod(mulmod(acc, mload(QELLIPTIC_EVAL_LOC), p), mload(EC_Q_IS_DOUBLE), p)
-                        acc := addmod(acc, mload(SUBRELATION_EVAL_12_LOC), p)
+                        acc := addmod(acc, mload(SUBRELATION_EVAL_13_LOC), p)
 
                         // Add to existing contribution - and double check that numbers here
-                        mstore(SUBRELATION_EVAL_12_LOC, acc)
+                        mstore(SUBRELATION_EVAL_13_LOC, acc)
                     }
                 }
 
@@ -1936,7 +1572,7 @@ contract HonkVerifier is IVerifier {
                             mulmod(record_delta, addmod(1, sub(p, index_delta), p), p)
 
                         mstore(
-                            SUBRELATION_EVAL_14_LOC,
+                            SUBRELATION_EVAL_15_LOC,
                             mulmod(
                                 adjacent_values_match_if_adjacent_indices_match,
                                 mulmod(
@@ -1954,7 +1590,7 @@ contract HonkVerifier is IVerifier {
 
                         // ROM_CONSISTENCY_CHECK_2
                         mstore(
-                            SUBRELATION_EVAL_15_LOC,
+                            SUBRELATION_EVAL_16_LOC,
                             mulmod(
                                 index_is_monotonically_increasing,
                                 mulmod(
@@ -2050,7 +1686,7 @@ contract HonkVerifier is IVerifier {
                                 )
 
                             mstore(
-                                SUBRELATION_EVAL_16_LOC,
+                                SUBRELATION_EVAL_17_LOC,
                                 mulmod(
                                     adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation,
                                     scaled_activation_selector,
@@ -2059,12 +1695,12 @@ contract HonkVerifier is IVerifier {
                             )
 
                             mstore(
-                                SUBRELATION_EVAL_17_LOC,
+                                SUBRELATION_EVAL_18_LOC,
                                 mulmod(index_is_monotonically_increasing, scaled_activation_selector, p)
                             )
 
                             mstore(
-                                SUBRELATION_EVAL_18_LOC,
+                                SUBRELATION_EVAL_19_LOC,
                                 mulmod(next_gate_access_type_is_boolean, scaled_activation_selector, p)
                             )
 
@@ -2121,7 +1757,7 @@ contract HonkVerifier is IVerifier {
                                 mulmod(mload(QMEMORY_EVAL_LOC), mload(POW_PARTIAL_EVALUATION_LOC), p),
                                 p
                             )
-                            mstore(SUBRELATION_EVAL_13_LOC, memory_identity)
+                            mstore(SUBRELATION_EVAL_14_LOC, memory_identity)
                         }
                     }
                 }
@@ -2268,7 +1904,7 @@ contract HonkVerifier is IVerifier {
                         p
                     )
 
-                    mstore(SUBRELATION_EVAL_19_LOC, nnf_identity)
+                    mstore(SUBRELATION_EVAL_20_LOC, nnf_identity)
                 }
 
                 /*
@@ -2321,22 +1957,22 @@ contract HonkVerifier is IVerifier {
                         mulmod(mload(QPOSEIDON2_EXTERNAL_EVAL_LOC), mload(POW_PARTIAL_EVALUATION_LOC), p)
 
                     mstore(
-                        SUBRELATION_EVAL_20_LOC,
+                        SUBRELATION_EVAL_21_LOC,
                         mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     mstore(
-                        SUBRELATION_EVAL_21_LOC,
+                        SUBRELATION_EVAL_22_LOC,
                         mulmod(q_pos_by_scaling, addmod(v2, sub(p, mload(W2_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     mstore(
-                        SUBRELATION_EVAL_22_LOC,
+                        SUBRELATION_EVAL_23_LOC,
                         mulmod(q_pos_by_scaling, addmod(v3, sub(p, mload(W3_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     mstore(
-                        SUBRELATION_EVAL_23_LOC,
+                        SUBRELATION_EVAL_24_LOC,
                         mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p)
                     )
                 }
@@ -2364,25 +2000,25 @@ contract HonkVerifier is IVerifier {
                     let v1 := addmod(mulmod(u1, POS_INTERNAL_MATRIX_D_0, p), u_sum, p)
 
                     mstore(
-                        SUBRELATION_EVAL_24_LOC,
+                        SUBRELATION_EVAL_25_LOC,
                         mulmod(q_pos_by_scaling, addmod(v1, sub(p, mload(W1_SHIFT_EVAL_LOC)), p), p)
                     )
                     let v2 := addmod(mulmod(u2, POS_INTERNAL_MATRIX_D_1, p), u_sum, p)
 
                     mstore(
-                        SUBRELATION_EVAL_25_LOC,
+                        SUBRELATION_EVAL_26_LOC,
                         mulmod(q_pos_by_scaling, addmod(v2, sub(p, mload(W2_SHIFT_EVAL_LOC)), p), p)
                     )
                     let v3 := addmod(mulmod(u3, POS_INTERNAL_MATRIX_D_2, p), u_sum, p)
 
                     mstore(
-                        SUBRELATION_EVAL_26_LOC,
+                        SUBRELATION_EVAL_27_LOC,
                         mulmod(q_pos_by_scaling, addmod(v3, sub(p, mload(W3_SHIFT_EVAL_LOC)), p), p)
                     )
 
                     let v4 := addmod(mulmod(u4, POS_INTERNAL_MATRIX_D_3, p), u_sum, p)
                     mstore(
-                        SUBRELATION_EVAL_27_LOC,
+                        SUBRELATION_EVAL_28_LOC,
                         mulmod(q_pos_by_scaling, addmod(v4, sub(p, mload(W4_SHIFT_EVAL_LOC)), p), p)
                     )
                 }
@@ -2529,6 +2165,11 @@ contract HonkVerifier is IVerifier {
                 accumulator := addmod(
                     accumulator,
                     mulmod(mload(SUBRELATION_EVAL_27_LOC), mload(ALPHA_CHALLENGE_26), p),
+                    p
+                )
+                accumulator := addmod(
+                    accumulator,
+                    mulmod(mload(SUBRELATION_EVAL_28_LOC), mload(ALPHA_CHALLENGE_27), p),
                     p
                 )
 
@@ -3284,12 +2925,22 @@ contract HonkVerifier is IVerifier {
                     staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
                 )
 
-                // Accumulator = accumulator + scalar[27] * vk[26]
-                // optimization - Lagrange first is always G - (1,2)
-                //                later on we are expected to multiply constant_term_accumulator by G - (1,2)
-                //                here we can add scalars together and skip a ecMul + ecAdd for each
+                // Accumulator = accumulator + scalar[27] * [lagrange_first]
                 mcopy(G1_LOCATION, LAGRANGE_FIRST_X_LOC, 0x40)
-                mstore(SCALAR_LOCATION, addmod(constant_term_acc, mload(BATCH_SCALAR_27_LOC), p))
+                mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_27_LOC))
+                precomp_success_flag := and(
+                    precomp_success_flag,
+                    staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)
+                )
+                precomp_success_flag := and(
+                    precomp_success_flag,
+                    staticcall(gas(), 6, ACCUMULATOR, 0x80, ACCUMULATOR, 0x40)
+                )
+
+                // Accumulator = accumulator + constant_term_acc * G (generator)
+                mstore(G1_LOCATION, 0x01) // G1 generator x
+                mstore(add(G1_LOCATION, 0x20), 0x02) // G1 generator y
+                mstore(SCALAR_LOCATION, constant_term_acc)
                 precomp_success_flag := and(
                     precomp_success_flag,
                     staticcall(gas(), 7, G1_LOCATION, 0x60, ACCUMULATOR_2, 0x40)
@@ -3567,325 +3218,29 @@ contract HonkVerifier is IVerifier {
 }
 )";
 
-template <typename Field> std::string field_to_hex(const Field& f)
-{
-    std::ostringstream os;
-    os << f;
-    return os.str();
-}
-
-inline std::string int_to_hex(size_t i)
-{
-    std::ostringstream os;
-    os << "0x" << std::hex << i;
-    return os.str();
-}
-
 inline std::string get_optimized_honk_solidity_verifier(auto const& verification_key)
 {
     std::string template_str = HONK_CONTRACT_OPT_SOURCE;
 
-    // Helper function to replace template variables
-    auto set_template_param = [&template_str](const std::string& key, const std::string& value) {
-        std::string::size_type pos = 0;
-        std::string pattern = "{{ " + key + " }}";
-        while ((pos = template_str.find(pattern, pos)) != std::string::npos) {
-            template_str.replace(pos, pattern.length(), value);
-            pos += value.length();
-        }
-    };
-
-    set_template_param("VK_HASH", field_to_hex(verification_key->hash()));
-    set_template_param("CIRCUIT_SIZE", std::to_string(1 << verification_key->log_circuit_size));
-    set_template_param("LOG_CIRCUIT_SIZE", std::to_string(verification_key->log_circuit_size));
-    set_template_param("NUM_PUBLIC_INPUTS", std::to_string(verification_key->num_public_inputs));
-    // REAL_NUM_PUBLIC_INPUTS excludes the 8 pairing point limbs that are part of the proof structure
-    set_template_param("REAL_NUM_PUBLIC_INPUTS",
-                       std::to_string(verification_key->num_public_inputs - bb::PAIRING_POINTS_SIZE));
-    set_template_param("LOG_N_MINUS_ONE", std::to_string(verification_key->log_circuit_size - 1));
-
-    uint32_t gemini_fold_univariate_length = static_cast<uint32_t>((verification_key->log_circuit_size - 1) * 0x40);
-    uint32_t gemini_fold_univariate_hash_length = static_cast<uint32_t>(gemini_fold_univariate_length + 0x20);
-    uint32_t gemini_evals_length = static_cast<uint32_t>(verification_key->log_circuit_size * 0x20);
-    uint32_t gemini_evals_hash_length = static_cast<uint32_t>(gemini_evals_length + 0x20);
-
-    set_template_param("GEMINI_FOLD_UNIVARIATE_LENGTH", int_to_hex(gemini_fold_univariate_length));
-    set_template_param("GEMINI_FOLD_UNIVARIATE_HASH_LENGTH", int_to_hex(gemini_fold_univariate_hash_length));
-    set_template_param("GEMINI_EVALS_LENGTH", int_to_hex(gemini_evals_length));
-    set_template_param("GEMINI_EVALS_HASH_LENGTH", int_to_hex(gemini_evals_hash_length));
-
-    // Verification Key
-    set_template_param("Q_L_X_LOC", field_to_hex(verification_key->q_l.x));
-    set_template_param("Q_L_Y_LOC", field_to_hex(verification_key->q_l.y));
-    set_template_param("Q_R_X_LOC", field_to_hex(verification_key->q_r.x));
-    set_template_param("Q_R_Y_LOC", field_to_hex(verification_key->q_r.y));
-    set_template_param("Q_O_X_LOC", field_to_hex(verification_key->q_o.x));
-    set_template_param("Q_O_Y_LOC", field_to_hex(verification_key->q_o.y));
-    set_template_param("Q_4_X_LOC", field_to_hex(verification_key->q_4.x));
-    set_template_param("Q_4_Y_LOC", field_to_hex(verification_key->q_4.y));
-    set_template_param("Q_M_X_LOC", field_to_hex(verification_key->q_m.x));
-    set_template_param("Q_M_Y_LOC", field_to_hex(verification_key->q_m.y));
-    set_template_param("Q_C_X_LOC", field_to_hex(verification_key->q_c.x));
-    set_template_param("Q_C_Y_LOC", field_to_hex(verification_key->q_c.y));
-    set_template_param("Q_LOOKUP_X_LOC", field_to_hex(verification_key->q_lookup.x));
-    set_template_param("Q_LOOKUP_Y_LOC", field_to_hex(verification_key->q_lookup.y));
-    set_template_param("Q_ARITH_X_LOC", field_to_hex(verification_key->q_arith.x));
-    set_template_param("Q_ARITH_Y_LOC", field_to_hex(verification_key->q_arith.y));
-    set_template_param("Q_DELTA_RANGE_X_LOC", field_to_hex(verification_key->q_delta_range.x));
-    set_template_param("Q_DELTA_RANGE_Y_LOC", field_to_hex(verification_key->q_delta_range.y));
-    set_template_param("Q_ELLIPTIC_X_LOC", field_to_hex(verification_key->q_elliptic.x));
-    set_template_param("Q_ELLIPTIC_Y_LOC", field_to_hex(verification_key->q_elliptic.y));
-    set_template_param("Q_MEMORY_X_LOC", field_to_hex(verification_key->q_memory.x));
-    set_template_param("Q_MEMORY_Y_LOC", field_to_hex(verification_key->q_memory.y));
-    set_template_param("Q_NNF_X_LOC", field_to_hex(verification_key->q_nnf.x));
-    set_template_param("Q_NNF_Y_LOC", field_to_hex(verification_key->q_nnf.y));
-    set_template_param("Q_POSEIDON_2_EXTERNAL_X_LOC", field_to_hex(verification_key->q_poseidon2_external.x));
-    set_template_param("Q_POSEIDON_2_EXTERNAL_Y_LOC", field_to_hex(verification_key->q_poseidon2_external.y));
-    set_template_param("Q_POSEIDON_2_INTERNAL_X_LOC", field_to_hex(verification_key->q_poseidon2_internal.x));
-    set_template_param("Q_POSEIDON_2_INTERNAL_Y_LOC", field_to_hex(verification_key->q_poseidon2_internal.y));
-    set_template_param("SIGMA_1_X_LOC", field_to_hex(verification_key->sigma_1.x));
-    set_template_param("SIGMA_1_Y_LOC", field_to_hex(verification_key->sigma_1.y));
-    set_template_param("SIGMA_2_X_LOC", field_to_hex(verification_key->sigma_2.x));
-    set_template_param("SIGMA_2_Y_LOC", field_to_hex(verification_key->sigma_2.y));
-    set_template_param("SIGMA_3_X_LOC", field_to_hex(verification_key->sigma_3.x));
-    set_template_param("SIGMA_3_Y_LOC", field_to_hex(verification_key->sigma_3.y));
-    set_template_param("SIGMA_4_X_LOC", field_to_hex(verification_key->sigma_4.x));
-    set_template_param("SIGMA_4_Y_LOC", field_to_hex(verification_key->sigma_4.y));
-    set_template_param("TABLE_1_X_LOC", field_to_hex(verification_key->table_1.x));
-    set_template_param("TABLE_1_Y_LOC", field_to_hex(verification_key->table_1.y));
-    set_template_param("TABLE_2_X_LOC", field_to_hex(verification_key->table_2.x));
-    set_template_param("TABLE_2_Y_LOC", field_to_hex(verification_key->table_2.y));
-    set_template_param("TABLE_3_X_LOC", field_to_hex(verification_key->table_3.x));
-    set_template_param("TABLE_3_Y_LOC", field_to_hex(verification_key->table_3.y));
-    set_template_param("TABLE_4_X_LOC", field_to_hex(verification_key->table_4.x));
-    set_template_param("TABLE_4_Y_LOC", field_to_hex(verification_key->table_4.y));
-    set_template_param("ID_1_X_LOC", field_to_hex(verification_key->id_1.x));
-    set_template_param("ID_1_Y_LOC", field_to_hex(verification_key->id_1.y));
-    set_template_param("ID_2_X_LOC", field_to_hex(verification_key->id_2.x));
-    set_template_param("ID_2_Y_LOC", field_to_hex(verification_key->id_2.y));
-    set_template_param("ID_3_X_LOC", field_to_hex(verification_key->id_3.x));
-    set_template_param("ID_3_Y_LOC", field_to_hex(verification_key->id_3.y));
-    set_template_param("ID_4_X_LOC", field_to_hex(verification_key->id_4.x));
-    set_template_param("ID_4_Y_LOC", field_to_hex(verification_key->id_4.y));
-    set_template_param("LAGRANGE_FIRST_X_LOC", field_to_hex(verification_key->lagrange_first.x));
-    set_template_param("LAGRANGE_FIRST_Y_LOC", field_to_hex(verification_key->lagrange_first.y));
-    set_template_param("LAGRANGE_LAST_X_LOC", field_to_hex(verification_key->lagrange_last.x));
-    set_template_param("LAGRANGE_LAST_Y_LOC", field_to_hex(verification_key->lagrange_last.y));
-
-    // Generate unrolled sections based on LOG_N
-    auto generate_unroll_section = [](const std::string& section_name, auto log_n) {
-        std::ostringstream code;
-
-        if (section_name == "POWERS_OF_EVALUATION_COMPUTATION") {
-            for (int i = 1; i < log_n; ++i) {
-                code << "                   cache := mulmod(cache, cache, p)\n";
-                code << "                   mstore(POWERS_OF_EVALUATION_CHALLENGE_" << i << "_LOC, cache)\n";
-            }
-        } else if (section_name == "ACCUMULATE_INVERSES") {
-            // Generate INVERTED_CHALLENGE_POW_MINUS_U accumulations
-            int temp_idx = 0;
-            for (int i = 0; i < log_n; ++i) {
-                code << "                       // INVERTED_CHALLENGE_POW_MINUS_U_" << i << "\n";
-                code << "                       {\n";
-                code << "                           let u := mload(SUM_U_CHALLENGE_" << i << ")\n";
-                code << "                           let challPow := mload(POWERS_OF_EVALUATION_CHALLENGE_" << i
-                     << "_LOC)\n";
-                code << "                           let val := addmod(mulmod(challPow, addmod(1, sub(p, u), p), p), u, "
-                        "p)\n";
-                code << "                           mstore(INVERTED_CHALLENGE_POW_MINUS_U_" << i << "_LOC, val)\n";
-                code << "                           mstore(TEMP_" << temp_idx << "_LOC, accumulator)\n";
-                code << "                           accumulator := mulmod(accumulator, val, p)\n";
-                code << "                       }\n";
-                temp_idx++;
-            }
-
-            code << "\n                     // Accumulate pos inverted denom\n";
-            code << "                       // Elements LOG_N+1..2*LOG_N: POS_INVERTED_DENOM\n";
-            code << "                       let eval_challenge := mload(SHPLONK_Z_CHALLENGE)\n";
-
-            // TODO: will bring this back into usage
-            for (int i = 0; i < log_n; ++i) {
-                code << "                    // POS_INVERTED_DENOM_" << i << "\n";
-                code << "                    {\n";
-                code << "                        let val := addmod(eval_challenge, sub(p, "
-                        "mload(POWERS_OF_EVALUATION_CHALLENGE_"
-                     << i << "_LOC))        , p)\n";
-                code << "                        mstore(POS_INVERTED_DENOM_" << i << "_LOC, val)\n";
-                code << "                        mstore(TEMP_" << temp_idx << "_LOC, accumulator)\n";
-                code << "                        accumulator := mulmod(accumulator, val, p)\n";
-                code << "                    }\n";
-                temp_idx++;
-            }
-
-            code << "\n                     // Accumulate neg inverted denom\n";
-            code << "                       // Elements 2*LOG_N+1..3*LOG_N: NEG_INVERTED_DENOM\n";
-            for (int i = 0; i < log_n; ++i) {
-                code << "                       {\n";
-                code << "                           let val := addmod(eval_challenge, "
-                        "mload(POWERS_OF_EVALUATION_CHALLENGE_"
-                     << i << "_LOC), p)\n";
-                code << "                           mstore(NEG_INVERTED_DENOM_" << i << "_LOC, val)\n";
-                code << "                           mstore(TEMP_" << temp_idx << "_LOC, accumulator)\n";
-                code << "                           accumulator := mulmod(accumulator, val, p)\n";
-                code << "                       }\n";
-                temp_idx++;
-            }
-        } else if (section_name == "COLLECT_INVERSES") {
-            int temp_idx = 3 * log_n - 1;
-
-            // Process NEG_INVERTED_DENOM in reverse order
-            code << "                       // i = " << log_n << "\n";
-            code << "                       // NEG_INVERTED_DENOM (LOG_N elements, reverse) -- last group appended\n";
-            for (int i = log_n - 1; i >= 0; --i) {
-                code << "                       {\n";
-                code << "                           let tmp := mulmod(accumulator, mload(TEMP_" << temp_idx
-                     << "_LOC), p)\n";
-                code << "                           accumulator := mulmod(accumulator, mload(NEG_INVERTED_DENOM_" << i
-                     << "_LOC), p)\n";
-                code << "                           mstore(NEG_INVERTED_DENOM_" << i << "_LOC, tmp)\n";
-                code << "                   }\n";
-                if (i > 0) {
-                    code << "            // i = " << i << "\n";
-                }
-                temp_idx--;
-            }
-
-            code << "\n            // Unrolled for LOG_N = " << log_n << "\n";
-            code << "            // i = " << log_n << "\n";
-
-            // Process POS_INVERTED_DENOM in reverse order
-            for (int i = log_n - 1; i >= 0; --i) {
-                code << "            {\n";
-                code << "                let tmp := mulmod(accumulator, mload(TEMP_" << temp_idx << "_LOC), p)\n";
-                code << "                accumulator := mulmod(accumulator, mload(POS_INVERTED_DENOM_" << i
-                     << "_LOC), p)\n";
-                code << "                mstore(POS_INVERTED_DENOM_" << i << "_LOC, tmp)\n";
-                code << "            }\n";
-                if (i > 0) {
-                    code << "            // i = " << i << "\n";
-                }
-                temp_idx--;
-            }
-
-            code << "\n            // i = " << log_n << "\n";
-
-            // Process INVERTED_CHALLENGE_POW_MINUS_U in reverse order
-            for (int i = log_n - 1; i >= 0; --i) {
-                code << "            {\n";
-                code << "                let tmp := mulmod(accumulator, mload(TEMP_" << temp_idx << "_LOC), p)\n";
-                code << "                accumulator := mulmod(accumulator, mload(INVERTED_CHALLENGE_POW_MINUS_U_" << i
-                     << "_LOC), p)\n";
-                code << "                mstore(INVERTED_CHALLENGE_POW_MINUS_U_" << i << "_LOC, tmp)\n";
-                code << "            }\n";
-                if (i > 0) {
-                    code << "            // i = " << i << "\n";
-                }
-                temp_idx--;
-            }
-        } else if (section_name == "ACCUMULATE_GEMINI_FOLD_UNIVARIATE") {
-            // Generate GEMINI_FOLD_UNIVARIATE accumulations
-            // We need log_n - 1 folding commitments
-            for (int i = 0; i < log_n - 1; ++i) {
-                // Validate on curve then accumulate
-                code << "                        mcopy(G1_LOCATION, GEMINI_FOLD_UNIVARIATE_" << i << "_X_LOC, 0x40)\n";
-                code << "                        mstore(SCALAR_LOCATION, mload(BATCH_SCALAR_" << (37 + i) << "_LOC))\n";
-                code << "                        precomp_success_flag :=\n";
-                code << "                            and(precomp_success_flag, staticcall(gas(), 7, G1_LOCATION, 0x60, "
-                        "ACCUMULATOR_2, 0x40))\n";
-                code << "                        precomp_success_flag :=\n";
-                code << "                            and(precomp_success_flag, staticcall(gas(), 6, ACCUMULATOR, 0x80, "
-                        "ACCUMULATOR, 0x40))\n";
-                if (i < log_n - 2) {
-                    code << "\n";
-                }
-            }
-        } else if (section_name == "GEMINI_FOLD_UNIVARIATE_ON_CURVE") {
-            // Generate GEMINI_FOLD_UNIVARIATE_ON_CURVE validations
-            // We need log_n - 1 folding commitments to validate
-            for (int i = 0; i < log_n - 1; ++i) {
-                code << "                success_flag := and(success_flag, "
-                        "validateProofPointOnCurve(GEMINI_FOLD_UNIVARIATE_"
-                     << i << "_X_LOC, q))\n";
-            }
-        }
-
-        return code.str();
-    };
+    apply_template_params(template_str, verification_key, /*is_zk=*/false);
 
     // Replace UNROLL_SECTION blocks
     int log_n = static_cast<int>(verification_key->log_circuit_size);
+    UnrollConfig unroll_config{
+        .batch_scalar_offset = 37,
+    };
 
-    // Replace POWERS_OF_EVALUATION_CHALLENGE_COMPUTATION
-    {
-        std::string::size_type start_pos =
-            template_str.find("/// {{ UNROLL_SECTION_START POWERS_OF_EVALUATION_COMPUTATION }}");
-        std::string::size_type end_pos =
-            template_str.find("/// {{ UNROLL_SECTION_END POWERS_OF_EVALUATION_COMPUTATION }}");
-        if (start_pos != std::string::npos && end_pos != std::string::npos) {
-            std::string::size_type start_line_end = template_str.find("\n", start_pos);
-            std::string generated_code = generate_unroll_section("POWERS_OF_EVALUATION_COMPUTATION", log_n);
-            template_str = template_str.substr(0, start_line_end + 1) + generated_code + template_str.substr(end_pos);
-        }
-    }
+    replace_unroll_section(template_str, "POWERS_OF_EVALUATION_COMPUTATION", log_n, unroll_config);
+    replace_unroll_section(template_str, "ACCUMULATE_INVERSES", log_n, unroll_config);
+    replace_unroll_section(template_str, "COLLECT_INVERSES", log_n, unroll_config);
+    replace_unroll_section(template_str, "ACCUMULATE_GEMINI_FOLD_UNIVARIATE", log_n, unroll_config);
 
-    // Replace ACCUMULATE_INVERSES section
-    {
-        std::string::size_type start_pos = template_str.find("/// {{ UNROLL_SECTION_START ACCUMULATE_INVERSES }}");
-        std::string::size_type end_pos = template_str.find("/// {{ UNROLL_SECTION_END ACCUMULATE_INVERSES }}");
-        if (start_pos != std::string::npos && end_pos != std::string::npos) {
-            std::string::size_type start_line_end = template_str.find("\n", start_pos);
-            std::string generated_code = generate_unroll_section("ACCUMULATE_INVERSES", log_n);
-            template_str = template_str.substr(0, start_line_end + 1) + generated_code + template_str.substr(end_pos);
-        }
-    }
-
-    // Replace COLLECT_INVERSES section
-    {
-        std::string::size_type start_pos = template_str.find("/// {{ UNROLL_SECTION_START COLLECT_INVERSES }}");
-        std::string::size_type end_pos = template_str.find("/// {{ UNROLL_SECTION_END COLLECT_INVERSES }}");
-        if (start_pos != std::string::npos && end_pos != std::string::npos) {
-            std::string::size_type start_line_end = template_str.find("\n", start_pos);
-            std::string generated_code = generate_unroll_section("COLLECT_INVERSES", log_n);
-            template_str = template_str.substr(0, start_line_end + 1) + generated_code + template_str.substr(end_pos);
-        }
-    }
-
-    // Replace ACCUMULATE_GEMINI_FOLD_UNIVARIATE section
-    {
-        std::string::size_type start_pos =
-            template_str.find("/// {{ UNROLL_SECTION_START ACCUMULATE_GEMINI_FOLD_UNIVARIATE }}");
-        std::string::size_type end_pos =
-            template_str.find("/// {{ UNROLL_SECTION_END ACCUMULATE_GEMINI_FOLD_UNIVARIATE }}");
-        if (start_pos != std::string::npos && end_pos != std::string::npos) {
-            std::string::size_type start_line_end = template_str.find("\n", start_pos);
-            std::string generated_code = generate_unroll_section("ACCUMULATE_GEMINI_FOLD_UNIVARIATE", log_n);
-            template_str = template_str.substr(0, start_line_end + 1) + generated_code + template_str.substr(end_pos);
-        }
-    }
-
-    // Replace GEMINI_FOLD_UNIVARIATE_ON_CURVE section
-    {
-        std::string::size_type start_pos =
-            template_str.find("/// {{ UNROLL_SECTION_START GEMINI_FOLD_UNIVARIATE_ON_CURVE }}");
-        std::string::size_type end_pos =
-            template_str.find("/// {{ UNROLL_SECTION_END GEMINI_FOLD_UNIVARIATE_ON_CURVE }}");
-        if (start_pos != std::string::npos && end_pos != std::string::npos) {
-            std::string::size_type start_line_end = template_str.find("\n", start_pos);
-            std::string generated_code = generate_unroll_section("GEMINI_FOLD_UNIVARIATE_ON_CURVE", log_n);
-            template_str = template_str.substr(0, start_line_end + 1) + generated_code + template_str.substr(end_pos);
-        }
-    }
-
-    // Replace Memory Layout
-    {
-        std::string::size_type start_pos = template_str.find("// {{ SECTION_START MEMORY_LAYOUT }}");
-        std::string::size_type end_pos = template_str.find("// {{ SECTION_END MEMORY_LAYOUT }}");
-        if (start_pos != std::string::npos && end_pos != std::string::npos) {
-            std::string::size_type start_line_end = template_str.find("\n", start_pos);
-            std::string generated_code = generate_memory_offsets(log_n);
-            template_str = template_str.substr(0, start_line_end + 1) + generated_code + template_str.substr(end_pos);
-        }
-    }
+    MemoryLayoutConfig mem_config{
+        .batched_relation_partial_length = 8,
+        .barycentric_domain_size = 8,
+        .is_zk = false,
+    };
+    replace_memory_layout(template_str, log_n, mem_config);
 
     return template_str;
 }

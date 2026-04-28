@@ -1,5 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { DEFAULT_P2P_PROPAGATION_TIME, createPipelinedCheckpointTimingModel } from '@aztec/stdlib/timetable';
 
 /**
  * Maximum clock disparity tolerance for P2P message validation (in milliseconds).
@@ -49,4 +50,71 @@ export function isWithinClockTolerance(
   const elapsedMs = Number(nowMs - slotStartMs);
 
   return elapsedMs < MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
+}
+
+/**
+ * Checks if a message should be accepted under the pipelining grace period.
+ *
+ * When pipelining is enabled, `targetSlot = slotNow + 1`. A proposal built in slot N-1
+ * for slot N arrives when validators are in slot N, so their `targetSlot = N+1`.
+ * This function accepts proposals for the current wallclock slot if we're within the
+ * first `windowSeconds` seconds of the slot (the pipelining grace period). - see stdlib/timetable/index.ts
+ *
+ * @param messageSlot - The slot number from the received message
+ * @param epochCache - EpochCache to get timing and pipelining state
+ * @param windowSeconds - The window grace period allowed for attestations into the next slot
+ * @returns true if pipelining is enabled, the message is for the current slot, and we're within the grace period
+ */
+function isWithinPipeliningWindow(
+  messageSlot: SlotNumber,
+  epochCache: EpochCacheInterface,
+  windowSeconds: number,
+): boolean {
+  if (!epochCache.isProposerPipeliningEnabled()) {
+    return false;
+  }
+
+  const currentSlot = epochCache.getSlotNow();
+  if (messageSlot !== currentSlot) {
+    return false;
+  }
+
+  const { ts: slotStartTs, nowMs } = epochCache.getEpochAndSlotNow();
+  const slotStartMs = slotStartTs * 1000n;
+  const elapsedMs = Number(nowMs - slotStartMs);
+  const windowMs = windowSeconds * 1000 + MAXIMUM_GOSSIP_CLOCK_DISPARITY_MS;
+
+  return elapsedMs < windowMs;
+}
+
+export class PipeliningWindow {
+  private readonly proposalWindowIntoTargetSlot: number;
+  private readonly attestationWindowIntoTargetSlot: number;
+
+  constructor(
+    private readonly epochCache: EpochCacheInterface,
+    opts: {
+      p2pPropagationTime?: number;
+      l1PublishingTime?: number;
+    } = {},
+  ) {
+    const l1Constants = epochCache.getL1Constants();
+    const checkpointTiming = createPipelinedCheckpointTimingModel({
+      aztecSlotDuration: l1Constants.slotDuration,
+      ethereumSlotDuration: l1Constants.ethereumSlotDuration,
+      l1PublishingTime: opts.l1PublishingTime ?? l1Constants.ethereumSlotDuration,
+      p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+    });
+
+    this.proposalWindowIntoTargetSlot = checkpointTiming.proposalWindowIntoTargetSlot;
+    this.attestationWindowIntoTargetSlot = checkpointTiming.attestationWindowIntoTargetSlot;
+  }
+
+  public acceptsProposal(messageSlot: SlotNumber): boolean {
+    return isWithinPipeliningWindow(messageSlot, this.epochCache, this.proposalWindowIntoTargetSlot);
+  }
+
+  public acceptsAttestation(messageSlot: SlotNumber): boolean {
+    return isWithinPipeliningWindow(messageSlot, this.epochCache, this.attestationWindowIntoTargetSlot);
+  }
 }

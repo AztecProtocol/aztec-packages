@@ -17,7 +17,9 @@ pub fn generate_ephemeral_key_pair() -> (Scalar, Point) {
     // TODO(#12757): compute the key pair without constraining eph_sk twice (once in from_field, once in the black box
     // called by fixed_base_scalar_mul).
     let eph_sk = EmbeddedCurveScalar::from_field(randomness);
-    let eph_pk = fixed_base_scalar_mul(eph_sk);
+    // TODO(F-553): Drop the `.into()` once the custom `Point` wrapper is removed and we use `EmbeddedCurvePoint`
+    // directly. Applies to the other `fixed_base_scalar_mul(...).into()` call sites in this file as well.
+    let eph_pk: Point = fixed_base_scalar_mul(eph_sk).into();
 
     (eph_sk, eph_pk)
 }
@@ -35,7 +37,7 @@ pub fn generate_positive_ephemeral_key_pair() -> (Scalar, Point) {
     // anyway, and so the recipient already trusts them to not disclose this information. We can therefore assume that
     // the sender will cooperate in the random value generation.
     let eph_sk = unsafe { generate_secret_key_for_positive_public_key() };
-    let eph_pk = fixed_base_scalar_mul(eph_sk);
+    let eph_pk: Point = fixed_base_scalar_mul(eph_sk).into();
 
     assert(get_sign_of_point(eph_pk), "Got an ephemeral public key with a negative y coordinate");
 
@@ -51,7 +53,7 @@ unconstrained fn generate_secret_key_for_positive_public_key() -> EmbeddedCurveS
 
         // @todo Need to draw randomness from the full domain of Fq not only Fr
         sk = EmbeddedCurveScalar::from_field(random());
-        let pk = fixed_base_scalar_mul(sk);
+        let pk: Point = fixed_base_scalar_mul(sk).into();
         if get_sign_of_point(pk) {
             break;
         }

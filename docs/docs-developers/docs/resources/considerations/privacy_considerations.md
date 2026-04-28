@@ -45,7 +45,7 @@ There are many caveats to the above. Since Aztec also enables interaction with t
 Any time a private function makes a call to a public function, information is leaked. Now, that might be perfectly fine in some use cases (it's up to the smart contract developer). Indeed, most interesting apps will require some public state. But let's have a look at some leaky patterns:
 
 - Calling a public function from a private function. The public function execution will be publicly visible.
-- Calling a public function from a private function and revealing the `msg_sender` of that call (the `msg_sender` will be publicly visible).
+- Calling a public function from a private function and revealing the `msg_sender` of that call (the `msg_sender` will be publicly visible). You can hide the sender by using `self.enqueue_incognito(...)` instead of `self.enqueue(...)`, which sets `msg_sender` to a null address. The called function must use `maybe_msg_sender()` to handle this.
 - Passing arguments to a public function from a private function. All of those arguments will be publicly visible.
 - Calling an internal public function from a private function. The fact that the call originated from a private function of that same contract will be trivially known.
 - Emitting unencrypted events from a private function. The unencrypted event name and arguments will be publicly visible.
@@ -81,17 +81,13 @@ A 'Function Fingerprint' is any data which is exposed by a function to the outsi
   - The contents of L2 -> L1 messages.
 - All public logs (topics and arguments).
 - The roots of all trees which have been read from.
-- The _number_ of ['side effects'](https://en.wikipedia.org/wiki/Side_effect_(computer_science)):
-  - \# new note hashes
-  - \# new nullifiers
-  - \# bytes of encrypted logs
+- The _number_ of some ['side effects'](https://en.wikipedia.org/wiki/Side_effect_(computer_science)). Note hashes, nullifiers, and private logs are padded to hide their true counts, but the following remain visible:
   - \# public function calls
   - \# L2->L1 messages
-  - \# nonzero roots
 
 > Note: many of these were mentioned in the ["Crossing the private to public boundary"](#crossing-the-private-to-public-boundary) section.
 
-> Note: the transaction effects submitted to L1 are [encoded (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/src/core/libraries/Decoder.sol) but not garbled with other transactions. The distinct Tx Fingerprint of each transaction is publicly visible when submitted to the L2 tx pool.
+> Note: a transaction's Tx Fingerprint is the combined set of publicly observable data listed above (for example: the number of public function calls, the number of L2->L1 messages, the contents of public logs, and which tree roots were read). Anyone watching the L2 transaction pool can see this fingerprint for every transaction that is submitted, and transactions with distinctive fingerprints can be linked to specific contracts or to patterns of user behavior.
 
 #### Standardizing Fingerprints
 

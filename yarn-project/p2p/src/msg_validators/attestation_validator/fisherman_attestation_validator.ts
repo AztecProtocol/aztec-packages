@@ -20,8 +20,11 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
     epochCache: EpochCacheInterface,
     private attestationPool: AttestationPoolApi,
     telemetryClient: TelemetryClient,
+    opts: {
+      l1PublishingTime?: number;
+    } = {},
   ) {
-    super(epochCache);
+    super(epochCache, opts);
     this.logger = this.logger.createChild('[FISHERMAN]');
 
     const meter = telemetryClient.getMeter('FishermanAttestationValidator');
