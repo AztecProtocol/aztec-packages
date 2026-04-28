@@ -22,6 +22,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
     telemetryClient: TelemetryClient,
     opts: {
       l1PublishingTime?: number;
+      p2pPropagationTime?: number;
     } = {},
   ) {
     super(epochCache, opts);

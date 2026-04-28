@@ -19,10 +19,14 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
     epochCache: EpochCacheInterface,
     opts: {
       l1PublishingTime?: number;
+      p2pPropagationTime?: number;
     },
   ) {
     this.epochCache = epochCache;
-    this.pipeliningWindow = new PipeliningWindow(epochCache, { l1PublishingTime: opts.l1PublishingTime });
+    this.pipeliningWindow = new PipeliningWindow(epochCache, {
+      l1PublishingTime: opts.l1PublishingTime,
+      p2pPropagationTime: opts.p2pPropagationTime,
+    });
     this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
 

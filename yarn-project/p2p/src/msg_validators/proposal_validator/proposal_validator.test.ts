@@ -180,8 +180,9 @@ describe('ProposalValidator', () => {
       expect(result).toEqual({ result: 'accept' });
     });
 
-    it('accepts proposal for current slot within pipelining grace period', async () => {
-      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot)
+    it('accepts proposal for current slot within pipelining clock-disparity grace', async () => {
+      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot).
+      // Under early pipelining, proposalWindowIntoTargetSlot = 0, so only the 500ms clock-disparity grace applies.
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: SlotNumber(101),
         nextSlot: SlotNumber(102),
@@ -189,12 +190,11 @@ describe('ProposalValidator', () => {
       epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
 
-      // Within grace period: 1000ms elapsed < configured propagation window 2000ms
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: currentSlot,
         ts: 1000n,
-        nowMs: 1001000n, // 1000ms elapsed
+        nowMs: 1000400n, // 400ms elapsed, within 500ms grace
       });
 
       const signer = Secp256k1Signer.random();
@@ -205,8 +205,7 @@ describe('ProposalValidator', () => {
       expect(result).toEqual({ result: 'accept' });
     });
 
-    it('rejects proposal for current slot outside pipelining grace period', async () => {
-      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot)
+    it('rejects proposal for current slot outside pipelining clock-disparity grace', async () => {
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: SlotNumber(101),
         nextSlot: SlotNumber(102),
@@ -215,12 +214,11 @@ describe('ProposalValidator', () => {
       epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
 
-      // Outside grace period: 7000ms elapsed > configured propagation window 2000ms
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: currentSlot,
         ts: 1000n,
-        nowMs: 1007000n, // 7000ms elapsed
+        nowMs: 1007000n, // 7000ms elapsed, well past 500ms grace
       });
 
       const signer = Secp256k1Signer.random();

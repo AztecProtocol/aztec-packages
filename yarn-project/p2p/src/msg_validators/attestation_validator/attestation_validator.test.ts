@@ -78,8 +78,9 @@ describe('CheckpointAttestationValidator', () => {
     expect(result).toEqual({ result: 'ignore' });
   });
 
-  it('accepts attestation for current slot until the target-slot publish cutoff', async () => {
+  it('accepts attestation for current slot inside the straggler window', async () => {
     // Attestation is for slot 98 (current wallclock slot), but targetSlot is 99 (pipelining).
+    // attestationWindowIntoTargetSlot = 2*p2p = 4s ⇒ straggler grace 4s+500ms disparity.
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
     const mockAttestation = makeCheckpointAttestation({
       header,
@@ -98,12 +99,11 @@ describe('CheckpointAttestationValidator', () => {
       ethereumSlotDuration: 12,
     } as any);
 
-    // Within attestation window: 59000ms elapsed < (slotDuration - l1PublishingTime) * 1000 = 60000ms
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(98),
       ts: 1000n,
-      nowMs: 1059000n, // 59000ms elapsed
+      nowMs: 1003000n, // 3000ms elapsed, within 4500ms straggler grace
     });
     epochCache.isInCommittee.mockResolvedValue(true);
     epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposer.address);
@@ -112,8 +112,7 @@ describe('CheckpointAttestationValidator', () => {
     expect(result).toEqual({ result: 'accept' });
   });
 
-  it('rejects attestation for current slot after the target-slot publish cutoff', async () => {
-    // Attestation is for slot 98 (one behind target slot 99), after the publish cutoff.
+  it('rejects attestation for current slot past the straggler window', async () => {
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(98) });
     const mockAttestation = makeCheckpointAttestation({
       header,
@@ -133,12 +132,11 @@ describe('CheckpointAttestationValidator', () => {
       ethereumSlotDuration: 12,
     } as any);
 
-    // Outside attestation window AND outside clock tolerance: 61000ms elapsed > 60000ms cutoff
     epochCache.getEpochAndSlotNow.mockReturnValue({
       epoch: EpochNumber(1),
       slot: SlotNumber(99),
       ts: 1000n,
-      nowMs: 1061000n, // 61000ms elapsed
+      nowMs: 1005000n, // 5000ms elapsed, past 4500ms straggler cutoff
     });
     epochCache.isInCommittee.mockResolvedValue(true);
 

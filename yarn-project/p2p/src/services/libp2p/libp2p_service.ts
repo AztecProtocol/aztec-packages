@@ -235,11 +235,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
+    const attestationValidatorOpts = { l1PublishingTime: config.l1PublishingTime, p2pPropagationTime };
     this.checkpointAttestationValidator = config.fishermanMode
-      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, {
-          l1PublishingTime: config.l1PublishingTime,
-        })
-      : new CheckpointAttestationValidator(epochCache, { l1PublishingTime: config.l1PublishingTime });
+      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, attestationValidatorOpts)
+      : new CheckpointAttestationValidator(epochCache, attestationValidatorOpts);
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
