@@ -164,6 +164,11 @@ export interface IUtilityExecutionOracle {
   getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr>;
   setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
+  callUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]>;
 
   // Ephemeral array methods
   pushEphemeral(slot: Fr, elements: Fr[]): number;
