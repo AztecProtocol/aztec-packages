@@ -5,9 +5,11 @@
 // =====================
 
 #pragma once
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/honk/types/public_inputs_type.hpp"
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 // Shared helpers for honk_optimized_contract.hpp and honk_zk_optimized_contract.hpp.
@@ -19,6 +21,21 @@ template <typename Field> std::string field_to_hex(const Field& f)
     std::ostringstream os;
     os << f;
     return os.str();
+}
+
+// Emit the (x, y) coordinates of a G1 commitment as canonical 32-byte hex strings,
+// routing through U256Codec so points at infinity collapse to the EIP-196 identity (0, 0).
+// Reading commitment.x / commitment.y directly is unsafe: when is_point_at_infinity is set,
+// the affine struct stores a sentinel (modulus) in x and leaves y untouched, so the raw
+// coordinates do not lie on the curve and the EVM ecMul/ecAdd precompiles reject them.
+template <typename Commitment> std::pair<std::string, std::string> g1_to_xy_hex(const Commitment& point)
+{
+    const auto coords = bb::U256Codec::template serialize_to_fields<std::remove_cvref_t<Commitment>>(point);
+    std::ostringstream x_os;
+    std::ostringstream y_os;
+    x_os << coords[0];
+    y_os << coords[1];
+    return { x_os.str(), y_os.str() };
 }
 
 inline std::string int_to_hex(size_t i)
@@ -749,61 +766,41 @@ inline void apply_template_params(std::string& template_str, VK const& verificat
     set_template_param("GEMINI_EVALS_LENGTH", int_to_hex(gemini_evals_length));
     set_template_param("GEMINI_EVALS_HASH_LENGTH", int_to_hex(gemini_evals_hash_length));
 
-    // Verification Key
-    set_template_param("Q_L_X_LOC", field_to_hex(verification_key->q_l.x));
-    set_template_param("Q_L_Y_LOC", field_to_hex(verification_key->q_l.y));
-    set_template_param("Q_R_X_LOC", field_to_hex(verification_key->q_r.x));
-    set_template_param("Q_R_Y_LOC", field_to_hex(verification_key->q_r.y));
-    set_template_param("Q_O_X_LOC", field_to_hex(verification_key->q_o.x));
-    set_template_param("Q_O_Y_LOC", field_to_hex(verification_key->q_o.y));
-    set_template_param("Q_4_X_LOC", field_to_hex(verification_key->q_4.x));
-    set_template_param("Q_4_Y_LOC", field_to_hex(verification_key->q_4.y));
-    set_template_param("Q_M_X_LOC", field_to_hex(verification_key->q_m.x));
-    set_template_param("Q_M_Y_LOC", field_to_hex(verification_key->q_m.y));
-    set_template_param("Q_C_X_LOC", field_to_hex(verification_key->q_c.x));
-    set_template_param("Q_C_Y_LOC", field_to_hex(verification_key->q_c.y));
-    set_template_param("Q_LOOKUP_X_LOC", field_to_hex(verification_key->q_lookup.x));
-    set_template_param("Q_LOOKUP_Y_LOC", field_to_hex(verification_key->q_lookup.y));
-    set_template_param("Q_ARITH_X_LOC", field_to_hex(verification_key->q_arith.x));
-    set_template_param("Q_ARITH_Y_LOC", field_to_hex(verification_key->q_arith.y));
-    set_template_param("Q_DELTA_RANGE_X_LOC", field_to_hex(verification_key->q_delta_range.x));
-    set_template_param("Q_DELTA_RANGE_Y_LOC", field_to_hex(verification_key->q_delta_range.y));
-    set_template_param("Q_ELLIPTIC_X_LOC", field_to_hex(verification_key->q_elliptic.x));
-    set_template_param("Q_ELLIPTIC_Y_LOC", field_to_hex(verification_key->q_elliptic.y));
-    set_template_param("Q_MEMORY_X_LOC", field_to_hex(verification_key->q_memory.x));
-    set_template_param("Q_MEMORY_Y_LOC", field_to_hex(verification_key->q_memory.y));
-    set_template_param("Q_NNF_X_LOC", field_to_hex(verification_key->q_nnf.x));
-    set_template_param("Q_NNF_Y_LOC", field_to_hex(verification_key->q_nnf.y));
-    set_template_param("Q_POSEIDON_2_EXTERNAL_X_LOC", field_to_hex(verification_key->q_poseidon2_external.x));
-    set_template_param("Q_POSEIDON_2_EXTERNAL_Y_LOC", field_to_hex(verification_key->q_poseidon2_external.y));
-    set_template_param("Q_POSEIDON_2_INTERNAL_X_LOC", field_to_hex(verification_key->q_poseidon2_internal.x));
-    set_template_param("Q_POSEIDON_2_INTERNAL_Y_LOC", field_to_hex(verification_key->q_poseidon2_internal.y));
-    set_template_param("SIGMA_1_X_LOC", field_to_hex(verification_key->sigma_1.x));
-    set_template_param("SIGMA_1_Y_LOC", field_to_hex(verification_key->sigma_1.y));
-    set_template_param("SIGMA_2_X_LOC", field_to_hex(verification_key->sigma_2.x));
-    set_template_param("SIGMA_2_Y_LOC", field_to_hex(verification_key->sigma_2.y));
-    set_template_param("SIGMA_3_X_LOC", field_to_hex(verification_key->sigma_3.x));
-    set_template_param("SIGMA_3_Y_LOC", field_to_hex(verification_key->sigma_3.y));
-    set_template_param("SIGMA_4_X_LOC", field_to_hex(verification_key->sigma_4.x));
-    set_template_param("SIGMA_4_Y_LOC", field_to_hex(verification_key->sigma_4.y));
-    set_template_param("TABLE_1_X_LOC", field_to_hex(verification_key->table_1.x));
-    set_template_param("TABLE_1_Y_LOC", field_to_hex(verification_key->table_1.y));
-    set_template_param("TABLE_2_X_LOC", field_to_hex(verification_key->table_2.x));
-    set_template_param("TABLE_2_Y_LOC", field_to_hex(verification_key->table_2.y));
-    set_template_param("TABLE_3_X_LOC", field_to_hex(verification_key->table_3.x));
-    set_template_param("TABLE_3_Y_LOC", field_to_hex(verification_key->table_3.y));
-    set_template_param("TABLE_4_X_LOC", field_to_hex(verification_key->table_4.x));
-    set_template_param("TABLE_4_Y_LOC", field_to_hex(verification_key->table_4.y));
-    set_template_param("ID_1_X_LOC", field_to_hex(verification_key->id_1.x));
-    set_template_param("ID_1_Y_LOC", field_to_hex(verification_key->id_1.y));
-    set_template_param("ID_2_X_LOC", field_to_hex(verification_key->id_2.x));
-    set_template_param("ID_2_Y_LOC", field_to_hex(verification_key->id_2.y));
-    set_template_param("ID_3_X_LOC", field_to_hex(verification_key->id_3.x));
-    set_template_param("ID_3_Y_LOC", field_to_hex(verification_key->id_3.y));
-    set_template_param("ID_4_X_LOC", field_to_hex(verification_key->id_4.x));
-    set_template_param("ID_4_Y_LOC", field_to_hex(verification_key->id_4.y));
-    set_template_param("LAGRANGE_FIRST_X_LOC", field_to_hex(verification_key->lagrange_first.x));
-    set_template_param("LAGRANGE_FIRST_Y_LOC", field_to_hex(verification_key->lagrange_first.y));
-    set_template_param("LAGRANGE_LAST_X_LOC", field_to_hex(verification_key->lagrange_last.x));
-    set_template_param("LAGRANGE_LAST_Y_LOC", field_to_hex(verification_key->lagrange_last.y));
+    // Verification Key — use g1_to_xy_hex so identity-commitment selectors
+    // (e.g. selectors that commit to identically-zero polynomials) emit the
+    // EIP-196 canonical (0, 0) instead of the raw affine sentinel, which is
+    // off-curve and rejected by the ecMul/ecAdd precompiles.
+    auto set_g1_template_param = [&](const std::string& name_prefix, const auto& point) {
+        const auto [x_hex, y_hex] = g1_to_xy_hex(point);
+        set_template_param(name_prefix + "_X_LOC", x_hex);
+        set_template_param(name_prefix + "_Y_LOC", y_hex);
+    };
+    set_g1_template_param("Q_L", verification_key->q_l);
+    set_g1_template_param("Q_R", verification_key->q_r);
+    set_g1_template_param("Q_O", verification_key->q_o);
+    set_g1_template_param("Q_4", verification_key->q_4);
+    set_g1_template_param("Q_M", verification_key->q_m);
+    set_g1_template_param("Q_C", verification_key->q_c);
+    set_g1_template_param("Q_LOOKUP", verification_key->q_lookup);
+    set_g1_template_param("Q_ARITH", verification_key->q_arith);
+    set_g1_template_param("Q_DELTA_RANGE", verification_key->q_delta_range);
+    set_g1_template_param("Q_ELLIPTIC", verification_key->q_elliptic);
+    set_g1_template_param("Q_MEMORY", verification_key->q_memory);
+    set_g1_template_param("Q_NNF", verification_key->q_nnf);
+    set_g1_template_param("Q_POSEIDON_2_EXTERNAL", verification_key->q_poseidon2_external);
+    set_g1_template_param("Q_POSEIDON_2_INTERNAL", verification_key->q_poseidon2_internal);
+    set_g1_template_param("SIGMA_1", verification_key->sigma_1);
+    set_g1_template_param("SIGMA_2", verification_key->sigma_2);
+    set_g1_template_param("SIGMA_3", verification_key->sigma_3);
+    set_g1_template_param("SIGMA_4", verification_key->sigma_4);
+    set_g1_template_param("TABLE_1", verification_key->table_1);
+    set_g1_template_param("TABLE_2", verification_key->table_2);
+    set_g1_template_param("TABLE_3", verification_key->table_3);
+    set_g1_template_param("TABLE_4", verification_key->table_4);
+    set_g1_template_param("ID_1", verification_key->id_1);
+    set_g1_template_param("ID_2", verification_key->id_2);
+    set_g1_template_param("ID_3", verification_key->id_3);
+    set_g1_template_param("ID_4", verification_key->id_4);
+    set_g1_template_param("LAGRANGE_FIRST", verification_key->lagrange_first);
+    set_g1_template_param("LAGRANGE_LAST", verification_key->lagrange_last);
 }
