@@ -81,6 +81,7 @@ std::vector<Polynomial*> get_msm_polynomials(ProverPolynomials& polys)
         &polys.msm_round,
         &polys.msm_add1,
         &polys.msm_pc,
+        &polys.msm_round_minus_31_inv,
     };
 }
 
@@ -560,8 +561,8 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
  * Demonstrates that an honest q_skew transition at round 31->32 can be replaced by
  *   q_double (extra 4 doublings, accumulator multiplied by 16)
  *   followed by q_add at round=32 with slice=0 (lookup forces (x1,y1) = T[0] = -15 P_pc)
- * and the resulting trace satisfies every existing ECCVM relation -- demonstrating that
- * the "round = 31 ==> q_skew_shift = 1" converse is not constrained.
+ * and, before the fix, the resulting trace satisfied every existing ECCVM relation -- demonstrating that
+ * the "round = 31 ==> q_skew_shift = 1" converse was not constrained.
  *
  * Layout (size-1 MSM, scalar with odd LSB so precompute_skew = 0):
  *   ... rows ending at:
@@ -585,12 +586,20 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRoundTransitionPhaseSelectorSwap)
     // ---- Baseline: every relation passes on the clean trace ----
     {
         auto baseline_params = compute_full_relation_params(polynomials);
-        EXPECT_TRUE(RelationChecker<void>::check<ECCVMMSMRelation<FF>>(polynomials, baseline_params, "MSM").empty());
-        EXPECT_TRUE(RelationChecker<void>::check<ECCVMBoolsRelation<FF>>(polynomials, baseline_params, "Bools").empty());
-        EXPECT_TRUE(
-            RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(polynomials, baseline_params, "Tx").empty());
-        EXPECT_TRUE(RelationChecker<void>::check<ECCVMSetRelation<FF>>(polynomials, baseline_params, "Set").empty());
-        EXPECT_TRUE((RelationChecker<void>::check<ECCVMLookupRelation<FF>, true>(polynomials, baseline_params, "Lookup")
+        EXPECT_TRUE(RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+                        polynomials, baseline_params, "MSM", Flavor::TRACE_OFFSET)
+                        .empty());
+        EXPECT_TRUE(RelationChecker<void>::check<ECCVMBoolsRelation<FF>>(
+                        polynomials, baseline_params, "Bools", Flavor::TRACE_OFFSET)
+                        .empty());
+        EXPECT_TRUE(RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(
+                        polynomials, baseline_params, "Tx", Flavor::TRACE_OFFSET)
+                        .empty());
+        EXPECT_TRUE(RelationChecker<void>::check<ECCVMSetRelation<FF>>(
+                        polynomials, baseline_params, "Set", Flavor::TRACE_OFFSET)
+                        .empty());
+        EXPECT_TRUE((RelationChecker<void>::check<ECCVMLookupRelation<FF>, true>(
+                         polynomials, baseline_params, "Lookup", Flavor::TRACE_OFFSET)
                          .empty()));
     }
 
@@ -694,23 +703,11 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRoundTransitionPhaseSelectorSwap)
 
     polynomials.set_shifted();
 
-    // ---- Recompute logderivative inverse and grand product, then check every relation ----
-    auto malicious_params = compute_full_relation_params(polynomials);
-
-    auto msm_failures =
-        RelationChecker<void>::check<ECCVMMSMRelation<FF>>(polynomials, malicious_params, "ECCVMMSMRelation");
-    EXPECT_TRUE(msm_failures.empty()) << "ECCVMMSMRelation should pass on malicious trace -- this confirms "
-                                         "the round-transition constraint hole.";
-    auto bools_failures =
-        RelationChecker<void>::check<ECCVMBoolsRelation<FF>>(polynomials, malicious_params, "ECCVMBoolsRelation");
-    EXPECT_TRUE(bools_failures.empty()) << "ECCVMBoolsRelation should pass";
-    auto tx_failures = RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(
-        polynomials, malicious_params, "ECCVMTranscriptRelation");
-    EXPECT_TRUE(tx_failures.empty()) << "ECCVMTranscriptRelation should pass";
-    auto set_failures =
-        RelationChecker<void>::check<ECCVMSetRelation<FF>>(polynomials, malicious_params, "ECCVMSetRelation");
-    EXPECT_TRUE(set_failures.empty()) << "ECCVMSetRelation should pass";
-    auto lookup_failures = RelationChecker<void>::check<ECCVMLookupRelation<FF>, /*has_linearly_dependent=*/true>(
-        polynomials, malicious_params, "ECCVMLookupRelation");
-    EXPECT_TRUE(lookup_failures.empty()) << "ECCVMLookupRelation should pass";
+    // ---- The fix should reject the malicious trace directly inside ECCVMMSMRelation ----
+    RelationParameters<FF> params{};
+    auto msm_failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(msm_failures.empty()) << "The round-transition fix should reject the malicious trace.";
+    EXPECT_TRUE(msm_failures.contains(ECCVMMSMRelationImpl<FF>::DOUBLE_SHIFT_FORBIDS_ROUND_31))
+        << "The new round-31 inverse-witness gate should be the rejecting subrelation.";
 }
