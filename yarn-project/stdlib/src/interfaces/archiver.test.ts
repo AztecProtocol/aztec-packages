@@ -128,6 +128,26 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBeUndefined();
   });
 
+  it('getBlockDataWithCheckpointContext', async () => {
+    const result = await context.client.getBlockDataWithCheckpointContext(BlockNumber(1));
+    expect(result).toBeUndefined();
+  });
+
+  it('getCheckpointData', async () => {
+    const result = await context.client.getCheckpointData(CheckpointNumber(1));
+    expect(result).toBeUndefined();
+  });
+
+  it('getCheckpointDataRange', async () => {
+    const result = await context.client.getCheckpointDataRange(CheckpointNumber(1), 1);
+    expect(result).toEqual([]);
+  });
+
+  it('getCheckpointNumberBySlot', async () => {
+    const result = await context.client.getCheckpointNumberBySlot(SlotNumber(1));
+    expect(result).toBeUndefined();
+  });
+
   it('getBlockHeaderByHash', async () => {
     const result = await context.client.getBlockHeaderByHash(BlockHash.random());
     expect(result).toBeInstanceOf(BlockHeader);
@@ -571,10 +591,23 @@ class MockArchiver implements ArchiverApi {
         checkpointOutHash: checkpoint.getCheckpointOutHash(),
         startBlock: BlockNumber(1),
         blockCount: checkpoint.blocks.length,
+        feeAssetPriceModifier: 0n,
         attestations: [CommitteeAttestation.random()],
         l1: L1PublishedData.random(),
       },
     ];
+  }
+  getCheckpointData(_n: CheckpointNumber): Promise<CheckpointData | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getCheckpointDataRange(_from: CheckpointNumber, _limit: number): Promise<CheckpointData[]> {
+    return Promise.resolve([]);
+  }
+  getCheckpointNumberBySlot(_slot: SlotNumber): Promise<CheckpointNumber | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getBlockDataWithCheckpointContext(_n: BlockNumber) {
+    return Promise.resolve(undefined);
   }
   async getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]> {
     expect(epochNumber).toEqual(EpochNumber(1));

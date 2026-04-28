@@ -707,6 +707,21 @@ export class KVArchiverDataStore implements ContractDataSource {
     return this.#blockStore.getCheckpointDataForSlotRange(startSlot, endSlot);
   }
 
+  /** Returns lightweight checkpoint metadata for a range of checkpoints. */
+  getCheckpointDataRange(from: CheckpointNumber, limit: number): Promise<CheckpointData[]> {
+    return this.#blockStore.getRangeOfCheckpoints(from, limit);
+  }
+
+  /** Returns the checkpoint number for a given slot, if one exists. */
+  getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined> {
+    return this.#blockStore.getCheckpointNumberBySlot(slot);
+  }
+
+  /** Returns block metadata plus checkpoint-derived context (L1 publish info, attestations). */
+  getBlockDataWithCheckpointContext(blockNumber: BlockNumber) {
+    return this.#blockStore.getBlockDataWithCheckpointContext(blockNumber);
+  }
+
   /**
    * Gets all blocks that have the given slot number.
    * @param slotNumber - The slot number to search for.

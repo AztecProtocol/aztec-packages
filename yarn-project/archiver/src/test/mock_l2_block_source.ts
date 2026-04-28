@@ -321,6 +321,26 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     };
   }
 
+  public getCheckpointData(_n: CheckpointNumber): Promise<CheckpointData | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  public getCheckpointDataRange(_from: CheckpointNumber, _limit: number): Promise<CheckpointData[]> {
+    return Promise.resolve([]);
+  }
+
+  public getCheckpointNumberBySlot(_slot: SlotNumber): Promise<CheckpointNumber | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  public async getBlockDataWithCheckpointContext(number: BlockNumber) {
+    const data = await this.getBlockData(number);
+    if (!data) {
+      return undefined;
+    }
+    return { data, checkpoint: undefined, l1: undefined, attestations: [] };
+  }
+
   public async getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
     const block = this.l2Blocks.find(b => b.archive.root.equals(archive));
     if (!block) {
@@ -356,6 +376,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
           ),
           startBlock: checkpoint.blocks[0].number,
           blockCount: checkpoint.blocks.length,
+          feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
           attestations: [],
           l1: this.mockL1DataForCheckpoint(checkpoint),
         }),

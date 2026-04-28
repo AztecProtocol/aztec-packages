@@ -10,6 +10,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } fro
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
+  type BlockDataWithCheckpointContext,
   BlockHash,
   Body,
   CheckpointedL2Block,
@@ -84,6 +85,7 @@ type CommonCheckpointStorage = {
 type CheckpointStorage = CommonCheckpointStorage & {
   l1: Buffer;
   attestations: Buffer[];
+  feeAssetPriceModifier: string;
 };
 
 /** Storage format for a proposed checkpoint (attested but not yet L1-confirmed). */
@@ -322,6 +324,7 @@ export class BlockStore {
           checkpointNumber: checkpoint.checkpoint.number,
           startBlock: checkpoint.checkpoint.blocks[0].number,
           blockCount: checkpoint.checkpoint.blocks.length,
+          feeAssetPriceModifier: checkpoint.checkpoint.feeAssetPriceModifier.toString(),
         });
 
         // Update slot-to-checkpoint index
@@ -374,6 +377,7 @@ export class BlockStore {
         checkpointNumber: incoming.checkpoint.number,
         startBlock: incoming.checkpoint.blocks[0].number,
         blockCount: incoming.checkpoint.blocks.length,
+        feeAssetPriceModifier: incoming.checkpoint.feeAssetPriceModifier.toString(),
       });
       // Update the sync point to reflect the new L1 block
       await this.#lastSynchedL1Block.set(incoming.l1.blockNumber);
@@ -588,6 +592,7 @@ export class BlockStore {
       checkpointNumber: CheckpointNumber(checkpointStorage.checkpointNumber),
       startBlock: BlockNumber(checkpointStorage.startBlock),
       blockCount: checkpointStorage.blockCount,
+      feeAssetPriceModifier: BigInt(checkpointStorage.feeAssetPriceModifier),
       l1: L1PublishedData.fromBuffer(checkpointStorage.l1),
       attestations: checkpointStorage.attestations.map(buf => CommitteeAttestation.fromBuffer(buf)),
     };
@@ -733,6 +738,7 @@ export class BlockStore {
         checkpointNumber: proposed.checkpointNumber,
         startBlock: proposed.startBlock,
         blockCount: proposed.blockCount,
+        feeAssetPriceModifier: proposed.feeAssetPriceModifier.toString(),
       });
 
       // Update the slot-to-checkpoint index
@@ -905,6 +911,33 @@ export class BlockStore {
       return undefined;
     }
     return this.getBlockDataFromBlockStorage(blockStorage);
+  }
+
+  /**
+   * Gets block metadata plus checkpoint-derived context (L1 publish info, attestations) without
+   * deserializing tx bodies. When the block's containing checkpoint has not yet been L1-confirmed,
+   * `checkpoint` and `l1` are `undefined` and `attestations` is empty.
+   */
+  async getBlockDataWithCheckpointContext(
+    blockNumber: BlockNumber,
+  ): Promise<BlockDataWithCheckpointContext | undefined> {
+    const blockStorage = await this.#blocks.getAsync(blockNumber);
+    if (!blockStorage || !blockStorage.header) {
+      return undefined;
+    }
+    const data = this.getBlockDataFromBlockStorage(blockStorage);
+    const checkpointStorage = await this.#checkpoints.getAsync(blockStorage.checkpointNumber);
+    if (!checkpointStorage) {
+      return { data, checkpoint: undefined, l1: undefined, attestations: [] };
+    }
+    const checkpoint = this.checkpointDataFromCheckpointStorage(checkpointStorage);
+    return { data, checkpoint, l1: checkpoint.l1, attestations: checkpoint.attestations };
+  }
+
+  /** Returns the checkpoint number that contains the given slot (or undefined if not found). */
+  async getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined> {
+    const checkpointNumber = await this.#slotToCheckpoint.getAsync(slot);
+    return checkpointNumber === undefined ? undefined : CheckpointNumber(checkpointNumber);
   }
 
   /**

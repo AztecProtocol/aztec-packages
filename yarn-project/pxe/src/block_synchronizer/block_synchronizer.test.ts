@@ -71,10 +71,17 @@ describe('BlockSynchronizer', () => {
   it('removes notes from db on a reorg', async () => {
     const rollback = jest.spyOn(noteStore, 'rollback').mockImplementation(() => Promise.resolve());
     const block3Hash = Fr.fromString('0x3');
-    aztecNode.getBlockHeader.mockImplementation(async block => {
-      // For the test, when block hash matches block 3, return block header for block 3
+    aztecNode.getBlock.mockImplementation(async (block: any) => {
       if (block instanceof BlockHash && block.equals(block3Hash)) {
-        return (await L2Block.random(BlockNumber(3))).header;
+        const b = await L2Block.random(BlockNumber(3));
+        return {
+          header: b.header,
+          archive: b.archive,
+          hash: await b.hash(),
+          checkpointNumber: b.checkpointNumber,
+          indexWithinCheckpoint: b.indexWithinCheckpoint,
+          number: b.number,
+        } as any;
       }
       return undefined;
     });
@@ -95,10 +102,17 @@ describe('BlockSynchronizer', () => {
   it('removes private events from db on a reorg', async () => {
     const rollback = jest.spyOn(privateEventStore, 'rollback').mockImplementation(() => Promise.resolve());
     const block3Hash = Fr.fromString('0x3');
-    aztecNode.getBlockHeader.mockImplementation(async block => {
-      // For the test, when block hash matches block 3, return block header for block 3
+    aztecNode.getBlock.mockImplementation(async (block: any) => {
       if (block instanceof BlockHash && block.equals(block3Hash)) {
-        return (await L2Block.random(BlockNumber(3))).header;
+        const b = await L2Block.random(BlockNumber(3));
+        return {
+          header: b.header,
+          archive: b.archive,
+          hash: await b.hash(),
+          checkpointNumber: b.checkpointNumber,
+          indexWithinCheckpoint: b.indexWithinCheckpoint,
+          number: b.number,
+        } as any;
       }
       return undefined;
     });
@@ -128,7 +142,15 @@ describe('BlockSynchronizer', () => {
         resolveSync = resolve;
       });
       blockStream.sync.mockReturnValue(syncBlocker);
-      aztecNode.getBlockHeader.mockResolvedValue((await L2Block.random(BlockNumber(0))).header);
+      const genesisBlock = await L2Block.random(BlockNumber(0));
+      aztecNode.getBlock.mockResolvedValue({
+        header: genesisBlock.header,
+        archive: genesisBlock.archive,
+        hash: await genesisBlock.hash(),
+        checkpointNumber: genesisBlock.checkpointNumber,
+        indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
+        number: genesisBlock.number,
+      } as any);
 
       // Start a sync (don't await)
       const syncPromise = synchronizer.sync();
@@ -234,7 +256,14 @@ describe('BlockSynchronizer', () => {
 
       // Mock node to return block header
       const provenBlock = await L2Block.random(BlockNumber(5));
-      aztecNode.getBlockHeader.mockResolvedValue(provenBlock.header);
+      aztecNode.getBlock.mockResolvedValue({
+        header: provenBlock.header,
+        archive: provenBlock.archive,
+        hash: await provenBlock.hash(),
+        checkpointNumber: provenBlock.checkpointNumber,
+        indexWithinCheckpoint: provenBlock.indexWithinCheckpoint,
+        number: provenBlock.number,
+      } as any);
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-proven',
@@ -254,7 +283,14 @@ describe('BlockSynchronizer', () => {
 
       // Mock node to return block header
       const finalizedBlock = await L2Block.random(BlockNumber(10));
-      aztecNode.getBlockHeader.mockResolvedValue(finalizedBlock.header);
+      aztecNode.getBlock.mockResolvedValue({
+        header: finalizedBlock.header,
+        archive: finalizedBlock.archive,
+        hash: await finalizedBlock.hash(),
+        checkpointNumber: finalizedBlock.checkpointNumber,
+        indexWithinCheckpoint: finalizedBlock.indexWithinCheckpoint,
+        number: finalizedBlock.number,
+      } as any);
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',

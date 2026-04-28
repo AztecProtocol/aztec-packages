@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 import type { Checkpoint } from '../checkpoint/checkpoint.js';
 import type { CheckpointData, CommonCheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
-import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
+import type { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import type { BlockHeader } from '../tx/block_header.js';
@@ -25,7 +25,16 @@ import type { BlockData } from './block_data.js';
 import type { BlockHash } from './block_hash.js';
 import type { CheckpointedL2Block } from './checkpointed_l2_block.js';
 import type { L2Block } from './l2_block.js';
+import type { CommitteeAttestation } from './proposal/committee_attestation.js';
 import type { ValidateCheckpointNegativeResult, ValidateCheckpointResult } from './validate_block_result.js';
+
+/** Block metadata plus checkpoint-derived context (L1 publish info, attestations). */
+export type BlockDataWithCheckpointContext = {
+  data: BlockData;
+  checkpoint?: CheckpointData;
+  l1?: L1PublishedData;
+  attestations: CommitteeAttestation[];
+};
 
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
@@ -110,6 +119,37 @@ export interface L2BlockSource {
    * @param epochNumber - Epoch for which we want checkpoint data
    */
   getCheckpointsDataForEpoch(epochNumber: EpochNumber): Promise<CheckpointData[]>;
+
+  /**
+   * Gets lightweight checkpoint metadata for a single checkpoint.
+   * Cheap passthrough for metadata-only queries (no block body reads).
+   * @param checkpointNumber - The checkpoint number to retrieve.
+   * @returns The requested checkpoint data (or undefined if not found).
+   */
+  getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined>;
+
+  /**
+   * Gets up to `limit` amount of checkpoint metadata entries starting from `from`.
+   * Cheap passthrough for metadata-only queries (no block body reads).
+   * @param from - The first checkpoint number to return (inclusive).
+   * @param limit - The maximum number of checkpoints to return.
+   */
+  getCheckpointDataRange(from: CheckpointNumber, limit: number): Promise<CheckpointData[]>;
+
+  /**
+   * Looks up the checkpoint number that contains the given slot.
+   * @param slot - The slot number to look up.
+   * @returns The checkpoint number (or undefined if not found).
+   */
+  getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined>;
+
+  /**
+   * Gets block metadata plus checkpoint-derived context (L1 publish info, attestations)
+   * without deserializing tx bodies. Uses checkpoint-level values when the block is
+   * checkpointed; otherwise returns `l1: undefined` and empty attestations.
+   * @param number - The block number to retrieve.
+   */
+  getBlockDataWithCheckpointContext(number: BlockNumber): Promise<BlockDataWithCheckpointContext | undefined>;
 
   /**
    * Gets a block header by its hash.

@@ -57,7 +57,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
@@ -379,8 +379,20 @@ describe('e2e_synching', () => {
       }
 
       const blockNumber = await aztecNode.getBlockNumber();
-      const publishedCheckpoints = await aztecNode.getCheckpoints(CheckpointNumber(1), blockNumber);
-      const checkpoints = publishedCheckpoints.map(pc => pc.checkpoint);
+      const checkpointResponses = await aztecNode.getCheckpoints(CheckpointNumber(1), blockNumber, {
+        includeBlocks: true,
+        includeTransactions: true,
+      });
+      const checkpoints = checkpointResponses.map(
+        cr =>
+          new Checkpoint(
+            cr.archive,
+            cr.header,
+            cr.blocks!.map(b => new L2Block(b.archive, b.header, b.body!, b.checkpointNumber, b.indexWithinCheckpoint)),
+            cr.number,
+            cr.feeAssetPriceModifier,
+          ),
+      );
 
       await variant.writeCheckpoints(checkpoints);
       await teardown();

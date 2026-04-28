@@ -206,7 +206,11 @@ describe('e2e_p2p_network', () => {
     // validator committee. If we submit txs before a checkpoint lands on L1, a failed checkpoint
     // publish can prune locally-proposed blocks, causing txs to reference pruned block headers.
     t.logger.info('Waiting for first checkpoint to be published');
-    await retryUntil(async () => (await nodes[0].getCheckpointedBlockNumber()) > 0, 'first checkpoint published', 120);
+    await retryUntil(
+      async () => (await nodes[0].getBlockNumber('checkpointed')) > 0,
+      'first checkpoint published',
+      120,
+    );
     t.logger.info('First checkpoint published');
 
     // We need to `createNodes` before we setup account, because

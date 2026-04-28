@@ -26,6 +26,7 @@ import type { TestDateProvider } from '@aztec/foundation/timer';
 import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import type { ValidatorClient } from '@aztec/validator-client';
 import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/db';
@@ -349,8 +350,8 @@ describe('HA Full Setup', () => {
     logger.info(`Block contains ${block.block.body.txEffects.length} transaction(s)`);
 
     // get attestations from checkpoint
-    const [checkpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1);
-    const attestations = checkpoint.attestations.filter(a => !a.signature.isEmpty());
+    const [checkpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1, { includeAttestations: true });
+    const attestations = (checkpoint.attestations ?? []).filter(a => !a.signature.isEmpty());
 
     // Should have enough attestations for quorum
     const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
@@ -607,8 +608,8 @@ describe('HA Full Setup', () => {
       });
       expect(receipt.receipt.blockNumber).toBeDefined();
       const [block] = await aztecNode.getCheckpointedBlocks(receipt.receipt.blockNumber!, 1);
-      const [cp] = await aztecNode.getCheckpoints(block!.checkpointNumber, 1);
-      const att = cp.attestations.filter(a => !a.signature.isEmpty());
+      const [cp] = await aztecNode.getCheckpoints(block!.checkpointNumber, 1, { includeAttestations: true });
+      const att = (cp.attestations ?? []).filter(a => !a.signature.isEmpty());
       expect(att.length).toBeGreaterThanOrEqual(quorum);
       logger.info(`Phase 2: block ${receipt.receipt.blockNumber}, ${att.length} attestations (quorum ${quorum})`);
     } finally {
@@ -779,10 +780,18 @@ describe('HA Full Setup', () => {
       );
 
       // SECONDARY CHECK: Verify checkpoint attestations match database records
-      const [publishedCheckpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1);
+      const [publishedCheckpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1, {
+        includeAttestations: true,
+      });
       const attestationInfos = getAttestationInfoFromPublishedCheckpoint({
-        attestations: publishedCheckpoint.attestations,
-        checkpoint: publishedCheckpoint.checkpoint,
+        attestations: publishedCheckpoint.attestations ?? [],
+        checkpoint: new Checkpoint(
+          publishedCheckpoint.archive,
+          publishedCheckpoint.header,
+          [],
+          publishedCheckpoint.number,
+          publishedCheckpoint.feeAssetPriceModifier,
+        ),
       });
 
       // Filter to only valid attestations with recovered addresses

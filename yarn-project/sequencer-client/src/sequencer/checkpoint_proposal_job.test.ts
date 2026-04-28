@@ -1602,6 +1602,7 @@ function toCheckpointData(checkpoint: Checkpoint): CheckpointData {
     checkpointOutHash: checkpoint.getCheckpointOutHash(),
     startBlock: BlockNumber(checkpoint.blocks[0]?.number ?? 1),
     blockCount: checkpoint.blocks.length,
+    feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     attestations: [],
     l1: L1PublishedData.random(),
   };

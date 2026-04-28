@@ -207,7 +207,7 @@ describe('e2e_p2p_network', () => {
     // Ensure prover node did its job and collected txs from p2p
     await retryUntil(
       async () => {
-        const provenBlock = await nodes[0].getProvenBlockNumber();
+        const provenBlock = await nodes[0].getBlockNumber('proven');
         return provenBlock > 0;
       },
       'proven block',
