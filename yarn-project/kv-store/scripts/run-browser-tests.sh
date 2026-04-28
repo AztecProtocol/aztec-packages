@@ -16,15 +16,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Mirror vitest.config.ts include patterns. sqlite-opfs is gated behind
-# VITE_SQLITE_OPFS=1 in the config (the backend has its own hang under the
-# 2-CPU container; see PR #22693), so we mirror that gate here — otherwise
-# vitest receives a positional path that `include` filters out, finds zero
-# tests, and exits 1. Bench tests are excluded — they run via
-# `yarn bench:browser`, which is already a one-shot invocation.
-dirs=(src/indexeddb)
-[ "${VITE_SQLITE_OPFS:-}" = "1" ] && dirs+=(src/sqlite-opfs)
-files=$(find "${dirs[@]}" -name '*.test.ts' 2>/dev/null | sort)
+# Mirror vitest.config.ts include patterns. Bench tests are excluded —
+# benchmarks should be run via `yarn bench:browser`, which is already a
+# one-shot invocation.
+files=$(find src/indexeddb src/sqlite-opfs -name '*.test.ts' 2>/dev/null | sort)
 
 if [ -z "$files" ]; then
   echo "No test files found in src/indexeddb or src/sqlite-opfs"
