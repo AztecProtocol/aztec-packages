@@ -1,4 +1,4 @@
-import { type AztecAddress } from '@aztec/aztec.js/addresses';
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { NestedUtilityContract } from '@aztec/noir-test-contracts.js/NestedUtility';
 
