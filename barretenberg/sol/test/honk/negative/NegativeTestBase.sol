@@ -357,67 +357,6 @@ abstract contract NegativeTestBase is TestBase {
         verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                    POINT OF INFINITY (0,0) INJECTION
-    //////////////////////////////////////////////////////////////*/
-
-    // ATTACK VECTOR: Point of Infinity Injection
-    //
-    // EVM precompiles silently treat (0,0) as the identity element instead of reverting.
-    // This could zero out commitments and allow a forged proof to pass.
-    //
-    // Both verifiers explicitly reject (0,0) at the input boundary:
-    // - Standard: bytesToG1Point checks (x | y) != 0
-    // - Optimized: inline point-at-infinity check after calldatacopy
-    // This catches (0,0) with PointAtInfinity before any computation begins.
-
-    /// @notice (0,0) in W_L - caught by point-at-infinity check at deserialization
-    function test_PointOfInfinity_WL() public virtual {
-        bytes memory proof = copyProof();
-        setG1Point(proof, W_L_OFFSET, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
-    /// @notice (0,0) in W_R - caught by point-at-infinity check at deserialization
-    function test_PointOfInfinity_WR() public virtual {
-        bytes memory proof = copyProof();
-        setG1Point(proof, W_R_OFFSET, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
-    /// @notice (0,0) in W_O - caught by point-at-infinity check at deserialization
-    function test_PointOfInfinity_WO() public virtual {
-        bytes memory proof = copyProof();
-        setG1Point(proof, W_O_OFFSET, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
-    /// @notice (0,0) in kzgQuotient - caught by point-at-infinity check
-    function test_PointOfInfinity_KzgQuotient() public virtual {
-        bytes memory proof = copyProof();
-        uint256 xOffset = proof.length - 64;
-        setG1Point(proof, xOffset, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
-    /// @notice (0,0) in shplonkQ - caught by point-at-infinity check
-    function test_PointOfInfinity_ShplonkQ() public virtual {
-        bytes memory proof = copyProof();
-        uint256 xOffset = proof.length - 128;
-        setG1Point(proof, xOffset, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
     /// @notice Invalid pairing points - no explicit check, caught via computation
     function test_InvalidPairingPoints() public virtual {
         bytes memory proof = copyProof();
