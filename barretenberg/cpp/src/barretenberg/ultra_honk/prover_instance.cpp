@@ -285,6 +285,14 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     });
 
     polynomials.databus_id = Polynomial(offset_size(max_databus_column_size), dyadic_size());
+
+    // Per-column indicator polys (precomputed): 1 on the column's honest data rows, 0 elsewhere.
+    // Used by the read-count locality subrelation to force read_counts to vanish outside the
+    // column's data range, so the lookup table multi-set can only contain entries from rows the
+    // indicator marks as belonging to this column.
+    polynomials.calldata_indicator = Polynomial(offset_size(circuit.get_bus_vector(0).size()), dyadic_size());
+    polynomials.secondary_calldata_indicator = Polynomial(offset_size(circuit.get_bus_vector(1).size()), dyadic_size());
+    polynomials.return_data_indicator = Polynomial(offset_size(circuit.get_bus_vector(2).size()), dyadic_size());
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)
@@ -326,6 +334,24 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     for (size_t i = 0; i < max_bus_size; ++i) {
         databus_id.at(NUM_DISABLED_ROWS_IN_SUMCHECK + i) = i;
     }
+
+    // Populate per-column indicators: 1 on the column's data rows, 0 elsewhere (default).
+    bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+        const size_t bus_size = circuit.get_bus_vector(bus_idx).size();
+        auto& indicator = [&]() -> auto& {
+            if constexpr (bus_idx == 0) {
+                return polynomials.calldata_indicator;
+            } else if constexpr (bus_idx == 1) {
+                return polynomials.secondary_calldata_indicator;
+            } else {
+                static_assert(bus_idx == 2);
+                return polynomials.return_data_indicator;
+            }
+        }();
+        for (size_t i = 0; i < bus_size; ++i) {
+            indicator.at(NUM_DISABLED_ROWS_IN_SUMCHECK + i) = 1;
+        }
+    });
 }
 
 /**
