@@ -15,12 +15,13 @@ function build {
   denoise "helm lint ./aztec-bot/"
   denoise "helm lint ./aztec-chaos-scenarios/"
   denoise "helm lint ./aztec-keystore/"
-  denoise "helm lint ./aztec-node/"
+  denoise "helm lint ./aztec-node/ --set global.aztecImage.tag=lint"
   denoise "helm lint ./aztec-prover-stack/"
-  denoise "helm lint ./aztec-snapshots/"
+  denoise "helm lint ./aztec-snapshots/ --set snapshots.frequency='0 */6 * * *' --set snapshots.nodeUrl=http://lint --set snapshots.bucket=lint"
   denoise "helm lint ./aztec-validator/"
   denoise "helm lint ./eth-devnet/"
-  denoise ./spartan/scripts/check_env_vars.sh
+  denoise "terraform fmt -check -recursive ./terraform/"
+  denoise ./scripts/check_env_vars.sh
 }
 
 function network_shaping {
@@ -46,8 +47,19 @@ function network_shaping {
 }
 
 function gke {
-  # For GKE access
-  if ! command -v gcloud &> /dev/null; then
+  # For GKE access: ensure both gcloud and the GKE auth plugin are installed.
+  # gcloud itself is installed by install_deps.sh; this only handles the auth plugin
+  # (and the Ubuntu-specific gcloud install for backwards compatibility).
+  if [[ "$(os)" == "macos" ]]; then
+    if ! command -v gke-gcloud-auth-plugin &> /dev/null; then
+      gcloud components install --quiet gke-gcloud-auth-plugin
+      if ! command -v gke-gcloud-auth-plugin &> /dev/null; then
+        echo "gke-gcloud-auth-plugin installed but not on PATH. Add this to your shell rc:" >&2
+        echo "  export PATH=\"\$(brew --prefix)/share/google-cloud-sdk/bin:\$PATH\"" >&2
+        exit 1
+      fi
+    fi
+  elif ! command -v gcloud &> /dev/null; then
     if [ -f /etc/os-release ] && grep -qi "Ubuntu" /etc/os-release; then
       sudo apt update
       sudo apt install -y apt-transport-https ca-certificates gnupg curl
@@ -56,11 +68,12 @@ function gke {
       sudo apt install -y google-cloud-cli
       sudo apt install google-cloud-cli-gke-gcloud-auth-plugin
       echo "Now you can run 'gcloud init'. Exiting with 1 as this is a necessary step."
+      exit 1
     else
       echo "gcloud not found. This is needed for GKE kubernetes usage." >&2
-      echo "If needed, install glcoud and do 'gcloud components install gke-gcloud-auth-plugin', then 'gcloud init'" >&2
+      echo "If needed, install gcloud and do 'gcloud components install gke-gcloud-auth-plugin', then 'gcloud init'" >&2
+      exit 1
     fi
-    exit 1
   fi
 }
 
@@ -169,6 +182,16 @@ function block_capacity_bench_cmds {
   echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/block_capacity.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple block_capacity.test.ts"
 }
 
+function bench_10tps_cmds {
+  # Single 38-min sustained 10 TPS run on the bench-10tps network. Long enough
+  # for the sequencer to hit steady state beyond the initial mempool fill-up.
+  local high_value_tps=10
+  local low_value_tps=0
+  local test_duration=2280 # 38 min
+  local timeout=3600       # 1h — test plus drain/teardown buffer
+  echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+}
+
 function network_bench {
   rm -rf bench-out
   mkdir -p bench-out
@@ -209,6 +232,20 @@ function block_capacity_bench {
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   block_capacity_bench_cmds | parallelize 1
+}
+
+function bench_10tps {
+  rm -rf bench-out
+  mkdir -p bench-out
+
+  local env_file="$1"
+  source_network_env $env_file
+
+  echo_header "spartan bench-10tps"
+  gcp_auth
+  export_admin_api_key
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
+  bench_10tps_cmds | parallelize 1
 }
 
 function ensure_eth_balances {
@@ -275,7 +312,7 @@ case "$cmd" in
     run_network_tests "$1" "$2"
     ;;
 
-  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench)
+  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench|bench_10tps)
     env_file="$1"
     $cmd "$env_file"
     ;;

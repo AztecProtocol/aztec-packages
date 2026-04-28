@@ -7,7 +7,6 @@ import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherFilter, PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import { NodeKeystoreAdapter } from '@aztec/validator-client';
 
@@ -40,7 +39,6 @@ export class SequencerPublisherFactory {
       epochCache: EpochCache;
       rollupContract: RollupContract;
       governanceProposerContract: GovernanceProposerContract;
-      slashFactoryContract: SlashFactoryContract;
       nodeKeyStore: NodeKeystoreAdapter;
       logger?: Logger;
     },
@@ -104,7 +102,6 @@ export class SequencerPublisherFactory {
       epochCache: this.deps.epochCache,
       governanceProposerContract: this.deps.governanceProposerContract,
       slashingProposerContract,
-      slashFactoryContract: this.deps.slashFactoryContract,
       dateProvider: this.deps.dateProvider,
       metrics: this.publisherMetrics,
       lastActions: this.lastActions,

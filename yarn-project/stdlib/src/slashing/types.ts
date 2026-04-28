@@ -126,45 +126,13 @@ export type ValidatorSlash = {
   offenses: ValidatorSlashOffense[];
 };
 
-/** Slash payload as published by the empire slash proposer */
-export type SlashPayload = {
-  address: EthAddress;
-  slashes: ValidatorSlash[];
-  timestamp: bigint;
-};
-
-/** Slash payload with round information from empire slash proposer */
-export type SlashPayloadRound = SlashPayload & { votes: bigint; round: bigint };
-
-export const SlashPayloadRoundSchema = zodFor<SlashPayloadRound>()(
-  z.object({
-    address: schemas.EthAddress,
-    timestamp: schemas.BigInt,
-    votes: schemas.BigInt,
-    round: schemas.BigInt,
-    slashes: z.array(
-      z.object({
-        validator: schemas.EthAddress,
-        amount: schemas.BigInt,
-        offenses: z.array(z.object({ offenseType: OffenseTypeSchema, epochOrSlot: schemas.BigInt })),
-      }),
-    ),
-  }),
-);
-
-/** Votes for a validator slash in the consensus slash proposer */
+/** Votes for a validator slash in the slashing proposer */
 export type ValidatorSlashVote = number;
 
 export type ProposerSlashAction =
-  /** Create a new slash payload on an empire-based slash proposer */
-  | { type: 'create-empire-payload'; data: ValidatorSlash[] }
-  /** Vote for a slashing payload on an empire-based slash proposer */
-  | { type: 'vote-empire-payload'; payload: EthAddress }
-  /** Execute a slashing payload on an empire-based slash proposer */
-  | { type: 'execute-empire-payload'; round: bigint }
-  /** Vote for offenses on a consensus slashing proposer */
+  /** Vote for offenses on the slashing proposer */
   | { type: 'vote-offenses'; votes: ValidatorSlashVote[]; committees: EthAddress[][]; round: bigint }
-  /** Execute a slashing round on a consensus slashing proposer */
+  /** Execute a slashing round on the slashing proposer */
   | { type: 'execute-slash'; committees: EthAddress[][]; round: bigint };
 
 export type ProposerSlashActionType = ProposerSlashAction['type'];

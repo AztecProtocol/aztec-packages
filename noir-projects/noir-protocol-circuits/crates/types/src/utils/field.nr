@@ -34,15 +34,6 @@ pub fn field_from_bytes_32_trunc(bytes32: [u8; 32]) -> Field {
     low + high * v
 }
 
-// TODO to radix returns u8, so we cannot use bigger radixes. It'd be ideal to use a radix of the maximum range-constrained integer noir supports
-pub fn full_field_less_than(lhs: Field, rhs: Field) -> bool {
-    lhs.lt(rhs)
-}
-
-pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
-    rhs.lt(lhs)
-}
-
 pub fn min(f1: Field, f2: Field) -> Field {
     if f1.lt(f2) {
         f1
@@ -64,7 +55,7 @@ global C5: Field = 1910321906792171394429139282769207003614565195732928631530564
 // Only if your exponent is larger than 32 bits, resort to using this function.
 pub fn pow(x: Field, y: Field) -> Field {
     let mut r = 1 as Field;
-    let b: [u1; 254] = y.to_le_bits();
+    let b: [bool; 254] = y.to_le_bits();
 
     for i in 0..254 {
         r *= r;
@@ -297,17 +288,6 @@ unconstrained fn min_test() {
     assert_eq(min(10, 5), 5);
     assert_eq(min(7, 7), 7);
     assert_eq(min(0, 1), 0);
-}
-
-#[test]
-unconstrained fn full_field_comparison_test() {
-    assert(full_field_less_than(5, 10));
-    assert(!full_field_less_than(10, 5));
-    assert(!full_field_less_than(5, 5));
-
-    assert(full_field_greater_than(10, 5));
-    assert(!full_field_greater_than(5, 10));
-    assert(!full_field_greater_than(5, 5));
 }
 
 #[test]

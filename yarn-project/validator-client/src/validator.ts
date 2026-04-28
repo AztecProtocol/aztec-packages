@@ -1,13 +1,7 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import {
-  BlockNumber,
-  CheckpointNumber,
-  EpochNumber,
-  IndexWithinCheckpoint,
-  SlotNumber,
-} from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -23,7 +17,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
-  CreateCheckpointProposalLastBlockData,
   ITxProvider,
   Validator,
   ValidatorClientFullConfig,
@@ -217,6 +210,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       metrics,
       dateProvider,
       telemetry,
+      undefined,
     );
 
     const nodeKeystoreAdapter = NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager);
@@ -514,14 +508,17 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Validate the checkpoint proposal before attesting (unless skipCheckpointProposalValidation is set).
     // Uses the cached result from the all-nodes callback if available (avoids double validation).
+    let checkpointNumber: CheckpointNumber;
     if (this.config.skipCheckpointProposalValidation) {
       this.log.warn(`Skipping checkpoint proposal validation for slot ${proposalSlotNumber}`, proposalInfo);
+      checkpointNumber = CheckpointNumber(0);
     } else {
       const validationResult = await this.proposalHandler.handleCheckpointProposal(proposal, proposalInfo);
       if (!validationResult.isValid) {
         this.log.warn(`Checkpoint proposal validation failed: ${validationResult.reason}`, proposalInfo);
         return undefined;
       }
+      checkpointNumber = validationResult.checkpointNumber;
     }
 
     // Check that I have any address in current committee before attesting
@@ -579,7 +576,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
-    return await this.createCheckpointAttestationsFromProposal(proposal, attestors);
+    return await this.createCheckpointAttestationsFromProposal(proposal, attestors, checkpointNumber);
   }
 
   /**
@@ -606,13 +603,14 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private async createCheckpointAttestationsFromProposal(
     proposal: CheckpointProposalCore,
     attestors: EthAddress[] = [],
+    checkpointNumber: CheckpointNumber,
   ): Promise<CheckpointAttestation[] | undefined> {
     // Equivocation check: must happen right before signing to minimize the race window
     if (!this.shouldAttestToSlot(proposal.slotNumber)) {
       return undefined;
     }
 
-    const attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors);
+    const attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors, checkpointNumber);
 
     // Track the proposal we attested to (to prevent equivocation)
     this.lastAttestedProposal = proposal;
@@ -725,6 +723,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   async createBlockProposal(
     blockHeader: BlockHeader,
+    checkpointNumber: CheckpointNumber,
     indexWithinCheckpoint: IndexWithinCheckpoint,
     inHash: Fr,
     archive: Fr,
@@ -751,6 +750,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     );
     const newProposal = await this.validationService.createBlockProposal(
       blockHeader,
+      checkpointNumber,
       indexWithinCheckpoint,
       inHash,
       archive,
@@ -768,8 +768,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   async createCheckpointProposal(
     checkpointHeader: CheckpointHeader,
     archive: Fr,
+    checkpointNumber: CheckpointNumber,
     feeAssetPriceModifier: bigint,
-    lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
+    lastBlockProposal: BlockProposal | undefined,
     proposerAddress: EthAddress | undefined,
     options: CheckpointProposalOptions = {},
   ): Promise<CheckpointProposal> {
@@ -790,8 +791,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const newProposal = await this.validationService.createCheckpointProposal(
       checkpointHeader,
       archive,
+      checkpointNumber,
       feeAssetPriceModifier,
-      lastBlockInfo,
+      lastBlockProposal,
       proposerAddress,
       options,
     );
@@ -807,16 +809,24 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     attestationsAndSigners: CommitteeAttestationsAndSigners,
     proposer: EthAddress,
     slot: SlotNumber,
-    blockNumber: BlockNumber | CheckpointNumber,
+    checkpointNumber: CheckpointNumber,
   ): Promise<Signature> {
-    return await this.validationService.signAttestationsAndSigners(attestationsAndSigners, proposer, slot, blockNumber);
+    return await this.validationService.signAttestationsAndSigners(
+      attestationsAndSigners,
+      proposer,
+      slot,
+      checkpointNumber,
+    );
   }
 
-  async collectOwnAttestations(proposal: CheckpointProposal): Promise<CheckpointAttestation[]> {
+  async collectOwnAttestations(
+    proposal: CheckpointProposal,
+    checkpointNumber: CheckpointNumber,
+  ): Promise<CheckpointAttestation[]> {
     const slot = proposal.slotNumber;
     const inCommittee = await this.epochCache.filterInCommittee(slot, this.getValidatorAddresses());
     this.log.debug(`Collecting ${inCommittee.length} self-attestations for slot ${slot}`, { inCommittee });
-    const attestations = await this.createCheckpointAttestationsFromProposal(proposal, inCommittee);
+    const attestations = await this.createCheckpointAttestationsFromProposal(proposal, inCommittee, checkpointNumber);
 
     if (!attestations) {
       return [];
@@ -835,6 +845,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     proposal: CheckpointProposal,
     required: number,
     deadline: Date,
+    checkpointNumber: CheckpointNumber,
   ): Promise<CheckpointAttestation[]> {
     // Wait and poll the p2pClient's attestation pool for this checkpoint until we have enough attestations
     const slot = proposal.slotNumber;
@@ -847,7 +858,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       throw new AttestationTimeoutError(0, required, slot);
     }
 
-    await this.collectOwnAttestations(proposal);
+    await this.collectOwnAttestations(proposal, checkpointNumber);
 
     const proposalId = proposal.archive.toString();
     const myAddresses = this.getValidatorAddresses();

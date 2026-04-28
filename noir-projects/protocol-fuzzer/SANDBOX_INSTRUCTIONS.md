@@ -207,11 +207,9 @@ for pkg in side_effect_contract parent_contract; do
         --silence-warnings --inliner-aggressiveness 0 --package ${pkg}
     /usr/src/barretenberg/cpp/build/bin/bb-avm aztec_process \
         -i target/${artifact}.json
-    jq '.functions |= map(.name |= sub(\"^__aztec_nr_internals__\"; \"\"))' \
-        target/${artifact}.json > /tmp/${artifact}.json
   "
 
-  docker cp "aztec-sandbox-nightly:/tmp/${artifact}.json" \
+  docker cp "aztec-sandbox-nightly:/tmp/nightly-build/target/${artifact}.json" \
     "contracts/target/${artifact}.json"
 done
 ```
@@ -291,7 +289,7 @@ Run `bb-avm aztec_process` (step 4b).
 Run `bb-avm aztec_process` (step 4b) -- it generates both transpiled bytecode and VKs.
 
 ### "Constructor method initialize not found"
-The `__aztec_nr_internals__` prefix wasn't stripped. Run the `jq` step in 4b.
+The internal prefix wasn't stripped. Ensure `bb-avm aztec_process` ran successfully in step 4b.
 
 ### Wallet "inquirer not found" error
 Run step 3.
@@ -326,8 +324,7 @@ on the first request. The Rust fuzzer resolves aliases (`accounts:test0`,
 ### Build pipeline
 
 1. `nargo compile` -- raw artifact JSON with `__aztec_nr_internals__` prefixed names
-2. `bb-avm aztec_process` -- transpiles public bytecode to AVM + generates private VKs
-3. `jq` strip prefix -- removes `__aztec_nr_internals__` from function names
+2. `bb-avm aztec_process` -- transpiles public bytecode to AVM, strips internal prefixes, and generates private VKs
 
 ### Version matrix (as of 2026-02-25)
 

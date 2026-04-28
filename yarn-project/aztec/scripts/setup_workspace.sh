@@ -2,10 +2,11 @@
 set -euo pipefail
 
 # Creates an Aztec contract workspace with a contract crate and a test crate.
-# Usage: setup_workspace.sh <package_name>
+# Usage: setup_workspace.sh <package_name> <template>
 # Must be called from the workspace root directory.
 
 package_name=$1
+template=$2
 script_path=$(realpath $(dirname "$0"))
 
 if [ -z "$package_name" ]; then
@@ -26,7 +27,7 @@ members = []
 EOF
 
 # Create the first crate pair
-$script_path/add_crate.sh "$package_name"
+$script_path/add_crate.sh "$package_name" "$template"
 
 # Create README
 cat > README.md << REOF

@@ -5,7 +5,6 @@ import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { DateProvider } from '@aztec/foundation/timer';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NodeKeystoreAdapter } from '@aztec/validator-client';
 
@@ -23,7 +22,6 @@ describe('SequencerPublisherFactory', () => {
   let mockEpochCache: MockProxy<EpochCache>;
   let mockRollupContract: MockProxy<RollupContract>;
   let mockGovernanceProposerContract: MockProxy<GovernanceProposerContract>;
-  let mockSlashFactoryContract: MockProxy<SlashFactoryContract>;
   let mockNodeKeyStore: MockProxy<NodeKeystoreAdapter>;
   let mockL1TxUtils: MockProxy<L1TxUtils>;
 
@@ -44,7 +42,6 @@ describe('SequencerPublisherFactory', () => {
     mockL1TxUtils = mock<L1TxUtils>();
     mockRollupContract = mock<RollupContract>();
     mockGovernanceProposerContract = mock<GovernanceProposerContract>();
-    mockSlashFactoryContract = mock<SlashFactoryContract>();
 
     mockL1TxUtils.getSenderAddress.mockReturnValue(publisherAddress);
     mockPublisherManager.getAvailablePublisher.mockResolvedValue(mockL1TxUtils);
@@ -58,7 +55,6 @@ describe('SequencerPublisherFactory', () => {
       epochCache: mockEpochCache,
       governanceProposerContract: mockGovernanceProposerContract,
       rollupContract: mockRollupContract,
-      slashFactoryContract: mockSlashFactoryContract,
       nodeKeyStore: mockNodeKeyStore,
     });
   });

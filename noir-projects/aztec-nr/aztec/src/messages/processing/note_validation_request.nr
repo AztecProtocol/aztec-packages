@@ -3,7 +3,7 @@ use crate::protocol::{address::AztecAddress, traits::Serialize};
 
 /// Intermediate struct used to perform batch note validation by PXE. The
 /// `aztec_utl_validateAndStoreEnqueuedNotesAndEvents` oracle expects for values of this type to be stored in a
-/// `CapsuleArray`.
+/// `EphemeralArray`.
 #[derive(Serialize)]
 pub(crate) struct NoteValidationRequest {
     pub contract_address: AztecAddress,

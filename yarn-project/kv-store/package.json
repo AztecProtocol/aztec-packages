@@ -8,6 +8,7 @@
     "./lmdb": "./dest/lmdb/index.js",
     "./lmdb-v2": "./dest/lmdb-v2/index.js",
     "./indexeddb": "./dest/indexeddb/index.js",
+    "./sqlite-opfs": "./dest/sqlite-opfs/index.js",
     "./stores": "./dest/stores/index.js"
   },
   "scripts": {
@@ -16,7 +17,8 @@
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
     "test:browser": "vitest run --config ./vitest.config.ts",
-    "test": "yarn test:node && yarn test:browser",
+    "bench:browser": "VITE_BENCH=1 vitest run --config ./vitest.config.ts src/bench",
+    "test": "yarn test:node",
     "test:jest": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
@@ -29,6 +31,7 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/native": "workspace:^",
     "@aztec/stdlib": "workspace:^",
+    "@sqlite.org/sqlite-wasm": "3.50.4-build1",
     "idb": "^8.0.0",
     "lmdb": "^3.2.0",
     "msgpackr": "^1.11.2",

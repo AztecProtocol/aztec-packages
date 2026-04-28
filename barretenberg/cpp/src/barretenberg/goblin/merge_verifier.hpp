@@ -110,7 +110,7 @@ template <typename Curve> class MergeVerifier_ {
 
     bool check_concatenation_identities(std::vector<FF>& evals, const FF& pow_kappa) const;
 
-    bool check_degree_identity(std::vector<FF>& evals,
+    bool check_degree_identity(const std::vector<FF>& evals,
                                const FF& pow_kappa_minus_one,
                                const std::vector<FF>& degree_check_challenges) const;
 

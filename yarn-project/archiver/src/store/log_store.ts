@@ -1,7 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { compactArray, filterAsync } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt32BE } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -302,13 +301,11 @@ export class LogStore {
   }
 
   #unpackBlockHash(reader: BufferReader): BlockHash {
-    const blockHash = reader.remainingBytes() > 0 ? reader.readObject(Fr) : undefined;
-
-    if (!blockHash) {
+    if (reader.remainingBytes() === 0) {
       throw new Error('Failed to read block hash from log entry buffer');
     }
 
-    return new BlockHash(blockHash);
+    return BlockHash.fromBuffer(reader);
   }
 
   deleteLogs(blocks: L2Block[]): Promise<boolean> {

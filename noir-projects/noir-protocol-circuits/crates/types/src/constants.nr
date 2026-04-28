@@ -166,9 +166,9 @@ pub global MAX_CHECKPOINTS_PER_EPOCH: u32 = 32;
 pub global MAX_TX_LIFETIME: u64 = 86400; // 1 day. Arbitrarily chosen.
 // The genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_BLOCK_HEADER_HASH: Field =
-    0x2ff681dd7730c7b9e5650c70afa57ee81377792dfc95d98c11817b8c761ff965;
+    0x0e7bf88e8833c27b0fca6be614ecc2c63def7bffa35b3ccfa1caff3e39e0c0d2;
 pub global GENESIS_ARCHIVE_ROOT: Field =
-    0x15684c8c3d2106918d3860f777e50555b7166adff47df13cc652e2e5a50bf5c7;
+    0x177a4955b31ecaafad999753938a44e526b54c5ba5d536688227f85f15cfbdf5;
 pub global EMPTY_EPOCH_OUT_HASH: Field =
     0xc95e0ceb41951039e1592745ec2faea9866f6eaf01bf189a4463b4143af093;
 
@@ -610,7 +610,7 @@ pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 331; // See UltraKeccakFlavor for fo
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CHONK_PROOF_LENGTH: u32 = 1330;
+pub global CHONK_PROOF_LENGTH: u32 = 1315;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
@@ -688,6 +688,19 @@ pub global DOM_SEP__PRIVATE_LOG_FIRST_FIELD: u32 = 2769976252;
 pub global DOM_SEP__PUBLIC_LEAF_SLOT: u32 = 1247650290;
 pub global DOM_SEP__PUBLIC_STORAGE_MAP_SLOT: u32 = 4015149901;
 
+/// Domain separator for internal merkle-node hashing in append-only trees.
+/// Indexed trees use per-tree merkle separators instead (see below).
+pub global DOM_SEP__MERKLE_HASH: u32 = 2982624097;
+
+// Per-tree internal merkle-node separators for indexed trees. Each tree's sibling paths verify
+// against a tree-unique root, so a sibling path from tree A cannot be transported to tree B even
+// if the underlying leaf values collide.
+pub global DOM_SEP__NULLIFIER_MERKLE: u32 = 1157584160;
+pub global DOM_SEP__PUBLIC_DATA_MERKLE: u32 = 3756303423;
+// AVM-internal indexed trees:
+pub global DOM_SEP__WRITTEN_SLOTS_MERKLE: u32 = 2292766212;
+pub global DOM_SEP__RETRIEVED_BYTECODES_MERKLE: u32 = 2789215184;
+
 // ---------------------------------------------------------------
 // Contract Address
 
@@ -697,6 +710,7 @@ pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 260313585;
 pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 3923495515;
 
 // Salted Initialization Hash
+pub global DOM_SEP__SALTED_INITIALIZATION_HASH: u32 = 2763052992;
 pub global DOM_SEP__INITIALIZER: u32 = 385396519;
 
 // Keys
@@ -775,6 +789,17 @@ pub global DOM_SEP__TX_NULLIFIER: u32 = 1025801951;
 ///
 /// This is not technically a protocol constant as payload authorization is an account contract feature.
 pub global DOM_SEP__SIGNATURE_PAYLOAD: u32 = 463525807;
+
+// ---------------------------------------------------------------
+
+pub global DOM_SEP__BLOCK_HEADERS_HASH: u32 = 515582467;
+
+// Blob-related domain separators:
+pub global DOM_SEP__BLOB_HASHED_Y_LIMBS: u32 = 2949331415;
+pub global DOM_SEP__BLOB_CHALLENGE_Z: u32 = 60345710;
+pub global DOM_SEP__BLOB_Z_ACC: u32 = 1003392952;
+pub global DOM_SEP__BLOB_GAMMA_ACC: u32 = 855632775;
+pub global DOM_SEP__BLOB_GAMMA_FINAL: u32 = 1755883835;
 
 // ---------------------------------------------------------------
 
@@ -1111,25 +1136,6 @@ pub global MAX_PROCESSABLE_L2_GAS: u32 = PUBLIC_TX_L2_GAS_OVERHEAD + AVM_MAX_PRO
 pub global MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT: u32 =
     BLOBS_PER_CHECKPOINT * FIELDS_PER_BLOB * DA_GAS_PER_FIELD;
 
-// For gas estimation, we use the theoretical maximum amounts.
-// Since we split in teardown and total, teardown has the theoretical maximum and total is that times 2.
-// After gas estimation, we tune it down to the actual amount necessary.
-// TODO: this is a wallet concern; it should not be part of the protocol
-pub global GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS;
-pub global GAS_ESTIMATION_L2_GAS_LIMIT: u32 =
-    GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT + MAX_PROCESSABLE_L2_GAS;
-
-pub global GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
-pub global GAS_ESTIMATION_DA_GAS_LIMIT: u32 =
-    GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT + MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT;
-
-// Default gas limits. Users should use gas estimation, or they will overpay gas fees.
-// TODO: These are overridden in typescript-land. Remove them from here.
-pub global DEFAULT_TEARDOWN_L2_GAS_LIMIT: u32 = 1_000_000; // Arbitrary default number.
-pub global DEFAULT_L2_GAS_LIMIT: u32 = MAX_PROCESSABLE_L2_GAS; // Arbitrary default number.
-pub global DEFAULT_TEARDOWN_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 2; // Arbitrary default number.
-pub global DEFAULT_DA_GAS_LIMIT: u32 = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT; // Arbitrary default number.
-
 // Some tree insertions incur an additional cost associated with
 // the new database entry to be stored by all network participants.
 pub global L2_GAS_DISTRIBUTED_STORAGE_PREMIUM: u32 = 1024;
@@ -1255,13 +1261,13 @@ pub global TWO_POW_64: Field = 18446744073709551616;
 // TODO: Move inside BB noir constants lib
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT: u32 = 6;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT: Field =
-    0x2870b93163d4fd6ada360fe48ee1e8e8e69308af34cdfaeffacbbe5929e2466d;
+    0x13954b76f8ab76c38ab687731f802fc90e5d55e0592fa6f56d0a73024b3f8356;
 pub global AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_SIZE: u32 = 1;
 // AVM_RETRIEVED_BYTECODES_TREE_HEIGHT = CEIL(LOG2(MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 1))
 // +1 due to the tree prefill
 pub global AVM_RETRIEVED_BYTECODES_TREE_HEIGHT: u32 = 5;
 pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT: Field =
-    0x100ba46aea628d39c08788f05fcad4ab19adf5b8bba866a1f5c5baa6e297891d;
+    0x0ff65ad321f05745d4c80e2e18e94241093d2e49017ff8cc151df4f207a43c12;
 pub global AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE: u32 = 1;
 
 // Note that by casting timestamp to u32 we make this explode in year 2106. We do not care.

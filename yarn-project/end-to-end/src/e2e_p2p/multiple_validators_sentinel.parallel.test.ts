@@ -72,7 +72,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       undefined, // no metrics port
       0, // index offset
@@ -84,7 +84,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       t.ctx.dateProvider,
       BOOT_NODE_UDP_PORT + 1 + NUM_NODES,
       t.bootstrapNodeEnr,
-      t.prefilledPublicData,
+      t.genesis,
       `${DATA_DIR}-sentinel`,
       undefined,
     );

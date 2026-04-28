@@ -1,21 +1,14 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import {
-  ExtendedDirectionalAppTaggingSecret,
-  PendingTaggedLog,
-  SiloedTag,
-  Tag,
-  TxScopedL2Log,
-} from '@aztec/stdlib/logs';
+import { ExtendedDirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
-import type { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
 import {
@@ -30,8 +23,8 @@ export class LogService {
   constructor(
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockHeader: BlockHeader,
+    private readonly l2TipsStore: L2TipsProvider,
     private readonly keyStore: KeyStore,
-    private readonly capsuleService: CapsuleService,
     private readonly recipientTaggingStore: RecipientTaggingStore,
     private readonly senderAddressBookStore: SenderAddressBookStore,
     private readonly addressStore: AddressStore,
@@ -120,17 +113,15 @@ export class LogService {
     );
   }
 
-  public async fetchTaggedLogs(
-    contractAddress: AztecAddress,
-    pendingTaggedLogArrayBaseSlot: Fr,
-    recipient: AztecAddress,
-  ) {
+  public async fetchTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<PendingTaggedLog[]> {
     this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
     // We only load logs from block up to and including the anchor block number
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     const anchorBlockHash = await this.anchorBlockHeader.hash();
 
+    const l2Tips = await this.l2TipsStore.getL2Tips();
+    const currentTimestamp = this.anchorBlockHeader.globalVariables.timestamp;
     // Get all secrets for this recipient (one per sender)
     const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
 
@@ -143,17 +134,19 @@ export class LogService {
           this.recipientTaggingStore,
           anchorBlockNumber,
           anchorBlockHash,
+          currentTimestamp,
+          l2Tips.finalized.block.number,
           this.jobId,
         ),
       ),
     );
 
-    // Flatten all logs from all secrets
-    const allLogs = logArrays.flat();
-
-    if (allLogs.length > 0) {
-      await this.#storePendingTaggedLogs(contractAddress, pendingTaggedLogArrayBaseSlot, recipient, allLogs);
-    }
+    return logArrays
+      .flat()
+      .map(
+        scopedLog =>
+          new PendingTaggedLog(scopedLog.logData, scopedLog.txHash, scopedLog.noteHashes, scopedLog.firstNullifier),
+      );
   }
 
   async #getSecretsForSenders(
@@ -187,7 +180,6 @@ export class LogService {
 
         if (!secret) {
           // Note that all senders originate from either the SenderAddressBookStore or the KeyStore.
-          // TODO(F-512): make sure we actually prevent registering invalid senders.
           throw new Error(
             `Failed to compute a tagging secret for sender ${sender} - this implies this is an invalid address, which should not happen as they have been previously registered in PXE.`,
           );
@@ -195,34 +187,6 @@ export class LogService {
 
         return secret;
       }),
-    );
-  }
-
-  #storePendingTaggedLogs(
-    contractAddress: AztecAddress,
-    capsuleArrayBaseSlot: Fr,
-    recipient: AztecAddress,
-    privateLogs: TxScopedL2Log[],
-  ) {
-    // Build all pending tagged logs from the scoped logs
-    const pendingTaggedLogs = privateLogs.map(scopedLog => {
-      const pendingTaggedLog = new PendingTaggedLog(
-        scopedLog.logData,
-        scopedLog.txHash,
-        scopedLog.noteHashes,
-        scopedLog.firstNullifier,
-      );
-
-      return pendingTaggedLog.toFields();
-    });
-
-    // TODO: This looks like it could belong more at the oracle interface level
-    return this.capsuleService.appendToCapsuleArray(
-      contractAddress,
-      capsuleArrayBaseSlot,
-      pendingTaggedLogs,
-      this.jobId,
-      recipient,
     );
   }
 }

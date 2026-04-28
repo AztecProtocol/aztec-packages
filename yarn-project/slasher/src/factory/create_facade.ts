@@ -20,7 +20,7 @@ import type { Watcher } from '../watcher.js';
 /** Creates a slasher client facade that updates itself whenever the rollup slasher changes */
 export async function createSlasherFacade(
   config: SlasherConfig & DataStoreConfig & { ethereumSlotDuration: number },
-  l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'slashFactoryAddress' | 'registryAddress'>,
+  l1Contracts: Pick<L1ReaderConfig['l1Contracts'], 'rollupAddress' | 'registryAddress'>,
   l1Client: ViemClient,
   watchers: Watcher[],
   dateProvider: DateProvider,
@@ -71,7 +71,6 @@ export async function createSlasherFacade(
     updatedConfig,
     rollup,
     l1Client,
-    l1Contracts.slashFactoryAddress,
     watchers,
     epochCache,
     dateProvider,

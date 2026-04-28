@@ -6,7 +6,7 @@
 #include <cstdint>
 
 #include "barretenberg/api/file_io.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 

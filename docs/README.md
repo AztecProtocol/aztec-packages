@@ -270,6 +270,44 @@ yarn generate:typescript-api v3.0.0-devnet.6
 
 The generated docs are linked from the [TypeScript API Reference](/developers/docs/aztec-js/typescript_api_reference) page.
 
+### Node JSON-RPC API Reference
+
+The Node JSON-RPC API reference is auto-generated from the TypeScript interface definitions and Zod schemas in `yarn-project/stdlib/src/interfaces/`. The generator parses the source AST to extract method names, JSDoc comments, and parameter/return types.
+
+**Source files:**
+
+- `yarn-project/stdlib/src/interfaces/aztec-node.ts` — `AztecNode` interface (`node_` methods)
+- `yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` — `AztecNodeAdmin` interface (`nodeAdmin_` methods)
+- `yarn-project/stdlib/src/block/l2_block_source.ts` — `L2BlockSource` interface (JSDoc for inherited methods)
+
+**Prerequisites:** Only `typescript` is needed (no yarn-project build required — the generator parses source files, not compiled output).
+
+**Generate the reference doc:**
+
+```bash
+yarn generate:node-api-reference
+```
+
+This writes to `docs-operate/operators/reference/node-api-reference.md`.
+
+**Generate for a specific versioned docs directory:**
+
+```bash
+yarn generate:node-api-reference --target-dir network_versioned_docs/version-v4.1.3/operators/reference
+```
+
+**How it works:**
+
+1. Parses TypeScript interfaces with the TS Compiler API to extract JSDoc comments
+2. Parses Zod schema object literals from source AST to enumerate methods and extract types
+3. Generates markdown with method grouping, curl examples, and admin API security warnings
+
+**When to regenerate:**
+
+- When interface methods or Zod schemas change in `yarn-project/stdlib/src/interfaces/`
+- When cutting a new versioned snapshot of network docs (pass `--target-dir` to write into the versioned directory)
+- The source doc (`docs-operate/`) should be kept in sync with the latest code
+
 ## Macros
 
 As mentioned above, Aztec docs pull code from the source files. This makes it easy to include sections of the source code in tutorials and other examples.

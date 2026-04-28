@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 
+#include "barretenberg/flavor/mega_avm_flavor.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/goblin_avm/goblin_avm.hpp"
 #include "barretenberg/goblin_avm/goblin_avm_verifier.hpp"
@@ -53,15 +54,17 @@ class BoomerangGoblinAvmRecursiveVerifierTests : public testing::Test {
         GoblinAvm goblin(inner_builder);
         MockCircuits::construct_arithmetic_circuit(inner_builder);
 
-        // Merge the ecc ops from the newly constructed circuit
+        // Build a MegaAvm prover instance to get ecc_op_wire commitments matching the real flow.
+        auto mega_avm_instance = std::make_shared<ProverInstance_<MegaAvmFlavor>>(inner_builder);
+        CommitmentKey<curve::BN254> pcs_commitment_key(mega_avm_instance->dyadic_size());
+
         auto goblin_proof = goblin.prove();
 
-        // Subtable values and commitments - needed for (Recursive)MergeVerifier
+        // Commit to ecc_op_wire polynomials from the MegaAvm prover instance
         TableCommitments table_commitments;
-        auto ultra_ops_table_columns = goblin.op_queue->construct_ultra_ops_table_columns();
-        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
-        for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-            table_commitments[idx] = pcs_commitment_key.commit(ultra_ops_table_columns[idx]);
+        size_t idx = 0;
+        for (auto& wire : mega_avm_instance->polynomials.get_ecc_op_wires()) {
+            table_commitments[idx++] = pcs_commitment_key.commit(wire);
         }
 
         RecursiveTableCommitments recursive_table_commitments;

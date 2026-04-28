@@ -9,7 +9,7 @@ import { stub } from 'sinon';
 
 import { openStoreAt, openTmpStore } from './factory.js';
 import type { ReadTransaction } from './read_transaction.js';
-import type { AztecLMDBStoreV2 } from './store.js';
+import { AztecLMDBStoreV2 } from './store.js';
 
 const testMaxReaders = 4;
 
@@ -195,5 +195,27 @@ describe('AztecLMDBStoreV2', () => {
     expect(Buffer.from((await store2.getReadTx().get(key))!).toString()).to.eq('bar');
     await store2.close();
     await store2.delete();
+  });
+
+  describe('Map size validation', () => {
+    it('rejects zero map size', async () => {
+      const dataDir = await mkdtemp(join(tmpdir(), 'lmdb-map-size-test-'));
+      try {
+        await AztecLMDBStoreV2.new(dataDir, 0);
+        expect.fail('Expected an error for zero map size');
+      } catch (e: any) {
+        expect(e.message).to.include('Map size must be a positive number');
+      }
+    });
+
+    it('rejects negative map size', async () => {
+      const dataDir = await mkdtemp(join(tmpdir(), 'lmdb-map-size-test-'));
+      try {
+        await AztecLMDBStoreV2.new(dataDir, -1);
+        expect.fail('Expected an error for negative map size');
+      } catch (e: any) {
+        expect(e.message).to.include('Map size must be a positive number');
+      }
+    });
   });
 });

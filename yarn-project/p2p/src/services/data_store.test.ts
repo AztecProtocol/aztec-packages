@@ -50,6 +50,28 @@ describe('AztecDatastore with AztecLmdbStore', () => {
     await expect(datastore.get(key)).rejects.toHaveProperty('code', 'ERR_NOT_FOUND');
   });
 
+  it('concurrent batches do not interfere with each other', async () => {
+    const batch1 = datastore.batch();
+    const batch2 = datastore.batch();
+
+    const key1 = new Key('batch1key');
+    const key2 = new Key('batch2key');
+    const value1 = new Uint8Array([1, 2, 3]);
+    const value2 = new Uint8Array([4, 5, 6]);
+
+    batch1.put(key1, value1);
+    batch2.put(key2, value2);
+
+    // Committing batch1 should only apply batch1's operations
+    await batch1.commit();
+    expect(await datastore.has(key1)).toBe(true);
+    expect(await datastore.has(key2)).toBe(false);
+
+    // Committing batch2 should still apply batch2's operations
+    await batch2.commit();
+    expect(await datastore.has(key2)).toBe(true);
+  });
+
   it('batch operations commit correctly', async () => {
     const batch = datastore.batch();
     const key1 = new Key('key1');

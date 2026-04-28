@@ -6,6 +6,7 @@
 
 #include "merge_prover.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 
 namespace bb {
@@ -25,8 +26,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
     // Merge the current subtable (for which a merge proof is being constructed) prior to
     // procedeing with proving.
     if (settings == MergeSettings::APPEND) {
-        size_t last_subtable_size = op_queue->get_current_subtable_size();
-        op_queue->merge(settings, ECCOpQueue::OP_QUEUE_SIZE - last_subtable_size);
+        op_queue->merge(settings, op_queue->get_append_offset());
 
     } else {
         op_queue->merge(settings);
@@ -161,18 +161,19 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
  */
 MergeProver::MergeProof MergeProver::construct_proof()
 {
-
+    BB_BENCH_NAME("MergeProver::construct_proof");
     std::array<Polynomial, NUM_WIRES> left_table;
     std::array<Polynomial, NUM_WIRES> right_table;
     std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
-    std::array<Polynomial, NUM_WIRES> left_table_reversed;
 
     if (settings == MergeSettings::PREPEND) {
         left_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
         right_table = op_queue->construct_previous_ultra_ops_table_columns();  // T_prev
     } else {
         left_table = op_queue->construct_previous_ultra_ops_table_columns();    // T_prev
-        right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
+        right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t (hiding kernel subtable,
+                                                                                // carries MegaZKFlavor::TRACE_OFFSET
+                                                                                // leading zeros internally)
     }
 
     // Send shift_size to the verifier

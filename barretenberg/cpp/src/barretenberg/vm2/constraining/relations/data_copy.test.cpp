@@ -4,7 +4,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -131,7 +131,7 @@ TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopy)
 }
 
 // Copying one element tests the case where the trace populates a single row
-// where both sel_start and sel_end are toggled on but is a different code path
+// where both start and end are toggled on but is a different code path
 // in tracegen than with copy_size == 0.
 TEST_F(NestedCdConstrainingBuilderTest, SimpleNestedCdCopySizeOneNoPadding)
 {

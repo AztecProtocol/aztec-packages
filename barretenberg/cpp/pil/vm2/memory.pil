@@ -229,7 +229,7 @@ sel_tag_is_ff * (1 - sel_tag_is_ff) = 0;
 // Trace must be continuous: once sel drops to 0, it stays 0.
 // Exception: the first row (precomputed.first_row = 1) is always inactive.
 #[MEM_CONTINUITY]
-(1 - precomputed.first_row) * (1 - sel) * sel' = 0;
+(1 - precomputed.first_row - sel) * sel' = 0;
 
 // Boolean toggle for "not the last active row". Boolean by definition (product of two booleans).
 #[SEL_RNG_CHK]

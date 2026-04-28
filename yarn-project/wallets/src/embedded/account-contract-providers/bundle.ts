@@ -1,12 +1,14 @@
 import { EcdsaKAccountContract, EcdsaRAccountContract } from '@aztec/accounts/ecdsa';
 import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
-import { StubAccountContractArtifact, createStubAccount } from '@aztec/accounts/stub';
+import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
+import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
 import type { Account, AccountContract } from '@aztec/aztec.js/account';
 import type { Fq } from '@aztec/foundation/curves/bn254';
 import { getCanonicalMultiCallEntrypoint } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
+import type { AccountType } from '../wallet_db.js';
 import type { AccountContractsProvider } from './types.js';
 
 /**
@@ -26,12 +28,12 @@ export class BundleAccountContractsProvider implements AccountContractsProvider 
     return Promise.resolve(new EcdsaKAccountContract(signingKey));
   }
 
-  getStubAccountContractArtifact(): Promise<ContractArtifact> {
-    return Promise.resolve(StubAccountContractArtifact);
+  getStubAccountContractArtifact(type: AccountType): Promise<ContractArtifact> {
+    return Promise.resolve(type === 'schnorr' ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact);
   }
 
-  createStubAccount(address: CompleteAddress): Promise<Account> {
-    return Promise.resolve(createStubAccount(address));
+  createStubAccount(address: CompleteAddress, type: AccountType): Promise<Account> {
+    return Promise.resolve(type === 'schnorr' ? createStubSchnorrAccount(address) : createStubEcdsaAccount(address));
   }
 
   getMulticallContract(): Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }> {

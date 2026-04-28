@@ -3,6 +3,9 @@
 # Autoformats staged files, unless any are partially staged (committed in chunks).
 set -euo pipefail
 
+# we have to unset this env var set by git hooks so that this relative paths work correctly when used inside worktrees
+unset GIT_DIR
+
 cd $(dirname $0)
 
 export FORCE_COLOR=true

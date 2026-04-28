@@ -26,7 +26,6 @@ export function sendToBackground(message: any): Promise<any> {
 }
 // docs:end:send-message
 
-// docs:start:task-waiting
 /**
  * Registry of pending task promises. (#12)
  *
@@ -72,7 +71,6 @@ export function handleTaskUpdate(task: BackgroundTask) {
     callbacks.reject(new Error(task.error || 'Task failed'));
   }
 }
-// docs:end:task-waiting
 
 // docs:start:helpers
 export function truncateAddress(address: string): string {

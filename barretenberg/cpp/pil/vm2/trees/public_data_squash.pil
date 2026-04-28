@@ -58,7 +58,7 @@ namespace public_data_squash;
     // Next sel=1 implies current sel=1 or first_row=1
     // With this constraint, we can only have sel=1 for N rows after the first, where N could be zero.
     #[TRACE_CONTINUITY]
-    sel' * (1 - sel) * (1 - precomputed.first_row) = 0;
+    (1 - sel - precomputed.first_row) * sel' = 0;
 
     pol END = sel * (1 - sel');
     pol NOT_END = sel * sel';

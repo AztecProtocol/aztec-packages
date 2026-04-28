@@ -197,6 +197,29 @@ function install_aztec_packages {
   npm install @aztec/aztec@$VERSION @aztec/cli-wallet@$VERSION @aztec/bb.js@$VERSION --prefix "$version_path"
 }
 
+function symlink_aztec_bins {
+  set -euo pipefail
+  # Populate version_bin_path with symlinks to @aztec-owned bins only. Adding
+  # node_modules/.bin wholesale to PATH would shadow user-installed tools
+  # (jest, tsc, semver, ...) with Aztec's transitive dependencies.
+  local npm_bin_dir="$version_path/node_modules/.bin"
+  [ -d "$npm_bin_dir" ] || return 0
+
+  local bin_link bin_name target
+  for bin_link in "$npm_bin_dir"/*; do
+    [ -L "$bin_link" ] || continue
+    target=$(readlink "$bin_link")
+    # npm writes relative symlinks like ../@aztec/aztec/... for scoped packages.
+    [[ "$target" == ../@aztec/* ]] || continue
+    bin_name=$(basename "$bin_link")
+    if [ -e "$version_bin_path/$bin_name" ] && [ ! -L "$version_bin_path/$bin_name" ]; then
+      echo_yellow "refusing to overwrite non-symlink $bin_name; @aztec package bin collides with a hand-installed toolchain binary" >&2
+      exit 1
+    fi
+    ln -sfn "../node_modules/.bin/$bin_name" "$version_bin_path/$bin_name"
+  done
+}
+
 function main {
   # Create version directory
   mkdir -p "$version_bin_path"
@@ -227,6 +250,11 @@ function main {
   # Install aztec npm packages
   echo -n "Installing aztec packages... "
   dump_fail retry install_aztec_packages
+  echo_green "done."
+
+  # Expose only @aztec-owned bins on PATH (drops transitive npm deps).
+  echo -n "Making aztec commands available... "
+  dump_fail retry symlink_aztec_bins
   echo_green "done."
 }
 

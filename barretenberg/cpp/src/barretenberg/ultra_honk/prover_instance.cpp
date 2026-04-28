@@ -36,17 +36,20 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
               "Pairing points must be set to public in the circuit before constructing the ProverInstance.");
 
     // ProverInstances can be constructed multiple times, hence, we check whether the circuit has been finalized
-    if (!circuit.circuit_finalized) {
-        circuit.finalize_circuit(/* ensure_nonzero = */ true);
-    }
-    metadata.dyadic_size = compute_dyadic_size(circuit);
-    masking_tail_data.dyadic_size = metadata.dyadic_size;
+    {
+        BB_BENCH_NAME("finalize_circuit");
+        if (!circuit.circuit_finalized) {
+            circuit.finalize_circuit(/* ensure_nonzero = */ true);
+        }
+        // Compute block offsets before dyadic size so that compute_dyadic_size can account for the lookup table offset
+        circuit.blocks.compute_offsets(TRACE_OFFSET);
+        metadata.dyadic_size = compute_dyadic_size(circuit);
 
-    // Find index of last non-trivial wire value in the trace
-    circuit.blocks.compute_offsets(); // compute offset of each block within the trace
-    for (auto& block : circuit.blocks.get()) {
-        if (block.size() > 0) {
-            final_active_wire_idx = block.trace_offset() + block.size() - 1;
+        // Find index of last non-trivial wire value in the trace
+        for (auto& block : circuit.blocks.get()) {
+            if (block.size() > 0) {
+                final_active_wire_idx = block.trace_end() - 1;
+            }
         }
     }
 
@@ -85,8 +88,8 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
         construct_databus_polynomials(circuit);
     }
 
-    // Set the lagrange polynomials
-    polynomials.lagrange_first.at(0) = 1;
+    // Set the lagrange polynomials (lagrange_first at first active row after disabled region)
+    polynomials.lagrange_first.at(TRACE_OFFSET) = 1;
     polynomials.lagrange_last.at(final_active_wire_idx) = 1;
 
     construct_lookup_polynomials(circuit);
@@ -127,10 +130,10 @@ template <typename Flavor> size_t ProverInstance_<Flavor>::compute_dyadic_size(C
     // minimum size of execution trace due to everything else
     size_t min_size_of_execution_trace = circuit.blocks.get_total_content_size();
 
-    // The number of gates is the maximum required by the lookup argument or everything else, plus a zero row to allow
-    // for shifts.
-    size_t total_num_gates =
-        NUM_DISABLED_ROWS_IN_SUMCHECK + NUM_ZERO_ROWS + std::max(tables_size, min_size_of_execution_trace);
+    // Tables are placed at the lookup block's trace offset, so account for blocks preceding lookup
+    const size_t tables_end = circuit.blocks.lookup.trace_offset() + tables_size;
+    const size_t trace_end = TRACE_OFFSET + NUM_ZERO_ROWS + min_size_of_execution_trace;
+    size_t total_num_gates = std::max(tables_end, trace_end);
 
     // Next power of 2 (dyadic circuit size)
     return circuit.get_circuit_subgroup_size(total_num_gates);
@@ -140,11 +143,10 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_wires()
 {
     BB_BENCH_NAME("allocate_wires");
 
-    // Allocate wires to active trace range only. For ZK, masking values are stored in MaskingTailData.
     const size_t wire_size = trace_active_range_size();
 
     for (auto& wire : polynomials.get_wires()) {
-        wire = Polynomial::shiftable(wire_size, dyadic_size());
+        wire = Polynomial::shiftable(wire_size, dyadic_size(), Flavor::HasZK);
     }
 }
 
@@ -160,8 +162,7 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_permutation_ar
         id = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
     }
 
-    // Allocate z_perm to active trace range only. For ZK, masking values are stored in MaskingTailData.
-    polynomials.z_perm = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+    polynomials.z_perm = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Flavor::HasZK);
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polynomials()
@@ -169,7 +170,7 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_lagrange_polyn
     BB_BENCH_NAME("allocate_lagrange_polynomials");
 
     polynomials.lagrange_first = Polynomial(
-        /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/0);
+        /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/TRACE_OFFSET);
 
     polynomials.lagrange_last = Polynomial(
         /* size=*/1, /*virtual size=*/dyadic_size(), /*start_index=*/final_active_wire_idx);
@@ -195,25 +196,33 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_table_lookup_p
     BB_BENCH_NAME("allocate_table_lookup_and_lookup_read_polynomials");
 
     const size_t tables_size = circuit.get_tables_size(); // cumulative size of all lookup tables
+    const size_t table_offset = circuit.blocks.lookup.trace_offset();
+    const size_t tables_end = table_offset + tables_size;
 
+    // Tables start at the lookup block's trace offset, which is always past the disabled region
+    BB_ASSERT_GTE(table_offset, TRACE_OFFSET);
     // Allocate polynomials containing the actual table data; offset to align with the lookup gate block
-    BB_ASSERT_GT(dyadic_size(), tables_size);
+    BB_ASSERT_GTE(dyadic_size(), tables_end);
     for (auto& table_poly : polynomials.get_tables()) {
-        table_poly = Polynomial(tables_size, dyadic_size());
+        table_poly = Polynomial(tables_end, dyadic_size());
     }
 
     // Read counts and tags: track which table entries have been read
-    // Allocate just the table size. For ZK, masking values are stored in MaskingTailData.
-    polynomials.lookup_read_counts = Polynomial(tables_size, dyadic_size());
-    polynomials.lookup_read_tags = Polynomial(tables_size, dyadic_size());
+    polynomials.lookup_read_counts = Polynomial(tables_end, dyadic_size());
+    polynomials.lookup_read_tags = Polynomial(tables_end, dyadic_size());
 
     // Lookup inverses: used in the log-derivative lookup argument
     // Must cover both the lookup gate block (where reads occur) and the table data itself
-    const size_t lookup_block_end = circuit.blocks.lookup.trace_offset() + circuit.blocks.lookup.size();
-    const size_t lookup_inverses_end = std::max(lookup_block_end, tables_size);
+    const size_t lookup_block_end = circuit.blocks.lookup.trace_end();
+    const size_t lookup_inverses_end = std::max(lookup_block_end, tables_end);
 
-    // Allocate to the minimum needed size. For ZK, masking values are stored in MaskingTailData.
     polynomials.lookup_inverses = Polynomial(lookup_inverses_end, dyadic_size());
+
+    if constexpr (Flavor::HasZK) {
+        polynomials.lookup_read_counts.add_masking();
+        polynomials.lookup_read_tags.add_masking();
+        polynomials.lookup_inverses.add_masking();
+    }
 }
 
 template <typename Flavor>
@@ -223,12 +232,12 @@ void ProverInstance_<Flavor>::allocate_ecc_op_polynomials(const Circuit& circuit
     BB_BENCH_NAME("allocate_ecc_op_polynomials");
 
     // Allocate the ecc op wires and selector
-    // Note: ECC op wires are not blinded directly so we do not need to allocate full dyadic size for ZK
-    const size_t ecc_op_block_size = circuit.blocks.ecc_op.size();
+    // Note: ECC op wires are not masked (they use random ops for ZK)
+    const size_t ecc_op_end = circuit.blocks.ecc_op.trace_end();
     for (auto& wire : polynomials.get_ecc_op_wires()) {
-        wire = Polynomial(ecc_op_block_size, dyadic_size());
+        wire = Polynomial(ecc_op_end, dyadic_size());
     }
-    polynomials.lagrange_ecc_op = Polynomial(ecc_op_block_size, dyadic_size());
+    polynomials.lagrange_ecc_op = Polynomial(ecc_op_end, dyadic_size());
 }
 
 template <typename Flavor>
@@ -237,40 +246,45 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
 {
     BB_BENCH_NAME("allocate_databus_and_lookup_inverse_polynomials");
 
-    const size_t calldata_size = circuit.get_calldata().size();
-    const size_t sec_calldata_size = circuit.get_secondary_calldata().size();
-    const size_t return_data_size = circuit.get_return_data().size();
+    // Databus data uses NUM_DISABLED_ROWS_IN_SUMCHECK as its offset rather than Flavor::TRACE_OFFSET so that
+    // commitments match across the IVC boundary (a non-ZK kernel's return_data is copy-constrained to a MegaZK
+    // hiding kernel's calldata). MegaZK additionally requires this offset to clear the masking region
+    // [1, NUM_DISABLED_ROWS_IN_SUMCHECK); non-ZK Mega mirrors the layout even though it has no masking.
+    const auto offset_size = [](size_t content) -> size_t { return NUM_DISABLED_ROWS_IN_SUMCHECK + content; };
 
-    // Allocate only enough space for the databus data. For ZK, masking values are stored in MaskingTailData.
-    polynomials.calldata = Polynomial(calldata_size, dyadic_size());
-    polynomials.calldata_read_counts = Polynomial(calldata_size, dyadic_size());
-    polynomials.calldata_read_tags = Polynomial(calldata_size, dyadic_size());
+    // Databus inverses must cover both the databus gate block (where reads occur) and the data itself.
+    const size_t q_busread_end = circuit.blocks.busread.trace_end();
 
-    polynomials.secondary_calldata = Polynomial(sec_calldata_size, dyadic_size());
-    polynomials.secondary_calldata_read_counts = Polynomial(sec_calldata_size, dyadic_size());
-    polynomials.secondary_calldata_read_tags = Polynomial(sec_calldata_size, dyadic_size());
+    size_t max_databus_column_size = 0;
 
-    polynomials.return_data = Polynomial(return_data_size, dyadic_size());
-    polynomials.return_data_read_counts = Polynomial(return_data_size, dyadic_size());
-    polynomials.return_data_read_tags = Polynomial(return_data_size, dyadic_size());
+    bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+        const size_t bus_size = circuit.get_bus_vector(bus_idx).size();
+        max_databus_column_size = std::max(max_databus_column_size, bus_size);
 
-    // Databus lookup inverses: used in the log-derivative lookup argument
-    // Must cover both the databus gate block (where reads occur) and the databus data itself
-    const size_t q_busread_end = circuit.blocks.busread.trace_offset() + circuit.blocks.busread.size();
-    // Allocate to the minimum needed size. For ZK, masking values are stored in MaskingTailData.
-    size_t calldata_inverses_size = std::max(calldata_size, q_busread_end);
-    size_t sec_calldata_inverses_size = std::max(sec_calldata_size, q_busread_end);
-    size_t return_data_inverses_size = std::max(return_data_size, q_busread_end);
+        // Values + read_counts: sized to the bus data shifted by TRACE_OFFSET.
+        auto entities = polynomials.template databus_entities_for_bus<bus_idx>();
+        for (auto& entity : entities) {
+            entity = Polynomial(offset_size(bus_size), dyadic_size());
+        }
 
-    polynomials.calldata_inverses = Polynomial(calldata_inverses_size, dyadic_size());
-    polynomials.secondary_calldata_inverses = Polynomial(sec_calldata_inverses_size, dyadic_size());
-    polynomials.return_data_inverses = Polynomial(return_data_inverses_size, dyadic_size());
+        // Inverse polynomial: sized to cover both the busread gate block and the shifted bus data.
+        auto inverse_ref = polynomials.template databus_inverse_for_bus<bus_idx>();
+        inverse_ref[0] = Polynomial(std::max(offset_size(bus_size), q_busread_end), dyadic_size());
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1555): Allocate minimum size >1 to avoid point at
-    // infinity commitment.
-    const size_t max_databus_column_size =
-        std::max({ calldata_size, sec_calldata_size, return_data_size, size_t{ 2 } });
-    polynomials.databus_id = Polynomial(max_databus_column_size, dyadic_size());
+        if constexpr (Flavor::HasZK) {
+            // Mask databus witness polynomials. The calldata values column (bus_idx == 0) is NOT
+            // masked; its read_counts column is.
+            auto& values_poly = entities[0];
+            auto& read_counts_poly = entities[1];
+            if constexpr (bus_idx != 0) {
+                values_poly.add_masking();
+            }
+            read_counts_poly.add_masking();
+            inverse_ref[0].add_masking();
+        }
+    });
+
+    polynomials.databus_id = Polynomial(offset_size(max_databus_column_size), dyadic_size());
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)
@@ -286,49 +300,31 @@ template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polyno
 }
 
 /**
- * @brief Populate the databus polynomials (calldata, secondary_calldata, return_data) and their read counts/tags.
+ * @brief Populate the per-bus databus polynomials (values and read counts) and the identity polynomial.
  */
 template <typename Flavor>
 void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     requires HasDataBus<Flavor>
 {
-    auto& calldata_poly = polynomials.calldata;
-    auto& calldata_read_counts = polynomials.calldata_read_counts;
-    auto& calldata_read_tags = polynomials.calldata_read_tags;
-    auto& secondary_calldata_poly = polynomials.secondary_calldata;
-    auto& secondary_calldata_read_counts = polynomials.secondary_calldata_read_counts;
-    auto& secondary_calldata_read_tags = polynomials.secondary_calldata_read_tags;
-    auto& return_data_poly = polynomials.return_data;
-    auto& return_data_read_counts = polynomials.return_data_read_counts;
-    auto& return_data_read_tags = polynomials.return_data_read_tags;
+    // Databus offset of NUM_DISABLED_ROWS_IN_SUMCHECK is forced by cross-flavor commitment compatibility and
+    // MegaZK masking; see allocate_databus_polynomials for the rationale.
+    size_t max_bus_size = 0;
+    bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+        const auto& bus_vec = circuit.get_bus_vector(bus_idx);
+        max_bus_size = std::max(max_bus_size, bus_vec.size());
+        auto entities = polynomials.template databus_entities_for_bus<bus_idx>();
+        auto& values_poly = entities[0];
+        auto& read_counts_poly = entities[1];
+        for (size_t idx = 0; idx < bus_vec.size(); ++idx) {
+            values_poly.at(NUM_DISABLED_ROWS_IN_SUMCHECK + idx) = circuit.get_variable(bus_vec[idx]);
+            read_counts_poly.at(NUM_DISABLED_ROWS_IN_SUMCHECK + idx) = bus_vec.get_read_count(idx);
+        }
+    });
 
-    const auto& calldata = circuit.get_calldata();
-    const auto& secondary_calldata = circuit.get_secondary_calldata();
-    const auto& return_data = circuit.get_return_data();
-
-    // Note: Databus columns start from index 0. If this ever changes, make sure to also update the active range
-    // construction in ExecutionTraceUsageTracker::update(). We do not utilize a zero row for databus columns.
-    for (size_t idx = 0; idx < calldata.size(); ++idx) {
-        calldata_poly.at(idx) = circuit.get_variable(calldata[idx]);        // calldata values
-        calldata_read_counts.at(idx) = calldata.get_read_count(idx);        // read counts
-        calldata_read_tags.at(idx) = calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
-    }
-    for (size_t idx = 0; idx < secondary_calldata.size(); ++idx) {
-        secondary_calldata_poly.at(idx) = circuit.get_variable(secondary_calldata[idx]); // secondary_calldata values
-        secondary_calldata_read_counts.at(idx) = secondary_calldata.get_read_count(idx); // read counts
-        secondary_calldata_read_tags.at(idx) =
-            secondary_calldata_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
-    }
-    for (size_t idx = 0; idx < return_data.size(); ++idx) {
-        return_data_poly.at(idx) = circuit.get_variable(return_data[idx]);        // return data values
-        return_data_read_counts.at(idx) = return_data.get_read_count(idx);        // read counts
-        return_data_read_tags.at(idx) = return_data_read_counts[idx] > 0 ? 1 : 0; // has row been read or not
-    }
-
+    // Compute a simple identity polynomial for use in the databus lookup argument.
     auto& databus_id = polynomials.databus_id;
-    // Compute a simple identity polynomial for use in the databus lookup argument
-    for (size_t i = 0; i < databus_id.size(); ++i) {
-        databus_id.at(i) = i;
+    for (size_t i = 0; i < max_bus_size; ++i) {
+        databus_id.at(NUM_DISABLED_ROWS_IN_SUMCHECK + i) = i;
     }
 }
 

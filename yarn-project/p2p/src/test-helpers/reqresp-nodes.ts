@@ -6,6 +6,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import type {
   ClientProtocolCircuitVerifier,
   IVCProofVerificationResult,
@@ -153,6 +154,8 @@ export async function createTestLibP2PService(
     epochCache,
   );
 
+  reqresp.setShouldRejectPeer(peerId => peerManager.shouldDisableP2PGossip(peerId));
+
   p2pNode.services.pubsub.score.params.appSpecificWeight = APP_SPECIFIC_WEIGHT;
   p2pNode.services.pubsub.score.params.appSpecificScore = (peerId: string) =>
     peerManager.shouldDisableP2PGossip(peerId) ? -Infinity : peerManager.getPeerScore(peerId);
@@ -168,6 +171,7 @@ export async function createTestLibP2PService(
     epochCache,
     proofVerifier,
     worldStateSynchronizer,
+    { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
     telemetry,
   );
 }
@@ -187,7 +191,6 @@ export const MOCK_SUB_PROTOCOL_HANDLERS: ReqRespSubProtocolHandlers = {
   [ReqRespSubProtocol.STATUS]: (_msg: any) => Promise.resolve(Buffer.from('status')),
   [ReqRespSubProtocol.TX]: (_msg: any) => Promise.resolve(Buffer.from('tx')),
   [ReqRespSubProtocol.GOODBYE]: (_msg: any) => Promise.resolve(Buffer.from('goodbye')),
-  [ReqRespSubProtocol.BLOCK]: (_msg: any) => Promise.resolve(Buffer.from('block')),
   [ReqRespSubProtocol.AUTH]: (_msg: any) => Promise.resolve(Buffer.from('auth')),
   [ReqRespSubProtocol.BLOCK_TXS]: (_msg: any) => Promise.resolve(Buffer.from('block_txs')),
 };
@@ -199,7 +202,6 @@ export const MOCK_SUB_PROTOCOL_VALIDATORS: ReqRespSubProtocolValidators = {
   [ReqRespSubProtocol.STATUS]: noopValidator,
   [ReqRespSubProtocol.TX]: noopValidator,
   [ReqRespSubProtocol.GOODBYE]: noopValidator,
-  [ReqRespSubProtocol.BLOCK]: noopValidator,
   [ReqRespSubProtocol.AUTH]: noopValidator,
   [ReqRespSubProtocol.BLOCK_TXS]: noopValidator,
 };

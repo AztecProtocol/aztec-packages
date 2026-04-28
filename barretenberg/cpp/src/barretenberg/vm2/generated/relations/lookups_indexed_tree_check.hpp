@@ -164,7 +164,7 @@ using lookup_indexed_tree_check_updated_low_leaf_poseidon2_relation =
 struct lookup_indexed_tree_check_low_leaf_merkle_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INDEXED_TREE_CHECK_LOW_LEAF_MERKLE_CHECK";
     static constexpr std::string_view RELATION_NAME = "indexed_tree_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::indexed_tree_check_sel;
     static constexpr Column DST_SELECTOR = Column::merkle_check_start;
     static constexpr Column COUNTS = Column::lookup_indexed_tree_check_low_leaf_merkle_check_counts;
@@ -176,13 +176,14 @@ struct lookup_indexed_tree_check_low_leaf_merkle_check_settings_ {
         ColumnAndShifts::indexed_tree_check_low_leaf_index,
         ColumnAndShifts::indexed_tree_check_tree_height,
         ColumnAndShifts::indexed_tree_check_root,
-        ColumnAndShifts::indexed_tree_check_intermediate_root
+        ColumnAndShifts::indexed_tree_check_intermediate_root,
+        ColumnAndShifts::indexed_tree_check_merkle_hash_separator
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::merkle_check_write,      ColumnAndShifts::merkle_check_read_node,
         ColumnAndShifts::merkle_check_write_node, ColumnAndShifts::merkle_check_index,
         ColumnAndShifts::merkle_check_path_len,   ColumnAndShifts::merkle_check_read_root,
-        ColumnAndShifts::merkle_check_write_root
+        ColumnAndShifts::merkle_check_write_root, ColumnAndShifts::merkle_check_merkle_hash_separator
     };
 };
 
@@ -229,7 +230,7 @@ using lookup_indexed_tree_check_new_leaf_poseidon2_relation =
 struct lookup_indexed_tree_check_new_leaf_merkle_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_INDEXED_TREE_CHECK_NEW_LEAF_MERKLE_CHECK";
     static constexpr std::string_view RELATION_NAME = "indexed_tree_check";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 7;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::indexed_tree_check_sel_insert;
     static constexpr Column DST_SELECTOR = Column::merkle_check_start;
     static constexpr Column COUNTS = Column::lookup_indexed_tree_check_new_leaf_merkle_check_counts;
@@ -238,13 +239,13 @@ struct lookup_indexed_tree_check_new_leaf_merkle_check_settings_ {
         ColumnAndShifts::indexed_tree_check_sel,           ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::indexed_tree_check_new_leaf_hash, ColumnAndShifts::indexed_tree_check_tree_size_before_write,
         ColumnAndShifts::indexed_tree_check_tree_height,   ColumnAndShifts::indexed_tree_check_intermediate_root,
-        ColumnAndShifts::indexed_tree_check_write_root
+        ColumnAndShifts::indexed_tree_check_write_root,    ColumnAndShifts::indexed_tree_check_merkle_hash_separator
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::merkle_check_write,      ColumnAndShifts::merkle_check_read_node,
         ColumnAndShifts::merkle_check_write_node, ColumnAndShifts::merkle_check_index,
         ColumnAndShifts::merkle_check_path_len,   ColumnAndShifts::merkle_check_read_root,
-        ColumnAndShifts::merkle_check_write_root
+        ColumnAndShifts::merkle_check_write_root, ColumnAndShifts::merkle_check_merkle_hash_separator
     };
 };
 
