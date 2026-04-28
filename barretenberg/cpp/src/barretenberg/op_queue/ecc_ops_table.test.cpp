@@ -178,7 +178,9 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendNoGap)
         }
 
         if (i == NUM_SUBTABLES - 1) {
-            ultra_ops_table.merge(MergeMode::FIXED_APPEND);
+            // No-gap fixed-append: place the appended subtable immediately after the prior subtables.
+            const size_t no_gap_offset = subtable_op_counts[0] + subtable_op_counts[1];
+            ultra_ops_table.merge_with_fixed_append_offset(no_gap_offset);
         } else {
             ultra_ops_table.merge();
         }
@@ -237,7 +239,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
         }
 
         if (i == NUM_SUBTABLES - 1) {
-            ultra_ops_table.merge(MergeMode::FIXED_APPEND, fixed_offset);
+            ultra_ops_table.merge_with_fixed_append_offset(fixed_offset);
         } else {
             ultra_ops_table.merge();
         }

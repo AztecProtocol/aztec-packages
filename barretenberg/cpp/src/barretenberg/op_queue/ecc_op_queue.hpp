@@ -100,10 +100,10 @@ class ECCOpQueue {
         ultra_ops_table.merge();
     }
 
-    void merge_fixed_append(std::optional<size_t> ultra_fixed_offset = std::nullopt)
+    void merge_fixed_append(size_t ultra_fixed_offset)
     {
         eccvm_ops_table.merge();
-        ultra_ops_table.merge(MergeMode::FIXED_APPEND, ultra_fixed_offset);
+        ultra_ops_table.merge_with_fixed_append_offset(ultra_fixed_offset);
     }
 
     std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_zk_columns()
@@ -146,7 +146,6 @@ class ECCOpQueue {
 
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.num_ultra_rows(); }
     size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); } // actual operation count without padding
-    size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
     size_t get_ultra_ops_table_num_rows_up_to_tail() const { return ultra_ops_table.ultra_table_size_up_to_tail(); }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops
@@ -341,7 +340,8 @@ class ECCOpQueue {
      * on-curve check is similarly gated. q_reset = 1 is required for Translator compatibility (only opcodes {0,3,4,8}
      * are allowed).
      *
-     * This method should be called ONCE per IVC in the tail kernel, after the random non-ops.
+     * This method writes the same hiding op to both the ECCVM and Ultra tables in one step, ensuring the two
+     * representations agree (required for the translation check).
      *
      * @param Px Random field element (not necessarily a valid x-coordinate on BN254)
      * @param Py Random field element (not necessarily a valid y-coordinate on BN254)
@@ -385,13 +385,14 @@ class ECCOpQueue {
 
   private:
     // === Hiding Op State ===
-    // The hiding op is handled asymmetrically but ends up at the same functional relative position in both:
-    // - ECCVM: Stored here and prepended at index 0 during get_eccvm_ops() reconstruction
-    // - Ultra: Pushed to ultra_ops_table at index 4 (after 1 no-op + 3 random padding ops)
+    // The hiding op exists in both the ECCVM and Ultra tables (same Px, Py values, opcode q_eq=q_reset=1):
+    // - ECCVM: Stored here and prepended at index 0 during get_eccvm_ops() reconstruction.
+    // - Ultra: Pushed into the Ultra ops table, landing at index 4 of the reconstructed table (after 1 no-op
+    //   + 3 random padding ops).
     //
-    // Both end up with hiding op as the first "real" op because:
-    // - ECCVM: prepending puts it at index 0; padding ops don't exist in ECCVM table
-    // - Translator: skips first 4 Ultra ops (padding), so accumulation starts at the hiding op
+    // The hiding op is the first "real" op that enters the accumulation:
+    // - ECCVM: prepending puts it at index 0; padding ops don't exist in ECCVM table.
+    // - Translator: skips the first 4 Ultra ops (padding), so accumulation starts at the hiding op.
     //
     // This alignment is required for the translation check (ECCVM and Translator must compute
     // the same accumulated_result). ECCVM places it at row 1 (lagrange_second) where on-curve
