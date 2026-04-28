@@ -80,6 +80,7 @@ template <class base_uint> class uintx {
      */
     constexpr uintx slice(const uint64_t start, const uint64_t end) const
     {
+        BB_ASSERT_DEBUG(start <= end);
         const uint64_t range = end - start;
         const uintx mask = (uintx(1) << range) - 1;
         return ((*this) >> start) & mask;

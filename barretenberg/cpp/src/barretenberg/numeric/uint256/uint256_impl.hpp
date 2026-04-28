@@ -329,7 +329,7 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::mul_extended(const uint256_
  */
 constexpr uint256_t uint256_t::slice(const uint64_t start, const uint64_t end) const
 {
-    assert(start < end);
+    BB_ASSERT_DEBUG(start <= end);
     const uint64_t range = end - start;
     const uint256_t mask = (range == 256) ? -uint256_t(1) : (uint256_t(1) << range) - 1;
     return ((*this) >> start) & mask;
