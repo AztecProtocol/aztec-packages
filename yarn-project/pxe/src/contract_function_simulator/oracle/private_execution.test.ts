@@ -15,6 +15,7 @@ import { CalldataLimitTestContractArtifact } from '@aztec/noir-test-contracts.js
 import { ChildContractArtifact } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
+import { SenderForTagsTestContractArtifact } from '@aztec/noir-test-contracts.js/SenderForTagsTest';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -767,6 +768,17 @@ describe('Private Execution test suite', () => {
       });
 
       expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [owner], childAddress);
+    });
+
+    it('sender_for_tags override in a nested call does not leak to siblings, parents, or further descendants', async () => {
+      const contractAddress = await mockContractInstance(SenderForTagsTestContractArtifact);
+      await runSimulator({
+        args: [senderForTags],
+        artifact: SenderForTagsTestContractArtifact,
+        anchorBlockHeader,
+        functionName: 'parent',
+        contractAddress,
+      });
     });
   });
 

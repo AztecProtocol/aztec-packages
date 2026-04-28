@@ -52,7 +52,9 @@ async function main() {
   // Connect to local network
   const node = createAztecNodeClient("http://localhost:8080");
 
-  const wallet = await EmbeddedWallet.create(node);
+  // `ephemeral: true` keeps PXE state in memory, so restarting the local
+  // network won't leave this script pointing at stale block hashes.
+  const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 
   const [giggleWalletData, aliceWalletData, bobClinicWalletData] =
     await getInitialTestAccountsData();

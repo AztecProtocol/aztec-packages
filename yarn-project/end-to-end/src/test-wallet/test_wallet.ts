@@ -40,6 +40,7 @@ import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 import { BaseWallet, type SimulateViaEntrypointOptions } from '@aztec/wallet-sdk/base-wallet';
 import type { AccountType } from '@aztec/wallets/embedded';
 
+import { DEFAULT_MIN_FEE_PADDING } from '../fixtures/fixtures.js';
 import { AztecNodeProxy, ProvenTx } from './utils.js';
 
 /**
@@ -63,6 +64,7 @@ export class TestWallet extends BaseWallet {
     private readonly nodeRef: AztecNodeProxy,
   ) {
     super(pxe, nodeRef);
+    this.minFeePadding = DEFAULT_MIN_FEE_PADDING;
   }
 
   static async create(
@@ -178,7 +180,7 @@ export class TestWallet extends BaseWallet {
   }
 
   setMinFeePadding(value?: number) {
-    this.minFeePadding = value ?? 0.5;
+    this.minFeePadding = value ?? DEFAULT_MIN_FEE_PADDING;
   }
 
   protected getAccountFromAddress(address: AztecAddress): Promise<Account> {
@@ -258,7 +260,7 @@ export class TestWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement, sendMessagesAs } = opts;
     const scopes = this.scopesFrom(from, additionalScopes);
     const skipKernels = this.simulationMode !== 'full';
     const useOverride = this.simulationMode === 'kernelless-override';
@@ -308,6 +310,7 @@ export class TestWallet extends BaseWallet {
       skipTxValidation,
       overrides,
       scopes,
+      senderForTags: this.senderForTagsFrom(from, sendMessagesAs),
     });
     const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
@@ -320,7 +323,10 @@ export class TestWallet extends BaseWallet {
       gasSettings: opts.fee?.gasSettings,
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(exec, opts.from, fee);
-    const txProvingResult = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
+    const txProvingResult = await this.pxe.proveTx(txRequest, {
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
+    });
     return new ProvenTx(
       this.aztecNode,
       await txProvingResult.toTx(),

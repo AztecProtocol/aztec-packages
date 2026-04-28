@@ -80,14 +80,6 @@ The developer SDK/aztec-nr version (used for writing and compiling contracts) ma
 | **Slashing Quorum** | 65% | 33% |
 | **Slashing Round Size** | 128 epochs | 64 epochs |
 
-## Use Case Suitability
-
-| Use Case | Alpha (Mainnet) | Testnet |
-|----------|-------------------|---------|
-| **App Development** | ❌ | ✅ |
-| **Sequencer Testing** | ✅ | ✅ |
-| **Governance Testing** | ✅ | ✅ |
-
 ---
 
 ## Network Selection Guide

@@ -721,6 +721,25 @@ variable "RPC_INGRESS_SSL_CERT_NAMES" {
   default     = []
 }
 
+variable "RPC_CLOUD_ARMOR_POLICY_NAME" {
+  description = "Name of a Cloud Armor security policy to attach to the RPC ingress BackendConfig. Leave empty to disable."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_SESSION_AFFINITY" {
+  description = "Session affinity type for the RPC BackendConfig. One of NONE, CLIENT_IP, GENERATED_COOKIE. Leave empty for no affinity (GCE default)."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_INGRESS_LOG_SAMPLE_RATE" {
+  description = "LB access-log sample rate for the RPC BackendConfig (0.0-1.0). When set, logs include the Cloud Armor matched rule priority. Leave null to disable logging (GCE default)."
+  type        = number
+  nullable    = true
+  default     = null
+}
+
 variable "PROVER_FAILED_PROOF_STORE" {
   description = "Optional GCS/URI to store failed proofs from the prover"
   type        = string

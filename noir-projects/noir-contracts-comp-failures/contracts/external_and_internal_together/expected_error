@@ -1,0 +1,1 @@
+The #[internal] attribute cannot be applied to external functions - foo is marked as both #[external] and #[internal("private")]

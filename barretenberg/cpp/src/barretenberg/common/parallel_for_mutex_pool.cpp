@@ -83,7 +83,6 @@ class ThreadPool {
                 }
                 iteration = iteration_++;
             }
-            // BB_BENCH_NAME("do_iterations()");
             task_(iteration);
             {
                 std::unique_lock<std::mutex> lock(tasks_mutex);
@@ -116,9 +115,9 @@ ThreadPool::~ThreadPool()
     }
 }
 
-void ThreadPool::worker_loop(size_t /*unused*/)
+void ThreadPool::worker_loop([[maybe_unused]] size_t thread_index)
 {
-    // info("created worker ", worker_num);
+    // info("created worker ", thread_index);
     while (true) {
         {
             std::unique_lock<std::mutex> lock(tasks_mutex);

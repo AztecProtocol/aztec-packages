@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
@@ -399,25 +400,27 @@ template <typename Flavor> class SumcheckProver {
         multivariate_challenge.reserve(virtual_log_n);
         // In the first round, we compute the first univariate polynomial and populate the book-keeping table of
         // #partially_evaluated_polynomials, which has \f$ n/2 \f$ rows and \f$ N \f$ columns.
-        auto round_univariate =
-            round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alphas);
+        PartiallyEvaluatedMultivariates partially_evaluated_polynomials = [&] {
+            BB_BENCH_NAME("sumcheck loop 0");
+            auto round_univariate =
+                round.compute_univariate(full_polynomials, relation_parameters, gate_separators, alphas);
 
-        // Place the evaluations of the round univariate into transcript.
-        transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
-        FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
-        multivariate_challenge.emplace_back(round_challenge);
+            // Place the evaluations of the round univariate into transcript.
+            transcript->send_to_verifier("Sumcheck:univariate_0", round_univariate);
+            FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_0");
+            multivariate_challenge.emplace_back(round_challenge);
 
-        // Populate the book-keeping table
-        PartiallyEvaluatedMultivariates partially_evaluated_polynomials =
-            partially_evaluate_first_round(full_polynomials, round_challenge);
-
-        gate_separators.partially_evaluate(round_challenge);
-        round.round_size = round.round_size >> 1;
+            // Populate the book-keeping table
+            auto result = partially_evaluate_first_round(full_polynomials, round_challenge);
+            gate_separators.partially_evaluate(round_challenge);
+            round.round_size = round.round_size >> 1;
+            return result;
+        }();
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
             BB_BENCH_NAME("sumcheck loop");
 
             // Write the round univariate to the transcript
-            round_univariate =
+            auto round_univariate =
                 round.compute_univariate(partially_evaluated_polynomials, relation_parameters, gate_separators, alphas);
             // Place evaluations of Sumcheck Round Univariate in the transcript
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(round_idx), round_univariate);
@@ -670,6 +673,7 @@ template <typename Flavor> class SumcheckProver {
         auto source_view = source_polynomials.get_all();
         auto dest_view = dest_polynomials.get_all();
         parallel_for(source_view.size(), [&](size_t j) {
+            BB_BENCH_TRACY_NAME("Sumcheck::partially_evaluate");
             const auto& poly = source_view[j];
             size_t limit = poly.end_index();
             for (size_t i = 0; i < limit; i += 2) {
