@@ -1,12 +1,29 @@
 #!/usr/bin/env bash
-# Temporary diagnostic wrapper for `yarn test:browser` used to capture
-# CI container state around the intermittent hang documented in PR #22693.
-# v2: full log dump, hybrid 1s/0.1s cadence, kernel stacks, socket state.
-# Revert this and the package.local.json change once root-caused.
+# Deep diagnostic wrapper around `yarn test:browser` for investigating
+# browser-test hangs and silent failures.
+#
+# Wraps a single vitest run with a hybrid 1s-steady / 0.1s-burst sampler
+# that captures /proc state (wchan, stack, syscall, fd), cgroup CPU/memory
+# counters, /proc/net socket state counts, and a CPU-availability
+# microbench. When vitest goes silent for >3s the sampler enters dense
+# burst mode and emits a stacks_snapshot every 1s of burst. Outer 90s
+# timeout converts a hang into a clean exit with the full diagnostic dump
+# emitted to stderr by the EXIT trap.
+#
+# Single-tenant invocation:
+#   bash yarn-project/kv-store/scripts/probe-test-browser.sh
+#
+# Parallel invocation (avoids tmp-path collisions across slots):
+#   DIAG_DIR=/tmp/diag.$$ bash yarn-project/kv-store/scripts/probe-test-browser.sh
+#
+# Was used to root-cause the kv-store CDP teardown deadlock that
+# scripts/run-browser-tests.sh now works around; kept for future regression
+# debugging. scripts/repro-browser-hang.sh runs this in a parallel grind
+# under docker_isolate constraints.
 
 cd "$(dirname "$0")/.."
 
-DIAG_DIR=/tmp/diag
+DIAG_DIR=${DIAG_DIR:-/tmp/diag}
 PROBE_LOG=$DIAG_DIR/probe.log
 STACKS_LOG=$DIAG_DIR/stacks.log
 VITEST_LOG=$DIAG_DIR/vitest.log

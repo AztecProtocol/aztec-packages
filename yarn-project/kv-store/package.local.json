@@ -1,5 +1,6 @@
 {
   "scripts": {
-    "test": "yarn test:node && bash scripts/probe-test-browser.sh"
+    "test": "yarn test:node && yarn test:browser",
+    "test:browser": "bash scripts/run-browser-tests.sh"
   }
 }

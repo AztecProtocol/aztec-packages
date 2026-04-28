@@ -153,7 +153,7 @@ tests:
   - regex: "yarn-project/kv-store"
     error_regex: "timeout: sending signal TERM to command"
     owners:
-      - *alex
+      - *martin
   - regex: "yarn-project/kv-store"
     error_regex: "Failed to fetch dynamically imported module"
     owners:
