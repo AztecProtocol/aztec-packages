@@ -63,7 +63,8 @@ std::pair<uintx<base_uint>, uintx<base_uint>> uintx<base_uint>::divmod_base(cons
 /**
  * Computes invmod. Only for internal usage within the class.
  * This is an insecure version of the algorithm that doesn't take into account the 0 case and cases when modulus is
- *close to the top margin.
+ * close to the top margin. Requires *this and modulus to be coprime; the postcondition asserts this via the
+ * extended-Euclidean gcd that lives in r1 after loop exit.
  *
  * @param modulus The modulus of the ring
  *
@@ -86,6 +87,7 @@ template <class base_uint> uintx<base_uint> uintx<base_uint>::unsafe_invmod(cons
         r1 = r2;
         r2 = temp_r1 - q * r2;
     }
+    BB_ASSERT(r1 == uintx(1));
 
     if (t1 > modulus) {
         return modulus + t1;
