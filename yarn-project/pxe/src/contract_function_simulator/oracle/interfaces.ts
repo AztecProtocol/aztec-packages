@@ -144,6 +144,7 @@ export interface IUtilityExecutionOracle {
   ): Promise<void>;
   getLogsByTagV2(requestArrayBaseSlot: Fr): Promise<Fr>;
   getMessageContextsByTxHashV2(requestArrayBaseSlot: Fr): Promise<Fr>;
+  getTxEffect(txHash: Fr): Promise<Fr[] | null>;
   getMessageContextsByTxHash(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
