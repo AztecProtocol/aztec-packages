@@ -168,9 +168,6 @@ When multiple apps derive the same private FPC address (using the same artifact 
 
 ### Third-party FPCs on testnet and mainnet
 
-```typescript
-import { GasSettings } from "@aztec/stdlib/gas";
-
 On networks where the Sponsored FPC is unavailable, third-party FPCs deployed by ecosystem teams let you pay fees in tokens other than Fee Juice. Each FPC provider typically offers an SDK or API that handles payment method construction on the client side. This may include quote fetching and authwit creation, though the exact flow depends on the FPC design. For background on how FPCs work at the protocol level, see [how FPCs work](../foundational-topics/fees.md#how-fpcs-work).
 
 #### Example: Nethermind Private Multi Asset FPC
