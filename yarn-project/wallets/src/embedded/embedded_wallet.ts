@@ -141,6 +141,7 @@ export class EmbeddedWallet extends BaseWallet {
       feeOptions,
       additionalScopes: opts.additionalScopes,
       skipTxValidation: true,
+      sendMessagesAs: opts.sendMessagesAs,
     });
 
     const offchainEffects = collectOffchainEffects(simulationResult.privateExecutionResult);
