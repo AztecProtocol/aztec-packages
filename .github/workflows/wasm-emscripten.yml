@@ -69,8 +69,17 @@ jobs:
           # file does not itself match the patterns it enforces.
           SPEC_PATTERN="${FORBIDDEN_WASI}${FORBIDDEN_WASI_SDK_DASH}|${FORBIDDEN_WASM_PREFIX}${FORBIDDEN_WASMTIME_SUFFIX}"
           echo "spec gate (forbidden in barretenberg/ scripts/ docs/, excluding CHANGELOG.md):"
+          # Exclusions: .claude/ holds dev-internal skill notes describing the
+          # legacy runtime workflow; *_versioned_docs/ are frozen release
+          # snapshots whose contents must reflect the toolchain that actually
+          # shipped at that version.
           if grep -r -n -E "$SPEC_PATTERN" \
                   barretenberg/ scripts/ docs/ \
+                  --exclude-dir=node_modules \
+                  --exclude-dir=.git \
+                  --exclude-dir=.claude \
+                  --exclude-dir=network_versioned_docs \
+                  --exclude-dir=developer_versioned_docs \
                   --exclude=CHANGELOG.md; then
             echo "::error::Spec AC#1 violated: forbidden legacy-toolchain tokens present; replace with the Emscripten + wasm-run equivalents." >&2
             exit 1
@@ -91,6 +100,9 @@ jobs:
                   barretenberg/ scripts/ docs/ .github/ \
                   --exclude-dir=node_modules \
                   --exclude-dir=.git \
+                  --exclude-dir=.claude \
+                  --exclude-dir=network_versioned_docs \
+                  --exclude-dir=developer_versioned_docs \
                   --exclude=CHANGELOG.md \
                   --exclude=yarn.lock \
                   --exclude=package-lock.json; then

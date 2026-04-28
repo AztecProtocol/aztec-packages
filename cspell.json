@@ -123,6 +123,8 @@
     "ecdsasecp",
     "elif",
     "emittable",
+    "emscripten",
+    "emsdk",
     "endgroup",
     "enrs",
     "entrypoints",
