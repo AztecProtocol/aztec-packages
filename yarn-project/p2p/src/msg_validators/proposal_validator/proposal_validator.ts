@@ -50,7 +50,7 @@ export class ProposalValidator {
           expectedChainId: this.signatureContext.chainId,
           expectedRollupAddress: this.signatureContext.rollupAddress.toString(),
         });
-        return { result: 'reject', severity: PeerErrorSeverity.HighToleranceError };
+        return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
       }
 
       // Slot check: use target slots since proposals target pipeline slots (slot + 1 when pipelining).

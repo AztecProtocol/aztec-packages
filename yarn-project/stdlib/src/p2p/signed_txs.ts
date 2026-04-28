@@ -25,7 +25,7 @@ import {
 export class SignedTxs implements Signable {
   readonly primaryType: CoordinationSignatureType = 'SignedTxs';
 
-  private cachedSender: EthAddress | undefined | null = null;
+  private cachedSender: EthAddress | undefined | null = undefined;
 
   constructor(
     /** The transactions */
@@ -45,10 +45,10 @@ export class SignedTxs implements Signable {
    * @returns The sender address, or undefined if signature recovery fails
    */
   getSender(): EthAddress | undefined {
-    if (this.cachedSender === null) {
-      this.cachedSender = recoverCoordinationSigner(this, this.signature);
+    if (this.cachedSender === undefined) {
+      this.cachedSender = recoverCoordinationSigner(this, this.signature) ?? null;
     }
-    return this.cachedSender;
+    return this.cachedSender ?? undefined;
   }
 
   /**

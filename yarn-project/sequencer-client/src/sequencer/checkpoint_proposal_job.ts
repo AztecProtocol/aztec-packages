@@ -1054,7 +1054,7 @@ export class CheckpointProposalJob implements Traceable {
   ): Promise<CommitteeAttestationsAndSigners | undefined> {
     if (this.config.fishermanMode) {
       this.log.debug('Skipping attestation collection in fisherman mode');
-      return CommitteeAttestationsAndSigners.empty();
+      return CommitteeAttestationsAndSigners.empty(this.getSignatureContext());
     }
 
     const slotNumber = proposal.slotNumber;
@@ -1064,7 +1064,7 @@ export class CheckpointProposalJob implements Traceable {
       throw new Error('No committee when collecting attestations');
     } else if (committee.length === 0) {
       this.log.verbose(`Attesting committee is empty`);
-      return CommitteeAttestationsAndSigners.empty();
+      return CommitteeAttestationsAndSigners.empty(this.getSignatureContext());
     } else {
       this.log.debug(`Attesting committee length is ${committee.length}`, { committee });
     }

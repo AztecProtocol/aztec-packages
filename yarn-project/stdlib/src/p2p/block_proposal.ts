@@ -61,7 +61,7 @@ export class BlockProposal extends Gossipable implements Signable {
 
   readonly primaryType: CoordinationSignatureType = 'BlockProposal';
 
-  private cachedSender: EthAddress | undefined | null = null;
+  private cachedSender: EthAddress | undefined | null = undefined;
 
   constructor(
     /** The per-block header containing block state and global variables */
@@ -204,25 +204,25 @@ export class BlockProposal extends Gossipable implements Signable {
    * @returns The sender address, or undefined if signature recovery fails or inner/outer mismatch
    */
   getSender(): EthAddress | undefined {
-    if (this.cachedSender === null) {
+    if (this.cachedSender === undefined) {
       const blockSender = recoverCoordinationSigner(this, this.signature);
 
       if (blockSender && this.signedTxs) {
         if (!coordinationSignatureContextEquals(this.signedTxs.signatureContext, this.signatureContext)) {
-          this.cachedSender = undefined;
+          this.cachedSender = null;
           return undefined;
         }
         const txsSender = this.signedTxs.getSender();
         if (!txsSender || !txsSender.equals(blockSender)) {
-          this.cachedSender = undefined;
+          this.cachedSender = null;
           return undefined;
         }
       }
 
-      this.cachedSender = blockSender;
+      this.cachedSender = blockSender ?? null;
     }
 
-    return this.cachedSender;
+    return this.cachedSender ?? undefined;
   }
 
   getPayload() {

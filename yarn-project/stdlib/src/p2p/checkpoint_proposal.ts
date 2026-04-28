@@ -80,7 +80,7 @@ export class CheckpointProposal extends Gossipable implements Signable {
 
   readonly primaryType: CoordinationSignatureType = 'CheckpointProposal';
 
-  private cachedSender: EthAddress | undefined | null = null;
+  private cachedSender: EthAddress | undefined | null = undefined;
 
   constructor(
     /** The aggregated checkpoint header for consensus */
@@ -206,22 +206,22 @@ export class CheckpointProposal extends Gossipable implements Signable {
    * @returns The sender address, or undefined if signature recovery fails or senders don't match
    */
   getSender(): EthAddress | undefined {
-    if (this.cachedSender === null) {
+    if (this.cachedSender === undefined) {
       const checkpointSender = recoverCoordinationSigner(this, this.signature);
 
       if (checkpointSender && this.lastBlock) {
         const blockProposal = this.getBlockProposal();
         const blockSender = blockProposal?.getSender();
         if (!blockSender || !blockSender.equals(checkpointSender)) {
-          this.cachedSender = undefined;
+          this.cachedSender = null;
           return undefined;
         }
       }
 
-      this.cachedSender = checkpointSender;
+      this.cachedSender = checkpointSender ?? null;
     }
 
-    return this.cachedSender;
+    return this.cachedSender ?? undefined;
   }
 
   getPayload() {

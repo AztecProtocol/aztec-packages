@@ -135,10 +135,10 @@ describe('coordination signature typed data', () => {
       Object.assign(copy, signable);
       copy.signatureContext = ctx;
       if ('cachedSender' in copy) {
-        copy.cachedSender = null;
+        copy.cachedSender = undefined;
       }
       if ('cachedProposer' in copy) {
-        copy.cachedProposer = null;
+        copy.cachedProposer = undefined;
       }
       return copy;
     };

@@ -504,7 +504,7 @@ describe('L1Publisher integration', () => {
 
         await publisher.enqueueProposeCheckpoint(
           checkpoint,
-          CommitteeAttestationsAndSigners.empty(),
+          CommitteeAttestationsAndSigners.empty(getSignatureContext()),
           Signature.empty(),
         );
         await publisher.sendRequests();
@@ -550,7 +550,7 @@ describe('L1Publisher integration', () => {
                 feeAssetPriceModifier: 0n,
               },
             },
-            CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
+            CommitteeAttestationsAndSigners.packAttestations([]),
             [],
             Signature.empty().toViemSignature(),
             getPrefixedEthBlobCommitments(blockBlobs),
@@ -803,7 +803,11 @@ describe('L1Publisher integration', () => {
       const { checkpoint } = await buildSingleCheckpoint();
       const block = checkpoint.blocks[0];
 
-      await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
+      await publisher.enqueueProposeCheckpoint(
+        checkpoint,
+        CommitteeAttestationsAndSigners.empty(getSignatureContext()),
+        Signature.empty(),
+      );
       await publisher.enqueueGovernanceCastSignal(
         l1ContractAddresses.rollupAddress,
         block.slot,
@@ -827,7 +831,11 @@ describe('L1Publisher integration', () => {
       // Expect the simulation to fail
       const loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
       await expect(
-        publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
+        publisher.enqueueProposeCheckpoint(
+          checkpoint,
+          CommitteeAttestationsAndSigners.empty(getSignatureContext()),
+          Signature.empty(),
+        ),
       ).rejects.toThrow(/Rollup__InvalidInHash/);
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
@@ -875,9 +883,12 @@ describe('L1Publisher integration', () => {
     };
 
     const enqueueProposeL2Checkpoint = async (checkpoint: Checkpoint) => {
-      await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty(), {
-        txTimeoutAt: getProposeTxTimeoutAt(checkpoint),
-      });
+      await publisher.enqueueProposeCheckpoint(
+        checkpoint,
+        CommitteeAttestationsAndSigners.empty(getSignatureContext()),
+        Signature.empty(),
+        { txTimeoutAt: getProposeTxTimeoutAt(checkpoint) },
+      );
     };
 
     it(`cancels block proposal when the L2 slot ends`, async () => {

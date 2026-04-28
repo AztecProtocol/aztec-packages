@@ -30,6 +30,20 @@ describe('CheckpointAttestationValidator', () => {
     attester = Secp256k1Signer.random();
   });
 
+  it('rejects foreign signature context with low tolerance error', async () => {
+    const mockAttestation = makeCheckpointAttestation({
+      attesterSigner: attester,
+      proposerSigner: proposer,
+      signatureContext: {
+        ...TEST_COORDINATION_SIGNATURE_CONTEXT,
+        chainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId + 1,
+      },
+    });
+
+    const result = await validator.validate(mockAttestation);
+    expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
+  });
+
   it('returns high tolerance error if slot number is not current or next slot (outside clock tolerance)', async () => {
     const header = CheckpointHeader.random({ slotNumber: SlotNumber(97) });
     const mockAttestation = makeCheckpointAttestation({

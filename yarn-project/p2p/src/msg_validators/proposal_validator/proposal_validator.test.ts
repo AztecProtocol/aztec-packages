@@ -22,6 +22,10 @@ describe('ProposalValidator', () => {
   const currentSlot = SlotNumber(100);
   const nextSlot = SlotNumber(101);
   const previousSlot = SlotNumber(99);
+  const foreignSignatureContext = {
+    ...TEST_COORDINATION_SIGNATURE_CONTEXT,
+    chainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId + 1,
+  };
   let epochCache: MockProxy<EpochCacheInterface>;
   let validator: ProposalValidator;
 
@@ -74,15 +78,38 @@ describe('ProposalValidator', () => {
   describe.each([
     {
       name: 'block proposal',
-      factory: (slotNumber: SlotNumber, signer: Secp256k1Signer) =>
-        makeBlockProposal({ blockHeader: makeBlockHeader(0, { slotNumber }), signer }),
+      factory: (
+        slotNumber: SlotNumber,
+        signer: Secp256k1Signer,
+        signatureContext = TEST_COORDINATION_SIGNATURE_CONTEXT,
+      ) =>
+        makeBlockProposal({
+          blockHeader: makeBlockHeader(0, { slotNumber }),
+          signer,
+          signatureContext,
+        }),
     },
     {
       name: 'checkpoint proposal',
-      factory: (slotNumber: SlotNumber, signer: Secp256k1Signer) =>
-        makeCheckpointProposal({ checkpointHeader: makeCheckpointHeader(0, { slotNumber }), signer }),
+      factory: (
+        slotNumber: SlotNumber,
+        signer: Secp256k1Signer,
+        signatureContext = TEST_COORDINATION_SIGNATURE_CONTEXT,
+      ) =>
+        makeCheckpointProposal({
+          checkpointHeader: makeCheckpointHeader(0, { slotNumber }),
+          signer,
+          signatureContext,
+        }),
     },
   ])('validate with $name', ({ factory }) => {
+    it('rejects foreign signature context with low tolerance error', async () => {
+      const proposal = await factory(currentSlot, Secp256k1Signer.random(), foreignSignatureContext);
+
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
+    });
+
     it('rejects with high tolerance error if slot is outside clock tolerance', async () => {
       const proposal = await factory(previousSlot, Secp256k1Signer.random());
 

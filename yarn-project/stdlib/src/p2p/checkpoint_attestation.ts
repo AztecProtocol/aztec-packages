@@ -26,8 +26,8 @@ export type { CheckpointAttestationHash } from '@aztec/foundation/branded-types'
 export class CheckpointAttestation extends Gossipable {
   static override p2pTopic = TopicType.checkpoint_attestation;
 
-  private cachedSender: EthAddress | undefined | null = null;
-  private cachedProposer: EthAddress | undefined | null = null;
+  private cachedSender: EthAddress | undefined | null = undefined;
+  private cachedProposer: EthAddress | undefined | null = undefined;
 
   constructor(
     /** The payload of the message, and what the signature is over */
@@ -73,10 +73,10 @@ export class CheckpointAttestation extends Gossipable {
    * @returns The signer of the attestation, or undefined if signature recovery fails
    */
   getSender(): EthAddress | undefined {
-    if (this.cachedSender === null) {
-      this.cachedSender = recoverCoordinationSigner(this.payload, this.signature);
+    if (this.cachedSender === undefined) {
+      this.cachedSender = recoverCoordinationSigner(this.payload, this.signature) ?? null;
     }
-    return this.cachedSender;
+    return this.cachedSender ?? undefined;
   }
 
   /**
@@ -84,7 +84,7 @@ export class CheckpointAttestation extends Gossipable {
    * @returns The proposer of the checkpoint
    */
   getProposer(): EthAddress | undefined {
-    if (this.cachedProposer === null) {
+    if (this.cachedProposer === undefined) {
       // Create a temporary CheckpointProposal to recover the proposer address.
       // We need to use CheckpointProposal because it has a different getPayloadToSign()
       // implementation than ConsensusPayload (uses serializeToBuffer vs ABI encoding).
@@ -95,9 +95,9 @@ export class CheckpointAttestation extends Gossipable {
         this.proposerSignature,
         this.payload.signatureContext,
       );
-      this.cachedProposer = proposal.getSender();
+      this.cachedProposer = proposal.getSender() ?? null;
     }
-    return this.cachedProposer;
+    return this.cachedProposer ?? undefined;
   }
 
   getPayload(): Buffer {
