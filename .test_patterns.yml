@@ -146,12 +146,7 @@ tests:
       - *palla
 
   # yarn-project tests
-  # Wide net for kv-store browser-test flakes during the bake-in period for
-  # the run-browser-tests.sh fix (CDP teardown deadlock workaround). Routes
-  # any vitest-shaped failure to martin so colleagues aren't blocked by
-  # residual flakiness while we soak the new approach. Narrower entries
-  # below still apply — owners are unioned across matching entries. Remove
-  # this catch-all once the new approach has settled in CI for a few weeks.
+  # Attempt to catch all kv-store browser test failures (consider them quarantined for now)
   - regex: "yarn-project/kv-store"
     error_regex: "vitest"
     owners:
