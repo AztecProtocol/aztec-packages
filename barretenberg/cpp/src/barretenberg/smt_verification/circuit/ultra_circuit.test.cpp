@@ -90,7 +90,7 @@ TEST(UltraCircuitSMT, ArithmeticRelation)
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);
     UltraCircuit cir(circuit_info, &s);
-    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false));
+    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient());
 
     cir["a"] == a.get_value();
     cir["b"] == b.get_value();
@@ -122,7 +122,7 @@ TEST(UltraCircuitSMT, EllipticRelationADD)
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);
     UltraCircuit cir(circuit_info, &s);
-    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false));
+    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient());
 
     cir["x1"] == p1.x().get_value();
     cir["x2"] == p2.x().get_value();
@@ -165,7 +165,7 @@ TEST(UltraCircuitSMT, EllipticRelationDBL)
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);
     UltraCircuit cir(circuit_info, &s);
-    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false));
+    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient());
 
     cir["x1"] == p1.x().get_value();
     cir["y1"] == p1.y().get_value();
@@ -197,12 +197,12 @@ TEST(UltraCircuitSMT, OptimizedDeltaRangeRelation)
     field_t a(witness_t(&builder, engine.get_random_uint32()));
     a.create_range_constraint(32);
     builder.set_variable_name(a.get_witness_index(), "a");
-    builder.finalize_circuit(/*ensure_nonzero=*/false); // No need to add nonzero gates if we're not proving
+    builder.finalize_circuit();
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config);
     UltraCircuit cir(circuit_info, &s, TermType::BVTerm);
-    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false));
+    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient());
 
     cir["a"] == a.get_value();
     s.print_assertions();
@@ -246,12 +246,12 @@ TEST(UltraCircuitSMT, LookupRelation2)
     builder.set_variable_name(a.get_witness_index(), "a");
     builder.set_variable_name(b.get_witness_index(), "b");
     builder.set_variable_name(c.get_witness_index(), "c");
-    builder.finalize_circuit(/*ensure_nonzero=*/false); // No need to add nonzero gates if we're not proving
+    builder.finalize_circuit();
 
     auto circuit_info = unpack_from_buffer(builder.export_circuit());
     Solver s(circuit_info.modulus, ultra_solver_config, /*base=*/16, /*bvsize=*/256);
     UltraCircuit cir(circuit_info, &s, TermType::BVTerm);
-    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false));
+    ASSERT_EQ(cir.get_num_gates(), builder.get_num_finalized_gates_inefficient());
 
     cir["a"] == a.get_value();
     cir["b"] == b.get_value();

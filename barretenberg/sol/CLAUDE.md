@@ -183,11 +183,11 @@ Powers (eta², eta³, β², β³) are computed locally where needed, not stored.
 
 ## Common Pitfalls
 
-### Default pairing points and on-curve validation
+### (0,0) handling: commitments vs. pairing points
 
-Non-recursive circuits have default pairing points at infinity, represented as (0,0). The EVM precompiles (ecAdd/ecMul) accept (0,0) as the identity element, but `validateOnCurve` rejects it because `0² ≠ 0³ + 3`. Similarly, `rejectPointAtInfinity` rejects (0,0) by design.
+`(0,0)` is the EIP-196 canonical identity encoding. The verifier accepts it for **commitment-position** G1 inputs (witness commitments, gemini fold commitments, shplonkQ, kzgQuotient, VK selectors/tables): polynomial commitments to identically-zero polynomials are legitimately the identity, the ecAdd/ecMul precompiles treat `(0,0)` as the additive identity, and `(0,0)` substitution for a non-zero commitment is caught downstream by sumcheck/Shplemini on inconsistent evaluations. Do not reintroduce a blanket `rejectPointAtInfinity` on those slots.
 
-When pairing points are default (all-zero limbs), the entire pairing aggregation block must be skipped. Use `arePairingPointsDefault()` to check before calling `convertPairingPointsToG1`, `validateOnCurve`, or `rejectPointAtInfinity` on the reconstructed points.
+`rejectPointAtInfinity` is preserved on the **pairing points** reconstructed from `pairing_point_object` (`P_0_other`, `P_1_other` in the recursive aggregation block). A `(0,0)` there no-ops the aggregation and would give the prover a free pass on whatever recursive verification was supposed to occur. The legitimate "no recursion" case is signaled by all-zero limbs and short-circuited via `arePairingPointsDefault()` — call it before `convertPairingPointsToG1` / `validateOnCurve` / `rejectPointAtInfinity` on the reconstructed points.
 
 ### Running ACIR Solidity tests locally
 
