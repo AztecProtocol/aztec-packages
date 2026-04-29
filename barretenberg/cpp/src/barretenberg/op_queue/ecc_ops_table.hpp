@@ -332,18 +332,19 @@ class UltraEccOpsTable {
             zk_ops.push_back(UltraOp{ /* no_op */ });
         }
 
-        UltraOp random_op{ .op_code = EccOpCode{ .is_random_op = true,
-                                                 .random_value_1 = Fr::random_element(),
-                                                 .random_value_2 = Fr::random_element() },
-                           .x_lo = Fr::random_element(),
-                           .x_hi = Fr::random_element(),
-                           .y_lo = Fr::random_element(),
-                           .y_hi = Fr::random_element(),
-                           .z_1 = Fr::random_element(),
-                           .z_2 = Fr::random_element(),
-                           .return_is_infinity = false };
+        // Each random op contributes 8 fresh Fr values to the column polynomials, masking commitments and
+        // evaluations of the columns in the merge protocol and Translator.
         for (size_t idx = 0; idx < ECC_NUM_RANDOM_OPS_START; idx++) {
-            zk_ops.push_back(random_op);
+            zk_ops.push_back(UltraOp{ .op_code = EccOpCode{ .is_random_op = true,
+                                                            .random_value_1 = Fr::random_element(),
+                                                            .random_value_2 = Fr::random_element() },
+                                      .x_lo = Fr::random_element(),
+                                      .x_hi = Fr::random_element(),
+                                      .y_lo = Fr::random_element(),
+                                      .y_hi = Fr::random_element(),
+                                      .z_1 = Fr::random_element(),
+                                      .z_2 = Fr::random_element(),
+                                      .return_is_infinity = false });
         }
 
         using Fq = curve::BN254::BaseField;
