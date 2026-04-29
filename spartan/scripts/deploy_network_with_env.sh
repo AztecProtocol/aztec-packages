@@ -93,5 +93,5 @@ if [[ "$CREATE_RPC_INGRESS" == "true" ]]; then
   echo "network-frontend: ip=$RPC_INGRESS_STATIC_IP_NAME cert=$RPC_INGRESS_SSL_CERT_NAMES hosts=$RPC_INGRESS_HOSTS"
 fi
 
-$scripts_dir/deploy_network.sh
+$scripts_dir/deploy_network.sh "$env_file"
 echo "Deployed network"

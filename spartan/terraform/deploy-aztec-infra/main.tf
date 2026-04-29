@@ -5,7 +5,10 @@
 # - metrics in use
 # - ingress type
 # - resource profile
-
+#
+# All inputs flow through three structured variables (var.deploy, var.env,
+# var.releases) populated by spartan/scripts/deploy_network.sh from the YAML
+# loader output + deploy-time-computed values. See variables.tf for details.
 
 terraform {
   backend "local" {}
@@ -21,40 +24,93 @@ terraform {
   }
 }
 
+locals {
+  # Shorthand for the deploy block (UPPER_SNAKE keys from YAML + script overrides).
+  d = var.deploy
+
+  # Numeric / bool coercions: YAML loader emits all values as strings, so cast
+  # at the boundary where main.tf needs typed comparisons or arithmetic.
+  validator_replicas         = tonumber(local.d.VALIDATOR_REPLICAS)
+  validator_ha_replicas      = tonumber(local.d.VALIDATOR_HA_REPLICAS)
+  validator_ha_replica_cnt   = try(tonumber(local.d.VALIDATOR_HA_REPLICA_COUNT), null)
+  validators_per_node        = tonumber(local.d.VALIDATORS_PER_NODE)
+  validator_pubs_per_replica = tonumber(local.d.VALIDATOR_PUBLISHERS_PER_REPLICA)
+  validator_mnemonic_idx     = tonumber(local.d.VALIDATOR_MNEMONIC_START_INDEX)
+  validator_pub_mnemonic_idx = tonumber(local.d.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
+  prover_replicas            = tonumber(local.d.PROVER_REPLICAS)
+  prover_pub_mnemonic_idx    = tonumber(local.d.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
+  prover_pubs_per_prover     = tonumber(local.d.PUBLISHERS_PER_PROVER)
+  rpc_replicas               = tonumber(local.d.RPC_REPLICAS)
+  fisherman_replicas         = tonumber(local.d.FISHERMAN_REPLICAS)
+  fisherman_mnemonic_idx     = tonumber(local.d.FISHERMAN_MNEMONIC_START_INDEX)
+  full_node_replicas         = tonumber(local.d.FULL_NODE_REPLICAS)
+  bot_transfers_replicas     = tonumber(local.d.BOT_TRANSFERS_REPLICAS)
+  bot_swaps_replicas         = tonumber(local.d.BOT_SWAPS_REPLICAS)
+  bot_cross_chain_replicas   = tonumber(local.d.BOT_CROSS_CHAIN_REPLICAS)
+  validator_ha_old_duties_h  = tonumber(local.d.VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H)
+
+  rpc_ingress_enabled  = tobool(local.d.RPC_INGRESS_ENABLED)
+  rpc_ingress_log_rate = try(tonumber(local.d.RPC_INGRESS_LOG_SAMPLE_RATE), null)
+  deploy_internal_boot = tobool(local.d.DEPLOY_INTERNAL_BOOTNODE)
+  deploy_archival_node = tobool(local.d.DEPLOY_ARCHIVAL_NODE)
+  prover_no_proof_pub  = tobool(local.d.PROVER_NODE_DISABLE_PROOF_PUBLISH)
+  wait_for_prover      = try(tobool(local.d.WAIT_FOR_PROVER_DEPLOY), true)
+  p2p_nodeport_enabled = tobool(local.d.P2P_NODEPORT_ENABLED)
+  p2p_public_ip        = tobool(local.d.P2P_PUBLIC_IP)
+
+  # Optional strings: "" means "not set" for legacy callers; null when the key
+  # may be entirely absent.
+  network                    = try(local.d.NETWORK, "")
+  store_snapshot_url         = try(local.d.STORE_SNAPSHOT_URL, "")
+  blob_file_store_upload_url = try(local.d.BLOB_FILE_STORE_UPLOAD_URL, "")
+  prover_agent_image_str     = try(local.d.PROVER_AGENT_DOCKER_IMAGE, "")
+  validator_ha_image_str     = try(local.d.VALIDATOR_HA_DOCKER_IMAGE, "")
+  otel_endpoint              = try(local.d.OTEL_COLLECTOR_ENDPOINT, "")
+  rpc_cloud_armor            = try(local.d.RPC_CLOUD_ARMOR_POLICY_NAME, "")
+  rpc_session_affinity       = try(local.d.RPC_INGRESS_SESSION_AFFINITY, "")
+  external_bootnodes         = try(local.d.EXTERNAL_BOOTNODES, [])
+
+  # Lists from deploy block (default to []) for L1 endpoints.
+  l1_rpc_urls          = try(local.d.L1_RPC_URLS, [])
+  l1_consensus_urls    = try(local.d.L1_CONSENSUS_HOST_URLS, [])
+  l1_consensus_keys    = try(local.d.L1_CONSENSUS_HOST_API_KEYS, [])
+  l1_consensus_headers = try(local.d.L1_CONSENSUS_HOST_API_KEY_HEADERS, [])
+}
+
 provider "kubernetes" {
   alias          = "gke-cluster"
   config_path    = "~/.kube/config"
-  config_context = var.K8S_CLUSTER_CONTEXT
+  config_context = local.d.K8S_CLUSTER_CONTEXT
 }
 
 provider "helm" {
   alias = "gke-cluster"
   kubernetes {
     config_path    = "~/.kube/config"
-    config_context = var.K8S_CLUSTER_CONTEXT
+    config_context = local.d.K8S_CLUSTER_CONTEXT
   }
 }
 
 module "web3signer" {
   # Only deploy web3signer if we have validators or provers that need to publish to L1
-  count = tonumber(var.VALIDATOR_REPLICAS) > 0 ? 1 : 0
+  count = local.validator_replicas > 0 ? 1 : 0
 
   source                                   = "../modules/web3signer"
-  NAMESPACE                                = var.NAMESPACE
-  RELEASE_NAME                             = var.RELEASE_PREFIX
-  AZTEC_DOCKER_IMAGE                       = var.AZTEC_DOCKER_IMAGE
-  CHAIN_ID                                 = var.L1_CHAIN_ID
-  MNEMONIC                                 = var.VALIDATOR_MNEMONIC
-  ADDRESS_CONFIGMAP_NAME                   = "${var.RELEASE_PREFIX}-attester-addresses"
-  ATTESTERS_PER_NODE                       = tonumber(var.VALIDATORS_PER_NODE)
+  NAMESPACE                                = local.d.NAMESPACE
+  RELEASE_NAME                             = local.d.RELEASE_PREFIX
+  AZTEC_DOCKER_IMAGE                       = local.d.AZTEC_DOCKER_IMAGE
+  CHAIN_ID                                 = local.d.L1_CHAIN_ID
+  MNEMONIC                                 = local.d.VALIDATOR_MNEMONIC
+  ADDRESS_CONFIGMAP_NAME                   = "${local.d.RELEASE_PREFIX}-attester-addresses"
+  ATTESTERS_PER_NODE                       = local.validators_per_node
   NODE_COUNT                               = local.max_validator_nodes
-  VALIDATOR_HA_REPLICAS                    = tonumber(var.VALIDATOR_HA_REPLICAS)
-  VALIDATOR_MNEMONIC_START_INDEX           = tonumber(var.VALIDATOR_MNEMONIC_START_INDEX)
-  VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = tonumber(var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
-  VALIDATOR_PUBLISHERS_PER_REPLICA         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-  PROVER_COUNT                             = tonumber(var.PROVER_REPLICAS)
-  PUBLISHERS_PER_PROVER                    = tonumber(var.PROVER_PUBLISHERS_PER_PROVER)
-  PROVER_PUBLISHER_MNEMONIC_START_INDEX    = tonumber(var.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
+  VALIDATOR_HA_REPLICAS                    = local.validator_ha_replicas
+  VALIDATOR_MNEMONIC_START_INDEX           = local.validator_mnemonic_idx
+  VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX = local.validator_pub_mnemonic_idx
+  VALIDATOR_PUBLISHERS_PER_REPLICA         = local.validator_pubs_per_replica
+  PROVER_COUNT                             = local.prover_replicas
+  PUBLISHERS_PER_PROVER                    = local.prover_pubs_per_prover
+  PROVER_PUBLISHER_MNEMONIC_START_INDEX    = local.prover_pub_mnemonic_idx
 
   providers = {
     helm       = helm.gke-cluster
@@ -64,12 +120,12 @@ module "web3signer" {
 
 module "validator_ha_postgres" {
   # Only deploy HA postgres if we have validators and HA replicas > 0
-  count = tonumber(var.VALIDATOR_REPLICAS) > 0 && var.VALIDATOR_HA_REPLICAS > 0 ? 1 : 0
+  count = local.validator_replicas > 0 && local.validator_ha_replicas > 0 ? 1 : 0
 
   source             = "../modules/validator-ha-postgres"
-  NAMESPACE          = var.NAMESPACE
-  RELEASE_NAME       = var.RELEASE_PREFIX
-  AZTEC_DOCKER_IMAGE = var.AZTEC_DOCKER_IMAGE
+  NAMESPACE          = local.d.NAMESPACE
+  RELEASE_NAME       = local.d.RELEASE_PREFIX
+  AZTEC_DOCKER_IMAGE = local.d.AZTEC_DOCKER_IMAGE
   # DB_PASSWORD auto-generated by module
 
   providers = {
@@ -80,32 +136,32 @@ module "validator_ha_postgres" {
 
 locals {
   aztec_image = {
-    repository = split(":", var.AZTEC_DOCKER_IMAGE)[0]
-    tag        = split(":", var.AZTEC_DOCKER_IMAGE)[1]
+    repository = split(":", local.d.AZTEC_DOCKER_IMAGE)[0]
+    tag        = split(":", local.d.AZTEC_DOCKER_IMAGE)[1]
   }
 
-  prover_agent_image = var.PROVER_AGENT_DOCKER_IMAGE != "" ? {
-    repository = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[0]
-    tag        = split(":", var.PROVER_AGENT_DOCKER_IMAGE)[1]
+  prover_agent_image = local.prover_agent_image_str != "" ? {
+    repository = split(":", local.prover_agent_image_str)[0]
+    tag        = split(":", local.prover_agent_image_str)[1]
   } : local.aztec_image
 
-  validator_ha_image = var.VALIDATOR_HA_DOCKER_IMAGE != "" ? {
-    repository = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[0]
-    tag        = split(":", var.VALIDATOR_HA_DOCKER_IMAGE)[1]
+  validator_ha_image = local.validator_ha_image_str != "" ? {
+    repository = split(":", local.validator_ha_image_str)[0]
+    tag        = split(":", local.validator_ha_image_str)[1]
   } : local.aztec_image
 
   # Max node count: max of primary (VALIDATOR_REPLICAS) and HA pod counts
   # Determines how many attester keystores and publisher key ranges to generate
-  effective_ha_count  = var.VALIDATOR_HA_REPLICAS > 0 ? coalesce(var.VALIDATOR_HA_REPLICA_COUNT, tonumber(var.VALIDATOR_REPLICAS)) : 0
-  max_validator_nodes = max(tonumber(var.VALIDATOR_REPLICAS), local.effective_ha_count)
+  effective_ha_count  = local.validator_ha_replicas > 0 ? coalesce(local.validator_ha_replica_cnt, local.validator_replicas) : 0
+  max_validator_nodes = max(local.validator_replicas, local.effective_ha_count)
 
   # Detect local kind context (e.g., "kind-kind") to gate Service types
-  is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
+  is_kind = can(regex("^kind", local.d.K8S_CLUSTER_CONTEXT))
 
-  internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
+  internal_boot_node_url = local.deploy_internal_boot ? "http://${local.d.RELEASE_PREFIX}-p2p-bootstrap-node.${local.d.NAMESPACE}.svc.cluster.local:8080" : ""
 
-  internal_rpc_url       = "http://${var.RELEASE_PREFIX}-rpc-aztec-node.${var.NAMESPACE}.svc.cluster.local:8080"
-  internal_rpc_admin_url = "http://${var.RELEASE_PREFIX}-rpc-aztec-node-admin.${var.NAMESPACE}.svc.cluster.local:8880"
+  internal_rpc_url       = "http://${local.d.RELEASE_PREFIX}-rpc-aztec-node.${local.d.NAMESPACE}.svc.cluster.local:8080"
+  internal_rpc_admin_url = "http://${local.d.RELEASE_PREFIX}-rpc-aztec-node-admin.${local.d.NAMESPACE}.svc.cluster.local:8880"
 
   # Pod image is the only thing the chart actually reads from `global` now.
   # Everything else flows under `env:` (mounted via envFrom configmap).
@@ -122,28 +178,28 @@ locals {
     env = merge(
       {
         USE_GCLOUD_LOGGING                 = "true"
-        L1_CHAIN_ID                        = var.L1_CHAIN_ID
-        REGISTRY_CONTRACT_ADDRESS          = var.REGISTRY_CONTRACT_ADDRESS
-        FEE_ASSET_HANDLER_CONTRACT_ADDRESS = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
-        SPONSORED_FPC                      = tostring(var.SPONSORED_FPC)
-        TEST_ACCOUNTS                      = tostring(var.TEST_ACCOUNTS)
+        L1_CHAIN_ID                        = local.d.L1_CHAIN_ID
+        REGISTRY_CONTRACT_ADDRESS          = local.d.REGISTRY_CONTRACT_ADDRESS
+        FEE_ASSET_HANDLER_CONTRACT_ADDRESS = local.d.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
+        SPONSORED_FPC                      = tostring(local.d.SPONSORED_FPC)
+        TEST_ACCOUNTS                      = tostring(local.d.TEST_ACCOUNTS)
         LOG_JSON                           = "1"
       },
-      var.NETWORK != "" ? { NETWORK = var.NETWORK } : {},
-      length(var.L1_RPC_URLS) > 0 ? { ETHEREUM_HOSTS = join(",", var.L1_RPC_URLS) } : {},
-      length(var.L1_CONSENSUS_HOST_URLS) > 0 ? {
-        L1_CONSENSUS_HOST_URLS = join(",", var.L1_CONSENSUS_HOST_URLS)
+      local.network != "" ? { NETWORK = local.network } : {},
+      length(local.l1_rpc_urls) > 0 ? { ETHEREUM_HOSTS = join(",", local.l1_rpc_urls) } : {},
+      length(local.l1_consensus_urls) > 0 ? {
+        L1_CONSENSUS_HOST_URLS = join(",", local.l1_consensus_urls)
       } : {},
-      length(var.L1_CONSENSUS_HOST_API_KEYS) > 0 ? {
-        L1_CONSENSUS_HOST_API_KEYS = join(",", var.L1_CONSENSUS_HOST_API_KEYS)
+      length(local.l1_consensus_keys) > 0 ? {
+        L1_CONSENSUS_HOST_API_KEYS = join(",", local.l1_consensus_keys)
       } : {},
-      length(var.L1_CONSENSUS_HOST_API_KEY_HEADERS) > 0 ? {
-        L1_CONSENSUS_HOST_API_KEY_HEADERS = join(",", var.L1_CONSENSUS_HOST_API_KEY_HEADERS)
+      length(local.l1_consensus_headers) > 0 ? {
+        L1_CONSENSUS_HOST_API_KEY_HEADERS = join(",", local.l1_consensus_headers)
       } : {},
-      var.OTEL_COLLECTOR_ENDPOINT != "" ? {
-        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = "${var.OTEL_COLLECTOR_ENDPOINT}/v1/metrics"
-        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT  = "${var.OTEL_COLLECTOR_ENDPOINT}/v1/traces"
-        OTEL_EXPORTER_OTLP_LOGS_ENDPOINT    = "${var.OTEL_COLLECTOR_ENDPOINT}/v1/logs"
+      local.otel_endpoint != "" ? {
+        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = "${local.otel_endpoint}/v1/metrics"
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT  = "${local.otel_endpoint}/v1/traces"
+        OTEL_EXPORTER_OTLP_LOGS_ENDPOINT    = "${local.otel_endpoint}/v1/logs"
       } : {}
     )
   })
@@ -154,15 +210,15 @@ locals {
   # K8s will use these values to schedule pods on appropriate machines. Using random ports here will allow it to
   # colocate pods from different services or even pods from different networks onto the same physical machine
   # (so long as the VM has enough resources)
-  p2p_port_p2p_bootstrap = 40400 + (parseint(substr(md5("${var.NAMESPACE}-p2p-bootstrap"), 0, 4), 16) % 100)
-  p2p_port_prover        = 40400 + (parseint(substr(md5("${var.NAMESPACE}-prover"), 0, 4), 16) % 100)
-  p2p_port_rpc           = 40400 + (parseint(substr(md5("${var.NAMESPACE}-rpc"), 0, 4), 16) % 100)
-  p2p_port_fisherman     = 40400 + (parseint(substr(md5("${var.NAMESPACE}-fisherman"), 0, 4), 16) % 100)
-  p2p_port_full_node     = 40400 + (parseint(substr(md5("${var.NAMESPACE}-full-node"), 0, 4), 16) % 100)
-  p2p_port_archive       = 40400 + (parseint(substr(md5("${var.NAMESPACE}-archive"), 0, 4), 16) % 100)
+  p2p_port_p2p_bootstrap = 40400 + (parseint(substr(md5("${local.d.NAMESPACE}-p2p-bootstrap"), 0, 4), 16) % 100)
+  p2p_port_prover        = 40400 + (parseint(substr(md5("${local.d.NAMESPACE}-prover"), 0, 4), 16) % 100)
+  p2p_port_rpc           = 40400 + (parseint(substr(md5("${local.d.NAMESPACE}-rpc"), 0, 4), 16) % 100)
+  p2p_port_fisherman     = 40400 + (parseint(substr(md5("${local.d.NAMESPACE}-fisherman"), 0, 4), 16) % 100)
+  p2p_port_full_node     = 40400 + (parseint(substr(md5("${local.d.NAMESPACE}-full-node"), 0, 4), 16) % 100)
+  p2p_port_archive       = 40400 + (parseint(substr(md5("${local.d.NAMESPACE}-archive"), 0, 4), 16) % 100)
 
   p2p_port_validators = {
-    for idx in range(1 + var.VALIDATOR_HA_REPLICAS) : idx => 40400 + (parseint(substr(md5("${var.NAMESPACE}-validator-${idx}"), 0, 4), 16) % 100)
+    for idx in range(1 + local.validator_ha_replicas) : idx => 40400 + (parseint(substr(md5("${local.d.NAMESPACE}-validator-${idx}"), 0, 4), 16) % 100)
   }
 
   # Validator configuration - extracted for dynamic HA release generation
@@ -172,15 +228,15 @@ locals {
     values = [
       "common.yaml",
       "validator.yaml",
-      "validator-resources-${var.VALIDATOR_RESOURCE_PROFILE}.yaml"
+      "validator-resources-${local.d.VALIDATOR_RESOURCE_PROFILE}.yaml"
     ]
     inline_values = [yamlencode({
       validator = {
         service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
+          p2p = { publicIP = local.p2p_public_ip }
         }
         node = {
-          logLevel = var.LOG_LEVEL
+          logLevel = local.d.LOG_LEVEL
         }
         # spread validator pods to different nodes to avoid having two validators with the same attester keys on the same physical node
         topologySpreadConstraints = [{
@@ -208,51 +264,51 @@ locals {
   # one chart key into a different pod env name remain here.
   validator_common_settings = {
     # K8s shape / cluster decisions (not pod env).
-    "validator.service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
-    "validator.web3signerUrl"               = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
-    "validator.mnemonic"                    = var.VALIDATOR_MNEMONIC
-    "validator.mnemonicStartIndex"          = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.validatorsPerNode"           = var.VALIDATORS_PER_NODE
-    "validator.publishersPerReplica"        = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-    "validator.publisherMnemonicStartIndex" = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+    "validator.service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
+    "validator.web3signerUrl"               = "http://${local.d.RELEASE_PREFIX}-signer-web3signer.${local.d.NAMESPACE}.svc.cluster.local:9000/"
+    "validator.mnemonic"                    = local.d.VALIDATOR_MNEMONIC
+    "validator.mnemonicStartIndex"          = local.validator_mnemonic_idx
+    "validator.validatorsPerNode"           = local.validators_per_node
+    "validator.publishersPerReplica"        = local.validator_pubs_per_replica
+    "validator.publisherMnemonicStartIndex" = local.validator_pub_mnemonic_idx
     "validator.node.secret.envEnabled"      = true
-    "validator.node.secret.mnemonic"        = var.VALIDATOR_MNEMONIC
-    "validator.node.secret.mnemonicIndex"   = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.node.adminApiKeyHash"        = var.ADMIN_API_KEY_HASH
+    "validator.node.secret.mnemonic"        = local.d.VALIDATOR_MNEMONIC
+    "validator.node.secret.mnemonicIndex"   = local.validator_mnemonic_idx
+    "validator.node.adminApiKeyHash"        = local.d.ADMIN_API_KEY_HASH
     # Renames: chart-side var name differs from pod env name.
-    "validator.node.env.KEY_INDEX_START"           = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.node.env.PUBLISHER_KEY_INDEX_START" = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+    "validator.node.env.KEY_INDEX_START"           = local.validator_mnemonic_idx
+    "validator.node.env.PUBLISHER_KEY_INDEX_START" = local.validator_pub_mnemonic_idx
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,
   # and sensitive values cannot be used as for_each keys. The database URL will be
   # passed to pods as an env var, which is the intended behavior.
-  validator_ha_settings = var.VALIDATOR_HA_REPLICAS > 0 ? {
+  validator_ha_settings = local.validator_ha_replicas > 0 ? {
     "validator.node.env.VALIDATOR_HA_SIGNING_ENABLED" = "true"
     "validator.node.env.VALIDATOR_HA_DATABASE_URL"    = nonsensitive(module.validator_ha_postgres[0].database_url)
     # Limit pool size per pod to avoid exhausting PostgreSQL connections
     # With 12 pods × 5 max = 60 connections (well under PostgreSQL's 500 max)
     "validator.node.env.VALIDATOR_HA_POOL_MAX"             = "5"
-    "validator.node.env.VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" = tostring(var.VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H)
+    "validator.node.env.VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H" = tostring(local.validator_ha_old_duties_h)
   } : {}
 
   # Generate validator releases: primary (idx=0) plus N HA replicas (idx=1..N)
-  validator_releases = tonumber(var.VALIDATOR_REPLICAS) > 0 ? {
-    for idx in range(1 + var.VALIDATOR_HA_REPLICAS) :
+  validator_releases = local.validator_replicas > 0 ? {
+    for idx in range(1 + local.validator_ha_replicas) :
     "validators${idx > 0 ? "-ha-${idx}" : ""}" => merge(local.validator_base_config, {
-      name = "${var.RELEASE_PREFIX}-validator${idx > 0 ? "-ha-${idx}" : ""}"
+      name = "${local.d.RELEASE_PREFIX}-validator${idx > 0 ? "-ha-${idx}" : ""}"
       custom_settings = merge(
         local.validator_common_settings,
         local.validator_ha_settings,
         {
-          "validator.replicaCount"                        = idx > 0 ? coalesce(var.VALIDATOR_HA_REPLICA_COUNT, var.VALIDATOR_REPLICAS) : var.VALIDATOR_REPLICAS
+          "validator.replicaCount"                        = idx > 0 ? coalesce(local.validator_ha_replica_cnt, local.validator_replicas) : local.validator_replicas
           "validator.node.env.VALIDATOR_HA_REPLICA_INDEX" = tostring(idx)
-          "validator.node.env.PUBLISHER_KEY_INDEX_START"  = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX + (idx * (var.VALIDATOR_PUBLISHERS_PER_REPLICA * local.max_validator_nodes))
+          "validator.node.env.PUBLISHER_KEY_INDEX_START"  = local.validator_pub_mnemonic_idx + (idx * (local.validator_pubs_per_replica * local.max_validator_nodes))
           "validator.service.p2p.announcePort"            = local.p2p_port_validators[idx]
           "validator.service.p2p.port"                    = local.p2p_port_validators[idx]
         },
         # Override image for HA releases (idx > 0) when VALIDATOR_HA_DOCKER_IMAGE is set
-        idx > 0 && var.VALIDATOR_HA_DOCKER_IMAGE != "" ? {
+        idx > 0 && local.validator_ha_image_str != "" ? {
           "global.aztecImage.repository" = local.validator_ha_image.repository
           "global.aztecImage.tag"        = local.validator_ha_image.tag
         } : {}
@@ -262,70 +318,71 @@ locals {
 
   # Define all releases in a map
   helm_releases = merge({
-    snapshot = var.STORE_SNAPSHOT_URL != null ? {
-      name   = "${var.RELEASE_PREFIX}-snapshot"
+    snapshot = local.store_snapshot_url != "" ? {
+      name   = "${local.d.RELEASE_PREFIX}-snapshot"
       chart  = "aztec-snapshots"
       values = []
       custom_settings = {
         "snapshots.aztecNodeAdminUrl" = local.internal_rpc_admin_url
-        "snapshots.uploadLocation"    = var.STORE_SNAPSHOT_URL
-        "snapshots.frequency"         = var.SNAPSHOT_CRON
+        "snapshots.uploadLocation"    = local.store_snapshot_url
+        "snapshots.frequency"         = try(local.d.SNAPSHOT_CRON, "0 */12 * * *")
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
       wait                 = true
     } : null
 
-    p2p_bootstrap = var.DEPLOY_INTERNAL_BOOTNODE ? {
-      name  = "${var.RELEASE_PREFIX}-p2p-bootstrap"
+    p2p_bootstrap = local.deploy_internal_boot ? {
+      name  = "${local.d.RELEASE_PREFIX}-p2p-bootstrap"
       chart = "aztec-node"
       values = [
         "common.yaml",
         "p2p-bootstrap.yaml",
-        "p2p-bootstrap-resources-${var.P2P_BOOTSTRAP_RESOURCE_PROFILE}.yaml"
+        "p2p-bootstrap-resources-${local.d.P2P_BOOTSTRAP_RESOURCE_PROFILE}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
+          p2p = { publicIP = local.p2p_public_ip }
         }
       })]
-      custom_settings = {
-        "nodeType"                          = "p2p-bootstrap"
-        "service.p2p.nodePortEnabled"       = var.P2P_NODEPORT_ENABLED
-        "service.p2p.announcePort"          = local.p2p_port_p2p_bootstrap
-        "service.p2p.port"                  = local.p2p_port_p2p_bootstrap
-        "node.env.P2P_MAX_PENDING_TX_COUNT" = var.P2P_MAX_PENDING_TX_COUNT
-      }
+      custom_settings = merge({
+        "nodeType"                    = "p2p-bootstrap"
+        "service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
+        "service.p2p.announcePort"    = local.p2p_port_p2p_bootstrap
+        "service.p2p.port"            = local.p2p_port_p2p_bootstrap
+        }, try(local.d.P2P_MAX_PENDING_TX_COUNT, "") != "" ? {
+        "node.env.P2P_MAX_PENDING_TX_COUNT" = local.d.P2P_MAX_PENDING_TX_COUNT
+      } : {})
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
       wait                 = true
     } : null
 
     prover = {
-      name  = "${var.RELEASE_PREFIX}-prover"
+      name  = "${local.d.RELEASE_PREFIX}-prover"
       chart = "aztec-prover-stack"
       values = [
         "common.yaml",
         "prover.yaml",
-        "prover-resources-${var.PROVER_RESOURCE_PROFILE}.yaml"
+        "prover-resources-${local.d.PROVER_RESOURCE_PROFILE}.yaml"
       ]
       inline_values = concat([yamlencode({
         node = {
           service = {
-            p2p = { publicIP = var.P2P_PUBLIC_IP }
+            p2p = { publicIP = local.p2p_public_ip }
           }
           node = {
-            logLevel = var.LOG_LEVEL
+            logLevel = local.d.LOG_LEVEL
           }
         }
         broker = {
           node = {
-            logLevel = var.LOG_LEVEL
+            logLevel = local.d.LOG_LEVEL
           }
         }
         agent = {
           node = {
-            logLevel = var.LOG_LEVEL
+            logLevel = local.d.LOG_LEVEL
           }
         }
         })], local.is_kind ? [yamlencode({
@@ -341,66 +398,68 @@ locals {
       custom_settings = merge(
         {
           # Chart-shape / k8s shape.
-          "node.mnemonic"                    = var.PROVER_MNEMONIC
-          "node.mnemonicStartIndex"          = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.mnemonic"                    = local.d.PROVER_MNEMONIC
+          "node.mnemonicStartIndex"          = local.prover_pub_mnemonic_idx
           "node.node.secret.envEnabled"      = true
-          "node.node.secret.mnemonic"        = var.PROVER_MNEMONIC
-          "node.node.secret.mnemonicIndex"   = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "node.service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+          "node.node.secret.mnemonic"        = local.d.PROVER_MNEMONIC
+          "node.node.secret.mnemonicIndex"   = local.prover_pub_mnemonic_idx
+          "node.service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
           "node.service.p2p.announcePort"    = local.p2p_port_prover
           "node.service.p2p.port"            = local.p2p_port_prover
-          "agent.replicaCount"               = var.PROVER_REPLICAS
+          "agent.replicaCount"               = local.prover_replicas
           "agent.node.image.repository"      = local.prover_agent_image.repository
           "agent.node.image.tag"             = local.prover_agent_image.tag
-          "agent.env.OTEL_INCLUDE_METRICS"   = var.PROVER_AGENT_INCLUDE_METRICS
           # Renames: chart-side var name differs from pod env name.
-          "node.node.env.KEY_INDEX_START"           = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "node.node.env.PUBLISHER_KEY_INDEX_START" = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.env.KEY_INDEX_START"           = local.prover_pub_mnemonic_idx
+          "node.node.env.PUBLISHER_KEY_INDEX_START" = local.prover_pub_mnemonic_idx
         },
+        try(local.d.PROVER_AGENT_INCLUDE_METRICS, "") != "" ? {
+          "agent.env.OTEL_INCLUDE_METRICS" = local.d.PROVER_AGENT_INCLUDE_METRICS
+        } : {},
         # Only set web3signerUrl if proof publishing is enabled
-        !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
-          "node.node.web3signerUrl" = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+        !local.prover_no_proof_pub ? {
+          "node.node.web3signerUrl" = "http://${local.d.RELEASE_PREFIX}-signer-web3signer.${local.d.NAMESPACE}.svc.cluster.local:9000/"
         } : {}
       )
       boot_node_host_path  = "node.node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.node.env.BOOTSTRAP_NODES"
-      wait                 = var.WAIT_FOR_PROVER_DEPLOY
+      wait                 = local.wait_for_prover
     }
 
     rpc = {
-      name  = "${var.RELEASE_PREFIX}-rpc"
+      name  = "${local.d.RELEASE_PREFIX}-rpc"
       chart = "aztec-node"
       values = [
         "common.yaml",
         "rpc.yaml",
-        "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
+        "rpc-resources-${local.d.RPC_RESOURCE_PROFILE}.yaml"
       ]
-      inline_values = concat(var.RPC_INGRESS_ENABLED ? [yamlencode({
+      inline_values = concat(local.rpc_ingress_enabled ? [yamlencode({
         service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
+          p2p = { publicIP = local.p2p_public_ip }
           rpc = {
             annotations = {
               "cloud.google.com/neg" = jsonencode({ ingress = true })
               "cloud.google.com/backend-config" = jsonencode({
-                default = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
+                default = "${local.d.RELEASE_PREFIX}-rpc-ingress-backend"
               })
             }
           }
         }
         ingress = {
           rpc = {
-            hosts = var.RPC_INGRESS_HOSTS
+            hosts = local.d.RPC_INGRESS_HOSTS
             annotations = {
               "kubernetes.io/ingress.class"                 = "gce"
-              "kubernetes.io/ingress.global-static-ip-name" = var.RPC_INGRESS_STATIC_IP_NAME
-              "ingress.gcp.kubernetes.io/pre-shared-cert"   = join(",", var.RPC_INGRESS_SSL_CERT_NAMES)
+              "kubernetes.io/ingress.global-static-ip-name" = local.d.RPC_INGRESS_STATIC_IP_NAME
+              "ingress.gcp.kubernetes.io/pre-shared-cert"   = join(",", local.d.RPC_INGRESS_SSL_CERT_NAMES)
               "kubernetes.io/ingress.allow-http"            = "false"
             }
           }
         }
         })] : [yamlencode({
         service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
+          p2p = { publicIP = local.p2p_public_ip }
           rpc = {
             enabled = true
             type    = local.is_kind ? "ClusterIP" : "LoadBalancer"
@@ -410,105 +469,106 @@ locals {
 
       # Pod env vars flow from var.releases.rpc.env via inline_values.
       custom_settings = {
-        "replicaCount"                = var.RPC_REPLICAS
-        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "replicaCount"                = local.rpc_replicas
+        "service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
         "service.p2p.announcePort"    = local.p2p_port_rpc
         "service.p2p.port"            = local.p2p_port_rpc
-        "ingress.rpc.enabled"         = var.RPC_INGRESS_ENABLED
+        "ingress.rpc.enabled"         = local.rpc_ingress_enabled
         # Deploy-time secrets (not in YAML).
-        "node.env.AWS_ACCESS_KEY_ID"     = var.R2_ACCESS_KEY_ID
-        "node.env.AWS_SECRET_ACCESS_KEY" = var.R2_SECRET_ACCESS_KEY
+        "node.env.AWS_ACCESS_KEY_ID"     = try(local.d.R2_ACCESS_KEY_ID, "")
+        "node.env.AWS_SECRET_ACCESS_KEY" = try(local.d.R2_SECRET_ACCESS_KEY, "")
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true
     }
 
-    fisherman = tonumber(var.FISHERMAN_REPLICAS) > 0 ? {
-      name  = "${var.RELEASE_PREFIX}-fisherman"
+    fisherman = local.fisherman_replicas > 0 ? {
+      name  = "${local.d.RELEASE_PREFIX}-fisherman"
       chart = "aztec-node"
       values = [
         "common.yaml",
         "rpc.yaml",
-        "rpc-resources-${var.RPC_RESOURCE_PROFILE}.yaml"
+        "rpc-resources-${local.d.RPC_RESOURCE_PROFILE}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
+          p2p = { publicIP = local.p2p_public_ip }
         }
         node = {
-          logLevel = var.FISHERMAN_LOG_LEVEL
+          logLevel = try(local.d.FISHERMAN_LOG_LEVEL, local.d.LOG_LEVEL)
         }
       })]
       # Pod env vars flow from var.releases.fisherman.env via inline_values
       # (FISHERMAN_MODE, SEQ_BUILD_CHECKPOINT_IF_EMPTY, VALIDATORS_PER_NODE
       # come from _release_defaults.fisherman.env in network-defaults.yml).
       custom_settings = {
-        "replicaCount"                = var.FISHERMAN_REPLICAS
-        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "replicaCount"                = local.fisherman_replicas
+        "service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
         "service.p2p.announcePort"    = local.p2p_port_fisherman
         "service.p2p.port"            = local.p2p_port_fisherman
         "node.secret.envEnabled"      = true
-        "node.secret.mnemonic"        = var.FISHERMAN_MNEMONIC
-        "node.secret.mnemonicIndex"   = var.FISHERMAN_MNEMONIC_START_INDEX
+        "node.secret.mnemonic"        = local.d.FISHERMAN_MNEMONIC
+        "node.secret.mnemonicIndex"   = local.fisherman_mnemonic_idx
         "node.preStartScript"         = "source /scripts/get-private-key.sh"
         # Rename: chart-side var name differs from pod env name.
-        "node.env.KEY_INDEX_START" = var.FISHERMAN_MNEMONIC_START_INDEX
+        "node.env.KEY_INDEX_START" = local.fisherman_mnemonic_idx
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true
     } : null
 
-    full_node = tonumber(var.FULL_NODE_REPLICAS) > 0 ? {
-      name  = "${var.RELEASE_PREFIX}-full-node"
+    full_node = local.full_node_replicas > 0 ? {
+      name  = "${local.d.RELEASE_PREFIX}-full-node"
       chart = "aztec-node"
       values = [
         "common.yaml",
         "full-node.yaml",
-        "full-node-resources-${var.FULL_NODE_RESOURCE_PROFILE}.yaml"
+        "full-node-resources-${local.d.FULL_NODE_RESOURCE_PROFILE}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
+          p2p = { publicIP = local.p2p_public_ip }
         }
       })]
       # Pod env vars flow from var.releases.full_node.env via inline_values.
-      custom_settings = {
+      custom_settings = merge({
         "nodeType"                    = "full-node"
-        "replicaCount"                = var.FULL_NODE_REPLICAS
-        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "replicaCount"                = local.full_node_replicas
+        "service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
         "service.p2p.announcePort"    = local.p2p_port_full_node
         "service.p2p.port"            = local.p2p_port_full_node
-        "env.OTEL_INCLUDE_METRICS"    = var.FULL_NODE_INCLUDE_METRICS
         # Deploy-time secrets (not in YAML).
-        "node.env.AWS_ACCESS_KEY_ID"     = var.R2_ACCESS_KEY_ID
-        "node.env.AWS_SECRET_ACCESS_KEY" = var.R2_SECRET_ACCESS_KEY
-      }
+        "node.env.AWS_ACCESS_KEY_ID"     = try(local.d.R2_ACCESS_KEY_ID, "")
+        "node.env.AWS_SECRET_ACCESS_KEY" = try(local.d.R2_SECRET_ACCESS_KEY, "")
+        }, try(local.d.FULL_NODE_INCLUDE_METRICS, "") != "" ? {
+        "env.OTEL_INCLUDE_METRICS" = local.d.FULL_NODE_INCLUDE_METRICS
+      } : {})
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       // this Helm app will have lots of replicas, if we wait for all to come online we'll surely time out.
       wait = false
     } : null
 
-    archive = var.DEPLOY_ARCHIVAL_NODE ? {
-      name  = "${var.RELEASE_PREFIX}-archive"
+    archive = local.deploy_archival_node ? {
+      name  = "${local.d.RELEASE_PREFIX}-archive"
       chart = "aztec-node"
       values = [
         "common.yaml",
         "archive.yaml",
-        "archive-resources-${var.ARCHIVE_RESOURCE_PROFILE}.yaml"
+        "archive-resources-${local.d.ARCHIVE_RESOURCE_PROFILE}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
+          p2p = { publicIP = local.p2p_public_ip }
         }
       })]
       # Pod env vars flow from var.releases.archive.env via inline_values.
       # P2P_ARCHIVED_TX_LIMIT is set in _release_defaults.archive.env.
       custom_settings = {
         "nodeType"                    = "archive"
-        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
         "service.p2p.announcePort"    = local.p2p_port_archive
         "service.p2p.port"            = local.p2p_port_archive
       }
@@ -518,27 +578,27 @@ locals {
     } : null
 
     # Blob sink: uploads blobs to filestore as it syncs
-    blob_sink = var.BLOB_FILE_STORE_UPLOAD_URL != null ? {
-      name  = "${var.RELEASE_PREFIX}-blob-sink"
+    blob_sink = local.blob_file_store_upload_url != "" ? {
+      name  = "${local.d.RELEASE_PREFIX}-blob-sink"
       chart = "aztec-node"
       values = [
         "common.yaml",
         "blob-sink.yaml",
-        "blob-sink-resources-${var.BLOB_SINK_RESOURCE_PROFILE}.yaml"
+        "blob-sink-resources-${local.d.BLOB_SINK_RESOURCE_PROFILE}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
+          p2p = { publicIP = local.p2p_public_ip }
         }
       })]
       # Pod env vars flow from var.releases.blob_sink.env via inline_values.
       custom_settings = {
         "nodeType"                    = "blob-sink"
-        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
         # Deploy-time secrets / computed (not in YAML).
-        "node.env.BLOB_FILE_STORE_UPLOAD_URL" = var.BLOB_FILE_STORE_UPLOAD_URL
-        "node.env.AWS_ACCESS_KEY_ID"          = var.R2_ACCESS_KEY_ID
-        "node.env.AWS_SECRET_ACCESS_KEY"      = var.R2_SECRET_ACCESS_KEY
+        "node.env.BLOB_FILE_STORE_UPLOAD_URL" = local.blob_file_store_upload_url
+        "node.env.AWS_ACCESS_KEY_ID"          = try(local.d.R2_ACCESS_KEY_ID, "")
+        "node.env.AWS_SECRET_ACCESS_KEY"      = try(local.d.R2_SECRET_ACCESS_KEY, "")
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -546,25 +606,25 @@ locals {
     } : null
 
     # Optional: transfer bots
-    bot_transfers = var.BOT_TRANSFERS_REPLICAS > 0 ? {
-      name  = "${var.RELEASE_PREFIX}-bot-transfers"
+    bot_transfers = local.bot_transfers_replicas > 0 ? {
+      name  = "${local.d.RELEASE_PREFIX}-bot-transfers"
       chart = "aztec-bot"
       values = [
         "common.yaml",
         "bot-token-transfer.yaml",
-        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+        "bot-resources-${local.d.BOT_RESOURCE_PROFILE}.yaml",
       ]
       custom_settings = {
-        "bot.replicaCount"       = var.BOT_TRANSFERS_REPLICAS
-        "bot.txIntervalSeconds"  = var.BOT_TRANSFERS_TX_INTERVAL_SECONDS
-        "bot.followChain"        = var.BOT_TRANSFERS_FOLLOW_CHAIN
-        "bot.pxeSyncChainTip"    = var.BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP
-        "bot.botPrivateKey"      = var.BOT_TRANSFERS_L2_PRIVATE_KEY
+        "bot.replicaCount"       = local.bot_transfers_replicas
+        "bot.txIntervalSeconds"  = local.d.BOT_TRANSFERS_TX_INTERVAL_SECONDS
+        "bot.followChain"        = local.d.BOT_TRANSFERS_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = local.d.BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP
+        "bot.botPrivateKey"      = try(local.d.BOT_TRANSFERS_L2_PRIVATE_KEY, "0xcafe01")
         "bot.nodeUrl"            = local.internal_rpc_url
-        "bot.mnemonic"           = var.BOT_MNEMONIC
-        "bot.mnemonicStartIndex" = var.BOT_TRANSFERS_MNEMONIC_START_INDEX
-        "bot.daGasLimit"         = var.BOT_DA_GAS_LIMIT
-        "bot.l2GasLimit"         = var.BOT_L2_GAS_LIMIT
+        "bot.mnemonic"           = local.d.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = local.d.BOT_TRANSFERS_MNEMONIC_START_INDEX
+        "bot.daGasLimit"         = try(local.d.BOT_DA_GAS_LIMIT, "")
+        "bot.l2GasLimit"         = try(local.d.BOT_L2_GAS_LIMIT, "")
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -572,25 +632,25 @@ locals {
     } : null
 
     # Optional: AMM swap bots
-    bot_swaps = var.BOT_SWAPS_REPLICAS > 0 ? {
-      name  = "${var.RELEASE_PREFIX}-bot-swaps"
+    bot_swaps = local.bot_swaps_replicas > 0 ? {
+      name  = "${local.d.RELEASE_PREFIX}-bot-swaps"
       chart = "aztec-bot"
       values = [
         "common.yaml",
         "bot-amm-swaps.yaml",
-        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+        "bot-resources-${local.d.BOT_RESOURCE_PROFILE}.yaml",
       ]
       custom_settings = {
-        "bot.replicaCount"       = var.BOT_SWAPS_REPLICAS
-        "bot.txIntervalSeconds"  = var.BOT_SWAPS_TX_INTERVAL_SECONDS
-        "bot.followChain"        = var.BOT_SWAPS_FOLLOW_CHAIN
-        "bot.pxeSyncChainTip"    = var.BOT_SWAPS_PXE_SYNC_CHAIN_TIP
-        "bot.botPrivateKey"      = var.BOT_SWAPS_L2_PRIVATE_KEY
+        "bot.replicaCount"       = local.bot_swaps_replicas
+        "bot.txIntervalSeconds"  = local.d.BOT_SWAPS_TX_INTERVAL_SECONDS
+        "bot.followChain"        = local.d.BOT_SWAPS_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = local.d.BOT_SWAPS_PXE_SYNC_CHAIN_TIP
+        "bot.botPrivateKey"      = try(local.d.BOT_SWAPS_L2_PRIVATE_KEY, "0xcafe02")
         "bot.nodeUrl"            = local.internal_rpc_url
-        "bot.mnemonic"           = var.BOT_MNEMONIC
-        "bot.mnemonicStartIndex" = var.BOT_SWAPS_MNEMONIC_START_INDEX
-        "bot.daGasLimit"         = var.BOT_DA_GAS_LIMIT
-        "bot.l2GasLimit"         = var.BOT_L2_GAS_LIMIT
+        "bot.mnemonic"           = local.d.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = local.d.BOT_SWAPS_MNEMONIC_START_INDEX
+        "bot.daGasLimit"         = try(local.d.BOT_DA_GAS_LIMIT, "")
+        "bot.l2GasLimit"         = try(local.d.BOT_L2_GAS_LIMIT, "")
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -598,25 +658,25 @@ locals {
     } : null
 
     # Optional: cross-chain message bots
-    bot_cross_chain = var.BOT_CROSS_CHAIN_REPLICAS > 0 ? {
-      name  = "${var.RELEASE_PREFIX}-bot-cross-chain"
+    bot_cross_chain = local.bot_cross_chain_replicas > 0 ? {
+      name  = "${local.d.RELEASE_PREFIX}-bot-cross-chain"
       chart = "aztec-bot"
       values = [
         "common.yaml",
         "bot-cross-chain.yaml",
-        "bot-resources-${var.BOT_RESOURCE_PROFILE}.yaml",
+        "bot-resources-${local.d.BOT_RESOURCE_PROFILE}.yaml",
       ]
       custom_settings = {
-        "bot.replicaCount"       = var.BOT_CROSS_CHAIN_REPLICAS
-        "bot.txIntervalSeconds"  = var.BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS
-        "bot.followChain"        = var.BOT_CROSS_CHAIN_FOLLOW_CHAIN
-        "bot.pxeSyncChainTip"    = var.BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP
-        "bot.botPrivateKey"      = var.BOT_CROSS_CHAIN_L2_PRIVATE_KEY
+        "bot.replicaCount"       = local.bot_cross_chain_replicas
+        "bot.txIntervalSeconds"  = local.d.BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS
+        "bot.followChain"        = local.d.BOT_CROSS_CHAIN_FOLLOW_CHAIN
+        "bot.pxeSyncChainTip"    = local.d.BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP
+        "bot.botPrivateKey"      = try(local.d.BOT_CROSS_CHAIN_L2_PRIVATE_KEY, "0xcafe03")
         "bot.nodeUrl"            = local.internal_rpc_url
-        "bot.mnemonic"           = var.BOT_MNEMONIC
-        "bot.mnemonicStartIndex" = var.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
-        "bot.daGasLimit"         = var.BOT_DA_GAS_LIMIT
-        "bot.l2GasLimit"         = var.BOT_L2_GAS_LIMIT
+        "bot.mnemonic"           = local.d.BOT_MNEMONIC
+        "bot.mnemonicStartIndex" = local.d.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
+        "bot.daGasLimit"         = try(local.d.BOT_DA_GAS_LIMIT, "")
+        "bot.l2GasLimit"         = try(local.d.BOT_L2_GAS_LIMIT, "")
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -633,7 +693,7 @@ resource "helm_release" "releases" {
   name             = each.value.name
   repository       = "../../"
   chart            = each.value.chart
-  namespace        = var.NAMESPACE
+  namespace        = local.d.NAMESPACE
   create_namespace = true
   upgrade_install  = true
   force_update     = true
@@ -647,11 +707,11 @@ resource "helm_release" "releases" {
     [for v in each.value.values : file("./values/${v}")],
     [local.common_inline_values],
     lookup(each.value, "inline_values", []),
-    # New (Phase 4): per-release Helm values passed directly from the YAML loader
-    # via terraform.tfvars.json's `releases.<release_name>` map. The loader emits
+    # Per-release Helm values passed directly from the YAML loader via
+    # terraform.tfvars.json's `releases.<release_name>` map. The loader emits
     # values that already match the chart's expected shape (validator.env.*, etc.),
-    # so this is a direct pass-through with no per-key mapping. The existing `set`
-    # blocks below override these (kept for back-compat with current deploys).
+    # so this is a direct pass-through with no per-key mapping. The `set`
+    # blocks below (custom_settings) layer deploy-time computed values on top.
     contains(keys(var.releases), each.key) ? [yamlencode(var.releases[each.key])] : []
   )
 
@@ -664,8 +724,8 @@ resource "helm_release" "releases" {
       each.value.boot_node_host_path != "" && local.internal_boot_node_url != "" ? {
         (each.value.boot_node_host_path) = local.internal_boot_node_url
       } : {},
-      each.value.bootstrap_nodes_path != "" && length(var.EXTERNAL_BOOTNODES) > 0 ? {
-        (each.value.bootstrap_nodes_path) = join(",", var.EXTERNAL_BOOTNODES)
+      each.value.bootstrap_nodes_path != "" && length(local.external_bootnodes) > 0 ? {
+        (each.value.bootstrap_nodes_path) = join(",", local.external_bootnodes)
       } : {}
     ) : k => v if v != null }
     content {
@@ -685,15 +745,15 @@ resource "helm_release" "releases" {
 }
 
 resource "kubernetes_manifest" "rpc_ingress_backend" {
-  count    = var.RPC_INGRESS_ENABLED ? 1 : 0
+  count    = local.rpc_ingress_enabled ? 1 : 0
   provider = kubernetes.gke-cluster
 
   manifest = {
     apiVersion = "cloud.google.com/v1"
     kind       = "BackendConfig"
     metadata = {
-      name      = "${var.RELEASE_PREFIX}-rpc-ingress-backend"
-      namespace = var.NAMESPACE
+      name      = "${local.d.RELEASE_PREFIX}-rpc-ingress-backend"
+      namespace = local.d.NAMESPACE
     }
     spec = merge(
       {
@@ -707,20 +767,20 @@ resource "kubernetes_manifest" "rpc_ingress_backend" {
           requestPath        = "/status"
         }
       },
-      var.RPC_CLOUD_ARMOR_POLICY_NAME != "" ? {
+      local.rpc_cloud_armor != "" ? {
         securityPolicy = {
-          name = var.RPC_CLOUD_ARMOR_POLICY_NAME
+          name = local.rpc_cloud_armor
         }
       } : {},
-      var.RPC_INGRESS_SESSION_AFFINITY != "" ? {
+      local.rpc_session_affinity != "" ? {
         sessionAffinity = {
-          affinityType = var.RPC_INGRESS_SESSION_AFFINITY
+          affinityType = local.rpc_session_affinity
         }
       } : {},
-      var.RPC_INGRESS_LOG_SAMPLE_RATE != null ? {
+      local.rpc_ingress_log_rate != null ? {
         logging = {
           enable     = true
-          sampleRate = var.RPC_INGRESS_LOG_SAMPLE_RATE
+          sampleRate = local.rpc_ingress_log_rate
         }
       } : {}
     )

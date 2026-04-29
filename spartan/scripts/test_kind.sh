@@ -59,7 +59,7 @@ trap 'handle_interrupt' INT TERM
 
 # Deploy the network
 echo "Deploying network to KIND namespace: $namespace"
-./deploy_network.sh
+./deploy_network.sh "$network"
 
 export DENOISE=1
 # Wait for L2 blocks with k8s context injection
