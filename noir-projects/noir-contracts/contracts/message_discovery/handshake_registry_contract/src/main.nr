@@ -130,7 +130,7 @@ pub contract HandshakeRegistry {
     /// Asserts that the registry holds a [`HandshakeNote`] matching `(sender, recipient, s_app, handshake_type)`.
     ///
     /// This is the canonical "prove a handshake happened" entry point. If no matching note exists, the read request fails
-    /// kernel validation and the calling transaction reverts. Apps that want to use a handshake (e.g. to derive a
+    /// validation and the calling transaction reverts. Apps that want to use a handshake (e.g. to derive a
     /// per-message tag stream from `s_app`) should call this view first to constrain that the registry's note
     /// actually exists with the claimed `(sender, recipient, s_app, handshake_type)` binding.
     ///

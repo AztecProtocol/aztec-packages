@@ -50,10 +50,8 @@ unconstrained fn expected_secret_hash(s_app: Field) -> Field {
     poseidon2_hash_with_separator([s_app], DOM_SEP__HANDSHAKE_SECRET_HASH)
 }
 
-/// Extract the DH-direct payload `[eph_pk.x, masked_sender]` from a private log.
-///
-/// The kernel rewrites `log_data[0]` to the siloed tag during transaction processing; the next two fields are the
-/// payload the contract emitted. Recipient-side discovery does the same slice before recovering the shared secret.
+/// Extract the DH-direct payload `[eph_pk.x, masked_sender]` from a private log. `log_data[0]` is the siloed tag.
+/// Recipient-side discovery does the same slice before recovering the shared secret.
 unconstrained fn extract_dh_payload(
     log_data: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
 ) -> (Field, Field) {
@@ -153,7 +151,7 @@ unconstrained fn non_interactive_handshake_emits_recipient_discoverable_log() {
     let logs = env.private_logs_by_tag(raw_tag, registry_address);
     assert_eq(logs.len(), 1);
 
-    // Log-size sanity: kernel-siloed tag (1) + DH payload (2) = 3 fields.
+    // Log-size sanity: siloed tag (1) + DH payload (2) = 3 fields.
     assert_eq(logs.get(0).len(), 1 + 2);
 
     let (eph_pk_x, masked_sender) = extract_dh_payload(logs.get(0));

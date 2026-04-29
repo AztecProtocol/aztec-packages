@@ -26,8 +26,7 @@ pub struct HandshakeNote {
     /// tag-derivation code constrain the kind of handshake the app permits.
     pub handshake_type: u8,
     /// The recipient this handshake authorizes. Part of the note preimage so apps proving existence of the note
-    /// (via [`crate::HandshakeRegistry::assert_handshake_exists`] or the underlying kernel read-request mechanism)
-    /// bind the proof to a specific recipient.
+    /// (via [`crate::HandshakeRegistry::assert_handshake_exists`]) bind the proof to a specific recipient.
     pub recipient: AztecAddress,
 }
 
