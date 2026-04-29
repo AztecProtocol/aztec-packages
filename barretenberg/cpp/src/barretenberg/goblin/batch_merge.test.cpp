@@ -4,6 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
+#include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplonk.hpp"
 #include "barretenberg/common/test.hpp"
@@ -579,6 +580,52 @@ TYPED_TEST(BatchMergeTests, ZKTableDegreeTooHighFailsReductionOnly)
     EXPECT_TRUE(res.pairing_ok);    // PCS opening remains self-consistent with sent commitments/evals.
     if constexpr (TestFixture::IsRecursive) {
         EXPECT_FALSE(res.circuit_ok);
+    }
+}
+
+// Static analysis of the recursive verifier circuit: every variable must belong to a single connected
+// component (no disjoint subgraphs) and there must be no variables that participate in only one gate
+// (i.e. no unconstrained witnesses).
+TYPED_TEST(BatchMergeTests, GraphDescription)
+{
+    if constexpr (!TestFixture::IsRecursive) {
+        GTEST_SKIP() << "Graph description analysis only applies to stdlib (recursive) verifier circuits.";
+    } else {
+        using BuilderType = typename TestFixture::BuilderType;
+        using FF = typename TestFixture::FF;
+        using Proof = typename TestFixture::Proof;
+        using Verifier = typename TestFixture::Verifier;
+
+        auto op_queue = make_op_queue_with_n_subtables(5);
+        BatchMergeProver prover{ op_queue, TestFixture::NumSubtables, /*is_zk=*/true };
+        auto native_proof = prover.construct_proof();
+        const bb::fr native_hash = compute_running_hash(native_proof, op_queue->num_subtables());
+
+        BuilderType builder;
+        Proof proof = TestFixture::create_proof(builder, native_proof);
+        FF hash = TestFixture::create_hash(builder, native_hash);
+        // The hash is consumed only via split_challenge, which yields a low/high pair via a single arithmetic
+        // gate: hash = lo + 2^127 * hi. The verifier subsequently uses only the low half, so hash itself
+        // appears in only that one gate. Pin it so the StaticAnalyzer doesn't flag it as unconstrained.
+        hash.fix_witness();
+
+        Verifier verifier{ /*is_zk=*/true };
+        auto result = verifier.reduce_to_pairing_check(proof, hash);
+
+        // The pairing points are public outputs from the recursive verifier that will be verified externally via a
+        // pairing check. Their output coordinates may not appear in multiple constraint gates; fix_witness() pins
+        // them so the StaticAnalyzer doesn't flag the coordinate limbs as unconstrained.
+        result.pairing_points.fix_witness();
+
+        builder.finalize_circuit();
+
+        using Analyzer =
+            std::conditional_t<IsMegaBuilder<BuilderType>, cdg::MegaStaticAnalyzer, cdg::UltraStaticAnalyzer>;
+        auto graph = Analyzer(builder);
+        auto [cc, variables_in_one_gate] = graph.analyze_circuit(/*filter_cc=*/true);
+
+        EXPECT_EQ(cc.size(), 1);
+        EXPECT_EQ(variables_in_one_gate.size(), 0);
     }
 }
 
