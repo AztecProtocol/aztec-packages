@@ -134,7 +134,10 @@ constexpr std::array<uint64_t, WASM_NUM_LIMBS> uint256_t::wasm_convert(const uin
 #endif
 constexpr std::pair<uint256_t, uint256_t> uint256_t::divmod(const uint256_t& b) const
 {
-    if (*this == 0 || b == 0) {
+    if (b == 0) {
+        throw_or_abort("uint256_t::divmod: divisor must be nonzero");
+    }
+    if (*this == 0) {
         return { 0, 0 };
     }
     if (b == 1) {
@@ -189,7 +192,10 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::divmod(const uint256_t& b) 
  */
 constexpr std::pair<uint256_t, uint64_t> uint256_t::divmod(uint64_t b) const
 {
-    if (*this == 0 || b == 0) {
+    if (b == 0) {
+        throw_or_abort("uint256_t::divmod: divisor must be nonzero");
+    }
+    if (*this == 0) {
         return { 0, 0 };
     }
     if (b == 1) {
