@@ -123,6 +123,14 @@ TEST(CrsFactory, DISABLED_Bn254Fallback)
     fs::remove_all(temp_crs_path);
 }
 
+// The hardcoded `[x]_2` baked into the BB native binary must be a member of the BN254 G2 prime-order subgroup.
+TEST(CrsFactory, Bn254HardcodedG2IsInPrimeSubgroup)
+{
+    auto g2_point = bb::srs::get_bn254_g2_crs_element();
+    ASSERT_TRUE(g2_point.on_curve());
+    EXPECT_TRUE(g2_point.is_in_prime_subgroup());
+}
+
 TEST(CrsFactory, Bn254CompressedChunkHashFirstChunk)
 {
     // Download the first chunk of compressed CRS from CDN and verify its hash.

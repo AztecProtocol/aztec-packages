@@ -132,6 +132,29 @@ template <class Fq, class Fr, class T> constexpr bool affine_element<Fq, Fr, T>:
     return (xxx == yy);
 }
 
+template <class Fq, class Fr, class T> bool affine_element<Fq, Fr, T>::is_in_prime_subgroup() const noexcept
+{
+    if (is_point_at_infinity()) {
+        return true;
+    }
+    using Element = element<Fq, Fr, T>;
+
+    // To compute r * P, we convert modulus r to u256 and perform a left-to-right double-and-add.
+    constexpr uint256_t r = Fr::modulus;
+    const uint64_t r_msb = r.get_msb();
+
+    // Left-to-right double-and-add over the bits of r below the MSB. The MSB itself is consumed by
+    // initializing `acc` with `*this`. Loop terminates via unsigned underflow (i wraps past 0).
+    Element acc(*this);
+    for (uint64_t i = r_msb - 1; i < r_msb; --i) {
+        acc.self_dbl();
+        if (r.get_bit(i)) {
+            acc += *this;
+        }
+    }
+    return acc.is_point_at_infinity();
+}
+
 template <class Fq, class Fr, class T>
 constexpr bool affine_element<Fq, Fr, T>::operator==(const affine_element& other) const noexcept
 {

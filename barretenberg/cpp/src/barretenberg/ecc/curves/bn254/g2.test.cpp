@@ -182,3 +182,39 @@ TEST(g2, GeneratorIsCorrect)
                                       fq("0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b") } };
     EXPECT_EQ(generator, expected);
 }
+
+// The generator, infinity, and arbitrary scalar multiples of the generator must be accepted as
+// members of the BN254 G2 prime-order subgroup.
+TEST(g2, IsInPrimeSubgroupAcceptsSubgroupPoints)
+{
+    const g2::affine_element gen(Bn254G2Params::one_x, Bn254G2Params::one_y);
+    EXPECT_TRUE(gen.is_in_prime_subgroup());
+    EXPECT_TRUE(g2::affine_element::infinity().is_in_prime_subgroup());
+
+    for (size_t i = 0; i < 4; ++i) {
+        const g2::affine_element P(g2::element(gen) * fr::random_element());
+        EXPECT_TRUE(P.is_in_prime_subgroup());
+    }
+}
+
+// BN254 G2 has cofactor h2 ≈ 2^254, so on-curve does NOT imply prime-order subgroup membership. The hardcoded point
+// below was constructed by sampling x = i + u (for the smallest positive integer i that yields a curve point) and
+// recovering y via Fq2 sqrt; because only a 1/h2 fraction of E'(Fq2) lies in G_r, this specimen lies in a cofactor
+// subgroup. Such a point must be rejected. Coordinates are in Montgomery form to match `Bn254G2Params::one_x` etc.
+TEST(g2, IsInPrimeSubgroupRejectsCofactorPoint)
+{
+    const g2::affine_element off_subgroup{
+        fq2{ fq{ 0xa6ba871b8b1e1b3a, 0x14f1d651eb8e167b, 0xccdd46def0f28c58, 0x1c14ef83340fbe5e },
+             fq{ 0xd35d438dc58f0d9d, 0x0a78eb28f5c70b3d, 0x666ea36f7879462c, 0x0e0a77c19a07df2f } },
+        fq2{ fq{ 0x0294a5225573dc93, 0x53874be07988f4f1, 0x2a05d8b41ccce7d3, 0x20045194f06acd0e },
+             fq{ 0x3814c8e5e4179a98, 0x793241f4d911e617, 0x28cf8e4b0df4482e, 0x0d612bd6f79bd361 } }
+    };
+    ASSERT_TRUE(off_subgroup.on_curve());
+    EXPECT_FALSE(off_subgroup.is_in_prime_subgroup());
+
+    // Sanity check that scalar multiplication via the Fr-typed `*` operator does NOT detect
+    // subgroup membership — multiplying by `Fr(0)` (the additive identity, which equals `r mod r`)
+    // gives infinity for every input, including off-subgroup points. This is precisely why
+    // is_in_prime_subgroup() routes through a uint256_t scalar instead.
+    EXPECT_TRUE((off_subgroup * fr::zero()).is_point_at_infinity());
+}
