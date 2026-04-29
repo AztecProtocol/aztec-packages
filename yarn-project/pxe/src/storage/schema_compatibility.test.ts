@@ -52,7 +52,10 @@ describe('pxe schema compatibility', () => {
       const sorted = [...log].sort((a, b) =>
         a.name === b.name ? a.kind.localeCompare(b.kind) : a.name.localeCompare(b.name),
       );
-      expect(sorted).toMatchSnapshot();
+      // Embed PXE_DATA_SCHEMA_VERSION alongside the store list so a schema change
+      // that updates this snapshot also pins the version it was taken at. Reviewers
+      // see the version next to the new store list in the diff.
+      expect({ schemaVersion: PXE_DATA_SCHEMA_VERSION, stores: sorted }).toMatchSnapshot();
     } finally {
       await inner.close();
     }
@@ -87,7 +90,11 @@ describe('pxe schema compatibility', () => {
           assertNoDefaultFields(`${typeName} (variant ${i})`, variant);
         }
 
+        // Embed PXE_DATA_SCHEMA_VERSION alongside the buffer so a fixture change
+        // that updates this snapshot also pins the version it was taken at. Reviewers
+        // see the version next to the new bytes in the diff.
         expect({
+          schemaVersion: PXE_DATA_SCHEMA_VERSION,
           type: typeName,
           variant: i,
           length: buf.length,
@@ -133,10 +140,13 @@ describe('pxe schema compatibility', () => {
     }
   });
 
-  it('couples version bumps to schema changes', () => {
-    // The legitimate-update path for any of the prior snapshots is to bump PXE_DATA_SCHEMA_VERSION
-    // *and* update this snapshot in the same commit. That makes the wipe-on-upgrade mechanism honest:
-    // a developer who legitimately changes the schema must consciously trigger the wipe.
+  it('pins PXE_DATA_SCHEMA_VERSION', () => {
+    // Standalone tripwire that fires whenever the constant changes. Combined with the
+    // schemaVersion embedded in the prior tests' snapshots, a schema change requires the
+    // developer to bump the version visibly in the diff: the embedded values reveal
+    // unbumped versions even after a `-u`. Mechanical enforcement that bumping the schema
+    // *requires* bumping the version is not possible with snapshot tests alone — this is
+    // a visibility tool, not a hard gate. PR review remains the backstop.
     expect({ PXE_DATA_SCHEMA_VERSION }).toMatchSnapshot();
   });
 });
