@@ -46,6 +46,8 @@ impl<Storage> ContractSelfUtility<Storage> {
 
     /// Makes a utility contract call from another utility function.
     ///
+    /// Note: only same-contract utility calls are currently supported. See TODO(F-29).
+    ///
     /// # Example
     /// ```noir
     /// self.call(Token::at(address).get_balance_of(owner));
