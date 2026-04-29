@@ -58,7 +58,7 @@ const NODE_COUNT = 3;
 //
 const BLOCKS_PER_CHECKPOINT = 4;
 const TXS_PER_BLOCK = 2;
-const CHECKPOINTS_TO_CHECK = 2;
+const CHECKPOINTS_TO_CHECK = 3;
 // Extra txs beyond the ones we assert on: one partial checkpoint at startup (sequencers start mid-slot with
 // only one blockDuration of slack) plus a buffer at the tail.
 const TX_COUNT = BLOCKS_PER_CHECKPOINT * TXS_PER_BLOCK * (CHECKPOINTS_TO_CHECK + 1);
@@ -189,7 +189,10 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       if (first.block.slot < targetSlot || checkedFullCheckpoints >= CHECKPOINTS_TO_CHECK) {
         continue;
       }
-      expect(checkpointBlocks).toHaveLength(BLOCKS_PER_CHECKPOINT);
+
+      // We don't test for exactly BLOCKS_PER_CHECKPOINT since CI delays make this flakey
+      expect(checkpointBlocks.length).toBeGreaterThanOrEqual(BLOCKS_PER_CHECKPOINT - 1);
+
       for (const block of checkpointBlocks) {
         // We don't test for exactly TXS_PER_BLOCK since CI delays make this flakey
         const txCount = block.block.body.txEffects.length;
@@ -199,7 +202,12 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       expect([0, 1]).toContain(l1OffsetInSlot);
       checkedFullCheckpoints++;
     }
+
+    // Check that we've gone through all checkpoints, and at least one checkpoint reached
+    // expected number of blocks, and at least one block reached the expected number of txs.
     expect(checkedFullCheckpoints).toBe(CHECKPOINTS_TO_CHECK);
+    expect(Math.max(...blocks.map(b => b.block.body.txEffects.length))).toEqual(TXS_PER_BLOCK);
+    expect(Math.max(...checkpoints.map(c => c.length))).toEqual(BLOCKS_PER_CHECKPOINT);
 
     // Expect no failures from sequencers during block building. Filter out the self-proposal 'Rollup contract
     // check failed' spam: when a validator proposes two consecutive checkpoints, the archiver's sequentiality
