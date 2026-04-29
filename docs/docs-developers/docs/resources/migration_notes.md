@@ -9,6 +9,52 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] `proveTx` takes an options bag
+
+`PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:
+
+```diff
+- pxe.proveTx(txRequest, scopes);
++ pxe.proveTx(txRequest, { scopes });
+```
+
+The new `senderForTags` field sets the address recipients use to find private messages (notes, events, logs) emitted by this tx. Most wallets don't need to set it; the wallet SDK derives it from the tx's `from` address:
+
+```typescript
+// Most callers: just migrate scopes
+pxe.proveTx(txRequest, { scopes });
+
+// When from === NO_FROM (e.g. self-paid account deploy), supply the tag sender explicitly:
+pxe.proveTx(txRequest, { scopes, senderForTags: deployedAddress });
+```
+
+### [Aztec.nr] `set_sender_for_tags` is now scoped to the calling contract
+
+`set_sender_for_tags` previously persisted through nested calls. It is now scoped to the contract that calls it: nested calls, siblings, and parents are unaffected and always start from the initial default. This closes a silent note-discovery DoS vector where any nested callee could overwrite the tag sender for legitimate contracts called below it.
+
+The wallet SDK now supplies the default sender-for-tags from the transaction's `from` address, with an optional `sendMessagesAs` override for flows that don't have a signing account (e.g. self-paid deploys, which `DeployAccountMethod` sets automatically). Account contracts therefore no longer need to call `set_sender_for_tags(self.address)` in their entrypoints; those calls have been removed from the standard schnorr and ECDSA account contracts, and you can drop the equivalent call in any custom account contract.
+
+The save/restore idiom previously used in account-contract constructors (`get` → `set(self.address)` → work → `set(prev)`) is also no longer needed and has been removed: the override never leaks out of the constructor, so there is nothing to restore.
+
+
+### [CLI] `aztec-up` no longer exposes transitive npm bins on PATH
+
+The `aztec-up` installer used to add `$HOME/.aztec/current/node_modules/.bin` to your shell `PATH`, which put ~40 transitive npm bins (`jest`, `tsc`, `tsserver`, `semver`, `uuid`, `json5`, ...) onto your interactive shell and silently shadowed your own installed versions of those tools. Only the seven `@aztec/*`-owned bins (`aztec`, `aztec-wallet`, `bb`, `bb-cli`, `blob-client`, `noir-codegen`, `txe`) are now exposed.
+
+If you had an Aztec version installed before this release, your shell profile (`~/.bashrc` or `~/.zshrc`) still contains the old `PATH` line. Re-run the installer once (replacing `[VERSION]` with whichever toolchain version you're on, e.g. `4.2.0`) to replace it:
+
+```bash
+VERSION=[VERSION] bash -i <(curl -sL https://install.aztec.network)
+```
+
+Open a fresh shell and confirm the leak is gone:
+
+```bash
+echo $PATH
+```
+
+`$HOME/.aztec/current/node_modules/.bin` should no longer appear in the output. You'll also see your own `jest`, `tsc`, etc. again instead of the ones bundled with the Aztec toolchain.
+
 ### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
 
 `emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.

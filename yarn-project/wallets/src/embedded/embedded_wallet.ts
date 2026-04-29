@@ -7,6 +7,7 @@ import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -43,6 +44,12 @@ export function splitPxeOptions(pxe?: EmbeddedWalletPXEOptions): {
   return { config, creation: { loggers, loggerActorLabel, proverOrOptions, store, simulator } };
 }
 
+/** Options for the EmbeddedWallet's own DB (accounts, senders — distinct from PXE state). */
+export type EmbeddedWalletDBOptions = {
+  /** Override the wallet DB backend. If omitted, an IndexedDB (browser) / LMDB (node) store is created. */
+  store?: AztecAsyncKVStore;
+};
+
 export type EmbeddedWalletOptions = {
   /** Parent logger. Child loggers are derived via createChild() for each subsystem. */
   logger?: Logger;
@@ -50,6 +57,8 @@ export type EmbeddedWalletOptions = {
   ephemeral?: boolean;
   /** PXE configuration and dependency overrides (custom store, prover, simulator). */
   pxe?: EmbeddedWalletPXEOptions;
+  /** Wallet DB dependency overrides (custom store). */
+  walletDb?: EmbeddedWalletDBOptions;
   /**
    * Override PXE configuration.
    * @deprecated Use `pxe` instead.
@@ -132,6 +141,7 @@ export class EmbeddedWallet extends BaseWallet {
       feeOptions,
       additionalScopes: opts.additionalScopes,
       skipTxValidation: true,
+      sendMessagesAs: opts.sendMessagesAs,
     });
 
     const offchainEffects = collectOffchainEffects(simulationResult.privateExecutionResult);
@@ -230,7 +240,7 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement, sendMessagesAs } = opts;
     const scopes = this.scopesFrom(from, additionalScopes);
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
@@ -271,6 +281,7 @@ export class EmbeddedWallet extends BaseWallet {
       skipTxValidation,
       overrides,
       scopes,
+      senderForTags: this.senderForTagsFrom(from, sendMessagesAs),
     });
     const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);

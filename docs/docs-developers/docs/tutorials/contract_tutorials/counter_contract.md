@@ -82,7 +82,7 @@ pub contract Counter {
 - `messages::message_delivery::MessageDelivery`
   Imports `MessageDelivery` for specifying how note delivery should be handled (e.g., constrained onchain delivery).
 
-- `oracle::debug_log::debug_log_format`
+- `oracle::logging::debug_log_format`
   Imports a debug logging utility for printing formatted messages during contract execution.
 
 - `protocol::{address::AztecAddress, traits::ToField}`

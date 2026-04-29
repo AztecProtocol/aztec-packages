@@ -69,6 +69,8 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 - `level:module` - Sets level for a specific module
 - `level:module:submodule` - Sets level for a specific submodule
 
+**The default-level filter must be the first segment.** A bare `level:module` with no preceding default (e.g. `LOG_LEVEL="warn:simulator"`) is invalid and throws `Invalid log level`, because the parser reads everything before the first `;` as the default level. To filter only specific modules, lead with a default level — use `silent` to suppress everything else.
+
 ```bash
 # Default level only
 LOG_LEVEL="debug"
@@ -78,6 +80,9 @@ LOG_LEVEL="info;debug:simulator;debug:execution"
 
 # Default level + specific submodule overrides
 LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_view_context"
+
+# Silence everything except one module
+LOG_LEVEL="silent;debug:simulator"
 ```
 
 :::
@@ -111,9 +116,12 @@ LOG_LEVEL="info;debug:simulator:client_execution_context;debug:simulator:client_
 ### Quick Fixes for Common Issues
 
 ```bash
-# Archiver sync issues - force progress with dummy transactions
-aztec-wallet send transfer --from test0 --to test0 --amount 0
-aztec-wallet send transfer --from test0 --to test0 --amount 0
+# Archiver sync issues - force progress with dummy transactions.
+# Assumes you have imported the local network test accounts
+# (aztec-wallet import-test-accounts) and have a deployed token
+# aliased as `testtoken`.
+aztec-wallet send transfer --from test0 --contract-address testtoken --args accounts:test0 0
+aztec-wallet send transfer --from test0 --contract-address testtoken --args accounts:test0 0
 
 # L1 to L2 message pending - wait for inclusion
 # Messages need 2 blocks to be processed

@@ -1,0 +1,1 @@
+The #[only_self] attribute cannot be applied to #[external("utility")] functions - foo

@@ -46,9 +46,6 @@ function test {
 
   export NARGO_FOREIGN_CALL_TIMEOUT=300000
   test_cmds | filter_test_cmds | parallelize
-
-  # Run the macro compilation failure tests
-  ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh
 }
 
 function format {
@@ -126,9 +123,6 @@ function release_git_push {
 case "$cmd" in
   "")
     build
-    ;;
-  "test-macro-compilation-failure")
-    ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh
     ;;
   *)
     default_cmd_handler "$@"

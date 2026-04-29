@@ -19,9 +19,11 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { type AppendOnlyTree, Poseidon, StandardTree, newTree } from '@aztec/merkle-tree';
+import { CalldataLimitTestContractArtifact } from '@aztec/noir-test-contracts.js/CalldataLimitTest';
 import { ChildContractArtifact } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContractArtifact } from '@aztec/noir-test-contracts.js/Parent';
 import { PendingNoteHashesContractArtifact } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
+import { SenderForTagsTestContractArtifact } from '@aztec/noir-test-contracts.js/SenderForTagsTest';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -596,7 +598,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should have a constructor with arguments that inserts notes', async () => {
-      const initArgs = [owner, owner, 140];
+      const initArgs = [owner, 140];
       const instance = await getContractInstanceFromInstantiationParams(StatefulTestContractArtifact, {
         constructorArgs: initArgs,
         salt: Fr.random(),
@@ -628,7 +630,7 @@ describe('Private Execution test suite', () => {
 
     it('should run the create_note function', async () => {
       const { entrypoint: result } = await runSimulator({
-        args: [owner, owner, 140],
+        args: [owner, 140],
         artifact: StatefulTestContractArtifact,
         anchorBlockHeader,
         functionName: 'create_note_no_init_check',
@@ -800,6 +802,17 @@ describe('Private Execution test suite', () => {
       });
 
       expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [owner], childAddress);
+    });
+
+    it('sender_for_tags override in a nested call does not leak to siblings, parents, or further descendants', async () => {
+      const contractAddress = await mockContractInstance(SenderForTagsTestContractArtifact);
+      await runSimulator({
+        args: [senderForTags],
+        artifact: SenderForTagsTestContractArtifact,
+        anchorBlockHeader,
+        functionName: 'parent',
+        contractAddress,
+      });
     });
   });
 
@@ -1083,6 +1096,21 @@ describe('Private Execution test suite', () => {
           artifact: parentContractArtifact,
           functionName: 'enqueue_call_to_child_with_many_args_and_recurse',
           args,
+        }),
+      ).rejects.toThrow(/Too many total args to all enqueued public calls/);
+    });
+
+    it('should error if parent and nested private call enqueue public calls with too many TOTAL args', async () => {
+      const contractArtifact = structuredClone(CalldataLimitTestContractArtifact);
+      const contractAddress = await mockContractInstance(contractArtifact);
+
+      await expect(
+        runSimulator({
+          msgSender: contractAddress,
+          contractAddress: contractAddress,
+          anchorBlockHeader,
+          artifact: contractArtifact,
+          functionName: 'exceed_calldata_limit_via_nested_call',
         }),
       ).rejects.toThrow(/Too many total args to all enqueued public calls/);
     });

@@ -80,19 +80,14 @@ This can present confusion when opening older contracts (and dependencies) writt
 
 ### Steps to keep up to date
 
-1. Update the Aztec local network to the latest version (includes `aztec` command, pxe, etc):
+1. Update the Aztec local network to a specific version (includes `aztec` command, pxe, etc) — `aztec-up` uses explicit subcommands to install and switch between versions. For example, to install and use [v**0.77.0**](https://github.com/AztecProtocol/aztec-packages/tree/v0.77.0):
 
 ```shell
-aztec-up
+aztec-up install 0.77.0
+aztec-up use 0.77.0
 ```
 
-To update to a specific version, pass the version number after the `aztec-up` command, or set `VERSION` for a particular git tag, eg for [v**0.77.0**](https://github.com/AztecProtocol/aztec-packages/tree/v0.77.0)
-
-```shell
-aztec-up 0.77.0
-# or
-VERSION=0.77.0 aztec-up
-```
+Run `aztec-up list` to see installed versions, or `aztec-up --help` for all available subcommands.
 
 2. Update Aztec.nr and individual @aztec dependencies:
 

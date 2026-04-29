@@ -179,11 +179,11 @@ See [this example](https://github.com/noir-lang/noir-examples/blob/master/noir_b
 Consider the following example of an implementation of the `sqrt` function:
 
 ```rust
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract OptimisationExample {
-    use dep::aztec::macros::{functions::{external, initializer}, storage::storage};
+    use aztec::macros::{functions::{external, initializer}, storage::storage};
 
     #[storage]
     struct Storage<Context> {}
