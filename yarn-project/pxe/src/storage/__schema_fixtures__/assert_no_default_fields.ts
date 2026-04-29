@@ -27,6 +27,15 @@ function isDefault(value: unknown): boolean {
   if (value === 0 || value === 0n || value === '') {
     return true;
   }
+  if (Buffer.isBuffer(value) && value.length === 0) {
+    return true;
+  }
+  if (value instanceof Set && value.size === 0) {
+    return true;
+  }
+  if (value instanceof Map && value.size === 0) {
+    return true;
+  }
   if (Array.isArray(value) && value.length === 0) {
     return true;
   }
@@ -45,6 +54,15 @@ function describe(value: unknown): string {
   }
   if (value === null) {
     return 'null';
+  }
+  if (Buffer.isBuffer(value)) {
+    return 'empty Buffer';
+  }
+  if (value instanceof Set) {
+    return 'empty Set';
+  }
+  if (value instanceof Map) {
+    return 'empty Map';
   }
   if (Array.isArray(value)) {
     return 'empty array';

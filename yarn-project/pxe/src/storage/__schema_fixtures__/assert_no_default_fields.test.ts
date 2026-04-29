@@ -17,6 +17,9 @@ describe('assertNoDefaultFields', () => {
     ['empty array', []],
     ['Fr.ZERO', Fr.ZERO],
     ['EthAddress.ZERO', EthAddress.ZERO],
+    ['empty Set', new Set()],
+    ['empty Map', new Map()],
+    ['empty Buffer', Buffer.alloc(0)],
   ])('throws when field has default value (%s)', (_label, value) => {
     expect(() => assertNoDefaultFields('TypeA', { good: 1, bad: value })).toThrow(
       /Fixture for TypeA is incomplete: field 'bad' is the type default/,
