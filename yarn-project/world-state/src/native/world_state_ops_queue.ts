@@ -104,12 +104,19 @@ export class WorldStateOpsQueue {
   }
 
   private executeNonMutatingCommitted(op: WorldStateOp) {
-    // This is a non-mutating request for committed data
-    // It can always be sent
+    // This is a non-mutating request for committed data and can always be sent without
+    // serialization. We still bump inFlightCount so that stop() waits for it to finish
+    // before resolving — otherwise close() can free the native context while a committed
+    // read is mid-flight, producing use-after-free crashes (SIGSEGV / free()/ V8 fatal).
+    ++this.inFlightCount;
     op.request()
       .then(op.promise.resolve, op.promise.reject)
       .finally(() => {
+        --this.inFlightCount;
         this.ops.delete(op.requestId);
+        if (this.inFlightCount === 0 && this.stopResolve !== undefined) {
+          this.stopResolve();
+        }
       });
   }
 
