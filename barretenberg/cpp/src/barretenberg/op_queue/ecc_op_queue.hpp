@@ -150,8 +150,10 @@ class ECCOpQueue {
         ultra_ops_reconstructed = ultra_ops_table.get_reconstructed(include_zk_ops);
     }
 
+    // EXCLUDES the optional ZK prefix; see UltraEccOpsTable::num_ultra_rows for the contract.
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.num_ultra_rows(); }
     size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); } // actual operation count without padding
+    // EXCLUDES the optional ZK prefix; same contract as get_ultra_ops_table_num_rows.
     size_t get_ultra_ops_table_num_rows_up_to_tail() const { return ultra_ops_table.ultra_table_size_up_to_tail(); }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops

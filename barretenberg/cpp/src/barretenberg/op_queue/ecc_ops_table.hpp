@@ -276,7 +276,11 @@ class UltraEccOpsTable {
     // Returns the number of ECC operations in the table
     size_t num_ops() const { return table.size(); }
 
-    // Returns the number of rows in the Ultra execution trace (each op occupies NUM_ROWS_PER_OP rows)
+    // Returns the number of rows in the Ultra execution trace (each op occupies NUM_ROWS_PER_OP rows).
+    // NOTE: this count covers the merged subtables only and EXCLUDES the optional ZK prefix (zk_ops, size
+    // ZK_ULTRA_OPS) which is layered on at reconstruction time when include_zk_ops is requested. Callers that need
+    // the full polynomial size (e.g. for sizing a commitment key) must add ZK_ULTRA_OPS themselves when ZK is in
+    // play.
     size_t num_ultra_rows() const
     {
         if (!has_fixed_append_offset()) {
