@@ -240,6 +240,14 @@ template <typename Curve> class MSM {
     /** @brief Compute optimal bits per slice by minimizing cost over c in [1, MAX_SLICE_BITS) */
     static uint32_t get_optimal_log_num_buckets(size_t num_points) noexcept;
 
+    /** @brief Partition per-MSM scalar weights into num_threads work units of approximately
+     *         equal cumulative weight.
+     *  @details Curve-independent and side-effect-free. The walk closes a work unit every time
+     *           the running weight crosses the per-thread target, except on the last thread
+     *           which absorbs any remainder so rounding drift doesn't leave work stranded. */
+    static std::vector<ThreadWorkUnits> partition_by_weight(std::span<const std::vector<uint16_t>> msm_scalar_weights,
+                                                            size_t num_threads) noexcept;
+
     /** @brief Process sorted point schedule into bucket accumulators using batched affine additions */
     static void batch_accumulate_points_into_buckets(std::span<const uint64_t> point_schedule,
                                                      std::span<const AffineElement> points,

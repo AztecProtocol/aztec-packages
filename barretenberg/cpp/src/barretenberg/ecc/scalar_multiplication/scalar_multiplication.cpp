@@ -118,59 +118,27 @@ void MSM<Curve>::compute_scalar_slice_weights(std::span<const typename Curve::Sc
 }
 
 template <typename Curve>
-std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
-    std::span<std::span<ScalarField>> scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
+std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::partition_by_weight(
+    std::span<const std::vector<uint16_t>> msm_scalar_weights, size_t num_threads) noexcept
 {
-    const size_t num_msms = scalars.size();
-    msm_scalar_indices.resize(num_msms);
+    BB_ASSERT_GT(num_threads, 0U);
+    std::vector<ThreadWorkUnits> work_units(num_threads);
 
-    // Per-scalar work in Pippenger is dominated by the number of nonzero c-bit slices
-    // (zero slices are filtered out of bucket accumulation via the zero-bucket pre-sort).
-    // Weight each scalar by ceil(bit_length / bits_per_slice) so threads are partitioned by
-    // actual bucket-accumulation work, which is more balanced than partitioning by scalar
-    // count when scalar bit-sizes are spatially clustered (e.g. small witness values packed
-    // in one region of a wire polynomial next to full-field randomness). bits_per_slice is
-    // per-MSM since it depends on the MSM's nonzero-scalar count.
-    std::vector<std::vector<uint16_t>> msm_scalar_weights(num_msms);
     size_t grand_total_weight = 0;
-    size_t total_work = 0;
-    for (size_t i = 0; i < num_msms; ++i) {
-        transform_scalar_and_get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
-        const size_t n = msm_scalar_indices[i].size();
-        total_work += n;
-        if (n == 0) {
-            continue;
-        }
-        const uint32_t bps = get_optimal_log_num_buckets(n);
-        compute_scalar_slice_weights(scalars[i], msm_scalar_indices[i], bps, msm_scalar_weights[i]);
-        for (uint16_t w : msm_scalar_weights[i]) {
+    for (const auto& weights : msm_scalar_weights) {
+        for (uint16_t w : weights) {
             grand_total_weight += w;
         }
     }
-
-    const size_t num_threads = get_num_cpus();
-    std::vector<ThreadWorkUnits> work_units(num_threads);
-
-    // Only use a single work unit if we don't have enough work for every thread
-    if (num_threads > total_work) {
-        for (size_t i = 0; i < num_msms; ++i) {
-            work_units[0].push_back(MSMWorkUnit{
-                .batch_msm_index = i,
-                .start_index = 0,
-                .size = msm_scalar_indices[i].size(),
-            });
-        }
+    if (grand_total_weight == 0) {
         return work_units;
     }
 
     const size_t weight_per_thread = numeric::ceil_div(grand_total_weight, num_threads);
 
-    // Walk each MSM's slice-count weights linearly, closing a work unit every time the
-    // running weight crosses the per-thread target. The last thread absorbs any remainder
-    // so rounding drift doesn't leave work stranded.
     size_t thread_accumulated_weight = 0;
     size_t current_thread_idx = 0;
-    for (size_t i = 0; i < num_msms; ++i) {
+    for (size_t i = 0; i < msm_scalar_weights.size(); ++i) {
         const auto& weights = msm_scalar_weights[i];
         const size_t n = weights.size();
 
@@ -198,6 +166,46 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
         }
     }
     return work_units;
+}
+
+template <typename Curve>
+std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
+    std::span<std::span<ScalarField>> scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
+{
+    const size_t num_msms = scalars.size();
+    msm_scalar_indices.resize(num_msms);
+
+    // Weight scalars by their Pippenger cost (slice count + fixed overhead, see
+    // compute_scalar_slice_weights) to improve thread balancing.
+    std::vector<std::vector<uint16_t>> msm_scalar_weights(num_msms);
+    size_t total_work = 0;
+    for (size_t i = 0; i < num_msms; ++i) {
+        transform_scalar_and_get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
+        const size_t n = msm_scalar_indices[i].size();
+        total_work += n;
+        if (n == 0) {
+            continue;
+        }
+        const uint32_t bps = get_optimal_log_num_buckets(n);
+        compute_scalar_slice_weights(scalars[i], msm_scalar_indices[i], bps, msm_scalar_weights[i]);
+    }
+
+    const size_t num_threads = get_num_cpus();
+
+    // Only use a single work unit if we don't have enough work for every thread
+    if (num_threads > total_work) {
+        std::vector<ThreadWorkUnits> work_units(num_threads);
+        for (size_t i = 0; i < num_msms; ++i) {
+            work_units[0].push_back(MSMWorkUnit{
+                .batch_msm_index = i,
+                .start_index = 0,
+                .size = msm_scalar_indices[i].size(),
+            });
+        }
+        return work_units;
+    }
+
+    return partition_by_weight(msm_scalar_weights, num_threads);
 }
 
 /**
