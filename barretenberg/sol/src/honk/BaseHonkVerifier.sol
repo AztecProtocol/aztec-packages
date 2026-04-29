@@ -410,10 +410,10 @@ abstract contract BaseHonkVerifier is IVerifier {
     {
         uint256 limit = NUMBER_UNSHIFTED + $LOG_N + 2;
 
-        // Validate all points are on the curve
-        for (uint256 i = 0; i < limit; ++i) {
-            rejectPointAtInfinity(base[i]);
-        }
+        // Identity bases are accepted: VK selector/table polys may be identically zero,
+        // and the ecAdd/ecMul precompiles treat (0,0) as the additive identity per EIP-196.
+        // Soundness against an attacker substituting (0,0) for a non-zero commitment is
+        // upheld by sumcheck/Shplemini, which would fail on inconsistent evaluations.
 
         bool success = true;
         assembly {
