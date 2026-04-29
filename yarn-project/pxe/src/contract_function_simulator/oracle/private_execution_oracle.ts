@@ -105,6 +105,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.defaultSenderForTags = args.senderForTags;
   }
 
+  public override callUtilityFunction(
+    _targetContractAddress: AztecAddress,
+    _functionSelector: FunctionSelector,
+    _args: Fr[],
+  ): Promise<Fr[]> {
+    return Promise.reject(new Error('Calling utility functions from private functions is not supported.'));
+  }
+
   public getPrivateContextInputs(): PrivateContextInputs {
     return new PrivateContextInputs(
       this.callContext,
@@ -580,14 +588,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       log: this.logger,
       scopes: this.scopes,
       senderForTags: this.defaultSenderForTags,
-      simulator: this.simulator!,
+      simulator: this.simulator,
       l2TipsStore: this.l2TipsStore,
     });
 
     const setupTime = simulatorSetupTimer.ms();
 
     const childExecutionResult = await executePrivateFunction(
-      this.simulator!,
+      this.simulator,
       privateExecutionOracle,
       targetArtifact,
       targetContractAddress,

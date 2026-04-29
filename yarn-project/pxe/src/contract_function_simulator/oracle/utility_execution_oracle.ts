@@ -77,9 +77,7 @@ export type UtilityExecutionOracleArgs = {
   jobId: string;
   log?: ReturnType<typeof createLogger>;
   scopes: AztecAddress[];
-  /** ACIR circuit simulator. Optional in contexts (e.g. unit tests) that never invoke nested utilities;
-   * calling without it set will throw at dispatch time. */
-  simulator?: CircuitSimulator;
+  simulator: CircuitSimulator;
 };
 
 /**
@@ -116,7 +114,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly jobId: string;
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AztecAddress[];
-  protected readonly simulator?: CircuitSimulator;
+  protected readonly simulator: CircuitSimulator;
 
   constructor(args: UtilityExecutionOracleArgs) {
     this.contractAddress = args.contractAddress;
@@ -921,15 +919,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     if (!targetContractAddress.equals(this.contractAddress)) {
       throw new Error(
         `Cross-contract utility calls are not yet supported: cannot call ${targetContractAddress} from utility function on ${this.contractAddress}.`,
-      );
-    }
-
-    if (!this.simulator) {
-      throw new Error(
-        `Cannot perform nested utility call from ${this.contractAddress} to ` +
-          `${targetContractAddress}:${functionSelector}: ` +
-          `UtilityExecutionOracle was constructed without a CircuitSimulator. ` +
-          `Pass one via UtilityExecutionOracleArgs.simulator.`,
       );
     }
 

@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { KeyStore } from '@aztec/key-store';
+import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -80,6 +81,15 @@ describe('PrivateExecutionOracle', () => {
     });
   });
 
+  describe('callUtilityFunction', () => {
+    it('throws when called from a private context', async () => {
+      const oracle = makeOracle();
+      await expect(
+        oracle.callUtilityFunction(await AztecAddress.random(), FunctionSelector.empty(), []),
+      ).rejects.toThrow('Calling utility functions from private functions is not supported.');
+    });
+  });
+
   const makeOracle = (overrides: Partial<PrivateExecutionOracleArgs> = {}): PrivateExecutionOracle => {
     return new PrivateExecutionOracle({
       argsHash: Fr.ZERO,
@@ -107,6 +117,7 @@ describe('PrivateExecutionOracle', () => {
       l2TipsStore: mock<L2TipsProvider>(),
       jobId: 'test',
       scopes: [],
+      simulator: new WASMSimulator(),
       ...overrides,
     });
   };
