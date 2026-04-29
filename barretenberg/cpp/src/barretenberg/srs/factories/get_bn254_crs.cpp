@@ -276,4 +276,26 @@ std::vector<g1::affine_element> get_bn254_g1_data(const std::filesystem::path& p
     return get_bn254_g1_data(path, num_points, allow_download, CRS_PRIMARY_URL, CRS_FALLBACK_URL);
 }
 
+// Loads the canonical 128-byte serialization of [x]_2 from disk and verifies it against the pinned
+// SHA-256 and the BN254 G2 prime-order subgroup.
+g2::affine_element get_bn254_g2_data(const std::filesystem::path& path)
+{
+    constexpr size_t G2_BYTES = 128;
+    auto g2_path = path / "bn254_g2.dat";
+    if (get_file_size(g2_path) != G2_BYTES) {
+        throw_or_abort("bn254 g2 data not found at " + path.string() +
+                       " or has wrong size. Run barretenberg/crs/bootstrap.sh to provision.");
+    }
+    auto data = read_file(g2_path, G2_BYTES);
+    auto hash = bb::crypto::sha256(std::span<const uint8_t>(data.data(), data.size()));
+    if (hash != bb::srs::BN254_G2_ELEMENT_SHA256) {
+        throw_or_abort("bn254 g2 SHA-256 mismatch: payload does not match the canonical [x]_2");
+    }
+    auto point = from_buffer<g2::affine_element>(data.data());
+    if (!point.is_in_prime_subgroup()) {
+        throw_or_abort("bn254 g2 deserialized to a point outside the prime-order subgroup");
+    }
+    return point;
+}
+
 } // namespace bb
