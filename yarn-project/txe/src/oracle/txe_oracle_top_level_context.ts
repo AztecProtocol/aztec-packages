@@ -63,13 +63,13 @@ import {
   GasSettings,
 } from '@aztec/stdlib/gas';
 import { computeCalldataHash, computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
-import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
+import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';

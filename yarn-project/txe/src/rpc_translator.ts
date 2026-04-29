@@ -387,19 +387,14 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_txe_getPrivateLogsByTag(
-    foreignRawTag: ForeignCallSingle,
-    foreignContractAddress: ForeignCallSingle,
-  ) {
+  async aztec_txe_getPrivateLogsByTag(foreignRawTag: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
     const rawTag = fromSingle(foreignRawTag);
     const contractAddress = addressFromSingle(foreignContractAddress);
 
     const logs = await this.handlerAsTxe().getPrivateLogsByTag(rawTag, contractAddress);
 
     if (logs.length > MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY) {
-      throw new Error(
-        `Array of length ${logs.length} larger than maxLen ${MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY}`,
-      );
+      throw new Error(`Array of length ${logs.length} larger than maxLen ${MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY}`);
     }
     if (logs.some(log => log.length > PRIVATE_LOG_SIZE_IN_FIELDS)) {
       throw new Error(`Some private log has length larger than maxLen ${PRIVATE_LOG_SIZE_IN_FIELDS}`);
