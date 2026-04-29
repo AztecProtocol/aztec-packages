@@ -467,9 +467,13 @@ function grind_p2p {
     "p2p/src/client/test/p2p_client.integration_reqresp.test.ts"
   )
 
-  # E2E tests run with --forceExit. Without it they leak MessagePort / open handles
-  # after Jest's testTimeout fires → the outer 600s timeout masks the real error.
-  local e2e_tests_force_exit=(
+  # E2E tests run with --detectOpenHandles. With the orphan-blob-upload fix in
+  # ProposalHandler.stop() and the teardown order swap (teardown before stopNodes),
+  # workers now stop gracefully and --forceExit is no longer needed. Keeping
+  # --detectOpenHandles surfaces any new handle leak with a stack trace instead of
+  # silently passing. See local-notes/blob-upload-orphan-promise-bug.md and
+  # local-notes/l2-block-stream-teardown-races.md.
+  local e2e_tests=(
     "e2e_p2p/gossip_network.test.ts"
     "e2e_p2p/gossip_network_no_cheat.test.ts"
     "e2e_p2p/fee_asset_price_oracle_gossip.test.ts"
@@ -481,11 +485,6 @@ function grind_p2p {
     "e2e_p2p/duplicate_proposal_slash.test.ts"
     "e2e_p2p/duplicate_attestation_slash.test.ts"
     "e2e_p2p/inactivity_slash_with_consecutive_epochs.test.ts"
-  )
-
-  # preferred_gossip_network CANNOT use --forceExit: libp2p v2 native bindings
-  # segfault when Jest force-exits mid-cleanup. Use --detectOpenHandles instead.
-  local e2e_tests_detect_handles=(
     "e2e_p2p/preferred_gossip_network.test.ts"
   )
 
@@ -500,16 +499,7 @@ function grind_p2p {
 
   # E2E tests run FIRST so their (longer-running, higher-signal) results show up
   # in the CI log before the cheap integration tests.
-  for test in "${e2e_tests_force_exit[@]}"; do
-    local name=${test##*/}
-    name=${name%.test.ts}
-    local cmd=$(_e2e_grind_cmd "$name" "$test" "--forceExit")
-    echo_header "grind-p2p: $name (jobs_pct=$e2e_jobs_pct, --forceExit)"
-    grind_test "$cmd" "$timeout" "$e2e_jobs_pct" "$memsuspend_pct" "$commit" \
-      || failed_tests+=("$test")
-  done
-
-  for test in "${e2e_tests_detect_handles[@]}"; do
+  for test in "${e2e_tests[@]}"; do
     local name=${test##*/}
     name=${name%.test.ts}
     local cmd=$(_e2e_grind_cmd "$name" "$test" "--detectOpenHandles")
