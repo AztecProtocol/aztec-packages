@@ -1,5 +1,5 @@
 use crate::protocol::{
-    abis::{function_selector::FunctionSelector, gas_settings::GasSettings},
+    abis::{function_selector::FunctionSelector, gas_fees::GasFees, gas_settings::GasSettings},
     address::AztecAddress,
     traits::{Deserialize, FromField, Packable, Serialize},
 };
@@ -449,6 +449,36 @@ impl TestEnvironment {
     /// `set_next_block_timestamp`).
     pub unconstrained fn set_gas_settings(_self: Self, gas_settings: GasSettings) {
         txe_oracles::set_gas_settings(gas_settings);
+    }
+
+    /// Sets the per-block `gas_fees` (the "actual" L2/DA gas price) used by all subsequent TXE
+    /// blocks, including blocks mined by `mine_block`/`mine_block_at` and blocks produced by
+    /// `call_private` / `call_public`. The setting persists until overwritten - this mirrors
+    /// `set_next_block_timestamp` (both are properties of the next block, chosen by the sequencer
+    /// in production).
+    ///
+    /// The default is zero. Tests that exercise public-side fee logic - e.g. an FPC computing
+    /// `gas_used * min_fee_per_l2_gas` in its `pay_fee` teardown - should call this before the
+    /// contract call so that `context.min_fee_per_l2_gas()` and `context.min_fee_per_da_gas()`
+    /// return realistic values.
+    ///
+    /// # Sample usage
+    /// ```noir
+    /// env.set_block_gas_fees(GasFees::new(/* fee_per_da_gas */ 7, /* fee_per_l2_gas */ 11));
+    /// env.call_public(account, MyFPC::at(addr).pay_fee());
+    /// ```
+    ///
+    /// # Relationship to `set_gas_settings`
+    /// This is independent of `set_gas_settings`. `set_gas_settings` controls the user's stated
+    /// max budget read from `tx_context.gas_settings` in private. `set_block_gas_fees` controls
+    /// the block's actual price read from `globals.gas_fees` in public. To exercise an FPC end
+    /// to end (private setup + public teardown), call both.
+    ///
+    /// # Limitations
+    /// This setter is only callable from the top-level test context, not from within a
+    /// `private_context` / `public_context` / `utility_context` closure.
+    pub unconstrained fn set_block_gas_fees(_self: Self, gas_fees: GasFees) {
+        txe_oracles::set_block_gas_fees(gas_fees);
     }
 
     /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or

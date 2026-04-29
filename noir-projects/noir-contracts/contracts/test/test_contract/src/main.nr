@@ -136,6 +136,14 @@ pub contract Test {
         self.context.gas_settings()
     }
 
+    /// Returns the per-block fees observed by a public function: `(min_fee_per_da_gas,
+    /// min_fee_per_l2_gas)`. Used by TXE tests of `env.set_block_gas_fees` to confirm the
+    /// configured block fees reach `context.min_fee_per_*_gas()`.
+    #[external("public")]
+    fn echo_block_gas_fees() -> [u128; 2] {
+        [self.context.min_fee_per_da_gas(), self.context.min_fee_per_l2_gas()]
+    }
+
     #[external("public")]
     #[only_self]
     fn dummy_public_call() {}
