@@ -65,8 +65,11 @@ size_t parse_size_string(const std::string& size_str)
 
         // stoull returns unsigned long long (always 64-bit); on WASM (32-bit
         // size_t) this narrows, which -Wshorten-64-to-32 -Werror catches.
-        // Storage budgets always fit in size_t on the target.
         size_t value = static_cast<size_t>(std::stoull(str));
+        // Guard against value * multiplier silently wrapping modulo 2^64 for very large inputs
+        if (multiplier != 0 && value > std::numeric_limits<size_t>::max() / multiplier) {
+            throw_or_abort("Invalid storage size format: '" + size_str + "'. Value out of range");
+        }
         return value * multiplier;
     } catch (const std::invalid_argument&) {
         throw_or_abort("Invalid storage size format: '" + size_str + "'. Not a valid number");

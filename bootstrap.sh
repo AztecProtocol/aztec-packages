@@ -38,7 +38,7 @@ function install_emsdk {
   if [ ! -d "$target_dir/.git" ]; then
     sudo rm -rf "$target_dir"
     sudo git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$target_dir"
-    sudo chown -R "$USER" "$target_dir"
+    sudo chown -R "${USER:-$(id -un)}" "$target_dir"
   fi
   echo "Installing emsdk $expected_abs_emsdk_version at $target_dir..."
   ( cd "$target_dir" && \
