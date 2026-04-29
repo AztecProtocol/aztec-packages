@@ -69,6 +69,18 @@ size_t round_up_to_chunk_boundary(size_t num_points)
  * @details Verifies all complete chunks in parallel across available cores with early-exit
  * on first mismatch. Also verifies the partial last chunk (if present) so every downloaded byte
  * is covered. Uses std::span to avoid per-chunk memory allocation.
+ *
+ * @note Intentionally invoked from a single site — `download_bn254_g1_data` below — and not from
+ * the cache-hit, MemBn254Crs ctor, or `bbapi::SrsInitSrs` paths. This is the only path that
+ * (a) fetches CRS bytes over plain HTTP, and (b) does not consume bytes that have already been
+ * hash-verified upstream:
+ *   - the cache-hit paths (uncompressed and compressed) read bytes that were verified by this
+ *     function on a previous run before being cached;
+ *   - `bbapi::SrsInitSrs` (bb.js / WASM) receives bytes that bb.js itself fetched over HTTPS,
+ *     where TLS provides transport integrity;
+ *   - `MemBn254Crs` is constructed in-process from already-validated points.
+ * Therefore re-anchoring at every additional call site is redundant; this anchor exists
+ * specifically to compensate for the plain-HTTP fetch on the fresh-download path.
  */
 void verify_bn254_crs_integrity(const std::vector<uint8_t>& data)
 {
