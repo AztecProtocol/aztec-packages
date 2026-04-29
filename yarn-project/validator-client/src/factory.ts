@@ -32,6 +32,10 @@ export function createProposalHandler(
   const blockProposalValidator = new BlockProposalValidator(deps.epochCache, {
     txsPermitted: !config.disableTransactions,
     maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
+    signatureContext: {
+      chainId: config.l1ChainId,
+      rollupAddress: config.l1Contracts.rollupAddress,
+    },
   });
   return new ProposalHandler(
     deps.checkpointsBuilder,

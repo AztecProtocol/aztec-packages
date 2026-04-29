@@ -287,7 +287,7 @@ describe('e2e_node_rpc_perf', () => {
     });
 
     it('benchmarks getProvenBlockNumber', async () => {
-      const { stats } = await benchmark('getProvenBlockNumber', () => aztecNode.getProvenBlockNumber());
+      const { stats } = await benchmark('getProvenBlockNumber', () => aztecNode.getBlockNumber('proven'));
       addResult('getProvenBlockNumber', stats);
       expect(stats.avg).toBeLessThan(1000);
     });
@@ -324,16 +324,16 @@ describe('e2e_node_rpc_perf', () => {
       expect(stats.avg).toBeLessThan(5000);
     });
 
-    it('benchmarks getBlockByArchive', async () => {
-      const { stats } = await benchmark('getBlockByArchive', () => aztecNode.getBlockByArchive(blockArchive));
+    it('benchmarks getBlock by archive', async () => {
+      const { stats } = await benchmark('getBlockByArchive', () =>
+        aztecNode.getBlock({ archive: blockArchive }, { includeTransactions: true }),
+      );
       addResult('getBlockByArchive', stats);
       expect(stats.avg).toBeLessThan(3000);
     });
 
-    it('benchmarks getBlockHeaderByArchive', async () => {
-      const { stats } = await benchmark('getBlockHeaderByArchive', () =>
-        aztecNode.getBlockHeaderByArchive(blockArchive),
-      );
+    it('benchmarks getBlock header by archive', async () => {
+      const { stats } = await benchmark('getBlockHeaderByArchive', () => aztecNode.getBlock({ archive: blockArchive }));
       addResult('getBlockHeaderByArchive', stats);
       expect(stats.avg).toBeLessThan(2000);
     });

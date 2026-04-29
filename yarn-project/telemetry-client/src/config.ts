@@ -1,4 +1,9 @@
-import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 
 export interface TelemetryClientConfig {
   metricsCollectorUrl?: URL;
@@ -33,14 +38,12 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   otelCollectIntervalMs: {
     env: 'OTEL_COLLECT_INTERVAL_MS',
     description: 'The interval at which to collect metrics',
-    defaultValue: 60000, // Default extracted from otel client
-    parseEnv: (val: string) => parseInt(val),
+    ...numberConfigHelper(60000),
   },
   otelExportTimeoutMs: {
     env: 'OTEL_EXPORT_TIMEOUT_MS',
     description: 'The timeout for exporting metrics',
-    defaultValue: 30000, // Default extracted from otel client
-    parseEnv: (val: string) => parseInt(val),
+    ...numberConfigHelper(30000),
   },
   otelExcludeMetrics: {
     env: 'OTEL_EXCLUDE_METRICS',

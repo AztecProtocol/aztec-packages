@@ -3,7 +3,6 @@ import { BlockNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundatio
 import { getDefaultConfig } from '@aztec/foundation/config';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -12,6 +11,7 @@ import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
   makeBlockProposal,
   makeCheckpointHeader,
@@ -1058,10 +1058,10 @@ class TestLibP2PService extends LibP2PService {
       seenMessageCacheSize: 1000,
       debugP2PInstrumentMessages: false,
       disableTransactions: false,
-      l1ChainId: 1,
+      l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       rollupVersion: 1,
       l1Contracts: {
-        rollupAddress: EthAddress.random(),
+        rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
       },
     };
 

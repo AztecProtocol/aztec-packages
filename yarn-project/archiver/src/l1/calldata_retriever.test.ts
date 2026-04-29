@@ -11,7 +11,7 @@ import { withHexPrefix } from '@aztec/foundation/string';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { Signature } from '@aztec/stdlib/block';
 import { GasFees } from '@aztec/stdlib/gas';
-import { ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
+import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
@@ -88,6 +88,8 @@ describe('CalldataRetriever', () => {
   beforeEach(() => {
     txHash = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
     publicClient = mock<ViemPublicClient>();
+    // CalldataRetriever reads `publicClient.chain.id` to build the EIP-712 signing context.
+    (publicClient as unknown as { chain: { id: number } }).chain = { id: 1 };
     debugClient = mock<ViemPublicDebugClient>();
     logger = createLogger('test:calldata_retriever');
     instrumentation = mock<ArchiverInstrumentation>();
@@ -376,12 +378,14 @@ describe('CalldataRetriever', () => {
       const tx = makeMulticall3Transaction([{ target: rollupAddress.toString(), callData: proposeCalldata }]);
       publicClient.getTransaction.mockResolvedValue(tx);
 
-      // Compute the expected payloadDigest using ConsensusPayload (same logic as the validator)
-      // Note: feeAssetPriceModifier is 0n in makeProposeCalldata
+      // Compute the expected payloadDigest using the same EIP-712 typed data hash
+      // that CalldataRetriever.computePayloadDigest uses under the hood.
       const checkpointHeader = CheckpointHeader.fromViem(header);
-      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot, feeAssetPriceModifier);
-      const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
-      const expectedPayloadDigest = keccak256(payloadToSign);
+      const consensusPayload = new ConsensusPayload(checkpointHeader, archiveRoot, feeAssetPriceModifier, {
+        chainId: 1,
+        rollupAddress,
+      });
+      const expectedPayloadDigest = getHashedSignaturePayloadTypedData(consensusPayload).toString() as Hex;
 
       // Mock only attestationsHash computation; use real payloadDigest
       jest

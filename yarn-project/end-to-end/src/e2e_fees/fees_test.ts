@@ -134,7 +134,7 @@ export class FeesTest {
 
   async catchUpProvenChain() {
     const bn = await this.aztecNode.getBlockNumber();
-    while ((await this.aztecNode.getProvenBlockNumber()) < bn) {
+    while ((await this.aztecNode.getBlockNumber('proven')) < bn) {
       await sleep(1000);
     }
   }

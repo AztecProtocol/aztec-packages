@@ -125,7 +125,11 @@ describe('e2e_multi_validator_node', () => {
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const checkpointedBlock = await dataStore.getCheckpointedBlock(tx.blockNumber!);
     const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const signatureContext = {
+      chainId: config.l1ChainId,
+      rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
@@ -183,7 +187,11 @@ describe('e2e_multi_validator_node', () => {
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const checkpointedBlock = await dataStore.getCheckpointedBlock(tx.blockNumber!);
     const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const signatureContext = {
+      chainId: config.l1ChainId,
+      rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));

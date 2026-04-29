@@ -21,7 +21,9 @@ import {
   type L2BlockStreamEventHandler,
   getAttestationInfoFromPublishedCheckpoint,
 } from '@aztec/stdlib/block';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import { getEpochAtSlot, getSlotRangeForEpoch, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import type {
   SingleValidatorStats,
   ValidatorStats,
@@ -35,6 +37,12 @@ import type {
 import EventEmitter from 'node:events';
 
 import { SentinelStore } from './store.js';
+
+export type SentinelRuntimeConfig = Pick<
+  SlasherConfig,
+  'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashInactivityConsecutiveEpochThreshold'
+> &
+  Pick<ChainConfig, 'l1ChainId' | 'l1Contracts'>;
 
 /** Maps a validator status to its category: proposer or attestation. */
 function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
@@ -65,16 +73,20 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected archiver: L2BlockSource,
     protected p2p: P2PClient,
     protected store: SentinelStore,
-    protected config: Pick<
-      SlasherConfig,
-      'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashInactivityConsecutiveEpochThreshold'
-    >,
+    protected config: SentinelRuntimeConfig,
     protected logger = createLogger('node:sentinel'),
   ) {
     super();
     this.l2TipsStore = new L2TipsMemoryStore();
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
+  }
+
+  private getSignatureContext(): CoordinationSignatureContext {
+    return {
+      chainId: this.config.l1ChainId,
+      rollupAddress: this.config.l1Contracts.rollupAddress,
+    };
   }
 
   public updateConfig(config: Partial<SlasherConfig>) {
@@ -117,7 +129,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     this.slotNumberToCheckpoint.set(checkpoint.checkpoint.header.slotNumber, {
       checkpointNumber: checkpoint.checkpoint.number,
       archive: checkpoint.checkpoint.archive.root.toString(),
-      attestors: getAttestationInfoFromPublishedCheckpoint(checkpoint)
+      attestors: getAttestationInfoFromPublishedCheckpoint(checkpoint, this.getSignatureContext())
         .filter(a => a.status === 'recovered-from-signature')
         .map(a => a.address!),
     });
