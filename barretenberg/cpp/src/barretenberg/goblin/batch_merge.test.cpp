@@ -334,8 +334,8 @@ template <typename Param> class BatchMergeTests : public testing::Test {
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
 
-    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 10452 : 39210;
-    static constexpr size_t ZK_OFFSET = 666;
+    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 10465 : 47381;
+    static constexpr size_t ZK_OFFSET = NumSubtables == 9 ? 666 : 520;
 
     struct VerifyResult {
         bool reduction_ok;
