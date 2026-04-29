@@ -1,6 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
-import { maxBy } from '@aztec/foundation/collection';
+import { maxBy, merge } from '@aztec/foundation/collection';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -232,14 +232,21 @@ export class LibP2PService extends WithTracer implements P2PService {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
       p2pPropagationTime,
+      signatureContext: {
+        chainId: config.l1ChainId,
+        rollupAddress: config.l1Contracts.rollupAddress,
+      },
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
+    const attestationValidatorOpts = {
+      l1PublishingTime: config.l1PublishingTime,
+      p2pPropagationTime,
+      signatureContext: proposalValidatorOpts.signatureContext,
+    };
     this.checkpointAttestationValidator = config.fishermanMode
-      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, {
-          l1PublishingTime: config.l1PublishingTime,
-        })
-      : new CheckpointAttestationValidator(epochCache, { l1PublishingTime: config.l1PublishingTime });
+      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, attestationValidatorOpts)
+      : new CheckpointAttestationValidator(epochCache, attestationValidatorOpts);
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
@@ -264,8 +271,9 @@ export class LibP2PService extends WithTracer implements P2PService {
     };
   }
 
-  public updateConfig(config: Partial<P2PReqRespConfig>) {
+  public updateConfig(config: Partial<P2PReqRespConfig & Pick<P2PConfig, 'skipIncomingProposals'>>) {
     this.reqresp.updateConfig(config);
+    this.config = merge(this.config, config);
   }
 
   /**
@@ -842,6 +850,15 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // Process the message, optionally within a linked span for trace propagation
     const processMessage = async () => {
+      if (
+        this.config.skipIncomingProposals &&
+        (msg.topic === this.topicStrings[TopicType.block_proposal] ||
+          msg.topic === this.topicStrings[TopicType.checkpoint_proposal])
+      ) {
+        this.logger.warn(`Ignoring incoming proposal (skipIncomingProposals is set)`, { topic: msg.topic });
+        this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
+        return;
+      }
       if (msg.topic === this.topicStrings[TopicType.tx]) {
         await this.handleGossipedTx(p2pMessage.payload, msgId, source);
       } else if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {

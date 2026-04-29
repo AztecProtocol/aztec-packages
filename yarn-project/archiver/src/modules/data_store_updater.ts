@@ -100,6 +100,7 @@ export class ArchiverDataStoreUpdater {
       attestations: CommitteeAttestation[];
       checkpoint: PublishedCheckpoint;
     },
+    evictProposedFrom?: CheckpointNumber,
   ): Promise<ReconcileCheckpointsResult> {
     for (const checkpoint of checkpoints) {
       validateCheckpoint(checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
@@ -126,14 +127,17 @@ export class ArchiverDataStoreUpdater {
         this.store.addLogs(newBlocks),
         // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
         ...newBlocks.map(block => this.addContractDataToDb(block)),
-        // Promote the proposed checkpoint if requested
+        // Promote the proposed checkpoint if requested (uses explicit checkpoint number)
         promoteProposed
           ? this.store.promoteProposedToCheckpointed(
+              promoteProposed.checkpoint.checkpoint.number,
               promoteProposed.l1,
               promoteProposed.attestations,
               promoteProposed.checkpoint.checkpoint.archive.root,
             )
           : undefined,
+        // Evict pending checkpoints that diverged from what L1 mined
+        evictProposedFrom !== undefined ? this.store.evictProposedCheckpointsFrom(evictProposedFrom) : undefined,
       ]);
 
       await this.l2TipsCache?.refresh();
@@ -142,9 +146,9 @@ export class ArchiverDataStoreUpdater {
     return result;
   }
 
-  public async setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
+  public async addProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
     const result = await this.store.transactionAsync(async () => {
-      await this.store.setProposedCheckpoint(proposedCheckpoint);
+      await this.store.addProposedCheckpoint(proposedCheckpoint);
       await this.l2TipsCache?.refresh();
     });
 
@@ -245,8 +249,8 @@ export class ArchiverDataStoreUpdater {
 
       const result = await this.removeBlocksAfter(blockNumber);
 
-      // Clear the proposed checkpoint if it exists, since its blocks have been pruned
-      await this.store.deleteProposedCheckpoint();
+      // Clear all pending proposed checkpoints since their blocks have been pruned
+      await this.store.deleteProposedCheckpoints();
 
       await this.l2TipsCache?.refresh();
       return result;

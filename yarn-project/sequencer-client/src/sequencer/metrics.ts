@@ -26,6 +26,7 @@ export class SequencerMetrics {
   private blockBuildDuration: Histogram;
   private blockBuildManaPerSecond: Gauge;
   private stateTransitionBufferDuration: Histogram;
+  private stateDuration: Histogram;
 
   // these are gauges because for individual sequencers building a block is not something that happens often enough to warrant a histogram
   private timeToCollectAttestations: Gauge;
@@ -89,6 +90,8 @@ export class SequencerMetrics {
     this.blockInterBlockTime = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_INTER_BLOCK_TIME);
 
     this.stateTransitionBufferDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION);
+
+    this.stateDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_DURATION);
 
     this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_SLOT_REWARDS);
 
@@ -248,6 +251,12 @@ export class SequencerMetrics {
 
   recordStateTransitionBufferMs(durationMs: number, state: SequencerState) {
     this.stateTransitionBufferDuration.record(durationMs, {
+      [Attributes.SEQUENCER_STATE]: state,
+    });
+  }
+
+  recordStateDuration(durationMs: number, state: SequencerState) {
+    this.stateDuration.record(Math.ceil(durationMs), {
       [Attributes.SEQUENCER_STATE]: state,
     });
   }

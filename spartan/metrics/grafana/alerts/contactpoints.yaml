@@ -8,39 +8,39 @@ contactPoints:
         settings:
           url: $SLACK_WEBHOOK_URL
           text: |-
-            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            {{ if gt (len .Alerts) 0 }}
             *Alerts:*
-            {{ "{{" }} range .Alerts {{ "}}" }}
-            - {{ "{{" }} with (index .Labels "k8s_namespace_name") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-namespace{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} else {{ "}}" }}
+            {{ range .Alerts }}
+            - {{ with (index .Labels "k8s_namespace_name") }}{{ . }}{{ else }}unknown-namespace{{ end }}: {{ with (index .Annotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
+            {{ else }}
             *Alerts:*
-            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
+            - {{ with (index .CommonAnnotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
 
             *Grafana overview:*
-            {{ "{{" }} .ExternalURL {{ "}}" }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{ "{{" }}
+            {{ .ExternalURL }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}{{ "{{" }} printf "\n" {{ "}}" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}{{ printf "\n" }}
 
             *GKE workloads:*
-            https://console.cloud.google.com/kubernetes/workload/overview?project={{ "{{" }}
+            https://console.cloud.google.com/kubernetes/workload/overview?project={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ end }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}%22%5D%29%29
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}%22%5D%29%29
         disableResolveMessage: false
 
   - orgId: 1
@@ -51,39 +51,39 @@ contactPoints:
         settings:
           url: $SLACK_WEBHOOK_NEXT_SCENARIO_URL
           text: |-
-            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            {{ if gt (len .Alerts) 0 }}
             *Alerts:*
-            {{ "{{" }} range .Alerts {{ "}}" }}
-            - {{ "{{" }} with (index .Labels "k8s_namespace_name") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-namespace{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} else {{ "}}" }}
+            {{ range .Alerts }}
+            - {{ with (index .Labels "k8s_namespace_name") }}{{ . }}{{ else }}unknown-namespace{{ end }}: {{ with (index .Annotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
+            {{ else }}
             *Alerts:*
-            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
+            - {{ with (index .CommonAnnotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
 
             *Grafana overview:*
-            {{ "{{" }} .ExternalURL {{ "}}" }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{ "{{" }}
+            {{ .ExternalURL }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}{{ "{{" }} printf "\n" {{ "}}" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}{{ printf "\n" }}
 
             *GKE workloads:*
-            https://console.cloud.google.com/kubernetes/workload/overview?project={{ "{{" }}
+            https://console.cloud.google.com/kubernetes/workload/overview?project={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ end }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}%22%5D%29%29
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}%22%5D%29%29
         disableResolveMessage: false
 
   - orgId: 1
@@ -94,39 +94,39 @@ contactPoints:
         settings:
           url: $SLACK_WEBHOOK_NEXT_NET_URL
           text: |-
-            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            {{ if gt (len .Alerts) 0 }}
             *Alerts:*
-            {{ "{{" }} range .Alerts {{ "}}" }}
-            - {{ "{{" }} with (index .Labels "k8s_namespace_name") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-namespace{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} else {{ "}}" }}
+            {{ range .Alerts }}
+            - {{ with (index .Labels "k8s_namespace_name") }}{{ . }}{{ else }}unknown-namespace{{ end }}: {{ with (index .Annotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
+            {{ else }}
             *Alerts:*
-            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
+            - {{ with (index .CommonAnnotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
 
             *Grafana overview:*
-            {{ "{{" }} .ExternalURL {{ "}}" }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{ "{{" }}
+            {{ .ExternalURL }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}{{ "{{" }} printf "\n" {{ "}}" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}{{ printf "\n" }}
 
             *GKE workloads:*
-            https://console.cloud.google.com/kubernetes/workload/overview?project={{ "{{" }}
+            https://console.cloud.google.com/kubernetes/workload/overview?project={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ end }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}%22%5D%29%29
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}%22%5D%29%29
         disableResolveMessage: false
 
   - orgId: 1
@@ -137,39 +137,39 @@ contactPoints:
         settings:
           url: $SLACK_WEBHOOK_TESTNET_URL
           text: |-
-            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            {{ if gt (len .Alerts) 0 }}
             *Alerts:*
-            {{ "{{" }} range .Alerts {{ "}}" }}
-            - {{ "{{" }} with (index .Labels "k8s_namespace_name") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-namespace{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} else {{ "}}" }}
+            {{ range .Alerts }}
+            - {{ with (index .Labels "k8s_namespace_name") }}{{ . }}{{ else }}unknown-namespace{{ end }}: {{ with (index .Annotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
+            {{ else }}
             *Alerts:*
-            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
+            - {{ with (index .CommonAnnotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
 
             *Grafana overview:*
-            {{ "{{" }} .ExternalURL {{ "}}" }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{ "{{" }}
+            {{ .ExternalURL }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}{{ "{{" }} printf "\n" {{ "}}" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}{{ printf "\n" }}
 
             *GKE workloads:*
-            https://console.cloud.google.com/kubernetes/workload/overview?project={{ "{{" }}
+            https://console.cloud.google.com/kubernetes/workload/overview?project={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ end }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}%22%5D%29%29
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}%22%5D%29%29
         disableResolveMessage: false
 
   - orgId: 1
@@ -180,39 +180,39 @@ contactPoints:
         settings:
           url: $SLACK_WEBHOOK_MAINNET_URL
           text: |-
-            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            {{ if gt (len .Alerts) 0 }}
             *Alerts:*
-            {{ "{{" }} range .Alerts {{ "}}" }}
-            - {{ "{{" }} with (index .Labels "k8s_namespace_name") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-namespace{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} else {{ "}}" }}
+            {{ range .Alerts }}
+            - {{ with (index .Labels "k8s_namespace_name") }}{{ . }}{{ else }}unknown-namespace{{ end }}: {{ with (index .Annotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
+            {{ else }}
             *Alerts:*
-            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
+            - {{ with (index .CommonAnnotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
 
             *Grafana overview:*
-            {{ "{{" }} .ExternalURL {{ "}}" }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{ "{{" }}
+            {{ .ExternalURL }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}{{ "{{" }} printf "\n" {{ "}}" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}{{ printf "\n" }}
 
             *GKE workloads:*
-            https://console.cloud.google.com/kubernetes/workload/overview?project={{ "{{" }}
+            https://console.cloud.google.com/kubernetes/workload/overview?project={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ end }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}%22%5D%29%29
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}%22%5D%29%29
         disableResolveMessage: false
 
   - orgId: 1
@@ -223,24 +223,24 @@ contactPoints:
         settings:
           url: $SLACK_WEBHOOK_TESTNET_URL
           text: |-
-            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            {{ if gt (len .Alerts) 0 }}
             *Alerts:*
-            {{ "{{" }} range .Alerts {{ "}}" }}
-            - {{ "{{" }} with (index .Labels "network") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-network{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} else {{ "}}" }}
+            {{ range .Alerts }}
+            - {{ with (index .Labels "network") }}{{ . }}{{ else }}unknown-network{{ end }}: {{ with (index .Annotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
+            {{ else }}
             *Alerts:*
-            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
+            - {{ with (index .CommonAnnotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
 
             *Grafana overview:*
-            {{ "{{" }} .ExternalURL {{ "}}" }}d/bexge5lz3e51cd/p2p-bootnodes?orgId=1&var-network={{ "{{" }}
+            {{ .ExternalURL }}d/bexge5lz3e51cd/p2p-bootnodes?orgId=1&var-network={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "network")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "network")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}
         disableResolveMessage: false
 
   - orgId: 1
@@ -251,24 +251,24 @@ contactPoints:
         settings:
           url: $SLACK_WEBHOOK_MAINNET_URL
           text: |-
-            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            {{ if gt (len .Alerts) 0 }}
             *Alerts:*
-            {{ "{{" }} range .Alerts {{ "}}" }}
-            - {{ "{{" }} with (index .Labels "network") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-network{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} else {{ "}}" }}
+            {{ range .Alerts }}
+            - {{ with (index .Labels "network") }}{{ . }}{{ else }}unknown-network{{ end }}: {{ with (index .Annotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
+            {{ else }}
             *Alerts:*
-            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
+            - {{ with (index .CommonAnnotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
 
             *Grafana overview:*
-            {{ "{{" }} .ExternalURL {{ "}}" }}d/bexge5lz3e51cd/p2p-bootnodes?orgId=1&var-network={{ "{{" }}
+            {{ .ExternalURL }}d/bexge5lz3e51cd/p2p-bootnodes?orgId=1&var-network={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "network")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "network")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}
         disableResolveMessage: false
 
   - orgId: 1
@@ -279,37 +279,37 @@ contactPoints:
         settings:
           url: $SLACK_WEBHOOK_DEVNET_URL
           text: |-
-            {{ "{{" }} if gt (len .Alerts) 0 {{ "}}" }}
+            {{ if gt (len .Alerts) 0 }}
             *Alerts:*
-            {{ "{{" }} range .Alerts {{ "}}" }}
-            - {{ "{{" }} with (index .Labels "k8s_namespace_name") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown-namespace{{ "{{" }} end {{ "}}" }}: {{ "{{" }} with (index .Annotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} else {{ "}}" }}
+            {{ range .Alerts }}
+            - {{ with (index .Labels "k8s_namespace_name") }}{{ . }}{{ else }}unknown-namespace{{ end }}: {{ with (index .Annotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
+            {{ else }}
             *Alerts:*
-            - {{ "{{" }} with (index .CommonAnnotations "summary") {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}(no summary){{ "{{" }} end {{ "}}" }}
-            {{ "{{" }} end {{ "}}" }}
+            - {{ with (index .CommonAnnotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+            {{ end }}
 
             *Grafana overview:*
-            {{ "{{" }} .ExternalURL {{ "}}" }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{ "{{" }}
+            {{ .ExternalURL }}d/aztec-network/network-overview?orgId=1&refresh=30s&var-data_source=default&var-namespace={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}{{ "{{" }} printf "\n" {{ "}}" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}{{ printf "\n" }}
 
             *GKE workloads:*
-            https://console.cloud.google.com/kubernetes/workload/overview?project={{ "{{" }}
+            https://console.cloud.google.com/kubernetes/workload/overview?project={{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "gcp_project")
-            {{ "}}" }}{{ "{{" }} . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{ "{{" }}
+            }}{{ . }}{{ else }}unknown{{ end }}{{ end }}&supportedpurview=project&pageState=%28%22savedViews%22%3A%28%22n%22%3A%5B%22{{
               if gt (len .Alerts) 0
-            {{ "}}" }}{{ "{{" }}
+            }}{{
               with (index (index .Alerts 0).Labels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} else {{ "}}" }}{{ "{{" }}
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{
               with (index .CommonLabels "k8s_namespace_name")
-            {{ "}}" }}{{ "{{" }} urlquery . {{ "}}" }}{{ "{{" }} else {{ "}}" }}unknown{{ "{{" }} end {{ "}}" }}{{ "{{" }} end {{ "}}" }}%22%5D%29%29
+            }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}%22%5D%29%29
         disableResolveMessage: false

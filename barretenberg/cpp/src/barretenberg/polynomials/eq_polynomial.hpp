@@ -55,6 +55,19 @@ template <typename FF> class ProverEqPolynomial {
      */
     static Polynomial<FF> construct(std::span<const FF> challenges, size_t log_num_monomials)
     {
+        // Prevent OOB read: compute_beta_products below (and construct_eq_with_edge_cases on the fallback path) read
+        // challenges[0..log_num_monomials).
+        BB_ASSERT_GTE(challenges.size(),
+                      log_num_monomials,
+                      "ProverEqPolynomial::construct: challenges.size() must be >= log_num_monomials");
+
+        // eq over 0 variables is the empty product 1.
+        if (log_num_monomials == 0) {
+            Polynomial<FF> result(/*size=*/1, /*virtual_size=*/1);
+            result.at(0) = FF(1);
+            return result;
+        }
+
         // Compute scaling factor C = ∏_i (1 - r_i)
         FF scaling_factor = compute_scaling_factor(challenges);
 

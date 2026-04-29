@@ -133,12 +133,12 @@ export class TxProfileResult {
       ],
       {
         nodeRPCCalls: {
-          perMethod: { getBlockHeader: { times: [1] } },
+          perMethod: { getBlock: { times: [1] } },
           roundTrips: {
             roundTrips: 1,
             totalBlockingTime: 1,
             roundTripDurations: [1],
-            roundTripMethods: [['getBlockHeader']],
+            roundTripMethods: [['getBlock']],
           },
         },
         timings: {
@@ -184,12 +184,12 @@ export class UtilityExecutionResult {
   static random(): UtilityExecutionResult {
     return new UtilityExecutionResult([Fr.random()], [], 0n, {
       nodeRPCCalls: {
-        perMethod: { getBlockHeader: { times: [1] } },
+        perMethod: { getBlock: { times: [1] } },
         roundTrips: {
           roundTrips: 1,
           totalBlockingTime: 1,
           roundTripDurations: [1],
-          roundTripMethods: [['getBlockHeader']],
+          roundTripMethods: [['getBlock']],
         },
       },
       timings: {

@@ -83,6 +83,8 @@ export interface SequencerConfig {
   minBlocksForCheckpoint?: number;
   /** Skip publishing checkpoint proposals probability (for testing checkpoint prunes only) */
   skipPublishingCheckpointsPercent?: number;
+  /** Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only) */
+  skipBroadcastProposals?: boolean;
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -124,6 +126,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
     minBlocksForCheckpoint: z.number().positive().optional(),
     skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),
+    skipBroadcastProposals: z.boolean().optional(),
   }),
 );
 
@@ -145,7 +148,8 @@ type SequencerConfigOptionalKeys =
   | 'maxTxsPerCheckpoint'
   | 'maxL2BlockGas'
   | 'maxDABlockGas'
-  | 'redistributeCheckpointBudget';
+  | 'redistributeCheckpointBudget'
+  | 'skipBroadcastProposals';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>
