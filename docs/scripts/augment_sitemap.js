@@ -13,7 +13,8 @@ const path = require("path");
 const BUILD_DIR = path.join(__dirname, "..", "build");
 // Override with SITE_URL env var if the canonical URL ever changes.
 // Kept in sync with `url` in docusaurus.config.js.
-const SITE_URL = process.env.SITE_URL || "https://docs.aztec.network";
+// Trailing slash is stripped because <loc> entries below prepend "/".
+const SITE_URL = (process.env.SITE_URL || "https://docs.aztec.network").replace(/\/+$/, "");
 
 // Load version config to determine which version subdirectory to index.
 let developerVersionConfig;

@@ -8,7 +8,7 @@
       {
         "url": "https://docs.aztec.network/aztec-nr-api/mainnet/",
         "selectors_key": "api-nr",
-        "page_rank": 5
+        "page_rank": 2
       }
     ],
     "sitemap_urls": [
@@ -45,7 +45,7 @@
       "lvl2": "main h2",
       "lvl3": "main h3",
       "lvl4": "main h4",
-      "text": "main .comments p, main .item-description, main li, main pre code"
+      "text": "main .comments p, main .comments li, main .item-description"
     }
   },
   "strip_chars": " .,;:#",

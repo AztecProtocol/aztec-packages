@@ -195,6 +195,7 @@ function main() {
     : "";
 
   let totalFiles = 0;
+  let sectionsAdded = 0;
   let linksSection = "\n\n# API Reference Documentation\n\n";
   let fullContentSection = "\n\n---\n\n# API Reference Documentation\n\n";
 
@@ -208,7 +209,7 @@ function main() {
 
     const isMarkdown = apiDir.format === "markdown";
     const files = isMarkdown
-      ? findMarkdownFiles(dirPath)
+      ? findMarkdownFiles(dirPath).sort()
       : sortByImportance(findHtmlFiles(dirPath));
     const ext = isMarkdown ? ".md" : ".html";
     console.log(`Found ${files.length} ${isMarkdown ? "markdown" : "HTML"} files in ${apiDir.dir}`);
@@ -216,6 +217,8 @@ function main() {
     if (files.length === 0) {
       continue;
     }
+
+    sectionsAdded++;
 
     // Add section header
     linksSection += `## ${apiDir.name}\n\n`;
@@ -229,10 +232,14 @@ function main() {
       if (fs.existsSync(summaryPath)) {
         linksSection += fs.readFileSync(summaryPath, "utf-8") + "\n\n";
       }
-      for (const file of files) {
+      // Cap link list at 100 entries to bound llms.txt size as the API surface grows.
+      for (const file of files.slice(0, 100)) {
         const urlPath = getUrlPath(file, STATIC_DIR);
         const fileName = path.basename(file, ext);
         linksSection += `- [${fileName}](${urlPath})\n`;
+      }
+      if (files.length > 100) {
+        linksSection += `- ... and ${files.length - 100} more files\n`;
       }
     } else {
       // For HTML API docs, process only index files for links
@@ -272,6 +279,11 @@ function main() {
         console.error(`Error processing ${file}: ${err.message}`);
       }
     }
+  }
+
+  if (sectionsAdded === 0) {
+    console.log("No API docs found on disk — leaving llms.txt and llms-full.txt unchanged");
+    return;
   }
 
   // Append to llms.txt
