@@ -56,7 +56,7 @@ import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_valid
 import { ContractInstanceTxValidator } from './contract_instance_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
-import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
+import { GasLimitsValidator, GasTxValidator, MaxFeePerGasValidator } from './gas_validator.js';
 import { MetadataTxValidator } from './metadata_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
 import { AllowedSetupCallsMetaValidator, PhasesTxValidator } from './phases_validator.js';
@@ -423,6 +423,7 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
   timestamp: bigint,
   blockNumber: BlockNumber,
   gasLimitOpts: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number },
+  gasFees: GasFees,
   bindings?: LoggerBindings,
 ): Promise<TxValidator<TxMetaData>> {
   await worldStateSynchronizer.syncImmediate();
@@ -440,6 +441,7 @@ export async function createTxValidatorForTransactionsEnteringPendingTxPool(
   };
   return new AggregateTxValidator<TxMetaData>(
     new GasLimitsValidator<TxMetaData>({ ...gasLimitOpts, bindings }),
+    new MaxFeePerGasValidator<TxMetaData>(gasFees, bindings),
     new TimestampTxValidator<TxMetaData>({ timestamp, blockNumber }, bindings),
     new DoubleSpendTxValidator<TxMetaData>(nullifierSource, bindings),
     new BlockHeaderTxValidator<TxMetaData>(archiveSource, bindings),

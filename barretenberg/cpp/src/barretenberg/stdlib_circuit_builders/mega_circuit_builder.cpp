@@ -16,60 +16,9 @@ using namespace bb::crypto;
 
 namespace bb {
 
-template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit(const bool ensure_nonzero)
+template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit()
 {
-    if (ensure_nonzero && !this->circuit_finalized) {
-        // do the mega part of ensuring all polynomials are nonzero; ultra part will be done inside of
-        // Ultra::finalize_circuit
-        add_mega_gates_to_ensure_all_polys_are_non_zero();
-    }
-    // All of the gates involved in finalization are part of the Ultra arithmetization
-    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit(ensure_nonzero);
-}
-
-/**
- * @brief Ensure all polynomials have at least one non-zero coefficient to avoid commiting to the zero-polynomial.
- *        This only adds gates for the Goblin polynomials. Most polynomials are handled via the Ultra method,
- *        which should be done by a separate call to the Ultra builder's non zero polynomial gates method.
- *
- * @param in Structure containing variables and witness selectors
- */
-template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_all_polys_are_non_zero()
-{
-    // Add a single default value to all databus columns. Note: This value must be equal across all columns in order for
-    // inter-circuit databus commitment checks to pass in IVC settings.
-
-    // Create an arbitrary calldata read gate
-    add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata
-    auto raw_read_idx = static_cast<uint32_t>(get_calldata().size()) - 1; // read data that was just added
-    auto read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_calldata(read_idx) });
-
-    // Create an arbitrary secondary_calldata read gate
-    add_public_secondary_calldata(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
-    raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1;   // read data that was just added
-    read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_secondary_calldata(read_idx) });
-
-    // Create an arbitrary return data read gate
-    add_public_return_data(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in return data
-    raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1;   // read data that was just added
-    read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_return_data(read_idx) });
-}
-
-/**
- * @brief Ensure all polynomials have at least one non-zero coefficient to avoid commiting to the zero-polynomial.
- *        This only adds gates for the Goblin polynomials. Most polynomials are handled via the Ultra method,
- *        which should be done by a separate call to the Ultra builder's non zero polynomial gates method.
- *
- * @param in Structure containing variables and witness selectors
- */
-template <typename FF> void MegaCircuitBuilder_<FF>::add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero()
-{
-    // Most polynomials are handled via the conventional Ultra method
-    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::add_gates_to_ensure_all_polys_are_non_zero();
-    add_mega_gates_to_ensure_all_polys_are_non_zero();
+    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit();
 }
 
 /**
@@ -129,8 +78,9 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_eq(bool i
 }
 
 /**
- * @brief Logic for a no-op operation.
- *
+ * @brief Add a no-op to the op queue and populate two zero rows in the ecc_op block.
+ * @details Used by the tail kernel to give the Translator's op queue wires two leading zero rows (shiftability).
+ * The no-op does not generate any ECCVM operation.
  * @return ecc_op_tuple with all its fields set to zero
  */
 template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::queue_ecc_no_op()
@@ -290,26 +240,11 @@ void MegaCircuitBuilder_<FF>::create_databus_read_gate(const databus_lookup_gate
 template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(const BusId bus_idx)
 {
     auto& block = this->blocks.busread;
-    switch (bus_idx) {
-    case BusId::CALLDATA: {
-        block.q_1().emplace_back(1);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        break;
-    }
-    case BusId::SECONDARY_CALLDATA: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        break;
-    }
-    case BusId::RETURNDATA: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(1);
-        break;
-    }
-    }
+    // Bus column k is selected by q_{k+1}; all other wire-linear selectors stay zero on this row.
+    const size_t idx = static_cast<size_t>(bus_idx);
+    block.q_1().emplace_back(idx == 0 ? 1 : 0);
+    block.q_2().emplace_back(idx == 1 ? 1 : 0);
+    block.q_3().emplace_back(idx == 2 ? 1 : 0);
     block.q_4().emplace_back(0);
     block.q_m().emplace_back(0);
     block.q_c().emplace_back(0);

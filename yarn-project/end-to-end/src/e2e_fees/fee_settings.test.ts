@@ -11,6 +11,7 @@ import { TX_ERROR_INSUFFICIENT_FEE_PER_GAS } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { inspect } from 'util';
 
+import { DEFAULT_MIN_FEE_PADDING } from '../fixtures/fixtures.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -118,13 +119,15 @@ describe('e2e_fees fee settings', () => {
 
       expect(txWithNoPadding.data.constants.txContext.gasSettings.maxFeesPerGas.equals(stableMinFees)).toBe(true);
       expect(
-        txWithDefaultPadding.data.constants.txContext.gasSettings.maxFeesPerGas.equals(stableMinFees.mul(1.5)),
+        txWithDefaultPadding.data.constants.txContext.gasSettings.maxFeesPerGas.equals(
+          stableMinFees.mul(1 + DEFAULT_MIN_FEE_PADDING),
+        ),
       ).toBe(true);
 
       // Now bump the L2 fees before we actually send them
       const bumpedMinFees = await bumpL2Fees();
       expect(stableMinFees.feePerL2Gas).toBeLessThan(bumpedMinFees.feePerL2Gas);
-      expect(stableMinFees.mul(1.5).feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
+      expect(stableMinFees.mul(1 + DEFAULT_MIN_FEE_PADDING).feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
 
       // And check that the no-padding does not get mined, but the default padding is good enough
       t.logger.info(`Sending txs`);
@@ -140,13 +143,15 @@ describe('e2e_fees fee settings', () => {
 
       expect(txWithNoPadding.data.constants.txContext.gasSettings.maxFeesPerGas.equals(higherMinFees)).toBe(true);
       expect(
-        txWithDefaultPadding.data.constants.txContext.gasSettings.maxFeesPerGas.equals(lowerMinFees.mul(1.5)),
+        txWithDefaultPadding.data.constants.txContext.gasSettings.maxFeesPerGas.equals(
+          lowerMinFees.mul(1 + DEFAULT_MIN_FEE_PADDING),
+        ),
       ).toBe(true);
 
       const bumpedMinFees = await bumpL2Fees();
       expect(lowerMinFees.feePerL2Gas).toBeLessThan(bumpedMinFees.feePerL2Gas);
       expect(higherMinFees.feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
-      expect(lowerMinFees.mul(1.5).feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
+      expect(lowerMinFees.mul(1 + DEFAULT_MIN_FEE_PADDING).feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
 
       // This is the original flake: the "no padding" tx only succeeds because it was
       // accidentally prepared against an earlier, higher fee snapshot than the padded tx.

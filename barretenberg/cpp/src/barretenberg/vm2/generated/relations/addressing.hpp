@@ -23,9 +23,9 @@ template <typename FF_> class addressingImpl {
     {
         using C = ColumnAndShifts;
 
-        const auto execution_SEL_SHOULD_RESOLVE_ADDRESS = in.get(C::execution_sel_instruction_fetching_success);
+        const auto execution_SEL_RESOLVE_ADDRESS = in.get(C::execution_sel_instruction_fetching_success);
 
-        return (execution_SEL_SHOULD_RESOLVE_ADDRESS).is_zero();
+        return (execution_SEL_RESOLVE_ADDRESS).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>

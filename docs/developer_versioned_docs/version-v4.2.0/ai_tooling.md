@@ -65,14 +65,7 @@ Start here if you're unsure what to set up.
 
 ### Claude Code
 
-Install the Aztec and Noir plugins from the marketplace. These include the MCP servers plus additional skills, commands, and agents:
-
-```bash
-/plugin marketplace add critesjosh/aztec-claude-plugin
-/plugin install aztec@aztec-plugins
-```
-
-Or add the MCP servers directly:
+Add the MCP servers directly:
 
 ```bash
 claude mcp add aztec -- npx @aztec/mcp-server@latest
@@ -126,11 +119,10 @@ These resources help you understand Aztec concepts, read docs, or provide additi
 
 ## Aztec and Noir tool reference
 
-| Tool                                                                        | Works with                                            | Description                                                                            |
-| --------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| [aztec-claude-plugin](https://github.com/critesjosh/aztec-claude-plugin)    | Claude Code                                           | Skills, commands, agents, and MCP server for Aztec contract and TypeScript development |
-| [@aztec/mcp-server](https://github.com/AztecProtocol/mcp-server)            | Any MCP client (Claude Code, Cursor, Windsurf, Codex) | Clones Aztec repos locally, provides code search, doc search, and example discovery    |
-| [noir-claude-plugin](https://github.com/critesjosh/noir-claude-plugin)      | Claude Code                                           | Skills and commands for Noir circuit development                                       |
-| [noir-mcp-server](https://github.com/critesjosh/noir-mcp-server)            | Any MCP client                                        | Clones Noir repos, stdlib, and community libraries; provides search and examples       |
-| [aztec-skills](https://github.com/NethermindEth/aztec-skills)               | Claude Code, Codex                                    | Installable skills for Aztec contracts, deployment, Aztec.js, and testing              |
-| [noir skills](https://github.com/noir-lang/noir/tree/master/.claude/skills) | Claude Code, Codex                                    | Skills for Noir compiler development, SSA debugging, fuzzing, and ACIR optimization    |
+| Tool                                                                        | Works with                                            | Description                                                                         |
+| --------------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [@aztec/mcp-server](https://github.com/AztecProtocol/mcp-server)            | Any MCP client (Claude Code, Cursor, Windsurf, Codex) | Clones Aztec repos locally, provides code search, doc search, and example discovery |
+| [noir-claude-plugin](https://github.com/critesjosh/noir-claude-plugin)      | Claude Code                                           | Skills and commands for Noir circuit development                                    |
+| [noir-mcp-server](https://github.com/critesjosh/noir-mcp-server)            | Any MCP client                                        | Clones Noir repos, stdlib, and community libraries; provides search and examples    |
+| [aztec-skills](https://github.com/NethermindEth/aztec-skills)               | Claude Code, Codex                                    | Installable skills for Aztec contracts, deployment, Aztec.js, and testing           |
+| [noir skills](https://github.com/noir-lang/noir/tree/master/.claude/skills) | Claude Code, Codex                                    | Skills for Noir compiler development, SSA debugging, fuzzing, and ACIR optimization |

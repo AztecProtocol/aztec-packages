@@ -40,6 +40,7 @@ class MultilinearBatchingFlavor {
     static constexpr bool USE_SHORT_MONOMIALS = false;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
+    static constexpr size_t TRACE_OFFSET = 0;
     // Indicates that this flavor runs with Multilinear Batching.
     static constexpr bool IS_MULTILINEAR_BATCHING = true;
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck

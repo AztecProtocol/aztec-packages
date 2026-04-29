@@ -5,9 +5,9 @@
 #include <gtest/gtest.h>
 #include <stdexcept>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
@@ -41,7 +41,7 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
     ContractInstance instance = testing::random_contract_instance();
     AztecAddress derived_address = compute_contract_address(instance);
     std::vector<FF> salted_init_hash_inputs = {
-        DOM_SEP__PARTIAL_ADDRESS, instance.salt, instance.initialization_hash, instance.deployer
+        DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer
     };
     FF salted_init_hash = poseidon2::hash(salted_init_hash_inputs);
 
@@ -94,7 +94,7 @@ TEST(AvmSimulationAddressDerivationTest, Negative)
     AztecAddress derived_address = compute_contract_address(instance);
 
     std::vector<FF> salted_init_hash_inputs = {
-        DOM_SEP__PARTIAL_ADDRESS, instance.salt, instance.initialization_hash, instance.deployer
+        DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer
     };
     FF salted_init_hash = poseidon2::hash(salted_init_hash_inputs);
 

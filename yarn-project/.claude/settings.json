@@ -2,11 +2,11 @@
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "Edit|Write|MultiEdit",
         "hooks": [
           {
             "type": "command",
-            "command": "bash -c 'FILE=$(jq -r \".tool_input.file_path\"); if [[ \"$FILE\" =~ \\.(ts|js|mjs|cjs|json)$ ]]; then \"$CLAUDE_PROJECT_DIR/node_modules/.bin/prettier\" --write \"$FILE\" 2>/dev/null; fi'"
+            "command": "bash -c 'GITROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; [ -n \"$GITROOT\" ] && exec \"$GITROOT/.claude/scripts/format-file.sh\"; exit 0'"
           }
         ]
       }

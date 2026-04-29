@@ -96,7 +96,7 @@ function compile {
     trap "rm -rf $outdir" EXIT
     function write_vk {
       if echo "$name" | grep -qE "${hiding_kernel_regex}"; then
-        $BB write_vk --scheme chonk -b - -o $outdir
+        $BB write_vk --scheme chonk --use_zk_flavor -b - -o $outdir
       elif echo "$name" | grep -qE "${ivc_regex}"; then
         $BB write_vk --scheme chonk -b - -o $outdir
       elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
@@ -130,8 +130,7 @@ function compile {
       SECONDS=0
       # Generate solidity verifier for this contract.
       # TODO(AD) ensure this passes.
-      #echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
-      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path
+      echo "$vk_bytes" | xxd -r -p | $BB write_solidity_verifier --scheme ultra_honk --disable_zk -k - -o $verifier_path --optimized
       echo_stderr "Root rollup verifier at: $verifier_path (${SECONDS}s)"
       # Include the verifier path if we create it.
       cache_upload vk-$hash.tar.gz $key_path $verifier_path &> /dev/null

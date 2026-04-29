@@ -279,12 +279,12 @@ namespace tx;
     pol commit calldata_size;
     pol commit calldata_hash;
 
-    pol commit should_process_call_request; // @boolean on active rows (follows from definition)
-    should_process_call_request = (sel - is_padded) * is_public_call_request;
+    pol commit sel_process_call_request; // @boolean on active rows (follows from definition)
+    sel_process_call_request = (sel - is_padded) * is_public_call_request;
 
     // Read information relating to the public call request from public inputs
     #[READ_PUBLIC_CALL_REQUEST_PHASE]
-    should_process_call_request {
+    sel_process_call_request {
         read_pi_offset,
         msg_sender,
         contract_addr,
@@ -302,7 +302,7 @@ namespace tx;
     // This binds the `calldata hash` with the `context id` of the enqueued call.
     // In addition, `calldata_size` is "returned back" from calldata_hashing.pil.
     #[READ_CALLDATA_HASH]
-    should_process_call_request {
+    sel_process_call_request {
         calldata_hash,
         calldata_size,
         next_context_id
@@ -321,19 +321,19 @@ namespace tx;
 
     // Note that `prev_l2_gas_used` and `prev_da_gas_used` are constrained in tx_context.pil.
     // prev_gas_used_sent_to_enqueued_call = is_teardown ? 0 : prev_gas_used
-    should_process_call_request * ((0 - prev_l2_gas_used) * is_teardown + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
-    should_process_call_request * ((0 - prev_da_gas_used) * is_teardown + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
+    sel_process_call_request * ((0 - prev_l2_gas_used) * is_teardown + prev_l2_gas_used - prev_l2_gas_used_sent_to_enqueued_call) = 0;
+    sel_process_call_request * ((0 - prev_da_gas_used) * is_teardown + prev_da_gas_used - prev_da_gas_used_sent_to_enqueued_call) = 0;
     // next_gas_used = is_teardown ? prev_gas_used : next_gas_used_sent_to_enqueued_call
     // In the teardown phase, next_gas_used_sent_to_enqueued_call is unconstrained on purpose; we don't care about gas usage in teardown.
-    should_process_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
-    should_process_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
+    sel_process_call_request * ((prev_l2_gas_used - next_l2_gas_used_sent_to_enqueued_call) * is_teardown + next_l2_gas_used_sent_to_enqueued_call - next_l2_gas_used) = 0;
+    sel_process_call_request * ((prev_da_gas_used - next_da_gas_used_sent_to_enqueued_call) * is_teardown + next_da_gas_used_sent_to_enqueued_call - next_da_gas_used) = 0;
 
     // Public call requests are dispatched to the execution trace.
     // We match the values to the start of an enqueued call in the execution trace.
     // Key: In execution, the pair `context_id` and `enqueued_call_start == 1` characterizes a unique row.
     // Inputs: All other columns are inputs to the enqueued call.
     #[DISPATCH_EXEC_START]
-    should_process_call_request {
+    sel_process_call_request {
         next_context_id,
         discard, // Important for security of discarding logic in execution trace. (see discard.pil correctness analysis)
         msg_sender,
@@ -365,7 +365,7 @@ namespace tx;
         da_gas_limit
     } is
     execution.enqueued_call_start {
-        execution.context_id, // next_context_id must be constrained in the execution trace on enqueued_call_start
+        execution.context_id,
         execution.discard,
         execution.msg_sender,
         execution.contract_address,
@@ -407,7 +407,7 @@ namespace tx;
     // determined by the context_id's. Nevertheless, the constraint #[INCR_NEXT_CONTEXT_ID] in context.pil prevents
     // such a re-ordering to happen.
     #[DISPATCH_EXEC_END]
-    should_process_call_request {
+    sel_process_call_request {
        next_context_id,
        next_context_id', // The context id of the next row must be the one after the execution of the enqueued call
        reverted,
@@ -490,21 +490,21 @@ namespace tx;
     public_inputs.sel { precomputed.idx, public_inputs.cols[0] };
 
     // ===== NOTE HASHES =====
-    pol commit should_try_note_hash_append; // @boolean (follows from definition)
-    should_try_note_hash_append = (sel - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
+    pol commit sel_try_note_hash_append; // @boolean (follows from definition)
+    sel_try_note_hash_append = (sel - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
 
     // If we are at the maximum emitted note hashes, we must revert
     pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX - prev_num_note_hashes_emitted;
     // Revert if remaining note hashes is 0
     #[MAX_NOTE_HASH_WRITES_REACHED]
-    should_try_note_hash_append * (REMAINING_NOTE_HASH_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
+    sel_try_note_hash_append * (REMAINING_NOTE_HASH_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
 
     // Commited since it's used in the lookup
-    pol commit should_note_hash_append; // @boolean (follows from definition)
-    should_note_hash_append = should_try_note_hash_append * (1 - reverted);
+    pol commit sel_note_hash_append; // @boolean (follows from definition)
+    sel_note_hash_append = sel_try_note_hash_append * (1 - reverted);
 
     #[NOTE_HASH_APPEND]
-    should_note_hash_append {
+    sel_note_hash_append {
         leaf_value,
         prev_note_hash_tree_size,
         prev_note_hash_tree_root,
@@ -525,14 +525,14 @@ namespace tx;
         note_hash_tree_check.next_root
     };
 
-    // If reverted, the next state is unconstrained as `should_note_hash_append = 0`. This is okay since we are going to restore the state at the end of setup or fail proving.
+    // If reverted, the next state is unconstrained as `sel_note_hash_append = 0`. This is okay since we are going to restore the state at the end of setup or fail proving.
     // Namely, #[RESTORE_STATE_ON_REVERT] restores the tree state to its value at the end of setup.
-    should_note_hash_append * (prev_note_hash_tree_size + 1 - next_note_hash_tree_size) = 0;
-    should_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
+    sel_note_hash_append * (prev_note_hash_tree_size + 1 - next_note_hash_tree_size) = 0;
+    sel_note_hash_append * (prev_num_note_hashes_emitted + 1 - next_num_note_hashes_emitted) = 0;
 
     // ===== NULLIFIERS =====
-    pol commit should_try_nullifier_append; // @boolean (follows from definition)
-    should_try_nullifier_append = (sel - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
+    pol commit sel_try_nullifier_append; // @boolean (follows from definition)
+    sel_try_nullifier_append = (sel - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
 
     pol commit nullifier_limit_error; // @boolean
     nullifier_limit_error * (1 - nullifier_limit_error) = 0;
@@ -541,24 +541,27 @@ namespace tx;
     pol REMAINING_NULLIFIER_WRITES = constants.MAX_NULLIFIERS_PER_TX - prev_num_nullifiers_emitted;
     // Disable the lookup if remaining nullifiers is 0
     #[MAX_NULLIFIER_WRITES_REACHED]
-    should_try_nullifier_append * (REMAINING_NULLIFIER_WRITES * (nullifier_limit_error * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + nullifier_limit_error) = 0;
+    sel_try_nullifier_append * (REMAINING_NULLIFIER_WRITES * (nullifier_limit_error * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + nullifier_limit_error) = 0;
 
     // If over the limit, reverted=1; else, reverted is constrained by the lookup.
-    should_try_nullifier_append * nullifier_limit_error * (1 - reverted) = 0;
+    sel_try_nullifier_append * nullifier_limit_error * (1 - reverted) = 0;
 
-    pol commit should_nullifier_append; // @boolean (follows from definition)
-    should_nullifier_append = should_try_nullifier_append * (1 - nullifier_limit_error);
+    pol commit sel_nullifier_append; // @boolean (follows from definition)
+    sel_nullifier_append = sel_try_nullifier_append * (1 - nullifier_limit_error);
 
     pol commit write_nullifier_pi_offset;
-    should_nullifier_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + prev_num_nullifiers_emitted - write_nullifier_pi_offset) = 0;
+    sel_nullifier_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + prev_num_nullifiers_emitted - write_nullifier_pi_offset) = 0;
 
     // Lookup constant support: Can be removed when we support constants in lookups.
     pol commit nullifier_tree_height;
-    should_nullifier_append * (nullifier_tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
+    sel_nullifier_append * (nullifier_tree_height - constants.NULLIFIER_TREE_HEIGHT) = 0;
+
+    pol commit nullifier_merkle_separator;
+    sel_nullifier_append * (nullifier_merkle_separator - constants.DOM_SEP__NULLIFIER_MERKLE) = 0;
 
     // Collisions are disallowed, if the nullifier already exists the transaction is unprovable
     #[NULLIFIER_APPEND]
-    should_nullifier_append {
+    sel_nullifier_append {
         leaf_value,
         prev_nullifier_tree_root,
         precomputed.zero, // Nullifiers emitted in tx trace cannot have existed
@@ -567,6 +570,7 @@ namespace tx;
         discard, // from tx_discard.pil virtual trace
         write_nullifier_pi_offset,
         nullifier_tree_height,
+        nullifier_merkle_separator,
         precomputed.zero // sel_silo = 0 (nullifiers already siloed)
     } in indexed_tree_check.write {
         indexed_tree_check.value,
@@ -577,47 +581,50 @@ namespace tx;
         indexed_tree_check.discard,
         indexed_tree_check.public_inputs_index,
         indexed_tree_check.tree_height,
+        indexed_tree_check.merkle_hash_separator,
         indexed_tree_check.sel_silo
     };
 
-    // If reverted, the next state is unconstrained since `should_nullifier_append = 0`. This is okay since we are going to restore the state at the end of setup.
+    // If reverted, the next state is unconstrained since `sel_nullifier_append = 0`. This is okay since we are going to restore the state at the end of setup.
     // Namely, #[RESTORE_STATE_ON_REVERT] restores the tree state to its value at the end of setup.
-    should_nullifier_append * (prev_nullifier_tree_size + 1 - next_nullifier_tree_size) = 0;
-    should_nullifier_append * (prev_num_nullifiers_emitted + 1 - next_num_nullifiers_emitted) = 0;
+    #[NULLIFIER_TREE_SIZE_INCREMENT]
+    sel_nullifier_append * (prev_nullifier_tree_size + 1 - next_nullifier_tree_size) = 0;
+    #[NULLIFIER_EMITTED_COUNT_INCREMENT]
+    sel_nullifier_append * (prev_num_nullifiers_emitted + 1 - next_num_nullifiers_emitted) = 0;
 
     // ===== L2 - L1 Messages =====
-    pol commit should_try_l2_l1_msg_append; // @boolean (follows from definition)
-    should_try_l2_l1_msg_append = (sel - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
+    pol commit sel_try_l2_l1_msg_append; // @boolean (follows from definition)
+    sel_try_l2_l1_msg_append = (sel - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
 
     pol commit l2_l1_msg_contract_address;
     pol commit l2_l1_msg_recipient;
     pol commit l2_l1_msg_content;
 
     #[READ_L2_L1_MSG]
-    should_try_l2_l1_msg_append { read_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
+    sel_try_l2_l1_msg_append { read_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
     public_inputs.sel { precomputed.idx, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
     // If we are at the maximum emitted messages, we must revert
     pol REMAINING_L2_TO_L1_MSG_WRITES = constants.MAX_L2_TO_L1_MSGS_PER_TX - prev_num_l2_to_l1_messages;
     // Revert if REMAINING_L2_TO_L1_MSG_WRITES is 0
     #[MAX_L2_L1_MSG_WRITES_REACHED]
-    should_try_l2_l1_msg_append * (REMAINING_L2_TO_L1_MSG_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
+    sel_try_l2_l1_msg_append * (REMAINING_L2_TO_L1_MSG_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
 
-    pol commit should_l2_l1_msg_append; // @boolean (follows from definition)
+    pol commit sel_l2_l1_msg_append; // @boolean (follows from definition)
     // A msg emission must be written to PI if it didn't revert and is not discarded.
-    should_l2_l1_msg_append = should_try_l2_l1_msg_append * (1 - reverted) * (1 - discard);
+    sel_l2_l1_msg_append = sel_try_l2_l1_msg_append * (1 - reverted) * (1 - discard);
     // discard is from tx_discard.pil virtual trace
 
-    should_l2_l1_msg_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_messages - write_pi_offset) = 0;
+    sel_l2_l1_msg_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + prev_num_l2_to_l1_messages - write_pi_offset) = 0;
 
     #[WRITE_L2_L1_MSG]
-    should_l2_l1_msg_append { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
+    sel_l2_l1_msg_append { write_pi_offset, l2_l1_msg_recipient, l2_l1_msg_content, l2_l1_msg_contract_address } in
     public_inputs.sel { precomputed.idx, public_inputs.cols[0], public_inputs.cols[1], public_inputs.cols[2] };
 
     // If reverted, the next count is unconstrained. This is okay since we are going to restore the state to the end of setup or fail proving.
     // Namely, #[RESTORE_STATE_ON_REVERT] restores the number of L2 to L1 messages to its value at the end of setup.
     #[UPDATE_NUM_L2_TO_L1_MSGS]
-    should_try_l2_l1_msg_append * (1 - reverted) * (prev_num_l2_to_l1_messages + 1 - next_num_l2_to_l1_messages) = 0;
+    sel_try_l2_l1_msg_append * (1 - reverted) * (prev_num_l2_to_l1_messages + 1 - next_num_l2_to_l1_messages) = 0;
 
     /***************************************************************************
     * Collect Gas Phase

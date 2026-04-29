@@ -199,6 +199,9 @@ namespace contract_instance_retrieval;
     #[SILOING_SEPARATOR_CONSTANT]
     should_check_nullifier * (siloing_separator - constants.DOM_SEP__SILOED_NULLIFIER) = 0;
 
+    pol commit nullifier_merkle_separator;
+    should_check_nullifier * (nullifier_merkle_separator - constants.DOM_SEP__NULLIFIER_MERKLE) = 0;
+
     // Nullifier existence check (deployment nullifier read).
     #[DEPLOYMENT_NULLIFIER_READ]
     should_check_nullifier {
@@ -206,6 +209,7 @@ namespace contract_instance_retrieval;
         address, // the deployment nullifier
         nullifier_tree_root,
         nullifier_tree_height,
+        nullifier_merkle_separator,
         sel, // 1 (yes silo)
         siloing_separator,
         deployer_protocol_contract_address
@@ -214,6 +218,7 @@ namespace contract_instance_retrieval;
         indexed_tree_check.value,
         indexed_tree_check.root,
         indexed_tree_check.tree_height,
+        indexed_tree_check.merkle_hash_separator,
         indexed_tree_check.sel_silo,
         indexed_tree_check.siloing_separator,
         indexed_tree_check.address

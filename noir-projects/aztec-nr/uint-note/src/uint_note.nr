@@ -10,10 +10,7 @@ use aztec::{
     oracle::random::random,
     protocol::{
         address::AztecAddress,
-        constants::{
-            DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__NOTE_HASH, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
-            PRIVATE_LOG_CIPHERTEXT_LEN,
-        },
+        constants::{DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__NOTE_HASH, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT},
         hash::{compute_log_tag, compute_siloed_nullifier, poseidon2_hash_with_separator},
         traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
     },
@@ -164,14 +161,10 @@ impl NoteType for UintPartialNotePrivateLogContent {
 /// storage slot and value fields have not yet been set. A partial note can be completed in public with the `complete`
 /// function (revealing the storage slot and value to the public), resulting in a UintNote that can be used like any
 /// other one (except of course that its value is known).
-// docs:start:partial_uint_note_def
 #[derive(Packable, Serialize, Deserialize, Eq)]
 pub struct PartialUintNote {
     commitment: Field,
 }
-// docs:end:partial_uint_note_def
-
-global NOTE_COMPLETION_PAYLOAD_LENGTH: u32 = 2;
 
 impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
@@ -228,8 +221,8 @@ impl PartialUintNote {
         // only done in private to hide the preimage of the hash that is inserted, but completed partial notes are
         // inserted in public as the public values are provided and the note hash computed.
         let log_tag = compute_log_tag(self.commitment, DOM_SEP__NOTE_COMPLETION_LOG_TAG);
-        let padded_payload = self.compute_note_completion_payload_padded_for_private_log(storage_slot, value);
-        context.emit_private_log_unsafe(log_tag, padded_payload, NOTE_COMPLETION_PAYLOAD_LENGTH);
+        let payload = BoundedVec::from_array([storage_slot, value.to_field()]);
+        context.emit_private_log_vec_unsafe(log_tag, payload);
         context.push_note_hash(self.compute_complete_note_hash(storage_slot, value));
     }
 
@@ -243,15 +236,6 @@ impl PartialUintNote {
             [self.commitment, completer.to_field()],
             DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         )
-    }
-
-    fn compute_note_completion_payload_padded_for_private_log(
-        _self: Self,
-        storage_slot: Field,
-        value: u128,
-    ) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN] {
-        let payload = [storage_slot, value.to_field()];
-        payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - NOTE_COMPLETION_PAYLOAD_LENGTH])
     }
 
     // docs:start:compute_complete_note_hash

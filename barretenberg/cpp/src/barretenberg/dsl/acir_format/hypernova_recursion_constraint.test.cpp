@@ -45,7 +45,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         return circuit;
     }
 
-    static std::shared_ptr<VerificationKey> get_verification_key(Builder& builder_in)
+    static std::shared_ptr<VerificationKey> get_verification_key(Builder& builder_in, bool is_hiding_kernel = false)
     {
         // This is a workaround to ensure that the circuit is finalized before we create the verification key
         // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
@@ -55,6 +55,10 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
 
         // Deepcopy the opqueue to avoid modifying the original one
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
+        if (is_hiding_kernel) {
+            auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(builder);
+            return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        }
         std::shared_ptr<Chonk::ProverInstance> prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
         std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
         return vk;
@@ -222,7 +226,8 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         const ProgramMetadata metadata{ ivc };
         AcirProgram mock_kernel_program = construct_mock_kernel_program(ivc->verification_queue);
         auto kernel = acir_format::create_circuit<Builder>(mock_kernel_program, metadata);
-        auto kernel_vk = get_kernel_vk_from_circuit(kernel);
+        const bool is_hiding_kernel = ivc->num_circuits_accumulated == ivc->get_num_circuits() - 1;
+        auto kernel_vk = get_kernel_vk_from_circuit(kernel, is_hiding_kernel);
         ivc->accumulate(kernel, kernel_vk);
     }
 
@@ -239,22 +244,28 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
      * @param program Acir program representing a kernel circuit
      * @return std::shared_ptr<Chonk::MegaVerificationKey>
      */
-    static std::shared_ptr<Chonk::MegaVerificationKey> construct_kernel_vk_from_acir_program(AcirProgram& program)
+    static std::shared_ptr<Chonk::MegaVerificationKey> construct_kernel_vk_from_acir_program(
+        AcirProgram& program, bool is_hiding_kernel = false)
     {
         // Create kernel circuit from the kernel program
         auto kernel = acir_format::create_circuit<Builder>(program);
-
-        // Manually construct the VK for the kernel circuit
+        if (is_hiding_kernel) {
+            auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(kernel);
+            return std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+        }
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(kernel);
-        auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
-        return verification_key;
+        return std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
     }
 
-    static std::shared_ptr<Chonk::MegaVerificationKey> get_kernel_vk_from_circuit(Builder& kernel)
+    static std::shared_ptr<Chonk::MegaVerificationKey> get_kernel_vk_from_circuit(Builder& kernel,
+                                                                                  bool is_hiding_kernel = false)
     {
+        if (is_hiding_kernel) {
+            auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(kernel);
+            return std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+        }
         auto prover_instance = std::make_shared<Chonk::ProverInstance>(kernel);
-        auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
-        return verification_key;
+        return std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
     }
 
   protected:
@@ -536,7 +547,7 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromConstrai
                                              /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
-        kernel_vk = construct_kernel_vk_from_acir_program(program);
+        kernel_vk = construct_kernel_vk_from_acir_program(program, /*is_hiding_kernel=*/true);
     }
 
     // Compare the VK constructed via running the IVc with the one constructed via mocking

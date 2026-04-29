@@ -26,15 +26,16 @@ namespace { // anonymous namespace
  * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated by Chonk.
  * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
  * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
-
  *
  * @param bytecode ACIR bytecode of the circuit
  * @param output_path Directory to write the VK (or "-" for stdout)
- * @param flags API flags including output_format
+ * @param flags API flags including output_format and use_zk_flavor (selects MegaZKFlavor vs MegaFlavor)
  */
 void write_chonk_vk(std::vector<uint8_t> bytecode, const std::filesystem::path& output_path, const API::Flags& flags)
 {
-    auto response = bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) } }.execute();
+    auto response =
+        bbapi::ChonkComputeVk{ .circuit = { .bytecode = std::move(bytecode) }, .use_zk_flavor = flags.use_zk_flavor }
+            .execute();
 
     const bool is_stdout = output_path == "-";
     if (is_stdout) {
@@ -61,10 +62,12 @@ void ChonkAPI::prove(const Flags& flags,
 
     bbapi::ChonkStart{ .num_circuits = static_cast<uint32_t>(raw_steps.size()) }.execute(request);
     info("Chonk: starting with ", raw_steps.size(), " circuits");
-    for (const auto& step : raw_steps) {
+    for (size_t i = 0; i < raw_steps.size(); ++i) {
+        const auto& step = raw_steps[i];
         bbapi::ChonkLoad{
-            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
-        }.execute(request);
+            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
+        }
+            .execute(request);
 
         // NOLINTNEXTLINE(bugprone-unchecked-optional-access): we know the optional has been set here.
         info("Chonk: accumulating " + step.function_name);
@@ -96,8 +99,10 @@ void ChonkAPI::prove(const Flags& flags,
 
     if (flags.write_vk) {
         vinfo("writing Chonk vk in directory ", output_dir);
-        // write CHONK vk using the bytecode of the Hiding kernel (the last step of the execution)
-        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, flags);
+        // Write CHONK vk for the hiding kernel (last step) — proven as MegaZK.
+        Flags hiding_flags = flags;
+        hiding_flags.use_zk_flavor = true;
+        write_chonk_vk(raw_steps[raw_steps.size() - 1].bytecode, output_dir, hiding_flags);
     }
 }
 
@@ -209,14 +214,19 @@ bool ChonkAPI::check_precomputed_vks(const Flags& flags, const std::filesystem::
 
     bbapi::VkPolicy vk_policy = bbapi::parse_vk_policy(flags.vk_policy);
     bool check_failed = false;
-    for (auto& step : raw_steps) {
+    for (size_t i = 0; i < raw_steps.size(); ++i) {
+        auto& step = raw_steps[i];
         if (step.vk.empty()) {
             info("FAIL: Expected precomputed vk for function ", step.function_name);
             return false;
         }
-        auto response = bbapi::ChonkCheckPrecomputedVk{
-            .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk }
-        }.execute();
+        const bool use_zk_flavor = (i == raw_steps.size() - 1);
+        auto response =
+            bbapi::ChonkCheckPrecomputedVk{
+                .circuit = { .name = step.function_name, .bytecode = step.bytecode, .verification_key = step.vk },
+                .use_zk_flavor = use_zk_flavor,
+            }
+                .execute();
 
         if (!response.valid) {
             info("VK mismatch detected for function ", step.function_name);

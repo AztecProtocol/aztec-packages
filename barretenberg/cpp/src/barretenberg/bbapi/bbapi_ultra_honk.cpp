@@ -6,6 +6,7 @@
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_optimized_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
+#include "barretenberg/dsl/acir_proofs/honk_zk_optimized_contract.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -175,7 +176,7 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
 
     acir_format::AcirProgram program{ std::move(constraint_system), {} };
     auto builder = acir_format::create_circuit<Circuit>(program, metadata);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
 
     response.num_gates = static_cast<uint32_t>(builder.get_finalized_total_circuit_size());
     response.num_gates_dyadic = static_cast<uint32_t>(builder.get_circuit_subgroup_size(response.num_gates));
@@ -246,8 +247,9 @@ CircuitWriteSolidityVerifier::Response CircuitWriteSolidityVerifier::execute(BB_
 // If in wasm, we dont include the optimized solidity verifier - due to its large bundle size
 // This will run generate twice, but this should only be run before deployment and not frequently
 #ifndef __wasm__
-    if (settings.disable_zk && settings.optimized_solidity_verifier) {
-        contract = get_optimized_honk_solidity_verifier(vk);
+    if (settings.optimized_solidity_verifier) {
+        contract = settings.disable_zk ? get_optimized_honk_solidity_verifier(vk)
+                                       : get_optimized_honk_zk_solidity_verifier(vk);
     }
 #endif
 

@@ -57,20 +57,15 @@ void ECCVMProver::execute_wire_commitments_round()
     BB_BENCH_NAME("ECCVMProver::execute_wire_commitments_round");
 
     const size_t circuit_size = key->circuit_size;
-    unmasked_witness_size = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     // Create and commit to Gemini masking polynomial (for ZK-PCS)
     key->polynomials.gemini_masking_poly = Polynomial::random(circuit_size);
     auto masking_commitment = key->commitment_key.commit(key->polynomials.gemini_masking_poly);
     transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
 
-    // Register all masked polys upfront (generates random tail values for all witness entities)
-    key->masking_tail_data.register_all_masked_polys();
-
     auto batch = key->commitment_key.start_batch();
-    for (const auto& [wire, tail, label] : zip_view(
-             key->polynomials.get_wires(), key->masking_tail_data.tails.get_wires(), commitment_labels.get_wires())) {
-        batch.add_to_batch(wire, label, &tail);
+    for (const auto& [wire, label] : zip_view(key->polynomials.get_wires(), commitment_labels.get_wires())) {
+        batch.add_to_batch(wire, label);
     }
     batch.commit_and_send_to_verifier(transcript);
 }
@@ -106,14 +101,13 @@ void ECCVMProver::execute_log_derivative_commitments_round()
                                                       (gamma + beta_sqr + beta_sqr + beta_sqr + first_term_tag);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
     // Compute inverse polynomial for our logarithmic-derivative lookup method
+    // Skip the disabled head region to preserve masking values
     compute_logderivative_inverse<typename Flavor::FF,
                                   typename Flavor::LookupRelation,
                                   typename Flavor::ProverPolynomials,
-                                  true>(key->polynomials, relation_parameters, unmasked_witness_size);
+                                  true>(key->polynomials, relation_parameters, Flavor::TRACE_OFFSET);
     auto& li = key->polynomials.lookup_inverses;
-    transcript->send_to_verifier(commitment_labels.lookup_inverses,
-                                 key->commitment_key.commit(li) +
-                                     key->commitment_key.commit(key->masking_tail_data.tails.lookup_inverses));
+    transcript->send_to_verifier(commitment_labels.lookup_inverses, key->commitment_key.commit(li));
 }
 
 /**
@@ -123,12 +117,10 @@ void ECCVMProver::execute_log_derivative_commitments_round()
 void ECCVMProver::execute_grand_product_computation_round()
 {
     BB_BENCH_NAME("ECCVMProver::execute_grand_product_computation_round");
-    // Compute permutation grand product and their commitments
-    compute_grand_products<Flavor>(key->polynomials, relation_parameters, unmasked_witness_size);
+    // Compute permutation grand product (starts after disabled head region via gp_start)
+    compute_grand_products<Flavor>(key->polynomials, relation_parameters);
     auto& zp = key->polynomials.z_perm;
-    transcript->send_to_verifier(commitment_labels.z_perm,
-                                 key->commitment_key.commit(zp) +
-                                     key->commitment_key.commit(key->masking_tail_data.tails.z_perm));
+    transcript->send_to_verifier(commitment_labels.z_perm, key->commitment_key.commit(zp));
 }
 
 /**
@@ -157,7 +149,7 @@ void ECCVMProver::execute_relation_check_rounds()
 
     zk_sumcheck_data = ZKData(key->log_circuit_size, transcript, key->commitment_key);
 
-    sumcheck_output = sumcheck.prove(zk_sumcheck_data, key->masking_tail_data);
+    sumcheck_output = sumcheck.prove(zk_sumcheck_data);
 }
 
 /**
@@ -187,11 +179,6 @@ void ECCVMProver::execute_pcs_rounds()
     PolynomialBatcher polynomial_batcher(key->circuit_size);
     polynomial_batcher.set_unshifted(key->polynomials.get_unshifted());
     polynomial_batcher.set_to_be_shifted_by_one(key->polynomials.get_to_be_shifted());
-
-    // Add small tail polynomials for masked witness polys (avoids extending all polys to full dyadic size)
-    if (key->masking_tail_data.is_active()) {
-        key->masking_tail_data.add_tails_to_batcher(key->polynomials, polynomial_batcher);
-    }
 
     OpeningClaim multivariate_to_univariate_opening_claim =
         Shplemini::prove(key->circuit_size,
@@ -250,29 +237,14 @@ std::pair<ECCVMProver::Proof, ECCVMProver::OpeningClaim> ECCVMProver::construct_
  * \f{align}{ x\cdot A = \sum_{i=0}^4 T_i(x) \cdot v^i, \f}
  * where \f$ x \f$ is an artifact of our implementation of shiftable polynomials.
  *
- * This check gets trickier when the witness wires in ECCVM are masked. Namely, we randomize the last \f$
- * \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} -
- * \text{NUM_DISABLED_ROWS_IN_SUMCHECK}\f$. Denote
- * \f{align}{ \widetilde{T}_i(X) = T_i(X) + X^N \cdot m_i(X). \f}
+ * The translation polynomials \f$ T_i \f$ contain random masking values in their first TRACE_OFFSET coefficients.
+ * Commitments to the masked \f$ T_i \f$ are safe to reveal, but the evaluations \f$ T_i(x) \f$ include the masking
+ * contribution. To preserve ZK, the prover uses SmallSubgroupIPA to prove the masking correction: the masking
+ * terms from all five \f$ T_i \f$ are concatenated into a polynomial \f$ M \f$ over a small subgroup \f$ H \f$,
+ * and the verifier recovers \f$ \sum_i m_i(x) \cdot v^i \f$ via an inner-product argument without learning
+ * the individual masking values.
  *
- * Informally speaking, to preserve ZK, the \ref ECCVMVerifier must never obtain the commitments to \f$ T_i \f$ or
- * the evaluations \f$ T_i(x) \f$ of the unmasked wires.
- *
- * With masking, the identity above becomes
- * \f{align}{ x\cdot A = \sum_i (\widetilde{T}_i - X^N \cdot m_i(X)) v^i =\sum_i \widetilde{T}_i v^i - X^N \cdot \sum_i
- * m_i(X) v^i \f}
- *
- * The prover could send the evals of \f$ \widetilde{T}_i \f$ without revealing witness information. Moreover, the
- * prover could prove the evaluation \f$ x^N \cdot \sum m_i(x) v^i \f$ using SmallSubgroupIPA argument. Namely, before
- * obtaining \f$ x \f$ and \f$ v \f$, the prover sends a commitment to the polynomial \f$ \widetilde{M} = M + Z_H \cdot
- * R\f$, where the coefficients of \f$ M \f$ are given by the concatenation \f{align}{ M = (m_0||m_1||m_2||m_3||m_4 ||
- * \vec{0}) \f} in the Lagrange basis over the small multiplicative subgroup \f$ H \f$, where \f$ Z_H \f$ is the
- * vanishing polynomial \f$ X^{|H|} -1 \f$ and \f$ R(X) \f$ is a random polynomial of degree \f$ 2 \f$. \ref
- * SmallSubgroupIPAProver allows us to prove the inner product of \f$ M \f$ against the `challenge_polynomial`
- * \f{align}{ ( 1, x , x^2 , x^3, v , v\cdot x ,\ldots, ... , v^4, v^4 x , v^4 x^2 , v^4 x^3, \vec{0} )\f}
- * without revealing any other witness information apart from the claimed inner product.
- *
- * @return Ppopulate `opening_claims`.
+ * @return Populate `opening_claims`.
  *
  */
 void ECCVMProver::compute_translation_opening_claims()
@@ -284,23 +256,11 @@ void ECCVMProver::compute_translation_opening_claims()
     std::array<std::string, NUM_SMALL_IPA_EVALUATIONS> evaluation_labels;
     std::array<FF, NUM_SMALL_IPA_EVALUATIONS> evaluation_points;
 
-    // Create full-size copies of translation polys with masking tail values merged in.
-    // Only translation polys need this (for univariate evaluation); all other witness polys
-    // remain short and use tail batching in PCS instead.
-    auto& mtd = key->masking_tail_data;
-    auto extend_with_tail = [&](const Polynomial& poly, const Polynomial& tail) -> Polynomial {
-        Polynomial extended(poly, poly.virtual_size() - poly.start_index());
-        extended += tail;
-        return extended;
-    };
-
-    Polynomial masked_op = extend_with_tail(key->polynomials.transcript_op, mtd.tails.transcript_op);
-    Polynomial masked_Px = extend_with_tail(key->polynomials.transcript_Px, mtd.tails.transcript_Px);
-    Polynomial masked_Py = extend_with_tail(key->polynomials.transcript_Py, mtd.tails.transcript_Py);
-    Polynomial masked_z1 = extend_with_tail(key->polynomials.transcript_z1, mtd.tails.transcript_z1);
-    Polynomial masked_z2 = extend_with_tail(key->polynomials.transcript_z2, mtd.tails.transcript_z2);
-
-    RefArray translation_polynomials{ masked_op, masked_Px, masked_Py, masked_z1, masked_z2 };
+    RefArray translation_polynomials{ key->polynomials.transcript_op,
+                                      key->polynomials.transcript_Px,
+                                      key->polynomials.transcript_Py,
+                                      key->polynomials.transcript_z1,
+                                      key->polynomials.transcript_z2 };
 
     // Extract the masking terms of `translation_polynomials`, concatenate them in the Lagrange basis over SmallSubgroup
     // H, mask the resulting polynomial, and commit to it

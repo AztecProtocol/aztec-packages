@@ -120,9 +120,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         return 0;
     }
 
-    void finalize_circuit(const bool ensure_nonzero);
-    void add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero();
-    void add_mega_gates_to_ensure_all_polys_are_non_zero();
+    void finalize_circuit();
 
     size_t get_num_constant_gates() const override { return 0; }
 
@@ -191,6 +189,8 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     const BusVector& get_calldata() const { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
     const BusVector& get_secondary_calldata() const { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
     const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
+    // Indexed access to the databus columns; enables NUM_BUS_COLUMNS-driven iteration over bus vectors.
+    const BusVector& get_bus_vector(size_t bus_idx) const { return databus[bus_idx]; }
 
     /**
      * @brief Compute a hash of the circuit

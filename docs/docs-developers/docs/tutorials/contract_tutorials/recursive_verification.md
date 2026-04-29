@@ -182,9 +182,9 @@ nargo test
 Expected output:
 
 ```text
-[hello_circuit] Running 1 test functions
-[hello_circuit] Testing test_main... ok
-[hello_circuit] All tests passed
+[hello_circuit] Running 1 test function
+[hello_circuit] Testing test_main ... ok
+[hello_circuit] 1 test passed
 ```
 
 **Tip**: Circuit tests run without generating proofs, making them fast for development. Use them to verify your circuit logic before the more expensive proof generation step.
@@ -208,8 +208,10 @@ The contract demonstrates several important patterns:
 Use `aztec new` to generate the contract project structure:
 
 ```bash
-aztec new contract --name ValueNotEqual
+aztec new --name ValueNotEqual contract
 ```
+
+The `aztec new` wrapper stops parsing arguments at the first positional, so `--name` must come **before** the `contract` path — otherwise the flag is silently dropped and the Nargo package ends up named `contract`. The Nargo package name (`--name`) is independent of the Noir contract name declared inside `main.nr`; the artifact filename downstream is driven by the contract name.
 
 This creates:
 
@@ -544,7 +546,7 @@ Expected output:
 Proof verification: SUCCESS
 Using deflattenFields to convert proof...
 VK size: 115
-Proof size: 508
+Proof size: 500
 Public inputs: 1
 Done
 ```

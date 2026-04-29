@@ -81,8 +81,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
   private readonly senderTaggingStore: SenderTaggingStore;
   private totalPublicCalldataCount: number;
-  protected sideEffectCounter: number;
-  private senderForTags?: AztecAddress;
+  private readonly initialSideEffectCounter: number;
+  /** Sender for tags passed in at oracle construction time. Returned by `getSenderForTags` unless overridden. */
+  private readonly defaultSenderForTags: AztecAddress | undefined;
+  /** Per-call sender-for-tags override, set by `setSenderForTags`. Takes precedence over `defaultSenderForTags`. */
+  private currentSenderForTags: AztecAddress | undefined;
   private readonly simulator?: CircuitSimulator;
 
   constructor(args: PrivateExecutionOracleArgs) {
@@ -100,13 +103,18 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.taggingIndexCache = args.taggingIndexCache;
     this.senderTaggingStore = args.senderTaggingStore;
     this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
-    this.sideEffectCounter = args.sideEffectCounter ?? 0;
-    this.senderForTags = args.senderForTags;
+    this.initialSideEffectCounter = args.sideEffectCounter ?? 0;
+    this.defaultSenderForTags = args.senderForTags;
     this.simulator = args.simulator;
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {
-    return new PrivateContextInputs(this.callContext, this.anchorBlockHeader, this.txContext, this.sideEffectCounter);
+    return new PrivateContextInputs(
+      this.callContext,
+      this.anchorBlockHeader,
+      this.txContext,
+      this.initialSideEffectCounter,
+    );
   }
 
   // We still need this function until we can get user-defined ordering of structs for fn arguments
@@ -173,11 +181,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * The value persists through nested calls, meaning all calls down the stack will use the same
-   * 'senderForTags' value (unless it is replaced).
+   * Returns `currentSenderForTags` if set (via `setSenderForTags`), otherwise `defaultSenderForTags`.
    */
   public getSenderForTags(): Promise<AztecAddress | undefined> {
-    return Promise.resolve(this.senderForTags);
+    return Promise.resolve(this.currentSenderForTags ?? this.defaultSenderForTags);
   }
 
   /**
@@ -187,12 +194,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * for a tag in order to emit a log. Constrained tagging should not use this as there is no
    * guarantee that the recipient knows about the sender, and hence about the shared secret.
    *
-   * Account contracts typically set this value before calling other contracts. The value persists
-   * through nested calls, meaning all calls down the stack will use the same 'senderForTags'
-   * value (unless it is replaced by another call to this setter).
+   * Overrides `defaultSenderForTags` for the remainder of this call. Each oracle instance is
+   * independent, so this has no effect on any other call in the execution.
    */
   public setSenderForTags(senderForTags: AztecAddress): Promise<void> {
-    this.senderForTags = senderForTags;
+    this.logger.debug(
+      `Sender for tags switched to ${senderForTags} by contract ${this.contractAddress} (default was ${this.defaultSenderForTags})`,
+    );
+    this.currentSenderForTags = senderForTags;
     return Promise.resolve();
   }
 
@@ -573,7 +582,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       sideEffectCounter,
       log: this.logger,
       scopes: this.scopes,
-      senderForTags: this.senderForTags,
+      senderForTags: this.defaultSenderForTags,
       simulator: this.simulator!,
       l2TipsStore: this.l2TipsStore,
     });
@@ -587,6 +596,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       targetContractAddress,
       functionSelector,
     );
+
+    // Propagate the nested call's calldata count so the parent sees its increments on subsequent enqueues.
+    this.totalPublicCalldataCount = privateExecutionOracle.getTotalPublicCalldataCount();
 
     if (isStaticCall) {
       this.#checkValidStaticCall(childExecutionResult);
@@ -619,6 +631,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       throw new Error(`Too many total args to all enqueued public calls! (> ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS})`);
     }
     return Promise.resolve();
+  }
+
+  public getTotalPublicCalldataCount(): number {
+    return this.totalPublicCalldataCount;
   }
 
   public notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void> {

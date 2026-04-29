@@ -183,10 +183,13 @@ function install_aztec_up {
 
 # Updates appropriate shell script to ensure the paths are in PATH.
 function update_path_env_var {
-  # We need both:
-  # - $AZTEC_HOME/current/bin and $AZTEC_HOME/current/node_modules/.bin for version-specific tools
+  # We need:
+  # - $AZTEC_HOME/current/bin for version-specific tools (nargo, aztec, bb, ...)
   # - $AZTEC_HOME/bin for shared tools like aztec-up
-  local path_line="export PATH=\"\$HOME/.aztec/current/bin:\$HOME/.aztec/current/node_modules/.bin:\$HOME/.aztec/bin:\$PATH\""
+  # - $AZTEC_HOME/current/node_modules/.bin is intentionally NOT added: the per-version installer
+  # symlinks the @aztec-owned bins into current/bin, so adding node_modules/.bin
+  # would only expose transitive npm deps (jest, tsc, ...) and shadow user tools.
+  local path_line="export PATH=\"\$HOME/.aztec/current/bin:\$HOME/.aztec/bin:\$PATH\""
 
   # Determine the user's shell.
   local shell_profile=""

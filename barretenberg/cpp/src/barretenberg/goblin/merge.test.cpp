@@ -161,11 +161,10 @@ template <typename Curve> class MergeTests : public testing::Test {
         auto native_proof = merge_prover.construct_proof();
         tamper_with_proof(native_proof, tampering_mode);
 
-        // Create commitments to subtables
+        // Construct shifted column polynomials matching the circuit's ecc_op_wire layout
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
         auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
 
-        // Native commitments
         std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments;
         std::array<curve::BN254::AffineElement, NUM_WIRES> native_T_prev_commitments;
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
@@ -173,8 +172,6 @@ template <typename Curve> class MergeTests : public testing::Test {
             native_T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
         }
 
-        // Compute expected merged table commitments independently
-        // After merge, the full table is T_merged = T_prev || t_current (PREPEND) or t_current || T_prev (APPEND)
         auto T_merged = op_queue->construct_ultra_ops_table_columns();
         std::array<curve::BN254::AffineElement, NUM_WIRES> expected_merged_commitments;
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
@@ -602,7 +599,7 @@ TYPED_TEST(MergeTests, DifferentTranscriptOriginTagFailure)
     MergeProver prover_2{ op_queue_2, prover_transcript_2 };
     auto proof_2 = prover_2.construct_proof();
 
-    // Get native commitments for proof 1 (will be used with verifier 1's transcript)
+    // Get native commitments for proof 1 (shifted to match circuit ecc_op_wire layout)
     auto t_1 = op_queue_1->construct_current_ultra_ops_subtable_columns();
     auto T_prev_1 = op_queue_1->construct_previous_ultra_ops_table_columns();
     std::array<curve::BN254::AffineElement, NUM_WIRES> native_t_commitments_1;
@@ -787,7 +784,7 @@ TEST_F(MergeTranscriptTests, VerifierManifestConsistency)
     MergeProver merge_prover{ op_queue, prover_transcript };
     auto merge_proof = merge_prover.construct_proof();
 
-    // Construct commitments for verifier
+    // Construct commitments for verifier (shifted to match circuit ecc_op_wire layout)
     MergeVerifier::InputCommitments merge_commitments;
     auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
     auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
