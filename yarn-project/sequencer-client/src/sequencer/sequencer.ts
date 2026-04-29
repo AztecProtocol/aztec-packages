@@ -6,7 +6,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { merge, omit, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -58,9 +58,11 @@ export { SequencerState };
 export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<SequencerEvents>) {
   private runningPromise?: RunningPromise;
   private state = SequencerState.STOPPED;
+  private stateSlotNumber: SlotNumber | undefined;
   private stateEnteredAtMs = performance.now();
   private metrics: SequencerMetrics;
   private checkpointProposalJobMetrics: CheckpointProposalJobMetrics;
+  private readonly stateLog: Logger;
 
   /** The last slot for which we attempted to perform our voting duties with degraded block production */
   private lastSlotForFallbackVote: SlotNumber | undefined;
@@ -106,6 +108,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected log = createLogger('sequencer'),
   ) {
     super();
+    this.stateLog = log.createChild('state');
 
     // Add [FISHERMAN] prefix to logger if in fisherman mode
     if (config.fishermanMode) {
@@ -545,22 +548,34 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
     }
 
+    const oldState = this.state;
+    const oldStateSlotNumber = this.stateSlotNumber;
+    const stateChanged = proposedState !== oldState;
+    const transitionAtMs = performance.now();
+    const stateDurationMs = transitionAtMs - this.stateEnteredAtMs;
+
     const boringStates = [SequencerState.IDLE, SequencerState.SYNCHRONIZING];
     const logLevel =
-      boringStates.includes(proposedState) && boringStates.includes(this.state)
-        ? ('trace' as const)
-        : ('debug' as const);
-    this.log[logLevel](`Transitioning from ${this.state} to ${proposedState}`, { slotNumber, secondsIntoSlot });
+      boringStates.includes(proposedState) && boringStates.includes(oldState) ? ('trace' as const) : ('debug' as const);
+    this.stateLog[logLevel](`Transitioning from ${oldState} to ${proposedState}`, {
+      oldState,
+      newState: proposedState,
+      slotNumber,
+      stateSlotNumber: oldStateSlotNumber,
+      secondsIntoSlot,
+      ...(stateChanged && { stateDurationMs: Math.ceil(stateDurationMs) }),
+    });
 
     this.emit('state-changed', {
-      oldState: this.state,
+      oldState,
       newState: proposedState,
       secondsIntoSlot,
       slot: slotNumber,
     });
-    if (proposedState !== this.state) {
-      this.metrics.recordStateDuration(performance.now() - this.stateEnteredAtMs, this.state);
-      this.stateEnteredAtMs = performance.now();
+    if (stateChanged) {
+      this.metrics.recordStateDuration(stateDurationMs, oldState);
+      this.stateEnteredAtMs = transitionAtMs;
+      this.stateSlotNumber = slotNumber;
     }
     this.state = proposedState;
   }

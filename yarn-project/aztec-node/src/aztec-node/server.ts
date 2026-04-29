@@ -1153,7 +1153,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       throw new Error(`Invalid tx: ${reason}`);
     }
 
-    await this.p2pClient!.sendTx(tx);
+    try {
+      await this.p2pClient!.sendTx(tx);
+    } catch (err) {
+      this.metrics.receivedTx(timer.ms(), false);
+      this.log.warn(`Mempool rejected tx ${txHash}: ${(err as Error).message}`, { txHash });
+      throw err;
+    }
     const duration = timer.ms();
     this.metrics.receivedTx(duration, true);
     this.log.info(`Received tx ${txHash} in ${duration}ms`, { txHash });
