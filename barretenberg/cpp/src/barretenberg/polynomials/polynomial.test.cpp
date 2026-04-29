@@ -96,6 +96,38 @@ TEST(Polynomial, Indices)
     EXPECT_EQ(std::get<1>(*poly.indexed_values().begin()), poly[poly.start_index()]);
 }
 
+// evaluate_mle on a 0-variable MLE returns the constant coefficient.
+TEST(Polynomial, EvaluateMleSingleCoefficientEmptyPoints)
+{
+    using FF = bb::fr;
+    bb::Polynomial<FF> poly(1);
+    poly.at(0) = FF(42);
+    std::vector<FF> u; // empty — zero-variable MLE
+    EXPECT_EQ(poly.evaluate_mle(u), FF(42));
+}
+
+// full() materializes a shifted polynomial with virtual zeros on both sides into a dense 0..virtual_size buffer;
+// coefficient values outside the original [start_index, end_index) must be zero.
+TEST(Polynomial, FullPreservesCoefficients)
+{
+    using FF = bb::fr;
+    const size_t virtual_size = 16;
+    const size_t start = 3;
+    const size_t size = 5;
+    auto poly = bb::Polynomial<FF>(size, virtual_size, start);
+    for (size_t i = 0; i < size; ++i) {
+        poly.at(start + i) = FF(i + 100);
+    }
+    auto full = poly.full();
+    EXPECT_EQ(full.start_index(), 0UL);
+    EXPECT_EQ(full.end_index(), virtual_size);
+    for (size_t i = 0; i < virtual_size; ++i) {
+        const bool in_backed_range = i >= start && i < start + size;
+        const FF expected = in_backed_range ? FF(i - start + 100) : FF(0);
+        EXPECT_EQ(full[i], expected) << "mismatch at index " << i;
+    }
+}
+
 #ifndef NDEBUG
 // Only run in an assert-enabled test suite.
 TEST(Polynomial, AddScaledEdgeConditions)
@@ -194,3 +226,21 @@ TEST(Polynomial, Full)
 }
 
 #endif
+
+// Polynomial::random asserts when start_index > size (would underflow the subtraction).
+TEST(Polynomial, RandomStartIndexExceedsSizeAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = bb::fr;
+    ASSERT_THROW_OR_ABORT(bb::Polynomial<FF>::random(/*size=*/4, /*start_index=*/10), ".*");
+}
+
+// shrink_end_index asserts when the new end is below start_index (would underflow size()).
+TEST(Polynomial, ShrinkEndIndexBelowStartIndexAsserts)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = bb::fr;
+    // Polynomial with start_index=2, end_index=10.
+    auto poly = bb::Polynomial<FF>(/*size=*/8, /*virtual_size=*/16, /*start_index=*/2);
+    ASSERT_THROW_OR_ABORT(poly.shrink_end_index(1), ".*");
+}
