@@ -127,14 +127,6 @@ grafana:
     TESTNET_NAMESPACES_REGEX: "testnet|v[0-9]+-testnet"
     MAINNET_NAMESPACES_REGEX: "mainnet|v[0-9]+-mainnet|ignition"
     DEVNET_NAMESPACES_REGEX: ".*devnet.*"
-    SLACK_WEBHOOK_URL: "http://127.0.0.1" # dummy value
-    SLACK_WEBHOOK_STAGING_PUBLIC_URL: "http://127.0.0.1" # dummy value
-    SLACK_WEBHOOK_STAGING_IGNITION_URL: "http://127.0.0.1" # dummy value
-    SLACK_WEBHOOK_NEXT_SCENARIO_URL: "http://127.0.0.1" # dummy value
-    SLACK_WEBHOOK_NEXT_NET_URL: "http://127.0.0.1" # dummy value
-    SLACK_WEBHOOK_TESTNET_URL: "http://127.0.0.1" # dummy value
-    SLACK_WEBHOOK_MAINNET_URL: "http://127.0.0.1" # dummy value
-    SLACK_WEBHOOK_DEVNET_URL: "http://127.0.0.1" # dummy value
   datasources:
     datasources.yaml:
       apiVersion: 1
