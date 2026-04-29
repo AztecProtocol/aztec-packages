@@ -30,8 +30,8 @@ template <typename FF> class EvaluationDomain {
         , roots(nullptr) {};
 
     EvaluationDomain(const size_t domain_size, const size_t target_generator_size = 0);
-    EvaluationDomain(const EvaluationDomain& other);
-    EvaluationDomain(EvaluationDomain&& other);
+    EvaluationDomain(const EvaluationDomain& other) = delete;
+    EvaluationDomain(EvaluationDomain&& other) = delete;
 
     EvaluationDomain& operator=(const EvaluationDomain&) = delete;
     EvaluationDomain& operator=(EvaluationDomain&&);

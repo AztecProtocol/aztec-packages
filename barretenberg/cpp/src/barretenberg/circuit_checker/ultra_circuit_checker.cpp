@@ -23,7 +23,7 @@ UltraCircuitBuilder_<UltraExecutionTraceBlocks> UltraCircuitChecker::prepare_cir
     // Create a copy of the input circuit
     UltraCircuitBuilder_<UltraExecutionTraceBlocks> builder{ builder_in };
     if (!builder.circuit_finalized) { // avoid warnings about finalizing an already finalized circuit
-        builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+        builder.finalize_circuit();
     }
 
     return builder;
@@ -40,7 +40,7 @@ MegaCircuitBuilder_<bb::fr> UltraCircuitChecker::prepare_circuit<MegaCircuitBuil
     builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
 
     if (!builder.circuit_finalized) { // avoid warnings about finalizing an already finalized circuit
-        builder.finalize_circuit(/*ensure_nonzero=*/true); // Test the ensure_nonzero gates as well
+        builder.finalize_circuit();
     }
 
     return builder;

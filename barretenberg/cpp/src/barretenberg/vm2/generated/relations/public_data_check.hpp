@@ -14,7 +14,7 @@ template <typename FF_> class public_data_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS = { 3, 4, 3, 2, 3, 3, 3, 3, 2, 3, 3, 3,
+    static constexpr std::array<size_t, 34> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 2, 3, 3, 3, 3, 2, 3, 3, 3,
                                                                             3, 3, 3, 3, 3, 5, 3, 5, 4, 4, 4, 3,
                                                                             4, 3, 4, 2, 4, 3, 3, 3, 3, 3 };
 

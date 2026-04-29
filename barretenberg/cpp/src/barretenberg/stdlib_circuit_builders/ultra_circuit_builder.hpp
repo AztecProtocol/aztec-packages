@@ -290,9 +290,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 #endif // NDEBUG
     }
 
-    void finalize_circuit(const bool ensure_nonzero);
-
-    void add_gates_to_ensure_all_polys_are_non_zero();
+    void finalize_circuit();
 
     void create_add_gate(const add_triple_<FF>& in);
     void create_big_mul_add_gate(const mul_quad_<FF>& in, const bool use_next_gate_w_4 = false);
@@ -376,10 +374,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * @param ensure_nonzero Whether or not to add gates to ensure all polynomials are non-zero during finalization.
      * @return size_t
      */
-    size_t get_num_finalized_gates_inefficient(bool ensure_nonzero = true) const
+    size_t get_num_finalized_gates_inefficient() const
     {
         UltraCircuitBuilder_ builder_copy = *this;
-        builder_copy.finalize_circuit(ensure_nonzero);
+        builder_copy.finalize_circuit();
         return builder_copy.get_num_finalized_gates();
     }
 

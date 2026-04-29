@@ -26,8 +26,8 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorNoReadNoWrite)
 {
     // This represents the case where we are not reading nor writing.
     TestTraceContainer trace({ {
-        { C::execution_sel_should_read_registers, 0 },
-        { C::execution_sel_should_write_registers, 0 },
+        { C::execution_sel_read_registers, 0 },
+        { C::execution_sel_write_registers, 0 },
         // Register 0: read, active.
         { C::execution_sel_mem_op_reg_0_, 1 },
         { C::execution_rw_reg_0_, 0 },
@@ -76,8 +76,8 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorOnlyRead)
 {
     // This represents the case where we are only reading and failed before the write phase.
     TestTraceContainer trace({ {
-        { C::execution_sel_should_read_registers, 1 },
-        { C::execution_sel_should_write_registers, 0 },
+        { C::execution_sel_read_registers, 1 },
+        { C::execution_sel_write_registers, 0 },
         // Register 0: read, active.
         { C::execution_sel_mem_op_reg_0_, 1 },
         { C::execution_rw_reg_0_, 0 },
@@ -126,8 +126,8 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorReadThenWrite)
 {
     // This represents the case where we are both reading and writing.
     TestTraceContainer trace({ {
-        { C::execution_sel_should_read_registers, 1 },
-        { C::execution_sel_should_write_registers, 1 },
+        { C::execution_sel_read_registers, 1 },
+        { C::execution_sel_write_registers, 1 },
         // Register 0: read, active.
         { C::execution_sel_mem_op_reg_0_, 1 },
         { C::execution_rw_reg_0_, 0 },
@@ -176,7 +176,7 @@ TEST(RegistersConstrainingTest, TagCheckNoFailure)
 {
     TestTraceContainer trace({
         {
-            { C::execution_sel_should_read_registers, 1 },
+            { C::execution_sel_read_registers, 1 },
             // Reg 0: check U8, is U8.
             { C::execution_sel_tag_check_reg_0_, 1 },
             { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::U8) },
@@ -211,7 +211,7 @@ TEST(RegistersConstrainingTest, TagCheckSingleFailure)
 
     TestTraceContainer trace({
         {
-            { C::execution_sel_should_read_registers, 1 },
+            { C::execution_sel_read_registers, 1 },
             // Reg 0: check U8, is FF -> FAILURE
             { C::execution_sel_tag_check_reg_0_, 1 },
             { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -239,7 +239,7 @@ TEST(RegistersConstrainingTest, TagCheckIgnoresFailureWhenNotReading)
 {
     TestTraceContainer trace({
         {
-            { C::execution_sel_should_read_registers, 0 },
+            { C::execution_sel_read_registers, 0 },
             // Reg 0: check U8, is FF -> FAILURE
             { C::execution_sel_tag_check_reg_0_, 1 },
             { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },
@@ -265,7 +265,7 @@ TEST(RegistersConstrainingTest, TagCheckMultipleFailures)
 
     TestTraceContainer trace({
         {
-            { C::execution_sel_should_read_registers, 1 },
+            { C::execution_sel_read_registers, 1 },
             // Reg 0: check U8, is FF -> FAILURE
             { C::execution_sel_tag_check_reg_0_, 1 },
             { C::execution_mem_tag_reg_0_, static_cast<uint8_t>(MemoryTag::FF) },

@@ -135,9 +135,9 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
     /**
      * @brief Precompute the verification key for the given circuit.
-     *
      */
-    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in)
+    static std::shared_ptr<VerificationKey> get_verification_key(ClientCircuit& builder_in,
+                                                                 bool is_hiding_kernel = false)
     {
         // This is a workaround to ensure that the circuit is finalized before we create the verification key
         // In practice, this should not be needed as the circuit will be finalized when it is accumulated into the IVC
@@ -146,9 +146,13 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
         // Deepcopy the opqueue to avoid modifying the original one when finalising the circuit
         builder.op_queue = std::make_shared<ECCOpQueue>(*builder.op_queue);
-        std::shared_ptr<Chonk::ProverInstance> prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
-        std::shared_ptr<VerificationKey> vk = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
-        return vk;
+
+        if (is_hiding_kernel) {
+            auto prover_instance = std::make_shared<Chonk::HidingKernelProverInstance>(builder);
+            return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+        }
+        auto prover_instance = std::make_shared<Chonk::ProverInstance>(builder);
+        return std::make_shared<VerificationKey>(prover_instance->get_precomputed());
     }
 
     /**
@@ -246,12 +250,13 @@ class PrivateFunctionExecutionMockCircuitProducer {
         Chonk& ivc, TestSettings settings = {}, bool check_circuit_size = false)
     {
         // If this is a mock hiding kernel, remove the settings and use a default (non-structured) trace
-        if (ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1) {
+        const bool is_hiding_kernel = ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1;
+        if (is_hiding_kernel) {
             settings = TestSettings{};
         }
         auto circuit =
             create_next_circuit(ivc, settings.log2_num_gates, settings.num_public_inputs, check_circuit_size);
-        return { circuit, get_verification_key(circuit) };
+        return { circuit, get_verification_key(circuit, is_hiding_kernel) };
     }
 
     void construct_and_accumulate_next_circuit(Chonk& ivc, TestSettings settings = {}, bool check_circuit_sizes = false)

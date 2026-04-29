@@ -103,6 +103,9 @@ template <typename Fr> void factor_roots(std::span<Fr> polynomial, const Fr& roo
             temp *= root_inverse;
             polynomial[i] = temp;
         }
+        // Exact-division precondition: a_{n-1} == b_{n-2} (i.e. polynomial[size-1] == temp).
+        // When violated the quotient is wrong; without this assert the zero-write below hides it.
+        BB_ASSERT(polynomial[size - 1] == temp);
     }
     polynomial[size - 1] = Fr::zero();
 }

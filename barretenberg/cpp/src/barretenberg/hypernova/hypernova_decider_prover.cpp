@@ -5,10 +5,12 @@
 // =====================
 
 #include "barretenberg/hypernova/hypernova_decider_prover.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 
 namespace bb {
 HonkProof HypernovaDeciderProver::construct_proof(Accumulator& accumulator)
 {
+    BB_BENCH_NAME("HypernovaDeciderProver::construct_proof");
     vinfo("HypernovaFoldingDecider: prove PCS...");
 
     size_t dyadic_size = accumulator.dyadic_size;

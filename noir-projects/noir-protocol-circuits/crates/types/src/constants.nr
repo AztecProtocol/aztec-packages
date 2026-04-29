@@ -710,6 +710,7 @@ pub global DOM_SEP__PUBLIC_BYTECODE: u32 = 260313585;
 pub global DOM_SEP__CONTRACT_CLASS_ID: u32 = 3923495515;
 
 // Salted Initialization Hash
+pub global DOM_SEP__SALTED_INITIALIZATION_HASH: u32 = 2763052992;
 pub global DOM_SEP__INITIALIZER: u32 = 385396519;
 
 // Keys
