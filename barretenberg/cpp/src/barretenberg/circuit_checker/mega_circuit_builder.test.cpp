@@ -228,7 +228,7 @@ TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
     auto c = builder.add_variable(builder.get_variable(a) + builder.get_variable(b));
     builder.create_add_gate({ a, b, c, 1, 1, -1, 0 });
 
-    builder.finalize_circuit(true);
+    builder.finalize_circuit();
     builder.blocks.compute_offsets(MegaFlavor::TRACE_OFFSET);
 
     // Verify ecc_op block starts at offset TRACE_OFFSET + NUM_ZERO_ROWS = NUM_ZERO_ROWS for non-ZK Mega.
@@ -247,8 +247,6 @@ TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
 
 /**
  * @brief Verify that an empty circuit can be finalized and passes circuit checks
- * @details Finalization should add required gates to ensure all polynomials are non-zero
- * @note This is a "completeness" test; unlikely to be a use-case.
  */
 TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
 {
@@ -256,14 +254,28 @@ TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
 
     // Completely empty circuit - no gates added
     EXPECT_EQ(builder.blocks.ecc_op.size(), 0);
+    EXPECT_FALSE(builder.circuit_finalized);
 
-    builder.finalize_circuit(true);
+    builder.finalize_circuit();
 
-    // After finalization, ecc_op block remains empty (no dummy ops needed)
+    EXPECT_TRUE(builder.circuit_finalized);
+
+    // After finalization: only zero_idx arithmetic gates and the corresponding public inputs remain.
+    // No dummy ecc ops, databus entries, or other gate types are added.
+    EXPECT_EQ(builder.blocks.arithmetic.size(), 4); // zero_idx setup
+    EXPECT_EQ(builder.blocks.pub_inputs.size(), 0);
     EXPECT_EQ(builder.blocks.ecc_op.size(), 0);
-    EXPECT_GT(builder.get_calldata().size(), 0) << "Finalization should add databus entries";
-    EXPECT_GT(builder.get_secondary_calldata().size(), 0);
-    EXPECT_GT(builder.get_return_data().size(), 0);
+    EXPECT_EQ(builder.blocks.busread.size(), 0);
+    EXPECT_EQ(builder.blocks.lookup.size(), 0);
+    EXPECT_EQ(builder.blocks.delta_range.size(), 0);
+    EXPECT_EQ(builder.blocks.elliptic.size(), 0);
+    EXPECT_EQ(builder.blocks.memory.size(), 0);
+    EXPECT_EQ(builder.blocks.nnf.size(), 0);
+    EXPECT_EQ(builder.blocks.poseidon2_external.size(), 0);
+    EXPECT_EQ(builder.blocks.poseidon2_internal.size(), 0);
+    EXPECT_EQ(builder.get_calldata().size(), 0);
+    EXPECT_EQ(builder.get_secondary_calldata().size(), 0);
+    EXPECT_EQ(builder.get_return_data().size(), 0);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
 }

@@ -411,7 +411,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         inputs.set_public();
 
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
-        outer_circuit.finalize_circuit(false);
+        outer_circuit.finalize_circuit();
 
         // Run static analysis - no variable should appear in only one gate
         auto graph = cdg::UltraStaticAnalyzer(outer_circuit);
