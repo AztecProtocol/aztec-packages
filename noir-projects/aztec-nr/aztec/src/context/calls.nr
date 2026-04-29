@@ -250,7 +250,7 @@ impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
 
 // UtilityCall
 
-#[must_use = "Your utility call needs to be passed into the `self.call(...)` method to be executed (e.g. `self.call(MyContract::at(address).my_utility_function(...args))`"]
+#[must_use = "Your utility call needs to be passed into `self.call(...)` (utility context) or `self.utility.call(...)` (private context) to be executed"]
 pub struct UtilityCall<let M: u32, let N: u32, T> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,

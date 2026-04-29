@@ -81,15 +81,6 @@ describe('PrivateExecutionOracle', () => {
     });
   });
 
-  describe('callUtilityFunction', () => {
-    it('throws when called from a private context', async () => {
-      const oracle = makeOracle();
-      await expect(
-        oracle.callUtilityFunction(await AztecAddress.random(), FunctionSelector.empty(), []),
-      ).rejects.toThrow('Calling utility functions from private functions is not supported.');
-    });
-  });
-
   const makeOracle = (overrides: Partial<PrivateExecutionOracleArgs> = {}): PrivateExecutionOracle => {
     return new PrivateExecutionOracle({
       argsHash: Fr.ZERO,

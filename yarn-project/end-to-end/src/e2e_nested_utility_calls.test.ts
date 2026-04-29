@@ -8,8 +8,8 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-// Verifies that nested utility calls work by implementing pow(x, n) = x^n recursively:
-// pow(x, 0) = 1, pow(x, n) = x * pow(x, n-1).
+// Verifies nested utility calls via pow_utility(x, n) = x^n (recursive utility→utility),
+// and calling it from a private function via pow_private.
 describe('Nested utility calls', () => {
   let contract: NestedUtilityContract;
   jest.setTimeout(TIMEOUT);
@@ -29,13 +29,18 @@ describe('Nested utility calls', () => {
 
   afterAll(() => teardown());
 
-  it('pow(x, 0) returns 1 (base case, no nested call)', async () => {
-    const { result } = await contract.methods.pow(2n, 0).simulate({ from: defaultAccountAddress });
+  it('pow_utility(x, 0) returns 1 (base case, no nested call)', async () => {
+    const { result } = await contract.methods.pow_utility(2n, 0).simulate({ from: defaultAccountAddress });
     expect(result).toEqual(1n);
   });
 
-  it('pow(2, 10) returns 2^10 (10 levels of nesting)', async () => {
-    const { result } = await contract.methods.pow(2n, 10).simulate({ from: defaultAccountAddress });
+  it('pow_utility(2, 10) returns 2^10 (10 levels of nesting)', async () => {
+    const { result } = await contract.methods.pow_utility(2n, 10).simulate({ from: defaultAccountAddress });
+    expect(result).toEqual(2n ** 10n);
+  });
+
+  it('pow_private(2, 10) returns 2^10 (private function calling utility)', async () => {
+    const { result } = await contract.methods.pow_private(2n, 10).simulate({ from: defaultAccountAddress });
     expect(result).toEqual(2n ** 10n);
   });
 });
