@@ -200,7 +200,6 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
     let eph_pk_1 = point_from_x_coord_and_sign(eph_pk_x_1, true).unwrap();
 
     env.private_context_at(registry_address, |_context| {
-        // Logs come back in insertion order: `sender`'s handshake was emitted first, `other_sender`'s second.
         let s_app_0 = get_shared_secret(recipient, eph_pk_0, registry_address);
         let s_app_1 = get_shared_secret(recipient, eph_pk_1, registry_address);
         let unmasked_0 = masked_sender_0 - derive_shared_secret_field_mask(s_app_0, 0);
