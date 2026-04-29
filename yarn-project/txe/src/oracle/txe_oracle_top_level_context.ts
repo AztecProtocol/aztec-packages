@@ -22,6 +22,7 @@ import {
   SenderAddressBookStore,
   SenderTaggingStore,
   enrichPublicSimulationError,
+  getAllPrivateLogsByTags,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -62,6 +63,7 @@ import {
   GasSettings,
 } from '@aztec/stdlib/gas';
 import { computeCalldataHash, computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
+import { SiloedTag, Tag } from '@aztec/stdlib/logs';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
@@ -215,6 +217,18 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         toBlock: (await this.getLastBlockNumber()) + 1,
       })
     ).map(e => e.packedEvent);
+  }
+
+  async getPrivateLogsByTag(rawTag: Fr, contractAddress: AztecAddress): Promise<Fr[][]> {
+    // Mirror the production PXE recipient-sync flow: callers pass the raw tag the contract emits
+    // (the output of `compute_log_tag(...)`); we apply the same kernel-side first-field siloing
+    // before querying the archiver.
+    const siloedTag = await SiloedTag.computeFromTagAndApp(new Tag(rawTag), contractAddress);
+    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    const anchorBlockHash = await anchorBlockHeader.hash();
+
+    const [logsForTag] = await getAllPrivateLogsByTags(this.stateMachine.node, [siloedTag], anchorBlockHash);
+    return logsForTag.map(log => log.logData);
   }
 
   async advanceBlocksBy(blocks: number) {

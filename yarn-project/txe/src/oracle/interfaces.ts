@@ -60,6 +60,7 @@ export interface ITxeExecutionOracle {
     nullifiers: Fr[];
   }>;
   getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
+  getPrivateLogsByTag(rawTag: Fr, contractAddress: AztecAddress): Promise<Fr[][]>;
   privateCallNewFlow(
     from: AztecAddress,
     targetContractAddress: AztecAddress,
