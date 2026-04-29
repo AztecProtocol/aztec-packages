@@ -14,8 +14,7 @@ use crate::state_vars::StateVariable;
 /// complex containers: an array could be implemented as a `Map` with indices as keys.
 ///
 /// Note that some private state variables, such as [`PrivateMutable`](crate::state_vars::PrivateMutable) and
-/// [`PrivateSet`](crate::state_vars::PrivateSet) cannot be wrapped in a `Map` with an `AztecAddress` to represent
-/// e.g. a per-account private configuration value or set of notes. These types implement the
+/// [`PrivateSet`](crate::state_vars::PrivateSet) cannot be wrapped in a `Map`. These types implement the
 /// [`OwnedStateVariable`](crate::state_vars::OwnedStateVariable) trait, and as such should instead be wrapped using the
 /// [`Owned`](crate::state_vars::Owned) container, which can be thought of as a specialization of `Map` for private
 /// state 'owned' by a single account.
