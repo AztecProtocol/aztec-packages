@@ -335,7 +335,9 @@ constexpr std::pair<uint256_t, uint256_t> uint256_t::mul_extended(const uint256_
  */
 constexpr uint256_t uint256_t::slice(const uint64_t start, const uint64_t end) const
 {
-    BB_ASSERT_DEBUG(start <= end);
+    // Plain assert is used here because BB_ASSERT_DEBUG defines a std::ostringstream, which is
+    // a non-literal type and therefore disallowed in the body of a constexpr function before C++23.
+    assert(start <= end);
     const uint64_t range = end - start;
     const uint256_t mask = (range == 256) ? -uint256_t(1) : (uint256_t(1) << range) - 1;
     return ((*this) >> start) & mask;
