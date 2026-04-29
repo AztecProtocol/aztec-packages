@@ -1264,6 +1264,26 @@ describe('CheckpointProposalJob', () => {
       // waitUntilTimeInSlot should NOT be called since the only block is the last block
       expect(waitSpy).not.toHaveBeenCalled();
     });
+
+    it('stops at maxBlocksPerCheckpoint even when the timetable would allow more', async () => {
+      jest
+        .spyOn(job.getTimetable(), 'canStartNextBlock')
+        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 8, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 12, isLastBlock: true })
+        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+
+      const { lastBlock } = await setupMultipleBlocks(3, 1);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      job.updateConfig({ maxBlocksPerCheckpoint: 2 });
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('build single block', () => {

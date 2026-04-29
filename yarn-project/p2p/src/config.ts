@@ -46,6 +46,7 @@ export interface P2PConfig
       | 'l1PublishingTime'
       | 'maxTxsPerBlock'
       | 'attestationPropagationTime'
+      | 'maxBlocksPerCheckpoint'
     > {
   /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
   validateMaxTxsPerBlock?: number;

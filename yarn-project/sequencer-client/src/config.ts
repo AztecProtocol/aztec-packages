@@ -13,6 +13,7 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
+  DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
   type PipelineConfig,
   type SequencerConfig,
   chainConfigMappings,
@@ -58,6 +59,7 @@ export const DefaultSequencerConfig = {
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
+  maxBlocksPerCheckpoint: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
 } satisfies ResolvedSequencerConfig;
 
 /**
