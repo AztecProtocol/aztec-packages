@@ -6,6 +6,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import type {
   ClientProtocolCircuitVerifier,
   IVCProofVerificationResult,
@@ -174,6 +175,7 @@ export async function createTestLibP2PService(
     epochCache,
     proofVerifier,
     worldStateSynchronizer,
+    { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
     telemetry,
   );
 }

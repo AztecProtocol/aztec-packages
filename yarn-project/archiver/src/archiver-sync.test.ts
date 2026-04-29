@@ -29,7 +29,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
 import { Archiver, type ArchiverEmitter } from './archiver.js';
-import { L1ToL2MessagesNotReadyError } from './errors.js';
+import { BlockOrCheckpointSlotExpiredError, L1ToL2MessagesNotReadyError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
 import { KVArchiverDataStore } from './store/kv_archiver_store.js';
@@ -100,7 +100,9 @@ describe('Archiver Sync', () => {
     archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_sync_test'), 1000);
 
     const contractAddresses = {
+      rollupAddress,
       registryAddress,
+      inboxAddress,
       governanceProposerAddress,
       slashingProposerAddress,
     };
@@ -114,6 +116,7 @@ describe('Archiver Sync', () => {
       batchSize: 1000,
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
+      skipHistoricalLogsCheck: true,
     };
 
     // Create event emitter shared by archiver and synchronizer
@@ -1336,6 +1339,24 @@ describe('Archiver Sync', () => {
       expect(tips.finalized.block.number).toEqual(lastBlockInCp1);
     });
 
+    it('leaves finalized checkpoint untouched when L1 has no finalized block yet', async () => {
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+      fake.setL1BlockNumber(101n);
+      fake.setFinalizedL1BlockNumber(undefined);
+
+      await expect(archiver.syncImmediate()).resolves.not.toThrow();
+
+      const tips = await archiver.getL2Tips();
+      expect(tips.finalized.checkpoint.number).toEqual(CheckpointNumber(0));
+      expect(tips.finalized.block.number).toEqual(BlockNumber(0));
+    });
+
     it('does not advance finalized checkpoint when finalized L1 block is before the proven checkpoint', async () => {
       await fake.addCheckpoint(CheckpointNumber(1), {
         l1BlockNumber: 70n,
@@ -1501,7 +1522,7 @@ describe('Archiver Sync', () => {
       });
 
       // Try to add the block for the past slot - should be rejected
-      await expect(archiver.addBlock(pastSlotBlocks[0])).rejects.toThrow(/past slot/);
+      await expect(archiver.addBlock(pastSlotBlocks[0])).rejects.toThrow(BlockOrCheckpointSlotExpiredError);
     }, 10_000);
 
     it('adds missing blocks when checkpoint has more blocks than local', async () => {
@@ -1846,7 +1867,7 @@ describe('Archiver Sync', () => {
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
       };
-      await archiver.setProposedCheckpoint(proposedCheckpoint);
+      await archiver.addProposedCheckpoint(proposedCheckpoint);
 
       // Advance L1 to block 2 (still in slot 1) — proposed checkpoint is still current
       fake.setL1BlockNumber(2n);
@@ -1857,7 +1878,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastProvisionalBlockNumber);
 
       // Proposed checkpoint should still be set
-      expect(await archiverStore.blockStore.getProposedCheckpointOnly()).toBeDefined();
+      expect(await archiverStore.blockStore.getLastProposedCheckpoint()).toBeDefined();
 
       // Proposed tip should be ahead of the checkpointed tip
       const tips = await archiver.getL2Tips();
@@ -1907,7 +1928,7 @@ describe('Archiver Sync', () => {
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
       };
-      await archiver.setProposedCheckpoint(proposedCheckpoint);
+      await archiver.addProposedCheckpoint(proposedCheckpoint);
 
       // Advance L1 to block 4 (slot 2), ending slot 1 without checkpoint on L1
       fake.setL1BlockNumber(4n);
@@ -1927,7 +1948,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Proposed checkpoint should be cleared, so proposed tip falls back to checkpointed tip
-      expect(await archiverStore.blockStore.getProposedCheckpointOnly()).toBeUndefined();
+      expect(await archiverStore.blockStore.getLastProposedCheckpoint()).toBeUndefined();
       const tips = await archiver.getL2Tips();
       expect(tips.proposedCheckpoint.checkpoint.number).toEqual(tips.checkpointed.checkpoint.number);
       expect(tips.proposedCheckpoint.block.number).toEqual(tips.checkpointed.block.number);

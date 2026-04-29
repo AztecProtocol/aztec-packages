@@ -1,0 +1,38 @@
+The #[internal] attribute cannot be applied to external functions - transfer_public is marked as both #[external] and #[internal("public")]
+A function marked as #[external("private")] or #[internal("private")] must not have public Noir visibility - transfer_private's visibility is 'pub'
+The #[view] attribute can only be applied to #[external("private")] or #[external("public")] functions - _assert_is_owner is neither
+#[external("private")] or #[internal("private")] functions must not be unconstrained - mint_private is
+Function _assert_is_owner must be marked as either #[external(...)], #[internal(...)], or #[test]
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+missing pub keyword on return type of function private_balance_of
+cannot find `self` in this scope
+missing pub keyword on return type of function public_balance_of
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope
+cannot find `self` in this scope

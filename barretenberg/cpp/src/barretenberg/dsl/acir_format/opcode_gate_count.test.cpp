@@ -670,5 +670,5 @@ TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
        // by zero, and this would throw an error.
     auto builder = create_circuit<TypeParam>(program, metadata);
 
-    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false), BLOCK_RETURNDATA<TypeParam>);
+    EXPECT_EQ(builder.get_num_finalized_gates_inefficient(), BLOCK_RETURNDATA<TypeParam>);
 }

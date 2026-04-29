@@ -1194,7 +1194,7 @@ template <typename Builder> class stdlib_field : public testing::Test {
             size_t padding = (3 - (num_witnesses % 3)) % 3;
             size_t expected_num_gates = (num_witnesses + padding) / 3;
 
-            EXPECT_EQ(builder.get_num_finalized_gates_inefficient(/*ensure_nonzero=*/false) - 1, expected_num_gates);
+            EXPECT_EQ(builder.get_num_finalized_gates_inefficient() - 1, expected_num_gates);
 
             // Check that the accumulation of constant entries does not create a witness
             std::vector<field_ct> constant_input;

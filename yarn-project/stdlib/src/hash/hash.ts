@@ -6,6 +6,21 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import { AztecAddress } from '../aztec-address/index.js';
 
+/** Computes a Poseidon2 merkle tree internal node hash for append-only trees (note-hash, L1->L2, archive). */
+export function computeMerkleHash(left: Fr, right: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([left, right], DomainSeparator.MERKLE_HASH);
+}
+
+/** Merkle-node hasher for the nullifier tree's sibling paths. */
+export function computeNullifierMerkleHash(left: Fr, right: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([left, right], DomainSeparator.NULLIFIER_MERKLE);
+}
+
+/** Merkle-node hasher for the public-data tree's sibling paths. */
+export function computePublicDataMerkleHash(left: Fr, right: Fr): Promise<Fr> {
+  return poseidon2HashWithSeparator([left, right], DomainSeparator.PUBLIC_DATA_MERKLE);
+}
+
 /**
  * Computes a hash of a given verification key.
  * @param keyAsFields - The verification key as fields.
@@ -101,6 +116,18 @@ export function computeProtocolNullifier(txRequestHash: Fr): Promise<Fr> {
 /** Domain-separates a raw log tag with the given domain separator. */
 export function computeLogTag(rawTag: number | bigint | boolean | Fr | Buffer, domSep: DomainSeparator): Promise<Fr> {
   return poseidon2HashWithSeparator([new Fr(rawTag)], domSep);
+}
+
+/**
+ * Computes the commitment of a private event from its preimage.
+ * @param randomness - Random value emitted alongside the event to prevent preimage brute-forcing.
+ * @param eventSelector - Event selector as an Fr.
+ * @param content - Serialized event content.
+ *
+ * @dev Must match the implementation in aztec-nr/aztec/src/event/event_interface.nr > compute_private_serialized_event_commitment
+ */
+export function computePrivateEventCommitment(randomness: Fr, eventSelector: Fr, content: Fr[]): Promise<Fr> {
+  return poseidon2HashWithSeparator([randomness, eventSelector, ...content], DomainSeparator.EVENT_COMMITMENT);
 }
 
 export function computeSiloedPrivateLogFirstField(contract: AztecAddress, field: Fr): Promise<Fr> {

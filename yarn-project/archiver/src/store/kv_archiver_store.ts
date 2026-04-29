@@ -10,12 +10,14 @@ import {
   type BlockData,
   BlockHash,
   CheckpointedL2Block,
+  type CommitteeAttestation,
   L2Block,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import type {
   CheckpointData,
   CommonCheckpointData,
+  L1PublishedData,
   ProposedCheckpointData,
   ProposedCheckpointInput,
   PublishedCheckpoint,
@@ -624,13 +626,13 @@ export class KVArchiverDataStore implements ContractDataSource {
   }
 
   /** Returns the checkpoint data at the proposed tip */
-  public getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
-    return this.#blockStore.getProposedCheckpoint();
+  public getLastCheckpoint(): Promise<CommonCheckpointData | undefined> {
+    return this.#blockStore.getLastCheckpoint();
   }
 
   /** Returns the proposed checkpoint data, or undefined if no proposed checkpoint exists. No fallback to confirmed. */
-  public getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
-    return this.#blockStore.getProposedCheckpointOnly();
+  public getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    return this.#blockStore.getLastProposedCheckpoint();
   }
 
   /**
@@ -638,13 +640,48 @@ export class KVArchiverDataStore implements ContractDataSource {
    * @param proposedCheckpoint
    * @returns
    */
-  public setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput): Promise<void> {
-    return this.#blockStore.setProposedCheckpoint(proposedCheckpoint);
+  public addProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput): Promise<void> {
+    return this.#blockStore.addProposedCheckpoint(proposedCheckpoint);
   }
 
-  /** Deletes the proposed checkpoint from storage. */
-  public deleteProposedCheckpoint(): Promise<void> {
-    return this.#blockStore.deleteProposedCheckpoint();
+  /** Deletes all pending proposed checkpoints from storage. */
+  public deleteProposedCheckpoints(): Promise<void> {
+    return this.#blockStore.deleteProposedCheckpoints();
+  }
+
+  /** Returns the pending checkpoint for a specific checkpoint number, or undefined if not found. */
+  public getProposedCheckpointByNumber(n: CheckpointNumber): Promise<ProposedCheckpointData | undefined> {
+    return this.#blockStore.getProposedCheckpointByNumber(n);
+  }
+
+  /** Returns all pending checkpoints in ascending checkpoint-number order. */
+  public getProposedCheckpoints(): Promise<ProposedCheckpointData[]> {
+    return this.#blockStore.getProposedCheckpoints();
+  }
+
+  /**
+   * Evicts all pending checkpoints with checkpoint number >= fromNumber.
+   * Used for divergent-mined-checkpoint cleanup.
+   */
+  public evictProposedCheckpointsFrom(fromNumber: CheckpointNumber): Promise<void> {
+    return this.#blockStore.evictProposedCheckpointsFrom(fromNumber);
+  }
+
+  /**
+   * Promotes a specific pending checkpoint to a confirmed checkpoint entry.
+   * Should only be called after the checkpoint has been validated.
+   * @param checkpointNumber - The checkpoint number to promote.
+   * @param l1 - L1 published data for the checkpoint.
+   * @param attestations - Committee attestations.
+   * @param expectedArchiveRoot - The archive root to match against the proposed checkpoint, to guard against races.
+   */
+  public promoteProposedToCheckpointed(
+    checkpointNumber: CheckpointNumber,
+    l1: L1PublishedData,
+    attestations: CommitteeAttestation[],
+    expectedArchiveRoot: Fr,
+  ): Promise<void> {
+    return this.#blockStore.promoteProposedToCheckpointed(checkpointNumber, l1, attestations, expectedArchiveRoot);
   }
 
   /**
@@ -690,6 +727,21 @@ export class KVArchiverDataStore implements ContractDataSource {
   /** Returns checkpoint data for all checkpoints whose slot falls within the given range (inclusive). */
   getCheckpointDataForSlotRange(startSlot: SlotNumber, endSlot: SlotNumber): Promise<CheckpointData[]> {
     return this.#blockStore.getCheckpointDataForSlotRange(startSlot, endSlot);
+  }
+
+  /** Returns lightweight checkpoint metadata for a range of checkpoints. */
+  getCheckpointDataRange(from: CheckpointNumber, limit: number): Promise<CheckpointData[]> {
+    return this.#blockStore.getRangeOfCheckpoints(from, limit);
+  }
+
+  /** Returns the checkpoint number for a given slot, if one exists. */
+  getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined> {
+    return this.#blockStore.getCheckpointNumberBySlot(slot);
+  }
+
+  /** Returns block metadata plus checkpoint-derived context (L1 publish info, attestations). */
+  getBlockDataWithCheckpointContext(blockNumber: BlockNumber) {
+    return this.#blockStore.getBlockDataWithCheckpointContext(blockNumber);
   }
 
   /**

@@ -14,21 +14,22 @@
 
 | Function             | Avg Gas | Max Gas | Calldata Size | Calldata Gas |
 |----------------------|---------|---------|---------------|--------------|
-| propose              | 195,201 | 221,411 |           932 |       14,912 |
-| submitEpochRootProof | 698,976 | 744,776 |         2,820 |       45,120 |
-| setupEpoch           |  31,965 | 113,616 |             - |            - |
+| propose              | 195,988 | 222,201 |           932 |       14,912 |
+| submitEpochRootProof | 697,655 | 743,529 |         2,820 |       45,120 |
+| setupEpoch           |  31,998 | 113,793 |             - |            - |
 
-**Avg Gas Cost per Second**: 3,331.7 gas/second
+**Avg Gas Cost per Second**: 3,341.5 gas/second
 *Epoch duration*: 0h 38m 24s
 
 ## Validators
 
 | Function             | Avg Gas | Max Gas | Calldata Size | Calldata Gas |
 |----------------------|---------|---------|---------------|--------------|
-| propose              | 322,945 | 350,085 |         4,452 |       71,232 |
-| submitEpochRootProof | 897,150 | 942,954 |         5,316 |       85,056 |
-| aggregate3           | 371,401 | 384,831 |             - |            - |
-| setupEpoch           |  46,426 | 547,449 |             - |            - |
+| propose              | 324,449 | 351,604 |         4,452 |       71,232 |
+| submitEpochRootProof | 896,101 | 941,944 |         5,316 |       85,056 |
+| aggregate3           | 373,118 | 386,457 |             - |            - |
+| setupEpoch           |  46,459 | 547,626 |             - |            - |
 
-**Avg Gas Cost per Second**: 5,284.3 gas/second
+**Avg Gas Cost per Second**: 5,304.3 gas/second
 *Epoch duration*: 0h 38m 24s
+

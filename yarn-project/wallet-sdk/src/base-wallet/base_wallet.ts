@@ -43,6 +43,7 @@ import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceWithAddress,
+  type NodeInfo,
   computePartialAddress,
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
@@ -84,7 +85,7 @@ export type FeeOptions = {
 /** Options for `simulateViaEntrypoint`. */
 export type SimulateViaEntrypointOptions = Pick<
   SimulateOptions,
-  'from' | 'additionalScopes' | 'skipTxValidation' | 'skipFeeEnforcement'
+  'from' | 'additionalScopes' | 'skipTxValidation' | 'skipFeeEnforcement' | 'sendMessagesAs'
 > & {
   /** Fee options for the entrypoint */
   feeOptions: FeeOptions;
@@ -113,6 +114,9 @@ export type CompleteFeeOptionsConfig = {
 export abstract class BaseWallet implements Wallet {
   protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
+  // A wallet is instantiated for a particular chain, so chain info never changes during its lifetime.
+  // We cache it here because getChainInfo is called frequently (every tx simulation, send, auth wit, etc.).
+  private nodeInfoPromise: Promise<NodeInfo> | undefined;
 
   // Protected because we want to force wallets to instantiate their own PXE.
   protected constructor(
@@ -125,6 +129,17 @@ export abstract class BaseWallet implements Wallet {
     const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
     return [...scopeSet].map(AztecAddress.fromString);
+  }
+
+  /**
+   * Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing
+   * account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx will fail
+   * the contract-side `Sender for tags is not set` assertion unless `set_sender_for_tags` is called first.
+   * @param from - Tx sender, or `NO_FROM`.
+   * @param sendMessagesAs - Explicit override.
+   */
+  protected senderForTagsFrom(from: AztecAddress | NoFrom, sendMessagesAs?: AztecAddress): AztecAddress | undefined {
+    return sendMessagesAs ?? (from === NO_FROM ? undefined : from);
   }
 
   protected abstract getAccountFromAddress(address: AztecAddress): Promise<Account>;
@@ -144,7 +159,10 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async getChainInfo(): Promise<ChainInfo> {
-    const { l1ChainId, rollupVersion } = await this.aztecNode.getNodeInfo();
+    if (!this.nodeInfoPromise) {
+      this.nodeInfoPromise = this.aztecNode.getNodeInfo();
+    }
+    const { l1ChainId, rollupVersion } = await this.nodeInfoPromise;
     return { chainId: new Fr(l1ChainId), version: new Fr(rollupVersion) };
   }
 
@@ -346,6 +364,7 @@ export abstract class BaseWallet implements Wallet {
       skipTxValidation: opts.skipTxValidation,
       skipFeeEnforcement: opts.skipFeeEnforcement,
       scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
     const appCallOffset = await this.computeAppCallOffset(opts.from, opts.feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
@@ -394,7 +413,7 @@ export abstract class BaseWallet implements Wallet {
     try {
       blockHeader = await this.pxe.getSyncedBlockHeader();
     } catch {
-      blockHeader = (await this.aztecNode.getBlockHeader())!;
+      blockHeader = (await this.aztecNode.getBlockHeader('latest'))!;
     }
 
     const simulationOrigin = opts.from === NO_FROM ? AztecAddress.ZERO : opts.from;
@@ -418,6 +437,7 @@ export abstract class BaseWallet implements Wallet {
             additionalScopes: opts.additionalScopes,
             skipTxValidation: opts.skipTxValidation,
             skipFeeEnforcement: opts.skipFeeEnforcement ?? true,
+            sendMessagesAs: opts.sendMessagesAs,
           })
         : Promise.resolve(null),
     ]);
@@ -437,6 +457,7 @@ export abstract class BaseWallet implements Wallet {
       profileMode: opts.profileMode,
       skipProofGeneration: opts.skipProofGeneration ?? true,
       scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
     });
   }
 
@@ -451,7 +472,10 @@ export abstract class BaseWallet implements Wallet {
       congestionEstimate: opts.fee?.congestionEstimate,
     });
     const txRequest = await this.createTxExecutionRequestFromPayloadAndFee(executionPayload, opts.from, feeOptions);
-    const provenTx = await this.pxe.proveTx(txRequest, this.scopesFrom(opts.from, opts.additionalScopes));
+    const provenTx = await this.pxe.proveTx(txRequest, {
+      scopes: this.scopesFrom(opts.from, opts.additionalScopes),
+      senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
+    });
     const offchainOutput = extractOffchainOutput(
       provenTx.getOffchainEffects(),
       provenTx.publicInputs.constants.anchorBlockHeader.globalVariables.timestamp,

@@ -333,10 +333,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Returns an auth witness for the given message hash. Checks on the list of transient witnesses
-   * for this transaction first, and falls back to the local database if not found.
+   * Returns an auth witness for the given message hash from the list of transient witnesses for this transaction.
    * @param messageHash - Hash of the message to authenticate.
-   * @returns Authentication witness for the requested message hash.
+   * @returns Authentication witness for the requested message hash, or undefined if not found.
    */
   public getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
     return Promise.resolve(this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness);
@@ -905,7 +904,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const [response] = await Promise.all([
       query(),
       (async () => {
-        const header = await this.aztecNode.getBlockHeader(blockHash);
+        const block = await this.aztecNode.getBlock(blockHash);
+        const header = block?.header;
         if (!header) {
           throw new Error(`Could not find block header for block hash ${blockHash}`);
         }

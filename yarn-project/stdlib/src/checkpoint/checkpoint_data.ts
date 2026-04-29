@@ -32,6 +32,8 @@ export type L1EnrichedCheckpointData = {
 export type StorageEnrichedCheckpointData = {
   archive: AppendOnlyTreeSnapshot;
   checkpointOutHash: Fr;
+  /** Fee asset price modifier in basis points. Defaults to 0 (no change) when not explicitly set. */
+  feeAssetPriceModifier: bigint;
 };
 
 /** Data stored only with proposed checkpoint data  */
@@ -70,6 +72,7 @@ export const CheckpointDataSchema = z
     checkpointOutHash: schemas.Fr,
     startBlock: BlockNumberSchema,
     blockCount: schemas.Integer,
+    feeAssetPriceModifier: schemas.BigInt,
     attestations: z.array(CommitteeAttestation.schema),
     l1: L1PublishedData.schema,
   })
@@ -81,6 +84,7 @@ export const CheckpointDataSchema = z
       checkpointOutHash: obj.checkpointOutHash,
       startBlock: obj.startBlock,
       blockCount: obj.blockCount,
+      feeAssetPriceModifier: obj.feeAssetPriceModifier,
       attestations: obj.attestations,
       l1: obj.l1,
     }),

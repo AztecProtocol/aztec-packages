@@ -50,6 +50,7 @@ import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
+import { blockResponseFromL2Block } from './block_response_helpers.js';
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
 
@@ -191,6 +192,7 @@ describe('aztec node', () => {
       contractSource,
       l1ToL2MessageSource,
       worldState,
+      undefined,
       undefined,
       undefined,
       undefined,
@@ -388,28 +390,34 @@ describe('aztec node', () => {
       let block2: L2Block;
 
       beforeEach(() => {
-        block1 = L2Block.empty();
-        block2 = L2Block.empty();
+        block1 = L2Block.empty(
+          BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }) }),
+        );
+        block2 = L2Block.empty(
+          BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(2) }) }),
+        );
 
         l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(2));
       });
 
-      it('returns requested block number', async () => {
+      it('returns requested block number with transactions', async () => {
         l2BlockSource.getL2Block.mockResolvedValue(block1);
-        expect(await node.getBlock(BlockNumber(1))).toEqual(block1);
+        const expected = await blockResponseFromL2Block(block1, { includeTransactions: true });
+        expect(await node.getBlock(BlockNumber(1), { includeTransactions: true })).toEqual(expected);
         expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(BlockNumber(1));
       });
 
-      it('returns latest block', async () => {
+      it('returns latest block with transactions', async () => {
         l2BlockSource.getL2Block.mockResolvedValue(block2);
-        expect(await node.getBlock('latest')).toEqual(block2);
+        const expected = await blockResponseFromL2Block(block2, { includeTransactions: true });
+        expect(await node.getBlock('latest', { includeTransactions: true })).toEqual(expected);
         expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(2);
       });
 
       it('returns undefined for non-existent block', async () => {
         l2BlockSource.getL2Block.mockResolvedValue(undefined);
-        expect(await node.getBlock(BlockNumber(3))).toEqual(undefined);
-        expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(3);
+        expect(await node.getBlock(BlockNumber(3), { includeTransactions: true })).toEqual(undefined);
+        expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(BlockNumber(3));
       });
     });
 
@@ -638,11 +646,16 @@ describe('aztec node', () => {
       });
 
       it('returns snapshot at block 0 for initial header hash', async () => {
+        // Block 0 is a first-class historical block: its state lives in the trees' persisted block-0
+        // payload. getWorldState resolves the genesis hash to block number 0 and returns the snapshot.
         const initialBlockHash = await initialHeader.hash();
+        // The archive at block 0 contains the genesis header hash at index 0, which is what the
+        // double-check compares against after the snapshot is resolved.
+        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(initialBlockHash);
 
         const result = await node.getWorldState(initialBlockHash);
-        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
         expect(result).toBe(snapshotMerkleTreeOps);
+        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
       });
     });
 
@@ -735,6 +748,7 @@ describe('aztec node', () => {
           undefined,
           undefined,
           slasherClient,
+          undefined,
           undefined,
           undefined,
           12345,
@@ -927,6 +941,7 @@ describe('aztec node', () => {
           slasherClient,
           undefined,
           undefined,
+          undefined,
           12345,
           rollupVersion.toNumber(),
           globalVariablesBuilder,
@@ -994,6 +1009,7 @@ describe('aztec node', () => {
         mock(),
         worldState,
         sequencerClient,
+        undefined,
         undefined,
         undefined,
         undefined,

@@ -112,9 +112,8 @@ describe('e2e_multi_validator_node', () => {
   it('should build blocks & attest with multiple validator keys', async () => {
     const deployer = new ContractDeployer(artifact, wallet);
 
-    const sender = ownerAddress;
-    logger.info(`Deploying contract from ${sender}`);
-    const { receipt: tx } = await deployer.deploy(ownerAddress, sender, 1).send({
+    logger.info(`Deploying contract from ${ownerAddress}`);
+    const { receipt: tx } = await deployer.deploy(ownerAddress, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
     });
@@ -126,7 +125,11 @@ describe('e2e_multi_validator_node', () => {
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const checkpointedBlock = await dataStore.getCheckpointedBlock(tx.blockNumber!);
     const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const signatureContext = {
+      chainId: config.l1ChainId,
+      rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
@@ -170,11 +173,9 @@ describe('e2e_multi_validator_node', () => {
     expect(committee?.length).toBe(COMMITTEE_SIZE);
 
     // new aztec transaction
-    const sender = ownerAddress;
-
-    logger.info(`Deploying contract from ${sender}`);
+    logger.info(`Deploying contract from ${ownerAddress}`);
     const deployer = new ContractDeployer(artifact, wallet);
-    const { receipt: tx } = await deployer.deploy(ownerAddress, sender, 1).send({
+    const { receipt: tx } = await deployer.deploy(ownerAddress, 1).send({
       from: ownerAddress,
       contractAddressSalt: new Fr(BigInt(1)),
     });
@@ -186,7 +187,11 @@ describe('e2e_multi_validator_node', () => {
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const checkpointedBlock = await dataStore.getCheckpointedBlock(tx.blockNumber!);
     const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const signatureContext = {
+      chainId: config.l1ChainId,
+      rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));

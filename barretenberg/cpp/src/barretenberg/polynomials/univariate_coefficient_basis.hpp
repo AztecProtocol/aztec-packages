@@ -83,8 +83,12 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         }
     };
 
-    // Operations between UnivariateCoefficientBasis and other UnivariateCoefficientBasis
-    bool operator==(const UnivariateCoefficientBasis& other) const = default;
+    // operator== is deleted. If an equality is needed, care must be taken to define the semantics correctly. The
+    // semantic meaning of coefficients[2] depends on template parameters (unused for domain_end=2,
+    // has_a0_plus_a1=false; a0+a1 Karatsuba precomputation for has_a0_plus_a1=true; the x^2 coefficient for
+    // domain_end=3), so a defaulted comparison can produce false negatives between construction paths that represent
+    // the same polynomial.
+    bool operator==(const UnivariateCoefficientBasis& other) const = delete;
 
     template <size_t other_domain_end, bool other_has_a0_plus_a1>
     UnivariateCoefficientBasis<Fr, domain_end, false>& operator+=(

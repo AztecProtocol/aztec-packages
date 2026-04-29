@@ -10,6 +10,7 @@ import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } fro
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
+  type BlockDataWithCheckpointContext,
   BlockHash,
   Body,
   CheckpointedL2Block,
@@ -45,6 +46,7 @@ import {
 import {
   BlockAlreadyCheckpointedError,
   BlockArchiveNotConsistentError,
+  BlockCheckpointNumberNotSequentialError,
   BlockIndexNotSequentialError,
   BlockNotFoundError,
   BlockNumberNotSequentialError,
@@ -52,8 +54,10 @@ import {
   CheckpointNotFoundError,
   CheckpointNumberNotSequentialError,
   InitialCheckpointNumberNotSequentialError,
+  NoProposedCheckpointToPromoteError,
+  ProposedCheckpointArchiveRootMismatchError,
   ProposedCheckpointNotSequentialError,
-  ProposedCheckpointStaleError,
+  ProposedCheckpointPromotionNotSequentialError,
 } from '../errors.js';
 
 export { TxReceipt, type TxEffect, type TxHash } from '@aztec/stdlib/tx';
@@ -81,6 +85,7 @@ type CommonCheckpointStorage = {
 type CheckpointStorage = CommonCheckpointStorage & {
   l1: Buffer;
   attestations: Buffer[];
+  feeAssetPriceModifier: string;
 };
 
 /** Storage format for a proposed checkpoint (attested but not yet L1-confirmed). */
@@ -98,7 +103,10 @@ export class BlockStore {
   /** Map block number to block data */
   #blocks: AztecAsyncMap<number, BlockStorage>;
 
-  /** Map checkpoint number to checkpoint data */
+  /** Map keyed by checkpoint number holding proposed (locally-validated, not yet L1-confirmed) checkpoints. */
+  #proposedCheckpoints: AztecAsyncMap<number, ProposedCheckpointStorage>;
+
+  /** Map checkpoint number to checkpoint data for mined checkpoints only */
   #checkpoints: AztecAsyncMap<number, CheckpointStorage>;
 
   /** Map slot number to checkpoint number, for looking up checkpoints by slot range. */
@@ -131,9 +139,6 @@ export class BlockStore {
   /** Index mapping block archive to block number */
   #blockArchiveIndex: AztecAsyncMap<string, number>;
 
-  /** Singleton: assumes max 1-deep pipeline. For deeper pipelining, replace with a map keyed by checkpoint number. */
-  #proposedCheckpoint: AztecAsyncSingleton<ProposedCheckpointStorage>;
-
   #log = createLogger('archiver:block_store');
 
   constructor(private db: AztecAsyncKVStore) {
@@ -149,7 +154,7 @@ export class BlockStore {
     this.#pendingChainValidationStatus = db.openSingleton('archiver_pending_chain_validation_status');
     this.#checkpoints = db.openMap('archiver_checkpoints');
     this.#slotToCheckpoint = db.openMap('archiver_slot_to_checkpoint');
-    this.#proposedCheckpoint = db.openSingleton('proposed_checkpoint_data');
+    this.#proposedCheckpoints = db.openMap('archiver_proposed_checkpoints');
   }
 
   /**
@@ -185,8 +190,7 @@ export class BlockStore {
 
       // Extract the latest block and checkpoint numbers
       const previousBlockNumber = await this.getLatestL2BlockNumber();
-      const proposedCheckpointNumber = await this.getProposedCheckpointNumber();
-      const previousCheckpointNumber = await this.getLatestCheckpointNumber();
+      const latestCheckpointNumber = await this.getLatestCheckpointNumber();
 
       // Verify we're not overwriting checkpointed blocks
       const lastCheckpointedBlockNumber = await this.getCheckpointedL2BlockNumber();
@@ -204,19 +208,14 @@ export class BlockStore {
         throw new BlockNumberNotSequentialError(blockNumber, previousBlockNumber);
       }
 
-      // The same check as above but for checkpoints. Accept the block if either the confirmed
-      // checkpoint or the pending (locally validated but not yet confirmed) checkpoint matches.
+      // Accept the block if either the confirmed checkpoint or a pending checkpoint matches
+      // the expected predecessor. We look for a pending entry at exactly blockCheckpointNumber - 1.
       const expectedCheckpointNumber = blockCheckpointNumber - 1;
-      if (
-        !opts.force &&
-        previousCheckpointNumber !== expectedCheckpointNumber &&
-        proposedCheckpointNumber !== expectedCheckpointNumber
-      ) {
-        const [reported, source]: [CheckpointNumber, 'confirmed' | 'proposed'] =
-          proposedCheckpointNumber > previousCheckpointNumber
-            ? [proposedCheckpointNumber, 'proposed']
-            : [previousCheckpointNumber, 'confirmed'];
-        throw new CheckpointNumberNotSequentialError(blockCheckpointNumber, reported, source);
+      const hasPendingAtExpected = await this.#proposedCheckpoints.hasAsync(expectedCheckpointNumber);
+      if (!opts.force && latestCheckpointNumber !== expectedCheckpointNumber && !hasPendingAtExpected) {
+        const [latestPendingKey] = await toArray(this.#proposedCheckpoints.keysAsync({ reverse: true, limit: 1 }));
+        const previous = CheckpointNumber(Math.max(latestCheckpointNumber, latestPendingKey ?? 0));
+        throw new BlockCheckpointNumberNotSequentialError(blockNumber, blockCheckpointNumber, previous);
       }
 
       // Extract the previous block if there is one and see if it is for the same checkpoint or not
@@ -319,15 +318,15 @@ export class BlockStore {
           checkpointNumber: checkpoint.checkpoint.number,
           startBlock: checkpoint.checkpoint.blocks[0].number,
           blockCount: checkpoint.checkpoint.blocks.length,
+          feeAssetPriceModifier: checkpoint.checkpoint.feeAssetPriceModifier.toString(),
         });
 
         // Update slot-to-checkpoint index
         await this.#slotToCheckpoint.set(checkpoint.checkpoint.header.slotNumber, checkpoint.checkpoint.number);
-      }
 
-      // Clear the proposed checkpoint if any of the confirmed checkpoints match or supersede it
-      const lastConfirmedCheckpointNumber = checkpoints[checkpoints.length - 1].checkpoint.number;
-      await this.clearProposedCheckpointIfSuperseded(lastConfirmedCheckpointNumber);
+        // Remove proposed checkpoint if it exists, since L1 is authoritative
+        await this.#proposedCheckpoints.delete(checkpoint.checkpoint.number);
+      }
 
       await this.#lastSynchedL1Block.set(checkpoints[checkpoints.length - 1].l1.blockNumber);
       return true;
@@ -371,6 +370,7 @@ export class BlockStore {
         checkpointNumber: incoming.checkpoint.number,
         startBlock: incoming.checkpoint.blocks[0].number,
         blockCount: incoming.checkpoint.blocks.length,
+        feeAssetPriceModifier: incoming.checkpoint.feeAssetPriceModifier.toString(),
       });
       // Update the sync point to reflect the new L1 block
       await this.#lastSynchedL1Block.set(incoming.l1.blockNumber);
@@ -388,24 +388,27 @@ export class BlockStore {
       return undefined;
     }
 
-    const previousCheckpointData = await this.getCheckpointData(previousCheckpointNumber);
-    if (previousCheckpointData === undefined) {
+    // Check across both proposed and mined checkpoints
+    const predecessor =
+      (await this.getProposedCheckpointByNumber(previousCheckpointNumber)) ??
+      (await this.getCheckpointData(previousCheckpointNumber));
+
+    if (!predecessor) {
       throw new CheckpointNotFoundError(previousCheckpointNumber);
     }
 
-    const previousBlockNumber = BlockNumber(previousCheckpointData.startBlock + previousCheckpointData.blockCount - 1);
+    const previousBlockNumber = BlockNumber(predecessor.startBlock + predecessor.blockCount - 1);
     const previousBlock = await this.getBlock(previousBlockNumber);
     if (previousBlock === undefined) {
       throw new BlockNotFoundError(previousBlockNumber);
     }
-
     return previousBlock;
   }
 
   /**
    * Validates that blocks are sequential, have correct indexes, and chain via archive roots.
    * This is the same validation used for both confirmed checkpoints (addCheckpoints) and
-   * proposed checkpoints (setProposedCheckpoint).
+   * proposed checkpoints (addProposedCheckpoint).
    */
   private validateCheckpointBlocks(blocks: L2Block[], previousBlock: L2Block | undefined): void {
     for (const block of blocks) {
@@ -532,11 +535,8 @@ export class BlockStore {
         this.#log.debug(`Removed checkpoint ${c}`);
       }
 
-      // Clear any proposed checkpoint that was orphaned by the removal (its base chain no longer exists)
-      const proposedCheckpointNumber = await this.getProposedCheckpointNumber();
-      if (proposedCheckpointNumber > checkpointNumber) {
-        await this.#proposedCheckpoint.delete();
-      }
+      // Evict all pending checkpoints > checkpointNumber (their base chain no longer exists)
+      await this.evictProposedCheckpointsFrom(CheckpointNumber(checkpointNumber + 1));
 
       return { blocksRemoved };
     });
@@ -585,6 +585,7 @@ export class BlockStore {
       checkpointNumber: CheckpointNumber(checkpointStorage.checkpointNumber),
       startBlock: BlockNumber(checkpointStorage.startBlock),
       blockCount: checkpointStorage.blockCount,
+      feeAssetPriceModifier: BigInt(checkpointStorage.feeAssetPriceModifier),
       l1: L1PublishedData.fromBuffer(checkpointStorage.l1),
       attestations: checkpointStorage.attestations.map(buf => CommitteeAttestation.fromBuffer(buf)),
     };
@@ -685,44 +686,127 @@ export class BlockStore {
   }
 
   async hasProposedCheckpoint(): Promise<boolean> {
-    const proposed = await this.#proposedCheckpoint.getAsync();
-    return proposed !== undefined;
+    const [key] = await toArray(this.#proposedCheckpoints.keysAsync({ limit: 1 }));
+    return key !== undefined;
   }
 
-  /** Deletes the proposed checkpoint from storage. */
-  async deleteProposedCheckpoint(): Promise<void> {
-    await this.#proposedCheckpoint.delete();
-  }
-
-  /** Clears the proposed checkpoint if the given confirmed checkpoint number supersedes it. */
-  async clearProposedCheckpointIfSuperseded(confirmedCheckpointNumber: CheckpointNumber): Promise<void> {
-    const proposedCheckpointNumber = await this.getProposedCheckpointNumber();
-    if (proposedCheckpointNumber <= confirmedCheckpointNumber) {
-      await this.#proposedCheckpoint.delete();
+  /** Deletes all pending proposed checkpoints from storage. */
+  async deleteProposedCheckpoints(): Promise<void> {
+    for await (const key of this.#proposedCheckpoints.keysAsync()) {
+      await this.#proposedCheckpoints.delete(key);
     }
-  }
-
-  /** Returns the proposed checkpoint data, or undefined if no proposed checkpoint exists. No fallback to confirmed. */
-  async getProposedCheckpointOnly(): Promise<ProposedCheckpointData | undefined> {
-    const stored = await this.#proposedCheckpoint.getAsync();
-    if (!stored) {
-      return undefined;
-    }
-    return this.convertToProposedCheckpointData(stored);
   }
 
   /**
-   * Gets the checkpoint at the proposed tip
-   * - pending checkpoint if it exists
-   * - fallsback to latest confirmed checkpoint otherwise
-   * @returns CommonCheckpointData
+   * Promotes a specific pending checkpoint to a confirmed checkpoint entry.
+   * This persists the checkpoint to the store, removes only that pending entry, and updates the L1 sync point.
+   * Remaining pending entries (e.g. N+1, N+2) are left intact — they chain off the just-promoted one.
+   * @param checkpointNumber - The checkpoint number to promote.
+   * @param l1 - L1 published data for the checkpoint.
+   * @param attestations - Committee attestations.
+   * @param expectedArchiveRoot - Archive root guard against races.
    */
-  async getProposedCheckpoint(): Promise<CommonCheckpointData | undefined> {
-    const stored = await this.#proposedCheckpoint.getAsync();
-    if (!stored) {
+  async promoteProposedToCheckpointed(
+    checkpointNumber: CheckpointNumber,
+    l1: L1PublishedData,
+    attestations: CommitteeAttestation[],
+    expectedArchiveRoot: Fr,
+  ): Promise<void> {
+    return await this.db.transactionAsync(async () => {
+      const proposed = await this.getProposedCheckpointByNumber(checkpointNumber);
+      if (!proposed) {
+        throw new NoProposedCheckpointToPromoteError();
+      }
+      if (!proposed.archive.root.equals(expectedArchiveRoot)) {
+        throw new ProposedCheckpointArchiveRootMismatchError(expectedArchiveRoot, proposed.archive.root);
+      }
+
+      // Verify sequentiality: promoted checkpoint must follow the latest confirmed one
+      const latestCheckpointNumber = await this.getLatestCheckpointNumber();
+      if (latestCheckpointNumber !== proposed.checkpointNumber - 1) {
+        throw new ProposedCheckpointPromotionNotSequentialError(proposed.checkpointNumber, latestCheckpointNumber);
+      }
+
+      // Write the checkpoint entry
+      await this.#checkpoints.set(proposed.checkpointNumber, {
+        header: proposed.header.toBuffer(),
+        archive: proposed.archive.toBuffer(),
+        checkpointOutHash: proposed.checkpointOutHash.toBuffer(),
+        l1: l1.toBuffer(),
+        attestations: attestations.map(attestation => attestation.toBuffer()),
+        checkpointNumber: proposed.checkpointNumber,
+        startBlock: proposed.startBlock,
+        blockCount: proposed.blockCount,
+        feeAssetPriceModifier: proposed.feeAssetPriceModifier.toString(),
+      });
+
+      // Update the slot-to-checkpoint index
+      await this.#slotToCheckpoint.set(proposed.header.slotNumber, proposed.checkpointNumber);
+
+      // Remove only this pending entry — remaining entries N+1, N+2, ... stay valid
+      await this.#proposedCheckpoints.delete(proposed.checkpointNumber);
+
+      // Update the last synced L1 block
+      await this.#lastSynchedL1Block.set(l1.blockNumber);
+    });
+  }
+
+  /**
+   * Returns the latest pending checkpoint (highest-numbered entry), or undefined if none.
+   * No fallback to confirmed.
+   */
+  async getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    const [key] = await toArray(this.#proposedCheckpoints.keysAsync({ reverse: true, limit: 1 }));
+    if (key === undefined) {
+      return undefined;
+    }
+    const stored = await this.#proposedCheckpoints.getAsync(key);
+    return stored ? this.convertToProposedCheckpointData(stored) : undefined;
+  }
+
+  /** Returns the pending checkpoint for a specific checkpoint number, or undefined if not found. */
+  async getProposedCheckpointByNumber(n: CheckpointNumber): Promise<ProposedCheckpointData | undefined> {
+    const stored = await this.#proposedCheckpoints.getAsync(n);
+    return stored ? this.convertToProposedCheckpointData(stored) : undefined;
+  }
+
+  /** Returns all pending checkpoints in ascending checkpoint-number order. */
+  async getProposedCheckpoints(): Promise<ProposedCheckpointData[]> {
+    const results: ProposedCheckpointData[] = [];
+    for await (const [, stored] of this.#proposedCheckpoints.entriesAsync()) {
+      results.push(this.convertToProposedCheckpointData(stored));
+    }
+    return results;
+  }
+
+  /**
+   * Evicts all pending checkpoints with checkpoint number >= fromNumber.
+   * Used for divergent-mined-checkpoint cleanup: when L1 mines checkpoint N with a different archive,
+   * all pending >= N must be evicted since they chain off the now-invalid pending N.
+   */
+  async evictProposedCheckpointsFrom(fromNumber: CheckpointNumber): Promise<void> {
+    const keysToDelete: number[] = [];
+    for await (const key of this.#proposedCheckpoints.keysAsync()) {
+      if (key >= fromNumber) {
+        keysToDelete.push(key);
+      }
+    }
+    for (const key of keysToDelete) {
+      await this.#proposedCheckpoints.delete(key);
+    }
+  }
+
+  /**
+   * Gets the checkpoint at the proposed tip:
+   * - latest pending checkpoint if any exist
+   * - fallsback to latest confirmed checkpoint otherwise
+   */
+  async getLastCheckpoint(): Promise<CommonCheckpointData | undefined> {
+    const latest = await this.getLastProposedCheckpoint();
+    if (!latest) {
       return this.getCheckpointData(await this.getLatestCheckpointNumber());
     }
-    return this.convertToProposedCheckpointData(stored);
+    return latest;
   }
 
   private convertToProposedCheckpointData(stored: ProposedCheckpointStorage): ProposedCheckpointData {
@@ -743,7 +827,7 @@ export class BlockStore {
    * @returns CheckpointNumber
    */
   async getProposedCheckpointNumber(): Promise<CheckpointNumber> {
-    const proposed = await this.getProposedCheckpoint();
+    const proposed = await this.getLastCheckpoint();
     if (!proposed) {
       return await this.getLatestCheckpointNumber();
     }
@@ -755,7 +839,7 @@ export class BlockStore {
    * @returns BlockNumber
    */
   async getProposedCheckpointL2BlockNumber(): Promise<BlockNumber> {
-    const proposed = await this.getProposedCheckpoint();
+    const proposed = await this.getLastCheckpoint();
     if (!proposed) {
       return await this.getCheckpointedL2BlockNumber();
     }
@@ -853,6 +937,33 @@ export class BlockStore {
       return undefined;
     }
     return this.getBlockDataFromBlockStorage(blockStorage);
+  }
+
+  /**
+   * Gets block metadata plus checkpoint-derived context (L1 publish info, attestations) without
+   * deserializing tx bodies. When the block's containing checkpoint has not yet been L1-confirmed,
+   * `checkpoint` and `l1` are `undefined` and `attestations` is empty.
+   */
+  async getBlockDataWithCheckpointContext(
+    blockNumber: BlockNumber,
+  ): Promise<BlockDataWithCheckpointContext | undefined> {
+    const blockStorage = await this.#blocks.getAsync(blockNumber);
+    if (!blockStorage || !blockStorage.header) {
+      return undefined;
+    }
+    const data = this.getBlockDataFromBlockStorage(blockStorage);
+    const checkpointStorage = await this.#checkpoints.getAsync(blockStorage.checkpointNumber);
+    if (!checkpointStorage) {
+      return { data, checkpoint: undefined, l1: undefined, attestations: [] };
+    }
+    const checkpoint = this.checkpointDataFromCheckpointStorage(checkpointStorage);
+    return { data, checkpoint, l1: checkpoint.l1, attestations: checkpoint.attestations };
+  }
+
+  /** Returns the checkpoint number that contains the given slot (or undefined if not found). */
+  async getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined> {
+    const checkpointNumber = await this.#slotToCheckpoint.getAsync(slot);
+    return checkpointNumber === undefined ? undefined : CheckpointNumber(checkpointNumber);
   }
 
   /**
@@ -1136,20 +1247,25 @@ export class BlockStore {
     return this.#lastSynchedL1Block.set(l1BlockNumber);
   }
 
-  /** Sets the proposed checkpoint (not yet L1-confirmed). Only accepts confirmed + 1.
-   *  Computes archive and checkpointOutHash from the stored blocks. */
-  async setProposedCheckpoint(proposed: ProposedCheckpointInput) {
+  /**
+   * Adds a proposed checkpoint to the pending queue.
+   * Accepts proposed.checkpointNumber === latestTip + 1, where latestTip is the highest of
+   * confirmed and the highest pending checkpoint number.
+   * Computes archive and checkpointOutHash from the stored blocks.
+   */
+  async addProposedCheckpoint(proposed: ProposedCheckpointInput) {
     return await this.db.transactionAsync(async () => {
-      const current = await this.getProposedCheckpointNumber();
-      if (proposed.checkpointNumber <= current) {
-        throw new ProposedCheckpointStaleError(proposed.checkpointNumber, current);
-      }
       const confirmed = await this.getLatestCheckpointNumber();
-      if (proposed.checkpointNumber !== confirmed + 1) {
-        throw new ProposedCheckpointNotSequentialError(proposed.checkpointNumber, confirmed);
+      const [latestPendingKey] = await toArray(this.#proposedCheckpoints.keysAsync({ reverse: true, limit: 1 }));
+      const latestTip = CheckpointNumber(
+        latestPendingKey !== undefined ? Math.max(latestPendingKey, confirmed) : confirmed,
+      );
+
+      if (proposed.checkpointNumber !== latestTip + 1) {
+        throw new ProposedCheckpointNotSequentialError(proposed.checkpointNumber, latestTip);
       }
 
-      // Ensure the previous checkpoint + blocks exist
+      // Ensure the predecessor block (from pending or confirmed chain) exists
       const previousBlock = await this.getPreviousCheckpointBlock(proposed.checkpointNumber);
       const blocks: L2Block[] = [];
       for (let i = 0; i < proposed.blockCount; i++) {
@@ -1164,7 +1280,7 @@ export class BlockStore {
       const archive = blocks[blocks.length - 1].archive;
       const checkpointOutHash = Checkpoint.getCheckpointOutHash(blocks);
 
-      await this.#proposedCheckpoint.set({
+      await this.#proposedCheckpoints.set(proposed.checkpointNumber, {
         header: proposed.header.toBuffer(),
         archive: archive.toBuffer(),
         checkpointOutHash: checkpointOutHash.toBuffer(),

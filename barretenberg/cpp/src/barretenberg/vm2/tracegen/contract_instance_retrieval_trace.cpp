@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/tracegen/contract_instance_retrieval_trace.hpp"
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -95,6 +95,7 @@ void ContractInstanceRetrievalTraceBuilder::process(
                 { C::contract_instance_retrieval_is_protocol_contract, event.is_protocol_contract ? 1 : 0 },
                 { C::contract_instance_retrieval_should_check_nullifier, !event.is_protocol_contract ? 1 : 0 },
                 { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
+                { C::contract_instance_retrieval_nullifier_merkle_separator, DOM_SEP__NULLIFIER_MERKLE },
                 { C::contract_instance_retrieval_siloing_separator, DOM_SEP__SILOED_NULLIFIER },
                 { C::contract_instance_retrieval_should_check_for_update, check_update ? 1 : 0 },
             } });
@@ -107,11 +108,11 @@ void ContractInstanceRetrievalTraceBuilder::process(
 
 const InteractionDefinition ContractInstanceRetrievalTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_contract_instance_retrieval_deployment_nullifier_read_settings, InteractionType::LookupSequential>()
-        .add<lookup_contract_instance_retrieval_address_derivation_settings, InteractionType::LookupGeneric>()
-        .add<lookup_contract_instance_retrieval_update_check_settings, InteractionType::LookupSequential>()
-        .add<lookup_contract_instance_retrieval_check_protocol_address_range_settings, InteractionType::LookupGeneric>()
-        .add<lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings,
-             InteractionType::LookupIntoIndexedByRow>();
+        .add<InteractionType::LookupSequential, lookup_contract_instance_retrieval_deployment_nullifier_read_settings>()
+        .add<InteractionType::LookupGeneric, lookup_contract_instance_retrieval_address_derivation_settings>()
+        .add<InteractionType::LookupSequential, lookup_contract_instance_retrieval_update_check_settings>()
+        .add<InteractionType::LookupGeneric, lookup_contract_instance_retrieval_check_protocol_address_range_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow,
+             lookup_contract_instance_retrieval_read_derived_address_from_public_inputs_settings>();
 
 } // namespace bb::avm2::tracegen

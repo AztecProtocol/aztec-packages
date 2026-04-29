@@ -1,0 +1,1 @@
+A function marked as #[external("utility")] must not have public Noir visibility - foo's visibility is 'pub'

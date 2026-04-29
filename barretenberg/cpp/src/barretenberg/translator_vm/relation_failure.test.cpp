@@ -125,9 +125,9 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
-
-    // Add a no-op, then random start ops, then mixed ops, merge, more mixed ops, random end ops, final merge
     op_queue->no_op_ultra_only();
+
+    // Add random start ops, then mixed ops, merge, more mixed ops, random end ops, final merge
     for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_START; i++) {
         op_queue->random_op_ultra_only();
     }
@@ -145,7 +145,7 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
     for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_END; i++) {
         op_queue->random_op_ultra_only();
     }
-    op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);

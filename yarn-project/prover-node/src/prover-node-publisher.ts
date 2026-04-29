@@ -19,9 +19,9 @@ import type { L1PublishProofStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { inspect } from 'util';
-import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
+import { type Hex, type TransactionReceipt, encodeFunctionData, formatEther, formatGwei } from 'viem';
 
-import { ProverNodePublisherMetrics } from './metrics.js';
+import { type EstimatedSubmitProofStats, ProverNodePublisherMetrics } from './metrics.js';
 
 /** Arguments to the submitEpochProof method of the rollup contract */
 export type L1SubmitEpochProofArgs = {
@@ -210,6 +210,74 @@ export class ProverNodePublisher {
     }
   }
 
+  /**
+   * Estimates what submitting the epoch proof would have cost on L1 without actually sending it.
+   * Runs the same validation as `submitEpochProof`, encodes the calldata, estimates gas, and records metrics.
+   * Used when proof publishing is disabled (e.g. PROVER_NODE_DISABLE_PROOF_PUBLISH=true on mainnet).
+   */
+  public async analyzeEpochProofSubmission(args: {
+    epochNumber: EpochNumber;
+    fromCheckpoint: CheckpointNumber;
+    toCheckpoint: CheckpointNumber;
+    publicInputs: RootRollupPublicInputs;
+    proof: Proof;
+    batchedBlobInputs: BatchedBlob;
+    attestations: ViemCommitteeAttestation[];
+  }): Promise<void> {
+    const { epochNumber, fromCheckpoint, toCheckpoint } = args;
+
+    await this.validateEpochProofSubmission(args);
+
+    const data = this.encodeSubmitEpochProofCalldata(args);
+    const senderAddress = this.l1TxUtils.getSenderAddress();
+
+    const [gasLimit, gasPrice, latestBlock] = await Promise.all([
+      this.l1TxUtils.estimateGas(senderAddress.toString() as `0x${string}`, { to: this.rollupContract.address, data }),
+      this.l1TxUtils.getGasPrice(),
+      this.l1TxUtils.client.getBlock({ blockTag: 'latest' }),
+    ]);
+
+    const baseFeePerGas = latestBlock.baseFeePerGas ?? 0n;
+    const { maxPriorityFeePerGas } = gasPrice;
+
+    const effectiveFeePerGas = baseFeePerGas + maxPriorityFeePerGas;
+    const estimatedTotalFee = gasLimit * effectiveFeePerGas;
+
+    const stats: EstimatedSubmitProofStats = {
+      gasLimit,
+      baseFeePerGas,
+      maxPriorityFeePerGas,
+      estimatedTotalFee,
+    };
+
+    this.log.info(`Estimated epoch proof submission cost (not submitted)`, {
+      epochNumber,
+      fromCheckpoint,
+      toCheckpoint,
+      gasLimit: gasLimit.toString(),
+      baseFeePerGas: formatGwei(baseFeePerGas),
+      maxPriorityFeePerGas: formatGwei(maxPriorityFeePerGas),
+      estimatedTotalFeeEth: formatEther(estimatedTotalFee),
+    });
+
+    this.metrics.recordEstimatedSubmitProof(stats);
+  }
+
+  private encodeSubmitEpochProofCalldata(args: {
+    fromCheckpoint: CheckpointNumber;
+    toCheckpoint: CheckpointNumber;
+    publicInputs: RootRollupPublicInputs;
+    proof: Proof;
+    batchedBlobInputs: BatchedBlob;
+    attestations: ViemCommitteeAttestation[];
+  }): Hex {
+    return encodeFunctionData({
+      abi: RollupAbi,
+      functionName: 'submitEpochRootProof',
+      args: [this.getSubmitEpochProofArgs(args)],
+    });
+  }
+
   private async sendSubmitEpochProofTx(args: {
     fromCheckpoint: CheckpointNumber;
     toCheckpoint: CheckpointNumber;
@@ -296,9 +364,9 @@ export class ProverNodePublisher {
       end: argsArray[1],
       args: argsArray[2],
       fees: argsArray[3],
-      attestations: new CommitteeAttestationsAndSigners(
+      attestations: CommitteeAttestationsAndSigners.packAttestations(
         args.attestations.map(a => CommitteeAttestation.fromViem(a)),
-      ).getPackedAttestations(),
+      ),
       blobInputs: argsArray[4],
       proof: proofHex,
     };

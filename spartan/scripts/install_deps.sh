@@ -8,6 +8,21 @@ require_cmd() { command -v "$1" >/dev/null 2>&1 || die "Required command not fou
 
 log "Installing dependencies..."
 
+# On macOS, install everything via brew. Brew is already a hard dependency of the repo
+# (see ci3/source_base and the top-level bootstrap.sh install_macos_deps).
+# gke-gcloud-auth-plugin is installed lazily by the `gke` command in spartan/bootstrap.sh.
+# foundry/cast falls through to the version-pinned foundryup install below.
+if [[ "$(os)" == "macos" ]]; then
+  require_cmd brew
+  brew_pkgs=()
+  command -v kubectl   &> /dev/null || brew_pkgs+=(kubernetes-cli)
+  command -v kind      &> /dev/null || brew_pkgs+=(kind)
+  command -v helm      &> /dev/null || brew_pkgs+=(helm)
+  command -v terraform &> /dev/null || brew_pkgs+=(hashicorp/tap/terraform)
+  [ ${#brew_pkgs[@]} -gt 0 ] && brew install "${brew_pkgs[@]}"
+  command -v gcloud &> /dev/null || brew install --cask gcloud-cli
+fi
+
 # if kubectl is not installed, install it
 if ! command -v kubectl &> /dev/null; then
   log "Installing kubectl..."

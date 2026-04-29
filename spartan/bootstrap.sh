@@ -47,8 +47,19 @@ function network_shaping {
 }
 
 function gke {
-  # For GKE access
-  if ! command -v gcloud &> /dev/null; then
+  # For GKE access: ensure both gcloud and the GKE auth plugin are installed.
+  # gcloud itself is installed by install_deps.sh; this only handles the auth plugin
+  # (and the Ubuntu-specific gcloud install for backwards compatibility).
+  if [[ "$(os)" == "macos" ]]; then
+    if ! command -v gke-gcloud-auth-plugin &> /dev/null; then
+      gcloud components install --quiet gke-gcloud-auth-plugin
+      if ! command -v gke-gcloud-auth-plugin &> /dev/null; then
+        echo "gke-gcloud-auth-plugin installed but not on PATH. Add this to your shell rc:" >&2
+        echo "  export PATH=\"\$(brew --prefix)/share/google-cloud-sdk/bin:\$PATH\"" >&2
+        exit 1
+      fi
+    fi
+  elif ! command -v gcloud &> /dev/null; then
     if [ -f /etc/os-release ] && grep -qi "Ubuntu" /etc/os-release; then
       sudo apt update
       sudo apt install -y apt-transport-https ca-certificates gnupg curl
@@ -57,11 +68,12 @@ function gke {
       sudo apt install -y google-cloud-cli
       sudo apt install google-cloud-cli-gke-gcloud-auth-plugin
       echo "Now you can run 'gcloud init'. Exiting with 1 as this is a necessary step."
+      exit 1
     else
       echo "gcloud not found. This is needed for GKE kubernetes usage." >&2
-      echo "If needed, install glcoud and do 'gcloud components install gke-gcloud-auth-plugin', then 'gcloud init'" >&2
+      echo "If needed, install gcloud and do 'gcloud components install gke-gcloud-auth-plugin', then 'gcloud init'" >&2
+      exit 1
     fi
-    exit 1
   fi
 }
 
@@ -170,6 +182,14 @@ function block_capacity_bench_cmds {
   echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/block_capacity.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple block_capacity.test.ts"
 }
 
+function bench_10tps_cmds {
+  local high_value_tps=10
+  local low_value_tps=0
+  local test_duration=${TEST_DURATION_SECONDS:-2280} # approx 1 epoch
+  local timeout=${BENCH_TIMEOUT_SECONDS:-3600}
+  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+}
+
 function network_bench {
   rm -rf bench-out
   mkdir -p bench-out
@@ -210,6 +230,111 @@ function block_capacity_bench {
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   block_capacity_bench_cmds | parallelize 1
+}
+
+function bench_10tps {
+  rm -rf bench-out
+  mkdir -p bench-out
+
+  local env_file="$1"
+  source_network_env $env_file
+
+  echo_header "spartan bench-10tps"
+  gcp_auth
+  export_admin_api_key
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
+  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-${COMMIT_HASH:0:10}}"
+  bench_10tps_cmds | parallelize 1
+
+  local metadata="/tmp/n_tps_timing_data.json"
+  local run_json="bench-out/bench-10tps-${BENCH_RUN_ID}.json"
+  if [[ -f "$metadata" ]]; then
+    local started=$(jq -r .startedAt < "$metadata")
+    local ended=$(jq -r .endedAt < "$metadata")
+    echo "Scraping bench-10tps run ${BENCH_RUN_ID} (started=${started} ended=${ended})"
+    NAMESPACE="$NAMESPACE" ./scripts/bench_10tps/bench_scrape.ts \
+      --run-id "$BENCH_RUN_ID" \
+      --started "$started" \
+      --ended "$ended" \
+      --target-tps 10 \
+      --workload sha256_hash_1024 \
+      --output "$run_json" \
+      || echo "[bench_10tps] scraper failed (non-fatal)"
+    network_bench_upload "$run_json" || echo "[network_bench] upload failed (non-fatal)"
+  else
+    echo "[bench_10tps] no timing metadata at ${metadata}; skipping scraper"
+  fi
+}
+
+function network_bench_upload {
+  local run_json=$1
+  if [[ "${CI:-0}" != "1" ]]; then
+    echo "[network_bench] CI != 1, skipping upload (run JSON at ${run_json})"
+    return 0
+  fi
+  if [[ ! -f "$run_json" ]]; then
+    echo "[network_bench] no run JSON at ${run_json}; skipping upload"
+    return 0
+  fi
+
+  # Reject anything that's not the schema we've designed the index against.
+  local schema=$(jq -r .schemaVersion "$run_json")
+  if [[ "$schema" != "3" ]]; then
+    echo "[network_bench] run JSON has schemaVersion '$schema', expected '3'; skipping upload"
+    return 0
+  fi
+
+  local bucket="gs://aztec-testnet/network_bench"
+  local run_id=$(jq -r .run.runId "$run_json")
+  local target="${bucket}/${run_id}.json"
+
+  echo "[network_bench] uploading ${run_json} to ${target}"
+  gcloud storage cp "$run_json" "$target"
+
+  local entry=$(jq '{
+    runId: .run.runId,
+    path: (.run.runId + ".json"),
+    startedAt: .run.startedAt,
+    endedAt: .run.endedAt,
+    targetTps: .run.targetTps,
+    workload: .run.workload,
+    testDurationSeconds: .run.testDurationSeconds,
+    namespace: .run.namespace,
+    headlineKpi: .summary.headlineKpi,
+    inclusionTpsMean: .summary.inclusionTpsMean,
+    inclusionTpsPeak: .summary.inclusionTpsPeak,
+    totalTxsMined: .summary.totalTxsMined,
+    reorgCount: .summary.reorgCount
+  }' "$run_json")
+
+  local idx_local
+  idx_local=$(mktemp)
+  trap "rm -f $idx_local ${idx_local}.new" RETURN
+  # Distinguish "index does not exist yet" (404 -> seed empty) from real errors
+  # (auth/network/permission -> fail closed). Without this probe, a naive
+  # `cp ... 2>/dev/null || seed_empty` would silently overwrite a healthy index
+  # with a single-entry one whenever GCS hiccups.
+  local desc_err
+  if desc_err=$(gcloud storage objects describe "${bucket}/index.json" 2>&1 >/dev/null); then
+    gcloud storage cp "${bucket}/index.json" "$idx_local"
+  elif echo "$desc_err" | grep -qiE 'not.?found|matched no objects|404'; then
+    echo "[network_bench] no remote index.json yet; seeding empty"
+    echo '{"schemaVersion":"1","runs":[]}' > "$idx_local"
+  else
+    echo "[network_bench] cannot read remote index.json:"
+    echo "$desc_err" | head -5
+    return 1
+  fi
+
+  jq --argjson entry "$entry" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+    .schemaVersion = "1"
+    | .generatedAt = $ts
+    | .runs = ((.runs // []) | map(select(.runId != $entry.runId)) + [$entry]
+              | sort_by(.endedAt) | reverse)
+  ' "$idx_local" > "${idx_local}.new"
+
+  gcloud storage cp "${idx_local}.new" "${bucket}/index.json"
+  echo "[network_bench] updated ${bucket}/index.json"
 }
 
 function ensure_eth_balances {
@@ -276,7 +401,7 @@ case "$cmd" in
     run_network_tests "$1" "$2"
     ;;
 
-  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench)
+  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench|bench_10tps)
     env_file="$1"
     $cmd "$env_file"
     ;;

@@ -25,7 +25,7 @@ import {
 import assert from 'assert';
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
-import { GasLimitsValidator, GasTxValidator } from './gas_validator.js';
+import { GasLimitsValidator, GasTxValidator, MaxFeePerGasValidator } from './gas_validator.js';
 import { patchNonRevertibleFn, patchRevertibleFn } from './test_utils.js';
 
 describe('GasTxValidator', () => {
@@ -72,12 +72,6 @@ describe('GasTxValidator', () => {
   const expectInvalid = async (tx: Tx, reason: string) => {
     const result = await validateTx(tx);
     expect(result.result).toEqual('invalid');
-    expect((result as { reason: string[] }).reason[0]).toContain(reason);
-  };
-
-  const expectSkipped = async (tx: Tx, reason: string) => {
-    const result = await validateTx(tx);
-    expect(result.result).toEqual('skipped');
     expect((result as { reason: string[] }).reason[0]).toContain(reason);
   };
 
@@ -353,13 +347,45 @@ describe('GasTxValidator', () => {
     });
   });
 
-  it('skips txs with not enough fee per da gas', async () => {
+  it('rejects txs with not enough fee per da gas', async () => {
     gasFees.feePerDaGas = gasFees.feePerDaGas + 1n;
-    await expectSkipped(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
+    await expectInvalid(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
   });
 
-  it('skips txs with not enough fee per l2 gas', async () => {
+  it('rejects txs with not enough fee per l2 gas', async () => {
     gasFees.feePerL2Gas = gasFees.feePerL2Gas + 1n;
-    await expectSkipped(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
+    await expectInvalid(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
+  });
+});
+
+describe('MaxFeePerGasValidator', () => {
+  it('accepts tx with sufficient max fees per gas', async () => {
+    const gasFees = new GasFees(10, 20);
+    const validator = new MaxFeePerGasValidator<Tx>(gasFees);
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
+    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 20) });
+    await expect(validator.validateTx(tx)).resolves.toEqual({ result: 'valid' });
+  });
+
+  it('rejects tx with insufficient DA fee per gas', async () => {
+    const gasFees = new GasFees(10, 20);
+    const validator = new MaxFeePerGasValidator<Tx>(gasFees);
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
+    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(9, 20) });
+    await expect(validator.validateTx(tx)).resolves.toEqual({
+      result: 'invalid',
+      reason: [expect.stringContaining(TX_ERROR_INSUFFICIENT_FEE_PER_GAS)],
+    });
+  });
+
+  it('rejects tx with insufficient L2 fee per gas', async () => {
+    const gasFees = new GasFees(10, 20);
+    const validator = new MaxFeePerGasValidator<Tx>(gasFees);
+    const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
+    tx.data.constants.txContext.gasSettings = GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 19) });
+    await expect(validator.validateTx(tx)).resolves.toEqual({
+      result: 'invalid',
+      reason: [expect.stringContaining(TX_ERROR_INSUFFICIENT_FEE_PER_GAS)],
+    });
   });
 });

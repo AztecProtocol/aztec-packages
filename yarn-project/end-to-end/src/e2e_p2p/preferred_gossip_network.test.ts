@@ -280,23 +280,22 @@ describe('e2e_p2p_preferred_network', () => {
       indexOffset,
     );
 
-    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators, t.ctx.aztecNodeService];
+    // The initial node has P2P disabled (skipInitialSequencer), so exclude it from peer expectations.
+    const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators];
     const identifiers = nodes
       .map((_, i) => `Node ${i + 1}`)
       .concat(preferredNodes.map((_, i) => `Preferred Node ${i + 1}`))
       .concat(validators.map((_, i) => `Validator ${i + 1}`))
-      .concat(noDiscoveryValidators.map((_, i) => `Picky Validator ${i + 1}`))
-      .concat(['Default Node']);
+      .concat(noDiscoveryValidators.map((_, i) => `Picky Validator ${i + 1}`));
     t.logger.warn(`All nodes initialized: ${identifiers.join(', ')}`);
 
     const validatorsUsingDiscovery = validators.length;
     const totalNumValidators = validators.length + noDiscoveryValidators.length;
     const expectedPeerCounts = nodes
-      .map(() => nodes.length - 1 + validatorsUsingDiscovery + 1) // Regular nodes connect to the default node and the validators that have discovery enabled
+      .map(() => nodes.length - 1 + validatorsUsingDiscovery) // Regular nodes connect to other regular nodes and validators with discovery
       .concat(preferredNodes.map(() => totalNumValidators)) // Preferred nodes only connect to validators (all of them)
-      .concat(validators.map(() => nodes.length + preferredNodes.length + validatorsUsingDiscovery - 1 + 1)) // Validators connect to all nodes, preferred nodes, validators using discovery and the default node
-      .concat(noDiscoveryValidators.map(() => preferredNodes.length)) // The no-discovery validators ONLY connect to preferred nodes (no discovery)
-      .concat([nodes.length + validatorsUsingDiscovery]); // The default node connects to other regular nodes and validators using discovery
+      .concat(validators.map(() => nodes.length + preferredNodes.length + validatorsUsingDiscovery - 1)) // Validators connect to all nodes, preferred nodes, and other validators with discovery
+      .concat(noDiscoveryValidators.map(() => preferredNodes.length)); // The no-discovery validators ONLY connect to preferred nodes (no discovery)
     for (let i = 0; i < allNodes.length; i++) {
       const peerResult = await waitForNodeToAcquirePeers(allNodes[i], expectedPeerCounts[i], 300, identifiers[i]);
       expect(peerResult).toBeTruthy();
@@ -358,7 +357,11 @@ describe('e2e_p2p_preferred_network', () => {
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
     const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const signatureContext = {
+      chainId: t.ctx.aztecNodeConfig.l1ChainId,
+      rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));

@@ -1,0 +1,1 @@
+The #[noinitcheck] attribute can only be applied to #[external("private")] or #[external("public")] functions - foo is neither

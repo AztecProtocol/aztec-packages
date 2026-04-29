@@ -26,6 +26,7 @@ export class SequencerMetrics {
   private blockBuildDuration: Histogram;
   private blockBuildManaPerSecond: Gauge;
   private stateTransitionBufferDuration: Histogram;
+  private stateDuration: Histogram;
 
   // these are gauges because for individual sequencers building a block is not something that happens often enough to warrant a histogram
   private timeToCollectAttestations: Gauge;
@@ -46,6 +47,7 @@ export class SequencerMetrics {
   private slashingAttempts: UpDownCounter;
   private pipelineDepth: Gauge;
   private pipelineDiscards: UpDownCounter;
+  private pipelineParentCheckpointMismatches: UpDownCounter;
 
   // Fisherman fee analysis metrics
   private fishermanWouldBeIncluded: UpDownCounter;
@@ -88,6 +90,8 @@ export class SequencerMetrics {
     this.blockInterBlockTime = this.meter.createHistogram(Metrics.SEQUENCER_BLOCK_INTER_BLOCK_TIME);
 
     this.stateTransitionBufferDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_TRANSITION_BUFFER_DURATION);
+
+    this.stateDuration = this.meter.createHistogram(Metrics.SEQUENCER_STATE_DURATION);
 
     this.rewards = this.meter.createGauge(Metrics.SEQUENCER_CURRENT_SLOT_REWARDS);
 
@@ -141,6 +145,19 @@ export class SequencerMetrics {
 
     this.pipelineDepth = this.meter.createGauge(Metrics.SEQUENCER_PIPELINE_DEPTH);
     this.pipelineDiscards = createUpDownCounterWithDefault(this.meter, Metrics.SEQUENCER_PIPELINE_DISCARDS_COUNT);
+    this.pipelineParentCheckpointMismatches = createUpDownCounterWithDefault(
+      this.meter,
+      Metrics.SEQUENCER_PIPELINE_PARENT_CHECKPOINT_MISMATCH_COUNT,
+      {
+        [Attributes.ERROR_TYPE]: [
+          'archiver-sync-timeout',
+          'parent-not-on-l1',
+          'parent-hash-mismatch',
+          'parent-invalid-attestations',
+          'unexpected-parent-appeared',
+        ],
+      },
+    );
     this.pipelineDepth.record(0);
 
     // Fisherman fee analysis metrics
@@ -238,12 +255,24 @@ export class SequencerMetrics {
     });
   }
 
+  recordStateDuration(durationMs: number, state: SequencerState) {
+    this.stateDuration.record(Math.ceil(durationMs), {
+      [Attributes.SEQUENCER_STATE]: state,
+    });
+  }
+
   recordPipelineDepth(depth: number) {
     this.pipelineDepth.record(depth);
   }
 
   recordPipelineDiscard(count = 1) {
     this.pipelineDiscards.add(count);
+  }
+
+  recordPipelineParentCheckpointMismatch(reason: string) {
+    this.pipelineParentCheckpointMismatches.add(1, {
+      [Attributes.ERROR_TYPE]: reason,
+    });
   }
 
   incOpenSlot(slot: SlotNumber, proposer: string) {

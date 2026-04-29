@@ -39,6 +39,31 @@ jobs:
         if: github.event.pull_request.draft
         run: echo "CI is not run on drafts." && exit 1
 
+      # Gate 'ci-external' on the labeller being a member of AztecProtocol/watchers.
+      - name: Verify ci-external Labeller Authorization
+        if: contains(github.event.pull_request.labels.*.name, 'ci-external')
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          # Note: pipe to jq with -s add to flatten paginated arrays; gh's own --jq runs per-page.
+          labeller=$(gh api --paginate "/repos/$REPO/issues/$PR_NUMBER/events" \
+            | jq -r -s 'add | [.[] | select(.event == "labeled" and .label.name == "ci-external")] | last | .actor.login // empty')
+          if [ -z "$labeller" ] || [ "$labeller" = "null" ]; then
+            echo "Error: could not determine who applied the 'ci-external' label. Stripping it."
+            gh pr edit "$PR_NUMBER" --remove-label "ci-external" || true
+            exit 1
+          fi
+          state=$(gh api "/orgs/AztecProtocol/teams/watchers/memberships/$labeller" --jq '.state' 2>/dev/null || true)
+          if [ "$state" != "active" ]; then
+            echo "Error: labeller is not an active member of AztecProtocol/watchers. Stripping 'ci-external' label."
+            gh pr edit "$PR_NUMBER" --remove-label "ci-external"
+            exit 1
+          fi
+          echo "Labeller is authorized."
+
       - name: External Contributor Checks
         env:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}

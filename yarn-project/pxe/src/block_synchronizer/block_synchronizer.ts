@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { BlockHash, L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
@@ -11,6 +12,7 @@ import type { ContractSyncService } from '../contract_sync/contract_sync_service
 import type { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
+import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
 
 /**
  * The BlockSynchronizer class orchestrates synchronization between PXE and Aztec node, maintaining an up-to-date
@@ -20,6 +22,7 @@ import type { PrivateEventStore } from '../storage/private_event_store/private_e
 export class BlockSynchronizer implements L2BlockStreamEventHandler {
   private log: Logger;
   private isSyncing: Promise<void> | undefined;
+  private readonly eventQueue = new SerialQueue();
   protected readonly blockStream: L2BlockStream;
 
   constructor(
@@ -35,11 +38,12 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   ) {
     this.log = createLogger('pxe:block_synchronizer', bindings);
     this.blockStream = this.createBlockStream(config);
+    this.eventQueue.start();
   }
 
   protected createBlockStream(config: Partial<BlockSynchronizerConfig>): L2BlockStream {
     return new L2BlockStream(
-      this.node,
+      blockStreamSourceFromAztecNode(this.node),
       this.l2TipsStore,
       this,
       createLogger('pxe:block_stream', this.log.getBindings()),
@@ -52,8 +56,12 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     );
   }
 
-  /** Handle events emitted by the block stream. */
-  public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+  /** Handle events emitted by the block stream. Serialized to prevent concurrent mutations to anchor state. */
+  public handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+    return this.eventQueue.put(() => this.doHandleBlockStreamEvent(event));
+  }
+
+  private async doHandleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
 
     switch (event.type) {
@@ -74,9 +82,9 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
       }
       case 'chain-proven': {
         if (this.config.syncChainTip === 'proven') {
-          const blockHeader = await this.node.getBlockHeader(BlockNumber(event.block.number));
-          if (blockHeader) {
-            await this.updateAnchorBlockHeader(blockHeader);
+          const block = await this.node.getBlock(BlockNumber(event.block.number));
+          if (block) {
+            await this.updateAnchorBlockHeader(block.header);
           } else {
             this.log.warn(`Block header not found for proven block ${event.block.number}, skipping anchor update`);
           }
@@ -85,9 +93,9 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
       }
       case 'chain-finalized': {
         if (this.config.syncChainTip === 'finalized') {
-          const blockHeader = await this.node.getBlockHeader(BlockNumber(event.block.number));
-          if (blockHeader) {
-            await this.updateAnchorBlockHeader(blockHeader);
+          const block = await this.node.getBlock(BlockNumber(event.block.number));
+          if (block) {
+            await this.updateAnchorBlockHeader(block.header);
           } else {
             this.log.warn(`Block header not found for finalized block ${event.block.number}, skipping anchor update`);
           }
@@ -110,7 +118,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         // Note that the following is not necessarily the anchor block that will be used in the transaction - if
         // the chain has already moved past the reorg, we'll also see blocks-added events that will push the anchor
         // forward.
-        const newAnchorBlockHeader = await this.node.getBlockHeader(BlockHash.fromString(event.block.hash));
+        const newAnchorBlock = await this.node.getBlock(BlockHash.fromString(event.block.hash));
+        const newAnchorBlockHeader = newAnchorBlock?.header;
 
         if (!newAnchorBlockHeader) {
           throw new Error(
@@ -167,6 +176,13 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     }
   }
 
+  /** Stops the block synchronizer, waiting for any in-progress sync and queued events to complete. */
+  public async stop() {
+    await this.isSyncing;
+    await this.blockStream.stop();
+    await this.eventQueue.end();
+  }
+
   private async doSync() {
     let currentHeader;
 
@@ -177,7 +193,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     }
     if (!currentHeader) {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
-      await this.anchorBlockStore.setHeader((await this.node.getBlockHeader(BlockNumber.ZERO))!);
+      await this.anchorBlockStore.setHeader((await this.node.getBlock(BlockNumber.ZERO))!.header);
     }
     await this.blockStream.sync();
   }

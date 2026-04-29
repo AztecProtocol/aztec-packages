@@ -29,7 +29,7 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
-const BOOT_NODE_UDP_PORT = 4500;
+const BOOT_NODE_UDP_PORT = process.env.BOOT_NODE_UDP_PORT ? parseInt(process.env.BOOT_NODE_UDP_PORT) : 4500;
 const AZTEC_SLOT_DURATION = 36;
 const AZTEC_EPOCH_DURATION = 4;
 
@@ -188,7 +188,11 @@ describe('e2e_p2p_network', () => {
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
     const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const signatureContext = {
+      chainId: t.ctx.aztecNodeConfig.l1ChainId,
+      rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
@@ -207,7 +211,7 @@ describe('e2e_p2p_network', () => {
     // Ensure prover node did its job and collected txs from p2p
     await retryUntil(
       async () => {
-        const provenBlock = await nodes[0].getProvenBlockNumber();
+        const provenBlock = await nodes[0].getBlockNumber('proven');
         return provenBlock > 0;
       },
       'proven block',

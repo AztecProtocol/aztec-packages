@@ -79,7 +79,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         op_queue->merge();
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         add_random_ops(op_queue, InnerBuilder::NUM_RANDOM_OPS_END);
-        op_queue->merge(MergeSettings::APPEND, ECCOpQueue::OP_QUEUE_SIZE - op_queue->get_current_subtable_size());
+        op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
 
         return InnerBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue };
     }
@@ -411,7 +411,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         inputs.set_public();
 
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
-        outer_circuit.finalize_circuit(false);
+        outer_circuit.finalize_circuit();
 
         // Run static analysis - no variable should appear in only one gate
         auto graph = cdg::UltraStaticAnalyzer(outer_circuit);

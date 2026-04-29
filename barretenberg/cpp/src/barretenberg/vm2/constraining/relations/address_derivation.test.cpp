@@ -72,8 +72,8 @@ TEST(AddressDerivationConstrainingTest, Basic)
 
     auto instance = testing::random_contract_instance();
 
-    FF salted_initialization_hash =
-        poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS, instance.salt, instance.initialization_hash, instance.deployer });
+    FF salted_initialization_hash = poseidon2::hash(
+        { DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer });
 
     FF partial_address =
         poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS, instance.original_contract_class_id, salted_initialization_hash });
@@ -225,8 +225,8 @@ TEST(AddressDerivationConstrainingTest, NegativeIVKNotOnCurve)
     // Mutate ivk to a point not on the curve.
     instance.public_keys.incoming_viewing_key = AffinePoint(1, 2);
 
-    FF salted_initialization_hash =
-        poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS, instance.salt, instance.initialization_hash, instance.deployer });
+    FF salted_initialization_hash = poseidon2::hash(
+        { DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer });
 
     FF partial_address =
         poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS, instance.original_contract_class_id, salted_initialization_hash });

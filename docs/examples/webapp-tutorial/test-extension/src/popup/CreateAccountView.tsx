@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 
 import { createAndActivateAccount } from './helpers';
 
-// docs:start:create-account-view
 export function CreateAccountView({ onCreated }: { onCreated: () => void }) {
   const [alias, setAlias] = useState('');
   const [creating, setCreating] = useState(false);
@@ -48,4 +47,3 @@ export function CreateAccountView({ onCreated }: { onCreated: () => void }) {
     </div>
   );
 }
-// docs:end:create-account-view

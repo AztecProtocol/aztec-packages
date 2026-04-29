@@ -3,6 +3,7 @@ import {
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_TX_LIFETIME,
+  MEGA_VK_LENGTH_IN_FIELDS,
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -15,7 +16,7 @@ import { PrivateCircuitPublicInputs, PrivateKernelTailCircuitPublicInputs } from
 import { PublicKeys } from '@aztec/stdlib/keys';
 import { makeTxRequest } from '@aztec/stdlib/testing';
 import { PrivateCallExecutionResult, PrivateExecutionResult, type TxRequest } from '@aztec/stdlib/tx';
-import { VerificationKey, VerificationKeyData } from '@aztec/stdlib/vks';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { mock } from 'jest-mock-extended';
 import times from 'lodash.times';
@@ -67,7 +68,7 @@ describe('Private Kernel Sequencer', () => {
 
     return new PrivateCallExecutionResult(
       Buffer.alloc(0),
-      VerificationKey.makeFakeMegaHonk(),
+      Buffer.alloc(MEGA_VK_LENGTH_IN_FIELDS * Fr.SIZE_IN_BYTES),
       new Map(),
       publicInputs,
       [],
