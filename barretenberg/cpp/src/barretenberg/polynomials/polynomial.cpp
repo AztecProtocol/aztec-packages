@@ -120,6 +120,8 @@ Polynomial<Fr>::Polynomial(std::span<const Fr> interpolation_points,
     : Polynomial(interpolation_points.size(), virtual_size)
 {
     BB_ASSERT_GT(coefficients_.size(), static_cast<size_t>(0));
+    // compute_efficient_interpolation indexes evaluations by interpolation_points.size()
+    BB_ASSERT_EQ(interpolation_points.size(), evaluations.size());
 
     polynomial_arithmetic::compute_efficient_interpolation(
         evaluations.data(), coefficients_.data(), interpolation_points.data(), coefficients_.size());
@@ -245,12 +247,15 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::create_non_parallel_zero_i
 template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_end_index)
 {
     BB_ASSERT_LTE(new_end_index, end_index());
+    // Preserve the SharedShiftedVirtualZeroesArray invariant start_ <= end_; without this,
+    // end_ < start_ would silently underflow size() to SIZE_MAX.
+    BB_ASSERT_GTE(new_end_index, start_index());
     coefficients_.end_ = new_end_index;
 }
 
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
-    Polynomial result = *this;
+    Polynomial result;
     // Make 0..virtual_size usable
     result.coefficients_ = _clone(coefficients_, virtual_size() - end_index(), start_index());
     return result;

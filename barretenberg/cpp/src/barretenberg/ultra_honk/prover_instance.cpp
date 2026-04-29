@@ -39,7 +39,7 @@ template <typename Flavor> ProverInstance_<Flavor>::ProverInstance_(Circuit& cir
     {
         BB_BENCH_NAME("finalize_circuit");
         if (!circuit.circuit_finalized) {
-            circuit.finalize_circuit(/* ensure_nonzero = */ true);
+            circuit.finalize_circuit();
         }
         // Compute block offsets before dyadic size so that compute_dyadic_size can account for the lookup table offset
         circuit.blocks.compute_offsets(TRACE_OFFSET);
