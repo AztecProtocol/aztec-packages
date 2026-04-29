@@ -165,6 +165,21 @@ TEST(CrsFactory, Bn254G2CorruptionDetected)
     fs::remove_all(temp_path);
 }
 
+// Check that a `bn254_g2.dat` containing the point at infinity is rejected, even though it is technically on-curve.
+TEST(CrsFactory, Bn254G2InfinityRejected)
+{
+    const std::filesystem::path temp_path = "barretenberg_srs_test_crs_g2_infinity";
+    fs::remove_all(temp_path);
+    fs::create_directories(temp_path);
+
+    std::vector<uint8_t> infinity_bytes(128, 0xFF);
+    bb::write_file(temp_path / "bn254_g2.dat", infinity_bytes);
+
+    EXPECT_THROW_OR_ABORT(bb::get_bn254_g2_data(temp_path), "point at infinity");
+
+    fs::remove_all(temp_path);
+}
+
 TEST(CrsFactory, Bn254CompressedChunkHashFirstChunk)
 {
     // Download the first chunk of compressed CRS from CDN and verify its hash.
