@@ -95,6 +95,8 @@ pub fn mark_as_initialized_from_public_initializer(context: PublicContext) {
 /// Asserts that the contract has been initialized, from public's perspective.
 ///
 /// Checks that the public initialization nullifier exists.
+// All external public contract functions will call this function (except those marked as #[no_init]), so we
+// want to make sure that we don't include a copy of its body for each of them.
 #[inline_never]
 pub unconstrained fn assert_is_initialized_public(context: PublicContext) {
     let init_nullifier = compute_public_initialization_nullifier(context.this_address());
