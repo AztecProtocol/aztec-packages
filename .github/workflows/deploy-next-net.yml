@@ -67,6 +67,6 @@ jobs:
     with:
       network: next-net
       semver: ${{ needs.get-image-tag.outputs.semver }}
-      docker_image: "aztecprotocol/aztec:${{ needs.get-image-tag.outputs.tag }}"
+      aztec_docker_image: "aztecprotocol/aztec:${{ needs.get-image-tag.outputs.tag }}"
       ref: ${{ github.ref }}
     secrets: inherit
