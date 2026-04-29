@@ -302,9 +302,11 @@ _deploy_defaults:
 
   # RPC ingress
   RPC_INGRESS_ENABLED: "false"
-  # Empty JSON arrays for the ingress lists; per-network YAMLs set real values.
-  RPC_INGRESS_HOSTS: "[]"
-  RPC_INGRESS_SSL_CERT_NAMES: "[]"
+  # Real YAML lists (var.deploy is type=any in Terraform); per-network YAMLs
+  # set actual hostnames / cert names. yq's *+ deep-merge concatenates with the
+  # empty defaults, so per-network values pass through unchanged.
+  RPC_INGRESS_HOSTS: []
+  RPC_INGRESS_SSL_CERT_NAMES: []
   RPC_REPLICAS: "1"
   FISHERMAN_REPLICAS: "0"
   FISHERMAN_MNEMONIC_START_INDEX: "1"

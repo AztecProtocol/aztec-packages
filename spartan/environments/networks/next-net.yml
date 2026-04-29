@@ -13,9 +13,11 @@ deploy:
   TX_FILE_STORE_BUCKET_DIRECTORY: '${TX_FILE_STORE_BUCKET_DIRECTORY:-next-net/txs}'
   CREATE_ROLLUP_CONTRACTS: 'true'
   RPC_INGRESS_ENABLED: 'true'
-  RPC_INGRESS_HOSTS: '''["nextnet.aztec-labs.com"]'''
+  RPC_INGRESS_HOSTS:
+    - 'nextnet.aztec-labs.com'
   RPC_INGRESS_STATIC_IP_NAME: 'nextnet-rpc-ip'
-  RPC_INGRESS_SSL_CERT_NAMES: '''["nextnet-rpc-cert"]'''
+  RPC_INGRESS_SSL_CERT_NAMES:
+    - 'nextnet-rpc-cert'
   VALIDATOR_RESOURCE_PROFILE: 'prod-spot'
 
 env:
