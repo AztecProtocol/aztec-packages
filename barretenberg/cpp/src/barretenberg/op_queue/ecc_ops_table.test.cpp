@@ -316,10 +316,10 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
             expected_reconstructed.push_back(op);
         }
 
-        EXPECT_EQ(expected_reconstructed.size(), ultra_ops_table.get_reconstructed().size());
+        EXPECT_EQ(expected_reconstructed.size(), ultra_ops_table.get_reconstructed(/*include_zk_ops=*/false).size());
 
         // Compare to the op-queue's reconstruction (should include the gap as no-ops)
-        EXPECT_EQ(expected_reconstructed, ultra_ops_table.get_reconstructed());
+        EXPECT_EQ(expected_reconstructed, ultra_ops_table.get_reconstructed(/*include_zk_ops=*/false));
     }
 }
 

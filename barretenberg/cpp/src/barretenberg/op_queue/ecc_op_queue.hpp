@@ -141,8 +141,14 @@ class ECCOpQueue {
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
     void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
 
-    // Reconstruct the full table of ultra ops in contiguous memory from the independent subtables
-    void construct_full_ultra_ops_table() { ultra_ops_reconstructed = ultra_ops_table.get_reconstructed(); }
+    // Reconstruct the full table of ultra ops in contiguous memory from the independent subtables.
+    // The ZK prefix is included exactly when both a fixed-location append has been performed and the ZK
+    // columns have been constructed (i.e. the full Chonk path).
+    void construct_full_ultra_ops_table()
+    {
+        const bool include_zk_ops = ultra_ops_table.has_fixed_append_offset() && ultra_ops_table.has_zk_ops();
+        ultra_ops_reconstructed = ultra_ops_table.get_reconstructed(include_zk_ops);
+    }
 
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.num_ultra_rows(); }
     size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); } // actual operation count without padding
@@ -152,7 +158,7 @@ class ECCOpQueue {
     // getters more memory efficient
 
     // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already.
-    // The hiding op (set via append_hiding_op) is always prepended at index 0.
+    // The hiding op is always prepended at index 0.
     std::vector<ECCVMOperation>& get_eccvm_ops()
     {
         if (eccvm_ops_reconstructed.empty()) {
@@ -361,18 +367,15 @@ class ECCOpQueue {
 
   private:
     // === Hiding Op State ===
-    // The hiding op exists in both the ECCVM and Ultra tables (same Px, Py values, opcode q_eq=q_reset=1):
-    // - ECCVM: Stored here and prepended at index 0 during get_eccvm_ops() reconstruction.
-    // - Ultra: Pushed into the Ultra ops table, landing at index 4 of the reconstructed table (after 1 no-op
-    //   + 3 random padding ops).
-    //
-    // The hiding op is the first "real" op that enters the accumulation:
-    // - ECCVM: prepending puts it at index 0; padding ops don't exist in ECCVM table.
-    // - Translator: skips the first 4 Ultra ops (padding), so accumulation starts at the hiding op.
-    //
-    // This alignment is required for the translation check (ECCVM and Translator must compute
-    // the same accumulated_result). ECCVM places it at row 1 (lagrange_second) where on-curve
-    // and eq constraints are gated off, allowing non-curve (x, y) values.
+    // The hiding op exists in both the ECCVM and Ultra tables (same Px, Py values, opcode q_eq=q_reset=1) so the
+    // translation check holds. It is set by exactly one of two entry points, depending on the proving flow:
+    //   - Chonk: UltraEccOpsTable::construct_zk_columns() builds the full ZK prefix (1 no-op + 3 random + 1 hiding)
+    //     at the front of the reconstructed Ultra table; the hiding op lands at index 4.
+    //   - Goblin AVM / legacy tests: append_hiding_op() pushes the Ultra side into the current subtable directly,
+    //     with no surrounding prefix.
+    // In both cases the ECCVM side is stored here and prepended to the reconstructed ECCVM table at index 0 by
+    // get_eccvm_ops(), placing it at row 1 (lagrange_second) where the on-curve and eq constraints are gated off
+    // so that non-curve (x, y) values are accepted.
     ECCVMOperation hiding_op_for_eccvm;
     bool has_hiding_op = false;
 
