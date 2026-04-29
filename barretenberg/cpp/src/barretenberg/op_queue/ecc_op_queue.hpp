@@ -49,12 +49,12 @@ class ECCOpQueue {
     EccvmOpsTable eccvm_ops_table;    // table of ops in the ECCVM format
     UltraEccOpsTable ultra_ops_table; // table of ops in the Ultra-arithmetization format
 
-    // Storage for the reconstructed eccvm ops table in contiguous memory. (Intended to be constructed once and for all
-    // prior to ECCVM construction to avoid repeated prepending of subtables in physical memory).
+    // Storage for the reconstructed eccvm ops table in contiguous memory. (Intended to be constructed once and for
+    // all prior to ECCVM construction to avoid repeated traversal of the per-subtable storage.)
     std::vector<ECCVMOperation> eccvm_ops_reconstructed;
 
-    // Storage for the reconstructed ultra ops table in contiguous memory. (Intended to be constructed once and for all
-    // prior to Translator circuit construction to avoid repeated prepending of subtables in physical memory).
+    // Storage for the reconstructed ultra ops table in contiguous memory. (Intended to be constructed once and for
+    // all prior to Translator circuit construction to avoid repeated traversal of the per-subtable storage.)
     std::vector<UltraOp> ultra_ops_reconstructed;
 
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
@@ -276,9 +276,8 @@ class ECCOpQueue {
     /**
      * @brief Writes a no-op to the ultra ops table but adds no eccvm operations.
      *
-     * @details Used by the tail kernel to ensure the op queue wires in Translator are shiftable: the no-op
-     * contributes two zero rows at the start of the tail subtable, which ends up at the top of the final aggregate
-     * table (because the tail is prepended last), giving the Translator's op queue wires two leading zero rows.
+     * @details Adds two zero rows (one no-op = NUM_ROWS_PER_OP rows) to the ultra ops table. Used by the tail
+     * kernel; the leading zero rows are required for polynomial shiftability of the tail subtable.
      */
     UltraOp no_op_ultra_only()
     {

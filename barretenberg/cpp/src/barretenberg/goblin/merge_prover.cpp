@@ -148,7 +148,8 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
  * @details Proves that M_j(X) = L_j(X) + X^k * R_j(X) and deg(L_j) < k for j = 1,2,3,4.
  * Uses degree-check polynomial G(X) and Shplonk for batched openings.
  *
- * L = previous table (T_prev), R = subtable (t)
+ * L = aggregate table up to and including the tail subtable (T_tail), R = the hiding kernel's subtable (t,
+ * appended at a fixed offset and carrying APPEND_TRACE_OFFSET leading zeros), M = the resulting full table (T).
  *
  * @see MERGE_PROTOCOL.md for complete protocol specification.
  * @return MergeProver::MergeProof

@@ -273,7 +273,8 @@ template <class Builder_> class HidingKernelIO {
 
     PairingInputs pairing_inputs;   // Inputs {P0, P1} to an EC pairing check
     G1 kernel_return_data;          // Commitment to the return data of the tail kernel circuit
-    TableCommitments ecc_op_tables; // commitments to merged tables obtained from final Merge verification
+    TableCommitments ecc_op_tables; // commitments to the full merged op queue tables, obtained from the
+                                    // batched merge verification performed inside the hiding kernel
 
     // Total size of the IO public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = HIDING_KERNEL_PUBLIC_INPUTS_SIZE;

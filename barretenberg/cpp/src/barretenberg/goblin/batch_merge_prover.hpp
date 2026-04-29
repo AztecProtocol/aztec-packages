@@ -54,7 +54,7 @@ class BatchMergeProver {
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
     /**
-     * @param op_queue   The ECC op queue containing all accumulated subtables (N subtables in its deque).
+     * @param op_queue   The ECC op queue containing all accumulated subtables (N subtables, in append order).
      * @param transcript Shared prover transcript.
      * @param max_subtables M: the fixed maximum number of subtables (CHONK_MAX_ACCUMULATION_STEPS).
      */
@@ -64,7 +64,7 @@ class BatchMergeProver {
      * @brief Construct the batch merge proof.
      *
      * @details Proves that the full merged table T is the correct concatenation of all N subtables
-     * C_0, ..., C_{N-1} (deque order: C_0 most recently prepended, C_{N-1} oldest) stored in the op_queue.
+     * C_0, ..., C_{N-1} stored in the op_queue in append order (C_0 oldest, C_{N-1} most recently merged).
      *
      * Proof structure:
      *   Prover → Verifier: C_0, .., C_{M-1}, shift_size_0..shift_size_{N-1}, [T]

@@ -17,8 +17,11 @@
 namespace bb {
 
 /**
- * @brief Prover class for the Goblin ECC op queue transcript merge protocol
- *
+ * @brief Prover for the single-step Goblin ECC op queue merge protocol.
+ * @details Proves that the most recently merged subtable concatenates correctly with the prior aggregate table to
+ * form the new aggregate table. Used in the Chonk flow only for the final merge of the hiding kernel's subtable
+ * (placed at a fixed offset). For the multi-subtable batched merge proven once at the end of an IVC, see
+ * BatchMergeProver.
  */
 class MergeProver {
     using Curve = curve::BN254;

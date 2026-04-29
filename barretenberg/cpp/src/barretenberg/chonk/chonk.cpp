@@ -593,7 +593,7 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
  *
  * @details Orchestrates the batched proving flow on a shared transcript:
  *   1. MegaZK Oink (pre-sumcheck commitments for the hiding kernel)
- *   2. Merge proof (FIXED_APPEND — final subtable from hiding kernel)
+ *   2. Merge proof (fixed-location append of the final subtable from the hiding kernel)
  *   3. ECCVM proof (produces translation challenges v, x)
  *   4. IPA proof (separate transcript)
  *   5. Translator Oink + Joint sumcheck + Joint PCS

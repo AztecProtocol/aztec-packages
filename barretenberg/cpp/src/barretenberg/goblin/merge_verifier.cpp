@@ -109,7 +109,8 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
  *
  * @see MERGE_PROTOCOL.md for complete protocol specification.
  * @param proof The merge proof to verify
- * @param input_commitments Commitments to subtable (t) and previous table (T_prev)
+ * @param input_commitments Commitments to the subtable being merged (t) and to the aggregate table prior to this
+ * merge (T_prev, covering all subtables up to and including the tail)
  * @return VerificationResult containing pairing points, merged table commitments, and check results
  */
 template <typename Curve>

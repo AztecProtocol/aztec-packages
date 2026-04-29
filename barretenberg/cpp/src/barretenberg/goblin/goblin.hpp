@@ -75,9 +75,9 @@ class Goblin {
     Goblin(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
-     * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
-     *
-     * @param transcript
+     * @brief Construct a single-step merge proof for the most recently merged subtable.
+     * @details In the Chonk flow this is invoked only for the final fixed-location append of the hiding kernel
+     * subtable; multi-subtable merges are handled by prove_batch_merge().
      */
     MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>()) const;
 
@@ -102,11 +102,12 @@ class Goblin {
     GoblinProof prove();
 
     /**
-     * @brief Recursively verify the next merge proof in the merge verification queue.
-     * @details Proofs are verified in a FIFO manner
+     * @brief Recursively verify the most recent single-step merge proof.
+     * @details In Chonk this is invoked once per IVC, recursively verifying the hiding kernel's fixed-location
+     * append against the prior aggregate table.
      *
      * @param builder The circuit in which the recursive verification will be performed.
-     * @param inputs_commitments The commitment used by the Merge verifier
+     * @param inputs_commitments The commitments used by the Merge verifier (subtable + prior aggregate)
      * @param transcript The transcript to be passed to the MergeRecursiveVerifier.
      * @return Pair of PairingPoints and commitments to the merged tables as read from the proof by the Merge verifier
      */
@@ -116,12 +117,16 @@ class Goblin {
         const std::shared_ptr<RecursiveTranscript>& transcript);
 
     /**
-     * @brief Construct a batch merge proof for all accumulated subtables.
+     * @brief Construct a batched merge proof for all subtables accumulated during the IVC.
+     * @details Proves in a single shot that the full merged table is the correct concatenation of all per-circuit
+     * subtables. Run once at the end of the IVC, replacing the per-circuit merge proofs of the legacy scheme.
      */
     void prove_batch_merge();
 
     /**
-     * @brief Recursively verify the delayed batch merge proof.
+     * @brief Recursively verify the batched merge proof inside the hiding kernel.
+     * @details `hash` is the running ECC-op hash chained over all per-circuit subtable commitments observed
+     * during accumulation; the in-circuit verifier checks the proof's column commitments against it.
      */
     std::pair<PairingPoints, BatchRecursiveTableCommitments> recursively_verify_batch_merge(
         MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash);
