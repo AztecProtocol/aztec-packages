@@ -150,6 +150,7 @@ inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 128;
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
+// Trigger rebuild
 inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 220788;
 
 // ========================================
