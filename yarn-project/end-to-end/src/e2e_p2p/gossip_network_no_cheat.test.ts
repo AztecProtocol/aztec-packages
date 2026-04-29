@@ -10,6 +10,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
@@ -248,13 +249,22 @@ describe('e2e_p2p_network', () => {
     // Gather signers from attestations downloaded from L1
     const blockNumber = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]).then(r => r.blockNumber!);
     const [checkpointedBlock] = await nodes[0].getCheckpointedBlocks(blockNumber, 1);
-    const [publishedCheckpoint] = await nodes[0].getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
+    const [publishedCheckpoint] = await nodes[0].getCheckpoints(checkpointedBlock!.checkpointNumber, 1, {
+      includeAttestations: true,
+    });
     const signatureContext = {
       chainId: t.ctx.aztecNodeConfig.l1ChainId,
       rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     };
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
-    const attestations = publishedCheckpoint.attestations
+    const checkpoint = new Checkpoint(
+      publishedCheckpoint.archive,
+      publishedCheckpoint.header,
+      [],
+      publishedCheckpoint.number,
+      publishedCheckpoint.feeAssetPriceModifier,
+    );
+    const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
+    const attestations = (publishedCheckpoint.attestations ?? [])
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));

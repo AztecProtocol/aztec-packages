@@ -3,6 +3,7 @@ import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
@@ -192,13 +193,22 @@ describe('e2e_p2p_network', () => {
     const receipt = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]);
     const blockNumber = receipt.blockNumber!;
     const [checkpointedBlock] = await nodes[0].getCheckpointedBlocks(blockNumber, 1);
-    const [publishedCheckpoint] = await nodes[0].getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
+    const [publishedCheckpoint] = await nodes[0].getCheckpoints(checkpointedBlock!.checkpointNumber, 1, {
+      includeAttestations: true,
+    });
     const signatureContext = {
       chainId: t.ctx.aztecNodeConfig.l1ChainId,
       rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     };
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
-    const attestations = publishedCheckpoint.attestations
+    const checkpoint = new Checkpoint(
+      publishedCheckpoint.archive,
+      publishedCheckpoint.header,
+      [],
+      publishedCheckpoint.number,
+      publishedCheckpoint.feeAssetPriceModifier,
+    );
+    const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
+    const attestations = (publishedCheckpoint.attestations ?? [])
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
