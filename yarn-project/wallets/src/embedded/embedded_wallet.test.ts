@@ -26,22 +26,22 @@ describe('EmbeddedWallet', () => {
   let wallet: TestWallet;
   let simulateTx: jest.MockedFunction<PXE['simulateTx']>;
   let proveTx: jest.MockedFunction<PXE['proveTx']>;
-  let getPredictedMinFees: jest.MockedFunction<AztecNode['getPredictedMinFees']>;
+  let getCurrentMinFees: jest.MockedFunction<AztecNode['getCurrentMinFees']>;
   let getNodeInfo: jest.MockedFunction<AztecNode['getNodeInfo']>;
 
   beforeEach(() => {
     simulateTx = jest.fn();
     proveTx = jest.fn();
-    getPredictedMinFees = jest.fn();
+    getCurrentMinFees = jest.fn();
     getNodeInfo = jest.fn();
     pxe = { simulateTx, proveTx } as unknown as PXE;
-    node = { getPredictedMinFees, getNodeInfo } as unknown as AztecNode;
+    node = { getCurrentMinFees, getNodeInfo } as unknown as AztecNode;
     wallet = new TestWallet(pxe, node, {} as WalletDB, {} as AccountContractsProvider);
   });
 
   describe('sendTx', () => {
     it('passes sendMessagesAs as senderForTags to PXE simulation', async () => {
-      getPredictedMinFees.mockResolvedValue([new GasFees(2, 2)]);
+      getCurrentMinFees.mockResolvedValue(new GasFees(2, 2));
       getNodeInfo.mockResolvedValue({ l1ChainId: 1, rollupVersion: 1 } as any);
       simulateTx.mockResolvedValue(makeMinimalSimResult());
       proveTx.mockRejectedValue(new Error('stop-at-prove'));
