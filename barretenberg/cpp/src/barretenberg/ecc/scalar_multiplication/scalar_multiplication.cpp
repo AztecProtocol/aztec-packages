@@ -86,10 +86,10 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
 }
 
 template <typename Curve>
-size_t MSM<Curve>::compute_scalar_slice_weights(std::span<const typename Curve::ScalarField> scalars,
-                                                std::span<const uint32_t> nonzero_indices,
-                                                uint32_t bits_per_slice,
-                                                std::vector<uint16_t>& weights) noexcept
+void MSM<Curve>::compute_scalar_slice_weights(std::span<const typename Curve::ScalarField> scalars,
+                                              std::span<const uint32_t> nonzero_indices,
+                                              uint32_t bits_per_slice,
+                                              std::vector<uint16_t>& weights) noexcept
 {
     // weight = ceil(bit_length / bps) + FIXED_PER_SCALAR_WEIGHT. The fixed term approximates the
     // O(num_rounds) per-scalar overhead in build_schedule, sort_schedule, and reduce_buckets that
@@ -102,37 +102,19 @@ size_t MSM<Curve>::compute_scalar_slice_weights(std::span<const typename Curve::
     BB_ASSERT_GT(bits_per_slice, 0U);
 
     const size_t n = nonzero_indices.size();
-    weights.assign(n, 0);
-
-    const size_t num_cpus = get_num_cpus();
-    std::vector<size_t> thread_sums(num_cpus, 0);
+    weights.resize(n);
 
     parallel_for([&](const ThreadChunk& chunk) {
-        BB_ASSERT_EQ(chunk.total_threads, thread_sums.size());
-        auto range = chunk.range(n);
-        if (range.empty()) {
-            return;
-        }
-        size_t local_sum = 0;
-        for (size_t k : range) {
+        for (size_t k : chunk.range(n)) {
             const auto& scalar = scalars[nonzero_indices[k]];
             // Scalars were filtered for nonzero and are in non-Montgomery form, so get_msb()
             // returns a valid bit index in [0, NUM_BITS_IN_FIELD).
             const uint64_t msb = uint256_t{ scalar.data[0], scalar.data[1], scalar.data[2], scalar.data[3] }.get_msb();
             const size_t bit_length = static_cast<size_t>(msb) + 1;
-            const uint16_t weight =
+            weights[k] =
                 static_cast<uint16_t>((bit_length + bits_per_slice - 1) / bits_per_slice) + FIXED_PER_SCALAR_WEIGHT;
-            weights[k] = weight;
-            local_sum += weight;
         }
-        thread_sums[chunk.thread_index] = local_sum;
     });
-
-    size_t total = 0;
-    for (size_t s : thread_sums) {
-        total += s;
-    }
-    return total;
 }
 
 template <typename Curve>
@@ -160,8 +142,10 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
             continue;
         }
         const uint32_t bps = get_optimal_log_num_buckets(n);
-        grand_total_weight +=
-            compute_scalar_slice_weights(scalars[i], msm_scalar_indices[i], bps, msm_scalar_weights[i]);
+        compute_scalar_slice_weights(scalars[i], msm_scalar_indices[i], bps, msm_scalar_weights[i]);
+        for (uint16_t w : msm_scalar_weights[i]) {
+            grand_total_weight += w;
+        }
     }
 
     const size_t num_threads = get_num_cpus();

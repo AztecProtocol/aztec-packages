@@ -291,12 +291,11 @@ template <typename Curve> class MSM {
     /** @brief Compute per-scalar slice-count weights ceil(bit_length / bits_per_slice).
      *  @details Parallel over nonzero_indices. Scalars must be in non-Montgomery form (as left
      *           by transform_scalar_and_get_nonzero_scalar_indices). Weights drive thread
-     *           partitioning in get_work_units.
-     *  @return Sum of weights across all nonzero scalars (used to compute per-thread targets). */
-    static size_t compute_scalar_slice_weights(std::span<const ScalarField> scalars,
-                                               std::span<const uint32_t> nonzero_indices,
-                                               uint32_t bits_per_slice,
-                                               std::vector<uint16_t>& weights) noexcept;
+     *           partitioning in get_work_units. */
+    static void compute_scalar_slice_weights(std::span<const ScalarField> scalars,
+                                             std::span<const uint32_t> nonzero_indices,
+                                             uint32_t bits_per_slice,
+                                             std::vector<uint16_t>& weights) noexcept;
 
     /** @brief Distribute multiple MSMs across threads with balanced bucket-accumulation work.
      *  @details Per-thread assignment is a contiguous range of each MSM's nonzero-scalar
