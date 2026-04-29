@@ -26,21 +26,6 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
 
     static constexpr std::array<size_t, 4> SUBRELATION_PARTIAL_LENGTHS{ 7, 7, 7, 7 };
 
-    static constexpr fr D1 = QuadParams::D1;
-    static constexpr fr D2 = QuadParams::D2;
-    static constexpr fr D3 = QuadParams::D3;
-    static constexpr fr D4 = QuadParams::D4;
-    static constexpr fr SIGMA = QuadParams::SIGMA;
-
-    static constexpr fr A11 = QuadParams::alpha_1_1, A12 = QuadParams::alpha_1_2, A13 = QuadParams::alpha_1_3;
-    static constexpr fr A21 = QuadParams::alpha_2_1, A22 = QuadParams::alpha_2_2, A23 = QuadParams::alpha_2_3;
-    static constexpr fr A31 = QuadParams::alpha_3_1, A32 = QuadParams::alpha_3_2, A33 = QuadParams::alpha_3_3;
-
-    static constexpr fr TWO_D1_MINUS_3 = D1 + D1 - fr(3);
-    static constexpr fr SIGMA_PLUS_2 = SIGMA + fr(2);
-    static constexpr fr B3_U0_COEF = (SIGMA + fr(2)) * D1 - SIGMA - fr(3);
-    static constexpr fr D1_MINUS_3 = D1 - fr(3);
-
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
         return in.q_poseidon2_double_internal_terminal.is_zero();
@@ -84,41 +69,20 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
         auto u_2 = pow5(Accumulator(w_o + q_o));
         auto u_3 = pow5(Accumulator(w_4 + q_4));
 
-        // ── Vandermonde RHS for the current row ──
-        // Share u_0 * D_1 between b_1 and b_2: u_0*(2 D_1 - 3) = 2*(u_0*D_1) - 3*u_0
-        auto u_0_D1 = u_0 * D1;
-        auto b_1 = Accumulator(w_r) - u_0_D1;
-        auto b_2 = Accumulator(w_o - w_r - w_r) + (u_0_D1 + u_0_D1) - (u_0 + u_0 + u_0) - u_1 * D1;
-        auto b_3 = Accumulator(w_4 - w_o - w_r * SIGMA_PLUS_2) + u_0 * B3_U0_COEF + u_1 * D1_MINUS_3 - u_2 * D1;
+        // ── Closed-form 4-round propagation ──
+        // See `Poseidon2DoubleInternalRelationImpl` for the derivation of the 28 coefficients.
+        // Same body here — only the shift-side check below differs (direct match against
+        // standard-encoded successor instead of forward Vandermonde).
+        const auto& C = QuadParams::tables.closed_form;
+        auto w_part_0 = w_r * C[0][0] + w_o * C[0][1] + w_4 * C[0][2];
+        auto w_part_1 = w_r * C[1][0] + w_o * C[1][1] + w_4 * C[1][2];
+        auto w_part_2 = w_r * C[2][0] + w_o * C[2][1] + w_4 * C[2][2];
+        auto w_part_3 = w_r * C[3][0] + w_o * C[3][1] + w_4 * C[3][2];
 
-        // ── Lagrange solve for (s_1, s_2, s_3) at row start ──
-        auto s1 = b_1 * A11 + b_2 * A12 + b_3 * A13;
-        auto s2 = b_1 * A21 + b_2 * A22 + b_3 * A23;
-        auto s3 = b_1 * A31 + b_2 * A32 + b_3 * A33;
-
-        // ── Iterate the recurrence 4 rounds ──
-        auto step = [](Accumulator& x1, Accumulator& x2, Accumulator& x3, const Accumulator& u) {
-            auto sum = x1 + x2 + x3;
-            auto t = u + sum;
-            Accumulator new_s1 = t + x1 * (D2 - fr(1));
-            Accumulator new_s2 = t + x2 * (D3 - fr(1));
-            Accumulator new_s3 = t + x3 * (D4 - fr(1));
-            x1 = new_s1;
-            x2 = new_s2;
-            x3 = new_s3;
-        };
-
-        step(s1, s2, s3, u_0);
-        step(s1, s2, s3, u_1);
-        step(s1, s2, s3, u_2);
-        // After 3 steps, (s1, s2, s3) = state[1..3] at round 3.
-        auto T_3 = s1 + s2 + s3;
-        auto out_0 = u_3 * D1 + T_3;
-
-        step(s1, s2, s3, u_3);
-        auto& out_1 = s1;
-        auto& out_2 = s2;
-        auto& out_3 = s3;
+        auto out_0 = u_0 * C[0][3] + u_1 * C[0][4] + u_2 * C[0][5] + u_3 * C[0][6] + Accumulator(w_part_0);
+        auto out_1 = u_0 * C[1][3] + u_1 * C[1][4] + u_2 * C[1][5] + u_3 + Accumulator(w_part_1);
+        auto out_2 = u_0 * C[2][3] + u_1 * C[2][4] + u_2 * C[2][5] + u_3 + Accumulator(w_part_2);
+        auto out_3 = u_0 * C[3][3] + u_1 * C[3][4] + u_2 * C[3][5] + u_3 + Accumulator(w_part_3);
 
         // ── Direct match against standard-encoded successor ──
         const auto q_by_scaling_m = q_sel * scaling_factor;

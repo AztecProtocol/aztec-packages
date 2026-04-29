@@ -59,25 +59,14 @@ template <typename FF_> class Poseidon2TransitionEntryRelationImpl {
     };
 
     static constexpr fr D1 = QuadParams::D1;
-    static constexpr fr D2 = QuadParams::D2;
-    static constexpr fr D3 = QuadParams::D3;
-    static constexpr fr D4 = QuadParams::D4;
-    static constexpr fr SIGMA = QuadParams::SIGMA;
 
-    // Linear coefficients on (w_r, w_o, w_4) in A_1 (state[0] at round 2):
-    //   coefficient of w_k = D_{k+1} + 2
-    static constexpr fr A1_COEF_WR = D2 + fr(2);
-    static constexpr fr A1_COEF_WO = D3 + fr(2);
-    static constexpr fr A1_COEF_W4 = D4 + fr(2);
-
-    // Linear coefficients on (w_r, w_o, w_4) in A_2 (state[0] at round 3):
-    //   coefficient of w_k = D_{k+1}^2 + D_{k+1} + Σ + 4
-    static constexpr fr A2_COEF_WR = D2 * D2 + D2 + SIGMA + fr(4);
-    static constexpr fr A2_COEF_WO = D3 * D3 + D3 + SIGMA + fr(4);
-    static constexpr fr A2_COEF_W4 = D4 * D4 + D4 + SIGMA + fr(4);
-
-    // Coefficient on u_0 in A_2:  Σ + 6
-    static constexpr fr A2_COEF_U0 = SIGMA + fr(6);
+    // Linear round-propagation vectors shared with the closed-form interior relation:
+    //   A_one[j]  = D_{j+1} + 2                    — wire coefs in A_1 (state[0] at round 2)
+    //   A2_one[j] = D_{j+1}^2 + D_{j+1} + Σ + 4    — wire coefs in A_2 (state[0] at round 3)
+    //   sum_A_one = Σ + 6                          — u_0 coefficient in A_2
+    static constexpr auto& A_one = QuadParams::A_one;
+    static constexpr auto& A2_one = QuadParams::A2_one;
+    static constexpr fr sum_A_one = QuadParams::sum_A_one;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -127,14 +116,14 @@ template <typename FF_> class Poseidon2TransitionEntryRelationImpl {
         auto a0_body = u_0 * D1 + Accumulator(w_r + w_o + w_4) - Accumulator(w_r_shift);
         std::get<0>(evals) += q_by_scaling * a0_body;
 
-        // ── A_1: w_o_shift - D_1 u_1 - 3 u_0 - (D_2+2) w_r - (D_3+2) w_o - (D_4+2) w_4 = 0 ──
-        auto a1_body = u_1 * D1 + u_0 * fr(3) + Accumulator(w_r * A1_COEF_WR + w_o * A1_COEF_WO + w_4 * A1_COEF_W4) -
+        // ── A_1: w_o_shift - D_1 u_1 - 3 u_0 - (A·1)_0 w_r - (A·1)_1 w_o - (A·1)_2 w_4 = 0 ──
+        auto a1_body = u_1 * D1 + u_0 * fr(3) + Accumulator(w_r * A_one[0] + w_o * A_one[1] + w_4 * A_one[2]) -
                        Accumulator(w_o_shift);
         std::get<1>(evals) += q_by_scaling * a1_body;
 
-        // ── A_2: w_4_shift - D_1 u_2 - 3 u_1 - (Σ+6) u_0 - (linear in w_r, w_o, w_4) = 0 ──
-        auto a2_body = u_2 * D1 + u_1 * fr(3) + u_0 * A2_COEF_U0 +
-                       Accumulator(w_r * A2_COEF_WR + w_o * A2_COEF_WO + w_4 * A2_COEF_W4) - Accumulator(w_4_shift);
+        // ── A_2: w_4_shift - D_1 u_2 - 3 u_1 - (Σ+6) u_0 - (A^2·1)_j-weighted wire combo = 0 ──
+        auto a2_body = u_2 * D1 + u_1 * fr(3) + u_0 * sum_A_one +
+                       Accumulator(w_r * A2_one[0] + w_o * A2_one[1] + w_4 * A2_one[2]) - Accumulator(w_4_shift);
         std::get<2>(evals) += q_by_scaling * a2_body;
     }
 };
