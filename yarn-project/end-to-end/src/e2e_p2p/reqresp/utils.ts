@@ -57,10 +57,10 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
 
 export async function cleanupReqrespTest(params: { t: P2PNetworkTest; nodes?: WorkerAztecNode[]; dataDir: string }) {
   const { t, nodes, dataDir } = params;
+  await t.teardown();
   if (nodes) {
     await t.stopNodes(nodes);
   }
-  await t.teardown();
   for (let i = 0; i < NUM_VALIDATORS; i++) {
     fs.rmSync(`${dataDir}-${i}`, { recursive: true, force: true, maxRetries: 3 });
   }

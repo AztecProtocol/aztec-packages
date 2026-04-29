@@ -97,8 +97,8 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
   });
 
   afterAll(async () => {
-    await t.stopNodes([...nodes, sentinel]);
     await t.teardown();
+    await t.stopNodes([...nodes, sentinel]);
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }

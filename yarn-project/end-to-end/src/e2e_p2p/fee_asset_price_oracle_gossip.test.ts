@@ -71,8 +71,8 @@ describe('e2e_p2p_network', () => {
 
   afterEach(async () => {
     await tryStop(proverNode);
-    await t.stopNodes(nodes);
     await t.teardown();
+    await t.stopNodes(nodes);
     for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
@@ -171,14 +171,12 @@ describe('e2e_p2p_network', () => {
     // Gather signers from attestations downloaded from L1.
     // The checkpoint may not have been published to L1 yet when nodes finish syncing blocks,
     // so retry until the archiver has it.
-    const blockNumber = await nodes[0].getBlockNumber();
-    const checkpointNum = CheckpointNumber.fromBlockNumber(blockNumber);
     const [publishedCheckpoint] = await retryUntil(
       async () => {
-        const cps = await nodes[0].getCheckpoints(checkpointNum, 1);
+        const cps = await nodes[0].getCheckpoints(CheckpointNumber(1), 1);
         return cps.length > 0 ? cps : undefined;
       },
-      `checkpoint ${checkpointNum} to be published`,
+      `first checkpoint to be published`,
       60,
       2,
     );

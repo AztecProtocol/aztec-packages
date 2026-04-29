@@ -109,9 +109,9 @@ describe('e2e_p2p_preferred_network', () => {
   });
 
   afterEach(async () => {
-    const allNodes: P2PTestNode[] = [t.ctx.aztecNodeService, ...nodes, ...validators, ...preferredNodes];
-    await t.stopNodes(allNodes);
     await t.teardown();
+    const workerNodes: P2PTestNode[] = [...nodes, ...validators, ...preferredNodes];
+    await t.stopNodes(workerNodes);
     for (let i = 0; i < NUM_NODES + NUM_VALIDATORS + NUM_PREFERRED_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }

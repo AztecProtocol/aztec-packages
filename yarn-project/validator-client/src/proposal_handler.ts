@@ -101,6 +101,16 @@ export class ProposalHandler {
   /** Returns current validator addresses for own-proposal detection. Set via register(). */
   private getOwnValidatorAddresses?: () => string[];
 
+  /**
+   * In-flight blob uploads kicked off by tryUploadBlobsForCheckpoint. Tracked so stop() can drain them
+   * before the underlying L2BlockSource (LMDB) is torn down — otherwise the orphan promise's native
+   * cursor work races V8 isolate teardown and aborts the process.
+   */
+  private pendingBlobUploads = new Set<Promise<void>>();
+
+  /** Flag set by stop() to reject new blob uploads that arrive after the drain has begun. */
+  private stopped = false;
+
   constructor(
     private checkpointsBuilder: FullNodeCheckpointsBuilder,
     private worldState: WorldStateSynchronizer,
@@ -935,9 +945,30 @@ export class ProposalHandler {
 
   /** Triggers blob upload for a checkpoint if the blob client can upload (fire and forget). */
   protected tryUploadBlobsForCheckpoint(proposal: CheckpointProposalCore, proposalInfo: LogData): void {
-    if (this.blobClient.canUpload()) {
-      void this.uploadBlobsForCheckpoint(proposal, proposalInfo);
+    if (this.stopped) {
+      return;
     }
+    if (this.blobClient.canUpload()) {
+      const upload = this.uploadBlobsForCheckpoint(proposal, proposalInfo).finally(() => {
+        this.pendingBlobUploads.delete(upload);
+      });
+      this.pendingBlobUploads.add(upload);
+    }
+  }
+
+  /**
+   * Drains any in-flight blob uploads. Must be called before the L2BlockSource (LMDB) is torn down
+   * so that orphan promises don't race the V8 isolate teardown.
+   */
+  public async stop(): Promise<void> {
+    this.stopped = true;
+    const inFlight = this.pendingBlobUploads.size;
+    this.log.verbose(`ProposalHandler stopping, awaiting ${inFlight} in-flight blob upload(s)`);
+    if (inFlight === 0) {
+      return;
+    }
+    await Promise.allSettled([...this.pendingBlobUploads]);
+    this.log.verbose(`ProposalHandler stopped, drained ${inFlight} blob upload(s)`);
   }
 
   /** Uploads blobs for a checkpoint to the filestore. */

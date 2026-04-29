@@ -77,8 +77,8 @@ describe('e2e_p2p_network', () => {
   afterEach(async () => {
     await tryStop(proverAztecNode);
     await tryStop(monitoringNode);
-    await t.stopNodes(nodes);
     await t.teardown();
+    await t.stopNodes(nodes);
     for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }

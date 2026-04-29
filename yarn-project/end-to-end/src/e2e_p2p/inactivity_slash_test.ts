@@ -161,8 +161,8 @@ export class P2PInactivityTest {
   }
 
   public async teardown() {
-    await this.test.stopNodes(this.nodes);
     await this.test.teardown();
+    await this.test.stopNodes(this.nodes);
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${this.dataDir}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }

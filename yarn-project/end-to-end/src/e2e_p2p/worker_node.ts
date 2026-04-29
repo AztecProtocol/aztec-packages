@@ -212,12 +212,28 @@ export async function createWorkerAztecNode(workerConfig: WorkerNodeConfig): Pro
   // stop() gracefully shuts down the worker node and terminates the thread.
   // Captures the ELU summary in the window after stopNode (which flushes lastSummaryStats inside
   // the worker) and before worker termination (after which RPC calls fail).
+  //
+  // The stopNode RPC is bounded by STOP_NODE_DEADLINE_MS so a hung worker can't block the test.
+  // Errors are logged rather than swallowed so a regression where the RPC consistently fails
+  // becomes visible in the test output.
   proxy.stop = async () => {
+    // 15 s gives a busy worker validator time to drain its full stop chain (validator client
+    // + proposalHandler drain + p2p client + world-state + archiver) on heavy slashing tests
+    // (inactivity_slash, validators_sentinel) where 5 s was too tight. If a worker genuinely
+    // hangs, the permanent error listener installed at the bottom of createWorkerAztecNode
+    // catches the napi error from the abandoned worker after we worker.terminate().
+    const stopNodeDeadlineMs = 15_000;
     try {
-      await call('stopNode');
-      cachedEluStats = await call('getEluStats');
-    } catch {
-      // Worker may already be dead
+      const stopChain = (async () => {
+        await call('stopNode');
+        cachedEluStats = await call('getEluStats');
+      })();
+      const deadline = sleep(stopNodeDeadlineMs).then(() => {
+        throw new Error(`worker stopNode RPC exceeded ${stopNodeDeadlineMs}ms deadline`);
+      });
+      await Promise.race([stopChain, deadline]);
+    } catch (err) {
+      log.warn(`Worker stop failed, terminating without graceful stop`, { error: String(err) });
     }
     client.close();
     await worker.terminate();
@@ -258,6 +274,14 @@ export async function createWorkerAztecNode(workerConfig: WorkerNodeConfig): Pro
     worker.off('error', onError);
     worker.off('exit', onExit);
   }
+
+  // Install a permanent error listener so napi errors raised by the worker after warmup
+  // (e.g. an abandoned-but-still-alive worker hitting a race during teardown after stopNode
+  // exceeded its deadline) are logged instead of aborting the parent process. Without this,
+  // an uncaught Napi::Error in the worker takes down the entire Jest process.
+  worker.on('error', err => {
+    log.warn(`Worker error after warmup, suppressing to keep parent alive`, { error: String(err) });
+  });
 
   return proxy as WorkerAztecNode;
 }
