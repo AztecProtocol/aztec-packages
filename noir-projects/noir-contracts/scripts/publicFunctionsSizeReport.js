@@ -34,7 +34,7 @@ async function main() {
         await fsp.readFile(contractArtifactPath, "utf8")
     );
     contractArtifact.functions.forEach(async (func, i) => {
-        if (func.custom_attributes.includes("public")) {
+        if (func.custom_attributes.some(attr => attr === "public" || attr === "abi_public")) {
             let func_with_contract_name = contractArtifact.name + "::" + i;
             let program_report = {
               package_name: "",

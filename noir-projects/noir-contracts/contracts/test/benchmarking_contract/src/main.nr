@@ -8,7 +8,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract Benchmarking {
     use aztec::{
-        macros::{functions::external, storage::storage},
+        macros::{events::event, functions::{external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         oracle::random::random,
@@ -24,10 +24,22 @@ pub contract Benchmarking {
     };
     use field_note::FieldNote;
 
+    #[event]
+    struct Updated {
+        new_value: u64,
+    }
+
     #[storage]
     struct Storage<Context> {
         notes: Owned<PrivateSet<FieldNote, Context>, Context>,
         balances: Map<AztecAddress, PublicMutable<Field, Context>, Context>,
+        value: PublicMutable<u64, Context>,
+    }
+
+    #[external("public")]
+    #[initializer]
+    fn constructor() {
+        self.storage.value.write(0);
     }
 
     // Creates a new value note for the target owner. Use this method to seed an initial set of notes.
@@ -133,4 +145,109 @@ pub contract Benchmarking {
     // Lightest possible private transaction: empty app circuit, no state changes, no public calls.
     #[external("public")]
     fn noop_pub() {}
+
+    #[external("public")]
+    fn public_dispatch_repro_01(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 1);
+        self.emit(Updated { new_value: old + v + 1 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_02(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 2);
+        self.emit(Updated { new_value: old + v + 2 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_03(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 3);
+        self.emit(Updated { new_value: old + v + 3 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_04(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 4);
+        self.emit(Updated { new_value: old + v + 4 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_05(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 5);
+        self.emit(Updated { new_value: old + v + 5 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_06(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 6);
+        self.emit(Updated { new_value: old + v + 6 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_07(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 7);
+        self.emit(Updated { new_value: old + v + 7 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_08(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 8);
+        self.emit(Updated { new_value: old + v + 8 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_09(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 9);
+        self.emit(Updated { new_value: old + v + 9 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_10(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 10);
+        self.emit(Updated { new_value: old + v + 10 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_11(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 11);
+        self.emit(Updated { new_value: old + v + 11 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_12(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 12);
+        self.emit(Updated { new_value: old + v + 12 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_13(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 13);
+        self.emit(Updated { new_value: old + v + 13 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_14(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 14);
+        self.emit(Updated { new_value: old + v + 14 });
+    }
+
+    #[external("public")]
+    fn public_dispatch_repro_15(v: u64) {
+        let old = self.storage.value.read();
+        self.storage.value.write(old + v + 15);
+        self.emit(Updated { new_value: old + v + 15 });
+    }
 }
