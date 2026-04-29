@@ -45,8 +45,7 @@ pub contract HandshakeRegistry {
 
     #[storage]
     struct Storage<Context> {
-        /// Per-sender set of [`HandshakeNote`]s, keyed by sender (note owner) rather than `(sender, recipient)`
-        /// so a sender can handshake with the same recipient more than once.
+        /// Per-sender set of [`HandshakeNote`]s. A sender can handshake with the same recipient more than once.
         handshakes: Owned<PrivateSet<HandshakeNote, Context>, Context>,
     }
 
@@ -63,7 +62,7 @@ pub contract HandshakeRegistry {
     ///    if the sender does not cooperate offchain.
     ///
     /// 2. Emits a 2-field private log under a recipient-keyed tag. The wire is `[eph_pk.x, masked_sender]` where
-    ///    `masked_sender = sender.to_field() + derive_shared_secret_field_mask(s_app, 0)`. Tthe sender field is
+    ///    `masked_sender = sender.to_field() + derive_shared_secret_field_mask(s_app, 0)`. The sender field is
     ///    masked so a third-party scanner who knows `recipient` can find the log under its tag but cannot tell *who*
     ///    handshakes with the recipient until they recover `s_app`.
     ///
