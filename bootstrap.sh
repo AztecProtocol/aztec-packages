@@ -795,19 +795,28 @@ case "$cmd" in
 
     build
 
+    # TODO: bump when v5 commits to backwards-compatible contract artifacts.
+    #   compat_major:       major version that has compat guarantees today.
+    #   compat_min_version: earliest stable tag of that major to test against
+    #                       (artifacts before this are incompatible due to oracle interface changes).
+    compat_major="4"
+    compat_min_version="4.2.0"
+
     # Get current major version.
     current_version=$(jq -r '."."' .release-please-manifest.json)
-    major=$(echo "$current_version" | cut -d. -f1)
-    # Only v4 has backwards-compatible contract artifacts. Skip for other majors.
-    if [ "$major" != "4" ]; then
-      echo "Compat e2e tests only apply to v4. Current major: v${major}. Skipping."
+    major=$(semver major "$current_version")
+    if [ "$major" != "$compat_major" ]; then
+      echo "Compat e2e tests only apply to v${compat_major}. Current major: v${major}. Skipping."
       exit 0
     fi
-    # Artifacts before v4.2.0 are incompatible due to oracle interface changes.
-    min_version="4.2.0"
+    min_version="$compat_min_version"
 
-    # Fetch tags (EC2 clone may not have them).
-    git fetch origin 'refs/tags/v*:refs/tags/v*' 2>/dev/null || true
+    # Fetch tags (EC2 clone may not have them). Fail loud: a silent fetch failure plus an empty
+    # tag list would publish a real release with zero compat coverage.
+    if ! git fetch origin 'refs/tags/v*:refs/tags/v*'; then
+      echo "ERROR: failed to fetch release tags." >&2
+      exit 1
+    fi
 
     # Discover stable tags for this major version (no prerelease suffixes).
     versions=()
