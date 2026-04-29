@@ -173,7 +173,7 @@ groups:
           for: 5m
           annotations:
             summary: Fisherman detected block re-execution failure
-            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) failed to re-execute block(s).
+            description: Fisherman node ({{ $labels.k8s_namespace_name }}) failed to re-execute block(s).
           labels:
             <<: *common_labels
           isPaused: false
@@ -188,7 +188,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_block_proposal_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*"}[$__rate_interval]))
+                expr: sum by (k8s_namespace_name, aztec_error_type) (increase(aztec_sequencer_block_proposal_failed_count{k8s_namespace_name=~".*(fisherman|mainnet).*", aztec_error_type!="insufficient_txs"}[$__rate_interval]))
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -258,7 +258,7 @@ groups:
           for: 5m
           annotations:
             summary: Fisherman node failed to build validation block
-            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) failed to build block. Reason - {{ ` {{ $labels.aztec_error_type }} ` }}.
+            description: Fisherman node ({{ $labels.k8s_namespace_name }}) failed to build block. Reason - {{ $labels.aztec_error_type }}.
           labels:
             <<: *common_labels
           isPaused: false
@@ -343,7 +343,7 @@ groups:
           for: 5m
           annotations:
             summary: Fisherman node failed pre-build checks
-            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) failed pre-build checks. Check type - {{ ` {{ $labels.aztec_error_type }} ` }}.
+            description: Fisherman node ({{ $labels.k8s_namespace_name }}) failed pre-build checks. Check type - {{ $labels.aztec_error_type }}.
           labels:
             <<: *common_labels
           isPaused: false
@@ -428,7 +428,7 @@ groups:
           for: 5m
           annotations:
             summary: Fisherman node received invalid attestations
-            description: Fisherman node ({{ ` {{ $labels.k8s_namespace_name }} ` }}) received invalid attestations from other validators. Reason - {{ ` {{ $labels.aztec_error_type }} ` }}.
+            description: Fisherman node ({{ $labels.k8s_namespace_name }}) received invalid attestations from other validators. Reason - {{ $labels.aztec_error_type }}.
           labels:
             <<: *common_labels
           isPaused: false
@@ -512,7 +512,7 @@ groups:
           execErrState: Error
           for: 10m
           annotations:
-            summary: Pending chain in {{ ` {{ $labels.k8s_namespace_name  }} ` }} hasn't advanced in 10 minutes
+            summary: Pending chain in {{ $labels.k8s_namespace_name }} hasn't advanced in 10 minutes
           labels:
             <<: *common_labels
           isPaused: false
@@ -596,7 +596,7 @@ groups:
           execErrState: Error
           for: 0s
           annotations:
-            summary: Pending chain has re-orged in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
+            summary: Pending chain has re-orged in {{ $labels.k8s_namespace_name }}
           labels:
             <<: *common_labels
           isPaused: false
@@ -680,7 +680,7 @@ groups:
           execErrState: Error
           for: 1m
           annotations:
-            summary: Attestations collection is taking over 10 seconds in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
+            summary: Attestations collection is taking over 10 seconds in {{ $labels.k8s_namespace_name }}
           labels:
             <<: *common_labels
           isPaused: false
@@ -764,7 +764,7 @@ groups:
           execErrState: Error
           for: 5m
           annotations:
-            summary: High CPU usage in {{ ` {{ $labels.k8s_namespace_name  }} ` }} by {{ ` {{ $labels.service_name  }} ` }}
+            summary: High CPU usage in {{ $labels.k8s_namespace_name }} by {{ $labels.service_name }}
           labels:
             <<: *common_labels
           isPaused: false
@@ -848,7 +848,7 @@ groups:
           execErrState: Error
           for: 5m
           annotations:
-            summary: High memory usage in {{ ` {{ $labels.k8s_namespace_name  }} ` }} by {{ ` {{ $labels.service_name  }} ` }}
+            summary: High memory usage in {{ $labels.k8s_namespace_name }} by {{ $labels.service_name }}
           labels:
             <<: *common_labels
           isPaused: false
@@ -932,7 +932,7 @@ groups:
           execErrState: Error
           for: 1m
           annotations:
-            summary: Something is blocking the main thread in {{ ` {{ $labels.service_name  }} ` }} ({{ ` {{ $labels.k8s_namespace_name  }} ` }})
+            summary: Something is blocking the main thread in {{ $labels.service_name }} ({{ $labels.k8s_namespace_name }})
           labels:
             <<: *common_labels
           isPaused: false
@@ -1016,7 +1016,7 @@ groups:
           execErrState: Error
           for: 1m
           annotations:
-            summary: Critical errors in the WorldState of {{ ` {{ $labels.service_name  }} ` }} ({{ ` {{ $labels.k8s_namespace_name  }} ` }})
+            summary: Critical errors in the WorldState of {{ $labels.service_name }} ({{ $labels.k8s_namespace_name }})
           labels:
             <<: *common_labels
           isPaused: false
@@ -1182,7 +1182,7 @@ groups:
           execErrState: Error
           for: 0s
           annotations:
-            summary: There was an error taking a snapshot in {{ ` {{ $labels.k8s_namespace_name  }} ` }}
+            summary: There was an error taking a snapshot in {{ $labels.k8s_namespace_name }}
           labels:
             <<: *common_labels
           isPaused: false
@@ -1271,7 +1271,7 @@ groups:
           execErrState: Error
           for: 1m
           annotations:
-            summary: Prometheus scraping for job {{ ` {{ $labels.job  }} ` }} takes more than 7.5s
+            summary: Prometheus scraping for job {{ $labels.job }} takes more than 7.5s
           labels:
             <<: *common_labels
           isPaused: false
@@ -1336,7 +1336,7 @@ groups:
             __panelId__: "5"
             description: ""
             runbook_url: ""
-            summary: One or more bootnodes for {{ ` {{ $labels.network }} ` }} may have stopped.
+            summary: One or more bootnodes for {{ $labels.network }} may have stopped.
           labels:
             "": ""
           isPaused: false
@@ -1421,7 +1421,7 @@ groups:
           for: 5m
           annotations:
             summary: Proof failed
-            description: One or more proving jobs were rejected in {{ ` {{ $labels.k8s_namespace_name }} ` }}.
+            description: One or more proving jobs were rejected in {{ $labels.k8s_namespace_name }}.
           labels:
             <<: *common_labels
           isPaused: false
