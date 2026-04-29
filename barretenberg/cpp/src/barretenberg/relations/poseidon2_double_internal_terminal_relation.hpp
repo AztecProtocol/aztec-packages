@@ -69,29 +69,30 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
         auto u_2 = pow5(Accumulator(w_o + q_o));
         auto u_3 = pow5(Accumulator(w_4 + q_4));
 
-        // ── Closed-form 4-round propagation ──
+        // ── Closed-form 4-round propagation, with direct-match RHS folded into the wire CoeffAcc ──
         // See `Poseidon2DoubleInternalRelationImpl` for the derivation of the 28 coefficients.
-        // Same body here — only the shift-side check below differs (direct match against
-        // standard-encoded successor instead of forward Vandermonde).
+        // Each subrelation's `out_k - w_*_shift` collapses to a single CoeffAcc combo wp_k that
+        // is promoted exactly once per subrelation.
         const auto& C = QuadParams::tables.closed_form;
-        auto w_part_0 = w_r * C[0][0] + w_o * C[0][1] + w_4 * C[0][2];
-        auto w_part_1 = w_r * C[1][0] + w_o * C[1][1] + w_4 * C[1][2];
-        auto w_part_2 = w_r * C[2][0] + w_o * C[2][1] + w_4 * C[2][2];
-        auto w_part_3 = w_r * C[3][0] + w_o * C[3][1] + w_4 * C[3][2];
+        auto wp_0 = w_r * C[0][0] + w_o * C[0][1] + w_4 * C[0][2] - w_l_shift;
+        auto wp_1 = w_r * C[1][0] + w_o * C[1][1] + w_4 * C[1][2] - w_r_shift;
+        auto wp_2 = w_r * C[2][0] + w_o * C[2][1] + w_4 * C[2][2] - w_o_shift;
+        auto wp_3 = w_r * C[3][0] + w_o * C[3][1] + w_4 * C[3][2] - w_4_shift;
 
-        auto out_0 = u_0 * C[0][3] + u_1 * C[0][4] + u_2 * C[0][5] + u_3 * C[0][6] + Accumulator(w_part_0);
-        auto out_1 = u_0 * C[1][3] + u_1 * C[1][4] + u_2 * C[1][5] + u_3 + Accumulator(w_part_1);
-        auto out_2 = u_0 * C[2][3] + u_1 * C[2][4] + u_2 * C[2][5] + u_3 + Accumulator(w_part_2);
-        auto out_3 = u_0 * C[3][3] + u_1 * C[3][4] + u_2 * C[3][5] + u_3 + Accumulator(w_part_3);
-
-        // ── Direct match against standard-encoded successor ──
         const auto q_by_scaling_m = q_sel * scaling_factor;
         const auto q_by_scaling = Accumulator(q_by_scaling_m);
 
-        std::get<0>(evals) += q_by_scaling * (out_0 - Accumulator(w_l_shift));
-        std::get<1>(evals) += q_by_scaling * (out_1 - Accumulator(w_r_shift));
-        std::get<2>(evals) += q_by_scaling * (out_2 - Accumulator(w_o_shift));
-        std::get<3>(evals) += q_by_scaling * (out_3 - Accumulator(w_4_shift));
+        // ── Subrelation bodies: out_k - w_*_shift = 0 ──
+        // For out_{1,2,3} the u_3 coefficient is identically 1 (free add).
+        auto a0_body = u_0 * C[0][3] + u_1 * C[0][4] + u_2 * C[0][5] + u_3 * C[0][6] + Accumulator(wp_0);
+        auto a1_body = u_0 * C[1][3] + u_1 * C[1][4] + u_2 * C[1][5] + u_3 + Accumulator(wp_1);
+        auto a2_body = u_0 * C[2][3] + u_1 * C[2][4] + u_2 * C[2][5] + u_3 + Accumulator(wp_2);
+        auto a3_body = u_0 * C[3][3] + u_1 * C[3][4] + u_2 * C[3][5] + u_3 + Accumulator(wp_3);
+
+        std::get<0>(evals) += q_by_scaling * a0_body;
+        std::get<1>(evals) += q_by_scaling * a1_body;
+        std::get<2>(evals) += q_by_scaling * a2_body;
+        std::get<3>(evals) += q_by_scaling * a3_body;
     }
 };
 

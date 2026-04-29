@@ -112,18 +112,22 @@ template <typename FF_> class Poseidon2TransitionEntryRelationImpl {
         const auto q_by_scaling_m = q_sel * scaling_factor;
         const auto q_by_scaling = Accumulator(q_by_scaling_m);
 
-        // ── A_0: w_r_shift - D_1 u_0 - w_r - w_o - w_4 = 0 ──
-        auto a0_body = u_0 * D1 + Accumulator(w_r + w_o + w_4) - Accumulator(w_r_shift);
+        // Wire CoeffAcc combinations with the subrelation RHS (shifted-wire targets) folded in,
+        // so each body promotes exactly once instead of twice.
+        auto wp_0 = w_r + w_o + w_4 - w_r_shift;
+        auto wp_1 = w_r * A_one[0] + w_o * A_one[1] + w_4 * A_one[2] - w_o_shift;
+        auto wp_2 = w_r * A2_one[0] + w_o * A2_one[1] + w_4 * A2_one[2] - w_4_shift;
+
+        // ── A_0: D_1 u_0 + (w_r + w_o + w_4) - w_r_shift = 0 ──
+        auto a0_body = u_0 * D1 + Accumulator(wp_0);
         std::get<0>(evals) += q_by_scaling * a0_body;
 
-        // ── A_1: w_o_shift - D_1 u_1 - 3 u_0 - (A·1)_0 w_r - (A·1)_1 w_o - (A·1)_2 w_4 = 0 ──
-        auto a1_body = u_1 * D1 + u_0 * fr(3) + Accumulator(w_r * A_one[0] + w_o * A_one[1] + w_4 * A_one[2]) -
-                       Accumulator(w_o_shift);
+        // ── A_1: D_1 u_1 + 3 u_0 + (A·1)_j-weighted wire combo - w_o_shift = 0 ──
+        auto a1_body = u_1 * D1 + u_0 * fr(3) + Accumulator(wp_1);
         std::get<1>(evals) += q_by_scaling * a1_body;
 
-        // ── A_2: w_4_shift - D_1 u_2 - 3 u_1 - (Σ+6) u_0 - (A^2·1)_j-weighted wire combo = 0 ──
-        auto a2_body = u_2 * D1 + u_1 * fr(3) + u_0 * sum_A_one +
-                       Accumulator(w_r * A2_one[0] + w_o * A2_one[1] + w_4 * A2_one[2]) - Accumulator(w_4_shift);
+        // ── A_2: D_1 u_2 + 3 u_1 + (Σ+6) u_0 + (A^2·1)_j-weighted wire combo - w_4_shift = 0 ──
+        auto a2_body = u_2 * D1 + u_1 * fr(3) + u_0 * sum_A_one + Accumulator(wp_2);
         std::get<2>(evals) += q_by_scaling * a2_body;
     }
 };

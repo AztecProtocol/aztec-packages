@@ -122,51 +122,54 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
         //
         // Per-row layout: 7 coefficients on (w_r, w_o, w_4, u_0, u_1, u_2, u_3). Wire scalings
         // stay in CoeffAcc (2 muls each); u-scalings are Acc×Fr (7 muls each).
-        // Read closed-form coefficient rows once.
-        const auto& cf0 = QuadParams::tables.closed_form[0]; // out_0 row
+        // ── Shift-side S-boxes (next-pair constants on shifted wires) ──
+        auto u_0_next = pow5(Accumulator(w_l_shift + q_m));
+        auto u_1_next = pow5(Accumulator(w_r_shift + q_c));
+        auto u_2_next = pow5(Accumulator(w_o_shift + q_5));
+        auto u_0_next_D1 = u_0_next * D1;
+
+        // ── Subrelation bodies, with shift-side wire offsets folded into the CoeffAcc combo ──
+        // Each subrelation body has the form
+        //     (u-coef · u_*) + (shift-side u-contribution from -b_k_next) + Accumulator(wp_full)
+        // where wp_full bundles the LHS closed-form wire-coefs AND the RHS shifted-wire offsets
+        // (from -b_k_next or -w_l_shift). This collapses what used to be three separate
+        // promotions per row (one for the LHS wire combo, one for `Accumulator(w_*_shift)` /
+        // `Accumulator(b_k_next wire part)`) into a single promotion per subrelation.
+        const auto& cf0 = QuadParams::tables.closed_form[0];
         const auto& l0 = QuadParams::tables.forward_vandermonde_lhs[0];
         const auto& l1 = QuadParams::tables.forward_vandermonde_lhs[1];
         const auto& l2 = QuadParams::tables.forward_vandermonde_lhs[2];
 
-        // Inlined per-row dot products. Kept as straight-line code (no lambda) so the
-        // compiler reliably inlines and CSEs across the four evaluations.
-        auto wp_0 = w_r * cf0[0] + w_o * cf0[1] + w_4 * cf0[2];
-        auto wp_a1 = w_r * l0[0] + w_o * l0[1] + w_4 * l0[2];
-        auto wp_a2 = w_r * l1[0] + w_o * l1[1] + w_4 * l1[2];
-        auto wp_a3 = w_r * l2[0] + w_o * l2[1] + w_4 * l2[2];
+        auto wp0_full = w_r * cf0[0] + w_o * cf0[1] + w_4 * cf0[2] - w_l_shift;
+        auto wp1_full = w_r * l0[0] + w_o * l0[1] + w_4 * l0[2] - w_r_shift;
+        auto wp2_full = w_r * l1[0] + w_o * l1[1] + w_4 * l1[2] - w_o_shift + w_r_shift + w_r_shift;
+        auto wp3_full = w_r * l2[0] + w_o * l2[1] + w_4 * l2[2] - w_4_shift + w_o_shift + w_r_shift * SIGMA_PLUS_2;
 
-        auto out_0 = u_0 * cf0[3] + u_1 * cf0[4] + u_2 * cf0[5] + u_3 * cf0[6] + Accumulator(wp_0);
-        auto lhs_a1 = u_0 * l0[3] + u_1 * l0[4] + u_2 * l0[5] + u_3 * l0[6] + Accumulator(wp_a1);
-        auto lhs_a2 = u_0 * l1[3] + u_1 * l1[4] + u_2 * l1[5] + u_3 * l1[6] + Accumulator(wp_a2);
-        auto lhs_a3 = u_0 * l2[3] + u_1 * l2[4] + u_2 * l2[5] + u_3 * l2[6] + Accumulator(wp_a3);
-
-        // ── Compute b_1_next, b_2_next, b_3_next using shifted wires + next-pair constants ──
-        auto u_0_next = pow5(Accumulator(w_l_shift + q_m));
-        auto u_1_next = pow5(Accumulator(w_r_shift + q_c));
-        auto u_2_next = pow5(Accumulator(w_o_shift + q_5));
-
-        auto u_0_next_D1 = u_0_next * D1;
-        auto b_1_next = Accumulator(w_r_shift) - u_0_next_D1;
-        auto b_2_next = Accumulator(w_o_shift - w_r_shift - w_r_shift) + (u_0_next_D1 + u_0_next_D1) -
-                        (u_0_next + u_0_next + u_0_next) - u_1_next * D1;
-        auto b_3_next = Accumulator(w_4_shift - w_o_shift - w_r_shift * SIGMA_PLUS_2) + u_0_next * B3_U0_COEF +
-                        u_1_next * D1_MINUS_3 - u_2_next * D1;
-
-        // ── Constraint scalings ──
         const auto q_times_scaling_m = q_sel * scaling_factor;
         const auto q_times_scaling = Accumulator(q_times_scaling_m);
 
         // ── A_0: out_0 - w_l_shift = 0 ──
-        std::get<0>(evals) += q_times_scaling * (out_0 - Accumulator(w_l_shift));
+        auto a0_body = u_0 * cf0[3] + u_1 * cf0[4] + u_2 * cf0[5] + u_3 * cf0[6] + Accumulator(wp0_full);
+        std::get<0>(evals) += q_times_scaling * a0_body;
 
-        // ── A_1: (out_1 + out_2 + out_3) - b_1_next = 0 ──
-        std::get<1>(evals) += q_times_scaling * (lhs_a1 - b_1_next);
+        // ── A_1: (out_1 + out_2 + out_3) - b_1_next = 0
+        //        b_1_next = Acc(w_r_shift) - u_0_next * D_1, so subtraction adds +u_0_next_D1.
+        auto a1_body = u_0 * l0[3] + u_1 * l0[4] + u_2 * l0[5] + u_3 * l0[6] + u_0_next_D1 + Accumulator(wp1_full);
+        std::get<1>(evals) += q_times_scaling * a1_body;
 
-        // ── A_2: (D_2 out_1 + D_3 out_2 + D_4 out_3) - b_2_next = 0 ──
-        std::get<2>(evals) += q_times_scaling * (lhs_a2 - b_2_next);
+        // ── A_2: (D_2 out_1 + D_3 out_2 + D_4 out_3) - b_2_next = 0
+        //        b_2_next u-part = 2 u_0_next_D1 - 3 u_0_next - u_1_next * D_1
+        //        subtraction flips sign: -2 u_0_next_D1 + 3 u_0_next + u_1_next * D_1
+        auto a2_body = u_0 * l1[3] + u_1 * l1[4] + u_2 * l1[5] + u_3 * l1[6] - (u_0_next_D1 + u_0_next_D1) +
+                       (u_0_next + u_0_next + u_0_next) + u_1_next * D1 + Accumulator(wp2_full);
+        std::get<2>(evals) += q_times_scaling * a2_body;
 
-        // ── A_3: (D_2^2 out_1 + D_3^2 out_2 + D_4^2 out_3) - b_3_next = 0 ──
-        std::get<3>(evals) += q_times_scaling * (lhs_a3 - b_3_next);
+        // ── A_3: (D_2^2 out_1 + D_3^2 out_2 + D_4^2 out_3) - b_3_next = 0
+        //        b_3_next u-part = u_0_next * B3_U0_COEF + u_1_next * D1_MINUS_3 - u_2_next * D_1
+        //        subtraction flips sign on each.
+        auto a3_body = u_0 * l2[3] + u_1 * l2[4] + u_2 * l2[5] + u_3 * l2[6] - u_0_next * B3_U0_COEF -
+                       u_1_next * D1_MINUS_3 + u_2_next * D1 + Accumulator(wp3_full);
+        std::get<3>(evals) += q_times_scaling * a3_body;
     }
 };
 
