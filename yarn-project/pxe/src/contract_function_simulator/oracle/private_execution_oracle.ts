@@ -2,7 +2,7 @@ import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS, PRIVATE_CONTEXT_INPUTS_LENGTH } 
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type CircuitSimulator, toACVMWitness } from '@aztec/simulator/client';
+import { toACVMWitness } from '@aztec/simulator/client';
 import {
   type FunctionAbi,
   type FunctionArtifact,
@@ -50,7 +50,6 @@ export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contr
   totalPublicCalldataCount?: number;
   sideEffectCounter?: number;
   senderForTags?: AztecAddress;
-  simulator?: CircuitSimulator;
 };
 
 /**
@@ -86,7 +85,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   private readonly defaultSenderForTags: AztecAddress | undefined;
   /** Per-call sender-for-tags override, set by `setSenderForTags`. Takes precedence over `defaultSenderForTags`. */
   private currentSenderForTags: AztecAddress | undefined;
-  private readonly simulator?: CircuitSimulator;
 
   constructor(args: PrivateExecutionOracleArgs) {
     super({
@@ -105,7 +103,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     this.totalPublicCalldataCount = args.totalPublicCalldataCount ?? 0;
     this.initialSideEffectCounter = args.sideEffectCounter ?? 0;
     this.defaultSenderForTags = args.senderForTags;
-    this.simulator = args.simulator;
   }
 
   public getPrivateContextInputs(): PrivateContextInputs {
@@ -583,14 +580,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       scopes: this.scopes,
       log: this.logger,
       senderForTags: this.defaultSenderForTags,
-      simulator: this.simulator!,
+      simulator: this.simulator,
       l2TipsStore: this.l2TipsStore,
     });
 
     const setupTime = simulatorSetupTimer.ms();
 
     const childExecutionResult = await executePrivateFunction(
-      this.simulator!,
+      this.simulator,
       privateExecutionOracle,
       targetArtifact,
       targetContractAddress,

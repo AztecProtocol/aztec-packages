@@ -347,6 +347,7 @@ describe('Utility Execution test suite', () => {
         jobId: 'test-job-id',
         scopes: [scope],
         l2TipsStore,
+        simulator,
       });
     });
 
@@ -414,6 +415,7 @@ describe('Utility Execution test suite', () => {
           jobId: 'test-job-id',
           scopes: [scope],
           l2TipsStore,
+          simulator,
         });
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
@@ -425,6 +427,16 @@ describe('Utility Execution test suite', () => {
           transientGlobal,
         );
         expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, scope)).toEqual(transientScoped);
+      });
+    });
+
+    describe('callUtilityFunction', () => {
+      it('throws when target contract differs from execution context', async () => {
+        const differentAddress = await AztecAddress.random();
+        const selector = FunctionSelector.empty();
+        await expect(utilityExecutionOracle.callUtilityFunction(differentAddress, selector, [])).rejects.toThrow(
+          'Cross-contract utility calls are not yet supported',
+        );
       });
     });
 
@@ -595,6 +607,7 @@ describe('Utility Execution test suite', () => {
             jobId: 'test-job-id',
             scopes: [],
             l2TipsStore,
+            simulator,
           });
 
         const oracleA = makeOracle(contractAddressA);
