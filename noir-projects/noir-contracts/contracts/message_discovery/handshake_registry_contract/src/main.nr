@@ -55,7 +55,7 @@ pub contract HandshakeRegistry {
 
     /// Performs a non-interactive handshake on behalf of `msg_sender` to `recipient`.
     ///
-    /// Generates a fresh ephemeral keypair `(eph_sk, eph_pk)`, computes the raw ECDH shared secret point
+    /// Generates a fresh ephemeral key pair `(eph_sk, eph_pk)`, computes the raw ECDH shared secret point
     /// `S_raw = eph_sk * recipient_address_point`, app-silos it to `s_app = h(S_raw.x, S_raw.y, this_address)`,
     /// and produces two effects:
     ///
