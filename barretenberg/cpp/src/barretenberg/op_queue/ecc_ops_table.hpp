@@ -269,9 +269,16 @@ class UltraEccOpsTable {
     }
     void merge_with_fixed_append_offset(size_t offset)
     {
+        const size_t fixed_appended_table_size = get_current_subtable_size();
+
         BB_ASSERT(!fixed_append_offset.has_value(), "Can only perform fixed-location append once");
         fixed_append_offset = offset;
         table.merge();
+
+        BB_ASSERT_LTE(table.size() - fixed_appended_table_size,
+                      offset,
+                      "Merged table size exceeds fixed append offset. This means that there are too many ops before "
+                      "the last subtable. The last subtable doesn't fit at the end of the op queue.");
     }
 
     size_t get_current_subtable_size() const { return table.get_current_subtable_size(); }
