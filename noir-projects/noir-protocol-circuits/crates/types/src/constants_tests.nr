@@ -17,6 +17,7 @@ use crate::{
         DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, DOM_SEP__NOTE_COMPLETION_LOG_TAG,
         DOM_SEP__NOTE_HASH, DOM_SEP__NOTE_HASH_NONCE, DOM_SEP__NOTE_NULLIFIER,
         DOM_SEP__NULLIFIER_MERKLE, DOM_SEP__OVSK_M, DOM_SEP__PARTIAL_ADDRESS,
+        DOM_SEP__PARTIAL_NOTE_COMMITMENT,
         DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT, DOM_SEP__PRIVATE_FUNCTION_LEAF,
         DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER, DOM_SEP__PRIVATE_LOG_FIRST_FIELD,
         DOM_SEP__PRIVATE_TX_HASH, DOM_SEP__PROTOCOL_CONTRACTS, DOM_SEP__PUBLIC_BYTECODE,
@@ -142,7 +143,7 @@ impl<let NUM_VALUES: u32, let NUM_U32_VALUES: u32> HashedValueTester<NUM_VALUES,
 
 #[test]
 fn hashed_values_match_derived() {
-    let mut tester = HashedValueTester::<70, 63>::new();
+    let mut tester = HashedValueTester::<71, 64>::new();
 
     // -----------------
     // Domain separators
@@ -219,6 +220,10 @@ fn hashed_values_match_derived() {
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         "partial_note_validity_commitment",
+    );
+    tester.assert_dom_sep_matches_derived(
+        DOM_SEP__PARTIAL_NOTE_COMMITMENT,
+        "partial_note_commitment",
     );
     tester.assert_dom_sep_matches_derived(
         DOM_SEP__INITIALIZATION_NULLIFIER,

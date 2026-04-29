@@ -374,7 +374,7 @@ const { receipt: feeJuiceReceipt } = await token.methods
   .mint_to_public(aliceAddress, 1n)
   .send({
     from: aliceAddress,
-    // no fee payment method needed — Fee Juice is used automatically
+    // no fee payment method needed; Fee Juice is used automatically
   });
 console.log("Transaction fee:", feeJuiceReceipt.transactionFee);
 // docs:end:pay_with_fee_juice

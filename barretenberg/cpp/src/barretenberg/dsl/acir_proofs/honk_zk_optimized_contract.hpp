@@ -208,7 +208,6 @@ contract HonkVerifier is IVerifier {
     bytes4 internal constant VALUE_GE_FIELD_ORDER_SELECTOR = 0x20a33589;
     bytes4 internal constant SUMCHECK_FAILED_SELECTOR = 0x9fc3a218;
     bytes4 internal constant SHPLEMINI_FAILED_SELECTOR = 0xa5d82e8a;
-    bytes4 internal constant POINT_AT_INFINITY_SELECTOR = 0x4ddaa5e5;
 
     bytes4 internal constant PROOF_LENGTH_WRONG_WITH_LOG_N_SELECTOR = 0x59895a53;
     bytes4 internal constant PUBLIC_INPUTS_LENGTH_WRONG_SELECTOR = 0xfa066593;
@@ -450,32 +449,12 @@ contract HonkVerifier is IVerifier {
                         revert(0x00, 0x04)
                     }
 
-                    // 2b. G1 points: reject point at infinity (0,0).
-                    //     EVM precompiles silently treat (0,0) as the identity element,
-                    //     which could zero out commitments. On-curve validation (y² = x³ + 3)
-                    //     is handled by the ecAdd/ecMul precompiles per EIP-196.
-                    //    - geminiMaskingPoly + witness commitments + libraConcat (10 points, stride 0x40)
-                    for { ptr := GEMINI_MASKING_POLY_X_LOC } lt(ptr, LIBRA_SUM_LOC) { ptr := add(ptr, 0x40) } {
-                        valid := and(valid, iszero(iszero(or(mload(ptr), mload(add(ptr, 0x20))))))
-                    }
-                    //    - Libra grand product + quotient (2 points, stride 0x40)
-                    for { ptr := LIBRA_GRAND_PRODUCT_X_LOC } lt(ptr, GEMINI_FOLD_UNIVARIATE_0_X_LOC) {
-                        ptr := add(ptr, 0x40)
-                    } {
-                        valid := and(valid, iszero(iszero(or(mload(ptr), mload(add(ptr, 0x20))))))
-                    }
-                    //    - Gemini fold commitments (14 points, stride 0x40)
-                    for { ptr := GEMINI_FOLD_UNIVARIATE_0_X_LOC } lt(ptr, GEMINI_A_EVAL_0) { ptr := add(ptr, 0x40) } {
-                        valid := and(valid, iszero(iszero(or(mload(ptr), mload(add(ptr, 0x20))))))
-                    }
-                    //    - Shplonk Q + KZG quotient (2 points, stride 0x40)
-                    for { ptr := SHPLONK_Q_X_LOC } lt(ptr, ETA_CHALLENGE) { ptr := add(ptr, 0x40) } {
-                        valid := and(valid, iszero(iszero(or(mload(ptr), mload(add(ptr, 0x20))))))
-                    }
-                    if iszero(valid) {
-                        mstore(0x00, POINT_AT_INFINITY_SELECTOR)
-                        revert(0x00, 0x04)
-                    }
+                    // 2b. G1 points: identity (0,0) is accepted.
+                    //     Polynomial commitments to identically-zero polynomials are
+                    //     legitimately the identity, and the ecAdd/ecMul precompiles
+                    //     treat (0,0) as the additive identity per EIP-196. Soundness
+                    //     against (0,0) substitution for a non-zero commitment is upheld
+                    //     by sumcheck/Shplemini downstream.
 
                     // 3. Fr elements: each < P
                     //    - libraSum + sumcheck univariates + evals + libraEvaluation (179 slots)

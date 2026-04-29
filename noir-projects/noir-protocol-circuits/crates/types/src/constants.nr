@@ -639,6 +639,15 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 /// This is not technically a protocol constant as note hashes are computed by each contract.
 pub global DOM_SEP__NOTE_HASH: u32 = 116501019;
 
+/// Domain separator for partial note commitments.
+///
+/// This is not technically a protocol constant as partial note commitments are computed by each contract.
+///
+/// A partial note commitment is the first round of hashing of a partial note, combining the private fields before the
+/// public completion fields (storage slot and public note data) are mixed in. Distinct from [`DOM_SEP__NOTE_HASH`],
+/// which preserves the storage-slot-first invariant.
+pub global DOM_SEP__PARTIAL_NOTE_COMMITMENT: u32 = 568912195;
+
 /// Domain separator for siloed note hashes.
 ///
 /// Used by [`crate::hash::compute_siloed_note_hash`].
