@@ -8,6 +8,7 @@
 #include "barretenberg/relations/poseidon2_double_internal_relation.hpp"
 #include "barretenberg/relations/poseidon2_double_internal_terminal_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_initial_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
 #include "barretenberg/relations/poseidon2_transition_entry_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
@@ -27,6 +28,7 @@ class UltraCircuitChecker {
     using NonNativeField = NonNativeFieldRelation<FF>;
     using DeltaRangeConstraint = DeltaRangeConstraintRelation<FF>;
     using PoseidonExternal = Poseidon2ExternalRelation<FF>;
+    using PoseidonInitialExternal = Poseidon2InitialExternalRelation<FF>;
     using PoseidonInternal = Poseidon2InternalRelation<FF>;
     using PoseidonDoubleInternal = Poseidon2DoubleInternalRelation<FF>;
     using PoseidonDoubleInternalTerminal = Poseidon2DoubleInternalTerminalRelation<FF>;

@@ -26,6 +26,7 @@
 #include "barretenberg/relations/poseidon2_double_internal_relation.hpp"
 #include "barretenberg/relations/poseidon2_double_internal_terminal_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_initial_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_transition_entry_relation.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
@@ -73,6 +74,7 @@ class MegaFlavor {
                                   bb::EccOpQueueRelation<FF>,
                                   bb::DatabusLookupRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
+                                  bb::Poseidon2InitialExternalRelation<FF>,
                                   bb::Poseidon2DoubleInternalRelation<FF>,
                                   bb::Poseidon2DoubleInternalTerminalRelation<FF>,
                                   bb::Poseidon2TransitionEntryRelation<FF>>;
@@ -128,25 +130,26 @@ class MegaFlavor {
                               q_memory,                             // column 12
                               q_nnf,                                // column 13
                               q_poseidon2_external,                 // column 14
-                              q_poseidon2_double_internal,          // column 15
-                              q_poseidon2_double_internal_terminal, // column 16
-                              q_poseidon2_transition_entry,         // column 17
-                              sigma_1,                              // column 18
-                              sigma_2,                              // column 19
-                              sigma_3,                              // column 20
-                              sigma_4,                              // column 21
-                              id_1,                                 // column 22
-                              id_2,                                 // column 23
-                              id_3,                                 // column 24
-                              id_4,                                 // column 25
-                              table_1,                              // column 26
-                              table_2,                              // column 27
-                              table_3,                              // column 28
-                              table_4,                              // column 29
-                              lagrange_first,                       // column 30
-                              lagrange_last,                        // column 31
-                              lagrange_ecc_op,                      // column 32 // indicator poly for ecc op gates
-                              databus_id                            // column 33 // id polynomial, i.e. id_i = i
+                              q_poseidon2_external_initial,         // column 15
+                              q_poseidon2_double_internal,          // column 16
+                              q_poseidon2_double_internal_terminal, // column 17
+                              q_poseidon2_transition_entry,         // column 18
+                              sigma_1,                              // column 19
+                              sigma_2,                              // column 20
+                              sigma_3,                              // column 21
+                              sigma_4,                              // column 22
+                              id_1,                                 // column 23
+                              id_2,                                 // column 24
+                              id_3,                                 // column 25
+                              id_4,                                 // column 26
+                              table_1,                              // column 27
+                              table_2,                              // column 28
+                              table_3,                              // column 29
+                              table_4,                              // column 30
+                              lagrange_first,                       // column 31
+                              lagrange_last,                        // column 32
+                              lagrange_ecc_op,                      // column 33 // indicator poly for ecc op gates
+                              databus_id                            // column 34 // id polynomial, i.e. id_i = i
         )
 
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4, q_5 }; };
@@ -161,6 +164,7 @@ class MegaFlavor {
                 q_memory,
                 q_nnf,
                 q_poseidon2_external,
+                q_poseidon2_external_initial,
                 q_poseidon2_double_internal,
                 q_poseidon2_double_internal_terminal,
                 q_poseidon2_transition_entry,
@@ -424,6 +428,7 @@ class MegaFlavor {
             q_memory = "Q_MEMORY";
             q_nnf = "Q_NNF";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
+            q_poseidon2_external_initial = "Q_POSEIDON2_EXTERNAL_INITIAL";
             q_poseidon2_double_internal = "Q_POSEIDON2_DOUBLE_INTERNAL";
             q_poseidon2_double_internal_terminal = "Q_POSEIDON2_DOUBLE_INTERNAL_TERMINAL";
             q_poseidon2_transition_entry = "Q_POSEIDON2_TRANSITION_ENTRY";

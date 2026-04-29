@@ -202,6 +202,22 @@ void UltraCircuitBuilder_<ExecutionTrace>::add_gates_to_ensure_all_polys_are_non
         update_finalize_witnesses(column);
     }
 
+    // mock a Poseidon2 initial-linear-layer gate (Mega-only), with all zeros as input/output
+    if constexpr (requires { blocks.poseidon2_external.set_initial_gate_selector(1); }) {
+        blocks.poseidon2_external.populate_wires(
+            this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
+        blocks.poseidon2_external.q_m().emplace_back(0);
+        blocks.poseidon2_external.q_1().emplace_back(0);
+        blocks.poseidon2_external.q_2().emplace_back(0);
+        blocks.poseidon2_external.q_3().emplace_back(0);
+        blocks.poseidon2_external.q_c().emplace_back(0);
+        blocks.poseidon2_external.q_4().emplace_back(0);
+        blocks.poseidon2_external.q_5().emplace_back(0);
+        blocks.poseidon2_external.set_initial_gate_selector(1);
+        check_selector_length_consistency();
+        this->increment_num_gates();
+    }
+
     // mock a poseidon external gate, with all zeros as input
     blocks.poseidon2_external.populate_wires(this->zero_idx(), this->zero_idx(), this->zero_idx(), this->zero_idx());
     blocks.poseidon2_external.q_m().emplace_back(0);
@@ -2029,6 +2045,31 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
     block.set_gate_selector(1);
     this->check_selector_length_consistency();
     this->increment_num_gates();
+}
+
+/**
+ * @brief Poseidon2 initial linear layer gate, activates the q_poseidon2_external_initial selector and relation.
+ * @details Mega-only. Ultra keeps lowering the initial matrix multiplication to arithmetic gates.
+ */
+template <typename FF>
+void UltraCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in)
+{
+    if constexpr (requires { this->blocks.poseidon2_external.set_initial_gate_selector(1); }) {
+        auto& block = this->blocks.poseidon2_external;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
+        block.set_initial_gate_selector(1);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    } else {
+        throw_or_abort("create_poseidon2_initial_external_gate is Mega-only");
+    }
 }
 
 /**

@@ -110,6 +110,15 @@ template <typename FF> struct poseidon2_external_gate_ {
     size_t round_idx;
 };
 
+// Initial linear layer gate for Poseidon2. Wires hold the raw permutation input; the next row
+// holds M_E * input and is consumed by the first external-round gate.
+template <typename FF> struct poseidon2_initial_external_gate_ {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+};
+
 // Internal gate data for poseidon2 internal round
 template <typename FF> struct poseidon2_internal_gate_ {
     uint32_t a;

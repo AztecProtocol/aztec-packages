@@ -189,6 +189,10 @@ bool UltraCircuitChecker::check_block(Builder& builder,
         }
 
         if constexpr (IsMegaBuilder<Builder>) {
+            result = result && check_relation<PoseidonInitialExternal>(values, params);
+            if (!result) {
+                return report_fail("Failed PoseidonInitialExternal relation at row idx = ", idx);
+            }
             result = result && check_relation<PoseidonDoubleInternal>(values, params);
             if (!result) {
                 return report_fail("Failed PoseidonDoubleInternal relation at row idx = ", idx);
@@ -383,6 +387,9 @@ void UltraCircuitChecker::populate_values(
         values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
     }
     values.q_poseidon2_external = block.q_poseidon2_external()[idx];
+    if constexpr (requires { values.q_poseidon2_external_initial; }) {
+        values.q_poseidon2_external_initial = block.q_poseidon2_external_initial()[idx];
+    }
     if constexpr (requires { values.q_poseidon2_double_internal; }) {
         values.q_poseidon2_double_internal = block.q_poseidon2_double_internal()[idx];
     }

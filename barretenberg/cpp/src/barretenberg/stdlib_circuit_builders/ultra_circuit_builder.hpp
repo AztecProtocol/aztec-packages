@@ -628,6 +628,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void write_RAM_array(const size_t ram_id, const uint32_t index_witness, const uint32_t value_witness);
 
     void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
+    void create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in);
     void create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in);
     void create_poseidon2_double_internal_gate(const poseidon2_double_internal_gate_<FF>& in);
     void create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in);

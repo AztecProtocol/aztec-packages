@@ -200,6 +200,11 @@ template <> class RelationChecker<MegaFlavor> : public RelationChecker<void> {
         if (!p2_ext.empty()) {
             all_subrelation_failures["UltraPoseidon2External"] = p2_ext;
         }
+        auto p2_initial_ext =
+            Base::check<Poseidon2InitialExternalRelation<FF>>(polynomials, params, "Poseidon2InitialExternal");
+        if (!p2_initial_ext.empty()) {
+            all_subrelation_failures["Poseidon2InitialExternal"] = p2_initial_ext;
+        }
 
         // Compressed double-internal relations (Mega-only, replacing Poseidon2InternalRelation).
         auto p2_dbl = Base::check<Poseidon2DoubleInternalRelation<FF>>(polynomials, params, "Poseidon2DoubleInternal");
