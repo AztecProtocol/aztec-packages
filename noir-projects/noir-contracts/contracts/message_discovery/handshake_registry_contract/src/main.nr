@@ -6,7 +6,7 @@ mod test;
 /// signature). See [`HandshakeRegistry::non_interactive_handshake`].
 pub global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 
-/// TODO: Handshake type identifier for interactive handshakes (Schnorr-signed shared secret from the recipient). 
+/// TODO: Handshake type identifier for interactive handshakes (Schnorr-signed shared secret from the recipient).
 pub global INTERACTIVE_HANDSHAKE: u8 = 2;
 
 /// Registry for the constrained-delivery shared-secret handshake protocol.
@@ -29,10 +29,7 @@ pub contract HandshakeRegistry {
             },
             ephemeral::generate_positive_ephemeral_key_pair,
         },
-        macros::{
-            functions::{external, view},
-            storage::storage,
-        },
+        macros::{functions::{external, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::{
             constants::MAX_NOTES_PER_PAGE, note_getter_options::NoteGetterOptions,
@@ -83,7 +80,7 @@ pub contract HandshakeRegistry {
     /// by scanning their own tag. `eph_pk.y` is fixed positive by the
     /// [`generate_positive_ephemeral_key_pair`] convention, so only `eph_pk.x` is transmitted.
     ///
-    /// # Returns 
+    /// # Returns
     /// `s_app`, the app-siloed master shared secret. The sender's caller should stash this for later proof
     /// (via [`HandshakeRegistry::assert_handshake_exists`]) and per-message-tag derivation. The recipient
     /// independently derives the same `s_app` from the log.

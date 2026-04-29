@@ -28,13 +28,7 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
     (env, registry_address, sender, other_sender, recipient)
 }
 
-unconstrained fn setup_with_two_recipients() -> (
-    TestEnvironment,
-    AztecAddress,
-    AztecAddress,
-    AztecAddress,
-    AztecAddress,
-) {
+unconstrained fn setup_with_two_recipients() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
     let mut env = TestEnvironment::new();
 
     let sender = env.create_light_account();
@@ -105,8 +99,7 @@ unconstrained fn handshakes_are_isolated_per_sender() {
     let registry = HandshakeRegistry::at(registry_address);
 
     let sender_s_app = env.call_private(sender, registry.non_interactive_handshake(recipient));
-    let other_s_app =
-        env.call_private(other_sender, registry.non_interactive_handshake(recipient));
+    let other_s_app = env.call_private(other_sender, registry.non_interactive_handshake(recipient));
 
     let sender_notes = env.execute_utility(registry.get_handshakes_for_sender(sender));
     let other_notes = env.execute_utility(registry.get_handshakes_for_sender(other_sender));
@@ -142,12 +135,13 @@ unconstrained fn non_interactive_handshake_emits_recipient_discoverable_log() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let s_app_sender =
-        env.call_private(sender, registry.non_interactive_handshake(recipient));
+    let s_app_sender = env.call_private(sender, registry.non_interactive_handshake(recipient));
 
     // Discovery: recipient computes the deterministic recipient-keyed tag and finds the log under it.
-    let raw_tag =
-        compute_log_tag(recipient.to_field(), DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG);
+    let raw_tag = compute_log_tag(
+        recipient.to_field(),
+        DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
+    );
     let logs = env.private_logs_by_tag(raw_tag, registry_address);
     assert_eq(logs.len(), 1);
 
@@ -181,13 +175,13 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let s_app_sender =
-        env.call_private(sender, registry.non_interactive_handshake(recipient));
-    let s_app_other =
-        env.call_private(other_sender, registry.non_interactive_handshake(recipient));
+    let s_app_sender = env.call_private(sender, registry.non_interactive_handshake(recipient));
+    let s_app_other = env.call_private(other_sender, registry.non_interactive_handshake(recipient));
 
-    let raw_tag =
-        compute_log_tag(recipient.to_field(), DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG);
+    let raw_tag = compute_log_tag(
+        recipient.to_field(),
+        DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
+    );
     let logs = env.private_logs_by_tag(raw_tag, registry_address);
     assert_eq(logs.len(), 2);
 
@@ -220,8 +214,14 @@ unconstrained fn different_recipients_have_different_tags() {
     let s_app_a = env.call_private(sender, registry.non_interactive_handshake(recipient_a));
     let s_app_b = env.call_private(sender, registry.non_interactive_handshake(recipient_b));
 
-    let tag_a = compute_log_tag(recipient_a.to_field(), DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG);
-    let tag_b = compute_log_tag(recipient_b.to_field(), DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG);
+    let tag_a = compute_log_tag(
+        recipient_a.to_field(),
+        DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
+    );
+    let tag_b = compute_log_tag(
+        recipient_b.to_field(),
+        DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
+    );
     assert(tag_a != tag_b, "recipient-keyed tags must differ");
 
     let logs_a = env.private_logs_by_tag(tag_a, registry_address);
@@ -264,12 +264,7 @@ unconstrained fn assert_handshake_exists_fails_for_wrong_sender() {
     // The note was inserted under `sender`'s slot; querying it under `other_sender`'s slot should not find it.
     env.view_private(
         sender,
-        registry.assert_handshake_exists(
-            other_sender,
-            recipient,
-            s_app,
-            NON_INTERACTIVE_HANDSHAKE,
-        ),
+        registry.assert_handshake_exists(other_sender, recipient, s_app, NON_INTERACTIVE_HANDSHAKE),
     );
 }
 
@@ -295,12 +290,7 @@ unconstrained fn assert_handshake_exists_fails_for_wrong_recipient() {
 
     env.view_private(
         sender,
-        registry.assert_handshake_exists(
-            sender,
-            recipient_b,
-            s_app,
-            NON_INTERACTIVE_HANDSHAKE,
-        ),
+        registry.assert_handshake_exists(sender, recipient_b, s_app, NON_INTERACTIVE_HANDSHAKE),
     );
 }
 
@@ -315,12 +305,7 @@ unconstrained fn same_sender_secret_for_recipient_a_does_not_match_recipient_b()
 
     env.view_private(
         sender,
-        registry.assert_handshake_exists(
-            sender,
-            recipient_b,
-            s_app,
-            NON_INTERACTIVE_HANDSHAKE,
-        ),
+        registry.assert_handshake_exists(sender, recipient_b, s_app, NON_INTERACTIVE_HANDSHAKE),
     );
 }
 
