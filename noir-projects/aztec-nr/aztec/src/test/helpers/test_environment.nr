@@ -1,5 +1,5 @@
 use crate::protocol::{
-    abis::function_selector::FunctionSelector,
+    abis::{function_selector::FunctionSelector, gas_settings::GasSettings},
     address::AztecAddress,
     traits::{Deserialize, FromField, Packable, Serialize},
 };
@@ -416,6 +416,39 @@ impl TestEnvironment {
     /// Sets the timestamp of the next block to be mined to be ahead of the last one by `duration`.
     pub unconstrained fn advance_next_block_timestamp_by(_self: Self, duration: u64) {
         txe_oracles::advance_timestamp_by(duration);
+    }
+
+    /// Sets the `gas_settings` field of the `TxContext` used by subsequent calls into TXE
+    /// (`call_private`, `view_private`, `call_public`, `view_public`, etc., as well as the inline
+    /// `private_context` closure). The setting persists until overwritten - there is no automatic
+    /// reset between calls.
+    ///
+    /// The default value uses max processable gas limits and zero fees, matching prior TXE
+    /// behavior. This setter is the entry point for testing contracts that read
+    /// `context.gas_settings()` - e.g. Fee Payment Contracts that compute whether a user's fee
+    /// budget is sufficient for the requested gas limits.
+    ///
+    /// # Sample usage
+    /// ```noir
+    /// env.set_gas_settings(GasSettings::new(
+    ///     Gas::new(100, 200),                  // gas limits
+    ///     Gas::new(10, 20),                    // teardown gas limits
+    ///     GasFees::new(3, 5),                  // max fees per gas
+    ///     GasFees::new(1, 2),                  // max priority fees per gas
+    /// ));
+    /// env.call_private(account, MyContract::at(addr).reads_gas_settings());
+    /// ```
+    ///
+    /// # Limitations
+    /// This does NOT affect the per-block "actual" gas price (`globals.gas_fees`) that public
+    /// functions read via `context.min_fee_per_l2_gas()` / `context.min_fee_per_da_gas()` - those
+    /// remain at zero in TXE.
+    ///
+    /// This setter is only callable from the top-level test context, not from within a
+    /// `private_context` / `public_context` / `utility_context` closure (just like
+    /// `set_next_block_timestamp`).
+    pub unconstrained fn set_gas_settings(_self: Self, gas_settings: GasSettings) {
+        txe_oracles::set_gas_settings(gas_settings);
     }
 
     /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or
