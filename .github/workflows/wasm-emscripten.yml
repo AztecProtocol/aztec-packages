@@ -239,11 +239,14 @@ jobs:
         id: bench
         working-directory: barretenberg/cpp
         run: |
+          # --benchmark_out writes a clean JSON to a file; google-benchmark
+          # otherwise prints to stdout intermixed with BB_BENCH profiling
+          # tree, which breaks `json.load`.
           ./scripts/wasm-run --dir=. \
             ./build-wasm-threads/bin/ultra_honk_bench \
             --benchmark_format=json \
-            --benchmark_filter="construct_proof_ultrahonk_power_of_2/16" \
-            > /tmp/bench.json
+            --benchmark_out=/tmp/bench.json \
+            --benchmark_filter="construct_proof_ultrahonk_power_of_2/16"
           # Pull the `real_time` field for the first benchmark; gate fires
           # on relative change vs the snapshot.
           python3 -c "import json; d=json.load(open('/tmp/bench.json')); print(d['benchmarks'][0]['real_time'])" \

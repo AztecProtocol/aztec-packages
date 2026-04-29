@@ -256,6 +256,16 @@ if(WASM)
         # PTHREAD_POOL_SIZE / PTHREAD_POOL_SIZE_STRICT / PROXY_TO_PTHREAD /
         # ALLOW_BLOCKING_ON_MAIN_THREAD / MALLOC=mimalloc.
         "SHELL:-sEXPORT_ALL=1"
+        # bbapi is a library bundle loaded by bb.js via
+        # createBarretenbergModule(); there is no `main`, so the toolchain's
+        # default `-sPROXY_TO_PTHREAD` (which links crt1_proxy_main.o and
+        # demands an entry symbol) cannot be used here. bb.js owns its own
+        # worker and dispatches export calls from there, so the property
+        # PROXY_TO_PTHREAD provides for executables is provided externally
+        # for this target. ALLOW_BLOCKING_ON_MAIN_THREAD is paired with
+        # PROXY_TO_PTHREAD upstream and only meaningful when it is on.
+        "SHELL:-sPROXY_TO_PTHREAD=0"
+        "SHELL:-sALLOW_BLOCKING_ON_MAIN_THREAD=1"
     )
 
     # Aliases to keep historical target names working. Downstream scripts

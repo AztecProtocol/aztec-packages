@@ -310,6 +310,24 @@ function(barretenberg_module_with_sources MODULE_NAME)
                 ${TRACY_LIBS}
                 ${TBB_IMPORTED_TARGETS}
             )
+            if(WASM)
+                # Benchmarks need real filesystem access to read the CRS.
+                # NODERAWFS=1 is a link-time setting (the env var of the
+                # same name set by wasm-run is a no-op without it) that
+                # routes Emscripten file ops to Node's native fs. Pair it
+                # with PROXY_TO_PTHREAD=0 because NODERAWFS only services
+                # the Node main thread; under PROXY_TO_PTHREAD wasm `main`
+                # runs on a worker and every file op silently returns zero
+                # (see Emscripten #19330). parallel_for can still spawn its
+                # own workers for multithreaded proving.
+                target_link_options(
+                    ${BENCHMARK_NAME}_bench
+                    PRIVATE
+                    "SHELL:-sNODERAWFS=1"
+                    "SHELL:-sPROXY_TO_PTHREAD=0"
+                    "SHELL:-sALLOW_BLOCKING_ON_MAIN_THREAD=1"
+                )
+            endif()
             if(ENABLE_STACKTRACES)
                 target_link_libraries(
                     ${BENCHMARK_NAME}_bench_objects

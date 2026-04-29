@@ -199,6 +199,16 @@ process.exitCode = 0;
 try {
   await factory({
     arguments: process.argv.slice(3),
+    // Forward the host process env so getenv("HOME") / getenv("CRS_PATH") /
+    // BB_* etc. resolve to the caller's actual values. Emscripten otherwise
+    // defaults Module.ENV.HOME to "/home/web_user", which breaks any code
+    // (notably srs/global_crs.cpp's ~/.bb-crs lookup) that derives a path
+    // from HOME. NODERAWFS=1 means we're already exposing the host FS, so
+    // the host env values are the right thing to use. Module.ENV is the
+    // table getenv() reads from; it gets populated by Emscripten in
+    // staticInit, so we override in preRun (which fires after staticInit
+    // and before main).
+    preRun: [(Module) => { Object.assign(Module.ENV, process.env); }],
     print: (...a) => process.stdout.write(a.join(' ') + '\n'),
     printErr: (...a) => process.stderr.write(a.join(' ') + '\n'),
     onExit: (code) => { process.exitCode = code; },

@@ -114,6 +114,13 @@ add_link_options(
     "SHELL:-sINITIAL_MEMORY=512MB"
     "SHELL:-sMAXIMUM_MEMORY=4GB"
     "SHELL:-sSTACK_SIZE=8MB"
+    # DEFAULT_PTHREAD_STACK_SIZE controls the per-pthread stack; emscripten's
+    # default of 64KB silently aborts crypto + polynomial work (field ops,
+    # parallel_for trace populate) the moment a worker holds a mid-sized
+    # local. Pin to the same 8MB the main thread gets so both PROXY_TO_-
+    # PTHREAD's main and parallel_for workers have headroom. ~16 threads *
+    # 8MB ≈ 128MB, comfortable inside the 4GB MAXIMUM_MEMORY budget.
+    "SHELL:-sDEFAULT_PTHREAD_STACK_SIZE=8MB"
     "SHELL:-sMODULARIZE=1"
     "SHELL:-sEXPORT_ES6=1"
     "SHELL:-sEXPORT_NAME=createBarretenbergModule"
@@ -122,6 +129,10 @@ add_link_options(
     "SHELL:-sNODEJS_CATCH_EXIT=0"
     "SHELL:-sNODEJS_CATCH_REJECTION=0"
     "SHELL:-sABORTING_MALLOC=0"
+    # Expose Module.ENV so wasm-run / bb.js can forward host env vars
+    # (HOME, CRS_PATH, BB_*) into getenv() before main runs. Without this
+    # Emscripten hardcodes HOME=/home/web_user, breaking ~/.bb-crs lookup.
+    "SHELL:-sEXPORTED_RUNTIME_METHODS=ENV"
 )
 
 # Debug / assertion variants. CMAKE_BUILD_TYPE is set by the preset.
