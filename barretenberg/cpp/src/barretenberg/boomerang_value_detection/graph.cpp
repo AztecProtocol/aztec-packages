@@ -281,6 +281,9 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
                 try_pattern(POSEIDON2_TRANSITION_ENTRY, blk.q_poseidon2_transition_entry());
             }
             try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());
+            if constexpr (requires { blk.q_poseidon2_external_initial(); }) {
+                try_pattern(POSEIDON2_INITIAL_EXTERNAL, blk.q_poseidon2_external_initial());
+            }
             try_pattern(NON_NATIVE_FIELD, blk.q_nnf());
             try_pattern(MEMORY, blk.q_memory()); // consistency gates only; access gates via ROM/RAM transcripts
             try_pattern(DELTA_RANGE, blk.q_delta_range());
@@ -1252,15 +1255,22 @@ template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_poseidon2s_gate_info(size_t gate_index, auto& block)
 {
     auto external_selector = block.q_poseidon2_external()[gate_index];
+    bool has_initial_external = false;
+    if constexpr (requires { block.q_poseidon2_external_initial(); }) {
+        has_initial_external = !block.q_poseidon2_external_initial()[gate_index].is_zero();
+    }
     bool has_internal = false;
     if constexpr (requires { block.q_poseidon2_internal(); }) {
         has_internal = !block.q_poseidon2_internal()[gate_index].is_zero();
     }
-    if (has_internal || !external_selector.is_zero()) {
+    if (has_internal || has_initial_external || !external_selector.is_zero()) {
         if constexpr (requires { block.q_poseidon2_internal(); }) {
             info("q_poseidon2_internal == ", block.q_poseidon2_internal()[gate_index]);
         }
         info("q_poseidon2_external == ", external_selector);
+        if constexpr (requires { block.q_poseidon2_external_initial(); }) {
+            info("q_poseidon2_external_initial == ", block.q_poseidon2_external_initial()[gate_index]);
+        }
         info("w_1 == ", block.w_l()[gate_index]);
         info("w_2 == ", block.w_r()[gate_index]);
         info("w_3 == ", block.w_o()[gate_index]);

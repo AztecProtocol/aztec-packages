@@ -18,6 +18,7 @@
 #include "barretenberg/relations/memory_relation.hpp"
 #include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_initial_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
@@ -305,6 +306,12 @@ TEST(PatternTest, Poseidon2External)
 {
     verify_pattern<Poseidon2ExternalRelation<FF>>(POSEIDON2_EXTERNAL,
                                                   [](Entities& e) { return e.q_poseidon2_external = FF(1); });
+}
+
+TEST(PatternTest, Poseidon2InitialExternal)
+{
+    verify_pattern<Poseidon2InitialExternalRelation<FF>>(
+        POSEIDON2_INITIAL_EXTERNAL, [](Entities& e) { return e.q_poseidon2_external_initial = FF(1); });
 }
 
 TEST(PatternTest, LookupBasic)

@@ -323,6 +323,26 @@ inline const GatePattern POSEIDON2_EXTERNAL = { .name = "poseidon2_external",
                                                 } };
 
 // ============================================================================
+// Poseidon2 Initial External Pattern (from poseidon2_initial_external_relation.hpp)
+//
+// All 4 current wires and all 4 shifted wires are constrained
+//
+// gate_selector = q_poseidon2_external_initial
+// ============================================================================
+
+inline const GatePattern POSEIDON2_INITIAL_EXTERNAL = { .name = "poseidon2_initial_external",
+                                                        .wires = {
+                                                            { Wire::W_L, [](const Selectors&) { return true; } },
+                                                            { Wire::W_R, [](const Selectors&) { return true; } },
+                                                            { Wire::W_O, [](const Selectors&) { return true; } },
+                                                            { Wire::W_4, [](const Selectors&) { return true; } },
+                                                            { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                                        } };
+
+// ============================================================================
 // Poseidon2 Double-Internal Pattern (from poseidon2_double_internal_relation.hpp)
 //
 // Four subrelations tie each output wire (w_l, w_r, w_o, w_4) to the corresponding
