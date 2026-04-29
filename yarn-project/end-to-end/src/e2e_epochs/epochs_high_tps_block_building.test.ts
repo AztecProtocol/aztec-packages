@@ -189,9 +189,9 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
       if (first.block.slot < targetSlot || checkedFullCheckpoints >= CHECKPOINTS_TO_CHECK) {
         continue;
       }
-      // We allow one missing block per checkpoint: txDelayerMaxInclusionTimeIntoSlot=1s means tx
-      // availability is gated on a 1s window inside the L1 slot, and under CI load the proposer
-      // can occasionally start a build slot with an empty mempool and skip a sub-slot block.
+      // We allow one missing block per checkpoint since CI delays make this flakey: a single
+      // sub-slot can overrun its blockDuration budget or hit a momentary empty mempool, causing
+      // the proposer to skip one block in the checkpoint without violating the test's intent.
       expect(checkpointBlocks.length).toBeGreaterThanOrEqual(BLOCKS_PER_CHECKPOINT - 1);
       expect(checkpointBlocks.length).toBeLessThanOrEqual(BLOCKS_PER_CHECKPOINT);
       for (const block of checkpointBlocks) {
