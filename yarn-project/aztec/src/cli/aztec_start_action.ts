@@ -81,7 +81,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       await startProverBroker(options, signalHandlers, services, userLog);
     } else if (options.txe) {
       const { startTXE } = await import('./cmds/start_txe.js');
-      await startTXE(options, debugLogger);
+      await startTXE(options, signalHandlers, debugLogger);
     } else if (options.sequencer) {
       userLog(`Cannot run a standalone sequencer without a node`);
       process.exit(1);

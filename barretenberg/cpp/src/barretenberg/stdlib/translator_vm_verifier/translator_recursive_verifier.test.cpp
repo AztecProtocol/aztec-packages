@@ -73,6 +73,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
 
         // Add the same operations to the ECC op queue; the native computation is performed under the hood.
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
+        op_queue->no_op_ultra_only();
         add_random_ops(op_queue, InnerBuilder::NUM_RANDOM_OPS_START);
         add_mixed_ops(op_queue, circuit_size_parameter / 2);
         op_queue->merge();
@@ -410,7 +411,7 @@ class TranslatorRecursiveTests : public ::testing::Test {
         inputs.set_public();
 
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
-        outer_circuit.finalize_circuit(false);
+        outer_circuit.finalize_circuit();
 
         // Run static analysis - no variable should appear in only one gate
         auto graph = cdg::UltraStaticAnalyzer(outer_circuit);

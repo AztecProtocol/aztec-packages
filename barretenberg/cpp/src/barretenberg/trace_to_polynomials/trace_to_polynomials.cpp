@@ -5,6 +5,7 @@
 // =====================
 
 #include "trace_to_polynomials.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
@@ -76,14 +77,18 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
             }
         }
 
-        RefVector<Selector<FF>> block_selectors = block.get_selectors();
-        // Insert the selector values for this block into the selector polynomials at the correct offset
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor consistency
-        for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
-            auto& selector = block_selectors[selector_idx];
-            for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                size_t trace_row_idx = row_idx + offset;
-                selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
+        {
+            BB_BENCH_NAME("populating selectors");
+            RefVector<Selector<FF>> block_selectors = block.get_selectors();
+            // Insert the selector values for this block into the selector polynomials at the correct offset
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/398): implicit arithmetization/flavor
+            // consistency
+            for (size_t selector_idx = 0; selector_idx < block_selectors.size(); selector_idx++) {
+                auto& selector = block_selectors[selector_idx];
+                for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                    size_t trace_row_idx = row_idx + offset;
+                    selectors[selector_idx].set_if_valid_index(trace_row_idx, selector[row_idx]);
+                }
             }
         }
     }
@@ -97,13 +102,17 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_prover_instance(Builder& bu
 {
     auto& ecc_op_selector = polynomials.lagrange_ecc_op;
 
-    // The EccOpQueueRelation constrains ecc_op_wire[row] == w[row] where lagrange_ecc_op == 1.
+    // The EccOpQueueRelation constrains ecc_op_wire[row] == w_shift[row] where lagrange_ecc_op == 1;
+    // equivalently, ecc_op_wire[row] == w[row + NUM_ZERO_ROWS], so we write ecc_op_wire starting at
+    // (ecc_op_block.trace_offset() - NUM_ZERO_ROWS).
     const auto& ecc_op_block = builder.blocks.ecc_op;
     const size_t wire_start = ecc_op_block.trace_offset();
+    BB_ASSERT_GTE(wire_start, NUM_ZERO_ROWS, "ecc_op block must start beyond the zero row");
+    const size_t op_wire_start = wire_start - NUM_ZERO_ROWS;
     for (auto [ecc_op_wire, wire] : zip_view(polynomials.get_ecc_op_wires(), polynomials.get_wires())) {
         for (size_t i = 0; i < ecc_op_block.size(); ++i) {
-            ecc_op_wire.at(wire_start + i) = wire[wire_start + i];
-            ecc_op_selector.at(wire_start + i) = 1;
+            ecc_op_wire.at(op_wire_start + i) = wire[wire_start + i];
+            ecc_op_selector.at(op_wire_start + i) = 1;
         }
     }
 }

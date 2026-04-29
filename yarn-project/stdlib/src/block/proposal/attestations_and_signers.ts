@@ -4,26 +4,37 @@ import { hexToBuffer } from '@aztec/foundation/string';
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
-import type { Signable, SignatureDomainSeparator } from '../../p2p/signature_utils.js';
+import {
+  type CoordinationSignatureContext,
+  type CoordinationSignatureType,
+  type Signable,
+  coordinationSignatureContextSchema,
+} from '../../p2p/signature_utils.js';
 import { CommitteeAttestation, EthAddress } from './committee_attestation.js';
 
 export class CommitteeAttestationsAndSigners implements Signable {
-  constructor(public attestations: CommitteeAttestation[]) {}
+  readonly primaryType: CoordinationSignatureType = 'AttestationsAndSigners';
+
+  constructor(
+    public attestations: CommitteeAttestation[],
+    public readonly signatureContext: CoordinationSignatureContext,
+  ) {}
 
   static get schema() {
     return z
       .object({
         attestations: CommitteeAttestation.schema.array(),
+        signatureContext: coordinationSignatureContextSchema,
       })
-      .transform(obj => new CommitteeAttestationsAndSigners(obj.attestations));
+      .transform(obj => new CommitteeAttestationsAndSigners(obj.attestations, obj.signatureContext));
   }
 
-  getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
-    const abi = parseAbiParameters('uint8,(bytes,bytes),address[]');
+  getPayloadToSign(): Buffer {
+    // Matches the L1 abi.encode(attestations, signers) in AttestationLib.sol#getAttestationsAndSignersDigest.
+    const abi = parseAbiParameters('(bytes,bytes),address[]');
     const packed = this.getPackedAttestations();
 
     const encodedData = encodeAbiParameters(abi, [
-      domainSeparator,
       [packed.signatureIndices, packed.signaturesOrAddresses],
       this.getSigners().map(s => s.toString()),
     ]);
@@ -31,8 +42,8 @@ export class CommitteeAttestationsAndSigners implements Signable {
     return hexToBuffer(encodedData);
   }
 
-  static empty(): CommitteeAttestationsAndSigners {
-    return new CommitteeAttestationsAndSigners([]);
+  static empty(signatureContext: CoordinationSignatureContext): CommitteeAttestationsAndSigners {
+    return new CommitteeAttestationsAndSigners([], signatureContext);
   }
 
   toString() {
@@ -53,9 +64,9 @@ export class CommitteeAttestationsAndSigners implements Signable {
    * @param attestations - Array of committee attestations with addresses and signatures
    * @returns Packed attestations with bitmap and tightly packed signature/address data
    */
-  getPackedAttestations(): ViemCommitteeAttestations {
-    const length = this.attestations.length;
-    const attestations = this.attestations.map(a => a.toViem());
+  static packAttestations(attestations: CommitteeAttestation[]): ViemCommitteeAttestations {
+    const length = attestations.length;
+    const viemAttestations = attestations.map(a => a.toViem());
 
     // Calculate bitmap size (1 bit per attestation, rounded up to nearest byte)
     const bitmapSize = Math.ceil(length / 8);
@@ -63,8 +74,8 @@ export class CommitteeAttestationsAndSigners implements Signable {
 
     // Calculate total data size needed
     let totalDataSize = 0;
-    for (let i = 0; i < length; i++) {
-      const signature = attestations[i].signature;
+    for (const attestation of viemAttestations) {
+      const signature = attestation.signature;
       // Check if signature is empty (v = 0)
       const isEmpty = signature.v === 0;
 
@@ -79,8 +90,7 @@ export class CommitteeAttestationsAndSigners implements Signable {
     let dataIndex = 0;
 
     // Pack the data
-    for (let i = 0; i < length; i++) {
-      const attestation = attestations[i];
+    for (const [i, attestation] of viemAttestations.entries()) {
       const signature = attestation.signature;
 
       // Check if signature is empty
@@ -90,7 +100,7 @@ export class CommitteeAttestationsAndSigners implements Signable {
         // Set bit in bitmap (bit 7-0 in each byte, left to right)
         const byteIndex = Math.floor(i / 8);
         const bitIndex = 7 - (i % 8);
-        signatureIndices[byteIndex] |= 1 << bitIndex;
+        signatureIndices[byteIndex] = (signatureIndices[byteIndex] ?? 0) | (1 << bitIndex);
 
         // Pack signature: v + r + s
         signaturesOrAddresses[dataIndex] = signature.v;
@@ -118,6 +128,10 @@ export class CommitteeAttestationsAndSigners implements Signable {
       signaturesOrAddresses: `0x${Buffer.from(signaturesOrAddresses).toString('hex')}`,
     };
   }
+
+  getPackedAttestations(): ViemCommitteeAttestations {
+    return CommitteeAttestationsAndSigners.packAttestations(this.attestations);
+  }
 }
 
 /**
@@ -130,8 +144,9 @@ export class MaliciousCommitteeAttestationsAndSigners extends CommitteeAttestati
   constructor(
     attestations: CommitteeAttestation[],
     private signers: EthAddress[],
+    signatureContext: CoordinationSignatureContext,
   ) {
-    super(attestations);
+    super(attestations, signatureContext);
   }
 
   override getSigners(): EthAddress[] {

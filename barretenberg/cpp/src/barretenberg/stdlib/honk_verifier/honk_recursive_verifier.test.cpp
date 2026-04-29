@@ -444,7 +444,7 @@ template <typename Params> class RecursiveVerifierTest : public testing::Test {
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
 
-        outer_circuit.finalize_circuit(false);
+        outer_circuit.finalize_circuit();
 
         // Run static analysis to detect unconstrained variables
         // Use the appropriate analyzer based on the outer builder type

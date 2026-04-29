@@ -78,6 +78,10 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     request.loaded_circuit_vk.clear();
     request.loaded_circuit_name.clear();
 
+    // The hiding kernel (MegaZK) is definitionally the last circuit in the IVC stack; derive flag accordingly.
+    auto chonk = std::dynamic_pointer_cast<Chonk>(request.ivc_in_progress);
+    const bool is_hiding_kernel = (request.ivc_stack_depth + 1 == chonk->get_num_circuits());
+
     const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
     auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
 
@@ -91,8 +95,12 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
             precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(loaded_vk);
 
             if (request.vk_policy == VkPolicy::CHECK) {
-                auto prover_instance = std::make_shared<Chonk::ProverInstance>(circuit);
-                auto computed_vk = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+                // Note that MegaZKVerificationKey = MegaVerificationKey as C++ classes but their content differs
+                // between ZK and non-ZK flavors.
+                auto computed_vk = is_hiding_kernel ? std::make_shared<Chonk::MegaVerificationKey>(
+                                                          Chonk::HidingKernelProverInstance(circuit).get_precomputed())
+                                                    : std::make_shared<Chonk::MegaVerificationKey>(
+                                                          Chonk::ProverInstance(circuit).get_precomputed());
 
                 // Dereference to compare VK contents
                 if (*precomputed_vk != *computed_vk) {
@@ -229,24 +237,29 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
     return { .valid = verified };
 }
 
-static std::shared_ptr<Chonk::ProverInstance> get_acir_program_prover_instance(acir_format::AcirProgram& program)
+static std::shared_ptr<Chonk::MegaVerificationKey> compute_chonk_vk_from_program(acir_format::AcirProgram& program,
+                                                                                 bool use_zk_flavor)
 {
     Chonk::ClientCircuit builder = acir_format::create_circuit<Chonk::ClientCircuit>(program);
-
-    // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    return std::make_shared<Chonk::ProverInstance>(builder);
+    if (use_zk_flavor) {
+        return std::make_shared<Chonk::MegaVerificationKey>(
+            Chonk::HidingKernelProverInstance(builder).get_precomputed());
+    }
+    return std::make_shared<Chonk::MegaVerificationKey>(Chonk::ProverInstance(builder).get_precomputed());
 }
 
 ChonkComputeVk::Response ChonkComputeVk::execute([[maybe_unused]] const BBApiRequest& request) &&
 {
     BB_BENCH_NAME(MSGPACK_SCHEMA_NAME);
-    info("ChonkComputeVk - deriving MegaVerificationKey for circuit '", circuit.name, "'");
+    info("ChonkComputeVk - deriving MegaVerificationKey for circuit '",
+         circuit.name,
+         "'",
+         use_zk_flavor ? " (MegaZK)" : "");
 
     auto constraint_system = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
 
     acir_format::AcirProgram program{ constraint_system, /*witness=*/{} };
-    std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
-    auto verification_key = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+    auto verification_key = compute_chonk_vk_from_program(program, use_zk_flavor);
 
     info("ChonkComputeVk - VK derived, size: ", to_buffer(*verification_key).size(), " bytes");
 
@@ -259,8 +272,7 @@ ChonkCheckPrecomputedVk::Response ChonkCheckPrecomputedVk::execute([[maybe_unuse
     acir_format::AcirProgram program{ acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode)),
                                       /*witness=*/{} };
 
-    std::shared_ptr<Chonk::ProverInstance> prover_instance = get_acir_program_prover_instance(program);
-    auto computed_vk = std::make_shared<Chonk::MegaVerificationKey>(prover_instance->get_precomputed());
+    auto computed_vk = compute_chonk_vk_from_program(program, use_zk_flavor);
 
     if (circuit.verification_key.empty()) {
         info("FAIL: Expected precomputed vk for function ", circuit.name);
@@ -300,7 +312,7 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
 
     // Create and finalize circuit
     auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
 
     // Set response values
     response.acir_opcodes = program.constraints.num_acir_opcodes;

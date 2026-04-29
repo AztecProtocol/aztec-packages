@@ -4,8 +4,10 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type BlockProposal,
   type CheckpointProposalCore,
+  type CoordinationSignatureContext,
   PeerErrorSeverity,
   type ValidationResult,
+  hasValidSignatureContext,
 } from '@aztec/stdlib/p2p';
 
 import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
@@ -17,22 +19,40 @@ export class ProposalValidator {
   private txsPermitted: boolean;
   private maxTxsPerBlock?: number;
   private pipeliningWindow: PipeliningWindow;
+  private signatureContext: CoordinationSignatureContext;
 
   constructor(
     epochCache: EpochCacheInterface,
-    opts: { txsPermitted: boolean; maxTxsPerBlock?: number; p2pPropagationTime?: number },
+    opts: {
+      txsPermitted: boolean;
+      maxTxsPerBlock?: number;
+      p2pPropagationTime?: number;
+      signatureContext: CoordinationSignatureContext;
+    },
     loggerName: string,
   ) {
     this.epochCache = epochCache;
     this.txsPermitted = opts.txsPermitted;
     this.maxTxsPerBlock = opts.maxTxsPerBlock;
     this.pipeliningWindow = new PipeliningWindow(epochCache, { p2pPropagationTime: opts.p2pPropagationTime });
+    this.signatureContext = opts.signatureContext;
     this.logger = createLogger(loggerName);
   }
 
   /** Validates header-level fields: slot, signature, and proposer. */
   public async validate(proposal: BlockProposal | CheckpointProposalCore): Promise<ValidationResult> {
     try {
+      // Cross-chain replay check: reject proposals that carry a foreign signing domain.
+      if (!hasValidSignatureContext(proposal, this.signatureContext)) {
+        this.logger.warn(`Penalizing peer for proposal with foreign signature context`, {
+          chainId: proposal.signatureContext.chainId,
+          rollupAddress: proposal.signatureContext.rollupAddress.toString(),
+          expectedChainId: this.signatureContext.chainId,
+          expectedRollupAddress: this.signatureContext.rollupAddress.toString(),
+        });
+        return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
+      }
+
       // Slot check: use target slots since proposals target pipeline slots (slot + 1 when pipelining).
       const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
 

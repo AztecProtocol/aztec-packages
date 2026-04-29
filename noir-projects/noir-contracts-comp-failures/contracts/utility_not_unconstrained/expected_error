@@ -1,0 +1,1 @@
+#[external("utility")] must be unconstrained - constrained_utility_function isn't

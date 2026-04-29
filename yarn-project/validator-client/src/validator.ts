@@ -30,6 +30,7 @@ import {
   CheckpointProposal,
   type CheckpointProposalCore,
   type CheckpointProposalOptions,
+  type CoordinationSignatureContext,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
@@ -115,7 +116,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.tracer = telemetry.getTracer('Validator');
     this.metrics = new ValidatorMetrics(telemetry);
 
-    this.validationService = new ValidationService(keyStore, this.log.createChild('validation-service'));
+    this.validationService = new ValidationService(
+      keyStore,
+      this.getSignatureContext(),
+      this.log.createChild('validation-service'),
+    );
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
     this.epochCacheUpdateLoop = new RunningPromise(this.handleEpochCommitteeUpdate.bind(this), this.log, 1000);
@@ -196,6 +201,10 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock,
+      signatureContext: {
+        chainId: config.l1ChainId,
+        rollupAddress: config.l1Contracts.rollupAddress,
+      },
     });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
@@ -275,6 +284,13 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return this.keyStore.signTypedDataWithAddress(addr, msg, context);
   }
 
+  private getSignatureContext(): CoordinationSignatureContext {
+    return {
+      chainId: this.config.l1ChainId,
+      rollupAddress: this.config.l1Contracts.rollupAddress,
+    };
+  }
+
   public getCoinbaseForAttestor(attestor: EthAddress): EthAddress {
     return this.keyStore.getCoinbaseAddress(attestor);
   }
@@ -294,7 +310,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   public reloadKeystore(newManager: KeystoreManager): void {
     const newAdapter = NodeKeystoreAdapter.fromKeyStoreManager(newManager);
     this.keyStore = new HAKeyStore(newAdapter, this.slashingProtectionSigner);
-    this.validationService = new ValidationService(this.keyStore, this.log.createChild('validation-service'));
+    this.validationService = new ValidationService(
+      this.keyStore,
+      this.getSignatureContext(),
+      this.log.createChild('validation-service'),
+    );
   }
 
   public async start() {
@@ -871,7 +891,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         attestation => {
           if (!attestation.archive.equals(proposal.archive)) {
             this.log.warn(
-              `Received attestation for slot ${slot} with mismatched archive from ${attestation.getSender()?.toString()}`,
+              `Received attestation for slot ${slot} with mismatched archive from ${attestation
+                .getSender()
+                ?.toString()}`,
               { attestationArchive: attestation.archive.toString(), proposalArchive: proposal.archive.toString() },
             );
             return false;

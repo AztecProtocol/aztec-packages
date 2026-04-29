@@ -91,7 +91,7 @@ describe('e2e_epochs/epochs_multi_proof', () => {
       120,
     );
 
-    const provenBlockNumber = await context.aztecNode.getProvenBlockNumber();
+    const provenBlockNumber = await context.aztecNode.getBlockNumber('proven');
     expect(provenBlockNumber).toEqual(firstEpochLastBlockNum);
 
     logger.info(`Test succeeded`);

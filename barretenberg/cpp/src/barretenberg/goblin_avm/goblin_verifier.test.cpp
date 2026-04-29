@@ -94,22 +94,12 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
 
         auto goblin_proof = goblin.prove();
 
-        // Commit to op_queue columns with leading zeros matching the Translator's polynomial layout.
-        // The Translator prepends RANDOMNESS_START (=2) zero rows for shiftability; the raw op_queue
-        // data follows. In the full TwoLayerAvmRecursiveVerifier flow, these leading zeros come from
-        // the ecc_op_wire commitment (TRACE_OFFSET + NUM_ZERO_ROWS = 2 for MegaAvmFlavor).
+        // Commit to op_queue columns.
         TableCommitments table_commitments;
         auto ultra_ops_table_columns = goblin.op_queue->construct_ultra_ops_table_columns();
-        constexpr size_t num_leading_zeros = TranslatorFlavor::RANDOMNESS_START;
-        const size_t padded_rows = goblin.op_queue->get_ultra_ops_table_num_rows() + num_leading_zeros;
-        CommitmentKey<curve::BN254> pcs_commitment_key(padded_rows);
+        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
-            auto& col = ultra_ops_table_columns[idx];
-            Polynomial<FF> padded(padded_rows, padded_rows);
-            for (size_t j = 0; j < col.size(); j++) {
-                padded.at(num_leading_zeros + j) = col[j];
-            }
-            table_commitments[idx] = pcs_commitment_key.commit(padded);
+            table_commitments[idx] = pcs_commitment_key.commit(ultra_ops_table_columns[idx]);
         }
 
         RecursiveTableCommitments recursive_table_commitments;

@@ -206,6 +206,10 @@ describe('clock_tolerance', () => {
   });
 
   describe('PipeliningWindow.acceptsProposal', () => {
+    // Config: 72s slot, 2s p2p.
+    // Under early pipelining, proposalWindowIntoTargetSlot = 0: only the 500ms
+    // clock-disparity grace keeps old-target-slot proposals acceptable after the
+    // receiver rolls into the next slot.
     let epochCache: ReturnType<typeof mock<EpochCacheInterface>>;
     let pipeliningWindow: PipeliningWindow;
 
@@ -220,118 +224,59 @@ describe('clock_tolerance', () => {
       pipeliningWindow = new PipeliningWindow(epochCache);
     });
 
-    it('returns true when pipelining enabled, message is for current slot, and within grace period', () => {
-      // Grace period = DEFAULT_P2P_PROPAGATION_TIME * 1000 = 2000ms
+    it('accepts a current-slot proposal within clock-disparity grace', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: SlotNumber(100),
         ts: 1000n,
-        nowMs: 1001000n, // 1000ms elapsed, within 2000ms grace period
+        nowMs: 1000400n, // 400ms elapsed, within 500ms grace
       });
 
       expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(true);
     });
 
-    it('returns true at exactly 0ms elapsed', () => {
+    it('rejects a current-slot proposal past the clock-disparity grace', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: SlotNumber(100),
         ts: 1000n,
-        nowMs: 1000000n, // 0ms elapsed
-      });
-
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(true);
-    });
-
-    it('returns false when elapsed time exceeds grace period', () => {
-      // 3000ms elapsed > 2000ms grace period
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: SlotNumber(100),
-        ts: 1000n,
-        nowMs: 1003000n, // 3000ms elapsed
+        nowMs: 1001000n, // 1000ms elapsed, past 500ms grace
       });
 
       expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(false);
     });
 
-    it('returns true at the propagation boundary when within clock disparity allowance', () => {
-      // 2000ms elapsed = DEFAULT_P2P_PROPAGATION_TIME * 1000, still within the extra 500ms allowance
+    it('rejects proposals for other slots regardless of elapsed time', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: SlotNumber(100),
         ts: 1000n,
-        nowMs: 1002000n, // 2000ms elapsed
+        nowMs: 1000000n,
       });
 
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(true);
-    });
-
-    it('returns false at exactly the propagation boundary plus clock disparity allowance', () => {
-      // 2500ms elapsed = 2000ms propagation window + 500ms disparity allowance (not strictly less than)
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: SlotNumber(100),
-        ts: 1000n,
-        nowMs: 1002500n, // 2500ms elapsed
-      });
-
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(false);
-    });
-
-    it('returns false when pipelining is disabled', () => {
-      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
-
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: SlotNumber(100),
-        ts: 1000n,
-        nowMs: 1001000n, // 1000ms elapsed, within grace period
-      });
-
-      expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(false);
-    });
-
-    it('returns false when message is not for current slot', () => {
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: SlotNumber(100),
-        ts: 1000n,
-        nowMs: 1001000n,
-      });
-
-      // Message for slot 99, current slot is 100
       expect(pipeliningWindow.acceptsProposal(SlotNumber(99))).toBe(false);
-    });
-
-    it('returns false when message is for a future slot', () => {
-      epochCache.getEpochAndSlotNow.mockReturnValue({
-        epoch: 1 as any,
-        slot: SlotNumber(100),
-        ts: 1000n,
-        nowMs: 1001000n,
-      });
-
-      // Message for slot 101, current slot is 100
       expect(pipeliningWindow.acceptsProposal(SlotNumber(101))).toBe(false);
+      expect(pipeliningWindow.acceptsProposal(SlotNumber(102))).toBe(false);
     });
 
-    it('uses the provided propagation time instead of the default', () => {
+    it('rejects when pipelining is disabled', () => {
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: SlotNumber(100),
         ts: 1000n,
-        nowMs: 1003000n, // 3000ms elapsed
+        nowMs: 1000000n,
       });
 
-      const longerWindow = new PipeliningWindow(epochCache, { p2pPropagationTime: 4 });
-
-      expect(longerWindow.acceptsProposal(SlotNumber(100))).toBe(true);
       expect(pipeliningWindow.acceptsProposal(SlotNumber(100))).toBe(false);
     });
   });
 
   describe('PipeliningWindow.acceptsAttestation', () => {
+    // Config: 72s slot, 2s p2p.
+    // Under early pipelining, attestationWindowIntoTargetSlot = 2*p2p = 4s,
+    // giving straggler attestations 4s+500ms grace after the receiver rolls
+    // into the next slot.
     let epochCache: ReturnType<typeof mock<EpochCacheInterface>>;
     let pipeliningWindow: PipeliningWindow;
 
@@ -346,36 +291,39 @@ describe('clock_tolerance', () => {
       pipeliningWindow = new PipeliningWindow(epochCache, { l1PublishingTime: 12 });
     });
 
-    it('returns true while still before the target-slot publish cutoff', () => {
+    it('accepts a current-slot straggler attestation within the target-slot window', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: SlotNumber(100),
         ts: 1000n,
-        nowMs: 1059000n, // 59000ms elapsed
+        nowMs: 1003000n, // 3000ms elapsed, within 4500ms straggler grace
       });
 
       expect(pipeliningWindow.acceptsAttestation(SlotNumber(100))).toBe(true);
     });
 
-    it('returns true at the target-slot publish cutoff when within clock disparity allowance', () => {
+    it('rejects a current-slot attestation past the straggler window', () => {
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: SlotNumber(100),
         ts: 1000n,
-        nowMs: 1060000n, // 60000ms elapsed
+        nowMs: 1005000n, // 5000ms elapsed, past 4500ms cutoff
       });
 
-      expect(pipeliningWindow.acceptsAttestation(SlotNumber(100))).toBe(true);
+      expect(pipeliningWindow.acceptsAttestation(SlotNumber(100))).toBe(false);
     });
 
-    it('returns false at the target-slot publish cutoff plus clock disparity allowance', () => {
+    it('scales the straggler window with p2pPropagationTime', () => {
+      // With p2pPropagationTime = 4, straggler window = 8s + 500ms disparity.
+      const longer = new PipeliningWindow(epochCache, { l1PublishingTime: 12, p2pPropagationTime: 4 });
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: 1 as any,
         slot: SlotNumber(100),
         ts: 1000n,
-        nowMs: 1060500n, // 60500ms elapsed
+        nowMs: 1007000n,
       });
 
+      expect(longer.acceptsAttestation(SlotNumber(100))).toBe(true);
       expect(pipeliningWindow.acceptsAttestation(SlotNumber(100))).toBe(false);
     });
   });

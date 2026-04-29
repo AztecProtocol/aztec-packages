@@ -11,6 +11,8 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
+#include "barretenberg/stdlib/hash/poseidon2/poseidon2.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/bigfield.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
@@ -158,17 +160,55 @@ template <typename Flavor> void create_some_elliptic_curve_addition_gates(auto& 
     circuit_builder.create_ecc_add_gate({ x1, y1, x2, y2, x3, y3, /*is_addition=*/false });
 }
 
-template <typename Flavor> void create_some_ecc_op_queue_gates(auto& circuit_builder)
+template <typename Flavor>
+void create_some_ecc_op_queue_gates(auto& circuit_builder)
+    requires IsMegaFlavor<Flavor>
 {
     using G1 = typename Flavor::Curve::Group;
     using FF = typename Flavor::FF;
-    static_assert(IsMegaFlavor<Flavor>);
     const size_t num_ecc_operations = 10; // arbitrary
     for (size_t i = 0; i < num_ecc_operations; ++i) {
         auto point = G1::affine_one * FF::random_element();
         auto scalar = FF::random_element();
         circuit_builder.queue_ecc_mul_accum(point, scalar);
     }
+}
+
+template <typename Flavor>
+void create_some_databus_gates(auto& builder)
+    requires HasDataBus<Flavor>
+{
+    using FF = typename Flavor::FF;
+    auto val = builder.add_variable(FF::random_element());
+    builder.add_public_calldata(val);
+    builder.read_calldata(builder.add_variable(FF(0)));
+    builder.add_public_secondary_calldata(val);
+    builder.read_secondary_calldata(builder.add_variable(FF(0)));
+    builder.add_public_return_data(val);
+    builder.read_return_data(builder.add_variable(FF(0)));
+}
+
+template <typename Flavor> void create_some_non_native_field_gates(auto& builder)
+{
+    using Builder = typename Flavor::CircuitBuilder;
+    using fq_ct = stdlib::bigfield<Builder, bb::Bn254FqParams>;
+
+    auto a = fq_ct::from_witness(&builder, bb::fq::random_element());
+    auto b = fq_ct::from_witness(&builder, bb::fq::random_element());
+    [[maybe_unused]] auto c = a * b;
+}
+
+template <typename Flavor> void create_some_poseidon2_gates(auto& builder)
+{
+    using field_ct = stdlib::field_t<typename Flavor::CircuitBuilder>;
+    using witness_ct = stdlib::witness_t<typename Flavor::CircuitBuilder>;
+    using FF = typename Flavor::FF;
+
+    std::vector<field_ct> inputs;
+    for (size_t i = 0; i < 4; ++i) {
+        inputs.emplace_back(witness_ct(&builder, FF::random_element()));
+    }
+    stdlib::poseidon2<typename Flavor::CircuitBuilder>::hash(inputs);
 }
 
 class UltraRelationCorrectnessTests : public ::testing::Test {
@@ -201,6 +241,8 @@ TEST_F(UltraRelationCorrectnessTests, Ultra)
     create_some_delta_range_constraint_gates<Flavor>(builder);
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
+    create_some_non_native_field_gates<Flavor>(builder);
+    create_some_poseidon2_gates<Flavor>(builder);
     stdlib::recursion::honk::DefaultIO<UltraCircuitBuilder>::add_default(builder);
 
     // Create a prover (it will compute proving key and witness)
@@ -234,7 +276,10 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     create_some_delta_range_constraint_gates<Flavor>(builder);
     create_some_elliptic_curve_addition_gates<Flavor>(builder);
     create_some_RAM_gates<Flavor>(builder);
-    create_some_ecc_op_queue_gates<Flavor>(builder); // Goblin!
+    create_some_ecc_op_queue_gates<Flavor>(builder);
+    create_some_databus_gates<Flavor>(builder);
+    create_some_non_native_field_gates<Flavor>(builder);
+    create_some_poseidon2_gates<Flavor>(builder);
     stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>::add_default(builder);
 
     // Create a prover (it will compute proving key and witness)
@@ -242,7 +287,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
 
     complete_prover_instance_for_test<Flavor>(prover_inst);
 
-    // Check that selectors are nonzero to ensure corresponding relation has nontrivial contribution
+    // Check that selectors and databus inverses are nonzero to ensure relations are non-trivially exercised
     for (auto selector : prover_inst->polynomials.get_gate_selectors()) {
         ensure_non_zero(selector);
     }
@@ -251,6 +296,7 @@ TEST_F(UltraRelationCorrectnessTests, Mega)
     for (auto poly : prover_inst->polynomials.get_databus_inverses()) {
         ensure_non_zero(poly);
     }
+
     auto& prover_polynomials = prover_inst->polynomials;
     auto params = prover_inst->relation_parameters;
 

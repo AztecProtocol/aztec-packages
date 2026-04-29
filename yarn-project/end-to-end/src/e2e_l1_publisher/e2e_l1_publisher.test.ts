@@ -54,14 +54,15 @@ import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/
 import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { orderAttestations } from '@aztec/stdlib/p2p';
-import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
-  fr,
-  makeAndSignCommitteeAttestationsAndSigners,
-  makeCheckpointAttestationFromCheckpoint,
-  mockProcessedTx,
-} from '@aztec/stdlib/testing';
+  CheckpointProposal,
+  ConsensusPayload,
+  CheckpointAttestation as P2PCheckpointAttestation,
+  getHashedSignaturePayloadTypedData,
+  orderAttestations,
+} from '@aztec/stdlib/p2p';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { fr, mockProcessedTx } from '@aztec/stdlib/testing';
 import type { BlockHeader, CheckpointGlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
 import {
   type MerkleTreeAdminDatabase,
@@ -136,6 +137,28 @@ describe('L1Publisher integration', () => {
 
   let rpcUrl: string;
   let anvil: Anvil;
+  const getSignatureContext = () => ({
+    chainId,
+    rollupAddress: l1ContractAddresses.rollupAddress,
+  });
+  const makeCheckpointAttestationForCurrentContext = (checkpoint: Checkpoint, signer: Secp256k1Signer) => {
+    const signatureContext = getSignatureContext();
+    const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
+    const attestationDigest = getHashedSignaturePayloadTypedData(payload);
+    const proposal = new CheckpointProposal(
+      checkpoint.header,
+      checkpoint.archive.root,
+      checkpoint.feeAssetPriceModifier,
+      Signature.empty(),
+      signatureContext,
+    );
+    const proposalDigest = getHashedSignaturePayloadTypedData(proposal);
+    return new P2PCheckpointAttestation(payload, signer.sign(attestationDigest), signer.sign(proposalDigest));
+  };
+  const signAttestationsAndSigners = (
+    attestationsAndSigners: CommitteeAttestationsAndSigners,
+    signer: Secp256k1Signer,
+  ) => signer.sign(getHashedSignaturePayloadTypedData(attestationsAndSigners));
 
   const progressTimeBySlot = async (slotsToJump = 1) => {
     const currentTime = (await l1Client.getBlock()).timestamp;
@@ -481,7 +504,7 @@ describe('L1Publisher integration', () => {
 
         await publisher.enqueueProposeCheckpoint(
           checkpoint,
-          CommitteeAttestationsAndSigners.empty(),
+          CommitteeAttestationsAndSigners.empty(getSignatureContext()),
           Signature.empty(),
         );
         await publisher.sendRequests();
@@ -527,7 +550,7 @@ describe('L1Publisher integration', () => {
                 feeAssetPriceModifier: 0n,
               },
             },
-            CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
+            CommitteeAttestationsAndSigners.packAttestations([]),
             [],
             Signature.empty().toViemSignature(),
             getPrefixedEthBlobCommitments(blockBlobs),
@@ -592,7 +615,7 @@ describe('L1Publisher integration', () => {
     ) => {
       await publisher.enqueueProposeCheckpoint(
         checkpoint,
-        new CommitteeAttestationsAndSigners(attestations),
+        new CommitteeAttestationsAndSigners(attestations, getSignatureContext()),
         signature,
       );
       const result = await publisher.sendRequests();
@@ -604,7 +627,7 @@ describe('L1Publisher integration', () => {
       const { checkpoint } = await buildSingleCheckpoint();
       const block = checkpoint.blocks[0];
 
-      const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
+      const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
@@ -613,11 +636,8 @@ describe('L1Publisher integration', () => {
 
       const proposerSigner = validators.find(v => v.address.equals(proposer!));
 
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
-      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
-        attestationsAndSigners,
-        proposerSigner!,
-      );
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
+      const attestationsAndSignersSignature = signAttestationsAndSigners(attestationsAndSigners, proposerSigner!);
 
       await expectPublishCheckpoint(checkpoint, attestations, attestationsAndSignersSignature);
     });
@@ -625,11 +645,11 @@ describe('L1Publisher integration', () => {
     it('fails to publish a block without the proposer attestation', async () => {
       const { checkpoint } = await buildSingleCheckpoint();
       const block = checkpoint.blocks[0];
-      const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
+      const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
 
       // Reverse attestations to break proposer attestation
       const attestations = orderAttestations(checkpointAttestations, committee!).reverse();
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
@@ -643,15 +663,15 @@ describe('L1Publisher integration', () => {
     it('rejects flipped proposer signature', async () => {
       const { checkpoint } = await buildSingleCheckpoint();
       const block = checkpoint.blocks[0];
-      const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
+      const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
-      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
+      const attestationsAndSignersSignature = signAttestationsAndSigners(
         attestationsAndSigners,
         validators.find(v => v.address.equals(proposer!))!,
       );
@@ -668,15 +688,15 @@ describe('L1Publisher integration', () => {
     it('rejects signature with invalid recovery value', async () => {
       const { checkpoint } = await buildSingleCheckpoint();
       const block = checkpoint.blocks[0];
-      const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
+      const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
 
       const canPropose = await publisher.canProposeAt(new Fr(GENESIS_ARCHIVE_ROOT), proposer!);
       expect(canPropose?.slot).toEqual(block.header.getSlot());
       await publisher.validateBlockHeader(checkpoint.header);
 
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
-      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
+      const attestationsAndSignersSignature = signAttestationsAndSigners(
         attestationsAndSigners,
         validators.find(v => v.address.equals(proposer!))!,
       );
@@ -699,11 +719,11 @@ describe('L1Publisher integration', () => {
       // Publish the first invalid block
       const badCheckpointAttestations = validators
         .filter(v => v.address.equals(proposer!))
-        .map(v => makeCheckpointAttestationFromCheckpoint(badCheckpoint, v));
+        .map(v => makeCheckpointAttestationForCurrentContext(badCheckpoint, v));
       const badAttestations = orderAttestations(badCheckpointAttestations, committee!);
 
-      const badAttestationsAndSigners = new CommitteeAttestationsAndSigners(badAttestations);
-      const badAttestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+      const badAttestationsAndSigners = new CommitteeAttestationsAndSigners(badAttestations, getSignatureContext());
+      const badAttestationsAndSignersSignature = signAttestationsAndSigners(
         badAttestationsAndSigners,
         validators.find(v => v.address.equals(proposer!))!,
       );
@@ -721,7 +741,7 @@ describe('L1Publisher integration', () => {
       const { checkpoint } = await buildSingleCheckpoint({ blockNumber: BlockNumber(1) });
       const block = checkpoint.blocks[0];
       expect(block.number).toEqual(badBlock.number);
-      const checkpointAttestations = validators.map(v => makeCheckpointAttestationFromCheckpoint(checkpoint, v));
+      const checkpointAttestations = validators.map(v => makeCheckpointAttestationForCurrentContext(checkpoint, v));
       const attestations = orderAttestations(checkpointAttestations, committee!);
 
       // Check we can invalidate the checkpoint
@@ -756,8 +776,8 @@ describe('L1Publisher integration', () => {
       await publisher.validateBlockHeader(checkpoint.header, invalidationSimulationOverridesPlan);
 
       // At this point I'm gonna need to propose the correct signature ye? So confused actually here.
-      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations);
-      const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
+      const attestationsAndSigners = new CommitteeAttestationsAndSigners(attestations, getSignatureContext());
+      const attestationsAndSignersSignature = signAttestationsAndSigners(
         attestationsAndSigners,
         validators.find(v => v.address.equals(proposer!))!,
       );
@@ -783,7 +803,11 @@ describe('L1Publisher integration', () => {
       const { checkpoint } = await buildSingleCheckpoint();
       const block = checkpoint.blocks[0];
 
-      await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
+      await publisher.enqueueProposeCheckpoint(
+        checkpoint,
+        CommitteeAttestationsAndSigners.empty(getSignatureContext()),
+        Signature.empty(),
+      );
       await publisher.enqueueGovernanceCastSignal(
         l1ContractAddresses.rollupAddress,
         block.slot,
@@ -807,7 +831,11 @@ describe('L1Publisher integration', () => {
       // Expect the simulation to fail
       const loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
       await expect(
-        publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty()),
+        publisher.enqueueProposeCheckpoint(
+          checkpoint,
+          CommitteeAttestationsAndSigners.empty(getSignatureContext()),
+          Signature.empty(),
+        ),
       ).rejects.toThrow(/Rollup__InvalidInHash/);
       expect(loggerErrorSpy).toHaveBeenNthCalledWith(
         2,
@@ -855,9 +883,12 @@ describe('L1Publisher integration', () => {
     };
 
     const enqueueProposeL2Checkpoint = async (checkpoint: Checkpoint) => {
-      await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty(), {
-        txTimeoutAt: getProposeTxTimeoutAt(checkpoint),
-      });
+      await publisher.enqueueProposeCheckpoint(
+        checkpoint,
+        CommitteeAttestationsAndSigners.empty(getSignatureContext()),
+        Signature.empty(),
+        { txTimeoutAt: getProposeTxTimeoutAt(checkpoint) },
+      );
     };
 
     it(`cancels block proposal when the L2 slot ends`, async () => {

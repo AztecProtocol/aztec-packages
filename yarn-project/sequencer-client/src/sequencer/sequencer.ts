@@ -14,6 +14,7 @@ import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { BlockData, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
@@ -22,6 +23,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -56,6 +58,7 @@ export { SequencerState };
 export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<SequencerEvents>) {
   private runningPromise?: RunningPromise;
   private state = SequencerState.STOPPED;
+  private stateEnteredAtMs = performance.now();
   private metrics: SequencerMetrics;
   private checkpointProposalJobMetrics: CheckpointProposalJobMetrics;
 
@@ -82,6 +85,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /** Config for the sequencer */
   protected config: ResolvedSequencerConfig = DefaultSequencerConfig;
+  private readonly signatureContext: CoordinationSignatureContext;
 
   constructor(
     protected publisherFactory: SequencerPublisherFactory,
@@ -97,7 +101,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected dateProvider: DateProvider,
     protected epochCache: EpochCache,
     protected rollupContract: RollupContract,
-    config: SequencerConfig,
+    config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'l1Contracts'>,
     protected telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),
   ) {
@@ -108,6 +112,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log = log.createChild('[FISHERMAN]');
     }
 
+    this.signatureContext = {
+      chainId: config.l1ChainId,
+      rollupAddress: config.l1Contracts.rollupAddress,
+    };
     this.metrics = new SequencerMetrics(telemetry, this.rollupContract, 'Sequencer');
     this.checkpointProposalJobMetrics = new CheckpointProposalJobMetrics(telemetry);
     this.updateConfig(config);
@@ -377,7 +385,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       // and the archive at that checkpoint so L1 simulation sees the correct chain tip.
       const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
       l1SimulationOverridesBuilder.forPendingCheckpoint(parentCheckpointNumber).withPendingArchive(syncedTo.archive);
-      this.metrics.recordPipelineDepth(1);
+      this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
 
       this.log.verbose(
         `Building on top of proposed checkpoint (pending=${syncedTo.proposedCheckpointData?.checkpointNumber})`,
@@ -489,6 +497,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.checkpointsBuilder,
       this.l2BlockSource,
       this.l1Constants,
+      this.signatureContext,
       this.config,
       this.timetable,
       this.slasherClient,
@@ -549,6 +558,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       secondsIntoSlot,
       slot: slotNumber,
     });
+    if (proposedState !== this.state) {
+      this.metrics.recordStateDuration(performance.now() - this.stateEnteredAtMs, this.state);
+      this.stateEnteredAtMs = performance.now();
+    }
     this.state = proposedState;
   }
 
@@ -581,7 +594,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.l2BlockSource.getPendingChainValidationStatus(),
-      this.l2BlockSource.getProposedCheckpointOnly(),
+      this.l2BlockSource.getLastProposedCheckpoint(),
     ] as const);
 
     const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpointData] =

@@ -125,6 +125,7 @@ ValidTranslatorState build_valid_accumulator_transfer_state()
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<ECCOpQueue>();
+    op_queue->no_op_ultra_only();
 
     // Add random start ops, then mixed ops, merge, more mixed ops, random end ops, final merge
     for (size_t i = 0; i < Flavor::CircuitBuilder::NUM_RANDOM_OPS_START; i++) {
