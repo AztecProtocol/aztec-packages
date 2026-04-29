@@ -1,5 +1,11 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
+exports[`pxe schema compatibility couples version bumps to schema changes 1`] = `
+{
+  "PXE_DATA_SCHEMA_VERSION": 5,
+}
+`;
+
 exports[`pxe schema compatibility has a fixture for every PXE-typed store and a store for every fixture 1`] = `
 {
   "fixturesWithoutStores": [],

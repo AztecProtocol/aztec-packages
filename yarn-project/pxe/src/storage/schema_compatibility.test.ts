@@ -10,6 +10,7 @@ import { AddressStore } from './address_store/address_store.js';
 import { AnchorBlockStore } from './anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './capsule_store/capsule_store.js';
 import { ContractStore } from './contract_store/contract_store.js';
+import { PXE_DATA_SCHEMA_VERSION } from './metadata.js';
 import { NoteStore } from './note_store/note_store.js';
 import { PrivateEventStore } from './private_event_store/private_event_store.js';
 import { RecipientTaggingStore, SenderAddressBookStore, SenderTaggingStore } from './tagging_store/index.js';
@@ -130,5 +131,12 @@ describe('pxe schema compatibility', () => {
     } finally {
       await inner.close();
     }
+  });
+
+  it('couples version bumps to schema changes', () => {
+    // The legitimate-update path for any of the prior snapshots is to bump PXE_DATA_SCHEMA_VERSION
+    // *and* update this snapshot in the same commit. That makes the wipe-on-upgrade mechanism honest:
+    // a developer who legitimately changes the schema must consciously trigger the wipe.
+    expect({ PXE_DATA_SCHEMA_VERSION }).toMatchSnapshot();
   });
 });
