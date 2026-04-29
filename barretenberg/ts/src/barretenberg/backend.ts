@@ -334,13 +334,13 @@ export class AztecClientBackend {
     this.api.chonkStart({ numCircuits: this.acirBuf.length });
 
     // Queue load and accumulate for each circuit
+    const lastIdx = this.acirBuf.length - 1;
     for (let i = 0; i < this.acirBuf.length; i++) {
       const bytecode = this.acirBuf[i];
       const witness = witnessBuf[i] || new Uint8Array(0);
       const vk = vksBuf[i] || new Uint8Array(0);
       const functionName = this.circuitNames[i] || `circuit_${i}`;
 
-      // Load the circuit
       this.api.chonkLoad({
         circuit: {
           name: functionName,
@@ -359,13 +359,13 @@ export class AztecClientBackend {
     const proveResult = await this.api.chonkProve({});
     // The API currently expects a msgpack-encoded API.
     const proof = new Encoder({ useRecords: false }).encode(fromChonkProof(proveResult.proof));
-    // Generate the VK
-    const lastIdx = this.acirBuf.length - 1;
+    // Generate the hiding kernel VK (always the last circuit, proven as MegaZK).
     const vkResult = await this.api.chonkComputeVk({
       circuit: {
         name: this.circuitNames[lastIdx] || 'circuit',
         bytecode: this.acirBuf[lastIdx],
       },
+      useZkFlavor: true,
     });
 
     const proofFields = flattenChonkProofFields(proveResult.proof);

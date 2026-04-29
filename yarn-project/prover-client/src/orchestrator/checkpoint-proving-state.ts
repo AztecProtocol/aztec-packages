@@ -204,7 +204,7 @@ export class CheckpointProvingState {
       Fr.ZERO,
       NUM_MSGS_PER_BASE_PARITY,
     );
-    return new ParityBasePrivateInputs(messages, this.constants.vkTreeRoot);
+    return new ParityBasePrivateInputs(messages, this.constants.vkTreeRoot, this.constants.proverId);
   }
 
   public setOutHashHint(hint: OutHashHint) {

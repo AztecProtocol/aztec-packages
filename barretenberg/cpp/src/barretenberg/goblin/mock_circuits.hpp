@@ -143,7 +143,9 @@ class GoblinMockCircuits {
         for (size_t idx = 0; idx < num_circuits - 1; ++idx) {
             MegaCircuitBuilder builder{ goblin.op_queue };
             if (idx == num_circuits - 2) {
-                // Add random ops at START for Translator ZK (lands at beginning of op queue table)
+                // The tail circuit's subtable is prepended last and sits at the top of the aggregate op queue table.
+                // The initial no-op gives the Translator's op queue wires their 2 shiftability-required leading zeros.
+                builder.queue_ecc_no_op();
                 // Add random ops at START for Translator ZK (lands at beginning of op queue table)
                 randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
                 // Add hiding op for ECCVM ZK (prepended to ECCVM ops at row 1)
