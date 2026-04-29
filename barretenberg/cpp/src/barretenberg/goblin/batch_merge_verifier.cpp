@@ -136,7 +136,8 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
             // always satisfied
             powers_of_kappa.push_back(kappa.template pow<CONST_OP_QUEUE_LOG_SIZE + 1>(shift_size));
         } else {
-            BB_ASSERT_LT(shift_size, 1 << (CONST_OP_QUEUE_LOG_SIZE + 1), "Shift size is too large");
+            BB_ASSERT_LT(
+                static_cast<uint32_t>(shift_size), 1UL << (CONST_OP_QUEUE_LOG_SIZE + 1), "Shift size is too large");
             powers_of_kappa.push_back(kappa.pow(shift_size));
         }
     }

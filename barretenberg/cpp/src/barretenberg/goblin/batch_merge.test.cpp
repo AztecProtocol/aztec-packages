@@ -287,13 +287,13 @@ class TweakableBatchMergeProver : public BatchMergeProver {
             if (fault_mode != FaultMode::ZERO_SUBTABLES_CLAIM && idx < num_actual_flattened_cols) {
                 opening_claims.push_back({ std::move(flattened_cols[idx]), { kappa, evals[idx] } });
             } else {
-                opening_claims.push_back({ Polynomial(), { kappa, FF(0) } });
+                opening_claims.push_back({ Polynomial(1), { kappa, FF(0) } });
             }
         }
 
         for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
             if (fault_mode == FaultMode::ZERO_SUBTABLES_CLAIM) {
-                opening_claims.push_back({ Polynomial(), { kappa, FF(0) } });
+                opening_claims.push_back({ Polynomial(1), { kappa, FF(0) } });
             } else {
                 opening_claims.push_back({ std::move(merged_table[idx]),
                                            { kappa, evals[(M * NUM_WIRES) + (is_zk ? NUM_WIRES : 0) + idx] } });
@@ -301,7 +301,7 @@ class TweakableBatchMergeProver : public BatchMergeProver {
         }
 
         if (fault_mode == FaultMode::ZERO_SUBTABLES_CLAIM) {
-            opening_claims.push_back({ Polynomial(), { kappa_inv, FF(0) } });
+            opening_claims.push_back({ Polynomial(1), { kappa_inv, FF(0) } });
         } else {
             opening_claims.push_back({ std::move(degree_check_poly), { kappa_inv, evals.back() } });
         }

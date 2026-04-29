@@ -68,17 +68,16 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
                                          pcs_commitment_key.commit(subtable_cols[idx][col]));
         }
         // update hash after each subtable to match verifier's transcript
-        FF _ = transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
+        [[maybe_unused]] FF _ = transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
     }
 
-    Polynomial zero_poly = Polynomial(0);
+    Commitment infinity = Commitment::infinity();
     for (size_t idx = N; idx < M; ++idx) {
         for (size_t col = 0; col < NUM_WIRES; ++col) {
-            transcript->send_to_verifier("COLUMN_" + std::to_string(col) + "_" + std::to_string(idx),
-                                         pcs_commitment_key.commit(zero_poly));
+            transcript->send_to_verifier("COLUMN_" + std::to_string(col) + "_" + std::to_string(idx), infinity);
         }
         // update hash after each subtable to match verifier's transcript
-        FF _ = transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
+        [[maybe_unused]] FF _ = transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
     }
 
     // -------------------------------------------------------------------------
@@ -188,7 +187,8 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
         if (idx < num_actual_flattened_cols) {
             opening_claims.push_back({ std::move(flattened_cols[idx]), { kappa, evals[idx] } });
         } else {
-            opening_claims.push_back({ Polynomial(), { kappa, FF(0) } });
+            // We use Polynomial(1) to avoid failures in Shplonk due to accessing empty polynomials
+            opening_claims.push_back({ Polynomial(1), { kappa, FF(0) } });
         }
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
