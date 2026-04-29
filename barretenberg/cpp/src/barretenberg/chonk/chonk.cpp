@@ -221,10 +221,7 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
  * @param accumulation_recursive_transcript Transcript shared across recursive verification of the folding of
  * K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
  */
-std::tuple<std::optional<Chonk::RecursiveVerifierAccumulator>,
-           std::vector<Chonk::PairingPoints>,
-           Chonk::StdlibFF,
-           std::optional<Chonk::TableCommitments>>
+std::tuple<std::optional<Chonk::RecursiveVerifierAccumulator>, std::vector<Chonk::PairingPoints>, Chonk::StdlibFF>
 Chonk::recursive_verification_and_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
@@ -274,22 +271,12 @@ Chonk::recursive_verification_and_consistency_checks(
         updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
     }
 
-    std::optional<TableCommitments> merged_table_commitments;
-    std::vector<PairingPoints> batch_merge_points;
-    if (verifier_inputs.type == QUEUE_TYPE::HN_FINAL) {
-        auto [batch_pairing_points, batch_merged_table_commitments] =
-            goblin.recursively_verify_batch_merge(circuit, updated_hash);
-        batch_merge_points.emplace_back(batch_pairing_points);
-        merged_table_commitments = std::move(batch_merged_table_commitments);
-    }
-
     // Combine all pairing points
     std::vector<PairingPoints> all_points;
     all_points.insert(all_points.end(), folding_points.begin(), folding_points.end());
     all_points.emplace_back(std::move(io_pairing_points));
-    all_points.insert(all_points.end(), batch_merge_points.begin(), batch_merge_points.end());
 
-    return { std::move(output_accumulator), std::move(all_points), updated_hash, std::move(merged_table_commitments) };
+    return { std::move(output_accumulator), std::move(all_points), updated_hash };
 }
 
 /**
@@ -336,7 +323,6 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     std::vector<PairingPoints> points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
-    std::optional<TableCommitments> hiding_merged_tables;
     if (!is_init_kernel) {
         current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
             &circuit, recursive_verifier_native_accum);
@@ -344,7 +330,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
-        auto [output_stdlib_verifier_accumulator, pairing_points, updated_hash, merged_table_commitments] =
+        auto [output_stdlib_verifier_accumulator, pairing_points, updated_hash] =
             recursive_verification_and_consistency_checks(circuit,
                                                           verifier_input,
                                                           current_stdlib_verifier_accumulator,
@@ -352,9 +338,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
                                                           accumulation_recursive_transcript);
         points_accumulator.insert(points_accumulator.end(), pairing_points.begin(), pairing_points.end());
         running_hash = updated_hash;
-        if (merged_table_commitments.has_value()) {
-            hiding_merged_tables = std::move(merged_table_commitments);
-        }
+
         // Update the output verifier accumulator
         current_stdlib_verifier_accumulator = output_stdlib_verifier_accumulator;
 
@@ -362,25 +346,33 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Step 3: OUTPUT - Set public inputs for propagation to next kernel
-
-    PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
-
     // Output differs based on kernel type: HidingKernelIO (no accum hash) vs KernelIO (with accum hash)
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
+
+        // Perform batch merge verification
+        auto [batch_pairing_points, batch_merged_table_commitments] =
+            goblin.recursively_verify_batch_merge(circuit, running_hash);
+
+        // Append batch merge pairing points to the list of pairing points
+        points_accumulator.emplace_back(batch_pairing_points);
+
+        // Compute aggregated pairing points for output
+        PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
 
         // Add randomness at the end of the hiding kernel (whose ecc ops fall right at the end of the op queue table) to
         // ensure the Chonk proof doesn't leak information about the actual content of the op queue
         hide_op_queue_content_in_hiding(circuit);
 
-        BB_ASSERT(hiding_merged_tables.has_value(),
-                  "Hiding kernel expected merged table commitments from batch merge verification");
         HidingKernelIO hiding_output{ pairing_points_aggregator,
                                       bus_depot.get_kernel_return_data_commitment(circuit),
-                                      std::move(*hiding_merged_tables) };
+                                      std::move(batch_merged_table_commitments) };
         hiding_output.set_public();
     } else {
         BB_ASSERT_NEQ(current_stdlib_verifier_accumulator.has_value(), false);
+
+        // Compute aggregated pairing points for output
+        PairingPoints pairing_points_aggregator = PairingPoints::aggregate_multiple(points_accumulator);
 
         // Extract native verifier accumulator from the stdlib accum to use it in the next round
         recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();

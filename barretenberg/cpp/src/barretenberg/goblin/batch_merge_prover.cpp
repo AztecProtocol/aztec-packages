@@ -184,11 +184,11 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     std::vector<OpeningClaim> opening_claims;
     opening_claims.reserve(num_opening_claims);
     for (size_t idx = 0; idx < num_flattened_col_evals; ++idx) {
-        if (idx < num_actual_flattened_cols) {
-            opening_claims.push_back({ std::move(flattened_cols[idx]), { kappa, evals[idx] } });
-        } else {
+        if (idx >= num_actual_flattened_cols || flattened_cols[idx].size() == 0) {
             // We use Polynomial(1) to avoid failures in Shplonk due to accessing empty polynomials
             opening_claims.push_back({ Polynomial(1), { kappa, FF(0) } });
+        } else {
+            opening_claims.push_back({ std::move(flattened_cols[idx]), { kappa, evals[idx] } });
         }
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
