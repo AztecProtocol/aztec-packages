@@ -13,12 +13,10 @@ pub global INTERACTIVE_HANDSHAKE: u8 = 2;
 ///
 /// The registry's job is to establish a master shared secret `s_app` between a sender and a recipient, and store a
 /// per-sender note recording that the handshake happened. Apps prove this note's existence via
-/// [`HandshakeRegistry::assert_handshake_exists`] (or directly via the kernel note read-request mechanism) and use
-/// `s_app` to derive the per-message tag stream for actual constrained message delivery.
+/// [`HandshakeRegistry::assert_handshake_exists`] and use `s_app` to derive the per-message tag stream for actual constrained message delivery.
 ///
-/// This first cut implements only the non-interactive flow: the sender generates a fresh ephemeral keypair, derives
-/// `s_app` via ECDH against the recipient's address point, stores a note for themselves, and emits a 2-field
-/// `[eph_pk.x, masked_sender]` log to the recipient under a deterministic recipient-keyed tag.
+/// Currently only implements only the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
+/// TODO: Interactive handshake
 #[aztec]
 pub contract HandshakeRegistry {
     use crate::handshake_note::HandshakeNote;
