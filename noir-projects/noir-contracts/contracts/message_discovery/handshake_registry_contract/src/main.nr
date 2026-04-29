@@ -12,7 +12,7 @@ pub global INTERACTIVE_HANDSHAKE: u8 = 2;
 /// Registry for the constrained-delivery shared-secret handshake protocol.
 ///
 /// The registry's job is to establish a master shared secret `s_app` between a sender and a recipient, and store a
-/// per-sender note recording that the handshake happened. Apps prove this note's existence via
+/// per-sender note recording that the handshake happened. Contracts prove this note's existence via
 /// [`HandshakeRegistry::assert_handshake_exists`] and use `s_app` to derive the per-message tag stream for actual constrained message delivery.
 ///
 /// Currently only implements only the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
