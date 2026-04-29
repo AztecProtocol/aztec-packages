@@ -145,7 +145,7 @@ grafana:
       label: grafana_dashboard
       folderAnnotation: grafana_dashboard_folder
       provider:
-        foldersFromFilesStructure: false
+        foldersFromFilesStructure: true
     alerts:
       enabled: true
       label: grafana_alert
