@@ -32,11 +32,11 @@ If you want to develop and iterate quickly, start with the [local network guide]
 Install the testnet version of the Aztec CLI:
 
 ```bash
-VERSION=4.2.0-aztecnr-rc.2 bash -i <(curl -sL https://install.aztec.network/4.2.0-aztecnr-rc.2)
+VERSION=4.2.0 bash -i <(curl -sL https://install.aztec.network/4.2.0)
 ```
 
 :::warning
-Testnet is version-dependent. It is currently running version `4.2.0-aztecnr-rc.2`. Maintain version consistency when interacting with the testnet to avoid errors.
+Testnet is version-dependent. It is currently running version `4.2.0`. Maintain version consistency when interacting with the testnet to avoid errors.
 :::
 
 This installs:
@@ -80,7 +80,7 @@ aztec-wallet create-account \
 ```
 
 :::note
-The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing — this is normal on testnet.
+The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing: this is normal on testnet.
 :::
 
 ### Step 4: Deploy a contract
