@@ -615,11 +615,7 @@ ChonkProof Chonk::prove()
     auto hiding_oink_proof = batched_prover.prove_mega_zk_oink();
 
     // Phase 2: Merge proof on the shared transcript (fixed append — hiding kernel's subtable).
-    goblin.prove_merge(transcript);
-    BB_ASSERT_EQ(goblin.merge_verification_queue.size(),
-                 1U,
-                 "Chonk::prove: merge_verification_queue should contain only a single proof at this stage.");
-    auto merge_proof = goblin.merge_verification_queue.back();
+    auto merge_proof = goblin.prove_merge(transcript);
 
     // Phase 3: ECCVM proof on the shared transcript.
     vinfo("prove eccvm...");

@@ -64,8 +64,7 @@ class Goblin {
     fq evaluation_challenge_x;              // challenge for evaluating the translation polynomials
     std::shared_ptr<Transcript> transcript; // shared between ECCVM and Translator
 
-    std::deque<MergeProof> merge_verification_queue;                 // queue of merge proofs to be verified
-    std::optional<BatchMergeProof> batch_merge_proof = std::nullopt; // delayed batch merge proof for Chonk
+    BatchMergeProof batch_merge_proof; // delayed batch merge proof for Chonk
 
     struct VerificationKey {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
@@ -76,12 +75,11 @@ class Goblin {
     Goblin(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
 
     /**
-     * @brief Construct a merge proof for the goblin ECC ops in the provided circuit; append the proof to the
-     * merge_verification_queue.
+     * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
      *
      * @param transcript
      */
-    void prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    MergeProof prove_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>()) const;
 
     /**
      * @brief Construct an ECCVM proof and IPA opening proof.

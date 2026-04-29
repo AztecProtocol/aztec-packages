@@ -25,11 +25,11 @@ Goblin::Goblin(const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {}
 
-void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript)
+Goblin::MergeProof Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript) const
 {
     BB_BENCH_NAME("Goblin::prove_merge");
     MergeProver merge_prover{ op_queue, transcript };
-    merge_verification_queue.push_back(merge_prover.construct_proof());
+    return merge_prover.construct_proof();
 }
 
 void Goblin::prove_eccvm()
@@ -70,13 +70,8 @@ GoblinProof Goblin::prove()
 {
     BB_BENCH_NAME("Goblin::prove");
 
-    prove_merge(transcript); // Use shared transcript for merge proving
+    goblin_proof.merge_proof = prove_merge(transcript); // Use shared transcript for merge proving
     info("Goblin: num ultra ops = ", op_queue->get_ultra_ops_count());
-
-    BB_ASSERT_EQ(merge_verification_queue.size(),
-                 1U,
-                 "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
-    goblin_proof.merge_proof = merge_verification_queue.back();
 
     vinfo("prove eccvm...");
     prove_eccvm();
@@ -120,13 +115,12 @@ void Goblin::prove_batch_merge()
 std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments> Goblin::recursively_verify_batch_merge(
     MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash)
 {
-    BB_ASSERT(batch_merge_proof.has_value(), "Goblin::recursively_verify_batch_merge: no batch merge proof available");
-    const stdlib::Proof<MegaBuilder> stdlib_proof(builder, *batch_merge_proof);
+    BB_ASSERT(!batch_merge_proof.empty(), "Goblin::recursively_verify_batch_merge: no batch merge proof available");
+    const stdlib::Proof<MegaBuilder> stdlib_proof(builder, batch_merge_proof);
 
     BatchMergeRecursiveVerifier verifier{ /*is_zk=*/true };
     auto result = verifier.reduce_to_pairing_check(stdlib_proof, hash);
 
-    batch_merge_proof.reset();
     return { result.pairing_points, result.merged_commitments };
 }
 
