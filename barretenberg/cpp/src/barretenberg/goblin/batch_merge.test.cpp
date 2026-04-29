@@ -97,7 +97,7 @@ bb::fr compute_running_hash(const std::vector<bb::fr>& proof, size_t N)
         is_first_challenge = false;
     }
 
-    return std::get<0>(NativeTranscript::Codec::split_challenge(previous_challenge));
+    return previous_challenge;
 }
 
 /**
@@ -114,11 +114,10 @@ class TweakableBatchMergeProver : public BatchMergeProver {
 
   public:
     explicit TweakableBatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                                       std::shared_ptr<Transcript> transcript,
                                        size_t max_subtables,
                                        FaultMode mode = FaultMode::NONE,
                                        bool is_zk = false)
-        : BatchMergeProver(op_queue, std::move(transcript), max_subtables, is_zk)
+        : BatchMergeProver(op_queue, max_subtables, is_zk)
         , fault_mode(mode)
     {}
 
@@ -385,15 +384,28 @@ template <typename Param> class BatchMergeTests : public testing::Test {
                                          bool is_zk = false,
                                          bool check_manifest = false)
     {
-        auto prover_transcript = std::make_shared<NativeTranscript>();
-        prover_transcript->enable_manifest();
+        TranscriptManifest prover_manifest;
         std::vector<bb::fr> native_proof;
         if (fault_mode == FaultMode::NONE) {
-            BatchMergeProver prover{ op_queue, prover_transcript, NumSubtables, is_zk };
+            BatchMergeProver prover{ op_queue, NumSubtables, is_zk };
+            if (check_manifest) {
+                prover.transcript->enable_manifest();
+            }
+
             native_proof = prover.construct_proof();
+            if (check_manifest) {
+                prover_manifest = prover.transcript->get_manifest();
+            }
         } else {
-            TweakableBatchMergeProver prover{ op_queue, prover_transcript, NumSubtables, fault_mode, is_zk };
+            TweakableBatchMergeProver prover{ op_queue, NumSubtables, fault_mode, is_zk };
+            if (check_manifest) {
+                prover.transcript->enable_manifest();
+            }
+
             native_proof = prover.construct_proof();
+            if (check_manifest) {
+                prover_manifest = prover.transcript->get_manifest();
+            }
         }
 
         bb::fr native_hash = compute_running_hash(native_proof, op_queue->num_subtables());
@@ -405,15 +417,15 @@ template <typename Param> class BatchMergeTests : public testing::Test {
         Proof proof = create_proof(builder, native_proof);
         FF hash = create_hash(builder, native_hash);
 
-        auto verifier_transcript = std::make_shared<Transcript>();
-        verifier_transcript->enable_manifest();
-        Verifier verifier{ verifier_transcript, is_zk };
+        Verifier verifier{ is_zk };
+        if (check_manifest) {
+            verifier.transcript->enable_manifest();
+        }
         auto result = verifier.reduce_to_pairing_check(proof, hash);
 
         if (check_manifest) {
             // Check consistency of manifests
-            auto prover_manifest = prover_transcript->get_manifest();
-            auto verifier_manifest = verifier_transcript->get_manifest();
+            auto verifier_manifest = verifier.transcript->get_manifest();
             EXPECT_EQ(prover_manifest.size(), verifier_manifest.size());
             for (size_t i = 0; i < prover_manifest.size(); ++i) {
                 EXPECT_EQ(prover_manifest[i], verifier_manifest[i]);

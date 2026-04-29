@@ -60,12 +60,12 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
         bool reduction_succeeded = false;
     };
 
+    // Public for testing purposes
     std::shared_ptr<Transcript> transcript;
     bool is_zk;
 
-    explicit BatchMergeVerifier_(std::shared_ptr<Transcript> transcript = std::make_shared<Transcript>(),
-                                 bool is_zk = false)
-        : transcript(std::move(transcript))
+    explicit BatchMergeVerifier_(bool is_zk = false)
+        : transcript(std::make_shared<Transcript>())
         , is_zk(is_zk)
     {}
 

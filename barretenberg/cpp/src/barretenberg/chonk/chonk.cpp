@@ -270,9 +270,6 @@ Chonk::recursive_verification_and_consistency_checks(
                                                                       ecc_op_col_commitments.end());
     if (verifier_inputs.type == QUEUE_TYPE::OINK) {
         updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec);
-    } else if (verifier_inputs.type == QUEUE_TYPE::HN_FINAL) {
-        updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
-        updated_hash = std::get<0>(RecursiveTranscript::Codec::split_challenge(updated_hash));
     } else {
         updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
     }
@@ -280,9 +277,8 @@ Chonk::recursive_verification_and_consistency_checks(
     std::optional<TableCommitments> merged_table_commitments;
     std::vector<PairingPoints> batch_merge_points;
     if (verifier_inputs.type == QUEUE_TYPE::HN_FINAL) {
-        auto batch_merge_transcript = std::make_shared<RecursiveTranscript>();
         auto [batch_pairing_points, batch_merged_table_commitments] =
-            goblin.recursively_verify_batch_merge(circuit, updated_hash, batch_merge_transcript);
+            goblin.recursively_verify_batch_merge(circuit, updated_hash);
         batch_merge_points.emplace_back(batch_pairing_points);
         merged_table_commitments = std::move(batch_merged_table_commitments);
     }
@@ -552,8 +548,7 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
     // Delayed merge: keep one subtable per folded circuit and prove the batched merge after the tail kernel.
     goblin.op_queue->merge();
     if (queue_type == QUEUE_TYPE::HN_FINAL) {
-        auto batch_merge_transcript = std::make_shared<Transcript>();
-        goblin.prove_batch_merge(batch_merge_transcript);
+        goblin.prove_batch_merge();
     }
 
     num_circuits_accumulated++;

@@ -17,6 +17,11 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
 {
     transcript->load_proof(proof);
 
+    // Get the lowest 127 bits of the hash
+    // We compare the calculated hashes against this value so that we can reuse the transcript hash calculations
+    // A collision happens with probability 2^{-127}
+    const FF binding_hash = std::get<0>(Transcript::Codec::split_challenge(hash));
+
     // -------------------------------------------------------------------------
     // Step 1: Receive commitments to columns to be merged
     // -------------------------------------------------------------------------
@@ -131,6 +136,7 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
             // always satisfied
             powers_of_kappa.push_back(kappa.template pow<CONST_OP_QUEUE_LOG_SIZE + 1>(shift_size));
         } else {
+            BB_ASSERT_LT(shift_size, 1 << (CONST_OP_QUEUE_LOG_SIZE + 1), "Shift size is too large");
             powers_of_kappa.push_back(kappa.pow(shift_size));
         }
     }
@@ -185,7 +191,7 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     const bool concatenation_verified = check_concatenation_identity(evals, powers_of_kappa);
     const bool degree_check_verified =
         check_degree_identity(evals, powers_of_kappa_inv, kappa, degree_check_challenges);
-    const bool hash_verified = check_hash_consistency(hash, calculated_hashes, indicator_array);
+    const bool hash_verified = check_hash_consistency(binding_hash, calculated_hashes, indicator_array);
 
     // -------------------------------------------------------------------------
     // Run Shplonk and reduce to KZG pairing check

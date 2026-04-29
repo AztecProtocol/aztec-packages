@@ -58,10 +58,7 @@ class BatchMergeProver {
      * @param transcript Shared prover transcript.
      * @param max_subtables M: the fixed maximum number of subtables (CHONK_MAX_ACCUMULATION_STEPS).
      */
-    explicit BatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                              std::shared_ptr<Transcript> transcript,
-                              size_t max_subtables,
-                              bool is_zk);
+    explicit BatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, size_t max_subtables, bool is_zk);
 
     /**
      * @brief Construct the batch merge proof.
@@ -84,8 +81,10 @@ class BatchMergeProver {
     // Exposed for test access
     CommitmentKey pcs_commitment_key;
 
-  protected:
+    // Public for testing purposes
     std::shared_ptr<Transcript> transcript;
+
+  protected:
     std::shared_ptr<ECCOpQueue> op_queue;
     size_t max_subtables; // M
     bool is_zk;

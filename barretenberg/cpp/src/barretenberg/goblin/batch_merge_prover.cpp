@@ -11,11 +11,8 @@
 
 namespace bb {
 
-BatchMergeProver::BatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                                   std::shared_ptr<Transcript> transcript,
-                                   size_t max_subtables,
-                                   bool is_zk)
-    : transcript(std::move(transcript))
+BatchMergeProver::BatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, size_t max_subtables, bool is_zk)
+    : transcript(std::make_shared<Transcript>())
     , op_queue(op_queue)
     , max_subtables(max_subtables)
     , is_zk(is_zk)

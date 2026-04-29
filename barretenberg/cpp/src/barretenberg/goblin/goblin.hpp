@@ -120,15 +120,13 @@ class Goblin {
     /**
      * @brief Construct a batch merge proof for all accumulated subtables.
      */
-    void prove_batch_merge(const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>());
+    void prove_batch_merge();
 
     /**
      * @brief Recursively verify the delayed batch merge proof.
      */
     std::pair<PairingPoints, BatchRecursiveTableCommitments> recursively_verify_batch_merge(
-        MegaBuilder& builder,
-        const BatchMergeRecursiveVerifier::FF& hash,
-        const std::shared_ptr<RecursiveTranscript>& transcript = std::make_shared<RecursiveTranscript>());
+        MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash);
 };
 
 } // namespace bb
