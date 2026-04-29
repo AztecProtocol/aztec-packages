@@ -137,6 +137,12 @@ template <class Fq, class Fr, class T> bool affine_element<Fq, Fr, T>::is_in_pri
     if (is_point_at_infinity()) {
         return true;
     }
+    // Weierstrass group law is unsound for off-curve coordinates, so the [r]·P trick can
+    // give a false positive on points that satisfy y² = x³ + b' for some b' ≠ b. Reject
+    // those up front.
+    if (!on_curve()) {
+        return false;
+    }
     using Element = element<Fq, Fr, T>;
 
     // To compute r * P, we convert modulus r to u256 and perform a left-to-right double-and-add.

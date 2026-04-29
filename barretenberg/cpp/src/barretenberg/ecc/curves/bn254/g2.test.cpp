@@ -218,3 +218,14 @@ TEST(g2, IsInPrimeSubgroupRejectsCofactorPoint)
     // is_in_prime_subgroup() routes through a uint256_t scalar instead.
     EXPECT_TRUE((off_subgroup * fr::zero()).is_point_at_infinity());
 }
+
+// Off-curve coordinates must be rejected: the Weierstrass group law is unsound off-curve, so the
+// [r]·P trick can return a false positive on attacker-supplied (x, y) that happens to satisfy
+// y² = x³ + b' for some b' ≠ b with a prime-r factor in its order.
+TEST(g2, IsInPrimeSubgroupRejectsOffCurvePoint)
+{
+    g2::affine_element off_curve(Bn254G2Params::one_x, Bn254G2Params::one_y);
+    off_curve.y += fq2::one();
+    ASSERT_FALSE(off_curve.on_curve());
+    EXPECT_FALSE(off_curve.is_in_prime_subgroup());
+}
