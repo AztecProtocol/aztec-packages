@@ -91,10 +91,9 @@ pub contract HandshakeRegistry {
     /// independently derives the same `s_app` from the log.
     ///
     /// # Reverts
-    /// If `recipient` is not a valid curve point. See the design notes (`plans/...`) for why this contract
-    /// deliberately does not replicate AES128's "king of the hill" fallback: there are no upstream side effects in
+    /// If `recipient` is not a valid curve point. There are no upstream side effects in
     /// this call frame to protect, and a fallback would insert a permanent note recording a handshake with an
-    /// invalid recipient -- durable polluted state in the proof-object surface.
+    /// invalid recipient. This would pollute that contract state with invalid handshakes.
     #[external("private")]
     fn non_interactive_handshake(recipient: AztecAddress) -> Field {
         let sender = self.msg_sender();
