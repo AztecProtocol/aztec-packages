@@ -128,6 +128,7 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/vm2)
     add_subdirectory(barretenberg/ipc)
     add_subdirectory(barretenberg/nodejs_module)
+    add_subdirectory(barretenberg/ignition_verification)
 endif()
 
 if(FUZZING_AVM)
