@@ -1,30 +1,38 @@
 #!/usr/bin/env bash
+# Source basic environment variables from a per-network YAML.
+#
+# Usage:
+#   source_env_basic <name|absolute-path-to-yaml>
+#
+# Skips GCP secret resolution (this is the "basic" pass; secrets are fetched
+# in source_network_env.sh).
 
 spartan=$(git rev-parse --show-toplevel)/spartan
 
-function resolve_env_file_path {
-  local env_file_input="$1"
-  if [[ "$env_file_input" = /* ]]; then
-    echo "$env_file_input"
+function resolve_yaml_file_path {
+  local input="$1"
+  if [[ "$input" = /* ]]; then
+    echo "$input"
   else
-    echo "$spartan/environments/$env_file_input.env"
+    echo "$spartan/environments/networks/$input.yml"
   fi
 }
 
 function source_env_basic {
-  local env_file="$1"
-  local actual_env_file=$(resolve_env_file_path "$env_file")
+  local name="$1"
+  local yaml_file
+  yaml_file=$(resolve_yaml_file_path "$name")
 
-  if [[ -f "$actual_env_file" ]]; then
-    echo "Loading basic environment variables from $actual_env_file"
-    set -a
-    # shellcheck disable=SC1090
-    source "$actual_env_file"
-    set +a
-  else
-    echo "Env file not found: $actual_env_file" >&2
+  if [[ ! -f "$yaml_file" ]]; then
+    echo "Network YAML not found: $yaml_file" >&2
     exit 1
   fi
+
+  echo "Loading basic environment from YAML: $yaml_file"
+  set -a
+  # shellcheck disable=SC1090
+  source <("$spartan/scripts/load_network_config.sh" "$name" --format=env --skip-secrets)
+  set +a
 }
 
 # If script is run directly with an argument, source the env file

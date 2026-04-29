@@ -20,9 +20,10 @@ fi
 
 # explode(.) resolves YAML anchors (<<: *prodlike inheritance)
 # Output as props, filter comments, normalize spacing
+# Read from .networks.<name>.env (flat env baseline; was .networks.<name> pre-refactor).
 while IFS='=' read -r key value; do
   export "$key"="$value"
-done < <(yq -o=props "explode(.) | .networks.$network | with_entries(select(.key | test(\"^AZTEC_|^ETHEREUM_\")))" "$network_defaults" \
+done < <(yq -o=props "explode(.) | .networks.$network.env | with_entries(select(.key | test(\"^AZTEC_|^ETHEREUM_\")))" "$network_defaults" \
   | grep -v '^#' \
   | grep -v '^$' \
   | sed 's/ = /=/')

@@ -13,7 +13,7 @@ spartan/
 ├── aztec-keystore/          # Key derivation setup chart
 ├── aztec-postgres/          # Simple PostgreSQL chart for HA signing
 ├── aztec-snapshots/         # Snapshot management chart
-├── environments/            # Environment-specific configurations (.env files)
+├── environments/            # Network YAML configs + network-defaults.yml
 └── terraform/
     ├── deploy-aztec-infra/  # Main deployment module
     └── modules/             # Reusable Terraform modules
@@ -48,6 +48,7 @@ The main entry point is `terraform/deploy-aztec-infra/`:
 ### Helm Charts
 
 **aztec-node** (base chart):
+
 - Deployable as Deployment or StatefulSet
 - Configurable via `node.env` for environment variables
 - Pre-start scripts for dynamic configuration
@@ -55,15 +56,18 @@ The main entry point is `terraform/deploy-aztec-infra/`:
 - Pod template in `templates/_pod-template.yaml`
 
 **aztec-validator** (extends aztec-node):
+
 - Wrapper chart with `aztec-node` as dependency (aliased as `validator`)
 - Adds validator-specific ConfigMap (`env.configmap.yaml`)
 - Configures mnemonic, validators-per-node, publishers-per-replica
 
 **aztec-prover-stack**:
+
 - Multi-component: prover node, broker, and agent replicas
 - Each component has its own sub-values (`node`, `broker`, `agent`)
 
 **aztec-postgres**:
+
 - Simple PostgreSQL StatefulSet using official `postgres:16-alpine` image
 - Used for validator HA signing coordination
 - No third-party chart dependencies (avoids Bitnami, etc.)
@@ -115,11 +119,13 @@ module "validator_ha_postgres" {
 ```
 
 The module:
+
 - Deploys the `aztec-postgres` Helm chart
 - Runs database migrations via a Kubernetes Job (`aztec migrate-ha-db up`)
 - Outputs `database_url` for validators to connect
 
 Validators receive the database URL via environment variables:
+
 - `VALIDATOR_HA_SIGNING_ENABLED=true`
 - `VALIDATOR_HA_DATABASE_URL=postgresql://...`
 - `VALIDATOR_HA_NODE_ID` (auto-set from pod name)
@@ -128,20 +134,24 @@ Validators receive the database URL via environment variables:
 
 ### Network Defaults (Code Generation)
 
-`environments/network-defaults.yml` is a **code generation source**, not a runtime config file. It centralizes "baked-in" defaults for the yarn-project packages.
+`environments/network-defaults.yml` is the **joint source of truth** for both code generation AND runtime deployment. It defines:
 
-**What it defines:**
-- `l1-contracts`: L1 smart contract parameters (timing, validator thresholds, slashing)
-- `slasher`: Slasher node operational settings (penalties, offense tracking)
-- `networks`: Preset configurations for `devnet`, `testnet`, and `mainnet`
+- `l1-contracts:` (anchor `&l1-contracts-defaults`) -- L1 smart contract parameters; consumed by codegen
+- `slasher:` (anchor `&slasher`) -- Slasher node operational settings; consumed by codegen
+- `_prodlike:` (anchor `&prodlike`) -- merges the above and adds runtime defaults
+- `_release_defaults:` -- per-release Helm-shape baselines (replicaCount, env)
+- `networks.<name>.env:` -- per-network env baseline; consumed by both codegen AND runtime
+- `networks.<name>.<release>:` -- optional per-release overrides; runtime only
 
-**Generated outputs:**
-- `yarn-project/ethereum/src/generated/l1-contracts-defaults.ts`
-- `yarn-project/slasher/src/generated/slasher-defaults.ts`
-- `yarn-project/cli/src/config/generated/networks.ts`
-- `l1-contracts/generated/default.json`
+**Codegen outputs (paths and shape unchanged):**
+
+- `yarn-project/ethereum/src/generated/l1-contracts-defaults.ts` (reads `.l1-contracts`)
+- `yarn-project/slasher/src/generated/slasher-defaults.ts` (reads `.slasher`)
+- `yarn-project/cli/src/config/generated/networks.ts` (reads `.networks.<name>.env`)
+- `l1-contracts/generated/default.json` (reads `.l1-contracts` + `.networks.<name>.env`)
 
 **Regenerate after editing:**
+
 ```bash
 cd yarn-project/ethereum && yarn generate
 cd yarn-project/slasher && yarn generate
@@ -149,41 +159,74 @@ cd yarn-project/cli && yarn generate
 cd l1-contracts && ./bootstrap.sh
 ```
 
-### Deployment Environment Files
+### Deployment Configuration (per-network YAML)
 
-Environment files in `environments/*.env` provide deployment-specific values:
+Each deployable network has a YAML override at `environments/networks/<name>.yml`:
 
-```bash
-# Example: devnet.env
-NAMESPACE=devnet
-RELEASE_PREFIX=devnet
-L1_RPC_URLS=https://...
-VALIDATOR_REPLICAS=4
-PROVER_REPLICAS=1
-VALIDATOR_HA_REPLICAS=1  # 0 = no HA, 1 = primary + 1 HA release
+```yaml
+# environments/networks/devnet.yml
+network: devnet # selects networks.devnet.env from network-defaults.yml as the env baseline
+
+deploy: # consumed by deploy script / Terraform; not pod env
+  CLUSTER: aztec-gke-private
+  NAMESPACE: devnet
+  RPC_INGRESS_ENABLED: true
+
+env: # adds to / overrides the network env baseline (UPPER_SNAKE pod env vars)
+  ETHEREUM_RPC_URLS: REPLACE_WITH_GCP_SECRET
+  LABS_INFRA_MNEMONIC: REPLACE_WITH_GCP_SECRET
+
+validator: # per-release Helm values (mirrors aztec-validator chart shape)
+  replicaCount: 1
+  env:
+    P2P_GOSSIPSUB_D: "8"
+prover:
+  agent:
+    replicaCount: 4
 ```
 
-These are loaded by deployment scripts and passed to Terraform.
+**Loader** (`scripts/load_network_config.sh`):
+
+- Deep-merges `_release_defaults` + `networks.<preset>.env` + per-network YAML.
+- Expands `${VAR}` and `${VAR:-default}` placeholders from shell env.
+- Computes derived values (e.g. devnet's `MNEMONIC_INDEX_OFFSET` from NAMESPACE regex).
+- Resolves `REPLACE_WITH_GCP_SECRET` placeholders via gcloud (when on PATH).
+- Emits in `--format=env` (shell exports), `--format=json` (merged tree), or `--format=tfvars` (terraform.tfvars.json shape).
+
+The `source_env_basic.sh` and `source_network_env.sh` helpers wrap the YAML loader; existing callers (`bootstrap.sh`, `network_deploy.sh`, GitHub Actions) keep their CLI signatures unchanged.
 
 ## Common Patterns
 
 ### Passing Environment Variables to Pods
 
-Via Terraform `custom_settings`:
-```hcl
-"validator.node.env.MY_VAR" = var.MY_VALUE
+Set under the matching release block in `environments/networks/<name>.yml`:
+
+```yaml
+validator:
+  env:
+    MY_VAR: "value"
 ```
 
-This maps to Helm values that populate the pod's env section.
+The loader emits this as `releases.validator.env.MY_VAR` in `terraform.tfvars.json`, which Terraform forwards to Helm via `yamlencode`. The chart's pod template mounts the values via `envFrom` on a generated ConfigMap (`{release}-env-from-values`).
+
+For deploy-time-computed values (e.g. internal service URLs, HA postgres URL, per-HA mnemonic indices) that can't live in static YAML, set them via Terraform `custom_settings`:
+
+```hcl
+"validator.env.MY_VAR" = local.computed_value
+```
+
+These end up in the same ConfigMap.
 
 ### Conditional Deployments
 
 Use ternary operators in the `helm_releases` map:
+
 ```hcl
 prover = tonumber(var.PROVER_REPLICAS) > 0 ? { ... } : null
 ```
 
 For dynamic multi-release generation (e.g., HA validators), use `for` expressions:
+
 ```hcl
 validator_releases = tonumber(var.VALIDATOR_REPLICAS) > 0 ? {
   for idx in range(1 + var.VALIDATOR_HA_REPLICAS) :
@@ -194,6 +237,7 @@ validator_releases = tonumber(var.VALIDATOR_REPLICAS) > 0 ? {
 ### Values Layering
 
 Values are applied in order (later overrides earlier):
+
 1. `common.yaml`
 2. `{component}.yaml`
 3. `{component}-resources-{profile}.yaml`
@@ -203,11 +247,13 @@ Values are applied in order (later overrides earlier):
 ### Service Discovery
 
 Internal services use Kubernetes DNS:
+
 ```
 http://{release-name}-{component}.{namespace}.svc.cluster.local:{port}
 ```
 
 Example web3signer URL:
+
 ```
 http://staging-signer-web3signer.staging.svc.cluster.local:9000/
 ```
@@ -227,6 +273,7 @@ When `VALIDATOR_HA_REPLICAS > 0`, validators are deployed as **multiple Helm rel
 - `VALIDATOR_HA_REPLICAS=2` → 3 releases (primary + 2 HA)
 
 Example with `VALIDATOR_HA_REPLICAS=1`:
+
 ```
 validator-0       & validator-ha-1-0   share attesters 0-11
 validator-1       & validator-ha-1-1   share attesters 12-23
@@ -272,6 +319,7 @@ Publishers are allocated **per replica (pod)**, not per attester key. Each relea
 ```
 
 Example with 4 replicas, 4 publishers/replica, base index 5000:
+
 - Primary (idx=0): `PUBLISHER_KEY_INDEX_START = 5000`
 - HA-1 (idx=1): `PUBLISHER_KEY_INDEX_START = 5000 + (1 * 4 * 4) = 5016`
 
@@ -283,28 +331,37 @@ PUBLISHER_KEY_INDEX=$((POD_INDEX * VALIDATOR_PUBLISHERS_PER_REPLICA + PUBLISHER_
 ```
 
 The keystore uses **schema v2** with a top-level `publisher` array shared by all validators on the pod:
+
 ```json
-{"schemaVersion": 2, "publisher": ["0x1", "0x2", "0x3", "0x4"], "validators": [{"attester": "..."}]}
+{
+  "schemaVersion": 2,
+  "publisher": ["0x1", "0x2", "0x3", "0x4"],
+  "validators": [{ "attester": "..." }]
+}
 ```
 
 This ensures each release uses non-overlapping publisher key ranges while decoupling publisher count from attester count.
 
 **HA coordination:**
+
 - Both releases connect to shared PostgreSQL via `VALIDATOR_HA_DATABASE_URL`
 - Database prevents double-signing by the same attester
 - If one pod dies, its HA partner continues signing
 
 ### Provers
+
 - Generate validity proofs for epochs
 - Broker distributes proving jobs to agents
 - Agents can scale horizontally
 
 ### RPC Nodes
+
 - Serve public API endpoints
 - Optional ingress with GCP backend config
 - Archive nodes for historical data
 
 ### Boot Nodes
+
 - P2P bootstrap for network discovery
 - Internal boot node optional (can use external)
 
@@ -315,6 +372,7 @@ This ensures each release uses non-overlapping publisher key ranges while decoup
 3. **New Helm chart**: Add to `spartan/` root (follow aztec-keystore pattern)
 
 For new modules, follow the web3signer pattern:
+
 - `main.tf`: Helm release(s) and supporting resources
 - `variables.tf`: Input variables
 - `outputs.tf`: Service URLs and other outputs

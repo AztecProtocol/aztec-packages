@@ -1,7 +1,8 @@
+env:
+  OTEL_SERVICE_NAME: "blob-sink"
+
 node:
   nodeType: "blob-sink"
-  env:
-    OTEL_SERVICE_NAME: "blob-sink"
 
   preStartScript: |
     if [ -n "${BOOT_NODE_HOST:-}" ]; then

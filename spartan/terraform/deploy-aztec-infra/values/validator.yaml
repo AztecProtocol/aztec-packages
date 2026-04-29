@@ -1,6 +1,10 @@
 validator:
+  env:
+    LOG_LEVEL: "debug; info: aztec:simulator, json-rpc"
+    L1_PRIORITY_FEE_BUMP_PERCENTAGE: "30"
+    L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE: "80"
+
   node:
-    logLevel: "debug; info: aztec:simulator, json-rpc"
     # Validators can take a long time to come up (CRS download, heavy init, catch-up).
     # Keep startupProbe generous to avoid kubelet killing the container mid-boot.
     startupProbe:
@@ -20,10 +24,6 @@ validator:
 
         export BOOTSTRAP_NODES=$(curl -X POST -H "content-type: application/json" --data '{"method": "bootstrap_getEncodedEnr"}' $BOOT_NODE_HOST | jq -r .result)
       fi
-
-    env:
-      L1_PRIORITY_FEE_BUMP_PERCENTAGE: 30
-      L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE: 80
 
   persistence:
     enabled: true

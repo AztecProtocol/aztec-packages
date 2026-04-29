@@ -1,6 +1,6 @@
+env:
+  OTEL_SERVICE_NAME: "archival-node"
 node:
-  env:
-    OTEL_SERVICE_NAME: "archival-node"
   startCmd:
     - --node
     - --archiver

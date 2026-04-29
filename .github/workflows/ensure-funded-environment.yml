@@ -6,54 +6,54 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: 'Environment to fund (e.g., staging-public, next-net, staging-ignition, testnet)'
+        description: "Environment to fund (e.g., staging-public, next-net, staging-ignition, testnet)"
         required: true
         type: string
       low_watermark:
-        description: 'Minimum ETH balance (default: 0.5)'
+        description: "Minimum ETH balance (default: 0.5)"
         required: false
         type: string
-        default: '0.5'
+        default: "0.5"
       high_watermark:
-        description: 'Target ETH balance when funding (default: 1.0)'
+        description: "Target ETH balance when funding (default: 1.0)"
         required: false
         type: string
-        default: '1.0'
+        default: "1.0"
       namespace:
-        description: 'Kubernetes namespace override (e.g., v4-devnet-1). Sets NAMESPACE before sourcing env file.'
+        description: "Kubernetes namespace override (e.g., v4-devnet-1). Sets NAMESPACE before sourcing env file."
         required: false
         type: string
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to fund'
+        description: "Environment to fund"
         required: true
         type: choice
         options:
-        - staging-public
-        - next-net
-        - staging-ignition
-        - testnet
-        - devnet
-        - tps-scenario
+          - staging-public
+          - next-net
+          - staging-ignition
+          - testnet
+          - devnet
+          - tps-scenario
       low_watermark:
-        description: 'Minimum ETH balance'
+        description: "Minimum ETH balance"
         required: false
         type: string
-        default: '0.5'
+        default: "0.5"
       high_watermark:
-        description: 'Target ETH balance when funding'
+        description: "Target ETH balance when funding"
         required: false
         type: string
-        default: '1.0'
+        default: "1.0"
       namespace:
-        description: 'Kubernetes namespace override (e.g., v4-devnet-1)'
+        description: "Kubernetes namespace override (e.g., v4-devnet-1)"
         required: false
         type: string
 
 concurrency:
   group: ensure-funded-environment-${{ inputs.environment }}
-  cancel-in-progress: false  # Don't cancel funding operations
+  cancel-in-progress: false # Don't cancel funding operations
 
 jobs:
   ensure-funded:
@@ -71,10 +71,10 @@ jobs:
       - name: Validate inputs
         run: |
           # Validate environment
-          if [[ ! -f "spartan/environments/${{ inputs.environment }}.env" ]]; then
-            echo "Error: Environment file not found for environment '${{ inputs.environment }}'"
+          if [[ ! -f "spartan/environments/networks/${{ inputs.environment }}.yml" ]]; then
+            echo "Error: Network YAML not found: spartan/environments/networks/${{ inputs.environment }}.yml"
             echo "Available environments:"
-            ls -1 spartan/environments/ | grep -v '\.local\.env$' || echo "No environment files found"
+            ls -1 spartan/environments/networks/
             exit 1
           fi
 

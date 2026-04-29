@@ -107,36 +107,48 @@ locals {
   internal_rpc_url       = "http://${var.RELEASE_PREFIX}-rpc-aztec-node.${var.NAMESPACE}.svc.cluster.local:8080"
   internal_rpc_admin_url = "http://${var.RELEASE_PREFIX}-rpc-aztec-node-admin.${var.NAMESPACE}.svc.cluster.local:8880"
 
-  # Common settings for all releases
+  # Pod image is the only thing the chart actually reads from `global` now.
+  # Everything else flows under `env:` (mounted via envFrom configmap).
   common_settings = {
-    "global.aztecImage.repository"                             = local.aztec_image.repository
-    "global.aztecImage.tag"                                    = local.aztec_image.tag
-    "global.aztecImage.pullPolicy"                             = local.is_kind ? "IfNotPresent" : "Always"
-    "global.useGcloudLogging"                                  = true
-    "global.aztecNetwork"                                      = var.NETWORK
-    "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
-    "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
-    "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
-    "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
-    "global.sponsoredFPC"                                      = var.SPONSORED_FPC
-    "global.testAccounts"                                      = var.TEST_ACCOUNTS
+    "global.aztecImage.repository" = local.aztec_image.repository
+    "global.aztecImage.tag"        = local.aztec_image.tag
+    "global.aztecImage.pullPolicy" = local.is_kind ? "IfNotPresent" : "Always"
   }
 
+  # Deploy-time-computed env vars (joined lists, computed paths, secrets,
+  # values that come from the L1 deploy step). Per-network YAML values for the
+  # same keys take precedence -- this is just the deploy-time fallback.
   common_inline_values = yamlencode({
-    global = merge(
+    env = merge(
+      {
+        USE_GCLOUD_LOGGING                 = "true"
+        L1_CHAIN_ID                        = var.L1_CHAIN_ID
+        REGISTRY_CONTRACT_ADDRESS          = var.REGISTRY_CONTRACT_ADDRESS
+        FEE_ASSET_HANDLER_CONTRACT_ADDRESS = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
+        SPONSORED_FPC                      = tostring(var.SPONSORED_FPC)
+        TEST_ACCOUNTS                      = tostring(var.TEST_ACCOUNTS)
+        LOG_JSON                           = "1"
+      },
+      var.NETWORK != "" ? { NETWORK = var.NETWORK } : {},
+      length(var.L1_RPC_URLS) > 0 ? { ETHEREUM_HOSTS = join(",", var.L1_RPC_URLS) } : {},
+      length(var.L1_CONSENSUS_HOST_URLS) > 0 ? {
+        L1_CONSENSUS_HOST_URLS = join(",", var.L1_CONSENSUS_HOST_URLS)
+      } : {},
       length(var.L1_CONSENSUS_HOST_API_KEYS) > 0 ? {
-        l1ConsensusHostApiKeys = join(",", var.L1_CONSENSUS_HOST_API_KEYS)
+        L1_CONSENSUS_HOST_API_KEYS = join(",", var.L1_CONSENSUS_HOST_API_KEYS)
       } : {},
       length(var.L1_CONSENSUS_HOST_API_KEY_HEADERS) > 0 ? {
-        l1ConsensusHostApiKeyHeaders = join(",", var.L1_CONSENSUS_HOST_API_KEY_HEADERS)
+        L1_CONSENSUS_HOST_API_KEY_HEADERS = join(",", var.L1_CONSENSUS_HOST_API_KEY_HEADERS)
+      } : {},
+      var.OTEL_COLLECTOR_ENDPOINT != "" ? {
+        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = "${var.OTEL_COLLECTOR_ENDPOINT}/v1/metrics"
+        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT  = "${var.OTEL_COLLECTOR_ENDPOINT}/v1/traces"
+        OTEL_EXPORTER_OTLP_LOGS_ENDPOINT    = "${var.OTEL_COLLECTOR_ENDPOINT}/v1/logs"
       } : {}
     )
   })
 
-  common_list_settings = {
-    "global.l1ExecutionUrls" = var.L1_RPC_URLS
-    "global.l1ConsensusUrls" = var.L1_CONSENSUS_HOST_URLS
-  }
+  common_list_settings = {}
 
   # Generate a set of _external_ host ports to use for P2P
   # K8s will use these values to schedule pods on appropriate machines. Using random ports here will allow it to
@@ -189,65 +201,27 @@ locals {
     wait                 = true
   }
 
+  # Per-pod env vars now flow from spartan/environments/networks/<name>.yml via
+  # the loader's pre-merged var.releases.validators.env block (passed through
+  # main.tf's `inline_values = [yamlencode(var.releases[each.key])]`). Only
+  # values that are computed at deploy time, set k8s manifest shape, or rename
+  # one chart key into a different pod env name remain here.
   validator_common_settings = {
-    "validator.service.p2p.nodePortEnabled"                       = var.P2P_NODEPORT_ENABLED
-    "validator.web3signerUrl"                                     = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
-    "validator.mnemonic"                                          = var.VALIDATOR_MNEMONIC
-    "validator.mnemonicStartIndex"                                = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.validatorsPerNode"                                 = var.VALIDATORS_PER_NODE
-    "validator.publishersPerReplica"                              = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-    "validator.publisherMnemonicStartIndex"                       = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-    "validator.sentinel.enabled"                                  = var.SENTINEL_ENABLED
-    "validator.slash.inactivityTargetPercentage"                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
-    "validator.slash.inactivityPenalty"                           = var.SLASH_INACTIVITY_PENALTY
-    "validator.slash.prunePenalty"                                = var.SLASH_PRUNE_PENALTY
-    "validator.slash.dataWithholdingPenalty"                      = var.SLASH_DATA_WITHHOLDING_PENALTY
-    "validator.slash.proposeInvalidAttestationsPenalty"           = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
-    "validator.slash.duplicateProposalPenalty"                    = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
-    "validator.slash.duplicateAttestationPenalty"                 = var.SLASH_DUPLICATE_ATTESTATION_PENALTY
-    "validator.slash.attestDescendantOfInvalidPenalty"            = var.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
-    "validator.slash.unknownPenalty"                              = var.SLASH_UNKNOWN_PENALTY
-    "validator.slash.invalidBlockPenalty"                         = var.SLASH_INVALID_BLOCK_PENALTY
-    "validator.slash.offenseExpirationRounds"                     = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
-    "validator.slash.maxPayloadSize"                              = var.SLASH_MAX_PAYLOAD_SIZE
-    "validator.node.env.TRANSACTIONS_DISABLED"                    = var.TRANSACTIONS_DISABLED
-    "validator.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"        = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-    "validator.node.env.KEY_INDEX_START"                          = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.node.env.PUBLISHER_KEY_INDEX_START"                = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
-    "validator.node.env.VALIDATORS_PER_NODE"                      = var.VALIDATORS_PER_NODE
-    "validator.node.env.VALIDATOR_PUBLISHERS_PER_REPLICA"         = var.VALIDATOR_PUBLISHERS_PER_REPLICA
-    "validator.node.proverRealProofs"                             = var.PROVER_REAL_PROOFS
-    "validator.node.env.SEQ_MIN_TX_PER_BLOCK"                     = var.SEQ_MIN_TX_PER_BLOCK
-    "validator.node.env.SEQ_MAX_TX_PER_BLOCK"                     = var.SEQ_MAX_TX_PER_BLOCK
-    "validator.node.env.SEQ_MAX_TX_PER_CHECKPOINT"                = var.SEQ_MAX_TX_PER_CHECKPOINT
-    "validator.node.env.P2P_MAX_PENDING_TX_COUNT"                 = var.P2P_MAX_PENDING_TX_COUNT
-    "validator.node.env.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER"      = var.SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER
-    "validator.node.env.SEQ_BLOCK_DURATION_MS"                    = var.SEQ_BLOCK_DURATION_MS
-    "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT" = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
-    "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
-    "validator.node.env.SEQ_ENABLE_PROPOSER_PIPELINING"           = var.SEQ_ENABLE_PROPOSER_PIPELINING
-    "validator.node.env.AZTEC_EPOCHS_LAG"                         = var.AZTEC_EPOCHS_LAG
-    "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                   = var.SEQ_ENFORCE_TIME_TABLE
-    "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"       = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-    "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"          = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
-    "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE"    = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
-    "validator.node.env.BLOB_ALLOW_EMPTY_SOURCES"                 = var.BLOB_ALLOW_EMPTY_SOURCES
-    "validator.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"        = var.PROVER_TEST_VERIFICATION_DELAY_MS
-    "validator.node.env.BB_CHONK_VERIFY_MAX_BATCH"                = var.BB_CHONK_VERIFY_MAX_BATCH
-    "validator.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"        = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
-    "validator.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"            = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-    "validator.node.secret.envEnabled"                            = true
-    "validator.node.secret.mnemonic"                              = var.VALIDATOR_MNEMONIC
-    "validator.node.secret.mnemonicIndex"                         = var.VALIDATOR_MNEMONIC_START_INDEX
-    "validator.node.env.P2P_GOSSIPSUB_D"                          = var.P2P_GOSSIPSUB_D
-    "validator.node.env.P2P_GOSSIPSUB_DLO"                        = var.P2P_GOSSIPSUB_DLO
-    "validator.node.env.P2P_GOSSIPSUB_DHI"                        = var.P2P_GOSSIPSUB_DHI
-    "validator.node.env.P2P_DROP_TX_CHANCE"                       = var.P2P_DROP_TX_CHANCE
-    "validator.node.env.WS_NUM_HISTORIC_CHECKPOINTS"              = var.WS_NUM_HISTORIC_CHECKPOINTS
-    "validator.node.env.TX_COLLECTION_FILE_STORE_URLS"            = var.TX_COLLECTION_FILE_STORE_URLS
-    "validator.node.env.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT"      = var.SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT
-    "validator.node.env.L1_TX_FAILED_STORE"                       = var.L1_TX_FAILED_STORE
-    "validator.node.adminApiKeyHash"                              = var.ADMIN_API_KEY_HASH
+    # K8s shape / cluster decisions (not pod env).
+    "validator.service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+    "validator.web3signerUrl"               = "http://${var.RELEASE_PREFIX}-signer-web3signer.${var.NAMESPACE}.svc.cluster.local:9000/"
+    "validator.mnemonic"                    = var.VALIDATOR_MNEMONIC
+    "validator.mnemonicStartIndex"          = var.VALIDATOR_MNEMONIC_START_INDEX
+    "validator.validatorsPerNode"           = var.VALIDATORS_PER_NODE
+    "validator.publishersPerReplica"        = var.VALIDATOR_PUBLISHERS_PER_REPLICA
+    "validator.publisherMnemonicStartIndex" = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
+    "validator.node.secret.envEnabled"      = true
+    "validator.node.secret.mnemonic"        = var.VALIDATOR_MNEMONIC
+    "validator.node.secret.mnemonicIndex"   = var.VALIDATOR_MNEMONIC_START_INDEX
+    "validator.node.adminApiKeyHash"        = var.ADMIN_API_KEY_HASH
+    # Renames: chart-side var name differs from pod env name.
+    "validator.node.env.KEY_INDEX_START"           = var.VALIDATOR_MNEMONIC_START_INDEX
+    "validator.node.env.PUBLISHER_KEY_INDEX_START" = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
   }
 
   # Note: nonsensitive() is required here because helm_releases is used in for_each,
@@ -361,55 +335,27 @@ locals {
           tolerations  = null
         }
       })] : [])
+      # Per-pod env vars flow from spartan/environments/networks/<name>.yml via
+      # the loader's pre-merged var.releases.prover.{node,broker,agent}.env blocks.
+      # Only computed/renamed/secret values remain here.
       custom_settings = merge(
         {
-          "node.mnemonic"                                       = var.PROVER_MNEMONIC
-          "node.mnemonicStartIndex"                             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "node.node.proverRealProofs"                          = var.PROVER_REAL_PROOFS
-          "node.node.env.PROVER_FAILED_PROOF_STORE"             = var.PROVER_FAILED_PROOF_STORE
-          "node.node.env.PROVER_PROOF_STORE"                    = var.PROVER_PROOF_STORE
-          "node.node.env.L1_TX_FAILED_STORE"                    = var.L1_TX_FAILED_STORE
-          "node.node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"     = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-          "node.node.env.KEY_INDEX_START"                       = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "node.node.env.PUBLISHER_KEY_INDEX_START"             = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "node.node.env.PUBLISHERS_PER_PROVER"                 = var.PROVER_PUBLISHERS_PER_PROVER
-          "node.node.env.PROVER_NODE_DISABLE_PROOF_PUBLISH"     = var.PROVER_NODE_DISABLE_PROOF_PUBLISH
-          "node.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"    = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-          "node.node.env.BLOB_ALLOW_EMPTY_SOURCES"              = var.BLOB_ALLOW_EMPTY_SOURCES
-          "node.node.secret.envEnabled"                         = true
-          "node.node.secret.mnemonic"                           = var.PROVER_MNEMONIC
-          "node.node.secret.mnemonicIndex"                      = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
-          "broker.node.proverRealProofs"                        = var.PROVER_REAL_PROOFS
-          "broker.node.env.BOOTSTRAP_NODES"                     = "asdf"
-          "broker.node.env.PROVER_BROKER_DEBUG_REPLAY_ENABLED"  = var.PROVER_BROKER_DEBUG_REPLAY_ENABLED
-          "agent.node.image.repository"                         = local.prover_agent_image.repository
-          "agent.node.image.tag"                                = local.prover_agent_image.tag
-          "agent.node.env.CRS_PATH"                             = "/usr/src/crs"
-          "agent.node.proverRealProofs"                         = var.PROVER_REAL_PROOFS
-          "agent.node.env.PROVER_AGENT_POLL_INTERVAL_MS"        = var.PROVER_AGENT_POLL_INTERVAL_MS
-          "agent.replicaCount"                                  = var.PROVER_REPLICAS
-          "agent.node.env.BOOTSTRAP_NODES"                      = "asdf"
-          "agent.node.env.PROVER_AGENT_COUNT"                   = var.PROVER_AGENTS_PER_PROVER
-          "agent.node.env.PROVER_TEST_DELAY_TYPE"               = var.PROVER_TEST_DELAY_TYPE
-          "agent.node.env.PROVER_AGENT_PROOF_TYPES"             = join(",", var.PROVER_AGENT_PROOF_TYPES)
-          "agent.node.env.PROVER_PROOF_STORE"                   = var.PROVER_PROOF_STORE
-          "agent.node.otelIncludeMetrics"                       = var.PROVER_AGENT_INCLUDE_METRICS
-          "node.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"       = var.PROVER_L1_PRIORITY_FEE_BUMP_PERCENTAGE
-          "node.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE" = var.PROVER_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
-          "node.node.env.PROVER_TEST_VERIFICATION_DELAY_MS"     = var.PROVER_TEST_VERIFICATION_DELAY_MS
-          "node.node.env.BB_CHONK_VERIFY_MAX_BATCH"             = var.BB_CHONK_VERIFY_MAX_BATCH
-          "node.node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"     = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
-          "node.node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"         = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-          "node.node.env.P2P_GOSSIPSUB_D"                       = var.P2P_GOSSIPSUB_D
-          "node.node.env.P2P_GOSSIPSUB_DLO"                     = var.P2P_GOSSIPSUB_DLO
-          "node.node.env.P2P_GOSSIPSUB_DHI"                     = var.P2P_GOSSIPSUB_DHI
-          "node.node.env.P2P_DROP_TX_CHANCE"                    = var.P2P_DROP_TX_CHANCE
-          "node.node.env.P2P_MAX_PENDING_TX_COUNT"              = var.P2P_MAX_PENDING_TX_COUNT
-          "node.node.env.WS_NUM_HISTORIC_CHECKPOINTS"           = var.WS_NUM_HISTORIC_CHECKPOINTS
-          "node.node.env.TX_COLLECTION_FILE_STORE_URLS"         = var.TX_COLLECTION_FILE_STORE_URLS
-          "node.service.p2p.nodePortEnabled"                    = var.P2P_NODEPORT_ENABLED
-          "node.service.p2p.announcePort"                       = local.p2p_port_prover
-          "node.service.p2p.port"                               = local.p2p_port_prover
+          # Chart-shape / k8s shape.
+          "node.mnemonic"                    = var.PROVER_MNEMONIC
+          "node.mnemonicStartIndex"          = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.secret.envEnabled"      = true
+          "node.node.secret.mnemonic"        = var.PROVER_MNEMONIC
+          "node.node.secret.mnemonicIndex"   = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+          "node.service.p2p.announcePort"    = local.p2p_port_prover
+          "node.service.p2p.port"            = local.p2p_port_prover
+          "agent.replicaCount"               = var.PROVER_REPLICAS
+          "agent.node.image.repository"      = local.prover_agent_image.repository
+          "agent.node.image.tag"             = local.prover_agent_image.tag
+          "agent.env.OTEL_INCLUDE_METRICS"   = var.PROVER_AGENT_INCLUDE_METRICS
+          # Renames: chart-side var name differs from pod env name.
+          "node.node.env.KEY_INDEX_START"           = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
+          "node.node.env.PUBLISHER_KEY_INDEX_START" = var.PROVER_PUBLISHER_MNEMONIC_START_INDEX
         },
         # Only set web3signerUrl if proof publishing is enabled
         !var.PROVER_NODE_DISABLE_PROOF_PUBLISH ? {
@@ -462,34 +408,17 @@ locals {
         }
       })])
 
-      custom_settings = merge({
+      # Pod env vars flow from var.releases.rpc.env via inline_values.
+      custom_settings = {
         "replicaCount"                = var.RPC_REPLICAS
         "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
         "service.p2p.announcePort"    = local.p2p_port_rpc
         "service.p2p.port"            = local.p2p_port_rpc
-
-        # Ensure the JSON-RPC server binds the same port the probe checks
-        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "ingress.rpc.enabled"                         = var.RPC_INGRESS_ENABLED
-        "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
-        "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
-        "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
-        "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
-        "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
-        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
-        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
-        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
-        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
-        "node.env.TX_FILE_STORE_ENABLED"              = var.TX_FILE_STORE_ENABLED
-        "node.env.TX_FILE_STORE_URL"                  = var.TX_FILE_STORE_URL
-        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
-      })
+        "ingress.rpc.enabled"         = var.RPC_INGRESS_ENABLED
+        # Deploy-time secrets (not in YAML).
+        "node.env.AWS_ACCESS_KEY_ID"     = var.R2_ACCESS_KEY_ID
+        "node.env.AWS_SECRET_ACCESS_KEY" = var.R2_SECRET_ACCESS_KEY
+      }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
       wait                 = true
@@ -511,24 +440,20 @@ locals {
           logLevel = var.FISHERMAN_LOG_LEVEL
         }
       })]
+      # Pod env vars flow from var.releases.fisherman.env via inline_values
+      # (FISHERMAN_MODE, SEQ_BUILD_CHECKPOINT_IF_EMPTY, VALIDATORS_PER_NODE
+      # come from _release_defaults.fisherman.env in network-defaults.yml).
       custom_settings = {
-        "replicaCount"                                = var.FISHERMAN_REPLICAS
-        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
-        "service.p2p.announcePort"                    = local.p2p_port_fisherman
-        "service.p2p.port"                            = local.p2p_port_fisherman
-        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
-        "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
-        "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-        "node.secret.envEnabled"                      = true
-        "node.env.FISHERMAN_MODE"                     = "true"
-        "node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"      = "true"
-        "node.secret.mnemonic"                        = var.FISHERMAN_MNEMONIC
-        "node.secret.mnemonicIndex"                   = var.FISHERMAN_MNEMONIC_START_INDEX
-        "node.env.KEY_INDEX_START"                    = var.FISHERMAN_MNEMONIC_START_INDEX
-        "node.env.VALIDATORS_PER_NODE"                = "1"
-        "node.preStartScript"                         = "source /scripts/get-private-key.sh"
+        "replicaCount"                = var.FISHERMAN_REPLICAS
+        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "service.p2p.announcePort"    = local.p2p_port_fisherman
+        "service.p2p.port"            = local.p2p_port_fisherman
+        "node.secret.envEnabled"      = true
+        "node.secret.mnemonic"        = var.FISHERMAN_MNEMONIC
+        "node.secret.mnemonicIndex"   = var.FISHERMAN_MNEMONIC_START_INDEX
+        "node.preStartScript"         = "source /scripts/get-private-key.sh"
+        # Rename: chart-side var name differs from pod env name.
+        "node.env.KEY_INDEX_START" = var.FISHERMAN_MNEMONIC_START_INDEX
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -548,30 +473,17 @@ locals {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
         }
       })]
+      # Pod env vars flow from var.releases.full_node.env via inline_values.
       custom_settings = {
-        "nodeType"                                    = "full-node"
-        "replicaCount"                                = var.FULL_NODE_REPLICAS
-        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
-        "service.p2p.announcePort"                    = local.p2p_port_full_node
-        "service.p2p.port"                            = local.p2p_port_full_node
-        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "node.env.AWS_ACCESS_KEY_ID"                  = var.R2_ACCESS_KEY_ID
-        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-        "node.env.AWS_SECRET_ACCESS_KEY"              = var.R2_SECRET_ACCESS_KEY
-        "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
-        "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
-        "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
-        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-        "node.otelIncludeMetrics"                     = var.FULL_NODE_INCLUDE_METRICS
-        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
-        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
-        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
-        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
-        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
+        "nodeType"                    = "full-node"
+        "replicaCount"                = var.FULL_NODE_REPLICAS
+        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "service.p2p.announcePort"    = local.p2p_port_full_node
+        "service.p2p.port"            = local.p2p_port_full_node
+        "env.OTEL_INCLUDE_METRICS"    = var.FULL_NODE_INCLUDE_METRICS
+        # Deploy-time secrets (not in YAML).
+        "node.env.AWS_ACCESS_KEY_ID"     = var.R2_ACCESS_KEY_ID
+        "node.env.AWS_SECRET_ACCESS_KEY" = var.R2_SECRET_ACCESS_KEY
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -592,28 +504,13 @@ locals {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
         }
       })]
+      # Pod env vars flow from var.releases.archive.env via inline_values.
+      # P2P_ARCHIVED_TX_LIMIT is set in _release_defaults.archive.env.
       custom_settings = {
-        "nodeType"                                    = "archive"
-        "service.p2p.nodePortEnabled"                 = var.P2P_NODEPORT_ENABLED
-        "service.p2p.announcePort"                    = local.p2p_port_archive
-        "service.p2p.port"                            = local.p2p_port_archive
-        "node.env.P2P_ARCHIVED_TX_LIMIT"              = "10000000"
-        "node.proverRealProofs"                       = var.PROVER_REAL_PROOFS
-        "node.env.PROVER_TEST_VERIFICATION_DELAY_MS"  = var.PROVER_TEST_VERIFICATION_DELAY_MS
-        "node.env.BB_CHONK_VERIFY_MAX_BATCH"          = var.BB_CHONK_VERIFY_MAX_BATCH
-        "node.env.BB_CHONK_VERIFY_BATCH_CONCURRENCY"  = var.BB_CHONK_VERIFY_BATCH_CONCURRENCY
-        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION"  = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"      = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-        "node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG" = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
-        "node.env.BLOB_ALLOW_EMPTY_SOURCES"           = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_GOSSIPSUB_D"                    = var.P2P_GOSSIPSUB_D
-        "node.env.P2P_GOSSIPSUB_DLO"                  = var.P2P_GOSSIPSUB_DLO
-        "node.env.P2P_GOSSIPSUB_DHI"                  = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX_CHANCE"                 = var.P2P_DROP_TX_CHANCE
-        "node.env.P2P_MAX_PENDING_TX_COUNT"           = var.P2P_MAX_PENDING_TX_COUNT
-        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"        = var.WS_NUM_HISTORIC_CHECKPOINTS
-        "node.env.TX_COLLECTION_FILE_STORE_URLS"      = var.TX_COLLECTION_FILE_STORE_URLS
-        "node.env.BLOB_FILE_STORE_URLS"               = var.BLOB_FILE_STORE_URLS
+        "nodeType"                    = "archive"
+        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        "service.p2p.announcePort"    = local.p2p_port_archive
+        "service.p2p.port"            = local.p2p_port_archive
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -634,22 +531,14 @@ locals {
           p2p = { publicIP = var.P2P_PUBLIC_IP }
         }
       })]
+      # Pod env vars flow from var.releases.blob_sink.env via inline_values.
       custom_settings = {
-        "nodeType"                                   = "blob-sink"
-        "service.p2p.nodePortEnabled"                = var.P2P_NODEPORT_ENABLED
-        "node.proverRealProofs"                      = var.PROVER_REAL_PROOFS
-        "node.env.BLOB_FILE_STORE_UPLOAD_URL"        = var.BLOB_FILE_STORE_UPLOAD_URL
-        "node.env.AWS_ACCESS_KEY_ID"                 = var.R2_ACCESS_KEY_ID
-        "node.env.AWS_SECRET_ACCESS_KEY"             = var.R2_SECRET_ACCESS_KEY
-        "node.env.DEBUG_FORCE_TX_PROOF_VERIFICATION" = var.DEBUG_FORCE_TX_PROOF_VERIFICATION
-        "node.env.DEBUG_P2P_INSTRUMENT_MESSAGES"     = var.DEBUG_P2P_INSTRUMENT_MESSAGES
-        "node.env.BLOB_ALLOW_EMPTY_SOURCES"          = var.BLOB_ALLOW_EMPTY_SOURCES
-        "node.env.P2P_GOSSIPSUB_D"                   = var.P2P_GOSSIPSUB_D
-        "node.env.P2P_GOSSIPSUB_DLO"                 = var.P2P_GOSSIPSUB_DLO
-        "node.env.P2P_GOSSIPSUB_DHI"                 = var.P2P_GOSSIPSUB_DHI
-        "node.env.P2P_DROP_TX_CHANCE"                = var.P2P_DROP_TX_CHANCE
-        "node.env.P2P_MAX_PENDING_TX_COUNT"          = var.P2P_MAX_PENDING_TX_COUNT
-        "node.env.WS_NUM_HISTORIC_CHECKPOINTS"       = var.WS_NUM_HISTORIC_CHECKPOINTS
+        "nodeType"                    = "blob-sink"
+        "service.p2p.nodePortEnabled" = var.P2P_NODEPORT_ENABLED
+        # Deploy-time secrets / computed (not in YAML).
+        "node.env.BLOB_FILE_STORE_UPLOAD_URL" = var.BLOB_FILE_STORE_UPLOAD_URL
+        "node.env.AWS_ACCESS_KEY_ID"          = var.R2_ACCESS_KEY_ID
+        "node.env.AWS_SECRET_ACCESS_KEY"      = var.R2_SECRET_ACCESS_KEY
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -757,7 +646,13 @@ resource "helm_release" "releases" {
   values = concat(
     [for v in each.value.values : file("./values/${v}")],
     [local.common_inline_values],
-    lookup(each.value, "inline_values", [])
+    lookup(each.value, "inline_values", []),
+    # New (Phase 4): per-release Helm values passed directly from the YAML loader
+    # via terraform.tfvars.json's `releases.<release_name>` map. The loader emits
+    # values that already match the chart's expected shape (validator.env.*, etc.),
+    # so this is a direct pass-through with no per-key mapping. The existing `set`
+    # blocks below override these (kept for back-compat with current deploys).
+    contains(keys(var.releases), each.key) ? [yamlencode(var.releases[each.key])] : []
   )
 
   # Common settings

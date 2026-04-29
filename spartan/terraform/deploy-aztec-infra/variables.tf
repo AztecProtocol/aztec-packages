@@ -1,3 +1,35 @@
+# =============================================================================
+# Structured config (Phase 4 -- coexists with legacy individual variables below)
+# =============================================================================
+# Populated by spartan/scripts/load_network_config.sh --format=tfvars from a
+# per-network YAML file. Each `releases.<key>` is forwarded as Helm values to
+# the matching helm_release in main.tf via yamlencode pass-through. Legacy
+# individual variables (PROVER_REAL_PROOFS, SLASH_*, etc.) still work and
+# override these via the `set` blocks; once a deploy is fully migrated to
+# YAML, the legacy variables can be removed.
+
+variable "deploy" {
+  description = "Deploy-time config (cluster, namespace, ingress) loaded from per-network YAML"
+  type        = any
+  default     = {}
+}
+
+variable "env" {
+  description = "Network-wide pod env baseline loaded from per-network YAML (UPPER_SNAKE keys)"
+  type        = map(string)
+  default     = {}
+}
+
+variable "releases" {
+  description = "Per-release Helm values, keyed by release name (validator, prover, rpc, ...)"
+  type        = any
+  default     = {}
+}
+
+# =============================================================================
+# Legacy individual variables (kept for back-compat; removed in Phase 5 cleanup)
+# =============================================================================
+
 variable "R2_ACCESS_KEY_ID" {
   description = "Cloudflare R2 access key id for RPC node snapshot uploads"
   type        = string

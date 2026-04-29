@@ -38,7 +38,7 @@ registry_address="${1:?Usage: $0 <registry_address>}"
 if [[ -z "${L1_CHAIN_ID:-}" ]]; then
   : "${NETWORK:?L1_CHAIN_ID or NETWORK is required}"
   network_defaults="${repo_root}/spartan/environments/network-defaults.yml"
-  L1_CHAIN_ID=$(yq "explode(.) | .networks.$NETWORK.L1_CHAIN_ID" "$network_defaults")
+  L1_CHAIN_ID=$(yq "explode(.) | .networks.$NETWORK.env.L1_CHAIN_ID" "$network_defaults")
 fi
 
 log "Starting rollup upgrade deployment"

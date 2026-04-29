@@ -28,13 +28,12 @@ FUNDING_PRIVATE_KEY="$2"
 LOW_WATERMARK="${3:-0.5}"
 HIGH_WATERMARK="${4:-1.0}"
 
-# Locate the environment file
-ENVIRONMENT_FILE="${spartan}/environments/${ENVIRONMENT_NAME}.env"
+YAML_FILE="${spartan}/environments/networks/${ENVIRONMENT_NAME}.yml"
 
-if [ ! -f "$ENVIRONMENT_FILE" ]; then
-    echo "Error: Environment file not found: $ENVIRONMENT_FILE"
+if [ ! -f "$YAML_FILE" ]; then
+    echo "Error: Network YAML not found: $YAML_FILE"
     echo "Available environments:"
-    ls -1 "${spartan}/environments/" | grep -v '\.local\.env$' || echo "No environment files found"
+    ls -1 "${spartan}/environments/networks/" 2>/dev/null
     exit 1
 fi
 
