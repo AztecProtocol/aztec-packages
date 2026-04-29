@@ -4,7 +4,7 @@ use crate::{
 };
 
 use crate::protocol::{
-    abis::{function_selector::FunctionSelector, gas_settings::GasSettings},
+    abis::{function_selector::FunctionSelector, gas_fees::GasFees, gas_settings::GasSettings},
     address::AztecAddress,
     constants::{
         CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULL_MSG_SENDER_CONTRACT_ADDRESS,
@@ -172,6 +172,26 @@ pub unconstrained fn set_gas_settings(gas_settings: GasSettings) {
 /// know the struct shape (mirrors the capsule pattern in `crate::oracle::capsules`).
 #[oracle(aztec_txe_setGasSettings)]
 unconstrained fn set_gas_settings_oracle<let N: u32>(serialized_gas_settings: [Field; N]) {}
+
+/// Sets the per-block `gas_fees` (the "actual" L2/DA gas price the AVM exposes via
+/// `min_fee_per_l2_gas` / `min_fee_per_da_gas`) used by all subsequent TXE blocks - blocks mined
+/// explicitly via `mine_block`/`mine_block_at` and blocks produced by transaction-producing flows
+/// (`call_private`, `call_public`, ...). The setting persists until overwritten.
+///
+/// The default is zero, matching prior TXE behavior. Tests that exercise public-side fee math
+/// (e.g. an FPC's `pay_fee` teardown computing `gas_used * min_fee_per_l2_gas`) should call this
+/// before the contract call.
+///
+/// Note: this is independent of `set_gas_settings`. `set_gas_settings` controls the *user's stated
+/// max budget* (read from `tx_context.gas_settings` in private). `set_block_gas_fees` controls the
+/// *block's actual price* (read from `globals.gas_fees` in public). In a real network the two are
+/// related (the AVM computes effective fees from both), but they are configured independently here.
+pub unconstrained fn set_block_gas_fees(gas_fees: GasFees) {
+    set_block_gas_fees_oracle(gas_fees.serialize());
+}
+
+#[oracle(aztec_txe_setBlockGasFees)]
+unconstrained fn set_block_gas_fees_oracle<let N: u32>(serialized_gas_fees: [Field; N]) {}
 
 #[oracle(aztec_txe_deploy)]
 pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(

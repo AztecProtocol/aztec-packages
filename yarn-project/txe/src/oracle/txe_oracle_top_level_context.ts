@@ -105,6 +105,12 @@ export const DEFAULT_TXE_GAS_SETTINGS = new GasSettings(
   GasFees.empty(),
 );
 
+/**
+ * The default per-block `GasFees` used by TXE blocks when the test does not call
+ * `env.set_block_gas_fees`. Zero, preserving prior TXE behavior for existing tests.
+ */
+export const DEFAULT_TXE_BLOCK_GAS_FEES = GasFees.empty();
+
 export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
   isMisc = true as const;
   isTxe = true as const;
@@ -128,6 +134,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
     private currentGasSettings: GasSettings,
+    private currentBlockGasFees: GasFees,
   ) {
     this.logger = createLogger('txe:top_level_context');
     this.logger.debug('Entering Top Level Context');
@@ -252,6 +259,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return this.currentGasSettings;
   }
 
+  setBlockGasFees(gasFees: GasFees) {
+    this.logger.debug(`updating block gas fees`, { gasFees });
+    this.currentBlockGasFees = gasFees;
+  }
+
+  getBlockGasFees(): GasFees {
+    return this.currentBlockGasFees;
+  }
+
   async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
     // Emit deployment nullifier
     await this.mineBlock({
@@ -324,6 +340,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       timestamp: this.nextBlockTimestamp,
       version: this.version,
       chainId: this.chainId,
+      gasFees: this.currentBlockGasFees,
     });
     const block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
 
@@ -472,7 +489,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     globals.timestamp = this.nextBlockTimestamp;
     globals.chainId = this.chainId;
     globals.version = this.version;
-    globals.gasFees = GasFees.empty();
+    globals.gasFees = this.currentBlockGasFees;
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
 
@@ -589,7 +606,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     globals.timestamp = this.nextBlockTimestamp;
     globals.chainId = this.chainId;
     globals.version = this.version;
-    globals.gasFees = GasFees.empty();
+    globals.gasFees = this.currentBlockGasFees;
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
 
@@ -807,9 +824,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>, GasSettings] {
+  close(): [bigint, Map<string, AuthWitness>, GasSettings, GasFees] {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits, this.currentGasSettings];
+    return [this.nextBlockTimestamp, this.authwits, this.currentGasSettings, this.currentBlockGasFees];
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {

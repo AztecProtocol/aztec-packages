@@ -10,7 +10,7 @@ import {
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasSettings } from '@aztec/stdlib/gas';
+import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -208,6 +208,15 @@ export class RPCTranslator {
     const gasSettings = GasSettings.fromFields(fromArray(foreignSerializedGasSettings));
 
     this.handlerAsTxe().setGasSettings(gasSettings);
+
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_txe_setBlockGasFees(foreignSerializedGasFees: ForeignCallArray) {
+    const gasFees = GasFees.fromFields(fromArray(foreignSerializedGasFees));
+
+    this.handlerAsTxe().setBlockGasFees(gasFees);
 
     return toForeignCallResult([]);
   }

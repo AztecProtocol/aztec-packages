@@ -38,7 +38,7 @@ import {
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { GasSettings } from '@aztec/stdlib/gas';
+import type { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -49,7 +49,11 @@ import { z } from 'zod';
 import { DEFAULT_ADDRESS } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
-import { DEFAULT_TXE_GAS_SETTINGS, TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
+import {
+  DEFAULT_TXE_BLOCK_GAS_FEES,
+  DEFAULT_TXE_GAS_SETTINGS,
+  TXEOracleTopLevelContext,
+} from './oracle/txe_oracle_top_level_context.js';
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
@@ -211,6 +215,7 @@ export class TXESession implements TXESessionStateHandler {
     private version: Fr,
     private nextBlockTimestamp: bigint,
     private currentGasSettings: GasSettings = DEFAULT_TXE_GAS_SETTINGS,
+    private currentBlockGasFees: GasFees = DEFAULT_TXE_BLOCK_GAS_FEES,
   ) {}
 
   static async init(contractStore: ContractStore) {
@@ -265,6 +270,7 @@ export class TXESession implements TXESessionStateHandler {
       chainId,
       new Map(),
       DEFAULT_TXE_GAS_SETTINGS,
+      DEFAULT_TXE_BLOCK_GAS_FEES,
     );
     await topLevelOracleHandler.advanceBlocksBy(1);
 
@@ -418,6 +424,7 @@ export class TXESession implements TXESessionStateHandler {
       this.chainId,
       this.authwits,
       this.currentGasSettings,
+      this.currentBlockGasFees,
     );
 
     this.state = { name: 'TOP_LEVEL' };
@@ -586,7 +593,7 @@ export class TXESession implements TXESessionStateHandler {
     // level context is re-created. This is because authwits create a temporary utility context that'd otherwise reset
     // the authwits if not persisted, so we'd not be able to pass more than one per execution.
     // Ideally authwits would be passed alongside a contract call instead of pre-seeded.
-    [this.nextBlockTimestamp, this.authwits, this.currentGasSettings] = (
+    [this.nextBlockTimestamp, this.authwits, this.currentGasSettings, this.currentBlockGasFees] = (
       this.oracleHandler as TXEOracleTopLevelContext
     ).close();
   }

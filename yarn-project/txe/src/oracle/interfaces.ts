@@ -6,7 +6,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { GasSettings } from '@aztec/stdlib/gas';
+import type { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 // These interfaces complement the ones defined in PXE, and combined with those contain the full list of oracles used by
@@ -51,6 +51,7 @@ export interface ITxeExecutionOracle {
   advanceBlocksBy(blocks: number): Promise<void>;
   advanceTimestampBy(duration: UInt64): void;
   setGasSettings(gasSettings: GasSettings): void;
+  setBlockGasFees(gasFees: GasFees): void;
   deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: Fr): Promise<void>;
   createAccount(secret: Fr): Promise<CompleteAddress>;
   addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr): Promise<CompleteAddress>;
