@@ -321,9 +321,18 @@ describe('sustained N TPS test', () => {
           salt,
         );
         const deployMethod = await manager.getDeployMethod();
+        // Explicit gas estimation: BaseWallet's fallback bakes
+        // APPROXIMATE_MAX_DA_GAS_PER_BLOCK=196_608 daGas into deploys, which exceeds
+        // the proposer's per-block fair-share daGas (~94k at 10 blocks/checkpoint
+        // with pipelining). Estimate first, send with the result. EmbeddedWallet
+        // does this automatically; TestWallet (used here via WorkerWallet) does not.
+        const deploySim = await deployMethod.simulate({
+          from: NO_FROM,
+          fee: { paymentMethod: sponsor, estimateGas: true },
+        });
         await deployMethod.send({
           from: NO_FROM,
-          fee: { paymentMethod: sponsor },
+          fee: { paymentMethod: sponsor, gasSettings: deploySim.estimatedGas },
           wait: { timeout: 2400 },
         });
         return address;
@@ -541,17 +550,24 @@ describe('sustained N TPS test', () => {
       aztecNode: highValueTestWallets[i].aztecNode,
       address: highValueAddresses[i],
     }));
+    const startedAt = new Date().toISOString();
 
     sendTxsAtTps(logger, abortController.signal, lowValueLanes, lowValueTps, lowValueSendTx);
     const sentTxHashes = sendTxsAtTps(logger, abortController.signal, highValueLanes, highValueTps, highValueSendTx);
 
     await sleep(TEST_DURATION_SECONDS * 1000);
     abortController.abort();
+    const endedAt = new Date().toISOString();
     logger.info('Stopped transaction senders', {
       lowValueTxs,
       highValueTxs,
       highValueSent: sentTxHashes.length,
     });
+
+    // metadata about the test run for the scraper script
+    const metadataPath = '/tmp/n_tps_timing_data.json';
+    await writeFile(metadataPath, JSON.stringify({ startedAt, endedAt, runId: process.env.BENCH_RUN_ID }));
+    logger.info('Wrote benchmark metadata', { path: metadataPath, startedAt, endedAt });
 
     const results: { success: boolean; txHash: string; error?: any }[] = [];
     const waitForTx = async (txHash: string, txName: string) => {

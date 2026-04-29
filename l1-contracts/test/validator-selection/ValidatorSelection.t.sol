@@ -16,7 +16,6 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IPayload} from "@aztec/core/slashing/Slasher.sol";
 
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 import {ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
@@ -121,7 +120,6 @@ library TestFlagsLib {
  * The tests in this file is testing the sequencer selection
  */
 contract ValidatorSelectionTest is ValidatorSelectionTestBase {
-  using MessageHashUtils for bytes32;
   using TestFlagsLib for TestFlags;
 
   bytes4 NO_REVERT = bytes4(0);
@@ -565,7 +563,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
 
     ree.attestations = new CommitteeAttestation[](ree.attestationsCount);
     ree.signers = new address[](_signatureCount);
-    bytes32 digest = ProposeLib.digest(ree.proposePayload);
+    bytes32 digest = ProposeLib.digest(ree.proposePayload, address(rollup));
 
     {
       uint256 signersIndex = 0;
@@ -612,7 +610,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
         ree.attestationsAndSignersSignature = _createAttestation(
           ree.proposer,
           AttestationLib.getAttestationsAndSignersDigest(
-            AttestationLibHelper.packAttestations(ree.attestations), ree.signers
+            AttestationLibHelper.packAttestations(ree.attestations), ree.signers, address(rollup)
           )
         ).signature;
       }
@@ -665,7 +663,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       ree.attestationsAndSignersSignature = _createAttestation(
         ree.proposer,
         AttestationLib.getAttestationsAndSignersDigest(
-          AttestationLibHelper.packAttestations(ree.attestations), ree.signers
+          AttestationLibHelper.packAttestations(ree.attestations), ree.signers, address(rollup)
         )
       ).signature;
     } else if (ree.proposer != address(0) && _flags.invalidAttestationAndSignersSignature) {
@@ -680,7 +678,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
       ree.attestationsAndSignersSignature = _createAttestation(
         invalidSigner,
         AttestationLib.getAttestationsAndSignersDigest(
-          AttestationLibHelper.packAttestations(ree.attestations), ree.signers
+          AttestationLibHelper.packAttestations(ree.attestations), ree.signers, address(rollup)
         )
       ).signature;
     }
@@ -767,8 +765,7 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
   function _createAttestation(address _signer, bytes32 _digest) internal view returns (CommitteeAttestation memory) {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
-    bytes32 digest = _digest.toEthSignedMessageHash();
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _digest);
 
     Signature memory signature = Signature({v: v, r: r, s: s});
     return CommitteeAttestation({addr: _signer, signature: signature});

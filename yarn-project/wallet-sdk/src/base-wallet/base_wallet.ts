@@ -413,7 +413,7 @@ export abstract class BaseWallet implements Wallet {
     try {
       blockHeader = await this.pxe.getSyncedBlockHeader();
     } catch {
-      blockHeader = (await this.aztecNode.getBlockHeader())!;
+      blockHeader = (await this.aztecNode.getBlockHeader('latest'))!;
     }
 
     const simulationOrigin = opts.from === NO_FROM ? AztecAddress.ZERO : opts.from;

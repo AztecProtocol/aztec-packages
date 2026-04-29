@@ -35,7 +35,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
   const expectNoteHashesSquashedExcept = async (exceptFirstFew: number) => {
     const blockNum = await aztecNode.getBlockNumber();
-    const block = (await aztecNode.getBlocks(blockNum, 1))[0];
+    const block = (await aztecNode.getBlocks(blockNum, 1, { includeTransactions: true }))[0];
 
     const noteHashes = block.body.txEffects.flatMap(txEffect => txEffect.noteHashes);
 
@@ -51,7 +51,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
   const expectNullifiersSquashedExcept = async (exceptFirstFew: number) => {
     const blockNum = await aztecNode.getBlockNumber();
-    const block = (await aztecNode.getBlocks(blockNum, 1))[0];
+    const block = (await aztecNode.getBlocks(blockNum, 1, { includeTransactions: true }))[0];
 
     const nullifierArray = block.body.txEffects.flatMap(txEffect => txEffect.nullifiers);
 
@@ -67,7 +67,7 @@ describe('e2e_pending_note_hashes_contract', () => {
 
   const expectNoteLogsSquashedExcept = async (exceptFirstFew: number) => {
     const blockNum = await aztecNode.getBlockNumber();
-    const block = (await aztecNode.getBlocks(blockNum, 1))[0];
+    const block = (await aztecNode.getBlocks(blockNum, 1, { includeTransactions: true }))[0];
 
     const privateLogs = block.body.txEffects.flatMap(txEffect => txEffect.privateLogs);
     expect(privateLogs.length).toBe(exceptFirstFew);
