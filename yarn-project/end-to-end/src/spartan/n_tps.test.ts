@@ -541,17 +541,24 @@ describe('sustained N TPS test', () => {
       aztecNode: highValueTestWallets[i].aztecNode,
       address: highValueAddresses[i],
     }));
+    const startedAt = new Date().toISOString();
 
     sendTxsAtTps(logger, abortController.signal, lowValueLanes, lowValueTps, lowValueSendTx);
     const sentTxHashes = sendTxsAtTps(logger, abortController.signal, highValueLanes, highValueTps, highValueSendTx);
 
     await sleep(TEST_DURATION_SECONDS * 1000);
     abortController.abort();
+    const endedAt = new Date().toISOString();
     logger.info('Stopped transaction senders', {
       lowValueTxs,
       highValueTxs,
       highValueSent: sentTxHashes.length,
     });
+
+    // metadata about the test run for the scraper script
+    const metadataPath = '/tmp/n_tps_timing_data.json';
+    await writeFile(metadataPath, JSON.stringify({ startedAt, endedAt, runId: process.env.BENCH_RUN_ID }));
+    logger.info('Wrote benchmark metadata', { path: metadataPath, startedAt, endedAt });
 
     const results: { success: boolean; txHash: string; error?: any }[] = [];
     const waitForTx = async (txHash: string, txName: string) => {

@@ -387,7 +387,7 @@ TEST(boomerang_bigfield, test_graph_description_mult_madd_function)
     }
     fq_ct f = fq_ct::mult_madd(mul_left, mul_right, to_add);
     fix_bigfield_element(f);
-    builder.finalize_circuit(false);
+    builder.finalize_circuit();
     auto graph = StaticAnalyzer(builder);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
@@ -412,7 +412,7 @@ TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits)
         fq_ct::create_from_u512_as_witness(&builder, uint512_t(uint256_t(mul_right_value)));
     fq_ct product = mul_left * mul_right;
     fix_bigfield_element(product);
-    builder.finalize_circuit(false);
+    builder.finalize_circuit();
     auto graph = StaticAnalyzer(builder);
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.get_variables_in_one_gate();

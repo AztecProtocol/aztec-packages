@@ -135,6 +135,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
       dataStoreMapSizeKb: 128 * 1024 * 1024,
+      l1ChainId: 1,
       l1Contracts: {
         rollupAddress: EthAddress.random(),
       },

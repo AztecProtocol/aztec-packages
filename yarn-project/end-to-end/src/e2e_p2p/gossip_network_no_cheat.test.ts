@@ -208,7 +208,11 @@ describe('e2e_p2p_network', () => {
     // validator committee. If we submit txs before a checkpoint lands on L1, a failed checkpoint
     // publish can prune locally-proposed blocks, causing txs to reference pruned block headers.
     t.logger.info('Waiting for first checkpoint to be published');
-    await retryUntil(async () => (await nodes[0].getCheckpointedBlockNumber()) > 0, 'first checkpoint published', 120);
+    await retryUntil(
+      async () => (await nodes[0].getBlockNumber('checkpointed')) > 0,
+      'first checkpoint published',
+      120,
+    );
     t.logger.info('First checkpoint published');
 
     // We need to `createNodes` before we setup account, because
@@ -245,7 +249,11 @@ describe('e2e_p2p_network', () => {
     const blockNumber = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]).then(r => r.blockNumber!);
     const [checkpointedBlock] = await nodes[0].getCheckpointedBlocks(blockNumber, 1);
     const [publishedCheckpoint] = await nodes[0].getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const signatureContext = {
+      chainId: t.ctx.aztecNodeConfig.l1ChainId,
+      rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));

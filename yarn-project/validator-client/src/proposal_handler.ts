@@ -96,7 +96,7 @@ export class ProposalHandler {
   };
 
   /** Archiver reference for setting proposed checkpoints (pipelining). Set via register(). */
-  private archiver?: Pick<Archiver, 'setProposedCheckpoint' | 'getL1Constants'>;
+  private archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>;
 
   /** Returns current validator addresses for own-proposal detection. Set via register(). */
   private getOwnValidatorAddresses?: () => string[];
@@ -142,7 +142,7 @@ export class ProposalHandler {
   register(
     p2pClient: P2P,
     shouldReexecute: boolean,
-    archiver?: Pick<Archiver, 'setProposedCheckpoint' | 'getL1Constants'>,
+    archiver?: Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>,
     getOwnValidatorAddresses?: () => string[],
   ): ProposalHandler {
     this.archiver = archiver;
@@ -1016,7 +1016,7 @@ export class ProposalHandler {
       return false;
     }
 
-    await this.archiver.setProposedCheckpoint({
+    await this.archiver.addProposedCheckpoint({
       header: proposal.checkpointHeader,
       checkpointNumber: blockData.checkpointNumber,
       startBlock: BlockNumber(blockData.header.getBlockNumber() - blockData.indexWithinCheckpoint),
@@ -1054,7 +1054,7 @@ export class ProposalHandler {
     }
 
     if (blockData) {
-      await this.archiver.setProposedCheckpoint({
+      await this.archiver.addProposedCheckpoint({
         header: proposal.checkpointHeader,
         checkpointNumber: blockData.checkpointNumber,
         startBlock: BlockNumber(blockData.header.getBlockNumber() - blockData.indexWithinCheckpoint),
