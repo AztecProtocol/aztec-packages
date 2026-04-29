@@ -129,10 +129,6 @@ jobs:
             echo "Terraform state bucket already exists"
           fi
 
-      - name: Import Dashboard
-        working-directory: ./spartan/metrics
-        run: ./copy-dashboard.sh
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1
         with:
