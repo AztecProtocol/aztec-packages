@@ -229,6 +229,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Percent probability (0 - 100) of sequencer skipping checkpoint publishing (testing only)',
     ...numberConfigHelper(DefaultSequencerConfig.skipPublishingCheckpointsPercent),
   },
+  skipBroadcastProposals: {
+    description: 'Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only)',
+    ...booleanConfigHelper(false),
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
 };
 

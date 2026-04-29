@@ -640,8 +640,10 @@ export class CheckpointProposalJob implements Traceable {
       );
 
       const blockProposedAt = this.dateProvider.now();
-      await this.p2pClient.broadcastCheckpointProposal(proposal);
-      this.checkpointMetrics.noteCheckpointBroadcast(this.dateProvider.now());
+      if (!this.config.skipBroadcastProposals) {
+        await this.p2pClient.broadcastCheckpointProposal(proposal);
+        this.checkpointMetrics.noteCheckpointBroadcast(this.dateProvider.now());
+      }
 
       // Return immediately after broadcast — attestation collection happens in the background
       return { checkpoint, proposal, blockProposedAt };
@@ -762,7 +764,9 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Once we have a signed proposal and the archiver agreed with our proposed block, then we broadcast it.
-      proposal && (await this.p2pClient.broadcastProposal(proposal));
+      if (proposal && !this.config.skipBroadcastProposals) {
+        await this.p2pClient.broadcastProposal(proposal);
+      }
 
       // Wait until the next block's start time
       await this.waitUntilNextSubslot(timingInfo.deadline);
