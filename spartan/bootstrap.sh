@@ -386,7 +386,7 @@ case "$cmd" in
     source_env_basic "$env_file"
 
     # Run the network deploy script
-    DENOISE=1 denoise "./scripts/network_deploy.sh $env_file"
+    DENOISE=1 denoise "./scripts/deploy_network_with_env.sh $env_file"
 
     export K8S_ENRICHER=${K8S_ENRICHER:-1}
     if [[ "${RUN_TESTS:-}" == "true" ]]; then

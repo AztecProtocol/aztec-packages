@@ -1,4 +1,20 @@
 #!/usr/bin/env bash
+# Outer entrypoint for deploying an Aztec network from a per-network YAML.
+#
+# Usage: deploy_network_with_env.sh <network>
+#   <network>: bare name (resolved to spartan/environments/networks/<name>.yml)
+#              or absolute path to a YAML file.
+#
+# Steps:
+#   1. Loads basic env from YAML (CLUSTER, NAMESPACE, ...).
+#   2. Performs GCP auth (skipped on kind).
+#   3. Loads full env (with GCP secrets resolved).
+#   4. Optionally provisions network-frontend (RPC ingress IP + SSL cert + DNS).
+#   5. Calls deploy_network.sh, which renders Terraform tfvars and runs the
+#      eth-devnet / rollup-contracts / aztec-infra modules.
+#
+# For kind tests (test_kind.sh) and direct calls that have already populated
+# the environment, deploy_network.sh can be invoked directly.
 
 set -euo pipefail
 

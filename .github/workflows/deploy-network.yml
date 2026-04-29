@@ -188,7 +188,7 @@ jobs:
 
           cd spartan
           ./scripts/install_deps.sh
-          ./scripts/network_deploy.sh "${{ inputs.network }}"
+          ./scripts/deploy_network_with_env.sh "${{ inputs.network }}"
 
           # Source for CLUSTER (prefers YAML loader, falls back to legacy .env).
           source "./scripts/source_env_basic.sh"

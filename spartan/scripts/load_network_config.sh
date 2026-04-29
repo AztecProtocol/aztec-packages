@@ -246,9 +246,12 @@ main() {
   local exploded_defaults="$tmpdir/defaults_exploded.yml"
   yq eval 'explode(.)' "$defaults_yaml" > "$exploded_defaults"
 
-  # Extract _release_defaults (and other underscore-prefixed defaults) for the loader baseline.
+  # Build the loader baseline by combining:
+  #   - `_release_defaults` -> top-level release blocks (validator, prover, ...)
+  #   - `_deploy_defaults`  -> seeds the `deploy:` block (UPPER_SNAKE keys)
+  # Per-network YAMLs (and the selected preset's env baseline) layer on top.
   local defaults_only="$tmpdir/defaults_only.yml"
-  yq eval '._release_defaults // {}' "$exploded_defaults" > "$defaults_only"
+  yq eval '(._release_defaults // {}) * {"deploy": (._deploy_defaults // {})}' "$exploded_defaults" > "$defaults_only"
 
   # Build the merged JSON.
   local merged_json
