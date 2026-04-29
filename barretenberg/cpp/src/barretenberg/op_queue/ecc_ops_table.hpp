@@ -220,6 +220,42 @@ class UltraEccOpsTable {
     static constexpr size_t APPEND_TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
     static_assert(APPEND_TRACE_OFFSET % NUM_ROWS_PER_OP == 0);
 
+    /**
+     * @brief Build a hiding op as paired Ultra and ECCVM operations from raw Fq coordinates.
+     *
+     * @details Uses opcode q_eq=q_reset=1 (value 3) for Translator compatibility. The base point is constructed
+     * directly from (Px, Py); these are not required to lie on the curve since on-curve and equality constraints
+     * are gated off at the row where the hiding op lands (lagrange_second in ECCVM). z_1 and z_2 are zero in the
+     * Ultra representation since the hiding op performs no scalar multiplication.
+     */
+    static std::pair<UltraOp, ECCVMOperation> make_hiding_op_pair(const curve::BN254::BaseField& Px,
+                                                                  const curve::BN254::BaseField& Py)
+    {
+        using Fr = curve::BN254::ScalarField;
+        using Point = curve::BN254::AffineElement;
+
+        EccOpCode op_code{ .eq = true, .reset = true };
+        Point base_point;
+        base_point.x = Px;
+        base_point.y = Py;
+
+        constexpr size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+        uint256_t x_256(Px);
+        uint256_t y_256(Py);
+        UltraOp ultra_op{
+            .op_code = op_code,
+            .x_lo = Fr(x_256.slice(0, CHUNK_SIZE)),
+            .x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
+            .y_lo = Fr(y_256.slice(0, CHUNK_SIZE)),
+            .y_hi = Fr(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
+            .z_1 = Fr(0),
+            .z_2 = Fr(0),
+            .return_is_infinity = false,
+        };
+        ECCVMOperation eccvm_op{ .op_code = op_code, .base_point = base_point };
+        return { ultra_op, eccvm_op };
+    }
+
   private:
     using Curve = curve::BN254;
     using Fr = Curve::ScalarField;
@@ -348,36 +384,8 @@ class UltraEccOpsTable {
         }
 
         using Fq = curve::BN254::BaseField;
-        using Point = curve::BN254::AffineElement;
-        Fq Px = Fq::random_element();
-        Fq Py = Fq::random_element();
-        // Create an ECCVM operation with q_eq = 1, q_reset = 1 (opcode = 3) and the random Px, Py values.
-        // We construct the base_point directly with the raw coordinates - it may not be on the curve.
-        // Note: reset = true is required for Translator compatibility (only opcodes {0,3,4,8} are allowed)
-        EccOpCode op_code{ .eq = true, .reset = true }; // q_eq = 1, q_reset = 1
-        Point base_point;
-        base_point.x = Px;
-        base_point.y = Py;
-        // Note: We don't call is_point_at_infinity() or any curve operations on this point
-
-        // Store the hiding op for ECCVM - it will be prepended to the front during reconstruction (index 0 -> row 1)
-        auto hiding_op_for_eccvm = ECCVMOperation{ .op_code = op_code, .base_point = base_point };
-
-        // Push to zk ops
-        const size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-        uint256_t x_256(Px);
-        uint256_t y_256(Py);
-        UltraOp ultra_op{
-            .op_code = op_code,
-            .x_lo = Fr(x_256.slice(0, CHUNK_SIZE)),
-            .x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
-            .y_lo = Fr(y_256.slice(0, CHUNK_SIZE)),
-            .y_hi = Fr(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
-            .z_1 = Fr(0),
-            .z_2 = Fr(0),
-            .return_is_infinity = false,
-        };
-        zk_ops.push_back(ultra_op);
+        auto [hiding_ultra_op, hiding_eccvm_op] = make_hiding_op_pair(Fq::random_element(), Fq::random_element());
+        zk_ops.push_back(hiding_ultra_op);
 
         const size_t poly_size = (zk_ops.size() * NUM_ROWS_PER_OP);
         BB_ASSERT_EQ(poly_size, ZK_ULTRA_OPS);
@@ -394,7 +402,7 @@ class UltraEccOpsTable {
             i += NUM_ROWS_PER_OP;
         }
 
-        return { column_polynomials, hiding_op_for_eccvm };
+        return { column_polynomials, hiding_eccvm_op };
     }
 
     // Construct column polynomials for all subtables

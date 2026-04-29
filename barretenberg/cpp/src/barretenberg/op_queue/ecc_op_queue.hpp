@@ -349,34 +349,10 @@ class ECCOpQueue {
      */
     UltraOp append_hiding_op(const Fq& Px, const Fq& Py)
     {
-        // Create an ECCVM operation with q_eq = 1, q_reset = 1 (opcode = 3) and the random Px, Py values.
-        // We construct the base_point directly with the raw coordinates - it may not be on the curve.
-        // Note: reset = true is required for Translator compatibility (only opcodes {0,3,4,8} are allowed)
-        EccOpCode op_code{ .eq = true, .reset = true }; // q_eq = 1, q_reset = 1
-        Point base_point;
-        base_point.x = Px;
-        base_point.y = Py;
-        // Note: We don't call is_point_at_infinity() or any curve operations on this point
+        auto [ultra_op, eccvm_op] = UltraEccOpsTable::make_hiding_op_pair(Px, Py);
 
-        // Store the hiding op for ECCVM - it will be prepended to the front during reconstruction (index 0 -> row 1)
-        hiding_op_for_eccvm = ECCVMOperation{ .op_code = op_code, .base_point = base_point };
+        hiding_op_for_eccvm = eccvm_op;
         has_hiding_op = true;
-
-        // Push to Ultra ops through normal flow (appends to current subtable)
-        // Decompose Px, Py (Fq) into hi-lo chunks (Fr)
-        const size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-        uint256_t x_256(Px);
-        uint256_t y_256(Py);
-        UltraOp ultra_op{
-            .op_code = op_code,
-            .x_lo = Fr(x_256.slice(0, CHUNK_SIZE)),
-            .x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
-            .y_lo = Fr(y_256.slice(0, CHUNK_SIZE)),
-            .y_hi = Fr(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
-            .z_1 = Fr(0),
-            .z_2 = Fr(0),
-            .return_is_infinity = false,
-        };
         ultra_ops_table.push(ultra_op);
 
         // Do NOT update the accumulator - the hiding op doesn't perform any actual EC computation
