@@ -52,7 +52,7 @@ mod test;
 ///
 /// ## Examples
 ///
-/// Declaring a `PublicMutable` in the contract's [`storage`](crate::macros::storage::storage) struct requires
+/// Declaring a `PublicMutable` in the contract's [`#[storage]`](crate::macros::storage::storage) struct requires
 /// specifying the type `T` that is stored in the variable:
 ///
 /// ```noir
