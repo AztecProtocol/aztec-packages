@@ -423,7 +423,6 @@ impl PrivateUtility {
     ///
     /// # Example
     /// ```noir
-    /// // Safety: result is unconstrained
     /// unsafe { self.utility.call(Token::at(self.address).get_balance_of(owner)) }
     /// ```
     pub unconstrained fn call<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
