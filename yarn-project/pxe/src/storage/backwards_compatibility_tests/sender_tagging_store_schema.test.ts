@@ -9,7 +9,7 @@ import { SenderTaggingStore } from '../tagging_store/index.js';
 import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('SenderTaggingStore schema compatibility', () => {
-  it('persists pending and finalized indexes after commit', async () => {
+  it('persists multi-element pending arrays, single-element pending arrays, and finalized indexes', async () => {
     const kvStore = await openTmpStore('pxe-schema-sender-tagging', true);
     try {
       const senderTaggingStore = new SenderTaggingStore(kvStore);
@@ -17,21 +17,52 @@ describe('SenderTaggingStore schema compatibility', () => {
       const jobId = 'fixture-job';
       const secretA = new ExtendedDirectionalAppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
       const secretB = new ExtendedDirectionalAppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
-      const txHashA = TxHash.fromBigInt(11n);
-      const txHashB = TxHash.fromBigInt(13n);
+      const secretC = new ExtendedDirectionalAppTaggingSecret(new Fr(11n), AztecAddress.fromBigInt(13n));
+      const txHashA = TxHash.fromBigInt(17n);
+      const txHashB = TxHash.fromBigInt(19n);
+      const txHashC = TxHash.fromBigInt(23n);
+      const txHashD = TxHash.fromBigInt(29n);
 
-      const ranges: TaggingIndexRange[] = [
+      // secretA receives three pending ranges (one per tx); secretB receives one. After finalizing txHashA below,
+      // secretA's array shrinks to two elements (the txHashB and txHashC ranges, both with highestIndex > 3) which
+      // pins the multi-element JSON encoding of `pending_indexes`. secretB's array empties out and the commit
+      // special-case at sender_tagging_store.ts:106-110 deletes the key entirely.
+      const txHashARanges: TaggingIndexRange[] = [
         { extendedSecret: secretA, lowestIndex: 1, highestIndex: 3 },
         { extendedSecret: secretB, lowestIndex: 1, highestIndex: 5 },
       ];
+      await senderTaggingStore.storePendingIndexes(txHashARanges, txHashA, jobId);
 
-      await senderTaggingStore.storePendingIndexes(ranges, txHashA, jobId);
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretA, lowestIndex: 4, highestIndex: 7 }],
         txHashB,
         jobId,
       );
+
+      // Re-store the exact same (secret, txHash, range) — exercises the "exact duplicate — skip" branch at
+      // sender_tagging_store.ts:199. The snapshot must be unchanged by this call; it pins the no-op assumption.
+      await senderTaggingStore.storePendingIndexes(
+        [{ extendedSecret: secretA, lowestIndex: 4, highestIndex: 7 }],
+        txHashB,
+        jobId,
+      );
+
+      await senderTaggingStore.storePendingIndexes(
+        [{ extendedSecret: secretA, lowestIndex: 8, highestIndex: 11 }],
+        txHashC,
+        jobId,
+      );
+
+      // secretC's range is never finalized, so it survives commit as a single-element pending array — contrast for
+      // secretA's multi-element shape.
+      await senderTaggingStore.storePendingIndexes(
+        [{ extendedSecret: secretC, lowestIndex: 1, highestIndex: 9 }],
+        txHashD,
+        jobId,
+      );
+
       await senderTaggingStore.finalizePendingIndexes([txHashA], jobId);
+
       await kvStore.transactionAsync(() => senderTaggingStore.commit(jobId));
 
       const pendingIndexes = kvStore.openMap<string, Buffer>('pending_indexes');

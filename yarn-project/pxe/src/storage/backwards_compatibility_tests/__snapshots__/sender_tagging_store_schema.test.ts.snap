@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
-exports[`SenderTaggingStore schema compatibility persists pending and finalized indexes after commit 1`] = `
+exports[`SenderTaggingStore schema compatibility persists multi-element pending arrays, single-element pending arrays, and finalized indexes 1`] = `
 {
   "last_finalized_indexes": [
     {
@@ -15,7 +15,11 @@ exports[`SenderTaggingStore schema compatibility persists pending and finalized 
   "pending_indexes": [
     {
       "key": "utf8:0x0000000000000000000000000000000000000000000000000000000000000002:0x0000000000000000000000000000000000000000000000000000000000000003",
-      "value": "[{"lowestIndex":4,"highestIndex":7,"txHash":"0x000000000000000000000000000000000000000000000000000000000000000d"}]",
+      "value": "[{"lowestIndex":4,"highestIndex":7,"txHash":"0x0000000000000000000000000000000000000000000000000000000000000013"},{"lowestIndex":8,"highestIndex":11,"txHash":"0x0000000000000000000000000000000000000000000000000000000000000017"}]",
+    },
+    {
+      "key": "utf8:0x000000000000000000000000000000000000000000000000000000000000000b:0x000000000000000000000000000000000000000000000000000000000000000d",
+      "value": "[{"lowestIndex":1,"highestIndex":9,"txHash":"0x000000000000000000000000000000000000000000000000000000000000001d"}]",
     },
   ],
   "schemaVersion": 5,
