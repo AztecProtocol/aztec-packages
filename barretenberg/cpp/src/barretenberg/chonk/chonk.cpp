@@ -519,6 +519,9 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
         // Decider uses the NEW prover_accumulator (result of fold)
         DeciderProver decider(prover_accumulation_transcript);
         decider_proof = decider.construct_proof(prover_accumulator);
+
+        prover_accumulator = ProverAccumulator(); // Free the prover accumulator now that it's no longer needed in the
+                                                  // remaining fold of the hiding kernel
         break;
     }
     default:
@@ -606,8 +609,6 @@ void Chonk::hide_op_queue_content_in_hiding(ClientCircuit& circuit)
 ChonkProof Chonk::prove()
 {
     BB_BENCH_NAME("Chonk::prove");
-    // Deallocate the HN accumulator — no longer needed.
-    prover_accumulator = ProverAccumulator();
 
     // Share transcript between all provers.
     goblin.transcript = transcript;
@@ -618,6 +619,7 @@ ChonkProof Chonk::prove()
 
     // Phase 2: Merge proof on the shared transcript (fixed append — hiding kernel's subtable).
     auto merge_proof = goblin.prove_merge(transcript);
+    info("Goblin: num ultra ops = ", goblin.op_queue->get_ultra_ops_count());
 
     // Phase 3: ECCVM proof on the shared transcript.
     vinfo("prove eccvm...");

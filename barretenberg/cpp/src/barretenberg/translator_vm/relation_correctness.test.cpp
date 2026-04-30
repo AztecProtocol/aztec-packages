@@ -454,10 +454,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-    op_queue->no_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
 
     // Generate random EccOpQueue actions
 
