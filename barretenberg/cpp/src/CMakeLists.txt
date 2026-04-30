@@ -244,6 +244,12 @@ if(WASM)
     add_executable(
         barretenberg
         ${BARRETENBERG_TARGET_OBJECTS}
+        # env provides logstr / throw_or_abort_impl. Outside WASM these are
+        # supplied by the consumer linking libbarretenberg + env; the WASM
+        # exec is the artifact we ship, so it must bundle them. Without
+        # this, -sEXPORT_ALL=1 hard-errors at link time on the unresolved
+        # WASM_IMPORT-decorated declarations.
+        $<TARGET_OBJECTS:env_objects>
         # This is an object library, so doesn't need _objects.
         $<TARGET_OBJECTS:vm2_stub>
     )
