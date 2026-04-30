@@ -75,6 +75,46 @@ locals {
   l1_consensus_urls    = try(local.d.L1_CONSENSUS_HOST_URLS, [])
   l1_consensus_keys    = try(local.d.L1_CONSENSUS_HOST_API_KEYS, [])
   l1_consensus_headers = try(local.d.L1_CONSENSUS_HOST_API_KEY_HEADERS, [])
+
+  # ---------------------------------------------------------------------------
+  # Per-release helm values from the YAML loader.
+  #
+  # `var.releases` is the loader's tfvars output, keyed by the YAML's release
+  # block name (validator, prover, rpc, bot_transfers, ...). Wrapper charts
+  # (aztec-validator, aztec-bot) alias aztec-node as a subchart, so values
+  # must be nested under that alias key (`validator:` / `bot:`) for the env
+  # ConfigMap to land in the subchart's `.Values.env`.
+  #
+  # validators* helm release names (validators, validators-ha-1, ...) all
+  # share the loader's single `validator` block as their env baseline; the
+  # HA-specific overrides are layered on via custom_settings later.
+  #
+  # Each key maps to the OBJECT to yamlencode (or {} to skip).
+  # ---------------------------------------------------------------------------
+  # try() avoids Terraform's strict-type checks on conditionals (var.releases
+  # entries have heterogeneous shapes: rpc has env/replicaCount, prover has
+  # node/broker/agent, etc.).
+  release_values_from_loader = merge(
+    # Validator helm releases (validators, validators-ha-N) -> wrap loader's
+    # `validator` block under `validator:`.
+    {
+      for k in keys(local.helm_releases) :
+      k => { validator = try(var.releases["validator"], null) }
+      if startswith(k, "validators")
+    },
+    # Bot helm releases -> wrap matching loader block under `bot:`.
+    {
+      for k in ["bot_transfers", "bot_swaps", "bot_cross_chain"] :
+      k => { bot = try(var.releases[k], null) }
+    },
+    # aztec-node releases (no subchart aliasing) and aztec-prover-stack
+    # (subchart structure is already in the loader output as node/broker/agent)
+    # are passed through verbatim.
+    {
+      for k in ["rpc", "archive", "blob_sink", "full_node", "fisherman", "p2p_bootstrap", "prover"] :
+      k => try(var.releases[k], null)
+    },
+  )
 }
 
 provider "kubernetes" {
@@ -707,12 +747,11 @@ resource "helm_release" "releases" {
     [for v in each.value.values : file("./values/${v}")],
     [local.common_inline_values],
     lookup(each.value, "inline_values", []),
-    # Per-release Helm values passed directly from the YAML loader via
-    # terraform.tfvars.json's `releases.<release_name>` map. The loader emits
-    # values that already match the chart's expected shape (validator.env.*, etc.),
-    # so this is a direct pass-through with no per-key mapping. The `set`
-    # blocks below (custom_settings) layer deploy-time computed values on top.
-    contains(keys(var.releases), each.key) ? [yamlencode(var.releases[each.key])] : []
+    # Per-release Helm values from the YAML loader. See `local.release_values_from_loader`
+    # for the wrapping/lookup rules (handles wrapper charts and validators-*<->validator
+    # name mismatch). null/missing means "no loader values for this release".
+    try(local.release_values_from_loader[each.key], null) != null ?
+    [yamlencode(local.release_values_from_loader[each.key])] : []
   )
 
   # Common settings
