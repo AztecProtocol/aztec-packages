@@ -45,7 +45,7 @@ if (!existsSync(join(AZTEC_INSTALL_DIR, 'package.json'))) {
   process.exit(2);
 }
 
-const TMP_DIR = mkdtempSync(join(tmpdir(), 'aztec-full-dev-path-'));
+const TMP_DIR = mkdtempSync(join(tmpdir(), 'aztec-cli-acceptance-test-'));
 const WORKSPACE_DIR = join(TMP_DIR, 'my_workspace');
 
 // Exit codes follow the Unix 128+signal convention for signal terminations.
@@ -231,7 +231,7 @@ function reportFailure(stepName: string, aztecVersion: string, err: unknown) {
   const banner = '='.repeat(72);
 
   console.error(`\n${banner}`);
-  console.error('FULL DEV PATH TEST FAILED');
+  console.error('AZTEC CLI ACCEPTANCE TEST FAILED');
   console.error(banner);
   console.error(`Step:        ${stepName}`);
   console.error(`Version:     ${aztecVersion}`);
