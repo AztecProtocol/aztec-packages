@@ -297,6 +297,10 @@ describe('sequencer', () => {
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
+        proposedCheckpoint: {
+          block: { number: lastBlockNumber, hash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
         checkpointed: {
           block: { number: lastBlockNumber, hash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -323,6 +327,10 @@ describe('sequencer', () => {
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
+        proposedCheckpoint: {
+          block: { number: lastBlockNumber, hash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
         checkpointed: {
           block: { number: lastBlockNumber, hash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },

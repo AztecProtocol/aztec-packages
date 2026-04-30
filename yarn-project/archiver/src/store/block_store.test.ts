@@ -13,6 +13,7 @@ import {
   BlockHash,
   CommitteeAttestation,
   EthAddress,
+  GENESIS_BLOCK_HEADER_HASH,
   L2Block,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
@@ -2565,7 +2566,7 @@ describe('BlockStore', () => {
       );
       await blockStore.addCheckpoints([checkpoint1]);
 
-      const l2TipsCache = new L2TipsCache(blockStore);
+      const l2TipsCache = new L2TipsCache(blockStore, GENESIS_BLOCK_HEADER_HASH);
       const tips = await l2TipsCache.getL2Tips();
 
       // proposedCheckpoint should always be defined
@@ -2601,7 +2602,7 @@ describe('BlockStore', () => {
         feeAssetPriceModifier: 50n,
       });
 
-      const l2TipsCache = new L2TipsCache(blockStore);
+      const l2TipsCache = new L2TipsCache(blockStore, GENESIS_BLOCK_HEADER_HASH);
       const tips = await l2TipsCache.getL2Tips();
 
       expect(tips.proposedCheckpoint).toBeDefined();

@@ -74,6 +74,22 @@ export class L2BlockStream {
       let latestBlockNumber = localTips.proposed.number;
       const sourceCache = new BlockHashCache([sourceTips.proposed]);
       while (!(await this.areBlockHashesEqualAt(latestBlockNumber, { sourceCache }))) {
+        if (latestBlockNumber === 0) {
+          // We walked all the way back to genesis and the hashes still differ. This means the
+          // local store and the source disagree on the genesis block itself — typically because
+          // they were configured with different `genesisTimestamp`/prefilled state. Continuing
+          // would underflow into negative block numbers and surface as "block hash not found
+          // for -1" further down. Fail loudly with a meaningful error instead.
+          this.log.error(`Genesis block hash mismatch between local store and source`, {
+            localBlockHash: await this.localData.getL2BlockHash(BlockNumber.ZERO),
+            sourceBlockHash: sourceCache.get(0) ?? (await this.getBlockHashFromSource(BlockNumber.ZERO)),
+          });
+          throw new Error(
+            'Genesis block hash mismatch between local store and source: refusing to walk past block 0. ' +
+              'This usually indicates the two sides were configured with different genesis values ' +
+              '(e.g. genesisTimestamp or prefilled public data).',
+          );
+        }
         latestBlockNumber--;
       }
 
@@ -261,9 +277,6 @@ export class L2BlockStream {
    * @param args - A cache of data already requested from source, to avoid re-requesting it.
    */
   private async areBlockHashesEqualAt(blockNumber: BlockNumber, args: { sourceCache: BlockHashCache }) {
-    if (blockNumber === 0) {
-      return true;
-    }
     const localBlockHash = await this.localData.getL2BlockHash(blockNumber);
     if (!localBlockHash && this.opts.skipFinalized) {
       // Failing to find a block hash when skipping finalized blocks can be highly problematic as we'd potentially need

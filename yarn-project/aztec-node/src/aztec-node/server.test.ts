@@ -170,6 +170,7 @@ describe('aztec node', () => {
       return Promise.resolve(undefined);
     }) as L2BlockSource['getBlockNumber']);
     l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
+    l2BlockSource.getGenesisBlockHash.mockReturnValue(BlockHash.random());
 
     const l2LogsSource = mock<L2LogsSource>();
 
@@ -375,7 +376,8 @@ describe('aztec node', () => {
         });
         header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(2) }) });
 
-        merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
+        // Archiver returns the genesis block data for block 0 queries (including {tag:'proposed'} at genesis).
+        l2BlockSource.getBlockData.mockResolvedValue({ header: initialHeader } as any);
         l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(2));
       });
 
@@ -390,10 +392,12 @@ describe('aztec node', () => {
       });
 
       it('returns initial header on zero', async () => {
+        // Archiver returns synthetic genesis block data when queried with block 0.
         expect(await node.getBlockHeader(BlockNumber.ZERO)).toEqual(initialHeader);
       });
 
       it('returns initial header if no blocks mined', async () => {
+        // When no blocks have been mined, {tag:'proposed'} resolves to the genesis block.
         l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
         expect(await node.getBlockHeader('latest')).toEqual(initialHeader);
       });
@@ -602,11 +606,24 @@ describe('aztec node', () => {
       let snapshotMerkleTreeOps: MockProxy<MerkleTreeReadOperations>;
       let initialHeader: BlockHeader;
 
-      beforeEach(() => {
+      beforeEach(async () => {
         lastBlockNumber = BlockNumber(5);
         initialHeader = BlockHeader.empty({
           globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber.ZERO }),
         });
+        // Archiver resolves the initial block hash to block number 0 directly.
+        const initialBlockHash = await initialHeader.hash();
+        l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) =>
+          Promise.resolve(
+            !query
+              ? lastBlockNumber
+              : 'number' in query
+                ? query.number
+                : 'hash' in query && query.hash.equals(initialBlockHash)
+                  ? BlockNumber.ZERO
+                  : undefined,
+          )) as L2BlockSource['getBlockNumber']);
+        // #getInitialHeaderHash still sources from worldStateSynchronizer (used in error messages).
         merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
         snapshotMerkleTreeOps = mock<MerkleTreeReadOperations>();
         worldState.getSnapshot.mockReturnValue(snapshotMerkleTreeOps);
@@ -685,23 +702,16 @@ describe('aztec node', () => {
     });
 
     describe('getBlockHashMembershipWitness', () => {
-      let initialHeader: BlockHeader;
-
-      beforeEach(() => {
-        lastBlockNumber = BlockNumber(5);
-        initialHeader = BlockHeader.empty({
+      it('returns undefined when reference block is the initial block hash', async () => {
+        // Block 0 has an empty archive — no block hashes exist in it yet.
+        // getBlockHashMembershipWitness short-circuits at block 0 and returns undefined.
+        const initialHeader = BlockHeader.empty({
           globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber.ZERO }),
         });
-        merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
-      });
-
-      it('returns undefined when reference block is the initial block hash', async () => {
-        // The initial block (block 0) has an empty archive — no block hashes exist in it.
-        // getBlockHashMembershipWitness computes referenceBlockNumber - 1, which would be 0 - 1 = -1.
-        // This should return undefined (empty archive has no witnesses) rather than crashing.
         const initialBlockHash = await initialHeader.hash();
-        const someBlockHash = BlockHash.random();
+        l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
 
+        const someBlockHash = BlockHash.random();
         const result = await node.getBlockHashMembershipWitness(initialBlockHash, someBlockHash);
         expect(result).toBeUndefined();
       });

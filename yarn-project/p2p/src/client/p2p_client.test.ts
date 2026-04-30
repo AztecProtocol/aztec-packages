@@ -58,11 +58,26 @@ describe('P2P Client', () => {
 
     mempools = { txPool, attestationPool };
     kvStore = await openTmpStore('test');
-    client = createClient();
+    client = await createClient();
   });
 
-  const createClient = (config: Partial<P2PConfig> = {}) =>
-    new P2PClient(kvStore, blockSource, mempools, p2pService, txCollection, undefined, epochCache, config);
+  const createClient = async (config: Partial<P2PConfig> = {}) => {
+    const initialBlockHash = await blockSource.getInitialHeader().hash();
+    return new P2PClient(
+      kvStore,
+      blockSource,
+      mempools,
+      p2pService,
+      txCollection,
+      undefined,
+      epochCache,
+      config,
+      undefined,
+      undefined,
+      undefined,
+      initialBlockHash,
+    );
+  };
 
   const advanceToProvenBlock = async (blockNumber: BlockNumber) => {
     blockSource.setProvenBlockNumber(blockNumber);
@@ -166,7 +181,7 @@ describe('P2P Client', () => {
     const synchedBlock = await client.getSyncedLatestBlockNum();
     await client.stop();
 
-    const client2 = createClient();
+    const client2 = await createClient();
     await expect(client2.getSyncedLatestBlockNum()).resolves.toEqual(synchedBlock);
   });
 
@@ -212,7 +227,7 @@ describe('P2P Client', () => {
 
   describe('Chain prunes', () => {
     it('detects checkpoint prune when checkpoint number stays the same', async () => {
-      client = createClient({ txPoolDeleteTxsAfterReorg: true });
+      client = await createClient({ txPoolDeleteTxsAfterReorg: true });
       blockSource.setProvenBlockNumber(0);
       // Only checkpoint up to block 90 — blocks 91-100 are proposed but not checkpointed
       blockSource.setCheckpointedBlockNumber(90);
@@ -230,7 +245,7 @@ describe('P2P Client', () => {
     });
 
     it('detects checkpoint prune when checkpoint number increases by one', async () => {
-      client = createClient({ txPoolDeleteTxsAfterReorg: true });
+      client = await createClient({ txPoolDeleteTxsAfterReorg: true });
       blockSource.setProvenBlockNumber(0);
       blockSource.setCheckpointedBlockNumber(100);
       await client.start();
@@ -254,7 +269,7 @@ describe('P2P Client', () => {
     });
 
     it('detects checkpoint prune when checkpoint number decreases by one', async () => {
-      client = createClient({ txPoolDeleteTxsAfterReorg: true });
+      client = await createClient({ txPoolDeleteTxsAfterReorg: true });
       blockSource.setProvenBlockNumber(0);
       // Checkpoint all 100 blocks — client stores checkpoint number 100
       blockSource.setCheckpointedBlockNumber(100);
@@ -272,7 +287,7 @@ describe('P2P Client', () => {
     });
 
     it('detects epoch prune when checkpoint number decreases by more than 1', async () => {
-      client = createClient({ txPoolDeleteTxsAfterReorg: true });
+      client = await createClient({ txPoolDeleteTxsAfterReorg: true });
       blockSource.setProvenBlockNumber(0);
       // Checkpoint all 100 blocks — client stores checkpoint number 100
       blockSource.setCheckpointedBlockNumber(100);

@@ -1,5 +1,4 @@
 import { getKzg } from '@aztec/blob-lib';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -25,7 +24,6 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
@@ -615,23 +613,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpointData] =
       syncedBlocks;
 
-    // Handle zero as a special case, since the block hash won't match across services if we're changing the prefilled data for the genesis block,
-    // as the world state can compute the new genesis block hash, but other components use the hardcoded constant.
-    // TODO(palla/mbps): Fix the above. All components should be able to handle dynamic genesis block hashes.
     const result =
-      (l2Tips.proposed.number === 0 &&
-        l2Tips.checkpointed.block.number === 0 &&
-        l2Tips.checkpointed.checkpoint.number === 0 &&
-        worldState.number === 0 &&
-        p2p.number === 0 &&
-        l1ToL2MessageSourceTips.proposed.number === 0 &&
-        l1ToL2MessageSourceTips.checkpointed.block.number === 0 &&
-        l1ToL2MessageSourceTips.checkpointed.checkpoint.number === 0) ||
-      (worldState.hash === l2Tips.proposed.hash &&
-        p2p.hash === l2Tips.proposed.hash &&
-        l1ToL2MessageSourceTips.proposed.hash === l2Tips.proposed.hash &&
-        l1ToL2MessageSourceTips.checkpointed.block.hash === l2Tips.checkpointed.block.hash &&
-        l1ToL2MessageSourceTips.checkpointed.checkpoint.hash === l2Tips.checkpointed.checkpoint.hash);
+      worldState.hash === l2Tips.proposed.hash &&
+      p2p.hash === l2Tips.proposed.hash &&
+      l1ToL2MessageSourceTips.proposed.hash === l2Tips.proposed.hash &&
+      l1ToL2MessageSourceTips.checkpointed.block.hash === l2Tips.checkpointed.block.hash &&
+      l1ToL2MessageSourceTips.checkpointed.checkpoint.hash === l2Tips.checkpointed.checkpoint.hash;
 
     if (!result) {
       this.log.debug(`Sequencer sync check failed`, {
@@ -643,21 +630,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    // Special case for genesis state
     const blockNumber = worldState.number;
-    if (blockNumber < INITIAL_L2_BLOCK_NUM) {
-      const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
-      return {
-        checkpointNumber: CheckpointNumber.ZERO,
-        checkpointedCheckpointNumber: CheckpointNumber.ZERO,
-        blockNumber: BlockNumber.ZERO,
-        archive,
-        hasProposedCheckpoint: false,
-        syncedL2Slot,
-        pendingChainValidationStatus,
-      };
-    }
-
     const blockData = await this.l2BlockSource.getBlockData({ number: blockNumber });
     if (!blockData) {
       // this shouldn't really happen because a moment ago we checked that all components were in sync

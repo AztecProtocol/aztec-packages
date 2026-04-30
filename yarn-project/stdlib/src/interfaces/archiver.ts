@@ -82,7 +82,7 @@ export const ArchiverSpecificConfigSchema = z.object({
 
 export type ArchiverApi = Omit<
   L2BlockSource & L2LogsSource & ContractDataSource & L1ToL2MessageSource,
-  'start' | 'stop'
+  'start' | 'stop' | 'getGenesisBlockHash'
 >;
 
 export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {

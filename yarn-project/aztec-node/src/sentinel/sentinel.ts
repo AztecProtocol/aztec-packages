@@ -77,7 +77,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected logger = createLogger('node:sentinel'),
   ) {
     super();
-    this.l2TipsStore = new L2TipsMemoryStore();
+    this.l2TipsStore = new L2TipsMemoryStore(archiver.getGenesisBlockHash());
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
   }
