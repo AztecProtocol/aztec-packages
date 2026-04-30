@@ -74,18 +74,17 @@ FF compute_contract_class_id(const FF& artifact_hash, const FF& private_fn_root,
     return poseidon2::hash({ DOM_SEP__CONTRACT_CLASS_ID, artifact_hash, private_fn_root, public_bytecode_commitment });
 }
 
+// Per AZIP-8, public_keys_hash combines the four hashes (with the ivpk_m one computed in-circuit
+// from its (x, y) coordinates) under DOM_SEP__PUBLIC_KEYS_HASH.
 FF hash_public_keys(const PublicKeys& public_keys)
 {
-    std::vector<FF> public_keys_hash_fields = public_keys.to_fields();
-
-    std::vector<FF> public_key_hash_vec{ DOM_SEP__PUBLIC_KEYS_HASH };
-    for (size_t i = 0; i < public_keys_hash_fields.size(); i += 2) {
-        public_key_hash_vec.push_back(public_keys_hash_fields[i]);
-        public_key_hash_vec.push_back(public_keys_hash_fields[i + 1]);
-        // TODO(#7529): is_infinity will be removed from address preimage, assuming false.
-        public_key_hash_vec.push_back(FF::zero());
-    }
-    return poseidon2::hash({ public_key_hash_vec });
+    FF incoming_viewing_key_hash = poseidon2::hash(
+        { DOM_SEP__SINGLE_PUBLIC_KEY_HASH, public_keys.incoming_viewing_key.x, public_keys.incoming_viewing_key.y });
+    return poseidon2::hash({ DOM_SEP__PUBLIC_KEYS_HASH,
+                             public_keys.nullifier_key_hash,
+                             incoming_viewing_key_hash,
+                             public_keys.outgoing_viewing_key_hash,
+                             public_keys.tagging_key_hash });
 }
 
 // Computes a contract instance's derived address. Follows method of AddressDerivation::assert_derivation() (noir's
