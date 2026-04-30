@@ -28,17 +28,20 @@ namespace cdg {
  * @param gate_index index of the current gate
  * @param blk reference to the block containing the gate
  * @details The method performs several operations:
- *          1) Removes duplicate variables from the input vector
- *          2) Converts each variable to its real index using to_real
- *          3) Creates key-value pairs of (variable_index, block_pointer) for tracking
- *          4) Updates variable_gates map with gate indices for each variable
- *          5) Increments the gate count for each processed variable
+ *          1) Removes duplicate variables from the input vector (sort + unique so non-adjacent
+ *             repeats like [x, y, x] collapse to a single entry — `std::unique` alone only
+ *             collapses adjacent duplicates and would over-count gate appearances)
+ *          2) Creates key-value pairs of (variable_index, block_pointer) for tracking
+ *          3) Updates variable_gates map with gate indices for each variable
+ *          4) Increments the gate count for each processed variable, so a gate count of 1
+ *             genuinely means the variable appeared in exactly one gate
  */
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vector<uint32_t>& gate_variables,
                                                                         size_t gate_index,
                                                                         auto& blk)
 {
+    std::sort(gate_variables.begin(), gate_variables.end());
     auto unique_variables = std::unique(gate_variables.begin(), gate_variables.end());
     gate_variables.erase(unique_variables, gate_variables.end());
     if (gate_variables.empty()) {
@@ -420,7 +423,10 @@ void StaticAnalyzer_<FF, CircuitBuilder>::connect_all_variables_in_vector(const 
                      return variable_index != circuit_builder.zero_idx() &&
                             this->check_is_not_constant_variable(variable_index);
                  });
-    // Remove duplicates
+    // Remove duplicates. Sort first so non-adjacent repeats (e.g. wires laid out as [x, y, x])
+    // collapse to a single entry; std::unique alone only removes adjacent duplicates and would
+    // leave a phantom self-edge or double-count co-occurrence in the adjacency list.
+    std::sort(filtered_variables_vector.begin(), filtered_variables_vector.end());
     auto unique_pointer = std::unique(filtered_variables_vector.begin(), filtered_variables_vector.end());
     filtered_variables_vector.erase(unique_pointer, filtered_variables_vector.end());
     if (filtered_variables_vector.size() < 2) {
