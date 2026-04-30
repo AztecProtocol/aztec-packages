@@ -145,9 +145,9 @@ fi
 
 # Set build directory based on command
 if [ "$COMMAND" = "coverage" ]; then
-    BUILD_DIR="$CPP_DIR/build-coverage"
-    BUILD_PRESET="clang20-coverage"
-    BUILD_CMAKE_FLAGS="-DCOVERAGE_AVM=ON -DFUZZING=ON -DFUZZING_AVM=ON"
+    BUILD_DIR="$CPP_DIR/build-fuzzing-avm-cov"
+    BUILD_PRESET="fuzzing-avm"
+    BUILD_CMAKE_FLAGS="-DCOVERAGE=ON -DCOVERAGE_AVM=ON"
 else
     BUILD_DIR="$CPP_DIR/build-fuzzing-avm"
     BUILD_PRESET="fuzzing-avm"
@@ -170,9 +170,9 @@ build_fuzzer() {
     if [ ! -f "$BUILD_DIR/CMakeCache.txt" ]; then
         echo "Configuring cmake..."
         if [ -n "$BUILD_CMAKE_FLAGS" ]; then
-            cmake --preset "$BUILD_PRESET" $BUILD_CMAKE_FLAGS
+            cmake --preset "$BUILD_PRESET" -B "$BUILD_DIR" $BUILD_CMAKE_FLAGS
         else
-            cmake --preset "$BUILD_PRESET"
+            cmake --preset "$BUILD_PRESET" -B "$BUILD_DIR"
         fi
     fi
 
@@ -314,13 +314,14 @@ if [ "$COMMAND" = "coverage" ] && [ -f "$LLVM_PROFILE_FILE" ]; then
     echo "=========================================="
 
     COVERAGE_DATA="$COVERAGE_OUTPUT_DIR/bb_avm.profdata"
-    # Merge all profraw and profdata files in coverage directory
-    COVERAGE_FILES=("$COVERAGE_OUTPUT_DIR"/*.profraw "$COVERAGE_OUTPUT_DIR"/*.profdata)
+    # Merge all profraw and profdata files in coverage directory (skip globs that match nothing)
+    COVERAGE_FILES=()
+    for f in "$COVERAGE_OUTPUT_DIR"/*.profraw "$COVERAGE_OUTPUT_DIR"/*.profdata; do
+        [ -f "$f" ] && COVERAGE_FILES+=("$f")
+    done
     echo "Merging coverage files:"
     for f in "${COVERAGE_FILES[@]}"; do
-        if [ -f "$f" ]; then
-            echo "  $f"
-        fi
+        echo "  $f"
     done
     echo ""
     llvm-profdata-20 merge -sparse "${COVERAGE_FILES[@]}" -o "$COVERAGE_DATA"
