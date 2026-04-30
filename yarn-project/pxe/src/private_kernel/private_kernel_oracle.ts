@@ -6,7 +6,7 @@ import {
   VK_TREE_HEIGHT,
 } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
+import type { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';

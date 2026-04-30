@@ -1,6 +1,5 @@
 use crate::protocol::{
     address::AztecAddress, constants::DOM_SEP__SINGLE_USE_CLAIM_NULLIFIER, hash::poseidon2_hash_with_separator,
-    traits::Hash,
 };
 
 use crate::{

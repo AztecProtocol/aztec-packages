@@ -12,9 +12,7 @@ use crate::{
 };
 
 use crate::protocol::{
-    constants::DOM_SEP__INITIALIZATION_NULLIFIER,
-    hash::poseidon2_hash_with_separator,
-    traits::{Hash, Packable},
+    constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator, traits::Packable,
 };
 
 mod test;

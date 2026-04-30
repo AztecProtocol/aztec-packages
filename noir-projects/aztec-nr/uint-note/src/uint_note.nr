@@ -15,7 +15,7 @@ use aztec::{
             DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         },
         hash::{compute_log_tag, compute_siloed_nullifier, poseidon2_hash_with_separator},
-        traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
+        traits::{Deserialize, FromField, Packable, Serialize, ToField},
     },
 };
 

@@ -92,7 +92,6 @@ import {
   mapNullifierLeafPreimageToNoir,
   mapNumberFromNoir,
   mapNumberToNoir,
-  mapPointFromNoir,
   mapPointToNoir,
   mapPrivateLogFromNoir,
   mapPrivateLogToNoir,

@@ -9,7 +9,7 @@ pub contract ScopeTest {
         keys::getters::{get_nhk_app, get_public_keys},
         macros::{functions::{external, initializer, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        protocol::{address::AztecAddress, traits::Hash},
+        protocol::address::AztecAddress,
         state_vars::{Owned, PrivateImmutable},
     };
 

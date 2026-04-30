@@ -12,10 +12,8 @@ use crate::{
 };
 
 use crate::protocol::{
-    address::AztecAddress,
-    constants::DOM_SEP__INITIALIZATION_NULLIFIER,
-    hash::poseidon2_hash_with_separator,
-    traits::{Hash, Packable},
+    address::AztecAddress, constants::DOM_SEP__INITIALIZATION_NULLIFIER, hash::poseidon2_hash_with_separator,
+    traits::Packable,
 };
 
 mod test;

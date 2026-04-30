@@ -9,7 +9,7 @@ use aztec::{
     protocol::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
+        traits::{Deserialize, FromField, Packable, Serialize, ToField},
     },
     state_vars::{Owned, PrivateSet, StateVariable},
 };
