@@ -48,7 +48,7 @@ In a typical configuration without pipelining, a 72-second slot contains:
 - 1 last validator re-execution sub-slot (8 seconds)
 - 1 attestation and publishing period (17 seconds)
 
-With proposer pipelining enabled, the last validator re-execution sub-slot is still reserved, but the checkpoint finalization and L1 publishing budget is no longer subtracted when deciding how many block-building sub-slots fit in the slot.
+With proposer pipelining enabled, the last validator re-execution sub-slot is still reserved, but L1 publishing is deferred to the target slot and removed from the current slot budget. Attestation collection is completed inside the build slot itself, so the proposer can send the L1 transaction immediately at the target-slot boundary.
 
 ### The Fixed Sub-Slot Model
 
@@ -89,7 +89,8 @@ timeReservedAtEnd (normal mode) = blockDuration               (last sub-slot for
                                 + checkpointFinalizationTime
 
 timeReservedAtEnd (pipelining) = assembleTime
-                               + propagationTime             (proposal must reach validators before the slot flips)
+                               + 2 * propagationTime         (proposal out + attestations back)
+                               + blockDuration               (last-block re-execution)
 
 timeAvailableForBlocks = slotDuration - initializationOffset - timeReservedAtEnd
 
@@ -110,47 +111,45 @@ This means:
 
 **The same slot with proposer pipelining enabled:**
 ```
-timeReservedAtEnd = 1s + 2s = 3s
-timeAvailableForBlocks = 72s - 2s - 3s = 67s
-numberOfBlocks = floor(67s / 8s) = 8 blocks
+timeReservedAtEnd = 1s + 2*2s + 8s = 13s
+timeAvailableForBlocks = 72s - 2s - 13s = 57s
+numberOfBlocks = floor(57s / 8s) = 7 blocks
 ```
 
-The extra two block opportunities come from not charging the current slot for checkpoint finalization and L1 publishing.
+The extra two block opportunities come from not charging the current slot for L1 publishing. The proposal broadcast, attestation round-trip, and last-block re-execution are now all reserved inside the build slot so that attestations are in hand at the slot boundary.
 
 ### Pipelining Mode
 
-When proposer pipelining is enabled, the sequencer uses the current wall-clock slot to build the checkpoint for the **next target slot**.
+When proposer pipelining is enabled, the sequencer uses the current wall-clock slot to build the checkpoint for the **next target slot**, and finishes collecting attestations before the slot boundary so that L1 publishing can happen immediately at the target-slot boundary.
 
 It helps to think in terms of two different slots:
 
-- **Wall-clock slot N-1**: The sequencer initializes checkpoint `N`, builds its blocks, and validators re-execute the last block
-- **Target slot N**: Checkpoint `N` is proposed, attestations are gathered, and the L1 transaction is submitted
+- **Wall-clock slot N-1**: The sequencer initializes checkpoint `N`, builds its blocks, validators re-execute the last block, and attestations are gathered
+- **Target slot N**: The checkpoint is submitted to L1
 
 So the work is split like this:
 
-- **During slot N-1**: Initialization, block building, and last-block re-execution
-- **Near the end of slot N-1**: The checkpoint proposal is broadcast so validators can start the last re-execution as slot `N` begins.
-- **During slot N**: Validators finish re-executing, send attestations, the proposer collects them, and the checkpoint is submitted to L1 before slot `N` reaches its publish cutoff
+- **During slot N-1**: Initialization, block building, last-block re-execution, proposal broadcast, and attestation collection
+- **At the start of slot N**: The L1 transaction is submitted — attestations are already in hand
 
-In other words, pipelining does not mean "do everything for slot N earlier". It specifically moves **block production and block re-execution** earlier, while **checkpoint proposal, attestation gathering, and L1 submission** remain aligned with slot `N`.
+In other words, pipelining moves **block production, block re-execution, proposal broadcast, and attestation collection** into the build slot, while **L1 submission** happens aligned with slot `N`. With default values (72s slot, 6s block, 2s p2p, 1s assemble), the last build-slot block finishes at `T = slotDuration - timeReservedAtEnd = 61s`, the proposer broadcasts the checkpoint at `T=62s` after `assembleTime=1s`, and attestations are in hand by `T=72s` (the slot boundary).
 
 **Example: building checkpoint 12 while wall-clock time is in slot 11**
 ```
 Slot 11 (wall clock):
 - Build blocks that will make up checkpoint 12
-- Validators re-execute the last block of checkpoint 12
 - Broadcast checkpoint 12 proposal
-- Collect checkpoint 12 attestations
+- Validators re-execute the last block of checkpoint 12
+- Collect checkpoint 12 attestations (all complete before slot 11 ends)
 
 Slot 12 (target/submission slot):
-- Collect attestations for checkpoint 12 until slot 12 reaches its L1 publish cutoff
-- Submit checkpoint 12 to L1
+- Submit checkpoint 12 to L1 at the slot boundary
 ```
 
-For timetable purposes, this changes two things:
+For timetable purposes:
 
-- `maxNumberOfBlocks` is computed by reserving only the final validator re-execution sub-slot
-- `initializeDeadline` no longer subtracts checkpoint finalization time; it only requires enough time for initialization, execution, and validator re-execution
+- `maxNumberOfBlocks` is computed by reserving assembly + round-trip p2p + last-block re-execution at the end of the slot
+- `initializeDeadline` no longer subtracts checkpoint finalization time; it only requires enough time for initialization and two execution windows
 
 In code, that means:
 
@@ -162,7 +161,7 @@ initializeDeadline (pipelining) =
   slotDuration - initializationOffset - 2 * minExecutionTime
 ```
 
-The fixed sub-slot deadlines themselves do not change. Pipelining only changes how much of the slot is considered available for block building.
+The fixed sub-slot deadlines themselves do not change. Pipelining only changes how much of the slot is considered available for block building, and when the broadcast and attestation windows close.
 
 ## The Sequencer's Work
 

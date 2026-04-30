@@ -56,6 +56,10 @@ describe('compareActions sorting', () => {
 const mockRollupAddress = EthAddress.random().toString();
 const mockGovernanceProposerAddress = EthAddress.random().toString();
 const mockForwarderAddress = EthAddress.random().toString();
+const testSignatureContext = {
+  chainId: 1,
+  rollupAddress: EthAddress.fromString(mockRollupAddress),
+};
 
 describe('SequencerPublisher', () => {
   let rollup: MockProxy<RollupContract>;
@@ -207,7 +211,11 @@ describe('SequencerPublisher', () => {
   it('bundles propose and vote tx to l1', async () => {
     const checkpoint = new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber);
     const expectedBlobs = await getBlobsPerL1Block(checkpoint.toBlobFields());
-    await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
+    await publisher.enqueueProposeCheckpoint(
+      checkpoint,
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
+      Signature.empty(),
+    );
 
     const { govPayload, voteSig } = mockGovernancePayload();
 
@@ -239,7 +247,7 @@ describe('SequencerPublisher', () => {
           feeAssetPriceModifier: 0n,
         },
       },
-      CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
+      CommitteeAttestationsAndSigners.packAttestations([]),
       [],
       Signature.empty().toViemSignature(),
       blobInput,
@@ -290,7 +298,7 @@ describe('SequencerPublisher', () => {
 
     await publisher.enqueueProposeCheckpoint(
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(),
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
     );
     const result = await publisher.sendRequests();
@@ -351,7 +359,7 @@ describe('SequencerPublisher', () => {
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
       );
       const result = await rotatingPublisher.sendRequests();
@@ -389,7 +397,7 @@ describe('SequencerPublisher', () => {
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
       );
       // TimeoutError propagates to the outer catch in sendRequests which returns undefined
@@ -408,7 +416,7 @@ describe('SequencerPublisher', () => {
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
       );
       const result = await rotatingPublisher.sendRequests();
@@ -423,7 +431,7 @@ describe('SequencerPublisher', () => {
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
       );
       const result = await rotatingPublisher.sendRequests();
@@ -441,7 +449,7 @@ describe('SequencerPublisher', () => {
     await expect(
       publisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
         Signature.empty(),
       ),
     ).rejects.toThrow();
@@ -461,7 +469,7 @@ describe('SequencerPublisher', () => {
 
     await publisher.enqueueProposeCheckpoint(
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(),
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
     );
     const result = await publisher.sendRequests();
@@ -485,7 +493,7 @@ describe('SequencerPublisher', () => {
     );
     await publisher.enqueueProposeCheckpoint(
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(),
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
     );
     publisher.interrupt();

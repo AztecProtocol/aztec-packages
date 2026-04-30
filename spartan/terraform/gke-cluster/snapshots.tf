@@ -8,6 +8,13 @@ resource "google_storage_bucket" "snapshots-bucket" {
     log_object_prefix = "aztec-testnet"
   }
 
+  cors {
+    origin          = ["*"]
+    method          = ["GET", "HEAD"]
+    response_header = ["Content-Type"]
+    max_age_seconds = 3600
+  }
+
   autoclass {
     enabled                = true
     terminal_storage_class = "ARCHIVE"

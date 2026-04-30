@@ -904,7 +904,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const [response] = await Promise.all([
       query(),
       (async () => {
-        const header = await this.aztecNode.getBlockHeader(blockHash);
+        const block = await this.aztecNode.getBlock(blockHash);
+        const header = block?.header;
         if (!header) {
           throw new Error(`Could not find block header for block hash ${blockHash}`);
         }

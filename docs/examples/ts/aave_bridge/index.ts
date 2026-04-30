@@ -258,13 +258,13 @@ if (!exitReceipt.blockNumber) {
 }
 const exitBlockNumber = exitReceipt.blockNumber;
 console.log("Waiting for block to be proven...");
-let provenBlockNumber = await node.getProvenBlockNumber();
+let provenBlockNumber = await node.getBlockNumber('proven');
 while (provenBlockNumber < exitBlockNumber) {
   console.log(
     `   Waiting... (proven: ${provenBlockNumber}, needed: ${exitBlockNumber})`,
   );
   await new Promise((resolve) => setTimeout(resolve, 10000));
-  provenBlockNumber = await node.getProvenBlockNumber();
+  provenBlockNumber = await node.getBlockNumber('proven');
 }
 console.log("Block proven!\n");
 

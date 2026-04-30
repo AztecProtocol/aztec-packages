@@ -268,7 +268,7 @@ case "$cmd" in
     ;;
   network-bench-10tps)
     # Args: <scenario> <namespace> [docker_image]
-    # Deploys the bench-10tps network and runs the 38-min 10 TPS benchmark.
+    # Deploys the bench-10tps network and runs the 10-min 10 TPS benchmark.
     export CI_DASHBOARD="network"
     export JOB_ID="x-${2:?namespace is required}-network-bench-10tps" CPUS=16
     export INSTANCE_POSTFIX="n-bench-10tps"

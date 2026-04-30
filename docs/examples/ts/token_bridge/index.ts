@@ -289,7 +289,7 @@ const msgLeaf = computeL2ToL1MessageHash({
 console.log("Waiting for block to be proven...");
 console.log(`   Exit block number: ${exitReceipt.blockNumber}`);
 
-let provenBlockNumber = await node.getProvenBlockNumber();
+let provenBlockNumber = await node.getBlockNumber('proven');
 console.log(`   Current proven block: ${provenBlockNumber}`);
 
 while (provenBlockNumber < exitReceipt.blockNumber!) {
@@ -297,7 +297,7 @@ while (provenBlockNumber < exitReceipt.blockNumber!) {
     `   Waiting... (proven: ${provenBlockNumber}, needed: ${exitReceipt.blockNumber})`,
   );
   await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10 seconds
-  provenBlockNumber = await node.getProvenBlockNumber();
+  provenBlockNumber = await node.getBlockNumber('proven');
 }
 
 console.log("Block proven!\n");

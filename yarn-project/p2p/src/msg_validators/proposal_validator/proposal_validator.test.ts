@@ -5,6 +5,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
   makeBlockProposal,
   makeCheckpointHeader,
@@ -21,6 +22,10 @@ describe('ProposalValidator', () => {
   const currentSlot = SlotNumber(100);
   const nextSlot = SlotNumber(101);
   const previousSlot = SlotNumber(99);
+  const foreignSignatureContext = {
+    ...TEST_COORDINATION_SIGNATURE_CONTEXT,
+    chainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId + 1,
+  };
   let epochCache: MockProxy<EpochCacheInterface>;
   let validator: ProposalValidator;
 
@@ -47,7 +52,12 @@ describe('ProposalValidator', () => {
     } as any);
     validator = new ProposalValidator(
       epochCache,
-      { txsPermitted: true, maxTxsPerBlock: undefined, p2pPropagationTime: 2 },
+      {
+        txsPermitted: true,
+        maxTxsPerBlock: undefined,
+        p2pPropagationTime: 2,
+        signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+      },
       'test',
     );
     epochCache.getEpochAndSlotNow.mockReturnValue({
@@ -68,15 +78,38 @@ describe('ProposalValidator', () => {
   describe.each([
     {
       name: 'block proposal',
-      factory: (slotNumber: SlotNumber, signer: Secp256k1Signer) =>
-        makeBlockProposal({ blockHeader: makeBlockHeader(0, { slotNumber }), signer }),
+      factory: (
+        slotNumber: SlotNumber,
+        signer: Secp256k1Signer,
+        signatureContext = TEST_COORDINATION_SIGNATURE_CONTEXT,
+      ) =>
+        makeBlockProposal({
+          blockHeader: makeBlockHeader(0, { slotNumber }),
+          signer,
+          signatureContext,
+        }),
     },
     {
       name: 'checkpoint proposal',
-      factory: (slotNumber: SlotNumber, signer: Secp256k1Signer) =>
-        makeCheckpointProposal({ checkpointHeader: makeCheckpointHeader(0, { slotNumber }), signer }),
+      factory: (
+        slotNumber: SlotNumber,
+        signer: Secp256k1Signer,
+        signatureContext = TEST_COORDINATION_SIGNATURE_CONTEXT,
+      ) =>
+        makeCheckpointProposal({
+          checkpointHeader: makeCheckpointHeader(0, { slotNumber }),
+          signer,
+          signatureContext,
+        }),
     },
   ])('validate with $name', ({ factory }) => {
+    it('rejects foreign signature context with low tolerance error', async () => {
+      const proposal = await factory(currentSlot, Secp256k1Signer.random(), foreignSignatureContext);
+
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
+    });
+
     it('rejects with high tolerance error if slot is outside clock tolerance', async () => {
       const proposal = await factory(previousSlot, Secp256k1Signer.random());
 
@@ -180,8 +213,9 @@ describe('ProposalValidator', () => {
       expect(result).toEqual({ result: 'accept' });
     });
 
-    it('accepts proposal for current slot within pipelining grace period', async () => {
-      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot)
+    it('accepts proposal for current slot within pipelining clock-disparity grace', async () => {
+      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot).
+      // Under early pipelining, proposalWindowIntoTargetSlot = 0, so only the 500ms clock-disparity grace applies.
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: SlotNumber(101),
         nextSlot: SlotNumber(102),
@@ -189,12 +223,11 @@ describe('ProposalValidator', () => {
       epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
 
-      // Within grace period: 1000ms elapsed < configured propagation window 2000ms
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: currentSlot,
         ts: 1000n,
-        nowMs: 1001000n, // 1000ms elapsed
+        nowMs: 1000400n, // 400ms elapsed, within 500ms grace
       });
 
       const signer = Secp256k1Signer.random();
@@ -205,8 +238,7 @@ describe('ProposalValidator', () => {
       expect(result).toEqual({ result: 'accept' });
     });
 
-    it('rejects proposal for current slot outside pipelining grace period', async () => {
-      // Simulate pipelining: targetSlot = 101, but proposal is for slot 100 (current wallclock slot)
+    it('rejects proposal for current slot outside pipelining clock-disparity grace', async () => {
       epochCache.getTargetAndNextSlot.mockReturnValue({
         targetSlot: SlotNumber(101),
         nextSlot: SlotNumber(102),
@@ -215,12 +247,11 @@ describe('ProposalValidator', () => {
       epochCache.getSlotNow.mockReturnValue(currentSlot); // slot 100
       epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
 
-      // Outside grace period: 7000ms elapsed > configured propagation window 2000ms
       epochCache.getEpochAndSlotNow.mockReturnValue({
         epoch: EpochNumber(1),
         slot: currentSlot,
         ts: 1000n,
-        nowMs: 1007000n, // 7000ms elapsed
+        nowMs: 1007000n, // 7000ms elapsed, well past 500ms grace
       });
 
       const signer = Secp256k1Signer.random();
@@ -235,7 +266,15 @@ describe('ProposalValidator', () => {
   describe('validateTxs', () => {
     describe('txsPermitted', () => {
       it('rejects proposal with txHashes when txs not permitted', async () => {
-        validator = new ProposalValidator(epochCache, { txsPermitted: false, maxTxsPerBlock: undefined }, 'test');
+        validator = new ProposalValidator(
+          epochCache,
+          {
+            txsPermitted: false,
+            maxTxsPerBlock: undefined,
+            signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          },
+          'test',
+        );
 
         const proposal = await makeBlockProposal({ txHashes: [TxHash.random(), TxHash.random()] });
         const result = await validator.validateTxs(proposal);
@@ -243,7 +282,15 @@ describe('ProposalValidator', () => {
       });
 
       it('accepts proposal with no txHashes when txs not permitted', async () => {
-        validator = new ProposalValidator(epochCache, { txsPermitted: false, maxTxsPerBlock: undefined }, 'test');
+        validator = new ProposalValidator(
+          epochCache,
+          {
+            txsPermitted: false,
+            maxTxsPerBlock: undefined,
+            signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          },
+          'test',
+        );
 
         const proposal = await makeBlockProposal({ txHashes: [] });
         const result = await validator.validateTxs(proposal);
@@ -283,7 +330,15 @@ describe('ProposalValidator', () => {
 
     describe('maxTxsPerBlock', () => {
       it('rejects when txHashes exceed maxTxsPerBlock', async () => {
-        validator = new ProposalValidator(epochCache, { txsPermitted: true, maxTxsPerBlock: 2 }, 'test');
+        validator = new ProposalValidator(
+          epochCache,
+          {
+            txsPermitted: true,
+            maxTxsPerBlock: 2,
+            signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          },
+          'test',
+        );
 
         const proposal = await makeBlockProposal({ txHashes: Array.from({ length: 3 }, () => TxHash.random()) });
         const result = await validator.validateTxs(proposal);
@@ -291,7 +346,15 @@ describe('ProposalValidator', () => {
       });
 
       it('accepts when txHashes count equals maxTxsPerBlock', async () => {
-        validator = new ProposalValidator(epochCache, { txsPermitted: true, maxTxsPerBlock: 2 }, 'test');
+        validator = new ProposalValidator(
+          epochCache,
+          {
+            txsPermitted: true,
+            maxTxsPerBlock: 2,
+            signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+          },
+          'test',
+        );
 
         const proposal = await makeBlockProposal({ txHashes: Array.from({ length: 2 }, () => TxHash.random()) });
         const result = await validator.validateTxs(proposal);
