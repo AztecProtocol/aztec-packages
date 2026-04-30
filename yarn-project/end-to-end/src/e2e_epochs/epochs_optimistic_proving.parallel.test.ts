@@ -39,13 +39,23 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
    * a single checkpoint may span multiple blocks.
    */
   const epochOfCheckpoint = async (cpNumber: CheckpointNumber): Promise<number> => {
-    const [cp] = await node.getCheckpoints(cpNumber, 1);
+    const cp = await retryUntil(
+      async () => (await node.getCheckpoints(cpNumber, 1))[0],
+      `archiver indexes checkpoint ${cpNumber}`,
+      30,
+      0.1,
+    );
     return Number(getEpochAtSlot(cp.header.slotNumber, test.constants));
   };
 
   /** Returns the last block number contained in the given checkpoint. */
   const lastBlockOfCheckpoint = async (cpNumber: CheckpointNumber): Promise<BlockNumber> => {
-    const [cp] = await node.getCheckpoints(cpNumber, 1);
+    const cp = await retryUntil(
+      async () => (await node.getCheckpoints(cpNumber, 1))[0],
+      `archiver indexes checkpoint ${cpNumber}`,
+      30,
+      0.1,
+    );
     return BlockNumber(cp.startBlock + cp.blockCount - 1);
   };
 
