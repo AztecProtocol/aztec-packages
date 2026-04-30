@@ -288,7 +288,7 @@ describe('e2e_bot', () => {
       expect(receipt.blockNumber).toBeDefined();
 
       // Verify L2→L1: the block should contain at least one non-zero L2→L1 message
-      const block = await aztecNode.getBlock(receipt.blockNumber!);
+      const block = await aztecNode.getBlock(receipt.blockNumber!, { includeTransactions: true });
       expect(block).toBeDefined();
       const l2ToL1Msgs = block!.body.txEffects.flatMap(e => e.l2ToL1Msgs).filter(m => !m.isZero());
       expect(l2ToL1Msgs.length).toBeGreaterThanOrEqual(1);

@@ -550,6 +550,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.getStorage().config.feeAssetPortal;
   }
 
+  function getVkTreeRoot() external view override(IRollup) returns (bytes32) {
+    return STFLib.getStorage().config.vkTreeRoot;
+  }
+
+  function getProtocolContractsHash() external view override(IRollup) returns (bytes32) {
+    return STFLib.getStorage().config.protocolContractsHash;
+  }
+
+  function getEpochProofVerifier() external view override(IRollup) returns (IVerifier) {
+    return STFLib.getStorage().config.epochProofVerifier;
+  }
+
   function getRewardDistributor() external view override(IRollup) returns (IRewardDistributor) {
     return RewardExtLib.getRewardDistributor();
   }

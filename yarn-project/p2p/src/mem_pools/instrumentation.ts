@@ -100,7 +100,11 @@ export class PoolInstrumentation<PoolObject extends Gossipable> {
 
     this.addObjectCounter = createUpDownCounterWithDefault(this.meter, metricsLabels.itemsAdded);
 
-    this.minedDelay = this.meter.createHistogram(metricsLabels.itemMinedDelay);
+    this.minedDelay = this.meter.createHistogram(metricsLabels.itemMinedDelay, {
+      advice: {
+        explicitBucketBoundaries: [100, 500, 1000, 5000, 10000, 30000, 60000, 300000, 600000, 1800000, 3600000],
+      },
+    });
 
     this.meter.addBatchObservableCallback(this.observeStats, [this.objectsInMempool]);
   }

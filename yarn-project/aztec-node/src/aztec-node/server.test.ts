@@ -50,6 +50,7 @@ import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
+import { blockResponseFromL2Block } from './block_response_helpers.js';
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
 
@@ -389,28 +390,34 @@ describe('aztec node', () => {
       let block2: L2Block;
 
       beforeEach(() => {
-        block1 = L2Block.empty();
-        block2 = L2Block.empty();
+        block1 = L2Block.empty(
+          BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }) }),
+        );
+        block2 = L2Block.empty(
+          BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(2) }) }),
+        );
 
         l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(2));
       });
 
-      it('returns requested block number', async () => {
+      it('returns requested block number with transactions', async () => {
         l2BlockSource.getL2Block.mockResolvedValue(block1);
-        expect(await node.getBlock(BlockNumber(1))).toEqual(block1);
+        const expected = await blockResponseFromL2Block(block1, { includeTransactions: true });
+        expect(await node.getBlock(BlockNumber(1), { includeTransactions: true })).toEqual(expected);
         expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(BlockNumber(1));
       });
 
-      it('returns latest block', async () => {
+      it('returns latest block with transactions', async () => {
         l2BlockSource.getL2Block.mockResolvedValue(block2);
-        expect(await node.getBlock('latest')).toEqual(block2);
+        const expected = await blockResponseFromL2Block(block2, { includeTransactions: true });
+        expect(await node.getBlock('latest', { includeTransactions: true })).toEqual(expected);
         expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(2);
       });
 
       it('returns undefined for non-existent block', async () => {
         l2BlockSource.getL2Block.mockResolvedValue(undefined);
-        expect(await node.getBlock(BlockNumber(3))).toEqual(undefined);
-        expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(3);
+        expect(await node.getBlock(BlockNumber(3), { includeTransactions: true })).toEqual(undefined);
+        expect(l2BlockSource.getL2Block).toHaveBeenCalledWith(BlockNumber(3));
       });
     });
 

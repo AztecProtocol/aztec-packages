@@ -3,7 +3,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
-import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
+import { type CoordinationSignatureContext, getHashedSignaturePayloadTypedData } from '../p2p/signature_utils.js';
 import type { CommitteeAttestation } from './proposal/committee_attestation.js';
 
 /**
@@ -32,11 +32,14 @@ export type AttestationInfo =
  * Extracts attestation information from a published checkpoint.
  * Returns info for each attestation, preserving array indices.
  */
-export function getAttestationInfoFromPublishedCheckpoint(block: {
-  attestations: CommitteeAttestation[];
-  checkpoint: Checkpoint;
-}): AttestationInfo[] {
-  const payload = ConsensusPayload.fromCheckpoint(block.checkpoint);
+export function getAttestationInfoFromPublishedCheckpoint(
+  block: {
+    attestations: CommitteeAttestation[];
+    checkpoint: Checkpoint;
+  },
+  signatureContext: CoordinationSignatureContext,
+): AttestationInfo[] {
+  const payload = ConsensusPayload.fromCheckpoint(block.checkpoint, signatureContext);
   return getAttestationInfoFromPayload(payload, block.attestations);
 }
 
@@ -44,10 +47,7 @@ export function getAttestationInfoFromPayload(
   payload: ConsensusPayload,
   attestations: CommitteeAttestation[],
 ): AttestationInfo[] {
-  const hashedPayload = getHashedSignaturePayloadEthSignedMessage(
-    payload,
-    SignatureDomainSeparator.checkpointAttestation,
-  );
+  const hashedPayload = getHashedSignaturePayloadTypedData(payload);
 
   return attestations.map(attestation => {
     // If signature is empty, check if we have an address directly
@@ -62,7 +62,7 @@ export function getAttestationInfoFromPayload(
 
     // Try to recover address from signature
     try {
-      const recoveredAddress = recoverAddress(hashedPayload, attestation.signature);
+      const recoveredAddress = recoverAddress(hashedPayload, attestation.signature, { allowYParityAsV: true });
       return { address: recoveredAddress, status: 'recovered-from-signature' as const };
     } catch {
       // Signature present but recovery failed

@@ -785,7 +785,7 @@ case "$cmd" in
     ;;
   "ci-network-bench-10tps")
     # Args: <env_file> <namespace> [docker_image]
-    # Deploys bench-10tps and runs the 38-min sustained 10 TPS benchmark.
+    # Deploys bench-10tps and runs the 10-min sustained 10 TPS benchmark.
     # Cleanup is done separately via ci-network-teardown.
     export CI=1
     env_file="${1:?env_file is required}"

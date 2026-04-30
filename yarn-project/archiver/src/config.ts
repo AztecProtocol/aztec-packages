@@ -7,6 +7,7 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import {
   type ChainConfig,
@@ -50,7 +51,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   },
   archiverStoreMapSizeKb: {
     env: 'ARCHIVER_STORE_MAP_SIZE_KB',
-    parseEnv: (val: string) => +val,
+    ...optionalNumberConfigHelper(),
     description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   skipValidateCheckpointAttestations: {

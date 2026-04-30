@@ -400,6 +400,12 @@ export const SEQUENCER_STATE_TRANSITION_BUFFER_DURATION: MetricDefinition = {
   unit: 'ms',
   valueType: ValueType.INT,
 };
+export const SEQUENCER_STATE_DURATION: MetricDefinition = {
+  name: 'aztec.sequencer.state_duration',
+  description: 'Wall-clock time spent in each sequencer state, labelled by the state being left',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
 export const SEQUENCER_BLOCK_BUILD_DURATION: MetricDefinition = {
   name: 'aztec.sequencer.block.build_duration',
   description: 'Duration to build a block',

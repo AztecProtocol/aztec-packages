@@ -34,6 +34,20 @@ export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
+/** Returns a type with fields conditionally required based on a flag */
+export type IfFlag<
+  OptsSchema,
+  Opts extends OptsSchema,
+  Key extends keyof OptsSchema,
+  Field extends object,
+> = Opts extends { [K in Key]: true }
+  ? Field
+  : Opts extends { [K in Key]: false }
+    ? {}
+    : Opts extends { [K in Key]?: boolean }
+      ? Partial<Field>
+      : {};
+
 /**
  * Type-safe Event Emitter type
  * @example

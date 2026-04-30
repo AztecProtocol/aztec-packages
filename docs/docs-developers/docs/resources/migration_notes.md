@@ -36,6 +36,58 @@ The wallet SDK now supplies the default sender-for-tags from the transaction's `
 
 The save/restore idiom previously used in account-contract constructors (`get` → `set(self.address)` → work → `set(prev)`) is also no longer needed and has been removed: the override never leaks out of the constructor, so there is nothing to restore.
 
+### [Aztec Node] Unified `getBlock` / `getCheckpoint` RPC API
+
+The Aztec Node JSON-RPC surface for fetching blocks and checkpoints has been consolidated. The unified `getBlock` and `getCheckpoint` methods return uniform `BlockResponse` / `CheckpointResponse` shapes. The extra fields a caller cares about (tx bodies, L1 publish info, committee attestations, nested blocks) are now controlled by an `options` argument rather than by picking the right method. `getBlocks` and `getCheckpoints` retain their names but now return the new response shapes.
+
+**Removed methods:**
+
+| Removed | Replacement |
+|---|---|
+| `getBlockByHash(hash)` | `getBlock(hash)` or `getBlock({ hash })` |
+| `getBlockByArchive(archive)` | `getBlock({ archive })` |
+| `getBlockHeaderByArchive(archive)` | `getBlock({ archive }).then(r => r?.header)` |
+| `getProvenBlockNumber()` | `getBlockNumber('proven')` |
+| `getCheckpointedBlockNumber()` | `getBlockNumber('checkpointed')` |
+
+**Deprecated but still present** (scheduled for removal once internal consumers of the archiver shape are rewired): `getL2Tips` (use `getChainTips`), `getBlockHeader` (use `getBlock(param).then(r => r?.header)`), `getCheckpointedBlocks` (use `getBlocks(from, limit, { includeL1PublishInfo: true, includeAttestations: true })`), `getCheckpointsDataForEpoch` (use `getCheckpoints(from, limit)` over the epoch's checkpoint range). Do not adopt these in new code.
+
+**New response shapes:** `BlockResponse` always carries `header`, `archive`, `hash`, `number`, `checkpointNumber`, and `indexWithinCheckpoint`. `body`, `l1` (an `L1PublishInfo` discriminated union), and `attestations` are present only when the matching include option is set. `CheckpointResponse` mirrors this for checkpoints, with `blocks` gated on `includeBlocks`, and always carries `feeAssetPriceModifier` as a base field. The response types are generic over the options object, so passing a literal `{ includeTransactions: true }` narrows the return type and `response.body` becomes non-optional.
+
+**Nested blocks on `getCheckpoint`:** only `includeTransactions` is forwarded to the blocks embedded by `includeBlocks: true`. `includeL1PublishInfo` and `includeAttestations` on a checkpoint request attach L1 / attestation data to the checkpoint itself, not to its nested blocks.
+
+**Return type changes for `getBlocks` / `getCheckpoints`:** the return type is now `BlockResponse[]` / `CheckpointResponse[]` instead of `L2Block[]` / `PublishedCheckpoint[]`. Callers that previously consumed fields of `L2Block` (e.g. `.body`) must now opt in via `{ includeTransactions: true }`; callers that consumed `PublishedCheckpoint.checkpoint.blocks` must opt in via `{ includeBlocks: true }`.
+
+**Migration for wallet/SDK consumers (`@aztec/aztec.js`, `@aztec/wallet-sdk`):**
+
+```diff
+- const block = await node.getBlockByHash(hash);
++ const block = await node.getBlock(hash, { includeTransactions: true });
+
+- const archiveBlock = await node.getBlockByArchive(archive);
++ const archiveBlock = await node.getBlock({ archive }, { includeTransactions: true });
+
+- const provenNumber = await node.getProvenBlockNumber();
++ const provenNumber = await node.getBlockNumber('proven');
+
+- const checkpointedNumber = await node.getCheckpointedBlockNumber();
++ const checkpointedNumber = await node.getBlockNumber('checkpointed');
+
+- const tips = await node.getL2Tips();
++ const tips = await node.getChainTips();
+```
+
+`getBlockHeader`, `getCheckpointedBlocks`, `getCheckpointsDataForEpoch`, and `getL2Tips` continue to work in this release but are deprecated; migrate to the replacements above.
+
+**Chain-tip selectors:** `getBlockNumber` and `getCheckpointNumber` now accept an optional `ChainTip` argument (`'proposed' | 'checkpointed' | 'proven' | 'finalized'`). Note the semantic difference: on the block side `'proposed'` means the latest proposed block (chain head), whereas on the checkpoint side `'proposed'` resolves to the latest L1-confirmed checkpoint. Pre-L1-confirmation checkpoints are not exposed over RPC.
+
+**Block parameter variants:** `BlockParameter` now also accepts a block hash, an archive root, and chain-tip names. The existing `number | 'latest'` forms continue to work — `'latest'` is an alias for `'proposed'`.
+
+**Impact**: Source changes are required anywhere the removed methods are called. Type changes are required anywhere `L2Block` / `BlockHeader` / `CheckpointedL2Block` were consumed from the RPC — those call sites now receive `BlockResponse` / `CheckpointResponse` and must request the fields they need via `options`. Production nodes will reject JSON-RPC calls to the removed method names.
+
+### [Aztec Node] `feeAssetPriceModifier` now correctly populated on confirmed checkpoints
+
+Confirmed checkpoints previously reported `feeAssetPriceModifier = 0n` regardless of the value observed on L1, because the archiver dropped the field on checkpoint confirmation. The field is now persisted and returned correctly on `CheckpointResponse`. Any wallet or indexer logic that special-cased `0n` as a sentinel for "no modifier" will need to be updated; it is now a valid value in its own right.
 
 ### [CLI] `aztec-up` no longer exposes transitive npm bins on PATH
 
