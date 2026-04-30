@@ -46,7 +46,7 @@ export class ContractInstancePublishedEvent {
   }
 
   toContractInstance(): ContractInstanceWithAddress {
-    if (this.version !== 1) {
+    if (this.version !== 2) {
       throw new Error(`Unexpected contract instance version ${this.version}`);
     }
 
@@ -59,6 +59,7 @@ export class ContractInstancePublishedEvent {
       publicKeys: this.publicKeys,
       salt: this.salt,
       deployer: this.deployer,
+      immutablesHash: Fr.zero(),
     };
   }
 

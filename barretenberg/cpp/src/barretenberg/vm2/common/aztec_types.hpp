@@ -119,7 +119,8 @@ struct ContractInstance {
     ContractClassId current_contract_class_id = 0;
     ContractClassId original_contract_class_id = 0;
     FF initialization_hash = 0;
-    PublicKeys public_keys;
+    FF immutables_hash = 0;
+    PublicKeys public_keys{};
 
     bool operator==(const ContractInstance& other) const = default;
 
@@ -136,6 +137,8 @@ struct ContractInstance {
                 original_contract_class_id,
                 "initializationHash",
                 initialization_hash,
+                "immutablesHash",
+                immutables_hash,
                 "publicKeys",
                 public_keys);
     }

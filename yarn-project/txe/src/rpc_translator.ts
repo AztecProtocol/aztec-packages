@@ -256,6 +256,7 @@ export class RPCTranslator {
         instance.deployer.toField(),
         instance.currentContractClassId,
         instance.initializationHash,
+        instance.immutablesHash,
         ...instance.publicKeys.toFields(),
       ]),
     ]);
@@ -681,6 +682,7 @@ export class RPCTranslator {
         instance.deployer.toField(),
         instance.currentContractClassId,
         instance.initializationHash,
+        instance.immutablesHash,
         ...instance.publicKeys.toFields(),
       ].map(toSingle),
     );

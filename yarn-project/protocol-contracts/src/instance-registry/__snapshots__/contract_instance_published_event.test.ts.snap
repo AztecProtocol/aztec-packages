@@ -13,6 +13,6 @@ ContractInstancePublishedEvent {
     "masterTaggingPublicKey": "0x289752f4904779a603001cd6fab021079a04e18f0740eb0e1009088199178d1f26814d31374c3e5c551e28a5467feb67155bb2be160d80ca851babfa60501e61",
   },
   "salt": "0x108abf493e0af91750b53cd462defc3373f1a522e982af55b0c8ec7d20cf0393",
-  "version": 1,
+  "version": 2,
 }
 `;

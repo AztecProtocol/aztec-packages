@@ -187,7 +187,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       await contractStore.addContractInstance(
         new SerializableContractInstance({
-          version: 1,
+          version: 2,
           salt: new Fr(73n),
           deployer: AztecAddress.fromBigInt(79n),
           currentContractClassId: new Fr(83n),

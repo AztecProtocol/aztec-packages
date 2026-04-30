@@ -31,6 +31,7 @@ std::optional<ContractInstance> HintingContractsDB::get_contract_instance(const 
             .current_contract_class_id = instance->current_contract_class_id,
             .original_contract_class_id = instance->original_contract_class_id,
             .initialization_hash = instance->initialization_hash,
+            .immutables_hash = instance->immutables_hash,
             .public_keys =
                 PublicKeysHint{ .master_nullifier_public_key = instance->public_keys.nullifier_key,
                                 .master_incoming_viewing_public_key = instance->public_keys.incoming_viewing_key,

@@ -148,7 +148,7 @@ pub contract ContractInstanceRegistry {
             initialization_hash,
             salt,
             deployer,
-            version: 1,
+            version: 2,
         };
         let payload = event.serialize_non_standard();
         debug_log_format("ContractInstancePublished: {}", payload);

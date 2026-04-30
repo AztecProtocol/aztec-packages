@@ -150,12 +150,13 @@ describe('Utility Execution test suite', () => {
     // The initializer nullifier check requires the instance to be a valid preimage of the contract address, so we
     // can't use a random contract address here.
     const instanceFields = {
-      version: 1 as const,
+      version: 2 as const,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
     };
     const contractAddress = await computeContractAddressFromInstance(instanceFields);
@@ -242,12 +243,13 @@ describe('Utility Execution test suite', () => {
     const expectedSum = new Fr(9);
 
     const instanceFields = {
-      version: 1 as const,
+      version: 2 as const,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
     };
     const contractAddress = await computeContractAddressFromInstance(instanceFields);

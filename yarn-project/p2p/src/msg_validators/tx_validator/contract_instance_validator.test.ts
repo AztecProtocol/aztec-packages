@@ -42,11 +42,12 @@ describe('ContractInstanceTxValidator', () => {
     const deployer = await AztecAddress.random();
 
     const instance = {
-      version: 1 as const,
+      version: 2 as const,
       salt,
       currentContractClassId: contractClassId,
       originalContractClassId: contractClassId,
       initializationHash,
+      immutablesHash: Fr.ZERO,
       publicKeys,
       deployer,
     };
@@ -66,7 +67,7 @@ describe('ContractInstanceTxValidator', () => {
     const emittedFields: Fr[] = [
       CONTRACT_INSTANCE_PUBLISHED_EVENT_TAG,
       address.toField(),
-      new Fr(1), // version
+      new Fr(2), // version
       salt,
       contractClassId,
       initializationHash,
