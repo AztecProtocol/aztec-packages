@@ -519,9 +519,6 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
         // Decider uses the NEW prover_accumulator (result of fold)
         DeciderProver decider(prover_accumulation_transcript);
         decider_proof = decider.construct_proof(prover_accumulator);
-
-        prover_accumulator = ProverAccumulator(); // Free the prover accumulator now that it's no longer needed in the
-                                                  // remaining fold of the hiding kernel
         break;
     }
     default:
@@ -578,6 +575,8 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
 
     prover_instance.reset();
     if (queue_type == QUEUE_TYPE::HN_FINAL) {
+        prover_accumulator = ProverAccumulator(); // Free the prover accumulator now that it's no longer needed in the
+                                                  // remaining fold of the hiding kernel
         goblin.prove_batch_merge();
     }
 }
