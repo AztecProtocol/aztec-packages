@@ -217,7 +217,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure()
+        # Only alert on the canonical `next` branch -- avoids paging on
+        # ad-hoc deploys from feature branches or release tags.
+        if: failure() && steps.checkout-ref.outputs.ref == 'refs/heads/next'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
