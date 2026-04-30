@@ -1,0 +1,335 @@
+module ZkHonk.Pairing where
+
+import ZkHonk.Types
+import ZkHonk.Field
+import ZkHonk.Curve
+import qualified ZkHonk.UInt256 as U
+
+data G2Projective = G2Projective with
+    px : Fq2
+    py : Fq2
+    pz : Fq2
+  deriving (Eq, Show)
+
+data MillerLine = MillerLine with
+    lineO : Fq2
+    lineW : Fq2
+    lineVW : Fq2
+  deriving (Eq, Show)
+
+data PreparedPair = PreparedPair with
+    pairX : Fq
+    pairY : Fq
+    pairLines : [MillerLine]
+  deriving (Eq, Show)
+
+pairingCheck : [(G1, G2)] -> Bool
+pairingCheck pairs =
+  case preparePairs pairs of
+    None -> False
+    Some prepared ->
+      case prepared of
+        [] -> True
+        _ ->
+          let miller = millerLoopBatch prepared
+              result = finalExponentiation miller
+          in result == fq12One
+
+preparePairs : [(G1, G2)] -> Optional [PreparedPair]
+preparePairs pairs =
+  case pairs of
+    [] -> Some []
+    (p, q) :: rest ->
+      if not (g1OnCurveLocal p) || not (g2OnCurve q) then None
+      else case (p, q) of
+        (G1Infinity, _) -> preparePairs rest
+        (_, G2Infinity) -> preparePairs rest
+        (G1Affine x y, G2Affine qx qy) ->
+          case precomputeMillerLines (G2Projective with px = qx; py = qy; pz = fq2One) of
+            None -> None
+            Some lines ->
+              case preparePairs rest of
+                None -> None
+                Some prepared -> Some ((PreparedPair with pairX = x; pairY = y; pairLines = lines) :: prepared)
+
+precomputeMillerLines : G2Projective -> Optional [MillerLine]
+precomputeMillerLines q =
+  let qNeg = q with py = fq2Neg q.py
+      (workAfterLoop, loopLines) = precomputeLoop loopBits q qNeg q []
+      q1 = twistedFrobenius q
+      q2 = (twistedFrobenius q1) with py = fq2Neg (twistedFrobenius q1).py
+      (workAfterQ1, lineQ1) = mixedAdditionStep q1 workAfterLoop
+      (_, lineQ2) = mixedAdditionStep q2 workAfterQ1
+  in Some (loopLines ++ [lineQ1, lineQ2])
+
+precomputeLoop : [Int] -> G2Projective -> G2Projective -> G2Projective -> [MillerLine] -> (G2Projective, [MillerLine])
+precomputeLoop bits q qNeg work acc =
+  case bits of
+    [] -> (work, acc)
+    bit :: rest ->
+      let (afterDouble, doubleLine) = doublingStep work
+      in if bit == 1 then
+          let (afterAdd, addLine) = mixedAdditionStep q afterDouble
+          in precomputeLoop rest q qNeg afterAdd (acc ++ [doubleLine, addLine])
+         else if bit == 3 then
+          let (afterAdd, addLine) = mixedAdditionStep qNeg afterDouble
+          in precomputeLoop rest q qNeg afterAdd (acc ++ [doubleLine, addLine])
+         else precomputeLoop rest q qNeg afterDouble (acc ++ [doubleLine])
+
+doublingStep : G2Projective -> (G2Projective, MillerLine)
+doublingStep work =
+  let a = fq2Mul work.px (fq2MulByFq work.py twoInvFq)
+      b = fq2Square work.py
+      c = fq2Square work.pz
+      d = fq2Mul g2TwistCoeffB c
+      e = fq2MulByFq d (fqConst [3])
+      f = fq2MulByFq e (fqConst [3])
+      g = fq2MulByFq (fq2Add b f) twoInvFq
+      h = fq2Sub (fq2Sub (fq2Square (fq2Add work.py work.pz)) b) c
+      i = fq2Square work.px
+      j = fq2Square e
+      line = MillerLine with
+        lineO = h
+        lineW = fq2MulByFq i (fqConst [3])
+        lineVW = fq2Sub e b
+      next = G2Projective with
+        px = fq2Mul a (fq2Sub b f)
+        py = fq2Sub (fq2Square g) (fq2MulByFq j (fqConst [3]))
+        pz = fq2Mul b h
+  in (next, line)
+
+mixedAdditionStep : G2Projective -> G2Projective -> (G2Projective, MillerLine)
+mixedAdditionStep q work =
+  let a = fq2Mul q.py work.pz
+      b = fq2Mul q.px work.pz
+      theta = fq2Sub work.py a
+      lambda = fq2Sub work.px b
+      c = fq2Square theta
+      d = fq2Square lambda
+      e = fq2Mul lambda d
+      f = fq2Mul work.pz c
+      g = fq2Mul work.px d
+      h = fq2Sub (fq2Sub (fq2Add e f) g) g
+      i = fq2Mul work.py e
+      j = fq2Sub (fq2Mul theta q.px) (fq2Mul lambda q.py)
+      line = MillerLine with
+        lineO = lambda
+        lineW = theta
+        lineVW = j
+      next = G2Projective with
+        px = fq2Mul lambda h
+        py = fq2Sub (fq2Mul theta (fq2Sub g h)) i
+        pz = fq2Mul work.pz e
+  in (next, line)
+
+twistedFrobenius : G2Projective -> G2Projective
+twistedFrobenius value =
+  G2Projective with
+    px = fq2Mul frobeniusTwistX (fq2Frobenius value.px)
+    py = fq2Mul frobeniusTwistY (fq2Frobenius value.py)
+    pz = fq2Frobenius value.pz
+
+millerLoopBatch : [PreparedPair] -> Fq12
+millerLoopBatch prepared =
+  let (afterLoop, indexAfterLoop) = millerLoopBits loopBits 0 fq12One prepared
+      afterLine1 = applyLineAt indexAfterLoop False prepared afterLoop
+      afterLine2 = applyLineAt (indexAfterLoop + 1) False prepared afterLine1
+  in afterLine2
+
+millerLoopBits : [Int] -> Int -> Fq12 -> [PreparedPair] -> (Fq12, Int)
+millerLoopBits bits idx acc prepared =
+  case bits of
+    [] -> (acc, idx)
+    bit :: rest ->
+      let squared = fq12Square acc
+          afterDouble = applyLineAt idx True prepared squared
+          idx1 = idx + 1
+      in if bit /= 0 then
+          let afterAdd = applyLineAt idx1 False prepared afterDouble
+          in millerLoopBits rest (idx1 + 1) afterAdd prepared
+         else millerLoopBits rest idx1 afterDouble prepared
+
+applyLineAt : Int -> Bool -> [PreparedPair] -> Fq12 -> Fq12
+applyLineAt idx isDoubling prepared acc =
+  case prepared of
+    [] -> acc
+    pair :: rest ->
+      let coeff = listAt pair.pairLines idx
+          oScale = if isDoubling then fqNeg pair.pairY else pair.pairY
+          wScale = if isDoubling then pair.pairX else fqNeg pair.pairX
+          ell = Fq12Sparse with
+            ellO = fq2MulByFq coeff.lineO oScale
+            ellW = fq2MulByFq coeff.lineW wScale
+            ellVW = coeff.lineVW
+      in applyLineAt idx isDoubling rest (fq12SparseMul acc ell)
+
+finalExponentiation : Fq12 -> Fq12
+finalExponentiation value =
+  finalExponentiationTrickyPart (finalExponentiationEasyPart value)
+
+finalExponentiationEasyPart : Fq12 -> Fq12
+finalExponentiationEasyPart value =
+  let a = fq12Mul (fq12UnitaryInv value) (fq12Inv value)
+  in fq12Mul a (fq12FrobeniusTwo a)
+
+finalExponentiationExpByZ : Fq12 -> Fq12
+finalExponentiationExpByZ value = expByZLoop zLoopBits value value
+
+expByZLoop : [Bool] -> Fq12 -> Fq12 -> Fq12
+expByZLoop bits value acc =
+  case bits of
+    [] -> acc
+    bit :: rest ->
+      let squared = fq12Square acc
+          next = if bit then fq12Mul squared value else squared
+      in expByZLoop rest value next
+
+finalExponentiationTrickyPart : Fq12 -> Fq12
+finalExponentiationTrickyPart value =
+  let a = finalExponentiationExpByZ value
+      b = fq12Square a
+      c = fq12Square b
+      d = fq12Mul b c
+      e = finalExponentiationExpByZ d
+      f = fq12Square e
+      g = finalExponentiationExpByZ f
+      j = fq12Mul g e
+      k = fq12Mul j d
+      l = fq12Mul j c
+      m = fq12Mul k e
+      n = fq12Mul m value
+      o = fq12Mul l (fq12UnitaryInv value)
+      p = fq12FrobeniusOne l
+      q = fq12FrobeniusTwo k
+      r = fq12FrobeniusThree o
+      s = fq12Mul n p
+      t = fq12Mul s q
+  in fq12Mul t r
+
+fq12FrobeniusOne : Fq12 -> Fq12
+fq12FrobeniusOne value = Fq12 with
+  fq12C0 = fq6FrobeniusOne value.fq12C0
+  fq12C1 = fq6MulByFq2 (fq6FrobeniusOne value.fq12C1) fq12FrobeniusCoeff1
+
+fq12FrobeniusTwo : Fq12 -> Fq12
+fq12FrobeniusTwo value = Fq12 with
+  fq12C0 = fq6FrobeniusTwo value.fq12C0
+  fq12C1 = fq6MulByFq2 (fq6FrobeniusTwo value.fq12C1) fq12FrobeniusCoeff2
+
+fq12FrobeniusThree : Fq12 -> Fq12
+fq12FrobeniusThree value = Fq12 with
+  fq12C0 = fq6FrobeniusThree value.fq12C0
+  fq12C1 = fq6MulByFq2 (fq6FrobeniusThree value.fq12C1) fq12FrobeniusCoeff3
+
+fq6FrobeniusOne : Fq6 -> Fq6
+fq6FrobeniusOne value = Fq6 with
+  fq6C0 = fq2Frobenius value.fq6C0
+  fq6C1 = fq2Mul fq6FrobeniusC1_1 (fq2Frobenius value.fq6C1)
+  fq6C2 = fq2Mul fq6FrobeniusC2_1 (fq2Frobenius value.fq6C2)
+
+fq6FrobeniusTwo : Fq6 -> Fq6
+fq6FrobeniusTwo value = Fq6 with
+  fq6C0 = value.fq6C0
+  fq6C1 = fq2Mul fq6FrobeniusC1_2 value.fq6C1
+  fq6C2 = fq2Mul fq6FrobeniusC2_2 value.fq6C2
+
+fq6FrobeniusThree : Fq6 -> Fq6
+fq6FrobeniusThree value = Fq6 with
+  fq6C0 = fq2Frobenius value.fq6C0
+  fq6C1 = fq2Mul fq6FrobeniusC1_3 (fq2Frobenius value.fq6C1)
+  fq6C2 = fq2Mul fq6FrobeniusC2_3 (fq2Frobenius value.fq6C2)
+
+g1OnCurveLocal : G1 -> Bool
+g1OnCurveLocal point =
+  case point of
+    G1Infinity -> True
+    G1Affine x y ->
+      let lhs = fqMul y y
+          rhs = fqAdd (fqMul x (fqMul x x)) (fqConst [3])
+      in lhs == rhs
+
+listAt : [a] -> Int -> a
+listAt xs idx =
+  case xs of
+    [] -> error "List index out of bounds"
+    x :: rest ->
+      if idx == 0 then x
+      else listAt rest (idx - 1)
+
+fqConst : [Int] -> Fq
+fqConst limbs = Fq with fqValue = U.fromLimbs limbs
+
+fq2Const : [Int] -> [Int] -> Fq2
+fq2Const c0Limbs c1Limbs = Fq2 with
+  c0 = fqConst c0Limbs
+  c1 = fqConst c1Limbs
+
+twoInvFq : Fq
+twoInvFq = fqConst [32420, 27710, 17931, 40464, 58694, 46136, 46408, 52160, 44078, 16576, 8923, 56360, 53268, 28824, 10041, 6194]
+
+frobeniusTwistX : Fq2
+frobeniusTwistX = fq2Const
+  [21821, 5999, 38231, 39395, 13068, 49859, 49936, 46988, 45379, 62809, 60476, 19467, 4599, 20345, 18328, 12211]
+  [52130, 25615, 54556, 5733, 40398, 2940, 10781, 12974, 1940, 55130, 52363, 19364, 44576, 25067, 58704, 5833]
+
+frobeniusTwistY : Fq2
+frobeniusTwistY = fq2Const
+  [4954, 29088, 326, 56404, 22936, 43465, 57581, 56234, 63929, 46818, 50840, 56414, 62940, 18586, 62213, 1596]
+  [45283, 9763, 32611, 33491, 23506, 36770, 32201, 8576, 28459, 60537, 46503, 1796, 1178, 44097, 15548, 1984]
+
+fq6FrobeniusC1_1 : Fq2
+fq6FrobeniusC1_1 = frobeniusTwistX
+
+fq6FrobeniusC2_1 : Fq2
+fq6FrobeniusC2_1 = fq2Const
+  [42850, 37406, 8021, 33930, 60530, 48788, 26103, 54067, 7812, 23064, 49335, 33011, 43009, 25838, 20318, 1461]
+  [33062, 52523, 18193, 49467, 51043, 7134, 53994, 13957, 7314, 15115, 32944, 40762, 35566, 59389, 24283, 11284]
+
+fq6FrobeniusC1_2 : Fq2
+fq6FrobeniusC1_2 = fq2Const
+  [64840, 24700, 17637, 58557, 28221, 48022, 1695, 49807, 52400, 57516, 55783, 24173, 41001, 57649, 20082, 12388]
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+fq6FrobeniusC2_2 : Fq2
+fq6FrobeniusC2_2 = fq2Const
+  [65534, 30719, 18225, 22371, 23631, 44251, 25585, 54514, 35756, 41172, 27598, 23010, 0, 0, 0, 0]
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+fq6FrobeniusC1_3 : Fq2
+fq6FrobeniusC1_3 = fq2Const
+  [64365, 31708, 28392, 31604, 17107, 23913, 64829, 32863, 9644, 38303, 7287, 47871, 61194, 46933, 57464, 2134]
+  [34526, 43685, 43819, 14348, 9777, 39167, 12735, 4063, 2383, 60454, 3693, 43507, 30319, 46033, 56897, 1265]
+
+fq6FrobeniusC2_3 : Fq2
+fq6FrobeniusC2_3 = fq2Const
+  [61542, 15563, 37564, 3610, 27595, 30128, 2373, 58931, 17486, 46514, 57591, 6590, 36267, 4544, 35942, 3013]
+  [9119, 29452, 60829, 24547, 38629, 29567, 40456, 42058, 7428, 3282, 63215, 65200, 2578, 57745, 59801, 9173]
+
+fq12FrobeniusCoeff1 : Fq2
+fq12FrobeniusCoeff1 = fq2Const
+  [58480, 56521, 13786, 54795, 8566, 10543, 7688, 23634, 35680, 30438, 40925, 59577, 42975, 10341, 46876, 4740]
+  [25260, 33011, 61535, 51804, 51173, 36590, 37495, 29817, 2958, 4629, 31998, 42546, 59366, 46330, 38643, 9321]
+
+fq12FrobeniusCoeff2 : Fq2
+fq12FrobeniusCoeff2 = fq2Const
+  [64841, 24700, 17637, 58557, 28221, 48022, 1695, 49807, 52400, 57516, 55783, 24173, 41001, 57649, 20082, 12388]
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+fq12FrobeniusCoeff3 : Fq2
+fq12FrobeniusCoeff3 = fq2Const
+  [42623, 7892, 32057, 59503, 53834, 48725, 45965, 35148, 43664, 53420, 24716, 61417, 58555, 52354, 33231, 6620]
+  [49409, 62656, 43563, 30356, 14828, 38868, 42467, 32515, 5021, 13686, 61155, 1739, 32115, 3047, 63670, 171]
+
+loopBits : [Int]
+loopBits =
+  [1, 0, 1, 0, 0, 0, 3, 0, 3, 0, 0, 0, 3, 0, 1, 0
+  ,3, 0, 0, 3, 0, 0, 0, 0, 0, 1, 0, 0, 3, 0, 1, 0
+  ,0, 3, 0, 0, 0, 0, 3, 0, 1, 0, 0, 0, 3, 0, 3, 0
+  ,0, 1, 0, 0, 0, 3, 0, 0, 3, 0, 1, 0, 1, 0, 0, 0]
+
+zLoopBits : [Bool]
+zLoopBits =
+  [False, False, False, True, False, False, True, True, True, False, True, False, False, True, True, False
+  ,False, True, False, False, True, False, True, False, True, True, False, True, False, False, False, True
+  ,False, False, True, False, True, False, False, True, True, False, True, False, False, True, False, False
+  ,False, False, True, False, False, True, True, True, True, True, False, False, False, True]

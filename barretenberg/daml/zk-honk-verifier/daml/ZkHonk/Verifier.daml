@@ -1,0 +1,65 @@
+module ZkHonk.Verifier where
+
+import ZkHonk.Types
+import ZkHonk.Field
+import ZkHonk.Codec
+import ZkHonk.Poseidon2
+import ZkHonk.Proof
+import ZkHonk.Challenges (UltraZKChallenges, generateUltraZKChallenges)
+import ZkHonk.Sumcheck
+import qualified ZkHonk.Shplemini as Shplemini
+import qualified ZkHonk.UInt256 as U
+
+verifyProofRequest : VerificationKey -> ProofRequest -> Bool
+verifyProofRequest vk request = verifyUltraZK vk request.publicInputs request.proofFields
+
+verifyUltraZK : VerificationKey -> [Fr] -> [Fr] -> Bool
+verifyUltraZK vk publicInputs proofFields =
+  verifyUltraZKStructural vk publicInputs proofFields
+    && verifyUltraZKCryptographic vk publicInputs proofFields
+
+verifyUltraZKStructural : VerificationKey -> [Fr] -> [Fr] -> Bool
+verifyUltraZKStructural vk publicInputs proofFields =
+  length vk.precomputedCommitments == numPrecomputedCommitments
+    && vk.logCircuitSize > 0
+    && vk.logCircuitSize <= logN
+    && vk.numPublicInputs >= defaultIoPublicInputs
+    && length publicInputs == vk.numPublicInputs - defaultIoPublicInputs
+    && isSome (parseUltraZKProof proofFields)
+
+verifyUltraZKCryptographic : VerificationKey -> [Fr] -> [Fr] -> Bool
+verifyUltraZKCryptographic vk publicInputs proofFields =
+  if vk.expectedVkHash /= hashVerificationKey vk then False
+  else case parseUltraZKProof proofFields of
+    None -> False
+    Some proof ->
+      case generateUltraZKChallenges vk publicInputs proof of
+        None -> False
+        Some challenges ->
+          if verifyUltraZKSumcheck proof challenges
+          then verifyUltraZKShplemini proof vk challenges
+          else False
+
+verifyUltraZKShplemini : ParsedUltraZKProof -> VerificationKey -> UltraZKChallenges -> Bool
+verifyUltraZKShplemini = Shplemini.verifyUltraZKShplemini
+
+hashVerificationKey : VerificationKey -> Fr
+hashVerificationKey vk =
+  poseidon2Hash
+    ([mkFrFromInt vk.logCircuitSize, mkFrFromInt vk.numPublicInputs, mkFrFromInt vk.pubInputsOffset]
+      ++ concatMap g1ToTranscriptFields vk.precomputedCommitments)
+
+hashPublicInputs : [Fr] -> Fr
+hashPublicInputs = poseidon2Hash
+
+mkFrFromInt : Int -> Fr
+mkFrFromInt n = mkFr (U.fromLimbs [n])
+
+g1ToTranscriptFields : G1 -> [Fr]
+g1ToTranscriptFields = commitmentToFrs
+
+isSome : Optional a -> Bool
+isSome opt =
+  case opt of
+    Some _ -> True
+    None -> False

@@ -1,0 +1,388 @@
+module ZkHonk.Shplemini where
+
+import ZkHonk.Types
+import ZkHonk.Field
+import ZkHonk.Curve
+import ZkHonk.Pairing (pairingCheck)
+import ZkHonk.Proof (ParsedUltraZKProof(..), logN, numAllEntitiesZk, numLibraCommitments, numLibraEvaluations)
+import ZkHonk.Codec (allFrZero, numPrecomputedCommitments)
+import ZkHonk.Challenges
+import qualified ZkHonk.UInt256 as U
+
+numberUnshiftedZk : Int
+numberUnshiftedZk = 37
+
+numberToBeShifted : Int
+numberToBeShifted = 5
+
+shiftedCommitmentsStart : Int
+shiftedCommitmentsStart = 30
+
+libraUnivariatesLength : Int
+libraUnivariatesLength = 9
+
+subgroupSize : Int
+subgroupSize = 256
+
+msmSize : Int -> Int
+msmSize proofLogN = numberUnshiftedZk + proofLogN + numLibraCommitments + 2
+
+data ShpleminiPairingInputs = ShpleminiPairingInputs with
+    p0 : G1
+    p1 : G1
+  deriving (Eq, Show)
+
+verifyUltraZKShplemini : ParsedUltraZKProof -> VerificationKey -> UltraZKChallenges -> Bool
+verifyUltraZKShplemini proof vk challenges =
+  if length vk.precomputedCommitments /= numPrecomputedCommitments then False
+  else if not (allFrZero proof.pairingAccumulator) then False
+  else if length challenges.sumcheckUChallenges /= vk.logCircuitSize then False
+  else if length challenges.paddedSumcheckUChallenges /= logN then False
+  else if not (checkEvalsConsistency proof.libraEvaluations challenges.geminiR challenges.paddedSumcheckUChallenges proof.libraClaimedEvaluation logN) then False
+  else case computeShpleminiPairingInputs proof vk challenges of
+    None -> False
+    Some inputs -> pairingCheck [(inputs.p0, g2Generator), (inputs.p1, kzgVkG2)]
+
+computeShpleminiPairingInputs : ParsedUltraZKProof -> VerificationKey -> UltraZKChallenges -> Optional ShpleminiPairingInputs
+computeShpleminiPairingInputs proof vk challenges =
+  case (proof.witnessCommitments, proof.libraCommitments) of
+    ([geminiMaskingPoly, w1, w2, w3, lookupReadCounts, lookupReadTags, w4, lookupInverses, zPerm], [libraConcat, libraGrandSum, libraQuotient]) ->
+      let proofLogN = length challenges.paddedSumcheckUChallenges
+      in if length proof.sumcheckEvaluations /= numAllEntitiesZk then None
+      else if proofLogN <= 0 || proofLogN > logN then None
+      else if vk.logCircuitSize <= 0 || vk.logCircuitSize > proofLogN then None
+      else if length proof.geminiFoldCommitments < proofLogN - 1 then None
+      else if length proof.geminiEvaluations < proofLogN then None
+      else if length proof.libraEvaluations /= numLibraEvaluations then None
+      else
+        let activeFoldCommitments = take (proofLogN - 1) proof.geminiFoldCommitments
+            activeGeminiEvaluations = take proofLogN proof.geminiEvaluations
+            paddingIndicatorArray = paddingIndicators vk.logCircuitSize proofLogN
+            powersOfEvaluationChallenge = computeSquares challenges.geminiR proofLogN
+            posDenominators = map (\power -> frSub challenges.shplonkZ power) powersOfEvaluationChallenge
+            negDenominators = map (\power -> frAdd challenges.shplonkZ power) powersOfEvaluationChallenge
+            libraDenominators = [frSub challenges.shplonkZ challenges.geminiR, frSub challenges.shplonkZ (frMul subgroupGenerator challenges.geminiR)]
+        in batchInvertFr (posDenominators ++ negDenominators ++ [challenges.geminiR] ++ libraDenominators) `andThen` \invertedDenominators ->
+           let posInvertedDenominators = take proofLogN invertedDenominators
+               negInvertedDenominators = take proofLogN (drop proofLogN invertedDenominators)
+               posInvertedDenominator0 = listAt posInvertedDenominators 0
+               negInvertedDenominator0 = listAt negInvertedDenominators 0
+               geminiRInv = listAt invertedDenominators (2 * proofLogN)
+               libraDenominatorInverses = take 2 (drop (2 * proofLogN + 1) invertedDenominators)
+               unshiftedScalar = frAdd posInvertedDenominator0 (frMul challenges.shplonkNu negInvertedDenominator0)
+               shiftedScalar = frMul geminiRInv (frSub posInvertedDenominator0 (frMul challenges.shplonkNu negInvertedDenominator0))
+               unshiftedScalarNeg = frNeg unshiftedScalar
+               shiftedScalarNeg = frNeg shiftedScalar
+               scalars0 = replaceAt 0 frOne (replicate (msmSize proofLogN) frZero)
+               commitments0 = replaceAt 0 proof.shplonkQ (replicate (msmSize proofLogN) G1Infinity)
+               (scalars1, batchedEvaluation, batchingChallengeAfterUnshifted) =
+                 accumulateUnshiftedScalars 1 numberUnshiftedZk unshiftedScalarNeg challenges.rho scalars0 proof.sumcheckEvaluations frZero frOne
+               (scalars2, batchedEvaluation2, _) =
+                 accumulateShiftedScalars 0 numberToBeShifted shiftedScalarNeg challenges.rho scalars1 proof.sumcheckEvaluations batchedEvaluation batchingChallengeAfterUnshifted
+               commitments1 = loadBaseCommitments commitments0 geminiMaskingPoly vk [w1, w2, w3, w4, zPerm, lookupInverses, lookupReadCounts, lookupReadTags]
+           in computeFoldPosEvaluations paddingIndicatorArray challenges.paddedSumcheckUChallenges batchedEvaluation2 activeGeminiEvaluations powersOfEvaluationChallenge proofLogN `andThen` \foldPosEvaluations ->
+              let constantTerm0 = frMul (listAt foldPosEvaluations 0) posInvertedDenominator0
+                  constantTerm1 = frAdd constantTerm0 (frMul (frMul (listAt activeGeminiEvaluations 0) challenges.shplonkNu) negInvertedDenominator0)
+                  boundary0 = numberUnshiftedZk + 1
+                  batchingChallenge0 = frMul challenges.shplonkNu challenges.shplonkNu
+              in accumulateGeminiFoldScalars 0 (proofLogN - 1) boundary0 paddingIndicatorArray posInvertedDenominators negInvertedDenominators activeGeminiEvaluations activeFoldCommitments foldPosEvaluations challenges.shplonkNu scalars2 commitments1 constantTerm1 batchingChallenge0 `andThen` \(scalars3, commitments2, constantTerm2, batchingChallenge1, boundary1) ->
+                 accumulateLibraScalars proof.libraEvaluations proof.libraCommitments libraDenominatorInverses challenges.shplonkNu scalars3 commitments2 constantTerm2 batchingChallenge1 boundary1 `andThen` \(scalars4, commitments3, boundary2) ->
+                   let commitments4 = replaceAt boundary2 proof.kzgQuotient commitments3
+                       scalars4b = replaceAt boundary2 challenges.shplonkZ scalars4
+                       p0 = g1BatchMul commitments4 scalars4b
+                       p1 = g1Neg proof.kzgQuotient
+                   in Some ShpleminiPairingInputs with p0 = p0; p1 = p1
+    _ -> None
+
+accumulateUnshiftedScalars : Int -> Int -> Fr -> Fr -> [Fr] -> [Fr] -> Fr -> Fr -> ([Fr], Fr, Fr)
+accumulateUnshiftedScalars idx limit unshiftedScalarNeg rho scalars evaluations batchedEvaluation batchingChallenge =
+  if idx > limit then (scalars, batchedEvaluation, batchingChallenge)
+  else
+    let scalars1 = replaceAt idx (frMul unshiftedScalarNeg batchingChallenge) scalars
+        batchedEvaluation1 = frAdd batchedEvaluation (frMul (listAt evaluations (idx - 1)) batchingChallenge)
+    in accumulateUnshiftedScalars (idx + 1) limit unshiftedScalarNeg rho scalars1 evaluations batchedEvaluation1 (frMul batchingChallenge rho)
+
+accumulateShiftedScalars : Int -> Int -> Fr -> Fr -> [Fr] -> [Fr] -> Fr -> Fr -> ([Fr], Fr, Fr)
+accumulateShiftedScalars idx limit shiftedScalarNeg rho scalars evaluations batchedEvaluation batchingChallenge =
+  if idx >= limit then (scalars, batchedEvaluation, batchingChallenge)
+  else
+    let scalarOff = idx + shiftedCommitmentsStart
+        evaluationOff = idx + numberUnshiftedZk
+        scalars1 = addAt scalarOff (frMul shiftedScalarNeg batchingChallenge) scalars
+        batchedEvaluation1 = frAdd batchedEvaluation (frMul (listAt evaluations evaluationOff) batchingChallenge)
+    in accumulateShiftedScalars (idx + 1) limit shiftedScalarNeg rho scalars1 evaluations batchedEvaluation1 (frMul batchingChallenge rho)
+
+loadBaseCommitments : [G1] -> G1 -> VerificationKey -> [G1] -> [G1]
+loadBaseCommitments commitments geminiMaskingPoly vk witnessTail =
+  let commitments1 = replaceAt 1 geminiMaskingPoly commitments
+      commitments2 = setMany 2 vk.precomputedCommitments commitments1
+  in setMany shiftedCommitmentsStart witnessTail commitments2
+
+accumulateGeminiFoldScalars : Int -> Int -> Int -> [Fr] -> [Fr] -> [Fr] -> [Fr] -> [G1] -> [Fr] -> Fr -> [Fr] -> [G1] -> Fr -> Fr -> Optional ([Fr], [G1], Fr, Fr, Int)
+accumulateGeminiFoldScalars idx limit boundary paddingIndicatorArray posInvertedDenominators negInvertedDenominators geminiEvaluations geminiFoldCommitments foldPosEvaluations nu scalars commitments constantTerm batchingChallenge =
+  if idx >= limit then Some (scalars, commitments, constantTerm, batchingChallenge, boundary + limit)
+  else
+    let posInvertedDenominator = listAt posInvertedDenominators (idx + 1)
+        negInvertedDenominator = listAt negInvertedDenominators (idx + 1)
+        indicator = listAt paddingIndicatorArray (idx + 1)
+        scalingFactorPos = frMul batchingChallenge posInvertedDenominator
+        scalingFactorNeg = frMul (frMul batchingChallenge nu) negInvertedDenominator
+        scalar = frNeg (frMul indicator (frAdd scalingFactorNeg scalingFactorPos))
+        scalars1 = replaceAt (boundary + idx) scalar scalars
+        commitments1 = replaceAt (boundary + idx) (listAt geminiFoldCommitments idx) commitments
+        accumContribution = frAdd (frMul scalingFactorNeg (listAt geminiEvaluations (idx + 1))) (frMul scalingFactorPos (listAt foldPosEvaluations (idx + 1)))
+        constantTerm1 = frAdd constantTerm accumContribution
+        batchingChallenge1 = frMul (frMul batchingChallenge nu) nu
+    in accumulateGeminiFoldScalars (idx + 1) limit boundary paddingIndicatorArray posInvertedDenominators negInvertedDenominators geminiEvaluations geminiFoldCommitments foldPosEvaluations nu scalars1 commitments1 constantTerm1 batchingChallenge1
+
+accumulateLibraScalars : [Fr] -> [G1] -> [Fr] -> Fr -> [Fr] -> [G1] -> Fr -> Fr -> Int -> Optional ([Fr], [G1], Int)
+accumulateLibraScalars libraPolyEvals libraCommitments denominatorInverses nu scalars commitments constantTerm batchingChallenge boundary =
+  case denominatorInverses of
+    [denominator0, denominator1] ->
+      let denominators = [denominator0, denominator1, denominator0, denominator0]
+          (batchingScalars, constantTerm1, _) = libraBatchingScalars libraPolyEvals denominators nu constantTerm batchingChallenge
+          scalars1 = replaceAt boundary (listAt batchingScalars 0) scalars
+          scalars2 = replaceAt (boundary + 1) (frAdd (listAt batchingScalars 1) (listAt batchingScalars 2)) scalars1
+          scalars3 = replaceAt (boundary + 2) (listAt batchingScalars 3) scalars2
+          commitments1 = setMany boundary libraCommitments commitments
+          generatorIdx = boundary + numLibraCommitments
+          commitments2 = replaceAt generatorIdx g1Generator commitments1
+          scalars4 = replaceAt generatorIdx constantTerm1 scalars3
+      in Some (scalars4, commitments2, generatorIdx + 1)
+    _ -> None
+
+libraBatchingScalars : [Fr] -> [Fr] -> Fr -> Fr -> Fr -> ([Fr], Fr, Fr)
+libraBatchingScalars libraPolyEvals denominators nu constantTerm batchingChallenge =
+  case (libraPolyEvals, denominators) of
+    ([], []) -> ([], constantTerm, batchingChallenge)
+    (eval :: restEvals, denominator :: restDenominators) ->
+      let scalingFactor = frMul denominator batchingChallenge
+          batchingScalar = frNeg scalingFactor
+          constantTerm1 = frAdd constantTerm (frMul scalingFactor eval)
+          (tailScalars, constantTerm2, batchingChallenge2) = libraBatchingScalars restEvals restDenominators nu constantTerm1 (frMul batchingChallenge nu)
+      in (batchingScalar :: tailScalars, constantTerm2, batchingChallenge2)
+    _ -> error "Libra evaluation and denominator length mismatch"
+
+paddingIndicators : Int -> Int -> [Fr]
+paddingIndicators activeLog proofLog =
+  paddingIndicatorsLoop 0 activeLog proofLog
+
+paddingIndicatorsLoop : Int -> Int -> Int -> [Fr]
+paddingIndicatorsLoop idx activeLog proofLog =
+  if idx >= proofLog then []
+  else (if idx < activeLog then frOne else frZero) :: paddingIndicatorsLoop (idx + 1) activeLog proofLog
+
+computeFoldPosEvaluations : [Fr] -> [Fr] -> Fr -> [Fr] -> [Fr] -> Int -> Optional [Fr]
+computeFoldPosEvaluations paddingIndicatorArray uChallenges batchedEvalAccumulator geminiEvaluations geminiEvalChallengePowers logSize =
+  computeFoldPosEvaluationsLoop (logSize - 1) paddingIndicatorArray uChallenges batchedEvalAccumulator geminiEvaluations geminiEvalChallengePowers (replicate logSize frZero)
+
+computeFoldPosEvaluationsLoop : Int -> [Fr] -> [Fr] -> Fr -> [Fr] -> [Fr] -> [Fr] -> Optional [Fr]
+computeFoldPosEvaluationsLoop idx paddingIndicatorArray uChallenges batchedEvalAccumulator geminiEvaluations geminiEvalChallengePowers foldPosEvaluations =
+  if idx < 0 then Some foldPosEvaluations
+  else
+    let challengePower = listAt geminiEvalChallengePowers idx
+        u = listAt uChallenges idx
+        indicator = listAt paddingIndicatorArray idx
+        numerator0 = frSub (frMul (frMul challengePower batchedEvalAccumulator) (frFromInt 2)) (frMul (listAt geminiEvaluations idx) (frSub (frMul challengePower (frSub frOne u)) u))
+        denominator = frAdd (frMul challengePower (frSub frOne u)) u
+    in safeInv denominator `andThen` \denominatorInv ->
+      let roundAccumulatorRaw = frMul numerator0 denominatorInv
+          roundAccumulator = frAdd (frMul indicator roundAccumulatorRaw) (frMul (frSub frOne indicator) batchedEvalAccumulator)
+          foldEvaluation = frMul indicator roundAccumulator
+          foldPosEvaluations1 = replaceAt idx foldEvaluation foldPosEvaluations
+      in computeFoldPosEvaluationsLoop (idx - 1) paddingIndicatorArray uChallenges roundAccumulator geminiEvaluations geminiEvalChallengePowers foldPosEvaluations1
+
+checkEvalsConsistency : [Fr] -> Fr -> [Fr] -> Fr -> Int -> Bool
+checkEvalsConsistency libraPolyEvals geminiR uChallenges libraEval logSize =
+  if length libraPolyEvals /= numLibraEvaluations then False
+  else if length uChallenges /= logSize then False
+  else
+    let vanishingPolyEval = frSub (frPow geminiR (U.fromLimbs [subgroupSize])) frOne
+    in if vanishingPolyEval == frZero then False
+       else
+         let challengePolyLagrange = buildChallengePolyLagrange uChallenges logSize
+         in case computeChallengePolyEvalBatch challengePolyLagrange geminiR of
+            None -> False
+            Some (challengePolyEvalRaw, firstDenominator, lastDenominator) ->
+              let numerator = frMul vanishingPolyEval subgroupSizeInv
+                  challengePolyEval = frMul challengePolyEvalRaw numerator
+                  lagrangeFirst = frMul firstDenominator numerator
+                  lagrangeLast = frMul lastDenominator numerator
+                  diff0 = frMul lagrangeFirst (listAt libraPolyEvals 2)
+                  diff1 = frMul (frSub geminiR subgroupGeneratorInverse) (frSub (frSub (listAt libraPolyEvals 1) (listAt libraPolyEvals 2)) (frMul (listAt libraPolyEvals 0) challengePolyEval))
+                  diff2 = frMul lagrangeLast (frSub (listAt libraPolyEvals 2) libraEval)
+                  diff3 = frMul vanishingPolyEval (listAt libraPolyEvals 3)
+                  diff = frSub (frAdd (frAdd diff0 diff1) diff2) diff3
+              in diff == frZero
+
+buildChallengePolyLagrange : [Fr] -> Int -> [Fr]
+buildChallengePolyLagrange uChallenges logSize =
+  buildChallengePolyLagrangeRounds 0 logSize uChallenges (replaceAt 0 frOne (replicate subgroupSize frZero))
+
+buildChallengePolyLagrangeRounds : Int -> Int -> [Fr] -> [Fr] -> [Fr]
+buildChallengePolyLagrangeRounds round logSize uChallenges acc =
+  if round >= logSize then acc
+  else
+    let currIdx = 1 + libraUnivariatesLength * round
+        acc1 = replaceAt currIdx frOne acc
+        acc2 = fillChallengePowers (currIdx + 1) (currIdx + libraUnivariatesLength) (listAt uChallenges round) acc1
+    in buildChallengePolyLagrangeRounds (round + 1) logSize uChallenges acc2
+
+fillChallengePowers : Int -> Int -> Fr -> [Fr] -> [Fr]
+fillChallengePowers idx endIdx challenge acc =
+  if idx >= endIdx then acc
+  else
+    let previous = listAt acc (idx - 1)
+        acc1 = replaceAt idx (frMul previous challenge) acc
+    in fillChallengePowers (idx + 1) endIdx challenge acc1
+
+computeChallengePolyEvalBatch : [Fr] -> Fr -> Optional (Fr, Fr, Fr)
+computeChallengePolyEvalBatch lagrange geminiR =
+  if length lagrange /= subgroupSize then None
+  else
+    let denominators = challengePolyDenominators 0 geminiR frOne
+    in case batchInvertFr denominators of
+        None -> None
+        Some denominatorInverses ->
+          Some (sumProducts lagrange denominatorInverses, listAt denominatorInverses 0, listAt denominatorInverses (subgroupSize - 1))
+
+challengePolyDenominators : Int -> Fr -> Fr -> [Fr]
+challengePolyDenominators idx geminiR rootPower =
+  if idx >= subgroupSize then []
+  else
+    let denominator = frSub (frMul rootPower geminiR) frOne
+        nextRootPower = frMul rootPower subgroupGeneratorInverse
+    in denominator :: challengePolyDenominators (idx + 1) geminiR nextRootPower
+
+batchInvertFr : [Fr] -> Optional [Fr]
+batchInvertFr values =
+  if anyFrZero values then None
+  else
+    let (prefixes, totalProduct) = buildBatchPrefixes values frOne []
+        totalProductInverse = frInv totalProduct
+    in Some (buildBatchInverses (reverseList values) (reverseList prefixes) totalProductInverse [])
+
+buildBatchPrefixes : [Fr] -> Fr -> [Fr] -> ([Fr], Fr)
+buildBatchPrefixes values current prefixes =
+  case values of
+    [] -> (prefixes, current)
+    value :: rest -> buildBatchPrefixes rest (frMul current value) (prefixes ++ [current])
+
+buildBatchInverses : [Fr] -> [Fr] -> Fr -> [Fr] -> [Fr]
+buildBatchInverses values prefixes suffixInverse acc =
+  case (values, prefixes) of
+    ([], []) -> acc
+    (value :: restValues, prefix :: restPrefixes) ->
+      let inverse = frMul suffixInverse prefix
+          nextSuffixInverse = frMul suffixInverse value
+      in buildBatchInverses restValues restPrefixes nextSuffixInverse (inverse :: acc)
+    _ -> error "Batch inversion prefix length mismatch"
+
+anyFrZero : [Fr] -> Bool
+anyFrZero values =
+  case values of
+    [] -> False
+    value :: rest -> value == frZero || anyFrZero rest
+
+sumProducts : [Fr] -> [Fr] -> Fr
+sumProducts left right =
+  case (left, right) of
+    ([], []) -> frZero
+    (x :: xs, y :: ys) -> frAdd (frMul x y) (sumProducts xs ys)
+    _ -> error "Product-sum length mismatch"
+
+reverseList : [a] -> [a]
+reverseList values =
+  case values of
+    [] -> []
+    value :: rest -> reverseList rest ++ [value]
+
+computeChallengePolyEval : Int -> [Fr] -> Fr -> Fr -> Fr -> Optional Fr -> Optional Fr -> Optional (Fr, Fr, Fr)
+computeChallengePolyEval idx lagrange geminiR rootPower challengePolyEval firstDenominator lastDenominator =
+  if idx >= subgroupSize then
+    case (firstDenominator, lastDenominator) of
+      (Some first, Some last) -> Some (challengePolyEval, first, last)
+      _ -> None
+  else
+    let denominator = frSub (frMul rootPower geminiR) frOne
+    in safeInv denominator `andThen` \denominatorInv ->
+      let challengePolyEval1 = frAdd challengePolyEval (frMul (listAt lagrange idx) denominatorInv)
+          firstDenominator1 = if idx == 0 then Some denominatorInv else firstDenominator
+          lastDenominator1 = if idx == subgroupSize - 1 then Some denominatorInv else lastDenominator
+          rootPower1 = frMul rootPower subgroupGeneratorInverse
+      in computeChallengePolyEval (idx + 1) lagrange geminiR rootPower1 challengePolyEval1 firstDenominator1 lastDenominator1
+
+computeSquares : Fr -> Int -> [Fr]
+computeSquares r count =
+  if count <= 0 then []
+  else computeSquaresLoop 1 count [r] r
+
+computeSquaresLoop : Int -> Int -> [Fr] -> Fr -> [Fr]
+computeSquaresLoop idx count acc current =
+  if idx >= count then acc
+  else
+    let next = frMul current current
+    in computeSquaresLoop (idx + 1) count (acc ++ [next]) next
+
+safeInv : Fr -> Optional Fr
+safeInv value =
+  if value == frZero then None
+  else Some (frInv value)
+
+andThen : Optional a -> (a -> Optional b) -> Optional b
+andThen opt f =
+  case opt of
+    None -> None
+    Some value -> f value
+
+orElse : Optional a -> a -> a
+orElse opt fallback =
+  case opt of
+    None -> fallback
+    Some value -> value
+
+setMany : Int -> [a] -> [a] -> [a]
+setMany idx values target =
+  case values of
+    [] -> target
+    value :: rest -> setMany (idx + 1) rest (replaceAt idx value target)
+
+replaceAt : Int -> a -> [a] -> [a]
+replaceAt idx value xs =
+  case xs of
+    [] -> []
+    x :: rest ->
+      if idx == 0 then value :: rest
+      else x :: replaceAt (idx - 1) value rest
+
+addAt : Int -> Fr -> [Fr] -> [Fr]
+addAt idx value xs = replaceAt idx (frAdd (listAt xs idx) value) xs
+
+listAt : [a] -> Int -> a
+listAt xs idx =
+  case xs of
+    [] -> error "List index out of bounds"
+    x :: rest ->
+      if idx == 0 then x
+      else listAt rest (idx - 1)
+
+frFromInt : Int -> Fr
+frFromInt n = mkFr (U.fromLimbs [n])
+
+subgroupGenerator : Fr
+subgroupGenerator = Fr with frValue = U.fromLimbs [31350, 29861, 24977, 51347, 62000, 26448, 16980, 24953, 65456, 40758, 8266, 61574, 33796, 42516, 50529, 1968]
+
+subgroupGeneratorInverse : Fr
+subgroupGeneratorInverse = Fr with frValue = U.fromLimbs [62934, 809, 21821, 26924, 33930, 34578, 63686, 42316, 46566, 14562, 6873, 25717, 64211, 29730, 54055, 8267]
+
+subgroupSizeInv : Fr
+subgroupSizeInv = Fr with frValue = U.fromLimbs [1, 23568, 5022, 45726, 46880, 12607, 46176, 51979, 55044, 51967, 62832, 36503, 28297, 28240, 59940, 12339]
+
+kzgVkG2 : G2
+kzgVkG2 = G2Affine with
+  g2X = Fq2 with
+    c0 = mkFq (U.fromLimbs [33712, 37768, 8172, 32291, 1931, 15154, 17415, 40793, 38734, 39093, 46515, 48265, 48322, 47159, 50389, 280])
+    c1 = mkFq (U.fromLimbs [33729, 49299, 12538, 20222, 907, 13710, 55418, 59985, 57064, 1937, 20056, 59391, 61895, 20982, 434, 9742])
+  g2Y = Fq2 with
+    c0 = mkFq (U.fromLimbs [24149, 56012, 34772, 34122, 52898, 38630, 56639, 4582, 24926, 5349, 23362, 22087, 25386, 49344, 48547, 8958])
+    c1 = mkFq (U.fromLimbs [24548, 55914, 15488, 60993, 39844, 16889, 41030, 40178, 29317, 48026, 22209, 53841, 4067, 63249, 25449, 1276])

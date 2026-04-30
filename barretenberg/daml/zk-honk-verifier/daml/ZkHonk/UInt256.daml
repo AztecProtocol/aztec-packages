@@ -1,0 +1,359 @@
+module ZkHonk.UInt256 where
+
+import ZkHonk.Types
+
+base : Int
+base = 65536
+
+width : Int
+width = 16
+
+zero : UInt256
+zero = UInt256 with limbs16 = replicate width 0
+
+one : UInt256
+one = UInt256 with limbs16 = 1 :: replicate (width - 1) 0
+
+fromLimbs : [Int] -> UInt256
+fromLimbs xs = UInt256 with limbs16 = take width (normalizeFixed (xs ++ replicate width 0))
+
+toLimbs : UInt256 -> [Int]
+toLimbs x = x.limbs16
+
+isZero : UInt256 -> Bool
+isZero x = allZero x.limbs16
+
+eqRaw : [Int] -> [Int] -> Bool
+eqRaw a b = normalizeRaw a == normalizeRaw b
+
+compareRaw : [Int] -> [Int] -> Int
+compareRaw a b =
+  let aa = normalizeRaw a
+      bb = normalizeRaw b
+  in if length aa < length bb then -1
+     else if length aa > length bb then 1
+     else compareSame (reverse aa) (reverse bb)
+
+cmp : UInt256 -> UInt256 -> Int
+cmp a b = compareRaw a.limbs16 b.limbs16
+
+lt : UInt256 -> UInt256 -> Bool
+lt a b = cmp a b < 0
+
+gte : UInt256 -> UInt256 -> Bool
+gte a b = cmp a b >= 0
+
+add : UInt256 -> UInt256 -> UInt256
+add a b = fromLimbs (addRaw a.limbs16 b.limbs16)
+
+sub : UInt256 -> UInt256 -> UInt256
+sub a b =
+  if cmp a b < 0 then error "UInt256 underflow"
+  else fromLimbs (subRaw a.limbs16 b.limbs16)
+
+mulRaw256 : UInt256 -> UInt256 -> [Int]
+mulRaw256 a b = mulRaw a.limbs16 b.limbs16
+
+moduloRaw : [Int] -> UInt256 -> UInt256
+moduloRaw raw modulus =
+  if isZero modulus then error "UInt256 modulo by zero"
+  else fromLimbs (modReduce (normalizeRaw raw) (normalizeRaw modulus.limbs16))
+
+modulo : UInt256 -> UInt256 -> UInt256
+modulo value modulus = moduloRaw value.limbs16 modulus
+
+mulMod : UInt256 -> UInt256 -> UInt256 -> UInt256
+mulMod a b modulus = moduloRaw (mulRaw a.limbs16 b.limbs16) modulus
+
+mulModBarrett : UInt256 -> UInt256 -> UInt256 -> [Int] -> UInt256
+mulModBarrett a b modulus mu = fromLimbs (barrettReduce (mulRaw a.limbs16 b.limbs16) modulus.limbs16 mu)
+
+shiftLeftBits : UInt256 -> Int -> UInt256
+shiftLeftBits value bits = fromLimbs (shiftLeftBitsRaw value.limbs16 bits)
+
+pow2 : Int -> UInt256
+pow2 bits = fromLimbs (shiftLeftBitsRaw [1] bits)
+
+addMod : UInt256 -> UInt256 -> UInt256 -> UInt256
+addMod a b modulus =
+  let sum = addRaw a.limbs16 b.limbs16
+  in if compareRaw sum modulus.limbs16 >= 0
+     then fromLimbs (subRaw sum modulus.limbs16)
+     else fromLimbs sum
+
+subMod : UInt256 -> UInt256 -> UInt256 -> UInt256
+subMod a b modulus =
+  if cmp a b >= 0 then fromLimbs (subRaw a.limbs16 b.limbs16)
+  else fromLimbs (subRaw (addRaw a.limbs16 modulus.limbs16) b.limbs16)
+
+bitsLE : UInt256 -> [Bool]
+bitsLE x = concatMap limbBits x.limbs16
+
+fromBitsLE : [Bool] -> UInt256
+fromBitsLE bits = fromLimbs (fromBitsRaw bits 0 [0])
+
+-- Helpers
+
+normalizeFixed : [Int] -> [Int]
+normalizeFixed xs = take width (xs ++ replicate width 0)
+
+normalizeRaw : [Int] -> [Int]
+normalizeRaw xs =
+  let ys = dropLeadingZeros (reverse xs)
+      zs = reverse ys
+  in if zs == [] then [0] else zs
+
+dropLeadingZeros : [Int] -> [Int]
+dropLeadingZeros xs =
+  case xs of
+    [] -> []
+    0 :: rest -> dropLeadingZeros rest
+    _ -> xs
+
+allZero : [Int] -> Bool
+allZero xs =
+  case xs of
+    [] -> True
+    x :: rest -> x == 0 && allZero rest
+
+compareSame : [Int] -> [Int] -> Int
+compareSame a b =
+  case (a, b) of
+    ([], []) -> 0
+    (x :: xs, y :: ys) ->
+      if x < y then -1
+      else if x > y then 1
+      else compareSame xs ys
+    _ -> error "UInt256 compare length mismatch"
+
+addRaw : [Int] -> [Int] -> [Int]
+addRaw a b = normalizeRaw (addCarry a b 0)
+
+addCarry : [Int] -> [Int] -> Int -> [Int]
+addCarry a b carry =
+  case (a, b) of
+    ([], []) -> if carry == 0 then [] else [carry]
+    (x :: xs, []) -> addDigit x 0 xs [] carry
+    ([], y :: ys) -> addDigit 0 y [] ys carry
+    (x :: xs, y :: ys) -> addDigit x y xs ys carry
+
+addDigit : Int -> Int -> [Int] -> [Int] -> Int -> [Int]
+addDigit x y xs ys carry =
+  let s = x + y + carry
+      lo = s % base
+      hi = s / base
+  in lo :: addCarry xs ys hi
+
+subRaw : [Int] -> [Int] -> [Int]
+subRaw a b = normalizeRaw (subBorrow a b 0)
+
+subBorrow : [Int] -> [Int] -> Int -> [Int]
+subBorrow a b borrow =
+  case (a, b) of
+    ([], []) -> if borrow == 0 then [] else error "UInt256 underflow"
+    (x :: xs, []) -> subDigit x 0 xs [] borrow
+    (x :: xs, y :: ys) -> subDigit x y xs ys borrow
+    ([], _ :: _) -> error "UInt256 underflow"
+
+subDigit : Int -> Int -> [Int] -> [Int] -> Int -> [Int]
+subDigit x y xs ys borrow =
+  let d = x - y - borrow
+  in if d < 0
+     then (d + base) :: subBorrow xs ys 1
+     else d :: subBorrow xs ys 0
+
+mulRaw : [Int] -> [Int] -> [Int]
+mulRaw a b = mulLoop (normalizeRaw a) (normalizeRaw b) 0 [0]
+
+shiftLeftBitsRaw : [Int] -> Int -> [Int]
+shiftLeftBitsRaw xs bits =
+  let wordShift = bits / 16
+      bitShift = bits % 16
+  in normalizeRaw (replicate wordShift 0 ++ shiftSmall (normalizeRaw xs) bitShift 0)
+
+shiftSmall : [Int] -> Int -> Int -> [Int]
+shiftSmall xs bits carry =
+  let factor = pow2Int bits
+  in case xs of
+      [] -> if carry == 0 then [] else [carry]
+      x :: rest ->
+        let v = x * factor + carry
+            lo = v % base
+            hi = v / base
+        in lo :: shiftSmall rest bits hi
+
+pow2Int : Int -> Int
+pow2Int n =
+  if n <= 0 then 1
+  else 2 * pow2Int (n - 1)
+
+mulLoop : [Int] -> [Int] -> Int -> [Int] -> [Int]
+mulLoop a b idx acc =
+  case b of
+    [] -> normalizeRaw acc
+    y :: ys ->
+      let row = replicate idx 0 ++ scaleRaw a y
+      in mulLoop a ys (idx + 1) (addRaw acc row)
+
+scaleRaw : [Int] -> Int -> [Int]
+scaleRaw xs coeff = normalizeRaw (scaleCarry xs coeff 0)
+
+scaleCarry : [Int] -> Int -> Int -> [Int]
+scaleCarry xs coeff carry =
+  case xs of
+    [] -> if carry == 0 then [] else [carry]
+    x :: rest ->
+      let p = x * coeff + carry
+          lo = p % base
+          hi = p / base
+      in lo :: scaleCarry rest coeff hi
+
+modReduce : [Int] -> [Int] -> [Int]
+modReduce raw modulus =
+  let r = normalizeRaw raw
+      m = normalizeRaw modulus
+  in if compareRaw r m < 0 then r
+     else
+       let factor = normalizationFactor m
+           scaledR = scaleRaw r factor
+           scaledM = scaleRaw m factor
+           scaledRemainder = reduceWords scaledR scaledM
+       in normalizeRaw (divSmall scaledRemainder factor)
+
+normalizationFactor : [Int] -> Int
+normalizationFactor modulus =
+  let m = normalizeRaw modulus
+      top = listAt m (length m - 1)
+      factor = base / (top + 1)
+  in if factor <= 0 then 1 else factor
+
+reduceWords : [Int] -> [Int] -> [Int]
+reduceWords raw modulus =
+  let r = normalizeRaw raw
+      m = normalizeRaw modulus
+  in if compareRaw r m < 0 then r
+     else
+       let topShift = length r - length m
+           shift = quotientShift r m topShift
+           qhat = estimateQuotient r m shift
+           reduced = subtractScaled r m shift qhat
+       in reduceWords reduced m
+
+barrettReduce : [Int] -> [Int] -> [Int] -> [Int]
+barrettReduce raw modulus mu =
+  let x = normalizeRaw raw
+      m = normalizeRaw modulus
+  in if compareRaw x m < 0 then x
+     else
+       let q1 = drop (width - 1) x
+           q2 = mulRaw q1 mu
+           q3 = drop (width + 1) q2
+           r1 = lowLimbs (width + 1) x
+           r2 = lowLimbs (width + 1) (mulRaw q3 m)
+           r = if compareRaw r1 r2 >= 0
+               then subRaw r1 r2
+               else subRaw (addRaw r1 (replicate (width + 1) 0 ++ [1])) r2
+       in subtractUntilBelow (normalizeRaw r) m
+
+lowLimbs : Int -> [Int] -> [Int]
+lowLimbs count xs = normalizeRaw (take count (xs ++ replicate count 0))
+
+subtractUntilBelow : [Int] -> [Int] -> [Int]
+subtractUntilBelow raw modulus =
+  let r = normalizeRaw raw
+      m = normalizeRaw modulus
+  in if compareRaw r m < 0 then r
+     else subtractUntilBelow (subRaw r m) m
+
+quotientShift : [Int] -> [Int] -> Int -> Int
+quotientShift raw modulus topShift =
+  if topShift <= 0 then 0
+  else if estimateQuotient raw modulus topShift <= 0 then topShift - 1
+  else topShift
+
+estimateQuotient : [Int] -> [Int] -> Int -> Int
+estimateQuotient raw modulus shift =
+  let r = normalizeRaw raw
+      m = normalizeRaw modulus
+      mLen = length m
+      topR = limbAtOrZero r (shift + mLen)
+      nextR = limbAtOrZero r (shift + mLen - 1)
+      topM = listAt m (mLen - 1)
+      q = (topR * base + nextR) / topM
+  in if q >= base then base - 1
+     else if q <= 0 then 0
+     else q
+
+subtractScaled : [Int] -> [Int] -> Int -> Int -> [Int]
+subtractScaled raw modulus shift qhat =
+  if qhat <= 0 then raw
+  else
+    let candidate = replicate shift 0 ++ scaleRaw modulus qhat
+    in if compareRaw raw candidate >= 0
+       then subRaw raw candidate
+       else subtractScaled raw modulus shift (qhat - 1)
+
+divSmall : [Int] -> Int -> [Int]
+divSmall raw divisor =
+  if divisor == 1 then normalizeRaw raw
+  else if divisor <= 0 then error "UInt256 division by non-positive small divisor"
+  else normalizeRaw (reverse (divSmallBE (reverse (normalizeRaw raw)) divisor 0))
+
+divSmallBE : [Int] -> Int -> Int -> [Int]
+divSmallBE digits divisor carry =
+  case digits of
+    [] ->
+      if carry == 0 then []
+      else error "UInt256 inexact small division"
+    x :: rest ->
+      let value = carry * base + x
+          q = value / divisor
+          r = value % divisor
+      in q :: divSmallBE rest divisor r
+
+listAt : [a] -> Int -> a
+listAt xs idx =
+  case xs of
+    [] -> error "List index out of bounds"
+    x :: rest ->
+      if idx == 0 then x
+      else listAt rest (idx - 1)
+
+limbAtOrZero : [Int] -> Int -> Int
+limbAtOrZero xs idx =
+  if idx < 0 then 0
+  else
+    case xs of
+      [] -> 0
+      x :: rest ->
+        if idx == 0 then x
+        else limbAtOrZero rest (idx - 1)
+
+bitsRawLE : [Int] -> [Bool]
+bitsRawLE xs = concatMap limbBits (normalizeRaw xs)
+
+reduceBits : [Bool] -> [Int] -> [Int] -> [Int]
+reduceBits bits acc modulus =
+  case bits of
+    [] -> normalizeRaw acc
+    b :: rest ->
+      let doubled = shiftLeftBitsRaw acc 1
+          withBit = if b then addRaw doubled [1] else doubled
+          reduced = if compareRaw withBit modulus >= 0 then subRaw withBit modulus else withBit
+      in reduceBits rest reduced modulus
+
+limbBits : Int -> [Bool]
+limbBits n = limbBitsLoop n 0
+
+limbBitsLoop : Int -> Int -> [Bool]
+limbBitsLoop n i =
+  if i == 16 then []
+  else ((n % 2) == 1) :: limbBitsLoop (n / 2) (i + 1)
+
+fromBitsRaw : [Bool] -> Int -> [Int] -> [Int]
+fromBitsRaw bits idx acc =
+  case bits of
+    [] -> acc
+    b :: rest ->
+      let acc1 = if b then addRaw acc (shiftLeftBitsRaw [1] idx) else acc
+      in fromBitsRaw rest (idx + 1) acc1

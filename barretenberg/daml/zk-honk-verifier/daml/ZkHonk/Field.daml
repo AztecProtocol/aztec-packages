@@ -1,0 +1,328 @@
+module ZkHonk.Field where
+
+import ZkHonk.Types
+import qualified ZkHonk.UInt256 as U
+
+frModulus : UInt256
+frModulus = U.fromLimbs [1, 61440, 62867, 17377, 28817, 31161, 59464, 10291, 22621, 33153, 17846, 47184, 41001, 57649, 20082, 12388]
+
+fqModulus : UInt256
+fqModulus = U.fromLimbs [64839, 55420, 35862, 15392, 51853, 26737, 27281, 38785, 22621, 33153, 17846, 47184, 41001, 57649, 20082, 12388]
+
+frBarrettMu : [Int]
+frBarrettMu = [37465, 57822, 14955, 8304, 2790, 40584, 20992, 5192, 327, 32883, 42374, 45172, 19066, 9120, 17958, 19015, 5]
+
+fqBarrettMu : [Int]
+fqBarrettMu = [3665, 39929, 55457, 62382, 49286, 31956, 57718, 59749, 314, 32883, 42374, 45172, 19066, 9120, 17958, 19015, 5]
+
+frZero : Fr
+frZero = Fr with frValue = U.zero
+
+frOne : Fr
+frOne = Fr with frValue = U.one
+
+fqZero : Fq
+fqZero = Fq with fqValue = U.zero
+
+fqOne : Fq
+fqOne = Fq with fqValue = U.one
+
+fq2Zero : Fq2
+fq2Zero = Fq2 with c0 = fqZero; c1 = fqZero
+
+fq2One : Fq2
+fq2One = Fq2 with c0 = fqOne; c1 = fqZero
+
+fq6Zero : Fq6
+fq6Zero = Fq6 with fq6C0 = fq2Zero; fq6C1 = fq2Zero; fq6C2 = fq2Zero
+
+fq6One : Fq6
+fq6One = Fq6 with fq6C0 = fq2One; fq6C1 = fq2Zero; fq6C2 = fq2Zero
+
+fq12Zero : Fq12
+fq12Zero = Fq12 with fq12C0 = fq6Zero; fq12C1 = fq6Zero
+
+fq12One : Fq12
+fq12One = Fq12 with fq12C0 = fq6One; fq12C1 = fq6Zero
+
+mkFr : UInt256 -> Fr
+mkFr x = Fr with frValue = U.modulo x frModulus
+
+mkFq : UInt256 -> Fq
+mkFq x = Fq with fqValue = U.modulo x fqModulus
+
+isCanonicalFr : UInt256 -> Bool
+isCanonicalFr x = U.lt x frModulus
+
+isCanonicalFq : UInt256 -> Bool
+isCanonicalFq x = U.lt x fqModulus
+
+frAdd : Fr -> Fr -> Fr
+frAdd a b = Fr with frValue = U.addMod a.frValue b.frValue frModulus
+
+frSub : Fr -> Fr -> Fr
+frSub a b = Fr with frValue = U.subMod a.frValue b.frValue frModulus
+
+frMul : Fr -> Fr -> Fr
+frMul a b = Fr with frValue = U.mulModBarrett a.frValue b.frValue frModulus frBarrettMu
+
+frNeg : Fr -> Fr
+frNeg a = if a == frZero then frZero else Fr with frValue = U.sub frModulus a.frValue
+
+frPow : Fr -> UInt256 -> Fr
+frPow base exponent = powLoop frOne base (U.bitsLE exponent)
+
+fqAdd : Fq -> Fq -> Fq
+fqAdd a b = Fq with fqValue = U.addMod a.fqValue b.fqValue fqModulus
+
+fqSub : Fq -> Fq -> Fq
+fqSub a b = Fq with fqValue = U.subMod a.fqValue b.fqValue fqModulus
+
+fqMul : Fq -> Fq -> Fq
+fqMul a b = Fq with fqValue = U.mulModBarrett a.fqValue b.fqValue fqModulus fqBarrettMu
+
+fqNeg : Fq -> Fq
+fqNeg a = if a == fqZero then fqZero else Fq with fqValue = U.sub fqModulus a.fqValue
+
+fqSquare : Fq -> Fq
+fqSquare a = fqMul a a
+
+fq2Add : Fq2 -> Fq2 -> Fq2
+fq2Add a b = Fq2 with
+  c0 = fqAdd a.c0 b.c0
+  c1 = fqAdd a.c1 b.c1
+
+fq2Sub : Fq2 -> Fq2 -> Fq2
+fq2Sub a b = Fq2 with
+  c0 = fqSub a.c0 b.c0
+  c1 = fqSub a.c1 b.c1
+
+fq2Neg : Fq2 -> Fq2
+fq2Neg a = Fq2 with
+  c0 = fqNeg a.c0
+  c1 = fqNeg a.c1
+
+fq2Mul : Fq2 -> Fq2 -> Fq2
+fq2Mul a b =
+  let ac = fqMul a.c0 b.c0
+      bd = fqMul a.c1 b.c1
+      ad = fqMul a.c0 b.c1
+      bc = fqMul a.c1 b.c0
+  in Fq2 with
+    c0 = fqSub ac bd
+    c1 = fqAdd ad bc
+
+fq2Square : Fq2 -> Fq2
+fq2Square a =
+  let aa = fqMul a.c0 a.c0
+      bb = fqMul a.c1 a.c1
+      ab = fqMul a.c0 a.c1
+  in Fq2 with
+    c0 = fqSub aa bb
+    c1 = fqAdd ab ab
+
+fq2Conjugate : Fq2 -> Fq2
+fq2Conjugate a = Fq2 with
+  c0 = a.c0
+  c1 = fqNeg a.c1
+
+fq2Inv : Fq2 -> Fq2
+fq2Inv a =
+  if a == fq2Zero then error "Fq2 inverse of zero"
+  else
+    let factor = fqInv (fqAdd (fqMul a.c0 a.c0) (fqMul a.c1 a.c1))
+    in Fq2 with
+      c0 = fqMul a.c0 factor
+      c1 = fqNeg (fqMul a.c1 factor)
+
+fq2MulByFq : Fq2 -> Fq -> Fq2
+fq2MulByFq a b = Fq2 with
+  c0 = fqMul a.c0 b
+  c1 = fqMul a.c1 b
+
+fq2Frobenius : Fq2 -> Fq2
+fq2Frobenius a = Fq2 with
+  c0 = a.c0
+  c1 = fqNeg a.c1
+
+fq2MulByXi : Fq2 -> Fq2
+fq2MulByXi a =
+  let nine = mkFq (U.fromLimbs [9])
+      nineC0 = fqMul nine a.c0
+      nineC1 = fqMul nine a.c1
+  in Fq2 with
+    c0 = fqSub nineC0 a.c1
+    c1 = fqAdd nineC1 a.c0
+
+fq6Add : Fq6 -> Fq6 -> Fq6
+fq6Add a b = Fq6 with
+  fq6C0 = fq2Add a.fq6C0 b.fq6C0
+  fq6C1 = fq2Add a.fq6C1 b.fq6C1
+  fq6C2 = fq2Add a.fq6C2 b.fq6C2
+
+fq6Sub : Fq6 -> Fq6 -> Fq6
+fq6Sub a b = Fq6 with
+  fq6C0 = fq2Sub a.fq6C0 b.fq6C0
+  fq6C1 = fq2Sub a.fq6C1 b.fq6C1
+  fq6C2 = fq2Sub a.fq6C2 b.fq6C2
+
+fq6Neg : Fq6 -> Fq6
+fq6Neg a = Fq6 with
+  fq6C0 = fq2Neg a.fq6C0
+  fq6C1 = fq2Neg a.fq6C1
+  fq6C2 = fq2Neg a.fq6C2
+
+fq6Mul : Fq6 -> Fq6 -> Fq6
+fq6Mul a b =
+  let t0 = fq2Mul a.fq6C0 b.fq6C0
+      t1 = fq2Mul a.fq6C1 b.fq6C1
+      t2 = fq2Mul a.fq6C2 b.fq6C2
+      t3 = fq2Mul (fq2Add a.fq6C0 a.fq6C2) (fq2Add b.fq6C0 b.fq6C2)
+      t4 = fq2Mul (fq2Add a.fq6C0 a.fq6C1) (fq2Add b.fq6C0 b.fq6C1)
+      t5 = fq2Mul (fq2Add a.fq6C1 a.fq6C2) (fq2Add b.fq6C1 b.fq6C2)
+  in Fq6 with
+    fq6C0 = fq2Add t0 (fq2MulByXi (fq2Sub t5 (fq2Add t1 t2)))
+    fq6C1 = fq2Add (fq2Sub t4 (fq2Add t0 t1)) (fq2MulByXi t2)
+    fq6C2 = fq2Sub (fq2Add t3 t1) (fq2Add t0 t2)
+
+fq6Square : Fq6 -> Fq6
+fq6Square a =
+  let s0 = fq2Square a.fq6C0
+      s1 = fq2Add (fq2Mul a.fq6C0 a.fq6C1) (fq2Mul a.fq6C0 a.fq6C1)
+      s2 = fq2Square (fq2Sub (fq2Add a.fq6C0 a.fq6C2) a.fq6C1)
+      s3 = fq2Add (fq2Mul a.fq6C1 a.fq6C2) (fq2Mul a.fq6C1 a.fq6C2)
+      s4 = fq2Square a.fq6C2
+  in Fq6 with
+    fq6C0 = fq2Add (fq2MulByXi s3) s0
+    fq6C1 = fq2Add (fq2MulByXi s4) s1
+    fq6C2 = fq2Sub (fq2Sub (fq2Add (fq2Add s1 s2) s3) s0) s4
+
+fq6Inv : Fq6 -> Fq6
+fq6Inv a =
+  if a == fq6Zero then error "Fq6 inverse of zero"
+  else
+    let c0 = fq2Sub (fq2Square a.fq6C0) (fq2MulByXi (fq2Mul a.fq6C1 a.fq6C2))
+        c1 = fq2Sub (fq2MulByXi (fq2Square a.fq6C2)) (fq2Mul a.fq6C0 a.fq6C1)
+        c2 = fq2Sub (fq2Square a.fq6C1) (fq2Mul a.fq6C0 a.fq6C2)
+        factor = fq2Inv (fq2Add (fq2Mul a.fq6C0 c0) (fq2MulByXi (fq2Add (fq2Mul a.fq6C2 c1) (fq2Mul a.fq6C1 c2))))
+    in Fq6 with
+      fq6C0 = fq2Mul factor c0
+      fq6C1 = fq2Mul factor c1
+      fq6C2 = fq2Mul factor c2
+
+fq6MulByFq2 : Fq6 -> Fq2 -> Fq6
+fq6MulByFq2 a b = Fq6 with
+  fq6C0 = fq2Mul a.fq6C0 b
+  fq6C1 = fq2Mul a.fq6C1 b
+  fq6C2 = fq2Mul a.fq6C2 b
+
+fq6MulByV : Fq6 -> Fq6
+fq6MulByV a = Fq6 with
+  fq6C0 = fq2MulByXi a.fq6C2
+  fq6C1 = a.fq6C0
+  fq6C2 = a.fq6C1
+
+fq6SparseMul : Fq6 -> Fq2 -> Fq2 -> Fq6
+fq6SparseMul value a0 a1 =
+  let aa = fq2Mul a0 value.fq6C0
+      bb = fq2Mul a1 value.fq6C1
+      cc = fq2MulByXi (fq2Mul a1 value.fq6C2)
+      ee = fq2Mul (fq2Add a0 a1) (fq2Add value.fq6C0 value.fq6C1)
+      gg = fq2Mul a0 value.fq6C2
+  in Fq6 with
+    fq6C0 = fq2Add aa cc
+    fq6C1 = fq2Sub ee (fq2Add aa bb)
+    fq6C2 = fq2Add gg bb
+
+fq12Add : Fq12 -> Fq12 -> Fq12
+fq12Add a b = Fq12 with
+  fq12C0 = fq6Add a.fq12C0 b.fq12C0
+  fq12C1 = fq6Add a.fq12C1 b.fq12C1
+
+fq12Sub : Fq12 -> Fq12 -> Fq12
+fq12Sub a b = Fq12 with
+  fq12C0 = fq6Sub a.fq12C0 b.fq12C0
+  fq12C1 = fq6Sub a.fq12C1 b.fq12C1
+
+fq12Neg : Fq12 -> Fq12
+fq12Neg a = Fq12 with
+  fq12C0 = fq6Neg a.fq12C0
+  fq12C1 = fq6Neg a.fq12C1
+
+fq12Mul : Fq12 -> Fq12 -> Fq12
+fq12Mul a b =
+  let t0 = fq6Mul a.fq12C0 b.fq12C0
+      t1 = fq6Mul a.fq12C1 b.fq12C1
+      t2 = fq6Add a.fq12C0 a.fq12C1
+      t3 = fq6Add b.fq12C0 b.fq12C1
+  in Fq12 with
+    fq12C0 = fq6Add (fq6MulByV t1) t0
+    fq12C1 = fq6Sub (fq6Mul t2 t3) (fq6Add t0 t1)
+
+fq12Square : Fq12 -> Fq12
+fq12Square a =
+  let t0 = fq6Add a.fq12C0 a.fq12C1
+      t1 = fq6Add (fq6MulByV a.fq12C1) a.fq12C0
+      t2 = fq6Mul a.fq12C0 a.fq12C1
+  in Fq12 with
+    fq12C0 = fq6Sub (fq6Mul t0 t1) (fq6Add t2 (fq6MulByV t2))
+    fq12C1 = fq6Add t2 t2
+
+fq12Inv : Fq12 -> Fq12
+fq12Inv a =
+  if a == fq12Zero then error "Fq12 inverse of zero"
+  else
+    let factor = fq6Inv (fq6Sub (fq6Square a.fq12C0) (fq6MulByV (fq6Square a.fq12C1)))
+    in Fq12 with
+      fq12C0 = fq6Mul a.fq12C0 factor
+      fq12C1 = fq6Neg (fq6Mul a.fq12C1 factor)
+
+fq12UnitaryInv : Fq12 -> Fq12
+fq12UnitaryInv a = Fq12 with
+  fq12C0 = a.fq12C0
+  fq12C1 = fq6Neg a.fq12C1
+
+fq12SparseMul : Fq12 -> Fq12Sparse -> Fq12
+fq12SparseMul value ell =
+  let sparse0 = Fq6 with fq6C0 = ell.ellO; fq6C1 = fq2Zero; fq6C2 = fq2Zero
+      aa = fq6Mul value.fq12C0 sparse0
+      bb = fq6SparseMul value.fq12C1 ell.ellW ell.ellVW
+      ee = fq6SparseMul (fq6Add value.fq12C0 value.fq12C1) (fq2Add ell.ellO ell.ellW) ell.ellVW
+      ff = fq6Sub ee (fq6Add aa bb)
+      hh = fq6Add aa (fq6MulByV bb)
+  in Fq12 with
+    fq12C0 = hh
+    fq12C1 = ff
+
+-- Fermat inversion hooks. The exponents are encoded by subtracting two from the
+-- modulus. These are correct but intentionally not optimized.
+frInv : Fr -> Fr
+frInv a =
+  if a == frZero then error "Fr inverse of zero"
+  else if a == frOne then frOne
+  else frPow a (U.sub frModulus (U.fromLimbs [2]))
+
+fqInv : Fq -> Fq
+fqInv a =
+  if a == fqZero then error "Fq inverse of zero"
+  else if a == fqOne then fqOne
+  else fqPow a (U.sub fqModulus (U.fromLimbs [2]))
+
+fqPow : Fq -> UInt256 -> Fq
+fqPow base exponent = fqPowLoop fqOne base (U.bitsLE exponent)
+
+powLoop : Fr -> Fr -> [Bool] -> Fr
+powLoop acc cur bits =
+  case bits of
+    [] -> acc
+    b :: rest ->
+      let acc1 = if b then frMul acc cur else acc
+      in powLoop acc1 (frMul cur cur) rest
+
+fqPowLoop : Fq -> Fq -> [Bool] -> Fq
+fqPowLoop acc cur bits =
+  case bits of
+    [] -> acc
+    b :: rest ->
+      let acc1 = if b then fqMul acc cur else acc
+      in fqPowLoop acc1 (fqMul cur cur) rest

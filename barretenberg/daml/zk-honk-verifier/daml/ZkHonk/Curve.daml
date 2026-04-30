@@ -1,0 +1,225 @@
+module ZkHonk.Curve where
+
+import ZkHonk.Types
+import ZkHonk.Field
+import qualified ZkHonk.UInt256 as U
+
+data G1Projective = G1Projective with
+    jx : Fq
+    jy : Fq
+    jz : Fq
+  deriving (Eq, Show)
+
+g1Generator : G1
+g1Generator = G1Affine with
+  x = fqOne
+  y = mkFq (U.fromLimbs [2])
+
+g2Generator : G2
+g2Generator = G2Affine with
+  g2X = Fq2 with
+    c0 = mkFq (U.fromLimbs [63213, 55698, 48476, 18142, 56029, 63326, 8916, 26435, 17529, 24156, 102, 17002, 7798, 4639, 57071, 6144])
+    c1 = mkFq (U.fromLimbs [4802, 44787, 34231, 38884, 59154, 13737, 18739, 61866, 23845, 12795, 49079, 29280, 18490, 37389, 37779, 6542])
+  g2Y = Fq2 with
+    c0 = mkFq (U.fromLimbs [32170, 26362, 52225, 19686, 54139, 3139, 59241, 58321, 16527, 36299, 29056, 19115, 28139, 56204, 24229, 4808])
+    c1 = mkFq (U.fromLimbs [38747, 53538, 56028, 21932, 36595, 28851, 12595, 48203, 13205, 26892, 39341, 60574, 61557, 22623, 35280, 2310])
+
+g2TwistCoeffB : Fq2
+g2TwistCoeffB = Fq2 with
+  c0 = mkFq (U.fromLimbs [14565, 9377, 59100, 12903, 61347, 23003, 50661, 46516, 27331, 7136, 6297, 33214, 43694, 52920, 40256, 11028])
+  c1 = mkFq (U.fromLimbs [5586, 34243, 48390, 58530, 6226, 58669, 41092, 42831, 65012, 61144, 44973, 52524, 65236, 15088, 5040, 151])
+
+g1Neg : G1 -> G1
+g1Neg point =
+  case point of
+    G1Infinity -> G1Infinity
+    G1Affine x y -> G1Affine with x = x; y = fqNeg y
+
+g1Add : G1 -> G1 -> G1
+g1Add a b =
+  case (a, b) of
+    (G1Infinity, _) -> b
+    (_, G1Infinity) -> a
+    (G1Affine x1 y1, G1Affine x2 y2) ->
+      if x1 == x2 && fqAdd y1 y2 == fqZero then G1Infinity
+      else if x1 == x2 && y1 == y2 then g1Double a
+      else
+        let lambda = fqMul (fqSub y2 y1) (fqInv (fqSub x2 x1))
+            x3 = fqSub (fqSub (fqMul lambda lambda) x1) x2
+            y3 = fqSub (fqMul lambda (fqSub x1 x3)) y1
+        in G1Affine with x = x3; y = y3
+
+g1Double : G1 -> G1
+g1Double point =
+  case point of
+    G1Infinity -> G1Infinity
+    G1Affine x y ->
+      if y == fqZero then G1Infinity
+      else
+        let three = mkFq (U.fromLimbs [3])
+            two = mkFq (U.fromLimbs [2])
+            lambda = fqMul (fqMul three (fqMul x x)) (fqInv (fqMul two y))
+            x3 = fqSub (fqMul lambda lambda) (fqMul two x)
+            y3 = fqSub (fqMul lambda (fqSub x x3)) y
+        in G1Affine with x = x3; y = y3
+
+g1Sub : G1 -> G1 -> G1
+g1Sub a b = g1Add a (g1Neg b)
+
+g1ScalarMul : G1 -> Fr -> G1
+g1ScalarMul point scalar =
+  g1FromProjective (g1MsmBits 255 [point] [U.bitsLE scalar.frValue] g1ProjectiveInfinity)
+
+g1BatchMul : [G1] -> [Fr] -> G1
+g1BatchMul points scalars =
+  if length points /= length scalars then error "G1 batch_mul length mismatch"
+  else g1FromProjective (g1MsmBits 255 points (map (\s -> U.bitsLE s.frValue) scalars) g1ProjectiveInfinity)
+
+g1ProjectiveInfinity : G1Projective
+g1ProjectiveInfinity = G1Projective with
+  jx = fqZero
+  jy = fqOne
+  jz = fqZero
+
+g1ProjectiveIsInfinity : G1Projective -> Bool
+g1ProjectiveIsInfinity point = point.jz == fqZero
+
+g1ToProjective : G1 -> G1Projective
+g1ToProjective point =
+  case point of
+    G1Infinity -> g1ProjectiveInfinity
+    G1Affine x y -> G1Projective with jx = x; jy = y; jz = fqOne
+
+g1FromProjective : G1Projective -> G1
+g1FromProjective point =
+  if g1ProjectiveIsInfinity point then G1Infinity
+  else if point.jz == fqOne then G1Affine with x = point.jx; y = point.jy
+  else
+    let zInv = fqInv point.jz
+        zInv2 = fqSquare zInv
+        zInv3 = fqMul zInv2 zInv
+    in G1Affine with
+      x = fqMul point.jx zInv2
+      y = fqMul point.jy zInv3
+
+g1ProjectiveDouble : G1Projective -> G1Projective
+g1ProjectiveDouble point =
+  if g1ProjectiveIsInfinity point || point.jy == fqZero then g1ProjectiveInfinity
+  else
+    let xx = fqSquare point.jx
+        yy = fqSquare point.jy
+        yyyy = fqSquare yy
+        s = fqMul (fqSmall 4) (fqMul point.jx yy)
+        m = fqMul (fqSmall 3) xx
+        t = fqSquare m
+        x3 = fqSub t (fqAdd s s)
+        y3 = fqSub (fqMul m (fqSub s x3)) (fqMul (fqSmall 8) yyyy)
+        z3 = fqMul (fqAdd point.jy point.jy) point.jz
+    in G1Projective with jx = x3; jy = y3; jz = z3
+
+g1ProjectiveMixedAdd : G1Projective -> G1 -> G1Projective
+g1ProjectiveMixedAdd point addend =
+  case addend of
+    G1Infinity -> point
+    G1Affine x2 y2 ->
+      if g1ProjectiveIsInfinity point then g1ToProjective addend
+      else
+        let z1z1 = fqSquare point.jz
+            u2 = fqMul x2 z1z1
+            s2 = fqMul y2 (fqMul z1z1 point.jz)
+            h = fqSub u2 point.jx
+            r = fqSub s2 point.jy
+        in if h == fqZero then
+            if r == fqZero then g1ProjectiveDouble point else g1ProjectiveInfinity
+           else
+            let hh = fqSquare h
+                hhh = fqMul h hh
+                v = fqMul point.jx hh
+                x3 = fqSub (fqSub (fqSquare r) hhh) (fqAdd v v)
+                y3 = fqSub (fqMul r (fqSub v x3)) (fqMul point.jy hhh)
+                z3 = fqMul point.jz h
+            in G1Projective with jx = x3; jy = y3; jz = z3
+
+g1MsmBits : Int -> [G1] -> [[Bool]] -> G1Projective -> G1Projective
+g1MsmBits bitIdx points scalarBits acc =
+  if bitIdx < 0 then acc
+  else
+    let doubled = g1ProjectiveDouble acc
+        added = g1MsmAddBit bitIdx points scalarBits doubled
+    in g1MsmBits (bitIdx - 1) points scalarBits added
+
+g1MsmAddBit : Int -> [G1] -> [[Bool]] -> G1Projective -> G1Projective
+g1MsmAddBit bitIdx points scalarBits acc =
+  case (points, scalarBits) of
+    ([], []) -> acc
+    (point :: restPoints, bits :: restBits) ->
+      let next = if curveListAt bits bitIdx then g1ProjectiveMixedAdd acc point else acc
+      in g1MsmAddBit bitIdx restPoints restBits next
+    _ -> error "G1 MSM bit length mismatch"
+
+g2OnCurve : G2 -> Bool
+g2OnCurve point =
+  case point of
+    G2Infinity -> True
+    G2Affine x y ->
+      let lhs = fq2Square y
+          rhs = fq2Add (fq2Mul x (fq2Mul x x)) g2TwistCoeffB
+      in lhs == rhs
+
+g2Neg : G2 -> G2
+g2Neg point =
+  case point of
+    G2Infinity -> G2Infinity
+    G2Affine x y -> G2Affine with g2X = x; g2Y = fq2Neg y
+
+g2Add : G2 -> G2 -> G2
+g2Add a b =
+  case (a, b) of
+    (G2Infinity, _) -> b
+    (_, G2Infinity) -> a
+    (G2Affine x1 y1, G2Affine x2 y2) ->
+      if x1 == x2 && fq2Add y1 y2 == fq2Zero then G2Infinity
+      else if x1 == x2 && y1 == y2 then g2Double a
+      else
+        let lambda = fq2Mul (fq2Sub y2 y1) (fq2Inv (fq2Sub x2 x1))
+            x3 = fq2Sub (fq2Sub (fq2Mul lambda lambda) x1) x2
+            y3 = fq2Sub (fq2Mul lambda (fq2Sub x1 x3)) y1
+        in G2Affine with g2X = x3; g2Y = y3
+
+g2Double : G2 -> G2
+g2Double point =
+  case point of
+    G2Infinity -> G2Infinity
+    G2Affine x y ->
+      if y == fq2Zero then G2Infinity
+      else
+        let three = mkFq (U.fromLimbs [3])
+            two = mkFq (U.fromLimbs [2])
+            numerator = fq2MulByFq (fq2Mul x x) three
+            denominator = fq2MulByFq y two
+            lambda = fq2Mul numerator (fq2Inv denominator)
+            x3 = fq2Sub (fq2Mul lambda lambda) (fq2MulByFq x two)
+            y3 = fq2Sub (fq2Mul lambda (fq2Sub x x3)) y
+        in G2Affine with g2X = x3; g2Y = y3
+
+g2Sub : G2 -> G2 -> G2
+g2Sub a b = g2Add a (g2Neg b)
+
+scalarMulBits : G1 -> G1 -> [Bool] -> G1
+scalarMulBits acc cur bits =
+  case bits of
+    [] -> acc
+    b :: rest ->
+      let acc1 = if b then g1Add acc cur else acc
+      in scalarMulBits acc1 (g1Double cur) rest
+
+fqSmall : Int -> Fq
+fqSmall n = mkFq (U.fromLimbs [n])
+
+curveListAt : [a] -> Int -> a
+curveListAt xs idx =
+  case xs of
+    [] -> error "List index out of bounds"
+    x :: rest ->
+      if idx == 0 then x
+      else curveListAt rest (idx - 1)

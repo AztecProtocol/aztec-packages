@@ -1,0 +1,70 @@
+module ZkHonk.Codec where
+
+import ZkHonk.Types
+import ZkHonk.Field
+import qualified ZkHonk.UInt256 as U
+
+numPrecomputedCommitments : Int
+numPrecomputedCommitments = 28
+
+numVkFields : Int
+numVkFields = 115
+
+numFrsPerCommitment : Int
+numFrsPerCommitment = 4
+
+defaultIoPublicInputs : Int
+defaultIoPublicInputs = 8
+
+commitmentFromFrs : [Fr] -> Optional G1
+commitmentFromFrs fields =
+  case fields of
+    [xLoFr, xHiFr, yLoFr, yHiFr] ->
+      if allFrZero fields then Some G1Infinity
+      else
+        let x = combineBaseFieldLimbs xLoFr.frValue xHiFr.frValue
+            y = combineBaseFieldLimbs yLoFr.frValue yHiFr.frValue
+        in case (x, y) of
+            (Some fqX, Some fqY) ->
+              let p = G1Affine with x = fqX; y = fqY
+              in if g1OnCurve p then Some p else None
+            _ -> None
+    _ -> None
+
+commitmentToFrs : G1 -> [Fr]
+commitmentToFrs point =
+  case point of
+    G1Infinity -> replicate numFrsPerCommitment frZero
+    G1Affine x y -> coordinateToFrs x.fqValue ++ coordinateToFrs y.fqValue
+
+coordinateToFrs : UInt256 -> [Fr]
+coordinateToFrs value =
+  let bits = U.bitsLE value
+      lo = U.fromBitsLE (take 136 bits)
+      hi = U.fromBitsLE (take 118 (drop 136 bits))
+  in [(Fr with frValue = lo), (Fr with frValue = hi)]
+
+combineBaseFieldLimbs : UInt256 -> UInt256 -> Optional Fq
+combineBaseFieldLimbs lo hi =
+  let loLimit = U.pow2 136
+      hiLimit = U.pow2 118
+      shiftedHi = U.shiftLeftBits hi 136
+      value = U.add lo shiftedHi
+  in if U.gte lo loLimit || U.gte hi hiLimit || not (isCanonicalFq value)
+     then None
+     else Some (Fq with fqValue = value)
+
+g1OnCurve : G1 -> Bool
+g1OnCurve point =
+  case point of
+    G1Infinity -> True
+    G1Affine x y ->
+      let lhs = fqMul y y
+          rhs = fqAdd (fqMul x (fqMul x x)) (mkFq (U.fromLimbs [3]))
+      in lhs == rhs
+
+allFrZero : [Fr] -> Bool
+allFrZero xs =
+  case xs of
+    [] -> True
+    x :: rest -> x == frZero && allFrZero rest

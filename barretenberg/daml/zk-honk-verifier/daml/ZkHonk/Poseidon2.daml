@@ -1,0 +1,120 @@
+module ZkHonk.Poseidon2 where
+
+import ZkHonk.Types
+import ZkHonk.Field
+import ZkHonk.Poseidon2Constants
+import qualified ZkHonk.UInt256 as U
+
+data Poseidon2State = Poseidon2State with
+    p0 : Fr
+    p1 : Fr
+    p2 : Fr
+    p3 : Fr
+  deriving (Eq, Show)
+
+poseidon2Hash : [Fr] -> Fr
+poseidon2Hash inputs =
+  let iv = mkFr (U.shiftLeftBits (U.fromLimbs [length inputs]) 64)
+      initial = Poseidon2State with p0 = frZero; p1 = frZero; p2 = frZero; p3 = iv
+  in spongeSqueeze initial inputs
+
+spongeSqueeze : Poseidon2State -> [Fr] -> Fr
+spongeSqueeze state inputs =
+  case inputs of
+    [] -> (poseidon2Permutation state).p0
+    [a] -> (poseidon2Permutation (absorbCache state a frZero frZero)).p0
+    [a, b] -> (poseidon2Permutation (absorbCache state a b frZero)).p0
+    [a, b, c] -> (poseidon2Permutation (absorbCache state a b c)).p0
+    a :: b :: c :: rest -> spongeSqueeze (poseidon2Permutation (absorbCache state a b c)) rest
+
+absorbCache : Poseidon2State -> Fr -> Fr -> Fr -> Poseidon2State
+absorbCache state a b c = state with
+  p0 = frAdd state.p0 a
+  p1 = frAdd state.p1 b
+  p2 = frAdd state.p2 c
+
+poseidon2Permutation : Poseidon2State -> Poseidon2State
+poseidon2Permutation state =
+  let afterInitialLinearLayer = matrixExternal state
+      afterFirstExternalRounds = applyFullRounds (take 4 poseidon2RoundConstants) afterInitialLinearLayer
+      afterInternalRounds = applyPartialRounds (take 56 (drop 4 poseidon2RoundConstants)) afterFirstExternalRounds
+  in applyFullRounds (drop 60 poseidon2RoundConstants) afterInternalRounds
+
+applyFullRounds : [[Fr]] -> Poseidon2State -> Poseidon2State
+applyFullRounds rounds state =
+  case rounds of
+    [] -> state
+    roundConstants :: rest -> applyFullRounds rest (applyFullRound roundConstants state)
+
+applyPartialRounds : [[Fr]] -> Poseidon2State -> Poseidon2State
+applyPartialRounds rounds state =
+  case rounds of
+    [] -> state
+    roundConstants :: rest -> applyPartialRounds rest (applyPartialRound roundConstants state)
+
+applyFullRound : [Fr] -> Poseidon2State -> Poseidon2State
+applyFullRound roundConstants state =
+  matrixExternal (sboxAll (addRoundConstants state roundConstants))
+
+applyPartialRound : [Fr] -> Poseidon2State -> Poseidon2State
+applyPartialRound roundConstants state =
+  case roundConstants of
+    rc0 :: _ ->
+      let withConstant = state with p0 = frAdd state.p0 rc0
+      in matrixInternal (withConstant with p0 = sbox withConstant.p0)
+    _ -> error "Poseidon2 partial round constants must contain at least one field"
+
+addRoundConstants : Poseidon2State -> [Fr] -> Poseidon2State
+addRoundConstants state constants =
+  case constants of
+    [c0, c1, c2, c3] -> Poseidon2State with
+      p0 = frAdd state.p0 c0
+      p1 = frAdd state.p1 c1
+      p2 = frAdd state.p2 c2
+      p3 = frAdd state.p3 c3
+    _ -> error "Poseidon2 full round constants must have width 4"
+
+sboxAll : Poseidon2State -> Poseidon2State
+sboxAll state = Poseidon2State with
+  p0 = sbox state.p0
+  p1 = sbox state.p1
+  p2 = sbox state.p2
+  p3 = sbox state.p3
+
+sbox : Fr -> Fr
+sbox value =
+  let x2 = frMul value value
+      x4 = frMul x2 x2
+  in frMul value x4
+
+matrixExternal : Poseidon2State -> Poseidon2State
+matrixExternal state =
+  let a = state.p0
+      b = state.p1
+      c = state.p2
+      d = state.p3
+      t0 = frAdd a b
+      t1 = frAdd c d
+      t2 = frAdd (frAdd b b) t1
+      t3 = frAdd (frAdd d d) t0
+      t4 = frAdd (frAdd (frAdd t1 t1) (frAdd t1 t1)) t3
+      t5 = frAdd (frAdd (frAdd t0 t0) (frAdd t0 t0)) t2
+      t6 = frAdd t3 t5
+      t7 = frAdd t2 t4
+  in Poseidon2State with
+    p0 = t6
+    p1 = t5
+    p2 = t7
+    p3 = t4
+
+matrixInternal : Poseidon2State -> Poseidon2State
+matrixInternal state =
+  case poseidon2InternalDiagonalMinusOne of
+    [d0, d1, d2, d3] ->
+      let total = frAdd (frAdd state.p0 state.p1) (frAdd state.p2 state.p3)
+      in Poseidon2State with
+        p0 = frAdd (frMul d0 state.p0) total
+        p1 = frAdd (frMul d1 state.p1) total
+        p2 = frAdd (frMul d2 state.p2) total
+        p3 = frAdd (frMul d3 state.p3) total
+    _ -> error "Poseidon2 internal diagonal must have width 4"

@@ -1,0 +1,9 @@
+sdk-version: 3.4.7
+name: zk-honk-verifier
+source: daml
+version: 0.1.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+build-options:
+  - --target=2.1

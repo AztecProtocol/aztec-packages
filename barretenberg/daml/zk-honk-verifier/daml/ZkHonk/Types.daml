@@ -1,0 +1,68 @@
+module ZkHonk.Types where
+
+data UInt256 = UInt256 with
+    limbs16 : [Int]
+  deriving (Eq, Show)
+
+data Fr = Fr with
+    frValue : UInt256
+  deriving (Eq, Show)
+
+data Fq = Fq with
+    fqValue : UInt256
+  deriving (Eq, Show)
+
+data Fq2 = Fq2 with
+    c0 : Fq
+    c1 : Fq
+  deriving (Eq, Show)
+
+data Fq6 = Fq6 with
+    fq6C0 : Fq2
+    fq6C1 : Fq2
+    fq6C2 : Fq2
+  deriving (Eq, Show)
+
+data Fq12 = Fq12 with
+    fq12C0 : Fq6
+    fq12C1 : Fq6
+  deriving (Eq, Show)
+
+data Fq12Sparse = Fq12Sparse with
+    ellO : Fq2
+    ellW : Fq2
+    ellVW : Fq2
+  deriving (Eq, Show)
+
+data G1
+  = G1Infinity
+  | G1Affine with
+      x : Fq
+      y : Fq
+  deriving (Eq, Show)
+
+data G2
+  = G2Infinity
+  | G2Affine with
+      g2X : Fq2
+      g2Y : Fq2
+  deriving (Eq, Show)
+
+data VerificationKey = VerificationKey with
+    logCircuitSize : Int
+    numPublicInputs : Int
+    pubInputsOffset : Int
+    precomputedCommitments : [G1]
+    expectedVkHash : Fr
+  deriving (Eq, Show)
+
+data ProofRequest = ProofRequest with
+    publicInputs : [Fr]
+    proofFields : [Fr]
+  deriving (Eq, Show)
+
+data VerificationResult = VerificationResult with
+    vkHash : Fr
+    publicInputHash : Fr
+    accepted : Bool
+  deriving (Eq, Show)

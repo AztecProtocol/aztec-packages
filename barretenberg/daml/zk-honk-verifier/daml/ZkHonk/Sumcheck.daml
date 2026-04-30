@@ -1,0 +1,116 @@
+module ZkHonk.Sumcheck where
+
+import ZkHonk.Types
+import ZkHonk.Field
+import ZkHonk.Proof
+import ZkHonk.Challenges
+import ZkHonk.Relations (RelationParameters(..), accumulateRelationEvaluations, numberOfEntities)
+import qualified ZkHonk.UInt256 as U
+
+verifyUltraZKSumcheck : ParsedUltraZKProof -> UltraZKChallenges -> Bool
+verifyUltraZKSumcheck proof challenges =
+  let activeLogN = length challenges.sumcheckUChallenges
+      activeUnivariates = take activeLogN proof.sumcheckUnivariates
+  in if activeLogN <= 0 || activeLogN > logN then False
+  else if length activeUnivariates /= activeLogN then False
+  else if length proof.sumcheckEvaluations /= numAllEntitiesZk then False
+  else if length challenges.gateChallenges /= activeLogN then False
+  else
+    let initialTarget = frMul challenges.libraChallenge proof.libraSum
+    in case verifySumcheckRounds activeUnivariates challenges.sumcheckUChallenges challenges.gateChallenges initialTarget frOne of
+        None -> False
+        Some (roundTargetSum, powPartialEvaluation) ->
+          let relationEvaluations = take numberOfEntities (drop 1 proof.sumcheckEvaluations)
+              relationParameters = RelationParameters with
+                eta = challenges.eta
+                beta = challenges.beta
+                gamma = challenges.gamma
+                publicInputsDelta = challenges.publicInputsDelta
+          in case accumulateRelationEvaluations relationEvaluations relationParameters challenges.alphas powPartialEvaluation of
+              None -> False
+              Some grandHonkRelationSum ->
+                let rowDisablingEval = frSub frOne (productFr (drop 2 challenges.sumcheckUChallenges))
+                    finalSum = frAdd (frMul grandHonkRelationSum rowDisablingEval) (frMul proof.libraClaimedEvaluation challenges.libraChallenge)
+                in finalSum == roundTargetSum
+
+verifySumcheckRounds : [[Fr]] -> [Fr] -> [Fr] -> Fr -> Fr -> Optional (Fr, Fr)
+verifySumcheckRounds rows uChallenges gateChallenges roundTargetSum powPartialEvaluation =
+  case (rows, uChallenges, gateChallenges) of
+    ([], [], []) -> Some (roundTargetSum, powPartialEvaluation)
+    (row :: restRows, u :: restU, gateChallenge :: restGate) ->
+      if length row /= batchedRelationPartialLength then None
+      else
+        let totalSum = frAdd (listAt row 0) (listAt row 1)
+        in if totalSum /= roundTargetSum then None
+           else case computeNextTargetSum row u of
+             None -> None
+             Some nextTarget ->
+               let powFactor = frAdd frOne (frMul u (frSub gateChallenge frOne))
+               in verifySumcheckRounds restRows restU restGate nextTarget (frMul powPartialEvaluation powFactor)
+    _ -> None
+
+computeNextTargetSum : [Fr] -> Fr -> Optional Fr
+computeNextTargetSum roundUnivariates roundChallenge =
+  if length roundUnivariates /= batchedRelationPartialLength then None
+  else case domainPointHit roundUnivariates roundChallenge 0 of
+    Some value -> Some value
+    None ->
+      let numeratorValue = productFr (map (\i -> frSub roundChallenge (frFromInt i)) domainIndices)
+          terms = barycentricTerms roundUnivariates roundChallenge barycentricLagrangeDenominators 0
+      in case terms of
+        None -> None
+        Some termSum -> Some (frMul termSum numeratorValue)
+
+barycentricTerms : [Fr] -> Fr -> [Fr] -> Int -> Optional Fr
+barycentricTerms values challenge denominators idx =
+  case (values, denominators) of
+    ([], []) -> Some frZero
+    (value :: restValues, denominator :: restDenominators) ->
+      let distance = frSub challenge (frFromInt idx)
+          denom = frMul denominator distance
+      in if denom == frZero then None
+         else case barycentricTerms restValues challenge restDenominators (idx + 1) of
+           None -> None
+           Some rest -> Some (frAdd (frMul value (frInv denom)) rest)
+    _ -> None
+
+domainPointHit : [Fr] -> Fr -> Int -> Optional Fr
+domainPointHit values challenge idx =
+  case values of
+    [] -> None
+    value :: rest ->
+      if challenge == frFromInt idx then Some value
+      else domainPointHit rest challenge (idx + 1)
+
+productFr : [Fr] -> Fr
+productFr values =
+  case values of
+    [] -> frOne
+    x :: rest -> frMul x (productFr rest)
+
+listAt : [a] -> Int -> a
+listAt xs idx =
+  case xs of
+    [] -> error "List index out of bounds"
+    x :: rest ->
+      if idx == 0 then x
+      else listAt rest (idx - 1)
+
+frFromInt : Int -> Fr
+frFromInt n = mkFr (U.fromLimbs [n])
+
+domainIndices : [Int]
+domainIndices = [0, 1, 2, 3, 4, 5, 6, 7, 8]
+
+barycentricLagrangeDenominators : [Fr]
+barycentricLagrangeDenominators =
+  [ frFromInt 40320
+  , frNeg (frFromInt 5040)
+  , frFromInt 1440
+  , frNeg (frFromInt 720)
+  , frFromInt 576
+  , frNeg (frFromInt 720)
+  , frFromInt 1440
+  , frNeg (frFromInt 5040)
+  , frFromInt 40320
+  ]

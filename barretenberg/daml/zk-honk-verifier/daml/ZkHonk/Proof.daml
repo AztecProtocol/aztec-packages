@@ -1,0 +1,107 @@
+module ZkHonk.Proof where
+
+import ZkHonk.Types
+import ZkHonk.Codec
+
+logN : Int
+logN = 25
+
+batchedRelationPartialLength : Int
+batchedRelationPartialLength = 9
+
+numAllEntitiesZk : Int
+numAllEntitiesZk = 42
+
+numWitnessCommitmentsZk : Int
+numWitnessCommitmentsZk = 9
+
+numLibraCommitments : Int
+numLibraCommitments = 3
+
+numLibraEvaluations : Int
+numLibraEvaluations = 4
+
+numGeminiFoldCommitments : Int
+numGeminiFoldCommitments = logN - 1
+
+ultraZkProofFieldsWithoutPublicInputs : Int
+ultraZkProofFieldsWithoutPublicInputs = 458
+
+data ParsedUltraZKProof = ParsedUltraZKProof with
+    pairingAccumulator : [Fr]
+    witnessCommitments : [G1]
+    libraCommitments : [G1]
+    geminiFoldCommitments : [G1]
+    shplonkQ : G1
+    kzgQuotient : G1
+    libraSum : Fr
+    libraClaimedEvaluation : Fr
+    sumcheckUnivariates : [[Fr]]
+    sumcheckEvaluations : [Fr]
+    geminiEvaluations : [Fr]
+    libraEvaluations : [Fr]
+  deriving (Eq, Show)
+
+parseUltraZKProof : [Fr] -> Optional ParsedUltraZKProof
+parseUltraZKProof fields =
+  if length fields /= ultraZkProofFieldsWithoutPublicInputs then None
+  else if not (allFrZero (take defaultIoPublicInputs fields)) then None
+  else
+    let afterPairing = drop defaultIoPublicInputs fields
+    in parseCommitments numWitnessCommitmentsZk afterPairing `andThen` \(witnessCommitments, afterWitness) ->
+       parseCommitments 1 afterWitness `andThen` \(libraConcat, afterLibraConcat) ->
+       takeScalars 1 afterLibraConcat `andThen` \(libraSumFields, afterLibraSum) ->
+       takeScalarMatrix logN batchedRelationPartialLength afterLibraSum `andThen` \(sumcheckUnivariates, afterUnivariates) ->
+       takeScalars numAllEntitiesZk afterUnivariates `andThen` \(sumcheckEvaluations, afterEvaluations) ->
+       takeScalars 1 afterEvaluations `andThen` \(libraClaimedFields, afterLibraClaimed) ->
+       parseCommitments 2 afterLibraClaimed `andThen` \(libraRest, afterLibraRest) ->
+       parseCommitments numGeminiFoldCommitments afterLibraRest `andThen` \(geminiFoldCommitments, afterGeminiComms) ->
+       takeScalars logN afterGeminiComms `andThen` \(geminiEvaluations, afterGeminiEvals) ->
+       takeScalars numLibraEvaluations afterGeminiEvals `andThen` \(libraEvaluations, afterLibraEvals) ->
+       parseCommitments 1 afterLibraEvals `andThen` \(shplonkQs, afterShplonk) ->
+       parseCommitments 1 afterShplonk `andThen` \(kzgQuotients, rest) ->
+       case (libraSumFields, libraClaimedFields, shplonkQs, kzgQuotients, rest) of
+         ([libraSum], [libraClaimedEvaluation], [shplonkQ], [kzgQuotient], []) ->
+           Some ParsedUltraZKProof with
+             pairingAccumulator = take defaultIoPublicInputs fields
+             witnessCommitments = witnessCommitments
+             libraCommitments = libraConcat ++ libraRest
+             geminiFoldCommitments = geminiFoldCommitments
+             shplonkQ = shplonkQ
+             kzgQuotient = kzgQuotient
+             libraSum = libraSum
+             libraClaimedEvaluation = libraClaimedEvaluation
+             sumcheckUnivariates = sumcheckUnivariates
+             sumcheckEvaluations = sumcheckEvaluations
+             geminiEvaluations = geminiEvaluations
+             libraEvaluations = libraEvaluations
+         _ -> None
+
+parseCommitments : Int -> [Fr] -> Optional ([G1], [Fr])
+parseCommitments count fields =
+  if count == 0 then Some ([], fields)
+  else takeScalars numFrsPerCommitment fields `andThen` \(commitmentFields, rest) ->
+       case commitmentFromFrs commitmentFields of
+         None -> None
+         Some commitment ->
+           parseCommitments (count - 1) rest `andThen` \(commitments, tailFields) ->
+             Some (commitment :: commitments, tailFields)
+
+takeScalarMatrix : Int -> Int -> [Fr] -> Optional ([[Fr]], [Fr])
+takeScalarMatrix rows cols fields =
+  if rows == 0 then Some ([], fields)
+  else takeScalars cols fields `andThen` \(row, rest) ->
+       takeScalarMatrix (rows - 1) cols rest `andThen` \(rowsRest, tailFields) ->
+         Some (row :: rowsRest, tailFields)
+
+takeScalars : Int -> [Fr] -> Optional ([Fr], [Fr])
+takeScalars count fields =
+  if count < 0 then None
+  else if length fields < count then None
+  else Some (take count fields, drop count fields)
+
+andThen : Optional a -> (a -> Optional b) -> Optional b
+andThen opt f =
+  case opt of
+    None -> None
+    Some value -> f value

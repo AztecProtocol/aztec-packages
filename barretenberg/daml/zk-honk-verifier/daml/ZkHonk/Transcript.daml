@@ -1,0 +1,51 @@
+module ZkHonk.Transcript where
+
+import ZkHonk.Types
+import ZkHonk.Poseidon2
+import qualified ZkHonk.UInt256 as U
+
+data Transcript = Transcript with
+    previousChallenge : Optional Fr
+    currentRoundData : [Fr]
+  deriving (Eq, Show)
+
+emptyTranscript : Transcript
+emptyTranscript = Transcript with
+  previousChallenge = None
+  currentRoundData = []
+
+appendFields : Transcript -> [Fr] -> Transcript
+appendFields transcript fields = transcript with currentRoundData = transcript.currentRoundData ++ fields
+
+nextChallenge : Transcript -> (Transcript, Fr)
+nextChallenge transcript =
+  let (next, challenge, _) = nextChallengePair transcript
+  in (next, challenge)
+
+nextChallenges : Transcript -> Int -> (Transcript, [Fr])
+nextChallenges transcript count =
+  if count <= 0 then (transcript, [])
+  else
+    let (next, first, second) = nextChallengePair transcript
+    in if count == 1 then (next, [first])
+       else
+         let (final, rest) = nextChallenges next (count - 2)
+         in (final, first :: second :: rest)
+
+nextChallengePair : Transcript -> (Transcript, Fr, Fr)
+nextChallengePair transcript =
+  let buffer =
+        case transcript.previousChallenge of
+          None -> transcript.currentRoundData
+          Some prev -> prev :: transcript.currentRoundData
+      challenge = poseidon2Hash buffer
+      (first, second) = splitChallenge challenge
+      next = Transcript with previousChallenge = Some challenge; currentRoundData = []
+  in (next, first, second)
+
+splitChallenge : Fr -> (Fr, Fr)
+splitChallenge challenge =
+  let bits = U.bitsLE challenge.frValue
+      lo = U.fromBitsLE (take 127 bits)
+      hi = U.fromBitsLE (take 127 (drop 127 bits))
+  in ((Fr with frValue = lo), (Fr with frValue = hi))

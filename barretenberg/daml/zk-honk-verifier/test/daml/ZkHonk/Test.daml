@@ -1,0 +1,551 @@
+module ZkHonk.Test where
+
+import Daml.Script
+import ZkHonk.Types
+import ZkHonk.Field
+import ZkHonk.Codec
+import ZkHonk.Curve
+import ZkHonk.Ledger
+import ZkHonk.Pairing (pairingCheck)
+import ZkHonk.Poseidon2
+import ZkHonk.Proof
+import ZkHonk.Transcript
+import ZkHonk.Verifier
+import ZkHonk.Sumcheck
+import ZkHonk.Challenges (UltraZKChallenges(..), computePublicInputDelta, generateUltraZKChallenges)
+import ZkHonk.Relations (RelationParameters(..), accumulateRelationEvaluations, accumulateRelationSubrelations, numberOfEntities)
+import qualified ZkHonk.Shplemini as Shplemini
+import ZkHonk.ValidVector
+import qualified ZkHonk.UInt256 as U
+
+dummyVk : VerificationKey
+dummyVk = VerificationKey with
+  logCircuitSize = 25
+  numPublicInputs = 8
+  pubInputsOffset = 0
+  precomputedCommitments = replicate 28 G1Infinity
+  expectedVkHash = frZero
+
+dummyChallenges : UltraZKChallenges
+dummyChallenges = UltraZKChallenges with
+  eta = frOne
+  beta = frOne
+  gamma = frOne
+  publicInputsDelta = frOne
+  alphas = replicate 27 frOne
+  gateChallenges = replicate 25 frOne
+  libraChallenge = frOne
+  sumcheckUChallenges = replicate 25 frZero
+  paddedSumcheckUChallenges = replicate 25 frZero
+  rho = frOne
+  geminiR = frOne
+  shplonkNu = frOne
+  shplonkZ = frOne
+
+fq2Small : Int -> Int -> Fq2
+fq2Small a b = Fq2 with
+  c0 = mkFq (U.fromLimbs [a])
+  c1 = mkFq (U.fromLimbs [b])
+
+fq6Small : Int -> Fq6
+fq6Small offset = Fq6 with
+  fq6C0 = fq2Small offset (offset + 1)
+  fq6C1 = fq2Small (offset + 2) (offset + 3)
+  fq6C2 = fq2Small (offset + 4) (offset + 5)
+
+frSmall : Int -> Fr
+frSmall n = mkFr (U.fromLimbs [n])
+
+rejectsEmptyProof : Script ()
+rejectsEmptyProof = script do
+  assert (not (verifyUltraZK dummyVk [] []))
+
+rejectsStructurallyValidZeroProof : Script ()
+rejectsStructurallyValidZeroProof = script do
+  let proof = replicate 458 frZero
+  assert (verifyUltraZKStructural dummyVk [] proof)
+  case parseUltraZKProof proof of
+    Some parsed -> assert (not (verifyUltraZKShplemini parsed dummyVk dummyChallenges))
+    None -> abort "expected structurally valid dummy proof to parse"
+
+validVectorVkHashSmoke : Script ()
+validVectorVkHashSmoke = script do
+  assert (hashVerificationKey validVk == validVk.expectedVkHash)
+
+validVectorStructuralSmoke : Script ()
+validVectorStructuralSmoke = script do
+  assert (verifyUltraZKStructural validVk validPublicInputs validProofFields)
+  case parseUltraZKProof validProofFields of
+    Some _ -> pure ()
+    None -> abort "expected generated Barretenberg proof to parse"
+
+validVectorChallengeSmoke : Script ()
+validVectorChallengeSmoke = script do
+  case parseUltraZKProof validProofFields of
+    None -> abort "expected generated Barretenberg proof to parse"
+    Some parsed ->
+      case generateUltraZKChallenges validVk validPublicInputs parsed of
+        None -> abort "expected generated Barretenberg proof challenges"
+        Some challenges -> do
+          assert (length challenges.gateChallenges == validVk.logCircuitSize)
+          assert (length challenges.sumcheckUChallenges == validVk.logCircuitSize)
+          assert (length challenges.paddedSumcheckUChallenges == logN)
+
+validVectorSumcheckSmoke : Script ()
+validVectorSumcheckSmoke = script do
+  case parseUltraZKProof validProofFields of
+    None -> abort "expected generated Barretenberg proof to parse"
+    Some parsed ->
+      case generateUltraZKChallenges validVk validPublicInputs parsed of
+        None -> abort "expected generated Barretenberg proof challenges"
+        Some challenges -> assert (verifyUltraZKSumcheck parsed challenges)
+
+validVectorSumcheckDiagnostics : Script Text
+validVectorSumcheckDiagnostics = script do
+  case parseUltraZKProof validProofFields of
+    None -> pure "parse failed"
+    Some parsed ->
+      case generateUltraZKChallenges validVk validPublicInputs parsed of
+        None -> pure "challenge generation failed"
+        Some challenges -> pure (diagnoseSumcheck parsed challenges)
+
+validVectorFinalRelationDiagnostics : Script Text
+validVectorFinalRelationDiagnostics = script do
+  case parseUltraZKProof validProofFields of
+    None -> pure "parse failed"
+    Some parsed ->
+      case generateUltraZKChallenges validVk validPublicInputs parsed of
+        None -> pure "challenge generation failed"
+        Some challenges -> pure (diagnoseFinalRelation parsed challenges)
+
+validVectorLayoutDiagnostics : Script Text
+validVectorLayoutDiagnostics = script do
+  case parseUltraZKProof validProofFields of
+    None -> pure "parse failed"
+    Some parsed ->
+      let legacyParsed = parsed with
+            libraClaimedEvaluation = listAt validProofFields 274
+            sumcheckEvaluations = take numAllEntitiesZk (drop 275 validProofFields)
+      in pure (layoutCase "current-active" validVk parsed
+          <> "\n" <> layoutCase "legacy-active" validVk legacyParsed)
+
+validVectorFinalVariantDiagnostics : Script Text
+validVectorFinalVariantDiagnostics = script do
+  case parseUltraZKProof validProofFields of
+    None -> pure "parse failed"
+    Some parsed ->
+      case generateUltraZKChallenges validVk validPublicInputs parsed of
+        None -> pure "challenge generation failed"
+        Some challenges ->
+          let currentEvals = proofEvalsCurrent
+              legacyEvals = proofEvalsLegacy
+              currentLibra = listAt validProofFields 316
+              legacyLibra = listAt validProofFields 274
+          in pure (finalVariantCase "current-drop-mask" currentLibra (take numberOfEntities (drop 1 currentEvals)) parsed challenges
+            <> "\n" <> finalVariantCase "current-no-drop" currentLibra (take numberOfEntities currentEvals) parsed challenges
+            <> "\n" <> finalVariantCase "legacy-drop-mask" legacyLibra (take numberOfEntities (drop 1 legacyEvals)) parsed challenges
+            <> "\n" <> finalVariantCase "legacy-no-drop" legacyLibra (take numberOfEntities legacyEvals) parsed challenges)
+
+validVectorSumcheckOffsetDiagnostics : Script Text
+validVectorSumcheckOffsetDiagnostics = script do
+  case parseUltraZKProof validProofFields of
+    None -> pure "parse failed"
+    Some parsed ->
+      case generateUltraZKChallenges validVk validPublicInputs parsed of
+        Some challenges1 ->
+          let allPublicInputs = validPublicInputs ++ parsed.pairingAccumulator
+              offset5Delta = computePublicInputDelta allPublicInputs challenges1.beta challenges1.gamma 5
+              challenges5 = challenges1 with publicInputsDelta = offset5Delta
+          in
+          pure ("offset 1: " <> diagnoseSumcheck parsed challenges1 <> "\n"
+            <> "offset 5: " <> diagnoseSumcheck parsed challenges5)
+        None -> pure "challenge generation failed"
+
+validVectorVerifies : Script ()
+validVectorVerifies = script do
+  assert (verifyUltraZK validVk validPublicInputs validProofFields)
+
+validVectorRejectsTamperedProof : Script ()
+validVectorRejectsTamperedProof = script do
+  let tamperedProof = replaceFieldAt 48 (frAdd (listAt validProofFields 48) frOne) validProofFields
+  assert (verifyUltraZKStructural validVk validPublicInputs tamperedProof)
+  assert (not (verifyUltraZK validVk validPublicInputs tamperedProof))
+
+ledgerAcceptsValidProof : Script ()
+ledgerAcceptsValidProof = script do
+  operator <- allocateParty "Operator"
+  requester <- allocateParty "Requester"
+  verifierCid <- operator `submit` createCmd ZkHonkVerifier with
+    operator = operator
+    observers = [requester]
+    verificationKey = validVk
+  verifiedCid <- requester `submit` exerciseCmd verifierCid Verify with
+    requester = requester
+    proofId = "valid-vector"
+    request = ProofRequest with
+      publicInputs = validPublicInputs
+      proofFields = validProofFields
+  queried <- queryContractId requester verifiedCid
+  case queried of
+    Some verified -> do
+      assert (verified.proofId == "valid-vector")
+      assert (verified.vkHash == validVkHash)
+      assert (verified.publicInputHash == hashPublicInputs validPublicInputs)
+    None -> abort "expected verified proof contract"
+
+validVectorShpleminiInputsSmoke : Script ()
+validVectorShpleminiInputsSmoke = script do
+  case parseUltraZKProof validProofFields of
+    None -> abort "expected generated Barretenberg proof to parse"
+    Some parsed ->
+      case generateUltraZKChallenges validVk validPublicInputs parsed of
+        None -> abort "expected generated Barretenberg proof challenges"
+        Some challenges -> do
+          assert (verifyUltraZKSumcheck parsed challenges)
+          assert (Shplemini.checkEvalsConsistency parsed.libraEvaluations challenges.geminiR challenges.paddedSumcheckUChallenges parsed.libraClaimedEvaluation logN)
+          case Shplemini.computeShpleminiPairingInputs parsed validVk challenges of
+            None -> abort "expected Shplemini pairing inputs"
+            Some _ -> pure ()
+
+validVectorShpleminiDiagnostics : Script Text
+validVectorShpleminiDiagnostics = script do
+  case parseUltraZKProof validProofFields of
+    None -> pure "parse=false"
+    Some parsed ->
+      case generateUltraZKChallenges validVk validPublicInputs parsed of
+        None -> pure "challenges=false"
+        Some challenges ->
+          let sumcheckOk = verifyUltraZKSumcheck parsed challenges
+              libraOk = Shplemini.checkEvalsConsistency parsed.libraEvaluations challenges.geminiR challenges.paddedSumcheckUChallenges parsed.libraClaimedEvaluation logN
+              inputsOk =
+                case Shplemini.computeShpleminiPairingInputs parsed validVk challenges of
+                  None -> False
+                  Some _ -> True
+          in pure ("sumcheck=" <> show sumcheckOk <> "\n"
+            <> "libraConsistency=" <> show libraOk <> "\n"
+            <> "pairingInputs=" <> show inputsOk)
+
+validVectorLibraLogSizeDiagnostics : Script Text
+validVectorLibraLogSizeDiagnostics = script do
+  case parseUltraZKProof validProofFields of
+    None -> pure "parse=false"
+    Some parsed ->
+      let fullVk = validVk with logCircuitSize = logN
+      in case (generateUltraZKChallenges validVk validPublicInputs parsed, generateUltraZKChallenges fullVk validPublicInputs parsed) of
+          (Some activeChallenges, Some fullChallenges) ->
+            let currentLibra = Shplemini.checkEvalsConsistency parsed.libraEvaluations activeChallenges.geminiR activeChallenges.paddedSumcheckUChallenges parsed.libraClaimedEvaluation logN
+                fullVkLibra = Shplemini.checkEvalsConsistency parsed.libraEvaluations fullChallenges.geminiR fullChallenges.paddedSumcheckUChallenges parsed.libraClaimedEvaluation logN
+            in pure ("currentLibra=" <> show currentLibra <> "\n"
+              <> "fullVkLibra=" <> show fullVkLibra)
+          _ -> pure "challenge generation failed"
+
+validVectorPairingInputDiagnostics : Script Text
+validVectorPairingInputDiagnostics = script do
+  case parseUltraZKProof validProofFields of
+    None -> pure "parse=false"
+    Some parsed ->
+      case generateUltraZKChallenges validVk validPublicInputs parsed of
+        None -> pure "challenges=false"
+        Some challenges ->
+          case Shplemini.computeShpleminiPairingInputs parsed validVk challenges of
+            None -> pure "pairingInputs=false"
+            Some inputs -> pure ("p0=" <> g1Brief inputs.p0 <> "\n"
+              <> "p1=" <> g1Brief inputs.p1)
+
+validVectorActiveOpeningInputDiagnostics : Script Text
+validVectorActiveOpeningInputDiagnostics = script do
+  case parseUltraZKProof validProofFields of
+    None -> pure "parse=false"
+    Some parsed ->
+      case generateUltraZKChallenges validVk validPublicInputs parsed of
+        None -> pure "challenges=false"
+        Some challenges ->
+          let activeOpeningChallenges = challenges with paddedSumcheckUChallenges = challenges.sumcheckUChallenges
+          in case Shplemini.computeShpleminiPairingInputs parsed validVk activeOpeningChallenges of
+              None -> pure "pairingInputs=false"
+              Some inputs -> pure ("p0=" <> g1Brief inputs.p0 <> "\n"
+                <> "p1=" <> g1Brief inputs.p1)
+
+layoutCase : Text -> VerificationKey -> ParsedUltraZKProof -> Text
+layoutCase label vk proof =
+  case generateUltraZKChallenges vk validPublicInputs proof of
+    None -> label <> ": challenge generation failed"
+    Some challenges -> label <> ": " <> diagnoseSumcheck proof challenges
+
+proofEvalsCurrent : [Fr]
+proofEvalsCurrent = take numAllEntitiesZk (drop 274 validProofFields)
+
+proofEvalsLegacy : [Fr]
+proofEvalsLegacy = take numAllEntitiesZk (drop 275 validProofFields)
+
+finalVariantCase : Text -> Fr -> [Fr] -> ParsedUltraZKProof -> UltraZKChallenges -> Text
+finalVariantCase label libraClaimed relationEvaluations proof challenges =
+  let activeLogN = length challenges.sumcheckUChallenges
+      activeUnivariates = take activeLogN proof.sumcheckUnivariates
+      initialTarget = frMul challenges.libraChallenge proof.libraSum
+  in case verifySumcheckRounds activeUnivariates challenges.sumcheckUChallenges challenges.gateChallenges initialTarget frOne of
+      None -> label <> ": round failure"
+      Some (roundTargetSum, powPartialEvaluation) ->
+        let relationParameters = RelationParameters with
+              eta = challenges.eta
+              beta = challenges.beta
+              gamma = challenges.gamma
+              publicInputsDelta = challenges.publicInputsDelta
+            rowDisablingEval = frSub frOne (productFr (drop 2 challenges.sumcheckUChallenges))
+        in case accumulateRelationEvaluations relationEvaluations relationParameters challenges.alphas powPartialEvaluation of
+            None -> label <> ": relation accumulation failed"
+            Some grandHonkRelationSum ->
+              let finalSum = frAdd (frMul grandHonkRelationSum rowDisablingEval) (frMul libraClaimed challenges.libraChallenge)
+              in label <> ": " <> if finalSum == roundTargetSum then "ok" else "diff=" <> frBrief (frSub finalSum roundTargetSum)
+
+diagnoseSumcheck : ParsedUltraZKProof -> UltraZKChallenges -> Text
+diagnoseSumcheck proof challenges =
+  let activeLogN = length challenges.sumcheckUChallenges
+      activeUnivariates = take activeLogN proof.sumcheckUnivariates
+  in if activeLogN <= 0 || activeLogN > logN then "bad active sumcheck size"
+  else if length activeUnivariates /= activeLogN then "bad active univariate row count"
+  else if length proof.sumcheckEvaluations /= numAllEntitiesZk then "bad evaluation count"
+  else if length challenges.gateChallenges /= activeLogN then "bad gate challenge count"
+  else
+    let initialTarget = frMul challenges.libraChallenge proof.libraSum
+    in diagnoseSumcheckRounds 0 activeUnivariates challenges.sumcheckUChallenges challenges.gateChallenges initialTarget frOne proof challenges
+
+diagnoseSumcheckRounds : Int -> [[Fr]] -> [Fr] -> [Fr] -> Fr -> Fr -> ParsedUltraZKProof -> UltraZKChallenges -> Text
+diagnoseSumcheckRounds idx rows uChallenges gateChallenges roundTargetSum powPartialEvaluation proof challenges =
+  case (rows, uChallenges, gateChallenges) of
+    ([], [], []) -> diagnoseSumcheckFinal roundTargetSum powPartialEvaluation proof challenges
+    (row :: restRows, u :: restU, gateChallenge :: restGate) ->
+      if length row /= batchedRelationPartialLength then "round " <> show idx <> " bad row length"
+      else
+        let totalSum = frAdd (listAt row 0) (listAt row 1)
+        in if totalSum /= roundTargetSum then "round " <> show idx <> " target mismatch"
+           else case computeNextTargetSum row u of
+             None -> "round " <> show idx <> " barycentric failure"
+             Some nextTarget ->
+               let powFactor = frAdd frOne (frMul u (frSub gateChallenge frOne))
+               in diagnoseSumcheckRounds (idx + 1) restRows restU restGate nextTarget (frMul powPartialEvaluation powFactor) proof challenges
+    _ -> "round input length mismatch"
+
+diagnoseSumcheckFinal : Fr -> Fr -> ParsedUltraZKProof -> UltraZKChallenges -> Text
+diagnoseSumcheckFinal roundTargetSum powPartialEvaluation proof challenges =
+  let relationEvaluations = take numberOfEntities (drop 1 proof.sumcheckEvaluations)
+      relationParameters = RelationParameters with
+        eta = challenges.eta
+        beta = challenges.beta
+        gamma = challenges.gamma
+        publicInputsDelta = challenges.publicInputsDelta
+  in case accumulateRelationEvaluations relationEvaluations relationParameters challenges.alphas powPartialEvaluation of
+      None -> "relation accumulation failed"
+      Some grandHonkRelationSum ->
+        let rowDisablingEval = frSub frOne (productFr (drop 2 challenges.sumcheckUChallenges))
+            finalSum = frAdd (frMul grandHonkRelationSum rowDisablingEval) (frMul proof.libraClaimedEvaluation challenges.libraChallenge)
+        in if finalSum == roundTargetSum
+           then "sumcheck ok"
+           else "final relation mismatch"
+
+diagnoseFinalRelation : ParsedUltraZKProof -> UltraZKChallenges -> Text
+diagnoseFinalRelation proof challenges =
+  let activeLogN = length challenges.sumcheckUChallenges
+      activeUnivariates = take activeLogN proof.sumcheckUnivariates
+      initialTarget = frMul challenges.libraChallenge proof.libraSum
+  in case verifySumcheckRounds activeUnivariates challenges.sumcheckUChallenges challenges.gateChallenges initialTarget frOne of
+      None -> "round failure before final relation"
+      Some (roundTargetSum, powPartialEvaluation) ->
+        let relationEvaluations = take numberOfEntities (drop 1 proof.sumcheckEvaluations)
+            relationParameters = RelationParameters with
+              eta = challenges.eta
+              beta = challenges.beta
+              gamma = challenges.gamma
+              publicInputsDelta = challenges.publicInputsDelta
+            rowDisablingEval = frSub frOne (productFr (drop 2 challenges.sumcheckUChallenges))
+            libraTerm = frMul proof.libraClaimedEvaluation challenges.libraChallenge
+        in case accumulateRelationSubrelations relationEvaluations relationParameters powPartialEvaluation of
+            None -> "relation accumulation failed"
+            Some subrelations ->
+              case accumulateRelationEvaluations relationEvaluations relationParameters challenges.alphas powPartialEvaluation of
+                None -> "relation batching failed"
+                Some actualGrand ->
+                  let expectedGrand =
+                        if rowDisablingEval == frZero then frZero
+                        else frMul (frSub roundTargetSum libraTerm) (frInv rowDisablingEval)
+                      finalSum = frAdd (frMul actualGrand rowDisablingEval) libraTerm
+                      diff = frSub finalSum roundTargetSum
+                  in "roundTargetSum=" <> frBrief roundTargetSum <> "\n"
+                    <> "powPartialEvaluation=" <> frBrief powPartialEvaluation <> "\n"
+                    <> "rowDisablingEval=" <> frBrief rowDisablingEval <> "\n"
+                    <> "libraTerm=" <> frBrief libraTerm <> "\n"
+                    <> "actualGrand=" <> frBrief actualGrand <> "\n"
+                    <> "expectedGrand=" <> frBrief expectedGrand <> "\n"
+                    <> "finalDiff=" <> frBrief diff <> "\n"
+                    <> "nonzeroSubrelations:\n" <> subrelationsText 0 subrelations
+
+subrelationsText : Int -> [Fr] -> Text
+subrelationsText idx values =
+  case values of
+    [] -> ""
+    value :: rest ->
+      let tailText = subrelationsText (idx + 1) rest
+      in if value == frZero then tailText
+         else show idx <> "=" <> frBrief value <> "\n" <> tailText
+
+frBrief : Fr -> Text
+frBrief value = show value.frValue.limbs16
+
+g1Brief : G1 -> Text
+g1Brief point =
+  case point of
+    G1Infinity -> "infinity"
+    G1Affine x y -> show x.fqValue.limbs16 <> "," <> show y.fqValue.limbs16
+
+replaceFieldAt : Int -> Fr -> [Fr] -> [Fr]
+replaceFieldAt idx value xs =
+  case xs of
+    [] -> []
+    x :: rest ->
+      if idx == 0 then value :: rest
+      else x :: replaceFieldAt (idx - 1) value rest
+
+ledgerRejectsInvalidProof : Script ()
+ledgerRejectsInvalidProof = script do
+  operator <- allocateParty "Operator"
+  requester <- allocateParty "Requester"
+  verifierCid <- operator `submit` createCmd ZkHonkVerifier with
+    operator = operator
+    observers = [requester]
+    verificationKey = dummyVk
+  requester `submitMustFail` exerciseCmd verifierCid Verify with
+    requester = requester
+    proofId = "invalid-structurally-valid"
+    request = ProofRequest with
+      publicInputs = []
+      proofFields = []
+
+rejectsOffCurveCommitment : Script ()
+rejectsOffCurveCommitment = script do
+  let invalidPoint = [frOne, frZero, frZero, frZero]
+  let proof = replicate 8 frZero ++ invalidPoint ++ replicate (458 - 12) frZero
+  assert (not (verifyUltraZKStructural dummyVk [] proof))
+
+fieldArithmeticSmoke : Script ()
+fieldArithmeticSmoke = script do
+  let two = mkFr (U.fromLimbs [2])
+  let three = mkFr (U.fromLimbs [3])
+  let fqMinusOne = Fq with fqValue = U.sub fqModulus U.one
+  assert (frAdd frOne frOne == two)
+  assert (frMul two three == mkFr (U.fromLimbs [6]))
+  assert (fqMul fqMinusOne fqMinusOne == fqOne)
+
+fq2ArithmeticSmoke : Script ()
+fq2ArithmeticSmoke = script do
+  let two = mkFq (U.fromLimbs [2])
+  let three = mkFq (U.fromLimbs [3])
+  let four = mkFq (U.fromLimbs [4])
+  let five = mkFq (U.fromLimbs [5])
+  let a = Fq2 with c0 = two; c1 = three
+  let b = Fq2 with c0 = four; c1 = five
+  assert (fq2Add a b == Fq2 with c0 = mkFq (U.fromLimbs [6]); c1 = mkFq (U.fromLimbs [8]))
+  assert (fq2Mul a b == Fq2 with c0 = fqNeg (mkFq (U.fromLimbs [7])); c1 = mkFq (U.fromLimbs [22]))
+  assert (fq2Square a == fq2Mul a a)
+
+fq6ArithmeticSmoke : Script ()
+fq6ArithmeticSmoke = script do
+  let a = fq6Small 1
+  let b = fq6Small 7
+  let v = Fq6 with fq6C0 = fq2Zero; fq6C1 = fq2One; fq6C2 = fq2Zero
+  assert (fq6Add a fq6Zero == a)
+  assert (fq6Sub (fq6Add a b) b == a)
+  assert (fq6Mul fq6One a == a)
+  assert (fq6Square a == fq6Mul a a)
+  assert (fq6MulByV a == fq6Mul v a)
+
+fq12ArithmeticSmoke : Script ()
+fq12ArithmeticSmoke = script do
+  let a = Fq12 with fq12C0 = fq6Small 1; fq12C1 = fq6Small 7
+  let b = Fq12 with fq12C0 = fq6Small 13; fq12C1 = fq6Small 19
+  let ell = Fq12Sparse with
+        ellO = fq2Small 2 3
+        ellW = fq2Small 4 5
+        ellVW = fq2Small 6 7
+  let denseEll = Fq12 with
+        fq12C0 = Fq6 with fq6C0 = ell.ellO; fq6C1 = fq2Zero; fq6C2 = fq2Zero
+        fq12C1 = Fq6 with fq6C0 = ell.ellW; fq6C1 = ell.ellVW; fq6C2 = fq2Zero
+  assert (fq12Add a fq12Zero == a)
+  assert (fq12Sub (fq12Add a b) b == a)
+  assert (fq12Mul fq12One a == a)
+  assert (fq12Square a == fq12Mul a a)
+  assert (fq12SparseMul a ell == fq12Mul a denseEll)
+
+poseidon2PermutationVector : Script ()
+poseidon2PermutationVector = script do
+  let input = Poseidon2State with
+        p0 = frZero
+        p1 = frOne
+        p2 = frSmall 2
+        p3 = frSmall 3
+  let expected = Poseidon2State with
+        p0 = Fr with frValue = U.fromLimbs [5943, 30400, 53133, 38471, 25242, 39480, 65115, 36275, 16575, 39650, 45726, 20801, 5357, 12000, 21388, 445]
+        p1 = Fr with frValue = U.fromLimbs [50786, 3258, 55977, 5337, 840, 42695, 38298, 31285, 28830, 12193, 27149, 10895, 43578, 56216, 25319, 9115]
+        p2 = Fr with frValue = U.fromLimbs [58315, 5589, 64117, 33349, 28092, 23163, 53729, 3096, 36031, 49013, 33878, 1664, 10477, 25049, 46156, 1227]
+        p3 = Fr with frValue = U.fromLimbs [33914, 19504, 21625, 24639, 14901, 29462, 61867, 39151, 36713, 30935, 1207, 53267, 11364, 62114, 50639, 11793]
+  assert (poseidon2Permutation input == expected)
+
+poseidon2HashVector : Script ()
+poseidon2HashVector = script do
+  let value = mkFr (U.fromLimbs [26505, 9029, 61185, 43981, 12816, 30292, 47768, 65244, 26505, 58613, 49875, 41137, 15919, 23629, 31585, 39552])
+  let expected = Fr with frValue = U.fromLimbs [60433, 41148, 2597, 16787, 64152, 42361, 30722, 18275, 51017, 3790, 40426, 64643, 42741, 15185, 41208, 12099]
+  assert (poseidon2Hash [value, value, value, value] == expected)
+
+curveSmoke : Script ()
+curveSmoke = script do
+  assert (g1Add G1Infinity g1Generator == g1Generator)
+  assert (g1Sub g1Generator g1Generator == G1Infinity)
+  assert (g1ScalarMul g1Generator frZero == G1Infinity)
+  assert (g1ScalarMul g1Generator frOne == g1Generator)
+  assert (g1ScalarMul g1Generator (frSmall 2) == G1Affine with
+    x = mkFq (U.fromLimbs [53203, 28039, 2241, 54210, 7336, 5767, 5801, 55672, 5509, 26648, 1115, 39813, 6658, 11795, 17639, 774])
+    y = mkFq (U.fromLimbs [41668, 23064, 49018, 65342, 36807, 58195, 42057, 26790, 39946, 45742, 24470, 59268, 31890, 3594, 29580, 5613]))
+  assert (g1BatchMul [g1Generator, g1Generator] [frOne, frSmall 2] == G1Affine with
+    x = mkFq (U.fromLimbs [44016, 6421, 21910, 62163, 59001, 5560, 55367, 37653, 48405, 45494, 12988, 62466, 59967, 50539, 49050, 1897])
+    y = mkFq (U.fromLimbs [8801, 55806, 65341, 52721, 23383, 2972, 25524, 12702, 25717, 36104, 56188, 21839, 37929, 57416, 39358, 10935]))
+  assert (g1ScalarMul g1Generator (frSmall 12345) == G1Affine with
+    x = mkFq (U.fromLimbs [37034, 33459, 5496, 30136, 49453, 62519, 45929, 16658, 21188, 43938, 44115, 47098, 2756, 31714, 63408, 6454])
+    y = mkFq (U.fromLimbs [37402, 13768, 41532, 2297, 30489, 9654, 4716, 55352, 37584, 31070, 47028, 48635, 51195, 31517, 14530, 1372]))
+  assert (g1BatchMul
+    [ G1Affine with
+        x = mkFq (U.fromLimbs [53203, 28039, 2241, 54210, 7336, 5767, 5801, 55672, 5509, 26648, 1115, 39813, 6658, 11795, 17639, 774])
+        y = mkFq (U.fromLimbs [41668, 23064, 49018, 65342, 36807, 58195, 42057, 26790, 39946, 45742, 24470, 59268, 31890, 3594, 29580, 5613])
+    , G1Affine with
+        x = mkFq (U.fromLimbs [44016, 6421, 21910, 62163, 59001, 5560, 55367, 37653, 48405, 45494, 12988, 62466, 59967, 50539, 49050, 1897])
+        y = mkFq (U.fromLimbs [8801, 55806, 65341, 52721, 23383, 2972, 25524, 12702, 25717, 36104, 56188, 21839, 37929, 57416, 39358, 10935])
+    ]
+    [frSmall 5, frSmall 7] == G1Affine with
+      x = mkFq (U.fromLimbs [34108, 48557, 41107, 26494, 64827, 41663, 22692, 25631, 43382, 41298, 58233, 52159, 42740, 4727, 64037, 5300])
+      y = mkFq (U.fromLimbs [60982, 33003, 52741, 22661, 55845, 34776, 6621, 20760, 11397, 64006, 55374, 48376, 10250, 27926, 2378, 10446]))
+  assert (commitmentFromFrs (commitmentToFrs g1Generator) == Some g1Generator)
+  assert (g2OnCurve g2Generator)
+  assert (g2Add G2Infinity g2Generator == g2Generator)
+  assert (g2Sub g2Generator g2Generator == G2Infinity)
+
+pairingInfinitySmoke : Script ()
+pairingInfinitySmoke = script do
+  assert (pairingCheck [])
+  assert (pairingCheck [(G1Infinity, g2Generator)])
+  assert (pairingCheck [(g1Generator, G2Infinity)])
+
+splitChallengeSmoke : Script ()
+splitChallengeSmoke = script do
+  let highBit = U.pow2 127
+  let value = U.add highBit (U.fromLimbs [5])
+  let (lo, hi) = splitChallenge (Fr with frValue = value)
+  assert (lo == mkFr (U.fromLimbs [5]))
+  assert (hi == frOne)
+
+sumcheckBarycentricDomainPointSmoke : Script ()
+sumcheckBarycentricDomainPointSmoke = script do
+  let row =
+        [ frSmall 10, frSmall 11, frSmall 12, frSmall 13, frSmall 14
+        , frSmall 15, frSmall 16, frSmall 17, frSmall 18
+        ]
+  case computeNextTargetSum row (frSmall 4) of
+    Some value -> assert (value == frSmall 14)
+    None -> abort "expected barycentric evaluation at a domain point"

@@ -1,0 +1,361 @@
+module ZkHonk.Relations where
+
+import ZkHonk.Types
+import ZkHonk.Field
+import ZkHonk.Poseidon2Constants
+import qualified ZkHonk.UInt256 as U
+
+numberOfEntities : Int
+numberOfEntities = 41
+
+numberOfSubrelations : Int
+numberOfSubrelations = 28
+
+data RelationParameters = RelationParameters with
+    eta : Fr
+    beta : Fr
+    gamma : Fr
+    publicInputsDelta : Fr
+  deriving (Eq, Show)
+
+accumulateRelationEvaluations : [Fr] -> RelationParameters -> [Fr] -> Fr -> Optional Fr
+accumulateRelationEvaluations purportedEvaluations relationParameters subrelationChallenges powPartialEval =
+  if length purportedEvaluations /= numberOfEntities then None
+  else if length subrelationChallenges /= numberOfSubrelations - 1 then None
+  else accumulateRelationSubrelations purportedEvaluations relationParameters powPartialEval
+    `andThen` \evaluations -> Some (scaleAndBatchSubrelations evaluations subrelationChallenges)
+
+accumulateRelationSubrelations : [Fr] -> RelationParameters -> Fr -> Optional [Fr]
+accumulateRelationSubrelations purportedEvaluations relationParameters powPartialEval =
+  if length purportedEvaluations /= numberOfEntities then None
+  else
+    let evaluations0 = replicate numberOfSubrelations frZero
+        evaluations1 = accumulateArithmeticRelation purportedEvaluations evaluations0 powPartialEval
+        evaluations2 = accumulatePermutationRelation purportedEvaluations relationParameters evaluations1 powPartialEval
+        evaluations3 = accumulateLogDerivativeLookupRelation purportedEvaluations relationParameters evaluations2 powPartialEval
+        evaluations4 = accumulateDeltaRangeRelation purportedEvaluations evaluations3 powPartialEval
+        evaluations5 = accumulateEllipticRelation purportedEvaluations evaluations4 powPartialEval
+        evaluations6 = accumulateMemoryRelation purportedEvaluations relationParameters evaluations5 powPartialEval
+        evaluations7 = accumulateNnfRelation purportedEvaluations evaluations6 powPartialEval
+        evaluations8 = accumulatePoseidonExternalRelation purportedEvaluations evaluations7 powPartialEval
+        evaluations9 = accumulatePoseidonInternalRelation purportedEvaluations evaluations8 powPartialEval
+    in Some evaluations9
+
+accumulateArithmeticRelation : [Fr] -> [Fr] -> Fr -> [Fr]
+accumulateArithmeticRelation p evals domainSep =
+  let qArith = wire p qArithIdx
+      accum0a = frMul (frSub qArith (frFromInt 3)) (frMul (frMul (wire p qMIdx) (wire p wRIdx)) (wire p wLIdx))
+      accum0b = frMul accum0a negHalfModuloP
+      accum0c = frAdd (frAdd (frMul (wire p qLIdx) (wire p wLIdx)) (frMul (wire p qRIdx) (wire p wRIdx))) (frMul (wire p qOIdx) (wire p wOIdx))
+      accum0d = frAdd (frAdd accum0b accum0c) (frAdd (frMul (wire p q4Idx) (wire p w4Idx)) (wire p qCIdx))
+      accum0e = frAdd accum0d (frMul (frSub qArith frOne) (wire p w4ShiftIdx))
+      accum0 = frMul (frMul accum0e qArith) domainSep
+      accum1a = frAdd (frSub (frAdd (wire p wLIdx) (wire p w4Idx)) (wire p wLShiftIdx)) (wire p qMIdx)
+      accum1 = frMul (frMul (frMul (frMul accum1a (frSub qArith (frFromInt 2))) (frSub qArith frOne)) qArith) domainSep
+  in replaceAt 1 accum1 (replaceAt 0 accum0 evals)
+
+accumulatePermutationRelation : [Fr] -> RelationParameters -> [Fr] -> Fr -> [Fr]
+accumulatePermutationRelation p rp evals domainSep =
+  let num0 = frAdd (frAdd (wire p wLIdx) (frMul (wire p id1Idx) rp.beta)) rp.gamma
+      num1 = frMul num0 (frAdd (frAdd (wire p wRIdx) (frMul (wire p id2Idx) rp.beta)) rp.gamma)
+      num2 = frMul num1 (frAdd (frAdd (wire p wOIdx) (frMul (wire p id3Idx) rp.beta)) rp.gamma)
+      grandProductNumerator = frMul num2 (frAdd (frAdd (wire p w4Idx) (frMul (wire p id4Idx) rp.beta)) rp.gamma)
+      den0 = frAdd (frAdd (wire p wLIdx) (frMul (wire p sigma1Idx) rp.beta)) rp.gamma
+      den1 = frMul den0 (frAdd (frAdd (wire p wRIdx) (frMul (wire p sigma2Idx) rp.beta)) rp.gamma)
+      den2 = frMul den1 (frAdd (frAdd (wire p wOIdx) (frMul (wire p sigma3Idx) rp.beta)) rp.gamma)
+      grandProductDenominator = frMul den2 (frAdd (frAdd (wire p w4Idx) (frMul (wire p sigma4Idx) rp.beta)) rp.gamma)
+      acc2a = frMul (frAdd (wire p zPermIdx) (wire p lagrangeFirstIdx)) grandProductNumerator
+      acc2b = frMul (frAdd (wire p zPermShiftIdx) (frMul (wire p lagrangeLastIdx) rp.publicInputsDelta)) grandProductDenominator
+      acc2 = frMul (frSub acc2a acc2b) domainSep
+      acc3 = frMul (frMul (wire p lagrangeLastIdx) (wire p zPermShiftIdx)) domainSep
+  in replaceAt 3 acc3 (replaceAt 2 acc2 evals)
+
+accumulateLogDerivativeLookupRelation : [Fr] -> RelationParameters -> [Fr] -> Fr -> [Fr]
+accumulateLogDerivativeLookupRelation p rp evals domainSep =
+  let betaSqr = frMul rp.beta rp.beta
+      betaCube = frMul betaSqr rp.beta
+      tableTerm0 = frAdd (wire p table1Idx) rp.gamma
+      tableTerm1 = frAdd tableTerm0 (frMul (wire p table2Idx) rp.beta)
+      tableTerm2 = frAdd tableTerm1 (frMul (wire p table3Idx) betaSqr)
+      tableTerm = frAdd tableTerm2 (frMul (wire p table4Idx) betaCube)
+      derivedEntry1 = frAdd (frAdd (wire p wLIdx) rp.gamma) (frMul (wire p qRIdx) (wire p wLShiftIdx))
+      derivedEntry2 = frAdd (wire p wRIdx) (frMul (wire p qMIdx) (wire p wRShiftIdx))
+      derivedEntry3 = frAdd (wire p wOIdx) (frMul (wire p qCIdx) (wire p wOShiftIdx))
+      lookupTerm0 = frAdd derivedEntry1 (frMul derivedEntry2 rp.beta)
+      lookupTerm1 = frAdd lookupTerm0 (frMul derivedEntry3 betaSqr)
+      lookupTerm = frAdd lookupTerm1 (frMul (wire p qOIdx) betaCube)
+      lookupInverse = frMul (wire p lookupInversesIdx) tableTerm
+      tableInverse = frMul (wire p lookupInversesIdx) lookupTerm
+      inverseExistsXor = frSub (frAdd (wire p lookupReadTagsIdx) (wire p qLookupIdx)) (frMul (wire p lookupReadTagsIdx) (wire p qLookupIdx))
+      accumulatorNone = frMul (frSub (frMul (frMul lookupTerm tableTerm) (wire p lookupInversesIdx)) inverseExistsXor) domainSep
+      accumulatorOne = frSub (frMul (wire p qLookupIdx) lookupInverse) (frMul (wire p lookupReadCountsIdx) tableInverse)
+      readTag = wire p lookupReadTagsIdx
+      readTagBooleanRelation = frSub (frMul readTag readTag) readTag
+  in replaceAt 6 (frMul readTagBooleanRelation domainSep)
+      (replaceAt 5 accumulatorOne (replaceAt 4 accumulatorNone evals))
+
+accumulateDeltaRangeRelation : [Fr] -> [Fr] -> Fr -> [Fr]
+accumulateDeltaRangeRelation p evals domainSep =
+  let minusTwo = frNeg (frFromInt 2)
+      minusThree = frNeg (frFromInt 3)
+      delta1 = frSub (wire p wRIdx) (wire p wLIdx)
+      delta2 = frSub (wire p wOIdx) (wire p wRIdx)
+      delta3 = frSub (wire p w4Idx) (wire p wOIdx)
+      delta4 = frSub (wire p wLShiftIdx) (wire p w4Idx)
+      rangeEval delta = frMul (frMul (frMul (frMul (frMul delta (frAdd delta minusOne)) (frAdd delta minusTwo)) (frAdd delta minusThree)) (wire p qRangeIdx)) domainSep
+  in replaceAt 10 (rangeEval delta4)
+      (replaceAt 9 (rangeEval delta3)
+      (replaceAt 8 (rangeEval delta2)
+      (replaceAt 7 (rangeEval delta1) evals)))
+
+accumulateEllipticRelation : [Fr] -> [Fr] -> Fr -> [Fr]
+accumulateEllipticRelation p evals domainSep =
+  let x1 = wire p wRIdx
+      y1 = wire p wOIdx
+      x2 = wire p wLShiftIdx
+      y2 = wire p w4ShiftIdx
+      y3 = wire p wOShiftIdx
+      x3 = wire p wRShiftIdx
+      qSign = wire p qLIdx
+      qIsDouble = wire p qMIdx
+      xDiff = frSub x2 x1
+      y1Sqr = frMul y1 y1
+      y2Sqr = frMul y2 y2
+      y1y2 = frMul (frMul y1 y2) qSign
+      xAddIdentity0 = frMul (frMul (frAdd (frAdd x3 x2) x1) xDiff) xDiff
+      xAddIdentity = frAdd (frSub (frSub xAddIdentity0 y2Sqr) y1Sqr) (frAdd y1y2 y1y2)
+      addXEval = frMul (frMul (frMul xAddIdentity domainSep) (wire p qEllipticIdx)) (frSub frOne qIsDouble)
+      y1PlusY3 = frAdd y1 y3
+      yDiff = frSub (frMul y2 qSign) y1
+      yAddIdentity = frAdd (frMul y1PlusY3 xDiff) (frMul (frSub x3 x1) yDiff)
+      addYEval = frMul (frMul (frMul yAddIdentity domainSep) (wire p qEllipticIdx)) (frSub frOne qIsDouble)
+      xPow4 = frMul (frAdd y1Sqr grumpkinCurveBParameterNegated) x1
+      y1SqrMul4 = frAdd (frAdd y1Sqr y1Sqr) (frAdd y1Sqr y1Sqr)
+      x1Pow4Mul9 = frMul xPow4 (frFromInt 9)
+      xDoubleIdentity = frSub (frMul (frAdd (frAdd x3 x1) x1) y1SqrMul4) x1Pow4Mul9
+      doubleXEval = frMul (frMul (frMul xDoubleIdentity domainSep) (wire p qEllipticIdx)) qIsDouble
+      x1SqrMul3 = frMul (frAdd (frAdd x1 x1) x1) x1
+      yDoubleIdentity = frSub (frMul x1SqrMul3 (frSub x1 x3)) (frMul (frAdd y1 y1) (frAdd y1 y3))
+      doubleYEval = frMul (frMul (frMul yDoubleIdentity domainSep) (wire p qEllipticIdx)) qIsDouble
+  in addAt 12 doubleYEval (addAt 11 doubleXEval (addAt 12 addYEval (addAt 11 addXEval evals)))
+
+accumulateMemoryRelation : [Fr] -> RelationParameters -> [Fr] -> Fr -> [Fr]
+accumulateMemoryRelation p rp evals domainSep =
+  let etaTwo = frMul rp.eta rp.eta
+      etaThree = frMul etaTwo rp.eta
+      memoryRecordCheck0 = frMul (wire p wOIdx) etaThree
+      memoryRecordCheck1 = frAdd memoryRecordCheck0 (frMul (wire p wRIdx) etaTwo)
+      memoryRecordCheck2 = frAdd memoryRecordCheck1 (frMul (wire p wLIdx) rp.eta)
+      memoryRecordCheck3 = frAdd memoryRecordCheck2 (wire p qCIdx)
+      partialRecordCheck = memoryRecordCheck3
+      memoryRecordCheck = frSub memoryRecordCheck3 (wire p w4Idx)
+      indexDelta = frSub (wire p wLShiftIdx) (wire p wLIdx)
+      recordDelta = frSub (wire p w4ShiftIdx) (wire p w4Idx)
+      indexIsMonotonicallyIncreasing = frMul indexDelta (frSub indexDelta frOne)
+      adjacentValuesMatch = frMul (frAdd (frMul indexDelta minusOne) frOne) recordDelta
+      acc15 = frMul (frMul adjacentValuesMatch (frMul (wire p qLIdx) (wire p qRIdx))) (frMul (wire p qMemoryIdx) domainSep)
+      acc16 = frMul (frMul indexIsMonotonicallyIncreasing (frMul (wire p qLIdx) (wire p qRIdx))) (frMul (wire p qMemoryIdx) domainSep)
+      romConsistencyCheckIdentity = frMul memoryRecordCheck (frMul (wire p qLIdx) (wire p qRIdx))
+      accessType = frSub (wire p w4Idx) partialRecordCheck
+      accessCheck = frMul accessType (frSub accessType frOne)
+      nextGateAccessType0 = frMul (wire p wOShiftIdx) etaThree
+      nextGateAccessType1 = frAdd nextGateAccessType0 (frMul (wire p wRShiftIdx) etaTwo)
+      nextGateAccessType2 = frAdd nextGateAccessType1 (frMul (wire p wLShiftIdx) rp.eta)
+      nextGateAccessType = frSub (wire p w4ShiftIdx) nextGateAccessType2
+      valueDelta = frSub (wire p wOShiftIdx) (wire p wOIdx)
+      adjacentValuesMatchAndNextRead = frMul (frMul (frAdd (frMul indexDelta minusOne) frOne) valueDelta) (frAdd (frMul nextGateAccessType minusOne) frOne)
+      nextGateAccessTypeIsBoolean = frSub (frMul nextGateAccessType nextGateAccessType) nextGateAccessType
+      acc17 = frMul (frMul adjacentValuesMatchAndNextRead (wire p qOIdx)) (frMul (wire p qMemoryIdx) domainSep)
+      acc18 = frMul (frMul indexIsMonotonicallyIncreasing (wire p qOIdx)) (frMul (wire p qMemoryIdx) domainSep)
+      acc19 = frMul (frMul nextGateAccessTypeIsBoolean (wire p qOIdx)) (frMul (wire p qMemoryIdx) domainSep)
+      ramConsistencyCheckIdentity = frMul accessCheck (wire p qOIdx)
+      timestampDelta = frSub (wire p wRShiftIdx) (wire p wRIdx)
+      ramTimestampCheckIdentity = frSub (frMul (frAdd (frMul indexDelta minusOne) frOne) timestampDelta) (wire p wOIdx)
+      memoryIdentity0 = romConsistencyCheckIdentity
+      memoryIdentity1 = frAdd memoryIdentity0 (frMul ramTimestampCheckIdentity (frMul (wire p q4Idx) (wire p qLIdx)))
+      memoryIdentity2 = frAdd memoryIdentity1 (frMul memoryRecordCheck (frMul (wire p qMIdx) (wire p qLIdx)))
+      memoryIdentity3 = frAdd memoryIdentity2 ramConsistencyCheckIdentity
+      acc14 = frMul memoryIdentity3 (frMul (wire p qMemoryIdx) domainSep)
+  in replaceAt 18 acc19
+      (replaceAt 17 acc18
+      (replaceAt 16 acc17
+      (replaceAt 15 acc16
+      (replaceAt 14 acc15
+      (replaceAt 13 acc14 evals)))))
+
+accumulateNnfRelation : [Fr] -> [Fr] -> Fr -> [Fr]
+accumulateNnfRelation p evals domainSep =
+  let limbSubproduct0 = frAdd (frMul (wire p wLIdx) (wire p wRShiftIdx)) (frMul (wire p wLShiftIdx) (wire p wRIdx))
+      nnfGate2a = frSub (frAdd (frMul (wire p wLIdx) (wire p w4Idx)) (frMul (wire p wRIdx) (wire p wOIdx))) (wire p wOShiftIdx)
+      nnfGate2b = frSub (frMul nnfGate2a limbSize) (wire p w4ShiftIdx)
+      nnfGate2 = frMul (frAdd nnfGate2b limbSubproduct0) (wire p q4Idx)
+      limbSubproduct1 = frAdd (frMul limbSubproduct0 limbSize) (frMul (wire p wLShiftIdx) (wire p wRShiftIdx))
+      nnfGate1 = frMul (frSub limbSubproduct1 (frAdd (wire p wOIdx) (wire p w4Idx))) (wire p qOIdx)
+      nnfGate3 = frMul (frSub (frAdd limbSubproduct1 (wire p w4Idx)) (frAdd (wire p wOShiftIdx) (wire p w4ShiftIdx))) (wire p qMIdx)
+      nonNativeFieldIdentity = frMul (frAdd (frAdd nnfGate1 nnfGate2) nnfGate3) (wire p qRIdx)
+      limbAccumulator1a = frAdd (frMul (wire p wRShiftIdx) sublimbShift) (wire p wLShiftIdx)
+      limbAccumulator1b = frAdd (frMul limbAccumulator1a sublimbShift) (wire p wOIdx)
+      limbAccumulator1c = frAdd (frMul limbAccumulator1b sublimbShift) (wire p wRIdx)
+      limbAccumulator1d = frAdd (frMul limbAccumulator1c sublimbShift) (wire p wLIdx)
+      limbAccumulator1 = frMul (frSub limbAccumulator1d (wire p w4Idx)) (wire p q4Idx)
+      limbAccumulator2a = frAdd (frMul (wire p wOShiftIdx) sublimbShift) (wire p wRShiftIdx)
+      limbAccumulator2b = frAdd (frMul limbAccumulator2a sublimbShift) (wire p wLShiftIdx)
+      limbAccumulator2c = frAdd (frMul limbAccumulator2b sublimbShift) (wire p w4Idx)
+      limbAccumulator2d = frAdd (frMul limbAccumulator2c sublimbShift) (wire p wOIdx)
+      limbAccumulator2 = frMul (frSub limbAccumulator2d (wire p w4ShiftIdx)) (wire p qMIdx)
+      limbAccumulatorIdentity = frMul (frAdd limbAccumulator1 limbAccumulator2) (wire p qOIdx)
+      nnfIdentity = frMul (frAdd nonNativeFieldIdentity limbAccumulatorIdentity) (frMul (wire p qNnfIdx) domainSep)
+  in replaceAt 19 nnfIdentity evals
+
+accumulatePoseidonExternalRelation : [Fr] -> [Fr] -> Fr -> [Fr]
+accumulatePoseidonExternalRelation p evals domainSep =
+  let s1 = frAdd (wire p wLIdx) (wire p qLIdx)
+      s2 = frAdd (wire p wRIdx) (wire p qRIdx)
+      s3 = frAdd (wire p wOIdx) (wire p qOIdx)
+      s4 = frAdd (wire p w4Idx) (wire p q4Idx)
+      u1 = frPow5 s1
+      u2 = frPow5 s2
+      u3 = frPow5 s3
+      u4 = frPow5 s4
+      t0 = frAdd u1 u2
+      t1 = frAdd u3 u4
+      t2 = frAdd (frAdd u2 u2) t1
+      t3 = frAdd (frAdd u4 u4) t0
+      v4 = frAdd (frAdd (frAdd t1 t1) (frAdd t1 t1)) t3
+      v2 = frAdd (frAdd (frAdd t0 t0) (frAdd t0 t0)) t2
+      v1 = frAdd t3 v2
+      v3 = frAdd t2 v4
+      qPosByScaling = frMul (wire p qPoseidon2ExternalIdx) domainSep
+  in addAt 23 (frMul qPosByScaling (frSub v4 (wire p w4ShiftIdx)))
+      (addAt 22 (frMul qPosByScaling (frSub v3 (wire p wOShiftIdx)))
+      (addAt 21 (frMul qPosByScaling (frSub v2 (wire p wRShiftIdx)))
+      (addAt 20 (frMul qPosByScaling (frSub v1 (wire p wLShiftIdx))) evals)))
+
+accumulatePoseidonInternalRelation : [Fr] -> [Fr] -> Fr -> [Fr]
+accumulatePoseidonInternalRelation p evals domainSep =
+  case poseidon2InternalDiagonalMinusOne of
+    [d0, d1, d2, d3] ->
+      let s1 = frAdd (wire p wLIdx) (wire p qLIdx)
+          u1 = frPow5 s1
+          u2 = wire p wRIdx
+          u3 = wire p wOIdx
+          u4 = wire p w4Idx
+          uSum = frAdd (frAdd u1 u2) (frAdd u3 u4)
+          qPosByScaling = frMul (wire p qPoseidon2InternalIdx) domainSep
+          v1 = frAdd (frMul u1 d0) uSum
+          v2 = frAdd (frMul u2 d1) uSum
+          v3 = frAdd (frMul u3 d2) uSum
+          v4 = frAdd (frMul u4 d3) uSum
+      in addAt 27 (frMul qPosByScaling (frSub v4 (wire p w4ShiftIdx)))
+          (addAt 26 (frMul qPosByScaling (frSub v3 (wire p wOShiftIdx)))
+          (addAt 25 (frMul qPosByScaling (frSub v2 (wire p wRShiftIdx)))
+          (addAt 24 (frMul qPosByScaling (frSub v1 (wire p wLShiftIdx))) evals)))
+    _ -> error "Poseidon2 internal diagonal must have width 4"
+
+scaleAndBatchSubrelations : [Fr] -> [Fr] -> Fr
+scaleAndBatchSubrelations evaluations subrelationChallenges =
+  case evaluations of
+    [] -> frZero
+    first :: rest -> frAdd first (scaleTail 1 rest subrelationChallenges)
+
+scaleTail : Int -> [Fr] -> [Fr] -> Fr
+scaleTail idx evaluations subrelationChallenges =
+  case (evaluations, subrelationChallenges) of
+    ([], _) -> frZero
+    (eval :: restEvals, alpha :: restAlphas) ->
+      frAdd (frMul eval alpha) (scaleTail (idx + 1) restEvals restAlphas)
+    (_ :: _, []) -> error "Missing alpha challenge"
+
+wire : [Fr] -> Int -> Fr
+wire p idx = listAt p idx
+
+listAt : [a] -> Int -> a
+listAt xs idx =
+  case xs of
+    [] -> error "List index out of bounds"
+    x :: rest ->
+      if idx == 0 then x
+      else listAt rest (idx - 1)
+
+replaceAt : Int -> a -> [a] -> [a]
+replaceAt idx value xs =
+  case xs of
+    [] -> []
+    x :: rest ->
+      if idx == 0 then value :: rest
+      else x :: replaceAt (idx - 1) value rest
+
+addAt : Int -> Fr -> [Fr] -> [Fr]
+addAt idx value xs = replaceAt idx (frAdd (listAt xs idx) value) xs
+
+andThen : Optional a -> (a -> Optional b) -> Optional b
+andThen opt f =
+  case opt of
+    None -> None
+    Some value -> f value
+
+frPow5 : Fr -> Fr
+frPow5 value =
+  let x2 = frMul value value
+      x4 = frMul x2 x2
+  in frMul value x4
+
+frFromInt : Int -> Fr
+frFromInt n = mkFr (U.fromLimbs [n])
+
+minusOne : Fr
+minusOne = frNeg frOne
+
+negHalfModuloP : Fr
+negHalfModuloP = Fr with frValue = U.fromLimbs [0, 63488, 64201, 41456, 47176, 15580, 62500, 37913, 44078, 16576, 8923, 56360, 53268, 28824, 10041, 6194]
+
+grumpkinCurveBParameterNegated : Fr
+grumpkinCurveBParameterNegated = frFromInt 17
+
+limbSize : Fr
+limbSize = mkFr (U.pow2 68)
+
+sublimbShift : Fr
+sublimbShift = mkFr (U.pow2 14)
+
+qMIdx = 0
+qCIdx = 1
+qLIdx = 2
+qRIdx = 3
+qOIdx = 4
+q4Idx = 5
+qLookupIdx = 6
+qArithIdx = 7
+qRangeIdx = 8
+qEllipticIdx = 9
+qMemoryIdx = 10
+qNnfIdx = 11
+qPoseidon2ExternalIdx = 12
+qPoseidon2InternalIdx = 13
+sigma1Idx = 14
+sigma2Idx = 15
+sigma3Idx = 16
+sigma4Idx = 17
+id1Idx = 18
+id2Idx = 19
+id3Idx = 20
+id4Idx = 21
+table1Idx = 22
+table2Idx = 23
+table3Idx = 24
+table4Idx = 25
+lagrangeFirstIdx = 26
+lagrangeLastIdx = 27
+wLIdx = 28
+wRIdx = 29
+wOIdx = 30
+w4Idx = 31
+zPermIdx = 32
+lookupInversesIdx = 33
+lookupReadCountsIdx = 34
+lookupReadTagsIdx = 35
+wLShiftIdx = 36
+wRShiftIdx = 37
+wOShiftIdx = 38
+w4ShiftIdx = 39
+zPermShiftIdx = 40

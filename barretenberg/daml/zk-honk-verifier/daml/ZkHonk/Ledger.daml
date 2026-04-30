@@ -1,0 +1,42 @@
+module ZkHonk.Ledger where
+
+import ZkHonk.Types
+import ZkHonk.Verifier
+
+template ZkHonkVerifier
+  with
+    operator : Party
+    observers : [Party]
+    verificationKey : VerificationKey
+  where
+    signatory operator
+    observer observers
+
+    nonconsuming choice Verify : ContractId VerifiedProof
+      with
+        requester : Party
+        proofId : Text
+        request : ProofRequest
+      controller requester
+      do
+        assertMsg "requester must be an observer or operator" (requester == operator || elem requester observers)
+        assertMsg "invalid ZK Honk proof" (verifyProofRequest verificationKey request)
+        create VerifiedProof with
+          operator = operator
+          requester = requester
+          observers = observers
+          proofId = proofId
+          vkHash = hashVerificationKey verificationKey
+          publicInputHash = hashPublicInputs request.publicInputs
+
+template VerifiedProof
+  with
+    operator : Party
+    requester : Party
+    observers : [Party]
+    proofId : Text
+    vkHash : Fr
+    publicInputHash : Fr
+  where
+    signatory operator, requester
+    observer observers

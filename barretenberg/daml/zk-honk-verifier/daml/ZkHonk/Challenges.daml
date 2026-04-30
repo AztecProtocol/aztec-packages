@@ -1,0 +1,156 @@
+module ZkHonk.Challenges where
+
+import ZkHonk.Types
+import ZkHonk.Field
+import ZkHonk.Codec
+import ZkHonk.Poseidon2
+import ZkHonk.Proof
+import ZkHonk.Transcript
+import qualified ZkHonk.UInt256 as U
+
+numberOfAlphas : Int
+numberOfAlphas = 27
+
+permutationArgumentValueSeparator : Int
+permutationArgumentValueSeparator = 268435456
+
+data UltraZKChallenges = UltraZKChallenges with
+    eta : Fr
+    beta : Fr
+    gamma : Fr
+    publicInputsDelta : Fr
+    alphas : [Fr]
+    gateChallenges : [Fr]
+    libraChallenge : Fr
+    sumcheckUChallenges : [Fr]
+    paddedSumcheckUChallenges : [Fr]
+    rho : Fr
+    geminiR : Fr
+    shplonkNu : Fr
+    shplonkZ : Fr
+  deriving (Eq, Show)
+
+generateUltraZKChallenges : VerificationKey -> [Fr] -> ParsedUltraZKProof -> Optional UltraZKChallenges
+generateUltraZKChallenges vk publicInputs proof =
+  case (proof.witnessCommitments, proof.libraCommitments) of
+    ([geminiMaskingPoly, w1, w2, w3, lookupReadCounts, lookupReadTags, w4, lookupInverses, zPerm], [libraConcat, libraGrandSum, libraQuotient]) ->
+      let allPublicInputs = publicInputs ++ proof.pairingAccumulator
+          t0 = appendFields emptyTranscript ([vk.expectedVkHash] ++ allPublicInputs)
+          t1 = appendCommitments t0 [geminiMaskingPoly, w1, w2, w3]
+          (tEta, etaList) = nextChallenges t1 1
+      in case etaList of
+          [eta] ->
+            let t2 = appendCommitments tEta [lookupReadCounts, lookupReadTags, w4]
+                (tBetaGamma, betaGammaList) = nextChallenges t2 2
+            in case betaGammaList of
+                [beta, gamma] ->
+                  let t3 = appendCommitments tBetaGamma [lookupInverses, zPerm]
+                      (tAlpha, alphaList) = nextChallenges t3 1
+                  in case alphaList of
+                      [alpha] ->
+                        let (tGate, gateList) = nextChallenges tAlpha 1
+                        in case gateList of
+                            [gateChallenge] ->
+                              let gateChallenges = dyadicPowers vk.logCircuitSize gateChallenge
+                                  tLibra = appendFields (appendCommitments tGate [libraConcat]) [proof.libraSum]
+                                  (tAfterLibra, libraChallengeList) = nextChallenges tLibra 1
+                              in case libraChallengeList of
+                                  [libraChallenge] ->
+                                    let (tAfterSumcheck, paddedSumcheckUChallenges) = generateSumcheckChallenges tAfterLibra proof.sumcheckUnivariates
+                                        sumcheckUChallenges = take vk.logCircuitSize paddedSumcheckUChallenges
+                                        tRho = appendFields (appendCommitments (appendFields tAfterSumcheck (proof.sumcheckEvaluations ++ [proof.libraClaimedEvaluation])) [libraGrandSum, libraQuotient]) []
+                                        (tAfterRho, rhoList) = nextChallenges tRho 1
+                                    in case rhoList of
+                                        [rho] ->
+                                          let tGemini = appendCommitments tAfterRho proof.geminiFoldCommitments
+                                              (tAfterGemini, geminiRList) = nextChallenges tGemini 1
+                                          in case geminiRList of
+                                              [geminiR] ->
+                                                let tNu = appendFields tAfterGemini (proof.geminiEvaluations ++ proof.libraEvaluations)
+                                                    (tAfterNu, shplonkNuList) = nextChallenges tNu 1
+                                                in case shplonkNuList of
+                                                    [shplonkNu] ->
+                                                      let tZ = appendCommitments tAfterNu [proof.shplonkQ]
+                                                          (_, shplonkZList) = nextChallenges tZ 1
+                                                      in case shplonkZList of
+                                                          [shplonkZ] -> Some UltraZKChallenges with
+                                                            eta = eta
+                                                            beta = beta
+                                                            gamma = gamma
+                                                            publicInputsDelta = computePublicInputDelta allPublicInputs beta gamma vk.pubInputsOffset
+                                                            alphas = powers numberOfAlphas alpha
+                                                            gateChallenges = gateChallenges
+                                                            libraChallenge = libraChallenge
+                                                            sumcheckUChallenges = sumcheckUChallenges
+                                                            paddedSumcheckUChallenges = paddedSumcheckUChallenges
+                                                            rho = rho
+                                                            geminiR = geminiR
+                                                            shplonkNu = shplonkNu
+                                                            shplonkZ = shplonkZ
+                                                          _ -> None
+                                                    _ -> None
+                                              _ -> None
+                                        _ -> None
+                                  _ -> None
+                            _ -> None
+                      _ -> None
+                _ -> None
+          _ -> None
+    _ -> None
+
+appendCommitments : Transcript -> [G1] -> Transcript
+appendCommitments transcript commitments = appendFields transcript (concatMap commitmentToFrs commitments)
+
+generateSumcheckChallenges : Transcript -> [[Fr]] -> (Transcript, [Fr])
+generateSumcheckChallenges transcript univariates =
+  case univariates of
+    [] -> (transcript, [])
+    row :: rest ->
+      let (next, challenges) = nextChallenges (appendFields transcript row) 1
+          (final, tailChallenges) = generateSumcheckChallenges next rest
+      in case challenges of
+          [challenge] -> (final, challenge :: tailChallenges)
+          _ -> (final, tailChallenges)
+
+computePublicInputDelta : [Fr] -> Fr -> Fr -> Int -> Fr
+computePublicInputDelta publicInputs beta gamma offset =
+  let numeratorStart = frAdd gamma (frMul beta (mkFrFromInt (permutationArgumentValueSeparator + offset)))
+      denominatorStart = frSub gamma (frMul beta (mkFrFromInt (offset + 1)))
+      (numerator, denominator, _, _) = publicInputDeltaLoop publicInputs beta numeratorStart denominatorStart frOne frOne
+  in frMul numerator (frInv denominator)
+
+publicInputDeltaLoop : [Fr] -> Fr -> Fr -> Fr -> Fr -> Fr -> (Fr, Fr, Fr, Fr)
+publicInputDeltaLoop inputs beta numeratorAcc denominatorAcc numerator denominator =
+  case inputs of
+    [] -> (numerator, denominator, numeratorAcc, denominatorAcc)
+    x :: rest ->
+      let numerator1 = frMul numerator (frAdd numeratorAcc x)
+          denominator1 = frMul denominator (frAdd denominatorAcc x)
+      in case rest of
+          [] -> (numerator1, denominator1, numeratorAcc, denominatorAcc)
+          _ ->
+            publicInputDeltaLoop rest beta (frAdd numeratorAcc beta) (frSub denominatorAcc beta) numerator1 denominator1
+
+powers : Int -> Fr -> [Fr]
+powers count base =
+  if count <= 0 then []
+  else powersLoop count base base
+
+powersLoop : Int -> Fr -> Fr -> [Fr]
+powersLoop count base current =
+  if count <= 0 then []
+  else current :: powersLoop (count - 1) base (frMul current base)
+
+dyadicPowers : Int -> Fr -> [Fr]
+dyadicPowers count seed =
+  if count <= 0 then []
+  else seed :: dyadicPowers (count - 1) (frMul seed seed)
+
+hashVerificationKeyLocal : VerificationKey -> Fr
+hashVerificationKeyLocal vk =
+  poseidon2Hash
+    ([mkFrFromInt vk.logCircuitSize, mkFrFromInt vk.numPublicInputs, mkFrFromInt vk.pubInputsOffset]
+      ++ concatMap commitmentToFrs vk.precomputedCommitments)
+
+mkFrFromInt : Int -> Fr
+mkFrFromInt n = mkFr (U.fromLimbs [n])
