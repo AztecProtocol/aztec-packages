@@ -25,12 +25,6 @@ import {
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { snapshotMap } from './kv_store_snapshot.js';
 
-/**
- * Pads an Fr array to the given length with `Fr.ZERO`. Used because `ContractClassLogFields` and
- * `PrivateLog` require fixed-length arrays whose contents are mostly irrelevant for fingerprinting
- * — populating only the leading slots with primes is enough to detect reorders, and the trailing
- * zeros pin the field's total width.
- */
 function paddedFrs(leading: bigint[], totalLength: number): Fr[] {
   const out = leading.map(p => new Fr(p));
   while (out.length < totalLength) {
@@ -39,13 +33,6 @@ function paddedFrs(leading: bigint[], totalLength: number): Fr[] {
   return out;
 }
 
-/**
- * Builds a fully-populated `L2Block` with prime-distinct values for every primitive field that
- * appears in `toBuffer`. Same prime principle as elsewhere in this directory: distinct values let
- * a snapshot diff attribute a regression to a specific field, and same-width reorders become
- * visible. Used as the inner block for both the `'blocks-added'` event and the checkpoint's
- * blocks array.
- */
 function buildPrimedL2Block(): L2Block {
   const archive = new AppendOnlyTreeSnapshot(new Fr(101n), 103);
   const header = new BlockHeader(
@@ -133,16 +120,16 @@ describe('L2TipsKVStore schema compatibility', () => {
       );
 
       // `'blocks-added'` writes to `pxe_l2_tips` (proposed tag) and `pxe_l2_block_hashes`.
-      // `'chain-checkpointed'` writes to all four sub-stores: tips ('checkpointed' and
-      // 'proposedCheckpoint' tags), block-to-checkpoint mapping, and the checkpoint store.
+      // `'chain-checkpointed'` writes to all four sub-stores: tips ('checkpointed' and 'proposedCheckpoint'
+      // tags, block-to-checkpoint mapping, and the checkpoint store).
       await l2TipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
       await l2TipsStore.handleBlockStreamEvent({
         type: 'chain-checkpointed',
         block: { number: BlockNumber(71), hash: new Fr(73n).toString() },
         checkpoint: publishedCheckpoint,
       });
-      // `'chain-proven'` writes the 'proven' tag. `'finalized'` is omitted because its handler
-      // runs delete-before logic that would depend on the order of preceding events.
+      // `'chain-proven'` writes the 'proven' tag. `'finalized'` is omitted because its handler runs delete-before
+      // logic that would depend on the order of preceding events.
       await l2TipsStore.handleBlockStreamEvent({
         type: 'chain-proven',
         block: { number: BlockNumber(79), hash: new Fr(83n).toString() },
