@@ -24,8 +24,8 @@ export async function startProverAgent(
   services: NamespacedApiHandlers,
   userLog: LogFn,
 ) {
-  if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
-    userLog(`Starting a prover agent with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
+  if (options.node || options.sequencer || options.p2pBootstrap || options.txe) {
+    userLog(`Starting a prover agent with --node, --sequencer, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
   }
 
