@@ -162,13 +162,34 @@ pub(crate) comptime fn assert_return_type_serializable(f: FunctionDefinition) {
         let serialize_constraint = quote { crate::protocol::traits::Serialize }.as_trait_constraint();
         assert(
             return_type.implements(serialize_constraint),
-            f"Return type of '{fn_name}' does not implement Serialize. Add #[derive(Serialize)] to the return type.",
+            f"Contract function '{fn_name}' returns a value of type {return_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {return_type}'s declaration.",
         );
         let deserialize_constraint = quote { crate::protocol::traits::Deserialize }.as_trait_constraint();
         assert(
             return_type.implements(deserialize_constraint),
-            f"Return type of '{fn_name}' does not implement Deserialize. Add #[derive(Deserialize)] to the return type.",
+            f"Contract function '{fn_name}' returns a value of type {return_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {return_type}'s declaration.",
         );
+    }
+}
+
+/// Asserts that all parameters of a contract function implement both `Serialize` and `Deserialize`.
+pub(crate) comptime fn assert_params_serializable(f: FunctionDefinition) {
+    let fn_name = f.name();
+    let serialize_constraint = quote { crate::protocol::traits::Serialize }.as_trait_constraint();
+    let deserialize_constraint = quote { crate::protocol::traits::Deserialize }.as_trait_constraint();
+
+    for param in f.parameters() {
+        let (name, param_type) = param;
+        if param_type != type_of(()) {
+            assert(
+                param_type.implements(serialize_constraint),
+                f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {param_type}'s declaration.",
+            );
+            assert(
+                param_type.implements(deserialize_constraint),
+                f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {param_type}'s declaration.",
+            );
+        }
     }
 }
 

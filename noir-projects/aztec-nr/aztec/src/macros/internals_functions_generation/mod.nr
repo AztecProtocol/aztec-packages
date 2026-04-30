@@ -10,7 +10,7 @@ mod abi_export;
 pub(crate) mod external;
 pub(crate) mod internal;
 
-use super::utils::assert_return_type_serializable;
+use super::utils::{assert_params_serializable, assert_return_type_serializable};
 use abi_export::create_fn_abi_export;
 use external::{
     private::generate_private_external, public::generate_public_external, utility::generate_utility_external,
@@ -43,12 +43,15 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
 
     for f in private_functions {
         assert_return_type_serializable(f);
+        assert_params_serializable(f);
     }
     for f in public_functions {
         assert_return_type_serializable(f);
+        assert_params_serializable(f);
     }
     for f in utility_functions {
         assert_return_type_serializable(f);
+        assert_params_serializable(f);
     }
 
     let transformed_private_functions =

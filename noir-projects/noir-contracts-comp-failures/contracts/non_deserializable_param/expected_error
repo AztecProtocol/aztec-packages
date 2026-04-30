@@ -1,0 +1,1 @@
+Parameter '_param' of contract function 'bad_param' has type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.

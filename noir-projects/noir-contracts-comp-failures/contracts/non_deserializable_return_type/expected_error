@@ -1,1 +1,1 @@
-Return type of 'bad_return' does not implement Deserialize. Add #[derive(Deserialize)] to the return type.
+Contract function 'bad_return' returns a value of type NotDeserializable, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to NotDeserializable's declaration.
