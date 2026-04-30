@@ -34,7 +34,7 @@ describe('e2e_expiration_timestamp', () => {
     let expirationTimestamp: bigint;
 
     beforeEach(async () => {
-      const header = await aztecNode.getBlockHeader();
+      const header = await aztecNode.getBlockHeader('latest');
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
@@ -87,7 +87,7 @@ describe('e2e_expiration_timestamp', () => {
     let expirationTimestamp: bigint;
 
     beforeEach(async () => {
-      const header = await aztecNode.getBlockHeader();
+      const header = await aztecNode.getBlockHeader('latest');
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
@@ -142,7 +142,7 @@ describe('e2e_expiration_timestamp', () => {
     let expirationTimestamp: bigint;
 
     beforeEach(async () => {
-      const header = await aztecNode.getBlockHeader();
+      const header = await aztecNode.getBlockHeader('latest');
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }

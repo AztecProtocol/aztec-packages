@@ -389,6 +389,12 @@ variable "SEQ_MAX_TX_PER_CHECKPOINT" {
   default     = null
 }
 
+variable "P2P_MAX_PENDING_TX_COUNT" {
+  description = "Maximum number of pending txs the local mempool will hold before evictions kick in"
+  type        = string
+  default     = null
+}
+
 variable "SEQ_ENFORCE_TIME_TABLE" {
   description = "Whether to enforce the time table when building blocks"
   type        = string

@@ -3,6 +3,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
 import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
@@ -14,7 +15,7 @@ export async function createSentinel(
   epochCache: EpochCache,
   archiver: L2BlockSource,
   p2p: P2PClient,
-  config: SentinelConfig & DataStoreConfig & SlasherConfig,
+  config: SentinelConfig & DataStoreConfig & SlasherConfig & Pick<ChainConfig, 'l1ChainId' | 'l1Contracts'>,
   logger = createLogger('node:sentinel'),
 ): Promise<Sentinel | undefined> {
   if (!config.sentinelEnabled) {

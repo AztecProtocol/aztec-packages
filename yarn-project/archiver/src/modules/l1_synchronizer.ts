@@ -10,6 +10,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/br
 import { Buffer16, Buffer32 } from '@aztec/foundation/buffer';
 import { partition, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryTimes } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
@@ -19,6 +20,7 @@ import { type ArchiverEmitter, L2BlockSourceEvents, type ValidateCheckpointResul
 import { Checkpoint, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotAtNextL1Block } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { type Traceable, type Tracer, execInSpan, trackSpan } from '@aztec/telemetry-client';
 
 import { InitialCheckpointNumberNotSequentialError } from '../errors.js';
@@ -109,6 +111,13 @@ export class ArchiverL1Synchronizer implements Traceable {
   /** Returns the last L1 timestamp that was synced. */
   public getL1Timestamp(): bigint | undefined {
     return this.l1Timestamp;
+  }
+
+  private getSignatureContext(): CoordinationSignatureContext {
+    return {
+      chainId: this.publicClient.chain.id,
+      rollupAddress: EthAddress.fromString(this.rollup.address),
+    };
   }
 
   /** Checks that the ethereum node we are connected to has a latest timestamp no more than the allowed drift. Throw if not. */
@@ -777,11 +786,14 @@ export class ArchiverL1Synchronizer implements Traceable {
         },
       );
 
-      // Check if the last checkpoint matches the proposed one (so we can skip blob fetch).
-      // We only check the last one because the proposed checkpoint is always the most recent one,
-      // and if it's in a multi-checkpoint batch it will always be last (sorted by L1 block number).
+      // Check if the last checkpoint matches a local pending entry (so we can skip blob fetch).
+      // We only check the last one; if it matches, the blob fetch is skipped for that entry.
+      // TODO(palla/pipelining): We may have more than a single checkpoint to promote
       const lastCalldataCheckpoint = calldataCheckpoints[calldataCheckpoints.length - 1];
-      const checkpointToPromote = await this.tryBuildPublishedCheckpointFromProposed(lastCalldataCheckpoint);
+      const promoteResult = await this.tryBuildPublishedCheckpointFromProposed(lastCalldataCheckpoint);
+      const checkpointToPromote = promoteResult && !('diverged' in promoteResult) ? promoteResult : undefined;
+      const evictProposedFrom =
+        promoteResult && 'diverged' in promoteResult ? promoteResult.fromCheckpointNumber : undefined;
 
       // Then fetch blobs in parallel and build the full published checkpoints
       const toFetchBlobs = checkpointToPromote ? calldataCheckpoints.slice(0, -1) : calldataCheckpoints;
@@ -809,7 +821,13 @@ export class ArchiverL1Synchronizer implements Traceable {
       for (const published of publishedCheckpoints) {
         const validationResult = this.config.skipValidateCheckpointAttestations
           ? { valid: true as const }
-          : await validateCheckpointAttestations(published, this.epochCache, this.l1Constants, this.log);
+          : await validateCheckpointAttestations(
+              published,
+              this.epochCache,
+              this.l1Constants,
+              this.getSignatureContext(),
+              this.log,
+            );
 
         // Only update the validation result if it has changed, so we can keep track of the first invalid checkpoint
         // in case there is a sequence of more than one invalid checkpoint, as we need to invalidate the first one.
@@ -904,6 +922,7 @@ export class ArchiverL1Synchronizer implements Traceable {
                 attestations: lastCalldataCheckpoint.attestations,
                 checkpoint: maybeValidCheckpointToPromote,
               },
+              evictProposedFrom,
             ),
           ),
         );
@@ -975,17 +994,24 @@ export class ArchiverL1Synchronizer implements Traceable {
     return { ...rollupStatus, lastRetrievedCheckpoint, lastL1BlockWithCheckpoint };
   }
 
-  /** Checks if this checkpoint matches the local proposed one, and if so, loads local data to build a synthetic published checkpoint. */
+  /**
+   * Checks if a specific checkpoint matches a local pending entry, and if so, loads local data to build
+   * a synthetic published checkpoint (skipping blob fetch).
+   *
+   * Returns { diverged: true, fromCheckpointNumber } when the L1 checkpoint does NOT match local pending
+   * data for that number, so the caller can evict the entire pending suffix >= fromCheckpointNumber
+   * (those entries chain off the now-invalid local state) within the same addCheckpoints transaction.
+   */
   private async tryBuildPublishedCheckpointFromProposed(
     calldataCheckpoint: RetrievedCheckpointFromCalldata | undefined,
-  ): Promise<PublishedCheckpoint | undefined> {
-    const proposed = await this.store.getProposedCheckpointOnly();
-    if (
-      this.config.skipPromoteProposedCheckpointDuringL1Sync ||
-      !proposed ||
-      !calldataCheckpoint ||
-      proposed.checkpointNumber !== calldataCheckpoint.checkpointNumber
-    ) {
+  ): Promise<PublishedCheckpoint | { diverged: true; fromCheckpointNumber: CheckpointNumber } | undefined> {
+    if (this.config.skipPromoteProposedCheckpointDuringL1Sync || !calldataCheckpoint) {
+      return undefined;
+    }
+
+    // Look up the specific pending entry for the checkpoint being mined, not just the tip
+    const proposed = await this.store.getProposedCheckpointByNumber(calldataCheckpoint.checkpointNumber);
+    if (!proposed) {
       return undefined;
     }
 
@@ -1004,7 +1030,8 @@ export class ArchiverL1Synchronizer implements Traceable {
           calldataArchiveRoot: calldataCheckpoint.archiveRoot.toString(),
         },
       );
-      return undefined;
+      // Return a divergence signal so the caller can evict pending >= this number
+      return { diverged: true, fromCheckpointNumber: proposed.checkpointNumber };
     }
 
     this.log.debug(

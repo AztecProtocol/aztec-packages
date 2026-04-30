@@ -232,6 +232,10 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);
 
+  function getVkTreeRoot() external view returns (bytes32);
+  function getProtocolContractsHash() external view returns (bytes32);
+  function getEpochProofVerifier() external view returns (IVerifier);
+
   function getRewardConfig() external view returns (RewardConfig memory);
   function getCheckpointReward() external view returns (uint256);
 }
