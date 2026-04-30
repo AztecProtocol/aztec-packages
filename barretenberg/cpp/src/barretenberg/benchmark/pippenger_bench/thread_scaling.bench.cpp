@@ -35,8 +35,6 @@ using G1 = Curve::AffineElement;
 
 namespace {
 
-// Representative of a Chonk-scale wire polynomial; large enough that MSM dominates
-// any fixed overhead (work-unit construction, accumulation, scalar round-trip).
 constexpr size_t MSM_SIZE = 1 << 20;
 
 enum class Distribution { Clustered, UniformMixed, AllFull };
