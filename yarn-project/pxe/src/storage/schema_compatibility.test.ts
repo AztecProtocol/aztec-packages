@@ -17,20 +17,26 @@ const STORE_NAME_TO_FIXTURE_TYPE: ReadonlyMap<string, string> = new Map([
   ['contracts_instances', 'SerializableContractInstance'],
 ]);
 
+/**
+ * PXE wipes its database when `PXE_DATA_SCHEMA_VERSION` doesn't match what's on disk, so any
+ * uncoordinated change to the on-disk schema destroys user data. These tests pin the schema
+ * fingerprint (set of opened stores + binary layout of every stored type) so a schema change
+ * forces a visible diff.
+ *
+ * The `schemaVersion` field embedded in each snapshot is a visibility tool, not a hard gate: a
+ * developer running `-u` picks up new bytes alongside the unchanged version, making it obvious
+ * in PR review that the constant should be bumped. Mechanical enforcement of "schema change
+ * requires version bump" is not possible with snapshot tests alone — PR review is the backstop.
+ */
 describe('PXE schema compatibility', () => {
   it('matches snapshots stores opened by PXE', async () => {
-    const inner = await openTmpStore('pxe-schema-stores', true);
+    const kvStore = await openTmpStore('pxe-schema-stores', true);
     try {
-      const { store, openedStores } = createStoreSpy(inner);
-
+      const { store, openedStores } = createStoreSpy(kvStore);
       openPxeStores(store);
-
-      // Embed PXE_DATA_SCHEMA_VERSION alongside the store list so a schema change
-      // that updates this snapshot also pins the version it was taken at. Reviewers
-      // see the version next to the new store list in the diff.
       expect({ schemaVersion: PXE_DATA_SCHEMA_VERSION, stores: openedStores() }).toMatchSnapshot();
     } finally {
-      await inner.close();
+      await kvStore.close();
     }
   });
 
@@ -63,9 +69,6 @@ describe('PXE schema compatibility', () => {
           assertNoDefaultFields(`${typeName} (variant ${i})`, variant);
         }
 
-        // Embed PXE_DATA_SCHEMA_VERSION alongside the buffer so a fixture change
-        // that updates this snapshot also pins the version it was taken at. Reviewers
-        // see the version next to the new bytes in the diff.
         expect({
           schemaVersion: PXE_DATA_SCHEMA_VERSION,
           type: typeName,
@@ -111,15 +114,5 @@ describe('PXE schema compatibility', () => {
     } finally {
       await inner.close();
     }
-  });
-
-  it('pins PXE_DATA_SCHEMA_VERSION', () => {
-    // Standalone tripwire that fires whenever the constant changes. Combined with the
-    // schemaVersion embedded in the prior tests' snapshots, a schema change requires the
-    // developer to bump the version visibly in the diff: the embedded values reveal
-    // unbumped versions even after a `-u`. Mechanical enforcement that bumping the schema
-    // *requires* bumping the version is not possible with snapshot tests alone — this is
-    // a visibility tool, not a hard gate. PR review remains the backstop.
-    expect({ PXE_DATA_SCHEMA_VERSION }).toMatchSnapshot();
   });
 });
