@@ -6,15 +6,15 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
+import { ContractStore } from '../contract_store/contract_store.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
-import { openPxeStores } from '../open_pxe_stores.js';
 import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('ContractStore schema compatibility', () => {
   it('persists registered contract artifacts and instances', async () => {
     const kvStore = await openTmpStore('pxe-schema-contract-store', true);
     try {
-      const { contractStore } = openPxeStores(kvStore);
+      const contractStore = new ContractStore(kvStore);
 
       // Register an artifact -- this writes to both `contract_artifacts` and `contract_classes`.
       await contractStore.addContractArtifact(BenchmarkingContractArtifact);

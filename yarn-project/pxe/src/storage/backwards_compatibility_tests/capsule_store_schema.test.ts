@@ -2,15 +2,15 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
-import { openPxeStores } from '../open_pxe_stores.js';
 import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('CapsuleStore schema compatibility', () => {
   it('persists set capsules after commit', async () => {
     const kvStore = await openTmpStore('pxe-schema-capsule-store', true);
     try {
-      const { capsuleStore } = openPxeStores(kvStore);
+      const capsuleStore = new CapsuleStore(kvStore);
 
       const jobId = 'fixture-job';
       const contractAddress = AztecAddress.fromBigInt(2n);

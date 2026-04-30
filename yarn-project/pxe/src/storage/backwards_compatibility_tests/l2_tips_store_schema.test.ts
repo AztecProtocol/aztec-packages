@@ -1,15 +1,15 @@
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { L2Block } from '@aztec/stdlib/block';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
-import { openPxeStores } from '../open_pxe_stores.js';
 import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('L2TipsKVStore schema compatibility', () => {
   it("persists tips and block hashes after a 'blocks-added' event", async () => {
     const kvStore = await openTmpStore('pxe-schema-l2-tips', true);
     try {
-      const { l2TipsStore } = openPxeStores(kvStore);
+      const l2TipsStore = new L2TipsKVStore(kvStore, 'pxe');
 
       await l2TipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: [L2Block.empty()] });
 

@@ -6,14 +6,14 @@ import { Note, NoteDao } from '@aztec/stdlib/note';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
-import { openPxeStores } from '../open_pxe_stores.js';
+import { NoteStore } from '../note_store/note_store.js';
 import { snapshotMap, snapshotMultiMap } from './kv_store_snapshot.js';
 
 describe('NoteStore schema compatibility', () => {
   it('persists added notes after commit', async () => {
     const kvStore = await openTmpStore('pxe-schema-note-store', true);
     try {
-      const { noteStore } = openPxeStores(kvStore);
+      const noteStore = new NoteStore(kvStore);
 
       const jobId = 'fixture-job';
       const contractAddress = AztecAddress.fromBigInt(7n);

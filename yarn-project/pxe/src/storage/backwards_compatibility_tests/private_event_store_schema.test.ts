@@ -7,14 +7,14 @@ import { BlockHash } from '@aztec/stdlib/block';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
-import { openPxeStores } from '../open_pxe_stores.js';
+import { PrivateEventStore } from '../private_event_store/private_event_store.js';
 import { snapshotMap, snapshotMultiMap } from './kv_store_snapshot.js';
 
 describe('PrivateEventStore schema compatibility', () => {
   it('persists private event logs after commit', async () => {
     const kvStore = await openTmpStore('pxe-schema-private-event', true);
     try {
-      const { privateEventStore } = openPxeStores(kvStore);
+      const privateEventStore = new PrivateEventStore(kvStore);
 
       const jobId = 'fixture-job';
       const eventSelector = EventSelector.fromField(new Fr(2n));

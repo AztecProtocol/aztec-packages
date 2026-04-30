@@ -5,14 +5,14 @@ import { ExtendedDirectionalAppTaggingSecret, type TaggingIndexRange } from '@az
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
-import { openPxeStores } from '../open_pxe_stores.js';
+import { SenderTaggingStore } from '../tagging_store/index.js';
 import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('SenderTaggingStore schema compatibility', () => {
   it('persists pending and finalized indexes after commit', async () => {
     const kvStore = await openTmpStore('pxe-schema-sender-tagging', true);
     try {
-      const { senderTaggingStore } = openPxeStores(kvStore);
+      const senderTaggingStore = new SenderTaggingStore(kvStore);
 
       const jobId = 'fixture-job';
       const secretA = new ExtendedDirectionalAppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));

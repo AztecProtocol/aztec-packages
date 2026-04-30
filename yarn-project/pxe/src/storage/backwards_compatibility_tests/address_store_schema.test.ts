@@ -2,8 +2,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 
+import { AddressStore } from '../address_store/address_store.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
-import { openPxeStores } from '../open_pxe_stores.js';
 import { snapshotArray, snapshotMap } from './kv_store_snapshot.js';
 
 /**
@@ -13,7 +13,7 @@ describe('AddressStore schema compatibility', () => {
   it('persists registered complete addresses', async () => {
     const kvStore = await openTmpStore('pxe-schema-address-store', true);
     try {
-      const { addressStore } = openPxeStores(kvStore);
+      const addressStore = new AddressStore(kvStore);
 
       const first = await CompleteAddress.fromSecretKeyAndPartialAddress(new Fr(2n), new Fr(3n));
       const second = await CompleteAddress.fromSecretKeyAndPartialAddress(new Fr(5n), new Fr(7n));
@@ -24,7 +24,6 @@ describe('AddressStore schema compatibility', () => {
       await addressStore.addCompleteAddress(first);
 
       const completeAddresses = kvStore.openArray<Buffer>('complete_addresses');
-      us;
       const completeAddressIndex = kvStore.openMap<string, number>('complete_address_index');
 
       expect({

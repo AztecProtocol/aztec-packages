@@ -4,14 +4,14 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
-import { openPxeStores } from '../open_pxe_stores.js';
+import { RecipientTaggingStore } from '../tagging_store/index.js';
 import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('RecipientTaggingStore schema compatibility', () => {
   it('persists highest aged and finalized indexes after commit', async () => {
     const kvStore = await openTmpStore('pxe-schema-recipient-tagging', true);
     try {
-      const { recipientTaggingStore } = openPxeStores(kvStore);
+      const recipientTaggingStore = new RecipientTaggingStore(kvStore);
 
       const jobId = 'fixture-job';
       const secretA = new ExtendedDirectionalAppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
