@@ -18,7 +18,6 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
     let recipient = env.create_light_account();
 
     let registry_address = env.deploy("HandshakeRegistry").without_initializer();
-    let x = HandshakeRegistry::at(registry_address);
 
     (env, registry_address, sender, other_sender, recipient)
 }
