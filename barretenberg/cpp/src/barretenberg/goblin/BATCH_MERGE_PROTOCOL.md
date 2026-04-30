@@ -1,74 +1,218 @@
-# Batch merge protocol
+# Batch Merge Protocol
 
 For a more detailed explanation of Chonk, see [REFERENCE TO CHONK DOC].
 
-During Chonk, a series of circuits $A_1, K_1, \dots, A_N, K_N, K_{N+1}, K_{N+2}, K_{N+3}$ defined over $\mathbb{F}_r$ (the base field of BN254) are folded into each other. Each of these circuits is allowed to perform elliptic curve operations over BN254 but instead of performing these operations in circuit we delegate them to the Goblin infrastructure.
+During Chonk, circuits perform BN254 elliptic-curve operations that are delegated to Goblin rather than executed directly in the circuit. Each circuit exposes four `ecc_op_wire` commitments, one for each operation-table column.
 
-Each kernel circuit in the sequence $K_i$ takes the commitments to the elliptic curves operations performed by the circuit it has accumulated and hashes them into a running hash. This running hash is then propagated via the public inputs so that the following kernel in the sequence can update it. More precisely, the kernel $K_i$ folds the previous kernel $K_{i-1}$ and the previous app $A_{i}$ into a running accumulator. While performing this folding, $K_i$ receives the commitments $T_{K_{i-1}}$, $T_{A_{i}}$ to the wires corresponding to elliptic curve operations (4 wires for each circuit) and the running hash $h_{K_{i-1}}$ (read from the public inputs of $K_{i-1}$). Then, it computes
+There are two distinct merge mechanisms:
+
+- The **Merge Protocol** in `MERGE_PROTOCOL.md` proves the latest pairwise merge relation. It checks one step of the form
+  $$
+  M_j(X) = L_j(X) + X^\ell R_j(X)
+  $$
+  for each column $j \in \{1,2,3,4\}$, together with a degree check for the left table. It should be read as the latest-merge protocol, including the soundness and degree-of-freedom analysis for that final merge.
+- The **Batch Merge Protocol** proves, in one proof, that a committed aggregate table is the concatenation of all accumulated subtables bound by a running commitment hash, with a zero-knowledge prefix prepended by the batch merge prover.
+
+The batch merge protocol therefore does not replace the latest merge proof. Batch merge establishes the accumulated table up to the batch-merge output: all subtables bound by the running hash, plus the ZK prefix. The latest merge protocol is then responsible for the final pairwise merge involving the hiding-kernel table.
+
+## Relation to the Merge Protocol
+
+The Merge Protocol proves only a current/latest merge step. Given commitments to two tables $L_j$ and $R_j$, it proves that the output commitment opens to
+
 $$
-h_{K_i} = \text{Poseidon2}(\text{Poseidon2}(h_{K_{i-1}}, T_{K_{i-1}}), T_{A_i})
-$$
-and adds it to its public inputs.
-
-The final kernel $K_{N+3}$ (the hiding kernel) receives the running hash $h$ and uses it as the source of truth in a protocol that merges all the elliptic curve operations performed by the circuits $A_1, \dots, K_{N+2}$ into a single table $T$ which the Goblin infrastructure then uses to verify the validity of the operations.
-
-The protocol run by $K_{N+3}$ is what we call the batch merge protocol.
-
-## The protocol
-
-A prover and a verifier engange in the batch merge protocol for the following reason: both the prover and the verifier hold a hash value $h \in \mathbb{F}_r$, the prover wants to convince the verifier that they know a series of polynomials $f_1, \dots, f_M$ such that for a given $N \leq M$ specified by the prover:
-- $h = h_N$ where $h_0$ is the empty string and $h_i = \text{Poseidon2}(h_{i-1}, T_i)$, where $T_i = [f_i]$ is the commitment to $f_i$
-- a given commitment $T$ is the commitment to
-$$
-f = \sum_{i} X^{k_i} f_i \quad \text{where} \quad k_i = \sum_{j < i} s_i \quad \text{with} \quad \deg(f_i) < s_i
+M_j(X) = L_j(X) + X^\ell R_j(X)
 $$
 
-In Chonk, $M$ is the largest possible stack depth allowed by the ECCVM and Translator, while $N$ is the real number of circuits that have been accumulated during proving.
+for each wire column $j$, where $\ell$ is the unshifted size of $L_j$.
 
+The Batch Merge Protocol proves a different statement. It receives a running hash that binds a sequence of subtable commitments and proves that the output aggregate commitment opens to the concatenation of every accumulated subtable, preceded by the batch-merge ZK prefix:
 
-### Description
-
-**Note:** We describe the protocol as if every circuit corresponded to a single polynomial/commitment. In Chonk, each circuit corresponds to 4 polynomials/commitments. The protocol extends trivially.
-
-Public information: $h$
-Prover data: $f_1, \dots, f_N$ and $f = \sum_{i} X^{k_i} f_i$
-
-1. The prover sends $N$
-2. The prover sends commitments $T_1, \dots, T_M$ where $T_i = [f_i]$ where $f_i = 0$ if $i > N$
-3. The prover sends $s_i = \deg(f_i) + 1$, where $\deg(0) = -1$
-3. The prover sends commitment $T = [f]$
-4. Prover and verifier compute a challenge $\alpha$
-5. The prover computes $g(X) := \sum_i \alpha^{i-1} X^{s_i - 1} f_i(X^{-1})$ and sends the commitment $G = [g]$
-6. The prover and the verifier compute an evaluation challenge $\kappa$
-7. The prover sends evaluations $ev_{T, i} = f_i(\kappa)$, $ev_T = f(\kappa)$, $ev_g = g(\kappa^{-1})$
-8. The prover and the verifier engage in Shplonk to open $T_i$ to $ev_{T,i}$ at $\kappa$, $T$ to $ev_T$ at $\kappa$, and $G$ to $g$ at $\kappa^{-1}$
-9. The verifier defines $\tilde s_i = s_i$ if $i \leq N$ else $0$ and checks the validity of the following equations
-    a. Concatenation check:
-        $$
-            \sum_{i} \kappa^{k_i} ev_{T,i} = ev_T \quad \text{where} \quad k_i = \sum_{j < i} \tilde s_i
-        $$
-    b. Degree check:
-        $$
-            \sum_i \alpha^{1 - \tilde s_i} ev_{T, i} = ev_g
-        $$
-    The first equation ensures that the polynomial committed in $T$ equals the the sum of the polynomials commited in $T_i$ weighted with the correct powers of $X$. The second equation ensures that the polynomials committed in $T_i$ have degree strictly smaller than $s_i$. In particular, for each $i > N$ this implies $f_i = 0$.
-10. The verifier computes a list of hashes $h_i$, $i = 1, \dots, M$ where
 $$
-h_i = \text{Poseidon2}(h_{i-1}, T_i)
+F_j(X) = f_{0,j}(X) + \sum_{i=1}^{N} X^{k_i} f_{i,j}(X),
+\qquad
+k_i = s_0 + \sum_{m < i} s_m.
 $$
-and then checks $h_N = h$.
 
-## Hash chain in the code
+Here:
 
-To minimize the number of gates arising from hashing the commitments $T_i$ to check that validity of the hash $h$, we generate the hashes using the function `get_challenge` from the `Transcript` class. In this way, the hash gates are used both to update the status of the transcript and to generate the chain $\{ h_i \}$. Note that using `get_challenge` means that $h_i$ is not a full element in $\mathbb{F}_r$, it's made up by 127 random bits. In particular, the collision probability for the hash chain is $2^{-127}$.
+- $j \in \{1,2,3,4\}$ indexes the op-queue columns.
+- $f_{0,j}$ is the ZK-prefix column.
+- $f_{i,j}$ is the $j$-th column of the $i$-th accumulated subtable.
+- $s_0$ is the fixed ZK-prefix size.
+- $s_i$ is the claimed size bound for subtable $i$.
+
+Thus:
+
+- Merge Protocol: latest pairwise merge only.
+- Batch Merge Protocol: batched merge of all accumulated subtables plus the ZK prefix.
+
+## Running Commitment Hash
+
+Each kernel updates a running hash of the op-queue commitments it observes. If the previous hash is $h_{i-1}$ and the next subtable commitments are
+
+$$
+T_i = ([f_{i,1}], [f_{i,2}], [f_{i,3}], [f_{i,4}]),
+$$
+
+then the next hash is
+
+$$
+h_i = \text{Poseidon2}(h_{i-1}, T_i).
+$$
+
+The final kernel receives the resulting hash and passes it to the batch merge verifier. The verifier recomputes the same hash chain from the commitments supplied in the batch merge proof and checks that the selected hash value equals the public input hash. In the implementation this is optimized by reusing transcript challenges: `Transcript::get_challenge("HASH_i")` updates the transcript and yields the hash-chain element. The verifier compares the lower 127 bits of the supplied hash, so the hash-binding collision probability is $2^{-127}$.
+
+## Protocol Statement
+
+Let $M$ be the maximum number of subtables supported by the verifier, and let $N \leq M$ be the actual number of accumulated subtables sent by the prover. The prover and verifier work over four columns, but it is useful to write the statement per column.
+
+Public input:
+
+- A binding hash $h$ for the accumulated subtable commitments.
+
+Prover data:
+
+- Subtable polynomials $f_{i,j}$ for $i = 1,\ldots,N$ and $j = 1,\ldots,4$.
+- ZK-prefix polynomials $f_{0,j}$.
+- Aggregate polynomials
+  $$
+  F_j(X) = f_{0,j}(X) + \sum_{i=1}^{N} X^{k_i} f_{i,j}(X),
+  \qquad
+  k_i = s_0 + \sum_{m<i} s_m.
+  $$
+
+The verifier should be convinced that:
+
+1. The running hash $h$ binds the commitments to $f_{1,j},\ldots,f_{N,j}$.
+2. Each aggregate commitment $[F_j]$ is the concatenation of the ZK prefix and the $N$ accumulated subtables.
+3. The claimed size bounds are respected:
+   $$
+   \deg(f_{0,j}) < s_0,\qquad \deg(f_{i,j}) < s_i \text{ for } i=1,\ldots,N.
+   $$
+4. The unused subtable slots $i>N$ are zero and do not affect the concatenation.
+
+## Implemented Protocol
+
+The implementation uses flattened table indices. Index $0$ is the ZK prefix, and indices $1,\ldots,M$ are the possible accumulated subtables. For each table index $i$ and column $j$, let $C_{i,j}$ denote the corresponding polynomial:
+
+$$
+C_{0,j} = f_{0,j}, \qquad C_{i,j} = f_{i,j} \text{ for } i \geq 1.
+$$
+
+The verifier uses size parameters
+
+$$
+\sigma_0 = \texttt{UltraEccOpsTable::ZK\_ULTRA\_OPS},
+\qquad
+\sigma_i =
+\begin{cases}
+s_i & i \leq N,\\
+0 & i > N.
+\end{cases}
+$$
+
+### Prover
+
+1. Commit to all real accumulated subtable columns $[C_{i,j}]$ for $i=1,\ldots,N$.
+2. Send identity commitments for unused slots $i=N+1,\ldots,M$.
+3. Create and commit to the ZK-prefix columns $[C_{0,j}]$ using `ECCOpQueue::construct_zk_columns()`.
+4. Send $N$ and the subtable sizes $s_i$ for all $M$ possible subtable slots.
+5. Construct and commit to the merged table columns $[F_j]$.
+6. Derive batching challenges $1,\alpha,\alpha^2,\ldots$.
+7. Construct the degree-check polynomial over the active slots
+   $$
+   G(X) = \sum_{i=0}^{N}\sum_{j=1}^{4}
+          \alpha_{i,j}\, X^{\sigma_i-1} C_{i,j}(X^{-1}),
+   $$
+   where the $i=0$ terms are the ZK-prefix columns. Unused columns are treated as zero by the verifier.
+8. Derive an evaluation challenge $\kappa$.
+9. Send evaluations $C_{i,j}(\kappa)$, $F_j(\kappa)$, and $G(\kappa^{-1})$.
+10. Use Shplonk/KZG to prove all claimed openings.
+
+### Verifier
+
+The verifier recomputes the hash chain, receives commitments/evaluations, and performs three algebraic checks before reducing all openings to a single KZG pairing check.
+
+#### Concatenation Check
+
+For each column $j$, the verifier checks
+
+$$
+F_j(\kappa) = C_{0,j}(\kappa) + \kappa^{\sigma_0} C_{1,j}(\kappa) + \kappa^{\sigma_0+\sigma_1} C_{2,j}(\kappa) + \cdots + \kappa^{\sum_{m=0}^{M-1}\sigma_m} C_{M,j}(\kappa).
+$$
+
+In code this is evaluated with Horner's rule from the last table slot down to the ZK prefix. Since $\sigma_i=0$ and $C_{i,j}(\kappa)=0$ for unused slots, indices $i>N$ do not contribute.
+
+#### Degree Check
+
+For each committed column $C_{i,j}$, the reversed-polynomial identity gives
+
+$$
+\left(X^{\sigma_i-1} C_{i,j}(X^{-1})\right)(\kappa^{-1}) = \kappa^{1-\sigma_i} C_{i,j}(\kappa)
+$$
+
+The verifier checks the batched identity
+
+$$
+G(\kappa^{-1}) = \sum_{i=0}^{M}\sum_{j=1}^{4} \alpha_{i,j}\, \kappa^{1-\sigma_i} C_{i,j}(\kappa)
+$$
+
+This proves the degree bounds $\deg(C_{i,j}) < \sigma_i$ for all active table slots, except with the batching and Schwartz-Zippel failure probabilities. In particular, unused slots have $\sigma_i=0$ which means the right hand side has a term of the form
+$$
+X^{-1} C_{i,j}(X^{-1})
+$$
+Unless $C_{i,j} = 0$ such a terms contributes negative powers of $X$, which means the right hand side is not a polynomial, while the left hand side is (because it was committed to).
+
+
+#### Hash Consistency Check
+
+The verifier constructs an indicator array for the prover-supplied $N$ and selects the calculated hash after the $N$-th subtable. It then checks that this selected hash equals the public binding hash.
+
+The verifier also enforces $1 \leq N \leq M$. In recursive verification this is encoded by the product
+
+$$
+\prod_{i=1}^{M}(N-i)=0.
+$$
 
 ## Adding ZK
 
-Inside Chonk, the commitment $T$ is added to the public inputs of the hiding kernel and is therefore part of the Chonk proof. To ensure that $T$ doesn't leak information about the operations that have been performed during accumulation, the batch merge prover adds zero-knowledge to the table by prepending a table $T_0$ made up of random operations.
+The batch merge output is part of the Goblin-facing accumulated operation table, so it must not reveal the real accumulated operations. Batch merge adds zero-knowledge by prepending a fixed-size ZK prefix $T_0$.
 
-The protocol operates as in the non-zk case, with the difference that after having sent the commitments $T_i$ the prover sends the commitment to the table $T_0$. The prover and the verifier then engage in the protocol to check that $T$ represents the commitment to the polynomial $\sum_{i \geq 0} X^{k_i} f_i$.
+This prefix is produced by `ECCOpQueue::construct_zk_columns()` and consists of:
 
-Note that the prover doesn't send $s_0$ as the table $T_0$ is degree checked against a constant size
+- one no-op;
+- three random Ultra-only ops;
+- one valid hiding op included in the ECCVM table.
+
+The prefix size is fixed:
+
 $$
-s_0 := \text{UltraEccOpsTable::ZK\_ULTRA\_OPS}
+s_0 := \texttt{UltraEccOpsTable::ZK\_ULTRA\_OPS}.
 $$
+
+The prover therefore does not send $s_0$ as a variable size. The verifier uses the constant prefix size when computing concatenation offsets and degree-check powers.
+
+This prefix is the beginning-side ZK contribution. The hiding kernel later contributes the final random non-ops at the end of the table, and the latest Merge Protocol proves the corresponding final merge step. See `MERGE_PROTOCOL.md` for the latest-merge soundness and degree-of-freedom analysis.
+
+## Layout Notes
+
+The batch merge algebra above is written without duplicating the trace-layout discussion from `MERGE_PROTOCOL.md`. The implementation must still produce commitments with the layout expected downstream by the latest merge, Translator, and ECCVM checks.
+
+The important separation is:
+
+- Batch merge proves the hash-bound accumulated subtables plus the ZK prefix.
+- Latest merge proves the final append/prepend relation for the current hiding-kernel table and performs the final layout alignment discussed in `MERGE_PROTOCOL.md`.
+
+## Soundness Considerations
+
+The prover controls several values: $N$, the subtable sizes $s_i$, the column commitments, the aggregate commitments, and the evaluations. The protocol constrains these as follows:
+
+- **Commitment binding:** KZG binds each sent commitment to a unique polynomial under the standard binding assumption.
+- **Hash binding:** The public hash binds the active subtable commitments up to a $2^{-127}$ collision probability from the transcript-hash optimization.
+- **Number of subtables:** The verifier enforces $1 \leq N \leq M$ and masks unused sizes with the indicator array.
+- **Unused slots:** Slots $i>N$ are committed as identity and opened at zero. Their sizes are zeroed by the verifier.
+- **Degree bounds:** The reversed-polynomial identity proves $\deg(C_{i,j}) < \sigma_i$ for each active slot.
+- **Concatenation:** The random evaluation check proves that the aggregate commitments open to the concatenation determined by the same size parameters.
+- **PCS openings:** Shplonk batches all openings, and KZG reduces the final claim to pairing points.
+
+The remaining failure probabilities are the usual Schwartz-Zippel probability for the random evaluation point, batching soundness for the degree-check challenge, Shplonk batching soundness, KZG binding, and the hash-chain collision probability described above.
