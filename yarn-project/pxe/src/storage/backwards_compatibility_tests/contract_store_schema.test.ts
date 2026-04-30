@@ -17,10 +17,9 @@ describe('ContractStore schema compatibility', () => {
     try {
       const contractStore = new ContractStore(kvStore);
 
-      // Register an artifact with a precomputed class so the `contract_classes` bytes are
-      // controlled by primes rather than derived from `getContractClassFromArtifact`. Decouples
-      // the snapshot from artifact-recompilation churn and from the hashing chain (which is
-      // covered by stdlib tests, not by this schema test).
+      // Register an artifact with a precomputed class so the `contract_classes` bytes are hardcoded by this test
+      // rather than derived from `getContractClassFromArtifact`. Decouples the snapshot from artifact recompilation
+      // churn and from the hashing chain (which is covered by stdlib tests, not by this schema test).
       const populatedClass = {
         version: 1 as const,
         id: new Fr(2n),
@@ -35,8 +34,8 @@ describe('ContractStore schema compatibility', () => {
       };
       await contractStore.addContractArtifact(BenchmarkingContractArtifact, populatedClass);
 
-      // Same artifact, different class with empty `privateFunctions`. Pins the zero-length-vector
-      // encoding for the private-functions field, which the populated case can't reach.
+      // Same artifact, different class with empty `privateFunctions`. Tests zero-length-vector encoding for the
+      // privateFunctions field, which the populated case can't reach.
       await contractStore.addContractArtifact(BenchmarkingContractArtifact, {
         version: 1 as const,
         id: new Fr(23n),
@@ -47,11 +46,11 @@ describe('ContractStore schema compatibility', () => {
         packedBytecode: Buffer.alloc(0),
       });
 
-      // Re-register the populated class -- must hit the `#contractArtifactCache` short-circuit
-      // and leave both `contract_artifacts` and `contract_classes` unchanged.
+      // Re-register the populated class: must hit the `#contractArtifactCache` short-circuit and leave both
+      // `contract_artifacts` and `contract_classes` unchanged.
       await contractStore.addContractArtifact(BenchmarkingContractArtifact, populatedClass);
 
-      // Register a contract instance with deterministic fields -- writes to `contracts_instances`.
+      // Register a contract instance with deterministic fields writes to `contracts_instances`.
       const publicKeys = new PublicKeys(
         new Point(new Fr(41n), new Fr(43n), false),
         new Point(new Fr(47n), new Fr(53n), false),
