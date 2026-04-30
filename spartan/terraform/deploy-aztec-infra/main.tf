@@ -533,9 +533,6 @@ locals {
         "service.p2p.announcePort"    = local.p2p_port_rpc
         "service.p2p.port"            = local.p2p_port_rpc
         "ingress.rpc.enabled"         = local.rpc_ingress_enabled
-        # Deploy-time secrets (not in YAML).
-        "node.env.AWS_ACCESS_KEY_ID"     = try(local.d.AWS_ACCESS_KEY_ID, "")
-        "node.env.AWS_SECRET_ACCESS_KEY" = try(local.d.AWS_SECRET_ACCESS_KEY, "")
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
@@ -598,9 +595,6 @@ locals {
         "service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
         "service.p2p.announcePort"    = local.p2p_port_full_node
         "service.p2p.port"            = local.p2p_port_full_node
-        # Deploy-time secrets (not in YAML).
-        "node.env.AWS_ACCESS_KEY_ID"     = try(local.d.AWS_ACCESS_KEY_ID, "")
-        "node.env.AWS_SECRET_ACCESS_KEY" = try(local.d.AWS_SECRET_ACCESS_KEY, "")
         }, try(local.d.FULL_NODE_INCLUDE_METRICS, "") != "" ? {
         "env.OTEL_INCLUDE_METRICS" = local.d.FULL_NODE_INCLUDE_METRICS
       } : {})
@@ -654,10 +648,8 @@ locals {
       custom_settings = {
         "nodeType"                    = "blob-sink"
         "service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
-        # Deploy-time secrets / computed (not in YAML).
+        # Deploy-time computed (not in YAML): the upload URL depends on R2 account ID + bucket dir.
         "node.env.BLOB_FILE_STORE_UPLOAD_URL" = local.blob_file_store_upload_url
-        "node.env.AWS_ACCESS_KEY_ID"          = try(local.d.AWS_ACCESS_KEY_ID, "")
-        "node.env.AWS_SECRET_ACCESS_KEY"      = try(local.d.AWS_SECRET_ACCESS_KEY, "")
       }
       boot_node_host_path  = "node.env.BOOT_NODE_HOST"
       bootstrap_nodes_path = "node.env.BOOTSTRAP_NODES"
