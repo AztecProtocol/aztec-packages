@@ -35,6 +35,7 @@ import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interf
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { BlockProposal } from '@aztec/stdlib/p2p';
 import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
   makeBlockProposal,
   makeCheckpointAttestation,
@@ -182,7 +183,8 @@ describe('ValidatorClient', () => {
       slashDuplicateAttestationPenalty: 1n,
       disableTransactions: false,
       haSigningEnabled: false,
-      l1Contracts: { rollupAddress: EthAddress.random() },
+      l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
+      l1Contracts: { rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress },
       nodeId: 'test-node-id',
       pollingIntervalMs: 1000,
       signingTimeoutMs: 1000,

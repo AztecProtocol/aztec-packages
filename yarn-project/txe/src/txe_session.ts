@@ -478,6 +478,7 @@ export class TXESession implements TXESessionStateHandler {
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
       messageContextService: this.stateMachine.messageContextService,
+      simulator: new WASMSimulator(),
     });
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -560,6 +561,7 @@ export class TXESession implements TXESessionStateHandler {
       l2TipsStore: this.stateMachine.node,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
+      simulator: new WASMSimulator(),
     });
 
     this.state = { name: 'UTILITY' };
@@ -638,6 +640,7 @@ export class TXESession implements TXESessionStateHandler {
       }
 
       try {
+        const simulator = new WASMSimulator();
         const oracle = new UtilityExecutionOracle({
           contractAddress: call.to,
           authWitnesses: [],
@@ -657,8 +660,9 @@ export class TXESession implements TXESessionStateHandler {
           l2TipsStore: this.stateMachine.node,
           jobId: this.currentJobId,
           scopes,
+          simulator,
         });
-        await new WASMSimulator()
+        await simulator
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
           .catch((err: Error) => {
             err.message = resolveAssertionMessageFromError(err, entryPointArtifact);

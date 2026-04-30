@@ -1,6 +1,6 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Logger } from '@aztec/foundation/log';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { BlockResponse } from '@aztec/stdlib/interfaces/client';
 import type { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, type TxReceipt } from '@aztec/stdlib/tx';
 
@@ -147,7 +147,7 @@ export type TxInclusionData = {
 export class TxInclusionMetrics {
   private data = new Map<string, TxInclusionData>();
   private groups = new Set<string>();
-  private blocks = new Map<number, Promise<L2Block | undefined>>();
+  private blocks = new Map<number, Promise<BlockResponse<{ includeTransactions: true }> | undefined>>();
 
   private p2pGossipLatencyByTopic: Partial<Record<TopicType, { p50: number; p95: number }>> = {};
 
@@ -198,7 +198,7 @@ export class TxInclusionMetrics {
     }
 
     if (!this.blocks.has(blockNumber)) {
-      this.blocks.set(blockNumber, this.aztecNode.getBlock(blockNumber));
+      this.blocks.set(blockNumber, this.aztecNode.getBlock(blockNumber, { includeTransactions: true }));
     }
 
     const block = await this.blocks.get(blockNumber)!;

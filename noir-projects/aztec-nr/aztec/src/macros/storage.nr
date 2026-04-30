@@ -47,7 +47,7 @@ pub comptime fn storage(s: TypeDefinition) -> Quoted {
             if typ.implements(quote { crate::state_vars::OwnedStateVariable<$_maybe_owned_context> }
                 .as_trait_constraint()) {
                 panic(
-                    f"Type {typ} implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Define the type in storage as Owned<{typ}<..., Context>>, Context>.",
+                    f"Type {typ} implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Wrap the type in Owned<..., Context>.",
                 )
             }
 
