@@ -60,8 +60,7 @@ impl NoteHash for NFTNote {
         owner: AztecAddress,
         note_hash_for_nullification: Field,
     ) -> Field {
-        let owner_npk_m = get_public_keys(owner).npk_m;
-        let owner_npk_m_hash = owner_npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
         let secret = context.request_nhk_app(owner_npk_m_hash);
         compute_note_nullifier(note_hash_for_nullification, [secret])
     }
@@ -72,8 +71,7 @@ impl NoteHash for NFTNote {
         note_hash_for_nullification: Field,
     ) -> Option<Field> {
         try_get_public_keys(owner).map(|public_keys| {
-            let owner_npk_m = public_keys.npk_m;
-            let owner_npk_m_hash = owner_npk_m.hash();
+            let owner_npk_m_hash = public_keys.npk_m_hash;
             let secret = get_nhk_app(owner_npk_m_hash);
             compute_note_nullifier(note_hash_for_nullification, [secret])
         })

@@ -52,7 +52,7 @@ pub contract ScopeTest {
     /// Will fail if the caller is not authorized to access the owner's keys.
     #[external("private")]
     fn get_nhk(owner: AztecAddress) -> Field {
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
         self.context.request_nhk_app(owner_npk_m_hash)
     }
 
@@ -67,7 +67,7 @@ pub contract ScopeTest {
     /// Will fail if the caller is not authorized to access the owner's keys.
     #[external("utility")]
     unconstrained fn get_nhk_utility(owner: AztecAddress) -> Field {
-        let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+        let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
         get_nhk_app(owner_npk_m_hash)
     }
 
