@@ -724,7 +724,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_decompose_va
                 bool find_out = find_position(out_idx);
                 bool find_fourth = find_position(fourth_idx);
                 if (((find_left && find_right && find_out) || (find_left && find_right && !find_out) ||
-                     (find_left && find_right && !find_out) || (find_left && !find_right && !find_out)) &&
+                     (find_left && !find_right && !find_out)) &&
                     !find_fourth) {
                     i = this->process_current_decompose_chain(i);
                 }
