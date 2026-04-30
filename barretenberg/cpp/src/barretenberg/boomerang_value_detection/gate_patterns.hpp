@@ -343,49 +343,49 @@ inline const GatePattern POSEIDON2_INITIAL_EXTERNAL = { .name = "poseidon2_initi
                                                         } };
 
 // ============================================================================
-// Poseidon2 Double-Internal Pattern (from poseidon2_double_internal_relation.hpp)
+// Poseidon2 Quad-Internal Pattern (from poseidon2_quad_internal_relation.hpp)
 //
 // Four subrelations tie each output wire (w_l, w_r, w_o, w_4) to the corresponding
 // shifted wire (w_l_shift, w_r_shift, w_o_shift, w_4_shift). All 4 current + all 4
 // shifted wires are constrained.
 //
-// gate_selector = q_poseidon2_double_internal
+// gate_selector = q_poseidon2_quad_internal
 // ============================================================================
 
-inline const GatePattern POSEIDON2_DOUBLE_INTERNAL = { .name = "poseidon2_double_internal",
-                                                       .wires = {
-                                                           { Wire::W_L, [](const Selectors&) { return true; } },
-                                                           { Wire::W_R, [](const Selectors&) { return true; } },
-                                                           { Wire::W_O, [](const Selectors&) { return true; } },
-                                                           { Wire::W_4, [](const Selectors&) { return true; } },
-                                                           { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
-                                                           { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
-                                                           { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
-                                                           { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
-                                                       } };
+inline const GatePattern POSEIDON2_QUAD_INTERNAL = { .name = "poseidon2_quad_internal",
+                                                     .wires = {
+                                                         { Wire::W_L, [](const Selectors&) { return true; } },
+                                                         { Wire::W_R, [](const Selectors&) { return true; } },
+                                                         { Wire::W_O, [](const Selectors&) { return true; } },
+                                                         { Wire::W_4, [](const Selectors&) { return true; } },
+                                                         { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                                         { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                                         { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                                         { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                                     } };
 
 // ============================================================================
-// Poseidon2 Double-Internal Terminal Pattern
-// (from poseidon2_double_internal_terminal_relation.hpp)
+// Poseidon2 Quad-Internal Terminal Pattern
+// (from poseidon2_quad_internal_terminal_relation.hpp)
 //
 // Four subrelations: A_k: out_k - w_k_shift (k = l, r, o, 4). All 4 current
 // + all 4 shifted wires are constrained.
 //
-// gate_selector = q_poseidon2_double_internal_terminal
+// gate_selector = q_poseidon2_quad_internal_terminal
 // ============================================================================
 
 inline const GatePattern
-    POSEIDON2_DOUBLE_INTERNAL_TERMINAL = { .name = "poseidon2_double_internal_terminal",
-                                           .wires = {
-                                               { Wire::W_L, [](const Selectors&) { return true; } },
-                                               { Wire::W_R, [](const Selectors&) { return true; } },
-                                               { Wire::W_O, [](const Selectors&) { return true; } },
-                                               { Wire::W_4, [](const Selectors&) { return true; } },
-                                               { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
-                                               { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
-                                               { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
-                                               { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
-                                           } };
+    POSEIDON2_QUAD_INTERNAL_TERMINAL = { .name = "poseidon2_quad_internal_terminal",
+                                         .wires = {
+                                             { Wire::W_L, [](const Selectors&) { return true; } },
+                                             { Wire::W_R, [](const Selectors&) { return true; } },
+                                             { Wire::W_O, [](const Selectors&) { return true; } },
+                                             { Wire::W_4, [](const Selectors&) { return true; } },
+                                             { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                             { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                             { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                             { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                         } };
 
 // ============================================================================
 // Poseidon2 Transition Entry Pattern (from poseidon2_transition_entry_relation.hpp)

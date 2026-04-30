@@ -204,10 +204,10 @@ TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
                 EXPECT_EQ(block.q_poseidon2_external()[i], 0);
             }
             // The compressed Poseidon2 block carries three gate selectors (interior / terminal / entry),
-            // all of which must be zero outside `poseidon2_double_internal`.
-            if (&block != &builder.blocks.poseidon2_double_internal) {
-                EXPECT_EQ(block.q_poseidon2_double_internal()[i], 0);
-                EXPECT_EQ(block.q_poseidon2_double_internal_terminal()[i], 0);
+            // all of which must be zero outside `poseidon2_quad_internal`.
+            if (&block != &builder.blocks.poseidon2_quad_internal) {
+                EXPECT_EQ(block.q_poseidon2_quad_internal()[i], 0);
+                EXPECT_EQ(block.q_poseidon2_quad_internal_terminal()[i], 0);
                 EXPECT_EQ(block.q_poseidon2_transition_entry()[i], 0);
             }
         }

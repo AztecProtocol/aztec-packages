@@ -30,17 +30,17 @@ namespace bb {
  *     (out_0, out_1, out_2, out_3) = state after round 4.
  * The constraints against the NEXT row use the *forward* Vandermonde (avoids Lagrange on the
  * shift side): if the successor is another compressed row with wires
- * (w_l_shift, w_r_shift, w_o_shift, w_4_shift) and next-pair constants (q_m, q_c, q_5), then
+ * (w_l_shift, w_r_shift, w_o_shift, w_4_shift) and next-quad constants (q_m, q_c, q_5), then
  *     A_0: out_0 = w_l_shift                                                       (direct)
  *     A_1: out_1 + out_2 + out_3           = b_1_next
  *     A_2: D_2 out_1 + D_3 out_2 + D_4 out_3 = b_2_next
  *     A_3: D_2^2 out_1 + D_3^2 out_2 + D_4^2 out_3 = b_3_next
- * where b_k_next are the same RHS formulas applied to the shifted wires and next-pair constants.
+ * where b_k_next are the same RHS formulas applied to the shifted wires and next-quad constants.
  *
  * Degree: each subrelation has degree 5 in any single sumcheck variable (all S-boxes land on
  * distinct wires — degree firewall). Plus selector + gate separator = 7.
  */
-template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
+template <typename FF_> class Poseidon2QuadInternalRelationImpl {
   public:
     using FF = FF_;
     using QuadParams = crypto::Poseidon2QuadBn254Params;
@@ -65,7 +65,7 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.q_poseidon2_double_internal.is_zero();
+        return in.q_poseidon2_quad_internal.is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -98,7 +98,7 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
         const auto q_c = CoeffAcc(in.q_c); // c_{4(i+1)+1}
         const auto q_5 = CoeffAcc(in.q_5); // c_{4(i+1)+2}
 
-        const auto q_sel = CoeffAcc(in.q_poseidon2_double_internal);
+        const auto q_sel = CoeffAcc(in.q_poseidon2_quad_internal);
 
         // Helper: compute fifth power as Accumulator (degree 5 in the input wire)
         auto pow5 = [](const Accumulator& x) -> Accumulator {
@@ -122,7 +122,7 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
         //
         // Per-row layout: 7 coefficients on (w_r, w_o, w_4, u_0, u_1, u_2, u_3). Wire scalings
         // stay in CoeffAcc (2 muls each); u-scalings are Acc×Fr (7 muls each).
-        // ── Shift-side S-boxes (next-pair constants on shifted wires) ──
+        // ── Shift-side S-boxes (next-quad constants on shifted wires) ──
         auto u_0_next = pow5(Accumulator(w_l_shift + q_m));
         auto u_1_next = pow5(Accumulator(w_r_shift + q_c));
         auto u_2_next = pow5(Accumulator(w_o_shift + q_5));
@@ -173,6 +173,6 @@ template <typename FF_> class Poseidon2DoubleInternalRelationImpl {
     }
 };
 
-template <typename FF> using Poseidon2DoubleInternalRelation = Relation<Poseidon2DoubleInternalRelationImpl<FF>>;
+template <typename FF> using Poseidon2QuadInternalRelation = Relation<Poseidon2QuadInternalRelationImpl<FF>>;
 
 } // namespace bb

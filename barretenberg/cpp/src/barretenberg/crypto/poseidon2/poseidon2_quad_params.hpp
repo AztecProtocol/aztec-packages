@@ -7,7 +7,7 @@
 // Derived parameters for the K=4 "quad" compressed Poseidon2 internal-round encoding on BN254.
 // Treated like the base Poseidon2 constants: fixed, derivable from the sponge spec, pre-computed.
 //
-// See `barretenberg/cpp/src/barretenberg/relations/poseidon2_double_internal_round.md` for the
+// See `barretenberg/cpp/src/barretenberg/relations/poseidon2_quad_internal_round.md` for the
 // algebraic derivation. The short version:
 //
 //   The compressed K=4 row stores state[0] at 4 consecutive internal rounds. Solving for the

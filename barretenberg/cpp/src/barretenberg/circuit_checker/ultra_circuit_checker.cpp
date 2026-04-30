@@ -193,13 +193,13 @@ bool UltraCircuitChecker::check_block(Builder& builder,
             if (!result) {
                 return report_fail("Failed PoseidonInitialExternal relation at row idx = ", idx);
             }
-            result = result && check_relation<PoseidonDoubleInternal>(values, params);
+            result = result && check_relation<PoseidonQuadInternal>(values, params);
             if (!result) {
-                return report_fail("Failed PoseidonDoubleInternal relation at row idx = ", idx);
+                return report_fail("Failed PoseidonQuadInternal relation at row idx = ", idx);
             }
-            result = result && check_relation<PoseidonDoubleInternalTerminal>(values, params);
+            result = result && check_relation<PoseidonQuadInternalTerminal>(values, params);
             if (!result) {
-                return report_fail("Failed PoseidonDoubleInternalTerminal relation at row idx = ", idx);
+                return report_fail("Failed PoseidonQuadInternalTerminal relation at row idx = ", idx);
             }
             result = result && check_relation<PoseidonTransitionEntry>(values, params);
             if (!result) {
@@ -390,11 +390,11 @@ void UltraCircuitChecker::populate_values(
     if constexpr (requires { values.q_poseidon2_external_initial; }) {
         values.q_poseidon2_external_initial = block.q_poseidon2_external_initial()[idx];
     }
-    if constexpr (requires { values.q_poseidon2_double_internal; }) {
-        values.q_poseidon2_double_internal = block.q_poseidon2_double_internal()[idx];
+    if constexpr (requires { values.q_poseidon2_quad_internal; }) {
+        values.q_poseidon2_quad_internal = block.q_poseidon2_quad_internal()[idx];
     }
-    if constexpr (requires { values.q_poseidon2_double_internal_terminal; }) {
-        values.q_poseidon2_double_internal_terminal = block.q_poseidon2_double_internal_terminal()[idx];
+    if constexpr (requires { values.q_poseidon2_quad_internal_terminal; }) {
+        values.q_poseidon2_quad_internal_terminal = block.q_poseidon2_quad_internal_terminal()[idx];
     }
     if constexpr (requires { values.q_poseidon2_transition_entry; }) {
         values.q_poseidon2_transition_entry = block.q_poseidon2_transition_entry()[idx];

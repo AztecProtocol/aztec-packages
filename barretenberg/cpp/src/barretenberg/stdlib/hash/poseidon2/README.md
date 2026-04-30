@@ -66,7 +66,7 @@ y_0 = \big(P(\mathbf{s}^{(m)})\big)_0.
 
 ## The Poseidon2 Permutation
 
-Each permutation consists of:
+Each Ultra permutation consists of:
 
 1. **Initial linear layer**: multiply state by external matrix \f$M_E\f$. Corresponds to  \ref bb::stdlib::Poseidon2Permutation< Builder >::matrix_multiplication_external	 "matrix_multiplication_external" method.
 2. **4 External rounds (full S-box)**:
@@ -82,7 +82,16 @@ Each permutation consists of:
    - After the final round, \ref bb::stdlib::Poseidon2Permutation< Builder >::record_current_state_into_next_row "record the computed state" in the next row of the Poseidon2 **internal** gates block,
 4. **Final external rounds** (same as step 2).
 
-Note that in general, step 1 requires 6 arithmetic gates, the steps 2-4 create total number of rounds + 3 gates. Hence a single invocation of Poseidon2 Permutation results in 73 gates.
+For Ultra, step 1 requires 6 arithmetic gates and steps 2-4 create total number of rounds + 3 gates. Hence a single invocation of Poseidon2 Permutation results in 73 gates.
+
+Mega uses the same mathematical permutation but a more compact trace layout:
+
+1. The initial external linear layer is enforced by a dedicated `q_poseidon2_external_initial` row instead of 6 arithmetic rows.
+2. The first 4 external rounds use the standard Poseidon2 external relation plus one propagate row.
+3. The 56 internal rounds are packed into a K=4 compressed block: one entry row, 13 interior rows, one terminal row, and one standard-encoding bridge row.
+4. The final 4 external rounds use the standard Poseidon2 external relation plus one propagate row.
+
+This gives 27 rows per Mega permutation. A stdlib hash that starts from the sponge IV has one additional fixed-witness row outside the permutation.
 
 ### External Matrix
 As proposed in Section 5.1 of [Poseidon2 paper](https://eprint.iacr.org/2023/323.pdf), we set
@@ -144,12 +153,14 @@ q_{\mathrm{poseidon2_external}}\cdot
 To ensure that the relation holds point-wise on the hypercube, the equation above is also multiplied by the appropriate
 scaling factor arising from \ref bb::GateSeparatorPolynomial< FF > "GateSeparatorPolynomial".
 
-\ref bb::Poseidon2InternalRelationImpl< FF_ > "Internal rounds" follow the same pattern, using \f$ M_I \f$ and the partial S-box on the first element.
+For Ultra, \ref bb::Poseidon2InternalRelationImpl< FF_ > "Internal rounds" follow the same pattern, using \f$ M_I \f$ and the partial S-box on the first element.
+
+Mega replaces the 56 single-round internal rows with the K=4 compressed relations documented in `relations/poseidon2_quad_internal_round.md`: `Poseidon2TransitionEntryRelationImpl`, `Poseidon2QuadInternalRelationImpl`, and `Poseidon2QuadInternalTerminalRelationImpl`.
 
 
 ## Number of Gates
 
-Hashing a single field element costs \f$ 73 \f$ gates. As above, let \f$ N > 1\f$ be the input size. Define \f$ m = \lceil N/3 \rceil \f$ and let \f$ N_3 = N\pmod{3} \f$. The number of gates depends on the number of padded fields equal to \f$ N_3 \f$. If \f$ N_3 =  0\f$, we get
+In Ultra, hashing a single field element costs \f$ 73 \f$ gates. As above, let \f$ N > 1\f$ be the input size. Define \f$ m = \lceil N/3 \rceil \f$ and let \f$ N_3 = N\pmod{3} \f$. The number of gates depends on the number of padded fields equal to \f$ N_3 \f$. If \f$ N_3 =  0\f$, we get
 \f[ 1 +  73\cdot m + 3\cdot (m - 1) \f]
 gates, otherwise we get
 \f[ 1 +  73\cdot m + 3\cdot (m - 2)  + N_3.\f]

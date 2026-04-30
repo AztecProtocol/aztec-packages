@@ -171,7 +171,7 @@ template <> class RelationChecker<MegaFlavor> : public RelationChecker<void> {
 
         // Linearly independent relations shared with Ultra --- EXCEPT Poseidon2InternalRelation,
         // which is not present in MegaFlavor (Mega covers all internal rounds via the compressed
-        // double-internal block).
+        // quad-internal block).
         auto arith = Base::check<ArithmeticRelation<FF>>(polynomials, params, "UltraArithmetic");
         if (!arith.empty()) {
             all_subrelation_failures["UltraArithmetic"] = arith;
@@ -206,15 +206,15 @@ template <> class RelationChecker<MegaFlavor> : public RelationChecker<void> {
             all_subrelation_failures["Poseidon2InitialExternal"] = p2_initial_ext;
         }
 
-        // Compressed double-internal relations (Mega-only, replacing Poseidon2InternalRelation).
-        auto p2_dbl = Base::check<Poseidon2DoubleInternalRelation<FF>>(polynomials, params, "Poseidon2DoubleInternal");
-        if (!p2_dbl.empty()) {
-            all_subrelation_failures["Poseidon2DoubleInternal"] = p2_dbl;
+        // Compressed quad-internal relations (Mega-only, replacing Poseidon2InternalRelation).
+        auto p2_quad = Base::check<Poseidon2QuadInternalRelation<FF>>(polynomials, params, "Poseidon2QuadInternal");
+        if (!p2_quad.empty()) {
+            all_subrelation_failures["Poseidon2QuadInternal"] = p2_quad;
         }
-        auto p2_dbl_term = Base::check<Poseidon2DoubleInternalTerminalRelation<FF>>(
-            polynomials, params, "Poseidon2DoubleInternalTerminal");
-        if (!p2_dbl_term.empty()) {
-            all_subrelation_failures["Poseidon2DoubleInternalTerminal"] = p2_dbl_term;
+        auto p2_quad_term = Base::check<Poseidon2QuadInternalTerminalRelation<FF>>(
+            polynomials, params, "Poseidon2QuadInternalTerminal");
+        if (!p2_quad_term.empty()) {
+            all_subrelation_failures["Poseidon2QuadInternalTerminal"] = p2_quad_term;
         }
         auto p2_entry =
             Base::check<Poseidon2TransitionEntryRelation<FF>>(polynomials, params, "Poseidon2TransitionEntry");

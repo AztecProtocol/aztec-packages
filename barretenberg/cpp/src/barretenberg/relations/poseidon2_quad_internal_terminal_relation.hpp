@@ -8,7 +8,7 @@ namespace bb {
 /**
  * @brief Terminal variant of the K=4 compressed internal-round relation.
  *
- * @details Same 4-round computation as `Poseidon2DoubleInternalRelationImpl`, but the successor
+ * @details Same 4-round computation as `Poseidon2QuadInternalRelationImpl`, but the successor
  * is the standard-encoded bridge row (not another compressed row). The A_k constraints directly
  * match out_k against w_{k,shift} — no forward-Vandermonde reconstruction on the shift side.
  *
@@ -19,7 +19,7 @@ namespace bb {
  *     q_l = c_{4i}, q_r = c_{4i+1}, q_o = c_{4i+2}, q_4 = c_{4i+3}   // this (last) pair
  *     q_m, q_c, q_5 = 0 (unused — no next pair)
  */
-template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
+template <typename FF_> class Poseidon2QuadInternalTerminalRelationImpl {
   public:
     using FF = FF_;
     using QuadParams = crypto::Poseidon2QuadBn254Params;
@@ -28,7 +28,7 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.q_poseidon2_double_internal_terminal.is_zero();
+        return in.q_poseidon2_quad_internal_terminal.is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
@@ -55,7 +55,7 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
         const auto q_o = CoeffAcc(in.q_o);
         const auto q_4 = CoeffAcc(in.q_4);
 
-        const auto q_sel = CoeffAcc(in.q_poseidon2_double_internal_terminal);
+        const auto q_sel = CoeffAcc(in.q_poseidon2_quad_internal_terminal);
 
         auto pow5 = [](const Accumulator& x) -> Accumulator {
             auto sq = x.sqr();
@@ -70,7 +70,7 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
         auto u_3 = pow5(Accumulator(w_4 + q_4));
 
         // ── Closed-form 4-round propagation, with direct-match RHS folded into the wire CoeffAcc ──
-        // See `Poseidon2DoubleInternalRelationImpl` for the derivation of the 28 coefficients.
+        // See `Poseidon2QuadInternalRelationImpl` for the derivation of the 28 coefficients.
         // Each subrelation's `out_k - w_*_shift` collapses to a single CoeffAcc combo wp_k that
         // is promoted exactly once per subrelation.
         const auto& C = QuadParams::tables.closed_form;
@@ -97,6 +97,6 @@ template <typename FF_> class Poseidon2DoubleInternalTerminalRelationImpl {
 };
 
 template <typename FF>
-using Poseidon2DoubleInternalTerminalRelation = Relation<Poseidon2DoubleInternalTerminalRelationImpl<FF>>;
+using Poseidon2QuadInternalTerminalRelation = Relation<Poseidon2QuadInternalTerminalRelationImpl<FF>>;
 
 } // namespace bb

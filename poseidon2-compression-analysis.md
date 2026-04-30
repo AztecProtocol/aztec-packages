@@ -1,5 +1,11 @@
 # Poseidon2 internal-round compression: approaches, cost model, app-proving bench
 
+> Historical benchmark note. This file compares old experiment branches and is not the source of
+> truth for the current Mega Poseidon2 implementation. The current implementation is the K=4
+> `quad_internal` layout documented in
+> `barretenberg/cpp/src/barretenberg/relations/poseidon2_quad_internal_round.md`, including the
+> dedicated initial external linear-layer row (`q_poseidon2_external_initial`).
+
 Comparison of four approaches to Poseidon2 internal-round encoding on the Mega circuit, benched against the stock baseline on the 11 pinned CI app-proving flows. Single-run measurements on the remote EC2 bench machine (`HARDWARE_CONCURRENCY=16`), `bb prove --scheme chonk`.
 
 **Branches**
@@ -71,8 +77,8 @@ where $b_k$ are linear combinations of the four $s_0$ witnesses, round constants
 Row layout per permutation collapses to **$16$ internal-block rows**: $1$ entry $+\ 13$ interior $+\ 1$ terminal $+\ 1$ standard transition, down from $56$. Per-row S-boxes:
 
 - `poseidon2_transition_entry` (K=4 variant): $3$ S-boxes (one per row of the $3 \times 3$ Vandermonde RHS)
-- `poseidon2_double_internal` (K=4 interior): **$7$ S-boxes** — $4$ for the current row's $s_0$ at rounds $0..3$, and $3$ more on the shift side to build $b_1^{\mathrm{next}}, b_2^{\mathrm{next}}, b_3^{\mathrm{next}}$ for the forward-Vandermonde check into the next row
-- `poseidon2_double_internal_terminal` (K=4): $4$ S-boxes (current row only; successor is standard-encoded so no shift-side Vandermonde needed)
+- `poseidon2_quad_internal` (K=4 interior): **$7$ S-boxes** — $4$ for the current row's $s_0$ at rounds $0..3$, and $3$ more on the shift side to build $b_1^{\mathrm{next}}, b_2^{\mathrm{next}}, b_3^{\mathrm{next}}$ for the forward-Vandermonde check into the next row
+- `poseidon2_quad_internal_terminal` (K=4): $4$ S-boxes (current row only; successor is standard-encoded so no shift-side Vandermonde needed)
 
 Internal-block S-box total: $3 + 13 \cdot 7 + 4 = \mathbf{98}$ per permutation, vs. `56→28`'s $84$ and baseline's $56$. The subrelation degree is *unchanged* from `56→28` (each S-box lands on a distinct wire, so they don't compose multiplicatively inside a subrelation — everything stays partial-length $7$ including selector and gate separator). The extra work is all horizontal (more S-boxes per row, more Vandermonde algebra), not vertical.
 
@@ -233,8 +239,8 @@ Per-permutation totals (Mega, one hash):
 | **`56→14` (K=4)** |  |  |  |  |
 |  external | 8 | 114 | 912 |  |
 |  transition_entry | 1 | 140 | 140 |  |
-|  double_internal interior | 13 | 461 | 5,993 |  |
-|  double_internal terminal | 1 | 312 | 312 |  |
+|  quad_internal interior | 13 | 461 | 5,993 | current implementation uses this name |
+|  quad_internal terminal | 1 | 312 | 312 | current implementation uses this name |
 |  standard transition | 1 | 0 | 0 |  |
 |  **sum** | 24 |  | **7,357** | **+84%** |
 
@@ -328,7 +334,7 @@ Half the dyadic at the same hash count would naïvely yield 2×. The gap to 2× 
 
 - **MSMs scale at 0.51–0.56×, matching the half-domain expectation.** Mega and Ultra commit to the same number of *non-zero* polynomials in a Poseidon2-only circuit (the extra Mega columns — `ecc_op_wires`, databus — are entirely zero and Pippenger filters them).
 - **Gemini/Shplemini MSMs scale at 0.60×.** Likely Pippenger asymptotics: cost per scalar is roughly $\lambda / (\log N - \log\log N)$, so smaller $N$ means a slightly worse per-scalar rate. Gemini's recursive fold also produces a sequence of progressively smaller MSMs ($N/2, N/4, \ldots$) where this inefficiency compounds — Mega's $N$ starts one tier smaller than Ultra's, so the whole fold sequence runs in a less favorable Pippenger regime.
-- **Sumcheck moves the wrong way: Mega is 1.31× *slower* at half the domain.** Per-row Mega sumcheck is **~2.6× Ultra's** — driven by the K=4 compressed Poseidon2 relations (`poseidon2_double_internal` and friends), whose Vandermonde solve and per-row 4-round recurrence are substantially heavier than Ultra's per-row arithmetic/lookup work.
+- **Sumcheck moves the wrong way: Mega is 1.31× *slower* at half the domain.** Per-row Mega sumcheck is **~2.6× Ultra's** — driven by the K=4 compressed Poseidon2 relations (`poseidon2_quad_internal` and friends), whose Vandermonde solve and per-row 4-round recurrence are substantially heavier than Ultra's per-row arithmetic/lookup work.
 
 ### Sumcheck scaling (same number of hashes)
 

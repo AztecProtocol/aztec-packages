@@ -1,14 +1,13 @@
 # Poseidon2 Quad Internal Round Relations
 
-> **Naming note.** This document describes a **K=4** compressed encoding (4 internal rounds per
-> compressed row). Earlier iterations used K=2 and referred to the construction as "double";
-> the file paths / selectors / relation classes still use `double_internal` naming until the
-> rename lands. Treat "double" in code identifiers as "quad" semantically.
+This document describes the current **K=4** Mega encoding: four Poseidon2 internal rounds per
+compressed row. The implementation uses `quad_internal` names for the block, selectors, gate
+struct, and relations.
 
 ## Motivation
 
-In client IVC (chonk), ~50% of the circuit is Poseidon2 hashing. Of the 64 rows per permutation,
-56 are internal rounds — roughly 44% of the entire circuit. Each committed row adds to the
+In client IVC (chonk), ~50% of the circuit is Poseidon2 hashing. In the Ultra layout, each
+permutation has 56 internal-round rows out of 73 total rows. Each committed row adds to the
 Hypernova accumulator, so shortening the internal-rounds block directly shrinks every committed
 polynomial and cheapens the HN decider.
 
@@ -69,10 +68,12 @@ at compile time:
 
 ```cpp
 if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+    // 1 initial external-linear row + 4 first-half external rows + propagate
     // 1 entry + 13 interior + 1 terminal + 1 standard-transition bridge
-    // (all 56 internal rounds packed into 14 compressed rows at K=4)
+    // 4 final-half external rows + propagate
 } else {
-    // original 56 single-round layout
+    // Ultra: 6 arithmetic rows for the initial external-linear layer,
+    // 8 external rows, 56 single-round internal rows, and propagate rows.
 }
 ```
 
@@ -96,13 +97,13 @@ Non-gate selectors (interior rows) carry round constants:
 
 | Selector | Content                                       | Purpose                                  |
 |----------|-----------------------------------------------|------------------------------------------|
-| $q_l$    | $c_{4i}$                                      | this pair's round-0 S-box                |
+| $q_l$    | $c_{4i}$                                      | this quad's round-0 S-box                |
 | $q_r$    | $c_{4i+1}$                                    | round-1 S-box                            |
 | $q_o$    | $c_{4i+2}$                                    | round-2 S-box                            |
 | $q_4$    | $c_{4i+3}$                                    | round-3 S-box                            |
-| $q_m$    | $c_{4(i+1)}$                                  | next pair's round-0 (for $s_1^{\mathrm{next}}$ recon) |
-| $q_c$    | $c_{4(i+1)+1}$                                | next pair's round-1 (for $s_2^{\mathrm{next}}$ recon) |
-| $q_5$    | $c_{4(i+1)+2}$                                | next pair's round-2 (for $s_3^{\mathrm{next}}$ recon) |
+| $q_m$    | $c_{4(i+1)}$                                  | next quad's round-0 (for $s_1^{\mathrm{next}}$ recon) |
+| $q_c$    | $c_{4(i+1)+1}$                                | next quad's round-1 (for $s_2^{\mathrm{next}}$ recon) |
+| $q_5$    | $c_{4(i+1)+2}$                                | next quad's round-2 (for $s_3^{\mathrm{next}}$ recon) |
 
 `q_5` is a **new precomputed non-gate selector column**. `q_m` and `q_c` are existing Mega
 columns; overloading them on compressed rows is safe since `q_arith = 0` there, so the
@@ -115,18 +116,19 @@ indices are 4..59 (offset by `rounds_f_beginning = 4`).
 
 | Rows | Block | Active selector | Purpose |
 |----:|-------|-----------------|---------|
-| 6 | `arithmetic` | `q_arith` | initial external linear layer ($M_E$ mul) |
+| 1 | `poseidon2_external` | `q_poseidon2_external_initial` | initial external linear layer ($M_E$ mul) |
 | 4 + 1 propagate | `poseidon2_external` | `q_poseidon2_external` | first-half external rounds |
-| 1 | `poseidon2_double_internal` | `q_poseidon2_transition_entry` | standard → compressed entry transition |
-| 13 | `poseidon2_double_internal` | `q_poseidon2_double_internal` | interior compressed quads (rounds 0..51) |
-| 1 | `poseidon2_double_internal` | `q_poseidon2_double_internal_terminal` | terminal compressed quad (rounds 52..55) |
-| 1 | `poseidon2_double_internal` | none (unconstrained) | compressed → standard bridge |
+| 1 | `poseidon2_quad_internal` | `q_poseidon2_transition_entry` | standard → compressed entry transition |
+| 13 | `poseidon2_quad_internal` | `q_poseidon2_quad_internal` | interior compressed quads (rounds 0..51) |
+| 1 | `poseidon2_quad_internal` | `q_poseidon2_quad_internal_terminal` | terminal compressed quad (rounds 52..55) |
+| 1 | `poseidon2_quad_internal` | none (unconstrained) | compressed → standard bridge |
 | 4 + 1 propagate | `poseidon2_external` | `q_poseidon2_external` | second-half external rounds |
 
 The `poseidon2_internal` block is **not used** by Mega; the compressed block covers all 56
 internal rounds.
 
-**Total: 32 gates per permutation** (vs 73 original → **56% reduction**).
+**Total: 27 rows per permutation** (vs 73 Ultra rows → **63% reduction**). A stdlib hash that
+starts from the sponge IV has one additional fixed-witness row outside the permutation.
 
 ## The core algebraic step — solving for $(s_1, s_2, s_3)$
 
@@ -189,37 +191,40 @@ Throughout, $u_k = (\cdot + q_\cdot)^5$ denotes degree-5 S-box applications.
 
 ### 1. `Poseidon2TransitionEntryRelation` (entry)
 
-**Four subrelations**, one per wire on the successor (first compressed) row.
+**Three subrelations**, one for each nontrivial successor wire on the first compressed row.
 
 The entry row holds the external output $(s_0, s_1, s_2, s_3)$ in standard encoding (shared
 witness indices with the `poseidon2_external` block's propagate row). Its successor's 4 wires
 $(w_{l,\mathrm{shift}}, w_{r,\mathrm{shift}}, w_{o,\mathrm{shift}}, w_{4,\mathrm{shift}})$ must
 equal state[0] at rounds 0, 1, 2, 3 respectively.
 
+The first successor wire, $w_{l,\mathrm{shift}}$, is the same witness as the entry row's $w_l$;
+that equality is enforced by the permutation argument. The relation only needs to constrain
+rounds 1, 2, and 3.
+
 Using **each shifted wire as a fresh degree-firewall variable**:
 $$
 \boxed{
 \begin{aligned}
-A_0 &: w_{l,\mathrm{shift}} - w_l = 0 & \text{(copy; state[0] at round 0 = } s_0\text{)} \\
-A_1 &: w_{r,\mathrm{shift}} - D_1(w_l + q_l)^5 - w_r - w_o - w_4 = 0 & \text{state[0] at round 1} \\
-A_2 &: w_{o,\mathrm{shift}} - D_1(w_{r,\mathrm{shift}} + q_r)^5 - \text{(lin.)} = 0 & \text{state[0] at round 2} \\
-A_3 &: w_{4,\mathrm{shift}} - D_1(w_{o,\mathrm{shift}} + q_o)^5 - \text{(lin.)} = 0 & \text{state[0] at round 3}
+A_0 &: w_{r,\mathrm{shift}} - D_1(w_l + q_l)^5 - w_r - w_o - w_4 = 0 & \text{state[0] at round 1} \\
+A_1 &: w_{o,\mathrm{shift}} - D_1(w_{r,\mathrm{shift}} + q_r)^5 - \text{(lin.)} = 0 & \text{state[0] at round 2} \\
+A_2 &: w_{4,\mathrm{shift}} - D_1(w_{o,\mathrm{shift}} + q_o)^5 - \text{(lin.)} = 0 & \text{state[0] at round 3}
 \end{aligned}
 }
 $$
 
-Linear parts for $A_2, A_3$ involve earlier $u_k$ terms on distinct wires — no composed S-boxes.
+Linear parts for $A_1, A_2$ involve earlier $u_k$ terms on distinct wires — no composed S-boxes.
 Each subrelation degree 5 + 1 (selector) + 1 (gate sep) = **7**.
 
-### 2. `Poseidon2DoubleInternalRelation` (interior) — 13 rows
+### 2. `Poseidon2QuadInternalRelation` (interior) — 13 rows
 
 Four subrelations: $A_0$ for next-row $w_l$ (direct), $A_1, A_2, A_3$ for
 $(s_1^{\mathrm{next}}, s_2^{\mathrm{next}}, s_3^{\mathrm{next}})$ via the Vandermonde
-reconstruction on the shifted wires using $q_m, q_c, q_5$ as the next-pair round constants.
+reconstruction on the shifted wires using $q_m, q_c, q_5$ as the next-quad round constants.
 
 All four degree 7. See §3 for the Vandermonde solve.
 
-### 3. `Poseidon2DoubleInternalTerminalRelation` (terminal) — 1 row
+### 3. `Poseidon2QuadInternalTerminalRelation` (terminal) — 1 row
 
 Same 4-round computation, but the successor is the standard-encoded bridge row:
 $$
@@ -233,9 +238,9 @@ $w_l, w_r, w_o, w_4$ and the 4 round constants). All four degree 7.
 ### Entry boundary
 
 The entry row's $(w_l, w_r, w_o, w_4)$ equal the external output witnesses (shared indices).
-The four entry subrelations cryptographically bind the first compressed row's 4 wires to the
-correct state[0] values at rounds 0..3 — using each earlier shifted wire as a degree firewall
-to avoid composed S-boxes.
+The first compressed row's $w_l$ is copy-constrained to the entry row's $w_l$. The three entry
+subrelations bind the remaining first compressed row wires to the correct state[0] values at
+rounds 1..3, using each earlier shifted wire as a degree firewall to avoid composed S-boxes.
 
 ### Interior chain
 
@@ -244,8 +249,9 @@ to avoid composed S-boxes.
 2. Applying 4 rounds deterministically gives state[0] at round $4(i+1)$, $4(i+1)+1$, $4(i+1)+2$,
    $4(i+1)+3$.
 3. $A_0$ fixes $w_{l,\mathrm{shift}}$ (= state[0] at next row's round-0).
-4. $A_1, A_2, A_3$ fix $w_{r,\mathrm{shift}}, w_{o,\mathrm{shift}}, w_{4,\mathrm{shift}}$ via
-   the inverse of the next-row Vandermonde using $q_m, q_c, q_5$.
+4. $A_1, A_2, A_3$ fix the next row's hidden limbs by comparing the forward-Vandermonde
+   sums of the computed output $(s_1, s_2, s_3)$ with the RHS derived from the shifted row's
+   state[0] chain and next-row constants held in $q_m, q_c, q_5$.
 
 Therefore all four successor wires are uniquely forced. The prover has **zero freedom** in any
 compressed row once the entry row is fixed.
@@ -266,27 +272,28 @@ the correct post-internal state via the standard `Poseidon2ExternalRelation` (kn
 Every fresh witness is cryptographically tied to a function of earlier witnesses. No degrees of
 freedom remain.
 
-## Prover skip optimization
+## Witness materialization
 
-Each of the three relations is gated by its own selector (`q_poseidon2_transition_entry`,
-`q_poseidon2_double_internal`, `q_poseidon2_double_internal_terminal`) and implements
-`skip(AllEntities)` that returns true iff the selector is identically zero on the current edge.
-The entry and terminal relations are active on **one row per permutation** — skipped on
-virtually every edge.
+The compressed relation derives state[1..3] from the committed state[0] chain, so the prover
+does not need to materialize those hidden limbs on non-terminal compressed rows. The stdlib
+permutation creates witnesses for state[0] at the next row after every quad, but only creates
+state[1..3] after the terminal quad, where the bridge row returns to standard encoding for the
+final external rounds. This saves 39 witness variables per permutation: 13 non-terminal quads
+times 3 hidden limbs.
 
 ## Cost summary
 
 |                              | Ultra           | Mega (K=4 compressed)       |
 |------------------------------|----------------:|----------------------------:|
-| Rows per permutation         | 73              | **32** (−41, 56%)           |
-| Net precomputed columns      | 0               | **+2**: drop `q_poseidon2_internal`, add `q_poseidon2_double_internal`, `q_poseidon2_double_internal_terminal`, `q_poseidon2_transition_entry`, plus `q_5` as a non-gate selector → +3 gate selectors − 1 + 1 non-gate column = +3 total |
+| Rows per permutation         | 73              | **27** (−46, 63%)           |
+| Poseidon2 selector changes   | baseline        | drop `q_poseidon2_internal`; add `q_poseidon2_external_initial`, `q_poseidon2_quad_internal`, `q_poseidon2_quad_internal_terminal`, `q_poseidon2_transition_entry`, and `q_5` |
 | Net relation classes         | 0               | +2 (drop `Poseidon2InternalRelation`, add 3) |
 | Max subrelation degree       | 7 (unchanged)   | 7 (unchanged)               |
 | `LIBRA_UNIVARIATES_LENGTH`   | 9 (unchanged)   | 9 (unchanged)               |
 | Shifted entities             | 5 (unchanged)   | 5 (unchanged)               |
 | Ultra proof / Solidity VK    | unchanged       | —                           |
-| Mega VK                      | —               | +3 precomputed commitments (2 gate selectors + 1 non-gate) |
-| Mega proof layout            | —               | changed (sumcheck subrelation count net +5); proof-compression codec needs an update |
+| Mega VK                      | —               | changed with the selector set above |
+| Mega proof layout            | —               | changed with the Mega flavor relation set |
 
 Per-row prover work is ~4× a single internal round (4 S-boxes + Vandermonde solve vs.
 1 S-box), but row count drops from 56 to 14 — a ~1.6× aggregate reduction in prover work on
@@ -294,21 +301,22 @@ top of the commitment-size win.
 
 ## Precomputed columns (Mega-only)
 
-**Added** (3):
+**Poseidon2-specific additions**:
+- `q_poseidon2_external_initial` (gate selector)
 - `q_poseidon2_transition_entry` (gate selector)
-- `q_poseidon2_double_internal` (gate selector)
-- `q_poseidon2_double_internal_terminal` (gate selector)
-- `q_5` (non-gate selector, holds next-pair round constant $c_{4(i+1)+2}$)
+- `q_poseidon2_quad_internal` (gate selector)
+- `q_poseidon2_quad_internal_terminal` (gate selector)
+- `q_5` (non-gate selector, holds next-quad round constant $c_{4(i+1)+2}$)
 
 **Removed** (1):
 - `q_poseidon2_internal` (no longer needed — compressed block covers all 56 internal rounds)
 
-**Net: +3** precomputed columns in the Mega VK (3 gate selectors add +3; non-gate selector
-addition of `q_5` adds +1; removal of `q_poseidon2_internal` subtracts 1 → +3).
+The exact VK delta is flavor-dependent; the current Mega flavor owns the selector set above and
+does not include `q_poseidon2_internal`.
 
 ## HN folding considerations
 
-HN folds per-instance state. The decision to encode next-pair constants in a **new precomputed
+HN folds per-instance state. The decision to encode next-quad constants in a **new precomputed
 column** rather than via **shifted selectors** (a rejected alternative) was driven by folding
 cost: precomputed commitments live in the VK, which is shared across folded instances and not
 folded per round. Shifted selectors would have cost 3 extra scalar evaluations per instance
@@ -317,15 +325,15 @@ per-VK commitment cost is fixed.
 
 ## Files
 
-- `poseidon2_transition_entry_relation.hpp` — entry relation (4 subrels, deg 7)
-- `poseidon2_double_internal_relation.hpp` — interior relation (4 subrels, deg 7; Vandermonde solve)
-- `poseidon2_double_internal_terminal_relation.hpp` — terminal relation (4 subrels, deg 7)
-- `gate_data.hpp` — `poseidon2_double_internal_gate_` and `poseidon2_transition_entry_gate_`
-  structs (carrying the 4 round indices for the current pair + starting round index for the
-  next pair's 3 constants)
-- `ultra_circuit_builder.cpp` — `create_poseidon2_double_internal_gate` and
+- `poseidon2_transition_entry_relation.hpp` — entry relation (3 subrels, deg 7)
+- `poseidon2_quad_internal_relation.hpp` — interior relation (4 subrels, deg 7; Vandermonde solve)
+- `poseidon2_quad_internal_terminal_relation.hpp` — terminal relation (4 subrels, deg 7)
+- `gate_data.hpp` — `poseidon2_quad_internal_gate_` and `poseidon2_transition_entry_gate_`
+  structs (carrying the 4 round indices for the current quad + starting round index for the
+  next quad's 3 constants)
+- `ultra_circuit_builder.cpp` — `create_poseidon2_quad_internal_gate` and
   `create_poseidon2_transition_entry_gate` (Mega-only via `if constexpr (requires …)` guards)
-- `mega_execution_trace.hpp` — `MegaTracePoseidon2DoubleInternalBlock` with three gate
+- `mega_execution_trace.hpp` — `MegaTracePoseidon2QuadInternalBlock` with three gate
   selectors; base class `MegaTraceBlock` gains the `q_5` non-gate selector
 - `mega_flavor.hpp` — drops `q_poseidon2_internal` + `Poseidon2InternalRelation`; adds the
   three new gate selectors, `q_5`, and the three new relations
@@ -338,7 +346,7 @@ per-VK commitment cost is fixed.
 ## Open questions / follow-ups
 
 1. **Rename** `*_double_*` → `*_quad_*` throughout. Semantics are K=4, but selector / relation
-   / block / gate-struct names still carry the legacy `double_internal` label from the K=2
+   / block / gate-struct names still carry the legacy `quad_internal` label from the K=2
    prototype. Touching this is mechanical but spans flavor, trace, builder, and checker files.
 
 *(Previously open; now resolved:)*

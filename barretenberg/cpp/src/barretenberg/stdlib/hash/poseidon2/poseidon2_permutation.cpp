@@ -87,35 +87,31 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
             builder->create_poseidon2_transition_entry_gate(in);
         }
 
+        auto advance_internal_round = [](NativeState& state, const FF& round_constant) {
+            state[0] += round_constant;
+            NativePermutation::apply_single_sbox(state[0]);
+            NativePermutation::matrix_multiplication_internal(state);
+        };
+
         // Helper: emit one K=4 compressed row (interior or terminal) and advance `current_state`
-        // by 4 internal rounds. Creates witnesses for state[0] at rounds start+1, +2, +3 (used as
-        // wires on this row) and all 4 state elements after round start+3 (used by the next row
-        // or the bridge).
+        // by 4 internal rounds. The row wires are state[0] at rounds start, start+1, start+2, start+3.
         auto emit_quad_row = [&](size_t quad_idx, bool is_terminal) {
             const size_t start = rounds_f_beginning + (4 * quad_idx);
             const size_t next_start = start + 4; // ignored on terminal
 
-            // Native: compute state[0] at rounds start+1, +2, +3 by applying 1, 2, 3 rounds to
-            // current_native_state. We track a copy of the state and snapshot state[0] at each step.
             NativeState state_after_1 = current_native_state;
-            state_after_1[0] += round_constants[start + 0][0];
-            NativePermutation::apply_single_sbox(state_after_1[0]);
-            NativePermutation::matrix_multiplication_internal(state_after_1);
+            advance_internal_round(state_after_1, round_constants[start + 0][0]);
             auto s0_at_1 = witness_t<Builder>(builder, state_after_1[0]);
 
             NativeState state_after_2 = state_after_1;
-            state_after_2[0] += round_constants[start + 1][0];
-            NativePermutation::apply_single_sbox(state_after_2[0]);
-            NativePermutation::matrix_multiplication_internal(state_after_2);
+            advance_internal_round(state_after_2, round_constants[start + 1][0]);
             auto s0_at_2 = witness_t<Builder>(builder, state_after_2[0]);
 
             NativeState state_after_3 = state_after_2;
-            state_after_3[0] += round_constants[start + 2][0];
-            NativePermutation::apply_single_sbox(state_after_3[0]);
-            NativePermutation::matrix_multiplication_internal(state_after_3);
+            advance_internal_round(state_after_3, round_constants[start + 2][0]);
             auto s0_at_3 = witness_t<Builder>(builder, state_after_3[0]);
 
-            poseidon2_double_internal_gate_<FF> in{
+            poseidon2_quad_internal_gate_<FF> in{
                 current_state[0].get_witness_index(), // state[0] at round start
                 s0_at_1.witness_index,                // state[0] at round start+1
                 s0_at_2.witness_index,                // state[0] at round start+2
@@ -124,17 +120,20 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
                 next_start,
                 is_terminal,
             };
-            builder->create_poseidon2_double_internal_gate(in);
+            builder->create_poseidon2_quad_internal_gate(in);
 
             // Advance native state by the 4th round to land on state at round start+4.
             current_native_state = state_after_3;
-            current_native_state[0] += round_constants[start + 3][0];
-            NativePermutation::apply_single_sbox(current_native_state[0]);
-            NativePermutation::matrix_multiplication_internal(current_native_state);
+            advance_internal_round(current_native_state, round_constants[start + 3][0]);
 
-            // Fresh witnesses for the full state at round start+4 (= start of next pair or bridge).
-            for (size_t j = 0; j < t; ++j) {
-                current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
+            // The next non-terminal compressed row only consumes state[0] at round start+4. The remaining limbs are
+            // derived inside the relation and do not need witnesses until the terminal row bridges back to the
+            // standard encoding consumed by the final external rounds.
+            current_state[0] = witness_t<Builder>(builder, current_native_state[0]);
+            if (is_terminal) {
+                for (size_t j = 1; j < t; ++j) {
+                    current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
+                }
             }
         };
 
@@ -147,7 +146,7 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
 
         // Standard-transition bridge row: unconstrained, holds state at round p_end in standard
         // encoding. Shared witness indices with the first final-external gate below.
-        builder->create_unconstrained_gate(builder->blocks.poseidon2_double_internal,
+        builder->create_unconstrained_gate(builder->blocks.poseidon2_quad_internal,
                                            current_state[0].get_witness_index(),
                                            current_state[1].get_witness_index(),
                                            current_state[2].get_witness_index(),

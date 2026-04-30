@@ -275,9 +275,9 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             if constexpr (requires { blk.q_poseidon2_internal(); }) {
                 try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
             }
-            if constexpr (requires { blk.q_poseidon2_double_internal(); }) {
-                try_pattern(POSEIDON2_DOUBLE_INTERNAL, blk.q_poseidon2_double_internal());
-                try_pattern(POSEIDON2_DOUBLE_INTERNAL_TERMINAL, blk.q_poseidon2_double_internal_terminal());
+            if constexpr (requires { blk.q_poseidon2_quad_internal(); }) {
+                try_pattern(POSEIDON2_QUAD_INTERNAL, blk.q_poseidon2_quad_internal());
+                try_pattern(POSEIDON2_QUAD_INTERNAL_TERMINAL, blk.q_poseidon2_quad_internal_terminal());
                 try_pattern(POSEIDON2_TRANSITION_ENTRY, blk.q_poseidon2_transition_entry());
             }
             try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());

@@ -33,7 +33,7 @@ struct Out {
     FF out_0, out_1, out_2, out_3;
 };
 
-// Reference: same body as Poseidon2DoubleInternalRelationImpl::accumulate, evaluated
+// Reference: same body as Poseidon2QuadInternalRelationImpl::accumulate, evaluated
 // in plain field arithmetic.
 Out reference_step_iter(FF s1, FF s2, FF s3, FF u0, FF u1, FF u2, FF u3)
 {

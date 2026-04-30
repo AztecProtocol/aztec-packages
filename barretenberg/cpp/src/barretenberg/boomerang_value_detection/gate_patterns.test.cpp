@@ -291,7 +291,7 @@ TEST(PatternTest, Poseidon2Internal)
 {
     // Wrapped in a templated generic lambda so the `if constexpr` branch is discarded at
     // instantiation time on flavors that lack `q_poseidon2_internal` (e.g. MegaFlavor, which
-    // covers all internal rounds via the compressed double-internal block).
+    // covers all internal rounds via the compressed quad-internal block).
     [&]<typename E = Entities>() {
         if constexpr (requires(E e) { e.q_poseidon2_internal; }) {
             verify_pattern<Poseidon2InternalRelation<FF>>(POSEIDON2_INTERNAL,

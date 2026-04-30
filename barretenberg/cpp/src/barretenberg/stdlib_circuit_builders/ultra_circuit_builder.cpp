@@ -1864,7 +1864,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const pose
 
 /**
  * @brief Poseidon2 internal round gate, activates the q_poseidon2_internal selector and relation.
- *        Ultra-only: Mega covers all internal rounds via the compressed double-internal block.
+ *        Ultra-only: Mega covers all internal rounds via the compressed quad-internal block.
  */
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
@@ -1894,13 +1894,13 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
  *   Selectors: q_1, q_2, q_3, q_4 = c_{4i}, c_{4i+1}, c_{4i+2}, c_{4i+3}   (this pair's 4 constants)
  *              q_m, q_c, q_5      = c_{4(i+1)}, c_{4(i+1)+1}, c_{4(i+1)+2} (next pair's first 3, for
  *                                                                           the shifted Vandermonde check)
- *   Terminal rows use q_poseidon2_double_internal_terminal and set q_m, q_c, q_5 = 0 (no next pair).
+ *   Terminal rows use q_poseidon2_quad_internal_terminal and set q_m, q_c, q_5 = 0 (no next pair).
  */
 template <typename FF>
-void UltraCircuitBuilder_<FF>::create_poseidon2_double_internal_gate(const poseidon2_double_internal_gate_<FF>& in)
+void UltraCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon2_quad_internal_gate_<FF>& in)
 {
-    if constexpr (requires { this->blocks.poseidon2_double_internal; }) {
-        auto& block = this->blocks.poseidon2_double_internal;
+    if constexpr (requires { this->blocks.poseidon2_quad_internal; }) {
+        auto& block = this->blocks.poseidon2_quad_internal;
         block.populate_wires(in.a, in.b, in.c, in.d);
         const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
         // This pair's 4 round constants
@@ -1923,7 +1923,7 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_double_internal_gate(const posei
         this->check_selector_length_consistency();
         this->increment_num_gates();
     } else {
-        throw_or_abort("create_poseidon2_double_internal_gate is Mega-only");
+        throw_or_abort("create_poseidon2_quad_internal_gate is Mega-only");
     }
 }
 
@@ -1940,8 +1940,8 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_double_internal_gate(const posei
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in)
 {
-    if constexpr (requires { this->blocks.poseidon2_double_internal; }) {
-        auto& block = this->blocks.poseidon2_double_internal;
+    if constexpr (requires { this->blocks.poseidon2_quad_internal; }) {
+        auto& block = this->blocks.poseidon2_quad_internal;
         block.populate_wires(in.a, in.b, in.c, in.d);
         const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
         block.q_m().emplace_back(0);
