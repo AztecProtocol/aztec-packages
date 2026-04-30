@@ -220,13 +220,18 @@ if(NOT WASM AND NOT FUZZING AND NOT BB_LITE)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:world_state_objects>)
 endif()
 
-if(NOT WASM)
-    add_library(
-        barretenberg
-        STATIC
-        ${BARRETENBERG_TARGET_OBJECTS}
-    )
+# `barretenberg` is the canonical static library of all core proving objects.
+# Native consumers (bb, tests, benches, FFI) link it directly. Under WASM the
+# bbapi bundle is a separate executable target (`barretenberg_wasm_bin`) that
+# also links it; we cannot collapse the two because under WASM `bb` itself is
+# also built as a wasm executable that needs the static archive.
+add_library(
+    barretenberg
+    STATIC
+    ${BARRETENBERG_TARGET_OBJECTS}
+)
 
+if(NOT WASM)
     add_library(
         bb-external
         STATIC
@@ -238,24 +243,27 @@ endif()
 
 if(WASM)
     # Under Emscripten the executable suffix is `.js` (set by the toolchain),
-    # and Emscripten emits a sibling `.wasm` next to it. We therefore name the
-    # CMake target `barretenberg` -- the artifacts on disk are
+    # and Emscripten emits a sibling `.wasm` next to it. The CMake target name
+    # is `barretenberg_wasm_bin` (to avoid clashing with the static library
+    # `barretenberg`); OUTPUT_NAME pins the on-disk artifact to
     # `bin/barretenberg.js` + `bin/barretenberg.wasm`.
+    # The same OBJECT-library object files are also packaged into the static
+    # `barretenberg` lib that `bb` links against. We pass them as sources
+    # directly (rather than linking the static lib) because -sEXPORT_ALL=1
+    # only exports symbols that exist in the link, and the static-archive
+    # selection step would drop everything not directly referenced.
     add_executable(
-        barretenberg
+        barretenberg_wasm_bin
         ${BARRETENBERG_TARGET_OBJECTS}
-        # env provides logstr / throw_or_abort_impl. Outside WASM these are
-        # supplied by the consumer linking libbarretenberg + env; the WASM
-        # exec is the artifact we ship, so it must bundle them. Without
-        # this, -sEXPORT_ALL=1 hard-errors at link time on the unresolved
-        # WASM_IMPORT-decorated declarations.
+        # env provides logstr / throw_or_abort_impl; the WASM bundle is the
+        # artifact we ship, so it must include them directly.
         $<TARGET_OBJECTS:env_objects>
-        # This is an object library, so doesn't need _objects.
         $<TARGET_OBJECTS:vm2_stub>
     )
+    set_target_properties(barretenberg_wasm_bin PROPERTIES OUTPUT_NAME barretenberg)
 
     target_link_options(
-        barretenberg
+        barretenberg_wasm_bin
         PRIVATE
         # `-sEXPORT_ALL=1` keeps the WASM_EXPORT symbols on the Module object.
         # The toolchain already sets MODULARIZE / EXPORT_ES6 / EXPORT_NAME /
@@ -278,14 +286,14 @@ if(WASM)
     # invoke `cmake --build --target barretenberg.wasm`; that resolves to the
     # main executable target which produces `barretenberg.wasm` as a sibling
     # of `barretenberg.js`.
-    add_custom_target(barretenberg.wasm ALL DEPENDS barretenberg)
-    add_custom_target(barretenberg-debug.wasm ALL DEPENDS barretenberg)
+    add_custom_target(barretenberg.wasm ALL DEPENDS barretenberg_wasm_bin)
+    add_custom_target(barretenberg-debug.wasm ALL DEPENDS barretenberg_wasm_bin)
 
     # Gzipped artifacts for the bb.js packaging step.
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm.gz
         COMMAND gzip -kf ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm
-        DEPENDS barretenberg
+        DEPENDS barretenberg_wasm_bin
         COMMENT "Creating gzipped version of barretenberg.wasm"
     )
 
@@ -297,7 +305,7 @@ if(WASM)
     add_custom_command(
         OUTPUT ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
         COMMAND gzip -kf -c ${CMAKE_BINARY_DIR}/bin/barretenberg.wasm > ${CMAKE_BINARY_DIR}/bin/barretenberg-debug.wasm.gz
-        DEPENDS barretenberg
+        DEPENDS barretenberg_wasm_bin
         COMMENT "Creating gzipped debug copy of barretenberg.wasm"
     )
 
@@ -308,12 +316,12 @@ if(WASM)
 
     if(ENABLE_STACKTRACES)
         target_link_libraries(
-            barretenberg
+            barretenberg_wasm_bin
             PUBLIC
             Backward::Interface
         )
         target_link_options(
-            barretenberg
+            barretenberg_wasm_bin
             PRIVATE
             -ldw -lelf
         )
