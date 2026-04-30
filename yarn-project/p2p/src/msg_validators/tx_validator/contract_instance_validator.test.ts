@@ -32,7 +32,7 @@ describe('ContractInstanceTxValidator', () => {
 
   /**
    * Builds a PrivateLog encoding a ContractInstancePublishedEvent.
-   * Layout: [tag, address, version, salt, contractClassId, initializationHash, immutablesHash, ...publicKeys(8 fields), deployer]
+   * Layout: [tag, address, version, salt, contractClassId, initializationHash, immutablesHash, ...publicKeys(5 fields), deployer]
    */
   async function buildContractInstanceLog(opts?: { address?: AztecAddress }): Promise<PrivateLog> {
     const salt = Fr.random();
@@ -57,8 +57,9 @@ describe('ContractInstanceTxValidator', () => {
     const address = opts?.address ?? correctAddress;
 
     // Serialize the event into fields matching the format expected by ContractInstancePublishedEvent.fromLog.
-    // fromLog reads from a buffer: [tag(32 bytes) | address(32) | version(32) | salt(32) | classId(32) | initHash(32) | publicKeys(4*64=256 bytes) | deployer(32)]
-    // PublicKeys serializes as 4 Points, each Point is 2 Fr (x, y) = 64 bytes. Total: 8 Fr fields.
+    // After AZIP-8, fromLog reads from a buffer:
+    //   [tag(32) | address(32) | version(32) | salt(32) | classId(32) | initHash(32) | publicKeys(160) | deployer(32)]
+    // where publicKeys = npkMHash(32) + ivpkM(64 = x|y, no is_infinite) + ovpkMHash(32) + tpkMHash(32) = 5 Fr fields.
     const publicKeysBuffer = publicKeys.toBuffer();
     const publicKeysFields: Fr[] = [];
     for (let i = 0; i < publicKeysBuffer.length; i += 32) {
