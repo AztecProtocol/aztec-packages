@@ -323,7 +323,7 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
             expected_reconstructed.push_back(op);
         }
 
-        const auto reconstructed = ultra_ops_table.get_ultra_ops_no_zk_for_testing();
+        const auto reconstructed = ultra_ops_table.get_no_zk_reconstructed_ultra_ops();
         EXPECT_EQ(expected_reconstructed.size(), reconstructed.size());
 
         // Compare to the op-queue's reconstruction (should include the gap as no-ops)

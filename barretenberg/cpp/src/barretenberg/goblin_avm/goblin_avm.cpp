@@ -28,8 +28,21 @@ GoblinAvm::GoblinAvm(MegaBuilder& builder, const std::shared_ptr<Transcript>& av
     op_queue = builder.op_queue;
     transcript = avm_transcript;
 
-    // Construct zk columns to match Translator's expected structure
-    op_queue->construct_zk_columns();
+    /**
+     * Add required initial ops to the op queue:
+     * - Add 1 no-op (for shiftability of Translator op queue wires)
+     * - Add 3 random ops (for ZK hiding of accumulation result).
+     * This matches the structure expected by Translator. In Chonk, these ops are added by the batch merge prover; AVM
+     * uses Goblin directly without the full Chonk IVC flow, so it queues them explicitly here.
+     */
+    builder.queue_ecc_no_op();
+    builder.queue_ecc_random_op();
+    builder.queue_ecc_random_op();
+    builder.queue_ecc_random_op();
+    // In the AVM Recursive Verifier case, we don't need ZK; so we place a deterministic non-op as a "hiding_op", it
+    // does not contribute to the actual MSM circuit.
+    using Fq = curve::Grumpkin::ScalarField;
+    builder.queue_ecc_hiding_op(Fq(0), Fq(0));
 }
 
 GoblinAvmProof GoblinAvm::prove()

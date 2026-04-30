@@ -326,7 +326,10 @@ class UltraEccOpsTable {
 
     size_t get_current_subtable_size() const { return table.get_current_subtable_size(); }
 
-    std::vector<UltraOp> get_ultra_ops_no_zk_for_testing() const { return get_reconstructed(/*include_zk_ops=*/false); }
+    std::vector<UltraOp> get_no_zk_reconstructed_ultra_ops() const
+    {
+        return get_reconstructed(/*include_zk_ops=*/false);
+    }
 
     std::vector<UltraOp> get_zk_reconstructed_ultra_ops() const { return get_reconstructed(/*include_zk_ops=*/true); }
 
@@ -437,11 +440,12 @@ class UltraEccOpsTable {
     }
 
     // Construct column polynomials for the full ultra ecc ops table
-    ColumnPolynomials construct_table_columns() const
+    ColumnPolynomials construct_table_columns(const bool include_zk_ops = true) const
     {
-        BB_ASSERT(has_zk_ops(), "ZK ops must be constructed before constructing the full Ultra table.");
+        BB_ASSERT(!include_zk_ops || has_zk_ops(),
+                  "ZK ops must be constructed before constructing the full Ultra table with ZK ops.");
         return construct_columns_in_range(
-            num_ultra_rows(), 0, table.num_subtables(), /*include_zk_ops=*/true, fixed_append_offset);
+            num_ultra_rows(), 0, table.num_subtables(), include_zk_ops, fixed_append_offset);
     }
 
     // Construct column polynomials for the aggregate table up to and including the tail subtable.

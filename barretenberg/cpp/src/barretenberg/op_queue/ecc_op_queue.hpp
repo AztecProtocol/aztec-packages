@@ -53,9 +53,10 @@ class ECCOpQueue {
     // all prior to ECCVM construction to avoid repeated traversal of the per-subtable storage.)
     std::vector<ECCVMOperation> eccvm_ops_reconstructed;
 
-    // Storage for the reconstructed ultra ops table in contiguous memory. (Intended to be constructed once and for
+    // Storage for the reconstructed ultra ops tables in contiguous memory. (Intended to be constructed once and for
     // all prior to Translator circuit construction to avoid repeated traversal of the per-subtable storage.)
-    std::vector<UltraOp> ultra_ops_zk_reconstructed;
+    std::vector<UltraOp> ultra_ops_zk_reconstructed;    // Chonk table
+    std::vector<UltraOp> ultra_ops_no_zk_reconstructed; // AVM table
 
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
@@ -121,9 +122,10 @@ class ECCOpQueue {
     }
 
     // Construct column polynomials for the full aggregate ultra ops table
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns() const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns(
+        const bool include_zk_ops = true) const
     {
-        return ultra_ops_table.construct_table_columns();
+        return ultra_ops_table.construct_table_columns(include_zk_ops);
     }
 
     // Construct column polynomials for the aggregate table up to and including the tail subtable.
@@ -145,6 +147,12 @@ class ECCOpQueue {
     void construct_zk_reconstructed_ultra_ops_table()
     {
         ultra_ops_zk_reconstructed = ultra_ops_table.get_zk_reconstructed_ultra_ops();
+    }
+
+    // Reconstruct the non-ZK full table of ultra ops in contiguous memory from the independent subtables.
+    void construct_no_zk_reconstructed_ultra_ops_table()
+    {
+        ultra_ops_no_zk_reconstructed = ultra_ops_table.get_no_zk_reconstructed_ultra_ops();
     }
 
     // EXCLUDES the optional ZK prefix; see UltraEccOpsTable::num_ultra_rows for the contract.
@@ -171,11 +179,14 @@ class ECCOpQueue {
         return eccvm_ops_reconstructed;
     }
 
-    // Reconstruct the raw full table of ultra ops in contiguous memory from the independent subtables.
+    // Get the raw full table of ultra ops in contiguous memory from the independent subtables.
     // Intended to be used only for testing.
-    std::vector<UltraOp> get_ultra_ops_no_zk_for_testing() const
+    std::vector<UltraOp>& get_no_zk_reconstructed_ultra_ops()
     {
-        return ultra_ops_table.get_ultra_ops_no_zk_for_testing();
+        if (ultra_ops_no_zk_reconstructed.empty()) {
+            construct_no_zk_reconstructed_ultra_ops_table();
+        }
+        return ultra_ops_no_zk_reconstructed;
     }
 
     std::vector<UltraOp>& get_zk_reconstructed_ultra_ops()

@@ -427,7 +427,8 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 {
     BB_BENCH_NAME("TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit");
     using Fq = bb::fq;
-    const auto& ultra_ops = ecc_op_queue->get_zk_reconstructed_ultra_ops();
+    const auto& ultra_ops =
+        avm_mode ? ecc_op_queue->get_no_zk_reconstructed_ultra_ops() : ecc_op_queue->get_zk_reconstructed_ultra_ops();
     std::vector<Fq> accumulator_trace;
     Fq current_accumulator(0);
     if (ultra_ops.empty()) {

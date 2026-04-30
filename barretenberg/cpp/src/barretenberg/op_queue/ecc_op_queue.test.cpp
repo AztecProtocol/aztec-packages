@@ -67,7 +67,7 @@ class ECCOpQueueTest {
     static void check_opcode_consistency_with_eccvm(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
                                                     const bool skip_eccvm_hiding_op = false)
     {
-        auto ultra_table = op_queue->get_ultra_ops_no_zk_for_testing();
+        auto ultra_table = op_queue->get_no_zk_reconstructed_ultra_ops();
         auto eccvm_table = op_queue->get_eccvm_ops();
 
         size_t j = skip_eccvm_hiding_op ? 1 : 0;
@@ -263,7 +263,7 @@ TEST(ECCOpQueueTest, HidingOpPositionConsistency)
     // Get the reconstructed ECCVM table and raw Ultra table. This test is checking the explicitly appended hiding op
     // in the raw subtable, not the Chonk ZK-prefixed reconstruction.
     const auto& eccvm_ops = op_queue->get_eccvm_ops();
-    const auto& ultra_ops = op_queue->get_ultra_ops_no_zk_for_testing();
+    const auto& ultra_ops = op_queue->get_no_zk_reconstructed_ultra_ops();
 
     // === ECCVM Table Checks ===
     // Hiding op should be at index 0 (prepended during get_eccvm_ops())

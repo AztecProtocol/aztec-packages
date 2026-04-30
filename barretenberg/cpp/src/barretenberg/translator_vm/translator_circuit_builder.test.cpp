@@ -28,7 +28,7 @@ fq compute_expected_result(const std::shared_ptr<ECCOpQueue>& op_queue,
     Fq x_pow = Fq(1);
 
     const auto& ultra_ops =
-        include_zk ? op_queue->get_zk_reconstructed_ultra_ops() : op_queue->get_ultra_ops_no_zk_for_testing();
+        include_zk ? op_queue->get_zk_reconstructed_ultra_ops() : op_queue->get_no_zk_reconstructed_ultra_ops();
     for (const auto& ultra_op : ultra_ops) {
         if (ultra_op.op_code.is_random_op || ultra_op.op_code.value() == 0) {
             continue;
