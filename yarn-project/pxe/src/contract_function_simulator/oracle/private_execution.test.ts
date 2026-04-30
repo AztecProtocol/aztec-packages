@@ -339,38 +339,38 @@ describe('Private Execution test suite', () => {
 
     keyStore.accountHasKey.mockImplementation(async (account: AztecAddress, pkMHash: Fr) => {
       if (account.equals(owner)) {
-        return pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash());
+        return pkMHash.equals(ownerCompleteAddress.publicKeys.npkMHash);
       }
       if (account.equals(recipient)) {
-        return pkMHash.equals(await recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash());
+        return pkMHash.equals(recipientCompleteAddress.publicKeys.npkMHash);
       }
       if (account.equals(senderForTags)) {
-        return pkMHash.equals(await senderForTagsCompleteAddress.publicKeys.masterNullifierPublicKey.hash());
+        return pkMHash.equals(senderForTagsCompleteAddress.publicKeys.npkMHash);
       }
       return false;
     });
 
     keyStore.getKeyValidationRequest.mockImplementation(async (pkMHash: Fr, contractAddress: AztecAddress) => {
-      if (pkMHash.equals(await ownerCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+      if (pkMHash.equals(ownerCompleteAddress.publicKeys.npkMHash)) {
         return Promise.resolve(
           new KeyValidationRequest(
-            ownerCompleteAddress.publicKeys.masterNullifierPublicKey,
+            ownerCompleteAddress.publicKeys.npkMHash,
             await computeAppNullifierHidingKey(ownerNhkM, contractAddress),
           ),
         );
       }
-      if (pkMHash.equals(await recipientCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+      if (pkMHash.equals(recipientCompleteAddress.publicKeys.npkMHash)) {
         return Promise.resolve(
           new KeyValidationRequest(
-            recipientCompleteAddress.publicKeys.masterNullifierPublicKey,
+            recipientCompleteAddress.publicKeys.npkMHash,
             await computeAppNullifierHidingKey(recipientNhkM, contractAddress),
           ),
         );
       }
-      if (pkMHash.equals(await senderForTagsCompleteAddress.publicKeys.masterNullifierPublicKey.hash())) {
+      if (pkMHash.equals(senderForTagsCompleteAddress.publicKeys.npkMHash)) {
         return Promise.resolve(
           new KeyValidationRequest(
-            senderForTagsCompleteAddress.publicKeys.masterNullifierPublicKey,
+            senderForTagsCompleteAddress.publicKeys.npkMHash,
             await computeAppNullifierHidingKey(senderForTagsNhkM, contractAddress),
           ),
         );
@@ -1265,7 +1265,7 @@ describe('Private Execution test suite', () => {
       // Generate a partial address, pubkey, and resulting address
       const completeAddress = await CompleteAddress.random();
       const args = [completeAddress.address];
-      const pubKey = completeAddress.publicKeys.masterIncomingViewingPublicKey;
+      const pubKey = completeAddress.publicKeys.ivpkM;
 
       addressStore.getCompleteAddress.mockResolvedValue(completeAddress);
       const { entrypoint: result } = await runSimulator({

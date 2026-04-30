@@ -130,10 +130,7 @@ export class PrivateKernelCircuitPublicInputsBuilder {
     const addr = opts?.contractAddress ?? this.contractAddress;
     this.keyValidationRequests.push(
       new ScopedKeyValidationRequestAndSeparator(
-        new KeyValidationRequestAndSeparator(
-          new KeyValidationRequest(new Point(Fr.random(), Fr.random(), false), Fr.random()),
-          Fr.random(),
-        ),
+        new KeyValidationRequestAndSeparator(new KeyValidationRequest(Fr.random(), Fr.random()), Fr.random()),
         addr,
       ),
     );
@@ -253,10 +250,7 @@ export class PrivateCircuitPublicInputsBuilder {
   /** Adds a key validation request. */
   addKeyValidationRequest(): this {
     this.keyValidationRequests.push(
-      new KeyValidationRequestAndSeparator(
-        new KeyValidationRequest(new Point(Fr.random(), Fr.random(), false), Fr.random()),
-        Fr.random(),
-      ),
+      new KeyValidationRequestAndSeparator(new KeyValidationRequest(Fr.random(), Fr.random()), Fr.random()),
     );
     return this;
   }

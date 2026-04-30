@@ -103,14 +103,14 @@ export class PrivateKernelOracle {
   }
 
   /**
-   * Retrieves the sk_m corresponding to the pk_m.
-   * @throws If the provided public key is not associated with any of the registered accounts.
-   * @param masterPublicKey - The master public key to get secret key for.
+   * Retrieves the sk_m corresponding to the pk_m hash.
+   * @throws If the provided hash is not associated with any of the registered accounts.
+   * @param masterPublicKeyHash - The master public key hash to get secret key for.
    * @returns A Promise that resolves to sk_m.
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
-  public getMasterSecretKey(masterPublicKey: Point): Promise<GrumpkinScalar> {
-    return this.keyStore.getMasterSecretKey(masterPublicKey);
+  public getMasterSecretKey(masterPublicKeyHash: Fr): Promise<GrumpkinScalar> {
+    return this.keyStore.getMasterSecretKey(masterPublicKeyHash);
   }
 
   /** Use debug data to get the function name corresponding to a selector. */

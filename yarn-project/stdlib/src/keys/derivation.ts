@@ -7,6 +7,7 @@ import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import type { KeyPrefix } from './key_types.js';
+import { hashPublicKey } from './public_key.js';
 import { PublicKeys } from './public_keys.js';
 import { getKeyGenerator } from './utils.js';
 
@@ -55,7 +56,7 @@ export async function computeAddress(publicKeys: PublicKeys, partialAddress: Fr)
   const preaddress = await computePreaddress(await publicKeys.hash(), partialAddress);
   const address = await Grumpkin.add(
     await derivePublicKeyFromSecretKey(new Fq(preaddress.toBigInt())),
-    publicKeys.masterIncomingViewingPublicKey,
+    publicKeys.ivpkM,
   );
 
   return new AztecAddress(address.x);
@@ -106,12 +107,15 @@ export async function deriveKeys(secretKey: Fr) {
   const masterOutgoingViewingPublicKey = await derivePublicKeyFromSecretKey(masterOutgoingViewingSecretKey);
   const masterTaggingPublicKey = await derivePublicKeyFromSecretKey(masterTaggingSecretKey);
 
-  // We hash the public keys to get the public keys hash
+  // Per AZIP-8, the non-owner-visible PublicKeys carries hashes for npk/ovpk/tpk and the raw
+  // point only for ivpk_m. The npk/ovpk/tpk raw points are also returned alongside so the key
+  // store can persist them under `${account}-{n|ov|t}pk_m` (only their hashes live in publicKeys).
+  // The ivpk_m point isn't returned separately because it already lives in publicKeys.ivpkM.
   const publicKeys = new PublicKeys(
-    masterNullifierPublicKey,
+    await hashPublicKey(masterNullifierPublicKey),
     masterIncomingViewingPublicKey,
-    masterOutgoingViewingPublicKey,
-    masterTaggingPublicKey,
+    await hashPublicKey(masterOutgoingViewingPublicKey),
+    await hashPublicKey(masterTaggingPublicKey),
   );
 
   return {
@@ -119,6 +123,9 @@ export async function deriveKeys(secretKey: Fr) {
     masterIncomingViewingSecretKey,
     masterOutgoingViewingSecretKey,
     masterTaggingSecretKey,
+    masterNullifierPublicKey,
+    masterOutgoingViewingPublicKey,
+    masterTaggingPublicKey,
     publicKeys,
   };
 }

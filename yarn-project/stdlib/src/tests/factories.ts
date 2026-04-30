@@ -124,7 +124,7 @@ import {
   PublicCallRequest,
   PublicCallRequestArrayLengths,
 } from '../kernel/public_call_request.js';
-import { PublicKeys, computeAddress } from '../keys/index.js';
+import { PublicKeys, computeAddress, hashPublicKey } from '../keys/index.js';
 import { ExtendedDirectionalAppTaggingSecret } from '../logs/extended_directional_app_tagging_secret.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/index.js';
 import { PrivateLog } from '../logs/private_log.js';
@@ -253,7 +253,7 @@ function makeScopedReadRequest(n: number): ScopedReadRequest {
  * @returns A KeyValidationRequest.
  */
 function makeKeyValidationRequests(seed: number): KeyValidationRequest {
-  return new KeyValidationRequest(makePoint(seed), fr(seed + 2));
+  return new KeyValidationRequest(fr(seed), fr(seed + 2));
 }
 
 /**
@@ -1230,8 +1230,13 @@ export async function makeMapAsync<T>(size: number, fn: (i: number) => Promise<[
 
 export async function makePublicKeys(seed = 0): Promise<PublicKeys> {
   const f = (offset: number) => Grumpkin.mul(Grumpkin.generator, new Fq(seed + offset));
-
-  return new PublicKeys(await f(0), await f(1), await f(2), await f(3));
+  const ivpkM = await f(1);
+  return new PublicKeys(
+    await hashPublicKey(await f(0)),
+    ivpkM,
+    await hashPublicKey(await f(2)),
+    await hashPublicKey(await f(3)),
+  );
 }
 
 export async function makeContractInstanceFromClassId(
@@ -1446,10 +1451,10 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
     new Fr(seed + 0x6),
     new Fr(seed + 0x7),
     new PublicKeys(
-      new Point(new Fr(seed + 0x7), new Fr(seed + 0x8), false),
+      new Fr(seed + 0x7),
       new Point(new Fr(seed + 0x9), new Fr(seed + 0x10), false),
-      new Point(new Fr(seed + 0x11), new Fr(seed + 0x12), false),
-      new Point(new Fr(seed + 0x13), new Fr(seed + 0x14), false),
+      new Fr(seed + 0x11),
+      new Fr(seed + 0x13),
     ),
   );
 }

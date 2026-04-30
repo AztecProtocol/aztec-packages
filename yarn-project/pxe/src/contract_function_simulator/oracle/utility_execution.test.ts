@@ -14,7 +14,7 @@ import {
   computeContractAddressFromInstance,
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { PublicKeys, deriveKeys } from '@aztec/stdlib/keys';
+import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { MessageContext } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips } from '@aztec/stdlib/testing';
@@ -533,11 +533,12 @@ describe('Utility Execution test suite', () => {
 
         // Derive keys so we can mock getMasterSecretKey (used by getSharedSecret)
         const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
-        keyStore.getMasterSecretKey.mockImplementation((publicKey: Point) => {
-          if (publicKey.equals(ownerCompleteAddress.publicKeys.masterIncomingViewingPublicKey)) {
+        const ownerIvpkMHash = await hashPublicKey(ownerCompleteAddress.publicKeys.ivpkM);
+        keyStore.getMasterSecretKey.mockImplementation((pkMHash: Fr) => {
+          if (pkMHash.equals(ownerIvpkMHash)) {
             return Promise.resolve(ownerIvskM);
           }
-          throw new Error(`Unknown public key ${publicKey}`);
+          throw new Error(`Unknown pk_m_hash ${pkMHash}`);
         });
 
         const contractAddressA = await AztecAddress.random();

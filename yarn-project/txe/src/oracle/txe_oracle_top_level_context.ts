@@ -59,6 +59,7 @@ import {
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
+import { hashPublicKey } from '@aztec/stdlib/keys';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -273,7 +274,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
   async addAuthWitness(address: AztecAddress, messageHash: Fr) {
     const account = await this.accountStore.getAccount(address);
-    const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
+    const ivpkMHash = await hashPublicKey(account.publicKeys.ivpkM);
+    const privateKey = await this.keyStore.getMasterSecretKey(ivpkMHash);
 
     const schnorr = new Schnorr();
     const signature = await schnorr.constructSignature(messageHash.toBuffer(), privateKey);
