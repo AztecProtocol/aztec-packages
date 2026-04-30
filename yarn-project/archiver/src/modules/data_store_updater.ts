@@ -177,10 +177,10 @@ export class ArchiverDataStoreUpdater {
     }
 
     // Get all uncheckpointed local blocks
-    const uncheckpointedLocalBlocks = await this.stores.blocks.getBlocks(
-      BlockNumber.add(lastCheckpointedBlockNumber, 1),
-      lastBlockNumber - lastCheckpointedBlockNumber,
-    );
+    const uncheckpointedLocalBlocks = await this.stores.blocks.getBlocks({
+      from: BlockNumber.add(lastCheckpointedBlockNumber, 1),
+      limit: lastBlockNumber - lastCheckpointedBlockNumber,
+    });
 
     let lastAlreadyInsertedBlockNumber: BlockNumber | undefined;
 

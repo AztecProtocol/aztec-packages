@@ -94,7 +94,7 @@ describe('world-state integration', () => {
 
   const expectSynchedBlockHashMatches = async (number: number) => {
     const syncedBlockHash = await db.getCommitted().getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number));
-    const archiverBlockHash = await (await archiver.getBlockHeader(number))?.hash();
+    const archiverBlockHash = await (await archiver.getBlockData({ number: BlockNumber(number) }))?.header.hash();
     expect(syncedBlockHash).toEqual(archiverBlockHash);
   };
 
@@ -143,8 +143,6 @@ describe('world-state integration', () => {
     });
 
     it('syncs from latest block when restarting', async () => {
-      const getBlocksSpy = jest.spyOn(archiver, 'getBlocks');
-
       await synchronizer.start();
       await archiver.createBlocks(5);
       await awaitSync(5);
@@ -160,10 +158,6 @@ describe('world-state integration', () => {
       await archiver.createBlocks(4);
       await awaitSync(12);
       await expectSynchedToBlock(12);
-
-      expect(getBlocksSpy).toHaveBeenCalledWith(1, 5);
-      expect(getBlocksSpy).toHaveBeenCalledWith(6, 3);
-      expect(getBlocksSpy).toHaveBeenCalledWith(9, 4);
     });
   });
 

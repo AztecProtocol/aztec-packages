@@ -235,7 +235,7 @@ describe('Archiver Store', () => {
       const block = await makeBlock(BlockNumber(1), IndexWithinCheckpoint(0), genesisArchive);
       await archiver.addBlock(block);
 
-      const retrievedBlock = await archiver.getL2Block(BlockNumber(1));
+      const retrievedBlock = await archiver.getBlock({ number: BlockNumber(1) });
       expect(retrievedBlock).toBeDefined();
       expect(retrievedBlock!.number).toEqual(BlockNumber(1));
       expect((await retrievedBlock!.header.hash()).toString()).toEqual((await block.header.hash()).toString());
@@ -250,9 +250,9 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block2);
       await archiver.addBlock(block3);
 
-      const retrievedBlock1 = await archiver.getL2Block(BlockNumber(1));
-      const retrievedBlock2 = await archiver.getL2Block(BlockNumber(2));
-      const retrievedBlock3 = await archiver.getL2Block(BlockNumber(3));
+      const retrievedBlock1 = await archiver.getBlock({ number: BlockNumber(1) });
+      const retrievedBlock2 = await archiver.getBlock({ number: BlockNumber(2) });
+      const retrievedBlock3 = await archiver.getBlock({ number: BlockNumber(3) });
 
       expect(retrievedBlock1!.number).toEqual(BlockNumber(1));
       expect(retrievedBlock2!.number).toEqual(BlockNumber(2));
@@ -292,7 +292,7 @@ describe('Archiver Store', () => {
 
       await archiver.addBlock(block1);
 
-      const retrievedBlock = await archiver.getL2Block(BlockNumber(1));
+      const retrievedBlock = await archiver.getBlock({ number: BlockNumber(1) });
       expect(retrievedBlock).toBeDefined();
       expect(retrievedBlock!.number).toEqual(BlockNumber(1));
     });
@@ -306,7 +306,7 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block2);
       await archiver.addBlock(block3);
 
-      const blocks = await archiver.getBlocks(BlockNumber(1), 3);
+      const blocks = await archiver.getBlocks({ from: BlockNumber(1), limit: 3 });
       expect(blocks.length).toEqual(3);
       expect(await blocks[0].hash()).toEqual(await block1.hash());
       expect(await blocks[1].hash()).toEqual(await block2.hash());
@@ -323,7 +323,7 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block3);
 
       // Request only 2 blocks starting from block 1
-      const blocks = await archiver.getBlocks(BlockNumber(1), 2);
+      const blocks = await archiver.getBlocks({ from: BlockNumber(1), limit: 2 });
       expect(blocks.length).toEqual(2);
       expect(await blocks[0].hash()).toEqual(await block1.hash());
       expect(await blocks[1].hash()).toEqual(await block2.hash());
@@ -339,7 +339,7 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block3);
 
       // Start from block 2
-      const blocks = await archiver.getBlocks(BlockNumber(2), 2);
+      const blocks = await archiver.getBlocks({ from: BlockNumber(2), limit: 2 });
       expect(blocks.length).toEqual(2);
       expect(await blocks[0].hash()).toEqual(await block2.hash());
       expect(await blocks[1].hash()).toEqual(await block3.hash());
@@ -351,7 +351,7 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block1);
 
       // Request blocks starting from block 5 (which doesn't exist)
-      const blocks = await archiver.getBlocks(BlockNumber(5), 3);
+      const blocks = await archiver.getBlocks({ from: BlockNumber(5), limit: 3 });
       expect(blocks).toEqual([]);
     });
 
@@ -363,20 +363,20 @@ describe('Archiver Store', () => {
       await archiver.addBlock(block2);
 
       // Request 10 blocks but only 2 are available
-      const blocks = await archiver.getBlocks(BlockNumber(1), 10);
+      const blocks = await archiver.getBlocks({ from: BlockNumber(1), limit: 10 });
       expect(blocks.length).toEqual(2);
       expect(await blocks[0].hash()).toEqual(await block1.hash());
       expect(await blocks[1].hash()).toEqual(await block2.hash());
     });
   });
 
-  describe('getCheckpointedBlocks', () => {
+  describe('getBlocks with onlyCheckpointed', () => {
     it('returns checkpointed blocks with checkpoint info', async () => {
       const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
       await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
-      const result = await archiver.getCheckpointedBlocks(BlockNumber(1), 100);
+      const result = await archiver.getBlocks({ from: BlockNumber(1), limit: 100, onlyCheckpointed: true });
 
       const expectedBlocks = testCheckpoints.flatMap(c => c.checkpoint.blocks);
       expect(result.length).toBe(expectedBlocks.length);
@@ -389,11 +389,12 @@ describe('Archiver Store', () => {
           const cb = result[blockIndex];
           const expectedBlock = checkpoint.checkpoint.blocks[i];
 
-          expect(cb.block.number).toBe(expectedBlock.number);
+          expect(cb.number).toBe(expectedBlock.number);
           expect(cb.checkpointNumber).toBe(checkpoint.checkpoint.number);
-          expect(cb.block.archive.root.toString()).toBe(expectedBlock.archive.root.toString());
-          expect(cb.l1).toBeDefined();
-          expect(cb.l1.blockNumber).toBeGreaterThan(0n);
+          expect(cb.archive.root.toString()).toBe(expectedBlock.archive.root.toString());
+          const checkpointData = await archiverStore.blocks.getCheckpointData(cb.checkpointNumber);
+          expect(checkpointData?.l1).toBeDefined();
+          expect(checkpointData!.l1.blockNumber).toBeGreaterThan(0n);
 
           blockIndex++;
         }
@@ -405,11 +406,11 @@ describe('Archiver Store', () => {
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
       await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
-      const result = await archiver.getCheckpointedBlocks(BlockNumber(1), 2);
+      const result = await archiver.getBlocks({ from: BlockNumber(1), limit: 2, onlyCheckpointed: true });
 
       expect(result.length).toBe(2);
-      expect(result[0].block.number).toBe(BlockNumber(1));
-      expect(result[1].block.number).toBe(BlockNumber(2));
+      expect(result[0].number).toBe(BlockNumber(1));
+      expect(result[1].number).toBe(BlockNumber(2));
       expect(result[0].checkpointNumber).toBe(1);
       expect(result[1].checkpointNumber).toBe(2);
     });
@@ -419,19 +420,116 @@ describe('Archiver Store', () => {
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
       await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
-      const result = await archiver.getCheckpointedBlocks(BlockNumber(2), 10);
+      const result = await archiver.getBlocks({ from: BlockNumber(2), limit: 10, onlyCheckpointed: true });
 
       expect(result.length).toBe(2);
-      expect(result[0].block.number).toBe(BlockNumber(2));
-      expect(result[1].block.number).toBe(BlockNumber(3));
+      expect(result[0].number).toBe(BlockNumber(2));
+      expect(result[1].number).toBe(BlockNumber(3));
       expect(result[0].checkpointNumber).toBe(2);
       expect(result[1].checkpointNumber).toBe(3);
     });
 
     it('returns empty array when no checkpointed blocks exist', async () => {
-      const result = await archiver.getCheckpointedBlocks(BlockNumber(1), 10);
+      const result = await archiver.getBlocks({ from: BlockNumber(1), limit: 10, onlyCheckpointed: true });
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('getBlocks / getBlocksData with epoch query', () => {
+    it('returns empty array for epoch with no checkpoints', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      // Checkpoint 1 is in epoch 0 (slot 1, epochDuration=4)
+      const testCheckpoints = await makeChainedCheckpoints(1, {
+        previousArchive: genesisArchive,
+        makeCheckpointOptions: () => ({ slotNumber: SlotNumber(1) }),
+      });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      // Epoch 1 has no checkpoints — both methods must return [] without throwing
+      await expect(archiver.getBlocks({ epoch: EpochNumber(1), onlyCheckpointed: true })).resolves.toEqual([]);
+      await expect(archiver.getBlocksData({ epoch: EpochNumber(1), onlyCheckpointed: true })).resolves.toEqual([]);
+    });
+
+    it('returns blocks for epoch with checkpoints', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      const testCheckpoints = await makeChainedCheckpoints(2, {
+        previousArchive: genesisArchive,
+        makeCheckpointOptions: cpNumber => ({
+          slotNumber: SlotNumber(Number(cpNumber) - 1), // Slots 0 and 1, both in epoch 0
+        }),
+      });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const blocks = await archiver.getBlocks({ epoch: EpochNumber(0), onlyCheckpointed: true });
+      expect(blocks.length).toBe(2);
+      expect(blocks[0].number).toBe(BlockNumber(1));
+      expect(blocks[1].number).toBe(BlockNumber(2));
+
+      const blocksData = await archiver.getBlocksData({ epoch: EpochNumber(0), onlyCheckpointed: true });
+      expect(blocksData.length).toBe(2);
+    });
+  });
+
+  describe('getBlock / getBlockData with tag', () => {
+    it('returns undefined for any tag when chain is empty', async () => {
+      for (const tag of ['proposed', 'checkpointed', 'proven', 'finalized'] as const) {
+        await expect(archiver.getBlock({ tag })).resolves.toBeUndefined();
+        await expect(archiver.getBlockData({ tag })).resolves.toBeUndefined();
+      }
+    });
+
+    it('resolves proposed to the latest block', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      const testCheckpoints = await makeChainedCheckpoints(3, {
+        previousArchive: genesisArchive,
+        blocksPerCheckpoint: 2,
+      });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      const block = await archiver.getBlock({ tag: 'proposed' });
+      expect(block?.number).toBe(BlockNumber(6));
+      const data = await archiver.getBlockData({ tag: 'proposed' });
+      expect(data?.header.globalVariables.blockNumber).toBe(BlockNumber(6));
+    });
+
+    it('resolves checkpointed, proven, and finalized to the corresponding block', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      const testCheckpoints = await makeChainedCheckpoints(3, {
+        previousArchive: genesisArchive,
+        blocksPerCheckpoint: 2,
+      });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      // Checkpoint 1 = blocks 1-2, checkpoint 2 = blocks 3-4, checkpoint 3 = blocks 5-6.
+      // All checkpoints are added so checkpointed L2 block = 6.
+      await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(2));
+      await archiverStore.blocks.setFinalizedCheckpointNumber(CheckpointNumber(1));
+
+      const checkpointedBlock = await archiver.getBlock({ tag: 'checkpointed' });
+      expect(checkpointedBlock?.number).toBe(BlockNumber(6));
+
+      const provenBlock = await archiver.getBlock({ tag: 'proven' });
+      expect(provenBlock?.number).toBe(BlockNumber(4));
+
+      const finalizedBlock = await archiver.getBlock({ tag: 'finalized' });
+      expect(finalizedBlock?.number).toBe(BlockNumber(2));
+
+      const provenData = await archiver.getBlockData({ tag: 'proven' });
+      expect(provenData?.header.globalVariables.blockNumber).toBe(BlockNumber(4));
+    });
+
+    it('returns undefined when proven tag points to genesis', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      const testCheckpoints = await makeChainedCheckpoints(1, {
+        previousArchive: genesisArchive,
+        blocksPerCheckpoint: 1,
+      });
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
+
+      // No proven checkpoint set — proven block number is 0, no block to return.
+      await expect(archiver.getBlock({ tag: 'proven' })).resolves.toBeUndefined();
+      await expect(archiver.getBlockData({ tag: 'proven' })).resolves.toBeUndefined();
     });
   });
 
@@ -461,6 +559,27 @@ describe('Archiver Store', () => {
       await expect(archiver.rollbackTo(BlockNumber(2))).rejects.toThrow(
         /not at a checkpoint boundary.*Use block 3 to roll back to this checkpoint.*or block 0 to roll back to the previous one/,
       );
+    });
+
+    it('rejects rollback to a proposed but not yet checkpointed block', async () => {
+      const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
+      const checkpoints1 = await makeChainedCheckpoints(1, {
+        previousArchive: genesisArchive,
+        blocksPerCheckpoint: 2,
+      });
+      const checkpoints2 = await makeChainedCheckpoints(1, {
+        previousArchive: checkpoints1[0].checkpoint.blocks.at(-1)!.archive,
+        startCheckpointNumber: CheckpointNumber(2),
+        startBlockNumber: 3,
+        startL1BlockNumber: 20,
+        blocksPerCheckpoint: 2,
+      });
+      await archiverStore.blocks.addCheckpoints(checkpoints1);
+      for (const block of checkpoints2[0].checkpoint.blocks) {
+        await archiverStore.blocks.addProposedBlock(block);
+      }
+
+      await expect(archiver.rollbackTo(BlockNumber(3))).rejects.toThrow(/Target L2 block 3 is not checkpointed yet/);
     });
 
     it('allows rollback to the last block of a checkpoint and updates sync points', async () => {

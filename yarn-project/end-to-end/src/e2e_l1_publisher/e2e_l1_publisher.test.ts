@@ -42,7 +42,7 @@ import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-co
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import {
-  CheckpointedL2Block,
+  type BlocksQuery,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   GENESIS_BLOCK_HEADER_HASH,
@@ -204,24 +204,11 @@ describe('L1Publisher integration', () => {
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blocks = [];
     blockSource = mock<ArchiverDataSource>({
-      getBlocks(from, limit) {
-        return Promise.resolve(blocks.slice(from - 1, from - 1 + limit));
-      },
-      // Methods needed by L2BlockStream for world state sync
-      getCheckpointedBlocks(from, limit) {
-        const slicedBlocks = blocks.slice(from - 1, from - 1 + limit);
-        return Promise.all(
-          slicedBlocks.map(
-            async block =>
-              new CheckpointedL2Block(
-                // Test uses 1-block-per-checkpoint, so checkpoint number equals block number
-                CheckpointNumber.fromBlockNumber(block.number),
-                block,
-                new L1PublishedData(BigInt(block.number), BigInt(block.number), (await block.hash()).toString()),
-                [],
-              ),
-          ),
-        );
+      getBlocks(query: BlocksQuery) {
+        if (!('from' in query)) {
+          return Promise.resolve([]);
+        }
+        return Promise.resolve(blocks.slice(query.from - 1, query.from - 1 + query.limit));
       },
       async getCheckpoints(checkpointNumber, _limit) {
         // Test uses 1-block-per-checkpoint, so we find block by checkpoint number

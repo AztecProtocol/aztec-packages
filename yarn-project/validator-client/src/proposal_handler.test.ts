@@ -126,14 +126,14 @@ describe('ProposalHandler checkpoint validation', () => {
     });
 
     it('returns last_block_not_found when block is not found before timeout', async () => {
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
+      blockSource.getBlockData.mockResolvedValue(undefined);
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'last_block_not_found' });
     });
 
     it('returns no_blocks_for_slot when no blocks exist for the slot', async () => {
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as any);
       blockSource.getBlocksForSlot.mockResolvedValue([]);
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
@@ -141,7 +141,7 @@ describe('ProposalHandler checkpoint validation', () => {
     });
 
     it('returns last_block_archive_mismatch when last block archive does not match', async () => {
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as any);
       const blocks = [
         { archive: new AppendOnlyTreeSnapshot(Fr.random(), 1), number: 1 },
         { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
@@ -155,14 +155,14 @@ describe('ProposalHandler checkpoint validation', () => {
     });
 
     it('caches validation result and returns it on second call', async () => {
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
+      blockSource.getBlockData.mockResolvedValue(undefined);
       const proposal = await makeProposal();
 
       const result1 = await handler.handleCheckpointProposal(proposal, proposalInfo);
       expect(result1.isValid).toBe(false);
 
       // Reset mocks to verify they're NOT called again
-      blockSource.getBlockHeaderByArchive.mockClear();
+      blockSource.getBlockData.mockClear();
       blockSource.syncImmediate.mockClear();
 
       const result2 = await handler.handleCheckpointProposal(proposal, proposalInfo);
@@ -171,7 +171,7 @@ describe('ProposalHandler checkpoint validation', () => {
     });
 
     it('does not use cache for a different proposal', async () => {
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
+      blockSource.getBlockData.mockResolvedValue(undefined);
 
       await handler.handleCheckpointProposal(await makeProposal({ archiveRoot: Fr.random() }), proposalInfo);
       blockSource.syncImmediate.mockClear();
@@ -180,8 +180,8 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(blockSource.syncImmediate).toHaveBeenCalled();
     });
 
-    it('returns block_fetch_error when getBlockHeaderByArchive throws', async () => {
-      blockSource.getBlockHeaderByArchive.mockRejectedValue(new Error('db connection failed'));
+    it('returns block_fetch_error when getBlockData throws', async () => {
+      blockSource.getBlockData.mockRejectedValue(new Error('db connection failed'));
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
       expect(result).toEqual({ isValid: false, reason: 'block_fetch_error' });
@@ -205,7 +205,7 @@ describe('ProposalHandler checkpoint validation', () => {
         header: { getBlockNumber: () => 9 },
         indexWithinCheckpoint: 2,
       } as any;
-      blockSource.getBlockDataByArchive.mockResolvedValue(blockData);
+      blockSource.getBlockData.mockResolvedValue(blockData);
 
       jest
         .spyOn(handler, 'handleCheckpointProposal')
@@ -235,7 +235,7 @@ describe('ProposalHandler checkpoint validation', () => {
         header: { globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(1) }) },
       } as unknown as L2Block;
 
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as any);
       blockSource.getBlocksForSlot.mockResolvedValue([block]);
 
       mockDispose = jest.fn();

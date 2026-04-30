@@ -6,6 +6,7 @@ import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
+  type BlockData,
   type CheckpointId,
   type EthAddress,
   GENESIS_BLOCK_HEADER_HASH,
@@ -164,7 +165,7 @@ export class P2PClient extends WithTracer implements P2P {
         const from = BlockNumber(oldFinalizedBlockNum + 1);
         const limit = event.block.number - from + 1;
         if (limit > 0) {
-          const oldBlocks = await this.l2BlockSource.getBlocks(from, limit);
+          const oldBlocks = await this.l2BlockSource.getBlocksData({ from, limit });
           await this.handleFinalizedL2Blocks(oldBlocks);
         }
         break;
@@ -588,8 +589,8 @@ export class P2PClient extends WithTracer implements P2P {
       blockNumber === 0
         ? GENESIS_BLOCK_HEADER_HASH.toString()
         : await this.l2BlockSource
-            .getBlockHeader(blockNumber)
-            .then(header => header?.hash())
+            .getBlockData({ number: blockNumber })
+            .then(data => data?.header.hash())
             .then(hash => hash?.toString());
 
     return {
@@ -660,7 +661,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @param blocks - A list of finalized L2 blocks.
    * @returns Empty promise.
    */
-  private async handleFinalizedL2Blocks(blocks: L2Block[]): Promise<void> {
+  private async handleFinalizedL2Blocks(blocks: BlockData[]): Promise<void> {
     if (!blocks.length) {
       return;
     }

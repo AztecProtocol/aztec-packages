@@ -362,7 +362,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private async gatherPreviousBlockHeader(epochNumber: EpochNumber, previousBlockNumber: number) {
     const header = await (previousBlockNumber === 0
       ? this.worldState.getCommitted().getInitialHeader()
-      : this.l2BlockSource.getBlockHeader(BlockNumber(previousBlockNumber)));
+      : this.l2BlockSource.getBlockData({ number: BlockNumber(previousBlockNumber) }).then(d => d?.header));
 
     if (!header) {
       throw new Error(`Previous block header ${previousBlockNumber} not found for proving epoch ${epochNumber}`);

@@ -46,7 +46,7 @@ describe('reqRespBlockTxsHandler', () => {
     peerId = mock<PeerId>();
 
     attestationPool.getBlockProposal.mockResolvedValue(undefined);
-    archiver.getL2BlockByArchive.mockResolvedValue(undefined);
+    archiver.getBlock.mockResolvedValue(undefined);
     txPool.getTxsByHash.mockResolvedValue([]);
     txPool.hasTxs.mockResolvedValue([]);
   });
@@ -139,7 +139,7 @@ describe('reqRespBlockTxsHandler', () => {
       const txHashes = block.body.txEffects.map(e => e.txHash);
       const txs = txHashes.map(h => makeTx(h));
 
-      archiver.getL2BlockByArchive.mockResolvedValue(block);
+      archiver.getBlock.mockResolvedValue(block);
       txPool.hasTxs.mockResolvedValue([true, true, true]);
       txPool.getTxsByHash.mockResolvedValue(txs);
 
@@ -151,14 +151,14 @@ describe('reqRespBlockTxsHandler', () => {
       expect(response.txIndices.getTrueIndices()).toEqual([0, 1, 2]);
 
       expect(attestationPool.getBlockProposal).toHaveBeenCalledWith(block.archive.root.toString());
-      expect(archiver.getL2BlockByArchive).toHaveBeenCalledWith(block.archive.root);
+      expect(archiver.getBlock).toHaveBeenCalledWith({ archive: block.archive.root });
     });
 
     it('returns partial availability when some txs missing from pool', async () => {
       const block = await L2Block.random(BlockNumber(5), { txsPerBlock: 3 });
       const txHashes = block.body.txEffects.map(e => e.txHash);
 
-      archiver.getL2BlockByArchive.mockResolvedValue(block);
+      archiver.getBlock.mockResolvedValue(block);
       txPool.hasTxs.mockResolvedValue([true, false, true]);
       txPool.getTxsByHash.mockResolvedValue([makeTx(txHashes[0]), undefined, makeTx(txHashes[2])]);
 
@@ -169,7 +169,7 @@ describe('reqRespBlockTxsHandler', () => {
       expect(response.txIndices.getTrueIndices()).toEqual([0, 2]);
 
       expect(attestationPool.getBlockProposal).toHaveBeenCalledWith(block.archive.root.toString());
-      expect(archiver.getL2BlockByArchive).toHaveBeenCalledWith(block.archive.root);
+      expect(archiver.getBlock).toHaveBeenCalledWith({ archive: block.archive.root });
     });
 
     it('does not query archiver if attestation pool has the block', async () => {
@@ -185,7 +185,7 @@ describe('reqRespBlockTxsHandler', () => {
       await callHandler(request);
 
       expect(attestationPool.getBlockProposal).toHaveBeenCalledWith(proposal.archive.toString());
-      expect(archiver.getL2BlockByArchive).not.toHaveBeenCalled();
+      expect(archiver.getBlock).not.toHaveBeenCalled();
     });
   });
 });

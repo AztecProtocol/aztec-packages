@@ -143,14 +143,7 @@ describe('BlockSynchronizer', () => {
       });
       blockStream.sync.mockReturnValue(syncBlocker);
       const genesisBlock = await L2Block.random(BlockNumber(0));
-      aztecNode.getBlock.mockResolvedValue({
-        header: genesisBlock.header,
-        archive: genesisBlock.archive,
-        hash: await genesisBlock.hash(),
-        checkpointNumber: genesisBlock.checkpointNumber,
-        indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
-        number: genesisBlock.number,
-      } as any);
+      aztecNode.getBlock.mockResolvedValue({ header: genesisBlock.header } as any);
 
       // Start a sync (don't await)
       const syncPromise = synchronizer.sync();
@@ -254,16 +247,9 @@ describe('BlockSynchronizer', () => {
       const initialBlock = await L2Block.random(BlockNumber(0));
       await anchorBlockStore.setHeader(initialBlock.header);
 
-      // Mock node to return block header
+      // Mock node to return block
       const provenBlock = await L2Block.random(BlockNumber(5));
-      aztecNode.getBlock.mockResolvedValue({
-        header: provenBlock.header,
-        archive: provenBlock.archive,
-        hash: await provenBlock.hash(),
-        checkpointNumber: provenBlock.checkpointNumber,
-        indexWithinCheckpoint: provenBlock.indexWithinCheckpoint,
-        number: provenBlock.number,
-      } as any);
+      aztecNode.getBlock.mockResolvedValue({ header: provenBlock.header } as any);
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-proven',
@@ -281,16 +267,9 @@ describe('BlockSynchronizer', () => {
       const initialBlock = await L2Block.random(BlockNumber(0));
       await anchorBlockStore.setHeader(initialBlock.header);
 
-      // Mock node to return block header
+      // Mock node to return block
       const finalizedBlock = await L2Block.random(BlockNumber(10));
-      aztecNode.getBlock.mockResolvedValue({
-        header: finalizedBlock.header,
-        archive: finalizedBlock.archive,
-        hash: await finalizedBlock.hash(),
-        checkpointNumber: finalizedBlock.checkpointNumber,
-        indexWithinCheckpoint: finalizedBlock.indexWithinCheckpoint,
-        number: finalizedBlock.number,
-      } as any);
+      aztecNode.getBlock.mockResolvedValue({ header: finalizedBlock.header } as any);
 
       await synchronizer.handleBlockStreamEvent({
         type: 'chain-finalized',

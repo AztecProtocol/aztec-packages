@@ -644,7 +644,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
    */
   protected async uploadBlobsForCheckpoint(proposal: CheckpointProposalCore, proposalInfo: LogData): Promise<void> {
     try {
-      const lastBlockHeader = await this.blockSource.getBlockHeaderByArchive(proposal.archive);
+      const lastBlockHeader = (await this.blockSource.getBlockData({ archive: proposal.archive }))?.header;
       if (!lastBlockHeader) {
         this.log.warn(`Failed to get last block header for blob upload`, proposalInfo);
         return;
