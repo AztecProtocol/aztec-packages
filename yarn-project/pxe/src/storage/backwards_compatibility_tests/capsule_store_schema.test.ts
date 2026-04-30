@@ -18,6 +18,10 @@ describe('CapsuleStore schema compatibility', () => {
 
       capsuleStore.setCapsule(contractAddress, new Fr(5n), [new Fr(7n), new Fr(11n)], jobId, scope);
       capsuleStore.setCapsule(contractAddress, new Fr(13n), [new Fr(17n)], jobId, scope);
+      // Empty capsule -- pins the zero-length-value encoding, which is structurally distinct from
+      // the populated cases (under the current concat-no-framing encoding it's 0 bytes; any added
+      // framing would shift this case visibly).
+      capsuleStore.setCapsule(contractAddress, new Fr(19n), [], jobId, scope);
       await kvStore.transactionAsync(() => capsuleStore.commit(jobId));
 
       const capsules = kvStore.openMap<string, Buffer>('capsules');
