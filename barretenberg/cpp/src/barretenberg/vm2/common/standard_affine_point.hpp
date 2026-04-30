@@ -32,12 +32,10 @@ template <typename AffinePoint> class StandardAffinePoint {
         , y_coord(val.is_point_at_infinity() ? zero : val.y)
     {}
 
-    // TODO(MW): Do we want to silently discard input x, y if is_infinity = true?
-    // Or, discard is_infinity and set point to AffinePoint::infinity() iff x = y = 0?
-    constexpr StandardAffinePoint(BaseField x, BaseField y, bool is_infinity) noexcept
-        : point(is_infinity ? AffinePoint::infinity() : AffinePoint(x, y))
-        , x_coord(is_infinity ? zero : x)
-        , y_coord(is_infinity ? zero : y)
+    constexpr StandardAffinePoint(BaseField x, BaseField y) noexcept
+        : point((x.is_zero() && y.is_zero()) ? AffinePoint::infinity() : AffinePoint(x, y))
+        , x_coord(x)
+        , y_coord(y)
     {}
 
     constexpr StandardAffinePoint operator+(const StandardAffinePoint& other) const noexcept
@@ -87,7 +85,7 @@ template <typename AffinePoint> class StandardAffinePoint {
 
     static const StandardAffinePoint& infinity()
     {
-        static auto infinity = StandardAffinePoint(zero, zero, true);
+        static auto infinity = StandardAffinePoint(zero, zero);
         return infinity;
     }
 

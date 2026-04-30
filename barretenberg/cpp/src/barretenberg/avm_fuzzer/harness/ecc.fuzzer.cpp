@@ -288,13 +288,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
         // Verify output in memory
         MemoryValue res_x = mem->get(input.addresses[6]);
         MemoryValue res_y = mem->get(input.addresses[6] + 1);
-        MemoryValue res_inf = mem->get(input.addresses[6] + 2);
 
-        EmbeddedCurvePoint result_point = EmbeddedCurvePoint(res_x.as_ff(), res_y.as_ff(), res_inf.as_ff() == FF(1));
+        EmbeddedCurvePoint result_point = EmbeddedCurvePoint(res_x.as_ff(), res_y.as_ff());
 
         BB_ASSERT(result_point.x() == expected_result.x(), "Result x-coordinate mismatch");
         BB_ASSERT(result_point.y() == expected_result.y(), "Result y-coordinate mismatch");
-        BB_ASSERT(result_point.is_infinity() == expected_result.is_infinity(), "Result infinity flag mismatch");
 
         // Non mem-aware ecmul result:
         expected_result = point_p * input.scalar;

@@ -10,25 +10,25 @@ using EmbeddedCurvePoint = StandardAffinePoint<grumpkin::g1::affine_element>;
 using Fr = grumpkin::fr;
 using Fq = grumpkin::fq;
 
-TEST(StandardAffinePointTest, InfinityDiscardsRawCoordinates)
-{
-    // NOTE: As of #AVM-248, we moved from preserving raw coordinates in
-    // infinity points to our (0,0) representation when using x() and y().
-    // The underlying AffinePoint is set to AffinePoint::infinity() for
-    // bb operations.
+// TEST(StandardAffinePointTest, InfinityDiscardsRawCoordinates)
+// {
+//     // NOTE: As of #AVM-248, we moved from preserving raw coordinates in
+//     // infinity points to our (0,0) representation when using x() and y().
+//     // The underlying AffinePoint is set to AffinePoint::infinity() for
+//     // bb operations.
 
-    // When constructing an infinity point with non-zero coordinates,
-    // x() and y() should return our standard representation.
-    Fq raw_x = 1;
-    Fq raw_y = 2;
+//     // When constructing an infinity point with non-zero coordinates,
+//     // x() and y() should return our standard representation.
+//     Fq raw_x = 1;
+//     Fq raw_y = 2;
 
-    // Note that raw x and y are silently discarded.
-    EmbeddedCurvePoint point(raw_x, raw_y, /*is_infinity=*/true);
+//     // Note that raw x and y are silently discarded.
+//     EmbeddedCurvePoint point(raw_x, raw_y);
 
-    EXPECT_TRUE(point.is_infinity());
-    EXPECT_TRUE(point.x().is_zero());
-    EXPECT_TRUE(point.y().is_zero());
-}
+//     EXPECT_TRUE(point.is_infinity());
+//     EXPECT_TRUE(point.x().is_zero());
+//     EXPECT_TRUE(point.y().is_zero());
+// }
 
 TEST(StandardAffinePointTest, NormalPointCoordinates)
 {
@@ -88,8 +88,8 @@ TEST(StandardAffinePointTest, StaticInfinityHasZeroCoordinates)
 
 TEST(StandardAffinePointTest, NegatingInfinity)
 {
-    // Negating an infinity point should return (0,0,true)
-    EmbeddedCurvePoint inf(0, 0, /*is_infinity=*/true);
+    // Negating an infinity point should return (0,0)
+    EmbeddedCurvePoint inf(0, 0);
 
     auto neg_inf = -inf;
 
