@@ -1,4 +1,4 @@
-import { MEGA_VK_LENGTH_IN_FIELDS, ULTRA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { ULTRA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { bufferSchemaFor } from '@aztec/foundation/schemas';
