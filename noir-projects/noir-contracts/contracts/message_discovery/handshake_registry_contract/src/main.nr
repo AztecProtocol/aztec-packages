@@ -107,7 +107,9 @@ pub contract HandshakeRegistry {
         let mut found: Option<HandshakeNote> = Option::none();
         for i in 0..notes.len() {
             let note = notes.get(i);
-            if (note.recipient == recipient) & (note.handshake_type == handshake_type) {
+            if found.is_none()
+                & (note.recipient == recipient)
+                & (note.handshake_type == handshake_type) {
                 found = Option::some(note);
             }
         }
