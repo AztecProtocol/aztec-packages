@@ -214,35 +214,54 @@ locals {
   # Deploy-time-computed env vars (joined lists, computed paths, secrets,
   # values that come from the L1 deploy step). Per-network YAML values for the
   # same keys take precedence -- this is just the deploy-time fallback.
-  common_inline_values = yamlencode({
-    env = merge(
-      {
-        USE_GCLOUD_LOGGING                 = "true"
-        L1_CHAIN_ID                        = local.d.L1_CHAIN_ID
-        REGISTRY_CONTRACT_ADDRESS          = local.d.REGISTRY_CONTRACT_ADDRESS
-        FEE_ASSET_HANDLER_CONTRACT_ADDRESS = local.d.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
-        SPONSORED_FPC                      = tostring(local.d.SPONSORED_FPC)
-        TEST_ACCOUNTS                      = tostring(local.d.TEST_ACCOUNTS)
-        LOG_JSON                           = "1"
-      },
-      local.network != "" ? { NETWORK = local.network } : {},
-      length(local.l1_rpc_urls) > 0 ? { ETHEREUM_HOSTS = join(",", local.l1_rpc_urls) } : {},
-      length(local.l1_consensus_urls) > 0 ? {
-        L1_CONSENSUS_HOST_URLS = join(",", local.l1_consensus_urls)
-      } : {},
-      length(local.l1_consensus_keys) > 0 ? {
-        L1_CONSENSUS_HOST_API_KEYS = join(",", local.l1_consensus_keys)
-      } : {},
-      length(local.l1_consensus_headers) > 0 ? {
-        L1_CONSENSUS_HOST_API_KEY_HEADERS = join(",", local.l1_consensus_headers)
-      } : {},
-      local.otel_endpoint != "" ? {
-        OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = "${local.otel_endpoint}/v1/metrics"
-        OTEL_EXPORTER_OTLP_TRACES_ENDPOINT  = "${local.otel_endpoint}/v1/traces"
-        OTEL_EXPORTER_OTLP_LOGS_ENDPOINT    = "${local.otel_endpoint}/v1/logs"
-      } : {}
-    )
+  #
+  # Factored into a plain map so it can be nested under the right chart key:
+  #   - aztec-node charts (rpc, archive, p2p_bootstrap, ...): { env: ... }
+  #   - aztec-validator (subchart alias `validator`): { validator: { env: ... } }
+  #   - aztec-prover-stack (subchart alias `node`): { node: { env: ... } }
+  #   - aztec-bot (subchart alias `bot`): { bot: { env: ... } }
+  common_env_block = merge(
+    {
+      USE_GCLOUD_LOGGING                 = "true"
+      L1_CHAIN_ID                        = local.d.L1_CHAIN_ID
+      REGISTRY_CONTRACT_ADDRESS          = local.d.REGISTRY_CONTRACT_ADDRESS
+      FEE_ASSET_HANDLER_CONTRACT_ADDRESS = local.d.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
+      SPONSORED_FPC                      = tostring(local.d.SPONSORED_FPC)
+      TEST_ACCOUNTS                      = tostring(local.d.TEST_ACCOUNTS)
+      LOG_JSON                           = "1"
+    },
+    local.network != "" ? { NETWORK = local.network } : {},
+    length(local.l1_rpc_urls) > 0 ? { ETHEREUM_HOSTS = join(",", local.l1_rpc_urls) } : {},
+    length(local.l1_consensus_urls) > 0 ? {
+      L1_CONSENSUS_HOST_URLS = join(",", local.l1_consensus_urls)
+    } : {},
+    length(local.l1_consensus_keys) > 0 ? {
+      L1_CONSENSUS_HOST_API_KEYS = join(",", local.l1_consensus_keys)
+    } : {},
+    length(local.l1_consensus_headers) > 0 ? {
+      L1_CONSENSUS_HOST_API_KEY_HEADERS = join(",", local.l1_consensus_headers)
+    } : {},
+    local.otel_endpoint != "" ? {
+      OTEL_EXPORTER_OTLP_METRICS_ENDPOINT = "${local.otel_endpoint}/v1/metrics"
+      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT  = "${local.otel_endpoint}/v1/traces"
+      OTEL_EXPORTER_OTLP_LOGS_ENDPOINT    = "${local.otel_endpoint}/v1/logs"
+    } : {}
+  )
+
+  # Per-chart-type inline values that carry common_env_block to the right Helm key.
+  # aztec-node releases (rpc, archive, blob_sink, full_node, fisherman, p2p_bootstrap):
+  #   top-level `env:` lands in .Values.env → env-from-values ConfigMap.
+  common_inline_values = yamlencode({ env = local.common_env_block })
+  # aztec-validator: env must be under `validator.env` to reach the subchart's .Values.env.
+  common_inline_values_validator = yamlencode({ validator = { env = local.common_env_block } })
+  # aztec-prover-stack: env must be under each sub-component's env.
+  common_inline_values_prover = yamlencode({
+    node   = { env = local.common_env_block }
+    broker = { env = local.common_env_block }
+    agent  = { env = local.common_env_block }
   })
+  # aztec-bot: env must be under `bot.env` to reach the subchart's .Values.env.
+  common_inline_values_bot = yamlencode({ bot = { env = local.common_env_block } })
 
   common_list_settings = {}
 
@@ -743,9 +762,19 @@ resource "helm_release" "releases" {
   wait             = each.value.wait
   wait_for_jobs    = true
 
+  # Pick the right common_inline_values variant for this chart type.
+  # Wrapper charts (aztec-validator, aztec-bot, aztec-prover-stack) alias
+  # aztec-node as a subchart; env vars must be nested under the alias key
+  # or they're lost (they land on the wrapper's .Values.env which no
+  # template consumes).
   values = concat(
     [for v in each.value.values : file("./values/${v}")],
-    [local.common_inline_values],
+    [
+      startswith(each.key, "validators") ? local.common_inline_values_validator :
+      each.key == "prover" ? local.common_inline_values_prover :
+      startswith(each.key, "bot_") ? local.common_inline_values_bot :
+      local.common_inline_values
+    ],
     lookup(each.value, "inline_values", []),
     # Per-release Helm values from the YAML loader. See `local.release_values_from_loader`
     # for the wrapping/lookup rules (handles wrapper charts and validators-*<->validator
