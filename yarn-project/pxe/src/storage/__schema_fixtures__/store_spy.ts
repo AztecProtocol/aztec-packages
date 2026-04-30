@@ -21,36 +21,31 @@ export interface OpenedStoreEntry {
 /** A spied `AztecAsyncKVStore` together with the log of `open*()` calls observed against it. */
 export interface StoreSpy {
   store: AztecAsyncKVStore;
-  log: OpenedStoreEntry[];
+  openedStores: OpenedStoreEntry[];
 }
 
 /**
- * Wraps an `AztecAsyncKVStore` so every `openMap`/`openMultiMap`/`openArray`/`openSingleton`
- * call is recorded to a log before being delegated to the inner store. Used by the schema
- * compatibility test to enumerate the named sub-stores PXE opens at construction time.
- *
- * All other methods (`openSet`, `openCounter`, `transactionAsync`, `clear`, `delete`,
- * `estimateSize`, `close`, `backupTo`) are delegated directly to the inner store without
- * being recorded.
+ * Wraps an `AztecAsyncKVStore` so every `openMap`/`openMultiMap`/`openArray`/`openSingleton` call is recorded to a log
+ * before being delegated to the inner store. Used by the schema compatibility test to detect and flag changes.
  */
 export function createStoreSpy(inner: AztecAsyncKVStore): StoreSpy {
-  const log: OpenedStoreEntry[] = [];
+  const openedStores: OpenedStoreEntry[] = [];
 
   const store: AztecAsyncKVStore = {
     openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
-      log.push({ name, kind: 'map' });
+      openedStores.push({ name, kind: 'map' });
       return inner.openMap<K, V>(name);
     },
     openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
-      log.push({ name, kind: 'multimap' });
+      openedStores.push({ name, kind: 'multimap' });
       return inner.openMultiMap<K, V>(name);
     },
     openArray<T extends Value>(name: string): AztecAsyncArray<T> {
-      log.push({ name, kind: 'array' });
+      openedStores.push({ name, kind: 'array' });
       return inner.openArray<T>(name);
     },
     openSingleton<T extends Value>(name: string): AztecAsyncSingleton<T> {
-      log.push({ name, kind: 'singleton' });
+      openedStores.push({ name, kind: 'singleton' });
       return inner.openSingleton<T>(name);
     },
     openSet: name => inner.openSet(name),
@@ -63,5 +58,5 @@ export function createStoreSpy(inner: AztecAsyncKVStore): StoreSpy {
     backupTo: (dstPath, compact) => inner.backupTo(dstPath, compact),
   };
 
-  return { store, log };
+  return { store, openedStores };
 }

@@ -6,14 +6,14 @@ describe('createStoreSpy', () => {
   it('records every open* call with name and kind in insertion order', async () => {
     const inner = await openTmpStore('pxe-schema-spy-test', true);
     try {
-      const { store, log } = createStoreSpy(inner);
+      const { store, openedStores } = createStoreSpy(inner);
 
       store.openMap('foo');
       store.openMultiMap('bar');
       store.openArray('baz');
       store.openSingleton('qux');
 
-      expect(log).toEqual([
+      expect(openedStores).toEqual([
         { name: 'foo', kind: 'map' },
         { name: 'bar', kind: 'multimap' },
         { name: 'baz', kind: 'array' },
@@ -40,12 +40,12 @@ describe('createStoreSpy', () => {
   it('records each open call exactly once even if the same store is opened twice', async () => {
     const inner = await openTmpStore('pxe-schema-spy-twice-test', true);
     try {
-      const { store, log } = createStoreSpy(inner);
+      const { store, openedStores } = createStoreSpy(inner);
 
       store.openMap('twice');
       store.openMap('twice');
 
-      expect(log).toEqual([
+      expect(openedStores).toEqual([
         { name: 'twice', kind: 'map' },
         { name: 'twice', kind: 'map' },
       ]);

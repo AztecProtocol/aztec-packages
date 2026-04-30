@@ -17,11 +17,11 @@ const STORE_NAME_TO_FIXTURE_TYPE: ReadonlyMap<string, string> = new Map([
   ['contracts_instances', 'SerializableContractInstance'],
 ]);
 
-describe('pxe schema compatibility', () => {
-  it('pins the set of opened stores', async () => {
+describe('PXE schema compatibility', () => {
+  it('matches snapshots stores opened by PXE', async () => {
     const inner = await openTmpStore('pxe-schema-stores', true);
     try {
-      const { store, log } = createStoreSpy(inner);
+      const { store, openedStores: log } = createStoreSpy(inner);
 
       openPxeStores(store);
 
@@ -83,7 +83,7 @@ describe('pxe schema compatibility', () => {
   it('has a fixture for every PXE-typed store and a store for every fixture', async () => {
     const inner = await openTmpStore('pxe-schema-cross-check', true);
     try {
-      const { store, log } = createStoreSpy(inner);
+      const { store, openedStores: log } = createStoreSpy(inner);
 
       openPxeStores(store);
 
