@@ -1,6 +1,6 @@
-# Tests that the installed Aztec toolchain works end-to-end.
-# Exercises the full developer onboarding path: aztec init -> compile -> test -> start -> codegen -> TS end-to-end test.
-name: Full Dev Path Test
+# Validates that a published Aztec CLI release can be installed and used end-to-end.
+# Runs after CI3 completes a tag release (via workflow_run), or manually via workflow_dispatch.
+name: Aztec CLI Acceptance Test
 
 on:
   workflow_dispatch:
@@ -9,22 +9,30 @@ on:
         description: "Version to install (e.g. latest, nightly, 4.3.0, 4.3.0-nightly.20260420)"
         required: true
         type: string
-  push:
-    tags:
+  workflow_run:
+    workflows: ["CI3"]
+    types:
+      - completed
+    branches:
       - "v*"
 
 jobs:
-  full-dev-path:
+  release-acceptance:
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     timeout-minutes: 30
     env:
-      VERSION: ${{ github.event.inputs.version || github.ref_name }}
+      VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Run full dev path test
-        run: ./aztec-up/test/full-dev-path/run-test.sh
+      - name: Run Aztec CLI acceptance test
+        run: ./aztec-up/test/aztec-cli-acceptance-test/run-test.sh
 
       - name: Notify Slack on success
         if: success() && github.event_name != 'workflow_dispatch'
@@ -33,7 +41,7 @@ jobs:
         run: |
           export CI=1
           ./ci3/slack_notify "#team-fairies" \
-            "Full Dev Path Test passed for version ${VERSION} :white_check_mark:"
+            "Aztec CLI Acceptance Test passed for version ${VERSION} :white_check_mark:"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure() && github.event_name != 'workflow_dispatch'
@@ -44,6 +52,6 @@ jobs:
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           export CI=1
           ./ci3/slack_notify_with_claudebox_kickoff "#team-fairies" \
-            "Full Dev Path Test FAILED (version ${VERSION}): <${RUN_URL}|View Run>" \
-            "Full dev path test failed for version ${VERSION}. CI run: ${RUN_URL}. Investigate the failure and explain the root cause." \
+            "Aztec CLI Acceptance Test FAILED (version ${VERSION}): <${RUN_URL}|View Run>" \
+            "Aztec CLI acceptance test failed for version ${VERSION}. CI run: ${RUN_URL}. Investigate the failure and explain the root cause." \
             --link "$RUN_URL"

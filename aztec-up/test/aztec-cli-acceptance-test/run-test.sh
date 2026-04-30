@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Launcher for the full-dev-path test.
+# Launcher for the Aztec CLI acceptance test.
 #
 # Steps:
 #   1. Install Node via NVM if not present (skipped with SKIP_INSTALL=1)
 #   2. Install the Aztec toolchain via the public installer (skipped with SKIP_INSTALL=1)
-#   3. Run full-dev-path.ts which exercises the installed toolchain end-to-end
+#   3. Run aztec-cli-acceptance-test.ts which exercises the installed toolchain end-to-end
 #
 # Env vars:
 #   SKIP_INSTALL=1      Skip steps 1-2 and use the already-installed toolchain (dev-box inner loop).
@@ -37,4 +37,4 @@ export PATH="$HOME/.aztec/current/bin:$HOME/.aztec/bin:$PATH"
 export AZTEC_INSTALL_DIR="${AZTEC_INSTALL_DIR:-$HOME/.aztec/current}"
 
 echo ">>> Running test"
-exec node --no-warnings "${script_dir}/full-dev-path.ts"
+exec node --no-warnings "${script_dir}/aztec-cli-acceptance-test.ts"
