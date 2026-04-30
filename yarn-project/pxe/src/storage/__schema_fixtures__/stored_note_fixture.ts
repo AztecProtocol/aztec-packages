@@ -28,15 +28,20 @@ function buildNoteDao(): NoteDao {
 }
 
 /**
- * Builds the canonical-fixture suite for `StoredNote`. The optional `_nullifiedAt` field is
- * fanned out across two variants:
- * - variant 0: `Some(value)` — every field populated; passes `assertNoDefaultFields`.
- * - variant 1: `None` — same `noteDao` and `scopes`, with `_nullifiedAt = undefined`.
+ * Builds the canonical-fixture suite for `StoredNote`. Each variant pins one binary-layout branch
+ * of `toBuffer()`:
+ * - variant 0: `_nullifiedAt = Some(value)`, populated `scopes` — every field populated; passes
+ *   `assertNoDefaultFields`.
+ * - variant 1: `_nullifiedAt = None (undefined)`, populated `scopes` — pins the optional's `None`
+ *   serialization (`?? 0`).
+ * - variant 2: `_nullifiedAt = Some(value)`, empty `scopes` — pins the empty-vector serialization
+ *   (length=0 prefix, no payload).
  */
 export function buildStoredNoteFixtures(): StoredNote[] {
   const scopes = new Set(['fixture-scope-a', 'fixture-scope-b']);
   return [
     new StoredNote(buildNoteDao(), new Set(scopes), BlockNumber(53)),
     new StoredNote(buildNoteDao(), new Set(scopes), undefined),
+    new StoredNote(buildNoteDao(), new Set(), BlockNumber(53)),
   ];
 }

@@ -15,7 +15,7 @@ describe('SerializableContractClassData fixture', () => {
   });
 
   it('produces fixtures with stable count', () => {
-    expect(buildSerializableContractClassDataFixtures().length).toBe(1);
+    expect(buildSerializableContractClassDataFixtures().length).toBe(2);
   });
 
   it('variant 0 has no default fields', () => {

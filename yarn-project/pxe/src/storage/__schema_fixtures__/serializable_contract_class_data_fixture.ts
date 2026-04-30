@@ -7,8 +7,12 @@ import { SerializableContractClassData } from '../contract_store/contract_store.
 export const SERIALIZABLE_CONTRACT_CLASS_DATA_FIXTURE_TYPE_NAME = 'SerializableContractClassData';
 
 /**
- * Builds a deterministic, fully-populated `SerializableContractClassData` for the schema-compatibility snapshot.
- * The type has no optional fields, so the suite contains a single canonical instance.
+ * Builds the canonical-fixture suite for `SerializableContractClassData`. Each variant pins one
+ * binary-layout branch of `toBuffer()`:
+ * - variant 0: populated `privateFunctions` — every field populated; passes
+ *   `assertNoDefaultFields`.
+ * - variant 1: empty `privateFunctions` — pins the empty-vector serialization (length=0 prefix,
+ *   no payload). A contract class with only public functions is a real production state.
  */
 export function buildSerializableContractClassDataFixtures(): SerializableContractClassData[] {
   return [
@@ -21,6 +25,13 @@ export function buildSerializableContractClassDataFixtures(): SerializableContra
         { selector: FunctionSelector.fromField(new Fr(11n)), vkHash: new Fr(13n) },
         { selector: FunctionSelector.fromField(new Fr(17n)), vkHash: new Fr(19n) },
       ],
+    }),
+    new SerializableContractClassData({
+      id: new Fr(2n),
+      artifactHash: new Fr(3n),
+      privateFunctionsRoot: new Fr(5n),
+      publicBytecodeCommitment: new Fr(7n),
+      privateFunctions: [],
     }),
   ];
 }

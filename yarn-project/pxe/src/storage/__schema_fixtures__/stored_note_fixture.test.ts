@@ -12,7 +12,7 @@ describe('StoredNote fixture', () => {
   });
 
   it('produces fixtures with stable count', () => {
-    expect(buildStoredNoteFixtures().length).toBe(2);
+    expect(buildStoredNoteFixtures().length).toBe(3);
   });
 
   it('variant 0 has no default fields', () => {

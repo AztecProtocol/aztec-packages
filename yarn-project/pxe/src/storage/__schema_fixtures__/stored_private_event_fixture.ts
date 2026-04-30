@@ -10,8 +10,12 @@ import { StoredPrivateEvent } from '../private_event_store/stored_private_event.
 export const STORED_PRIVATE_EVENT_FIXTURE_TYPE_NAME = 'StoredPrivateEvent';
 
 /**
- * Builds a deterministic, fully-populated `StoredPrivateEvent` for the schema-compatibility snapshot.
- * `StoredPrivateEvent` has no optional fields, so the suite contains a single canonical instance.
+ * Builds the canonical-fixture suite for `StoredPrivateEvent`. Each variant pins one binary-layout
+ * branch of `toBuffer()`:
+ * - variant 0: populated `msgContent` and `scopes` — every field populated; passes
+ *   `assertNoDefaultFields`.
+ * - variant 1: empty `msgContent` and empty `scopes` — pins both empty-vector serializations
+ *   (length=0 prefix, no payload).
  */
 export function buildStoredPrivateEventFixtures(): StoredPrivateEvent[] {
   return [
@@ -26,6 +30,18 @@ export function buildStoredPrivateEventFixtures(): StoredPrivateEvent[] {
       AztecAddress.fromBigInt(23n),
       EventSelector.fromField(new Fr(29n)),
       new Set(['fixture-scope-a', 'fixture-scope-b']),
+    ),
+    new StoredPrivateEvent(
+      new Fr(2n),
+      [],
+      7,
+      new BlockHash(new Fr(11n)),
+      TxHash.fromField(new Fr(13n)),
+      17,
+      19,
+      AztecAddress.fromBigInt(23n),
+      EventSelector.fromField(new Fr(29n)),
+      new Set(),
     ),
   ];
 }
