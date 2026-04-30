@@ -327,8 +327,8 @@ _deploy_defaults:
   PROVER_FAILED_PROOF_STORE: ""
 
   # Optional secrets (overridden by per-network YAML or GCP secrets).
-  R2_ACCESS_KEY_ID: ""
-  R2_SECRET_ACCESS_KEY: ""
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
   OTEL_COLLECTOR_ENDPOINT: ""
 
   # RPC ingress optional fields (per-network YAML overrides when used).

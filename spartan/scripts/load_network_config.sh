@@ -153,8 +153,8 @@ def secret_name_for(env_var, env, deploy):
         "ETHERSCAN_API_KEY": "etherscan-api-key",
         "LABS_INFRA_MNEMONIC": mnemonic_secret,
         "STORE_SNAPSHOT_URL": "r2-account-id",
-        "R2_ACCESS_KEY_ID": "r2-access-key-id",
-        "R2_SECRET_ACCESS_KEY": "r2-secret-access-key",
+        "AWS_ACCESS_KEY_ID": "r2-access-key-id",
+        "AWS_SECRET_ACCESS_KEY": "r2-secret-access-key",
     }
     return mapping.get(env_var)
 
