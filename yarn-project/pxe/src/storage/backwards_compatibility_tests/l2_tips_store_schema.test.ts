@@ -1,8 +1,8 @@
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2Block } from '@aztec/stdlib/block';
 
-import { PXE_DATA_SCHEMA_VERSION } from './metadata.js';
-import { openPxeStores } from './open_pxe_stores.js';
+import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
+import { openPxeStores } from '../open_pxe_stores.js';
 import { snapshotMap } from './snapshot_kv_entries.js';
 
 describe('L2TipsKVStore schema compatibility', () => {

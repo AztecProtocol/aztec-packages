@@ -4,8 +4,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ExtendedDirectionalAppTaggingSecret, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { PXE_DATA_SCHEMA_VERSION } from './metadata.js';
-import { openPxeStores } from './open_pxe_stores.js';
+import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
+import { openPxeStores } from '../open_pxe_stores.js';
 import { snapshotMap } from './snapshot_kv_entries.js';
 
 describe('SenderTaggingStore schema compatibility', () => {

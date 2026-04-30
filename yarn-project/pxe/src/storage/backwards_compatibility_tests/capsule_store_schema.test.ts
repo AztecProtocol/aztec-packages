@@ -2,8 +2,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { PXE_DATA_SCHEMA_VERSION } from './metadata.js';
-import { openPxeStores } from './open_pxe_stores.js';
+import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
+import { openPxeStores } from '../open_pxe_stores.js';
 import { snapshotMap } from './snapshot_kv_entries.js';
 
 describe('CapsuleStore schema compatibility', () => {

@@ -6,8 +6,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
-import { PXE_DATA_SCHEMA_VERSION } from './metadata.js';
-import { openPxeStores } from './open_pxe_stores.js';
+import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
+import { openPxeStores } from '../open_pxe_stores.js';
 import { snapshotMap } from './snapshot_kv_entries.js';
 
 describe('ContractStore schema compatibility', () => {

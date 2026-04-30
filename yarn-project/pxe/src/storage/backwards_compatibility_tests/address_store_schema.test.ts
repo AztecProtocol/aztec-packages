@@ -2,8 +2,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 
-import { PXE_DATA_SCHEMA_VERSION } from './metadata.js';
-import { openPxeStores } from './open_pxe_stores.js';
+import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
+import { openPxeStores } from '../open_pxe_stores.js';
 import { snapshotArray, snapshotMap } from './snapshot_kv_entries.js';
 
 /**

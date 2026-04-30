@@ -5,8 +5,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { TxHash } from '@aztec/stdlib/tx';
 
-import { PXE_DATA_SCHEMA_VERSION } from './metadata.js';
-import { openPxeStores } from './open_pxe_stores.js';
+import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
+import { openPxeStores } from '../open_pxe_stores.js';
 import { snapshotMap, snapshotMultiMap } from './snapshot_kv_entries.js';
 
 describe('NoteStore schema compatibility', () => {
