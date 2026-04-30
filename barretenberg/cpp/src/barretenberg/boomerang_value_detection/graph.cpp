@@ -28,13 +28,11 @@ namespace cdg {
  * @param gate_index index of the current gate
  * @param blk reference to the block containing the gate
  * @details The method performs several operations:
- *          1) Removes duplicate variables from the input vector (sort + unique so non-adjacent
- *             repeats like [x, y, x] collapse to a single entry — `std::unique` alone only
- *             collapses adjacent duplicates and would over-count gate appearances)
+ *          1) Sorts and de-duplicates the input vector so each variable that appears in the gate
+ *             is counted at most once, regardless of wire layout
  *          2) Creates key-value pairs of (variable_index, block_pointer) for tracking
  *          3) Updates variable_gates map with gate indices for each variable
- *          4) Increments the gate count for each processed variable, so a gate count of 1
- *             genuinely means the variable appeared in exactly one gate
+ *          4) Increments the gate count for each processed variable
  */
 template <typename FF, typename CircuitBuilder>
 inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vector<uint32_t>& gate_variables,
@@ -423,9 +421,8 @@ void StaticAnalyzer_<FF, CircuitBuilder>::connect_all_variables_in_vector(const 
                      return variable_index != circuit_builder.zero_idx() &&
                             this->check_is_not_constant_variable(variable_index);
                  });
-    // Remove duplicates. Sort first so non-adjacent repeats (e.g. wires laid out as [x, y, x])
-    // collapse to a single entry; std::unique alone only removes adjacent duplicates and would
-    // leave a phantom self-edge or double-count co-occurrence in the adjacency list.
+    // Sort and de-duplicate so each variable contributes at most one edge in the chain below,
+    // regardless of where it appears in the wire layout.
     std::sort(filtered_variables_vector.begin(), filtered_variables_vector.end());
     auto unique_pointer = std::unique(filtered_variables_vector.begin(), filtered_variables_vector.end());
     filtered_variables_vector.erase(unique_pointer, filtered_variables_vector.end());
@@ -1047,14 +1044,15 @@ std::unordered_set<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::get_variables_
     remove_unnecessary_plookup_variables();
     remove_unnecessary_range_constrains_variables();
 
-    // Remove variables that are intentionally in one gate (e.g., fix_witness, inverse checks).
-    // These are marked at the source via update_used_witnesses().
-    // AUDITTODO: used_witnesses stores raw witness indices, but variables_in_one_gate contains
-    // real_variable_index values. If a witness is copy-constrained (aliased), its raw index may
-    // differ from its real_variable_index, causing the erase to fail silently. Should convert:
-    //   variables_in_one_gate.erase(circuit_builder.real_variable_index[elem]);
+    // Exempt variables that are intentionally in one gate (e.g. fix_witness, inverse checks),
+    // marked at the source via update_used_witnesses(). used_witnesses holds raw witness
+    // indices; variables_in_one_gate is keyed by canonical real_variable_index, so canonicalize
+    // before erasing.
+    const auto& real_index_map = circuit_builder.real_variable_index;
     for (const auto& elem : circuit_builder.get_used_witnesses()) {
-        variables_in_one_gate.erase(elem);
+        if (elem < real_index_map.size()) {
+            variables_in_one_gate.erase(real_index_map[elem]);
+        }
     }
     remove_record_witness_variables();
 
