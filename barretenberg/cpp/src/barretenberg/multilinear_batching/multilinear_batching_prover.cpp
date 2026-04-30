@@ -16,24 +16,6 @@ MultilinearBatchingProver::MultilinearBatchingProver(MultilinearBatchingProverCl
     , key(std::move(accumulator_claim), std::move(instance_claim))
 {}
 
-void MultilinearBatchingProver::execute_commitments_round()
-{
-    BB_BENCH();
-    transcript->send_to_verifier("non_shifted_accumulator_commitment", key.non_shifted_accumulator_commitment);
-    transcript->send_to_verifier("shifted_accumulator_commitment", key.shifted_accumulator_commitment);
-}
-
-void MultilinearBatchingProver::execute_challenges_and_evaluations_round()
-{
-    BB_BENCH();
-    for (size_t i = 0; i < Flavor::VIRTUAL_LOG_N; i++) {
-        transcript->send_to_verifier("accumulator_challenge_" + std::to_string(i), key.accumulator_challenge[i]);
-    }
-    for (size_t i = 0; i < Flavor::NUM_ACCUMULATOR_EVALUATIONS; i++) {
-        transcript->send_to_verifier("accumulator_evaluation_" + std::to_string(i), key.accumulator_evaluations[i]);
-    }
-}
-
 void MultilinearBatchingProver::execute_relation_check_rounds()
 {
     BB_BENCH();
@@ -117,11 +99,6 @@ HonkProof MultilinearBatchingProver::construct_proof()
 {
     BB_BENCH_NAME("MultilinearBatchingProver::construct_proof");
 
-    // Add circuit size public input size and public inputs to transcript.
-    execute_commitments_round();
-
-    // Fiat-Shamir: challenges and evaluations
-    execute_challenges_and_evaluations_round();
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();

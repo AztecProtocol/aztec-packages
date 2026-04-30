@@ -87,6 +87,7 @@ Chonk::FoldingResult Chonk::verify_folding(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
     const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
+    const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript) const
 {
     std::vector<PairingPoints> pairing_points;
@@ -103,18 +104,23 @@ Chonk::FoldingResult Chonk::verify_folding(
     }
     case QUEUE_TYPE::HN:
     case QUEUE_TYPE::HN_TAIL: {
+        BB_ASSERT(input_verifier_accumulator.has_value(),
+                  "Verifier accumulator should be present for HN and HN_TAIL proofs");
+
         vinfo("Recursively verifying inner accumulation.");
-        auto [_first_verified, _second_verified, new_verifier_accumulator] =
-            folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
+        auto [_first_verified, _second_verified, new_verifier_accumulator] = folding_verifier.verify_folding_proof(
+            verifier_instance, input_verifier_accumulator.value(), verifier_inputs.proof);
         output_accumulator = std::move(new_verifier_accumulator);
         break;
     }
     case QUEUE_TYPE::HN_FINAL: {
+        BB_ASSERT(input_verifier_accumulator.has_value(), "Verifier accumulator should be present for HN_FINAL proofs");
+
         vinfo("Recursively verifying accumulation of the tail kernel.");
         BB_ASSERT_EQ(stdlib_verification_queue.size(), size_t(1));
 
-        auto [_first_verified, _second_verified, final_verifier_accumulator] =
-            folding_verifier.verify_folding_proof(verifier_instance, verifier_inputs.proof);
+        auto [_first_verified, _second_verified, final_verifier_accumulator] = folding_verifier.verify_folding_proof(
+            verifier_instance, input_verifier_accumulator.value(), verifier_inputs.proof);
 
         RecursiveDeciderVerifier decider_verifier(accumulation_recursive_transcript);
         StdlibProof stdlib_decider_proof(circuit, decider_proof);
@@ -248,8 +254,8 @@ Chonk::recursive_verification_and_consistency_checks(
     if (verifier_inputs.type == QUEUE_TYPE::OINK) {
         BB_ASSERT_EQ(input_verifier_accumulator.has_value(), false);
     }
-    auto [output_accumulator, folding_points] =
-        verify_folding(circuit, verifier_inputs, verifier_instance, accumulation_recursive_transcript);
+    auto [output_accumulator, folding_points] = verify_folding(
+        circuit, verifier_inputs, verifier_instance, input_verifier_accumulator, accumulation_recursive_transcript);
 
     // Extract the witness commitments and public inputs from the verified instance
     WitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);

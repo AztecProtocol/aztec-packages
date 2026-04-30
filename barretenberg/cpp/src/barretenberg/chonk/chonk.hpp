@@ -248,6 +248,7 @@ class Chonk : public IVCBase {
     FoldingResult verify_folding(ClientCircuit& circuit,
                                  const StdlibVerifierInputs& verifier_inputs,
                                  const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
+                                 const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
                                  const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript) const;
 
     PublicInputsResult process_public_inputs_and_consistency_checks(const StdlibVerifierInputs& verifier_inputs,
