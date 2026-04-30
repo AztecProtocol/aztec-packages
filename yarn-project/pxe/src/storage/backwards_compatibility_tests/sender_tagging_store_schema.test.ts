@@ -23,10 +23,6 @@ describe('SenderTaggingStore schema compatibility', () => {
       const txHashC = TxHash.fromBigInt(23n);
       const txHashD = TxHash.fromBigInt(29n);
 
-      // secretA receives three pending ranges (one per tx); secretB receives one. After finalizing txHashA below,
-      // secretA's array shrinks to two elements (the txHashB and txHashC ranges, both with highestIndex > 3) which
-      // pins the multi-element JSON encoding of `pending_indexes`. secretB's array empties out and the commit
-      // special-case at sender_tagging_store.ts:106-110 deletes the key entirely.
       const txHashARanges: TaggingIndexRange[] = [
         { extendedSecret: secretA, lowestIndex: 1, highestIndex: 3 },
         { extendedSecret: secretB, lowestIndex: 1, highestIndex: 5 },
@@ -39,8 +35,6 @@ describe('SenderTaggingStore schema compatibility', () => {
         jobId,
       );
 
-      // Re-store the exact same (secret, txHash, range) — exercises the "exact duplicate — skip" branch at
-      // sender_tagging_store.ts:199. The snapshot must be unchanged by this call; it pins the no-op assumption.
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretA, lowestIndex: 4, highestIndex: 7 }],
         txHashB,
@@ -53,8 +47,8 @@ describe('SenderTaggingStore schema compatibility', () => {
         jobId,
       );
 
-      // secretC's range is never finalized, so it survives commit as a single-element pending array — contrast for
-      // secretA's multi-element shape.
+      // secretC's range is never finalized, so it survives commit as a single-element pending array (contrast with
+      // secretA's multi-element shape).
       await senderTaggingStore.storePendingIndexes(
         [{ extendedSecret: secretC, lowestIndex: 1, highestIndex: 9 }],
         txHashD,
