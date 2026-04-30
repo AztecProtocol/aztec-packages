@@ -8,7 +8,7 @@ import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
-import { snapshotMap } from './snapshot_kv_entries.js';
+import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('ContractStore schema compatibility', () => {
   it('persists registered contract artifacts and instances', async () => {

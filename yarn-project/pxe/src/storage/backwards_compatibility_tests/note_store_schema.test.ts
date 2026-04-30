@@ -7,7 +7,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
-import { snapshotMap, snapshotMultiMap } from './snapshot_kv_entries.js';
+import { snapshotMap, snapshotMultiMap } from './kv_store_snapshot.js';
 
 describe('NoteStore schema compatibility', () => {
   it('persists added notes after commit', async () => {

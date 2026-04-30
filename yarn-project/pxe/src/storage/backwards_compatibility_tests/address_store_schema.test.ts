@@ -4,7 +4,7 @@ import { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
-import { snapshotArray, snapshotMap } from './snapshot_kv_entries.js';
+import { snapshotArray, snapshotMap } from './kv_store_snapshot.js';
 
 /**
  * Schema-compatibility test for `AddressStore`. Drives `addCompleteAddress` with deterministic

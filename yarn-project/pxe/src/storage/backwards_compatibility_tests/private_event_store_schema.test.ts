@@ -8,7 +8,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
-import { snapshotMap, snapshotMultiMap } from './snapshot_kv_entries.js';
+import { snapshotMap, snapshotMultiMap } from './kv_store_snapshot.js';
 
 describe('PrivateEventStore schema compatibility', () => {
   it('persists private event logs after commit', async () => {

@@ -6,7 +6,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
-import { snapshotMap } from './snapshot_kv_entries.js';
+import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('SenderTaggingStore schema compatibility', () => {
   it('persists pending and finalized indexes after commit', async () => {

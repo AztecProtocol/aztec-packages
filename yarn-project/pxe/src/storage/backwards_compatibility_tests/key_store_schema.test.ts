@@ -3,7 +3,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
-import { snapshotMap } from './snapshot_kv_entries.js';
+import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('KeyStore schema compatibility', () => {
   it('persists derived keys after adding an account', async () => {

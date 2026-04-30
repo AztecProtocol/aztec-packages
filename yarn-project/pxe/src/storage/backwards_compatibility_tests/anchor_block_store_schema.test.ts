@@ -3,7 +3,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
-import { snapshotSingleton } from './snapshot_kv_entries.js';
+import { snapshotSingleton } from './kv_store_snapshot.js';
 
 describe('AnchorBlockStore schema compatibility', () => {
   it('persists the synchronized block header', async () => {

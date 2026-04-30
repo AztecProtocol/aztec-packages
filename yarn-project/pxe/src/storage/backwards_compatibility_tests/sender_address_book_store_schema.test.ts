@@ -3,7 +3,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
-import { snapshotMap } from './snapshot_kv_entries.js';
+import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('SenderAddressBookStore schema compatibility', () => {
   it('persists registered senders', async () => {

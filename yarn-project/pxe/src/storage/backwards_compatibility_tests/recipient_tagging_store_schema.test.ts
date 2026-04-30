@@ -5,7 +5,7 @@ import { ExtendedDirectionalAppTaggingSecret } from '@aztec/stdlib/logs';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
-import { snapshotMap } from './snapshot_kv_entries.js';
+import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('RecipientTaggingStore schema compatibility', () => {
   it('persists highest aged and finalized indexes after commit', async () => {

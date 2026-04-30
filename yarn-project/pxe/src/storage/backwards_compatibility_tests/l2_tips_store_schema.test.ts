@@ -3,7 +3,7 @@ import { L2Block } from '@aztec/stdlib/block';
 
 import { PXE_DATA_SCHEMA_VERSION } from '../metadata.js';
 import { openPxeStores } from '../open_pxe_stores.js';
-import { snapshotMap } from './snapshot_kv_entries.js';
+import { snapshotMap } from './kv_store_snapshot.js';
 
 describe('L2TipsKVStore schema compatibility', () => {
   it("persists tips and block hashes after a 'blocks-added' event", async () => {
