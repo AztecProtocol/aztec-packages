@@ -175,21 +175,19 @@ pub(crate) comptime fn assert_return_type_serializable(f: FunctionDefinition) {
 /// Asserts that all parameters of a contract function implement both `Serialize` and `Deserialize`.
 pub(crate) comptime fn assert_params_serializable(f: FunctionDefinition) {
     let fn_name = f.name();
-    let serialize_constraint = quote { crate::protocol::traits::Serialize }.as_trait_constraint();
-    let deserialize_constraint = quote { crate::protocol::traits::Deserialize }.as_trait_constraint();
 
     for param in f.parameters() {
         let (name, param_type) = param;
-        if param_type != type_of(()) {
-            assert(
-                param_type.implements(serialize_constraint),
-                f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {param_type}'s declaration.",
-            );
-            assert(
-                param_type.implements(deserialize_constraint),
-                f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {param_type}'s declaration.",
-            );
-        }
+        let serialize_constraint = quote { crate::protocol::traits::Serialize }.as_trait_constraint();
+        assert(
+            param_type.implements(serialize_constraint),
+            f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Serialize trait. Add #[derive(Serialize)] to {param_type}'s declaration.",
+        );
+        let deserialize_constraint = quote { crate::protocol::traits::Deserialize }.as_trait_constraint();
+        assert(
+            param_type.implements(deserialize_constraint),
+            f"Parameter '{name}' of contract function '{fn_name}' has type {param_type}, which does not implement the Deserialize trait. Add #[derive(Deserialize)] to {param_type}'s declaration.",
+        );
     }
 }
 

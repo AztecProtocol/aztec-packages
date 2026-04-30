@@ -1,5 +1,5 @@
 [package]
-name = "non_deserializable_return_type"
+name = "non_deserializable"
 authors = [""]
 compiler_version = ">=0.25.0"
 type = "contract"

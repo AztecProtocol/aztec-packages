@@ -1,1 +1,0 @@
-Contract function 'bad_return' returns a value of type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
