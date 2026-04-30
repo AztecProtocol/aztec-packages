@@ -98,7 +98,7 @@ GoblinProof Goblin::prove()
 void Goblin::prove_batch_merge()
 {
     BB_BENCH_NAME("Goblin::prove_batch_merge");
-    BatchMergeProver prover{ op_queue, CHONK_MAX_NUM_CIRCUITS, /*is_zk=*/true };
+    BatchMergeProver prover{ op_queue, CHONK_MAX_NUM_CIRCUITS };
     batch_merge_proof = prover.construct_proof();
 }
 
@@ -118,7 +118,7 @@ std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments> Goblin:
     BB_ASSERT(!batch_merge_proof.empty(), "Goblin::recursively_verify_batch_merge: no batch merge proof available");
     const stdlib::Proof<MegaBuilder> stdlib_proof(builder, batch_merge_proof);
 
-    BatchMergeRecursiveVerifier verifier{ /*is_zk=*/true };
+    BatchMergeRecursiveVerifier verifier;
     auto result = verifier.reduce_to_pairing_check(stdlib_proof, hash);
 
     return { result.pairing_points, result.merged_commitments };

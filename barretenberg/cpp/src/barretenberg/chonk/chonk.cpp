@@ -537,11 +537,8 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit,
 #ifndef NDEBUG
     update_native_verifier_accumulator(queue_entry, verifier_transcript);
 #endif
-    // Delayed merge: keep one subtable per folded circuit and prove the batched merge after the tail kernel.
+    // Keep one subtable per folded circuit and prove the batched merge after the tail kernel.
     goblin.op_queue->merge();
-    if (queue_type == QUEUE_TYPE::HN_FINAL) {
-        goblin.prove_batch_merge();
-    }
 
     num_circuits_accumulated++;
 }
@@ -574,6 +571,11 @@ void Chonk::accumulate(ClientCircuit& circuit, const std::shared_ptr<MegaVerific
         accumulate_hiding_kernel(circuit, precomputed_vk);
     } else {
         accumulate_and_fold(circuit, precomputed_vk, queue_type, std::move(prover_instance));
+    }
+
+    prover_instance.reset();
+    if (queue_type == QUEUE_TYPE::HN_FINAL) {
+        goblin.prove_batch_merge();
     }
 }
 

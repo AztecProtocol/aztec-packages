@@ -24,7 +24,7 @@ fq compute_expected_result(const std::shared_ptr<ECCOpQueue>& op_queue, const fq
     Fq z_2_accumulator = Fq(0);
     Fq x_pow = Fq(1);
 
-    const auto& ultra_ops = op_queue->get_ultra_ops();
+    const auto& ultra_ops = op_queue->get_ultra_ops_no_zk_for_testing();
     for (const auto& ultra_op : ultra_ops) {
         if (ultra_op.op_code.is_random_op || ultra_op.op_code.value() == 0) {
             continue;

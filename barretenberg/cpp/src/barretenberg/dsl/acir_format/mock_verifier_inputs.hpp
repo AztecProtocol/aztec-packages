@@ -108,7 +108,7 @@ bb::Goblin::MergeProof create_mock_merge_proof();
  * @brief Create a mock batch merge proof which has the correct structure but is not necessarily valid
  *
  */
-bb::HonkProof create_mock_batch_merge_proof(bool is_zk = true);
+bb::HonkProof create_mock_batch_merge_proof();
 
 /**
  * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid

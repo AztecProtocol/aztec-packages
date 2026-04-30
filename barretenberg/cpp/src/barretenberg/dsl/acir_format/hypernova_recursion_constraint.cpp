@@ -160,7 +160,7 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
     Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
     if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
-        ivc->goblin.batch_merge_proof = acir_format::create_mock_batch_merge_proof(/*is_zk=*/true);
+        ivc->goblin.batch_merge_proof = acir_format::create_mock_batch_merge_proof();
         ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
     }
     ivc->num_circuits_accumulated++;

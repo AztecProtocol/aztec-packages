@@ -307,7 +307,7 @@ Goblin::MergeProof create_mock_merge_proof()
     return proof;
 }
 
-HonkProof create_mock_batch_merge_proof(const bool is_zk)
+HonkProof create_mock_batch_merge_proof()
 {
     HonkProof proof;
 
@@ -318,9 +318,7 @@ HonkProof create_mock_batch_merge_proof(const bool is_zk)
     populate_field_elements_for_mock_commitments(proof, MAX_MERGE_SIZE * NUM_WIRES);
 
     // Commitments to the ZK masking table.
-    if (is_zk) {
-        populate_field_elements_for_mock_commitments(proof, NUM_WIRES);
-    }
+    populate_field_elements_for_mock_commitments(proof, NUM_WIRES);
 
     // Number of real subtables. Keep it in [1, MAX_MERGE_SIZE] so recursive range checks can be constructed.
     populate_field_elements<fr>(proof, 1, /*value=*/fr{ 1 });
@@ -333,7 +331,7 @@ HonkProof create_mock_batch_merge_proof(const bool is_zk)
     populate_field_elements_for_mock_commitments(proof, NUM_WIRES + 1);
 
     // Evaluations: C_i(kappa), optional ZK C_i(kappa), T(kappa), and G(kappa^{-1}).
-    const size_t num_evaluations = (MAX_MERGE_SIZE * NUM_WIRES) + (is_zk ? NUM_WIRES : 0) + NUM_WIRES + 1;
+    const size_t num_evaluations = (MAX_MERGE_SIZE * NUM_WIRES) + NUM_WIRES + NUM_WIRES + 1;
     populate_field_elements(proof, num_evaluations);
 
     // Shplonk quotient commitment and KZG opening commitment.

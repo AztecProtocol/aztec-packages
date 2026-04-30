@@ -50,7 +50,7 @@ TEST_F(MockVerifierInputsTest, MockMergeProofSize)
  */
 TEST_F(MockVerifierInputsTest, MockBatchMergeProofSize)
 {
-    HonkProof batch_merge_proof = create_mock_batch_merge_proof(/*is_zk=*/true);
+    HonkProof batch_merge_proof = create_mock_batch_merge_proof();
     EXPECT_EQ(batch_merge_proof.size(), BATCH_MERGE_PROOF_SIZE);
 }
 

@@ -117,7 +117,7 @@ class EccOpsTableTest : public ::testing::Test {
 };
 
 // Ensure UltraOpsTable correctly constructs a concatenated table from successively appended subtables.
-TEST(EccOpsTableTest, UltraOpsTableAppendOnly)
+TEST(EccOpsTableTest, UltraOpsTable)
 {
     using Fr = fr;
     using TableGenerator = EccOpsTableTest::UltraOpTableGenerator;
@@ -147,12 +147,14 @@ TEST(EccOpsTableTest, UltraOpsTableAppendOnly)
     EXPECT_EQ(ultra_ops_table.num_ops(), expected_num_ops);
 
     // Construct polynomials corresponding to the columns of the ultra ops table
+    ultra_ops_table.construct_zk_columns();
     std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
 
     // Check that the ultra ops table constructed by the op queue matches the expected table
     for (auto [expected_column, poly] : zip_view(expected_ultra_ops_table.columns, ultra_ops_table_polynomials)) {
-        for (auto [expected_value, value] : zip_view(expected_column, poly.coeffs())) {
-            EXPECT_EQ(expected_value, value);
+        EXPECT_EQ(poly.size(), UltraEccOpsTable::ZK_ULTRA_OPS + expected_column.size());
+        for (size_t row = 0; row < expected_column.size(); ++row) {
+            EXPECT_EQ(expected_column[row], poly.at(UltraEccOpsTable::ZK_ULTRA_OPS + row));
         }
     }
 }
@@ -199,12 +201,14 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendNoGap)
     EXPECT_EQ(ultra_ops_table.num_ops(), expected_num_ops);
 
     // Construct polynomials corresponding to the columns of the ultra ops table
+    ultra_ops_table.construct_zk_columns();
     std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
 
     // Check that the ultra ops table matches the expected table
     for (auto [expected_column, poly] : zip_view(expected_ultra_ops_table.columns, ultra_ops_table_polynomials)) {
-        for (auto [expected_value, value] : zip_view(expected_column, poly.coeffs())) {
-            EXPECT_EQ(expected_value, value);
+        EXPECT_EQ(poly.size(), UltraEccOpsTable::ZK_ULTRA_OPS + expected_column.size());
+        for (size_t row = 0; row < expected_column.size(); ++row) {
+            EXPECT_EQ(expected_column[row], poly.at(UltraEccOpsTable::ZK_ULTRA_OPS + row));
         }
     }
 }
@@ -253,13 +257,15 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
     constexpr size_t LEADING_ZEROS = UltraEccOpsTable::APPEND_TRACE_OFFSET;
     size_t expected_poly_size = fixed_offset_num_rows + LEADING_ZEROS + (subtable_op_counts[2] * ULTRA_ROWS_PER_OP);
     EXPECT_EQ(ultra_ops_table.num_ultra_rows(), expected_poly_size);
+    ultra_ops_table.construct_zk_columns();
+    const size_t zk_prefix_rows = UltraEccOpsTable::ZK_ULTRA_OPS;
 
     // Construct polynomials corresponding to the columns of the ultra ops table
     std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
 
     // Verify each polynomial has the expected size
     for (const auto& poly : ultra_ops_table_polynomials) {
-        EXPECT_EQ(poly.size(), expected_poly_size);
+        EXPECT_EQ(poly.size(), zk_prefix_rows + expected_poly_size);
     }
 
     // Construct expected table with zeros in the gap
@@ -270,14 +276,14 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
     // Check prior subtables are at the beginning.
     for (auto [ultra_op_poly, expected_poly] : zip_view(ultra_ops_table_polynomials, expected_prior_table.columns)) {
         for (size_t row = 0; row < prior_subtables_size; ++row) {
-            EXPECT_EQ(ultra_op_poly.at(row), expected_poly[row]);
+            EXPECT_EQ(ultra_op_poly.at(zk_prefix_rows + row), expected_poly[row]);
         }
     }
 
     // Check gap from prior tables up to (fixed_offset + preamble) is filled with zeros.
     for (auto ultra_op_poly : ultra_ops_table_polynomials) {
         for (size_t row = prior_subtables_size; row < fixed_offset_num_rows + LEADING_ZEROS; ++row) {
-            EXPECT_EQ(ultra_op_poly.at(row), Fr::zero());
+            EXPECT_EQ(ultra_op_poly.at(zk_prefix_rows + row), Fr::zero());
         }
     }
 
@@ -286,7 +292,8 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
     EccOpsTableTest::MockUltraOpsTable expected_appended_table(appended_subtables);
     for (auto [ultra_op_poly, expected_poly] : zip_view(ultra_ops_table_polynomials, expected_appended_table.columns)) {
         for (size_t row = 0; row < subtable_op_counts[2] * ULTRA_ROWS_PER_OP; row++) {
-            EXPECT_EQ(ultra_op_poly.at(fixed_offset_num_rows + LEADING_ZEROS + row), expected_poly[row]);
+            EXPECT_EQ(ultra_op_poly.at(zk_prefix_rows + fixed_offset_num_rows + LEADING_ZEROS + row),
+                      expected_poly[row]);
         }
     }
 
@@ -316,10 +323,11 @@ TEST(EccOpsTableTest, UltraOpsFixedLocationAppendWithGap)
             expected_reconstructed.push_back(op);
         }
 
-        EXPECT_EQ(expected_reconstructed.size(), ultra_ops_table.get_reconstructed(/*include_zk_ops=*/false).size());
+        const auto reconstructed = ultra_ops_table.get_ultra_ops_no_zk_for_testing();
+        EXPECT_EQ(expected_reconstructed.size(), reconstructed.size());
 
         // Compare to the op-queue's reconstruction (should include the gap as no-ops)
-        EXPECT_EQ(expected_reconstructed, ultra_ops_table.get_reconstructed(/*include_zk_ops=*/false));
+        EXPECT_EQ(expected_reconstructed, reconstructed);
     }
 }
 

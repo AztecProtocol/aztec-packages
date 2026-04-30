@@ -277,10 +277,8 @@ class UltraEccOpsTable {
     size_t num_ops() const { return table.size(); }
 
     // Returns the number of rows in the Ultra execution trace (each op occupies NUM_ROWS_PER_OP rows).
-    // NOTE: this count covers the merged subtables only and EXCLUDES the optional ZK prefix (zk_ops, size
-    // ZK_ULTRA_OPS) which is layered on at reconstruction time when include_zk_ops is requested. Callers that need
-    // the full polynomial size (e.g. for sizing a commitment key) must add ZK_ULTRA_OPS themselves when ZK is in
-    // play.
+    // NOTE: this count covers the merged subtables only and EXCLUDES the ZK prefix (zk_ops, size ZK_ULTRA_OPS).
+    // Callers that need the full polynomial size (e.g. for sizing a commitment key) must add ZK_ULTRA_OPS.
     size_t num_ultra_rows() const
     {
         if (!has_fixed_append_offset()) {
@@ -328,28 +326,32 @@ class UltraEccOpsTable {
 
     size_t get_current_subtable_size() const { return table.get_current_subtable_size(); }
 
-    // Reconstruct the full table of ultra ops in contiguous memory. Under fixed-location append, the result
-    // optionally includes the ZK prefix at the front, then gap no-ops up to the fixed offset, then the
-    // APPEND_TRACE_OFFSET zero preamble, then the most recently merged subtable.
-    std::vector<UltraOp> get_reconstructed(bool include_zk_ops) const
+    std::vector<UltraOp> get_ultra_ops_no_zk_for_testing() const { return get_reconstructed(/*include_zk_ops=*/false); }
+
+    std::vector<UltraOp> get_zk_reconstructed_ultra_ops() const { return get_reconstructed(/*include_zk_ops=*/true); }
+
+  private:
+    // Reconstruct the full table of ultra ops in contiguous memory. When include_zk_ops is set, the result includes
+    // the ZK prefix at the front. Under fixed-location append, the result then has gap no-ops up to the fixed offset,
+    // the APPEND_TRACE_OFFSET zero preamble, then the most recently merged subtable.
+    std::vector<UltraOp> get_reconstructed(const bool include_zk_ops) const
     {
         BB_ASSERT(get_current_subtable_size() == 0,
                   "current subtable should be merged before reconstructing the full table of operations.");
-        BB_ASSERT(!include_zk_ops || has_fixed_append_offset(),
-                  "ZK reconstruction is only valid after a fixed-location append.");
-        BB_ASSERT(!include_zk_ops || has_zk_ops(),
-                  "Caller asked to include the ZK prefix but construct_zk_columns() has not been called.");
-
-        if (!has_fixed_append_offset()) {
-            return table.get_reconstructed();
-        }
+        BB_ASSERT(!include_zk_ops || has_zk_ops(), "ZK ops must be constructed before reconstructing the Ultra table.");
 
         std::vector<UltraOp> reconstructed_table;
         reconstructed_table.reserve(1 << CONST_OP_QUEUE_LOG_SIZE);
 
-        // Optional ZK prefix
         if (include_zk_ops) {
             reconstructed_table.insert(reconstructed_table.end(), zk_ops.begin(), zk_ops.end());
+        }
+
+        if (!has_fixed_append_offset()) {
+            for (const auto& subtable : table.get()) {
+                reconstructed_table.insert(reconstructed_table.end(), subtable.begin(), subtable.end());
+            }
+            return reconstructed_table;
         }
 
         // Previously-merged subtables (everything except the most recent)
@@ -372,6 +374,7 @@ class UltraEccOpsTable {
         return reconstructed_table;
     }
 
+  public:
     std::pair<ColumnPolynomials, ECCVMOperation> construct_zk_columns()
     {
         BB_ASSERT(!has_zk_ops(), "ZK ops should only be constructed once.");
@@ -434,10 +437,11 @@ class UltraEccOpsTable {
     }
 
     // Construct column polynomials for the full ultra ecc ops table
-    ColumnPolynomials construct_table_columns(bool include_zk_ops = false) const
+    ColumnPolynomials construct_table_columns() const
     {
+        BB_ASSERT(has_zk_ops(), "ZK ops must be constructed before constructing the full Ultra table.");
         return construct_columns_in_range(
-            num_ultra_rows(), 0, table.num_subtables(), include_zk_ops, fixed_append_offset);
+            num_ultra_rows(), 0, table.num_subtables(), /*include_zk_ops=*/true, fixed_append_offset);
     }
 
     // Construct column polynomials for the aggregate table up to and including the tail subtable.

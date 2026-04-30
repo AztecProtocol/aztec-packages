@@ -35,7 +35,7 @@ class ECCOpQueueTest {
     {
         // Construct column polynomials corresponding to the full table (T), the table up to and including the tail
         // (T_tail), and the current subtable (t_current). T and T_tail both include the ZK preamble.
-        auto table_polynomials = op_queue->construct_ultra_ops_table_columns(/*include_zk_ops=*/true);
+        auto table_polynomials = op_queue->construct_ultra_ops_table_columns();
         auto tail_table_polynomials = op_queue->construct_table_columns_up_to_tail();
         auto subtable_polynomials = op_queue->construct_current_ultra_ops_subtable_columns();
 
@@ -64,12 +64,13 @@ class ECCOpQueueTest {
      *
      * @param op_queue
      */
-    static void check_opcode_consistency_with_eccvm(const std::shared_ptr<bb::ECCOpQueue>& op_queue)
+    static void check_opcode_consistency_with_eccvm(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
+                                                    const bool skip_eccvm_hiding_op = false)
     {
-        auto ultra_table = op_queue->get_ultra_ops();
+        auto ultra_table = op_queue->get_ultra_ops_no_zk_for_testing();
         auto eccvm_table = op_queue->get_eccvm_ops();
 
-        size_t j = 0;
+        size_t j = skip_eccvm_hiding_op ? 1 : 0;
         for (const auto& ultra_op : ultra_table) {
             if (ultra_op.op_code.is_random_op) {
                 continue;
@@ -143,6 +144,7 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstruction)
         op_queue->merge();
     }
 
+    op_queue->construct_zk_columns();
     ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue);
 }
 
@@ -170,7 +172,7 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionUpToTailWithZkThenFixedAppend)
               bb::UltraEccOpsTable::ZK_ULTRA_OPS + op_queue->get_ultra_ops_table_num_rows_up_to_tail());
     ECCOpQueueTest::check_final_table_column_polynomials(op_queue, ultra_fixed_offset);
 
-    ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue);
+    ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue, /*skip_eccvm_hiding_op=*/true);
 }
 
 // Verify correct handling of point at infinity in add and mul operations
@@ -258,9 +260,10 @@ TEST(ECCOpQueueTest, HidingOpPositionConsistency)
     op_queue->eq_and_reset();
     op_queue->merge();
 
-    // Get the reconstructed tables
+    // Get the reconstructed ECCVM table and raw Ultra table. This test is checking the explicitly appended hiding op
+    // in the raw subtable, not the Chonk ZK-prefixed reconstruction.
     const auto& eccvm_ops = op_queue->get_eccvm_ops();
-    const auto& ultra_ops = op_queue->get_ultra_ops();
+    const auto& ultra_ops = op_queue->get_ultra_ops_no_zk_for_testing();
 
     // === ECCVM Table Checks ===
     // Hiding op should be at index 0 (prepended during get_eccvm_ops())
@@ -271,7 +274,7 @@ TEST(ECCOpQueueTest, HidingOpPositionConsistency)
     EXPECT_EQ(eccvm_hiding_op.base_point.y, hiding_y);
 
     // === Ultra Table Checks ===
-    // Without tail kernel padding, the hiding op should be at index 2:
+    // By construction, the hiding op should be at index 2:
     //   index 0: add_accumulate(P1)
     //   index 1: mul_accumulate(P2, z)
     //   index 2: append_hiding_op (eq+reset opcode)

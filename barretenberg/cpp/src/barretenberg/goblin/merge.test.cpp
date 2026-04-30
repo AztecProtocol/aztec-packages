@@ -190,7 +190,7 @@ template <typename Curve> class MergeTests : public testing::Test {
             native_T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
         }
 
-        auto T_merged = op_queue->construct_ultra_ops_table_columns(/*include_zk_ops=*/true);
+        auto T_merged = op_queue->construct_ultra_ops_table_columns();
         std::array<curve::BN254::AffineElement, NUM_WIRES> expected_merged_commitments;
         for (size_t idx = 0; idx < NUM_WIRES; idx++) {
             expected_merged_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_merged[idx]);
@@ -322,8 +322,9 @@ template <typename Curve> class MergeTests : public testing::Test {
             GoblinMockCircuits::construct_simple_circuit(circuit);
             op_queue->merge();
 
-            // Right table = the merged previous table; Left table = empty
-            std::array<Polynomial, NUM_WIRES> right_table = op_queue->construct_ultra_ops_table_columns();
+            // Right table = the merged previous table; Left table = empty. Use the raw subtable columns because this
+            // protocol-level test bypasses the Chonk ZK reconstruction path.
+            std::array<Polynomial, NUM_WIRES> right_table = op_queue->construct_subtable_columns()[0];
             std::array<Polynomial, NUM_WIRES> left_table;
             std::array<Polynomial, NUM_WIRES> merged_table;
             for (size_t idx = 0; idx < NUM_WIRES; idx++) {

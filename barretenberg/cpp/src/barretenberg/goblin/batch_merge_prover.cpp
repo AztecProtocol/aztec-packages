@@ -11,15 +11,13 @@
 
 namespace bb {
 
-BatchMergeProver::BatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, size_t max_subtables, bool is_zk)
+BatchMergeProver::BatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, size_t max_subtables)
     : transcript(std::make_shared<Transcript>())
     , op_queue(op_queue)
     , max_subtables(max_subtables)
-    , is_zk(is_zk)
 {
     // The commitment key must be large enough for the full merged table (plus the zk offset).
-    pcs_commitment_key =
-        CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + (is_zk ? UltraEccOpsTable::ZK_ULTRA_OPS : 0));
+    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + UltraEccOpsTable::ZK_ULTRA_OPS);
 }
 
 typename BatchMergeProver::Polynomial BatchMergeProver::compute_degree_check_polynomial(
@@ -81,28 +79,21 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     }
 
     // -------------------------------------------------------------------------
-    // Step 2.b: If zk, send the masking table
+    // Step 2.b: Send the masking table
     // -------------------------------------------------------------------------
-    std::array<Polynomial, NUM_WIRES> zk_columns;
-    if (is_zk) {
-        zk_columns = op_queue->construct_zk_columns();
-        for (size_t col = 0; col < NUM_WIRES; ++col) {
-            transcript->send_to_verifier("ZK_COLUMN_" + std::to_string(col),
-                                         pcs_commitment_key.commit(zk_columns[col]));
-        }
-
-        max_shift_size = std::max(max_shift_size, zk_columns[0].size());
+    std::array<Polynomial, NUM_WIRES> zk_columns = op_queue->construct_zk_columns();
+    for (size_t col = 0; col < NUM_WIRES; ++col) {
+        transcript->send_to_verifier("ZK_COLUMN_" + std::to_string(col), pcs_commitment_key.commit(zk_columns[col]));
     }
+    max_shift_size = std::max(max_shift_size, zk_columns[0].size());
 
     // -------------------------------------------------------------------------
     // Step 2.c: Flatten the columns for easier utilisation
     // -------------------------------------------------------------------------
     std::vector<Polynomial> flattened_cols;
-    flattened_cols.reserve((subtable_cols.size() * NUM_WIRES) + (is_zk ? NUM_WIRES : 0));
-    if (is_zk) {
-        for (size_t col = 0; col < NUM_WIRES; ++col) {
-            flattened_cols.push_back(std::move(zk_columns[col]));
-        }
+    flattened_cols.reserve((subtable_cols.size() * NUM_WIRES) + NUM_WIRES);
+    for (size_t col = 0; col < NUM_WIRES; ++col) {
+        flattened_cols.push_back(std::move(zk_columns[col]));
     }
     for (auto& subtable_col : subtable_cols) {
         for (size_t col = 0; col < NUM_WIRES; col++) {
@@ -122,7 +113,7 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     // -------------------------------------------------------------------------
     // Step 4: Construct and commit to T (full merged table)
     // -------------------------------------------------------------------------
-    std::array<Polynomial, NUM_WIRES> merged_table(op_queue->construct_ultra_ops_table_columns(is_zk));
+    std::array<Polynomial, NUM_WIRES> merged_table(op_queue->construct_ultra_ops_table_columns());
     for (size_t col = 0; col < NUM_WIRES; ++col) {
         transcript->send_to_verifier("MERGED_COLUMN_" + std::to_string(col),
                                      pcs_commitment_key.commit(merged_table[col]));
@@ -132,7 +123,7 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     // Step 5: Compute degree check batching challenges 1, α, α^2, .., α^{M * NUM_WIRES -1}
     // -------------------------------------------------------------------------
     const FF degree_check_challenge = transcript->template get_challenge<FF>("DEGREE_CHECK_CHALLENGE");
-    const size_t num_degree_check_challenges = (M * NUM_WIRES) + (is_zk ? NUM_WIRES : 0);
+    const size_t num_degree_check_challenges = (M * NUM_WIRES) + NUM_WIRES;
     std::vector<FF> degree_check_challenges = { FF(1), degree_check_challenge };
     for (size_t idx = 2; idx < num_degree_check_challenges; idx++) {
         degree_check_challenges.push_back(degree_check_challenges.back() * degree_check_challenge);
@@ -156,8 +147,8 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     // -------------------------------------------------------------------------
     // C_i_col(κ)
     std::vector<FF> evals;
-    const size_t num_actual_flattened_cols = (N * NUM_WIRES) + (is_zk ? NUM_WIRES : 0);
-    const size_t num_flattened_col_evals = (M * NUM_WIRES) + (is_zk ? NUM_WIRES : 0);
+    const size_t num_actual_flattened_cols = (N * NUM_WIRES) + NUM_WIRES;
+    const size_t num_flattened_col_evals = (M * NUM_WIRES) + NUM_WIRES;
     for (size_t col = 0; col < num_flattened_col_evals; ++col) {
         evals.push_back(col < num_actual_flattened_cols ? flattened_cols[col].evaluate(kappa) : FF(0));
         transcript->send_to_verifier("C_EVAL_" + std::to_string(col), evals.back());
@@ -180,7 +171,7 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     //   T(κ)
     //   for G(κ^{-1})
     // -------------------------------------------------------------------------
-    const size_t num_opening_claims = ((M + 1) * NUM_WIRES) + 1 + (is_zk ? NUM_WIRES : 0);
+    const size_t num_opening_claims = ((M + 1) * NUM_WIRES) + 1 + NUM_WIRES;
     std::vector<OpeningClaim> opening_claims;
     opening_claims.reserve(num_opening_claims);
     for (size_t idx = 0; idx < num_flattened_col_evals; ++idx) {
@@ -192,8 +183,7 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
         }
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        opening_claims.push_back(
-            { std::move(merged_table[idx]), { kappa, evals[(M * NUM_WIRES) + (is_zk ? NUM_WIRES : 0) + idx] } });
+        opening_claims.push_back({ std::move(merged_table[idx]), { kappa, evals[(M * NUM_WIRES) + NUM_WIRES + idx] } });
     }
     opening_claims.push_back({ std::move(degree_check_poly), { kappa_inv, evals.back() } });
 

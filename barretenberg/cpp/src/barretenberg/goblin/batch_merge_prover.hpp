@@ -58,7 +58,7 @@ class BatchMergeProver {
      * @param transcript Shared prover transcript.
      * @param max_subtables M: the fixed maximum number of subtables (CHONK_MAX_ACCUMULATION_STEPS).
      */
-    explicit BatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, size_t max_subtables, bool is_zk);
+    explicit BatchMergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, size_t max_subtables);
 
     /**
      * @brief Construct the batch merge proof.
@@ -87,7 +87,6 @@ class BatchMergeProver {
   protected:
     std::shared_ptr<ECCOpQueue> op_queue;
     size_t max_subtables; // M
-    bool is_zk;
 
     static Polynomial compute_degree_check_polynomial(const std::vector<Polynomial>& flattened_columns,
                                                       const std::vector<FF>& degree_check_challenges,

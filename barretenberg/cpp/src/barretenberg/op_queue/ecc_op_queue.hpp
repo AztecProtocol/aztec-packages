@@ -55,7 +55,7 @@ class ECCOpQueue {
 
     // Storage for the reconstructed ultra ops table in contiguous memory. (Intended to be constructed once and for
     // all prior to Translator circuit construction to avoid repeated traversal of the per-subtable storage.)
-    std::vector<UltraOp> ultra_ops_reconstructed;
+    std::vector<UltraOp> ultra_ops_zk_reconstructed;
 
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
@@ -87,11 +87,11 @@ class ECCOpQueue {
      * The appended subtable carries UltraEccOpsTable::APPEND_TRACE_OFFSET leading zero rows internally,
      * matching the appender flavor's ecc_op_wire layout.
      */
-    size_t get_append_offset(const bool include_zk_ops = false) const
+    size_t get_append_offset() const
     {
         constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
         constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots - (include_zk_ops ? zk_op_slots : 0);
+        return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots - zk_op_slots;
     }
 
     void merge()
@@ -121,9 +121,9 @@ class ECCOpQueue {
     }
 
     // Construct column polynomials for the full aggregate ultra ops table
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns(bool include_zk_ops = false) const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns() const
     {
-        return ultra_ops_table.construct_table_columns(include_zk_ops);
+        return ultra_ops_table.construct_table_columns();
     }
 
     // Construct column polynomials for the aggregate table up to and including the tail subtable.
@@ -141,13 +141,10 @@ class ECCOpQueue {
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
     void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
 
-    // Reconstruct the full table of ultra ops in contiguous memory from the independent subtables.
-    // The ZK prefix is included exactly when both a fixed-location append has been performed and the ZK
-    // columns have been constructed (i.e. the full Chonk path).
-    void construct_full_ultra_ops_table()
+    // Reconstruct the ZK-prefixed full table of ultra ops in contiguous memory from the independent subtables.
+    void construct_zk_reconstructed_ultra_ops_table()
     {
-        const bool include_zk_ops = ultra_ops_table.has_fixed_append_offset() && ultra_ops_table.has_zk_ops();
-        ultra_ops_reconstructed = ultra_ops_table.get_reconstructed(include_zk_ops);
+        ultra_ops_zk_reconstructed = ultra_ops_table.get_zk_reconstructed_ultra_ops();
     }
 
     // EXCLUDES the optional ZK prefix; see UltraEccOpsTable::num_ultra_rows for the contract.
@@ -174,12 +171,19 @@ class ECCOpQueue {
         return eccvm_ops_reconstructed;
     }
 
-    std::vector<UltraOp>& get_ultra_ops()
+    // Reconstruct the raw full table of ultra ops in contiguous memory from the independent subtables.
+    // Intended to be used only for testing.
+    std::vector<UltraOp> get_ultra_ops_no_zk_for_testing() const
     {
-        if (ultra_ops_reconstructed.empty()) {
-            construct_full_ultra_ops_table();
+        return ultra_ops_table.get_ultra_ops_no_zk_for_testing();
+    }
+
+    std::vector<UltraOp>& get_zk_reconstructed_ultra_ops()
+    {
+        if (ultra_ops_zk_reconstructed.empty()) {
+            construct_zk_reconstructed_ultra_ops_table();
         }
-        return ultra_ops_reconstructed;
+        return ultra_ops_zk_reconstructed;
     }
 
     /**

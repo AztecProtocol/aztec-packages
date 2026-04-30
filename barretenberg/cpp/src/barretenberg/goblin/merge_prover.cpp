@@ -21,7 +21,7 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::share
     , op_queue(op_queue)
 {
     // MergeProver is used only for the final merge, where the hiding kernel subtable is appended at a fixed offset.
-    const size_t append_offset = op_queue->get_append_offset(/*include_zk_ops=*/true);
+    const size_t append_offset = op_queue->get_append_offset();
     fixed_append_shift_size = UltraEccOpsTable::ZK_ULTRA_OPS + (append_offset * UltraEccOpsTable::NUM_ROWS_PER_OP);
     op_queue->merge_fixed_append(append_offset);
 
@@ -159,8 +159,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     BB_BENCH_NAME("MergeProver::construct_proof");
     std::array<Polynomial, NUM_WIRES> left_table;
     std::array<Polynomial, NUM_WIRES> right_table;
-    std::array<Polynomial, NUM_WIRES> merged_table =
-        op_queue->construct_ultra_ops_table_columns(/*include_zk_ops=*/true); // T
+    std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
 
     left_table = op_queue->construct_table_columns_up_to_tail();            // T_tail
     right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t (fixed append carries

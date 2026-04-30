@@ -48,6 +48,12 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
     static constexpr size_t MAX_MERGE_SIZE = MaxMergeSize;
     static constexpr size_t LOG_MAX_MERGE_SIZE = static_cast<size_t>(numeric::get_msb(MAX_MERGE_SIZE));
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
+    static constexpr size_t NUM_COLUMN_TABLES = MAX_MERGE_SIZE + 1; // ZK table + subtables
+    static constexpr size_t NUM_EVALS_FROM_COLUMNS = NUM_COLUMN_TABLES * NUM_WIRES;
+    static constexpr size_t NUM_EVALS =
+        ((MAX_MERGE_SIZE + 2) * NUM_WIRES) + 1; // ZK table, subtables, merged tables, degree check poly
+    static constexpr size_t NUM_OPENING_CLAIMS = NUM_EVALS;
+    static constexpr size_t MERGE_BATCHED_CLAIM_SIZE = NUM_OPENING_CLAIMS + 2; // Add Shplonk quotient + identity
 
     using TableCommitments = std::array<Commitment, NUM_WIRES>;
 
@@ -62,18 +68,10 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
 
     // Public for testing purposes
     std::shared_ptr<Transcript> transcript;
-    bool is_zk;
 
-    explicit BatchMergeVerifier_(bool is_zk = false)
+    explicit BatchMergeVerifier_()
         : transcript(std::make_shared<Transcript>())
-        , is_zk(is_zk)
     {}
-
-    [[nodiscard]] size_t get_merge_batched_claim_size() const
-    {
-        return /*subtables*/ ((MAX_MERGE_SIZE * NUM_WIRES) + (is_zk ? NUM_WIRES : 0)) +
-               /*merged table*/ NUM_WIRES + /*degree check, shplonk quotient, identity*/ 3;
-    }
 
     /**
      * @brief Reduce the batch merge proof to a pairing check.
