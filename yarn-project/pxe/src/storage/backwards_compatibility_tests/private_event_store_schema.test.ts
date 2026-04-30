@@ -11,34 +11,98 @@ import { PrivateEventStore } from '../private_event_store/private_event_store.js
 import { snapshotMap, snapshotMultiMap } from './kv_store_snapshot.js';
 
 describe('PrivateEventStore schema compatibility', () => {
-  it('persists private event logs after commit', async () => {
+  it('persists private events across all three sub-stores with multi-scope and multi-value rows', async () => {
     const kvStore = await openTmpStore('pxe-schema-private-event', true);
     try {
       const privateEventStore = new PrivateEventStore(kvStore);
 
       const jobId = 'fixture-job';
-      const eventSelector = EventSelector.fromField(new Fr(2n));
-      const contractAddress = AztecAddress.fromBigInt(3n);
-      const scope = AztecAddress.fromBigInt(5n);
-      const txHash = TxHash.fromBigInt(7n);
-      const l2BlockHash = new BlockHash(new Fr(11n));
 
+      // Two (contract, selector) pairs and two block numbers so each multimap exhibits both a multi-value row
+      // (contractA/selectorA → {e1, e2} and blockN1 → {e1, e2}) and a contrasting single-value row.
+      const contractA = AztecAddress.fromBigInt(2n);
+      const contractB = AztecAddress.fromBigInt(3n);
+      const selectorA = EventSelector.fromField(new Fr(5n));
+      const selectorB = EventSelector.fromField(new Fr(7n));
+      const scopeX = AztecAddress.fromBigInt(11n);
+      const scopeY = AztecAddress.fromBigInt(13n);
+      const blockN1 = BlockNumber(17);
+      const blockN2 = BlockNumber(19);
+
+      // event1: rich fixture. Re-stored under scopeY below to exercise the `addScope` branch and produce a
+      // 2-element scopes vector in the committed buffer.
+      const event1Commitment = new Fr(23n);
       await privateEventStore.storePrivateEventLog(
-        eventSelector,
-        new Fr(13n),
-        [new Fr(17n), new Fr(19n)],
-        new Fr(23n),
+        selectorA,
+        new Fr(29n),
+        [new Fr(31n), new Fr(37n), new Fr(41n)],
+        event1Commitment,
         {
-          contractAddress,
-          scope,
-          txHash,
-          l2BlockNumber: BlockNumber(29),
-          l2BlockHash,
-          txIndexInBlock: 31,
-          eventIndexInTx: 37,
+          contractAddress: contractA,
+          scope: scopeX,
+          txHash: TxHash.fromField(new Fr(43n)),
+          l2BlockNumber: blockN1,
+          l2BlockHash: new BlockHash(new Fr(47n)),
+          txIndexInBlock: 53,
+          eventIndexInTx: 59,
         },
         jobId,
       );
+
+      // Same eventId, different scope: takes the `existing.addScope(...)` path in `storePrivateEventLog`.
+      await privateEventStore.storePrivateEventLog(
+        selectorA,
+        new Fr(29n),
+        [new Fr(31n), new Fr(37n), new Fr(41n)],
+        event1Commitment,
+        {
+          contractAddress: contractA,
+          scope: scopeY,
+          txHash: TxHash.fromField(new Fr(43n)),
+          l2BlockNumber: blockN1,
+          l2BlockHash: new BlockHash(new Fr(47n)),
+          txIndexInBlock: 53,
+          eventIndexInTx: 59,
+        },
+        jobId,
+      );
+
+      // event2: same (contract, selector) and same block as event1 → multi-value rows in both multimaps.
+      await privateEventStore.storePrivateEventLog(
+        selectorA,
+        new Fr(61n),
+        [new Fr(67n), new Fr(71n), new Fr(73n)],
+        new Fr(79n),
+        {
+          contractAddress: contractA,
+          scope: scopeX,
+          txHash: TxHash.fromField(new Fr(83n)),
+          l2BlockNumber: blockN1,
+          l2BlockHash: new BlockHash(new Fr(89n)),
+          txIndexInBlock: 97,
+          eventIndexInTx: 101,
+        },
+        jobId,
+      );
+
+      // event3: distinct (contract, selector) and block → contrasting single-value multimap rows.
+      await privateEventStore.storePrivateEventLog(
+        selectorB,
+        new Fr(103n),
+        [new Fr(107n), new Fr(109n), new Fr(113n)],
+        new Fr(127n),
+        {
+          contractAddress: contractB,
+          scope: scopeX,
+          txHash: TxHash.fromField(new Fr(131n)),
+          l2BlockNumber: blockN2,
+          l2BlockHash: new BlockHash(new Fr(137n)),
+          txIndexInBlock: 139,
+          eventIndexInTx: 149,
+        },
+        jobId,
+      );
+
       await kvStore.transactionAsync(() => privateEventStore.commit(jobId));
 
       const events = kvStore.openMap<string, Buffer>('private_event_logs');
