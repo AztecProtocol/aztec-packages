@@ -254,6 +254,10 @@ class TXEDispatcher {
         await this.#processDeployInputs(callData);
         break;
       }
+      case 'aztec_txe_overrideContract': {
+        await this.#processDeployInputs(callData);
+        break;
+      }
       case 'aztec_txe_addAccount': {
         await this.#processAddAccountInputs(callData);
         break;

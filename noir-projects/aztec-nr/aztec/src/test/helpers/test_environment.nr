@@ -418,6 +418,27 @@ impl TestEnvironment {
         txe_oracles::advance_timestamp_by(duration);
     }
 
+    /// Foundry-equivalent of `vm.store`. Writes a public storage slot directly to the long-lived
+    /// public-data tree, persisting across subsequent calls.
+    ///
+    /// Side effect: each call mints a synthetic empty block carrying just this write, so
+    /// `block.number` advances by one. Subsequent contract writes to the same slot overwrite the
+    /// value normally; reads see the most recent write.
+    pub unconstrained fn set_public_storage(_self: Self, contract_address: AztecAddress, slot: Field, value: Field) {
+        txe_oracles::set_public_storage(contract_address, slot, value);
+    }
+
+    /// Foundry-equivalent of `vm.etch`. Registers the contract at `path` (its class artifact and
+    /// instance) in TXE's long-lived contract store without running an initializer or emitting a
+    /// deployment nullifier. Returns the instance address.
+    ///
+    /// Use to install mock implementations or set up test fixtures cheaply. Differs from `deploy`
+    /// in that no deployment nullifier is emitted, so contract code asserting on the nullifier
+    /// ("am I really deployed?") will see false.
+    pub unconstrained fn override_contract<let N: u32>(_self: Self, path: str<N>) -> AztecAddress {
+        txe_oracles::override_contract(path, "", [], /*salt=*/ 0, AztecAddress::zero()).to_address()
+    }
+
     /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or
     /// `public_call`, or be made the owner or recipient of notes in `private_context`.
     ///

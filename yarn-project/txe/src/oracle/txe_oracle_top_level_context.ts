@@ -51,7 +51,7 @@ import {
 } from '@aztec/simulator/server';
 import { type ContractArtifact, EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
-import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
+import { PublicDataWrite, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, computePartialAddress } from '@aztec/stdlib/contract';
 import {
@@ -61,7 +61,12 @@ import {
   GasFees,
   GasSettings,
 } from '@aztec/stdlib/gas';
-import { computeCalldataHash, computeProtocolNullifier, siloNullifier } from '@aztec/stdlib/hash';
+import {
+  computeCalldataHash,
+  computeProtocolNullifier,
+  computePublicDataTreeLeafSlot,
+  siloNullifier,
+} from '@aztec/stdlib/hash';
 import {
   PartialPrivateTailPublicInputsForPublic,
   PrivateKernelTailCircuitPublicInputs,
@@ -70,7 +75,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
   CallContext,
   HashedValues,
@@ -248,6 +253,54 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       await this.contractStore.addContractArtifact(artifact);
       this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
     }
+  }
+
+  /**
+   * Registers a contract class and instance in the long-lived contract store without emitting a deployment
+   * nullifier or running a deploy tx. Foundry-equivalent: `vm.etch`. Use to install a contract for tests
+   * without paying the cost of a real deploy. Differs from `deploy` in that no deployment nullifier is
+   * emitted, so contract code that relies on the deployment nullifier as a "is this deployed?" check will
+   * see false.
+   */
+  async overrideContract(artifact: ContractArtifact, instance: ContractInstanceWithAddress) {
+    await this.contractStore.addContractInstance(instance);
+    await this.contractStore.addContractArtifact(artifact);
+    this.logger.debug(`Overrode contract ${artifact.name} at ${instance.address}`);
+  }
+
+  /**
+   * Writes a public storage slot directly to the long-lived public-data tree. Foundry-equivalent: `vm.store`.
+   * Mints a synthetic empty block carrying just this write so the change persists across subsequent calls.
+   * Side effect: advances block.number by one. Subsequent contract writes to the same slot overwrite the
+   * value normally; reads see the most recent write.
+   */
+  async setPublicStorage(contract: AztecAddress, slot: Fr, value: Fr) {
+    const blockNumber = await this.getNextBlockNumber();
+    const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
+    const dataWrite = new PublicDataWrite(leafSlot, value);
+
+    const txEffect = TxEffect.empty();
+    txEffect.nullifiers = [getSingleTxBlockRequestHash(blockNumber)];
+    txEffect.publicDataWrites = [dataWrite];
+    txEffect.txHash = new TxHash(new Fr(blockNumber));
+
+    const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
+    await forkedWorldTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [
+      new PublicDataTreeLeaf(dataWrite.leafSlot, dataWrite.value).toBuffer(),
+    ]);
+    await insertTxEffectIntoWorldTrees(txEffect, forkedWorldTrees);
+
+    const globals = makeGlobalVariables(undefined, {
+      blockNumber,
+      timestamp: this.nextBlockTimestamp,
+      version: this.version,
+      chainId: this.chainId,
+    });
+    const block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
+    await forkedWorldTrees.close();
+
+    this.logger.debug(`set_public_storage at contract=${contract} slot=${slot} value=${value} (block ${blockNumber})`);
+    await this.stateMachine.handleL2Block(block);
   }
 
   async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {

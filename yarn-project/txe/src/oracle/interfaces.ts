@@ -50,6 +50,8 @@ export interface ITxeExecutionOracle {
   advanceBlocksBy(blocks: number): Promise<void>;
   advanceTimestampBy(duration: UInt64): void;
   deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, foreignSecret: Fr): Promise<void>;
+  overrideContract(artifact: ContractArtifact, instance: ContractInstanceWithAddress): Promise<void>;
+  setPublicStorage(contract: AztecAddress, slot: Fr, value: Fr): Promise<void>;
   createAccount(secret: Fr): Promise<CompleteAddress>;
   addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;

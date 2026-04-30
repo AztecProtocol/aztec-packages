@@ -35,6 +35,23 @@ pub unconstrained fn deploy<let M: u32, let N: u32, let P: u32>(
     ContractInstance::deserialize(instance_fields)
 }
 
+/// Foundry-equivalent of `vm.etch`: registers the given contract's class and instance in TXE's
+/// long-lived contract store without emitting a deployment nullifier. Unlike `deploy`, no
+/// initializer is run and no deployment nullifier is emitted, so contract code that asserts on
+/// the deployment nullifier ("am I really deployed?") will see false. Use this to set up test
+/// fixtures cheaply or to install mock implementations for testing.
+pub unconstrained fn override_contract<let M: u32, let N: u32, let P: u32>(
+    path: str<N>,
+    initializer: str<P>,
+    args: [Field; M],
+    salt: Field,
+    deployer: AztecAddress,
+) -> ContractInstance {
+    // Reuses the deploy-oracle path-resolution machinery on the TS side; the secret slot is unused.
+    let instance_fields = override_contract_oracle(path, initializer, args, /*secret=*/ 0, salt, deployer);
+    ContractInstance::deserialize(instance_fields)
+}
+
 pub unconstrained fn private_call_new_flow<let M: u32, let N: u32>(
     from: AztecAddress,
     contract_address: AztecAddress,
@@ -163,6 +180,22 @@ pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
     salt: Field,
     deployer: AztecAddress,
 ) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
+
+#[oracle(aztec_txe_overrideContract)]
+pub unconstrained fn override_contract_oracle<let N: u32, let P: u32>(
+    path: str<N>,
+    initializer: str<P>,
+    args: [Field],
+    secret: Field,
+    salt: Field,
+    deployer: AztecAddress,
+) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
+
+/// Foundry-equivalent of `vm.store`: writes a public storage slot directly to TXE's long-lived
+/// public-data tree. Persists across subsequent calls. Side effect: advances `block.number` by one
+/// (each cheat call mints a synthetic empty block carrying just the write).
+#[oracle(aztec_txe_setPublicStorage)]
+pub unconstrained fn set_public_storage(contract_address: AztecAddress, slot: Field, value: Field) {}
 
 #[oracle(aztec_txe_createAccount)]
 pub unconstrained fn create_account(secret: Field) -> TestAccount {}

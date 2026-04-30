@@ -224,6 +224,36 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_txe_overrideContract(artifact: ContractArtifact, instance: ContractInstanceWithAddress) {
+    await this.handlerAsTxe().overrideContract(artifact, instance);
+
+    return toForeignCallResult([
+      toArray([
+        instance.salt,
+        instance.deployer.toField(),
+        instance.currentContractClassId,
+        instance.initializationHash,
+        ...instance.publicKeys.toFields(),
+      ]),
+    ]);
+  }
+
+  // eslint-disable-next-line camelcase
+  async aztec_txe_setPublicStorage(
+    foreignContract: ForeignCallSingle,
+    foreignSlot: ForeignCallSingle,
+    foreignValue: ForeignCallSingle,
+  ) {
+    const contract = addressFromSingle(foreignContract);
+    const slot = fromSingle(foreignSlot);
+    const value = fromSingle(foreignValue);
+
+    await this.handlerAsTxe().setPublicStorage(contract, slot, value);
+
+    return toForeignCallResult([]);
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_txe_createAccount(foreignSecret: ForeignCallSingle) {
     const secret = fromSingle(foreignSecret);
 
