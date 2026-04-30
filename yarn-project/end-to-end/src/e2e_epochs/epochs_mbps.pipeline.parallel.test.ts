@@ -12,6 +12,7 @@ import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -113,21 +114,32 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
   }
 
-  /** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
+  /**
+   * Polls the archiver until at least one checkpoint with the target block count is visible,
+   * verifies block numbering invariants across all returned checkpoints, and returns the
+   * number of the first qualifying checkpoint.
+   */
   async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger): Promise<CheckpointNumber> {
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
-    logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
-      checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
-    });
+    const { checkpoints, multiBlockCheckpointNumber } = await retryUntil(
+      async () => {
+        const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+        logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
+          checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
+        });
+        const match = checkpoints.find(pc => pc.checkpoint.blocks.length >= targetBlockCount);
+        if (match === undefined) {
+          return undefined;
+        }
+        return { checkpoints, multiBlockCheckpointNumber: match.checkpoint.number };
+      },
+      `checkpoint with >= ${targetBlockCount} blocks`,
+      30,
+      0.25,
+    );
 
     let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
-    let multiBlockCheckpointNumber: CheckpointNumber | undefined;
-
     for (const checkpoint of checkpoints) {
       const blockCount = checkpoint.checkpoint.blocks.length;
-      if (blockCount >= targetBlockCount && multiBlockCheckpointNumber === undefined) {
-        multiBlockCheckpointNumber = checkpoint.checkpoint.number;
-      }
       logger.warn(`Checkpoint ${checkpoint.checkpoint.number} has ${blockCount} blocks`, {
         checkpoint: checkpoint.checkpoint.getStats(),
       });
@@ -141,8 +153,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
       }
     }
 
-    expect(multiBlockCheckpointNumber).toBeDefined();
-    return multiBlockCheckpointNumber!;
+    return multiBlockCheckpointNumber;
   }
 
   /** Waits until a specific multi-block checkpoint is proven. */
@@ -254,7 +265,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     // Wait until all txs are mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
     await executeTimeout(
-      () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
+      () => Promise.all(txHashes.map(txHash => waitForTx(nodes[0], txHash, { timeout }))),
       timeout * 1000,
     );
     logger.warn(`All txs have been mined`);
@@ -349,7 +360,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     // Wait for a new checkpoint (recovery) - where all txs end up mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;
     await executeTimeout(
-      () => Promise.all(txHashes.map(txHash => waitForTx(context.aztecNode, txHash, { timeout }))),
+      () => Promise.all(txHashes.map(txHash => waitForTx(nodes[0], txHash, { timeout }))),
       timeout * 1000,
     );
     logger.warn(`All txs have been mined`);
