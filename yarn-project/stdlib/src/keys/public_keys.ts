@@ -1,4 +1,11 @@
-import { DEFAULT_IVPK_M_X, DEFAULT_IVPK_M_Y, DomainSeparator } from '@aztec/constants';
+import {
+  DEFAULT_IVPK_M_X,
+  DEFAULT_IVPK_M_Y,
+  DEFAULT_NPK_M_HASH,
+  DEFAULT_OVPK_M_HASH,
+  DEFAULT_TPK_M_HASH,
+  DomainSeparator,
+} from '@aztec/constants';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
@@ -81,12 +88,15 @@ export class PublicKeys {
 
   static default(): PublicKeys {
     // Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y, false })` for npk/ovpk/tpk.
-    // Kept in sync with `Default for PublicKeys` in noir-protocol-circuits/crates/types/src/public_keys.nr.
+    // Sourced from constants.gen.ts (originally defined in
+    // noir-protocol-circuits/crates/types/src/constants.nr); a self-test in public_keys.nr
+    // (`default_hashes_match_default_points`) catches drift between the *_HASH constants and
+    // the underlying X/Y points.
     return new PublicKeys(
-      Fr.fromString('0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a26'),
+      new Fr(DEFAULT_NPK_M_HASH),
       new Point(new Fr(DEFAULT_IVPK_M_X), new Fr(DEFAULT_IVPK_M_Y), false),
-      Fr.fromString('0x0e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b'),
-      Fr.fromString('0x082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef0'),
+      new Fr(DEFAULT_OVPK_M_HASH),
+      new Fr(DEFAULT_TPK_M_HASH),
     );
   }
 

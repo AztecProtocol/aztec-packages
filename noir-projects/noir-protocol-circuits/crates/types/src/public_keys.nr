@@ -1,9 +1,8 @@
 use crate::{
     address::public_keys_hash::PublicKeysHash,
     constants::{
-        DEFAULT_IVPK_M_X, DEFAULT_IVPK_M_Y, DEFAULT_NPK_M_X, DEFAULT_NPK_M_Y, DEFAULT_OVPK_M_X,
-        DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y, DOM_SEP__PUBLIC_KEYS_HASH,
-        DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
+        DEFAULT_IVPK_M_X, DEFAULT_IVPK_M_Y, DEFAULT_NPK_M_HASH, DEFAULT_OVPK_M_HASH,
+        DEFAULT_TPK_M_HASH, DOM_SEP__PUBLIC_KEYS_HASH, DOM_SEP__SINGLE_PUBLIC_KEY_HASH,
     },
     hash::poseidon2_hash_with_separator,
     point::validate_on_curve,
@@ -60,18 +59,12 @@ pub struct PublicKeys {
 impl Default for PublicKeys {
     fn default() -> Self {
         PublicKeys {
-            npk_m_hash: hash_public_key(
-                Point { x: DEFAULT_NPK_M_X, y: DEFAULT_NPK_M_Y, is_infinite: false },
-            ),
+            npk_m_hash: DEFAULT_NPK_M_HASH,
             ivpk_m: IvpkM {
                 inner: Point { x: DEFAULT_IVPK_M_X, y: DEFAULT_IVPK_M_Y, is_infinite: false },
             },
-            ovpk_m_hash: hash_public_key(
-                Point { x: DEFAULT_OVPK_M_X, y: DEFAULT_OVPK_M_Y, is_infinite: false },
-            ),
-            tpk_m_hash: hash_public_key(
-                Point { x: DEFAULT_TPK_M_X, y: DEFAULT_TPK_M_Y, is_infinite: false },
-            ),
+            ovpk_m_hash: DEFAULT_OVPK_M_HASH,
+            tpk_m_hash: DEFAULT_TPK_M_HASH,
         }
     }
 }
@@ -112,11 +105,40 @@ impl ToPoint for AddressPoint {
 }
 
 mod test {
+    use crate::constants::{
+        DEFAULT_NPK_M_HASH, DEFAULT_NPK_M_X, DEFAULT_NPK_M_Y, DEFAULT_OVPK_M_HASH, DEFAULT_OVPK_M_X,
+        DEFAULT_OVPK_M_Y, DEFAULT_TPK_M_HASH, DEFAULT_TPK_M_X, DEFAULT_TPK_M_Y,
+    };
     use crate::point::Point;
-    use crate::{public_keys::{IvpkM, PublicKeys}, traits::{Deserialize, Serialize}};
+    use crate::{
+        public_keys::{hash_public_key, IvpkM, PublicKeys},
+        traits::{Deserialize, Serialize},
+    };
     use std::ops::Neg;
 
     global PUBLIC_KEYS_LENGTH: u32 = 6;
+
+    /// Catches drift between the precomputed `DEFAULT_*_M_HASH` constants and the
+    /// `DEFAULT_*_M_X/Y` curve points they're derived from. If anyone updates the X/Y
+    /// constants (or the hashing primitive) without also updating the *_HASH constants,
+    /// this test fails and `PublicKeys::default()` would silently produce a stale value.
+    #[test]
+    unconstrained fn default_hashes_match_default_points() {
+        let npk = hash_public_key(
+            Point { x: DEFAULT_NPK_M_X, y: DEFAULT_NPK_M_Y, is_infinite: false },
+        );
+        assert_eq(npk, DEFAULT_NPK_M_HASH);
+
+        let ovpk = hash_public_key(
+            Point { x: DEFAULT_OVPK_M_X, y: DEFAULT_OVPK_M_Y, is_infinite: false },
+        );
+        assert_eq(ovpk, DEFAULT_OVPK_M_HASH);
+
+        let tpk = hash_public_key(
+            Point { x: DEFAULT_TPK_M_X, y: DEFAULT_TPK_M_Y, is_infinite: false },
+        );
+        assert_eq(tpk, DEFAULT_TPK_M_HASH);
+    }
 
     #[test]
     unconstrained fn compute_public_keys_hash() {

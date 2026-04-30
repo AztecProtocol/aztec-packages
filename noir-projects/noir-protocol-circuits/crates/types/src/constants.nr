@@ -291,6 +291,16 @@ pub global DEFAULT_TPK_M_X: Field =
 pub global DEFAULT_TPK_M_Y: Field =
     0x2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f;
 
+// Precomputed `hash_public_key(Point { DEFAULT_*_X, DEFAULT_*_Y, false })` for each non-ivpk key.
+// Used by `PublicKeys::default()` and the matching TS `PublicKeys.default()`. Verified by the
+// `compute_default_hash` test in public_keys.nr.
+pub global DEFAULT_NPK_M_HASH: Field =
+    0x14fbaeaeddaa69be81d404c684e78e9f1a786d225faf8de2ce97c92f67d89a26;
+pub global DEFAULT_OVPK_M_HASH: Field =
+    0x0e60ed663a4da5636e2e25a1f1f0c5b27c011c8eaed22bbe61e2a0fd875dd24b;
+pub global DEFAULT_TPK_M_HASH: Field =
+    0x082c6d164b0ba073c9dd911100248c8ecd80b03f82f38531856a3c16dadcbef0;
+
 // LENGTH OF STRUCTS SERIALIZED TO FIELDS
 // TODO: figure out whether Noir is sophisticated enough to derive these for us, these days.
 pub global AZTEC_ADDRESS_LENGTH: u32 = 1;
