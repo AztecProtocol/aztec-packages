@@ -60,6 +60,7 @@ export class P2PInactivityTest {
       initialConfig: {
         anvilSlotsInAnEpoch: 4,
         proverNodeConfig: { proverNodeEpochProvingDelayMs: AZTEC_SLOT_DURATION * 1000 },
+        proverBrokerMaxEpochsToKeepResultsFor: 20,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,

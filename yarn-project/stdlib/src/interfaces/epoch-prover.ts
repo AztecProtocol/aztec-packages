@@ -38,6 +38,13 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
   waitForAllCheckpointsReady(): Promise<void>;
 
   /**
+   * Removes the checkpoint at the given index from the epoch. Only valid before
+   * `finalizeEpochStructure` has been called. Used for L1 reorg handling when a
+   * checkpoint is removed from the chain.
+   */
+  removeCheckpoint(checkpointIndex: number): void;
+
+  /**
    * Starts a new checkpoint.
    * @param checkpointIndex - The index of the checkpoint in the epoch.
    * @param constants - The constants for this checkpoint.

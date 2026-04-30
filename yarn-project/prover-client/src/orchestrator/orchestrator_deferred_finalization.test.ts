@@ -2,6 +2,7 @@ import { FinalBlobBatchingChallenges } from '@aztec/blob-lib/types';
 import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd, timesAsync } from '@aztec/foundation/collection';
+import { BLS12Fr } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -64,14 +65,33 @@ describe('prover/orchestrator/deferred-finalization', () => {
         expect(state.isEpochStructureFinalized).toBe(true);
       });
 
-      it('throws when called twice', async () => {
+      it('is idempotent when called twice with same values', async () => {
         const { state } = createTestEpochState();
         const challenges = FinalBlobBatchingChallenges.empty();
 
         await state.finalizeEpochStructure(2, challenges);
+        // Second call with same checkpoint count should be a no-op.
+        await expect(state.finalizeEpochStructure(2, challenges)).resolves.not.toThrow();
+      });
 
-        await expect(state.finalizeEpochStructure(2, challenges)).rejects.toThrow(
-          'Epoch structure has already been finalized.',
+      it('throws when called twice with different values', async () => {
+        const { state } = createTestEpochState();
+        const challenges = FinalBlobBatchingChallenges.empty();
+
+        await state.finalizeEpochStructure(2, challenges);
+        await expect(state.finalizeEpochStructure(3, challenges)).rejects.toThrow(
+          'Epoch structure has already been finalized with different values.',
+        );
+      });
+
+      it('throws when called twice with different challenges', async () => {
+        const { state } = createTestEpochState();
+        const challenges = FinalBlobBatchingChallenges.empty();
+        const otherChallenges = new FinalBlobBatchingChallenges(new Fr(7), BLS12Fr.fromBN254Fr(new Fr(11)));
+
+        await state.finalizeEpochStructure(2, challenges);
+        await expect(state.finalizeEpochStructure(2, otherChallenges)).rejects.toThrow(
+          'Epoch structure has already been finalized with different values.',
         );
       });
 
@@ -117,10 +137,10 @@ describe('prover/orchestrator/deferred-finalization', () => {
       });
     });
 
-    describe('removeLastCheckpoint', () => {
+    describe('removeCheckpoint', () => {
       it('returns undefined on empty epoch', () => {
         const { state } = createTestEpochState();
-        const removed = state.removeLastCheckpoint();
+        const removed = state.removeCheckpoint(0);
         expect(removed).toBeUndefined();
       });
 
@@ -129,7 +149,7 @@ describe('prover/orchestrator/deferred-finalization', () => {
         const challenges = FinalBlobBatchingChallenges.empty();
         await state.finalizeEpochStructure(0, challenges);
 
-        expect(() => state.removeLastCheckpoint()).toThrow(
+        expect(() => state.removeCheckpoint(0)).toThrow(
           'Cannot remove checkpoints after epoch structure has been finalized.',
         );
       });
@@ -137,7 +157,7 @@ describe('prover/orchestrator/deferred-finalization', () => {
       it('isAcceptingCheckpoints still returns true after removal', () => {
         const { state } = createTestEpochState();
         // Even on empty epoch, removing returns undefined but accepting should remain true.
-        state.removeLastCheckpoint();
+        state.removeCheckpoint(0);
         expect(state.isAcceptingCheckpoints()).toBe(true);
       });
     });
@@ -290,23 +310,16 @@ describe('prover/orchestrator/deferred-finalization', () => {
         await expect(context.orchestrator.startNewCheckpoint(1, c2, [], 1, h2)).resolves.not.toThrow();
       });
 
-      it('finalizeEpochStructure throws when called twice', async () => {
+      it('finalizeEpochStructure is idempotent when called twice with same values', async () => {
         const { constants, previousBlockHeader } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
         const finalBlobChallenges = await context.getFinalBlobChallenges();
 
         context.orchestrator.startNewEpoch(EpochNumber(1));
         await context.orchestrator.startNewCheckpoint(0, constants, [], 1, previousBlockHeader);
 
-        await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
-        // We need to finalize once first, which requires blocks to be set up.
-        // Use the simpler approach: just call finalize twice.
-        // But we already started a checkpoint at index 0, so we need to not confuse state.
-        // Let's just call finalize twice and check the second throws.
-
         await context.orchestrator.finalizeEpochStructure(1, finalBlobChallenges);
-        await expect(context.orchestrator.finalizeEpochStructure(1, finalBlobChallenges)).rejects.toThrow(
-          'Epoch structure has already been finalized.',
-        );
+        // Second call with same values should be a no-op.
+        await expect(context.orchestrator.finalizeEpochStructure(1, finalBlobChallenges)).resolves.not.toThrow();
       });
 
       it('finalizeEpochStructure without starting epoch throws', async () => {
@@ -495,8 +508,8 @@ describe('prover/orchestrator/deferred-finalization', () => {
       );
     });
 
-    describe('reorg safety (removeLastCheckpoint)', () => {
-      it('removeLastCheckpoint removes the last checkpoint', async () => {
+    describe('reorg safety (removeCheckpoint)', () => {
+      it('removeCheckpoint removes a checkpoint by index', async () => {
         const checkpoints = await timesAsync(2, () => context.makeCheckpoint(1, { numTxsPerBlock: 0 }));
 
         context.orchestrator.startNewEpoch(EpochNumber(1));
@@ -509,8 +522,8 @@ describe('prover/orchestrator/deferred-finalization', () => {
           await context.orchestrator.startNewBlock(blockNumber, timestamp, 0);
         }
 
-        // Remove the last checkpoint -- should not throw.
-        expect(() => context.orchestrator.removeLastCheckpoint()).not.toThrow();
+        // Remove a checkpoint by index -- should not throw.
+        expect(() => context.orchestrator.removeCheckpoint(1)).not.toThrow();
       });
 
       it('after removal, isAcceptingCheckpoints still returns true', async () => {
@@ -521,7 +534,7 @@ describe('prover/orchestrator/deferred-finalization', () => {
         const { blockNumber, timestamp } = blocks[0].header.globalVariables;
         await context.orchestrator.startNewBlock(blockNumber, timestamp, 0);
 
-        context.orchestrator.removeLastCheckpoint();
+        context.orchestrator.removeCheckpoint(0);
 
         // The EpochProvingState has no totalNumCheckpoints set, so it should always accept.
         // We verify this indirectly by checking that we can start a new checkpoint.
@@ -533,7 +546,7 @@ describe('prover/orchestrator/deferred-finalization', () => {
       });
 
       it(
-        'removeLastCheckpoint throws if finalizeEpochStructure has already been called',
+        'removeCheckpoint throws if finalizeEpochStructure has already been called',
         async () => {
           const { constants, blocks, previousBlockHeader } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
           const finalBlobChallenges = await context.getFinalBlobChallenges();
@@ -545,25 +558,25 @@ describe('prover/orchestrator/deferred-finalization', () => {
 
           await context.orchestrator.finalizeEpochStructure(1, finalBlobChallenges);
 
-          expect(() => context.orchestrator.removeLastCheckpoint()).toThrow(
+          expect(() => context.orchestrator.removeCheckpoint(0)).toThrow(
             'Cannot remove checkpoints after epoch structure has been finalized.',
           );
         },
         LONG_TIMEOUT,
       );
 
-      it('removeLastCheckpoint on empty epoch logs a warning but does not throw', () => {
+      it('removeCheckpoint on empty epoch logs a warning but does not throw', () => {
         context.orchestrator.startNewEpoch(EpochNumber(1));
         // Should not throw, just logs a warning about no checkpoint to remove.
-        expect(() => context.orchestrator.removeLastCheckpoint()).not.toThrow();
+        expect(() => context.orchestrator.removeCheckpoint(0)).not.toThrow();
       });
 
-      it('removeLastCheckpoint without starting epoch throws', () => {
-        expect(() => context.orchestrator.removeLastCheckpoint()).toThrow('Empty epoch proving state.');
+      it('removeCheckpoint without starting epoch throws', () => {
+        expect(() => context.orchestrator.removeCheckpoint(0)).toThrow('Empty epoch proving state.');
       });
 
       it(
-        'multiple sequential removes work (remove last, then remove new last)',
+        'multiple sequential removes work',
         async () => {
           const checkpoints = await timesAsync(3, () => context.makeCheckpoint(1, { numTxsPerBlock: 0 }));
 
@@ -577,10 +590,8 @@ describe('prover/orchestrator/deferred-finalization', () => {
             await context.orchestrator.startNewBlock(blockNumber, timestamp, 0);
           }
 
-          // Remove last (index 2).
-          context.orchestrator.removeLastCheckpoint();
-          // Remove new last (index 1).
-          context.orchestrator.removeLastCheckpoint();
+          context.orchestrator.removeCheckpoint(2);
+          context.orchestrator.removeCheckpoint(1);
 
           // One checkpoint remains. Should still be able to finalize with it.
           const internalState = (context.orchestrator as any).provingState as EpochProvingState;
@@ -593,7 +604,34 @@ describe('prover/orchestrator/deferred-finalization', () => {
       );
 
       it(
-        'after removing last checkpoint, remaining checkpoint state is consistent',
+        'remove from middle of list leaves a hole and preserves surrounding checkpoints',
+        async () => {
+          const checkpoints = await timesAsync(3, () => context.makeCheckpoint(1, { numTxsPerBlock: 0 }));
+
+          context.orchestrator.startNewEpoch(EpochNumber(1));
+
+          for (let i = 0; i < 3; i++) {
+            const { constants, blocks, previousBlockHeader } = checkpoints[i];
+            await context.orchestrator.startNewCheckpoint(i, constants, [], 1, previousBlockHeader);
+            const { blockNumber, timestamp } = blocks[0].header.globalVariables;
+            await context.orchestrator.startNewBlock(blockNumber, timestamp, 0);
+          }
+
+          // Remove the middle checkpoint.
+          context.orchestrator.removeCheckpoint(1);
+
+          const internalState = (context.orchestrator as any).provingState as EpochProvingState;
+          expect(internalState.getCheckpointProvingState(0)).toBeDefined();
+          expect(internalState.getCheckpointProvingState(1)).toBeUndefined();
+          expect(internalState.getCheckpointProvingState(2)).toBeDefined();
+          expect(internalState.isAcceptingCheckpoints()).toBe(true);
+          expect(internalState.isEpochStructureFinalized).toBe(false);
+        },
+        LONG_TIMEOUT,
+      );
+
+      it(
+        'after removing checkpoints, remaining checkpoint state is consistent',
         async () => {
           const checkpoints = await timesAsync(3, () => context.makeCheckpoint(1, { numTxsPerBlock: 0 }));
 
@@ -608,8 +646,8 @@ describe('prover/orchestrator/deferred-finalization', () => {
           }
 
           // Remove last two checkpoints, simulating a reorg.
-          context.orchestrator.removeLastCheckpoint();
-          context.orchestrator.removeLastCheckpoint();
+          context.orchestrator.removeCheckpoint(2);
+          context.orchestrator.removeCheckpoint(1);
 
           // The internal state should have only the first checkpoint remaining.
           const internalState = (context.orchestrator as any).provingState as EpochProvingState;
@@ -650,7 +688,7 @@ describe('prover/orchestrator/deferred-finalization', () => {
           }
 
           // Simulate reorg: remove the third checkpoint (which had real txs and world state changes).
-          context.orchestrator.removeLastCheckpoint();
+          context.orchestrator.removeCheckpoint(2);
           await context.removeLastCheckpoint();
 
           // Create a replacement checkpoint with txs and add it at the same index.
@@ -706,7 +744,7 @@ describe('prover/orchestrator/deferred-finalization', () => {
           }
 
           // Reorg removes the last checkpoint — world state is rolled back.
-          context.orchestrator.removeLastCheckpoint();
+          context.orchestrator.removeCheckpoint(2);
           await context.removeLastCheckpoint();
 
           // Finalize with only 2 checkpoints.
@@ -745,7 +783,7 @@ describe('prover/orchestrator/deferred-finalization', () => {
           }
 
           // Remove last checkpoint while proving jobs are in-flight — world state rolled back.
-          context.orchestrator.removeLastCheckpoint();
+          context.orchestrator.removeCheckpoint(1);
           await context.removeLastCheckpoint();
 
           // Wait deterministically for ALL proving jobs to settle (including orphaned ones
@@ -756,7 +794,7 @@ describe('prover/orchestrator/deferred-finalization', () => {
           }
 
           // At this point every callback from the removed checkpoint has fired.
-          // Verify no world state forks leaked — removeLastCheckpoint closed the removed
+          // Verify no world state forks leaked — removeCheckpoint closed the removed
           // checkpoint's forks, and block completion closed the surviving checkpoint's fork.
           expect(context.orchestrator.getNumActiveForks()).toBe(0);
 

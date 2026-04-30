@@ -111,7 +111,14 @@ export class EpochProvingState {
     finalBlobBatchingChallenges: FinalBlobBatchingChallenges,
   ) {
     if (this.isEpochStructureFinalized) {
-      throw new Error('Epoch structure has already been finalized.');
+      // Idempotent: if called again with the same values, just return.
+      if (
+        this._totalNumCheckpoints === totalNumCheckpoints &&
+        this._finalBlobBatchingChallenges?.equals(finalBlobBatchingChallenges)
+      ) {
+        return;
+      }
+      throw new Error('Epoch structure has already been finalized with different values.');
     }
 
     this._totalNumCheckpoints = totalNumCheckpoints;
@@ -144,29 +151,24 @@ export class EpochProvingState {
   }
 
   /**
-   * Removes the last checkpoint from the epoch. Only valid before `finalizeEpochStructure` has been called.
-   * Returns the removed checkpoint, or undefined if there are no checkpoints.
+   * Removes the checkpoint at the given index from the epoch. Only valid before
+   * `finalizeEpochStructure` has been called. Returns the removed checkpoint, or
+   * undefined if there is no checkpoint at that index.
    */
-  public removeLastCheckpoint(): CheckpointProvingState | undefined {
+  public removeCheckpoint(checkpointIndex: number): CheckpointProvingState | undefined {
     if (this.isEpochStructureFinalized) {
       throw new Error('Cannot remove checkpoints after epoch structure has been finalized.');
     }
 
-    // Find the last non-undefined checkpoint.
-    let lastIndex = -1;
-    for (let i = this.checkpoints.length - 1; i >= 0; i--) {
-      if (this.checkpoints[i]) {
-        lastIndex = i;
-        break;
-      }
-    }
-
-    if (lastIndex === -1) {
+    const removed = this.checkpoints[checkpointIndex];
+    if (!removed) {
       return undefined;
     }
 
-    const removed = this.checkpoints[lastIndex]!;
-    this.checkpoints[lastIndex] = undefined;
+    this.checkpoints[checkpointIndex] = undefined;
+    // Mark the removed checkpoint so any in-flight proving jobs for it become silent no-ops
+    // when they fail (e.g. due to world state having been rolled back by the prune).
+    removed.markRemoved();
     // Trim trailing undefined entries.
     while (this.checkpoints.length > 0 && !this.checkpoints[this.checkpoints.length - 1]) {
       this.checkpoints.pop();
@@ -199,7 +201,7 @@ export class EpochProvingState {
   /** Called when a checkpoint completes block-level proving. Re-evaluates readiness and notifies waiters. */
   public notifyCheckpointBlockLevelComplete() {
     if (this.areAllCheckpointsBlockLevelReady()) {
-      this.log.info(`All checkpoints block-level ready, notifying ${this.checkpointsReadyCallbacks.length} waiters`);
+      this.log.debug(`All checkpoints block-level ready, notifying ${this.checkpointsReadyCallbacks.length} waiters`);
       for (const { resolve } of this.checkpointsReadyCallbacks) {
         resolve();
       }

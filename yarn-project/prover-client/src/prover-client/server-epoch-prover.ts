@@ -32,6 +32,9 @@ export class ServerEpochProver implements EpochProver {
   waitForAllCheckpointsReady(): Promise<void> {
     return this.orchestrator.waitForAllCheckpointsReady();
   }
+  removeCheckpoint(checkpointIndex: number): void {
+    this.orchestrator.removeCheckpoint(checkpointIndex);
+  }
   startNewCheckpoint(
     checkpointIndex: number,
     constants: CheckpointConstantData,

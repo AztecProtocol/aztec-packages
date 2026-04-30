@@ -39,7 +39,6 @@ export async function rerunEpochProvingJob(
     submitEpochProof: () => Promise.resolve(true),
     analyzeEpochProofSubmission: () => Promise.resolve(),
   };
-  const l2BlockSourceForReorgDetection = undefined;
   const deadline = undefined;
 
   // This starts a local proving broker that does not get exposed as a service. This should be good enough for
@@ -49,20 +48,39 @@ export async function rerunEpochProvingJob(
   const prover = await createProverClient(config, worldState, broker, telemetry);
 
   const provingJob = new EpochProvingJob(
-    jobData,
+    jobData.epochNumber,
     worldState,
     prover.createEpochProver(),
     publicProcessorFactory,
     publisher,
-    l2BlockSourceForReorgDetection,
     metrics,
     deadline,
-    { skipEpochCheck: true },
+    {},
     log.getBindings(),
   );
 
   log.info(`Rerunning epoch proving job for epoch ${jobData.epochNumber}`);
-  await provingJob.run();
-  log.info(`Completed job for epoch ${jobData.epochNumber} with status ${provingJob.getState()}`);
-  return provingJob.getState();
+
+  // Add all checkpoints incrementally. Attestations are saved at the epoch level, so
+  // attach them to the highest-numbered checkpoint (the one whose attestations the job
+  // uses at finalize time); the rest register with empty attestations.
+  const lastCheckpointNumber = jobData.checkpoints.at(-1)!.number;
+  for (const checkpoint of jobData.checkpoints) {
+    const l1ToL2Messages = jobData.l1ToL2Messages[checkpoint.number] ?? [];
+    const checkpointIndex = checkpoint.number - jobData.checkpoints[0].number;
+    const previousBlockHeader =
+      checkpointIndex === 0
+        ? jobData.previousBlockHeader
+        : jobData.checkpoints[checkpointIndex - 1].blocks.at(-1)!.header;
+    const attestations = checkpoint.number === lastCheckpointNumber ? jobData.attestations : [];
+    provingJob.registerPendingCheckpoint(checkpoint, checkpointIndex, attestations);
+    await provingJob.addCheckpoint(checkpoint, jobData.txs, l1ToL2Messages, previousBlockHeader);
+  }
+
+  // Hand the epoch off to the job for finalization. Since all checkpoints have already
+  // been added synchronously above (no pending), finalizeAndProve runs immediately.
+  provingJob.completeEpoch();
+  const finalState = await provingJob.whenComplete();
+  log.info(`Completed job for epoch ${jobData.epochNumber} with status ${finalState}`);
+  return finalState;
 }

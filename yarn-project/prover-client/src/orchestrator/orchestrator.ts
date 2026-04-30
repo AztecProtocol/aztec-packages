@@ -175,8 +175,9 @@ export class ProvingOrchestrator implements EpochProver {
   }
 
   /**
-   * Removes the last checkpoint from the epoch. Only valid before `finalizeEpochStructure` has been called.
-   * Closes world state forks and cleans up cached chonk verifier proofs for the removed checkpoint.
+   * Removes the checkpoint at the given index from the epoch. Only valid before
+   * `finalizeEpochStructure` has been called. Closes world state forks and cleans up
+   * cached chonk verifier proofs for the removed checkpoint.
    *
    * In-flight proving jobs for the removed checkpoint may continue to run and their callbacks will fire,
    * but they are safe to ignore:
@@ -186,14 +187,14 @@ export class ProvingOrchestrator implements EpochProver {
    *   includes the removed checkpoint
    * - Block merge jobs may be enqueued wastefully but will hit the same safe gates
    */
-  public removeLastCheckpoint() {
+  public removeCheckpoint(checkpointIndex: number) {
     if (!this.provingState) {
       throw new Error('Empty epoch proving state. Call startNewEpoch before removing checkpoints.');
     }
 
-    const removed = this.provingState.removeLastCheckpoint();
+    const removed = this.provingState.removeCheckpoint(checkpointIndex);
     if (!removed) {
-      this.logger.warn('No checkpoint to remove.');
+      this.logger.warn(`No checkpoint to remove at index ${checkpointIndex}.`);
       return;
     }
 
@@ -695,6 +696,13 @@ export class ProvingOrchestrator implements EpochProver {
         if (err instanceof AbortError) {
           // operation was cancelled, probably because the block was cancelled
           // drop this result
+          return;
+        }
+
+        // If the proving state has been invalidated (e.g. the checkpoint was removed by an
+        // L1 reorg), the job error is obsolete — drop it rather than taint the parent epoch.
+        if (!provingState.verifyState()) {
+          this.logger.debug(`State no longer valid, discarding error from proving job`, err);
           return;
         }
 

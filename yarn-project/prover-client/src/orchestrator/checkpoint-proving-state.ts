@@ -62,6 +62,10 @@ export class CheckpointProvingState {
   private endBlobAccumulator: BatchedBlobAccumulator | undefined;
   private blobFields: Fr[] | undefined;
   private error: string | undefined;
+  /** Set when the checkpoint is removed via EpochProvingState.removeCheckpoint. Once true, any
+   *  further state checks return false and reject() becomes a no-op so that in-flight proving jobs
+   *  for this checkpoint can fail silently without tainting the parent epoch. */
+  private removed = false;
   public readonly firstBlockNumber: BlockNumber;
 
   constructor(
@@ -342,7 +346,16 @@ export class CheckpointProvingState {
   }
 
   public verifyState() {
-    return this.parentEpoch.verifyState();
+    return !this.removed && this.parentEpoch.verifyState();
+  }
+
+  /** Marks the checkpoint as removed. Subsequent verifyState() returns false and reject() is a no-op. */
+  public markRemoved() {
+    this.removed = true;
+  }
+
+  public isRemoved() {
+    return this.removed;
   }
 
   public getError() {
@@ -355,6 +368,11 @@ export class CheckpointProvingState {
   }
 
   public reject(reason: string) {
+    if (this.removed) {
+      // Silently swallow — the checkpoint has already been removed (e.g. via L1 reorg) and
+      // any in-flight proving jobs for it are obsolete. We don't want to taint the parent epoch.
+      return;
+    }
     this.error = reason;
     this.parentEpoch.reject(reason);
   }
