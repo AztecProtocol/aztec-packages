@@ -1,6 +1,6 @@
 use crate::tests::private_kernel_reset::{NULLIFIER_SILOING_AMOUNT, TestBuilder};
-use protocol_test_utils::swap_items;
 use super::rebuild_bounded_vec;
+use protocol_test_utils::swap_items;
 
 #[test]
 fn previous_nullifiers_sorted() {

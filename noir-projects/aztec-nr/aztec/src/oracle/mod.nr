@@ -5,6 +5,7 @@ pub mod aes128_decrypt;
 pub mod auth_witness;
 pub mod block_header;
 pub mod call_private_function;
+pub mod call_utility_function;
 pub mod capsules;
 pub mod ephemeral;
 pub mod contract_sync;

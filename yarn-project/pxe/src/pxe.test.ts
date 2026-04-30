@@ -1,6 +1,6 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -18,6 +18,7 @@ import {
   randomContractInstanceWithAddress,
   randomDeployedContract,
 } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
@@ -183,6 +184,14 @@ describe('PXE', () => {
         globalVariables,
       });
       node.getBlockHeader.mockResolvedValue(blockHeader);
+      node.getBlock.mockResolvedValue({
+        header: blockHeader,
+        archive: AppendOnlyTreeSnapshot.empty(),
+        hash: GENESIS_BLOCK_HEADER_HASH,
+        checkpointNumber: CheckpointNumber.fromBlockNumber(lastKnownBlockNumber),
+        indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
+        number: lastKnownBlockNumber,
+      } as any);
 
       // Mock getL2Tips which is needed for syncing tagged logs
       const tipId = {

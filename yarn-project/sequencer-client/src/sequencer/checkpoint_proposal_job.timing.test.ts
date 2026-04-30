@@ -20,6 +20,7 @@ import type {
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { type CheckpointGlobalVariables, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import type {
@@ -223,6 +224,10 @@ describe('CheckpointProposalJob Timing Tests', () => {
   const version = Fr.ZERO;
   const coinbase = EthAddress.random();
   const gasFees = GasFees.empty();
+  const signatureContext: CoordinationSignatureContext = {
+    chainId: chainId.toNumber(),
+    rollupAddress: EthAddress.random(),
+  };
   const signer = Secp256k1Signer.random();
   const mockedSig = Signature.random();
   const committee = [signer.address];
@@ -309,6 +314,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
       blockSink,
       l1Constants,
+      signatureContext,
       config,
       timetable,
       slasherClient,
@@ -1054,6 +1060,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
         checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
         blockSink,
         l1Constants,
+        signatureContext,
         config,
         pipeliningTimetable,
         slasherClient,

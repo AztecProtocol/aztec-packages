@@ -6,12 +6,13 @@ import { execFile as execFileCb } from 'child_process';
 import { rm } from 'fs/promises';
 import { promisify } from 'util';
 
-import { MAX_CONCURRENT, discoverArtifacts } from './profile_utils.js';
+import { type DiscoveredArtifact, MAX_CONCURRENT, discoverArtifacts } from './profile_utils.js';
 
 const execFile = promisify(execFileCb);
 
 interface GateCountResult {
   name: string;
+  type: DiscoveredArtifact['type'];
   gateCount: number;
 }
 
@@ -32,24 +33,39 @@ async function getGateCount(bb: string, artifactPath: string): Promise<number> {
 }
 
 /** Profiles all compiled artifacts in a target directory and prints gate counts. */
-export async function profileGates(targetDir: string, log: LogFn): Promise<void> {
+export async function profileGates(targetDir: string, json: boolean, log: LogFn): Promise<void> {
   const bb = process.env.BB ?? findBbBinary() ?? 'bb';
   const { artifacts, tmpDir } = await discoverArtifacts(targetDir);
 
   if (artifacts.length === 0) {
-    log('No artifacts found in target directory.');
+    if (json) {
+      log('[]');
+    } else {
+      log('No artifacts found in target directory.');
+    }
     return;
   }
 
   try {
     const results: GateCountResult[] = await asyncPool(MAX_CONCURRENT, artifacts, async artifact => ({
       name: artifact.name,
+      type: artifact.type,
       gateCount: await getGateCount(bb, artifact.filePath),
     }));
     results.sort((a, b) => a.name.localeCompare(b.name));
 
     if (results.length === 0) {
-      log('No constrained circuits found.');
+      if (json) {
+        log('[]');
+      } else {
+        log('No constrained circuits found.');
+      }
+      return;
+    }
+
+    if (json) {
+      const entries = results.map(r => ({ name: r.name, type: r.type, gates: r.gateCount }));
+      log(JSON.stringify(entries, null, 2));
       return;
     }
 
