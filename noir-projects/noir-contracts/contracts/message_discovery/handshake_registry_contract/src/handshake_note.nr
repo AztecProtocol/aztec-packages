@@ -4,37 +4,35 @@ use aztec::{
         address::AztecAddress,
         constants::DOM_SEP__HANDSHAKE_SECRET_HASH,
         hash::poseidon2_hash_with_separator,
+        point::Point,
         traits::{Deserialize, Packable, Serialize},
     },
 };
 
-/// A non-removable record of a handshake established by the note's owner (the sender).
+/// A record of a handshake established by the note's owner (the sender).
 ///
-/// Stored in [`crate::HandshakeRegistry`]'s `handshakes` set, keyed by sender. Holds the **hash** of the master shared
-/// secret rather than the secret itself: apps that later prove existence of this note which avoids ever exposing the master secret to app circuits.
-///
-/// The note is non-nullifiable. The registry currently never removes it.
-/// TODO: PXE adding non-nullifiable note handling.
+/// Stored in [`crate::HandshakeRegistry`]'s `handshakes` set. Holds the **hash** of the master shared secret.
+/// A contract that wants to use this handshake will later prove the note's existence and
+/// use the kernel key-validation mechanism to derive its own app-siloed secret from the master, so
+/// the master is never exposed to dependent contracts.
 #[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
 pub struct HandshakeNote {
-    /// Hash of the master shared secret. For non-interactive handshakes this is
-    /// `poseidon2_hash_with_separator([s_app], DOM_SEP__HANDSHAKE_SECRET_HASH)` where `s_app` is the app-siloed
-    /// ECDH shared secret between the sender's ephemeral key and the recipient.
+    /// Hash of the master shared secret: `poseidon2_hash_with_separator([S.x, S.y], DOM_SEP__HANDSHAKE_SECRET_HASH)`
+    /// over the raw ECDH point `S = eph_sk * recipient_address_point`.
     pub secret_hash: Field,
-    /// One of [`crate::NON_INTERACTIVE_HANDSHAKE`] or [`crate::INTERACTIVE_HANDSHAKE`]. Stored to let downstream
-    /// tag-derivation code constrain the kind of handshake the app permits.
+    /// Stored so contracts can constrain the kind of handshake they accept (e.g. an app may want to require interactive handshakes only).
     pub handshake_type: u8,
-    /// The recipient this handshake authorizes. Part of the note preimage so apps proving existence of the note
-    /// (via [`crate::HandshakeRegistry::assert_handshake_exists`]) bind the proof to a specific recipient.
+    /// The recipient this handshake authorizes. Part of the note preimage so a contract proving note
+    /// existence can bind the proof to the intended recipient.
     pub recipient: AztecAddress,
 }
 
 impl HandshakeNote {
-    pub fn new(shared_secret: Field, handshake_type: u8, recipient: AztecAddress) -> Self {
+    pub fn new(shared_secret: Point, handshake_type: u8, recipient: AztecAddress) -> Self {
         Self {
             secret_hash: poseidon2_hash_with_separator(
-                [shared_secret],
+                [shared_secret.x, shared_secret.y],
                 DOM_SEP__HANDSHAKE_SECRET_HASH,
             ),
             handshake_type,
