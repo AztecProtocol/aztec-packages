@@ -18,6 +18,7 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
     let recipient = env.create_light_account();
 
     let registry_address = env.deploy("HandshakeRegistry").without_initializer();
+    let x = HandshakeRegistry::at(registry_address);
 
     (env, registry_address, sender, other_sender, recipient)
 }
@@ -138,6 +139,37 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
     assert(
         eph_pk_x_0 != eph_pk_x_1,
         "ephemeral keys should differ in handshakes from different senders",
+    );
+}
+
+#[test]
+unconstrained fn duplicate_handshake_accumulates_distinct_secrets() {
+    // Two handshakes from the same sender to the same `(recipient, type)` are not deduplicated.
+    // Each call generates a fresh ephemeral key, so the registry accumulates distinct notes and emits
+    // distinct logs under the recipient's tag.
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    env.call_private(sender, registry.non_interactive_handshake(recipient));
+    env.call_private(sender, registry.non_interactive_handshake(recipient));
+
+    let raw_tag = compute_log_tag(
+        recipient.to_field(),
+        DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
+    );
+    let logs = env.private_logs_by_tag(raw_tag, registry_address);
+    assert_eq(logs.len(), 2);
+    assert(
+        logs.get(0).get(1) != logs.get(1).get(1),
+        "ephemeral keys should differ across repeated handshakes",
+    );
+
+    // `get_handshake` returns the first match by view order
+    assert(
+        env
+            .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
+            .is_some(),
+        "get_handshake should still return a note when duplicates exist",
     );
 }
 
