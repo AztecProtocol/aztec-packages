@@ -18,15 +18,15 @@ describe('NoteStore schema compatibility', () => {
 
       const jobId = 'fixture-job';
 
-      // Two contracts so `note_nullifiers_by_contract` exhibits both a multi-value row (contractA → {n1, n2})
-      // and a single-value row (contractB → {n3}).
+      // Two contracts so `note_nullifiers_by_contract` exhibits both a multi-value row (contractA → {n1, n2}) and a
+      // single-value row (contractB → {n3}).
       const contractA = AztecAddress.fromBigInt(2n);
       const contractB = AztecAddress.fromBigInt(3n);
       const scopeX = AztecAddress.fromBigInt(5n);
       const scopeY = AztecAddress.fromBigInt(7n);
 
-      // note1: active, will be added under two scopes to exercise the multi-element scopes vector encoding
-      // in `StoredNote.toBuffer`.
+      // note1: active, will be added under two scopes to exercise the multi-element scopes vector encoding in
+      // `StoredNote.toBuffer`.
       const note1 = new NoteDao(
         new Note([new Fr(13n), new Fr(17n), new Fr(19n)]),
         contractA,
@@ -60,8 +60,8 @@ describe('NoteStore schema compatibility', () => {
         137,
       );
 
-      // note3: different contract; will be nullified to populate `note_block_number_to_nullifier` and
-      // exercise the populated `_nullifiedAt` trailer of `StoredNote.toBuffer`.
+      // note3: different contract; will be nullified to populate `note_block_number_to_nullifier` and exercise the
+      // populated `_nullifiedAt` trailer of `StoredNote.toBuffer`.
       const note3 = new NoteDao(
         new Note([new Fr(139n), new Fr(149n), new Fr(151n)]),
         contractB,
@@ -78,16 +78,16 @@ describe('NoteStore schema compatibility', () => {
         211,
       );
 
-      // Adding note1 twice with different scopes triggers `addScope` on the staged StoredNote, producing a
-      // 2-element scope vector in the committed buffer.
+      // Adding note1 twice with different scopes triggers `addScope` on the staged StoredNote, producing a 2-element
+      // scope vector in the committed buffer.
       await noteStore.addNotes([note1], scopeX, jobId);
       await noteStore.addNotes([note1], scopeY, jobId);
       await noteStore.addNotes([note2], scopeX, jobId);
       await noteStore.addNotes([note3], scopeX, jobId);
 
-      // Nullify note3 within the same job. `applyNullifiers` reads the staged StoredNote, sets `_nullifiedAt`,
-      // and writes back to the staged map; `commit` then flushes it to disk with the populated trailer and
-      // adds the corresponding `note_block_number_to_nullifier` entry.
+      // Nullify note3 within the same job. `applyNullifiers` reads the staged StoredNote, sets `_nullifiedAt`, and
+      // writes back to the staged map; `commit` then flushes it to disk with the populated trailer and adds the
+      // corresponding `note_block_number_to_nullifier` entry.
       await noteStore.applyNullifiers(
         [{ data: note3.siloedNullifier, l2BlockNumber: BlockNumber(223), l2BlockHash: BlockHash.ZERO }],
         jobId,
