@@ -206,6 +206,18 @@ spec:
         - name: PROVER_ID
           value: {{ .Values.node.coinbase | quote }}
         {{- end }}
+        {{- /*
+          Per-release env vars set via Terraform `set` blocks (deploy-time
+          computed values: PUBLISHER_KEY_INDEX_START, VALIDATOR_HA_*, etc.)
+          flow through .Values.node.env. These are inline (not via the env
+          ConfigMap) so per-release computed values can differ across
+          validators-* / validators-ha-N releases without colliding on a
+          shared ConfigMap name.
+        */}}
+        {{- range $key, $value := .Values.node.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
       ports:
         - containerPort: {{ .Values.service.rpc.port }}
           name: rpc
