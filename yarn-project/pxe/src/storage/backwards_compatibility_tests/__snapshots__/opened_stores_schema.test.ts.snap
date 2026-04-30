@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
-exports[`PXE schema compatibility matches snapshot of collection of stores opened by PXE 1`] = `
+exports[`Opened stores schema compatibility matches snapshot of collection of stores opened by PXE 1`] = `
 {
   "schemaVersion": 5,
   "stores": [
