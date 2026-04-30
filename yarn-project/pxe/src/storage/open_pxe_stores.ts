@@ -11,10 +11,7 @@ import { PrivateEventStore } from './private_event_store/private_event_store.js'
 import { RecipientTaggingStore, SenderAddressBookStore, SenderTaggingStore } from './tagging_store/index.js';
 
 /**
- * The set of sub-stores opened against a single `AztecAsyncKVStore` to back PXE state. The shape of
- * this record is the on-disk schema surface that the schema-compatibility test (`schema_compatibility.test.ts`)
- * fingerprints. Adding, removing, or renaming a field here is a schema change and requires a bump to
- * `PXE_DATA_SCHEMA_VERSION`.
+ * The set of sub-stores opened against a single `AztecAsyncKVStore` to back PXE state.
  */
 export type PxeStores = {
   addressStore: AddressStore;
@@ -31,9 +28,7 @@ export type PxeStores = {
 };
 
 /**
- * Opens every PXE sub-store against the given backing store. This is the single point at which PXE
- * decides which named KV stores it owns; both `PXE.create` and the schema-compatibility test call it,
- * so the test cannot drift from production.
+ * Opens every PXE sub-store against the given backing store.
  */
 export function openPxeStores(store: AztecAsyncKVStore): PxeStores {
   return {
