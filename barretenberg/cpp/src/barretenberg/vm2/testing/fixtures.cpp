@@ -163,6 +163,7 @@ ContractInstance random_contract_instance()
                                   .current_contract_class_id = FF::random_element(),
                                   .original_contract_class_id = FF::random_element(),
                                   .initialization_hash = FF::random_element(),
+                                  .immutables_hash = FF::random_element(),
                                   .public_keys = PublicKeys{
                                       .nullifier_key = AffinePoint::random_element(),
                                       .incoming_viewing_key = AffinePoint::random_element(),

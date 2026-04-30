@@ -93,6 +93,7 @@ async function computeContractData(artifact: NoirCompiledContract, deployer: Azt
     currentContractClassId: contractClass.id,
     originalContractClassId: contractClass.id,
     initializationHash,
+    immutablesHash: Fr.ZERO, // Protocol Contracts Have No Immutables
     publicKeys: PublicKeys.default(),
     salt,
     deployer,

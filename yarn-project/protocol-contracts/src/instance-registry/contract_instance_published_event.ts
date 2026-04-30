@@ -59,6 +59,7 @@ export class ContractInstancePublishedEvent {
       publicKeys: this.publicKeys,
       salt: this.salt,
       deployer: this.deployer,
+      immutablesHash: Fr.zero(),
     };
   }
 

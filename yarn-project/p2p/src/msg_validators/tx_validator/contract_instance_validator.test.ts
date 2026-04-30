@@ -47,6 +47,7 @@ describe('ContractInstanceTxValidator', () => {
       currentContractClassId: contractClassId,
       originalContractClassId: contractClassId,
       initializationHash,
+      immutablesHash: Fr.ZERO,
       publicKeys,
       deployer,
     };

@@ -142,6 +142,7 @@ describe('WalletSchema', () => {
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: PublicKeys.default(),
     };
     const result = await context.client.registerContract(mockInstance, mockArtifact, Fr.random());
@@ -328,6 +329,7 @@ describe('WalletSchema', () => {
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: PublicKeys.default(),
     };
 
@@ -458,6 +460,7 @@ class MockWallet implements Wallet {
       currentContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       originalContractClassId: Fr.random(),
       publicKeys: await PublicKeys.random(),
       salt: Fr.random(),

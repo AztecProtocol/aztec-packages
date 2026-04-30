@@ -64,6 +64,7 @@ describe('ContractAddress', () => {
     const salt = new Fr(3n);
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
+    const immutablesHash = new Fr(6n);
     const deployer = AztecAddress.fromField(new Fr(7));
     const publicKeys = (await deriveKeys(secretKey)).publicKeys;
     const instance = {
@@ -73,6 +74,7 @@ describe('ContractAddress', () => {
       currentContractClassId: contractClassId,
       initializationHash,
       deployer,
+      immutablesHash,
       version: 1 as const,
     };
 

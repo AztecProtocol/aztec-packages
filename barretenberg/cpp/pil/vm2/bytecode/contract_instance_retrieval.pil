@@ -53,7 +53,8 @@ include "update_check.pil";
  *         caller.exists,
  *         caller.deployer_addr,   // situational - only if caller needs it
  *         caller.current_class_id,
- *         caller.init_hash        // situational - only if caller needs it
+ *         caller.init_hash,       // situational - only if caller needs it
+ *         caller.immutables_hash  // situational - only if caller needs it
  *     } in contract_instance_retrieval.sel {
  *         contract_instance_retrieval.address,
  *         contract_instance_retrieval.nullifier_tree_root,
@@ -61,10 +62,11 @@ include "update_check.pil";
  *         contract_instance_retrieval.exists,
  *         contract_instance_retrieval.deployer_addr,
  *         contract_instance_retrieval.current_class_id,
- *         contract_instance_retrieval.init_hash
+ *         contract_instance_retrieval.init_hash,
+ *         contract_instance_retrieval.immutables_hash
  *     };
  *
- *     Situational columns (deployer_addr, init_hash) can be omitted if the caller doesn't need
+ *     Situational columns (deployer_addr, init_hash, immutables_hash) can be omitted if the caller doesn't need
  *     them. When omitted, they are only hinted for address derivation. This is secure because
  *     incorrect values would break derivation of the given address.
  *
@@ -103,6 +105,7 @@ namespace contract_instance_retrieval;
     pol commit current_class_id;
     pol commit original_class_id; // HINTED!
     pol commit init_hash;
+    pol commit immutables_hash;
 
     // Current state — these should be looked up and constrained by the caller.
     pol commit nullifier_tree_root;
@@ -242,6 +245,8 @@ namespace contract_instance_retrieval;
     sel * (1 - exists) * original_class_id = 0; // technically not needed since original_class_id is hinted, but good for consistency
     #[INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE]
     sel * (1 - exists) * init_hash = 0;
+    #[INSTANCE_MEMBER_IMMUTABLES_HASH_IS_ZERO_IF_DNE]
+    sel * (1 - exists) * immutables_hash = 0;
 
     // Address derivation lookup (only if the nullifier exists or for protocol contract instances).
     #[ADDRESS_DERIVATION]

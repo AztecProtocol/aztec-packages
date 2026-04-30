@@ -121,6 +121,7 @@ describe('Private Kernel Sequencer', () => {
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       address: await AztecAddress.random(),
       saltedInitializationHash: Fr.random(),

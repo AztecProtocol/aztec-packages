@@ -1240,6 +1240,7 @@ export async function makeContractInstanceFromClassId(
   overrides?: {
     deployer?: AztecAddress;
     initializationHash?: Fr;
+    immutablesHash?: Fr;
     publicKeys?: PublicKeys;
     currentClassId?: Fr;
   },
@@ -1248,6 +1249,7 @@ export async function makeContractInstanceFromClassId(
   const initializationHash = overrides?.initializationHash ?? new Fr(seed + 1);
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
   const publicKeys = overrides?.publicKeys ?? (await makePublicKeys(seed + 3));
+  const immutablesHash = overrides?.immutablesHash ?? new Fr(seed + 4);
 
   const partialAddress = await computePartialAddress({
     originalContractClassId: classId,
@@ -1263,6 +1265,7 @@ export async function makeContractInstanceFromClassId(
     currentContractClassId: overrides?.currentClassId ?? classId,
     originalContractClassId: classId,
     initializationHash,
+    immutablesHash,
     publicKeys,
   }).withAddress(address);
 }
@@ -1440,6 +1443,7 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
     new Fr(seed + 0x4),
     new Fr(seed + 0x5),
     new Fr(seed + 0x6),
+    new Fr(seed + 0x7),
     new PublicKeys(
       new Point(new Fr(seed + 0x7), new Fr(seed + 0x8), false),
       new Point(new Fr(seed + 0x9), new Fr(seed + 0x10), false),

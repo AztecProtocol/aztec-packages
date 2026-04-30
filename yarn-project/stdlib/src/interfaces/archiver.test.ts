@@ -598,6 +598,7 @@ class MockArchiver implements ArchiverApi {
       originalContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       salt: Fr.random(),
       version: 1,

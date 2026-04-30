@@ -26,6 +26,8 @@ export interface ContractInstance {
   originalContractClassId: Fr;
   /** Hash of the selector and arguments to the constructor. */
   initializationHash: Fr;
+  /** Hash of Immutables Values the contract is deployed with. */
+  immutablesHash: Fr;
   /** Public keys associated with this instance. */
   publicKeys: PublicKeys;
 }
@@ -40,6 +42,7 @@ export const ContractInstanceSchema = zodFor<ContractInstance>()(
     currentContractClassId: schemas.Fr,
     originalContractClassId: schemas.Fr,
     initializationHash: schemas.Fr,
+    immutablesHash: schemas.Fr,
     publicKeys: PublicKeys.schema,
   }),
 );
@@ -60,6 +63,7 @@ export function contractInstanceFromPlainObject(obj: any): ContractInstance {
     currentContractClassId: Fr.fromPlainObject(obj.currentContractClassId),
     originalContractClassId: Fr.fromPlainObject(obj.originalContractClassId),
     initializationHash: Fr.fromPlainObject(obj.initializationHash),
+    immutablesHash: Fr.fromPlainObject(obj.immutablesHash),
     publicKeys: PublicKeys.fromPlainObject(obj.publicKeys),
   };
 }

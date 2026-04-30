@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
@@ -38,6 +39,7 @@ export function makeProtocolContract(name: ProtocolContractName, artifact: Contr
     currentContractClassId: classId,
     originalContractClassId: classId,
     initializationHash,
+    immutablesHash: Fr.ZERO, // Protocol Contracts Have No Immutables
     publicKeys: PublicKeys.default(),
     salt,
     deployer: address,

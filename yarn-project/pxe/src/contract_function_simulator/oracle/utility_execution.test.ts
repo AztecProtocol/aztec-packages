@@ -156,6 +156,7 @@ describe('Utility Execution test suite', () => {
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
     };
     const contractAddress = await computeContractAddressFromInstance(instanceFields);
@@ -248,6 +249,7 @@ describe('Utility Execution test suite', () => {
       currentContractClassId: new Fr(42),
       originalContractClassId: new Fr(42),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
     };
     const contractAddress = await computeContractAddressFromInstance(instanceFields);

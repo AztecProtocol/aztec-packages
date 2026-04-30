@@ -38,6 +38,7 @@ export class SerializableContractInstance {
   public readonly currentContractClassId: Fr;
   public readonly originalContractClassId: Fr;
   public readonly initializationHash: Fr;
+  public readonly immutablesHash: Fr;
   public readonly publicKeys: PublicKeys;
 
   constructor(instance: ContractInstance) {
@@ -49,6 +50,7 @@ export class SerializableContractInstance {
     this.currentContractClassId = instance.currentContractClassId;
     this.originalContractClassId = instance.originalContractClassId;
     this.initializationHash = instance.initializationHash;
+    this.immutablesHash = instance.immutablesHash;
     this.publicKeys = instance.publicKeys;
   }
 
@@ -60,6 +62,7 @@ export class SerializableContractInstance {
       this.currentContractClassId,
       this.originalContractClassId,
       this.initializationHash,
+      this.immutablesHash,
       this.publicKeys,
     );
   }
@@ -78,6 +81,7 @@ export class SerializableContractInstance {
       currentContractClassId: reader.readObject(Fr),
       originalContractClassId: reader.readObject(Fr),
       initializationHash: reader.readObject(Fr),
+      immutablesHash: reader.readObject(Fr),
       publicKeys: reader.readObject(PublicKeys),
     });
   }
@@ -90,6 +94,7 @@ export class SerializableContractInstance {
       currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
+      immutablesHash: Fr.random(),
       publicKeys: await PublicKeys.random(),
       ...opts,
     });
@@ -103,6 +108,7 @@ export class SerializableContractInstance {
       currentContractClassId: Fr.zero(),
       originalContractClassId: Fr.zero(),
       initializationHash: Fr.zero(),
+      immutablesHash: Fr.zero(),
       publicKeys: PublicKeys.default(),
     });
   }
@@ -135,6 +141,7 @@ export async function getContractInstanceFromInstantiationParams(
     currentContractClassId: contractClass.id,
     originalContractClassId: contractClass.id,
     initializationHash,
+    immutablesHash: Fr.ZERO, // Default to zero until immutables exposed in ContractInstantiationData
     publicKeys,
     salt: opts.salt,
     deployer,

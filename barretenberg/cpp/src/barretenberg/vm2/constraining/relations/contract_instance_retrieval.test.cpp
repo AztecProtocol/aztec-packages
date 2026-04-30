@@ -45,6 +45,7 @@ ContractInstance create_test_contract_instance(uint32_t salt_value = 123)
         .current_contract_class_id = FF(0xdeadbeefULL),
         .original_contract_class_id = FF(0xcafebabeULL),
         .initialization_hash = FF(0x11111111ULL),
+        .immutables_hash = FF(0x22222222ULL),
         .public_keys =
             PublicKeys{
                 .nullifier_key = { FF(0x100), FF(0x101) },
@@ -72,6 +73,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, CompleteValidTrace)
     const auto current_class_id = FF(0xdeadbeefULL);
     const auto original_class_id = FF(0xcafebabeULL);
     const auto init_hash = FF(0x11111111ULL);
+    const auto immutables_hash = FF(0x22222222ULL);
     const auto nullifier_key_x = FF(0x100);
     const auto nullifier_key_y = FF(0x101);
     const auto incoming_viewing_key_x = FF(0x200);
@@ -92,6 +94,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, CompleteValidTrace)
           { C::contract_instance_retrieval_current_class_id, current_class_id },
           { C::contract_instance_retrieval_original_class_id, original_class_id },
           { C::contract_instance_retrieval_init_hash, init_hash },
+          { C::contract_instance_retrieval_immutables_hash, immutables_hash },
           { C::contract_instance_retrieval_public_data_tree_root, public_data_tree_root },
           { C::contract_instance_retrieval_nullifier_tree_root, nullifier_tree_root },
           { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
@@ -147,6 +150,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, MultipleInstancesTrace)
             { C::contract_instance_retrieval_current_class_id, contract_instance.current_contract_class_id },
             { C::contract_instance_retrieval_original_class_id, contract_instance.original_contract_class_id },
             { C::contract_instance_retrieval_init_hash, contract_instance.initialization_hash },
+            { C::contract_instance_retrieval_immutables_hash, contract_instance.immutables_hash },
             { C::contract_instance_retrieval_public_data_tree_root, FF(base_public_data_tree_root + i) },
             { C::contract_instance_retrieval_nullifier_tree_root, FF(base_nullifier_tree_root + i) },
             { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
@@ -199,6 +203,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, NonExistentInstanceTrace)
           { C::contract_instance_retrieval_current_class_id, 0 },
           { C::contract_instance_retrieval_original_class_id, 0 },
           { C::contract_instance_retrieval_init_hash, 0 },
+          { C::contract_instance_retrieval_immutables_hash, 0 },
           { C::contract_instance_retrieval_public_data_tree_root, public_data_tree_root },
           { C::contract_instance_retrieval_nullifier_tree_root, nullifier_tree_root },
           { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },
@@ -242,6 +247,12 @@ TEST(ContractInstanceRetrievalConstrainingTest, NonExistentInstanceTrace)
                               "INSTANCE_MEMBER_INIT_HASH_IS_ZERO_IF_DNE");
     // reset
     trace.set(C::contract_instance_retrieval_init_hash, 1, 0);
+    // mutate immutables_hash
+    trace.set(C::contract_instance_retrieval_immutables_hash, 1, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<contract_instance_retrieval>(trace),
+                              "INSTANCE_MEMBER_IMMUTABLES_HASH_IS_ZERO_IF_DNE");
+    // reset
+    trace.set(C::contract_instance_retrieval_immutables_hash, 1, 0);
 }
 
 TEST(ContractInstanceRetrievalConstrainingTest, MaximumFieldValuesTrace)
@@ -260,6 +271,7 @@ TEST(ContractInstanceRetrievalConstrainingTest, MaximumFieldValuesTrace)
           { C::contract_instance_retrieval_current_class_id, max_field },
           { C::contract_instance_retrieval_original_class_id, max_field },
           { C::contract_instance_retrieval_init_hash, max_field },
+          { C::contract_instance_retrieval_immutables_hash, max_field },
           { C::contract_instance_retrieval_public_data_tree_root, max_field },
           { C::contract_instance_retrieval_nullifier_tree_root, max_field },
           { C::contract_instance_retrieval_nullifier_tree_height, NULLIFIER_TREE_HEIGHT },

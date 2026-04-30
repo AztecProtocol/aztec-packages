@@ -216,6 +216,7 @@ export class Oracle {
       instance.deployer,
       instance.currentContractClassId,
       instance.initializationHash,
+      instance.immutablesHash,
       ...instance.publicKeys.toFields(),
     ].map(toACVMField);
   }
