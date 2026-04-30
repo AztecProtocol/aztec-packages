@@ -68,8 +68,10 @@ The nullifier hiding key (`nhk`) — sometimes referred to in older documentatio
 To get the owner's master nullifier public key hash (needed as input):
 
 ```rust
-let owner_npk_m_hash = get_public_keys(owner).npk_m.hash();
+let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
 ```
+
+`PublicKeys` exposes the nullifier, outgoing-viewing, and tagging keys directly as their hashes; only `ivpk_m` is held as a Grumpkin point (it is required as a point for address derivation and encrypt-to-address).
 
 :::warning
 Do not compute nullifier keys by hand or derive custom blinding factors. The protocol kernel validates that `nhk_app` derives correctly from the master key — a hand-rolled value will fail verification.
