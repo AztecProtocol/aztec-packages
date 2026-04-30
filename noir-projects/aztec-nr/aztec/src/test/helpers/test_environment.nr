@@ -998,7 +998,8 @@ impl TestEnvironment {
         // `MessageContext`, and might contain information about data (e.g. notes, events) contained in the message. In
         // a real contract this data would have either been supplied by the `process_message` caller, of retrieved
         // along with the message from a tagged log.
-        let (tx_hash, unique_note_hashes_in_tx, nullifiers_in_tx) = txe_oracles::get_last_tx_effects();
+        let (tx_hash, unique_note_hashes_in_tx, nullifiers_in_tx, _private_logs_in_tx) =
+            txe_oracles::get_last_tx_effects();
 
         // Real messages would also have a recipient, a concept which is currently half-supported in `TestEnvironment`
         // as events are properly scoped by recipient, but notes use a global scope instead. We therefore simply set

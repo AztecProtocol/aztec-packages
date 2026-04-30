@@ -1,3 +1,5 @@
+mod test;
+
 use aztec::macros::aztec;
 
 #[aztec]
@@ -39,6 +41,12 @@ pub contract TestLog {
     #[storage]
     struct Storage<Context> {
         example_set: Owned<PrivateSet<FieldNote, Context>, Context>,
+    }
+
+    /// Emits a single private log with the given raw tag and a one-field payload.
+    #[external("private")]
+    fn emit_raw_private_log(tag: Field, payload: Field) {
+        self.context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array([payload]));
     }
 
     #[external("private")]
