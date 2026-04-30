@@ -1,5 +1,4 @@
-
-#  stdlib Poseidon2 Hash Implementation
+# stdlib Poseidon2 Hash Implementation
 
 Poseidon2 is a **SNARK-friendly cryptographic hash** designed to be efficient inside prime-field arithmetic circuits.
 It follows the [Poseidon2 paper](https://eprint.iacr.org/2023/323.pdf) and refines the original Poseidon hash.
@@ -7,162 +6,385 @@ It follows the [Poseidon2 paper](https://eprint.iacr.org/2023/323.pdf) and refin
 This implementation includes:
 
 - A **sponge construction** over the BN254 scalar field following the (draft) C2SP Poseidon Sponge spec based on the [Duplex Sponge model](https://keccak.team/files/SpongeDuplex.pdf).
-- The **Poseidon2 permutation**, i.e.\ the round function used by the sponge.
+- The **Poseidon2 permutation**, i.e. the round function used by the sponge.
 - **Circuit custom gate relations** that enforce the permutation’s correctness.
 
 
 ## The Sponge Construction
 
-The sponge absorbs input elements into an internal state, applies permutations, and squeezes output elements.
+The sponge absorbs input elements into an internal state, applies permutations, and squeezes
+output elements.
 
-#### Sponge constants.
- - **State size (t)**:  4 field elements
- - **Rate (r)**:  3 elements
- - **Capacity (c)**:  1 element
+| Parameter | Value |
+|-----------|-------|
+| State size | $t = 4$ field elements |
+| Rate | $r = 3$ field elements |
+| Capacity | $c = 1$ field element |
+| Domain separator | $\mathrm{IV} = \texttt{input\_length}^{64}$ |
 
+Let the input be:
 
-### Details
+$$
+\mathbf{a} = (a_0, a_1, \ldots, a_{N-1})
+$$
 
-Let the input be
-\f[
-\mathbf{a} = (a_0, a_1, \dots, a_{N-1}).
-\f]
-Partition it into blocks of size \f$r=3\f$:
-\f[
-B_j = (a_{3j},, a_{3j+1},, a_{3j+2}) \quad\text{(pad missing entries with  0)},\qquad
-m = \left\lceil \frac{N}{3}\right\rceil .
-\f]
+Partition it into rate-sized blocks:
 
-### Padding
-In Poseidon paper, the padding scheme for variable input length hashing suggests padding with \f$ 10^\ast\f$.
+$$
+B_j = (a_{3j}, a_{3j+1}, a_{3j+2}), \qquad
+m = \left\lceil \frac{N}{3}\right\rceil
+$$
 
-"Domain Separation for Poseidon" section (see 4.2 in [Poseidon](https://eprint.iacr.org/2019/458.pdf)) suggests using domain separation IV defined as follows
-\f[
-    \mathrm{IV} = (\texttt{input_length}^{64})
-\f]
-Initialize the state:
-\f[
-    \mathbf{s}^{(0)} = (0,0,0,\mathrm{IV}).
-\f]
+Missing entries in the final block are padded with $0$. This is safe for the variable-length
+sponge because the input length is part of the domain separator. The initial state is:
 
-Since we only use Poseidon2 sponge with variable length inputs and the length is a part of domain separation, we can pad the inputs with \f$ 0^\ast \f$, which would not lead to collisions (tested \ref  StdlibPoseidon2< Builder >::test_padding_collisions "here").
+$$
+\mathbf{s}^{(0)} = (0, 0, 0, \mathrm{IV})
+$$
 
-Note that we initialize \f$ \mathrm{IV} \f$ as a fixed witness. It ensures that the first invocation of the Poseidon2 permutation leads to a state where all entries are **normalized** witnesses, i.e. they have `multiplicative_constant` equal 1, and `additive_constant` equal 0.
+For each block $j = 0, \ldots, m - 1$:
 
-#### Absorb phase
+$$
+\mathbf{s}^{(j+1)} = P\left(\mathbf{s}^{(j)} + (B_j, 0)\right)
+$$
 
-For each block \f$j=0,\dots,m-1\f$,
-\f[
-\mathbf{s}^{(j+1)} = P\left(\mathbf{s}^{(j)} + (B_j,0)\right),
-\f]
-where \f$P\f$ is the Poseidon2 permutation and \f$(B_j,0)\f$ is an array of size \f$ 4 \f$ with \f$r\f$ state elements and a \f$0\f$ capacity limb.
+where $P$ is the Poseidon2 permutation. The single-output squeeze is:
 
-#### Squeeze (single output)
+$$
+y_0 = \left(P(\mathbf{s}^{(m)})\right)_0
+$$
 
-After absorption, produce one output field element via one duplex step:
-\f[
-y_0 = \big(P(\mathbf{s}^{(m)})\big)_0.
-\f]
+The IV is created as a fixed witness so the first permutation starts from normalized stdlib
+field values.
 
 ## The Poseidon2 Permutation
 
-Each Ultra permutation consists of:
+The mathematical permutation is identical in Ultra and Mega. The difference is only how the
+permutation is encoded in the trace.
 
-1. **Initial linear layer**: multiply state by external matrix \f$M_E\f$. Corresponds to  \ref bb::stdlib::Poseidon2Permutation< Builder >::matrix_multiplication_external	 "matrix_multiplication_external" method.
-2. **4 External rounds (full S-box)**:
-   - Record the state and the correspoding round constants \f$ c_{0}^{(i)} \f$ into a \ref bb::UltraCircuitBuilder_< FF >::create_poseidon2_external_gate "Poseidon2 External Gate".
-   - _Natively_ compute the next state.
-   - Re-write the state with the new witnesses.
-   - After the final round, \ref bb::stdlib::Poseidon2Permutation< Builder >::record_current_state_into_next_row "record the computed state" in the next row of the Poseidon2 **external** gates block,
-   as it is required for the custom gate relation.
-3. **56 Internal rounds (partial S-box)**:
-   - Record the state and the correspoding round constants \f$ c_{0}^{(i)} \f$ into a \ref bb::UltraCircuitBuilder_< FF >::create_poseidon2_internal_gate "Poseidon2 Internal Gate".
-   - _Natively_ compute the next state.
-   - Re-write the state with the new witnesses.
-   - After the final round, \ref bb::stdlib::Poseidon2Permutation< Builder >::record_current_state_into_next_row "record the computed state" in the next row of the Poseidon2 **internal** gates block,
-4. **Final external rounds** (same as step 2).
+```text
+input state
+    |
+    v
+initial external linear layer M_E
+    |
+    v
+4 external rounds  : full S-box on all 4 limbs, then M_E
+    |
+    v
+56 internal rounds : S-box only on state[0], then M_I
+    |
+    v
+4 external rounds  : full S-box on all 4 limbs, then M_E
+    |
+    v
+output state
+```
 
-For Ultra, step 1 requires 6 arithmetic gates and steps 2-4 create total number of rounds + 3 gates. Hence a single invocation of Poseidon2 Permutation results in 73 gates.
+External matrix:
 
-Mega uses the same mathematical permutation but a more compact trace layout:
+```text
+M_E = [ 5 7 1 3 ]
+      [ 4 6 1 1 ]
+      [ 1 3 5 7 ]
+      [ 1 1 4 6 ]
+```
 
-1. The initial external linear layer is enforced by a dedicated `q_poseidon2_external_initial` row instead of 6 arithmetic rows.
-2. The first 4 external rounds use the standard Poseidon2 external relation plus one propagate row.
-3. The 56 internal rounds are packed into a K=4 compressed block: one entry row, 13 interior rows, one terminal row, and one standard-encoding bridge row.
-4. The final 4 external rounds use the standard Poseidon2 external relation plus one propagate row.
+Internal matrix:
 
-This gives 27 rows per Mega permutation. A stdlib hash that starts from the sponge IV has one additional fixed-witness row outside the permutation.
+```text
+M_I = [ D1 1  1  1  ]
+      [ 1  D2 1  1  ]
+      [ 1  1  D3 1  ]
+      [ 1  1  1  D4 ]
+```
 
-### External Matrix
-As proposed in Section 5.1 of [Poseidon2 paper](https://eprint.iacr.org/2023/323.pdf), we set
-\f[
-M_E =
-    \begin{bmatrix}
-    5 & 7 & 1 & 3 \\
-    4 & 6 & 1 & 1 \\
-    1 & 3 & 5 & 7 \\
-    1 & 1 & 4 & 6
-    \end{bmatrix}
-\f]
+The code stores `internal_matrix_diagonal_minus_one[i] = D_i - 1`, because multiplication is
+implemented as `(D_i - 1) * x_i + sum(x)`.
 
+The constants are generated from the Sage script authored by Markus Schofnegger in the Horizen
+Labs Poseidon2 parameter tooling. With `R_P = 56`, `R_F = 8`, `d = 5`, and a 254-bit scalar
+field, the parameter set targets 128-bit security.
 
-### Internal Matrix
+## Trace Layouts
 
-\f[
-M_I =
-    \begin{bmatrix}
-    D_1 & 1   & 1   & 1 \\
-    1   & D_2 & 1   & 1 \\
-    1   & 1   & D_3 & 1 \\
-    1   & 1   & 1   & D_4
-    \end{bmatrix}
-\f]
+Ultra uses the direct layout: one row per internal round, and six arithmetic rows for the
+initial external linear layer.
 
-**Implementation note:** The code stores `internal_matrix_diagonal_minus_one[i] = D_i - 1` (not the actual diagonal values \f$D_i\f$).
-This is because the algorithm computes \f$v_i = (D_i - 1) \cdot u_i + \text{sum}\f$ where \f$\text{sum} = u_1 + u_2 + u_3 + u_4\f$,
-which equals \f$D_i \cdot u_i + (\text{sum of other elements})\f$.
+```text
+Ultra permutation rows
 
-### Constants
+6  arithmetic rows                 initial M_E
+4  poseidon2_external rows          first external rounds
+1  poseidon2_external propagate
+56 poseidon2_internal rows          one partial round each
+1  poseidon2_internal propagate
+4  poseidon2_external rows          final external rounds
+1  poseidon2_external propagate
+--
+73 rows
+```
 
-The constants are generated using the sage [script authored by Markus Schofnegger](https://github.com/HorizenLabs/poseidon2/blob/main/poseidon2_rust_params.sage) from Horizen Labs.
+Mega keeps the same permutation but uses custom rows for the initial external linear layer and
+compresses all 56 internal rounds into K=4 rows.
 
-### Security Level
-Based on Section 3.2 of [Poseidon2 paper](https://eprint.iacr.org/2023/323.pdf).
+```text
+Mega permutation rows
 
-Given \f$ R_P = 56 \f$, \f$ R_F = 8\f$, \f$ d = 5\f$, \f$ \log_2(p)  \approx 254 \f$, we get \f$ 128 \f$ bits of security.
+1      poseidon2_external           q_poseidon2_external_initial
+4 + 1  poseidon2_external           first external rounds + propagate
+1      poseidon2_quad_internal      q_poseidon2_transition_entry
+13     poseidon2_quad_internal      q_poseidon2_quad_internal
+1      poseidon2_quad_internal      q_poseidon2_quad_internal_terminal
+1      poseidon2_quad_internal      unconstrained standard bridge
+4 + 1  poseidon2_external           final external rounds + propagate
+--
+27 rows
+```
 
-## Custom Gate Relations
+The stdlib hash also has one fixed-witness IV row outside the permutation when it starts from
+the sponge IV.
 
-For an external round with state \f$ \mathbf{u}=(u_1,u_2,u_3,u_4) \f$, define \f$ \mathbf{v}=M_E\cdot\mathbf{u}\f$.
-\ref bb::Poseidon2ExternalRelationImpl< FF_ > "Poseidon2 External Relation" enforces that the permuted values equal the values in the next row (accessed via shifts):
-\f[
-v_k = w_{k,\mathrm{shift}} \qquad \text{for } k \in \{1,2,3,4\}.
-\f]
+## Mega K=4 Internal Compression
 
-We encode four independent constraints under a selector \f$ q_{\mathrm{poseidon2_external}}\f$ and aggregate them with
-independent challenges \f$ \alpha_i = \alpha_{i, Poseidon2_ext}\f$ from `SubrelationSeparators`:
-\f[
-q_{\mathrm{poseidon2_external}}\cdot
-\Big(
-\alpha_0\big(v_1 - w_{1,\mathrm{shift}}\big) +
-\alpha_1\big(v_2 - w_{2,\mathrm{shift}}\big) +
-\alpha_2\big(v_3 - w_{3,\mathrm{shift}}\big) +
-\alpha_3\big(v_4 - w_{4,\mathrm{shift}}\big)
-\Big) = 0.
-\f]
-To ensure that the relation holds point-wise on the hypercube, the equation above is also multiplied by the appropriate
-scaling factor arising from \ref bb::GateSeparatorPolynomial< FF > "GateSeparatorPolynomial".
+Poseidon2 internal rounds are special because only `state[0]` passes through an S-box. The other
+three limbs evolve linearly. Mega exploits this by committing four consecutive `state[0]` values
+per row instead of committing the full state for every internal round.
 
-For Ultra, \ref bb::Poseidon2InternalRelationImpl< FF_ > "Internal rounds" follow the same pattern, using \f$ M_I \f$ and the partial S-box on the first element.
+For a quad row that starts at internal round `4i`:
 
-Mega replaces the 56 single-round internal rows with the K=4 compressed relations documented in `relations/poseidon2_quad_internal_round.md`: `Poseidon2TransitionEntryRelationImpl`, `Poseidon2QuadInternalRelationImpl`, and `Poseidon2QuadInternalTerminalRelationImpl`.
+| Wire | Meaning |
+|------|---------|
+| `w_l` | `state[0]` at round `4i` |
+| `w_r` | `state[0]` at round `4i + 1` |
+| `w_o` | `state[0]` at round `4i + 2` |
+| `w_4` | `state[0]` at round `4i + 3` |
 
+The row selectors carry the current quad constants and, for interior rows, the next quad's first
+three constants:
 
-## Number of Gates
+| Selector | Value |
+|----------|-------|
+| `q_l` | `c_{4i}` |
+| `q_r` | `c_{4i+1}` |
+| `q_o` | `c_{4i+2}` |
+| `q_4` | `c_{4i+3}` |
+| `q_m` | `c_{4(i+1)}` |
+| `q_c` | `c_{4(i+1)+1}` |
+| `q_5` | `c_{4(i+1)+2}` |
 
-In Ultra, hashing a single field element costs \f$ 73 \f$ gates. As above, let \f$ N > 1\f$ be the input size. Define \f$ m = \lceil N/3 \rceil \f$ and let \f$ N_3 = N\pmod{3} \f$. The number of gates depends on the number of padded fields equal to \f$ N_3 \f$. If \f$ N_3 =  0\f$, we get
-\f[ 1 +  73\cdot m + 3\cdot (m - 1) \f]
-gates, otherwise we get
-\f[ 1 +  73\cdot m + 3\cdot (m - 2)  + N_3.\f]
+The compression picture is:
 
-According to TACEO blog post [Poseidon{2} for Noir](https://core.taceo.io/articles/poseidon2-for-noir/), a single permutation cost for \f$ t = 4 \f$ implemented without Poseidon2 custom gates is \f$ 2313 \f$ gates.
+```text
+standard state before internal rounds
+    (s0, s1, s2, s3)
+       |
+       | q_poseidon2_transition_entry
+       v
+first quad row
+    (s0^0, s0^1, s0^2, s0^3)
+       |
+       | 13 q_poseidon2_quad_internal rows
+       v
+terminal quad row
+    (s0^52, s0^53, s0^54, s0^55)
+       |
+       | q_poseidon2_quad_internal_terminal
+       v
+standard bridge row
+    (s0^56, s1^56, s2^56, s3^56)
+       |
+       v
+final external rounds
+```
+
+## Algebra Inside A Quad Row
+
+Let a quad row start from `(s0, s1, s2, s3)`, and let:
+
+```text
+u_k = (s0^(k) + c_{4i+k})^5
+```
+
+The first row of `M_I` gives:
+
+```text
+s0^(k+1) = D1 * u_k + s1^(k) + s2^(k) + s3^(k)
+```
+
+The lower three limbs are linear. Applying the recurrence three times gives a 3 by 3
+Vandermonde system:
+
+```text
+[ 1    1    1   ] [s1]   [b1]
+[ D2   D3   D4  ] [s2] = [b2]
+[ D2^2 D3^2 D4^2] [s3]   [b3]
+```
+
+where:
+
+```text
+b1 = w_r - D1 * u_0
+b2 = w_o - 2*w_r + (2*D1 - 3)*u_0 - D1*u_1
+b3 = w_4 - w_o - (Sigma + 2)*w_r
+     + ((Sigma + 2)*D1 - Sigma - 3)*u_0
+     + (D1 - 3)*u_1 - D1*u_2
+Sigma = D2 + D3 + D4
+```
+
+The determinant is:
+
+```text
+(D3 - D2) * (D4 - D2) * (D4 - D3)
+```
+
+`poseidon2_quad_params.hpp` has `static_assert`s that `D2`, `D3`, and `D4` are pairwise
+distinct, so the system is invertible for the BN254 Poseidon2 parameters. The inverse
+coefficients are fixed constants.
+
+Degree stays bounded because each S-box is applied to a committed wire, not to an inlined
+degree-5 expression. The Vandermonde solve is linear in those S-box outputs. Each subrelation
+therefore has degree 5 before multiplying by its selector and gate separator, and partial
+length 7 after those factors.
+
+## Relations
+
+### Initial External
+
+`Poseidon2InitialExternalRelationImpl` constrains the Mega-only initial `M_E` multiplication in
+one row under `q_poseidon2_external_initial`. Ultra uses six arithmetic rows for the same layer.
+
+### External
+
+`Poseidon2ExternalRelationImpl` constrains each full external round. The row holds the current
+standard-encoded state. The relation applies full S-boxes, multiplies by `M_E`, and checks the
+result against the shifted row.
+
+### Entry
+
+`Poseidon2TransitionEntryRelationImpl` bridges from standard encoding to quad encoding.
+
+```text
+entry row                 first quad row
+(s0, s1, s2, s3)   --->   (s0^0, s0^1, s0^2, s0^3)
+```
+
+`s0^0` is copy-constrained to the entry row's `s0`. The relation has three subrelations that
+force `s0^1`, `s0^2`, and `s0^3`. Each uses the previous shifted wire as a degree firewall.
+
+### Interior Quad
+
+`Poseidon2QuadInternalRelationImpl` is active on the 13 non-terminal quad rows.
+
+```text
+current quad row                       next quad row
+(s0^k, s0^{k+1}, s0^{k+2}, s0^{k+3}) -> (s0^{k+4}, s0^{k+5}, s0^{k+6}, s0^{k+7})
+```
+
+The relation:
+
+1. Reconstructs the current hidden limbs `(s1, s2, s3)` from the current row.
+2. Applies four internal rounds.
+3. Fixes the next row's `w_l = s0^{k+4}`.
+4. Checks that the next row's hidden limbs implied by its own `state[0]` chain match the computed
+   output hidden limbs, using the next constants in `q_m`, `q_c`, and `q_5`.
+
+### Terminal Quad
+
+`Poseidon2QuadInternalTerminalRelationImpl` is active on the final quad row. It computes the
+last four internal rounds and pins the shifted standard bridge row:
+
+```text
+terminal quad row                  bridge row
+(s0^52, s0^53, s0^54, s0^55) --->  (s0^56, s1^56, s2^56, s3^56)
+```
+
+The bridge row is unconstrained by its own selector, but its wire witnesses are constrained by
+the terminal relation and then copy-constrained into the final external block.
+
+## Soundness Argument
+
+The proof obligation is: every accepting Mega trace describes the same 56 internal rounds as the
+direct standard encoding.
+
+```text
+external output
+   |
+   | entry relation + copy constraint
+   v
+quad row 0
+   |
+   | one-step lemma
+   v
+quad row 1
+   |
+   | repeated for rows 1..12
+   v
+quad row 13
+   |
+   | terminal relation + copy constraint
+   v
+final external input
+```
+
+The one-step lemma for an interior row is:
+
+1. The row's four `state[0]` values uniquely determine the hidden starting limbs because the
+   Vandermonde matrix is invertible.
+2. Four Poseidon2 internal rounds are deterministic once the full starting state is known.
+3. The first subrelation fixes the next row's first wire.
+4. The remaining subrelations force the next row's hidden limbs, equivalently forcing the next
+   row's remaining `state[0]` chain to be consistent with the computed output.
+
+The boundary cases close the induction:
+
+| Boundary | Why the prover has no freedom |
+|----------|-------------------------------|
+| External -> entry | Standard state wires are copy-constrained from the external propagate row. |
+| Entry -> first quad | Entry relation fixes `s0^1`, `s0^2`, `s0^3`; `s0^0` is copied. |
+| Interior -> interior | One-step lemma uniquely determines the successor row. |
+| Terminal -> bridge | Terminal relation pins all four bridge wires. |
+| Bridge -> final external | Bridge witnesses are copy-constrained into the final external rows. |
+
+Thus every fresh witness in the compressed internal block is tied to a deterministic function of
+the previous state. There is no free hidden `state[1..3]` channel left for the prover.
+
+## Witness Materialization
+
+The relation derives `state[1..3]` from the committed `state[0]` chain, so the stdlib only
+materializes hidden limbs when they are needed by the terminal bridge.
+
+```text
+non-terminal quad output: create witness for next state[0] only
+terminal quad output:     create witnesses for state[0], state[1], state[2], state[3]
+```
+
+This saves 39 witness variables per permutation: 13 non-terminal quad rows times 3 hidden limbs.
+
+## Selector And File Map
+
+Mega removes `q_poseidon2_internal` and adds the following Poseidon2-specific selectors:
+
+| Selector | Purpose |
+|----------|---------|
+| `q_poseidon2_external_initial` | Initial external linear layer |
+| `q_poseidon2_transition_entry` | Standard-to-quad boundary |
+| `q_poseidon2_quad_internal` | Interior K=4 rows |
+| `q_poseidon2_quad_internal_terminal` | Quad-to-standard terminal boundary |
+| `q_5` | Non-gate selector for the next quad's third round constant |
+
+Implementation entry points:
+
+| File | Purpose |
+|------|---------|
+| `poseidon2_permutation.cpp` | stdlib permutation trace emission |
+| `relations/poseidon2_initial_external_relation.hpp` | Mega initial linear layer relation |
+| `relations/poseidon2_external_relation.hpp` | External round relation |
+| `relations/poseidon2_transition_entry_relation.hpp` | Entry boundary relation |
+| `relations/poseidon2_quad_internal_relation.hpp` | Interior quad relation |
+| `relations/poseidon2_quad_internal_terminal_relation.hpp` | Terminal boundary relation |
+| `crypto/poseidon2/poseidon2_quad_params.hpp` | Vandermonde constants and static checks |
+| `honk/execution_trace/mega_execution_trace.hpp` | Mega trace blocks and selector partitioning |
+| `flavor/mega_flavor.hpp` | Mega relation and selector set |
+
+Historical performance notes live at the repository root in `poseidon2-compression-analysis.md`.

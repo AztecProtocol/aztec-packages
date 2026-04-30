@@ -79,7 +79,11 @@ builder.assert_equal(idx_a, idx_b);
 | `q_memory` | RAM/ROM memory operations |
 | `q_lookup` | Lookup gate |
 | `q_poseidon2_external` | Poseidon2 external rounds |
-| `q_poseidon2_internal` | Poseidon2 internal rounds |
+| `q_poseidon2_internal` | Poseidon2 internal rounds (Ultra) |
+| `q_poseidon2_external_initial` | Poseidon2 initial external linear layer (Mega) |
+| `q_poseidon2_transition_entry` | Poseidon2 standard-to-quad boundary (Mega) |
+| `q_poseidon2_quad_internal` | Poseidon2 K=4 internal rows (Mega) |
+| `q_poseidon2_quad_internal_terminal` | Poseidon2 quad-to-standard boundary (Mega) |
 | `q_busread` | Databus read (Mega only) |
 
 Note: no selector exists for gates representing deferred ECC operations in the Mega builder. However, there is a selector in the Mega circuit itself for deferred ECC ops: `lagrange_ecc_op`. This is not stored in the builder; the selector is populated later, in `trace_to_polynomials.cpp`, as it can be efficiently derived once the builder phase has completed.
@@ -110,6 +114,10 @@ The execution trace is constructed in the form of **blocks** (`ExecutionTraceBlo
 **Mega blocks** (includes all Ultra blocks, plus):
 - `ecc_op` — Deferred ECC operations for Goblin (must be first in trace)
 - `busread` — Databus read operations
+- `poseidon2_quad_internal` — Poseidon2 K=4 internal-round compression
+
+Mega does not use the Ultra `poseidon2_internal` block for Poseidon2. The canonical Poseidon2
+circuit layout and soundness argument live in `stdlib/hash/poseidon2/README.md`.
 
 Within a given block, the corresponding gate selector is not always non-zero (hence why we have to track its values at all). This is because many gates make use of a shift mechanism that allow the constraint at row `i` to incorporate wire values at row `i+1`. In this case, row `i+1` may or may not be otherwise constrained, i.e. the gate selector at row `i+1` may take value 0.
 
@@ -156,7 +164,7 @@ Beyond basic arithmetic, specialized gates provide efficient constraints for var
 | **Arithmetic** | `ArithmeticRelation` | Width-4 arithmetic with extended modes (see above) |
 | **Delta Range** | `DeltaRangeConstraintRelation` | Efficient range constraints |
 | **Elliptic** | `EllipticRelation` | EC point addition/doubling on Grumpkin |
-| **Poseidon2** | `Poseidon2External/InternalRelation` | Optimized hash function rounds |
+| **Poseidon2** | `Poseidon2ExternalRelation`, `Poseidon2InternalRelation` (Ultra), `Poseidon2InitialExternalRelation`, `Poseidon2QuadInternalRelation` (Mega) | Optimized hash function rounds |
 | **Lookup** | `LogDerivLookupRelation` | Table-based lookups (plookup) |
 | **Memory** | `MemoryRelation` | ROM reads, RAM read/write consistency |
 | **Non-native field** | `NonNativeFieldRelation` | Arithmetic over non-native fields via limb decomposition |
