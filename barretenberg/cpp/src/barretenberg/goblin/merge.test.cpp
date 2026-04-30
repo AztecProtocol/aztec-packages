@@ -353,17 +353,6 @@ template <typename Curve> class MergeTests : public testing::Test {
             prover_transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
                                                 ck.commit(reversed_batched_left_tables));
 
-            std::array<std::string, 13> shplonk_labels = {
-                "SHPLONK_MERGE_BATCHING_CHALLENGE_0",  "SHPLONK_MERGE_BATCHING_CHALLENGE_1",
-                "SHPLONK_MERGE_BATCHING_CHALLENGE_2",  "SHPLONK_MERGE_BATCHING_CHALLENGE_3",
-                "SHPLONK_MERGE_BATCHING_CHALLENGE_4",  "SHPLONK_MERGE_BATCHING_CHALLENGE_5",
-                "SHPLONK_MERGE_BATCHING_CHALLENGE_6",  "SHPLONK_MERGE_BATCHING_CHALLENGE_7",
-                "SHPLONK_MERGE_BATCHING_CHALLENGE_8",  "SHPLONK_MERGE_BATCHING_CHALLENGE_9",
-                "SHPLONK_MERGE_BATCHING_CHALLENGE_10", "SHPLONK_MERGE_BATCHING_CHALLENGE_11",
-                "SHPLONK_MERGE_BATCHING_CHALLENGE_12"
-            };
-            auto shplonk_batching_challenges = prover_transcript->template get_challenges<bb::fr>(shplonk_labels);
-
             bb::fr kappa = prover_transcript->template get_challenge<bb::fr>("kappa");
             bb::fr kappa_inv = kappa.invert();
 
@@ -386,6 +375,17 @@ template <typename Curve> class MergeTests : public testing::Test {
 
             // Shplonk batched quotient: Q such that Q·(X-κ)·(X-κ⁻¹) = ...
             // With L=0 and G=0, only R and M (=R) terms contribute at kappa.
+            std::array<std::string, 13> shplonk_labels = {
+                "SHPLONK_MERGE_BATCHING_CHALLENGE_0",  "SHPLONK_MERGE_BATCHING_CHALLENGE_1",
+                "SHPLONK_MERGE_BATCHING_CHALLENGE_2",  "SHPLONK_MERGE_BATCHING_CHALLENGE_3",
+                "SHPLONK_MERGE_BATCHING_CHALLENGE_4",  "SHPLONK_MERGE_BATCHING_CHALLENGE_5",
+                "SHPLONK_MERGE_BATCHING_CHALLENGE_6",  "SHPLONK_MERGE_BATCHING_CHALLENGE_7",
+                "SHPLONK_MERGE_BATCHING_CHALLENGE_8",  "SHPLONK_MERGE_BATCHING_CHALLENGE_9",
+                "SHPLONK_MERGE_BATCHING_CHALLENGE_10", "SHPLONK_MERGE_BATCHING_CHALLENGE_11",
+                "SHPLONK_MERGE_BATCHING_CHALLENGE_12"
+            };
+            auto shplonk_batching_challenges = prover_transcript->template get_challenges<bb::fr>(shplonk_labels);
+
             size_t poly_size = merged_table[0].size();
             Polynomial shplonk_batched_quotient(poly_size);
 
@@ -627,17 +627,13 @@ class MergeTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_2");
         manifest_expected.add_challenge(round, "LEFT_TABLE_DEGREE_CHECK_3");
 
-        // Round 1: Batching challenges + kappa, then send batched polynomial commitment
+        // Round 1: degre check polynomial, kappa
         round++;
-        for (size_t idx = 0; idx < 13; ++idx) {
-            manifest_expected.add_challenge(round, "SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx));
-        }
-        manifest_expected.add_challenge(round, "kappa");
         manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES", frs_per_G);
+        manifest_expected.add_challenge(round, "kappa");
 
-        // Round 2: Shplonk opening challenge, then send all evaluations and quotient
+        // Round 2: evaluations of all tables at kappa, 1/kappa, shplonk challenges
         round++;
-        manifest_expected.add_challenge(round, "shplonk_opening_challenge");
         for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
             manifest_expected.add_entry(round, "LEFT_TABLE_EVAL_" + std::to_string(idx), frs_per_Fr);
         }
@@ -648,9 +644,17 @@ class MergeTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "MERGED_TABLE_EVAL_" + std::to_string(idx), frs_per_Fr);
         }
         manifest_expected.add_entry(round, "REVERSED_BATCHED_LEFT_TABLES_EVAL", frs_per_Fr);
-        manifest_expected.add_entry(round, "SHPLONK_BATCHED_QUOTIENT", frs_per_G);
 
-        // Round 3: KZG:W commitment
+        for (size_t idx = 0; idx < 13; ++idx) {
+            manifest_expected.add_challenge(round, "SHPLONK_MERGE_BATCHING_CHALLENGE_" + std::to_string(idx));
+        }
+
+        // Round 3: Shplonk quotient, shplonk opening challenge
+        round++;
+        manifest_expected.add_entry(round, "SHPLONK_BATCHED_QUOTIENT", frs_per_G);
+        manifest_expected.add_challenge(round, "shplonk_opening_challenge");
+
+        // Round 4: KZG:W
         round++;
         manifest_expected.add_entry(round, "KZG:W", frs_per_G);
 
