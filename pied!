@@ -1,0 +1,15 @@
+[1mdiff --git a/yarn-project/txe/src/rpc_translator.ts b/yarn-project/txe/src/rpc_translator.ts[m
+[1mindex 39707735cb..163dd71f1b 100644[m
+[1m--- a/yarn-project/txe/src/rpc_translator.ts[m
+[1m+++ b/yarn-project/txe/src/rpc_translator.ts[m
+[36m@@ -309,7 +309,9 @@[m [mexport class RPCTranslator {[m
+ [m
+     const rawLogStorage = emittedLogs[m
+       .map(fields => fields.concat(Array(PRIVATE_LOG_SIZE_IN_FIELDS - fields.length).fill(new Fr(0))))[m
+[31m-      .concat(Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(new Fr(0))))[m
+[32m+[m[32m      .concat([m
+[32m+[m[32m        Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(new Fr(0))),[m
+[32m+[m[32m      )[m
+       .flat();[m
+ [m
+     const logLengths = emittedLogs[m

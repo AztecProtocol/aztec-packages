@@ -309,7 +309,9 @@ export class RPCTranslator {
 
     const rawLogStorage = emittedLogs
       .map(fields => fields.concat(Array(PRIVATE_LOG_SIZE_IN_FIELDS - fields.length).fill(new Fr(0))))
-      .concat(Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(new Fr(0))))
+      .concat(
+        Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(new Fr(0))),
+      )
       .flat();
 
     const logLengths = emittedLogs
