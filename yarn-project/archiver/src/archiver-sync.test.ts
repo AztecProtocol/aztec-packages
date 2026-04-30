@@ -20,6 +20,7 @@ import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -123,7 +124,9 @@ describe('Archiver Sync', () => {
     const events = new EventEmitter() as ArchiverEmitter;
 
     // Create L2 tips cache shared by archiver and synchronizer
-    const l2TipsCache = new L2TipsCache(archiverStore.blocks);
+    const initialHeader = BlockHeader.empty();
+    const initialBlockHash = await initialHeader.hash();
+    const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);
 
     // Create the L1 synchronizer
     synchronizer = new ArchiverL1Synchronizer(
@@ -156,6 +159,8 @@ describe('Archiver Sync', () => {
       l1Constants,
       synchronizer,
       events,
+      initialHeader,
+      initialBlockHash,
       l2TipsCache,
     );
   });

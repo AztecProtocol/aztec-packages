@@ -14,6 +14,7 @@ import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/runni
 import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import {
   type ArchiverEmitter,
+  type BlockHash,
   L2Block,
   type L2BlockSink,
   type L2Tips,
@@ -28,6 +29,7 @@ import {
   getTimestampForSlot,
   getTimestampRangeForEpoch,
 } from '@aztec/stdlib/epoch-helpers';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
@@ -140,17 +142,19 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     },
     synchronizer: ArchiverL1Synchronizer,
     events: ArchiverEmitter,
-    l2TipsCache?: L2TipsCache,
+    initialHeader: BlockHeader,
+    initialBlockHash: BlockHash,
+    l2TipsCache: L2TipsCache,
     private readonly log: Logger = createLogger('archiver'),
   ) {
-    super(dataStores, l1Constants);
+    super(dataStores, l1Constants, initialHeader, initialBlockHash, l1Constants.genesisArchiveRoot);
 
     this.tracer = instrumentation.tracer;
     this.instrumentation = instrumentation;
     this.initialSyncPromise = promiseWithResolvers();
     this.synchronizer = synchronizer;
     this.events = events;
-    this.l2TipsCache = l2TipsCache ?? new L2TipsCache(this.dataStores.blocks);
+    this.l2TipsCache = l2TipsCache;
     this.updater = new ArchiverDataStoreUpdater(this.dataStores, this.l2TipsCache, {
       rollupManaLimit: l1Constants.rollupManaLimit,
     });

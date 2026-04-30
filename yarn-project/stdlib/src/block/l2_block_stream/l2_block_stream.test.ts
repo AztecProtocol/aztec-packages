@@ -2,6 +2,7 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import times from 'lodash.times';
 
@@ -276,7 +277,8 @@ describe('L2BlockStream', () => {
         expectBlocksAdded([5]),
         expectCheckpointed(),
       ]);
-      expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
+      // 2 calls: one for block 0 in reorg detection (hash compare at genesis), one for block 1 in loop 2.
+      expect(blockSource.getBlockData).toHaveBeenCalledTimes(2);
       expect(blockSource.getBlocks).not.toHaveBeenCalled();
     });
 
@@ -296,7 +298,8 @@ describe('L2BlockStream', () => {
         expectCheckpointed(),
         expectBlocksAdded([4, 5]),
       ]);
-      expect(blockSource.getBlockData).toHaveBeenCalledTimes(1);
+      // 2 calls: one for block 0 in reorg detection (hash compare at genesis), one for block 1 in loop 2.
+      expect(blockSource.getBlockData).toHaveBeenCalledTimes(2);
       expect(blockSource.getBlocks).toHaveBeenCalledWith({ from: BlockNumber(4), limit: 2 });
     });
 
@@ -318,6 +321,36 @@ describe('L2BlockStream', () => {
         block: makeBlockId(3),
         checkpoint: makeCheckpointId(3),
       });
+    });
+
+    it('throws a meaningful error when local and source disagree on the genesis hash', async () => {
+      // Source advertises blocks 1-3 with the default mock genesis hash (Fr.ZERO).
+      setRemoteTips(3);
+      localData.proposed.number = BlockNumber(3);
+      // Local store disagrees at every height including block 0 (e.g. different genesisTimestamp).
+      localData.blockHashes[0] = `0xbad0`;
+      for (let i = 1; i <= 3; i++) {
+        localData.blockHashes[i] = `0xbad${i}`;
+      }
+
+      // The reorg-search loop must NOT walk past block 0; it should throw a clear error
+      // pointing at the genesis-hash mismatch instead of cascading into "block hash not found
+      // for -1" further down. The error is caught and logged by `work` rather than rethrown,
+      // so we assert via the logged error and ensure no events were emitted.
+      const errorSpy = jest.spyOn(
+        (blockStream as unknown as { log: { error: (...args: any[]) => void } }).log,
+        'error',
+      );
+
+      await blockStream.work();
+
+      expect(handler.events).toEqual([]);
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Error processing block stream'),
+        expect.objectContaining({
+          message: expect.stringContaining('Genesis block hash mismatch'),
+        }),
+      );
     });
   });
 
@@ -823,8 +856,9 @@ describe('L2BlockStream', () => {
         expect(loop1Calls).toHaveLength(0);
       });
 
-      it('does not call getBlockData with block 0 when startingBlock is 0', async () => {
-        // The stream should skip the checkpoint lookup when startingBlock is 0
+      it('calls getBlockData for block 0 only for reorg detection, not checkpoint lookup, when startingBlock is 0', async () => {
+        // With startingBlock=0, the stream skips the checkpoint-number lookup (line 121 path)
+        // so getBlockData is called for block 0 only once: for the genesis reorg detection.
         setRemoteTipsMultiBlock(15, 15);
         blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
           batchSize: 10,
@@ -834,7 +868,9 @@ describe('L2BlockStream', () => {
         await blockStream.work();
 
         const calls = blockSource.getBlockData.mock.calls;
-        expect(calls.every(c => !('number' in c[0]) || (c[0] as { number: number }).number >= 1)).toBe(true);
+        const block0Calls = calls.filter(c => 'number' in c[0] && (c[0] as { number: number }).number === 0);
+        // Only the genesis reorg-detection call — not an additional checkpoint-lookup call.
+        expect(block0Calls).toHaveLength(1);
       });
     });
 
@@ -1771,6 +1807,12 @@ class TestL2BlockStream extends L2BlockStream {
 }
 
 class TestL2TipsMemoryStore extends L2TipsMemoryStore {
+  constructor() {
+    // initialBlockHash must match the test mock's genesis hash (new Fr(0)) so that
+    // areBlockHashesEqualAt(0) compares matching values and finds no reorg at genesis.
+    super(new BlockHash(new Fr(0)));
+  }
+
   protected override computeBlockHash(block: L2Block): Promise<`0x${string}`> {
     return Promise.resolve(new Fr(block.number).toString());
   }

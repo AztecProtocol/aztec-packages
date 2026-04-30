@@ -1,6 +1,12 @@
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  EpochNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -9,9 +15,13 @@ import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
+  type BlockHash,
   type BlockQuery,
   type BlockTag,
   type BlocksQuery,
+  Body,
+  GENESIS_BLOCK_HEADER_HASH,
+  GENESIS_CHECKPOINT_HEADER_HASH,
   L2Block,
   type L2BlockSource,
   type L2Tips,
@@ -33,7 +43,8 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import { computeCheckpointOutHash } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import { BlockHeader, TxExecutionResult, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 /**
@@ -48,7 +59,65 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   private checkpointedBlockNumber: number = 0;
   private proposedCheckpointBlockNumber: number = 0;
 
+  private initialHeader: BlockHeader = BlockHeader.empty();
+  private initialHeaderHash: BlockHash = GENESIS_BLOCK_HEADER_HASH;
+  private genesisArchiveRoot?: Fr;
+  private genesisBlock?: L2Block;
+
   private log = createLogger('archiver:mock_l2_block_source');
+
+  /** Returns the initial header used to synthesize block 0. */
+  public getInitialHeader(): BlockHeader {
+    return this.initialHeader;
+  }
+
+  /**
+   * Sets the initial header used to synthesize block 0. Tests that wire up a real
+   * world-state should call this with `worldState.getInitialHeader()` so the L2BlockStream
+   * agrees on the genesis hash on both sides. Precomputes and caches the header hash so
+   * `getGenesisBlockHash()` can return synchronously.
+   */
+  public async setInitialHeader(header: BlockHeader): Promise<void> {
+    this.initialHeader = header;
+    this.initialHeaderHash = await header.hash();
+    this.genesisBlock = undefined;
+  }
+
+  /**
+   * Returns the precomputed hash of the genesis block header. Defaults to the static
+   * {@link GENESIS_BLOCK_HEADER_HASH} unless {@link setInitialHeader} has been called with a
+   * custom header.
+   */
+  public getGenesisBlockHash(): BlockHash {
+    return this.initialHeaderHash;
+  }
+
+  /**
+   * Sets the post-genesis archive root used to synthesize block 0. Mirrors the real archiver,
+   * whose synthetic block 0 carries `new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1)` rather
+   * than `AppendOnlyTreeSnapshot.empty()`. Tests wiring up a real world-state should set this so
+   * archive-based block lookups against the mock match production semantics.
+   */
+  public setGenesisArchiveRoot(root: Fr): void {
+    this.genesisArchiveRoot = root;
+    this.genesisBlock = undefined;
+  }
+
+  private getGenesisBlock(): L2Block {
+    if (this.genesisBlock) {
+      return this.genesisBlock;
+    }
+    const archive = this.genesisArchiveRoot
+      ? new AppendOnlyTreeSnapshot(this.genesisArchiveRoot, 1)
+      : AppendOnlyTreeSnapshot.empty();
+    return (this.genesisBlock = new L2Block(
+      archive,
+      this.initialHeader,
+      Body.empty(),
+      CheckpointNumber.ZERO,
+      IndexWithinCheckpoint(0),
+    ));
+  }
 
   /** Creates blocks grouped into single-block checkpoints. */
   public async createBlocks(numBlocks: number) {
@@ -320,34 +389,48 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     const checkpointedBlock = this.l2Blocks[checkpointed - 1];
     const proposedCheckpointBlock = this.l2Blocks[proposedCheckpoint - 1];
 
+    // For genesis tips (block number 0) report the dynamic initial header hash so consumers
+    // running L2BlockStream against this mock agree at block 0 with their local tip store.
+    const genesisHash = (await this.initialHeader.hash()).toString();
+    const tipHash = async (block: L2Block | undefined, number: number): Promise<string> => {
+      if (block) {
+        return (await block.hash()).toString();
+      }
+      return number === 0 ? genesisHash : '';
+    };
+
     const latestBlockId = {
       number: BlockNumber(latest),
-      hash: (await latestBlock?.hash())?.toString(),
+      hash: await tipHash(latestBlock, latest),
     };
     const provenBlockId = {
       number: BlockNumber(proven),
-      hash: (await provenBlock?.hash())?.toString(),
+      hash: await tipHash(provenBlock, proven),
     };
     const finalizedBlockId = {
       number: BlockNumber(finalized),
-      hash: (await finalizedBlock?.hash())?.toString(),
+      hash: await tipHash(finalizedBlock, finalized),
     };
     const checkpointedBlockId = {
       number: BlockNumber(checkpointed),
-      hash: (await checkpointedBlock?.hash())?.toString(),
+      hash: await tipHash(checkpointedBlock, checkpointed),
     };
     const proposedCheckpointBlockId = {
       number: BlockNumber(proposedCheckpoint),
-      hash: (await proposedCheckpointBlock?.hash())?.toString(),
+      hash: await tipHash(proposedCheckpointBlock, proposedCheckpoint),
     };
 
-    const makeTipId = (blockId: typeof latestBlockId) => ({
-      block: blockId,
-      checkpoint: {
-        number: this.findCheckpointNumberForBlock(blockId.number) ?? CheckpointNumber(0),
-        hash: blockId.hash,
-      },
-    });
+    const makeTipId = (blockId: typeof latestBlockId) => {
+      const checkpointNumber = this.findCheckpointNumberForBlock(blockId.number) ?? CheckpointNumber(0);
+      // Match production semantics: checkpoint 0 is fully synthetic (no real checkpoint header
+      // exists at 0), so its hash stays at the protocol constant `GENESIS_CHECKPOINT_HEADER_HASH`
+      // even though the block-0 hash is dynamic. See L2TipsCache for the production path.
+      const hash = checkpointNumber === 0 ? GENESIS_CHECKPOINT_HEADER_HASH.toString() : blockId.hash;
+      return {
+        block: blockId,
+        checkpoint: { number: checkpointNumber, hash },
+      };
+    };
 
     return {
       proposed: latestBlockId,
@@ -375,7 +458,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
-    return Promise.resolve({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
+    return Promise.resolve({ genesisArchiveRoot: this.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT) });
   }
 
   getL1Timestamp(): Promise<bigint> {
@@ -429,24 +512,37 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   async getBlock(query: BlockQuery): Promise<L2Block | undefined> {
-    let block: L2Block | undefined;
     if ('number' in query) {
-      block = this.l2Blocks[query.number - 1];
-    } else if ('hash' in query) {
+      if (query.number === 0) {
+        return this.getGenesisBlock();
+      }
+      return this.l2Blocks[query.number - 1];
+    }
+    if ('hash' in query) {
+      const genesis = this.getGenesisBlock();
+      if ((await genesis.hash()).equals(query.hash)) {
+        return genesis;
+      }
       for (const b of this.l2Blocks) {
         const hash = await b.hash();
         if (hash.equals(query.hash)) {
-          block = b;
-          break;
+          return b;
         }
       }
-    } else if ('archive' in query) {
-      block = this.l2Blocks.find(b => b.archive.root.equals(query.archive));
-    } else {
-      const number = this.resolveBlockTag(query.tag);
-      block = number > 0 ? this.l2Blocks[number - 1] : undefined;
+      return undefined;
     }
-    return block;
+    if ('archive' in query) {
+      const genesis = this.getGenesisBlock();
+      if (genesis.archive.root.equals(query.archive)) {
+        return genesis;
+      }
+      return this.l2Blocks.find(b => b.archive.root.equals(query.archive));
+    }
+    const number = this.resolveBlockTag(query.tag);
+    if (number === 0) {
+      return this.getGenesisBlock();
+    }
+    return this.l2Blocks[number - 1];
   }
 
   private resolveBlockTag(tag: BlockTag): number {

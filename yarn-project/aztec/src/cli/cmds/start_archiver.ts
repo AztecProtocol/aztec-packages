@@ -6,6 +6,7 @@ import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { ArchiverApiSchema } from '@aztec/stdlib/interfaces/server';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { getConfigEnvVars as getTelemetryClientConfig, initTelemetryClient } from '@aztec/telemetry-client';
+import { createWorldState } from '@aztec/world-state';
 
 import { extractRelevantOptions } from '../util.js';
 
@@ -48,7 +49,30 @@ export async function startArchiver(
 
   const telemetry = await initTelemetryClient(getTelemetryClientConfig());
   const blobClient = createBlobClient(archiverConfig, { logger: createLogger('archiver:blob-client:client') });
-  const archiver = await createArchiver(archiverConfig, { telemetry, blobClient }, { blockUntilSync: true });
+
+  // Spin up a NativeWorldStateService just long enough to derive the initial block header.
+  // The archiver needs it to answer block-0 queries (getBlock({number: 0}),
+  // getBlock({hash: initialHeaderHash}), tip hashes from getL2Tips, etc.). The standalone archiver
+  // does not run a world-state synchronizer, so we close the native service after extracting the
+  // header. The header is content-addressed by genesis timestamp + prefilled public data; running
+  // against a network with non-default genesis would currently require those inputs to be threaded
+  // through this CLI as well.
+  const nativeWs = await createWorldState(archiverConfig);
+  let archiver: Awaited<ReturnType<typeof createArchiver>>;
+  try {
+    const initialHeader = nativeWs.getInitialHeader();
+    const initialBlockHash = await initialHeader.hash();
+    archiver = await createArchiver(
+      archiverConfig,
+      { telemetry, blobClient },
+      { blockUntilSync: true },
+      initialHeader,
+      initialBlockHash,
+    );
+  } finally {
+    await nativeWs.close();
+  }
+
   services.archiver = [archiver, ArchiverApiSchema];
   signalHandlers.push(archiver.stop);
 

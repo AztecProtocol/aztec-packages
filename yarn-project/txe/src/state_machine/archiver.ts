@@ -4,9 +4,17 @@ import { CheckpointNumber, type EpochNumber, type SlotNumber } from '@aztec/foun
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import type { CheckpointId, L2BlockId, L2TipId, L2Tips, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import {
+  type CheckpointId,
+  GENESIS_BLOCK_HEADER_HASH,
+  type L2BlockId,
+  type L2TipId,
+  type L2Tips,
+  type ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
 /**
  * TXE Archiver implementation.
@@ -17,7 +25,13 @@ export class TXEArchiver extends ArchiverDataSourceBase {
   private readonly updater = new ArchiverDataStoreUpdater(this.stores);
 
   constructor(db: AztecAsyncKVStore) {
-    super(createArchiverDataStores(db, { logsMaxPageSize: 9999 }));
+    super(
+      createArchiverDataStores(db, { logsMaxPageSize: 9999 }),
+      undefined,
+      BlockHeader.empty(),
+      GENESIS_BLOCK_HEADER_HASH,
+      new Fr(GENESIS_ARCHIVE_ROOT),
+    );
   }
 
   public async addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<void> {

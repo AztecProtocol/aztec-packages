@@ -7,9 +7,9 @@ import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
   type BlockData,
+  type BlockHash,
   type CheckpointId,
   type EthAddress,
-  GENESIS_BLOCK_HEADER_HASH,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
@@ -96,6 +96,7 @@ export class P2PClient extends WithTracer implements P2P {
     private _dateProvider: DateProvider = new DateProvider(),
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p'),
+    initialBlockHash: BlockHash,
   ) {
     super(telemetry, 'P2PClient');
 
@@ -111,7 +112,7 @@ export class P2PClient extends WithTracer implements P2P {
       this.telemetry,
     );
 
-    this.l2Tips = new L2TipsKVStore(store, 'p2p_client');
+    this.l2Tips = new L2TipsKVStore(store, 'p2p_client', initialBlockHash);
     this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
   }
 
@@ -585,13 +586,10 @@ export class P2PClient extends WithTracer implements P2P {
    */
   public async getStatus(): Promise<P2PSyncState> {
     const blockNumber = await this.getSyncedLatestBlockNum();
-    const blockHash =
-      blockNumber === 0
-        ? GENESIS_BLOCK_HEADER_HASH.toString()
-        : await this.l2BlockSource
-            .getBlockData({ number: blockNumber })
-            .then(data => data?.header.hash())
-            .then(hash => hash?.toString());
+    const blockHash = await this.l2BlockSource
+      .getBlockData({ number: blockNumber })
+      .then(data => data?.header.hash())
+      .then(hash => hash?.toString());
 
     return {
       state: this.currentState,
