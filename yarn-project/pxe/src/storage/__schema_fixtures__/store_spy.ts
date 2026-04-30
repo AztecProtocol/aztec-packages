@@ -18,34 +18,35 @@ export interface OpenedStoreEntry {
   kind: StoreKind;
 }
 
-/** A spied `AztecAsyncKVStore` together with the log of `open*()` calls observed against it. */
+/** A spied `AztecAsyncKVStore` together with a function that returns the sorted log of `open*()` calls. */
 export interface StoreSpy {
   store: AztecAsyncKVStore;
-  openedStores: OpenedStoreEntry[];
+  openedStores: () => OpenedStoreEntry[];
 }
 
 /**
- * Wraps an `AztecAsyncKVStore` so every `openMap`/`openMultiMap`/`openArray`/`openSingleton` call is recorded to a log
- * before being delegated to the inner store. Used by the schema compatibility test to detect and flag changes.
+ * Wraps an `AztecAsyncKVStore` so every `openMap`/`openMultiMap`/`openArray`/`openSingleton` call is recorded
+ * before being delegated to the inner store. `openedStores()` returns a defensive copy sorted by `(name, kind)`,
+ * giving callers a stable canonical view suitable for snapshot assertions.
  */
 export function createStoreSpy(inner: AztecAsyncKVStore): StoreSpy {
-  const openedStores: OpenedStoreEntry[] = [];
+  const entries: OpenedStoreEntry[] = [];
 
   const store: AztecAsyncKVStore = {
     openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
-      openedStores.push({ name, kind: 'map' });
+      entries.push({ name, kind: 'map' });
       return inner.openMap<K, V>(name);
     },
     openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
-      openedStores.push({ name, kind: 'multimap' });
+      entries.push({ name, kind: 'multimap' });
       return inner.openMultiMap<K, V>(name);
     },
     openArray<T extends Value>(name: string): AztecAsyncArray<T> {
-      openedStores.push({ name, kind: 'array' });
+      entries.push({ name, kind: 'array' });
       return inner.openArray<T>(name);
     },
     openSingleton<T extends Value>(name: string): AztecAsyncSingleton<T> {
-      openedStores.push({ name, kind: 'singleton' });
+      entries.push({ name, kind: 'singleton' });
       return inner.openSingleton<T>(name);
     },
     openSet: name => inner.openSet(name),
@@ -57,6 +58,9 @@ export function createStoreSpy(inner: AztecAsyncKVStore): StoreSpy {
     close: () => inner.close(),
     backupTo: (dstPath, compact) => inner.backupTo(dstPath, compact),
   };
+
+  const openedStores = () =>
+    [...entries].sort((a, b) => (a.name === b.name ? a.kind.localeCompare(b.kind) : a.name.localeCompare(b.name)));
 
   return { store, openedStores };
 }

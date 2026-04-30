@@ -21,17 +21,14 @@ describe('PXE schema compatibility', () => {
   it('matches snapshots stores opened by PXE', async () => {
     const inner = await openTmpStore('pxe-schema-stores', true);
     try {
-      const { store, openedStores: log } = createStoreSpy(inner);
+      const { store, openedStores } = createStoreSpy(inner);
 
       openPxeStores(store);
 
-      const sorted = [...log].sort((a, b) =>
-        a.name === b.name ? a.kind.localeCompare(b.kind) : a.name.localeCompare(b.name),
-      );
       // Embed PXE_DATA_SCHEMA_VERSION alongside the store list so a schema change
       // that updates this snapshot also pins the version it was taken at. Reviewers
       // see the version next to the new store list in the diff.
-      expect({ schemaVersion: PXE_DATA_SCHEMA_VERSION, stores: sorted }).toMatchSnapshot();
+      expect({ schemaVersion: PXE_DATA_SCHEMA_VERSION, stores: openedStores() }).toMatchSnapshot();
     } finally {
       await inner.close();
     }
@@ -83,11 +80,11 @@ describe('PXE schema compatibility', () => {
   it('has a fixture for every PXE-typed store and a store for every fixture', async () => {
     const inner = await openTmpStore('pxe-schema-cross-check', true);
     try {
-      const { store, openedStores: log } = createStoreSpy(inner);
+      const { store, openedStores } = createStoreSpy(inner);
 
       openPxeStores(store);
 
-      const openedStoreNames = new Set(log.map(e => e.name));
+      const openedStoreNames = new Set(openedStores().map(e => e.name));
       const fixtureTypeNames = new Set(SCHEMA_FIXTURES.keys());
 
       const storesWithoutFixtures: string[] = [];

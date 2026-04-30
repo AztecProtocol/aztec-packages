@@ -3,7 +3,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { createStoreSpy } from './store_spy.js';
 
 describe('createStoreSpy', () => {
-  it('records every open* call with name and kind in insertion order', async () => {
+  it('returns every open* call with name and kind, sorted by (name, kind)', async () => {
     const inner = await openTmpStore('pxe-schema-spy-test', true);
     try {
       const { store, openedStores } = createStoreSpy(inner);
@@ -13,10 +13,10 @@ describe('createStoreSpy', () => {
       store.openArray('baz');
       store.openSingleton('qux');
 
-      expect(openedStores).toEqual([
-        { name: 'foo', kind: 'map' },
+      expect(openedStores()).toEqual([
         { name: 'bar', kind: 'multimap' },
         { name: 'baz', kind: 'array' },
+        { name: 'foo', kind: 'map' },
         { name: 'qux', kind: 'singleton' },
       ]);
     } finally {
@@ -45,7 +45,7 @@ describe('createStoreSpy', () => {
       store.openMap('twice');
       store.openMap('twice');
 
-      expect(openedStores).toEqual([
+      expect(openedStores()).toEqual([
         { name: 'twice', kind: 'map' },
         { name: 'twice', kind: 'map' },
       ]);
