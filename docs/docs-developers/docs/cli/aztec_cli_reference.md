@@ -792,6 +792,7 @@ aztec profile gates [options] [target-dir]
 
 **Options:**
 
+- `--json` - output gate counts as JSON instead of a table (default: false)
 - `-h --help` - display help for command
 
 ### aztec propose-with-lock
