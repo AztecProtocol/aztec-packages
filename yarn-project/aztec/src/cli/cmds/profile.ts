@@ -11,8 +11,9 @@ export function injectProfileCommand(program: Command, log: LogFn): Command {
   profile
     .command('gates')
     .argument('[target-dir]', 'Path to the compiled artifacts directory', './target')
+    .option('--json', 'Output gate counts as JSON instead of a table', false)
     .description('Display gate counts for all compiled Aztec artifacts in a target directory.')
-    .action((targetDir: string) => profileGates(targetDir, log));
+    .action((targetDir: string, options: { json: boolean }) => profileGates(targetDir, options.json, log));
 
   profile
     .command('flamegraph')
