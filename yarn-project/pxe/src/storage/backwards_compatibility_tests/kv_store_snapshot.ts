@@ -1,5 +1,22 @@
 import type { AztecAsyncArray, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
 
+/**
+ * This file contains helpers that produce stable, snapshot-friendly text representations of an LMDB sub-store's
+ * contents (map / multimap / array / singleton). Used by the per-store-class schema tests in this directory to
+ * fingerprint the bytes PXE persists.
+ *
+ * Each backwards compatibility schema scenario test follows the same shape:
+ *
+ * 1. drive the production write path through the store class's public API.
+ * 2. re-open the underlying kv-store by name, bypassing the store abstraction layer (eg:
+ * `kvStore.openMap<K, Buffer>('foo')`) and snapshot it via the helpers below.
+ * 3. compare fresh snapshots with committed ones.
+ *
+ * Why text rather than buffers: Jest snapshots are stored as JS literals; `Buffer` instances render as the verbose
+ * `Buffer <01 02 03>` form, which clutters `.snap` files and resists clean diffs. Each collection's contents are
+ * normalized into strings before being fed to `toMatchSnapshot()`.
+ */
+
 /** A single map/multimap entry, rendered as strings for stable snapshotting. */
 export type MapEntry = { key: string; value: string };
 
@@ -7,9 +24,10 @@ export type MapEntry = { key: string; value: string };
 export type ArrayEntry = { index: number; value: string };
 
 /**
- * Returns every entry of `map`, with both keys and values rendered as strings, sorted by key. The
- * sort makes the result independent of LMDB's iteration order so snapshots stay stable across
- * runs.
+ * Returns every entry of `map`, with both keys and values rendered as strings, sorted by key (with value as a
+ * tiebreaker). The sort decouples the result from the kv-store iteration order, which is implementation-defined and
+ * not part of the schema contract. Without it, a backend change to iteration strategy would unnecessarily churn
+ * snapshots.
  */
 export async function snapshotMap<K, V>(map: AztecAsyncMap<K, V>): Promise<MapEntry[]> {
   const entries: MapEntry[] = [];
@@ -19,7 +37,10 @@ export async function snapshotMap<K, V>(map: AztecAsyncMap<K, V>): Promise<MapEn
   return entries.sort(compareMapEntries);
 }
 
-/** Returns every `(key, value)` pair of `multiMap`, sorted by key then value for stability. */
+/**
+ * Same shape as {@link snapshotMap}, but for multimaps where the same key can map to multiple values. The
+ * `(key, value)` tiebreaker imposes a deterministic order among the values that share a key.
+ */
 export async function snapshotMultiMap<K, V>(multiMap: AztecAsyncMultiMap<K, V>): Promise<MapEntry[]> {
   const entries: MapEntry[] = [];
   for await (const [k, v] of multiMap.entriesAsync()) {
@@ -28,7 +49,12 @@ export async function snapshotMultiMap<K, V>(multiMap: AztecAsyncMultiMap<K, V>)
   return entries.sort(compareMapEntries);
 }
 
-/** Returns the contents of `array` paired with their numeric indices, in insertion order. */
+/**
+ * Returns the contents of `array` paired with their numeric indices, in insertion order.
+ *
+ * Unlike {@link snapshotMap}, no sort: arrays are inherently ordered by index and that order *is* part of the schema.
+ * The `index` field is preserved on each entry so any unintended reorder shows up in the diff.
+ */
 export async function snapshotArray<V>(array: AztecAsyncArray<V>): Promise<ArrayEntry[]> {
   const entries: ArrayEntry[] = [];
   let index = 0;
@@ -49,8 +75,11 @@ function compareMapEntries(a: MapEntry, b: MapEntry): number {
 }
 
 /**
- * Renders a key as a stable string. Buffers and `Uint8Array`s become hex; primitives are tagged
- * with their type prefix so different types can't collide in a snapshot.
+ * Renders a key as a stable string. Buffers and `Uint8Array`s become `0x`-prefixed hex (matching the canonical byte
+ * form used by `Fr.toString()`, `AztecAddress.toString()`, etc. elsewhere in the codebase); primitives carry a type
+ * prefix (`utf8:`, `num:`) so that different runtime types can't alias to the same string in a snapshot. Without the
+ * prefix, a future change that swapped a `number` key for a `string` of the same digits would be invisible in the
+ * diff.
  */
 function keyToString(k: unknown): string {
   if (typeof k === 'string') {
@@ -72,9 +101,17 @@ function keyToString(k: unknown): string {
 }
 
 /**
- * Renders a value for snapshotting. Buffers become hex (the on-disk byte view); `Bufferable`
- * values fall back to `value.toBuffer()` so we capture what would have been written. Primitives
- * are tagged like keys so type confusion in a regression shows up rather than aliasing.
+ * Renders a value for snapshotting. Same type-prefix discipline as {@link keyToString} so primitives can't
+ * accidentally render identically to buffers carrying the same bytes.
+ *
+ * Resolution order:
+ *   1. `Buffer` / `Uint8Array` -> hex. This is the on-disk byte view; the kv-store layer treats these as opaque, so
+ *      what we see here is exactly what's persisted.
+ *   2. Tagged primitives (`num:`, `big:`, `utf8:`).
+ *   3. `Bufferable` fallback: any object with a `.toBuffer()` method renders as `value.toBuffer().toString('hex')`.
+ *      Covers stdlib domain types stored without pre-serialisation -- the canonical byte form is what we want to
+ *      fingerprint.
+ *   4. `JSON.stringify` for plain objects, matching how the kv-store layer encodes arbitrary structures on disk.
  */
 function valueToString(v: unknown): string {
   if (Buffer.isBuffer(v)) {
