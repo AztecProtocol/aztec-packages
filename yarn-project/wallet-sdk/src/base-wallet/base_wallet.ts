@@ -85,7 +85,7 @@ export type FeeOptions = {
 /** Options for `simulateViaEntrypoint`. */
 export type SimulateViaEntrypointOptions = Pick<
   SimulateOptions,
-  'from' | 'additionalScopes' | 'skipTxValidation' | 'skipFeeEnforcement' | 'sendMessagesAs'
+  'from' | 'additionalScopes' | 'skipTxValidation' | 'skipFeeEnforcement' | 'sendMessagesAs' | 'overrides'
 > & {
   /** Fee options for the entrypoint */
   feeOptions: FeeOptions;
@@ -365,6 +365,7 @@ export abstract class BaseWallet implements Wallet {
       skipFeeEnforcement: opts.skipFeeEnforcement,
       scopes: this.scopesFrom(opts.from, opts.additionalScopes),
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
+      overrides: opts.overrides,
     });
     const appCallOffset = await this.computeAppCallOffset(opts.from, opts.feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);
@@ -428,6 +429,7 @@ export abstract class BaseWallet implements Wallet {
             blockHeader,
             opts.skipFeeEnforcement ?? true,
             this.getContractName.bind(this),
+            opts.overrides,
           )
         : Promise.resolve([]),
       remainingCalls.length > 0
@@ -438,6 +440,7 @@ export abstract class BaseWallet implements Wallet {
             skipTxValidation: opts.skipTxValidation,
             skipFeeEnforcement: opts.skipFeeEnforcement ?? true,
             sendMessagesAs: opts.sendMessagesAs,
+            overrides: opts.overrides,
           })
         : Promise.resolve(null),
     ]);
