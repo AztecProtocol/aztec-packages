@@ -106,7 +106,7 @@ Start by writing a simple circuit that proves two field values are not equal. Th
 
 ### Create the Circuit Project
 
-Use `aztec-nargo new` to generate the project structure (the Aztec installer ships `nargo` as `aztec-nargo`; substitute your own `nargo` install if you have one at the same version Aztec expects: `aztec-nargo --version`):
+Use `aztec-nargo new` to generate the project structure (the Aztec installer ships `nargo` as `aztec-nargo`; substitute your own `nargo` if its version matches `aztec-nargo --version`):
 
 ```bash
 aztec-nargo new circuit
