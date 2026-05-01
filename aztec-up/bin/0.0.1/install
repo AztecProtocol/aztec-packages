@@ -144,6 +144,14 @@ function install_noir {
 
   if [[ -n ${NARGO:-} ]]; then
     cp "$NARGO" "$version_internal_bin_path/nargo"
+    # noir's release build co-locates `noir-profiler` next to `nargo`
+    # (see noir/bootstrap.sh::build_native). Copy it too so the
+    # `aztec-noir-profiler` symlink in install_native_symlinks resolves.
+    local nargo_dir
+    nargo_dir=$(dirname "$NARGO")
+    if [ -f "$nargo_dir/noir-profiler" ]; then
+      cp "$nargo_dir/noir-profiler" "$version_internal_bin_path/noir-profiler"
+    fi
   else
     local noir_version
     noir_version=$(get_version "noir")
