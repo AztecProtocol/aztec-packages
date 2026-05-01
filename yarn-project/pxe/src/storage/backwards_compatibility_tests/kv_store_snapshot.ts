@@ -1,8 +1,8 @@
 import type { AztecAsyncArray, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
 
 /**
- * This file contains helpers that produce stable, snapshot-friendly text representations of an LMDB sub-store's
- * contents (map / multimap / array / singleton). Used by the per-store-class schema tests in this directory to
+ * This file contains helpers that produce stable, snapshot-friendly text representations of our kv-stores'
+ * contents (map / multimap / array / singleton). Used by the backwards compatibility tests in this directory to
  * fingerprint the bytes PXE persists.
  *
  * Each backwards compatibility schema scenario test follows the same shape:
@@ -109,7 +109,7 @@ function keyToString(k: unknown): string {
  *      what we see here is exactly what's persisted.
  *   2. Tagged primitives (`num:`, `big:`, `utf8:`).
  *   3. `Bufferable` fallback: any object with a `.toBuffer()` method renders as `value.toBuffer().toString('hex')`.
- *      Covers stdlib domain types stored without pre-serialisation -- the canonical byte form is what we want to
+ *      Covers stdlib domain types stored without pre-serialization. The canonical byte form is what we want to
  *      fingerprint.
  *   4. `JSON.stringify` for plain objects, matching how the kv-store layer encodes arbitrary structures on disk.
  */
