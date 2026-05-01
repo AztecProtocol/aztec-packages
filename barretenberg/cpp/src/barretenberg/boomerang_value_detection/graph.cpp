@@ -847,11 +847,6 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_unnecessary_sha256_plook
                     variables_in_one_gate.erase(real_out_idx);
                 }
             }
-            if (table_id == SHA256_BASE16_ROTATE2 || table_id == SHA256_BASE28_ROTATE6) {
-                // we want to remove false cases for special tables even though their selectors != 0
-                // because they are used in read_from_1_to_2_table function, and they aren't dangerous
-                variables_in_one_gate.erase(real_out_idx);
-            }
         }
     }
 }

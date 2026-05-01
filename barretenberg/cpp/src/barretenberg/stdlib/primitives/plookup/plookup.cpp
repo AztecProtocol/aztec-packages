@@ -94,6 +94,16 @@ field_t<Builder> plookup_read<Builder>::read_from_1_to_2_table(const MultiTableI
 {
     const auto lookup = get_lookup_accumulators(id, key_a);
 
+    // The C3 accumulator wires are constrained internally by the lookup relation but never returned
+    // to the caller, so they appear in exactly one gate by design. Mark them so the boomerang
+    // analyzer's used_witnesses exemption suppresses them at the source.
+    if (Builder* ctx = key_a.get_context(); ctx != nullptr) {
+        for (const auto& f : lookup[ColumnIdx::C3]) {
+            if (!f.is_constant()) {
+                ctx->update_used_witnesses(f.get_witness_index());
+            }
+        }
+    }
     return lookup[ColumnIdx::C2][0];
 }
 
