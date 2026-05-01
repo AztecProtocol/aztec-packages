@@ -109,23 +109,44 @@ function compatibilityTestGuidance(name: string): string {
   if (name === 'opened_stores') {
     return [
       '=== PXE storage compatibility (gatekeeper) ===',
-      'The set of kv-stores opened by openPxeStores has changed. Before regenerating opened_stores.json with `-u`:',
-      "  1. If a store was added: add a corresponding SCHEMA_TESTS entry in this file so the new store's on-disk",
-      '     bytes are also covered. Otherwise the per-store schema gate is skipped for that store, silently and',
-      '     forever.',
-      '  2. If the schema change breaks existing PXE databases, bump PXE_DATA_SCHEMA_VERSION in metadata.ts so',
-      '     DatabaseVersionManager wipes outdated DBs on next open.',
-      'If unexpected: investigate the diff below — running `-u` would silently accept the change.',
+      'The set of kv-stores opened by PXE has changed.',
+      '',
+      'If unexpected: investigate the diff below.',
+      '',
+      'If intentional, take these steps in order:',
+      '  1. If a new store was added: add a corresponding entry to the SCHEMA_TESTS array in this file',
+      '     (pxe_db_compatibility.test.ts). This is needed to prove that we are providing backwards',
+      '     compatibility tests for all kv-stores effectively used by PXE.',
+      '  2. If the change breaks existing on-device PXE databases (e.g., a sub-store was renamed or removed):',
+      '     bump PXE_DATA_SCHEMA_VERSION in pxe/src/storage/metadata.ts. DatabaseVersionManager wipes any DB',
+      '     whose stored version is below the current one when it next opens; without this bump, existing',
+      '     wallets see corrupted data with no migration path.',
+      '  3. Regenerate ONLY the gatekeeper snapshot (opened_stores.json). From the yarn-project directory, run:',
+      "         yarn workspace @aztec/pxe test src/storage/backwards_compatibility_tests/pxe_db_compatibility.test.ts -u -t 'opens the expected'",
+      "     The `-u` flag is Jest's --updateSnapshot; the `-t '<pattern>'` flag scopes the update to the matching",
+      '     test. Without `-t`, this command would also rewrite any per-store snapshots that happened to have drifted',
+      '     in the same change, masking unrelated regressions under your intentional inventory change.',
+      '  4. Run `git status` and verify only opened_stores.json was modified.',
     ].join('\n');
   }
   return [
     `=== PXE storage compatibility (${name}) ===`,
-    `The bytes ${name} writes to disk no longer match the snapshot. Before regenerating ${name}.json with \`-u\`:`,
-    `  - If unintentional: fix the regression in the most recent ${name} code changes; do NOT update the snapshot.`,
-    '  - If intentional (deliberate format bump): bump PXE_DATA_SCHEMA_VERSION in metadata.ts so existing PXE',
-    '    databases are wiped via DatabaseVersionManager on next open.',
-    'Running `-u` without taking the above action commits a breaking schema change with no migration path; existing',
-    'on-device wallets will see corrupted data.',
+    `The bytes ${name} writes to disk no longer match the committed snapshot ${name}.json.`,
+    '',
+    `If unintentional: the regression is in the most recent ${name} code changes. Fix the code; do NOT update`,
+    'the snapshot. The diff below tells you what changed.',
+    '',
+    'If intentional (deliberate on-disk format change):',
+    '  1. Bump PXE_DATA_SCHEMA_VERSION in pxe/src/storage/metadata.ts. DatabaseVersionManager wipes any DB',
+    '     whose stored version is below the current one when it next opens. Skipping this commits a breaking',
+    '     schema change with no migration path; existing on-device wallets will see corrupted data.',
+    `  2. Regenerate ONLY ${name}.json. From the yarn-project directory, run:`,
+    `         yarn workspace @aztec/pxe test src/storage/backwards_compatibility_tests/pxe_db_compatibility.test.ts -u -t '${name} compatibility test'`,
+    "     The `-u` flag is Jest's --updateSnapshot; the `-t '<pattern>'` flag scopes the update to the matching",
+    '     test. Without `-t`, the command would also rewrite any other per-store snapshots that happened to have',
+    `     drifted in the same change, masking unrelated regressions under your intentional ${name} change.`,
+    `  3. Run \`git status\` and verify only ${name}.json was modified (plus opened_stores.json if you bumped`,
+    '     the schema version in step 1).',
   ].join('\n');
 }
 
@@ -697,9 +718,21 @@ describe('PXE storage compatibility test suite', () => {
           'The following sub-stores are opened by openPxeStores but not fingerprinted by any SCHEMA_TESTS',
           `snapshotStore callback: ${uncovered.join(', ')}.`,
           '',
-          "Add the missing sub-store name(s) to the appropriate store's snapshotStore callback so their on-disk",
-          'bytes are covered by the per-store schema gate; otherwise future schema changes to these sub-stores',
-          'go undetected.',
+          'Without coverage, future schema changes to these sub-stores go undetected. To fix:',
+          '  1. Find which store class opens the missing sub-store. Store classes live under',
+          '     pxe/src/storage/<store-name>/<store-name>.ts. From the yarn-project directory, grep that',
+          '     directory for the sub-store name (e.g. `grep -rn "\'last_finalized_indexes\'" pxe/src/storage`).',
+          "  2. In pxe_db_compatibility.test.ts, find that store class's entry in the SCHEMA_TESTS array. Add a",
+          '     line to its `snapshotStore` callback that re-reads the sub-store. Look at sibling entries for the',
+          '     pattern; for example:',
+          "         last_finalized_indexes: await snapshotMap(kvStore.openMap<string, number>('last_finalized_indexes')),",
+          '     Use snapshotMap / snapshotMultiMap / snapshotArray / snapshotSingleton according to the sub-store',
+          '     kind shown above (`map:`, `multimap:`, `array:`, `singleton:`).',
+          '  3. Regenerate ONLY the affected per-store snapshot. From the yarn-project directory, run:',
+          "         yarn workspace @aztec/pxe test src/storage/backwards_compatibility_tests/pxe_db_compatibility.test.ts -u -t '<StoreName> compatibility test'",
+          '     (Replace <StoreName> with the store class name from step 1.) The newly-fingerprinted sub-store',
+          "     will appear as an additional key in the regenerated <StoreName>.json. The `-t '<pattern>'` flag",
+          '     keeps the update surgical so unrelated drift does not get accepted alongside your fix.',
         ].join('\n'),
       );
     }
@@ -712,7 +745,7 @@ describe('PXE storage compatibility test suite', () => {
         try {
           await t.writeToStore(kvStore);
           const data = await t.snapshotStore(kvStore);
-          expectMatchesSnapshot({ schemaVersion: PXE_DATA_SCHEMA_VERSION, ...data }, t.name);
+          expectMatchesSnapshot(data, t.name);
         } finally {
           await kvStore.close();
         }

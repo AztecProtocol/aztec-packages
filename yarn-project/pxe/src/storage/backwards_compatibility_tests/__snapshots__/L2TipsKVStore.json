@@ -1,5 +1,4 @@
 {
-  "schemaVersion": 5,
   "pxe_l2_tips": [
     {
       "key": "utf8:checkpointed",
