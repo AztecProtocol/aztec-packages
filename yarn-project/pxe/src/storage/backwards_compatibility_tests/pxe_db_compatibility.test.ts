@@ -660,14 +660,48 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 ];
 
 describe('PXE storage compatibility test suite', () => {
-  it('opens the expected set of stores', async () => {
-    const kvStore = await openTmpStore('pxe-schema-stores', true);
+  it('opens the expected set of stores, with a snapshot check for every opened sub-store', async () => {
+    // Fingerprint the inventory of sub-stores opened by `openPxeStores`. If a store class is added, removed, or
+    // changes its sub-store names, the inventory snapshot fails first and devs need to inspect what changed.
+    const inventoryKvStore = await openTmpStore('pxe-schema-stores', true);
+    let inventory: ReturnType<ReturnType<typeof createStoreSpy>['openedStores']>;
     try {
-      const { store, openedStores } = createStoreSpy(kvStore);
+      const { store, openedStores } = createStoreSpy(inventoryKvStore);
       openPxeStores(store);
-      expectMatchesSnapshot({ schemaVersion: PXE_DATA_SCHEMA_VERSION, stores: openedStores() }, 'opened_stores');
+      inventory = openedStores();
+      expectMatchesSnapshot({ schemaVersion: PXE_DATA_SCHEMA_VERSION, stores: inventory }, 'opened_stores');
     } finally {
-      await kvStore.close();
+      await inventoryKvStore.close();
+    }
+
+    // Every opened "sub-store" must be re-read by at least one of the tests specified in `SCHEMA_TESTS`. The spy is
+    // applied ONLY to `snapshotStore`.
+    const covered = new Set<string>();
+    for (const t of SCHEMA_TESTS) {
+      const kvStore = await openTmpStore(`pxe-schema-coverage-${t.name}`, true);
+      try {
+        await t.writeToStore(kvStore);
+        const readSpy = createStoreSpy(kvStore);
+        await t.snapshotStore(readSpy.store);
+        readSpy.openedStores().forEach(e => covered.add(`${e.kind}:${e.name}`));
+      } finally {
+        await kvStore.close();
+      }
+    }
+
+    const uncovered = inventory.map(e => `${e.kind}:${e.name}`).filter(n => !covered.has(n));
+    if (uncovered.length > 0) {
+      throw new Error(
+        [
+          '=== PXE storage compatibility (coverage) ===',
+          'The following sub-stores are opened by openPxeStores but not fingerprinted by any SCHEMA_TESTS',
+          `snapshotStore callback: ${uncovered.join(', ')}.`,
+          '',
+          "Add the missing sub-store name(s) to the appropriate store's snapshotStore callback so their on-disk",
+          'bytes are covered by the per-store schema gate; otherwise future schema changes to these sub-stores',
+          'go undetected.',
+        ].join('\n'),
+      );
     }
   });
 
