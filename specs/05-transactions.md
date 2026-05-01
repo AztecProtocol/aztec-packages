@@ -139,11 +139,11 @@ If the transaction enqueues public function calls, the sequencer executes them v
 
 1. **Setup** (non-revertible): Fee preparation and other setup logic
 2. **App Logic** (revertible): Main application logic
-3. **Teardown** (non-revertible): Fee payment finalization
+3. **Teardown** (revertible): Fee payment finalization
 
 Unlike private execution — which reads from the historical state referenced by the `anchor_block_header` — public execution operates on the current world state at the time of block building. Each public function reads from and writes to the latest public data tree, and state changes from earlier calls within the same transaction are visible to later calls.
 
-Public execution can revert due to a failed assertion, running out of gas, an invalid opcode, a static call attempting state modification, a nullifier collision, or other exceptional halts. If app logic reverts, its state changes are discarded but setup and teardown effects are preserved. The transaction is still included in the block and pays fees, but is flagged with a non-OK `RevertCode`.
+Public execution can revert due to a failed assertion, running out of gas, an invalid opcode, a static call attempting state modification, a nullifier collision, or other exceptional halts. Setup is non-revertible — if it reverts, the entire transaction is rejected. App logic and teardown are revertible: if app logic reverts its state changes are discarded but teardown still executes; if teardown itself reverts its state changes are discarded back to the post-setup state. In either revert case the transaction is still included in the block and pays fees, but is flagged with a non-OK `RevertCode`.
 
 #### Phase 6: Transaction Effect Construction
 
@@ -309,7 +309,7 @@ This is the combined structure output by the PXE:
 | `constants` | TxConstantData | Immutable transaction-wide data |
 | `gas_used` | Gas | Gas consumed during private execution |
 | `fee_payer` | AztecAddress | Address paying for the transaction |
-| `include_by_timestamp` | u64 | Deadline for block inclusion |
+| `expiration_timestamp` | u64 | Deadline for block inclusion |
 | `for_public` | PartialPrivateTailPublicInputsForPublic? | Present if tx has public calls |
 | `for_rollup` | PartialPrivateTailPublicInputsForRollup? | Present if tx is private-only |
 
@@ -340,7 +340,7 @@ For transactions without public calls:
 | `end` | PrivateToRollupAccumulatedData | 1371 | Final accumulated side effects |
 | `gas_used` | Gas | 2 | Total gas consumed |
 | `fee_payer` | AztecAddress | 1 | Fee payer address |
-| `include_by_timestamp` | u64 | 1 | Inclusion deadline |
+| `expiration_timestamp` | u64 | 1 | Inclusion deadline |
 
 **Total serialized length:** `PRIVATE_TO_ROLLUP_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 1409` fields.
 
@@ -358,7 +358,7 @@ For transactions with public calls:
 | `public_teardown_call_request` | PublicCallRequest | 4 | Teardown function call request |
 | `gas_used` | Gas | 2 | Gas consumed in private execution |
 | `fee_payer` | AztecAddress | 1 | Fee payer address |
-| `include_by_timestamp` | u64 | 1 | Inclusion deadline |
+| `expiration_timestamp` | u64 | 1 | Inclusion deadline |
 
 **Total serialized length:** `PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH = 3040` fields.
 
@@ -669,7 +669,7 @@ classDiagram
         constants: TxConstantData
         gas_used: Gas
         fee_payer: AztecAddress
-        include_by_timestamp: u64
+        expiration_timestamp: u64
         for_public: PartialForPublic?
         for_rollup: PartialForRollup?
     }
@@ -777,11 +777,13 @@ The `anchor_block_header` hash MUST exist in the node's archive tree. A transact
 
 ### V5: Timestamp Validation
 
-If the transaction's `include_by_timestamp` is non-zero and the block being built is not block 1:
+If the block being built is not block 1:
 
 ```
-assert(tx.data.include_by_timestamp >= current_block_timestamp)
+assert(tx.data.expiration_timestamp >= current_block_timestamp)
 ```
+
+There is no "no deadline" sentinel: an `expiration_timestamp` of `0` means the transaction is always expired (except in block 1, where the check is skipped because the genesis block header has a zero timestamp).
 
 Transactions built against the genesis block (anchor block number 0) are only valid in block 1.
 
@@ -797,10 +799,14 @@ A transaction that violates either condition MUST be rejected.
 The transaction's gas limits MUST satisfy:
 
 ```
-gas_limits.da_gas >= FIXED_DA_GAS (512)
-gas_limits.l2_gas >= FIXED_L2_GAS (512)
+gas_limits.da_gas >= TX_DA_GAS_OVERHEAD (96)
+gas_limits.l2_gas >= PUBLIC_TX_L2_GAS_OVERHEAD  (540,000)  // for txs with public calls
+gas_limits.l2_gas >= PRIVATE_TX_L2_GAS_OVERHEAD (440,000)  // for private-only txs
 gas_limits.l2_gas <= AVM_MAX_PROCESSABLE_L2_GAS (6,000,000)
+gas_limits.da_gas <= MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT (786,432)
 ```
+
+The upper bounds on `l2_gas` and `da_gas` are further clamped by the sequencer's configured `rollupManaLimit`, `maxBlockL2Gas`, and `maxBlockDAGas` — a transaction whose limits exceed any of these effective maxima is rejected.
 
 ### V8: Fee Validation
 
@@ -846,7 +852,7 @@ Each validator returns one of three results:
 | `invalid` | Transaction is definitively invalid | Reject permanently |
 | `skipped` | Transaction is not currently eligible | Defer (do not reject) |
 
-A transaction is admitted to the mempool only if ALL validators return `valid`. If any returns `invalid`, the transaction is rejected. If any returns `skipped` (and none returned `invalid`), the transaction is deferred.
+A transaction is admitted to the mempool only if no validator returns `invalid`. A `skipped` result means the transaction is not eligible right now (e.g. its `max_fees_per_gas` is below the current block's gas fees) but may become valid in a later block — it is retained in the pool, not rejected. `skipped` may be returned both at gossip-stage validation and during block building; in the latter case the sequencer moves on to the next transaction.
 
 ## Security Considerations
 
@@ -900,7 +906,7 @@ The following mechanisms protect against mempool flooding:
 
 2. **MaxPriorityFeesPerGas Usage**: The `GasSettings` includes `max_priority_fees_per_gas` (EIP-1559-style tips), but the current implementation does not appear to use this field for sequencer prioritization. How should priority fees affect transaction ordering?
 
-3. **Include-by-Timestamp vs. Include-by-Block**: The `include_by_timestamp` field uses wall-clock time rather than block numbers. Given that block times may vary, should the protocol also support block-number-based expiration?
+3. **Include-by-Timestamp vs. Include-by-Block**: The `expiration_timestamp` field uses wall-clock time rather than block numbers. Given that block times may vary, should the protocol also support block-number-based expiration?
 
 4. **Calldata Size Limit**: The `MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS = 16,000` limit applies to the total calldata across all public calls. Is this sufficient for complex transactions with many public interactions? Should per-call limits also be enforced?
 
