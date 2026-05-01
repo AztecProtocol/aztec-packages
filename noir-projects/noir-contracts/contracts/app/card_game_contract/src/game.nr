@@ -1,11 +1,14 @@
 use crate::cards::Card;
-use aztec::protocol::{address::AztecAddress, traits::{Deserialize, FromField, Packable, ToField}};
+use aztec::protocol::{
+    address::AztecAddress,
+    traits::{Deserialize, FromField, Packable, Serialize, ToField},
+};
 use std::meta::derive;
 
 global NUMBER_OF_PLAYERS: u32 = 2;
 global NUMBER_OF_CARDS_DECK: u32 = 2;
 
-#[derive(Deserialize, Eq)]
+#[derive(Serialize, Deserialize, Eq)]
 pub struct PlayerEntry {
     pub address: AztecAddress,
     pub deck_strength: u32,
@@ -38,6 +41,7 @@ impl PlayerEntry {
 
 pub global PLAYABLE_CARDS: u32 = 4;
 
+#[derive(Serialize, Deserialize)]
 pub struct Game {
     players: [PlayerEntry; NUMBER_OF_PLAYERS],
     pub rounds_cards: [Card; PLAYABLE_CARDS],
