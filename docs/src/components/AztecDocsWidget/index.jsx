@@ -6,25 +6,6 @@ import "./styles.css";
 
 const REMARK_PLUGINS = [remarkGfm];
 
-const AGE_ACK_KEY = "aztecDocsWidgetAgeAck";
-
-function readAgeAck() {
-  if (typeof window === "undefined") return true;
-  try {
-    return window.localStorage.getItem(AGE_ACK_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function writeAgeAck() {
-  try {
-    window.localStorage.setItem(AGE_ACK_KEY, "true");
-  } catch {
-    /* localStorage may be disabled; accept session-only */
-  }
-}
-
 const LANGUAGE_ALIASES = {
   noir: "rust",
   nr: "rust",
@@ -504,30 +485,8 @@ export default function AztecDocsWidget({
   const [streamText, setStreamText] = useState("");
   const [streamSources, setStreamSources] = useState([]);
   const [conversationId, setConversationId] = useState(null);
-  const [ageAcknowledged, setAgeAcknowledged] = useState(readAgeAck);
   const scrollRef = useRef(null);
   const abortRef = useRef(null);
-  const ageGateRef = useRef(null);
-
-  function acknowledgeAge() {
-    writeAgeAck();
-    setAgeAcknowledged(true);
-  }
-
-  useEffect(() => {
-    if (open && !ageAcknowledged && ageGateRef.current) {
-      ageGateRef.current.focus();
-    }
-  }, [open, ageAcknowledged]);
-
-  useEffect(() => {
-    if (!open || ageAcknowledged) return undefined;
-    function onKey(e) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, ageAcknowledged]);
 
   const isInk = theme === "ink";
   const accentColor = ACCENT_VARS[accent] || ACCENT_VARS.chartreuse;
@@ -1094,387 +1053,270 @@ export default function AztecDocsWidget({
         zIndex: 2147483000,
       }}
     >
-      {!ageAcknowledged ? (
-        <div
-          ref={ageGateRef}
-          tabIndex={-1}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="azw-age-gate-title"
-          aria-describedby="azw-age-gate-desc"
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            padding: 24,
-            gap: 16,
-            background: panelBg,
-            color: panelFg,
-            outline: "none",
-          }}
-        >
-          <h2
-            id="azw-age-gate-title"
-            style={{
-              margin: 0,
-              fontFamily: "var(--azw-font-display)",
-              fontSize: 20,
-              color: panelFg,
-            }}
-          >
-            Before you continue
-          </h2>
-          <p
-            id="azw-age-gate-desc"
-            style={{
-              margin: 0,
-              fontSize: 13,
-              lineHeight: 1.5,
-              color: panelFg,
-            }}
-          >
-            Ask Aztec is for users aged 18 or older. Answers are informational
-            only and do not constitute investment, tax, or legal advice.
-          </p>
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              lineHeight: 1.5,
-              color: panelFg2,
-            }}
-          >
-            By continuing you confirm you are 18+ and agree to the{" "}
-            <a
-              href="https://aztec.network/terms-of-service"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "inherit" }}
-            >
-              Terms of Service
-            </a>{" "}
-            and{" "}
-            <a
-              href="https://aztec.network/privacy-policy"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "inherit" }}
-            >
-              Privacy Policy
-            </a>
-            .
-          </p>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              style={{
-                padding: "8px 14px",
-                fontFamily: "var(--azw-font-mono)",
-                fontSize: 12,
-                background: "transparent",
-                color: panelFg,
-                border: `1px solid ${panelFg2}`,
-                cursor: "pointer",
-              }}
-            >
-              Leave
-            </button>
-            <button
-              type="button"
-              onClick={acknowledgeAge}
-              style={{
-                padding: "8px 14px",
-                fontFamily: "var(--azw-font-mono)",
-                fontSize: 12,
-                background: accentColor,
-                color: "var(--azw-ink)",
-                border: "none",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              I am 18+ and agree
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Header */}
+      {/* Header */}
+      <div
+        style={{
+          padding: "14px 16px",
+          borderBottom: `1px solid ${softBorder}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          background: isInk ? "rgba(0,0,0,0.2)" : "var(--azw-parchment-tint-2)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div
             style={{
-              padding: "14px 16px",
-              borderBottom: `1px solid ${softBorder}`,
+              width: 28,
+              height: 28,
+              background: "var(--azw-ink)",
+              border: `1px solid ${isInk ? "var(--azw-parchment)" : "var(--azw-ink)"}`,
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              background: isInk
-                ? "rgba(0,0,0,0.2)"
-                : "var(--azw-parchment-tint-2)",
+              justifyContent: "center",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  background: "var(--azw-ink)",
-                  border: `1px solid ${isInk ? "var(--azw-parchment)" : "var(--azw-ink)"}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <AztecMark size={15} color="var(--azw-chartreuse)" />
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  lineHeight: 1,
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: "var(--azw-font-mono)",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    color: panelFg,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  {title}
-                </div>
-                <div
-                  style={{
-                    fontFamily: "var(--azw-font-mono)",
-                    fontSize: 10,
-                    color: panelFg2,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    marginTop: 4,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
-                >
-                  <span
-                    style={{
-                      width: 5,
-                      height: 5,
-                      background: accentColor,
-                      boxShadow: `0 0 6px ${accentColor}`,
-                    }}
-                  />
-                  Online
-                </div>
-              </div>
+            <AztecMark size={15} color="var(--azw-chartreuse)" />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              lineHeight: 1,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "var(--azw-font-mono)",
+                fontSize: 13,
+                fontWeight: 500,
+                color: panelFg,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {title}
             </div>
-            <div style={{ display: "flex", gap: 4 }}>
-              {messages.length > 0 && (
-                <button
-                  onClick={handleReset}
-                  title="New chat"
-                  style={{
-                    width: 28,
-                    height: 28,
-                    border: "none",
-                    background: "transparent",
-                    color: panelFg2,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Icons.refresh size={14} />
-                </button>
-              )}
-              <button
-                onClick={() => setExpanded((v) => !v)}
-                title={expanded ? "Collapse" : "Expand"}
-                aria-label={expanded ? "Collapse widget" : "Expand widget"}
+            <div
+              style={{
+                fontFamily: "var(--azw-font-mono)",
+                fontSize: 10,
+                color: panelFg2,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                marginTop: 4,
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}
+            >
+              <span
                 style={{
-                  width: 28,
-                  height: 28,
-                  border: "none",
-                  background: "transparent",
-                  color: panelFg2,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
+                  width: 5,
+                  height: 5,
+                  background: accentColor,
+                  boxShadow: `0 0 6px ${accentColor}`,
                 }}
-              >
-                {expanded ? (
-                  <Icons.collapse size={14} />
-                ) : (
-                  <Icons.expand size={14} />
-                )}
-              </button>
-              <button
-                onClick={() => setOpen(false)}
-                title="Close"
-                style={{
-                  width: 28,
-                  height: 28,
-                  border: "none",
-                  background: "transparent",
-                  color: panelFg,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Icons.close size={16} />
-              </button>
+              />
+              Online
             </div>
           </div>
-
-          {/* Body */}
-          <div
-            ref={scrollRef}
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          {messages.length > 0 && (
+            <button
+              onClick={handleReset}
+              title="New chat"
+              style={{
+                width: 28,
+                height: 28,
+                border: "none",
+                background: "transparent",
+                color: panelFg2,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Icons.refresh size={14} />
+            </button>
+          )}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            title={expanded ? "Collapse" : "Expand"}
+            aria-label={expanded ? "Collapse widget" : "Expand widget"}
             style={{
-              flex: 1,
-              overflowY: "auto",
-              overflowX: "hidden",
-              background: panelBg,
+              width: 28,
+              height: 28,
+              border: "none",
+              background: "transparent",
+              color: panelFg2,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {expanded ? (
+              <Icons.collapse size={14} />
+            ) : (
+              <Icons.expand size={14} />
+            )}
+          </button>
+          <button
+            onClick={() => setOpen(false)}
+            title="Close"
+            style={{
+              width: 28,
+              height: 28,
+              border: "none",
+              background: "transparent",
               color: panelFg,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <div
-              style={{ maxWidth: expanded ? 760 : "100%", margin: "0 auto" }}
-            >
-              {showHero && renderHero()}
-              {messages.length > 0 && (
-                <div style={{ padding: "18px 18px 4px" }}>
-                  {messages.map((m, i) => {
-                    const isLast = i === messages.length - 1;
-                    const text = isLast && streaming ? streamText : m.response;
-                    const sources =
-                      isLast && streaming ? streamSources : m.sources;
-                    const isStreamingLast = isLast && streaming;
-                    return (
-                      <React.Fragment key={i}>
-                        {renderUserBubble(m.prompt)}
-                        {(text || isStreamingLast) &&
-                          renderAssistantBody({
-                            text,
-                            sources,
-                            thinking: isStreamingLast,
-                          })}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+            <Icons.close size={16} />
+          </button>
+        </div>
+      </div>
 
-          {/* Composer */}
+      {/* Body */}
+      <div
+        ref={scrollRef}
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          overflowX: "hidden",
+          background: panelBg,
+          color: panelFg,
+        }}
+      >
+        <div style={{ maxWidth: expanded ? 760 : "100%", margin: "0 auto" }}>
+          {showHero && renderHero()}
+          {messages.length > 0 && (
+            <div style={{ padding: "18px 18px 4px" }}>
+              {messages.map((m, i) => {
+                const isLast = i === messages.length - 1;
+                const text = isLast && streaming ? streamText : m.response;
+                const sources = isLast && streaming ? streamSources : m.sources;
+                const isStreamingLast = isLast && streaming;
+                return (
+                  <React.Fragment key={i}>
+                    {renderUserBubble(m.prompt)}
+                    {(text || isStreamingLast) &&
+                      renderAssistantBody({
+                        text,
+                        sources,
+                        thinking: isStreamingLast,
+                      })}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Composer */}
+      <div
+        style={{
+          padding: 12,
+          borderTop: `1px solid ${softBorder}`,
+          background: isInk
+            ? "rgba(0,0,0,0.15)"
+            : "var(--azw-parchment-tint-2)",
+        }}
+      >
+        <div style={{ maxWidth: expanded ? 760 : "100%", margin: "0 auto" }}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSend();
+            }}
+            style={{
+              display: "flex",
+              alignItems: "stretch",
+              gap: 0,
+              background: inputBg,
+              border: `1px solid ${isInk ? "rgba(242,238,225,0.25)" : "var(--azw-ink-tint-1)"}`,
+            }}
+          >
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask about Aztec —"
+              disabled={streaming}
+              style={{
+                flex: 1,
+                padding: "11px 12px",
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                color: panelFg,
+                fontFamily: "var(--azw-font-sans)",
+                fontSize: 13.5,
+                letterSpacing: "-0.01em",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || streaming}
+              style={{
+                padding: "0 14px",
+                background:
+                  input.trim() && !streaming ? accentColor : "transparent",
+                color: input.trim() && !streaming ? "var(--azw-ink)" : panelFg2,
+                border: "none",
+                borderLeft: `1px solid ${isInk ? "rgba(242,238,225,0.25)" : "var(--azw-ink-tint-1)"}`,
+                cursor: input.trim() && !streaming ? "pointer" : "default",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "background 120ms var(--azw-ease)",
+              }}
+            >
+              <Icons.send size={16} />
+            </button>
+          </form>
           <div
             style={{
-              padding: 12,
-              borderTop: `1px solid ${softBorder}`,
-              background: isInk
-                ? "rgba(0,0,0,0.15)"
-                : "var(--azw-parchment-tint-2)",
+              marginTop: 8,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              fontFamily: "var(--azw-font-mono)",
+              fontSize: 10,
+              color: panelFg2,
+              letterSpacing: "0.06em",
             }}
           >
-            <div
-              style={{ maxWidth: expanded ? 760 : "100%", margin: "0 auto" }}
-            >
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSend();
-                }}
-                style={{
-                  display: "flex",
-                  alignItems: "stretch",
-                  gap: 0,
-                  background: inputBg,
-                  border: `1px solid ${isInk ? "rgba(242,238,225,0.25)" : "var(--azw-ink-tint-1)"}`,
-                }}
+            <span>
+              AI-generated. Informational only. Not investment, tax, or legal
+              advice.
+              <a
+                href="https://aztec.network/privacy-policy"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "inherit", textDecoration: "underline" }}
               >
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask about Aztec —"
-                  disabled={streaming}
-                  style={{
-                    flex: 1,
-                    padding: "11px 12px",
-                    background: "transparent",
-                    border: "none",
-                    outline: "none",
-                    color: panelFg,
-                    fontFamily: "var(--azw-font-sans)",
-                    fontSize: 13.5,
-                    letterSpacing: "-0.01em",
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={!input.trim() || streaming}
-                  style={{
-                    padding: "0 14px",
-                    background:
-                      input.trim() && !streaming ? accentColor : "transparent",
-                    color:
-                      input.trim() && !streaming ? "var(--azw-ink)" : panelFg2,
-                    border: "none",
-                    borderLeft: `1px solid ${isInk ? "rgba(242,238,225,0.25)" : "var(--azw-ink-tint-1)"}`,
-                    cursor: input.trim() && !streaming ? "pointer" : "default",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    transition: "background 120ms var(--azw-ease)",
-                  }}
-                >
-                  <Icons.send size={16} />
-                </button>
-              </form>
-              <div
-                style={{
-                  marginTop: 8,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 2,
-                  fontFamily: "var(--azw-font-mono)",
-                  fontSize: 10,
-                  color: panelFg2,
-                  letterSpacing: "0.06em",
-                }}
+                Privacy
+              </a>
+              {" · "}
+              <a
+                href="https://aztec.network/terms-of-service"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "inherit", textDecoration: "underline" }}
               >
-                <span>
-                  AI-generated. Informational only. Not investment, tax, or
-                  legal advice.
-                  <a
-                    href="https://aztec.network/privacy-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "inherit", textDecoration: "underline" }}
-                  >
-                    Privacy
-                  </a>
-                  {" · "}
-                  <a
-                    href="https://aztec.network/terms-of-service"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "inherit", textDecoration: "underline" }}
-                  >
-                    Terms
-                  </a>
-                </span>
-              </div>
-            </div>
+                Terms
+              </a>
+            </span>
           </div>
-        </>
-      )}
+        </div>
+      </div>
     </div>
   );
 
