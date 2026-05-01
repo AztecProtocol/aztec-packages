@@ -49,7 +49,6 @@ pub contract Test {
         // Contract instance management
         publish_contract_instance::publish_contract_instance_for_public_execution,
     };
-    use std::hash::pedersen_hash_with_separator;
     use std::meta::derive;
     use token_portal_content_hash_lib::get_mint_to_private_content_hash;
 
@@ -432,16 +431,6 @@ pub contract Test {
     pub struct DummyNote {
         pub amount: Field,
         pub secret_hash: Field,
-    }
-
-    impl DummyNote {
-        fn new(amount: Field, secret_hash: Field) -> Self {
-            Self { amount, secret_hash }
-        }
-
-        fn get_commitment(self) -> Field {
-            pedersen_hash_with_separator([self.amount, self.secret_hash], 0)
-        }
     }
 
     #[derive(Serialize)]
