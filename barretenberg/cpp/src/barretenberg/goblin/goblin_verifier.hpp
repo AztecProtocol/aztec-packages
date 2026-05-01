@@ -71,16 +71,13 @@ template <typename Curve> class GoblinVerifier_ {
      * @param transcript Shared transcript for Fiat-Shamir
      * @param proof The complete Goblin proof containing Merge, ECCVM, IPA, and Translator proofs
      * @param merge_commitments The input commitments for the Merge verifier (t and T_prev tables)
-     * @param merge_settings How the ecc op subtable was merged (PREPEND or APPEND)
      */
     GoblinVerifier_(std::shared_ptr<Transcript> transcript,
                     const GoblinProof& proof,
-                    const MergeCommitments& merge_commitments,
-                    MergeSettings merge_settings)
+                    const MergeCommitments& merge_commitments)
         : transcript(std::move(transcript))
         , proof(proof)
         , merge_commitments(merge_commitments)
-        , merge_settings(merge_settings)
     {}
 
     /**
@@ -105,7 +102,6 @@ template <typename Curve> class GoblinVerifier_ {
     std::shared_ptr<Transcript> transcript;
     GoblinProof proof;
     MergeCommitments merge_commitments;
-    MergeSettings merge_settings;
 };
 
 // Type aliases for convenience
