@@ -24,6 +24,13 @@ constexpr affine_element<Fq, Fr, T> affine_element<Fq, Fr, T>::from_compressed(c
     x_coordinate.data[3] = x_coordinate.data[3] & (~UINT256_TOP_LIMB_MSB);
     bool y_bit = compressed.get_bit(255);
 
+    // Reject non-canonical encodings: the lower 255 bits encode x. If x_coordinate >= Fq::modulus,
+    // Fq(x_coordinate) silently reduces mod p, so two distinct compressed bytestrings differing by
+    // a multiple of p would decompress to the same point (encoding malleability).
+    if (x_coordinate >= Fq::modulus) {
+        return affine_element(Fq::zero(), Fq::zero());
+    }
+
     Fq x = Fq(x_coordinate);
     Fq y2 = (x.sqr() * x + T::b);
     if constexpr (T::has_a) {
