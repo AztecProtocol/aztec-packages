@@ -1,8 +1,4 @@
-# Agents
-
-This file is the entry point for coding agents that look for `AGENTS.md` (Codex, Cursor, Aider, Gemini CLI, Jules, Devin). General project guidance — build commands, branch strategy, code style, commit/PR conventions, formatting rules, testing discipline — lives in `CLAUDE.md` at the same path. Read `CLAUDE.md` first; everything below is a catalog of project-specific subagents and skills that are not covered there.
-
-Claude Code auto-discovers the files referenced below via its `Agent` and `Skill` tools, so it does not need this catalog. Other coding agents should read the matching file by path when the user's task lines up with one of the listed entries.
+This repo uses CLAUDE.md files. When working in a module, look for the CLAUDE.md. *Immediately read the root ./CLAUDE.md here*.
 
 ## Specialist subagents
 
