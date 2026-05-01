@@ -78,4 +78,11 @@ export { AccountManager } from '../wallet/account_manager.js';
 
 export { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 
+export {
+  type PublicStorageOverride,
+  PublicStorageOverrideSchema,
+  type StateOverrides,
+  StateOverridesSchema,
+} from '@aztec/stdlib/interfaces/client';
+
 export { type DeployAccountOptions, DeployAccountMethod } from '../wallet/deploy_account_method.js';

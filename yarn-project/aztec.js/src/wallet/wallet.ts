@@ -13,6 +13,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
+import { StateOverridesSchema } from '@aztec/stdlib/interfaces/client';
 import { LogId } from '@aztec/stdlib/logs';
 import { AbiDecodedSchema, type ApiSchemaFor, optional, schemas, zodFor } from '@aztec/stdlib/schemas';
 import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
@@ -335,6 +336,7 @@ export const SimulateOptionsSchema = z.object({
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
   additionalScopes: optional(z.array(schemas.AztecAddress)),
+  stateOverrides: optional(StateOverridesSchema),
 });
 
 export const ProfileOptionsSchema = SimulateOptionsSchema.extend({

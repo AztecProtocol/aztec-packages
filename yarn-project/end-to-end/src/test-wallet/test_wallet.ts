@@ -260,7 +260,8 @@ export class TestWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement, sendMessagesAs } = opts;
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement, sendMessagesAs, stateOverrides } =
+      opts;
     const scopes = this.scopesFrom(from, additionalScopes);
     const skipKernels = this.simulationMode !== 'full';
     const useOverride = this.simulationMode === 'kernelless-override';
@@ -311,6 +312,7 @@ export class TestWallet extends BaseWallet {
       overrides,
       scopes,
       senderForTags: this.senderForTagsFrom(from, sendMessagesAs),
+      stateOverrides,
     });
     const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);

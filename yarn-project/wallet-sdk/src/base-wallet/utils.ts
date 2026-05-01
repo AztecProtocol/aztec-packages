@@ -11,6 +11,7 @@ import { generateSimulatedProvingResult } from '@aztec/pxe/simulator';
 import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
+import type { StateOverrides } from '@aztec/stdlib/interfaces/client';
 import {
   ClaimedLengthArray,
   CountedPublicCallRequest,
@@ -65,6 +66,8 @@ export function extractOptimizablePublicStaticCalls(payload: ExecutionPayload): 
  * @param gasSettings - Gas settings for the transaction.
  * @param blockHeader - Block header to use as anchor.
  * @param skipFeeEnforcement - Whether to skip fee enforcement during simulation.
+ * @param getContractName - Resolver for contract names (used for debug log display).
+ * @param stateOverrides - Optional pre-simulation state overrides.
  * @returns TxSimulationResult with public return values.
  */
 async function simulateBatchViaNode(
@@ -76,6 +79,7 @@ async function simulateBatchViaNode(
   blockHeader: BlockHeader,
   skipFeeEnforcement: boolean,
   getContractName: ContractNameResolver,
+  stateOverrides?: StateOverrides,
 ): Promise<TxSimulationResult> {
   const txContext = new TxContext(chainInfo.chainId, chainInfo.version, gasSettings);
 
@@ -143,7 +147,7 @@ async function simulateBatchViaNode(
     publicFunctionCalldata: publicFunctionCalldata,
   });
 
-  const publicOutput = await node.simulatePublicCalls(tx, skipFeeEnforcement);
+  const publicOutput = await node.simulatePublicCalls(tx, skipFeeEnforcement, stateOverrides);
 
   if (publicOutput.revertReason) {
     throw publicOutput.revertReason;
@@ -166,6 +170,8 @@ async function simulateBatchViaNode(
  * @param gasSettings - Gas settings for the transaction.
  * @param blockHeader - Block header to use as anchor.
  * @param skipFeeEnforcement - Whether to skip fee enforcement during simulation.
+ * @param getContractName - Resolver for contract names (used for debug log display).
+ * @param stateOverrides - Optional pre-simulation state overrides.
  * @returns Array of TxSimulationResult, one per batch.
  */
 export async function simulateViaNode(
@@ -177,6 +183,7 @@ export async function simulateViaNode(
   blockHeader: BlockHeader,
   skipFeeEnforcement: boolean = true,
   getContractName: ContractNameResolver,
+  stateOverrides?: StateOverrides,
 ): Promise<TxSimulationResult[]> {
   const batches: FunctionCall[][] = [];
 
@@ -196,6 +203,7 @@ export async function simulateViaNode(
       blockHeader,
       skipFeeEnforcement,
       getContractName,
+      stateOverrides,
     );
     results.push(result);
   }

@@ -9,6 +9,20 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] `simulate` accepts `stateOverrides` for fork-style testing
+
+`Contract.methods.foo(...).simulate(...)` now accepts a `stateOverrides` option that injects values into the simulator's ephemeral world-state fork before the call runs. The first override flavor is `publicStorage`, which writes a `(contract, slot, value)` triple into the public-data tree as if a previous tx had set it. Overrides are scoped to the simulation; the real chain state is untouched.
+
+```typescript
+const result = await contract.methods.read_balance(account).simulate({
+  stateOverrides: {
+    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+  },
+});
+```
+
+The same option flows through `wallet.simulateTx` and eventually to `simulatePublicCalls` RPC on `AztecNode`.
+
 ### [PXE] `proveTx` takes an options bag
 
 `PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:

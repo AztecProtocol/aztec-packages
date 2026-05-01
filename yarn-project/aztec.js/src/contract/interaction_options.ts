@@ -3,6 +3,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
+import type { StateOverrides } from '@aztec/stdlib/interfaces/client';
 import {
   type Capsule,
   OFFCHAIN_MESSAGE_IDENTIFIER,
@@ -157,6 +158,8 @@ export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
   /** Whether to include metadata such as performance statistics (e.g. timing information of the different circuits and oracles) and gas estimation
    * in the simulation result, in addition to the return value and offchain effects */
   includeMetadata?: boolean;
+  /** Pre-simulation state overrides applied to the ephemeral fork and contract DB. */
+  stateOverrides?: StateOverrides;
 };
 
 /**
