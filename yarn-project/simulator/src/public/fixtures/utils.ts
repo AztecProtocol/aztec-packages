@@ -252,6 +252,7 @@ export async function addNewContractInstanceToTx(
     new Fr(contractInstance.salt),
     contractInstance.currentContractClassId,
     contractInstance.initializationHash,
+    contractInstance.immutablesHash,
     ...publicKeysAsFields,
     contractInstance.deployer.toField(),
   ];
