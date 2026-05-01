@@ -96,20 +96,34 @@ function compile-solidity {
 
   mkdir -p "$OUTPUT_DIR"
 
-  # Compile using the local foundry.toml with proper remappings
+  # Compile using the local foundry.toml with proper remappings.
+  # Each forge invocation may need to download solc on a clean cache; retry
+  # to absorb transient DNS/network errors from binaries.soliditylang.org,
+  # and abort the loop on persistent failure so run_step retries the step.
   (
     cd "$SOLIDITY_DIR"
     for subdir in */; do
       if [ -d "$subdir" ] && ls "$subdir"/*.sol >/dev/null 2>&1; then
         local subdir_name=$(basename "$subdir")
         echo_stderr "Compiling $subdir_name..."
-        forge build \
-          --contracts "$subdir" \
-          --out "$OUTPUT_DIR/$subdir_name" \
-          --no-cache
+        local attempt
+        for attempt in 1 2 3; do
+          if forge build \
+              --contracts "$subdir" \
+              --out "$OUTPUT_DIR/$subdir_name" \
+              --no-cache; then
+            break
+          fi
+          if [ "$attempt" -eq 3 ]; then
+            echo_stderr "ERROR: forge build failed for $subdir_name after 3 attempts"
+            exit 1
+          fi
+          echo_stderr "WARNING: forge build failed for $subdir_name (attempt $attempt), retrying in 5s..."
+          sleep 5
+        done
       fi
     done
-  )
+  ) || return 1
 
   echo_stderr "Solidity artifacts written to $OUTPUT_DIR"
 }
