@@ -36,6 +36,8 @@ const stateOverrides = await fastForwardContractUpdate({
 const result = await contract.methods.upgraded_method().simulate({ stateOverrides });
 ```
 
+Two lower-level primitives, `spoofContractClassPublish` and `spoofContractInstancePublish`, expose direct construction of contract DB overrides for power users.
+
 ### [PXE] `proveTx` takes an options bag
 
 `PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:

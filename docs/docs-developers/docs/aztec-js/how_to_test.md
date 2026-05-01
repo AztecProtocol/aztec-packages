@@ -124,6 +124,13 @@ const result = await contract.methods.upgraded_method().simulate({ stateOverride
 
 Use this to test code paths that only execute after an upgrade, without orchestrating the full delayed-mutable upgrade flow.
 
+### Lower-level primitives
+
+For composing override blobs by hand, two `spoof*` helpers are exposed:
+
+- `spoofContractClassPublish(class)` returns `{ contractClasses: [class] }`. Useful for testing against a class that hasn't been published.
+- `spoofContractInstancePublish(instance)` returns `{ contractInstances: [instance] }`. Throws if the instance's `currentContractClassId` differs from its `originalContractClassId` — divergence requires a coherent registry-storage override, which only `fastForwardContractUpdate` produces.
+
 ## Further reading
 
 - [How to read contract data](./how_to_read_data.md)
