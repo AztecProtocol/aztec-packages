@@ -129,6 +129,12 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   ): Promise<SimulationResult> {
     // docs:end:simulate
     if (this.functionDao.functionType == FunctionType.UTILITY) {
+      if (
+        options.stateOverrides &&
+        (options.stateOverrides.publicStorage?.length || options.stateOverrides.contractInstances?.length)
+      ) {
+        throw new Error('stateOverrides are not supported for utility function simulation.');
+      }
       const call = await this.getFunctionCall();
       const scopes = [...(options.additionalScopes ?? [])];
       const utilityResult = await this.wallet.executeUtility(call, {

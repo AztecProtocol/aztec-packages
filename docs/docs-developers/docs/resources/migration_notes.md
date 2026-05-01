@@ -23,6 +23,19 @@ const result = await contract.methods.read_balance(account).simulate({
 
 The same option flows through `wallet.simulateTx` and eventually to `simulatePublicCalls` RPC on `AztecNode`.
 
+A second override flavor, `contractInstances`, shadows contract instances in the simulator's contract DB - useful for simulating a contract being on a different class than the one it was deployed with. To simulate a complete on-chain upgrade flow, use the `fastForwardContractUpdate` helper which produces a coherent set of `publicStorage` and `contractInstances` overrides:
+
+```typescript
+import { fastForwardContractUpdate } from '@aztec/aztec.js';
+
+const stateOverrides = await fastForwardContractUpdate({
+  instanceAddress: contract.address,
+  newClassId: upgradedClass.id,
+  node,
+});
+const result = await contract.methods.upgraded_method().simulate({ stateOverrides });
+```
+
 ### [PXE] `proveTx` takes an options bag
 
 `PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:
