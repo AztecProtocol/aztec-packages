@@ -31,7 +31,7 @@ describe('proving test', () => {
 
   it('advances the proven chain', async () => {
     let [provenBlockNumber, blockNumber] = await Promise.all([
-      aztecNode.getProvenBlockNumber(),
+      aztecNode.getBlockNumber('proven'),
       aztecNode.getBlockNumber(),
     ]);
     let ok: boolean;
@@ -41,7 +41,7 @@ describe('proving test', () => {
 
     while (true) {
       const [newProvenBlockNumber, newBlockNumber] = await Promise.all([
-        aztecNode.getProvenBlockNumber(),
+        aztecNode.getBlockNumber('proven'),
         aztecNode.getBlockNumber(),
       ]);
 

@@ -14,7 +14,12 @@ import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } f
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeBlockHeader,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+} from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -77,7 +82,10 @@ describe('ProposalHandler checkpoint validation', () => {
     dateProvider = new TestDateProvider();
     metrics = mock<ValidatorMetrics>();
 
-    config = {} as ValidatorClientFullConfig;
+    config = {
+      l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
+      l1Contracts: { rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress },
+    } as ValidatorClientFullConfig;
 
     handler = new ProposalHandler(
       checkpointsBuilder,
@@ -189,8 +197,8 @@ describe('ProposalHandler checkpoint validation', () => {
         checkpointHandler = handler;
       });
 
-      const archiver = mock<Pick<Archiver, 'setProposedCheckpoint' | 'getL1Constants'>>();
-      archiver.setProposedCheckpoint.mockResolvedValue(undefined);
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>>();
+      archiver.addProposedCheckpoint.mockResolvedValue(undefined);
 
       const blockData = {
         checkpointNumber: CheckpointNumber(3),
@@ -206,7 +214,7 @@ describe('ProposalHandler checkpoint validation', () => {
       handler.register(p2p, true, archiver);
       await checkpointHandler!(proposal, {} as any);
 
-      expect(archiver.setProposedCheckpoint).toHaveBeenCalled();
+      expect(archiver.addProposedCheckpoint).toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalToPipelinedStateDuration).toHaveBeenCalledWith(expect.any(Number));
     });
   });

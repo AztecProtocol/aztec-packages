@@ -5,19 +5,25 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { jest } from '@jest/globals';
 
 import { CheckpointHeader } from '../rollup/index.js';
+import { TEST_COORDINATION_SIGNATURE_CONTEXT } from '../tests/mocks.js';
 import { trimAttestations } from './attestation_utils.js';
 import { CheckpointAttestation } from './checkpoint_attestation.js';
+import { CheckpointProposal } from './checkpoint_proposal.js';
 import { ConsensusPayload } from './consensus_payload.js';
-import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from './signature_utils.js';
+import { getHashedSignaturePayloadTypedData } from './signature_utils.js';
 
 function makeAttestation(signer: Secp256k1Signer): CheckpointAttestation {
   const header = CheckpointHeader.random({ slotNumber: SlotNumber(0) });
-  const payload = new ConsensusPayload(header, Fr.random(), 0n);
-  const attestationHash = getHashedSignaturePayloadEthSignedMessage(
-    payload,
-    SignatureDomainSeparator.checkpointAttestation,
+  const payload = new ConsensusPayload(header, Fr.random(), 0n, TEST_COORDINATION_SIGNATURE_CONTEXT);
+  const attestationHash = getHashedSignaturePayloadTypedData(payload);
+  const proposal = new CheckpointProposal(
+    header,
+    payload.archive,
+    payload.feeAssetPriceModifier,
+    signer.sign(attestationHash),
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
   );
-  const proposalHash = getHashedSignaturePayloadEthSignedMessage(payload, SignatureDomainSeparator.checkpointProposal);
+  const proposalHash = getHashedSignaturePayloadTypedData(proposal);
   return new CheckpointAttestation(payload, signer.sign(attestationHash), signer.sign(proposalHash));
 }
 

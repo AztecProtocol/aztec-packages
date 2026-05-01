@@ -67,7 +67,7 @@ describe('e2e_fees fee settings', () => {
     const getCurrentMinFeesAfterCheckpoint = async (checkpointedBlock: BlockNumber) => {
       return await retryUntil(
         async () => {
-          const currentCheckpointedBlock = await aztecNode.getCheckpointedBlockNumber();
+          const currentCheckpointedBlock = await aztecNode.getBlockNumber('checkpointed');
           if (currentCheckpointedBlock < checkpointedBlock) {
             return undefined;
           }

@@ -13,7 +13,7 @@ contract OffchainEffect {
         },
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
-        protocol::{address::AztecAddress, traits::Serialize},
+        protocol::{address::AztecAddress, traits::{Deserialize, Serialize}},
         state_vars::{Owned, PrivateSet},
     };
     use uint_note::UintNote;
@@ -25,7 +25,7 @@ contract OffchainEffect {
         pub c: u64,
     }
 
-    #[derive(Serialize)]
+    #[derive(Deserialize, Serialize)]
     pub struct EffectPayload {
         pub data: [Field; 5],
         pub next_contract: AztecAddress,

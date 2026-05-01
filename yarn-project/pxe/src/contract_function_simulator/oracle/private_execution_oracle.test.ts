@@ -1,5 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { KeyStore } from '@aztec/key-store';
+import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -107,6 +108,7 @@ describe('PrivateExecutionOracle', () => {
       l2TipsStore: mock<L2TipsProvider>(),
       jobId: 'test',
       scopes: [],
+      simulator: new WASMSimulator(),
       ...overrides,
     });
   };

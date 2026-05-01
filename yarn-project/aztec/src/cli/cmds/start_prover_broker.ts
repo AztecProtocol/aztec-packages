@@ -24,8 +24,8 @@ export async function startProverBroker(
   services: NamespacedApiHandlers,
   userLog: LogFn,
 ): Promise<{ broker: ProvingJobBroker; config: ProverBrokerConfig }> {
-  if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
-    userLog(`Starting a prover broker with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
+  if (options.node || options.sequencer || options.p2pBootstrap || options.txe) {
+    userLog(`Starting a prover broker with --node, --sequencer, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
   }
 

@@ -10,7 +10,11 @@ import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import { BlockProposal, CheckpointAttestation, CheckpointProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeAppendOnlyTreeSnapshot,
+  mockTxForRollup,
+} from '@aztec/stdlib/testing';
 import { BlockHeader, GlobalVariables, type Tx, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 
 import type { MockProxy } from 'jest-mock-extended';
@@ -109,6 +113,7 @@ export function createBlockProposal(block: L2Block, signature: Signature): Block
     block.archive.root,
     txHashes,
     signature,
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
   );
 }
 
@@ -123,12 +128,19 @@ export function createCheckpointProposal(
 ): CheckpointProposal {
   const txHashes = block.body.txEffects.map(tx => tx.txHash);
   const checkpointHeader = createCheckpointHeaderFromBlock(block);
-  return new CheckpointProposal(checkpointHeader, block.archive.root, feeAssetPriceModifier, checkpointSignature, {
-    blockHeader: block.header,
-    indexWithinCheckpoint: block.indexWithinCheckpoint,
-    txHashes,
-    signature: blockSignature ?? checkpointSignature, // Use checkpoint signature as block signature if not provided
-  });
+  return new CheckpointProposal(
+    checkpointHeader,
+    block.archive.root,
+    feeAssetPriceModifier,
+    checkpointSignature,
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
+    {
+      blockHeader: block.header,
+      indexWithinCheckpoint: block.indexWithinCheckpoint,
+      txHashes,
+      signature: blockSignature ?? checkpointSignature, // Use checkpoint signature as block signature if not provided
+    },
+  );
 }
 
 /**
@@ -143,10 +155,16 @@ export function createCheckpointAttestation(
   feeAssetPriceModifier: bigint = 0n,
 ): CheckpointAttestation {
   const checkpointHeader = createCheckpointHeaderFromBlock(block);
-  const payload = new ConsensusPayload(checkpointHeader, block.archive.root, feeAssetPriceModifier);
+  const payload = new ConsensusPayload(
+    checkpointHeader,
+    block.archive.root,
+    feeAssetPriceModifier,
+    TEST_COORDINATION_SIGNATURE_CONTEXT,
+  );
   const attestation = new CheckpointAttestation(payload, signature, signature);
-  // Set sender directly for testing (bypasses signature recovery)
-  (attestation as any).sender = sender;
+  // Bypass signature recovery for testing since we use random signatures
+  (attestation as any).getSender = () => sender;
+  (attestation as any).getProposer = () => sender;
   return attestation;
 }
 
