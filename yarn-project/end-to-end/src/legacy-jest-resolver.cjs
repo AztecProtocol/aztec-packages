@@ -95,13 +95,8 @@ module.exports = function legacyResolver(request, options) {
     return resolved;
   }
   if (!fs.existsSync(legacy)) {
-    // Contract was added after this release — there is nothing to compat-test for it. Exit the process cleanly
-    // with code 0 so the test runner reports the run as passed (no false-positive compat coverage is claimed —
-    // the test simply did not run). We exit on the first miss because the suite cannot proceed without this
-    // artifact anyway; one log line is enough to make the skip auditable.
-    //
-    // We use fs.writeSync(2, ...) instead of process.stderr.write so the message is flushed synchronously
-    // before process.exit (process.stderr.write may buffer when stderr is piped to a file, as it is in CI).
+    // Contract was added after this historical release, there is nothing to compat-test for it. Exit the process
+    // cleanly with code 0 so the test runner reports the run as passed.
     fs.writeSync(
       2,
       `[legacy-contracts][jest] artifact ${path.basename(legacy)} not in legacy cache @${version}; ` +
