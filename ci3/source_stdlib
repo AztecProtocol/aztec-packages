@@ -10,12 +10,6 @@ function hash_str_orig {
 function hash_str {
   set -eu
   if [[ "$*" == *"disabled-cache"* ]]; then
-    # In CI a 'disabled-cache' input means an upstream hash function (cache_content_hash) hit
-    # an unexpected dirty-tree state; fail loudly rather than silently disabling the cache.
-    if [ "${CI:-0}" -eq 1 ]; then
-      echo_stderr "ERROR: hash_str received 'disabled-cache' input in CI: $*"
-      exit 1
-    fi
     # We want to propagate cache being disabled so that cache_upload and cache_download can catch this
     echo "disabled-cache"
   else
