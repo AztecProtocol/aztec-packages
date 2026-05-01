@@ -270,7 +270,7 @@ For local testing, you'll use simplified mocks of Aave's lending pool. The mock 
 
 :::tip Mock vs Real Aave
 
-In production, replace `MockAavePool` with Aave V3's `IPool` interface at `0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2` (Ethereum mainnet). The portal contract's `IAavePool` interface already matches Aave V3's function signatures. For realistic testing, fork mainnet with `anvil --fork-url <your-rpc-url>`.
+In production, replace `MockAavePool` with Aave V3's `IPool` interface at `0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2` (Ethereum mainnet). The portal contract's `IAavePool` interface already matches Aave V3's function signatures. For realistic testing, fork mainnet with `aztec-anvil --fork-url <your-rpc-url>` (the Aztec installer ships Foundry's `anvil` as `aztec-anvil`; substitute your own `anvil` install if have one at the same version Aztec's Foundry expects: `aztec-anvil --version`).
 
 :::
 
@@ -504,7 +504,7 @@ L1-to-L2 messages need 2 L2 blocks after the L1 transaction before they become c
 
 ## Next Steps
 
-- **Test with a mainnet fork**: Use `anvil --fork-url` to test against real Aave
+- **Test with a mainnet fork**: Use `aztec-anvil --fork-url` (or your own `anvil` install) to test against real Aave
 - **Add private deposits**: Use the `claim_private` and `exit_to_l1_private` functions for privacy-preserving DeFi
 - **Build a frontend**: Add a web UI for easy depositing and claiming
 - **Compose with other protocols**: The same pattern works for Uniswap, Compound, or any L1 DeFi protocol
