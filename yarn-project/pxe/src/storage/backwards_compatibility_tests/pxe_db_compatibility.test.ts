@@ -65,6 +65,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  * Asserts that `value` matches the per-store snapshot file `__snapshots__/<name>.json`. Each store gets its own file
  * so a `-u` regeneration produces a localized git diff: an unrelated store accidentally drifting will show up as a
  * separately-modified file in the diff, instead of being masked inside one consolidated snapshot.
+ *
+ * On mismatch, prepends domain-specific guidance to the matcher's failure message so a developer who stumbles onto a
+ * red CI doesn't reflexively run `-u`: the "right" action depends on whether the gatekeeper or a per-store test
+ * failed, and in both cases requires a deliberate decision (add a `SCHEMA_TESTS` entry; bump
+ * `PXE_DATA_SCHEMA_VERSION`) that `-u` alone cannot make on the dev's behalf.
  */
 function expectMatchesSnapshot(value: unknown, name: string) {
   const snapshotPath = join(__dirname, '__snapshots__', `${name}.json`);
@@ -75,7 +80,16 @@ function expectMatchesSnapshot(value: unknown, name: string) {
   // up".
   const { snapshotState } = expect.getState();
   const before = { added: snapshotState.added, updated: snapshotState.updated, unmatched: snapshotState.unmatched };
-  expect(JSON.stringify(value, null, 2)).toMatchFile(snapshotPath);
+  // Trailing newline matches what the project's post-edit formatter writes to JSON files. Without it, our serialized
+  // output and the on-disk file disagree by one byte after every formatter pass, producing perpetual false drift.
+  try {
+    expect(JSON.stringify(value, null, 2) + '\n').toMatchFile(snapshotPath);
+  } catch (err) {
+    if (err instanceof Error) {
+      err.message = `${compatibilityTestGuidance(name)}\n\n${err.message}`;
+    }
+    throw err;
+  }
   if (
     snapshotState.added === before.added &&
     snapshotState.updated === before.updated &&
@@ -83,6 +97,36 @@ function expectMatchesSnapshot(value: unknown, name: string) {
   ) {
     snapshotState.matched++;
   }
+}
+
+/**
+ * Returns the actionable header to prepend to a snapshot-mismatch failure. Branches on whether the gatekeeper
+ * (`opened_stores`) or a specific store's snapshot mismatched, because the corrective actions are different: a
+ * gatekeeper failure usually means a `SCHEMA_TESTS` entry is missing for a newly-wired store; a per-store failure
+ * means the on-disk format has changed and existing PXE databases need a wipe via `PXE_DATA_SCHEMA_VERSION`.
+ */
+function compatibilityTestGuidance(name: string): string {
+  if (name === 'opened_stores') {
+    return [
+      '=== PXE storage compatibility (gatekeeper) ===',
+      'The set of kv-stores opened by openPxeStores has changed. Before regenerating opened_stores.json with `-u`:',
+      "  1. If a store was added: add a corresponding SCHEMA_TESTS entry in this file so the new store's on-disk",
+      '     bytes are also covered. Otherwise the per-store schema gate is skipped for that store, silently and',
+      '     forever.',
+      '  2. If the schema change breaks existing PXE databases, bump PXE_DATA_SCHEMA_VERSION in metadata.ts so',
+      '     DatabaseVersionManager wipes outdated DBs on next open.',
+      'If unexpected: investigate the diff below — running `-u` would silently accept the change.',
+    ].join('\n');
+  }
+  return [
+    `=== PXE storage compatibility (${name}) ===`,
+    `The bytes ${name} writes to disk no longer match the snapshot. Before regenerating ${name}.json with \`-u\`:`,
+    `  - If unintentional: fix the regression in the most recent ${name} code changes; do NOT update the snapshot.`,
+    '  - If intentional (deliberate format bump): bump PXE_DATA_SCHEMA_VERSION in metadata.ts so existing PXE',
+    '    databases are wiped via DatabaseVersionManager on next open.',
+    'Running `-u` without taking the above action commits a breaking schema change with no migration path; existing',
+    'on-device wallets will see corrupted data.',
+  ].join('\n');
 }
 
 /**
