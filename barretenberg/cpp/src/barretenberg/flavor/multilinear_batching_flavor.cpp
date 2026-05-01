@@ -50,6 +50,18 @@ MultilinearBatchingFlavor::ProvingKey::ProvingKey(ProverClaim&& accumulator_clai
     shifted_instance_commitment = instance_claim.shifted_commitment;
 }
 
+MultilinearBatchingVerifierClaim<curve::BN254> MultilinearBatchingFlavor::ProverClaim::to_verifier_claim_for_testing()
+    const
+{
+    MultilinearBatchingVerifierClaim<curve::BN254> verifier_claim;
+    verifier_claim.challenge = challenge;
+    verifier_claim.non_shifted_evaluation = non_shifted_evaluation;
+    verifier_claim.shifted_evaluation = shifted_evaluation;
+    verifier_claim.non_shifted_commitment = non_shifted_commitment;
+    verifier_claim.shifted_commitment = shifted_commitment;
+    return verifier_claim;
+}
+
 #ifndef NDEBUG
 bool MultilinearBatchingFlavor::ProverClaim::compare_with_verifier_claim(
     const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim)
