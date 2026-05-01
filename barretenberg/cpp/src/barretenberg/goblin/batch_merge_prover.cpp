@@ -27,13 +27,24 @@ typename BatchMergeProver::Polynomial BatchMergeProver::compute_degree_check_pol
 {
     // Zero initialization
     Polynomial reversed_batched_poly(max_size);
-
-    // Iterate over the flattened columns
-    for (size_t idx = 0; idx < flattened_columns.size(); ++idx) {
-        const Polynomial& poly = flattened_columns[idx];
-        const FF challenge = degree_check_challenges[idx];
-        reversed_batched_poly.add_scaled(poly.reverse(), challenge);
+    std::vector<Polynomial> reversed_columns;
+    reversed_columns.reserve(flattened_columns.size());
+    for (const auto& poly : flattened_columns) {
+        reversed_columns.emplace_back(poly.reverse());
     }
+
+    std::vector<PolynomialSpan<const FF>> reversed_column_spans;
+    std::vector<FF> scalars;
+    reversed_column_spans.reserve(flattened_columns.size());
+    scalars.reserve(flattened_columns.size());
+    for (size_t idx = 0; idx < flattened_columns.size(); ++idx) {
+        reversed_column_spans.emplace_back(reversed_columns[idx]);
+        scalars.push_back(degree_check_challenges[idx]);
+    }
+
+    add_scaled_batch(reversed_batched_poly,
+                     std::span<const PolynomialSpan<const FF>>(reversed_column_spans),
+                     std::span<const FF>(scalars));
 
     return reversed_batched_poly;
 }
