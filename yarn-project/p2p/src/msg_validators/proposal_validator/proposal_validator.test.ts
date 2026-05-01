@@ -1,6 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { NoCommitteeError } from '@aztec/ethereum/contracts';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -366,6 +366,43 @@ describe('ProposalValidator', () => {
         const result = await validator.validateTxs(proposal);
         expect(result).toEqual({ result: 'accept' });
       });
+    });
+  });
+
+  describe('maxBlocksPerCheckpoint', () => {
+    const signer = Secp256k1Signer.random();
+
+    beforeEach(() => {
+      validator = new ProposalValidator(
+        epochCache,
+        {
+          txsPermitted: true,
+          maxBlocksPerCheckpoint: 5,
+          signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+        },
+        'test',
+      );
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+    });
+
+    it('rejects a block proposal whose indexWithinCheckpoint equals the cap (5 >= 5)', async () => {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        indexWithinCheckpoint: IndexWithinCheckpoint(5),
+        signer,
+      });
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.MidToleranceError });
+    });
+
+    it('accepts a block proposal whose indexWithinCheckpoint is below the cap (4 < 5)', async () => {
+      const proposal = await makeBlockProposal({
+        blockHeader: makeBlockHeader(0, { slotNumber: currentSlot }),
+        indexWithinCheckpoint: IndexWithinCheckpoint(4),
+        signer,
+      });
+      const result = await validator.validate(proposal);
+      expect(result).toEqual({ result: 'accept' });
     });
   });
 });

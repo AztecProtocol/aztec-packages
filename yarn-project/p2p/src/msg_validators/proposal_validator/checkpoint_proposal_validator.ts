@@ -16,6 +16,7 @@ export class CheckpointProposalValidator implements P2PValidator<CheckpointPropo
     opts: {
       txsPermitted: boolean;
       maxTxsPerBlock?: number;
+      maxBlocksPerCheckpoint?: number;
       p2pPropagationTime?: number;
       signatureContext: CoordinationSignatureContext;
     },
