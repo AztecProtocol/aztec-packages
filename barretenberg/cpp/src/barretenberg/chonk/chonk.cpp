@@ -441,10 +441,20 @@ void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_p
     for (auto& block : circuit.blocks.get()) {
         block.free_data();
     }
-    hiding_vk = std::make_shared<MegaZKVerificationKey>(hiding_prover_inst->get_precomputed());
+    // MegaZKFlavor inherits VerificationKey from MegaFlavor unchanged, so MegaZKVerificationKey
+    // and MegaVerificationKey are the same type. Reuse the caller-supplied precomputed VK when
+    // present to skip the 31 sequential commitments in the NativeVerificationKey_ ctor.
+    static_assert(
+        std::is_same_v<MegaVerificationKey, MegaZKVerificationKey>,
+        "hiding-kernel precomputed VK reuse relies on MegaZKFlavor inheriting VerificationKey from MegaFlavor");
+    if (precomputed_vk) {
+        hiding_vk = precomputed_vk;
+    } else {
+        hiding_vk = std::make_shared<MegaZKVerificationKey>(hiding_prover_inst->get_precomputed());
+    }
 
     // Push VK to queue so get_hiding_kernel_vk_and_hash() can find it.
-    VerifierInputs queue_entry{ {}, precomputed_vk, QUEUE_TYPE::MEGA, /*is_kernel=*/true };
+    VerifierInputs queue_entry{ {}, hiding_vk, QUEUE_TYPE::MEGA, /*is_kernel=*/true };
     verification_queue.push_back(queue_entry);
     num_circuits_accumulated++;
 }

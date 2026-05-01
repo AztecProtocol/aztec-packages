@@ -14,7 +14,7 @@ function cache_s3_transfer {
   local bucket="${no_scheme%%/*}"
   local base_prefix="${no_scheme#*/}"
 
-  aws s3 ${S3_BUILD_CACHE_AWS_PARAMS} cp - "s3://${bucket}/${base_prefix}/${prefix}/${key}.log.gz" &>/dev/null
+  aws s3 ${S3_BUILD_CACHE_AWS_PARAMS:-} cp - "s3://${bucket}/${base_prefix}/${prefix}/${key}.log.gz" &>/dev/null
 }
 
 # Transfer to S3 with explicit subfolder (accepts gzipped data on stdin).
@@ -27,7 +27,7 @@ function cache_s3_transfer_to {
   local bucket="${no_scheme%%/*}"
   local base_prefix="${no_scheme#*/}"
 
-  aws s3 ${S3_BUILD_CACHE_AWS_PARAMS} cp - "s3://${bucket}/${base_prefix}/${subfolder}/${key}.log.gz" &>/dev/null
+  aws s3 ${S3_BUILD_CACHE_AWS_PARAMS:-} cp - "s3://${bucket}/${base_prefix}/${subfolder}/${key}.log.gz" &>/dev/null
 }
 
 # Transfer log to bastion via SSH (accepts gzipped data on stdin)
