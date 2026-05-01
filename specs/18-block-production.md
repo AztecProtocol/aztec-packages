@@ -4,7 +4,7 @@
 
 This specification defines how L2 blocks are proposed, attested, and finalized in the Aztec protocol. It covers the validator lifecycle (staking, committee formation, proposer selection), the block and checkpoint proposal flow, attestation collection and verification, timing constraints, slashing conditions, the escape hatch censorship-resistance mechanism, and the relationship between L2 consensus and L1 finality.
 
-Aztec uses a **leader-based, single-proposer-per-slot** consensus protocol with **checkpoint-level attestations**. A deterministically selected proposer builds one or more blocks within a slot, packages them into a checkpoint, collects attestations from the validator committee, and submits the checkpoint to L1. An epoch-level validity proof then advances the chain from "pending" to "proven" status.
+Aztec uses a **leader-based, single-proposer-per-slot** consensus protocol with **checkpoint-level attestations**. A deterministically selected proposer builds one or more blocks within a slot, packages them into a checkpoint, collects attestations from the validator committee, and submits the checkpoint to L1. An epoch-level validity proof then advances the chain from "checkpointed" to "proven" status.
 
 **Cross-references:**
 
@@ -20,15 +20,15 @@ Aztec uses a **leader-based, single-proposer-per-slot** consensus protocol with 
 
 ### R1: Deterministic Proposer Selection
 
-The protocol MUST select exactly one proposer per slot using a deterministic algorithm seeded by L1 randomness. Given the same epoch, slot, and RANDAO seed, all implementations MUST compute the same proposer.
+The protocol MUST select exactly one proposer per slot using a deterministic algorithm seeded by L1 randomness. Given the same epoch, slot, and RANDAO seed, all implementations MUST compute the same proposer. This selection MUST be verifiable on L1 at least one full L2 slot before the slot for which the proposer is selected.
 
-**Rationale:** Deterministic selection prevents disputes over who may propose and enables permissionless verification by any node or the L1 contract.
+**Rationale:** Deterministic selection prevents disputes over who may propose and enables permissionless verification by any node or the L1 contract. Cementing the choice of proposer at least one slot in advance allows the proposer to start building early.
 
 ### R2: Committee-Based Attestation
 
 Checkpoints MUST be attested by more than two-thirds of the validator committee before the epoch proof can be accepted on L1. The committee MUST be deterministically sampled from the active validator set using L1 randomness with sufficient lag to prevent manipulation.
 
-**Rationale:** A supermajority attestation threshold provides Byzantine fault tolerance — the chain remains safe as long as fewer than one-third of committee members are adversarial.
+**Rationale:** A supermajority attestation threshold provides Byzantine fault tolerance — the chain remains safe as long as fewer than one-third of committee members are adversarial. Attestations serve two purposes: 1) they prevent bogus checkpoints from being posted to L1, which would halt the chain until these are evicted, and 2) they guarantee availability of transaction data for constructing valid epoch proofs.
 
 ### R3: Stake-Based Participation
 
@@ -38,7 +38,7 @@ Validators MUST deposit a minimum stake to participate in consensus. The protoco
 
 ### R4: Slashing for Misbehavior
 
-The protocol MUST support slashing validators who produce invalid blocks, equivocate (produce conflicting proposals or attestations for the same slot), or fail to fulfill escape hatch duties. Slashing MUST be implemented through an on-chain voting mechanism with a quorum requirement.
+The protocol MUST support slashing validators who produce invalid blocks, equivocate (produce conflicting proposals or attestations for the same slot), withhold data, attest to invalid blocks, propose with insufficient or incorrect attestations, or remain inactive over extended periods. Slashing MUST be implemented through an on-chain voting mechanism with a quorum requirement.
 
 **Rationale:** Without credible punishment, rational validators could profit from misbehavior (e.g., censoring transactions, double-proposing). Quorum-based voting prevents a single entity from maliciously slashing honest validators.
 
@@ -156,15 +156,18 @@ The sampling uses two lag parameters to prevent manipulation:
 | `lag_in_epochs_for_validator_set` | How many epochs in the past to snapshot the active validator set |
 | `lag_in_epochs_for_randao` | How many epochs in the past to sample the RANDAO seed |
 
-**Constraint:** `lag_in_epochs_for_validator_set > lag_in_epochs_for_randao`. This ensures the validator set is frozen before the randomness that selects from it is known, preventing an adversary from manipulating set membership after seeing the seed.
+**Constraint:** `lag_in_epochs_for_validator_set >= lag_in_epochs_for_randao` is enforced on the rollup `ValidatorSelectionLib`. The protocol-level intent is the strict inequality `lag_in_epochs_for_validator_set > lag_in_epochs_for_randao` (and the escape-hatch path enforces this strictly with hard-coded values `2 > 1`); the rollup constructor relaxes the rollup constraint to `>=` solely so that test networks with very short epochs can boot. Production deployments SHOULD use the strict inequality.
 
 The seed is derived from L1 RANDAO (`prevrandao`):
 
 ```
-sample_seed(epoch) = stored_randao[epoch - lag_in_epochs_for_randao]
+sample_seed(epoch) = keccak256(epoch || stored_randao_at_lagged_ts(epoch))
+stored_randao_at_lagged_ts(epoch) = randao_trace.upperLookup(slot_timestamp(first_slot_of(epoch - lag_in_epochs_for_randao)))
 ```
 
-Where `stored_randao[e]` is the `prevrandao` value checkpointed during epoch `e`.
+`randao_trace` is a `Trace224` of `(timestamp, randao)` checkpoints. `upperLookup(ts)` returns the most recent stored randao at a timestamp `<= ts`. Randao values are appended to the trace by `checkpointRandao(epoch)` whenever the epoch's randao has not yet been recorded; the rollup constructor seeds the trace with `block.prevrandao` at deployment time so the lookup is well-defined for the bootstrap epochs.
+
+Note that the on-chain seed is `keccak256(epoch, randao_at_lagged_ts)` — both the keccak hashing and the explicit mixing of `epoch` are part of the protocol. The raw randao value alone is not used as the seed.
 
 #### Committee Index Selection
 
@@ -202,6 +205,8 @@ This selection is:
 - **Pseudorandom**: The proposer rotates unpredictably across slots (from the perspective of an adversary who cannot predict future RANDAO values).
 - **Verifiable on L1**: The rollup contract recomputes the proposer index during `propose()` and verifies the proposer's signature.
 
+Note that the modulo step `keccak256(...) % committee_size` introduces a small modulo bias because `committee_size` may not divide `2^256`. This bias is acceptable here: committee members were themselves chosen by uniform random sampling and are not ordered in any security-sensitive way, so a slightly non-uniform distribution over committee positions does not give an adversary a corresponding advantage.
+
 ### Block Proposal Flow
 
 The proposer for a slot assembles and broadcasts blocks, then packages them into a checkpoint for L1 submission.
@@ -216,26 +221,38 @@ All blocks within a checkpoint share the same `GlobalVariables` values (except `
 
 #### Step 2: Block Proposal Broadcast
 
-For each block, the proposer creates a `BlockProposal` and broadcasts it on the `block_proposal` gossip topic (see Spec #17):
+For each non-final block in the slot, the proposer creates a `BlockProposal` and broadcasts it on the `block_proposal` gossip topic (see Spec #17). The **last** block in the checkpoint is normally **not** broadcast as a separate `BlockProposal`; instead, the proposer embeds it in the subsequent `CheckpointProposal` (see Step 3).
 
 ```
 function create_block_proposal(header, index_within_checkpoint, in_hash, archive, txs):
-    payload = encode(header, index_within_checkpoint, in_hash, archive, tx_hashes(txs))
-    signature = sign(proposer_key, payload)
+    payload = serialize(
+        SignatureDomainSeparator.blockProposal,
+        header,
+        index_within_checkpoint,
+        in_hash,
+        archive,
+        len(tx_hashes(txs)),
+        tx_hashes(txs)
+    )
+    signature = sign(proposer_key, eth_signed_message_hash(keccak256(payload)))
     return BlockProposal(header, index_within_checkpoint, in_hash, archive, tx_hashes, signature)
 ```
 
+Note that the signed payload is prefixed with `SignatureDomainSeparator.blockProposal` (see Domain Separators below) and the `tx_hashes` array is length-prefixed. The signature itself is over the EIP-191 `personal_sign`-wrapped digest (i.e. `keccak256("\x19Ethereum Signed Message:\n32" || keccak256(payload))`); every consensus signature in the protocol uses this wrap (see Domain Separators below).
+
 The proposer MUST NOT create multiple block proposals for the same `(slot, index_within_checkpoint)` position. Doing so constitutes equivocation (see Slashing).
+
+Proposers are free to push multiple blocks within a single checkpoint, as long as the cumulative gas used and blob space used across the checkpoint does not exceed the rollup limits. The protocol does not mandate specific heuristics for how proposers should fill a checkpoint.
 
 #### Step 3: Checkpoint Proposal Broadcast
 
 After assembling all blocks for the slot, the proposer creates a `CheckpointProposal` and broadcasts it on the `checkpoint_proposal` gossip topic:
 
 ```
-function create_checkpoint_proposal(checkpoint_header, archive):
-    payload = encode(checkpoint_header, archive)
-    signature = sign(proposer_key, payload)
-    return CheckpointProposal(checkpoint_header, archive, signature, last_block?)
+function create_checkpoint_proposal(checkpoint_header, archive, last_block):
+    payload = serialize(SignatureDomainSeparator.checkpointProposal, checkpoint_header, archive)
+    signature = sign(proposer_key, eth_signed_message_hash(keccak256(payload)))
+    return CheckpointProposal(checkpoint_header, archive, signature, last_block)
 ```
 
 The checkpoint proposal MAY include the last block as an embedded `BlockProposal` to reduce latency for validators who have not yet received all blocks.
@@ -305,6 +322,8 @@ function validate_checkpoint(proposal) -> bool:
        AND computed.epoch_out_hash == proposal.epoch_out_hash
 ```
 
+Note that `epoch_out_hash` is **cumulative across the epoch**: it is computed as `accumulateCheckpointOutHashes([...previous_checkpoint_out_hashes, current_checkpoint_out_hash])`. Validators therefore need access to the prior checkpoints' out hashes to compute the expected value.
+
 Re-execution is configurable per node. The following settings control when re-execution occurs:
 
 | Setting | Description |
@@ -317,31 +336,57 @@ Re-execution is configurable per node. The following settings control when re-ex
 
 ```
 function create_attestation(proposal, attester_address):
-    payload = ConsensusPayload(proposal.checkpoint_header, proposal.archive)
-    digest = keccak256(
-        CHECKPOINT_ATTESTATION_DOMAIN_SEPARATOR,
-        payload.to_sign_data()
-    )
-    signature = sign(attester_key, digest)
+    // The attester signs only the consensus payload digest (header_hash, archive, oracle_input).
+    // The proposer's signature on the proposal is transported alongside the attestation
+    // but is NOT mixed into the attester's signed digest.
+    digest = keccak256(abi.encode(
+        SignatureDomainSeparator.checkpointAttestation,
+        ProposePayload {
+            archive:       proposal.archive,
+            oracleInput:   proposal.oracle_input,
+            headerHash:    sha256_to_field(proposal.checkpoint_header.to_be_bytes()),
+        }
+    ))
+    signature = sign(attester_key, eth_signed_message_hash(digest))
     return CheckpointAttestation(payload, signature, proposal.proposer_signature)
 ```
 
 The attestation binds to:
-- The checkpoint header (committing to all block data).
+- The checkpoint header *hash* (`sha256_to_field` of its byte serialization).
 - The archive root after the checkpoint.
-- The original proposer's signature (preventing attestation reuse across proposals).
+- The fee oracle input.
+
+The proposer's signature on the proposal is carried in the attestation object so that downstream consumers (and L1) can recover the proposer address and validate that the attestation is over an existing proposal.
 
 Each committee member creates exactly one attestation per checkpoint. Signing multiple attestations for different proposals at the same slot constitutes equivocation.
 
 #### Attestation Threshold
 
-For epoch proof submission, the last checkpoint in the proven range MUST have valid signatures from more than two-thirds of the committee:
+For epoch proof submission, the last checkpoint in the proven range MUST have valid signatures from at least the strict 2/3+1 quorum:
 
 ```
-required_signatures > committee_size * 2 / 3
+required_signatures = (committee_size * 2) / 3 + 1     // floor(2N/3) + 1
 ```
 
-This threshold is enforced on L1 during `submitEpochRootProof()` (see Spec #10).
+This threshold is enforced on L1 during `submitEpochRootProof()` (see Spec #10), unless the escape hatch was open for the epoch (see Escape Hatch and L1 Epoch Proof Validation V11).
+
+#### Domain Separators and EIP-191 Wrapping
+
+All consensus signatures use a single-byte domain separator prepended to the payload before keccak hashing, and are computed over the EIP-191 `personal_sign`-wrapped 32-byte digest (`"\x19Ethereum Signed Message:\n32" || keccak256(payload)`). This keeps L1 verification compatible with `ECDSA.recover` on `MessageHashUtils.toEthSignedMessageHash`.
+
+The domain separator namespace is:
+
+| Value | Name | Used by |
+|---|---|---|
+| 0 | `blockProposal` | Gossip-layer block proposal signature (proposer over the encoded block proposal) |
+| 1 | `checkpointAttestation` | Attester's signature over the `ProposePayload` digest; the proposer also produces one of these (their own attestation), which is the signature L1 verifies during `propose()` |
+| 2 | `attestationsAndSigners` | Proposer's signature over the packed `(attestations, signers)` bundle, verified during `propose()` |
+| 3 | `checkpointProposal` | Gossip-layer checkpoint proposal signature (proposer over the encoded checkpoint proposal) |
+| 4 | `signedTxs` | Proposer's signature over a transaction bundle that travels with a block proposal (used by validators to verify provenance of bundled txs) |
+
+A single proposer typically produces signatures under separators 0, 1, 2, 3, and 4 within a single slot. Validators in the committee produce signatures under separator 1 only.
+
+Independent implementations MUST reproduce both the domain separator byte and the EIP-191 wrap; missing either will cause L1 signature recovery to mismatch.
 
 ### L1 Proposer Verification
 
@@ -349,8 +394,11 @@ When a checkpoint is submitted to L1, the rollup contract verifies proposer auth
 
 ```
 function verify_proposer(slot, epoch, attestations, signers, payload_digest, attestations_and_signers_signature):
-    // 1. Reconstruct committee from attestations + signers
-    committee = attestations.reconstruct_committee(signers, committee_size)
+    // 1. Reconstruct the committee by interleaving the explicit `signers` array
+    //    with the non-signer addresses packed in `attestations`. This path does
+    //    NOT run ECDSA recovery on the attestation signatures — recovery is
+    //    deferred to epoch proof time. (See Packed Attestation Format below.)
+    committee = reconstruct_committee_from_signers_and_addresses(attestations, signers, committee_size)
 
     // 2. Verify committee commitment
     require keccak256(encode(committee)) == stored_committee_commitment[epoch]
@@ -359,16 +407,22 @@ function verify_proposer(slot, epoch, attestations, signers, payload_digest, att
     proposer_index = compute_proposer_index(epoch, slot, sample_seed, committee_size)
     proposer = committee[proposer_index]
 
-    // 4. Verify proposer's attestation signature
+    // 4. Verify proposer's attestation signature (one ECDSA recovery, on EIP-191-wrapped digest)
     require attestations.is_signature(proposer_index)
-    verify_signature(attestations.get_signature(proposer_index), proposer, payload_digest)
+    require ecrecover(eth_signed_message_hash(payload_digest),
+                      attestations.get_signature(proposer_index)) == proposer
 
     // 5. Verify attestations-and-signers binding signature
-    attestations_digest = keccak256(encode(attestations, signers))
-    verify_signature(attestations_and_signers_signature, proposer, attestations_digest)
+    attestations_digest = keccak256(abi.encode(
+        SignatureDomainSeparator.attestationsAndSigners,
+        keccak256(attestations.bytes),
+        keccak256(abi.encode(signers))
+    ))
+    require ecrecover(eth_signed_message_hash(attestations_digest),
+                      attestations_and_signers_signature) == proposer
 ```
 
-**Key design choice:** Only the proposer's signature is fully verified on L1 during `propose()`. All other committee signatures are verified at epoch proof submission time. This defers the gas cost of full verification, which would be prohibitive for every checkpoint.
+**Key design choice:** Only the proposer's signature is fully verified on L1 during `propose()`. The `signers` calldata array is what links each non-signature attestation slot to a committee address; the contract trusts this array provisionally and validates the resulting committee against the stored commitment. Full ECDSA recovery on every attestation signature is deferred to epoch proof submission time, where `verifyAttestations` recovers each signer and confirms the 2/3+1 threshold against the on-chain commitment. This defers the gas cost of full verification, which would be prohibitive for every checkpoint. Should a sequencer post invalid or incomplete signatures along with their checkpoint, anyone can invalidate the submission via a dedicated L1 transaction, which removes the offending checkpoint from the rollup contract altogether.
 
 ### Packed Attestation Format
 
@@ -379,10 +433,12 @@ Committee attestations are encoded in a gas-optimized packed format for L1 submi
 | `signature_indices` | Bitmap where bit `i` = 1 indicates position `i` contains a 65-byte ECDSA signature |
 | `signatures_or_addresses` | Packed data: 65-byte signatures for signers, 20-byte addresses for non-signers |
 
-The full committee is reconstructed by:
-1. For each position `i` where `signature_indices[i] = 1`: recover the address from the ECDSA signature over the payload digest.
-2. For each position `i` where `signature_indices[i] = 0`: read the 20-byte address directly.
-3. Hash the reconstructed committee array and compare against the stored commitment.
+The full committee is reconstructed differently depending on which path consumes it:
+
+- **Cheap `propose()` path (gas-sensitive).** For positions where `signature_indices[i] = 1`, the contract reads the corresponding address from the explicit `signers` calldata array supplied alongside the attestations (one entry per signer slot, in order). For positions where `signature_indices[i] = 0`, the 20-byte address is read directly from `signatures_or_addresses`. The reconstructed committee is hashed and compared to the stored commitment, with no ECDSA recovery on any attestation signature except the proposer's. This relies on the `attestations_and_signers_signature` (separator 2) to bind the proposer to the supplied `signers` array.
+- **Full verification path (`verifyAttestations`, epoch proof time).** For positions where `signature_indices[i] = 1`, the contract recovers the signer address from the ECDSA signature over the payload digest and substitutes it back into the committee at that slot. For positions where `signature_indices[i] = 0`, the address is taken from `signatures_or_addresses` as in the cheap path. The committee is then hashed and compared to the stored commitment, and the number of signatures is checked against the 2/3+1 threshold.
+
+Both paths converge on the same committee array and the same on-chain commitment; only the cost (and therefore the trust model on the `signers` array vs. signature recovery) differs.
 
 ### Epoch Proof and Finalization
 
@@ -422,11 +478,11 @@ stateDiagram-v2
 | Proven | Epoch proof verified on L1 via `submitEpochRootProof()` | Cryptographic proof verified on L1. Subject to L1 reorg |
 | Finalized | L1 block containing proof is finalized | Full finality. Inherits Ethereum's finality guarantees |
 
-**Pruned state:** If no proof is submitted within `proof_submission_epochs + 1` epochs after the epoch containing the unproven checkpoints, the chain is pruned back to the last proven checkpoint (see Spec #10, Pruning).
+**Pruned state:** If no proof is submitted within `proof_submission_epochs + 1` epochs after the epoch containing the unproven checkpoints, the chain is pruned back to the last proven checkpoint. Pruning is performed as the **first action** of each `propose()` call and prunes inline before processing the new checkpoint.
 
 ### Checkpoint Invalidation
 
-Checkpoints with invalid or insufficient attestations can be permissionlessly removed from the pending chain. This is critical for liveness — a checkpoint with bad attestations would otherwise block epoch proof submission.
+Checkpoints with invalid or insufficient attestations can be permissionlessly removed from the pending chain. This is critical for liveness — a checkpoint with bad attestations would otherwise block the next checkpoints from being posted to the rollup contract.
 
 Two invalidation functions are available (see Spec #10 for the detailed algorithm):
 
@@ -435,7 +491,9 @@ Two invalidation functions are available (see Spec #10 for the detailed algorith
 | `invalidate_bad_attestation` | Any single attestation signature is invalid (recovered address does not match committee member) | Pending tip reset to `checkpoint_number - 1` |
 | `invalidate_insufficient_attestations` | Total valid signatures do not exceed 2/3 of committee | Pending tip reset to `checkpoint_number - 1` |
 
-Both functions are callable by any address and remove the invalid checkpoint and all subsequent pending checkpoints.
+Both functions are callable by any address and remove the invalid checkpoint and all subsequent pending checkpoints. Both functions reject invalidation calls for checkpoints proposed during an open escape hatch (escape-hatch checkpoints have no committee attestations to invalidate).
+
+Also note that all nodes MUST manually verify attester signatures whenever they sync new checkpoints from the L1 rollup contract. Any checkpoints with invalid signatures MUST be ignored and not added to their view of the chain.
 
 ### Slashing
 
@@ -445,21 +503,45 @@ Slashing is the mechanism by which misbehaving validators lose stake. The protoc
 
 | Offense | Description | Detection |
 |---|---|---|
-| Invalid block proposal | Proposer broadcasts a block that fails re-execution (state mismatch or failed transactions) | Re-executing validators detect and report |
-| Duplicate proposal (equivocation) | Proposer signs multiple block or checkpoint proposals for the same slot with different content | P2P layer detects when a second proposal arrives for the same `(slot, index_within_checkpoint)` with a different archive root |
-| Duplicate attestation (equivocation) | Validator signs attestations for different checkpoint proposals at the same slot | P2P layer detects conflicting attestations from the same signer at the same slot |
+| `BROADCASTED_INVALID_BLOCK_PROPOSAL` | Proposer broadcasts a block that fails re-execution (state mismatch or failed transactions) | Re-executing validators detect and report |
+| `DUPLICATE_PROPOSAL` | Proposer signs multiple block or checkpoint proposals for the same slot with different content | P2P layer detects a second proposal at the same `(slot, index_within_checkpoint)` with a different archive root |
+| `DUPLICATE_ATTESTATION` | Validator signs attestations for different checkpoint proposals at the same slot | P2P layer detects conflicting attestations from the same signer at the same slot |
+| `PROPOSED_INSUFFICIENT_ATTESTATIONS` | Proposer submitted a checkpoint to L1 whose attestation bitmap claims fewer signatures than the 2/3+1 threshold | `attestations_block_watcher` |
+| `PROPOSED_INCORRECT_ATTESTATIONS` | Proposer submitted a checkpoint whose claimed signatures do not all recover to committee members | `attestations_block_watcher` |
+| `ATTESTED_DESCENDANT_OF_INVALID` | A validator attested to a checkpoint that descends from a known-invalid one | `attestations_block_watcher` |
+| `VALID_EPOCH_PRUNED` | An epoch was pruned despite being valid (e.g. proof not submitted in time) | `epoch_prune_watcher` |
+| `DATA_WITHHOLDING` | Required block / blob data was not made available within the required window | `epoch_prune_watcher` (in conjunction with the archive-sync state) |
+| `INACTIVITY` | Validator failed to produce expected attestations / proposals over the inactivity window | `sentinel` (cumulative liveness scoring) |
+
+Note that *escape-hatch failure* (failing to propose, or proposing a checkpoint that never gets proven, while serving as the designated escape-hatch proposer) is **not** routed through the slasher — it is punished directly by deducting `FAILED_HATCH_PUNISHMENT` from the candidate's bond inside the escape-hatch contract. See Escape Hatch Accountability below.
 
 #### Slashing Vote Mechanism
 
 Slashing uses a tally-based voting system on L1:
 
 ```
-function vote(votes_data, slot, signature):
-    // Only the designated proposer for the slot may submit votes
-    require get_proposer_at(slot) == caller
-    verify_signature(signature, caller, hash(votes_data, slot))
+function vote(votes_data, signature):
+    // Read the current slot and look up its proposer
+    slot = current_slot()
+    expected_proposer = get_proposer_at(slot)
+
+    // EIP-712 typed-data signature
+    struct_hash = keccak256(abi.encode(
+        VOTE_TYPEHASH,             // keccak256("Vote(bytes votes,uint256 slot)")
+        keccak256(votes_data),
+        slot
+    ))
+    digest = eip712_digest(domain_separator, struct_hash)
+    require ecrecover(digest, signature) == expected_proposer
+
+    // One vote per slot per round
+    require round_data[current_round].lastVoteSlot < slot
+    round_data[current_round].lastVoteSlot = slot
+
     store_vote(current_round, votes_data)
 ```
+
+The `(slot, lastVoteSlot)` guard prevents a proposer from spamming votes within the same round and pins each vote to a specific slot. `caller` is unconstrained — relayers may submit on a proposer's behalf.
 
 **Vote encoding:** Each vote is a 2-bit value per validator per epoch within the round:
 
@@ -469,6 +551,18 @@ function vote(votes_data, slot, signature):
 | `01` | Slash small amount |
 | `10` | Slash medium amount |
 | `11` | Slash large amount |
+
+**Vote semantics are monotone in slash level.** A vote of "slash N units" is *also* counted as a vote for "slash N-1 units", "slash N-2 units", …, "slash 1 unit". I.e. tallies at lower levels are inclusive of votes at higher levels:
+
+```
+tally[small]  = count(votes >= small)   // small + medium + large
+tally[medium] = count(votes >= medium)  // medium + large
+tally[large]  = count(votes == large)
+```
+
+This means quorum is reached at the **highest** slash level whose inclusive tally meets the quorum threshold, ensuring the most severe penalty supported by a sufficient number of proposers is applied without forcing voters to coordinate on an exact level.
+
+**Round targeting.** Voting in round `R` does not slash members of round `R`'s committees directly. The slasher applies a configurable `SLASH_OFFSET_IN_ROUNDS` parameter: votes cast in round `R` target the validators of the committees in round `R - SLASH_OFFSET_IN_ROUNDS`. This offset ensures that proposers have time to observe offenses (e.g. completed-but-pruned epochs) before voting on them.
 
 **Round execution:** After a configurable execution delay, rounds can be executed:
 
@@ -486,7 +580,7 @@ function execute_round(round):
                 break
 ```
 
-The `quorum` is typically `round_size / 2 + 1`, requiring a majority of slot proposers within the round to agree on slashing.
+**Quorum.** The quorum constraint is `quorum > round_size / 2` (and `quorum <= round_size`). `round_size / 2 + 1` is one valid choice but the spec does not pin the value to that formula — any quorum strictly greater than half the round size satisfies the constraint.
 
 #### Slash Execution
 
@@ -507,8 +601,9 @@ function slash(attester, amount):
 | `slash_amount_small` | Penalty for minor offenses |
 | `slash_amount_medium` | Penalty for moderate offenses |
 | `slash_amount_large` | Penalty for severe offenses |
-| `quorum` | Votes needed to execute a slash |
+| `quorum` | Votes needed to execute a slash. Constrained to `quorum > round_size / 2` and `quorum <= round_size`. |
 | `round_size_in_epochs` | Number of epochs per slashing round |
+| `slash_offset_in_rounds` | Offset between the round in which votes are cast and the round whose committees those votes target (votes in round `R` slash committees from round `R - slash_offset_in_rounds`) |
 | `execution_delay_in_rounds` | Rounds to wait before execution (allows for veto) |
 | `lifetime_in_rounds` | Rounds after which a slash expires if not executed |
 
@@ -535,7 +630,7 @@ The attestation pool tracks attestations indexed by `(slot, proposal_id, signer)
 
 #### Local Equivocation Prevention
 
-Honest validators MUST maintain local state to prevent accidentally equivocating:
+Honest validators SHOULD maintain local state to prevent accidentally equivocating:
 
 | State | Purpose |
 |---|---|
@@ -552,9 +647,13 @@ The escape hatch is a censorship-resistance mechanism that periodically opens an
 Escape hatches occur at a configurable frequency measured in epochs:
 
 ```
-hatch_number(epoch) = epoch / frequency
+hatch_number(epoch)   = epoch / frequency
 is_hatch_epoch(epoch) = (epoch % frequency) < active_duration
+
+is_hatch_open(epoch)  = is_hatch_epoch(epoch) AND designated_proposer[hatch_number(epoch)] != 0
 ```
+
+The hatch is "open" only when (a) the epoch is in the active window and (b) a designated proposer was actually selected for that hatch. Selection is itself permissionless — anyone may call `selectCandidates()` to pick the designated proposer for an upcoming hatch — but if the candidate set was empty at the freeze time no proposer is selected and the hatch is effectively *closed for lack of preparation*. Production operators are responsible for ensuring `selectCandidates()` is called in time.
 
 | Parameter | Description |
 |---|---|
@@ -597,7 +696,7 @@ function select_candidate(current_hatch):
     designated_proposer[target_hatch] = candidate_set.get_at(index, freeze_ts)
 ```
 
-**Constraint:** `LAG_IN_EPOCHS_FOR_SET_SIZE > LAG_IN_EPOCHS_FOR_RANDAO`, ensuring the candidate set is frozen before the selection randomness is known.
+**Constraint:** `LAG_IN_EPOCHS_FOR_SET_SIZE > LAG_IN_EPOCHS_FOR_RANDAO`, ensuring the candidate set is frozen before the selection randomness is known. Note that on the escape-hatch path these are **constants** baked into the contract (`LAG_IN_EPOCHS_FOR_SET_SIZE = 2`, `LAG_IN_EPOCHS_FOR_RANDAO = 1`), not configurable parameters.
 
 #### Proposal During Escape Hatch
 
@@ -607,6 +706,7 @@ During an escape hatch epoch:
 - Committee attestations are NOT required.
 - Epoch setup is skipped (no committee sampling).
 - Attestation verification is skipped during proof submission.
+- Checkpoints proposed during an open hatch cannot be removed due to invalid attestations.
 
 ```
 // In propose():
@@ -622,6 +722,10 @@ After the escape hatch window closes, the candidate's performance is validated:
 
 ```
 function validate_escape_hatch(hatch):
+    require not isHatchValidated[hatch]              // idempotency guard
+    require block.timestamp >= candidate.exitableAt  // window must have closed
+    require candidate.status == PROPOSING            // must have been the designated proposer
+
     proposer = designated_proposer[hatch]
     success = true
 
@@ -631,63 +735,32 @@ function validate_escape_hatch(hatch):
     // Check: checkpoint was proven
     if rollup.proven_tip < proposer.last_checkpoint_number: success = false
 
-    // Check: checkpoint was not pruned
-    if rollup.archive_at(proposer.last_checkpoint_number) != proposer.last_archive: success = false
+    // Check: the checkpoint that was proposed still occupies the same archive index
+    //        on the canonical chain (i.e. it was not later pruned/replaced)
+    if rollup.archive_at(proposer.last_checkpoint_number) != proposer.last_submitted_archive: success = false
 
     if not success:
         proposer.bond -= FAILED_HATCH_PUNISHMENT
 
+    // Reset escape-hatch bookkeeping and mark validation as done
+    proposer.last_checkpoint_number = 0
+    proposer.last_submitted_archive = 0
+    isHatchValidated[hatch] = true
     proposer.status = EXITING
+    emit ProofValidated(...)
 ```
 
 Failed candidates lose a portion of their bond. After validation, the candidate enters an exit period before they can withdraw their remaining bond.
 
 ### Clock Tolerance
 
-Due to network latency and minor clock skew between nodes, message validation applies a bounded tolerance:
+Due to network latency and minor clock skew between nodes, message validation on the p2p network MAY apply a bounded tolerance:
 
 ```
 MAXIMUM_GOSSIP_CLOCK_DISPARITY = 500ms
 ```
 
 Block proposals and attestations referencing the previous slot are accepted if the current slot started less than 500ms ago. This prevents rejecting messages from honest nodes with slightly slow clocks.
-
-### High-Availability Signing
-
-Validators running multiple redundant nodes MUST coordinate signing to prevent accidental equivocation. The protocol supports a database-backed HA signing mechanism:
-
-```
-function sign_with_ha_protection(address, message, context):
-    duty_id = (rollup_address, address, slot, duty_type, block_index)
-
-    // Attempt to claim the duty in a shared database
-    result = db.try_insert(duty_id, message_hash, node_id)
-
-    if result.is_new:
-        signature = sign(address, message)
-        db.update_signed(duty_id, signature)
-        return signature
-    else:
-        if result.existing.message_hash == message_hash:
-            // Another node already signed the same data
-            raise DutyAlreadySignedError
-        else:
-            // Attempting to sign different data — slashing risk
-            raise SlashingProtectionError
-```
-
-Duty types that require HA protection:
-
-| Duty Type | Description |
-|---|---|
-| `BLOCK_PROPOSAL` | Block proposal signing (keyed by slot + block index) |
-| `CHECKPOINT_PROPOSAL` | Checkpoint proposal signing (keyed by slot) |
-| `ATTESTATION` | Checkpoint attestation signing (keyed by slot) |
-| `ATTESTATIONS_AND_SIGNERS` | Signing the packed attestation bundle for L1 submission |
-| `GOVERNANCE_VOTE` | Governance vote signing |
-| `SLASHING_VOTE` | Slashing vote signing |
-
-Duty types `AUTH_REQUEST` and `TXS` do NOT require HA protection (they are idempotent and not slashable).
 
 ## Data Structures
 
@@ -725,18 +798,20 @@ The data attested to by committee members:
 
 ### Payload Digest
 
-The digest signed by committee members:
+The digest signed by committee members (and by the proposer's own attestation, which is the signature L1 verifies during `propose()`):
 
 ```
-payload_digest = keccak256(
-    CHECKPOINT_ATTESTATION_DOMAIN_SEPARATOR,
-    archive,
-    oracle_input,
-    header_hash
-)
+payload_digest = keccak256(abi.encode(
+    SignatureDomainSeparator.checkpointAttestation,    // uint8 = 1
+    ProposePayload {
+        archive:     archive,
+        oracleInput: oracle_input,           // (int256) tuple
+        headerHash:  header_hash,            // sha256_to_field(checkpoint_header.to_be_bytes())
+    }
+))
 ```
 
-Where `header_hash = sha256_to_field(checkpoint_header.to_be_bytes())`.
+The ABI shape is `(uint8, (bytes32, (int256), bytes32))`, not a flat keccak over four concatenated fields. Independent implementations MUST reproduce this exact `abi.encode` layout; a flat-list construction will not match. The ECDSA signature is computed over the EIP-191 wrap of `payload_digest` (see Domain Separators and EIP-191 Wrapping).
 
 ### Validator State
 
@@ -744,7 +819,8 @@ Where `header_hash = sha256_to_field(checkpoint_header.to_be_bytes())`.
 |---|---|---|
 | `attester` | `EthAddress` | Signing address |
 | `withdrawer` | `EthAddress` | Withdrawal address |
-| `public_key` | `G1Point` | BLS public key |
+| `public_key_g1` | `G1Point` | BLS public key in G1 (registered at deposit; reserved for future BLS aggregate signatures) |
+| `public_key_g2` | `G2Point` | BLS public key in G2 (registered at deposit alongside the G1 key) |
 | `status` | `enum` | `NONE`, `VALIDATING`, `ZOMBIE`, `EXITING` |
 | `effective_balance` | `uint256` | Current stake amount |
 
@@ -762,18 +838,20 @@ Where `header_hash = sha256_to_field(checkpoint_header.to_be_bytes())`.
 
 | Field | Type | Description |
 |---|---|---|
-| `votes_data` | `bytes` | Packed 2-bit values: one per validator per epoch in the round |
-| `slot` | `Slot` | Slot of the proposer casting the vote |
-| `signature` | `Signature` | EIP-712 typed data signature by the proposer |
+| `votes_data` | `bytes` | Packed 2-bit values: one per validator per epoch in the round. Total size is `committee_size * round_size_in_epochs / 4` bytes. |
+| `slot` | `Slot` | Slot of the proposer casting the vote. Recovered from `current_slot()` at submission time and bound into the EIP-712 struct hash. |
+| `signature` | `Signature` | EIP-712 typed-data signature by the proposer over `Vote(bytes votes,uint256 slot)` (`VOTE_TYPEHASH`). |
 
 ### Escape Hatch Candidate
 
 | Field | Type | Description |
 |---|---|---|
 | `address` | `EthAddress` | Candidate's address |
-| `status` | `enum` | `ACTIVE`, `PROPOSING`, `EXITING` |
-| `amount` | `uint256` | Bond amount (may be reduced by punishment) |
-| `exitable_at` | `Timestamp` | Earliest withdrawal time after duty completion |
+| `status` | `enum` | `NONE` (not a candidate), `ACTIVE` (in the candidate set), `PROPOSING` (selected as designated proposer for an upcoming hatch), `EXITING` (validated and now eligible to withdraw) |
+| `amount` | `uint256` | Bond amount (may be reduced by `FAILED_HATCH_PUNISHMENT` on failed validation, and is further reduced by `WITHDRAWAL_TAX` on `leaveCandidateSet`) |
+| `exitable_at` | `Timestamp` | Earliest withdrawal time after duty completion. `validate_escape_hatch` requires `block.timestamp >= exitable_at` before it can run. |
+| `last_checkpoint_number` | `CheckpointNumber` | Set by `propose()` (via `escapeHatch.updateSubmittedArchive`) while serving as the designated proposer; cleared by `validate_escape_hatch` |
+| `last_submitted_archive` | `Field` | Archive root of the most recent checkpoint the candidate submitted; matched against `rollup.archive_at(...)` in `validate_escape_hatch` |
 
 ## Validation Rules
 
@@ -829,15 +907,16 @@ The L1 rollup contract validates during `propose()` (see Spec #10):
 | 1 | `coinbase` is non-zero |
 | 2 | `total_mana_used` does not exceed `mana_limit` (= `mana_target * 2`) |
 | 3 | `last_archive_root` matches stored archive root at the current pending tip |
-| 4 | `slot_number` is strictly greater than the last checkpoint's slot |
+| 4 | `slot_number` is strictly greater than the slot of the *effective pending* checkpoint (the on-chain pending tip after accounting for any pruning that would apply at the current L1 timestamp) |
 | 5 | `slot_number` equals the slot derived from `block.timestamp` |
 | 6 | `timestamp` equals `genesis_time + slot_number * slot_duration` |
 | 7 | `blobs_hash` matches the commitment computed from EIP-4844 blob hashes |
 | 8 | `fee_per_da_gas` is `0` |
-| 9 | `fee_per_l2_gas` equals the computed mana base fee for the slot |
-| 10 | Proposer is the designated committee member for the slot (or escape hatch proposer) |
-| 11 | Proposer's attestation signature is valid |
-| 12 | `in_hash` matches the consumed inbox tree root (when transactions are enabled) |
+| 9 | `fee_per_l2_gas` equals the mana minimum fee, the lower bound derived from the per-checkpoint mana fee components. Exact equality is enforced inside the rollup proof; L1 enforces only this lower bound at propose time. |
+| 10 | Proposer's signature recovers to the designated committee member for the slot (the `propose()` path is signature-authorized, not caller-authorized, except on the escape-hatch path which requires `msg.sender == designated_proposer`) |
+| 11 | Proposer's attestation signature is valid (one ECDSA recovery, on the EIP-191-wrapped payload digest) |
+| 12 | Proposer's `attestations_and_signers_signature` is valid (binds the proposer to the explicit `signers` calldata array; uses a separate domain separator) |
+| 13 | `in_hash` matches the consumed inbox tree root (when transactions are enabled) |
 
 ### L1 Epoch Proof Validation
 
@@ -851,8 +930,8 @@ During `submitEpochRootProof()` (see Spec #10):
 | 4 | Start checkpoint builds on the proven tip (`start - 1 <= proven`) |
 | 5 | Checkpoint count does not exceed `MAX_CHECKPOINTS_PER_EPOCH` (32) |
 | 6 | Attestations hash for the last checkpoint matches stored value |
-| 7 | Valid attestation signatures exceed 2/3 of committee size |
-| 8 | Reconstructed committee commitment matches stored commitment |
+| 7 | Valid attestation signatures meet the strict 2/3+1 threshold (`(committee_size << 1) / 3 + 1`). Skipped when the escape hatch was open for the epoch. |
+| 8 | Reconstructed committee commitment matches stored commitment. Skipped when the escape hatch was open for the epoch. |
 | 9 | Batched blob proof is valid (EIP-4844 point evaluation precompile) |
 | 10 | Root rollup validity proof verifies against assembled public inputs |
 
@@ -871,7 +950,6 @@ An adversary who controls the L1 block proposer at the RANDAO checkpoint epoch c
 A malicious proposer can censor specific transactions by excluding them from blocks. Mitigations:
 1. **Slot rotation**: Proposers change every slot, limiting censorship duration.
 2. **Escape hatch**: Even if the entire committee colludes, the escape hatch provides an alternative production path at regular intervals.
-3. **Slashing**: Proposers who produce invalid blocks (e.g., selectively including or excluding transactions in violation of protocol rules) can be slashed.
 
 ### Long-Range Attacks
 
@@ -889,17 +967,13 @@ This design trades immediate safety for gas efficiency, relying on the permissio
 
 1. **Committee size vs. decentralization**: The `target_committee_size` is configurable (48 on testnet, 24 on mainnet initial deployment). What is the target long-term committee size, and what analysis determines the optimal trade-off between attestation overhead and Byzantine fault tolerance?
 
-2. **Slashing calibration**: The current slashing amounts (small, medium, large) and quorum thresholds are placeholder values. What economic analysis should determine the appropriate penalty levels relative to the activation threshold?
+2. **Slashing calibration**: The current slashing amounts (small, medium, large) and quorum thresholds are subject to change. What economic analysis should determine the appropriate penalty levels relative to the activation threshold?
 
 3. **Escape hatch frequency**: The escape hatch frequency (e.g., every 35 epochs) determines the maximum censorship window. What is the acceptable censorship duration, and how does escape hatch frequency interact with the proof submission deadline?
 
 4. **BLS signature aggregation**: Validators currently register BLS keys but attestations use ECDSA. When will BLS aggregate signatures be activated, and how will this change the attestation format and L1 gas costs?
 
-5. **Fisherman incentives**: Validators in fisherman mode re-execute blocks and report invalid proposals but receive no explicit reward for this service. Should the protocol incentivize fisherman behavior?
-
-6. **Multi-block checkpoints**: The protocol supports multiple blocks per checkpoint, but the conditions under which a proposer should create more than one block per slot are not specified. What heuristics or protocol rules should govern this?
-
-7. **Validator set size bounds**: The entry queue flush model controls growth, but there is no explicit maximum validator set size. Should the protocol enforce a ceiling, and if so, what happens when it is reached?
+5. **Validator set size bounds**: The entry queue flush model controls growth, but there is no explicit maximum validator set size. Should the protocol enforce a ceiling, and if so, what happens when it is reached?
 
 ## References
 
