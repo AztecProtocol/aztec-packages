@@ -2,7 +2,11 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import type { ContractClassPublic, ContractClassPublicWithBlockNumber } from '@aztec/stdlib/contract';
+import type {
+  ContractClassPublic,
+  ContractClassPublicWithBlockNumber,
+  ContractClassPublicWithCommitment,
+} from '@aztec/stdlib/contract';
 
 /**
  * LMDB-based contract class storage for the archiver.
@@ -14,6 +18,28 @@ export class ContractClassStore {
   constructor(private db: AztecAsyncKVStore) {
     this.#contractClasses = db.openMap('archiver_contract_classes');
     this.#bytecodeCommitments = db.openMap('archiver_bytecode_commitments');
+  }
+
+  /**
+   * Adds multiple contract classes to the store.
+   * @param data - Contract classes (with bytecode commitments) to add.
+   * @param blockNumber - L2 block number where the classes were registered.
+   * @returns True if every insert succeeded.
+   */
+  async addContractClasses(data: ContractClassPublicWithCommitment[], blockNumber: number): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.addContractClass(c, c.publicBytecodeCommitment, blockNumber)))).every(
+      Boolean,
+    );
+  }
+
+  /**
+   * Removes multiple contract classes from the store, but only if they were registered at or after the given block.
+   * @param data - Contract classes to delete.
+   * @param blockNumber - Lower bound on the block number at which the classes were registered.
+   * @returns True if every delete succeeded.
+   */
+  async deleteContractClasses(data: ContractClassPublic[], blockNumber: number): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.deleteContractClass(c, blockNumber)))).every(Boolean);
   }
 
   async addContractClass(
@@ -34,7 +60,7 @@ export class ContractClassStore {
     });
   }
 
-  async deleteContractClasses(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
+  async deleteContractClass(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
     const restoredContractClass = await this.#contractClasses.getAsync(contractClass.id.toString());
     if (restoredContractClass && deserializeContractClassPublic(restoredContractClass).l2BlockNumber >= blockNumber) {
       await this.db.transactionAsync(async () => {

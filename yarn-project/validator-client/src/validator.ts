@@ -201,6 +201,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock,
+      maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
       signatureContext: {
         chainId: config.l1ChainId,
         rollupAddress: config.l1Contracts.rollupAddress,

@@ -1,4 +1,10 @@
-import { ARCHIVER_DB_VERSION, ARCHIVER_STORE_NAME, type ArchiverConfig, createArchiverStore } from '@aztec/archiver';
+import {
+  ARCHIVER_DB_VERSION,
+  ARCHIVER_STORE_NAME,
+  type ArchiverConfig,
+  createArchiverStore,
+  getArchiverSynchPoint,
+} from '@aztec/archiver';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type EthereumClientConfig, getPublicClient } from '@aztec/ethereum/client';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
@@ -66,12 +72,12 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   let archiverL2BlockNumber: number | undefined;
   try {
     [archiverL1BlockNumber, archiverL2BlockNumber] = await Promise.all([
-      archiverStore.getSynchPoint().then(s => s.blocksSynchedTo),
-      archiverStore.getLatestBlockNumber(),
+      getArchiverSynchPoint(archiverStore).then(s => s.blocksSynchedTo),
+      archiverStore.blocks.getLatestL2BlockNumber(),
     ] as const);
   } finally {
     log.verbose(`Closing temporary archiver data store`, { archiverL1BlockNumber, archiverL2BlockNumber });
-    await archiverStore.close();
+    await archiverStore.db.close();
   }
 
   const minL1BlocksToTriggerReplace = config.minL1BlocksToTriggerReplace ?? MIN_L1_BLOCKS_TO_TRIGGER_REPLACE;

@@ -777,6 +777,15 @@ export class CheckpointProposalJob implements Traceable {
       const indexWithinCheckpoint = IndexWithinCheckpoint(blocksBuilt);
       const blockNumber = BlockNumber(initialBlockNumber + blocksBuilt);
 
+      if (blocksBuilt >= this.config.maxBlocksPerCheckpoint) {
+        this.log.debug(`Reached max blocks per checkpoint`, {
+          slot: this.targetSlot,
+          blocksBuilt,
+          maxBlocksPerCheckpoint: this.config.maxBlocksPerCheckpoint,
+        });
+        break;
+      }
+
       const secondsIntoSlot = this.getSecondsIntoSlot();
       const timingInfo = this.timetable.canStartNextBlock(secondsIntoSlot);
 

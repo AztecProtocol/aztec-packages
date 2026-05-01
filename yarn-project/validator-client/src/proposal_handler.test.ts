@@ -154,6 +154,36 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(result).toEqual({ isValid: false, reason: 'last_block_archive_mismatch' });
     });
 
+    it('returns too_many_blocks_in_checkpoint when blocks exceed maxBlocksPerCheckpoint', async () => {
+      config = { ...config, maxBlocksPerCheckpoint: 2 };
+      handler = new ProposalHandler(
+        checkpointsBuilder,
+        mock<WorldStateSynchronizer>(),
+        blockSource,
+        l1ToL2MessageSource,
+        mock<ITxProvider>(),
+        mock<BlockProposalValidator>(),
+        epochCache,
+        config,
+        mock<BlobClientInterface>(),
+        metrics,
+        dateProvider,
+      );
+
+      const archiveRoot = Fr.random();
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      const blocks = [
+        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 1), number: 1 },
+        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
+        { archive: new AppendOnlyTreeSnapshot(archiveRoot, 3), number: 3 },
+      ] as unknown as L2Block[];
+      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+
+      const proposal = await makeProposal({ archiveRoot });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'too_many_blocks_in_checkpoint' });
+    });
+
     it('caches validation result and returns it on second call', async () => {
       blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
       const proposal = await makeProposal();
