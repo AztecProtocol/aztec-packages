@@ -172,25 +172,32 @@ template <typename Curve> class ShplonkProver_ {
         // s.t. G(r) = 0
         Polynomial G(std::move(batched_quotient_Q)); // G(X) = Q(X)
 
+        // Collect (claim.polynomial, -scaling_factor) pairs across opening / libra / sumcheck loops, plus the
+        // total constant bump to G.at(0). The bumps and add_scaleds commute against G[0] (each updates G[0] by an
+        // independent additive term), so we apply them as one fused parallel_for plus a single at(0) update.
+        std::vector<PolynomialSpan<const Fr>> sources;
+        std::vector<Fr> scalars;
+        sources.reserve(num_opening_claims);
+        scalars.reserve(num_opening_claims);
+        Fr at_zero_bump = Fr::zero();
+
         Fr current_nu = Fr::one();
         size_t idx = 0;
-
         size_t fold_idx = 0;
         for (const auto& claim : opening_claims) {
-
             if (claim.gemini_fold) {
                 // G -= νʲ ⋅ ( fⱼ(X) − vⱼ₊) / ( z + xⱼ ), where vⱼ₊ is the positive fold evaluation
                 Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z + xⱼ )
-                G.add_scaled(claim.polynomial, -scaling_factor);
-                G.at(0) = G[0] + scaling_factor * gemini_fold_pos_evaluations[fold_idx++];
-
+                sources.emplace_back(claim.polynomial);
+                scalars.push_back(-scaling_factor);
+                at_zero_bump += scaling_factor * gemini_fold_pos_evaluations[fold_idx++];
                 current_nu *= nu_challenge;
             }
             // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-            G.add_scaled(claim.polynomial, -scaling_factor);
-            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
-
+            sources.emplace_back(claim.polynomial);
+            scalars.push_back(-scaling_factor);
+            at_zero_bump += scaling_factor * claim.opening_pair.evaluation;
             current_nu *= nu_challenge;
         }
 
@@ -202,17 +209,22 @@ template <typename Curve> class ShplonkProver_ {
         for (const auto& claim : libra_opening_claims) {
             // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-            G.add_scaled(claim.polynomial, -scaling_factor);
-            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
+            sources.emplace_back(claim.polynomial);
+            scalars.push_back(-scaling_factor);
+            at_zero_bump += scaling_factor * claim.opening_pair.evaluation;
             current_nu *= nu_challenge;
         }
 
         for (const auto& claim : sumcheck_opening_claims) {
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z − xⱼ )
-            G.add_scaled(claim.polynomial, -scaling_factor);
-            G.at(0) = G[0] + scaling_factor * claim.opening_pair.evaluation;
+            sources.emplace_back(claim.polynomial);
+            scalars.push_back(-scaling_factor);
+            at_zero_bump += scaling_factor * claim.opening_pair.evaluation;
             current_nu *= nu_challenge;
         }
+
+        add_scaled_batch(G, std::span<const PolynomialSpan<const Fr>>(sources), std::span<const Fr>(scalars));
+        G.at(0) += at_zero_bump;
         // Return opening pair (z, 0) and polynomial G(X) = Q(X) - Q_z(X)
         return { .polynomial = G, .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() } };
     };
