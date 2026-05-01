@@ -919,6 +919,7 @@ impl TestEnvironment {
     ///
     /// env.discover_event_at(contract_address, event_message);
     /// ```
+    #[allow(dead_code)]
     pub(crate) unconstrained fn discover_event_at<Event>(
         self: Self,
         addr: AztecAddress,
