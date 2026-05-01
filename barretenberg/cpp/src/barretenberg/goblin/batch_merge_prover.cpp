@@ -40,6 +40,7 @@ typename BatchMergeProver::Polynomial BatchMergeProver::compute_degree_check_pol
 
 typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
 {
+    BB_BENCH_NAME("BatchMergeProver::construct_proof");
     const size_t M = max_subtables;
 
     // -------------------------------------------------------------------------

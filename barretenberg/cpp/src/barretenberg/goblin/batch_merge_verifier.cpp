@@ -15,6 +15,8 @@ template <typename Curve, size_t MaxMergeSize>
 typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVerifier_<Curve, MaxMergeSize>::
     reduce_to_pairing_check(const Proof& proof, const FF hash)
 {
+    BB_BENCH_NAME("BatchMergeVerifier::reduce_to_pairing_check");
+
     transcript->load_proof(proof);
 
     // Get the lowest 127 bits of the hash
