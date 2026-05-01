@@ -252,7 +252,7 @@ function bench_10tps {
     local started=$(jq -r .startedAt < "$metadata")
     local ended=$(jq -r .endedAt < "$metadata")
     echo "Scraping bench-10tps run ${BENCH_RUN_ID} (started=${started} ended=${ended})"
-    NAMESPACE="$NAMESPACE" ./scripts/bench_10tps/bench_scrape.ts \
+    NAMESPACE="$NAMESPACE" GCP_PROJECT_ID="${GCP_PROJECT_ID:-}" ./scripts/bench_10tps/bench_scrape.ts \
       --run-id "$BENCH_RUN_ID" \
       --started "$started" \
       --ended "$ended" \
