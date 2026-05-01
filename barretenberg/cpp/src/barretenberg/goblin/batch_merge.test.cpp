@@ -77,7 +77,6 @@ bb::fr compute_running_hash(const std::vector<bb::fr>& proof, size_t N)
     std::vector<bb::fr> round_inputs;
     bb::fr previous_challenge(0);
     bool is_first_challenge = true;
-    bb::fr hash_challenge(0);
 
     for (size_t subtable_idx = 0; subtable_idx < N; ++subtable_idx) {
         round_inputs.clear();
