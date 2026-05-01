@@ -11,6 +11,9 @@ import { DEFAULT_P2P_PROPAGATION_TIME } from '../timetable/index.js';
 /** Default maximum number of transactions per block. */
 export const DEFAULT_MAX_TXS_PER_BLOCK = 32;
 
+/** Default maximum number of blocks the sequencer packs into a single checkpoint. */
+export const DEFAULT_MAX_BLOCKS_PER_CHECKPOINT = 24;
+
 /**
  * Partial sequencer config mappings for fields that need to be shared across packages.
  * The full sequencer config mappings remain in sequencer-client, but shared fields
@@ -20,7 +23,11 @@ export const DEFAULT_MAX_TXS_PER_BLOCK = 32;
 export const sharedSequencerConfigMappings: ConfigMappingsType<
   Pick<
     SequencerConfig,
-    'blockDurationMs' | 'expectedBlockProposalsPerSlot' | 'maxTxsPerBlock' | 'attestationPropagationTime'
+    | 'blockDurationMs'
+    | 'expectedBlockProposalsPerSlot'
+    | 'maxTxsPerBlock'
+    | 'attestationPropagationTime'
+    | 'maxBlocksPerCheckpoint'
   >
 > = {
   blockDurationMs: {
@@ -47,5 +54,12 @@ export const sharedSequencerConfigMappings: ConfigMappingsType<
     description: 'How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way).',
     defaultValue: DEFAULT_P2P_PROPAGATION_TIME,
     ...floatConfigHelper(DEFAULT_P2P_PROPAGATION_TIME),
+  },
+  maxBlocksPerCheckpoint: {
+    env: 'MAX_BLOCKS_PER_CHECKPOINT',
+    description:
+      'Maximum number of blocks the sequencer packs into a single checkpoint, and the maximum indexWithinCheckpoint accepted on inbound block proposals.',
+    parseEnv: (val: string) => parseInt(val, 10),
+    defaultValue: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
   },
 };
