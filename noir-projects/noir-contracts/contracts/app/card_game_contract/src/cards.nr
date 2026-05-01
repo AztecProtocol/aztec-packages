@@ -93,11 +93,6 @@ pub struct CardNote {
 }
 
 impl CardNote {
-    fn new(strength: u32, points: u32) -> Self {
-        let card = Card { strength, points };
-        CardNote::from_card(card)
-    }
-
     pub fn from_card(card: Card) -> CardNote {
         CardNote { card, note: FieldNote { value: card.to_field() } }
     }
