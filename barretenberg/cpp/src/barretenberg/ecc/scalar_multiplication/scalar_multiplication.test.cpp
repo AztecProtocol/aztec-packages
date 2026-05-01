@@ -701,6 +701,151 @@ TYPED_TEST(ScalarMultiplicationTest, PippengerUnsafeFreeFunction)
     this->test_pippenger_unsafe_free_function();
 }
 
+// Curve-independent unit tests for the work-unit partitioner.
+// partition_by_weight is the load-bearing balancing logic in get_work_units; pinning its
+// behavior with synthetic weights makes regressions in the partition algorithm visible
+// without needing a full MSM run.
+namespace {
+
+using PartitionMSM = scalar_multiplication::MSM<curve::BN254>;
+using WorkUnit = PartitionMSM::MSMWorkUnit;
+
+// Total weight assigned to a thread (sum of WorkUnit sizes weighted by the input vector).
+size_t thread_weight(const std::vector<WorkUnit>& units, const std::vector<std::vector<uint16_t>>& weights)
+{
+    size_t total = 0;
+    for (const auto& u : units) {
+        for (size_t k = 0; k < u.size; ++k) {
+            total += weights[u.batch_msm_index][u.start_index + k];
+        }
+    }
+    return total;
+}
+
+} // namespace
+
+TEST(PartitionByWeight, NoMsmsReturnsEmptyThreads)
+{
+    auto units = PartitionMSM::partition_by_weight({}, 8);
+    ASSERT_EQ(units.size(), 8U);
+    for (const auto& t : units) {
+        EXPECT_TRUE(t.empty());
+    }
+}
+
+TEST(PartitionByWeight, AllEmptyMsmsReturnsEmptyThreads)
+{
+    std::vector<std::vector<uint16_t>> weights{ {}, {}, {} };
+    auto units = PartitionMSM::partition_by_weight(weights, 4);
+    ASSERT_EQ(units.size(), 4U);
+    for (const auto& t : units) {
+        EXPECT_TRUE(t.empty());
+    }
+}
+
+TEST(PartitionByWeight, SingleThreadGetsEverything)
+{
+    std::vector<std::vector<uint16_t>> weights{ { 5, 5, 5, 5, 5 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 1);
+    ASSERT_EQ(units.size(), 1U);
+    ASSERT_EQ(units[0].size(), 1U);
+    EXPECT_EQ(units[0][0].batch_msm_index, 0U);
+    EXPECT_EQ(units[0][0].start_index, 0U);
+    EXPECT_EQ(units[0][0].size, 5U);
+}
+
+TEST(PartitionByWeight, EvenSplitAcrossThreads)
+{
+    // 8 weights of 5 => total 40, target 10 per thread (4 threads), so 2 weights per thread.
+    std::vector<std::vector<uint16_t>> weights{ { 5, 5, 5, 5, 5, 5, 5, 5 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 4);
+    ASSERT_EQ(units.size(), 4U);
+    for (size_t t = 0; t < 4; ++t) {
+        ASSERT_EQ(units[t].size(), 1U) << "thread " << t;
+        EXPECT_EQ(units[t][0].size, 2U) << "thread " << t;
+        EXPECT_EQ(thread_weight(units[t], weights), 10U) << "thread " << t;
+    }
+}
+
+TEST(PartitionByWeight, HeavyFirstWeightClosesFirstThreadEarly)
+{
+    // First weight alone exceeds the per-thread target; remainder is evenly split.
+    std::vector<std::vector<uint16_t>> weights{ { 100, 5, 5, 5, 5 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 4);
+    ASSERT_EQ(units.size(), 4U);
+    // Thread 0 should close after the heavy weight.
+    ASSERT_FALSE(units[0].empty());
+    EXPECT_EQ(units[0][0].start_index, 0U);
+    EXPECT_EQ(units[0][0].size, 1U);
+    // Total assigned across all threads must equal n.
+    size_t total_assigned = 0;
+    for (const auto& t : units) {
+        for (const auto& u : t) {
+            total_assigned += u.size;
+        }
+    }
+    EXPECT_EQ(total_assigned, 5U);
+}
+
+TEST(PartitionByWeight, BoundaryStraddlesMsm)
+{
+    // Two MSMs of 4 weights of 5 each => total 40, 4 threads, target 10.
+    // Boundary should land mid-MSM if weights cross between MSMs.
+    std::vector<std::vector<uint16_t>> weights{ { 5, 5, 5, 5 }, { 5, 5, 5, 5 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 4);
+    ASSERT_EQ(units.size(), 4U);
+    size_t total_assigned = 0;
+    for (const auto& t : units) {
+        for (const auto& u : t) {
+            total_assigned += u.size;
+        }
+    }
+    EXPECT_EQ(total_assigned, 8U);
+    // Each thread should carry exactly weight 10.
+    for (size_t t = 0; t < 4; ++t) {
+        EXPECT_EQ(thread_weight(units[t], weights), 10U) << "thread " << t;
+    }
+}
+
+TEST(PartitionByWeight, LastThreadAbsorbsRemainder)
+{
+    // weights {7,7,1}, num_threads=3 => total 15, target = ceil(15/3) = 5.
+    // Walk: T0 closes after weight 7, T1 closes after weight 7, then weight 1 trails.
+    // Without the "current_thread_idx < num_threads - 1" guard the partitioner would
+    // refuse to close T2 (running weight 1 < target 5) and the trailing weight would
+    // be lost. The guard makes T2 absorb it via the post-loop push.
+    std::vector<std::vector<uint16_t>> weights{ { 7, 7, 1 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 3);
+    ASSERT_EQ(units.size(), 3U);
+    size_t total_assigned = 0;
+    for (const auto& t : units) {
+        for (const auto& u : t) {
+            total_assigned += u.size;
+        }
+    }
+    EXPECT_EQ(total_assigned, 3U);
+    ASSERT_EQ(units[2].size(), 1U);
+    EXPECT_EQ(units[2][0].start_index, 2U);
+    EXPECT_EQ(units[2][0].size, 1U);
+    EXPECT_EQ(thread_weight(units[2], weights), 1U);
+}
+
+TEST(PartitionByWeight, MoreThreadsThanScalars)
+{
+    // 3 weights of 5 => total 15, 8 threads, target ceil(15/8)=2.
+    // Each weight (5) immediately crosses target => first 3 threads each get one scalar.
+    std::vector<std::vector<uint16_t>> weights{ { 5, 5, 5 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 8);
+    ASSERT_EQ(units.size(), 8U);
+    for (size_t t = 0; t < 3; ++t) {
+        ASSERT_EQ(units[t].size(), 1U) << "thread " << t;
+        EXPECT_EQ(units[t][0].size, 1U);
+    }
+    for (size_t t = 3; t < 8; ++t) {
+        EXPECT_TRUE(units[t].empty()) << "thread " << t;
+    }
+}
+
 // Non-templated test for explicit small inputs
 TEST(ScalarMultiplication, SmallInputsExplicit)
 {
