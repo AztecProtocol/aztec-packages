@@ -88,7 +88,7 @@ Use these to:
 
 - Set up state preconditions without running a full setup transaction
 - Reproduce a bug from production by pinning storage to the values seen at a specific block
-- Simulate a contract instance as if it had been upgraded
+- Simulate a contract instance as if it had been upgraded (see `fastForwardContractUpdate` below)
 - Test branches that depend on rare values without orchestrating the contract calls that produce them
 
 ### Fast-forwarding a contract update

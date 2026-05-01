@@ -76,9 +76,15 @@ export class PublicContractsDB implements PublicContractsDBInterface {
     this.addContractsFromLogs(contractDeploymentData.getRevertibleContractDeploymentData());
   }
 
-  /** Inserts typed contract instances directly into the current checkpoint. */
-  public addContracts(contractInstances?: ContractInstanceWithAddress[]): void {
+  /** Inserts typed contract instances and classes directly into the current checkpoint. */
+  public addContracts(
+    contractInstances?: ContractInstanceWithAddress[],
+    contractClasses?: ContractClassPublic[],
+  ): void {
     const currentState = this.getCurrentState();
+    for (const contractClass of contractClasses ?? []) {
+      currentState.addClass(contractClass.id, contractClass);
+    }
     for (const instance of contractInstances ?? []) {
       currentState.addInstance(instance.address, instance);
     }
