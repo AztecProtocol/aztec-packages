@@ -38,6 +38,10 @@ import {
   TxHash,
 } from '@aztec/stdlib/tx';
 
+import { toMatchFile } from 'jest-file-snapshot';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+
 import { AddressStore } from '../address_store/address_store.js';
 import { AnchorBlockStore } from '../anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
@@ -49,6 +53,37 @@ import { PrivateEventStore } from '../private_event_store/private_event_store.js
 import { RecipientTaggingStore, SenderAddressBookStore, SenderTaggingStore } from '../tagging_store/index.js';
 import { snapshotArray, snapshotMap, snapshotMultiMap, snapshotSingleton } from './kv_store_snapshot.js';
 import { createStoreSpy } from './store_spy.js';
+
+// These somewhat arcane lines allow us to trigger snapshot comparisons to multiple different snapshot files from this
+// single file. We could have instead had individual test files per store, but that made it harder to tie the suite
+// together: we wanted to structure this in such a way that we not only snapshot individual stores, but also so we
+// detect whether the list of stores PXE uses changed, and whether snapshot test for each element in said list exists.
+expect.extend({ toMatchFile });
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Asserts that `value` matches the per-store snapshot file `__snapshots__/<name>.json`. Each store gets its own file
+ * so a `-u` regeneration produces a localized git diff: an unrelated store accidentally drifting will show up as a
+ * separately-modified file in the diff, instead of being masked inside one consolidated snapshot.
+ */
+function expectMatchesSnapshot(value: unknown, name: string) {
+  const snapshotPath = join(__dirname, '__snapshots__', `${name}.json`);
+  // We go through some extra ceremony here to bump `snapshotState.matched` on a successful no-op match so the test
+  // run's `Snapshots: X passed` total reflects each per-store check. `jest-file-snapshot` only increments
+  // `added`/`updated`/`unmatched`; without this bump, passing schema-compat assertions are invisible in the suite's
+  // snapshot summary, which would let a maintainer mistake a green run for "backwards compatibility tests not wired
+  // up".
+  const { snapshotState } = expect.getState();
+  const before = { added: snapshotState.added, updated: snapshotState.updated, unmatched: snapshotState.unmatched };
+  expect(JSON.stringify(value, null, 2)).toMatchFile(snapshotPath);
+  if (
+    snapshotState.added === before.added &&
+    snapshotState.updated === before.updated &&
+    snapshotState.unmatched === before.unmatched
+  ) {
+    snapshotState.matched++;
+  }
+}
 
 /**
  * Backwards-compatibility test suite for PXE storage. The intent is to detect any change to the bytes PXE writes to
@@ -586,7 +621,7 @@ describe('PXE storage compatibility test suite', () => {
     try {
       const { store, openedStores } = createStoreSpy(kvStore);
       openPxeStores(store);
-      expect({ schemaVersion: PXE_DATA_SCHEMA_VERSION, stores: openedStores() }).toMatchSnapshot();
+      expectMatchesSnapshot({ schemaVersion: PXE_DATA_SCHEMA_VERSION, stores: openedStores() }, 'opened_stores');
     } finally {
       await kvStore.close();
     }
@@ -599,7 +634,7 @@ describe('PXE storage compatibility test suite', () => {
         try {
           await t.writeToStore(kvStore);
           const data = await t.snapshotStore(kvStore);
-          expect({ schemaVersion: PXE_DATA_SCHEMA_VERSION, ...data }).toMatchSnapshot();
+          expectMatchesSnapshot({ schemaVersion: PXE_DATA_SCHEMA_VERSION, ...data }, t.name);
         } finally {
           await kvStore.close();
         }
