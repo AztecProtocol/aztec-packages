@@ -71,6 +71,12 @@ Use `.simulate()` to test reverts without spending gas. The simulation will thro
 
 `.simulate()` accepts a `stateOverrides` option that injects values into the simulator's ephemeral world-state fork before the call runs. The override is scoped to that single simulation; the real chain state is untouched.
 
+Three override flavors are supported:
+
+- `publicStorage`: write `(contract, slot, value)` into the public-data tree.
+- `contractClasses`: shadow contract classes in the simulator's contract DB (as if they had been published on the class registry).
+- `contractInstances`: shadow contract instances at specific addresses (as if they had been deployed, possibly pointing at one of the shadowed classes).
+
 Override a public-storage slot:
 
 ```typescript
@@ -81,10 +87,23 @@ const result = await contract.methods.read_balance(account).simulate({
 });
 ```
 
+Override a contract's class — useful for testing against a mock implementation:
+
+```typescript
+const result = await contract.methods.foo().simulate({
+  stateOverrides: {
+    contractClasses: [mockClass],
+    contractInstances: [{ ...existingInstance, currentContractClassId: mockClass.id }],
+  },
+});
+```
+
 Use this to:
 
 - Set up state preconditions without running a full setup transaction
 - Reproduce a bug from production by pinning storage to the values seen at a specific block
+- Swap a contract's bytecode for a mock implementation in tests
+- Simulate calls against contracts that aren't yet deployed
 - Test branches that depend on rare values without orchestrating the contract calls that produce them
 
 ### Fast-forwarding a contract update

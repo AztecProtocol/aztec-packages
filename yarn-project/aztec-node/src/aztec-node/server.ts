@@ -1550,7 +1550,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         }),
       });
       const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
-      contractsDB.addContracts(stateOverrides?.contractInstances);
+      contractsDB.addContracts(stateOverrides?.contractInstances, stateOverrides?.contractClasses);
       const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config, contractsDB);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx

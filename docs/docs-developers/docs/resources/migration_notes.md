@@ -23,7 +23,7 @@ const result = await contract.methods.read_balance(account).simulate({
 
 The same option flows through `wallet.simulateTx` and eventually to `simulatePublicCalls` RPC on `AztecNode`.
 
-A second override flavor, `contractInstances`, shadows contract instances in the simulator's contract DB - useful for simulating a contract being on a different class than the one it was deployed with. To simulate a complete on-chain upgrade flow, use the `fastForwardContractUpdate` helper which produces a coherent set of `publicStorage` and `contractInstances` overrides:
+Additional override flavors `contractInstances` and `contractClasses` shadow contract instances and classes in the simulator's contract DB - useful for simulating mock implementations or contracts being on a different class than the one they were deployed with. To simulate a complete on-chain upgrade flow, use the `fastForwardContractUpdate` helper which produces a coherent set of `publicStorage` and `contractInstances` overrides:
 
 ```typescript
 import { fastForwardContractUpdate } from '@aztec/aztec.js';

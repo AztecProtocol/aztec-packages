@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { type ContractClassPublic, ContractClassPublicSchema } from '../contract/interfaces/contract_class.js';
 import {
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
@@ -11,16 +12,20 @@ import { type PublicStorageOverride, PublicStorageOverrideSchema } from './publi
  * provided overrides to the ephemeral world-state fork (and contract DB) before running the tx.
  *
  * - `publicStorage`: write specific (contract, slot, value) entries in the public-data tree
+ * - `contractClasses`: shadow contract classes in the contract DB
  * - `contractInstances`: shadow contract instances in the contract DB
  */
 export type StateOverrides = {
   /** Public-storage writes to apply before simulation. */
   publicStorage?: PublicStorageOverride[];
+  /** Contract classes to shadow in the contract DB for the duration of the simulation. */
+  contractClasses?: ContractClassPublic[];
   /** Contract instances to shadow in the contract DB for the duration of the simulation. */
   contractInstances?: ContractInstanceWithAddress[];
 };
 
 export const StateOverridesSchema = z.object({
   publicStorage: z.array(PublicStorageOverrideSchema).optional(),
+  contractClasses: z.array(ContractClassPublicSchema).optional(),
   contractInstances: z.array(ContractInstanceWithAddressSchema).optional(),
 });
