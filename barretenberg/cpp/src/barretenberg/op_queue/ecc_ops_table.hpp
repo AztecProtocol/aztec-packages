@@ -15,6 +15,7 @@
 #include <vector>
 namespace bb {
 
+// Constants determining the structure of the zk columns. These must match the structure expected by Translator.
 static constexpr size_t ECC_NUM_RANDOM_OPS_START = 3;
 static constexpr size_t ECC_NUM_NO_OPS_START = 1;
 static constexpr size_t ECC_NUM_HIDING_OPS_START = 1;
@@ -291,7 +292,11 @@ class UltraEccOpsTable {
     }
     size_t ultra_table_size_up_to_tail() const
     {
-        BB_ASSERT(table.num_subtables() > 0, "Cannot compute tail table size without a current subtable");
+        BB_ASSERT_EQ(
+            table.get_current_subtable_size(),
+            0UL,
+            "Current subtable should be merged before computing the size of table of operations up to the tail.");
+        BB_ASSERT_GT(table.num_subtables(), 1UL, "Cannot compute tail table size without at least two tables.");
         size_t size = 0;
         for (size_t subtable_idx = 0; subtable_idx < table.num_subtables() - 1; ++subtable_idx) {
             size += table.get()[subtable_idx].size() * NUM_ROWS_PER_OP;
@@ -339,8 +344,9 @@ class UltraEccOpsTable {
     // the APPEND_TRACE_OFFSET zero preamble, then the most recently merged subtable.
     std::vector<UltraOp> get_reconstructed(const bool include_zk_ops) const
     {
-        BB_ASSERT(get_current_subtable_size() == 0,
-                  "current subtable should be merged before reconstructing the full table of operations.");
+        BB_ASSERT_EQ(get_current_subtable_size(),
+                     0UL,
+                     "current subtable should be merged before reconstructing the full table of operations.");
         BB_ASSERT(!include_zk_ops || has_zk_ops(), "ZK ops must be constructed before reconstructing the Ultra table.");
 
         std::vector<UltraOp> reconstructed_table;
@@ -369,7 +375,8 @@ class UltraEccOpsTable {
         const size_t target_op_count = fixed_append_offset.value() + zk_offset_ops + preamble_op_slots;
         BB_ASSERT_LTE(
             reconstructed_table.size(), target_op_count, "Current table size is larger than fixed append offset.");
-        reconstructed_table.resize(target_op_count); // pads with default-constructed (no-op) UltraOps
+        reconstructed_table.insert(
+            reconstructed_table.end(), target_op_count - reconstructed_table.size(), UltraOp{ /* no-op */ });
 
         // Final subtable
         const auto& final_subtable = table.get().back();
@@ -452,7 +459,10 @@ class UltraEccOpsTable {
     ColumnPolynomials construct_table_columns_up_to_tail() const
     {
         BB_ASSERT(has_zk_ops(), "ZK ops should have been constructed before constructing the table up to tail");
-        BB_ASSERT(table.num_subtables() > 0, "Cannot construct table up to tail without a current subtable");
+        BB_ASSERT_GT(table.num_subtables(),
+                     1UL,
+                     "There should be at least two subtables (including the tail) to construct the table up to tail");
+        BB_ASSERT_GT(table.num_subtables(), 0UL, "Cannot construct table up to tail without a current subtable");
 
         return construct_columns_in_range(
             ultra_table_size_up_to_tail(), 0, table.num_subtables() - 1, /*include_zk_ops=*/true);

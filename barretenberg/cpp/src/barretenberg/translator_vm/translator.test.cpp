@@ -312,10 +312,9 @@ TEST_F(TranslatorTests, BasicAvmMode)
 
     // Add the same operations to the ECC op queue; the native computation is performed under the hood.
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-    // Add Translator's required structure: 1 no op + 3 random ops
+    // Seed a no-op to supply the 2 leading zero rows Translator's op-queue wires need for shiftability.
     op_queue->no_op_ultra_only();
-    add_random_ops(op_queue, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);
-    // Add mixed ops but no random ops (Avm mode doesn't use them at the end)
+    add_random_ops(op_queue, CircuitBuilder::NUM_RANDOM_OPS_START);
     add_mixed_ops(op_queue, 100);
     op_queue->merge();
     auto circuit_builder = CircuitBuilder{ batching_challenge_v, evaluation_challenge_x, op_queue, /*avm_mode=*/true };

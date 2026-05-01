@@ -155,14 +155,11 @@ class ECCOpQueue {
         ultra_ops_no_zk_reconstructed = ultra_ops_table.get_no_zk_reconstructed_ultra_ops();
     }
 
-    // EXCLUDES the optional ZK prefix; see UltraEccOpsTable::num_ultra_rows for the contract.
+    // Excludes the optional ZK prefix; see UltraEccOpsTable::num_ultra_rows
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.num_ultra_rows(); }
     size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); } // actual operation count without padding
-    // EXCLUDES the optional ZK prefix; same contract as get_ultra_ops_table_num_rows.
+    // Excludes the optional ZK prefix, same as get_ultra_ops_table_num_rows.
     size_t get_ultra_ops_table_num_rows_up_to_tail() const { return ultra_ops_table.ultra_table_size_up_to_tail(); }
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops
-    // getters more memory efficient
 
     // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already.
     // The hiding op is always prepended at index 0.
@@ -179,8 +176,6 @@ class ECCOpQueue {
         return eccvm_ops_reconstructed;
     }
 
-    // Get the raw full table of ultra ops in contiguous memory from the independent subtables.
-    // Intended to be used only for testing.
     std::vector<UltraOp>& get_no_zk_reconstructed_ultra_ops()
     {
         if (ultra_ops_no_zk_reconstructed.empty()) {
@@ -293,8 +288,8 @@ class ECCOpQueue {
     /**
      * @brief Writes a no-op to the ultra ops table but adds no eccvm operations.
      *
-     * @details Adds two zero rows (one no-op = NUM_ROWS_PER_OP rows) to the ultra ops table. Used by the tail
-     * kernel; the leading zero rows are required for polynomial shiftability of the tail subtable.
+     * @details Adds two zero rows (one no-op = NUM_ROWS_PER_OP rows) to the ultra ops table. Translator needs two
+     * leading zero rows for polynomial shiftability.
      */
     UltraOp no_op_ultra_only()
     {
@@ -387,8 +382,8 @@ class ECCOpQueue {
     // translation check holds. It is set by exactly one of two entry points, depending on the proving flow:
     //   - Chonk: UltraEccOpsTable::construct_zk_columns() builds the full ZK prefix (1 no-op + 3 random + 1 hiding)
     //     at the front of the reconstructed Ultra table; the hiding op lands at index 4.
-    //   - Goblin AVM / legacy tests: append_hiding_op() pushes the Ultra side into the current subtable directly,
-    //     with no surrounding prefix.
+    //   - Goblin AVM: append_hiding_op() pushes the Ultra side into the current subtable directly, with no surrounding
+    //     prefix.
     // In both cases the ECCVM side is stored here and prepended to the reconstructed ECCVM table at index 0 by
     // get_eccvm_ops(), placing it at row 1 (lagrange_second) where the on-curve and eq constraints are gated off
     // so that non-curve (x, y) values are accepted.

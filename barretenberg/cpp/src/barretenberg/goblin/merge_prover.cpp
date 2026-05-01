@@ -29,11 +29,10 @@ MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::share
 };
 
 MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(
-    const std::array<Polynomial, NUM_WIRES>& left_table,
-    const std::vector<FF>& degree_check_challenges,
-    const size_t shift_size)
+    const std::array<Polynomial, NUM_WIRES>& left_table, const std::vector<FF>& degree_check_challenges) const
 {
-    Polynomial reversed_batched_left_tables(shift_size);
+    // The left table has a fixed length, so we need to compute the reverse according to that length
+    Polynomial reversed_batched_left_tables(fixed_append_shift_size);
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
         reversed_batched_left_tables.add_scaled(left_table[idx], degree_check_challenges[idx]);
     }
@@ -177,8 +176,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Generate degree check batching challenges, batch polynomials, compute reversed polynomial, send commitment to the
     // verifier
     std::vector<FF> degree_check_challenges = transcript->template get_challenges<FF>(labels_degree_check);
-    Polynomial reversed_batched_left_tables =
-        compute_degree_check_polynomial(left_table, degree_check_challenges, fixed_append_shift_size);
+    Polynomial reversed_batched_left_tables = compute_degree_check_polynomial(left_table, degree_check_challenges);
     transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
                                  pcs_commitment_key.commit(reversed_batched_left_tables));
 

@@ -427,6 +427,9 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 {
     BB_BENCH_NAME("TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit");
     using Fq = bb::fq;
+    // If in AVM mode, we use the non-zk reconstructed ultra ops as the structure required by Translator is added by the
+    // GoblinAVM constructor. In Chonk, this structure is given by the zk columns, so we use the zk reconstructed
+    // ultra ops.
     const auto& ultra_ops =
         avm_mode ? ecc_op_queue->get_no_zk_reconstructed_ultra_ops() : ecc_op_queue->get_zk_reconstructed_ultra_ops();
     std::vector<Fq> accumulator_trace;

@@ -37,7 +37,7 @@ using namespace bb;
  * @details Analyzes the constraint types to determine what mock data is needed (Oink proof, HN proof, etc.)
  *
  * @param constraints The IVC recursion constraints from an Aztec kernel program
- * @return A Chonk instance with mock verification queue entries and, for hiding kernels, a batch merge proof
+ * @return A Chonk instance with mock verification queue entries and for the hiding kernels a batch merge proof
  */
 std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<RecursionConstraint>& constraints);
 

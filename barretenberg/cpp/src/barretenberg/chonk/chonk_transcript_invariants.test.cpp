@@ -61,16 +61,17 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  * The 2-app IVC flow creates 7 circuits: app0 -> kernel0 -> app1 -> kernel1 -> reset -> tail -> hiding
  *
  * Per-circuit transcript breakdown (from complete_kernel_circuit_logic):
+ * - App circuits (0, 2): 0 transcripts - use native HN folding prover
  * - Init kernel (1): 2 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
  * - Intermediate kernel (3): 3 transcripts:
  *     1. accumulation_recursive_transcript - shared across recursive verification
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
- *     3. hash_transcript
+ *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
  * - Reset and tail kernels (4, 5): 2 transcripts each:
  *     1. accumulation_recursive_transcript
- *     2. hash_transcript
+ *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
  * - Hiding kernel (6): 3 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. batch_merge_transcript - for final batch merge verification

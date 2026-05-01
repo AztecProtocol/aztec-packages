@@ -44,7 +44,7 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     }
 
     // -------------------------------------------------------------------------
-    // Step 1.c: Flatten the columns for easier utilisation
+    // Step 1.c: Flatten the columns for easier utilization
     // -------------------------------------------------------------------------
     std::vector<Commitment> flattened_cols;
     flattened_cols.reserve(NUM_EVALS_FROM_COLUMNS);
@@ -100,7 +100,7 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     }
 
     // -------------------------------------------------------------------------
-    // Step 4: Compute degree check challenges 1, α, α^2, .., α^{M * NUM_WIRES-1}
+    // Step 4: Compute degree check challenges 1, α, α^2, .., α^{(M + 1) * NUM_WIRES-1}
     // -------------------------------------------------------------------------
     std::vector<FF> degree_check_challenges;
     degree_check_challenges.reserve(NUM_EVALS_FROM_COLUMNS);
@@ -169,10 +169,12 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     // Step 9: Verify concatenation identity, degree identity, and hash consistency
     // -------------------------------------------------------------------------
 
+    std::vector<OriginTag> origin_tags;
     if constexpr (IsRecursive) {
         // To prevent an OriginTag false positive, we re-tag the powers of kappa with the round
         // provenance of evals
         for (FF& kappa_pow : powers_of_kappa) {
+            origin_tags.push_back(kappa_pow.get_origin_tag());
             kappa_pow.set_origin_tag(evals[0].get_origin_tag());
         }
         for (FF& kappa_pow : powers_of_kappa_inv) {
@@ -184,6 +186,16 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     const bool degree_check_verified =
         check_degree_identity(evals, powers_of_kappa_inv, kappa, degree_check_challenges);
     const bool hash_verified = check_hash_consistency(binding_hash, calculated_hashes, indicator_array);
+
+    // Reset origin tags
+    if constexpr (IsRecursive) {
+        for (auto [kappa_pow, origin_tag] : zip_view(powers_of_kappa, origin_tags)) {
+            kappa_pow.set_origin_tag(origin_tag);
+        }
+        for (auto [kappa_pow, origin_tag] : zip_view(powers_of_kappa_inv, origin_tags)) {
+            kappa_pow.set_origin_tag(origin_tag);
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Run Shplonk and reduce to KZG pairing check
@@ -306,12 +318,12 @@ bool BatchMergeVerifier_<Curve, MaxMergeSize>::check_degree_identity(
 {
     FF degree_check_diff(0);
     for (size_t i = 0; i < powers_of_kappa_inv.size(); ++i) {
-        const FF power_of_kappa = powers_of_kappa_inv[i] * kappa;
         for (size_t j = 0; j < NUM_WIRES; ++j) {
             degree_check_diff +=
-                degree_check_challenges[(i * NUM_WIRES) + j] * power_of_kappa * evals[(i * NUM_WIRES) + j];
+                degree_check_challenges[(i * NUM_WIRES) + j] * powers_of_kappa_inv[i] * evals[(i * NUM_WIRES) + j];
         }
     }
+    degree_check_diff *= kappa;
     degree_check_diff -= evals.back();
 
     bool degree_check_verified = true;
@@ -332,7 +344,7 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::FF BatchMergeVerifier_<Curve,
     std::vector<FF> hash_inputs;
     if (prev_hash.has_value()) {
         if constexpr (IsRecursive) {
-            FF h = prev_hash.value();
+            const FF& h = prev_hash.value();
             h.set_origin_tag(OriginTag::constant());
             hash_inputs.push_back(h);
         } else {

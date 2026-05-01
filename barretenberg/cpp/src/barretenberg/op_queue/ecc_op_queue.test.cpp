@@ -34,7 +34,8 @@ class ECCOpQueueTest {
                                                      std::optional<size_t> ultra_fixed_offset = std::nullopt)
     {
         // Construct column polynomials corresponding to the full table (T), the table up to and including the tail
-        // (T_tail), and the current subtable (t_current). T and T_tail both include the ZK preamble.
+        // (T_tail, the second to last table), and the current subtable (t_current). T and T_tail both include the ZK
+        // preamble.
         auto table_polynomials = op_queue->construct_ultra_ops_table_columns();
         auto tail_table_polynomials = op_queue->construct_table_columns_up_to_tail();
         auto subtable_polynomials = op_queue->construct_current_ultra_ops_subtable_columns();
@@ -65,12 +66,13 @@ class ECCOpQueueTest {
      * @param op_queue
      */
     static void check_opcode_consistency_with_eccvm(const std::shared_ptr<bb::ECCOpQueue>& op_queue,
-                                                    const bool skip_eccvm_hiding_op = false)
+                                                    const bool include_zk_ops = false)
     {
-        auto ultra_table = op_queue->get_no_zk_reconstructed_ultra_ops();
+        auto ultra_table =
+            include_zk_ops ? op_queue->get_zk_reconstructed_ultra_ops() : op_queue->get_no_zk_reconstructed_ultra_ops();
         auto eccvm_table = op_queue->get_eccvm_ops();
 
-        size_t j = skip_eccvm_hiding_op ? 1 : 0;
+        size_t j = 0;
         for (const auto& ultra_op : ultra_table) {
             if (ultra_op.op_code.is_random_op) {
                 continue;
@@ -172,7 +174,7 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstructionUpToTailWithZkThenFixedAppend)
               bb::UltraEccOpsTable::ZK_ULTRA_OPS + op_queue->get_ultra_ops_table_num_rows_up_to_tail());
     ECCOpQueueTest::check_final_table_column_polynomials(op_queue, ultra_fixed_offset);
 
-    ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue, /*skip_eccvm_hiding_op=*/true);
+    ECCOpQueueTest::check_opcode_consistency_with_eccvm(op_queue, /*include_zk_ops=*/true);
 }
 
 // Verify correct handling of point at infinity in add and mul operations

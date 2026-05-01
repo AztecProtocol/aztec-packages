@@ -70,6 +70,7 @@ template <typename Curve> class ShplonkProver_ {
 
         size_t fold_idx = 0;
         for (const auto& claim : opening_claims) {
+
             // Gemini Fold Polynomials have to be opened at -r^{2^j} and r^{2^j}.
             if (claim.gemini_fold) {
                 tmp = claim.polynomial;
@@ -176,6 +177,7 @@ template <typename Curve> class ShplonkProver_ {
 
         size_t fold_idx = 0;
         for (const auto& claim : opening_claims) {
+
             if (claim.gemini_fold) {
                 // G -= νʲ ⋅ ( fⱼ(X) − vⱼ₊) / ( z + xⱼ ), where vⱼ₊ is the positive fold evaluation
                 Fr scaling_factor = current_nu * inverse_vanishing_evals[idx++]; // = νʲ / (z + xⱼ )

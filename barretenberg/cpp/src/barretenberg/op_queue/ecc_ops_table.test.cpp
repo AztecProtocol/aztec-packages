@@ -149,12 +149,17 @@ TEST(EccOpsTableTest, UltraOpsTable)
     // Construct polynomials corresponding to the columns of the ultra ops table
     ultra_ops_table.construct_zk_columns();
     std::array<Polynomial<Fr>, 4> ultra_ops_table_polynomials = ultra_ops_table.construct_table_columns();
+    std::array<Polynomial<Fr>, 4> no_zk_ultra_ops_table_polynomials =
+        ultra_ops_table.construct_table_columns(/*include_zk_ops=*/false);
 
     // Check that the ultra ops table constructed by the op queue matches the expected table
-    for (auto [expected_column, poly] : zip_view(expected_ultra_ops_table.columns, ultra_ops_table_polynomials)) {
+    for (auto [expected_column, poly, no_zk_poly] :
+         zip_view(expected_ultra_ops_table.columns, ultra_ops_table_polynomials, no_zk_ultra_ops_table_polynomials)) {
         EXPECT_EQ(poly.size(), UltraEccOpsTable::ZK_ULTRA_OPS + expected_column.size());
+        EXPECT_EQ(no_zk_poly.size(), expected_column.size());
         for (size_t row = 0; row < expected_column.size(); ++row) {
             EXPECT_EQ(expected_column[row], poly.at(UltraEccOpsTable::ZK_ULTRA_OPS + row));
+            EXPECT_EQ(expected_column[row], no_zk_poly.at(row));
         }
     }
 }

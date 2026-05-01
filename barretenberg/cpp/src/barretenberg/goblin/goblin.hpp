@@ -119,7 +119,7 @@ class Goblin {
     /**
      * @brief Construct a batched merge proof for all subtables accumulated during the IVC.
      * @details Proves in a single shot that the full merged table is the correct concatenation of all per-circuit
-     * subtables. Run once at the end of the IVC, replacing the per-circuit merge proofs of the legacy scheme.
+     * subtables. Run once at the end of the IVC.
      */
     void prove_batch_merge();
 
@@ -129,7 +129,7 @@ class Goblin {
      * during accumulation; the in-circuit verifier checks the proof's column commitments against it.
      */
     std::pair<PairingPoints, BatchRecursiveTableCommitments> recursively_verify_batch_merge(
-        MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash);
+        MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash) const;
 };
 
 } // namespace bb

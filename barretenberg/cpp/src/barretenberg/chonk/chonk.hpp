@@ -201,7 +201,7 @@ class Chonk : public IVCBase {
             ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,
             const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-            const StdlibFF& running_hash,
+            const std::optional<StdlibFF>& running_hash,
             const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)

@@ -226,7 +226,7 @@ Chonk::recursive_verification_and_consistency_checks(
     ClientCircuit& circuit,
     const StdlibVerifierInputs& verifier_inputs,
     const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-    const StdlibFF& running_hash,
+    const std::optional<StdlibFF>& running_hash,
     const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
     BB_BENCH_NAME("Chonk::recursive_verification_and_consistency_checks");
@@ -255,28 +255,25 @@ Chonk::recursive_verification_and_consistency_checks(
     auto [io_pairing_points, previous_ecc_op_hash] = process_public_inputs_and_consistency_checks(
         verifier_inputs, public_inputs, witness_commitments, prev_accum_hash);
 
-    StdlibFF updated_hash = running_hash;
+    std::optional<StdlibFF> updated_hash = running_hash;
     if (previous_ecc_op_hash.has_value()) {
         BB_ASSERT_EQ(verifier_inputs.is_kernel, true, "previous_ecc_op_hash should only be set for kernels");
-        updated_hash = *previous_ecc_op_hash;
+        BB_ASSERT(!running_hash.has_value(), "Running hash should not be set when recursively verifying a kernel");
+        updated_hash = previous_ecc_op_hash.value();
     }
 
     // Step 3: Update the running ECC op hash with this circuit's ECC op column commitments.
     auto ecc_op_col_commitments = witness_commitments.get_ecc_op_wires().get_copy();
     const std::vector<RecursiveCommitment> ecc_op_col_commitments_vec(ecc_op_col_commitments.begin(),
                                                                       ecc_op_col_commitments.end());
-    if (verifier_inputs.type == QUEUE_TYPE::OINK) {
-        updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec);
-    } else {
-        updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
-    }
+    updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
 
     // Combine all pairing points
     std::vector<PairingPoints> all_points;
     all_points.insert(all_points.end(), folding_points.begin(), folding_points.end());
     all_points.emplace_back(std::move(io_pairing_points));
 
-    return { std::move(output_accumulator), std::move(all_points), updated_hash };
+    return { std::move(output_accumulator), std::move(all_points), updated_hash.value() };
 }
 
 /**
@@ -301,7 +298,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     auto accumulation_recursive_transcript = std::make_shared<RecursiveTranscript>();
 
     // Running Poseidon2 hash over ECC op column commitments, propagated through kernel public inputs.
-    StdlibFF running_hash;
+    std::optional<StdlibFF> running_hash = std::nullopt;
 
     // Convert native verification queue to circuit witnesses
     if (stdlib_verification_queue.empty()) {
@@ -346,13 +343,15 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Step 3: OUTPUT - Set public inputs for propagation to next kernel
+    BB_ASSERT_EQ(running_hash.has_value(), true, "Running hash should be set for public input propagation");
+
     // Output differs based on kernel type: HidingKernelIO (no accum hash) vs KernelIO (with accum hash)
     if (is_hiding_kernel) {
         BB_ASSERT_EQ(current_stdlib_verifier_accumulator.has_value(), false);
 
         // Perform batch merge verification
         auto [batch_pairing_points, batch_merged_table_commitments] =
-            goblin.recursively_verify_batch_merge(circuit, running_hash);
+            goblin.recursively_verify_batch_merge(circuit, running_hash.value());
 
         // Append batch merge pairing points to the list of pairing points
         points_accumulator.emplace_back(batch_pairing_points);
@@ -396,7 +395,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         KernelIO kernel_output{ pairing_points_aggregator,
                                 kernel_return_data_commitment,
                                 app_return_data_commitment,
-                                running_hash,
+                                running_hash.value(),
                                 current_verifier_accum_hash };
         kernel_output.set_public();
     }

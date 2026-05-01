@@ -88,7 +88,7 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     max_shift_size = std::max(max_shift_size, zk_columns[0].size());
 
     // -------------------------------------------------------------------------
-    // Step 2.c: Flatten the columns for easier utilisation
+    // Step 2.c: Flatten the columns for easier utilization
     // -------------------------------------------------------------------------
     std::vector<Polynomial> flattened_cols;
     flattened_cols.reserve((subtable_cols.size() * NUM_WIRES) + NUM_WIRES);
@@ -120,10 +120,10 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     }
 
     // -------------------------------------------------------------------------
-    // Step 5: Compute degree check batching challenges 1, α, α^2, .., α^{M * NUM_WIRES -1}
+    // Step 5: Compute degree check batching challenges 1, α, α^2, .., α^{(M + 1) * NUM_WIRES -1}
     // -------------------------------------------------------------------------
     const FF degree_check_challenge = transcript->template get_challenge<FF>("DEGREE_CHECK_CHALLENGE");
-    const size_t num_degree_check_challenges = (M * NUM_WIRES) + NUM_WIRES;
+    const size_t num_degree_check_challenges = (M + 1) * NUM_WIRES;
     std::vector<FF> degree_check_challenges = { FF(1), degree_check_challenge };
     for (size_t idx = 2; idx < num_degree_check_challenges; idx++) {
         degree_check_challenges.push_back(degree_check_challenges.back() * degree_check_challenge);
@@ -171,7 +171,7 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
     //   T(κ)
     //   for G(κ^{-1})
     // -------------------------------------------------------------------------
-    const size_t num_opening_claims = ((M + 1) * NUM_WIRES) + 1 + NUM_WIRES;
+    const size_t num_opening_claims = ((M + 2) * NUM_WIRES) + 1;
     std::vector<OpeningClaim> opening_claims;
     opening_claims.reserve(num_opening_claims);
     for (size_t idx = 0; idx < num_flattened_col_evals; ++idx) {
@@ -183,7 +183,7 @@ typename BatchMergeProver::MergeProof BatchMergeProver::construct_proof()
         }
     }
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
-        opening_claims.push_back({ std::move(merged_table[idx]), { kappa, evals[(M * NUM_WIRES) + NUM_WIRES + idx] } });
+        opening_claims.push_back({ std::move(merged_table[idx]), { kappa, evals[((M + 1) * NUM_WIRES) + idx] } });
     }
     opening_claims.push_back({ std::move(degree_check_poly), { kappa_inv, evals.back() } });
 

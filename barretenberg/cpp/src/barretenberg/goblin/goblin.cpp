@@ -113,7 +113,7 @@ void Goblin::prove_batch_merge()
  * @return std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments>
  */
 std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments> Goblin::recursively_verify_batch_merge(
-    MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash)
+    MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash) const
 {
     BB_ASSERT(!batch_merge_proof.empty(), "Goblin::recursively_verify_batch_merge: no batch merge proof available");
     const stdlib::Proof<MegaBuilder> stdlib_proof(builder, batch_merge_proof);

@@ -20,16 +20,6 @@ namespace bb {
  * @brief Unified batch verifier for the batch Goblin ECC op queue merge protocol.
  * @details Works for both native verification and recursive (in-circuit) verification.
  *
- * The batch merge verifier receives:
- *   - subtable_commitments[0..M-1]: commitments [C_0]..[C_{M-1}] to the individual subtables
- *     (collected from the HN proof verifications during the accumulation loop; empty/infinity for unused slots)
- *   - proof: the batch merge proof from BatchMergeProver
- *
- * It checks:
- *   - Concatenation: T(κ) = sum_i C_i(κ) * κ^{offset_i}
- *   - Degree:        G(κ^{-1}) = sum_i α_i * C_i(κ) * κ^{1 - k_i}
- *   - KZG:           Shplonk batch opening proof
- *
  * @tparam Curve     The curve type (native curve::BN254 or stdlib bn254<Builder>)
  * @tparam MaxMergeSize The maximum number of subtables that can be merged
  */
@@ -76,10 +66,6 @@ template <typename Curve, size_t MaxMergeSize> class BatchMergeVerifier_ {
     /**
      * @brief Reduce the batch merge proof to a pairing check.
      *
-     * @details The verifier receives commitments [C_0]..[C_{M-1}] as input (collected from the HN proof
-     * verifications during the accumulation loop). Unused slots are the point at infinity. It then reads
-     * [T], [G] and all evaluations from the proof, checks the concatenation and degree identities, performs an hash
-     * check, and reduces to a KZG pairing check.
      *
      * @param proof                Batch merge proof.
      * @param hash                 Running hash of the column commitments [C_0]..[C_{M-1}]

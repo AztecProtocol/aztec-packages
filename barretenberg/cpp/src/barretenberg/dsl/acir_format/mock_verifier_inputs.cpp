@@ -323,7 +323,7 @@ HonkProof create_mock_batch_merge_proof()
     // Number of real subtables. Keep it in [1, MAX_MERGE_SIZE] so recursive range checks can be constructed.
     populate_field_elements<fr>(proof, 1, /*value=*/fr{ 1 });
 
-    // Shift sizes. Keep all values small enough for the recursive pow bit bound.
+    // Shift sizes.
     populate_field_elements<fr>(proof, 1, /*value=*/fr{ 2 });
     populate_field_elements<fr>(proof, MAX_MERGE_SIZE - 1, /*value=*/fr{ 0 });
 

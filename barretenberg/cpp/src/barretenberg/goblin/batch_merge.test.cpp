@@ -41,7 +41,7 @@ enum class FaultMode : uint8_t {
     PADDING_NOT_INFINITY,     // padded slot sends non-zero shift size and non-zero commitment/eval
     SHIFT_SIZE_MINUS_ONE,     // send k-1 as shift size for a subtable polynomial of size k
     ZK_TABLE_DEGREE_TOO_HIGH, // zk table has degree above verifier hard-coded ZK shift
-    ZERO_SUBTABLES_CLAIM      // send 0 as number of subtables despite having actual subtables
+    ZERO_SUBTABLES_CLAIM      // send 0 as number of subtables
 };
 
 void populate_subtable(const std::shared_ptr<ECCOpQueue>& op_queue, size_t num_ops)
@@ -321,7 +321,7 @@ template <typename Param> class BatchMergeTests : public testing::Test {
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
 
-    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 10465 : 47381;
+    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 10456 : 47322;
     static constexpr size_t ZK_OFFSET = NumSubtables == 9 ? 666 : 520;
 
     struct VerifyResult {
