@@ -3,8 +3,11 @@ import { z } from 'zod';
 import { type PublicStorageOverride, PublicStorageOverrideSchema } from './public_storage_override.js';
 
 /**
- * Pre-simulation state overrides. Each field is optional and additive: the simulator applies all
- * provided overrides to the ephemeral world-state fork (in order) before running the tx.
+ * Pre-simulation state-tree overrides applied to the ephemeral world-state fork before running the tx.
+ *
+ * - `publicStorage`: write specific (contract, slot, value) entries in the public-data tree.
+ *
+ * Contract instance overrides live separately as the top-level `contractOverrides` simulation option.
  */
 export type StateOverrides = {
   /** Public-storage writes to apply before simulation. */

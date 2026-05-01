@@ -39,7 +39,7 @@ import {
   SequencerClient,
   type SequencerPublisher,
 } from '@aztec/sequencer-client';
-import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   EpochPruneWatcher,
@@ -1484,7 +1484,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
    * @param skipFeeEnforcement - If true, fee enforcement is skipped.
-   * @param stateOverrides - Optional state overrides applied to the ephemeral fork and contract DB before simulation.
+   * @param stateOverrides - Optional state-tree overrides applied to the ephemeral fork before simulation.
+   * @param contractOverrides - Optional contract instance overrides applied to the contract DB.
    **/
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
@@ -1493,6 +1494,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     tx: Tx,
     skipFeeEnforcement = false,
     stateOverrides?: StateOverrides,
+    contractOverrides?: ContractInstanceWithAddress[],
   ): Promise<PublicSimulationOutput> {
     // Check total gas limit for simulation
     const gasSettings = tx.data.constants.txContext.gasSettings;
@@ -1549,7 +1551,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
         }),
       });
-      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
+      const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
+      contractsDB.addContracts(contractOverrides);
+      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config, contractsDB);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);

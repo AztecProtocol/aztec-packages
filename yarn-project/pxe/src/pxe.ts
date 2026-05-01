@@ -125,8 +125,10 @@ export type SimulateTxOpts = {
   scopes: AztecAddress[];
   /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
   senderForTags?: AztecAddress;
-  /** Pre-simulation state overrides applied to the ephemeral fork and contract DB. */
+  /** Pre-simulation state-tree overrides applied to the ephemeral fork. */
   stateOverrides?: StateOverrides;
+  /** Contract instance overrides applied to the public-side contract DB. */
+  contractOverrides?: ContractInstanceWithAddress[];
 };
 
 /** Options for PXE.executeUtility. */
@@ -469,11 +471,16 @@ export class PXE {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicCalls(tx: Tx, skipFeeEnforcement: boolean, stateOverrides?: StateOverrides) {
+  async #simulatePublicCalls(
+    tx: Tx,
+    skipFeeEnforcement: boolean,
+    stateOverrides?: StateOverrides,
+    contractOverrides?: ContractInstanceWithAddress[],
+  ) {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement, stateOverrides);
+      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement, stateOverrides, contractOverrides);
       if (result.revertReason) {
         throw result.revertReason;
       }
@@ -959,6 +966,7 @@ export class PXE {
       scopes,
       senderForTags,
       stateOverrides,
+      contractOverrides,
     }: SimulateTxOpts,
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
@@ -1040,7 +1048,12 @@ export class PXE {
         let publicOutput: PublicSimulationOutput | undefined;
         if (simulatePublic && publicInputs.forPublic) {
           const publicSimulationTimer = new Timer();
-          publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement, stateOverrides);
+          publicOutput = await this.#simulatePublicCalls(
+            simulatedTx,
+            skipFeeEnforcement,
+            stateOverrides,
+            contractOverrides,
+          );
           publicSimulationTime = publicSimulationTimer.ms();
           if (publicOutput?.debugLogs?.length) {
             await displayDebugLogs(publicOutput.debugLogs, addr => this.contractStore.getDebugContractName(addr));

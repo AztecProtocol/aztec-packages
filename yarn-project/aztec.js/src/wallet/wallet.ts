@@ -337,6 +337,7 @@ export const SimulateOptionsSchema = z.object({
   includeMetadata: optional(z.boolean()),
   additionalScopes: optional(z.array(schemas.AztecAddress)),
   stateOverrides: optional(StateOverridesSchema),
+  contractOverrides: optional(z.array(ContractInstanceWithAddressSchema)),
 });
 
 export const ProfileOptionsSchema = SimulateOptionsSchema.extend({

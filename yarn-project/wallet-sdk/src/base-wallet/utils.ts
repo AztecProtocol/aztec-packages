@@ -10,6 +10,7 @@ import { displayDebugLogs } from '@aztec/pxe/client/lazy';
 import { generateSimulatedProvingResult } from '@aztec/pxe/simulator';
 import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import type { StateOverrides } from '@aztec/stdlib/interfaces/client';
 import {
@@ -67,7 +68,8 @@ export function extractOptimizablePublicStaticCalls(payload: ExecutionPayload): 
  * @param blockHeader - Block header to use as anchor.
  * @param skipFeeEnforcement - Whether to skip fee enforcement during simulation.
  * @param getContractName - Resolver for contract names (used for debug log display).
- * @param stateOverrides - Optional pre-simulation state overrides.
+ * @param stateOverrides - Optional pre-simulation state-tree overrides.
+ * @param contractOverrides - Optional contract instance overrides applied to the contract DB.
  * @returns TxSimulationResult with public return values.
  */
 async function simulateBatchViaNode(
@@ -80,6 +82,7 @@ async function simulateBatchViaNode(
   skipFeeEnforcement: boolean,
   getContractName: ContractNameResolver,
   stateOverrides?: StateOverrides,
+  contractOverrides?: ContractInstanceWithAddress[],
 ): Promise<TxSimulationResult> {
   const txContext = new TxContext(chainInfo.chainId, chainInfo.version, gasSettings);
 
@@ -147,7 +150,7 @@ async function simulateBatchViaNode(
     publicFunctionCalldata: publicFunctionCalldata,
   });
 
-  const publicOutput = await node.simulatePublicCalls(tx, skipFeeEnforcement, stateOverrides);
+  const publicOutput = await node.simulatePublicCalls(tx, skipFeeEnforcement, stateOverrides, contractOverrides);
 
   if (publicOutput.revertReason) {
     throw publicOutput.revertReason;
@@ -171,7 +174,8 @@ async function simulateBatchViaNode(
  * @param blockHeader - Block header to use as anchor.
  * @param skipFeeEnforcement - Whether to skip fee enforcement during simulation.
  * @param getContractName - Resolver for contract names (used for debug log display).
- * @param stateOverrides - Optional pre-simulation state overrides.
+ * @param stateOverrides - Optional pre-simulation state-tree overrides.
+ * @param contractOverrides - Optional contract instance overrides applied to the contract DB.
  * @returns Array of TxSimulationResult, one per batch.
  */
 export async function simulateViaNode(
@@ -184,6 +188,7 @@ export async function simulateViaNode(
   skipFeeEnforcement: boolean = true,
   getContractName: ContractNameResolver,
   stateOverrides?: StateOverrides,
+  contractOverrides?: ContractInstanceWithAddress[],
 ): Promise<TxSimulationResult[]> {
   const batches: FunctionCall[][] = [];
 
@@ -204,6 +209,7 @@ export async function simulateViaNode(
       skipFeeEnforcement,
       getContractName,
       stateOverrides,
+      contractOverrides,
     );
     results.push(result);
   }

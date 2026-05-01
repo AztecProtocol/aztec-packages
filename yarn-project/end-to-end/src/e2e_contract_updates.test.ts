@@ -1,5 +1,5 @@
 import { getSchnorrAccountContractAddress } from '@aztec/accounts/schnorr';
-import { getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
+import { fastForwardContractUpdate, getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -177,5 +177,35 @@ describe('e2e_contract_updates', () => {
     await expect(wallet.registerContract(instance, UpdatedContract.artifact)).rejects.toThrow(
       'Could not update contract to a class different from the current one',
     );
+  });
+
+  // UpdatableContract's `set_public_value(Field)` and UpdatedContract's `set_public_value()`
+  // have different function selectors. Without an upgrade, only the deployed Updatable's
+  // (Field) selector exists; with a fastForwardContractUpdate override, the AVM dispatches
+  // against UpdatedContract's bytecode and the no-args selector resolves.
+  it('fastForwardContractUpdate enables simulation of post-upgrade public calls', async () => {
+    // Local construction with the new artifact - no PXE/wallet side effect, no chain mutation.
+    const updatedContract = UpdatedContract.at(contract.address, wallet);
+
+    // Without overrides, UpdatedContract's no-args selector doesn't match the deployed class.
+    await expect(
+      updatedContract.methods.set_public_value().simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow();
+
+    // With the fastForwardContractUpdate overrides, the AVM dispatches against UpdatedContract's
+    // bytecode and the call simulates successfully.
+    const overrides = await fastForwardContractUpdate({
+      instanceAddress: contract.address,
+      newClassId: updatedContractClassId,
+      node: aztecNode,
+    });
+    await expect(
+      updatedContract.methods.set_public_value().simulate({ from: defaultAccountAddress, ...overrides }),
+    ).resolves.toBeDefined();
+
+    // Chain state is untouched: the original Updatable's set_public_value(Field) still simulates fine.
+    await expect(
+      contract.methods.set_public_value(5678n).simulate({ from: defaultAccountAddress }),
+    ).resolves.toBeDefined();
   });
 });

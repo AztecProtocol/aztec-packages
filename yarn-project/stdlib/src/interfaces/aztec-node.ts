@@ -467,13 +467,16 @@ export interface AztecNode {
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
    * @param skipFeeEnforcement - If true, fee enforcement is skipped.
-   * @param stateOverrides - Optional state overrides applied to the ephemeral world-state fork and
-   * contract DB before simulation. Bundles public-storage writes and contract class/instance shadows.
+   * @param stateOverrides - Optional state-tree overrides (e.g. publicStorage writes) applied to the
+   * ephemeral world-state fork before simulation.
+   * @param contractOverrides - Optional contract instance overrides applied to the contract DB for
+   * the duration of the simulation.
    **/
   simulatePublicCalls(
     tx: Tx,
     skipFeeEnforcement?: boolean,
     stateOverrides?: StateOverrides,
+    contractOverrides?: ContractInstanceWithAddress[],
   ): Promise<PublicSimulationOutput>;
 
   /**
@@ -679,7 +682,12 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   simulatePublicCalls: z
     .function()
-    .args(Tx.schema, optional(z.boolean()), optional(StateOverridesSchema))
+    .args(
+      Tx.schema,
+      optional(z.boolean()),
+      optional(StateOverridesSchema),
+      optional(z.array(ContractInstanceWithAddressSchema)),
+    )
     .returns(PublicSimulationOutput.schema),
 
   isValidTx: z
