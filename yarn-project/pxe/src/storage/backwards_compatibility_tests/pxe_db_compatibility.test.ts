@@ -1,9 +1,10 @@
+/* eslint-disable camelcase */
 import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -54,113 +55,42 @@ import { createStoreSpy } from './store_spy.js';
  * disk that would render existing on-device data unreadable after a version bump. Each `SCHEMA_TESTS` entry drives the
  * production write path of one store class, then snapshots every sub-store the class opens.
  *
- * The gatekeeper test ("opens the expected set of stores") fingerprints the inventory of LMDB sub-stores that
+ * The gatekeeper test ("opens the expected set of stores") fingerprints the inventory of kv-stores that
  * `openPxeStores` opens. Whenever a new store is added or wired into PXE, that snapshot fails first; the developer is
- * then expected to add a corresponding entry to `SCHEMA_TESTS` covering the new store's sub-stores. Coverage is
- * enforced by convention rather than a second runtime check, on the principle that one authoritative inventory test
- * is clearer than two cross-checking each other.
+ * then expected to add a corresponding entry to `SCHEMA_TESTS` covering the new store's sub-stores.
  */
 
 /**
- * Pads an Fr array to `totalLength` with `Fr.ZERO`. Used because `ContractClassLogFields` and `PrivateLog` require
- * fixed-length tuples; populating only the leading slots with primes is enough to detect reorders, while the trailing
- * zeros pin the field's total width (a shrunk or grown constant shifts the byte count and shows up in the diff).
- */
-function paddedFrs(leading: bigint[], totalLength: number): Fr[] {
-  const out = leading.map(p => new Fr(p));
-  while (out.length < totalLength) {
-    out.push(Fr.ZERO);
-  }
-  return out;
-}
-
-/**
- * Builds a fully-populated `L2Block` with prime-distinct values for every primitive field that appears in `toBuffer`.
- * Distinct primes let a snapshot diff localize a regression to a specific field, and same-width reorders become
- * visible. Used as the inner block for both the `'blocks-added'` event and the checkpoint's blocks array in the
- * L2TipsKVStore spec.
- */
-function buildPrimedL2Block(): L2Block {
-  const archive = new AppendOnlyTreeSnapshot(new Fr(101n), 103);
-  const header = new BlockHeader(
-    new AppendOnlyTreeSnapshot(new Fr(107n), 109),
-    new StateReference(
-      new AppendOnlyTreeSnapshot(new Fr(113n), 127),
-      new PartialStateReference(
-        new AppendOnlyTreeSnapshot(new Fr(131n), 137),
-        new AppendOnlyTreeSnapshot(new Fr(139n), 149),
-        new AppendOnlyTreeSnapshot(new Fr(151n), 157),
-      ),
-    ),
-    new Fr(163n),
-    new GlobalVariables(
-      new Fr(167n),
-      new Fr(173n),
-      BlockNumber(179),
-      SlotNumber(181),
-      191n,
-      EthAddress.fromField(new Fr(193n)),
-      AztecAddress.fromBigInt(197n),
-      new GasFees(199n, 211n),
-    ),
-    new Fr(223n),
-    new Fr(227n),
-  );
-
-  const txEffect = new TxEffect(
-    RevertCode.REVERTED,
-    TxHash.fromBigInt(229n),
-    new Fr(233n),
-    [new Fr(239n)],
-    [new Fr(241n)],
-    [new Fr(251n)],
-    [new PublicDataWrite(new Fr(257n), new Fr(263n))],
-    [
-      new PrivateLog(
-        paddedFrs([269n, 271n, 277n], PRIVATE_LOG_SIZE_IN_FIELDS) as Tuple<Fr, typeof PRIVATE_LOG_SIZE_IN_FIELDS>,
-        3,
-      ),
-    ],
-    [new PublicLog(AztecAddress.fromBigInt(281n), [new Fr(283n), new Fr(293n)])],
-    [
-      new ContractClassLog(
-        AztecAddress.fromBigInt(307n),
-        new ContractClassLogFields(paddedFrs([311n, 313n, 317n], CONTRACT_CLASS_LOG_SIZE_IN_FIELDS)),
-        3,
-      ),
-    ],
-  );
-
-  return new L2Block(archive, header, new Body([txEffect]), CheckpointNumber(331), IndexWithinCheckpoint(337));
-}
-
-/**
- * One entry per store class. `run` drives writes through the production API; `buildSnapshot` re-opens the underlying
- * LMDB sub-stores by name (untyped) and returns the snapshot payload. `schemaVersion` is added by the master harness
- * so each spec's payload only describes its own sub-stores.
+ * Template of a specific store's backwards compatibility checks.
+ *
+ * 1. `name` is the store's name (`AddressStore`, `NoteStore`, etc).
+ * 2. `writeToStore` drives writes through each store's own production API (`addNote`, `setCapsule`, etc).
+ * 3. `snapshotStore` re-opens the underlying kv-stores by name (raw) and renders them as snapshots.
  */
 type SchemaTest = {
   name: string;
-  description: string;
-  run: (kvStore: AztecAsyncKVStore) => Promise<void>;
-  buildSnapshot: (kvStore: AztecAsyncKVStore) => Promise<Record<string, unknown>>;
+  writeToStore: (kvStore: AztecAsyncKVStore) => Promise<void>;
+  snapshotStore: (kvStore: AztecAsyncKVStore) => Promise<Record<string, unknown>>;
 };
 
 const SCHEMA_TESTS: readonly SchemaTest[] = [
   {
     name: 'AddressStore',
-    description: 'persists registered complete addresses',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const addressStore = new AddressStore(kvStore);
-      const first = await CompleteAddress.fromSecretKeyAndPartialAddress(new Fr(2n), new Fr(3n));
-      const second = await CompleteAddress.fromSecretKeyAndPartialAddress(new Fr(5n), new Fr(7n));
-      await addressStore.addCompleteAddress(first);
-      await addressStore.addCompleteAddress(second);
+
+      const addresses = [
+        await CompleteAddress.fromSecretKeyAndPartialAddress(new Fr(2n), new Fr(3n)),
+        await CompleteAddress.fromSecretKeyAndPartialAddress(new Fr(5n), new Fr(7n)),
+      ];
+
+      await addressStore.addCompleteAddress(addresses[0]);
+      await addressStore.addCompleteAddress(addresses[1]);
       // Re-adding an already-registered address must be a no-op: duplicate detection should leave both sub-stores
       // unchanged. If this regresses, the snapshot picks up an extra array entry.
-      await addressStore.addCompleteAddress(first);
+      await addressStore.addCompleteAddress(addresses[0]);
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       complete_addresses: await snapshotArray(kvStore.openArray<Buffer>('complete_addresses')),
       complete_address_index: await snapshotMap(kvStore.openMap<string, number>('complete_address_index')),
     }),
@@ -168,47 +98,46 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 
   {
     name: 'AnchorBlockStore',
-    description: 'persists the synchronized block header',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const anchorBlockStore = new AnchorBlockStore(kvStore);
 
       // Each primitive field gets a distinct prime so any reorder shows up in the snapshot diff. An all-zero
       // `BlockHeader.empty()` would silently pass through same-width field swaps.
-      const header = new BlockHeader(
-        new AppendOnlyTreeSnapshot(new Fr(2n), 3),
-        new StateReference(
-          new AppendOnlyTreeSnapshot(new Fr(5n), 7),
-          new PartialStateReference(
-            new AppendOnlyTreeSnapshot(new Fr(11n), 13),
-            new AppendOnlyTreeSnapshot(new Fr(17n), 19),
-            new AppendOnlyTreeSnapshot(new Fr(23n), 29),
+      await anchorBlockStore.setHeader(
+        new BlockHeader(
+          new AppendOnlyTreeSnapshot(new Fr(2n), 3),
+          new StateReference(
+            new AppendOnlyTreeSnapshot(new Fr(5n), 7),
+            new PartialStateReference(
+              new AppendOnlyTreeSnapshot(new Fr(11n), 13),
+              new AppendOnlyTreeSnapshot(new Fr(17n), 19),
+              new AppendOnlyTreeSnapshot(new Fr(23n), 29),
+            ),
           ),
+          new Fr(31n),
+          new GlobalVariables(
+            new Fr(37n),
+            new Fr(41n),
+            BlockNumber(43),
+            SlotNumber(47),
+            53n,
+            EthAddress.fromField(new Fr(59n)),
+            AztecAddress.fromBigInt(61n),
+            new GasFees(67n, 71n),
+          ),
+          new Fr(73n),
+          new Fr(79n),
         ),
-        new Fr(31n),
-        new GlobalVariables(
-          new Fr(37n),
-          new Fr(41n),
-          BlockNumber(43),
-          SlotNumber(47),
-          53n,
-          EthAddress.fromField(new Fr(59n)),
-          AztecAddress.fromBigInt(61n),
-          new GasFees(67n, 71n),
-        ),
-        new Fr(73n),
-        new Fr(79n),
       );
-      await anchorBlockStore.setHeader(header);
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       header: await snapshotSingleton(kvStore.openSingleton<Buffer>('header')),
     }),
   },
 
   {
     name: 'CapsuleStore',
-    description: 'persists set capsules after commit',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const capsuleStore = new CapsuleStore(kvStore);
 
       const jobId = 'fixture-job';
@@ -221,15 +150,14 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
       capsuleStore.setCapsule(contractAddress, new Fr(19n), [], jobId, scope);
       await kvStore.transactionAsync(() => capsuleStore.commit(jobId));
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       capsules: await snapshotMap(kvStore.openMap<string, Buffer>('capsules')),
     }),
   },
 
   {
     name: 'ContractStore',
-    description: 'persists registered contract artifacts, classes, and instances',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const contractStore = new ContractStore(kvStore);
 
       // Register an artifact with a precomputed class so the `contract_classes` bytes are hardcoded by this test
@@ -247,6 +175,7 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
         ],
         packedBytecode: Buffer.alloc(0),
       };
+
       await contractStore.addContractArtifact(BenchmarkingContractArtifact, populatedClass);
 
       // Same artifact, different class with empty `privateFunctions`. Tests zero-length-vector encoding for the
@@ -265,24 +194,24 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
       // `contract_artifacts` and `contract_classes` unchanged.
       await contractStore.addContractArtifact(BenchmarkingContractArtifact, populatedClass);
 
-      const publicKeys = new PublicKeys(
-        new Point(new Fr(41n), new Fr(43n), false),
-        new Point(new Fr(47n), new Fr(53n), false),
-        new Point(new Fr(59n), new Fr(61n), false),
-        new Point(new Fr(67n), new Fr(71n), false),
+      await contractStore.addContractInstance(
+        new SerializableContractInstance({
+          version: 1,
+          salt: new Fr(73n),
+          deployer: AztecAddress.fromBigInt(79n),
+          currentContractClassId: new Fr(83n),
+          originalContractClassId: new Fr(89n),
+          initializationHash: new Fr(97n),
+          publicKeys: new PublicKeys(
+            new Point(new Fr(41n), new Fr(43n), false),
+            new Point(new Fr(47n), new Fr(53n), false),
+            new Point(new Fr(59n), new Fr(61n), false),
+            new Point(new Fr(67n), new Fr(71n), false),
+          ),
+        }).withAddress(AztecAddress.fromBigInt(101n)),
       );
-      const instance = new SerializableContractInstance({
-        version: 1,
-        salt: new Fr(73n),
-        deployer: AztecAddress.fromBigInt(79n),
-        currentContractClassId: new Fr(83n),
-        originalContractClassId: new Fr(89n),
-        initializationHash: new Fr(97n),
-        publicKeys,
-      }).withAddress(AztecAddress.fromBigInt(101n));
-      await contractStore.addContractInstance(instance);
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       contract_artifacts: await snapshotMap(kvStore.openMap<string, Buffer>('contract_artifacts')),
       contract_classes: await snapshotMap(kvStore.openMap<string, Buffer>('contract_classes')),
       contracts_instances: await snapshotMap(kvStore.openMap<string, Buffer>('contracts_instances')),
@@ -291,44 +220,41 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 
   {
     name: 'KeyStore',
-    description: 'persists derived keys after adding an account',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const keyStore = new KeyStore(kvStore);
       await keyStore.addAccount(new Fr(2n), new Fr(3n));
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       key_store: await snapshotMap(kvStore.openMap<string, Buffer>('key_store')),
     }),
   },
 
   {
     name: 'L2TipsKVStore',
-    description: 'persists tips, hashes, block-to-checkpoint mappings, and checkpoints across event types',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const l2TipsStore = new L2TipsKVStore(kvStore, 'pxe');
 
-      const block = buildPrimedL2Block();
-      const checkpoint = new Checkpoint(
-        new AppendOnlyTreeSnapshot(new Fr(2n), 3),
-        new CheckpointHeader(
-          new Fr(5n),
-          new Fr(7n),
-          new Fr(11n),
-          new Fr(13n),
-          new Fr(17n),
-          SlotNumber(19),
-          23n,
-          EthAddress.fromField(new Fr(29n)),
-          AztecAddress.fromBigInt(31n),
-          new GasFees(37n, 41n),
-          new Fr(43n),
-        ),
-        [block],
-        CheckpointNumber(47),
-        53n,
-      );
+      const block = buildL2Block();
       const publishedCheckpoint = new PublishedCheckpoint(
-        checkpoint,
+        new Checkpoint(
+          new AppendOnlyTreeSnapshot(new Fr(2n), 3),
+          new CheckpointHeader(
+            new Fr(5n),
+            new Fr(7n),
+            new Fr(11n),
+            new Fr(13n),
+            new Fr(17n),
+            SlotNumber(19),
+            23n,
+            EthAddress.fromField(new Fr(29n)),
+            AztecAddress.fromBigInt(31n),
+            new GasFees(37n, 41n),
+            new Fr(43n),
+          ),
+          [block],
+          CheckpointNumber(47),
+          53n,
+        ),
         new L1PublishedData(59n, 61n, new Fr(67n).toString()),
         [],
       );
@@ -349,7 +275,7 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
         block: { number: BlockNumber(79), hash: new Fr(83n).toString() },
       });
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       pxe_l2_tips: await snapshotMap(kvStore.openMap<string, number>('pxe_l2_tips')),
       pxe_l2_block_hashes: await snapshotMap(kvStore.openMap<number, string>('pxe_l2_block_hashes')),
       pxe_l2_block_number_to_checkpoint_number: await snapshotMap(
@@ -361,8 +287,7 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 
   {
     name: 'NoteStore',
-    description: 'persists active and nullified notes across all three sub-stores',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const noteStore = new NoteStore(kvStore);
 
       const jobId = 'fixture-job';
@@ -444,7 +369,7 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       await kvStore.transactionAsync(() => noteStore.commit(jobId));
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       notes: await snapshotMap(kvStore.openMap<string, Buffer>('notes')),
       note_nullifiers_by_contract: await snapshotMultiMap(
         kvStore.openMultiMap<string, string>('note_nullifiers_by_contract'),
@@ -457,8 +382,7 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 
   {
     name: 'PrivateEventStore',
-    description: 'persists private events across all three sub-stores with multi-scope and multi-value rows',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const privateEventStore = new PrivateEventStore(kvStore);
 
       const jobId = 'fixture-job';
@@ -550,7 +474,7 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       await kvStore.transactionAsync(() => privateEventStore.commit(jobId));
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       private_event_logs: await snapshotMap(kvStore.openMap<string, Buffer>('private_event_logs')),
       events_by_contract_selector: await snapshotMultiMap(
         kvStore.openMultiMap<string, string>('events_by_contract_selector'),
@@ -561,8 +485,7 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 
   {
     name: 'RecipientTaggingStore',
-    description: 'persists highest aged and finalized indexes after commit',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const recipientTaggingStore = new RecipientTaggingStore(kvStore);
 
       const jobId = 'fixture-job';
@@ -574,7 +497,7 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
       await recipientTaggingStore.updateHighestFinalizedIndex(secretB, 17, jobId);
       await kvStore.transactionAsync(() => recipientTaggingStore.commit(jobId));
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       highest_aged_index: await snapshotMap(kvStore.openMap<string, number>('highest_aged_index')),
       highest_finalized_index: await snapshotMap(kvStore.openMap<string, number>('highest_finalized_index')),
     }),
@@ -582,23 +505,21 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 
   {
     name: 'SenderAddressBookStore',
-    description: 'persists registered senders',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const senderAddressBookStore = new SenderAddressBookStore(kvStore);
 
       await senderAddressBookStore.addSender(AztecAddress.fromBigInt(2n));
       await senderAddressBookStore.addSender(AztecAddress.fromBigInt(3n));
       await senderAddressBookStore.addSender(AztecAddress.fromBigInt(5n));
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       address_book: await snapshotMap(kvStore.openMap<string, true>('address_book')),
     }),
   },
 
   {
     name: 'SenderTaggingStore',
-    description: 'persists multi-element pending arrays, single-element pending arrays, and finalized indexes',
-    run: async kvStore => {
+    writeToStore: async kvStore => {
       const senderTaggingStore = new SenderTaggingStore(kvStore);
 
       const jobId = 'fixture-job';
@@ -652,14 +573,14 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       await kvStore.transactionAsync(() => senderTaggingStore.commit(jobId));
     },
-    buildSnapshot: async kvStore => ({
+    snapshotStore: async kvStore => ({
       pending_indexes: await snapshotMap(kvStore.openMap<string, Buffer>('pending_indexes')),
       last_finalized_indexes: await snapshotMap(kvStore.openMap<string, number>('last_finalized_indexes')),
     }),
   },
 ];
 
-describe('PXE storage schema compatibility', () => {
+describe('PXE storage compatibility test suite', () => {
   it('opens the expected set of stores', async () => {
     const kvStore = await openTmpStore('pxe-schema-stores', true);
     try {
@@ -673,11 +594,11 @@ describe('PXE storage schema compatibility', () => {
 
   for (const t of SCHEMA_TESTS) {
     describe(t.name, () => {
-      it(t.description, async () => {
+      it(`${t.name} compatibility test`, async () => {
         const kvStore = await openTmpStore(`pxe-schema-${t.name}`, true);
         try {
-          await t.run(kvStore);
-          const data = await t.buildSnapshot(kvStore);
+          await t.writeToStore(kvStore);
+          const data = await t.snapshotStore(kvStore);
           expect({ schemaVersion: PXE_DATA_SCHEMA_VERSION, ...data }).toMatchSnapshot();
         } finally {
           await kvStore.close();
@@ -686,3 +607,74 @@ describe('PXE storage schema compatibility', () => {
     });
   }
 });
+
+/**
+ * Pads an Fr array to `totalLength` with `Fr.ZERO`. Used because `ContractClassLogFields` and `PrivateLog` require
+ * fixed-length tuples; populating only the leading slots is enough to detect reorders, while the trailing zeros pin
+ * the field's total width (a shrunk or grown constant shifts the byte count and shows up in the diff).
+ */
+function paddedFrs(leading: bigint[], totalLength: number): Fr[] {
+  const out = leading.map(p => new Fr(p));
+  while (out.length < totalLength) {
+    out.push(Fr.ZERO);
+  }
+  return out;
+}
+
+/**
+ * Builds a fully-populated `L2Block` with distinct values for every primitive field that appears in `toBuffer`.
+ * We use distinct values to make a snapshot diff sensitive to regressions of specific fields, and same-width reorders.
+ */
+function buildL2Block(): L2Block {
+  const archive = new AppendOnlyTreeSnapshot(new Fr(101n), 103);
+  const header = new BlockHeader(
+    new AppendOnlyTreeSnapshot(new Fr(107n), 109),
+    new StateReference(
+      new AppendOnlyTreeSnapshot(new Fr(113n), 127),
+      new PartialStateReference(
+        new AppendOnlyTreeSnapshot(new Fr(131n), 137),
+        new AppendOnlyTreeSnapshot(new Fr(139n), 149),
+        new AppendOnlyTreeSnapshot(new Fr(151n), 157),
+      ),
+    ),
+    new Fr(163n),
+    new GlobalVariables(
+      new Fr(167n),
+      new Fr(173n),
+      BlockNumber(179),
+      SlotNumber(181),
+      191n,
+      EthAddress.fromField(new Fr(193n)),
+      AztecAddress.fromBigInt(197n),
+      new GasFees(199n, 211n),
+    ),
+    new Fr(223n),
+    new Fr(227n),
+  );
+
+  const txEffect = new TxEffect(
+    RevertCode.REVERTED,
+    TxHash.fromBigInt(229n),
+    new Fr(233n),
+    [new Fr(239n)],
+    [new Fr(241n)],
+    [new Fr(251n)],
+    [new PublicDataWrite(new Fr(257n), new Fr(263n))],
+    [
+      new PrivateLog(
+        paddedFrs([269n, 271n, 277n], PRIVATE_LOG_SIZE_IN_FIELDS) as Tuple<Fr, typeof PRIVATE_LOG_SIZE_IN_FIELDS>,
+        3,
+      ),
+    ],
+    [new PublicLog(AztecAddress.fromBigInt(281n), [new Fr(283n), new Fr(293n)])],
+    [
+      new ContractClassLog(
+        AztecAddress.fromBigInt(307n),
+        new ContractClassLogFields(paddedFrs([311n, 313n, 317n], CONTRACT_CLASS_LOG_SIZE_IN_FIELDS)),
+        3,
+      ),
+    ],
+  );
+
+  return new L2Block(archive, header, new Body([txEffect]), CheckpointNumber(331), IndexWithinCheckpoint(337));
+}

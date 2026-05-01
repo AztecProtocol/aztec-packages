@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
-exports[`PXE storage schema compatibility AddressStore persists registered complete addresses 1`] = `
+exports[`PXE storage compatibility test suite AddressStore AddressStore compatibility test 1`] = `
 {
   "complete_address_index": [
     {
@@ -26,14 +26,14 @@ exports[`PXE storage schema compatibility AddressStore persists registered compl
 }
 `;
 
-exports[`PXE storage schema compatibility AnchorBlockStore persists the synchronized block header 1`] = `
+exports[`PXE storage compatibility test suite AnchorBlockStore AnchorBlockStore compatibility test 1`] = `
 {
   "header": "000000000000000000000000000000000000000000000000000000000000000200000003000000000000000000000000000000000000000000000000000000000000000500000007000000000000000000000000000000000000000000000000000000000000000b0000000d00000000000000000000000000000000000000000000000000000000000000110000001300000000000000000000000000000000000000000000000000000000000000170000001d000000000000000000000000000000000000000000000000000000000000001f000000000000000000000000000000000000000000000000000000000000002500000000000000000000000000000000000000000000000000000000000000290000002b0000002f0000000000000035000000000000000000000000000000000000003b000000000000000000000000000000000000000000000000000000000000003d00000000000000000000000000000043000000000000000000000000000000470000000000000000000000000000000000000000000000000000000000000049000000000000000000000000000000000000000000000000000000000000004f",
   "schemaVersion": 5,
 }
 `;
 
-exports[`PXE storage schema compatibility CapsuleStore persists set capsules after commit 1`] = `
+exports[`PXE storage compatibility test suite CapsuleStore CapsuleStore compatibility test 1`] = `
 {
   "capsules": [
     {
@@ -53,7 +53,7 @@ exports[`PXE storage schema compatibility CapsuleStore persists set capsules aft
 }
 `;
 
-exports[`PXE storage schema compatibility ContractStore persists registered contract artifacts, classes, and instances 1`] = `
+exports[`PXE storage compatibility test suite ContractStore ContractStore compatibility test 1`] = `
 {
   "contract_artifacts": [
     {
@@ -85,7 +85,7 @@ exports[`PXE storage schema compatibility ContractStore persists registered cont
 }
 `;
 
-exports[`PXE storage schema compatibility KeyStore persists derived keys after adding an account 1`] = `
+exports[`PXE storage compatibility test suite KeyStore KeyStore compatibility test 1`] = `
 {
   "key_store": [
     {
@@ -141,7 +141,7 @@ exports[`PXE storage schema compatibility KeyStore persists derived keys after a
 }
 `;
 
-exports[`PXE storage schema compatibility L2TipsKVStore persists tips, hashes, block-to-checkpoint mappings, and checkpoints across event types 1`] = `
+exports[`PXE storage compatibility test suite L2TipsKVStore L2TipsKVStore compatibility test 1`] = `
 {
   "pxe_l2_block_hashes": [
     {
@@ -191,7 +191,7 @@ exports[`PXE storage schema compatibility L2TipsKVStore persists tips, hashes, b
 }
 `;
 
-exports[`PXE storage schema compatibility NoteStore persists active and nullified notes across all three sub-stores 1`] = `
+exports[`PXE storage compatibility test suite NoteStore NoteStore compatibility test 1`] = `
 {
   "note_block_number_to_nullifier": [
     {
@@ -231,7 +231,7 @@ exports[`PXE storage schema compatibility NoteStore persists active and nullifie
 }
 `;
 
-exports[`PXE storage schema compatibility PrivateEventStore persists private events across all three sub-stores with multi-scope and multi-value rows 1`] = `
+exports[`PXE storage compatibility test suite PrivateEventStore PrivateEventStore compatibility test 1`] = `
 {
   "events_by_block_number": [
     {
@@ -279,7 +279,7 @@ exports[`PXE storage schema compatibility PrivateEventStore persists private eve
 }
 `;
 
-exports[`PXE storage schema compatibility RecipientTaggingStore persists highest aged and finalized indexes after commit 1`] = `
+exports[`PXE storage compatibility test suite RecipientTaggingStore RecipientTaggingStore compatibility test 1`] = `
 {
   "highest_aged_index": [
     {
@@ -301,7 +301,7 @@ exports[`PXE storage schema compatibility RecipientTaggingStore persists highest
 }
 `;
 
-exports[`PXE storage schema compatibility SenderAddressBookStore persists registered senders 1`] = `
+exports[`PXE storage compatibility test suite SenderAddressBookStore SenderAddressBookStore compatibility test 1`] = `
 {
   "address_book": [
     {
@@ -321,7 +321,7 @@ exports[`PXE storage schema compatibility SenderAddressBookStore persists regist
 }
 `;
 
-exports[`PXE storage schema compatibility SenderTaggingStore persists multi-element pending arrays, single-element pending arrays, and finalized indexes 1`] = `
+exports[`PXE storage compatibility test suite SenderTaggingStore SenderTaggingStore compatibility test 1`] = `
 {
   "last_finalized_indexes": [
     {
@@ -347,7 +347,7 @@ exports[`PXE storage schema compatibility SenderTaggingStore persists multi-elem
 }
 `;
 
-exports[`PXE storage schema compatibility opens the expected set of stores 1`] = `
+exports[`PXE storage compatibility test suite opens the expected set of stores 1`] = `
 {
   "schemaVersion": 5,
   "stores": [
