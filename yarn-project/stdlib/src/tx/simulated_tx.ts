@@ -9,6 +9,7 @@ import {
 } from '../contract/interfaces/contract_instance.js';
 import { Gas } from '../gas/gas.js';
 import type { GasUsed } from '../gas/gas_used.js';
+import { type PublicStorageOverride, PublicStorageOverrideSchema } from '../interfaces/public_storage_override.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
 import type { OffchainEffect } from './offchain_effect.js';
@@ -32,24 +33,27 @@ import { Tx } from './tx.js';
 export type ContractOverrides = Record<string /* AztecAddress as string */, { instance: ContractInstanceWithAddress }>;
 
 /*
- * Optional values that can be overridden during simulation. In order to simulate a transaction with these
- * set, it *must* be run without the kernel circuits, or validations will fail.
+ * Optional values that can be overridden during simulation. `publicStorage` writes to the public-data
+ * tree fork. `contracts` overrides contract instances in the contract DB.
+ * In order to simulate a transaction with these set, it *must* be run without the kernel circuits,
+ * or validations will fail.
  */
 export class SimulationOverrides {
+  public publicStorage?: PublicStorageOverride[];
   public contracts?: ContractOverrides;
 
-  constructor(contracts: ContractOverrides = {}) {
-    this.contracts = Object.keys(contracts).length > 0 ? contracts : undefined;
+  constructor(args: { publicStorage?: PublicStorageOverride[]; contracts?: ContractOverrides } = {}) {
+    this.publicStorage = args.publicStorage?.length ? args.publicStorage : undefined;
+    this.contracts = args.contracts && Object.keys(args.contracts).length > 0 ? args.contracts : undefined;
   }
 
   static get schema() {
     return z
       .object({
+        publicStorage: optional(z.array(PublicStorageOverrideSchema)),
         contracts: optional(z.record(z.string(), z.object({ instance: ContractInstanceWithAddressSchema }))),
       })
-      .transform(({ contracts }) => {
-        return new SimulationOverrides(contracts);
-      });
+      .transform(args => new SimulationOverrides(args));
   }
 }
 

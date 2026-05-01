@@ -287,11 +287,14 @@ export class TestWallet extends BaseWallet {
       : executionPayload;
     const chainInfo = await this.getChainInfo();
 
-    let overrides: SimulationOverrides | undefined;
+    let overrides = opts.overrides;
     let txRequest: TxExecutionRequest;
     if (useOverride) {
       const accountOverrides = await this.buildAccountOverrides(scopes);
-      overrides = new SimulationOverrides(accountOverrides);
+      overrides = new SimulationOverrides({
+        publicStorage: overrides?.publicStorage,
+        contracts: { ...overrides?.contracts, ...accountOverrides },
+      });
     }
 
     if (from === NO_FROM) {

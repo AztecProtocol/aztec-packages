@@ -67,6 +67,22 @@ Test that invalid operations revert as expected:
 
 Use `.simulate()` to test reverts without spending gas. The simulation will throw if the transaction would fail onchain.
 
+## Simulating with overrides
+
+`.simulate()` accepts an `overrides` option that injects values into the simulator's (ephemeral) world-state fork and contract DB before the call runs. The override is scoped to that single simulation and thrown away afterwards.
+
+Override a public-storage slot:
+
+```typescript
+const result = await contract.methods.read_balance(account).simulate({
+  overrides: {
+    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+  },
+});
+```
+
+Use this to set up state preconditions, reproduce production bugs against pinned storage, or exercise rare value branches without orchestrating the contract calls that produce them.
+
 ## Further reading
 
 - [How to read contract data](./how_to_read_data.md)
