@@ -134,44 +134,47 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
     // Represents the idx of a variable in circuit_constructor.variables
     std::span<const uint32_t> real_variable_tags = circuit_constructor.real_variable_tags;
 
-    // Go through each cycle
-    for (size_t cycle_idx = 0; cycle_idx < wire_copy_cycles.size(); ++cycle_idx) {
-        // We go through the cycle and fill-out/modify `mapping`. Following the generalized permutation algorithm, we
-        // take separate care of first/last node handling.
-        const CyclicPermutation& cycle = wire_copy_cycles[cycle_idx];
-        const auto cycle_size = cycle.size();
-        if (cycle_size == 0) {
-            continue;
-        }
+    // Cycles are disjoint by construction of the generalized permutation argument: every (gate_idx, wire_idx) position
+    // belongs to exactly one variable, hence to exactly one cycle. Per-(col, row) writes from different cycles never
+    // alias, so parallelising across cycle_idx is safe without per-thread staging or merge.
+    parallel_for_heuristic(
+        wire_copy_cycles.size(),
+        [&](size_t cycle_idx) {
+            const CyclicPermutation& cycle = wire_copy_cycles[cycle_idx];
+            const auto cycle_size = cycle.size();
+            if (cycle_size == 0) {
+                return;
+            }
 
-        const cycle_node& first_node = cycle[0];
-        const cycle_node& last_node = cycle[cycle_size - 1];
+            const cycle_node& first_node = cycle[0];
+            const cycle_node& last_node = cycle[cycle_size - 1];
 
-        const auto first_row = static_cast<ptrdiff_t>(first_node.gate_idx);
-        const auto first_col = first_node.wire_idx;
-        const auto last_row = static_cast<ptrdiff_t>(last_node.gate_idx);
-        const auto last_col = last_node.wire_idx;
+            const auto first_row = static_cast<ptrdiff_t>(first_node.gate_idx);
+            const auto first_col = first_node.wire_idx;
+            const auto last_row = static_cast<ptrdiff_t>(last_node.gate_idx);
+            const auto last_col = last_node.wire_idx;
 
-        // First node: id gets tagged with the cycle's variable tag
-        mapping.ids[first_col].is_tag[first_row] = true;
-        mapping.ids[first_col].row_idx[first_row] = real_variable_tags[cycle_idx];
+            // First node: id gets tagged with the cycle's variable tag
+            mapping.ids[first_col].is_tag[first_row] = true;
+            mapping.ids[first_col].row_idx[first_row] = real_variable_tags[cycle_idx];
 
-        // Last node: sigma gets tagged and points to tau(tag) instead of wrapping to first node
-        mapping.sigmas[last_col].is_tag[last_row] = true;
-        mapping.sigmas[last_col].row_idx[last_row] = circuit_constructor.tau().at(real_variable_tags[cycle_idx]);
+            // Last node: sigma gets tagged and points to tau(tag) instead of wrapping to first node
+            mapping.sigmas[last_col].is_tag[last_row] = true;
+            mapping.sigmas[last_col].row_idx[last_row] = circuit_constructor.tau().at(real_variable_tags[cycle_idx]);
 
-        // All nodes except the last: sigma points to the next node in the cycle
-        for (size_t node_idx = 0; node_idx + 1 < cycle_size; ++node_idx) {
-            const cycle_node& current_node = cycle[node_idx];
-            const cycle_node& next_node = cycle[node_idx + 1];
+            // All nodes except the last: sigma points to the next node in the cycle
+            for (size_t node_idx = 0; node_idx + 1 < cycle_size; ++node_idx) {
+                const cycle_node& current_node = cycle[node_idx];
+                const cycle_node& next_node = cycle[node_idx + 1];
 
-            const auto current_row = static_cast<ptrdiff_t>(current_node.gate_idx);
-            const auto current_col = current_node.wire_idx;
-            // Point current node to next node.
-            mapping.sigmas[current_col].row_idx[current_row] = next_node.gate_idx;
-            mapping.sigmas[current_col].col_idx[current_row] = static_cast<uint8_t>(next_node.wire_idx);
-        }
-    }
+                const auto current_row = static_cast<ptrdiff_t>(current_node.gate_idx);
+                const auto current_col = current_node.wire_idx;
+                // Point current node to next node.
+                mapping.sigmas[current_col].row_idx[current_row] = next_node.gate_idx;
+                mapping.sigmas[current_col].col_idx[current_row] = static_cast<uint8_t>(next_node.wire_idx);
+            }
+        },
+        /*heuristic_cost=*/thread_heuristics::FF_COPY_COST * 8);
 
     // Add information about public inputs so that the cycles can be altered later; See the construction of the
     // permutation polynomials for details. This _only_ effects sigma_0, the 0th sigma polynomial, as the structure of
