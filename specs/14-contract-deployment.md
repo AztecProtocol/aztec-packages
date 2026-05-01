@@ -392,16 +392,17 @@ Constructors are not enshrined in the protocol — they are handled at the appli
 
 1. **Argument binding**: The constructor MUST be called with the selector and arguments that were committed in the `initialization_hash`
 2. **Deployer authorization**: If the deployer is non-zero, only the deployer can call the constructor
-3. **Single execution**: The constructor emits an **initialization nullifier** to prevent re-initialization
+3. **Single execution**: The constructor emits an **initialization nullifier** in each domain (private and/or public) to prevent re-initialization
 
 #### Initialization States
 
-A contract instance is in one of two initialization states:
+Initialization is signaled by two independent nullifiers — a **private initialization nullifier** that is observable from private functions, and a **public initialization nullifier** that is observable from public functions. The two are emitted together by the constructor flow (see *Initialization Nullifiers* below for the emission rules), which yields three observable states for a contract instance:
 
-- **Uninitialized**: The default state for any address. The constructor has not been called and no initialization nullifier exists. A user who knows the address preimage MAY still issue private calls to the contract, provided the called function does not require initialization (i.e., the function is annotated to skip the initialization check). This enables counterfactual usage of contracts — for example, receiving funds at a pre-computed account address before any on-chain interaction.
-- **Initialized**: The constructor has been invoked and the initialization nullifier has been emitted. All functions that depend on initialization (which check for the initialization nullifier) can now be called.
+- **Uninitialized**: The default state for any address. The constructor has not been called and neither initialization nullifier exists. A user who knows the address preimage MAY still issue private calls to the contract, provided the called function does not require initialization (i.e., the function is annotated to skip the initialization check). This enables counterfactual usage of contracts — for example, receiving funds at a pre-computed account address before any on-chain interaction.
+- **Privately initialized**: The constructor has run and the private initialization nullifier has been emitted, but the public initialization nullifier has not. This is the terminal state for contracts whose public surface has no initialization-checked functions, in which case the public nullifier is deliberately omitted to save the public call. Private functions that depend on initialization can be called; public functions that perform initialization checks cannot.
+- **Initialized**: Both the private and public initialization nullifiers have been emitted. All functions that depend on initialization, in either domain, can now be called.
 
-All non-constructor private functions that depend on contract initialization SHOULD check for the existence of the initialization nullifier. A contract MAY allow specific functions to be callable before initialization by omitting this check.
+All non-constructor functions that depend on contract initialization SHOULD check for the existence of the initialization nullifier in their own domain. A contract MAY allow specific functions to be callable before initialization by omitting this check.
 
 #### Initialization Hash Computation
 
@@ -416,26 +417,37 @@ Where `args_hash` is the Poseidon2 variable-length hash of the encoded construct
 
 If the contract has no constructor, `initialization_hash = 0`.
 
-#### Initialization Nullifier
+#### Initialization Nullifiers
 
-When a constructor executes, it emits a nullifier equal to the contract's own address:
-
-```
-initialization_nullifier = contract_address    // unsiloed
-```
-
-After siloing by the kernel circuit (see Spec #7):
+A constructor emits two distinct (unsiloed) initialization nullifiers, each of which is then siloed by the kernel/AVM with the contract address as for any other nullifier:
 
 ```
-siloed_initialization_nullifier = poseidon2_hash_with_separator(
-    [contract_address, contract_address],
-    DOM_SEP__SILOED_NULLIFIER
+private_initialization_nullifier = poseidon2_hash_with_separator(
+    [contract_address, initialization_hash],
+    DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER
+)
+
+public_initialization_nullifier = poseidon2_hash_with_separator(
+    [contract_address],
+    DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER
 )
 ```
 
-This nullifier serves a dual purpose:
-- Prevents the constructor from being called again (nullifier collision)
-- Allows other contracts to verify initialization via `nullifier_exists` checks
+The two nullifiers serve different purposes:
+
+- **Private initialization nullifier**: Mixes in `initialization_hash` so that an external observer who knows only the contract address cannot reconstruct it and learn whether the contract has been initialized. Only parties that hold the contract instance preimage (and therefore know `initialization_hash`) can observe this signal. Private functions check this nullifier via the kernel's standard nullifier-existence machinery.
+- **Public initialization nullifier**: Derivable from the contract address alone, which is required because the AVM must be able to verify initialization without an external hint. This nullifier leaks initialization status to anyone, but that information is already implied by the public deployment of the contract.
+
+Emission rules:
+
+- A **private initializer** always emits the private nullifier. It additionally enqueues a public call that emits the public nullifier, but only if the contract has at least one public function that performs an initialization check (i.e., not all public functions carry `#[noinitcheck]`). If no public function ever checks for initialization, the public nullifier is skipped entirely and the contract remains in the *Privately initialized* state.
+- A **public initializer** emits both nullifiers in the same public frame.
+
+Together the two nullifiers serve a triple purpose:
+
+- Prevent the constructor from being called again in either domain (nullifier collision in whichever domain the initializer runs).
+- Allow private functions and other contracts to verify private-side initialization via `nullifier_exists` checks against the private nullifier.
+- Allow the AVM and other public callers to verify public-side initialization without holding any private hints.
 
 #### Constructor Validation
 
@@ -474,7 +486,7 @@ sequenceDiagram
     InstanceRegistry->>InstanceRegistry: Verify class exists, compute address, emit nullifier + log
 
     PXE->>Contract: constructor(args...)
-    Contract->>Contract: Validate init hash, emit initialization nullifier
+    Contract->>Contract: Validate init hash, emit private + (optionally) public initialization nullifiers
 ```
 
 ### Contract Upgrades
@@ -769,7 +781,8 @@ When a constructor executes:
 
 1. The hash of the actual constructor selector and arguments MUST equal the `initialization_hash` committed in the contract instance
 2. If the instance's `deployer` is non-zero, `msg_sender` MUST equal `deployer`
-3. The initialization nullifier (the contract's own address, scoped to itself) MUST be emitted to prevent re-initialization
+3. The private initialization nullifier (`poseidon2([contract_address, initialization_hash], DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER)`) MUST be emitted to prevent re-initialization in the private domain
+4. The public initialization nullifier (`poseidon2([contract_address], DOM_SEP__PUBLIC_INITIALIZATION_NULLIFIER)`) MUST be emitted whenever the contract exposes at least one public function that performs an initialization check, to prevent re-initialization in the public domain. A contract whose public surface has no initialization-checked functions MAY omit the public nullifier.
 
 ### V9: Upgrade Validity
 
@@ -816,7 +829,7 @@ Public bytecode is emitted in contract class logs, ensuring it is available to a
 
 ### Initialization Replay Protection
 
-The initialization nullifier prevents constructor replay attacks. Without it, an attacker could re-invoke the constructor with the original arguments, potentially resetting contract state.
+The initialization nullifiers prevent constructor replay attacks. Without them, an attacker could re-invoke the constructor with the original arguments, potentially resetting contract state. The split into a private nullifier (which mixes in `initialization_hash`) and a public nullifier (which depends only on the address) lets each domain verify initialization without leaking unnecessary information: the private nullifier is unforgeable to outside observers who do not know the instance preimage, while the public nullifier remains AVM-derivable so that public functions can check it without an external hint.
 
 ---
 
