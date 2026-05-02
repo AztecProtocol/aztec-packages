@@ -204,10 +204,9 @@ TEST(g2, IsInPrimeSubgroupAcceptsSubgroupPoints)
 TEST(g2, IsInPrimeSubgroupRejectsCofactorPoint)
 {
     const g2::affine_element off_subgroup{
-        fq2{ fq{ 0xa6ba871b8b1e1b3a, 0x14f1d651eb8e167b, 0xccdd46def0f28c58, 0x1c14ef83340fbe5e },
-             fq{ 0xd35d438dc58f0d9d, 0x0a78eb28f5c70b3d, 0x666ea36f7879462c, 0x0e0a77c19a07df2f } },
-        fq2{ fq{ 0x0294a5225573dc93, 0x53874be07988f4f1, 0x2a05d8b41ccce7d3, 0x20045194f06acd0e },
-             fq{ 0x3814c8e5e4179a98, 0x793241f4d911e617, 0x28cf8e4b0df4482e, 0x0d612bd6f79bd361 } }
+        fq2{ fq(2), fq(1) },
+        fq2{ fq("0x101f7278419308b95099eca02dcee0c5381f4d26d1d62313f057167f064101ce"),
+             fq("0x2b76c179599bb92a963dac85546a005a777f7c13f6a7b75d5918b6b5808f5fde") }
     };
     ASSERT_TRUE(off_subgroup.on_curve());
     EXPECT_FALSE(off_subgroup.is_in_prime_subgroup());
