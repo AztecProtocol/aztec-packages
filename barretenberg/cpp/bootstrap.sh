@@ -253,7 +253,11 @@ function test_cmds_native {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
+  # The pinned IVC inputs / VKs live in the public repo; the private fork
+  # carries divergent circuits so the check is expected to fail there.
+  if [[ "${GITHUB_REPOSITORY,,}" != "aztecprotocol/aztec-packages-private" ]]; then
+    echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
+  fi
 }
 
 function test_cmds_wasm_threads {
