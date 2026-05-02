@@ -1,8 +1,9 @@
 //! The `self` contract value for private execution contexts.
 
 use crate::{
-    context::{calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall}, PrivateContext},
+    context::{calls::{PrivateCall, PrivateStaticCall, PublicCall, PublicStaticCall, UtilityCall}, PrivateContext},
     event::{event_emission::emit_event_in_private, event_interface::EventInterface, EventMessage},
+    oracle::call_utility_function::call_utility_function,
 };
 use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
@@ -108,6 +109,15 @@ pub struct ContractSelfPrivate<Storage, CallSelf, EnqueueSelf, CallSelfStatic, E
     /// self.internal.some_internal_function(args)
     /// ```
     pub internal: CallInternal,
+
+    /// Gateway for calling utility functions from this private context.
+    ///
+    /// Example API:
+    /// ```noir
+    /// // Safety: result is unconstrained
+    /// unsafe { self.utility.call(MyContract::at(address).my_utility_function(args)) }
+    /// ```
+    pub utility: PrivateUtility,
 }
 
 impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> ContractSelfPrivate<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal> {
@@ -132,6 +142,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
             call_self_static,
             enqueue_self_static,
             internal,
+            utility: PrivateUtility {},
         }
     }
 
@@ -393,5 +404,32 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     ///
     pub fn set_as_teardown_incognito<let M: u32, let N: u32, T>(&mut self, call: PublicCall<M, N, T>) {
         call.set_as_teardown_incognito(self.context)
+    }
+}
+
+/// Gateway for calling utility functions from a private context.
+///
+/// Accessible via `self.utility` in private functions. Results are not part of any circuit
+/// proof; use them to inform logic, not as inputs to constrained assertions.
+// Implemented as a separate empty struct because Noir does not allow passing `&mut PrivateContext`
+// (held by `ContractSelfPrivate`) into unconstrained code. This struct holds no mutable references,
+// so it can be passed freely into `unconstrained` functions.
+pub struct PrivateUtility {}
+
+impl PrivateUtility {
+    /// Makes a utility contract call from a private function.
+    ///
+    /// Note: only same-contract utility calls are currently supported. See TODO(F-29).
+    ///
+    /// # Example
+    /// ```noir
+    /// unsafe { self.utility.call(Token::at(self.address).get_balance_of(owner)) }
+    /// ```
+    pub unconstrained fn call<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
+    where
+        T: Deserialize,
+    {
+        let returns = call_utility_function(call.target_contract, call.selector, call.args);
+        Deserialize::deserialize(returns)
     }
 }

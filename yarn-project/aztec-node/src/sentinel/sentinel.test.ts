@@ -6,7 +6,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '@aztec/slasher';
-import type { SlasherConfig } from '@aztec/slasher/config';
 import {
   CommitteeAttestation,
   L2Block,
@@ -18,7 +17,11 @@ import {
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { type L1RollupConstants, getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
-import { makeCheckpointAttestation, makeCheckpointAttestationFromCheckpoint } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeCheckpointAttestation,
+  makeCheckpointAttestationFromCheckpoint,
+} from '@aztec/stdlib/testing';
 import type {
   ValidatorStats,
   ValidatorStatusHistory,
@@ -29,7 +32,7 @@ import type {
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { Sentinel } from './sentinel.js';
+import { Sentinel, type SentinelRuntimeConfig } from './sentinel.js';
 import { SentinelStore } from './store.js';
 
 describe('sentinel', () => {
@@ -47,13 +50,12 @@ describe('sentinel', () => {
   let epoch: EpochNumber;
   let ts: bigint;
   let l1Constants: L1RollupConstants;
-  const config: Pick<
-    SlasherConfig,
-    'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashInactivityConsecutiveEpochThreshold'
-  > = {
+  const config: SentinelRuntimeConfig = {
     slashInactivityPenalty: 100n,
     slashInactivityTargetPercentage: 0.8,
     slashInactivityConsecutiveEpochThreshold: 1,
+    l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
+    l1Contracts: { rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress },
   };
 
   beforeEach(async () => {
@@ -168,7 +170,7 @@ describe('sentinel', () => {
       publishedCheckpoint = await emitCheckpointEvent(checkpoint, checkpointAttestations);
 
       const attestorsFromCheckpoint = compactArray(
-        getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint).map(info =>
+        getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint, TEST_COORDINATION_SIGNATURE_CONTEXT).map(info =>
           info.status === 'recovered-from-signature' || info.status === 'provided-as-address'
             ? info.address
             : undefined,
@@ -213,7 +215,10 @@ describe('sentinel', () => {
       // Verify that getAttestationInfoFromPublishedCheckpoint returns 4 entries total:
       // - 2 with status 'recovered-from-signature' (actual attestations with valid signatures)
       // - 2 with status 'provided-as-address' (placeholders for missing validators)
-      const attestationInfo = getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint);
+      const attestationInfo = getAttestationInfoFromPublishedCheckpoint(
+        publishedCheckpoint,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+      );
       expect(attestationInfo).toHaveLength(4);
       const recoveredSignatures = attestationInfo.filter(info => info.status === 'recovered-from-signature');
       const placeholders = attestationInfo.filter(info => info.status === 'provided-as-address');
@@ -946,10 +951,7 @@ class TestSentinel extends Sentinel {
     archiver: L2BlockSource,
     p2p: P2PClient,
     store: SentinelStore,
-    config: Pick<
-      SlasherConfig,
-      'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashInactivityConsecutiveEpochThreshold'
-    >,
+    config: SentinelRuntimeConfig,
     protected override blockStream: L2BlockStream,
   ) {
     super(epochCache, archiver, p2p, store, config);

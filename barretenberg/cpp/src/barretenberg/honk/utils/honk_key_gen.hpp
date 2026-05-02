@@ -6,8 +6,10 @@
 
 #pragma once
 
+#include "barretenberg/ecc/fields/field_conversion.hpp"
 #include <ostream>
 #include <string>
+#include <type_traits>
 
 /**
  * Write a solidity file containing the vk params to the given stream.
@@ -34,13 +36,14 @@ inline void output_vk_sol_ultra_honk(std::ostream& os,
     };
 
     const auto print_g1 = [&](const auto& element, const std::string& name, const bool last = false) {
+        // Route through U256Codec so the EIP-196 canonical (0, 0) is emitted for
+        // points at infinity (e.g. selectors that commit to identically-zero polys),
+        // matching the proof-side transcript codec.
+        const auto coords =
+            bb::U256Codec::template serialize_to_fields<std::remove_cvref_t<decltype(element)>>(element);
         os << "            " << name << ": Honk.G1Point({ \n"
-           << "               "
-           << "x: "
-           << "uint256(" << element.x << "),\n"
-           << "               "
-           << "y: "
-           << "uint256(" << element.y << ")\n"
+           << "               x: uint256(" << coords[0] << "),\n"
+           << "               y: uint256(" << coords[1] << ")\n"
            << "            })";
 
         // only include comma if we are not the last element

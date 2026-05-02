@@ -16,60 +16,9 @@ using namespace bb::crypto;
 
 namespace bb {
 
-template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit(const bool ensure_nonzero)
+template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit()
 {
-    if (ensure_nonzero && !this->circuit_finalized) {
-        // do the mega part of ensuring all polynomials are nonzero; ultra part will be done inside of
-        // Ultra::finalize_circuit
-        add_mega_gates_to_ensure_all_polys_are_non_zero();
-    }
-    // All of the gates involved in finalization are part of the Ultra arithmetization
-    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit(ensure_nonzero);
-}
-
-/**
- * @brief Ensure all polynomials have at least one non-zero coefficient to avoid commiting to the zero-polynomial.
- *        This only adds gates for the Goblin polynomials. Most polynomials are handled via the Ultra method,
- *        which should be done by a separate call to the Ultra builder's non zero polynomial gates method.
- *
- * @param in Structure containing variables and witness selectors
- */
-template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_all_polys_are_non_zero()
-{
-    // Add a single default value to all databus columns. Note: This value must be equal across all columns in order for
-    // inter-circuit databus commitment checks to pass in IVC settings.
-
-    // Create an arbitrary calldata read gate
-    add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata
-    auto raw_read_idx = static_cast<uint32_t>(get_calldata().size()) - 1; // read data that was just added
-    auto read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_calldata(read_idx) });
-
-    // Create an arbitrary secondary_calldata read gate
-    add_public_secondary_calldata(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
-    raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1;   // read data that was just added
-    read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_secondary_calldata(read_idx) });
-
-    // Create an arbitrary return data read gate
-    add_public_return_data(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in return data
-    raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1;   // read data that was just added
-    read_idx = this->add_variable(FF(raw_read_idx));
-    update_finalize_witnesses({ read_idx, read_return_data(read_idx) });
-}
-
-/**
- * @brief Ensure all polynomials have at least one non-zero coefficient to avoid commiting to the zero-polynomial.
- *        This only adds gates for the Goblin polynomials. Most polynomials are handled via the Ultra method,
- *        which should be done by a separate call to the Ultra builder's non zero polynomial gates method.
- *
- * @param in Structure containing variables and witness selectors
- */
-template <typename FF> void MegaCircuitBuilder_<FF>::add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero()
-{
-    // Most polynomials are handled via the conventional Ultra method
-    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::add_gates_to_ensure_all_polys_are_non_zero();
-    add_mega_gates_to_ensure_all_polys_are_non_zero();
+    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit();
 }
 
 /**

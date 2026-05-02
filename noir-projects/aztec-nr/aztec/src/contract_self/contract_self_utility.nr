@@ -1,7 +1,8 @@
 //! The `self` contract value for utility execution contexts.
 
-use crate::context::UtilityContext;
-use crate::protocol::address::AztecAddress;
+use crate::context::{calls::UtilityCall, UtilityContext};
+use crate::oracle::call_utility_function::call_utility_function;
+use crate::protocol::{address::AztecAddress, traits::Deserialize};
 
 /// Core interface for interacting with aztec-nr contract features in utility execution contexts.
 ///
@@ -41,5 +42,21 @@ impl<Storage> ContractSelfUtility<Storage> {
     /// This constructor is called automatically by the macro system and should not be called directly.
     pub fn new(context: UtilityContext, storage: Storage) -> Self {
         Self { context, storage, address: context.this_address() }
+    }
+
+    /// Makes a utility contract call from another utility function.
+    ///
+    /// Note: only same-contract utility calls are currently supported. See TODO(F-29).
+    ///
+    /// # Example
+    /// ```noir
+    /// self.call(Token::at(address).get_balance_of(owner));
+    /// ```
+    pub unconstrained fn call<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
+    where
+        T: Deserialize,
+    {
+        let returns = call_utility_function(call.target_contract, call.selector, call.args);
+        Deserialize::deserialize(returns)
     }
 }

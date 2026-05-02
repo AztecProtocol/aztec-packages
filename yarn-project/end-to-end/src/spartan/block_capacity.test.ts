@@ -281,7 +281,7 @@ describe('block capacity benchmark', () => {
           if (blockTxCounts.some(b => b.blockNumber === bn)) {
             continue;
           }
-          const block = await aztecNode.getBlock(BlockNumber(bn));
+          const block = await aztecNode.getBlock(BlockNumber(bn), { includeTransactions: true });
           if (block) {
             const txCount = block.body.txEffects.length;
             blockTxCounts.push({ blockNumber: bn, txCount });

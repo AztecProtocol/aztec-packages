@@ -52,6 +52,7 @@ members = [
     "contracts/test/import_test_contract",
     "contracts/test/init_test_contract",
     "contracts/test/invalid_account_contract",
+    "contracts/test/nested_utility_contract",
     "contracts/test/no_constructor_contract",
     "contracts/test/note_hash_and_nullifier/note_hash_and_nullifier_contract",
     "contracts/test/note_getter_contract",
@@ -76,6 +77,7 @@ members = [
     "contracts/test/storage_proof_test_contract",
     "contracts/test/test_contract",
     "contracts/test/test_log_contract",
+    "contracts/test/unit_return_type_contract",
     "contracts/test/updatable_contract",
     "contracts/test/updated_contract"
 ]
