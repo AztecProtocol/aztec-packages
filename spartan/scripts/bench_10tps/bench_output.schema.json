@@ -105,6 +105,47 @@
           "additionalProperties": { "type": "string" },
           "description": "Curated subset of Aztec config env vars captured from a running validator pod. Keys include SEQ_MAX_TX_PER_BLOCK, P2P_MAX_PENDING_TX_COUNT, AZTEC_MANA_TARGET, etc. Lets the dashboard show 'pool=20k vs pool=1000' alongside compared runs."
         },
+        "infrastructure": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Benchmark pod placement captured from Kubernetes at scrape time. Lets dashboards show which machine shapes validators, provers, RPC nodes, and full nodes used.",
+          "properties": {
+            "roles": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "instanceTypes": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Distinct Kubernetes node instance types used by this role."
+                  },
+                  "nodePools": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Distinct node pools used by this role, when exposed as node labels."
+                  },
+                  "nodes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["role", "podName", "nodeName"],
+                      "properties": {
+                        "role": { "type": "string" },
+                        "podName": { "type": "string" },
+                        "nodeName": { "type": "string" },
+                        "instanceType": { "type": "string" },
+                        "nodePool": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
         "chaosMesh": {
           "type": "object",
           "additionalProperties": false,
@@ -234,7 +275,12 @@
         "checkpointTxCountMean": { "$ref": "#/$defs/timeSeries" },
         "l1InclusionDelayP95": { "$ref": "#/$defs/timeSeries" },
         "gossipLatencyP95": { "$ref": "#/$defs/timeSeries" },
-        "peerCountMean": { "$ref": "#/$defs/timeSeries" },
+        "peerCountMean": {
+          "$ref": "#/$defs/timeSeries",
+          "description": "Legacy aggregate peer-count series kept for older run JSONs."
+        },
+        "peerCountByRole": { "$ref": "#/$defs/timeSeries" },
+        "peerCountByValidator": { "$ref": "#/$defs/timeSeries" },
         "attestationsCollectDurationMean": { "$ref": "#/$defs/timeSeries" },
         "attestationsCollectAllowanceMean": { "$ref": "#/$defs/timeSeries" },
         "txCollectorTxsFromMempoolRate": { "$ref": "#/$defs/timeSeries" },

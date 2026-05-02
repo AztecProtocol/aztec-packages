@@ -1,6 +1,6 @@
-# Full Dev Path Test
+# Aztec CLI Acceptance Test
 
-Tests that the installed Aztec toolchain works end-to-end. Exercises the complete developer onboarding path:
+Tests that the installed Aztec CLI toolchain works end-to-end. Exercises the complete developer onboarding path:
 
 1. `aztec init` - scaffold a new workspace with a Counter contract and test crate
 2. `aztec compile` - compile the scaffolded contract
@@ -30,6 +30,6 @@ VERSION=4.3.0 ./run-test.sh
 
 ## Architecture
 
-- **`run-test.sh`** - Bash launcher. Runs the aztec installer (unless skipped), sets up PATH, then `exec node full-dev-path.ts`.
-- **`full-dev-path.ts`** - Orchestrator. Runs each CLI step against the installed toolchain and, after codegen, copies `counter.test.ts` into the scaffolded workspace and spawns `node --test` on it. Each phase is wrapped in `step(name, fn)` so failures clearly identify which step broke. Always emits a machine-readable result line for CI/Slack integration: `TEST_RESULT=pass version=...` on success, or `TEST_RESULT=fail step=... version=... error="..."` on failure (with a full banner printed above it).
+- **`run-test.sh`** - Bash launcher. Runs the aztec installer (unless skipped), sets up PATH, then `exec node aztec-cli-acceptance-test.ts`.
+- **`aztec-cli-acceptance-test.ts`** - Orchestrator. Runs each CLI step against the installed toolchain and, after codegen, copies `counter.test.ts` into the scaffolded workspace and spawns `node --test` on it. Each phase is wrapped in `step(name, fn)` so failures clearly identify which step broke. Always emits a machine-readable result line for CI/Slack integration: `TEST_RESULT=pass version=...` on success, or `TEST_RESULT=fail step=... version=... error="..."` on failure (with a full banner printed above it).
 - **`counter.test.ts`** - The `node:test` suite that drives the deployed Counter end-to-end through the codegen'd bindings. Lives here as a template; copied into the workspace at test time so it can statically `import { CounterContract } from './artifacts/Counter.js'` with real codegen types and resolve `@aztec/*` via the workspace's `node_modules` symlink to the install.

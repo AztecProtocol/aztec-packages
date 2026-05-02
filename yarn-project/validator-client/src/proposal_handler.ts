@@ -827,6 +827,16 @@ export class ProposalHandler {
       return { isValid: false, reason: 'last_block_archive_mismatch' };
     }
 
+    const maxBlocksPerCheckpoint = this.config.maxBlocksPerCheckpoint;
+    if (maxBlocksPerCheckpoint !== undefined && blocks.length > maxBlocksPerCheckpoint) {
+      this.log.warn(`Checkpoint proposal exceeds maxBlocksPerCheckpoint`, {
+        ...proposalInfo,
+        blocksInProposal: blocks.length,
+        maxBlocksPerCheckpoint,
+      });
+      return { isValid: false, reason: 'too_many_blocks_in_checkpoint' };
+    }
+
     this.log.debug(`Found ${blocks.length} blocks for slot ${slot}`, {
       ...proposalInfo,
       blockNumbers: blocks.map(b => b.number),

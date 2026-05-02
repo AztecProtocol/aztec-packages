@@ -310,6 +310,19 @@ template <typename G1> class TestAffineElement : public testing::Test {
         auto reconstructed = FrCodec::deserialize_from_fields<affine_element>(limbs);
         EXPECT_EQ(reconstructed, point);
     }
+
+    // The point at infinity, the generator, and any scalar multiple of the generator must all be
+    // recognized as members of the prime-order subgroup.
+    static void test_is_in_prime_subgroup_accepts_subgroup_points()
+    {
+        EXPECT_TRUE(affine_element::infinity().is_in_prime_subgroup());
+        EXPECT_TRUE(affine_element::one().is_in_prime_subgroup());
+
+        for (size_t i = 0; i < 8; ++i) {
+            affine_element P = affine_element(element::random_element());
+            EXPECT_TRUE(P.is_in_prime_subgroup());
+        }
+    }
 };
 
 // using TestTypes = testing::Types<bb::g1>;
@@ -467,6 +480,12 @@ TYPED_TEST(TestAffineElement, BatchEndomoprhismByMinusOne)
 TYPED_TEST(TestAffineElement, DeserializeOffCurveThrows)
 {
     TestFixture::test_deserialize_off_curve_throws();
+}
+
+// Verify is_in_prime_subgroup accepts known prime-order subgroup points
+TYPED_TEST(TestAffineElement, IsInPrimeSubgroupAcceptsSubgroupPoints)
+{
+    TestFixture::test_is_in_prime_subgroup_accepts_subgroup_points();
 }
 
 // Verify that from_compressed returns the (0,0) sentinel for x values with no valid y.

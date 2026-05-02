@@ -16,7 +16,7 @@ import { EventEmitter } from 'node:events';
 import { Archiver } from '../archiver.js';
 import { ArchiverInstrumentation } from '../modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from '../modules/l1_synchronizer.js';
-import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
+import type { ArchiverDataStores } from '../store/data_stores.js';
 
 /** Noop L1 synchronizer for testing without L1 connectivity. */
 class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
@@ -48,7 +48,7 @@ class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
  */
 export class NoopL1Archiver extends Archiver {
   constructor(
-    dataStore: KVArchiverDataStore,
+    dataStores: ArchiverDataStores,
     l1Constants: L1RollupConstants & { genesisArchiveRoot: Fr },
     instrumentation: ArchiverInstrumentation,
   ) {
@@ -76,7 +76,7 @@ export class NoopL1Archiver extends Archiver {
         governanceProposerAddress: EthAddress.ZERO,
         slashingProposerAddress: EthAddress.ZERO,
       },
-      dataStore,
+      dataStores,
       {
         pollingIntervalMs: 1000,
         batchSize: 100,
@@ -108,10 +108,10 @@ export class NoopL1Archiver extends Archiver {
 
 /** Creates an archiver with mocked L1 connectivity for testing. */
 export async function createNoopL1Archiver(
-  dataStore: KVArchiverDataStore,
+  dataStores: ArchiverDataStores,
   l1Constants: L1RollupConstants & { genesisArchiveRoot: Fr },
   telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<NoopL1Archiver> {
-  const instrumentation = await ArchiverInstrumentation.new(telemetry, () => dataStore.estimateSize());
-  return new NoopL1Archiver(dataStore, l1Constants, instrumentation);
+  const instrumentation = await ArchiverInstrumentation.new(telemetry, () => dataStores.db.estimateSize());
+  return new NoopL1Archiver(dataStores, l1Constants, instrumentation);
 }

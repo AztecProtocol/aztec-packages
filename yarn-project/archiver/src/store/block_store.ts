@@ -873,7 +873,12 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  async *getCheckpointedBlocks(start: BlockNumber, limit: number): AsyncIterableIterator<CheckpointedL2Block> {
+  getCheckpointedBlocks(start: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
+    return toArray(this.iterateCheckpointedBlocks(start, limit));
+  }
+
+  /** Async iterator variant of {@link getCheckpointedBlocks}. */
+  async *iterateCheckpointedBlocks(start: BlockNumber, limit: number): AsyncIterableIterator<CheckpointedL2Block> {
     const checkpointCache = new Map<CheckpointNumber, CheckpointStorage>();
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
@@ -917,7 +922,12 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  async *getBlocks(start: BlockNumber, limit: number): AsyncIterableIterator<L2Block> {
+  getBlocks(start: BlockNumber, limit: number): Promise<L2Block[]> {
+    return toArray(this.iterateBlocks(start, limit));
+  }
+
+  /** Async iterator variant of {@link getBlocks}. */
+  async *iterateBlocks(start: BlockNumber, limit: number): AsyncIterableIterator<L2Block> {
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const block = await this.getBlockFromBlockStorage(blockNumber, blockStorage);
       if (block) {
@@ -1058,7 +1068,12 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 block headers
    */
-  async *getBlockHeaders(start: BlockNumber, limit: number): AsyncIterableIterator<BlockHeader> {
+  getBlockHeaders(start: BlockNumber, limit: number): Promise<BlockHeader[]> {
+    return toArray(this.iterateBlockHeaders(start, limit));
+  }
+
+  /** Async iterator variant of {@link getBlockHeaders}. */
+  async *iterateBlockHeaders(start: BlockNumber, limit: number): AsyncIterableIterator<BlockHeader> {
     for await (const [blockNumber, blockStorage] of this.getBlockStorages(start, limit)) {
       const header = BlockHeader.fromBuffer(blockStorage.header);
       if (header.getBlockNumber() !== blockNumber) {

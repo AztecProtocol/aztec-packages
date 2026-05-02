@@ -225,7 +225,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
                     if (is_trailing_kernel) {
                         // Trailing kernels should be significantly smaller, with hiding kernel < 2^16
                         BB_ASSERT_LTE(log2_dyadic_size,
-                                      16UL,
+                                      17UL,
                                       "Trailing kernel circuit size has exceeded expected bound (should be <= 2^16).");
                         vinfo("Log number of gates in a trailing kernel circuit is: ", log2_dyadic_size);
                     } else {

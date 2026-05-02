@@ -18,6 +18,7 @@ export class ProposalValidator {
   private logger: Logger;
   private txsPermitted: boolean;
   private maxTxsPerBlock?: number;
+  private maxBlocksPerCheckpoint?: number;
   private pipeliningWindow: PipeliningWindow;
   private signatureContext: CoordinationSignatureContext;
 
@@ -26,6 +27,7 @@ export class ProposalValidator {
     opts: {
       txsPermitted: boolean;
       maxTxsPerBlock?: number;
+      maxBlocksPerCheckpoint?: number;
       p2pPropagationTime?: number;
       signatureContext: CoordinationSignatureContext;
     },
@@ -34,6 +36,7 @@ export class ProposalValidator {
     this.epochCache = epochCache;
     this.txsPermitted = opts.txsPermitted;
     this.maxTxsPerBlock = opts.maxTxsPerBlock;
+    this.maxBlocksPerCheckpoint = opts.maxBlocksPerCheckpoint;
     this.pipeliningWindow = new PipeliningWindow(epochCache, { p2pPropagationTime: opts.p2pPropagationTime });
     this.signatureContext = opts.signatureContext;
     this.logger = createLogger(loggerName);
@@ -85,6 +88,17 @@ export class ProposalValidator {
           expectedProposer,
           proposer: proposer.toString(),
         });
+        return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
+      }
+
+      if (
+        this.maxBlocksPerCheckpoint !== undefined &&
+        'indexWithinCheckpoint' in proposal &&
+        proposal.indexWithinCheckpoint >= this.maxBlocksPerCheckpoint
+      ) {
+        this.logger.warn(
+          `Penalizing peer for proposal with indexWithinCheckpoint ${proposal.indexWithinCheckpoint} >= max ${this.maxBlocksPerCheckpoint}`,
+        );
         return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }
 

@@ -2,7 +2,7 @@ use crate::{authwit::entrypoint::FunctionCall, context::PrivateContext};
 use crate::protocol::{
     constants::DOM_SEP__SIGNATURE_PAYLOAD,
     hash::poseidon2_hash_with_separator,
-    traits::{Hash, Serialize},
+    traits::{Deserialize, Hash, Serialize},
 };
 use std::meta::derive;
 
@@ -12,7 +12,7 @@ global ACCOUNT_MAX_CALLS: u32 = 5;
 // - default_entrypoint.ts
 // - account_entrypoint.ts (specifically `getEntrypointAbi()`)
 // - default_multi_call_entrypoint.ts (specifically `getEntrypointAbi()`)
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct AppPayload {
     function_calls: [FunctionCall; ACCOUNT_MAX_CALLS],
     // A nonce that enables transaction cancellation. When the cancellable flag is enabled, this nonce is used to

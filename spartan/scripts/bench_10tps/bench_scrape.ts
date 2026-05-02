@@ -26,10 +26,10 @@ import { setTimeout as sleep } from "node:timers/promises";
 // --- Config ---
 
 const NAMESPACE = env.NAMESPACE ?? "bench-10tps";
-const GCP_PROJECT = env.GCP_PROJECT ?? env.GOOGLE_CLOUD_PROJECT;
 
-if (!GCP_PROJECT) {
-  throw new Error("Missing GCP_PROJECT env var");
+const GCP_PROJECT_ID = env.GCP_PROJECT_ID;
+if (!GCP_PROJECT_ID) {
+  throw new Error("Missing GCP_PROJECT_ID env var");
 }
 
 const GCP_REGION = env.GCP_REGION ?? "us-west1-a";
@@ -206,6 +206,7 @@ type TimeSeriesDef = { metric: string; unit: string; query: string };
 type PreviousRunContext = {
   image?: string;
   aztecConfig?: Record<string, string>;
+  infrastructure?: Infrastructure;
 };
 
 async function loadPreviousRunContext(
@@ -348,10 +349,15 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
       ["aztec_gossip_topic_name"],
     ),
   },
-  peerCountMean: {
+  peerCountByRole: {
     metric: "aztec_peer_manager_peer_count_peers",
     unit: "count",
-    query: `avg(aztec_peer_manager_peer_count_peers${NS})`,
+    query: `avg by (service_name)(aztec_peer_manager_peer_count_peers${NS})`,
+  },
+  peerCountByValidator: {
+    metric: "aztec_peer_manager_peer_count_peers",
+    unit: "count",
+    query: `max by (k8s_pod_name)(aztec_peer_manager_peer_count_peers{k8s_namespace_name="${NAMESPACE}",k8s_pod_name=~"${NAMESPACE}-validator.*"})`,
   },
   attestationsCollectDurationMean: {
     metric: "aztec_sequencer_attestations_collect_duration_milliseconds",
@@ -475,6 +481,8 @@ async function gcloudRead(filter: string): Promise<GcloudEntry[]> {
         "logging",
         "read",
         filter,
+        "--project",
+        GCP_PROJECT_ID,
         "--format=json",
         "--order=asc",
         "--freshness=24h",
@@ -508,6 +516,31 @@ const timeFilter = (startedAt: string, endedAt: string) =>
   `timestamp >= "${startedAt}" AND timestamp <= "${endedAt}"`;
 
 // --- Run-context capture (image + aztec config env) ---
+
+type RoleNode = {
+  role: string;
+  podName: string;
+  nodeName: string;
+  instanceType?: string;
+  nodePool?: string;
+};
+
+type RoleInfrastructure = {
+  instanceTypes: string[];
+  nodePools: string[];
+  nodes: RoleNode[];
+};
+
+type Infrastructure = {
+  roles: Record<string, RoleInfrastructure>;
+};
+
+const INFRASTRUCTURE_ROLE_PATTERNS = [
+  { role: "validator", pattern: /-validator(?:-|$)/ },
+  { role: "prover", pattern: /-prover-(?:agent|node|broker)(?:-|$)/ },
+  { role: "rpc", pattern: /-rpc(?:-|$)/ },
+  { role: "fullNode", pattern: /-full-node(?:-|$)/ },
+];
 
 // Curated subset of env vars worth recording per run so the dashboard can
 // show e.g. "pool=20k vs pool=1000" alongside two compared runs. Anything not
@@ -601,6 +634,107 @@ async function captureAztecConfig(): Promise<Record<string, string>> {
     });
     return {};
   }
+}
+
+async function captureInfrastructure(): Promise<Infrastructure | undefined> {
+  try {
+    const [podsOut, nodesOut] = await Promise.all([
+      runKubectl(["get", "pods", "-n", NAMESPACE, "-o", "json"]),
+      runKubectl(["get", "nodes", "-o", "json"]),
+    ]);
+    const podsJson = JSON.parse(podsOut) as {
+      items?: Array<{
+        metadata?: { name?: string };
+        spec?: { nodeName?: string };
+      }>;
+    };
+    const nodesJson = JSON.parse(nodesOut) as {
+      items?: Array<{
+        metadata?: {
+          name?: string;
+          labels?: Record<string, string>;
+        };
+      }>;
+    };
+
+    const nodesByName = new Map(
+      (nodesJson.items ?? [])
+        .map((node) => {
+          const name = node.metadata?.name;
+          return name ? ([name, node.metadata?.labels ?? {}] as const) : null;
+        })
+        .filter(
+          (entry): entry is readonly [string, Record<string, string>] =>
+            entry !== null,
+        ),
+    );
+
+    const roleNodes = (podsJson.items ?? [])
+      .map((pod): RoleNode | undefined => {
+        const podName = pod.metadata?.name;
+        const nodeName = pod.spec?.nodeName;
+        const role = podName ? roleForPodName(podName) : undefined;
+        if (!podName || !nodeName || !role) {
+          return undefined;
+        }
+        const labels = nodesByName.get(nodeName) ?? {};
+        return {
+          role,
+          podName,
+          nodeName,
+          instanceType:
+            labels["node.kubernetes.io/instance-type"] ??
+            labels["beta.kubernetes.io/instance-type"],
+          nodePool:
+            labels["cloud.google.com/gke-nodepool"] ??
+            labels["eks.amazonaws.com/nodegroup"],
+        };
+      })
+      .filter((node): node is RoleNode => node !== undefined)
+      .sort((a, b) => a.podName.localeCompare(b.podName));
+
+    if (roleNodes.length === 0) {
+      return undefined;
+    }
+
+    const roles: Record<string, RoleInfrastructure> = {};
+    for (const { role } of INFRASTRUCTURE_ROLE_PATTERNS) {
+      const nodes = roleNodes.filter((node) => node.role === role);
+      if (nodes.length === 0) {
+        continue;
+      }
+      roles[role] = infrastructureForNodes(nodes);
+    }
+    return { roles };
+  } catch (err) {
+    log("infrastructure capture failed", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return undefined;
+  }
+}
+
+function roleForPodName(podName: string): string | undefined {
+  if (!podName.startsWith(`${NAMESPACE}-`)) {
+    return undefined;
+  }
+  return INFRASTRUCTURE_ROLE_PATTERNS.find(({ pattern }) =>
+    pattern.test(podName),
+  )?.role;
+}
+
+function infrastructureForNodes(nodes: RoleNode[]): RoleInfrastructure {
+  return {
+    instanceTypes: Array.from(
+      new Set(
+        nodes.flatMap((node) => (node.instanceType ? [node.instanceType] : [])),
+      ),
+    ).sort(),
+    nodePools: Array.from(
+      new Set(nodes.flatMap((node) => (node.nodePool ? [node.nodePool] : []))),
+    ).sort(),
+    nodes,
+  };
 }
 
 type BlockRecord = {
@@ -1493,17 +1627,21 @@ async function main(): Promise<void> {
     // can opt into extending the end until pending TxPool depth reaches zero.
     const promEndEpoch = drain.scrapeWindowEndEpoch;
 
-    log("Capturing run context (image + aztec config env)");
-    const [capturedImage, capturedAztecConfig] = await Promise.all([
-      captureImage(),
-      captureAztecConfig(),
-    ]);
+    log("Capturing run context (image + aztec config env + pod nodes)");
+    const [capturedImage, capturedAztecConfig, capturedInfrastructure] =
+      await Promise.all([
+        captureImage(),
+        captureAztecConfig(),
+        captureInfrastructure(),
+      ]);
     const previousRunContext = await loadPreviousRunContext(args.output);
     const image = capturedImage ?? previousRunContext.image;
     const aztecConfig =
       Object.keys(capturedAztecConfig).length > 0
         ? capturedAztecConfig
         : (previousRunContext.aztecConfig ?? {});
+    const infrastructure =
+      capturedInfrastructure ?? previousRunContext.infrastructure;
 
     log("Scraping Prometheus time-series");
     const timeSeries = await scrapeTimeSeries(startedAtEpoch, promEndEpoch);
@@ -1575,7 +1713,7 @@ async function main(): Promise<void> {
         ).toISOString(),
         drainEndedAt,
         namespace: NAMESPACE,
-        gcpProject: GCP_PROJECT,
+        gcpProject: GCP_PROJECT_ID,
         gcpLocation: GCP_REGION,
         gkeCluster: GKE_CLUSTER,
         ...(image !== undefined && { image }),
@@ -1583,6 +1721,7 @@ async function main(): Promise<void> {
         testDurationSeconds: windowSec,
         workload: args.workload,
         ...(Object.keys(aztecConfig).length > 0 && { aztecConfig }),
+        ...(infrastructure !== undefined && { infrastructure }),
         scrapeConfig: {
           drainSeconds: Math.max(0, drain.scrapeWindowEndEpoch - endedAtEpoch),
           stepSeconds: STEP_SECONDS,

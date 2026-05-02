@@ -186,7 +186,7 @@ function bench_10tps_cmds {
   local high_value_tps=10
   local low_value_tps=0
   local test_duration=${TEST_DURATION_SECONDS:-600} # 10 mins
-  local timeout=${BENCH_TIMEOUT_SECONDS:-3600}
+  local timeout=${BENCH_TIMEOUT_SECONDS:-7200} # account for initial committee formation
   echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
 }
 
@@ -252,7 +252,7 @@ function bench_10tps {
     local started=$(jq -r .startedAt < "$metadata")
     local ended=$(jq -r .endedAt < "$metadata")
     echo "Scraping bench-10tps run ${BENCH_RUN_ID} (started=${started} ended=${ended})"
-    NAMESPACE="$NAMESPACE" ./scripts/bench_10tps/bench_scrape.ts \
+    NAMESPACE="$NAMESPACE" GCP_PROJECT_ID="${GCP_PROJECT_ID:-}" ./scripts/bench_10tps/bench_scrape.ts \
       --run-id "$BENCH_RUN_ID" \
       --started "$started" \
       --ended "$ended" \
