@@ -1,19 +1,18 @@
 use aztec::{
-    context::{PrivateContext, PublicContext},
-    history::nullifier::assert_nullifier_existed_by,
+    context::{NullifierExistenceRequest, PrivateContext, PublicContext},
     keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
     messages::{
         logs::partial_note::encode_partial_note_private_message,
         message_delivery::{do_private_message_delivery, MessageDelivery},
     },
-    note::{note_interface::{NoteHash, NoteType}, utils::compute_note_nullifier},
+    note::{note_interface::{NoteHash, NoteType}, utils::{compute_note_hash, compute_note_nullifier}},
     oracle::random::random,
     protocol::{
         address::AztecAddress,
         constants::{
-            DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__NOTE_HASH, DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
-            PRIVATE_LOG_CIPHERTEXT_LEN,
+            DOM_SEP__NOTE_COMPLETION_LOG_TAG, DOM_SEP__PARTIAL_NOTE_COMMITMENT,
+            DOM_SEP__PARTIAL_NOTE_VALIDITY_COMMITMENT,
         },
         hash::{compute_log_tag, compute_siloed_nullifier, poseidon2_hash_with_separator},
         traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
@@ -146,7 +145,10 @@ impl UintNote {
 /// other note fields will be made public.
 // docs:start:compute_partial_commitment
 fn compute_partial_commitment(owner: AztecAddress, randomness: Field) -> Field {
-    poseidon2_hash_with_separator([owner.to_field(), randomness], DOM_SEP__NOTE_HASH)
+    poseidon2_hash_with_separator(
+        [owner.to_field(), randomness],
+        DOM_SEP__PARTIAL_NOTE_COMMITMENT,
+    )
 }
 // docs:end:compute_partial_commitment
 
@@ -165,14 +167,10 @@ impl NoteType for UintPartialNotePrivateLogContent {
 /// storage slot and value fields have not yet been set. A partial note can be completed in public with the `complete`
 /// function (revealing the storage slot and value to the public), resulting in a UintNote that can be used like any
 /// other one (except of course that its value is known).
-// docs:start:partial_uint_note_def
 #[derive(Packable, Serialize, Deserialize, Eq)]
 pub struct PartialUintNote {
     commitment: Field,
 }
-// docs:end:partial_uint_note_def
-
-global NOTE_COMPLETION_PAYLOAD_LENGTH: u32 = 2;
 
 impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
@@ -216,14 +214,11 @@ impl PartialUintNote {
         // We verify that the partial note we're completing is valid (i.e. completer is correct, it uses the correct
         // state variable's storage slot, and it is internally consistent).
         let validity_commitment = self.compute_validity_commitment(completer);
-        // `assert_nullifier_existed_by` function expects the nullifier to be siloed (hashed with the address of the
-        // contract that emitted the nullifier) as it checks the value directly against the nullifier tree and all the
-        // nullifiers in the tree are siloed by the protocol.
+
         let siloed_validity_commitment = compute_siloed_nullifier(context.this_address(), validity_commitment);
-        assert_nullifier_existed_by(
-            context.get_anchor_block_header(),
-            siloed_validity_commitment,
-        );
+        // Note that this means we don't support scenarios in which the validity commitment was created in the same
+        // transaction.
+        context.assert_nullifier_exists(NullifierExistenceRequest::for_settled(siloed_validity_commitment));
 
         // We need to do two things:
         //  - emit an unencrypted log containing the public fields (the storage slot and value) via the private log
@@ -232,8 +227,8 @@ impl PartialUintNote {
         // only done in private to hide the preimage of the hash that is inserted, but completed partial notes are
         // inserted in public as the public values are provided and the note hash computed.
         let log_tag = compute_log_tag(self.commitment, DOM_SEP__NOTE_COMPLETION_LOG_TAG);
-        let padded_payload = self.compute_note_completion_payload_padded_for_private_log(storage_slot, value);
-        context.emit_private_log_unsafe(log_tag, padded_payload, NOTE_COMPLETION_PAYLOAD_LENGTH);
+        let payload = BoundedVec::from_array([storage_slot, value.to_field()]);
+        context.emit_private_log_vec_unsafe(log_tag, payload);
         context.push_note_hash(self.compute_complete_note_hash(storage_slot, value));
     }
 
@@ -249,24 +244,9 @@ impl PartialUintNote {
         )
     }
 
-    fn compute_note_completion_payload_padded_for_private_log(
-        _self: Self,
-        storage_slot: Field,
-        value: u128,
-    ) -> [Field; PRIVATE_LOG_CIPHERTEXT_LEN] {
-        let payload = [storage_slot, value.to_field()];
-        payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - NOTE_COMPLETION_PAYLOAD_LENGTH])
-    }
-
     // docs:start:compute_complete_note_hash
     fn compute_complete_note_hash(self, storage_slot: Field, value: u128) -> Field {
-        // Here we finalize the note hash by including the (public) storage slot and value into the partial note
-        // commitment. Note that we use the same separator as we used for the first round of poseidon - this is not
-        // an issue.
-        poseidon2_hash_with_separator(
-            [self.commitment, storage_slot, value.to_field()],
-            DOM_SEP__NOTE_HASH,
-        )
+        compute_note_hash(storage_slot, [self.commitment, value.to_field()])
     }
     // docs:end:compute_complete_note_hash
 }

@@ -1,7 +1,6 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
-import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/constants';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -10,7 +9,7 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { WASMSimulator } from '@aztec/simulator/client';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
+import { BlockHash, GENESIS_BLOCK_HEADER_HASH, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { SiloedTag } from '@aztec/stdlib/logs';
@@ -19,6 +18,7 @@ import {
   randomContractInstanceWithAddress,
   randomDeployedContract,
 } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
@@ -61,7 +61,6 @@ describe('PXE', () => {
       coinIssuerAddress: EthAddress.random(),
       rewardDistributorAddress: EthAddress.random(),
       governanceProposerAddress: EthAddress.random(),
-      slashFactoryAddress: EthAddress.random(),
     };
     node.getNodeInfo.mockResolvedValue({
       nodeVersion: '1.0.0',
@@ -96,6 +95,12 @@ describe('PXE', () => {
     // Check that the account is correctly registered using the getAccounts and getRecipients methods
     const accounts = await pxe.getRegisteredAccounts();
     expect(accounts).toContainEqual(completeAddress);
+  });
+
+  it('refuses to register an invalid address as a sender', async () => {
+    // x = 3 is not a valid x-coordinate on the Grumpkin curve (y^2 = x^3 - 17 = 10 has no square root in Fr)
+    const invalidAddress = new AztecAddress(new Fr(3));
+    await expect(pxe.registerSender(invalidAddress)).rejects.toThrow(/not valid/);
   });
 
   it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {
@@ -179,6 +184,14 @@ describe('PXE', () => {
         globalVariables,
       });
       node.getBlockHeader.mockResolvedValue(blockHeader);
+      node.getBlock.mockResolvedValue({
+        header: blockHeader,
+        archive: AppendOnlyTreeSnapshot.empty(),
+        hash: GENESIS_BLOCK_HEADER_HASH,
+        checkpointNumber: CheckpointNumber.fromBlockNumber(lastKnownBlockNumber),
+        indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
+        number: lastKnownBlockNumber,
+      } as any);
 
       // Mock getL2Tips which is needed for syncing tagged logs
       const tipId = {
@@ -193,6 +206,7 @@ describe('PXE', () => {
         checkpointed: tipId,
         proven: tipId,
         finalized: tipId,
+        proposedCheckpoint: tipId,
       });
 
       // This is read when PXE tries to resolve the

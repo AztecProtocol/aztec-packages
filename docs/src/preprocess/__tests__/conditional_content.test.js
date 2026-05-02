@@ -42,18 +42,6 @@ describe("processConditionalBlocks", () => {
     });
   });
 
-  describe("mainnet/ignition aliasing", () => {
-    it("mainnet condition matches ignition release type", () => {
-      const content = `#if(mainnet)\nMainnet content\n#endif`;
-      assert.strictEqual(process(content, "ignition"), "Mainnet content");
-    });
-
-    it("ignition condition matches mainnet release type", () => {
-      const content = `#if(ignition)\nIgnition content\n#endif`;
-      assert.strictEqual(process(content, "mainnet"), "Ignition content");
-    });
-  });
-
   describe("content preservation", () => {
     it("handles JSON with nested braces", () => {
       const content = `#if(devnet)\n\`\`\`json\n{"nested": {"a": 1}}\n\`\`\`\n#endif`;

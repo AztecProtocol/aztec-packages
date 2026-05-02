@@ -1,11 +1,14 @@
 use crate::cards::Card;
-use aztec::protocol::{address::AztecAddress, traits::{Deserialize, FromField, Packable, ToField}};
+use aztec::protocol::{
+    address::AztecAddress,
+    traits::{Deserialize, FromField, Packable, Serialize, ToField},
+};
 use std::meta::derive;
 
 global NUMBER_OF_PLAYERS: u32 = 2;
 global NUMBER_OF_CARDS_DECK: u32 = 2;
 
-#[derive(Deserialize, Eq)]
+#[derive(Serialize, Deserialize, Eq)]
 pub struct PlayerEntry {
     pub address: AztecAddress,
     pub deck_strength: u32,
@@ -38,6 +41,7 @@ impl PlayerEntry {
 
 pub global PLAYABLE_CARDS: u32 = 4;
 
+#[derive(Serialize, Deserialize)]
 pub struct Game {
     players: [PlayerEntry; NUMBER_OF_PLAYERS],
     pub rounds_cards: [Card; PLAYABLE_CARDS],
@@ -93,11 +97,11 @@ impl Packable for Game {
         let rounds_cards = <[Card; PLAYABLE_CARDS]>::unpack(cards_packed);
 
         let mut tmp = packed[SCALARS_OFFSET];
-        let started = (tmp as u1) != 0;
+        let started = (tmp as u8) % 2 != 0;
         tmp = (tmp - started as Field) / 2.pow_32(1);
-        let finished = (tmp as u1) != 0;
+        let finished = (tmp as u8) % 2 != 0;
         tmp = (tmp - finished as Field) / 2.pow_32(1);
-        let claimed = (tmp as u1) != 0;
+        let claimed = (tmp as u8) % 2 != 0;
         tmp = (tmp - claimed as Field) / 2.pow_32(1);
         let current_player = tmp as u32;
         tmp = (tmp - current_player as Field) / 2.pow_32(32);

@@ -6,6 +6,7 @@ import {
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
+  optionalNumberConfigHelper,
   percentageConfigHelper,
   pickConfigMappings,
   secretStringConfigHelper,
@@ -39,7 +40,15 @@ export interface P2PConfig
     ChainConfig,
     TxCollectionConfig,
     TxFileStoreConfig,
-    Pick<SequencerConfig, 'blockDurationMs' | 'expectedBlockProposalsPerSlot' | 'maxTxsPerBlock'> {
+    Pick<
+      SequencerConfig,
+      | 'blockDurationMs'
+      | 'expectedBlockProposalsPerSlot'
+      | 'l1PublishingTime'
+      | 'maxTxsPerBlock'
+      | 'attestationPropagationTime'
+      | 'maxBlocksPerCheckpoint'
+    > {
   /** Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set. */
   validateMaxTxsPerBlock?: number;
 
@@ -209,6 +218,9 @@ export interface P2PConfig
 
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
+
+  /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
+  skipIncomingProposals?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -218,23 +230,23 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'VALIDATOR_MAX_TX_PER_BLOCK',
     description:
       'Maximum transactions per block for validation. Overrides maxTxsPerBlock for gossip validation when set.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxTxsPerCheckpoint: {
     env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
     description:
       'Maximum transactions per checkpoint for validation. Used as fallback for maxTxsPerBlock when that is not set.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxL2BlockGas: {
     env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
     description: 'Maximum L2 gas per block for validation. When set, txs exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxDABlockGas: {
     env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
     description: 'Maximum DA gas per block for validation. When set, txs exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    ...optionalNumberConfigHelper(),
   },
   p2pEnabled: {
     env: 'P2P_ENABLED',
@@ -364,7 +376,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubMcacheLength: {
     env: 'P2P_GOSSIPSUB_MCACHE_LENGTH',
     description: 'The number of gossipsub interval message cache windows to keep.',
-    ...numberConfigHelper(6),
+    ...numberConfigHelper(12),
   },
   gossipsubMcacheGossip: {
     env: 'P2P_GOSSIPSUB_MCACHE_GOSSIP',
@@ -436,7 +448,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   p2pStoreMapSizeKb: {
     env: 'P2P_STORE_MAP_SIZE_KB',
-    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    ...optionalNumberConfigHelper(),
     description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKb.',
   },
   txPublicSetupAllowListExtend: {
@@ -495,6 +507,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Alters the format of p2p messages to include things like broadcast timestamp FOR TESTING ONLY',
     ...booleanConfigHelper(false),
   },
+  l1PublishingTime: {
+    env: 'SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT',
+    description: 'How much time (in seconds) we allow in the slot for publishing the L1 tx (defaults to 1 L1 slot).',
+    ...optionalNumberConfigHelper(),
+  },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
     description:
@@ -504,6 +521,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   broadcastEquivocatedProposals: {
     description:
       'Broadcast block proposals even when a conflicting proposal for the same slot already exists in the pool (for testing purposes only).',
+    ...booleanConfigHelper(false),
+  },
+  skipIncomingProposals: {
+    description: 'Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only)',
     ...booleanConfigHelper(false),
   },
   minTxPoolAgeMs: {

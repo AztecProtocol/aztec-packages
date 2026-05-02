@@ -90,13 +90,6 @@ class GoblinMockCircuits {
             generate_sha256_test_circuit<MegaBuilder>(builder, 8);
             stdlib::generate_ecdsa_verification_test_circuit(builder, 2);
         }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
-        // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // ProverInstance creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other
-        // MegaHonk circuits (where we don't explicitly need to add goblin ops), in IVC merge proving happens prior to
-        // folding where the absense of goblin ecc ops will result in zero commitments.
-        MockCircuits::construct_goblin_ecc_op_circuit(builder);
     }
 
     /**
@@ -150,7 +143,8 @@ class GoblinMockCircuits {
         for (size_t idx = 0; idx < num_circuits - 1; ++idx) {
             MegaCircuitBuilder builder{ goblin.op_queue };
             if (idx == num_circuits - 2) {
-                // Last circuit appended needs to begin with a no-op for translator to be shiftable
+                // The tail circuit's subtable is prepended last and sits at the top of the aggregate op queue table.
+                // The initial no-op gives the Translator's op queue wires their 2 shiftability-required leading zeros.
                 builder.queue_ecc_no_op();
                 // Add random ops at START for Translator ZK (lands at beginning of op queue table)
                 randomise_op_queue(builder, TranslatorCircuitBuilder::NUM_RANDOM_OPS_START);

@@ -82,11 +82,6 @@ output "coin_issuer_address" {
   value       = data.external.contract_addresses.result.coinIssuerAddress
 }
 
-output "slash_factory_address" {
-  description = "Address of the deployed slash factory contract"
-  value       = data.external.contract_addresses.result.slashFactoryAddress
-}
-
 output "fee_asset_handler_address" {
   description = "Address of the deployed fee asset handler contract"
   value       = data.external.contract_addresses.result.feeAssetHandlerAddress

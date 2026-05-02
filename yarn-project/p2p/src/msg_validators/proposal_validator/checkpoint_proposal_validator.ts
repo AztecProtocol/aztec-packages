@@ -1,12 +1,26 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import type { CheckpointProposal, P2PValidator, ValidationResult } from '@aztec/stdlib/p2p';
+import type {
+  CheckpointProposal,
+  CoordinationSignatureContext,
+  P2PValidator,
+  ValidationResult,
+} from '@aztec/stdlib/p2p';
 
 import { ProposalValidator } from '../proposal_validator/proposal_validator.js';
 
 export class CheckpointProposalValidator implements P2PValidator<CheckpointProposal> {
   private proposalValidator: ProposalValidator;
 
-  constructor(epochCache: EpochCacheInterface, opts: { txsPermitted: boolean; maxTxsPerBlock?: number }) {
+  constructor(
+    epochCache: EpochCacheInterface,
+    opts: {
+      txsPermitted: boolean;
+      maxTxsPerBlock?: number;
+      maxBlocksPerCheckpoint?: number;
+      p2pPropagationTime?: number;
+      signatureContext: CoordinationSignatureContext;
+    },
+  ) {
     this.proposalValidator = new ProposalValidator(epochCache, opts, 'p2p:checkpoint_proposal_validator');
   }
 

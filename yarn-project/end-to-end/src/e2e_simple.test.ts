@@ -56,23 +56,20 @@ describe('e2e_simple', () => {
       const initialHeader = await aztecNode.getBlockHeader(BlockNumber.ZERO);
       expect(initialHeader).toBeDefined();
       const initialHeaderHash = await initialHeader!.hash();
-      const initialBlockByHash = await aztecNode.getBlock(initialHeaderHash);
+      const initialBlockByHash = await aztecNode.getBlock(initialHeaderHash, { includeTransactions: true });
       expect(initialBlockByHash).toBeDefined();
-      const initialBlockHash = await initialBlockByHash!.hash();
-      expect(initialBlockHash.equals(initialHeaderHash)).toBeTrue();
-      expect(initialBlockByHash?.body.txEffects.length).toBe(0);
-      const initialBlockByNumber = await aztecNode.getBlock(BlockNumber.ZERO);
+      expect(initialBlockByHash!.hash.equals(initialHeaderHash)).toBeTrue();
+      expect(initialBlockByHash!.body.txEffects.length).toBe(0);
+      const initialBlockByNumber = await aztecNode.getBlock(BlockNumber.ZERO, { includeTransactions: true });
       expect(initialBlockByNumber).toBeDefined();
-      const initialBlockByNumberHash = await initialBlockByNumber!.hash();
-      expect(initialBlockByNumberHash.equals(initialHeaderHash)).toBeTrue();
-      expect(initialBlockByNumber?.body.txEffects.length).toBe(0);
+      expect(initialBlockByNumber!.hash.equals(initialHeaderHash)).toBeTrue();
+      expect(initialBlockByNumber!.body.txEffects.length).toBe(0);
     });
 
     it('deploys a contract', async () => {
       const deployer = new ContractDeployer(artifact, wallet);
 
-      const sender = ownerAddress;
-      const { receipt: txReceipt } = await deployer.deploy(ownerAddress, sender, 1).send({
+      const { receipt: txReceipt } = await deployer.deploy(ownerAddress, 1).send({
         from: ownerAddress,
         contractAddressSalt: new Fr(BigInt(1)),
       });

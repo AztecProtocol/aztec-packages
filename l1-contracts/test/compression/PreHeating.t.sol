@@ -55,16 +55,10 @@ import {
   FeeHeaderModel,
   ManaMinFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
-import {EmpireSlashingProposer} from "@aztec/core/slashing/EmpireSlashingProposer.sol";
-import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
-import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {Slasher} from "@aztec/core/slashing/Slasher.sol";
-import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {StakingQueueConfig} from "@aztec/core/libraries/compressed-data/StakingQueueConfig.sol";
 import {BN254Lib, G1Point, G2Point} from "@aztec/shared/libraries/BN254Lib.sol";
 import {AttestationLibHelper} from "@test/helper_libraries/AttestationLibHelper.sol";
@@ -104,7 +98,6 @@ contract FakeCanonical is IRewardDistributor {
  *          are testing some edges that will break if the `roundaboutSize` is wrong!
  */
 contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
-  using MessageHashUtils for bytes32;
   using TimeLib for Slot;
   using FeeLib for uint256;
   using FeeLib for ManaMinFeeComponents;
@@ -137,9 +130,6 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   // Track attestations by checkpoint number for proof submission
   mapping(uint256 => CommitteeAttestations) internal checkpointAttestations;
 
-  EmpireSlashingProposer internal slashingProposer;
-  IPayload internal slashPayload;
-
   modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
@@ -166,20 +156,11 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     RollupBuilder builder = new RollupBuilder(address(this)).setProvingCostPerMana(provingCost)
       .setManaTarget(MANA_TARGET).setSlotDuration(SLOT_DURATION).setEpochDuration(EPOCH_DURATION).setMintFeeAmount(1e30)
       .setValidators(initialValidators).setTargetCommitteeSize(_targetCommitteeSize)
-      .setStakingQueueConfig(stakingQueueConfig).setSlashingQuorum(VOTING_ROUND_SIZE)
-      .setSlashingRoundSize(VOTING_ROUND_SIZE);
+      .setStakingQueueConfig(stakingQueueConfig);
     builder.deploy();
 
     asset = builder.getConfig().testERC20;
     rollup = builder.getConfig().rollup;
-    slashingProposer = EmpireSlashingProposer(Slasher(rollup.getSlasher()).PROPOSER());
-
-    SlashFactory slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
-    address[] memory toSlash = new address[](0);
-    uint96[] memory amounts = new uint96[](0);
-    uint128[][] memory offenses = new uint128[][](0);
-    slashPayload = slashFactory.createSlashPayload(toSlash, amounts, offenses);
-
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
     vm.label(address(asset), "ASSET");
@@ -360,7 +341,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
       ProposePayload memory proposePayload =
         ProposePayload({archive: proposeArgs.archive, oracleInput: proposeArgs.oracleInput, headerHash: headerHash});
 
-      bytes32 digest = ProposeLib.digest(proposePayload);
+      bytes32 digest = ProposeLib.digest(proposePayload, address(rollup));
 
       // loop through to make sure we create an attestation for the proposer
       for (uint256 i = 0; i < validators.length; i++) {
@@ -392,7 +373,9 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     if (proposer != address(0)) {
       attestationsAndSignersSignature = createAttestation(
         proposer,
-        AttestationLib.getAttestationsAndSignersDigest(AttestationLibHelper.packAttestations(attestations), signers)
+        AttestationLib.getAttestationsAndSignersDigest(
+          AttestationLibHelper.packAttestations(attestations), signers, address(rollup)
+        )
       ).signature;
     }
 
@@ -408,8 +391,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   function createAttestation(address _signer, bytes32 _digest) internal view returns (CommitteeAttestation memory) {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
-    bytes32 digest = _digest.toEthSignedMessageHash();
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _digest);
 
     Signature memory signature = Signature({v: v, r: r, s: s});
     // Address can be zero for signed attestations

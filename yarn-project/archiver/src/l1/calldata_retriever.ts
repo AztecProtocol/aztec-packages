@@ -1,12 +1,13 @@
 import { MULTI_CALL_3_ADDRESS, type ViemCommitteeAttestations, type ViemHeader } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { LruSet } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
-import { ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
+import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import {
@@ -44,7 +45,7 @@ type CheckpointData = {
  */
 export class CalldataRetriever {
   /** Tx hashes we've already logged for trace+debug failure (log once per tx per process). */
-  private static readonly traceFailureWarnedTxHashes = new Set<string>();
+  private static readonly traceFailureWarnedTxHashes = new LruSet<string>(1000);
 
   /** Clears the trace-failure warned set. For testing only. */
   static resetTraceFailureWarnedForTesting(): void {
@@ -59,6 +60,13 @@ export class CalldataRetriever {
     private readonly logger: Logger,
     private readonly rollupAddress: EthAddress,
   ) {}
+
+  private getSignatureContext() {
+    return {
+      chainId: this.publicClient.chain.id,
+      rollupAddress: this.rollupAddress,
+    };
+  }
 
   /**
    * Gets checkpoint header and metadata from the calldata of an L1 transaction.
@@ -465,9 +473,13 @@ export class CalldataRetriever {
 
   /** Computes the keccak256 payload digest from the checkpoint header, archive root, and fee asset price modifier. */
   private computePayloadDigest(header: CheckpointHeader, archiveRoot: Fr, feeAssetPriceModifier: bigint): Hex {
-    const consensusPayload = new ConsensusPayload(header, archiveRoot, feeAssetPriceModifier);
-    const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
-    return keccak256(payloadToSign);
+    const consensusPayload = new ConsensusPayload(
+      header,
+      archiveRoot,
+      feeAssetPriceModifier,
+      this.getSignatureContext(),
+    );
+    return getHashedSignaturePayloadTypedData(consensusPayload).toString();
   }
 
   /**

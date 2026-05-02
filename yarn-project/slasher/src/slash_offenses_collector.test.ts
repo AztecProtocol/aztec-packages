@@ -56,7 +56,7 @@ describe('SlashOffensesCollector', () => {
 
     await offensesCollector.handleWantToSlash(wantToSlashArgs);
 
-    const pendingOffenses = await offensesStore.getPendingOffenses();
+    const pendingOffenses = await offensesStore.getOffenses();
     expect(pendingOffenses).toHaveLength(1);
     expect(pendingOffenses[0]).toMatchObject({
       validator: wantToSlashArgs[0].validator,
@@ -82,7 +82,7 @@ describe('SlashOffensesCollector', () => {
     await offensesCollector.handleWantToSlash(wantToSlashArgs);
 
     // Check that only one offense was stored (duplicate was skipped)
-    const pendingOffenses = await offensesStore.getPendingOffenses();
+    const pendingOffenses = await offensesStore.getOffenses();
     expect(pendingOffenses).toHaveLength(1);
     expect(pendingOffenses[0]).toMatchObject({
       validator,
@@ -122,7 +122,7 @@ describe('SlashOffensesCollector', () => {
     await offensesCollector.handleWantToSlash(validOffense);
 
     // Check that only the valid offense (after grace period) was stored
-    const pendingOffenses = await offensesStore.getPendingOffenses();
+    const pendingOffenses = await offensesStore.getOffenses();
     expect(pendingOffenses).toHaveLength(1);
     expect(pendingOffenses[0]).toMatchObject({
       validator: validator2,
@@ -163,7 +163,7 @@ describe('SlashOffensesCollector', () => {
     await offensesCollector.handleWantToSlash(multipleOffensesArgs);
 
     // Check that all three offenses were stored
-    const pendingOffenses = await offensesStore.getPendingOffenses();
+    const pendingOffenses = await offensesStore.getOffenses();
     expect(pendingOffenses).toHaveLength(3);
 
     // Verify each offense was stored correctly

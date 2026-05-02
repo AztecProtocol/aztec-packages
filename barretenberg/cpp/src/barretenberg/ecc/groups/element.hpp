@@ -107,7 +107,7 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
      * @details Delegates to affine_element::batch_mul. Provided for interface compatibility with stdlib.
      */
     static affine_element<Fq, Fr, Params> batch_mul(std::span<const affine_element<Fq, Fr, Params>> points,
-                                                    std::span<const Fr> scalars,
+                                                    std::span<Fr> scalars,
                                                     size_t max_num_bits = 0,
                                                     bool with_edgecases = true,
                                                     const Fr& masking_scalar = Fr(1)) noexcept

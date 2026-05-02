@@ -27,14 +27,14 @@ import { Archiver, type ArchiverEmitter } from './archiver.js';
 import { BlockNumberNotSequentialError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
-import { KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { type ArchiverDataStores, createArchiverDataStores, getArchiverSynchPoint } from './store/data_stores.js';
 import { makeChainedCheckpoints } from './test/mock_structs.js';
 
 describe('Archiver Store', () => {
   const rollupAddress = EthAddress.random();
   const registryAddress = EthAddress.random();
+  const inboxAddress = EthAddress.random();
   const governanceProposerAddress = EthAddress.random();
-  const slashFactoryAddress = EthAddress.random();
   const slashingProposerAddress = EthAddress.random();
 
   let publicClient: MockProxy<ViemPublicClient>;
@@ -42,7 +42,7 @@ describe('Archiver Store', () => {
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobClient: MockProxy<BlobClientInterface>;
   let epochCache: MockProxy<EpochCache>;
-  let archiverStore: KVArchiverDataStore;
+  let archiverStore: ArchiverDataStores;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
   let archiver: Archiver;
 
@@ -61,7 +61,7 @@ describe('Archiver Store', () => {
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
-    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000);
+    archiverStore = createArchiverDataStores(await openTmpStore('archiver_test'), { logsMaxPageSize: 1000 });
 
     l1Constants = {
       l1GenesisTime: BigInt(now),
@@ -77,9 +77,10 @@ describe('Archiver Store', () => {
     };
 
     const contractAddresses = {
+      rollupAddress,
       registryAddress,
+      inboxAddress,
       governanceProposerAddress,
-      slashFactoryAddress,
       slashingProposerAddress,
     };
 
@@ -116,7 +117,7 @@ describe('Archiver Store', () => {
     it('returns published checkpoints with full checkpoint data', async () => {
       const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       const result = await archiver.getCheckpoints(CheckpointNumber(1), 10);
 
@@ -132,7 +133,7 @@ describe('Archiver Store', () => {
     it('respects the limit parameter', async () => {
       const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       const result = await archiver.getCheckpoints(CheckpointNumber(1), 2);
 
@@ -143,7 +144,7 @@ describe('Archiver Store', () => {
     it('respects the starting checkpoint number', async () => {
       const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       const result = await archiver.getCheckpoints(CheckpointNumber(2), 10);
 
@@ -170,7 +171,7 @@ describe('Archiver Store', () => {
           return { slotNumber: slotNumbers[Number(cpNumber)] };
         },
       });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       const epoch0Checkpoints = await archiver.getCheckpointsForEpoch(EpochNumber(0));
       expect(epoch0Checkpoints.length).toBe(2);
@@ -187,7 +188,7 @@ describe('Archiver Store', () => {
         previousArchive: genesisArchive,
         makeCheckpointOptions: () => ({ slotNumber: SlotNumber(2) }), // Epoch 0
       });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       const epoch1Checkpoints = await archiver.getCheckpointsForEpoch(EpochNumber(1));
       expect(epoch1Checkpoints).toEqual([]);
@@ -204,7 +205,7 @@ describe('Archiver Store', () => {
           return { slotNumber: slotNumbers[Number(cpNumber)] };
         },
       });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       const epoch0Checkpoints = await archiver.getCheckpointsForEpoch(EpochNumber(0));
       expect(epoch0Checkpoints.length).toBe(3);
@@ -373,7 +374,7 @@ describe('Archiver Store', () => {
     it('returns checkpointed blocks with checkpoint info', async () => {
       const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       const result = await archiver.getCheckpointedBlocks(BlockNumber(1), 100);
 
@@ -402,7 +403,7 @@ describe('Archiver Store', () => {
     it('respects the limit parameter', async () => {
       const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       const result = await archiver.getCheckpointedBlocks(BlockNumber(1), 2);
 
@@ -416,7 +417,7 @@ describe('Archiver Store', () => {
     it('returns blocks starting from specified block number', async () => {
       const genesisArchive = new AppendOnlyTreeSnapshot(new Fr(GENESIS_ARCHIVE_ROOT), 1);
       const testCheckpoints = await makeChainedCheckpoints(3, { previousArchive: genesisArchive });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       const result = await archiver.getCheckpointedBlocks(BlockNumber(2), 10);
 
@@ -449,7 +450,7 @@ describe('Archiver Store', () => {
         previousArchive: genesisArchive,
         blocksPerCheckpoint: 3,
       });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       // Block 1 is not at a checkpoint boundary (checkpoint 1 ends at block 3)
       await expect(archiver.rollbackTo(BlockNumber(1))).rejects.toThrow(
@@ -469,7 +470,7 @@ describe('Archiver Store', () => {
         previousArchive: genesisArchive,
         blocksPerCheckpoint: 3,
       });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       // Block 3 is the last block of checkpoint 1 — should succeed
       await archiver.rollbackTo(BlockNumber(3));
@@ -477,7 +478,7 @@ describe('Archiver Store', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Verify sync points are set to checkpoint 1's L1 block number (10)
-      const synchPoint = await archiverStore.getSynchPoint();
+      const synchPoint = await getArchiverSynchPoint(archiverStore);
       expect(synchPoint.blocksSynchedTo).toEqual(10n);
       expect(synchPoint.messagesSynchedTo?.l1BlockNumber).toEqual(10n);
     });
@@ -496,7 +497,7 @@ describe('Archiver Store', () => {
         startL1BlockNumber: 20,
         blocksPerCheckpoint: 3,
       });
-      await archiverStore.addCheckpoints([...checkpoints1, ...checkpoints2]);
+      await archiverStore.blocks.addCheckpoints([...checkpoints1, ...checkpoints2]);
 
       // Block 3 is the first of checkpoint 2 (spans 3-5)
       // Should suggest block 5 (end of this checkpoint) or block 2 (end of previous)
@@ -512,10 +513,10 @@ describe('Archiver Store', () => {
         previousArchive: genesisArchive,
         blocksPerCheckpoint: 2,
       });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       // Mark checkpoint 2 as proven
-      await archiverStore.setProvenCheckpointNumber(CheckpointNumber(2));
+      await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(2));
       expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(2));
 
       // Roll back to block 2 (end of checkpoint 1), which is before proven block 4
@@ -532,10 +533,10 @@ describe('Archiver Store', () => {
         previousArchive: genesisArchive,
         blocksPerCheckpoint: 2,
       });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       // Mark checkpoint 1 as proven
-      await archiverStore.setProvenCheckpointNumber(CheckpointNumber(1));
+      await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(1));
       expect(await archiver.getProvenCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Roll back to block 4 (end of checkpoint 2), which is after proven block 2
@@ -552,11 +553,11 @@ describe('Archiver Store', () => {
         previousArchive: genesisArchive,
         blocksPerCheckpoint: 2,
       });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       // Mark checkpoints 1 and 2 as proven and finalized
-      await archiverStore.setProvenCheckpointNumber(CheckpointNumber(2));
-      await archiverStore.setFinalizedCheckpointNumber(CheckpointNumber(2));
+      await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(2));
+      await archiverStore.blocks.setFinalizedCheckpointNumber(CheckpointNumber(2));
       expect(await archiver.getFinalizedL2BlockNumber()).toEqual(BlockNumber(4));
 
       // Roll back to block 2 (end of checkpoint 1), which is before finalized block 4
@@ -573,11 +574,11 @@ describe('Archiver Store', () => {
         previousArchive: genesisArchive,
         blocksPerCheckpoint: 2,
       });
-      await archiverStore.addCheckpoints(testCheckpoints);
+      await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
       // Mark checkpoint 1 as finalized, checkpoint 2 as proven
-      await archiverStore.setProvenCheckpointNumber(CheckpointNumber(2));
-      await archiverStore.setFinalizedCheckpointNumber(CheckpointNumber(1));
+      await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(2));
+      await archiverStore.blocks.setFinalizedCheckpointNumber(CheckpointNumber(1));
       expect(await archiver.getFinalizedL2BlockNumber()).toEqual(BlockNumber(2));
 
       // Roll back to block 4 (end of checkpoint 2), which is after finalized block 2

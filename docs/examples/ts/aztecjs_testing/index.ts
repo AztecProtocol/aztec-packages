@@ -101,5 +101,48 @@ async function runTests() {
   console.log("\n✓ All tests passed");
 }
 
-runTests().catch(console.error);
+await runTests();
 // docs:end:complete_test_example
+
+// docs:start:load_test_accounts
+import { registerInitialLocalNetworkAccountsInWallet } from "@aztec/wallets/testing";
+
+// wallet is the EmbeddedWallet from the setup section above
+const [alice, bob] = await registerInitialLocalNetworkAccountsInWallet(wallet);
+// docs:end:load_test_accounts
+
+// docs:start:deploy_test_contract
+// wallet is from the setup section; alice is from registerInitialLocalNetworkAccountsInWallet
+const { contract: testToken } = await TokenContract.deploy(
+  wallet,
+  alice, // admin
+  "TestToken",
+  "TST",
+  18,
+).send({ from: alice });
+// docs:end:deploy_test_contract
+
+// docs:start:test_revert_case
+async function testRevertExample() {
+  // testToken and alice are from the deploy/load sections above
+  const { result: balance } = await testToken.methods
+    .balance_of_public(alice)
+    .simulate({ from: alice });
+
+  let reverted = false;
+  try {
+    await testToken.methods
+      .transfer_in_public(alice, bob, balance + 1n, 0n)
+      .simulate({ from: alice });
+  } catch (error) {
+    reverted = true;
+  }
+
+  if (!reverted) {
+    throw new Error("Expected simulation to revert for over-transfer");
+  }
+  console.log("✓ Revert on over-transfer test passed");
+}
+
+await testRevertExample();
+// docs:end:test_revert_case

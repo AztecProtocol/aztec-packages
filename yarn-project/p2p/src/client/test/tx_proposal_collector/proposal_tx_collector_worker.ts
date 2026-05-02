@@ -6,6 +6,7 @@ import { DateProvider, Timer, executeTimeout } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
@@ -119,6 +120,7 @@ async function startClient(config: P2PConfig, clientIndex: number) {
     proofVerifier as ClientProtocolCircuitVerifier,
     worldState,
     epochCache,
+    { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
     'proposal-tx-collector-bench-worker',
     new DateProvider(),
     telemetry as TelemetryClient,
@@ -259,9 +261,20 @@ async function stopClient() {
   attestationPool = undefined;
 }
 
+function gracefulExit(code: number = 0) {
+  try {
+    if (process.connected) {
+      process.disconnect();
+    }
+  } catch {
+    // IPC channel already closed
+  }
+  setTimeout(() => process.exit(code), 5000).unref();
+}
+
 process.on('disconnect', () => {
   ipcDisconnected = true;
-  void stopClient().finally(() => process.exit(0));
+  void stopClient();
 });
 
 process.on('error', err => {
@@ -325,7 +338,7 @@ process.on('message', (msg: WorkerCommand) => {
         case 'STOP': {
           await stopClient();
           await sendMessage({ type: 'STOPPED', requestId });
-          process.exit(0);
+          gracefulExit(0);
           break;
         }
         default: {
@@ -336,7 +349,8 @@ process.on('message', (msg: WorkerCommand) => {
     } catch (err: any) {
       await sendMessage({ type: 'ERROR', requestId, error: err?.message ?? String(err) });
       if (msg.type === 'START') {
-        process.exit(1);
+        await stopClient();
+        gracefulExit(1);
       }
     }
   })();

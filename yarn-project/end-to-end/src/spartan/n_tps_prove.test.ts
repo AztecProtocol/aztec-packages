@@ -25,6 +25,7 @@ import type { ChildProcess } from 'child_process';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 
+import { LARGE_MIN_FEE_PADDING, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
 import { PrometheusClient } from '../quality_of_service/prometheus_client.js';
 import type { WorkerWallet } from '../test-wallet/worker_wallet.js';
@@ -574,14 +575,14 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     );
     // Poll for proof completion while detecting reorgs
     let lastBlockNumber = await aztecNode.getBlockNumber();
-    const currentProvenBlock = await aztecNode.getProvenBlockNumber();
+    const currentProvenBlock = await aztecNode.getBlockNumber('proven');
     logger.info(`Waiting for proven chain to advance ${currentProvenBlock} -> ${targetProvenBlock}...`);
     const PROOF_TIMEOUT_S = 2 * epochDurationSeconds;
     const proofTimer = new Timer();
 
     while (true) {
       const [provenBlock, currentBlockNumber] = await Promise.all([
-        aztecNode.getProvenBlockNumber(),
+        aztecNode.getBlockNumber('proven'),
         aztecNode.getBlockNumber(),
       ]);
 
@@ -621,7 +622,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     metrics.recordProofDuration(proofDurationSeconds);
     logger.info(`Epoch ${targetProofEpoch} proof completed in ${proofDurationSeconds.toFixed(1)}s`);
 
-    const finalProvenBlock = await aztecNode.getProvenBlockNumber();
+    const finalProvenBlock = await aztecNode.getBlockNumber('proven');
     expect(finalProvenBlock).toBeGreaterThanOrEqual(targetProvenBlock);
 
     logger.info('Test completed successfully');
@@ -648,9 +649,8 @@ async function createTx(
 async function cloneTx(tx: Tx, aztecNode: AztecNode): Promise<Tx> {
   const clonedTx = Tx.clone(tx, false);
 
-  // Fetch current minimum fees and apply 50% buffer for safety
-  const currentFees = await aztecNode.getCurrentMinFees();
-  const paddedFees = currentFees.mul(1.5);
+  // Fetch current minimum fees and apply 15x buffer to cover fee decay between blocks
+  const paddedFees = await getPaddedMaxFeesPerGas(aztecNode, LARGE_MIN_FEE_PADDING);
 
   // Update gas settings with current fees
   (clonedTx.data.constants.txContext.gasSettings as any).maxFeesPerGas = paddedFees;

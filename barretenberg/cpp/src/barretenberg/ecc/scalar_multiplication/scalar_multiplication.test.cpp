@@ -224,6 +224,67 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         }
     }
 
+    // Regression test: radix sort zero-counting bug for bucket_index_bits > 16 (3+ recursion levels).
+    // The recursive call passes `keys` instead of `top_level_keys`, causing num_zero_entries to be
+    // overwritten by non-zero-bucket counts when the MSD radix sort recurses 3+ levels deep.
+    void test_radix_sort_count_zero_entries_wide_buckets()
+    {
+        // Use bucket_index_bits = 17, which pads to 24 bits → 3 recursion levels (shift: 16→8→0).
+        // At the 3rd level, the top_level_keys bug causes zero-counting to fire for every
+        // level-0 bucket's sub-bucket-0, not just the bucket-0 chain.
+        constexpr uint32_t bucket_index_bits = 17;
+        constexpr size_t num_entries = 1000;
+
+        std::vector<uint64_t> schedule(num_entries);
+
+        // Place some entries with bucket_index = 0 (true zero-bucket entries)
+        const size_t num_true_zeros = 10;
+        for (size_t i = 0; i < num_true_zeros; ++i) {
+            schedule[i] = static_cast<uint64_t>(i) << 32; // point_index=i, bucket_index=0
+        }
+
+        // Place entries with bucket_index = 65536 (= 1 << 16). These have bits [0:16) all zero,
+        // so the buggy code counts them as zero-bucket entries after the final recursion level
+        // overwrites num_zero_entries from the level-0 bucket 1 path.
+        const size_t num_false_zeros = 20;
+        for (size_t i = 0; i < num_false_zeros; ++i) {
+            size_t idx = num_true_zeros + i;
+            schedule[idx] = (static_cast<uint64_t>(idx) << 32) | 65536ULL;
+        }
+
+        // Fill remaining entries with random non-zero bucket indices that won't confuse the count
+        for (size_t i = num_true_zeros + num_false_zeros; i < num_entries; ++i) {
+            uint32_t bucket = (engine.get_random_uint32() % ((1U << bucket_index_bits) - 1)) + 1;
+            // Avoid bucket_index values with all lower 16 bits zero (i.e., multiples of 65536)
+            if ((bucket & 0xFFFF) == 0) {
+                bucket |= 1;
+            }
+            schedule[i] = (static_cast<uint64_t>(i) << 32) | static_cast<uint64_t>(bucket);
+        }
+
+        size_t result = scalar_multiplication::sort_point_schedule_and_count_zero_buckets(
+            schedule.data(), num_entries, bucket_index_bits);
+
+        // Count actual zero-bucket entries after sort
+        size_t expected = 0;
+        for (size_t i = 0; i < num_entries; ++i) {
+            if ((schedule[i] & scalar_multiplication::BUCKET_INDEX_MASK) == 0) {
+                expected++;
+            }
+        }
+
+        EXPECT_EQ(result, expected) << "Zero-bucket count is wrong for bucket_index_bits=" << bucket_index_bits
+                                    << ". Got " << result << ", expected " << expected
+                                    << " (likely overwritten by count from a non-zero bucket)";
+
+        // Also verify the array is sorted
+        for (size_t i = 1; i < num_entries; ++i) {
+            uint32_t prev = static_cast<uint32_t>(schedule[i - 1]);
+            uint32_t curr = static_cast<uint32_t>(schedule[i]);
+            EXPECT_LE(prev, curr) << "Array not sorted at index " << i;
+        }
+    }
+
     void test_pippenger_low_memory()
     {
         std::span<ScalarField> test_scalars(&scalars[0], num_points);
@@ -571,6 +632,10 @@ TYPED_TEST(ScalarMultiplicationTest, RadixSortCountZeroEntries)
 {
     this->test_radix_sort_count_zero_entries();
 }
+TYPED_TEST(ScalarMultiplicationTest, RadixSortCountZeroEntriesWideBuckets)
+{
+    this->test_radix_sort_count_zero_entries_wide_buckets();
+}
 TYPED_TEST(ScalarMultiplicationTest, PippengerLowMemory)
 {
     this->test_pippenger_low_memory();
@@ -634,6 +699,151 @@ TYPED_TEST(ScalarMultiplicationTest, PippengerFreeFunction)
 TYPED_TEST(ScalarMultiplicationTest, PippengerUnsafeFreeFunction)
 {
     this->test_pippenger_unsafe_free_function();
+}
+
+// Curve-independent unit tests for the work-unit partitioner.
+// partition_by_weight is the load-bearing balancing logic in get_work_units; pinning its
+// behavior with synthetic weights makes regressions in the partition algorithm visible
+// without needing a full MSM run.
+namespace {
+
+using PartitionMSM = scalar_multiplication::MSM<curve::BN254>;
+using WorkUnit = PartitionMSM::MSMWorkUnit;
+
+// Total weight assigned to a thread (sum of WorkUnit sizes weighted by the input vector).
+size_t thread_weight(const std::vector<WorkUnit>& units, const std::vector<std::vector<uint16_t>>& weights)
+{
+    size_t total = 0;
+    for (const auto& u : units) {
+        for (size_t k = 0; k < u.size; ++k) {
+            total += weights[u.batch_msm_index][u.start_index + k];
+        }
+    }
+    return total;
+}
+
+} // namespace
+
+TEST(PartitionByWeight, NoMsmsReturnsEmptyThreads)
+{
+    auto units = PartitionMSM::partition_by_weight({}, 8);
+    ASSERT_EQ(units.size(), 8U);
+    for (const auto& t : units) {
+        EXPECT_TRUE(t.empty());
+    }
+}
+
+TEST(PartitionByWeight, AllEmptyMsmsReturnsEmptyThreads)
+{
+    std::vector<std::vector<uint16_t>> weights{ {}, {}, {} };
+    auto units = PartitionMSM::partition_by_weight(weights, 4);
+    ASSERT_EQ(units.size(), 4U);
+    for (const auto& t : units) {
+        EXPECT_TRUE(t.empty());
+    }
+}
+
+TEST(PartitionByWeight, SingleThreadGetsEverything)
+{
+    std::vector<std::vector<uint16_t>> weights{ { 5, 5, 5, 5, 5 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 1);
+    ASSERT_EQ(units.size(), 1U);
+    ASSERT_EQ(units[0].size(), 1U);
+    EXPECT_EQ(units[0][0].batch_msm_index, 0U);
+    EXPECT_EQ(units[0][0].start_index, 0U);
+    EXPECT_EQ(units[0][0].size, 5U);
+}
+
+TEST(PartitionByWeight, EvenSplitAcrossThreads)
+{
+    // 8 weights of 5 => total 40, target 10 per thread (4 threads), so 2 weights per thread.
+    std::vector<std::vector<uint16_t>> weights{ { 5, 5, 5, 5, 5, 5, 5, 5 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 4);
+    ASSERT_EQ(units.size(), 4U);
+    for (size_t t = 0; t < 4; ++t) {
+        ASSERT_EQ(units[t].size(), 1U) << "thread " << t;
+        EXPECT_EQ(units[t][0].size, 2U) << "thread " << t;
+        EXPECT_EQ(thread_weight(units[t], weights), 10U) << "thread " << t;
+    }
+}
+
+TEST(PartitionByWeight, HeavyFirstWeightClosesFirstThreadEarly)
+{
+    // First weight alone exceeds the per-thread target; remainder is evenly split.
+    std::vector<std::vector<uint16_t>> weights{ { 100, 5, 5, 5, 5 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 4);
+    ASSERT_EQ(units.size(), 4U);
+    // Thread 0 should close after the heavy weight.
+    ASSERT_FALSE(units[0].empty());
+    EXPECT_EQ(units[0][0].start_index, 0U);
+    EXPECT_EQ(units[0][0].size, 1U);
+    // Total assigned across all threads must equal n.
+    size_t total_assigned = 0;
+    for (const auto& t : units) {
+        for (const auto& u : t) {
+            total_assigned += u.size;
+        }
+    }
+    EXPECT_EQ(total_assigned, 5U);
+}
+
+TEST(PartitionByWeight, BoundaryStraddlesMsm)
+{
+    // Two MSMs of 4 weights of 5 each => total 40, 4 threads, target 10.
+    // Boundary should land mid-MSM if weights cross between MSMs.
+    std::vector<std::vector<uint16_t>> weights{ { 5, 5, 5, 5 }, { 5, 5, 5, 5 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 4);
+    ASSERT_EQ(units.size(), 4U);
+    size_t total_assigned = 0;
+    for (const auto& t : units) {
+        for (const auto& u : t) {
+            total_assigned += u.size;
+        }
+    }
+    EXPECT_EQ(total_assigned, 8U);
+    // Each thread should carry exactly weight 10.
+    for (size_t t = 0; t < 4; ++t) {
+        EXPECT_EQ(thread_weight(units[t], weights), 10U) << "thread " << t;
+    }
+}
+
+TEST(PartitionByWeight, LastThreadAbsorbsRemainder)
+{
+    // weights {7,7,1}, num_threads=3 => total 15, target = ceil(15/3) = 5.
+    // Walk: T0 closes after weight 7, T1 closes after weight 7, then weight 1 trails.
+    // Without the "current_thread_idx < num_threads - 1" guard the partitioner would
+    // refuse to close T2 (running weight 1 < target 5) and the trailing weight would
+    // be lost. The guard makes T2 absorb it via the post-loop push.
+    std::vector<std::vector<uint16_t>> weights{ { 7, 7, 1 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 3);
+    ASSERT_EQ(units.size(), 3U);
+    size_t total_assigned = 0;
+    for (const auto& t : units) {
+        for (const auto& u : t) {
+            total_assigned += u.size;
+        }
+    }
+    EXPECT_EQ(total_assigned, 3U);
+    ASSERT_EQ(units[2].size(), 1U);
+    EXPECT_EQ(units[2][0].start_index, 2U);
+    EXPECT_EQ(units[2][0].size, 1U);
+    EXPECT_EQ(thread_weight(units[2], weights), 1U);
+}
+
+TEST(PartitionByWeight, MoreThreadsThanScalars)
+{
+    // 3 weights of 5 => total 15, 8 threads, target ceil(15/8)=2.
+    // Each weight (5) immediately crosses target => first 3 threads each get one scalar.
+    std::vector<std::vector<uint16_t>> weights{ { 5, 5, 5 } };
+    auto units = PartitionMSM::partition_by_weight(weights, 8);
+    ASSERT_EQ(units.size(), 8U);
+    for (size_t t = 0; t < 3; ++t) {
+        ASSERT_EQ(units[t].size(), 1U) << "thread " << t;
+        EXPECT_EQ(units[t][0].size, 1U);
+    }
+    for (size_t t = 3; t < 8; ++t) {
+        EXPECT_TRUE(units[t].empty()) << "thread " << t;
+    }
 }
 
 // Non-templated test for explicit small inputs

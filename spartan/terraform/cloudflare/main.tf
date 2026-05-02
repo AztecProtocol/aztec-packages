@@ -67,12 +67,17 @@ resource "cloudflare_ruleset" "cache_settings" {
 }
 
 locals {
-  top_level_folders = toset([
+  full_lifecycle_folders = toset([
     "devnet",
     "ignition-sepolia",
     "next-net",
     "staging-ignition",
     "staging-public",
+  ])
+
+  snapshots_only_folders = toset([
+    "testnet",
+    "mainnet",
   ])
 }
 
@@ -82,7 +87,7 @@ resource "cloudflare_r2_bucket_lifecycle" "cleanup" {
   bucket_name = cloudflare_r2_bucket.bucket.name
 
   rules = flatten([
-    for folder in local.top_level_folders : [
+    [for folder in local.full_lifecycle_folders : [
       {
         id         = "delete-snapshots-${folder}"
         enabled    = true
@@ -116,7 +121,20 @@ resource "cloudflare_r2_bucket_lifecycle" "cleanup" {
           }
         }
       },
-    ]
+    ]],
+    [for folder in local.snapshots_only_folders : [
+      {
+        id         = "delete-snapshots-${folder}"
+        enabled    = true
+        conditions = { prefix = "${folder}/aztec" }
+        delete_objects_transition = {
+          condition = {
+            max_age = var.SNAPSHOT_RETENTION_DAYS * 24 * 60 * 60 # Convert days to seconds
+            type    = "Age"
+          }
+        }
+      },
+    ]],
   ])
 }
 

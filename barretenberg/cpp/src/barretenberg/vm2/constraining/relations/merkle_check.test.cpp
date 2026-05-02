@@ -61,15 +61,14 @@ TEST(MerkleCheckConstrainingTest, ComputationCannotBeStoppedPrematurely)
         { { C::merkle_check_sel, 0 } },
     });
 
-    check_relation<merkle_check>(
-        trace, merkle_check::SR_COMPUTATION_FINISH_AT_END, merkle_check::SR_SELECTOR_ON_START_OR_END);
+    check_relation<merkle_check>(trace, merkle_check::SR_TRACE_CONTINUITY, merkle_check::SR_SEL_ON_START_OR_END);
 
     const uint32_t last_row_idx = 3;
     // Negative test - now modify to an incorrect value
     trace.set(C::merkle_check_end, last_row_idx, 0); // This should fail - end went from 1 back to 0
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_COMPUTATION_FINISH_AT_END),
-                              "COMPUTATION_FINISH_AT_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_TRACE_CONTINUITY),
+                              "TRACE_CONTINUITY");
 }
 
 TEST(MerkleCheckConstrainingTest, EndCannotBeOneOnFirstRow)
@@ -98,13 +97,13 @@ TEST(MerkleCheckConstrainingTest, SelectorOnEnd)
         { { C::merkle_check_end, 1 }, { C::merkle_check_sel, 1 } }, // sel=1 when end=1 is correct
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END);
+    check_relation<merkle_check>(trace, merkle_check::SR_SEL_ON_START_OR_END);
 
     // Negative test - now modify to an incorrect value
     trace.set(C::merkle_check_sel, 0, 0); // This should fail - sel cannot be 0 when end=1
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END),
-                              "SELECTOR_ON_START_OR_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
 }
 
 TEST(MerkleCheckConstrainingTest, SelectorOnStart)
@@ -115,13 +114,13 @@ TEST(MerkleCheckConstrainingTest, SelectorOnStart)
         { { C::merkle_check_start, 1 }, { C::merkle_check_sel, 1 } }, // sel=1 when start=1 is correct
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END);
+    check_relation<merkle_check>(trace, merkle_check::SR_SEL_ON_START_OR_END);
 
     // Negative test - now modify to an incorrect value
     trace.set(C::merkle_check_sel, 0, 0); // This should fail - sel cannot be 0 when start=1
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_START_OR_END),
-                              "SELECTOR_ON_START_OR_END");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SEL_ON_START_OR_END),
+                              "SEL_ON_START_OR_END");
 }
 
 TEST(MerkleCheckConstrainingTest, PropagateReadRoot)
@@ -461,11 +460,13 @@ TEST(MerkleCheckConstrainingTest, ReadWithTracegen)
     std::vector<FF> sibling_path = { FF(456), FF(789), FF(3333) };
 
     // Compute expected root
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
 
-    MerkleCheckEvent event = {
-        .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
-    };
+    MerkleCheckEvent event = { .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
+                               .leaf_value = leaf_value,
+                               .leaf_index = leaf_index,
+                               .sibling_path = sibling_path,
+                               .root = root };
 
     builder.process({ event }, trace);
 
@@ -496,11 +497,12 @@ TEST(MerkleCheckConstrainingTest, WriteWithTracegen)
     std::vector<FF> sibling_path = { FF(456), FF(789), FF(3333) };
 
     // Compute read root
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
     // Compute new root
-    FF new_root = unconstrained_root_from_path(new_leaf_value, leaf_index, sibling_path);
+    FF new_root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, new_leaf_value, leaf_index, sibling_path);
 
-    MerkleCheckEvent event = { .leaf_value = leaf_value,
+    MerkleCheckEvent event = { .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
+                               .leaf_value = leaf_value,
                                .new_leaf_value = new_leaf_value,
                                .leaf_index = leaf_index,
                                .sibling_path = sibling_path,
@@ -539,8 +541,8 @@ TEST_F(MerkleCheckPoseidon2Test, ReadWithInteractions)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
-    merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
+    merkle_check_sim.assert_membership(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path, root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
@@ -573,10 +575,11 @@ TEST_F(MerkleCheckPoseidon2Test, WriteWithInteractions)
     FF new_leaf_value = 444;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
-    FF expected_new_root = unconstrained_root_from_path(new_leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
+    FF expected_new_root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, new_leaf_value, leaf_index, sibling_path);
 
-    FF new_root = merkle_check_sim.write(leaf_value, new_leaf_value, leaf_index, sibling_path, root);
+    FF new_root =
+        merkle_check_sim.write(DOM_SEP__MERKLE_HASH, leaf_value, new_leaf_value, leaf_index, sibling_path, root);
 
     EXPECT_EQ(new_root, expected_new_root);
 
@@ -613,18 +616,21 @@ TEST_F(MerkleCheckPoseidon2Test, MultipleWithTracegen)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
-    MerkleCheckEvent event = {
-        .leaf_value = leaf_value, .leaf_index = leaf_index, .sibling_path = sibling_path, .root = root
-    };
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
+    MerkleCheckEvent event = { .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
+                               .leaf_value = leaf_value,
+                               .leaf_index = leaf_index,
+                               .sibling_path = sibling_path,
+                               .root = root };
 
     FF leaf_value2 = 444;
     FF new_leaf_value2 = 555;
     uint64_t leaf_index2 = 40;
     std::vector<FF> sibling_path2 = { 11, 22, 33, 44, 55, 66 };
-    FF root2 = unconstrained_root_from_path(leaf_value2, leaf_index2, sibling_path2);
-    FF new_root2 = unconstrained_root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
-    MerkleCheckEvent event2 = { .leaf_value = leaf_value2,
+    FF root2 = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value2, leaf_index2, sibling_path2);
+    FF new_root2 = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, new_leaf_value2, leaf_index2, sibling_path2);
+    MerkleCheckEvent event2 = { .merkle_hash_domain_separator = DOM_SEP__MERKLE_HASH,
+                                .leaf_value = leaf_value2,
                                 .new_leaf_value = new_leaf_value2,
                                 .leaf_index = leaf_index2,
                                 .sibling_path = sibling_path2,
@@ -670,18 +676,20 @@ TEST_F(MerkleCheckPoseidon2Test, MultipleWithInteractions)
     FF leaf_value = 333;
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
-    FF root = unconstrained_root_from_path(leaf_value, leaf_index, sibling_path);
+    FF root = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path);
 
-    merkle_check_sim.assert_membership(leaf_value, leaf_index, sibling_path, root);
+    merkle_check_sim.assert_membership(DOM_SEP__MERKLE_HASH, leaf_value, leaf_index, sibling_path, root);
 
     FF leaf_value2 = 444;
     FF new_leaf_value2 = 555;
     uint64_t leaf_index2 = 40;
     std::vector<FF> sibling_path2 = { 11, 22, 33, 44, 55, 66 };
-    FF root2 = unconstrained_root_from_path(leaf_value2, leaf_index2, sibling_path2);
-    FF expected_new_root2 = unconstrained_root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
+    FF root2 = unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, leaf_value2, leaf_index2, sibling_path2);
+    FF expected_new_root2 =
+        unconstrained_root_from_path(DOM_SEP__MERKLE_HASH, new_leaf_value2, leaf_index2, sibling_path2);
 
-    FF new_root2 = merkle_check_sim.write(leaf_value2, new_leaf_value2, leaf_index2, sibling_path2, root2);
+    FF new_root2 =
+        merkle_check_sim.write(DOM_SEP__MERKLE_HASH, leaf_value2, new_leaf_value2, leaf_index2, sibling_path2, root2);
     EXPECT_EQ(new_root2, expected_new_root2);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);

@@ -44,7 +44,7 @@ import { createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import { EpochCache } from '@aztec/epoch-cache';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
-import { EmpireSlashingProposerContract, GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
+import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -57,7 +57,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
+import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
@@ -379,8 +379,20 @@ describe('e2e_synching', () => {
       }
 
       const blockNumber = await aztecNode.getBlockNumber();
-      const publishedCheckpoints = await aztecNode.getCheckpoints(CheckpointNumber(1), blockNumber);
-      const checkpoints = publishedCheckpoints.map(pc => pc.checkpoint);
+      const checkpointResponses = await aztecNode.getCheckpoints(CheckpointNumber(1), blockNumber, {
+        includeBlocks: true,
+        includeTransactions: true,
+      });
+      const checkpoints = checkpointResponses.map(
+        cr =>
+          new Checkpoint(
+            cr.archive,
+            cr.header,
+            cr.blocks!.map(b => new L2Block(b.archive, b.header, b.body!, b.checkpointNumber, b.indexWithinCheckpoint)),
+            cr.number,
+            cr.feeAssetPriceModifier,
+          ),
+      );
 
       await variant.writeCheckpoints(checkpoints);
       await teardown();
@@ -431,16 +443,7 @@ describe('e2e_synching', () => {
       deployL1ContractsValues.l1Client,
       config.l1Contracts.governanceProposerAddress.toString(),
     );
-    const slashingProposerAddress = await rollupContract.getSlashingProposerAddress();
-    const slashingProposerContract = new EmpireSlashingProposerContract(
-      deployL1ContractsValues.l1Client,
-      slashingProposerAddress.toString(),
-    );
-    const { SlashFactoryContract } = await import('@aztec/stdlib/l1-contracts');
-    const slashFactoryContract = new SlashFactoryContract(
-      deployL1ContractsValues.l1Client,
-      deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString(),
-    );
+    const slashingProposerContract = await rollupContract.getSlashingProposer();
     const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
     const publisher = new SequencerPublisher(
@@ -455,7 +458,6 @@ describe('e2e_synching', () => {
         rollupContract,
         governanceProposerContract,
         slashingProposerContract,
-        slashFactoryContract,
         epochCache,
         dateProvider,
         metrics: sequencerPublisherMetrics,
@@ -475,7 +477,14 @@ describe('e2e_synching', () => {
         await cheatCodes.eth.mine();
       }
       // If it breaks here, first place you should look is the pruning.
-      await publisher.enqueueProposeCheckpoint(checkpoint, CommitteeAttestationsAndSigners.empty(), Signature.empty());
+      await publisher.enqueueProposeCheckpoint(
+        checkpoint,
+        CommitteeAttestationsAndSigners.empty({
+          chainId: 31337,
+          rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+        }),
+        Signature.empty(),
+      );
 
       await cheatCodes.rollup.markAsProven(CheckpointNumber(provenThrough));
     }
@@ -502,7 +511,11 @@ describe('e2e_synching', () => {
           async (opts: Partial<EndToEndContext>, variant: TestVariant) => {
             // All the blocks have been "re-played" and we are now to simply get a new node up to speed
             const timer = new Timer();
-            const freshNode = await AztecNodeService.createAndSync({ ...opts.config!, disableValidator: true });
+            const freshNode = await AztecNodeService.createAndSync(
+              { ...opts.config!, disableValidator: true },
+              {},
+              { genesis: opts.genesis },
+            );
             const syncTime = timer.s();
 
             const blockNumber = await freshNode.getBlockNumber();
@@ -548,7 +561,7 @@ describe('e2e_synching', () => {
             );
             await watcher.start();
 
-            const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+            const aztecNode = await AztecNodeService.createAndSync(opts.config!, {}, { genesis: opts.genesis });
             const sequencer = aztecNode.getSequencer();
 
             const { wallet } = await setupPXEAndGetWallet(aztecNode!);
@@ -589,7 +602,7 @@ describe('e2e_synching', () => {
           );
           const pendingCheckpointNumber = CheckpointNumber.fromBigInt(await rollup.read.getPendingCheckpointNumber());
 
-          const worldState = await createWorldStateSynchronizer(opts.config!, archiver);
+          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, opts.genesis);
           await worldState.start();
 
           // We prune the last token and schnorr contract
@@ -675,7 +688,7 @@ describe('e2e_synching', () => {
           const offset = CheckpointNumber(variant.checkpointCount / 2);
           await opts.cheatCodes!.rollup.markAsProven(CheckpointNumber(pendingCheckpointNumber - offset));
 
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!, {}, { genesis: opts.genesis });
           const sequencer = aztecNode.getSequencer();
 
           const blockBeforePrune = await aztecNode.getBlockNumber();
@@ -757,7 +770,7 @@ describe('e2e_synching', () => {
           await watcher.start();
 
           // The sync here could likely be avoided by using the node we just synched.
-          const aztecNode = await AztecNodeService.createAndSync(opts.config!);
+          const aztecNode = await AztecNodeService.createAndSync(opts.config!, {}, { genesis: opts.genesis });
           const sequencer = aztecNode.getSequencer();
 
           const { wallet: newWallet } = await setupPXEAndGetWallet(aztecNode!);

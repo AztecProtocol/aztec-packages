@@ -13,7 +13,7 @@ namespace bb {
 template <typename Flavor_>
 template <size_t N>
 HypernovaFoldingVerifier<Flavor_>::Commitment HypernovaFoldingVerifier<Flavor_>::batch_mul(
-    const RefArray<Commitment, N>& _points, const std::vector<FF>& scalars)
+    const RefArray<Commitment, N>& _points, std::vector<FF>& scalars)
 {
     std::vector<Commitment> points(N);
     for (size_t idx = 0; idx < N; ++idx) {
@@ -78,10 +78,8 @@ SumcheckOutput<Flavor> HypernovaFoldingVerifier<Flavor>::sumcheck_on_incoming_in
     // Sumcheck verification
     vinfo("HypernovaFoldingVerifier: verifying Sumcheck to turn instance into an accumulator...");
 
-    std::vector<FF> padding_indicator_array(Flavor::VIRTUAL_LOG_N, 1);
     SumcheckVerifier sumcheck(transcript, instance->alpha, Flavor::VIRTUAL_LOG_N);
-    SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(instance->relation_parameters, instance->gate_challenges, padding_indicator_array);
+    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(instance->relation_parameters, instance->gate_challenges);
 
     return sumcheck_output;
 };

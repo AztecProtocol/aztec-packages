@@ -25,6 +25,49 @@ export class ContractInstanceStore {
     this.#contractInstanceUpdates = db.openMap('archiver_contract_instance_updates');
   }
 
+  /**
+   * Adds multiple contract instances to the store.
+   * @param data - Contract instances to add.
+   * @param blockNumber - L2 block number where the instances were deployed.
+   * @returns True if every insert succeeded.
+   */
+  async addContractInstances(data: ContractInstanceWithAddress[], blockNumber: number): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.addContractInstance(c, blockNumber)))).every(Boolean);
+  }
+
+  /**
+   * Removes multiple contract instances from the store.
+   * @param data - Contract instances to delete.
+   * @returns True if every delete succeeded.
+   */
+  async deleteContractInstances(data: ContractInstanceWithAddress[]): Promise<boolean> {
+    return (await Promise.all(data.map(c => this.deleteContractInstance(c)))).every(Boolean);
+  }
+
+  /**
+   * Adds multiple contract instance updates to the store.
+   * @param data - Contract instance updates to add.
+   * @param timestamp - Timestamp at which the updates were scheduled.
+   * @returns True if every insert succeeded.
+   */
+  async addContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
+    return (
+      await Promise.all(data.map((update, logIndex) => this.addContractInstanceUpdate(update, timestamp, logIndex)))
+    ).every(Boolean);
+  }
+
+  /**
+   * Removes multiple contract instance updates from the store.
+   * @param data - Contract instance updates to delete.
+   * @param timestamp - Timestamp at which the updates were scheduled.
+   * @returns True if every delete succeeded.
+   */
+  async deleteContractInstanceUpdates(data: ContractInstanceUpdateWithAddress[], timestamp: UInt64): Promise<boolean> {
+    return (
+      await Promise.all(data.map((update, logIndex) => this.deleteContractInstanceUpdate(update, timestamp, logIndex)))
+    ).every(Boolean);
+  }
+
   addContractInstance(contractInstance: ContractInstanceWithAddress, blockNumber: number): Promise<void> {
     return this.db.transactionAsync(async () => {
       const key = contractInstance.address.toString();

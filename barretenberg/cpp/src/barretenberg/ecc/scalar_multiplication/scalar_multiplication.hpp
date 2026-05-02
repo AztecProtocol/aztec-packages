@@ -39,6 +39,9 @@ template <typename Curve> class MSM {
 
     // Maximum bits per scalar slice (2^20 = 1M buckets, far beyond practical use)
     static constexpr size_t MAX_SLICE_BITS = 20;
+    static_assert(MAX_SLICE_BITS < 64,
+                  "get_scalar_slice uses 1ULL << lo_slice_bits where lo_slice_bits <= MAX_SLICE_BITS - 1; "
+                  "shifting uint64_t by >= 64 is UB.");
 
     // Number of points to look ahead for memory prefetching
     static constexpr size_t PREFETCH_LOOKAHEAD = 32;
@@ -115,12 +118,15 @@ template <typename Curve> class MSM {
                                       std::span<uint64_t> point_schedule_buffer,
                                       const MSMWorkUnit& work_unit) noexcept
         {
+            const auto& indices = all_indices[work_unit.batch_msm_index];
+            // Avoid indexing into an empty vector when all scalars are zero (work_unit.size == 0)
+            std::span<const uint32_t> scalar_indices =
+                work_unit.size > 0 ? std::span<const uint32_t>{ &indices[work_unit.start_index], work_unit.size }
+                                   : std::span<const uint32_t>{};
             return MSMData{
                 .scalars = all_scalars[work_unit.batch_msm_index],
                 .points = all_points[work_unit.batch_msm_index],
-                .scalar_indices =
-                    std::span<const uint32_t>{ &all_indices[work_unit.batch_msm_index][work_unit.start_index],
-                                               work_unit.size },
+                .scalar_indices = scalar_indices,
                 .point_schedule = point_schedule_buffer,
             };
         }
@@ -234,6 +240,14 @@ template <typename Curve> class MSM {
     /** @brief Compute optimal bits per slice by minimizing cost over c in [1, MAX_SLICE_BITS) */
     static uint32_t get_optimal_log_num_buckets(size_t num_points) noexcept;
 
+    /** @brief Partition per-MSM scalar weights into num_threads work units of approximately
+     *         equal cumulative weight.
+     *  @details Curve-independent and side-effect-free. The walk closes a work unit every time
+     *           the running weight crosses the per-thread target, except on the last thread
+     *           which absorbs any remainder so rounding drift doesn't leave work stranded. */
+    static std::vector<ThreadWorkUnits> partition_by_weight(std::span<const std::vector<uint16_t>> msm_scalar_weights,
+                                                            size_t num_threads) noexcept;
+
     /** @brief Process sorted point schedule into bucket accumulators using batched affine additions */
     static void batch_accumulate_points_into_buckets(std::span<const uint64_t> point_schedule,
                                                      std::span<const AffineElement> points,
@@ -282,7 +296,20 @@ template <typename Curve> class MSM {
     static void transform_scalar_and_get_nonzero_scalar_indices(std::span<ScalarField> scalars,
                                                                 std::vector<uint32_t>& nonzero_scalar_indices) noexcept;
 
-    /** @brief Distribute multiple MSMs across threads with balanced point counts */
+    /** @brief Compute per-scalar slice-count weights ceil(bit_length / bits_per_slice).
+     *  @details Parallel over nonzero_indices. Scalars must be in non-Montgomery form (as left
+     *           by transform_scalar_and_get_nonzero_scalar_indices). Weights drive thread
+     *           partitioning in get_work_units. */
+    static void compute_scalar_slice_weights(std::span<const ScalarField> scalars,
+                                             std::span<const uint32_t> nonzero_indices,
+                                             uint32_t bits_per_slice,
+                                             std::vector<uint16_t>& weights) noexcept;
+
+    /** @brief Distribute multiple MSMs across threads with balanced bucket-accumulation work.
+     *  @details Per-thread assignment is a contiguous range of each MSM's nonzero-scalar
+     *           indices, sized by cumulative slice-count weight ceil(bit_length / c). This is
+     *           the actual number of nonzero c-bit slices a scalar contributes — the quantity
+     *           that drives bucket-accumulation cost. */
     static std::vector<ThreadWorkUnits> get_work_units(std::span<std::span<ScalarField>> scalars,
                                                        std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept;
 

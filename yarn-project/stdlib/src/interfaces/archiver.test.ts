@@ -14,7 +14,7 @@ import { type BlockData, BlockHash, CommitteeAttestation, L2Block } from '../blo
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
-import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
 import { L1PublishedData, PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import {
@@ -30,8 +30,10 @@ import type { LogFilter } from '../logs/log_filter.js';
 import { SiloedTag } from '../logs/siloed_tag.js';
 import { Tag } from '../logs/tag.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
+import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { randomTxScopedPrivateL2Log } from '../tests/factories.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { TxEffect } from '../tx/tx_effect.js';
@@ -123,6 +125,26 @@ describe('ArchiverApiSchema', () => {
 
   it('getBlockDataByArchive', async () => {
     const result = await context.client.getBlockDataByArchive(Fr.random());
+    expect(result).toBeUndefined();
+  });
+
+  it('getBlockDataWithCheckpointContext', async () => {
+    const result = await context.client.getBlockDataWithCheckpointContext(BlockNumber(1));
+    expect(result).toBeUndefined();
+  });
+
+  it('getCheckpointData', async () => {
+    const result = await context.client.getCheckpointData(CheckpointNumber(1));
+    expect(result).toBeUndefined();
+  });
+
+  it('getCheckpointDataRange', async () => {
+    const result = await context.client.getCheckpointDataRange(CheckpointNumber(1), 1);
+    expect(result).toEqual([]);
+  });
+
+  it('getCheckpointNumberBySlot', async () => {
+    const result = await context.client.getCheckpointNumberBySlot(SlotNumber(1));
     expect(result).toBeUndefined();
   });
 
@@ -254,19 +276,20 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual({
       proposed: { number: 1, hash: `0x01` },
       checkpointed: expectedTipId,
+      proposedCheckpoint: expectedTipId,
       proven: expectedTipId,
       finalized: expectedTipId,
     });
   });
 
   it('getPrivateLogsByTags', async () => {
-    const result = await context.client.getPrivateLogsByTags([new SiloedTag(Fr.random())]);
+    const result = await context.client.getPrivateLogsByTags([SiloedTag.random()]);
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
   it('getPublicLogsByTagsFromContract', async () => {
     const contractAddress = await AztecAddress.random();
-    const result = await context.client.getPublicLogsByTagsFromContract(contractAddress, [new Tag(Fr.random())]);
+    const result = await context.client.getPublicLogsByTagsFromContract(contractAddress, [Tag.random()]);
     expect(result).toEqual([[expect.any(TxScopedL2Log)]]);
   });
 
@@ -355,6 +378,34 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(1n);
   });
 
+  it('getLastCheckpoint', async () => {
+    const result = await context.client.getLastCheckpoint();
+    expect(result).toEqual({
+      checkpointNumber: 1,
+      header: expect.any(CheckpointHeader),
+      archive: expect.any(AppendOnlyTreeSnapshot),
+      checkpointOutHash: expect.any(Fr),
+      blockCount: 1,
+      startBlock: 1,
+      totalManaUsed: 1n,
+      feeAssetPriceModifier: 1n,
+    });
+  });
+
+  it('getLastProposedCheckpoint', async () => {
+    const result = await context.client.getLastProposedCheckpoint();
+    expect(result).toEqual({
+      checkpointNumber: 1,
+      header: expect.any(CheckpointHeader),
+      archive: expect.any(AppendOnlyTreeSnapshot),
+      checkpointOutHash: expect.any(Fr),
+      blockCount: 1,
+      startBlock: 1,
+      totalManaUsed: 1n,
+      feeAssetPriceModifier: 1n,
+    });
+  });
+
   it('getPendingChainValidationStatus', async () => {
     const result = await context.client.getPendingChainValidationStatus();
     expect(result).toEqual({ valid: true });
@@ -387,6 +438,21 @@ class MockArchiver implements ArchiverApi {
   }
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult> {
     return Promise.resolve({ valid: true });
+  }
+  getLastCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    return this.getLastProposedCheckpoint();
+  }
+  getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+    return Promise.resolve({
+      checkpointNumber: CheckpointNumber(1),
+      header: CheckpointHeader.random(),
+      archive: AppendOnlyTreeSnapshot.random(),
+      checkpointOutHash: Fr.random(),
+      blockCount: 1,
+      startBlock: BlockNumber(1),
+      totalManaUsed: 1n,
+      feeAssetPriceModifier: 1n,
+    });
   }
   syncImmediate() {
     return Promise.resolve();
@@ -525,10 +591,23 @@ class MockArchiver implements ArchiverApi {
         checkpointOutHash: checkpoint.getCheckpointOutHash(),
         startBlock: BlockNumber(1),
         blockCount: checkpoint.blocks.length,
+        feeAssetPriceModifier: 0n,
         attestations: [CommitteeAttestation.random()],
         l1: L1PublishedData.random(),
       },
     ];
+  }
+  getCheckpointData(_n: CheckpointNumber): Promise<CheckpointData | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getCheckpointDataRange(_from: CheckpointNumber, _limit: number): Promise<CheckpointData[]> {
+    return Promise.resolve([]);
+  }
+  getCheckpointNumberBySlot(_slot: SlotNumber): Promise<CheckpointNumber | undefined> {
+    return Promise.resolve(undefined);
+  }
+  getBlockDataWithCheckpointContext(_n: BlockNumber) {
+    return Promise.resolve(undefined);
   }
   async getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]> {
     expect(epochNumber).toEqual(EpochNumber(1));
@@ -563,6 +642,7 @@ class MockArchiver implements ArchiverApi {
     return Promise.resolve({
       proposed: { number: BlockNumber(1), hash: `0x01` },
       checkpointed: tipId,
+      proposedCheckpoint: tipId,
       proven: tipId,
       finalized: tipId,
     });

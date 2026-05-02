@@ -58,6 +58,7 @@ pub fn execute(inputs: BlockRootSingleTxFirstRollupPrivateInputs) -> BlockRollup
     validate_parity_root(
         inputs.parity_root,
         inputs.previous_rollup.public_inputs.constants.vk_tree_root,
+        inputs.previous_rollup.public_inputs.constants.prover_id,
     );
 
     validate_previous_rollups([inputs.previous_rollup], ALLOWED_PREVIOUS_VK_INDICES);

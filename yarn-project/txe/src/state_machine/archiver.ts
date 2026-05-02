@@ -1,4 +1,4 @@
-import { ArchiverDataSourceBase, ArchiverDataStoreUpdater, KVArchiverDataStore } from '@aztec/archiver';
+import { ArchiverDataSourceBase, ArchiverDataStoreUpdater, createArchiverDataStores } from '@aztec/archiver';
 import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { CheckpointNumber, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -14,11 +14,10 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
  * without needing any of the extra overhead that the Archiver itself requires (i.e. an L1 client).
  */
 export class TXEArchiver extends ArchiverDataSourceBase {
-  private readonly updater = new ArchiverDataStoreUpdater(this.store);
+  private readonly updater = new ArchiverDataStoreUpdater(this.stores);
 
   constructor(db: AztecAsyncKVStore) {
-    const store = new KVArchiverDataStore(db, 9999);
-    super(store);
+    super(createArchiverDataStores(db, { logsMaxPageSize: 9999 }));
   }
 
   public async addCheckpoints(checkpoints: PublishedCheckpoint[], result?: ValidateCheckpointResult): Promise<void> {
@@ -61,7 +60,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
     }
     // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
     // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
-    const checkpoint = await this.store.getRangeOfCheckpoints(CheckpointNumber.fromBlockNumber(number), 1);
+    const checkpoint = await this.stores.blocks.getRangeOfCheckpoints(CheckpointNumber.fromBlockNumber(number), 1);
     if (checkpoint.length === 0) {
       throw new Error(`L2Tips requested from TXE Archiver but no checkpoint found for block number ${number}`);
     }
@@ -76,6 +75,7 @@ export class TXEArchiver extends ArchiverDataSourceBase {
       proven: tipId,
       finalized: tipId,
       checkpointed: tipId,
+      proposedCheckpoint: tipId,
     };
   }
 

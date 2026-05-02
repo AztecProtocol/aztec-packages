@@ -7,6 +7,7 @@ pragma solidity >=0.8.27;
 
 import {IRollupCore, CheckpointLog} from "@aztec/core/interfaces/IRollup.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
+import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/shared/libraries/TimeMath.sol";
 import {RewardConfig, Bps} from "@aztec/core/libraries/rollup/RewardLib.sol";
@@ -141,6 +142,10 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     (, bytes32[] memory writes) = vm.accesses(address(rollup.getGSE()));
     assertEq(writes.length, 0, "No writes should be done");
 
+    if (isCoverage()) {
+      return;
+    }
+
     // 16 insertions in total, so binary search should hit 4 values (3 extra).
     // Since using recent, we should only hit 2 additional at most though, so
     // we will compute the overhead as 2 extra (each 3K) for each of the members
@@ -202,6 +207,10 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
 
     emit log_named_uint("gasSmall", gasSmall);
     emit log_named_uint("gasBig", gasBig);
+
+    if (isCoverage()) {
+      return;
+    }
 
     // Should not have grown by more than 10K
     assertGt(gasSmall + 1e4, gasBig, "growing too quickly");
@@ -279,6 +288,21 @@ contract RollupShouldBeGetters is ValidatorSelectionTestBase {
     vm.record();
 
     rollup.canProposeAtTime(t, log.archive, proposer);
+
+    (, bytes32[] memory writes) = vm.accesses(address(rollup));
+    assertEq(writes.length, 0, "No writes should be done");
+  }
+
+  function test_getGenesisConfig() external setup(1, 1) {
+    vm.record();
+
+    bytes32 vkTreeRoot = rollup.getVkTreeRoot();
+    bytes32 protocolContractsHash = rollup.getProtocolContractsHash();
+    IVerifier epochProofVerifier = rollup.getEpochProofVerifier();
+
+    assertEq(vkTreeRoot, TestConstants.GENESIS_VK_TREE_ROOT, "invalid vkTreeRoot");
+    assertEq(protocolContractsHash, TestConstants.GENESIS_PROTOCOL_CONTRACTS_HASH, "invalid protocolContractsHash");
+    assertTrue(address(epochProofVerifier) != address(0), "epochProofVerifier not set");
 
     (, bytes32[] memory writes) = vm.accesses(address(rollup));
     assertEq(writes.length, 0, "No writes should be done");

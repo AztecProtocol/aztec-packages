@@ -9,6 +9,12 @@ contract AvmGadgetsTest {
         keccak256::keccak256(data, data.len())
     }
 
+    // 300 bytes exceeds the keccak256 rate (136 bytes), triggering multi-block permutation.
+    #[external("public")]
+    fn keccak_hash_300(data: [u8; 300]) -> [u8; 32] {
+        keccak256::keccak256(data, data.len())
+    }
+
     #[external("public")]
     fn keccak_hash_1400(data: [u8; 1400]) -> [u8; 32] {
         keccak256::keccak256(data, data.len())

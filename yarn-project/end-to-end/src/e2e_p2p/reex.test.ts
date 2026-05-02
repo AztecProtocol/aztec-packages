@@ -2,6 +2,7 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx, TxHash } from '@aztec/aztec.js/tx';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { unfreeze } from '@aztec/foundation/types';
@@ -55,9 +56,6 @@ describe('e2e_p2p_reex', () => {
     t.logger.info('Applying base setup');
     await t.applyBaseSetup();
 
-    t.logger.info('Stopping main node sequencer');
-    await t.ctx.aztecNodeService.getSequencer()?.stop();
-
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
@@ -66,7 +64,6 @@ describe('e2e_p2p_reex', () => {
     nodes = await createNodes(
       {
         ...t.ctx.aztecNodeConfig,
-        validatorReexecute: true,
         minTxsPerBlock: 1,
         maxTxsPerBlock: NUM_TXS_PER_NODE,
       },
@@ -74,7 +71,7 @@ describe('e2e_p2p_reex', () => {
       t.bootstrapNodeEnr,
       NUM_VALIDATORS,
       BASE_BOOT_NODE_UDP_PORT,
-      t.prefilledPublicData,
+      t.genesis,
       DATA_DIR,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
@@ -85,6 +82,7 @@ describe('e2e_p2p_reex', () => {
     await sleep(8000);
 
     t.logger.info('Setup account');
+    t.setupWalletOnNode(nodes[0]);
     await t.setupAccount();
 
     t.logger.info('Deploy spam contract');
@@ -131,6 +129,10 @@ describe('e2e_p2p_reex', () => {
       jest.spyOn(p2pClient, 'broadcastProposal').mockImplementation(async (...args: unknown[]) => {
         // We remove one of the transactions, therefore the block root will be different!
         const proposal = args[0] as BlockProposal;
+        const signatureContext = {
+          chainId: t.ctx.aztecNodeConfig.l1ChainId,
+          rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+        };
         const proposerAddress = proposal.getSender();
         const txHashes = proposal.txHashes;
 
@@ -142,12 +144,14 @@ describe('e2e_p2p_reex', () => {
           .keyStore as ValidatorKeyStore;
         const newProposal = await BlockProposal.createProposalFromSigner(
           proposal.blockHeader,
+          CheckpointNumber(1),
           proposal.indexWithinCheckpoint,
           proposal.inHash,
           proposal.archiveRoot,
           proposal.txHashes,
           undefined,
-          (payload, context) => signer.signMessageWithAddress(proposerAddress!, payload, context),
+          signatureContext,
+          (typedData, context) => signer.signTypedDataWithAddress(proposerAddress!, typedData, context),
         );
 
         const p2pService = (p2pClient as any).p2pService as LibP2PService;

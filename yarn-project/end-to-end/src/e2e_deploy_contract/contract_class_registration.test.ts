@@ -123,7 +123,9 @@ describe('e2e_deploy_contract contract class registration', () => {
           // Contract instance deployed event is emitted via private logs.
           const blockNumber = await aztecNode.getBlockNumber();
 
-          const logs = (await aztecNode.getBlock(blockNumber))!.getPrivateLogs();
+          const logs = (await aztecNode.getBlock(blockNumber, { includeTransactions: true }))!.body.txEffects.flatMap(
+            t => t.privateLogs,
+          );
 
           expect(logs.length).toBe(1);
 
@@ -244,8 +246,7 @@ describe('e2e_deploy_contract contract class registration', () => {
   describe('error scenarios in deployment', () => {
     it('app logic call to an undeployed contract reverts, but can be included', async () => {
       const whom = defaultAccountAddress;
-      const sender = whom;
-      const instance = await t.registerContract(wallet, StatefulTestContract, { initArgs: [whom, sender, 42] });
+      const instance = await t.registerContract(wallet, StatefulTestContract, { initArgs: [whom, 42] });
       // Confirm that the tx reverts with the expected message
       await expect(
         instance.methods.increment_public_value_no_init_check(whom, 10).simulate({ from: defaultAccountAddress }),

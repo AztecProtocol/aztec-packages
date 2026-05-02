@@ -3,12 +3,13 @@ import type { LogFn } from '@aztec/foundation/log';
 
 import { execFileSync } from 'child_process';
 import type { Command } from 'commander';
-import { readFile, writeFile } from 'fs/promises';
+import { readFile } from 'fs/promises';
 import { join } from 'path';
 
 import { readArtifactFiles } from './utils/artifacts.js';
 import { needsRecompile } from './utils/needs_recompile.js';
 import { run } from './utils/spawn.js';
+import { warnIfAztecVersionMismatch } from './utils/warn_if_aztec_version_mismatch.js';
 
 /** Returns paths to contract artifacts in the target directory. */
 async function collectContractArtifacts(): Promise<string[]> {
@@ -22,19 +23,6 @@ async function collectContractArtifacts(): Promise<string[]> {
     throw err;
   }
   return files.filter(f => Array.isArray(f.content.functions)).map(f => f.filePath);
-}
-
-/** Strips the `__aztec_nr_internals__` prefix from function names in contract artifacts. */
-async function stripInternalPrefixes(artifactPaths: string[]): Promise<void> {
-  for (const path of artifactPaths) {
-    const artifact = JSON.parse(await readFile(path, 'utf-8'));
-    for (const fn of artifact.functions) {
-      if (typeof fn.name === 'string') {
-        fn.name = fn.name.replace(/^__aztec_nr_internals__/, '');
-      }
-    }
-    await writeFile(path, JSON.stringify(artifact, null, 2) + '\n');
-  }
 }
 
 /** Returns the set of package names that are contract crates in the current workspace. */
@@ -139,6 +127,8 @@ async function checkNoTestsInContracts(nargo: string, log: LogFn): Promise<void>
 
 /** Compiles Aztec Noir contracts and postprocesses artifacts. */
 async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<void> {
+  await warnIfAztecVersionMismatch(log);
+
   if (!(await needsRecompile())) {
     log('No source changes detected, skipping compilation.');
     return;
@@ -158,9 +148,6 @@ async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<vo
     log('Postprocessing contracts...');
     const bbArgs = artifacts.flatMap(a => ['-i', a]);
     await run(bb, ['aztec_process', ...bbArgs]);
-
-    // TODO: This should be part of bb aztec_process!
-    await stripInternalPrefixes(artifacts);
   }
 
   log('Compilation complete!');

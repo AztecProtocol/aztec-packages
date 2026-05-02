@@ -23,7 +23,6 @@ export async function getNodeInfo(nodeUrl: string, json: boolean, log: LogFn, lo
         rewardDistributor: info.l1ContractAddresses.rewardDistributorAddress.toString(),
         governanceProposer: info.l1ContractAddresses.governanceProposerAddress.toString(),
         governance: info.l1ContractAddresses.governanceAddress.toString(),
-        slashFactory: info.l1ContractAddresses.slashFactoryAddress?.toString(),
         feeAssetHandler: info.l1ContractAddresses.feeAssetHandlerAddress?.toString(),
         stakingAssetHandler: info.l1ContractAddresses.stakingAssetHandlerAddress?.toString(),
       },
@@ -51,7 +50,6 @@ export async function getNodeInfo(nodeUrl: string, json: boolean, log: LogFn, lo
     log(` RewardDistributor Address: ${info.l1ContractAddresses.rewardDistributorAddress.toString()}`);
     log(` GovernanceProposer Address: ${info.l1ContractAddresses.governanceProposerAddress.toString()}`);
     log(` Governance Address: ${info.l1ContractAddresses.governanceAddress.toString()}`);
-    log(` SlashFactory Address: ${info.l1ContractAddresses.slashFactoryAddress?.toString()}`);
     log(` FeeAssetHandler Address: ${info.l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
     log(` StakingAssetHandler Address: ${info.l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`L2 Contract Addresses:`);

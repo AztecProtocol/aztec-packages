@@ -21,6 +21,7 @@ import { jest } from '@jest/globals';
 import { mkdir, writeFile } from 'fs/promises';
 import { dirname } from 'path';
 
+import { LARGE_MIN_FEE_PADDING, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import { getSponsoredFPCAddress, registerSponsoredFPC } from '../fixtures/utils.js';
 import type { WorkerWallet } from '../test-wallet/worker_wallet.js';
 import { type WorkerWalletWrapper, createWorkerWalletClient } from './setup_test_wallets.js';
@@ -280,7 +281,7 @@ describe('block capacity benchmark', () => {
           if (blockTxCounts.some(b => b.blockNumber === bn)) {
             continue;
           }
-          const block = await aztecNode.getBlock(BlockNumber(bn));
+          const block = await aztecNode.getBlock(BlockNumber(bn), { includeTransactions: true });
           if (block) {
             const txCount = block.body.txEffects.length;
             blockTxCounts.push({ blockNumber: bn, txCount });
@@ -448,9 +449,8 @@ describe('block capacity benchmark', () => {
 async function cloneTx(tx: Tx, aztecNode: AztecNode): Promise<Tx> {
   const clonedTx = Tx.clone(tx, false);
 
-  // Fetch current minimum fees and apply 50% buffer for safety
-  const currentFees = await aztecNode.getCurrentMinFees();
-  const paddedFees = currentFees.mul(1.5);
+  // Fetch current minimum fees and apply 15x buffer to cover fee decay between blocks
+  const paddedFees = await getPaddedMaxFeesPerGas(aztecNode, LARGE_MIN_FEE_PADDING);
 
   // Update gas settings with current fees
   (clonedTx.data.constants.txContext.gasSettings as any).maxFeesPerGas = paddedFees;

@@ -76,8 +76,15 @@ export async function createBlobClientWithFileStores(
     rollupAddress: config.l1Contracts.rollupAddress.toString(),
   };
 
+  // Disable internal retries for blob file stores — retry logic is handled by HttpBlobClient.
+  // Set a configurable timeout (default 10s) to avoid hanging on slow stores.
+  const httpOptions = {
+    retryBackoff: [] as number[],
+    timeoutMs: config.blobFileStoreTimeoutMs ?? 10_000,
+  };
+
   const [fileStoreClients, fileStoreUploadClient] = await Promise.all([
-    createReadOnlyFileStoreBlobClients(config.blobFileStoreUrls, fileStoreMetadata, log),
+    createReadOnlyFileStoreBlobClients(config.blobFileStoreUrls, fileStoreMetadata, log, httpOptions),
     createWritableFileStoreBlobClient(config.blobFileStoreUploadUrl, fileStoreMetadata, log),
   ]);
 

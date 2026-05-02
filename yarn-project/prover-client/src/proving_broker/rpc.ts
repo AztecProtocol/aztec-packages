@@ -18,6 +18,15 @@ import { makeTracedFetch } from '@aztec/telemetry-client';
 
 import { z } from 'zod';
 
+/** Indefinite backoff for broker communication: 1, 1, 1, 2, 4, 4, 4, ... seconds. */
+export function* proverBrokerBackoff() {
+  const v = [1, 1, 1, 2, 4];
+  let i = 0;
+  while (true) {
+    yield v[Math.min(i++, v.length - 1)];
+  }
+}
+
 const ProvingJobFilterSchema = z.object({
   allowList: z.array(z.nativeEnum(ProvingRequestType)),
 });
@@ -70,7 +79,7 @@ export const ProvingJobBrokerSchemaWithDebug: ApiSchemaFor<ProvingJobBroker & Pr
 export function createProvingJobBrokerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
-  fetch = makeTracedFetch([1, 2, 3], false),
+  fetch = makeTracedFetch(proverBrokerBackoff, false),
 ): ProvingJobBroker {
   return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, {
     namespaceMethods: 'proverBroker',
@@ -82,7 +91,7 @@ export function createProvingJobBrokerClient(
 export function createProvingJobProducerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
-  fetch = makeTracedFetch([1, 2, 3], false),
+  fetch = makeTracedFetch(proverBrokerBackoff, false),
 ): ProvingJobProducer {
   return createSafeJsonRpcClient(url, ProvingJobProducerSchema, {
     namespaceMethods: 'provingJobProducer',
@@ -94,7 +103,7 @@ export function createProvingJobProducerClient(
 export function createProvingJobConsumerClient(
   url: string,
   versions: Partial<ComponentsVersions>,
-  fetch = makeTracedFetch([1, 2, 3], false),
+  fetch = makeTracedFetch(proverBrokerBackoff, false),
 ): ProvingJobConsumer {
   return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, {
     namespaceMethods: 'provingJobConsumer',

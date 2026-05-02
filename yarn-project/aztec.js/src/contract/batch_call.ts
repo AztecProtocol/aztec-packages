@@ -1,12 +1,7 @@
 import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/abi';
-import {
-  ExecutionPayload,
-  HashedValues,
-  TxSimulationResult,
-  UtilityExecutionResult,
-  mergeExecutionPayloads,
-} from '@aztec/stdlib/tx';
+import { ExecutionPayload, HashedValues, UtilityExecutionResult, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
+import type { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { BatchedMethod, Wallet } from '../wallet/wallet.js';
 import { BaseContractInteraction } from './base_contract_interaction.js';
 import { getGasLimits } from './get_gas_limits.js';
@@ -138,19 +133,17 @@ export class BatchCall extends BaseContractInteraction {
     }
 
     // Process tx simulation result (it comes last if present)
-    let simulatedTx: TxSimulationResult | undefined;
+    let simulatedTx: TxSimulationResultWithAppOffset | undefined;
     if (indexedExecutionPayloads.length > 0) {
       const txResultWrapper = batchResults[utility.length];
       if (txResultWrapper.name === 'simulateTx') {
-        simulatedTx = txResultWrapper.result as TxSimulationResult;
+        simulatedTx = txResultWrapper.result as TxSimulationResultWithAppOffset;
         indexedExecutionPayloads.forEach(([request, callIndex, resultIndex]) => {
           const call = request.calls[0];
-          // As account entrypoints are private, for private functions we retrieve the return values from the first nested call
-          // since we're interested in the first set of values AFTER the account entrypoint
-          // For public functions we retrieve the first values directly from the public output.
+          // For public functions we retrieve the values directly from the public output.
           const rawReturnValues =
             call.type == FunctionType.PRIVATE
-              ? simulatedTx!.getPrivateReturnValues()?.nested?.[resultIndex].values
+              ? simulatedTx!.getPrivateReturnValuesOfAppCall(resultIndex)?.values
               : simulatedTx!.getPublicReturnValues()?.[resultIndex].values;
 
           results[callIndex] = {

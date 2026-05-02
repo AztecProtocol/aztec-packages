@@ -3,7 +3,8 @@ import { createSafeJsonRpcClient, defaultFetch } from '@aztec/foundation/json-rp
 import { z } from 'zod';
 
 import type { ApiSchemaFor } from '../schemas/schemas.js';
-import { type Offense, OffenseSchema, type SlashPayloadRound, SlashPayloadRoundSchema } from '../slashing/index.js';
+import { optional } from '../schemas/schemas.js';
+import { type Offense, OffenseSchema } from '../slashing/index.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 import { type ArchiverSpecificConfig, ArchiverSpecificConfigSchema } from './archiver.js';
 import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
@@ -36,17 +37,15 @@ export interface AztecNodeAdmin {
    * Pauses syncing and rolls back the database to the target L2 block number.
    * @param targetBlockNumber - The block number to roll back to.
    * @param force - If true, clears the world state db and p2p dbs if rolling back to behind the finalized block.
+   * @param resumeSync - If true (default), resumes archiver and world state sync after rollback.
    */
-  rollbackTo(targetBlockNumber: number, force?: boolean): Promise<void>;
+  rollbackTo(targetBlockNumber: number, force?: boolean, resumeSync?: boolean): Promise<void>;
 
   /** Pauses archiver and world state syncing. */
   pauseSync(): Promise<void>;
 
   /** Resumes archiver and world state syncing. */
   resumeSync(): Promise<void>;
-
-  /** Returns all monitored payloads by the slasher for the current round. */
-  getSlashPayloads(): Promise<SlashPayloadRound[]>;
 
   /** Returns all offenses applicable for the given round. */
   getSlashOffenses(round: bigint | 'all' | 'current'): Promise<Offense[]>;
@@ -82,6 +81,8 @@ export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, 'l1Contracts'
     'archiverPollingIntervalMS' | 'archiverBatchSize' | 'skipValidateCheckpointAttestations'
   > & {
     maxPendingTxCount: number;
+    // Keep in sync with P2PConfig.skipIncomingProposals (circular dep prevents Pick<P2PConfig, ...> here)
+    skipIncomingProposals?: boolean;
   };
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
@@ -94,16 +95,15 @@ export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConf
       skipValidateCheckpointAttestations: true,
     }),
   )
-  .merge(z.object({ maxPendingTxCount: z.number() }));
+  .merge(z.object({ maxPendingTxCount: z.number(), skipIncomingProposals: z.boolean().optional() }));
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   getConfig: z.function().returns(AztecNodeAdminConfigSchema),
   setConfig: z.function().args(AztecNodeAdminConfigSchema.partial()).returns(z.void()),
   startSnapshotUpload: z.function().args(z.string()).returns(z.void()),
-  rollbackTo: z.function().args(z.number()).returns(z.void()),
+  rollbackTo: z.function().args(z.number(), optional(z.boolean()), optional(z.boolean())).returns(z.void()),
   pauseSync: z.function().returns(z.void()),
   resumeSync: z.function().returns(z.void()),
-  getSlashPayloads: z.function().returns(z.array(SlashPayloadRoundSchema)),
   getSlashOffenses: z
     .function()
     .args(z.union([z.bigint(), z.literal('all'), z.literal('current')]))

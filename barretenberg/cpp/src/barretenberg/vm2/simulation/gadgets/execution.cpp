@@ -1,13 +1,12 @@
 #include "barretenberg/vm2/simulation/gadgets/execution.hpp"
 
+#include <cstddef>
 #include <stdexcept>
-#include <string>
 #include <type_traits>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
-#include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/to_radix.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
@@ -19,6 +18,7 @@
 #include "barretenberg/vm2/simulation/events/keccakf1600_event.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
+// Interface headers not included in execution.hpp because the types are forward-declared there.
 #include "barretenberg/vm2/simulation/interfaces/addressing.hpp"
 #include "barretenberg/vm2/simulation/interfaces/alu.hpp"
 #include "barretenberg/vm2/simulation/interfaces/bitwise.hpp"
@@ -26,6 +26,7 @@
 #include "barretenberg/vm2/simulation/interfaces/call_stack_metadata_collector.hpp"
 #include "barretenberg/vm2/simulation/interfaces/context_provider.hpp"
 #include "barretenberg/vm2/simulation/interfaces/data_copy.hpp"
+#include "barretenberg/vm2/simulation/interfaces/db.hpp"
 #include "barretenberg/vm2/simulation/interfaces/debug_log.hpp"
 #include "barretenberg/vm2/simulation/interfaces/ecc.hpp"
 #include "barretenberg/vm2/simulation/interfaces/emit_public_log.hpp"
@@ -793,6 +794,7 @@ void Execution::ret(ContextInterface& context, MemoryAddress ret_size_offset, Me
                            .gas_used = context.get_gas_used(),
                            .success = true,
                            .halting_pc = context.get_pc(),
+                           .halting_mode = HaltingMode::RETURN,
                            .halting_message = std::nullopt });
 
     context.halt();
@@ -826,6 +828,7 @@ void Execution::revert(ContextInterface& context, MemoryAddress rev_size_offset,
                            .gas_used = context.get_gas_used(),
                            .success = false,
                            .halting_pc = context.get_pc(),
+                           .halting_mode = HaltingMode::REVERT,
                            .halting_message = "Assertion failed: " });
 
     context.halt();
@@ -1849,9 +1852,11 @@ EnqueuedCallResult Execution::execute(std::unique_ptr<ContextInterface> enqueued
     }
 
     const ExecutionResult& result = get_execution_result();
-    return {
+    return EnqueuedCallResult{
         .success = result.success,
         .gas_used = result.gas_used,
+        .halting_mode = result.halting_mode,
+        .halting_message = result.halting_message,
     };
 }
 
@@ -1969,6 +1974,7 @@ void Execution::handle_exceptional_halt(ContextInterface& context, const std::st
         .gas_used = context.get_gas_used(),
         .success = false,
         .halting_pc = context.get_pc(),
+        .halting_mode = HaltingMode::EXCEPTIONAL_HALT,
         .halting_message = halting_message,
     });
 }

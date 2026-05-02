@@ -1,10 +1,16 @@
 name: Deploy to staging-public
 
 on:
-  push:
-    branches:
-      - v4
-  workflow_dispatch: {}
+  workflow_run:
+    workflows: ["Nightly Release Tag (v4-next)"]
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Nightly tag to deploy (e.g., v4.2.0-nightly.20260330). Leave empty to use latest nightly tag."
+        required: false
+        type: string
 
 concurrency:
   group: deploy-staging-public
@@ -16,50 +22,43 @@ env:
 jobs:
   determine-tag:
     runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     outputs:
-      tag: ${{ steps.poll-tag.outputs.tag }}
-      semver: ${{ steps.poll-tag.outputs.semver }}
+      tag: ${{ steps.resolve.outputs.tag }}
+      semver: ${{ steps.resolve.outputs.semver }}
     steps:
-      - name: Checkout
+      - name: Checkout v4-next
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
+          ref: v4-next
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Poll for semver tag at HEAD
-        id: poll-tag
+      - name: Resolve nightly tag
+        id: resolve
         run: |
-          HEAD_SHA=$(git rev-parse HEAD)
-          MAX_ATTEMPTS=60
-          echo "Looking for any semver tag at HEAD ($HEAD_SHA)"
+          git fetch --tags --force
 
-          for i in $(seq 1 $MAX_ATTEMPTS); do
-            git fetch --tags --force
+          if [[ -n "${{ inputs.tag }}" ]]; then
+            TAG="${{ inputs.tag }}"
+            echo "Using manually specified tag: $TAG"
+          else
+            current_version=$(jq -r '."."' .release-please-manifest.json)
+            TAG="v${current_version}-nightly.$(date -u +%Y%m%d)"
+            echo "Nightly tag: $TAG"
+          fi
 
-            # Collect all valid semver tags pointing at HEAD
-            SEMVER_TAGS=()
-            for t in $(git tag --points-at HEAD); do
-              if ci3/semver check "$t"; then
-                SEMVER_TAGS+=("$t")
-              fi
-            done
+          # Validate tag exists
+          if ! git rev-parse "$TAG" &>/dev/null; then
+            echo "Error: Tag $TAG does not exist"
+            exit 1
+          fi
 
-            # If we found valid semver tags, pick the highest
-            if [ ${#SEMVER_TAGS[@]} -gt 0 ]; then
-              TAG=$(ci3/semver sort "${SEMVER_TAGS[@]}" | tail -n 1)
-              echo "Found tag: $TAG"
-              SEMVER="${TAG#v}"
-              echo "tag=$TAG" >> $GITHUB_OUTPUT
-              echo "semver=$SEMVER" >> $GITHUB_OUTPUT
-              exit 0
-            fi
-
-            echo "Attempt $i/$MAX_ATTEMPTS: No semver tag yet, waiting 10s..."
-            sleep 10
-          done
-
-          echo "Error: No semver tag found at HEAD after 10 minutes"
-          exit 1
+          SEMVER="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "semver=$SEMVER" >> $GITHUB_OUTPUT
 
   wait-for-ci3:
     needs: determine-tag
@@ -80,14 +79,9 @@ jobs:
 
   deploy:
     needs: [determine-tag, wait-for-ci3]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger deploy-network on next branch
-        run: |
-          echo "Triggering deploy-network for staging-public with semver=${{ needs.determine-tag.outputs.semver }}"
-          gh workflow run deploy-network.yml \
-            --repo "${{ github.repository }}" \
-            --ref next \
-            -f network=staging-public \
-            -f semver="${{ needs.determine-tag.outputs.semver }}" \
-            -f source_tag="${{ needs.determine-tag.outputs.tag }}"
+    uses: ./.github/workflows/deploy-network.yml
+    with:
+      network: staging-public
+      semver: ${{ needs.determine-tag.outputs.semver }}
+      source_tag: ${{ needs.determine-tag.outputs.tag }}
+    secrets: inherit

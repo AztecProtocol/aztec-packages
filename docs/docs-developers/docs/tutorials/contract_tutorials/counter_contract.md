@@ -41,9 +41,9 @@ Your structure should look like this:
 | | |-Nargo.toml            <-- test package config
 ```
 
-The `aztec new` command creates a workspace with two crates: a `counter_contract` crate for your smart contract code and a `counter_test` crate for Noir tests. The file `counter_contract/src/main.nr` will soon turn into our smart contract!
+The `aztec new` command creates a contract project with `Nargo.toml` and `src/main.nr`. The file `src/main.nr` will soon turn into our smart contract!
 
-Add the following dependency to `counter_contract/Nargo.toml` under the existing `aztec` dependency:
+Add the following dependency to `Nargo.toml` under the existing `aztec` dependency:
 
 ```toml
 [dependencies]
@@ -82,7 +82,7 @@ pub contract Counter {
 - `messages::message_delivery::MessageDelivery`
   Imports `MessageDelivery` for specifying how note delivery should be handled (e.g., constrained onchain delivery).
 
-- `oracle::debug_log::debug_log_format`
+- `oracle::logging::debug_log_format`
   Imports a debug logging utility for printing formatted messages during contract execution.
 
 - `protocol::{address::AztecAddress, traits::ToField}`

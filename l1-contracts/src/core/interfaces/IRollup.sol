@@ -3,7 +3,6 @@
 pragma solidity >=0.8.27;
 
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {SlasherFlavor} from "@aztec/core/interfaces/ISlasher.sol";
 import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
@@ -68,7 +67,7 @@ struct RollupConfigInput {
   uint256 slashingExecutionDelayInRounds;
   uint256[3] slashAmounts;
   uint256 slashingOffsetInRounds;
-  SlasherFlavor slasherFlavor;
+  bool slasherEnabled;
   address slashingVetoer;
   uint256 slashingDisableDuration;
   uint256 manaTarget;
@@ -80,7 +79,6 @@ struct RollupConfigInput {
   RewardBoostConfig rewardBoostConfig;
   StakingQueueConfig stakingQueueConfig;
   uint256 localEjectionThreshold;
-  Timestamp earliestRewardsClaimableTimestamp;
   uint256 inboxLag;
 }
 
@@ -116,9 +114,7 @@ interface IRollupCore {
   event RewardConfigUpdated(RewardConfig rewardConfig);
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenCheckpointNumber, uint256 pendingCheckpointNumber);
-  event RewardsClaimableUpdated(bool isRewardsClaimable);
 
-  function setRewardsClaimable(bool _isRewardsClaimable) external;
   function claimSequencerRewards(address _recipient) external returns (uint256);
   function claimProverRewards(address _recipient, Epoch[] memory _epochs) external returns (uint256);
 
@@ -236,8 +232,10 @@ interface IRollup is IRollupCore, IHaveVersion {
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);
 
+  function getVkTreeRoot() external view returns (bytes32);
+  function getProtocolContractsHash() external view returns (bytes32);
+  function getEpochProofVerifier() external view returns (IVerifier);
+
   function getRewardConfig() external view returns (RewardConfig memory);
   function getCheckpointReward() external view returns (uint256);
-  function getEarliestRewardsClaimableTimestamp() external view returns (Timestamp);
-  function isRewardsClaimable() external view returns (bool);
 }

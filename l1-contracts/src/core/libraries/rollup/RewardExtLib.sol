@@ -22,16 +22,8 @@ import {
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
 library RewardExtLib {
-  function initialize(Timestamp _earliestRewardsClaimableTimestamp) external {
-    RewardLib.initialize(_earliestRewardsClaimableTimestamp);
-  }
-
   function setConfig(RewardConfig memory _config) external {
     RewardLib.setConfig(_config);
-  }
-
-  function setIsRewardsClaimable(bool _isRewardsClaimable) external {
-    RewardLib.setIsRewardsClaimable(_isRewardsClaimable);
   }
 
   function claimSequencerRewards(address _sequencer) external returns (uint256) {
@@ -75,14 +67,6 @@ library RewardExtLib {
 
   function getCheckpointReward() external view returns (uint256) {
     return RewardLib.getCheckpointReward();
-  }
-
-  function isRewardsClaimable() external view returns (bool) {
-    return RewardLib.isRewardsClaimable();
-  }
-
-  function getEarliestRewardsClaimableTimestamp() external view returns (Timestamp) {
-    return RewardLib.getEarliestRewardsClaimableTimestamp();
   }
 
   function getRewardConfig() external view returns (RewardConfig memory) {

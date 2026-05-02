@@ -43,17 +43,18 @@ export async function defaultFetch(
   }
 
   let responseJson;
+  const responseText = await resp.text();
   try {
-    responseJson = await resp.json();
+    responseJson = JSON.parse(responseText);
   } catch {
     if (!resp.ok) {
       throw new Error(resp.statusText);
     }
-    throw new Error(`Failed to parse body as JSON: ${await resp.text()}`);
+    throw new Error(`Failed to parse body as JSON: ${responseText}`);
   }
 
   if (!resp.ok) {
-    const errorMessage = `Error ${resp.status} from server ${host}: ${responseJson.error.message}`;
+    const errorMessage = `Error ${resp.status} from server ${host}: ${responseJson?.error?.message ?? JSON.stringify(responseJson)}`;
     if (noRetry || (resp.status >= 400 && resp.status < 500)) {
       throw new NoRetryError(errorMessage);
     } else {

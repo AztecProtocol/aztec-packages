@@ -57,12 +57,16 @@ describe('e2e_snapshot_sync', () => {
   const createNonValidatorNode = async (name: string, config: Partial<AztecNodeConfig> = {}) => {
     log.warn('Creating and syncing a node without a validator...');
     return await withLoggerBindings({ actor: `node-${name}` }, () =>
-      AztecNodeService.createAndSync({
-        ...context.config,
-        disableValidator: true,
-        dataDirectory: join(context.config.dataDirectory!, randomBytes(8).toString('hex')),
-        ...config,
-      }),
+      AztecNodeService.createAndSync(
+        {
+          ...context.config,
+          disableValidator: true,
+          dataDirectory: join(context.config.dataDirectory!, randomBytes(8).toString('hex')),
+          ...config,
+        },
+        {},
+        { genesis: context.genesis },
+      ),
     );
   };
 
@@ -95,7 +99,7 @@ describe('e2e_snapshot_sync', () => {
 
     const block = await node.getBlock(BlockNumber(L2_TARGET_BLOCK_NUM));
     expect(block).toBeDefined();
-    const blockHash = await block!.hash();
+    const blockHash = block!.hash;
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>
@@ -201,7 +205,7 @@ describe('e2e_snapshot_sync', () => {
 
     const block = await node.getBlock(BlockNumber(L2_TARGET_BLOCK_NUM));
     expect(block).toBeDefined();
-    const blockHash = await block!.hash();
+    const blockHash = block!.hash;
 
     log.warn(`Checking for L2 block ${L2_TARGET_BLOCK_NUM} with hash ${blockHash} on both nodes`);
     const getBlockHashLeafIndex = (node: AztecNode) =>

@@ -86,66 +86,12 @@ EvaluationDomain<Fr>::EvaluationDomain(const size_t domain_size, const size_t ta
     BB_ASSERT((1UL << log2_num_threads) == num_threads || (size == 0));
 }
 
-template <typename Fr>
-EvaluationDomain<Fr>::EvaluationDomain(const EvaluationDomain& other)
-    : size(other.size)
-    , num_threads(compute_num_threads(other.size))
-    , thread_size(other.size / num_threads)
-    , log2_size(static_cast<size_t>(numeric::get_msb(size)))
-    , log2_thread_size(static_cast<size_t>(numeric::get_msb(thread_size)))
-    , log2_num_threads(static_cast<size_t>(numeric::get_msb(num_threads)))
-    , generator_size(other.generator_size)
-    , root(other.root)
-    , root_inverse(other.root_inverse)
-    , domain(Fr{ size, 0, 0, 0 }.to_montgomery_form())
-    , domain_inverse(domain.invert())
-    , generator(other.generator)
-    , generator_inverse(other.generator_inverse)
-{
-    BB_ASSERT((1UL << log2_size) == size);
-    BB_ASSERT((1UL << log2_thread_size) == thread_size);
-    BB_ASSERT((1UL << log2_num_threads) == num_threads);
-    if (other.roots != nullptr) {
-        const size_t mem_size = sizeof(Fr) * size * 2;
-        roots = std::make_shared<Fr[]>(size * 2);
-        memcpy(static_cast<void*>(roots.get()), static_cast<void*>(other.roots.get()), mem_size);
-        round_roots.resize(log2_size - 1);
-        inverse_round_roots.resize(log2_size - 1);
-        round_roots[0] = &roots[0];
-        inverse_round_roots[0] = &roots.get()[size];
-        for (size_t i = 1; i < log2_size - 1; ++i) {
-            round_roots[i] = round_roots[i - 1] + (1UL << i);
-            inverse_round_roots[i] = inverse_round_roots[i - 1] + (1UL << i);
-        }
-    } else {
-        roots = nullptr;
-    }
-}
-
-template <typename Fr>
-EvaluationDomain<Fr>::EvaluationDomain(EvaluationDomain&& other)
-    : size(other.size)
-    , num_threads(compute_num_threads(other.size))
-    , thread_size(other.size / num_threads)
-    , log2_size(static_cast<size_t>(numeric::get_msb(size)))
-    , log2_thread_size(static_cast<size_t>(numeric::get_msb(thread_size)))
-    , log2_num_threads(static_cast<size_t>(numeric::get_msb(num_threads)))
-    , generator_size(other.generator_size)
-    , root(other.root)
-    , root_inverse(other.root_inverse)
-    , domain(Fr{ size, 0, 0, 0 }.to_montgomery_form())
-    , domain_inverse(domain.invert())
-    , generator(other.generator)
-    , generator_inverse(other.generator_inverse)
-{
-    roots = other.roots;
-    round_roots = std::move(other.round_roots);
-    inverse_round_roots = std::move(other.inverse_round_roots);
-    other.roots = nullptr;
-}
-
 template <typename Fr> EvaluationDomain<Fr>& EvaluationDomain<Fr>::operator=(EvaluationDomain&& other)
 {
+    // Prevent self-corruption of data
+    if (this == &other) {
+        return *this;
+    }
     size = other.size;
     generator_size = other.generator_size;
     num_threads = compute_num_threads(other.size);

@@ -115,7 +115,7 @@ EXCLUDED_VARS_ARRAY=(
     "ETH_DEVNET_VALUES"
     "EXPOSE_HTTPS_BOOTNODE"
     "GAS_LIMIT"
-    "GCP_PROJECT"
+    "GCP_PROJECT_ID"
     "GCP_REGION"
     "GKE_CLUSTER_CONTEXT"
     "GRAFANA_PASSWORD_SECRET_NAME"
@@ -178,6 +178,12 @@ EXCLUDED_VARS_ARRAY=(
     "PUBLISHER_KEY_INDEX_START"
     "VALIDATOR_PUBLISHERS_PER_REPLICA"
     "PUBLISHERS_PER_PROVER"
+
+    # PostgreSQL system variable (used in aztec-postgres chart, not an Aztec app var)
+    "PGDATA"
+
+    # Deployment-specific HA variable (set by terraform, not registered in app config)
+    "VALIDATOR_HA_REPLICA_INDEX"
 )
 
 # Join array elements with | for regex

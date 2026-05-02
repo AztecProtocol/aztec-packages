@@ -287,6 +287,7 @@ export function createMockEpochCache(): EpochCacheInterface {
       nowMs: 0n,
     }),
     isProposerPipeliningEnabled: () => false,
+    pipeliningOffset: () => 0,
     computeProposerIndex: () => 0n,
     getCurrentAndNextSlot: () => ({ currentSlot: SlotNumber.ZERO, nextSlot: SlotNumber.ZERO }),
     getTargetAndNextSlot: () => ({ targetSlot: SlotNumber.ZERO, nextSlot: SlotNumber.ZERO }),

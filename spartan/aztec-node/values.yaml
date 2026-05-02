@@ -19,7 +19,6 @@ global:
   customAztecNetwork:
     l1ChainId:
     registryContractAddress:
-    slashFactoryContractAddress:
     feeAssetHandlerContractAddress:
 
   # -- Ethereum configuration
@@ -145,9 +144,6 @@ node:
   sentinel:
     enabled: true
   slash:
-    # Penalty percentages for slashing offenses
-    minPenaltyPercentage: ""
-    maxPenaltyPercentage: ""
     # Validator allowlists/denylists
     validatorsAlways: []
     validatorsNever: []
@@ -241,6 +237,10 @@ rbac:
         - "get"
         - "list"
         - "watch"
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
 
 serviceAccount:
   # -- Create a service account

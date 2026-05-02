@@ -30,8 +30,6 @@ template <typename Fr> Fr evaluate(std::span<const Fr> coeffs, const Fr& z)
 {
     return evaluate(coeffs, z, coeffs.size());
 };
-template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, const size_t large_n);
-
 template <typename Fr>
     requires SupportsFFT<Fr>
 void fft_inner_parallel(
@@ -58,6 +56,9 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
 template <typename Fr> void factor_roots(std::span<Fr> polynomial, const Fr& root)
 {
     const size_t size = polynomial.size();
+    if (size == 0) {
+        return;
+    }
     if (root.is_zero()) {
         // if one of the roots is 0 after having divided by all other roots,
         // then p(X) = a₁⋅X + ⋯ + aₙ₋₁⋅Xⁿ⁻¹
@@ -102,6 +103,9 @@ template <typename Fr> void factor_roots(std::span<Fr> polynomial, const Fr& roo
             temp *= root_inverse;
             polynomial[i] = temp;
         }
+        // Exact-division precondition: a_{n-1} == b_{n-2} (i.e. polynomial[size-1] == temp).
+        // When violated the quotient is wrong; without this assert the zero-write below hides it.
+        BB_ASSERT(polynomial[size - 1] == temp);
     }
     polynomial[size - 1] = Fr::zero();
 }

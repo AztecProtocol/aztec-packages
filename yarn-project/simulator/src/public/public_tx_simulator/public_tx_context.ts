@@ -174,14 +174,8 @@ export class PublicTxContext {
     }
     if (phase === TxExecutionPhase.SETUP) {
       this.log.warn(`Setup phase reverted! The transaction will be thrown out.`);
-    } else if (phase === TxExecutionPhase.APP_LOGIC) {
-      this.revertCode = RevertCode.APP_LOGIC_REVERTED;
-    } else if (phase === TxExecutionPhase.TEARDOWN) {
-      if (this.revertCode.equals(RevertCode.APP_LOGIC_REVERTED)) {
-        this.revertCode = RevertCode.BOTH_REVERTED;
-      } else {
-        this.revertCode = RevertCode.TEARDOWN_REVERTED;
-      }
+    } else if (phase === TxExecutionPhase.APP_LOGIC || phase === TxExecutionPhase.TEARDOWN) {
+      this.revertCode = RevertCode.REVERTED;
     }
   }
 
@@ -247,8 +241,12 @@ export class PublicTxContext {
   }
 
   /**
-   * The gasUsed by public and private,
-   * as if the entire teardown gas limit was consumed.
+   * The gasUsed by public and private, as if the entire teardown gas limit was consumed.
+   *
+   * This is intentional: teardown is used for gas accounting and refunds, so the transaction
+   * fee must be deterministic _before_ teardown executes. If fees depended on teardown's actual
+   * consumption there would be a circular dependency. Billing the full teardown gas limit
+   * (set by the user) makes the fee known in advance and available to the teardown function.
    */
   getTotalGasUsed(): Gas {
     return this.gasUsedByPrivate.add(this.gasUsedByPublic);

@@ -16,7 +16,7 @@ namespace bb::avm2 {
 struct lookup_nullifier_exists_nullifier_exists_check_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_NULLIFIER_EXISTS_NULLIFIER_EXISTS_CHECK";
     static constexpr std::string_view RELATION_NAME = "nullifier_exists";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 6;
     static constexpr Column SRC_SELECTOR = Column::execution_sel_execute_nullifier_exists;
     static constexpr Column DST_SELECTOR = Column::indexed_tree_check_sel;
     static constexpr Column COUNTS = Column::lookup_nullifier_exists_nullifier_exists_check_counts;
@@ -26,6 +26,7 @@ struct lookup_nullifier_exists_nullifier_exists_check_settings_ {
         ColumnAndShifts::execution_register_0_,
         ColumnAndShifts::execution_prev_nullifier_tree_root,
         ColumnAndShifts::execution_nullifier_tree_height,
+        ColumnAndShifts::execution_nullifier_merkle_separator,
         ColumnAndShifts::precomputed_zero
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -33,6 +34,7 @@ struct lookup_nullifier_exists_nullifier_exists_check_settings_ {
         ColumnAndShifts::indexed_tree_check_value,
         ColumnAndShifts::indexed_tree_check_root,
         ColumnAndShifts::indexed_tree_check_tree_height,
+        ColumnAndShifts::indexed_tree_check_merkle_hash_separator,
         ColumnAndShifts::indexed_tree_check_sel_silo
     };
 };

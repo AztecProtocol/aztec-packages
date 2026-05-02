@@ -7,6 +7,12 @@ describe('NoteDao', () => {
     expect(NoteDao.fromBuffer(buf)).toEqual(note);
   });
 
+  it('reports the serialized size', async () => {
+    const note = await NoteDao.random();
+
+    expect(note.getSize()).toBe(note.toBuffer().length);
+  });
+
   describe('equals', () => {
     it('returns true for identical NoteDao instances', async () => {
       const note1 = await NoteDao.random();

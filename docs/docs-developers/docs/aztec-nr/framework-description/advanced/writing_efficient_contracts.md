@@ -61,6 +61,10 @@ Measuring gate counts is explained in the [profiling guide](./how_to_profile_tra
 
 Of the L2 costs, the public/private data being updated is most significant. As L2 functions create notes, nullifiers, encrypted logs, all of this get posted into blobs on ethereum and will be quite expensive
 
+:::tip Data packing
+You can reduce storage operation costs by implementing custom `Packable` for your structs, packing multiple sub-`Field` values into fewer `Field` elements. See [Data Packing and Serialization](../data_packing.md) for details.
+:::
+
 ### L1 Limits
 
 While most zk rollups don't leverage the zero-knowledge property like Aztec, they do leverage the succinctness property.
@@ -95,9 +99,9 @@ To get a sense of things, here is a table of gate counts for common operations:
 | ~75   | Hashing 3 fields with Poseidon2                                                |
 | 3500  | Reading a value from a tree (public data tree, note hash tree, nullifier tree) |
 | 4000  | Reading a delayed public mutable read                                          |
-| X000  | Calculating sha256                                                             |
-| X000  | Constrained encryption of a log of Y fields                                    |
-| X000  | Constrained encryption and tag a log of Y fields                               |
+| ~5,000 | Calculating sha256 (varies by input size) |
+| Varies | Constrained encryption of a private log (depends on field count) |
+| Varies | Constrained encryption and tagging of a private log (depends on field count) |
 
 ### Optimization: use arithmetic instead of non-arithmetic operations
 
@@ -106,7 +110,7 @@ Because the underlying equation in the proving backend makes use of multiplicati
 For example:
 
 ```rust
-comptime global TWO_POW_32: Field = 2.pow_32(16);
+comptime global TWO_POW_16: Field = 2.pow_32(16);
 // ...
 {
     #[external("private")]
@@ -116,7 +120,7 @@ comptime global TWO_POW_32: Field = 2.pow_32(16);
 
     #[external("private")]
     fn mul_efficient(number: Field) -> u128 {
-        (number * TWO_POW_32) as u128
+        (number * TWO_POW_16) as u128
     } // 5184 gates (60 gates less)
 }
 ```
@@ -153,7 +157,7 @@ For example, use boolean equality effectively instead of `>=`:
             }
         }
         sum
-    } // 45068 gates (751 gates less)
+    } // 45068 gates (751 gates more due to the boolean operations, but the pattern demonstrates how to avoid range checks)
 }
 ```
 
@@ -179,11 +183,11 @@ See [this example](https://github.com/noir-lang/noir-examples/blob/master/noir_b
 Consider the following example of an implementation of the `sqrt` function:
 
 ```rust
-use dep::aztec::macros::aztec;
+use aztec::macros::aztec;
 
 #[aztec]
 pub contract OptimisationExample {
-    use dep::aztec::macros::{functions::{external, initializer}, storage::storage};
+    use aztec::macros::{functions::{external, initializer}, storage::storage};
 
     #[storage]
     struct Storage<Context> {}
@@ -279,9 +283,12 @@ Like with sqrt, we have the inefficient function that does the sort with constra
         // Safety: calculate in unconstrained function, then constrain the result
         let sorted_array = unsafe { super::sort_array(array) };
         // constrain that sorted_array elements are sorted
-        for i in 0..super::ARRAY_SIZE as u32 {
+        for i in 0..super::ARRAY_SIZE as u32 - 1 {
             assert(sorted_array[i] <= sorted_array[i + 1], "array should be sorted");
         }
+        // Note: A production implementation should also verify that sorted_array is a
+        // permutation of the input array to prevent a malicious prover from returning
+        // arbitrary sorted values.
         sorted_array
     } // 5870 gates (953 gates less) for 10 elements, 12582 gates for 100 elements (115198 gates less)
 }
@@ -309,7 +316,7 @@ Note: The stdlib provides a highly optimized version of sort on arrays, `array.s
 ```rust
     #[external("private")]
     fn sort_stdlib(array: [u32; super::ARRAY_SIZE]) -> [u32; super::ARRAY_SIZE] {
-        array.sort();
+        array.sort()
     } // 5943 gates (880 gates less) for 10 elements, 13308 gates for 100 elements (114472 gates less)
 ```
 

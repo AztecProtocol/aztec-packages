@@ -3,6 +3,7 @@ import {
   addressingWithIndirectTagIssueTest,
   addressingWithIndirectThenRelativeTagIssueTest,
   addressingWithRelativeOverflowAndIndirectTagIssueTest,
+  castTruncationTest,
   defaultGlobals,
   instructionTruncatedTest,
   invalidByteTest,
@@ -10,6 +11,7 @@ import {
   invalidTagValueAndInstructionTruncatedTest,
   invalidTagValueTest,
   pcOutOfRangeTest,
+  setTruncationTest,
 } from '@aztec/simulator/public/fixtures';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -96,4 +98,28 @@ describe('AVM bytecode flow unhappy paths', () => {
     const result = await invalidTagValueAndInstructionTruncatedTest(tester);
     expect(result.revertCode.isOK()).toBe(false);
   });
+});
+
+describe('AVM custom bytecodes truncation', () => {
+  let tester: AvmProvingTester;
+  let worldStateService: NativeWorldStateService;
+
+  beforeEach(async () => {
+    worldStateService = await NativeWorldStateService.tmp();
+    tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true, /*globals=*/ defaultGlobals());
+  });
+
+  afterEach(async () => {
+    await worldStateService.close();
+  });
+
+  it('SET truncation to narrower target tags', async () => {
+    const result = await setTruncationTest(tester);
+    expect(result.revertCode.isOK()).toBe(true);
+  }, 20_000);
+
+  it('CAST truncation to narrower target tags', async () => {
+    const result = await castTruncationTest(tester);
+    expect(result.revertCode.isOK()).toBe(true);
+  }, 20_000);
 });

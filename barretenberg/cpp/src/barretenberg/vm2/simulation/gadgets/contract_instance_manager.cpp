@@ -1,7 +1,7 @@
 #include "barretenberg/vm2/simulation/gadgets/contract_instance_manager.hpp"
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/assert.hpp"
-#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2::simulation {
 

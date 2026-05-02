@@ -23,14 +23,14 @@ import { computeAddressSecret, computePreaddress } from '../keys/derivation.js';
  * doesn't seem to be a good way around this.
  */
 export class ExtendedDirectionalAppTaggingSecret {
-  private constructor(
+  constructor(
     public readonly secret: Fr,
     public readonly app: AztecAddress,
   ) {}
 
   /**
    * Derives shared tagging secret and from that, the app address and recipient derives the directional app tagging
-   * secret.
+   * secret. Returns undefined if `externalAddress` is an invalid address.
    *
    * @param localAddress - The complete address of entity A in the shared tagging secret derivation scheme
    * @param localIvsk - The incoming viewing secret key of entity A
@@ -45,8 +45,12 @@ export class ExtendedDirectionalAppTaggingSecret {
     externalAddress: AztecAddress,
     app: AztecAddress,
     recipient: AztecAddress,
-  ): Promise<ExtendedDirectionalAppTaggingSecret> {
+  ): Promise<ExtendedDirectionalAppTaggingSecret | undefined> {
     const taggingSecretPoint = await computeSharedTaggingSecret(localAddress, localIvsk, externalAddress);
+    if (!taggingSecretPoint) {
+      return undefined;
+    }
+
     const appTaggingSecret = await poseidon2Hash([taggingSecretPoint.x, taggingSecretPoint.y, app]);
     const directionalAppTaggingSecret = await poseidon2Hash([appTaggingSecret, recipient]);
 
@@ -63,17 +67,24 @@ export class ExtendedDirectionalAppTaggingSecret {
   }
 }
 
-// Returns shared tagging secret computed with Diffie-Hellman key exchange.
+// Returns shared tagging secret computed with Diffie-Hellman key exchange, or undefined if `externalAddress` is an
+// invalid address.
 async function computeSharedTaggingSecret(
   localAddress: CompleteAddress,
   localIvsk: Fq,
   externalAddress: AztecAddress,
-): Promise<Point> {
-  const knownPreaddress = await computePreaddress(await localAddress.publicKeys.hash(), localAddress.partialAddress);
-  // TODO: #8970 - Computation of address point from x coordinate might fail
-  const externalAddressPoint = await externalAddress.toAddressPoint();
+): Promise<Point | undefined> {
   // Given A (local complete address) -> B (external address) and h == preaddress
   // Compute shared secret as S = (h_A + local_ivsk_A) * Addr_Point_B
+
+  const knownPreaddress = await computePreaddress(await localAddress.publicKeys.hash(), localAddress.partialAddress);
+
+  // An invalid address has no corresponding address point
+  if (!(await externalAddress.isValid())) {
+    return undefined;
+  }
+
+  const externalAddressPoint = await externalAddress.toAddressPoint();
 
   // Beware! h_a + local_ivsk_a (also known as the address secret) can lead to an address point with a negative
   // y-coordinate, since there's two possible candidates computeAddressSecret takes care of selecting the one that

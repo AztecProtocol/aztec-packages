@@ -178,4 +178,3 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     }
   }
 }
-// docs:end:cross_chain_test_harness

@@ -43,14 +43,18 @@ Two independent syncpoints track progress on L1:
 
 ### L1-to-L2 Messages
 
-Messages are synced from the Inbox contract via `handleL1ToL2Messages()`:
+Messages are synced from the Inbox contract. The sync compares local state (message count and rolling hash) against the Inbox contract state on L1, downloads any missing messages, and verifies consistency afterwards. On success, the syncpoint advances to the current L1 block. On failure (L1 reorg or inconsistency), the syncpoint rolls back to the last known-good message and the operation retries (up to 3 times within the same sync iteration).
 
 1. Query Inbox state at the current L1 block (message count + rolling hash)
-2. Compare local vs remote state
-3. If they match, nothing to do
-4. If mismatch, validate the local last message still exists on L1 with the same rolling hash
-   - If not found or hash differs, an L1 reorg occurred: find the last common message, delete everything after, and rollback the syncpoint
-5. Fetch `MessageSent` events in batches and store
+2. Compare local state against remote
+3. If they match, advance syncpoint and return
+4. If mismatch, fetch `MessageSent` events in batches and store them
+   - If storing fails due to a rolling hash mismatch (indicating an L1 reorg changed or removed messages), find the last common message with L1, delete everything after, reset the syncpoint, and retry
+5. After storing, verify local state matches the remote state queried in step 1
+   - If still mismatched (e.g., messages missed due to a concurrent L1 reorg), rollback and retry
+6. On success, advance the syncpoint
+
+The syncpoint and the `inboxTreeInProgress` marker (which tracks which checkpoint's messages are currently being filled on L1) are updated atomically. The marker is only advanced after messages are stored, so concurrent reads don't see an unsealed checkpoint as readable before its messages are available.
 
 ### Checkpoints
 
@@ -80,6 +84,8 @@ The `blocksSynchedTo` syncpoint is updated:
 - When rolling back due to L1 reorg or missing checkpoints: set to the target L1 block to re-fetch from
 
 Note that the `blocksSynchedTo` pointer is NOT updated during normal sync when there are no new checkpoints. This protects against small L1 reorgs that could add a checkpoint on an L1 block we have flagged as already synced.
+
+The `messagesSynchedTo` pointer is always advanced to the current L1 block on success. If a rolling hash mismatch or post-download inconsistency is detected, the pointer rolls back to the last common message and the operation retries. The rolling hash chain and pre/post-sync consistency checks provide the primary reorg protection.
 
 ### Block Queue
 

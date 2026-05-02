@@ -59,6 +59,9 @@ class ProofCompressor {
 
     static uint256_t read_u256(const std::vector<uint8_t>& data, size_t& pos)
     {
+        if (pos + 32 > data.size()) {
+            throw_or_abort("proof_compression: read_u256 out of bounds");
+        }
         uint256_t val{ 0, 0, 0, 0 };
         for (int i = 31; i >= 0; --i) {
             val.data[i / 8] |= static_cast<uint64_t>(data[pos++]) << (8 * (i % 8));
@@ -224,7 +227,6 @@ class ProofCompressor {
     static void walk_joint_proof(ScalarFn&& process_scalar, CommitmentFn&& process_commitment)
     {
         constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N; // 17
-        constexpr size_t MEGA_ZK_LOG_N = MegaZKFlavor::VIRTUAL_LOG_N;            // 16
         // --- Translator Oink ---
         // Gemini masking poly commitment
         process_commitment();
@@ -241,29 +243,22 @@ class ProofCompressor {
         // Libra sum
         process_scalar();
 
-        // Committed sumcheck rounds 0..MEGA_ZK_LOG_N-1 (commitment + 2 evals per round)
-        for (size_t round = 0; round < MEGA_ZK_LOG_N; round++) {
-            process_commitment(); // round univariate commitment
-            process_scalar();     // eval at 0
-            process_scalar();     // eval at 1
+        // Committed sumcheck rounds 0..JOINT_LOG_N-1 (commitment + 2 evals per round)
+        for (size_t round = 0; round < JOINT_LOG_N; round++) {
             // Minicircuit evaluations sent at round LOG_MINI_CIRCUIT_SIZE - 1
-            if (round == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE - 1) {
+            if (round == TranslatorFlavor::LOG_MINI_CIRCUIT_SIZE) {
                 for (size_t j = 0; j < TranslatorFlavor::NUM_MINICIRCUIT_EVALUATIONS; j++) {
                     process_scalar();
                 }
             }
-        }
-
-        // MegaZK evaluations (sent after all real rounds, before virtual rounds)
-        for (size_t i = 0; i < MegaZKFlavor::NUM_ALL_ENTITIES; i++) {
-            process_scalar();
-        }
-
-        // Virtual committed sumcheck rounds MEGA_ZK_LOG_N..JOINT_LOG_N-1
-        for (size_t round = MEGA_ZK_LOG_N; round < JOINT_LOG_N; round++) {
             process_commitment(); // round univariate commitment
             process_scalar();     // eval at 0
             process_scalar();     // eval at 1
+        }
+
+        // MegaZK evaluations (sent after all sumcheck rounds)
+        for (size_t i = 0; i < MegaZKFlavor::NUM_ALL_ENTITIES; i++) {
+            process_scalar();
         }
 
         // Translator evaluations (sent after all rounds)
@@ -371,7 +366,6 @@ class ProofCompressor {
 
     // Joint proof — mirrors walk_joint_proof (translator oink + joint sumcheck + joint PCS)
     static constexpr size_t JOINT_LOG_N = TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
-    static constexpr size_t MEGA_ZK_LOG_N = MegaZKFlavor::VIRTUAL_LOG_N;
     static constexpr size_t EXPECTED_JOINT_FRS =
         // Translator oink
         1 * BN254_FRS_PER_COMM +                                                                                   // gemini masking poly
@@ -385,7 +379,7 @@ class ProofCompressor {
         2 * JOINT_LOG_N * BN254_FRS_PER_SCALAR +                                                                   // round univariate evals
         // Minicircuit evaluations (sent once at round LOG_MINI_CIRCUIT_SIZE - 1)
         TranslatorFlavor::NUM_MINICIRCUIT_EVALUATIONS * BN254_FRS_PER_SCALAR +                                     // minicircuit evals
-        // MegaZK evaluations (sent after real rounds)
+        // MegaZK evaluations (sent after all sumcheck rounds)
         MegaZKFlavor::NUM_ALL_ENTITIES * BN254_FRS_PER_SCALAR +                                                    // mega_zk evals
         // Translator evaluations (sent after all rounds)
         TranslatorFlavor::NUM_FULL_CIRCUIT_EVALUATIONS * BN254_FRS_PER_SCALAR +                                    // translator evals
@@ -422,10 +416,14 @@ class ProofCompressor {
      */
     static size_t compressed_mega_num_public_inputs(size_t compressed_bytes)
     {
-        BB_ASSERT(compressed_bytes % 32 == 0);
+        if (compressed_bytes % 32 != 0) {
+            throw_or_abort("proof_compression: compressed size not aligned to 32 bytes");
+        }
         size_t total_elements = compressed_bytes / 32;
         size_t fixed_elements = compressed_element_count(0);
-        BB_ASSERT(total_elements >= fixed_elements);
+        if (total_elements < fixed_elements) {
+            throw_or_abort("proof_compression: compressed proof too short");
+        }
         return total_elements - fixed_elements;
     }
 
@@ -492,7 +490,9 @@ class ProofCompressor {
         size_t mega_num_pub_inputs =
             proof.hiding_oink_proof.size() - ProofLength::Oink<MegaZKFlavor>::LENGTH_WITHOUT_PUB_INPUTS;
         walk_chonk_proof(bn254_scalar, bn254_comm, grumpkin_scalar, grumpkin_comm, mega_num_pub_inputs);
-        BB_ASSERT(offset == flat.size());
+        if (offset != flat.size()) {
+            throw_or_abort("proof_compression: compress did not consume all proof elements");
+        }
         return out;
     }
 
@@ -502,13 +502,21 @@ class ProofCompressor {
         size_t pos = 0;
 
         // BN254 callbacks
-        auto bn254_scalar = [&]() { flat.emplace_back(read_u256(compressed, pos)); };
+        auto bn254_scalar = [&]() {
+            uint256_t raw = read_u256(compressed, pos);
+            if (raw >= Fr::modulus) {
+                throw_or_abort("proof_compression: BN254 scalar out of range");
+            }
+            flat.emplace_back(raw);
+        };
 
         auto bn254_comm = [&]() {
             uint256_t raw = read_u256(compressed, pos);
             bool sign = (raw & SIGN_BIT_MASK) != 0;
             uint256_t x_val = raw & ~SIGN_BIT_MASK;
 
+            // Point-at-infinity is encoded as all zeros (x=0, sign=false).
+            // Unambiguous because x=0 is not on BN254
             if (x_val == uint256_t(0) && !sign) {
                 for (int j = 0; j < 4; j++) {
                     flat.emplace_back(Fr::zero());
@@ -516,10 +524,15 @@ class ProofCompressor {
                 return;
             }
 
+            if (x_val >= Fq::modulus) {
+                throw_or_abort("proof_compression: BN254 x-coordinate out of range");
+            }
             Fq x(x_val);
             Fq y_squared = x * x * x + Bn254G1Params::b;
             auto [is_square, y] = y_squared.sqrt();
-            BB_ASSERT(is_square);
+            if (!is_square) {
+                throw_or_abort("proof_compression: BN254 point not on curve");
+            }
 
             if (y_is_negative(y) != sign) {
                 y = -y;
@@ -539,17 +552,23 @@ class ProofCompressor {
             bool sign = (raw & SIGN_BIT_MASK) != 0;
             uint256_t x_val = raw & ~SIGN_BIT_MASK;
 
+            // Point-at-infinity is encoded as all zeros (x=0, sign=false).
+            // Unambiguous because x=0 is not on Grumpkin
             if (x_val == uint256_t(0) && !sign) {
                 flat.emplace_back(Fr::zero());
                 flat.emplace_back(Fr::zero());
                 return;
             }
 
+            if (x_val >= Fr::modulus) {
+                throw_or_abort("proof_compression: Grumpkin x-coordinate out of range");
+            }
             Fr x(x_val);
-            // Grumpkin curve: y² = x³ + b, where b = -17 (in BN254::ScalarField)
             Fr y_squared = x * x * x + grumpkin::G1Params::b;
             auto [is_square, y] = y_squared.sqrt();
-            BB_ASSERT(is_square);
+            if (!is_square) {
+                throw_or_abort("proof_compression: Grumpkin point not on curve");
+            }
 
             if (y_is_negative(y) != sign) {
                 y = -y;
@@ -561,6 +580,9 @@ class ProofCompressor {
 
         auto grumpkin_scalar = [&]() {
             uint256_t raw = read_u256(compressed, pos);
+            if (raw >= Fq::modulus) {
+                throw_or_abort("proof_compression: Grumpkin scalar out of range");
+            }
             Fq fq_val(raw);
             auto [lo, hi] = split_fq(fq_val);
             flat.emplace_back(lo);
@@ -568,7 +590,9 @@ class ProofCompressor {
         };
 
         walk_chonk_proof(bn254_scalar, bn254_comm, grumpkin_scalar, grumpkin_comm, mega_num_public_inputs);
-        BB_ASSERT(pos == compressed.size());
+        if (pos != compressed.size()) {
+            throw_or_abort("proof_compression: decompression did not consume all bytes");
+        }
         return ChonkProof::from_field_elements(flat);
     }
 };

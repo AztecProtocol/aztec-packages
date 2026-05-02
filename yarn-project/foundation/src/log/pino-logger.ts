@@ -21,6 +21,8 @@ export type LoggerBindings = {
   instanceId?: string;
 };
 
+const MAX_MODULE_NAME_LENGTH = 256;
+
 // Allow global hooks for providing default bindings.
 // Used by withLoggerBindings in pino-logger-server to propagate bindings via AsyncLocalStorage.
 type LogBindingsHandler = () => LoggerBindings | undefined;
@@ -48,7 +50,7 @@ function getBindingsFromHandlers(): LoggerBindings | undefined {
 }
 
 export function createLogger(module: string, bindings?: LoggerBindings): Logger {
-  module = module.replace(/^aztec:/, '');
+  module = module.slice(0, MAX_MODULE_NAME_LENGTH).replace(/^aztec:/, '');
 
   const resolvedBindings = { ...getBindingsFromHandlers(), ...bindings };
   const actor = resolvedBindings?.actor;
@@ -375,5 +377,20 @@ export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ er
  * @returns A string with both the log message and the error message.
  */
 function formatErr(msg: string, err?: unknown): string {
-  return err ? `${msg}: ${inspect(err)}` : msg;
+  if (!err) {
+    return msg;
+  }
+
+  try {
+    return `${msg}: ${inspect(err)}`;
+  } catch {
+    // inspect can crash on error objects with broken property descriptors
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
+      return `${msg}: ${err instanceof Error ? `${err.name}: ${err.message}` : String(err)}`;
+    } catch {
+      // if even String(err) fails, return the original message with a note about the error
+      return `${msg}: [unserializable error]`;
+    }
+  }
 }

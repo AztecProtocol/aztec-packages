@@ -1,11 +1,36 @@
 use crate::{
-    hash::{accumulate_sha256, poseidon2_hash},
+    constants::{
+        DOM_SEP__MERKLE_HASH, DOM_SEP__NULLIFIER_MERKLE, DOM_SEP__PUBLIC_DATA_MERKLE,
+        DOM_SEP__RETRIEVED_BYTECODES_MERKLE, DOM_SEP__WRITTEN_SLOTS_MERKLE,
+    },
+    hash::{accumulate_sha256, poseidon2_hash_with_separator},
     traits::Empty,
     utils::math::is_power_of_2_u32,
 };
 
+/// Merkle-node hash used by append-only trees.
 pub fn merkle_hash(left: Field, right: Field) -> Field {
-    poseidon2_hash([left, right])
+    poseidon2_hash_with_separator([left, right], DOM_SEP__MERKLE_HASH)
+}
+
+/// Merkle-node hash for the nullifier tree's sibling paths.
+pub fn nullifier_merkle_hash(left: Field, right: Field) -> Field {
+    poseidon2_hash_with_separator([left, right], DOM_SEP__NULLIFIER_MERKLE)
+}
+
+/// Merkle-node hash for the public-data tree's sibling paths.
+pub fn public_data_merkle_hash(left: Field, right: Field) -> Field {
+    poseidon2_hash_with_separator([left, right], DOM_SEP__PUBLIC_DATA_MERKLE)
+}
+
+/// Merkle-node hash for the AVM-internal written-public-data-slots tree's sibling paths.
+pub fn written_slots_merkle_hash(left: Field, right: Field) -> Field {
+    poseidon2_hash_with_separator([left, right], DOM_SEP__WRITTEN_SLOTS_MERKLE)
+}
+
+/// Merkle-node hash for the AVM-internal retrieved-bytecodes (class-id) tree's sibling paths.
+pub fn retrieved_bytecodes_merkle_hash(left: Field, right: Field) -> Field {
+    poseidon2_hash_with_separator([left, right], DOM_SEP__RETRIEVED_BYTECODES_MERKLE)
 }
 
 pub fn sha_merkle_hash(left: Field, right: Field) -> Field {
@@ -27,6 +52,11 @@ impl<let N: u32> Empty for MerkleTree<N> {
 impl<let N: u32> MerkleTree<N> {
     pub fn new(leaves: [Field; N]) -> Self {
         let nodes = compute_merkle_tree_nodes(leaves, merkle_hash);
+        MerkleTree { leaves, nodes }
+    }
+
+    pub fn new_with_hasher(leaves: [Field; N], hasher: fn(Field, Field) -> Field) -> Self {
+        let nodes = compute_merkle_tree_nodes(leaves, hasher);
         MerkleTree { leaves, nodes }
     }
 

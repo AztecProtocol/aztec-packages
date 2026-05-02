@@ -133,7 +133,9 @@ class FrCodec {
             T val;
             val.x = deserialize_from_fields<BaseField>(fr_vec.subspan(0, BASE));
             val.y = deserialize_from_fields<BaseField>(fr_vec.subspan(BASE, BASE));
-            BB_ASSERT(val.on_curve());
+            if (!val.on_curve()) {
+                throw_or_abort("Deserialized point is not on the curve");
+            }
             return val;
         } else {
             // Array or Univariate
@@ -268,7 +270,9 @@ class U256Codec {
             if (val.x == BaseField::zero() && val.y == BaseField::zero()) {
                 val.self_set_infinity();
             }
-            BB_ASSERT(val.on_curve());
+            if (!val.on_curve()) {
+                throw_or_abort("Deserialized point is not on the curve");
+            }
             return val;
         } else {
             // Array or Univariate

@@ -260,7 +260,7 @@ const INBOX_ABI = [
     type: "event",
     name: "MessageSent",
     inputs: [
-      { name: "l2BlockNumber", type: "uint256", indexed: true },
+      { name: "checkpointNumber", type: "uint256", indexed: true },
       { name: "index", type: "uint256", indexed: false },
       { name: "hash", type: "bytes32", indexed: true },
       { name: "rollingHash", type: "bytes16", indexed: false },
@@ -384,13 +384,13 @@ console.log("✓ WETH transferred to bridge for swap\n");
 // docs:start:wait_for_proof
 console.log("Waiting for block to be proven...\n");
 
-let provenBlockNumber = await node.getProvenBlockNumber();
+let provenBlockNumber = await node.getBlockNumber('proven');
 while (provenBlockNumber < swapReceipt.blockNumber!) {
   console.log(
     `   Waiting... (proven: ${provenBlockNumber}, needed: ${swapReceipt.blockNumber})`,
   );
   await new Promise((resolve) => setTimeout(resolve, 10000));
-  provenBlockNumber = await node.getProvenBlockNumber();
+  provenBlockNumber = await node.getBlockNumber('proven');
 }
 
 console.log("Block proven!\n");

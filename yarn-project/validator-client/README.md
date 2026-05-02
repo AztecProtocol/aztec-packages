@@ -158,13 +158,11 @@ Time | Proposer                     | Validator
 
 | Flag                                  | Purpose                                                                                |
 | ------------------------------------- | -------------------------------------------------------------------------------------- |
-| `validatorReexecute`                  | Re-execute transactions to verify proposals                                            |
 | `fishermanMode`                       | Validate proposals but don't broadcast attestations (monitoring only)                  |
 | `alwaysReexecuteBlockProposals`       | Force re-execution even when not in committee                                          |
 | `slashBroadcastedInvalidBlockPenalty` | Penalty amount for invalid proposals (0 = disabled)                                    |
 | `slashDuplicateProposalPenalty`       | Penalty amount for duplicate proposals (0 = disabled)                                  |
 | `slashDuplicateAttestationPenalty`    | Penalty amount for duplicate attestations (0 = disabled)                               |
-| `validatorReexecuteDeadlineMs`        | Time reserved at end of slot for propagation/publishing                                |
 | `attestationPollingIntervalMs`        | How often to poll for attestations when collecting                                     |
 | `disabledValidators`                  | Validator addresses to exclude from duties                                             |
 

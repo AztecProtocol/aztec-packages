@@ -1,8 +1,8 @@
 # Sequencer Timing Model
 
-The Aztec sequencer divides each slot into **fixed-duration sub-slots**. Each sub-slot has a pre-defined start and end time based on an initialization offset (how much time we expect syncing the previous slot will take), a finalization time (how much time we need for closing a checkpoint and publishing it to L1), and the configured block duration.
+The Aztec sequencer divides each slot into **fixed-duration sub-slots**. Each sub-slot has a pre-defined start and end time based on an initialization offset (how much time we expect syncing the previous slot will take), the configured block duration, and whether checkpoint finalization is paid for in the current slot or deferred under proposer pipelining.
 
-**Example: 72-second slot with 8-second sub-slots**
+**Example: 72-second slot with 8-second sub-slots (non-pipelined)**
 
 ```
 0s:  Slot starts
@@ -31,7 +31,7 @@ Deadlines are fixed relative to slot start, not relative to when work actually c
 
 ## Overview
 
-The Aztec sequencer operates in fixed-duration **slots** (typically 72 seconds). During each slot, a designated proposer builds multiple **blocks** containing transactions over multiple **sub-slots**, then collects a single round of attestations for the entire **checkpoint** from validators, and finally publishes the resulting checkpoint to L1 Ethereum.
+The Aztec sequencer operates in fixed-duration **slots** (typically 72 seconds). During each slot, a designated proposer builds multiple **blocks** containing transactions over multiple **sub-slots**. In the default mode, the same slot also reserves time to collect attestations for the resulting **checkpoint**, finalize it, and publish it to L1 Ethereum. When proposer pipelining is enabled, the slot budget for block building is larger because checkpoint finalization is deferred to the next target slot.
 
 ## Key Concepts
 
@@ -42,11 +42,13 @@ The Aztec sequencer operates in fixed-duration **slots** (typically 72 seconds).
 - **Checkpoint**: The collection of all blocks built in a slot, attested by validators and published to L1
 - **Sub-slot**: A fixed-duration time window within a slot (e.g., 8 seconds) during which a block should be built
 
-In a typical configuration, a 72-second slot contains:
+In a typical configuration without pipelining, a 72-second slot contains:
 - 1 initialization period (2 seconds)
 - 5 block-building sub-slots (8 seconds each = 40 seconds)
 - 1 last validator re-execution sub-slot (8 seconds)
 - 1 attestation and publishing period (17 seconds)
+
+With proposer pipelining enabled, the last validator re-execution sub-slot is still reserved, but L1 publishing is deferred to the target slot and removed from the current slot budget. Attestation collection is completed inside the build slot itself, so the proposer can send the L1 transaction immediately at the target-slot boundary.
 
 ### The Fixed Sub-Slot Model
 
@@ -75,14 +77,20 @@ These values are configurable but must satisfy certain constraints (explained be
 
 ## Calculating Sub-Slots and Blocks
 
-Given a slot configuration, we calculate how many blocks fit using this formula:
+Given a slot configuration, we calculate how many blocks fit using these formulas:
 
 ```
-timeReservedAtEnd = blockDuration                              (last sub-slot for reexecution)
-                  + propagationTime                            (validators receive proposal)
-                  + propagationTime                            (attestations come back)
-                  + finalizationTime                           (checkpoint finalization)
-                  + l1PublishingTime                           (L1 transaction)
+checkpointFinalizationTime = propagationTime
+                           + propagationTime
+                           + finalizationTime
+                           + l1PublishingTime
+
+timeReservedAtEnd (normal mode) = blockDuration               (last sub-slot for reexecution)
+                                + checkpointFinalizationTime
+
+timeReservedAtEnd (pipelining) = assembleTime
+                               + 2 * propagationTime         (proposal out + attestations back)
+                               + blockDuration               (last-block re-execution)
 
 timeAvailableForBlocks = slotDuration - initializationOffset - timeReservedAtEnd
 
@@ -100,6 +108,60 @@ This means:
 - Sub-slots 1-5: Build blocks 1-5
 - Sub-slot 6: Reserved for validator re-execution of block 5
 - After sub-slot 6: Attestation collection, finalization, and L1 publishing
+
+**The same slot with proposer pipelining enabled:**
+```
+timeReservedAtEnd = 1s + 2*2s + 8s = 13s
+timeAvailableForBlocks = 72s - 2s - 13s = 57s
+numberOfBlocks = floor(57s / 8s) = 7 blocks
+```
+
+The extra two block opportunities come from not charging the current slot for L1 publishing. The proposal broadcast, attestation round-trip, and last-block re-execution are now all reserved inside the build slot so that attestations are in hand at the slot boundary.
+
+### Pipelining Mode
+
+When proposer pipelining is enabled, the sequencer uses the current wall-clock slot to build the checkpoint for the **next target slot**, and finishes collecting attestations before the slot boundary so that L1 publishing can happen immediately at the target-slot boundary.
+
+It helps to think in terms of two different slots:
+
+- **Wall-clock slot N-1**: The sequencer initializes checkpoint `N`, builds its blocks, validators re-execute the last block, and attestations are gathered
+- **Target slot N**: The checkpoint is submitted to L1
+
+So the work is split like this:
+
+- **During slot N-1**: Initialization, block building, last-block re-execution, proposal broadcast, and attestation collection
+- **At the start of slot N**: The L1 transaction is submitted — attestations are already in hand
+
+In other words, pipelining moves **block production, block re-execution, proposal broadcast, and attestation collection** into the build slot, while **L1 submission** happens aligned with slot `N`. With default values (72s slot, 6s block, 2s p2p, 1s assemble), the last build-slot block finishes at `T = slotDuration - timeReservedAtEnd = 61s`, the proposer broadcasts the checkpoint at `T=62s` after `assembleTime=1s`, and attestations are in hand by `T=72s` (the slot boundary).
+
+**Example: building checkpoint 12 while wall-clock time is in slot 11**
+```
+Slot 11 (wall clock):
+- Build blocks that will make up checkpoint 12
+- Broadcast checkpoint 12 proposal
+- Validators re-execute the last block of checkpoint 12
+- Collect checkpoint 12 attestations (all complete before slot 11 ends)
+
+Slot 12 (target/submission slot):
+- Submit checkpoint 12 to L1 at the slot boundary
+```
+
+For timetable purposes:
+
+- `maxNumberOfBlocks` is computed by reserving assembly + round-trip p2p + last-block re-execution at the end of the slot
+- `initializeDeadline` no longer subtracts checkpoint finalization time; it only requires enough time for initialization and two execution windows
+
+In code, that means:
+
+```
+initializeDeadline (normal mode) =
+  slotDuration - initializationOffset - 2 * minExecutionTime - checkpointFinalizationTime
+
+initializeDeadline (pipelining) =
+  slotDuration - initializationOffset - 2 * minExecutionTime
+```
+
+The fixed sub-slot deadlines themselves do not change. Pipelining only changes how much of the slot is considered available for block building, and when the broadcast and attestation windows close.
 
 ## The Sequencer's Work
 
@@ -226,7 +288,9 @@ After the last block is built and validators have re-executed it:
 
 **Time reserved:** `2*propagationTime + finalizationTime + l1PublishingTime = 2s + 2s + 1s + 12s = 17s`
 
-This 17s comes after the last sub-slot, ensuring we have enough time to complete the checkpoint. If the sequencer receives the necessary attestations before the reserved time, the L1 tx is submitted earlier.
+In the non-pipelined path, this 17s comes after the last sub-slot, ensuring we have enough time to complete the checkpoint. If the sequencer receives the necessary attestations before the reserved time, the L1 tx is submitted earlier.
+
+With proposer pipelining enabled, this finalization budget is not charged against the current slot when calculating how many blocks fit. The checkpoint is instead queued for submission at the start of the target slot, so proposal broadcast, attestation gathering, and L1 submission happen in slot `N` while block building and block re-execution already happened in slot `N-1`.
 
 ## Handling Timing Variations
 
@@ -399,7 +463,7 @@ When configuring timing parameters, ensure these constraints are satisfied:
 
 ### Minimum Slot Duration
 
-For a valid configuration:
+For a valid multi-block configuration without pipelining:
 ```
 slotDuration >= initializationOffset
               + blockDuration * 2                          (at least 2 blocks)
@@ -412,6 +476,11 @@ slotDuration >= initializationOffset
 Simplified:
 ```
 slotDuration >= initializationOffset + 3*blockDuration + 2*propagationTime + finalizationTime + l1PublishingTime
+```
+
+With proposer pipelining enabled, the same "at least 2 buildable blocks plus the final validator re-execution sub-slot" requirement becomes:
+```
+slotDuration >= initializationOffset + 3*blockDuration
 ```
 
 **Example:**
@@ -465,7 +534,7 @@ The sequencer transitions through these states during a slot:
 | **WAITING_UNTIL_NEXT_BLOCK** | Until next sub-slot start | Sleep between blocks to maintain intervals |
 | **ASSEMBLING_CHECKPOINT** | assembleTime (1s) | Assemble final checkpoint |
 | **COLLECTING_ATTESTATIONS** | Until L1 publish deadline | Wait for validator signatures |
-| **PUBLISHING_CHECKPOINT** | Until slot end | Submit to L1 |
+| **PUBLISHING_CHECKPOINT** | Until L1 publish deadline | Submit to L1 |
 
 ## Complete Example: 72-Second Slot with 8-Second Sub-Slots
 

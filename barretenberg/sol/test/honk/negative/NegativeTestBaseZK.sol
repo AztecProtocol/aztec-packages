@@ -4,7 +4,6 @@ pragma solidity ^0.8.21;
 import {TestBase} from "test/base/TestBase.sol";
 import {DifferentialFuzzer} from "test/base/DifferentialFuzzer.sol";
 import {IVerifier} from "src/interfaces/IVerifier.sol";
-import {BaseZKHonkVerifier} from "src/honk/BaseZKHonkVerifier.sol";
 import {Errors} from "src/honk/Errors.sol";
 
 /**
@@ -19,9 +18,11 @@ import {Errors} from "src/honk/Errors.sol";
  * The optimized verifier uses different error types (SUMCHECK_FAILED vs BaseZKHonkVerifier.SumcheckFailed).
  *
  * SECURITY OBSERVATION:
- * The ZK verifier rejects the point at infinity (0,0) at the deserialization boundary
- * via bytesToG1Point's (x | y) != 0 check. On-curve validation (y² = x³ + 3) is
- * delegated to the ecAdd/ecMul precompiles per EIP-196.
+ * The verifier accepts (0,0) (the EIP-196 identity encoding) for commitment-position
+ * points: legitimate polynomial commitments to identically-zero polynomials encode this
+ * way, and the ecAdd/ecMul precompiles treat it as the additive identity. Soundness
+ * against (0,0) substitution for a non-zero commitment is upheld downstream by
+ * sumcheck/Shplemini, which fails on inconsistent evaluations.
  *
  * Pairing points (136-bit limb encoded) have their limbs validated for bounds
  * and reconstructed coordinates checked < Q. Corrupted limbs that produce
@@ -327,58 +328,6 @@ abstract contract NegativeTestBaseZK is TestBase {
         verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                    POINT OF INFINITY (0,0) INJECTION
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice (0,0) in witness commitments - caught by point-at-infinity check
-    /// @dev bytesToG1Point validates (x | y) != 0. (0,0) is rejected with
-    ///      PointAtInfinity before any computation begins.
-    function test_PointOfInfinity_WL() public virtual {
-        bytes memory proof = copyProof();
-        setG1Point(proof, W_L_OFFSET, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
-    function test_PointOfInfinity_WR() public virtual {
-        bytes memory proof = copyProof();
-        setG1Point(proof, W_R_OFFSET, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
-    function test_PointOfInfinity_WO() public virtual {
-        bytes memory proof = copyProof();
-        setG1Point(proof, W_O_OFFSET, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
-    /// @notice (0,0) in kzgQuotient - caught by point-at-infinity check
-    function test_PointOfInfinity_KzgQuotient() public virtual {
-        bytes memory proof = copyProof();
-        uint256 xOffset = proof.length - 64;
-        setG1Point(proof, xOffset, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
-    /// @notice (0,0) in shplonkQ - caught by point-at-infinity check
-    function test_PointOfInfinity_ShplonkQ() public virtual {
-        bytes memory proof = copyProof();
-        // shplonkQ is right before kzgQuotient (last 64 bytes)
-        uint256 xOffset = proof.length - 128;
-        setG1Point(proof, xOffset, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
     /// @notice Invalid pairing points - no explicit check, caught via computation
     function test_InvalidPairingPoints() public virtual {
         bytes memory proof = copyProof();
@@ -394,26 +343,6 @@ abstract contract NegativeTestBaseZK is TestBase {
     /*//////////////////////////////////////////////////////////////
                     ZK-SPECIFIC COMMITMENT CORRUPTION
     //////////////////////////////////////////////////////////////*/
-
-    /// @notice (0,0) in geminiMaskingPoly - caught by point-at-infinity check
-    /// @dev bytesToG1Point validates (x | y) != 0. (0,0) is rejected with PointAtInfinity.
-    function test_PointOfInfinity_GeminiMaskingPoly() public virtual {
-        bytes memory proof = copyProof();
-        setG1Point(proof, GEMINI_MASKING_POLY_OFFSET, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
-
-    /// @notice (0,0) in libraCommitments[0] - caught by point-at-infinity check
-    /// @dev bytesToG1Point validates (x | y) != 0. (0,0) is rejected with PointAtInfinity.
-    function test_PointOfInfinity_LibraComm0() public virtual {
-        bytes memory proof = copyProof();
-        setG1Point(proof, LIBRA_COMM_0_OFFSET, 0, 0);
-
-        vm.expectRevert(Errors.PointAtInfinity.selector);
-        verifier.verify{gas: 15_000_000}(proof, cachedPublicInputs);
-    }
 
     /// @notice Corrupting geminiMaskingPoly causes SumcheckFailed
     function test_GeminiMaskingPoly_Negated() public virtual {

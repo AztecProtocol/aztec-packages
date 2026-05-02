@@ -88,6 +88,8 @@ class KernelIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
+        BB_ASSERT_GTE(
+            public_inputs.size(), PUBLIC_INPUTS_SIZE, "Public inputs too small for HidingKernelIO reconstruction");
         // Assumes that the kernel-io public inputs are at the end of the public_inputs vector
         size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
 
@@ -173,6 +175,8 @@ template <typename Builder_> class DefaultIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
+        BB_ASSERT_GTE(
+            public_inputs.size(), PUBLIC_INPUTS_SIZE, "Public inputs too small for AppCircuitIO reconstruction");
         // Assumes that the app-io public inputs are at the end of the public_inputs vector
         size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -236,6 +240,8 @@ template <typename Builder_> class GoblinAvmIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
+        BB_ASSERT_GTE(
+            public_inputs.size(), PUBLIC_INPUTS_SIZE, "Public inputs too small for GoblinAvmIO reconstruction");
         // Assumes that the GoblinAvm-io public inputs are at the end of the public_inputs vector
         size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
         transcript_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -289,6 +295,8 @@ template <class Builder_> class HidingKernelIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
+        BB_ASSERT_GTE(
+            public_inputs.size(), PUBLIC_INPUTS_SIZE, "Public inputs too small for HidingKernelIO reconstruction");
         // Assumes that the hiding-kernel-io public inputs are at the end of the public_inputs vector
         size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -369,6 +377,7 @@ class RollupIO {
      */
     void reconstruct_from_public(const std::vector<FF>& public_inputs)
     {
+        BB_ASSERT_GTE(public_inputs.size(), PUBLIC_INPUTS_SIZE, "Public inputs too small for RollupIO reconstruction");
         size_t index = public_inputs.size() - PUBLIC_INPUTS_SIZE;
         pairing_inputs = PublicPairingPoints::reconstruct(public_inputs, PublicComponentKey{ index });
         index += PairingInputs::PUBLIC_INPUTS_SIZE;

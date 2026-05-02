@@ -5,6 +5,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
   makeCheckpointAttestation,
   makeCheckpointHeader,
@@ -26,8 +27,15 @@ describe('FishermanAttestationValidator', () => {
 
   beforeEach(() => {
     epochCache = mock<EpochCacheInterface>();
+    epochCache.getL1Constants.mockReturnValue({
+      slotDuration: 72,
+      ethereumSlotDuration: 12,
+    } as any);
     attestationPool = mock<AttestationPool>();
-    validator = new FishermanAttestationValidator(epochCache, attestationPool, getTelemetryClient());
+    validator = new FishermanAttestationValidator(epochCache, attestationPool, getTelemetryClient(), {
+      l1PublishingTime: 12,
+      signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
+    });
     proposer = Secp256k1Signer.random();
     attester = Secp256k1Signer.random();
   });

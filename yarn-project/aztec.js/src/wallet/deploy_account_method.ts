@@ -1,10 +1,11 @@
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractArtifact, FunctionArtifact } from '@aztec/stdlib/abi';
+import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
+import { type Capsule, ExecutionPayload, type HashedValues, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
 import type { Account } from '../account/account.js';
 import type { Contract } from '../contract/contract.js';
@@ -22,6 +23,7 @@ import {
   type InteractionWaitOptions,
   NO_FROM,
   type ProfileInteractionOptions,
+  type SendInteractionOptionsWithoutWait,
 } from '../contract/interaction_options.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import { AccountEntrypointMetaPaymentMethod } from './account_entrypoint_meta_payment_method.js';
@@ -72,6 +74,12 @@ export type DeployAccountOptions<W extends InteractionWaitOptions = undefined> =
  */
 export type SimulateDeployAccountOptions = Omit<SimulateDeployOptions, 'contractAddressSalt'>;
 
+/** Fields from any interaction option shape that `DeployAccountMethod.prepareDeployOptions` reads or sets. */
+type DeployAccountInteractionOptions = Pick<
+  SendInteractionOptionsWithoutWait,
+  'additionalScopes' | 'from' | 'sendMessagesAs'
+>;
+
 /**
  * Modified version of the DeployMethod used to deploy account contracts. Supports deploying
  * contracts that can pay for their own fee, plus some preconfigured options to avoid errors.
@@ -86,8 +94,21 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     private account: Account,
     args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
+    authWitnesses: AuthWitness[] = [],
+    capsules: Capsule[] = [],
+    extraHashedArgs: HashedValues[] = [],
   ) {
-    super(publicKeys, wallet, artifact, postDeployCtor, args, constructorNameOrArtifact);
+    super(
+      publicKeys,
+      wallet,
+      artifact,
+      postDeployCtor,
+      args,
+      constructorNameOrArtifact,
+      authWitnesses,
+      capsules,
+      extraHashedArgs,
+    );
   }
 
   /**
@@ -170,29 +191,66 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
   protected override convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
   ): SendOptions<W> {
-    return super.convertDeployOptionsToSendOptions(this.injectContractAddressIntoScopes(options));
+    return super.convertDeployOptionsToSendOptions(this.prepareDeployOptions(options));
   }
 
   protected override convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions): SimulateOptions {
-    return super.convertDeployOptionsToSimulateOptions(this.injectContractAddressIntoScopes(options));
+    return super.convertDeployOptionsToSimulateOptions(this.prepareDeployOptions(options));
   }
 
   protected override convertDeployOptionsToProfileOptions(
     options: DeployOptionsWithoutWait & ProfileInteractionOptions,
   ): ProfileOptions {
-    return super.convertDeployOptionsToProfileOptions(this.injectContractAddressIntoScopes(options));
+    return super.convertDeployOptionsToProfileOptions(this.prepareDeployOptions(options));
   }
 
   /**
-   * Injects the contract's own address into scopes so the constructor can access its own keys.
-   * @param options - The deploy options to augment with the contract address.
+   * Augments deploy options so that the PXE has the context it needs to simulate/prove the deploy.
+   *
+   * - Injects the contract's own address into scopes so the constructor can access its own keys.
+   * - When `from === NO_FROM` (self-paid deploy), supplies the to-be-deployed address as `sendMessagesAs`. Without
+   *   this, fee-payment calls would have no sender for message tagging, and any private log they emit would fail
+   *   the "Sender for tags is not set" assertion.
+   * @param options - The deploy options to augment.
    */
-  // eslint-disable-next-line jsdoc/require-jsdoc
-  private injectContractAddressIntoScopes<T extends { additionalScopes?: AztecAddress[] }>(options: T): T {
+  private prepareDeployOptions<T extends DeployAccountInteractionOptions>(options: T): T {
     if (!this.address) {
       throw new Error('Instance not yet constructed. This is a bug!');
     }
     const existing = options.additionalScopes ?? [];
-    return { ...options, additionalScopes: [...existing, this.address] };
+    const sendMessagesAs = options.sendMessagesAs ?? (options.from === NO_FROM ? this.address : undefined);
+    return { ...options, additionalScopes: [...existing, this.address], sendMessagesAs };
+  }
+
+  /**
+   * Augments this DeployAccountMethod with additional metadata, such as authWitnesses and capsules.
+   * @param options - An object containing the metadata to add to the interaction
+   * @returns A new DeployAccountMethod with the added metadata
+   */
+  public override with({
+    authWitnesses = [],
+    capsules = [],
+    extraHashedArgs = [],
+  }: {
+    /** The authWitnesses to add to the deployment */
+    authWitnesses?: AuthWitness[];
+    /** The capsules to add to the deployment */
+    capsules?: Capsule[];
+    /** The extra hashed args to add to the deployment */
+    extraHashedArgs?: HashedValues[];
+  }): DeployAccountMethod<TContract> {
+    return new DeployAccountMethod(
+      this.publicKeys,
+      this.wallet,
+      this.artifact,
+      this.postDeployCtor,
+      this.salt,
+      this.account,
+      this.args,
+      this.constructorArtifact?.name,
+      this.authWitnesses.concat(authWitnesses),
+      this.capsules.concat(capsules),
+      this.extraHashedArgs.concat(extraHashedArgs),
+    );
   }
 }

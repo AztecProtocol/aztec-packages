@@ -31,7 +31,7 @@ pub contract Test {
         protocol::{
             abis::function_selector::FunctionSelector,
             address::{AztecAddress, EthAddress},
-            constants::{PRIVATE_LOG_CIPHERTEXT_LEN, MAX_PUBLIC_LOG_SIZE_IN_FIELDS},
+            constants::MAX_PUBLIC_LOG_SIZE_IN_FIELDS,
             traits::{Hash, Packable, Serialize},
         },
         // Event related
@@ -49,7 +49,6 @@ pub contract Test {
         // Contract instance management
         publish_contract_instance::publish_contract_instance_for_public_execution,
     };
-    use std::hash::pedersen_hash_with_separator;
     use std::meta::derive;
     use token_portal_content_hash_lib::get_mint_to_private_content_hash;
 
@@ -347,8 +346,8 @@ pub contract Test {
             self.call_self.emit_array_as_encrypted_log(tag, [0, 0, 0, 0, 0], owner, false);
 
             // Emit a log with non-encrypted content for testing purpose.
-            let leaky_log = event.serialize().concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 5]);
-            self.context.emit_private_log_unsafe(tag, leaky_log, 5);
+            let leaky_log = BoundedVec::from_array(event.serialize());
+            self.context.emit_private_log_vec_unsafe(tag, leaky_log);
         }
     }
 
@@ -432,16 +431,6 @@ pub contract Test {
     pub struct DummyNote {
         pub amount: Field,
         pub secret_hash: Field,
-    }
-
-    impl DummyNote {
-        fn new(amount: Field, secret_hash: Field) -> Self {
-            Self { amount, secret_hash }
-        }
-
-        fn get_commitment(self) -> Field {
-            pedersen_hash_with_separator([self.amount, self.secret_hash], 0)
-        }
     }
 
     #[derive(Serialize)]

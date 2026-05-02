@@ -105,6 +105,7 @@ export class BatchQueue<T, K extends string | number> {
       return Promise.resolve();
     }
 
+    this.flushCurrentBatch();
     this.container.end();
     return runningPromise;
   }

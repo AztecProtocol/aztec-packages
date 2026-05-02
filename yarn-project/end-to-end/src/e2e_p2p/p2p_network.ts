@@ -1,14 +1,10 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
-import {
-  type EmpireSlashingProposerContract,
-  GSEContract,
-  RollupContract,
-  type TallySlashingProposerContract,
-} from '@aztec/ethereum/contracts';
+import { GSEContract, RollupContract, type SlashingProposerContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { MultiAdderArtifact } from '@aztec/ethereum/l1-artifacts';
@@ -24,9 +20,8 @@ import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { SlashFactoryContract } from '@aztec/stdlib/l1-contracts';
 import { TopicType } from '@aztec/stdlib/p2p';
-import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
@@ -35,9 +30,12 @@ import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
+  SCHNORR_HARDCODED_PRIVATE_KEY,
+  SchnorrHardcodedKeyAccountContract,
+} from '../fixtures/schnorr_hardcoded_account_contract.js';
+import {
   type EndToEndContext,
   type SetupOptions,
-  deployAccounts,
   getPrivateKeyFromIndex,
   getSponsoredFPCAddress,
   setup,
@@ -76,8 +74,8 @@ export class P2PNetworkTest {
   public peerIdPrivateKeys: string[] = [];
   public validators: Operator[] = [];
 
-  public deployedAccounts: InitialAccountData[] = [];
-  public prefilledPublicData: PublicDataTreeLeaf[] = [];
+  public hardcodedAccountData!: InitialAccountData;
+  public genesis: GenesisData | undefined;
 
   // The re-execution test needs a wallet and a spam contract
   public wallet?: TestWallet;
@@ -124,12 +122,11 @@ export class P2PNetworkTest {
         initialValidatorConfig.aztecProofSubmissionEpochs ?? l1ContractsConfig.aztecProofSubmissionEpochs,
       slashingRoundSizeInEpochs:
         initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
-      slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
+      slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
       aztecTargetCommitteeSize: numberOfValidators,
       metricsPort: metricsPort,
       numberOfInitialFundedAccounts: 2,
       startProverNode,
-      walletMinFeePadding: 2.0,
     };
 
     this.deployL1ContractsArgs = {
@@ -137,7 +134,7 @@ export class P2PNetworkTest {
       aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
       slashingRoundSizeInEpochs:
         initialValidatorConfig.slashingRoundSizeInEpochs ?? l1ContractsConfig.slashingRoundSizeInEpochs,
-      slasherFlavor: initialValidatorConfig.slasherFlavor ?? 'tally',
+      slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
 
       ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
       aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
@@ -192,10 +189,10 @@ export class P2PNetworkTest {
   }
 
   get fundedAccount() {
-    if (!this.deployedAccounts[0]) {
-      throw new Error('Call setupAccount to create a funded account.');
+    if (!this.hardcodedAccountData) {
+      throw new Error('Call setup to initialize the hardcoded account.');
     }
-    return this.deployedAccounts[0];
+    return this.hardcodedAccountData;
   }
 
   async addBootstrapNode() {
@@ -303,17 +300,22 @@ export class P2PNetworkTest {
     await this._sendDummyTx(this.context.deployL1ContractsValues.l1Client);
   }
 
+  /** Points the wallet to a P2P-enabled node so transactions can propagate through the network. */
+  setupWalletOnNode(node: AztecNodeService) {
+    this.logger.info('Pointing wallet to a P2P-enabled node');
+    this.context.wallet.updateNode(node);
+  }
+
+  /** Registers the hardcoded account in PXE without on-chain deployment. No sequencer needed. */
   async setupAccount() {
-    this.logger.info('Setting up account');
-    const { deployedAccounts } = await deployAccounts(
-      1,
-      this.logger,
-    )({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
+    this.logger.info('Registering hardcoded account (no deployment)');
+    const contract = new SchnorrHardcodedKeyAccountContract();
+    const accountManager = await (this.context.wallet as TestWallet).createAccount({
+      secret: this.hardcodedAccountData.secret,
+      salt: this.hardcodedAccountData.salt,
+      contract,
     });
-    this.deployedAccounts = deployedAccounts;
-    [{ address: this.defaultAccountAddress }] = deployedAccounts;
+    this.defaultAccountAddress = accountManager.address;
     this.wallet = this.context.wallet;
   }
 
@@ -354,13 +356,30 @@ export class P2PNetworkTest {
 
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
+
+    // Pre-compute hardcoded account data so it gets funded in genesis.
+    const contract = new SchnorrHardcodedKeyAccountContract();
+    const secret = Fr.random();
+    const salt = Fr.random();
+    this.hardcodedAccountData = {
+      secret,
+      salt,
+      signingKey: SCHNORR_HARDCODED_PRIVATE_KEY,
+      address: await getAccountContractAddress(contract, secret, salt),
+    };
+
+    // Generate regular Schnorr accounts for tests that need deployable accounts (e.g. add_rollup).
+    const regularAccounts = await generateSchnorrAccounts(this.setupOptions.numberOfInitialFundedAccounts ?? 2);
+
     this.context = await setup(
       0,
       {
         ...this.setupOptions,
         fundSponsoredFPC: true,
         skipAccountDeployment: true,
-        slasherFlavor: this.setupOptions.slasherFlavor ?? this.deployL1ContractsArgs.slasherFlavor ?? 'none',
+        skipInitialSequencer: true,
+        initialFundedAccounts: [...regularAccounts, this.hardcodedAccountData],
+        slasherEnabled: this.setupOptions.slasherEnabled ?? this.deployL1ContractsArgs.slasherEnabled ?? false,
         aztecTargetCommitteeSize: 0,
         l1ContractsArgs: this.deployL1ContractsArgs,
       },
@@ -372,8 +391,13 @@ export class P2PNetworkTest {
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const initialFundedAccounts = [...this.context.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
 
-    const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
-    this.prefilledPublicData = prefilledPublicData;
+    const { genesis } = await getGenesisValues(
+      initialFundedAccounts,
+      undefined,
+      undefined,
+      this.context.genesis!.genesisTimestamp,
+    );
+    this.genesis = genesis;
 
     const rollupContract = RollupContract.getFromL1ContractsValues(this.context.deployL1ContractsValues);
     this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider).start();
@@ -468,8 +492,7 @@ export class P2PNetworkTest {
   async getContracts(): Promise<{
     rollup: RollupContract;
     slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
-    slashingProposer: EmpireSlashingProposerContract | TallySlashingProposerContract | undefined;
-    slashFactory: SlashFactoryContract;
+    slashingProposer: SlashingProposerContract | undefined;
   }> {
     if (!this.ctx.deployL1ContractsValues) {
       throw new Error('DeployAztecL1ContractsValues not set');
@@ -486,14 +509,9 @@ export class P2PNetworkTest {
       client: this.ctx.deployL1ContractsValues.l1Client,
     });
 
-    // Get the actual slashing proposer from rollup (which handles both empire and tally)
+    // Get the actual slashing proposer from rollup
     const slashingProposer = await rollup.getSlashingProposer();
 
-    const slashFactory = new SlashFactoryContract(
-      this.ctx.deployL1ContractsValues.l1Client,
-      getAddress(this.ctx.deployL1ContractsValues.l1ContractAddresses.slashFactoryAddress!.toString()),
-    );
-
-    return { rollup, slasherContract, slashingProposer, slashFactory };
+    return { rollup, slasherContract, slashingProposer };
   }
 }

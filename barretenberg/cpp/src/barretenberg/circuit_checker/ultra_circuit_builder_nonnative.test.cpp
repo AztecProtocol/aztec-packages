@@ -24,8 +24,8 @@ class UltraCircuitBuilderNonNative : public ::testing::Test {
 
     // Number of NNF gates produced by a single partial multiplication
     static constexpr size_t NNF_GATES_PER_PARTIAL_MUL = 4;
-    // Number of padding gates added to NNF block by finalize_circuit(ensure_nonzero=true)
-    static constexpr size_t NNF_ENSURE_NONZERO_PADDING = 2;
+    // Number of padding gates added to NNF block by finalize_circuit()
+    static constexpr size_t NNF_ENSURE_NONZERO_PADDING = 0;
 
     // Generate 4 random field elements (one per limb)
     static std::array<fr, 4> random_limbs()
@@ -548,7 +548,7 @@ TEST_F(UltraCircuitBuilderNonNative, PartialMultiplicationDeduplication)
     EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Finalize to check deduplication results
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
 
     // After finalization, cache should be deduplicated to 1 entry
     EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), 1U);
@@ -597,7 +597,7 @@ TEST_F(UltraCircuitBuilderNonNative, PartialMultiplicationDedupeAssertEqual)
     EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Finalize to check deduplication
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
 
     // After finalization, should be deduplicated to 1 entry
     EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), 1U);
@@ -630,7 +630,7 @@ TEST_F(UltraCircuitBuilderNonNative, PartialMultiplicationMultipleDistinct)
     EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Finalize to check gate counts
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
 
     // After finalization, all distinct entries should remain (no deduplication)
     EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), num_multiplications);
@@ -666,7 +666,7 @@ TEST_F(UltraCircuitBuilderNonNative, ProcessNonNativeFieldMultiplicationsEmptyCa
     EXPECT_TRUE(CircuitChecker::check(builder));
 
     // Finalize to inspect NNF block
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
 
     // Cache should still be empty
     EXPECT_EQ(builder.cached_partial_non_native_field_multiplications.size(), 0U);

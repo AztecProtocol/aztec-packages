@@ -3,6 +3,7 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  optionalNumberConfigHelper,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -30,6 +31,12 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
         .map(address => EthAddress.fromString(address.trim())),
     defaultValue: [],
   },
+  l1ChainId: {
+    env: 'L1_CHAIN_ID',
+    description: 'The chain ID of the ethereum host.',
+    parseEnv: (val: string) => +val,
+    defaultValue: 31337,
+  },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Do not run the validator',
@@ -48,11 +55,6 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     env: 'VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS',
     description: 'Interval between polling for new attestations',
     ...numberConfigHelper(200),
-  },
-  validatorReexecute: {
-    env: 'VALIDATOR_REEXECUTE',
-    description: 'Re-execute transactions before attesting',
-    ...booleanConfigHelper(true),
   },
   alwaysReexecuteBlockProposals: {
     description:
@@ -80,22 +82,22 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   validateMaxL2BlockGas: {
     env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
     description: 'Maximum L2 block gas for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxDABlockGas: {
     env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
     description: 'Maximum DA block gas for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxTxsPerBlock: {
     env: 'VALIDATOR_MAX_TX_PER_BLOCK',
     description: 'Maximum transactions per block for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxTxsPerCheckpoint: {
     env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
     description: 'Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
+    ...optionalNumberConfigHelper(),
   },
   ...localSignerConfigMappings,
   ...validatorHASignerConfigMappings,

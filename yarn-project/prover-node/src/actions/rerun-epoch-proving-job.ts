@@ -1,10 +1,11 @@
-import { createArchiverStore } from '@aztec/archiver';
+import { createArchiverStore, createContractDataSource } from '@aztec/archiver';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { Logger } from '@aztec/foundation/log';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import type { GenesisData } from '@aztec/stdlib/world-state';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldState } from '@aztec/world-state';
 
@@ -23,17 +24,26 @@ export async function rerunEpochProvingJob(
   localPath: string,
   log: Logger,
   config: DataStoreConfig & ProverBrokerConfig & ProverClientConfig & Pick<L1ContractsConfig, 'aztecEpochDuration'>,
+  genesis?: GenesisData,
 ) {
   const jobData = deserializeEpochProvingJobData(readFileSync(localPath));
   log.info(`Loaded proving job data for epoch ${jobData.epochNumber}`);
 
   const telemetry = getTelemetryClient();
   const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
-  const worldState = await createWorldState(config);
+  const worldState = await createWorldState(config, genesis);
   const archiver = await createArchiverStore(config);
-  const publicProcessorFactory = new PublicProcessorFactory(archiver, undefined, undefined, log.getBindings());
+  const publicProcessorFactory = new PublicProcessorFactory(
+    createContractDataSource(archiver),
+    undefined,
+    undefined,
+    log.getBindings(),
+  );
 
-  const publisher = { submitEpochProof: () => Promise.resolve(true) };
+  const publisher = {
+    submitEpochProof: () => Promise.resolve(true),
+    analyzeEpochProofSubmission: () => Promise.resolve(),
+  };
   const l2BlockSourceForReorgDetection = undefined;
   const deadline = undefined;
 

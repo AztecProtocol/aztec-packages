@@ -29,6 +29,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/get_bytecode.hpp"
+#include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/version.hpp"
 #include "barretenberg/dsl/acir_format/serde/index.hpp"
@@ -353,6 +354,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->group(advanced_group);
     };
 
+    const auto add_use_zk_flavor_flag = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_flag("--use_zk_flavor",
+                       flags.use_zk_flavor,
+                       "Chonk-only: derive the VK against MegaZKFlavor rather than MegaFlavor. "
+                       "Set this for the IVC hiding kernel (the only Chonk circuit proven as MegaZK).")
+            ->group(advanced_group);
+    };
+
     const auto add_optimized_solidity_verifier_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag(
             "--optimized", flags.optimized_solidity_verifier, "Use the optimized Solidity verifier.");
@@ -387,6 +397,36 @@ int parse_and_run_cli_command(int argc, char* argv[])
                          bench_out_hierarchical,
                          "Path to write the hierarchical benchmark data (op counts and timings with "
                          "parent-child relationships) as json.")
+            ->group(advanced_group);
+    };
+    std::string memory_profile_out;
+    const auto add_memory_profile_out_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--memory_profile_out",
+                         memory_profile_out,
+                         "Path to write memory profile data (polynomial breakdown by category, RSS "
+                         "checkpoints, CRS size) as json.")
+            ->group(advanced_group);
+    };
+
+    std::string trace_out_perfetto;
+    const auto add_trace_out_perfetto_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--trace_out_perfetto",
+                         trace_out_perfetto,
+                         "Path to write a Chrome Trace Event Format JSON of every instrumented "
+                         "BB_BENCH scope (per-call timeline). Drop the file into ui.perfetto.dev "
+                         "or chrome://tracing.")
+            ->group(advanced_group);
+    };
+    std::string trace_out_perfetto_aggregate;
+    const auto add_trace_out_perfetto_aggregate_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--trace_out_perfetto_aggregate",
+                         trace_out_perfetto_aggregate,
+                         "Path to write a synthesized Chrome Trace Event Format JSON derived from the "
+                         "aggregate stats. Smaller than --trace_out_perfetto but lossy about individual "
+                         "call timing.")
             ->group(advanced_group);
     };
 
@@ -482,6 +522,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_print_bench_flag(prove);
     add_bench_out_option(prove);
     add_bench_out_hierarchical_option(prove);
+    add_memory_profile_out_option(prove);
+    add_trace_out_perfetto_option(prove);
+    add_trace_out_perfetto_aggregate_option(prove);
     add_storage_budget_option(prove);
     add_output_format_option(prove);
 
@@ -510,6 +553,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     remove_zk_option(write_vk);
     add_output_format_option(write_vk);
+    add_use_zk_flavor_flag(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify
@@ -811,9 +855,18 @@ int parse_and_run_cli_command(int argc, char* argv[])
     if (!flags.storage_budget.empty()) {
         storage_budget = parse_size_string(flags.storage_budget);
     }
-    if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty()) {
+    if (!memory_profile_out.empty()) {
+        bb::detail::use_memory_profile = true;
+        vinfo("Memory profiling enabled via --memory_profile_out");
+    }
+    if (print_bench || !bench_out.empty() || !bench_out_hierarchical.empty() || !trace_out_perfetto.empty() ||
+        !trace_out_perfetto_aggregate.empty()) {
         bb::detail::use_bb_bench = true;
-        vinfo("BB_BENCH enabled via --print_bench or --bench_out");
+        vinfo("BB_BENCH enabled via --print_bench / --bench_out / --trace_out_perfetto");
+    }
+    if (!trace_out_perfetto.empty()) {
+        bb::detail::capture_per_call_events.store(true);
+        vinfo("Per-call BB_BENCH event capture enabled via --trace_out_perfetto");
     }
 #endif
 
@@ -849,11 +902,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 flags.verifier_target != "evm-no-zk") {
                 throw_or_abort("write_solidity_verifier requires --verifier_target to be 'evm' or 'evm-no-zk', got '" +
                                flags.verifier_target + "'");
-            }
-            if (flags.optimized_solidity_verifier && !flags.disable_zk) {
-                throw_or_abort(
-                    "An optimized ZK Solidity verifier is not currently available. "
-                    "Use --verifier_target evm-no-zk, or remove --optimized to use the non-optimized ZK verifier.");
             }
             api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
@@ -986,7 +1034,22 @@ int parse_and_run_cli_command(int argc, char* argv[])
                     std::ofstream file(bench_out_hierarchical);
                     bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
                 }
+                if (!trace_out_perfetto.empty()) {
+                    std::ofstream file(trace_out_perfetto);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_trace_events_json(file);
+                    vinfo("Perfetto per-call trace written to ", trace_out_perfetto);
+                }
+                if (!trace_out_perfetto_aggregate.empty()) {
+                    std::ofstream file(trace_out_perfetto_aggregate);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_trace_json(file);
+                    vinfo("Perfetto aggregate trace written to ", trace_out_perfetto_aggregate);
+                }
 #endif
+                if (!memory_profile_out.empty()) {
+                    std::ofstream file(memory_profile_out);
+                    bb::detail::GLOBAL_MEMORY_PROFILE.serialize_json(file);
+                    vinfo("Memory profile written to ", memory_profile_out);
+                }
                 return 0;
             }
             if (check->parsed()) {
@@ -1025,6 +1088,16 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 if (!bench_out_hierarchical.empty()) {
                     std::ofstream file(bench_out_hierarchical);
                     bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_data_json(file);
+                }
+                if (!trace_out_perfetto.empty()) {
+                    std::ofstream file(trace_out_perfetto);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_trace_events_json(file);
+                    vinfo("Perfetto per-call trace written to ", trace_out_perfetto);
+                }
+                if (!trace_out_perfetto_aggregate.empty()) {
+                    std::ofstream file(trace_out_perfetto_aggregate);
+                    bb::detail::GLOBAL_BENCH_STATS.serialize_aggregate_trace_json(file);
+                    vinfo("Perfetto aggregate trace written to ", trace_out_perfetto_aggregate);
                 }
 #endif
                 return 0;

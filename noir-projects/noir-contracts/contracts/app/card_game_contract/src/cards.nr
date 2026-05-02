@@ -9,14 +9,14 @@ use aztec::{
     protocol::{
         address::AztecAddress,
         constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
-        traits::{FromField, Hash, Packable, Serialize, ToField},
+        traits::{Deserialize, FromField, Hash, Packable, Serialize, ToField},
     },
     state_vars::{Owned, PrivateSet, StateVariable},
 };
 use field_note::FieldNote;
 use std::meta::derive;
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Card {
     // We use u32s since u16s are unsupported
     pub strength: u32,
@@ -93,11 +93,6 @@ pub struct CardNote {
 }
 
 impl CardNote {
-    fn new(strength: u32, points: u32) -> Self {
-        let card = Card { strength, points };
-        CardNote::from_card(card)
-    }
-
     pub fn from_card(card: Card) -> CardNote {
         CardNote { card, note: FieldNote { value: card.to_field() } }
     }

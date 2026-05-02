@@ -10,7 +10,9 @@ use types::{
         NOTE_HASH_TREE_HEIGHT, NULLIFIER_SUBTREE_HEIGHT, NULLIFIER_TREE_HEIGHT,
         PUBLIC_DATA_TREE_HEIGHT,
     },
-    merkle_tree::{LeafPreimage, MembershipWitness, test_utils::SingleSubtreeMerkleTree},
+    merkle_tree::{
+        LeafPreimage, MembershipWitness, nullifier_merkle_hash, test_utils::SingleSubtreeMerkleTree,
+    },
     traits::Empty,
 };
 
@@ -45,9 +47,10 @@ impl TestBuilder {
         let existing_leaf_start_index =
             self.nullifier_tree.get_next_available_index() - MAX_NULLIFIERS_PER_TX as Field;
 
-        let full_nullifier_tree = SingleSubtreeMerkleTree::<MAX_NULLIFIERS_PER_TX * 2, NULLIFIER_SUBTREE_HEIGHT + 1, NULLIFIER_TREE_HEIGHT>::new_at_index(
+        let full_nullifier_tree = SingleSubtreeMerkleTree::<MAX_NULLIFIERS_PER_TX * 2, NULLIFIER_SUBTREE_HEIGHT + 1, NULLIFIER_TREE_HEIGHT>::new_with_hasher_at_index(
             nullifiers.map(|nullifier| nullifier.as_leaf()),
             existing_leaf_start_index,
+            nullifier_merkle_hash,
         );
 
         let next_available_leaf_index =

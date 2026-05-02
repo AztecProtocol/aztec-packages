@@ -9,12 +9,12 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
-import { BlockProposalHandler } from './block_proposal_handler.js';
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
 import { ValidatorMetrics } from './metrics.js';
+import { ProposalHandler } from './proposal_handler.js';
 import { ValidatorClient } from './validator.js';
 
-export function createBlockProposalHandler(
+export function createProposalHandler(
   config: ValidatorClientFullConfig,
   deps: {
     checkpointsBuilder: FullNodeCheckpointsBuilder;
@@ -23,6 +23,7 @@ export function createBlockProposalHandler(
     l1ToL2MessageSource: L1ToL2MessageSource;
     p2pClient: P2PClient;
     epochCache: EpochCache;
+    blobClient: BlobClientInterface;
     dateProvider: DateProvider;
     telemetry: TelemetryClient;
   },
@@ -31,8 +32,13 @@ export function createBlockProposalHandler(
   const blockProposalValidator = new BlockProposalValidator(deps.epochCache, {
     txsPermitted: !config.disableTransactions,
     maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
+    maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
+    signatureContext: {
+      chainId: config.l1ChainId,
+      rollupAddress: config.l1Contracts.rollupAddress,
+    },
   });
-  return new BlockProposalHandler(
+  return new ProposalHandler(
     deps.checkpointsBuilder,
     deps.worldState,
     deps.blockSource,
@@ -41,9 +47,11 @@ export function createBlockProposalHandler(
     blockProposalValidator,
     deps.epochCache,
     config,
+    deps.blobClient,
     metrics,
     deps.dateProvider,
     deps.telemetry,
+    undefined,
   );
 }
 

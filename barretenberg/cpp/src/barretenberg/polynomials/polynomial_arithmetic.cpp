@@ -12,23 +12,9 @@
 #include <math.h>
 #include <memory.h>
 #include <memory>
+#include <mutex>
 
 namespace bb::polynomial_arithmetic {
-
-namespace {
-
-template <typename Fr> std::shared_ptr<Fr[]> get_scratch_space(const size_t num_elements)
-{
-    static std::shared_ptr<Fr[]> working_memory = nullptr;
-    static size_t current_size = 0;
-    if (num_elements > current_size) {
-        working_memory = std::make_shared<Fr[]>(num_elements);
-        current_size = num_elements;
-    }
-    return working_memory;
-}
-
-} // namespace
 
 inline uint32_t reverse_bits(uint32_t x, uint32_t bit_length)
 {
@@ -52,6 +38,8 @@ void scale_by_generator(Fr* coeffs,
                         const Fr& generator_shift,
                         const size_t generator_size)
 {
+    BB_ASSERT(generator_size % domain.num_threads == 0,
+              "generator_size must be divisible by num_threads to avoid silently skipping elements");
     parallel_for(domain.num_threads, [&](size_t j) {
         Fr thread_shift = generator_shift.pow(static_cast<uint64_t>(j * (generator_size / domain.num_threads)));
         Fr work_generator = generator_start * thread_shift;
@@ -69,6 +57,7 @@ template <typename Fr>
 void fft_inner_parallel(
     Fr* coeffs, Fr* target, const EvaluationDomain<Fr>& domain, const Fr&, const std::vector<Fr*>& root_table)
 {
+    BB_ASSERT(coeffs != target, "fft_inner_parallel does not support in-place operation");
     parallel_for(domain.num_threads, [&](size_t j) {
         Fr temp_1;
         Fr temp_2;
@@ -194,37 +183,6 @@ template <typename Fr> Fr evaluate(const Fr* coeffs, const Fr& z, const size_t n
     return r;
 }
 
-template <typename Fr> Fr evaluate(const std::vector<Fr*> coeffs, const Fr& z, const size_t large_n)
-{
-    const size_t num_polys = coeffs.size();
-    const size_t poly_size = large_n / num_polys;
-    BB_ASSERT(is_power_of_two(poly_size));
-    const size_t log2_poly_size = (size_t)numeric::get_msb(poly_size);
-    const size_t num_threads = get_num_cpus();
-    std::vector<Fr> evaluations(num_threads, Fr::zero());
-    parallel_for([&](const ThreadChunk& chunk) {
-        // parallel_for with ThreadChunk uses get_num_cpus() threads
-        BB_ASSERT_EQ(chunk.total_threads, evaluations.size());
-        auto range = chunk.range(large_n);
-        if (range.empty()) {
-            return;
-        }
-        size_t start = *range.begin();
-        Fr z_acc = z.pow(static_cast<uint64_t>(start));
-        for (size_t i : range) {
-            Fr work_var = z_acc * coeffs[i >> log2_poly_size][i & (poly_size - 1)];
-            evaluations[chunk.thread_index] += work_var;
-            z_acc *= z;
-        }
-    });
-
-    Fr r = Fr::zero();
-    for (const auto& eval : evaluations) {
-        r += eval;
-    }
-    return r;
-}
-
 // This function computes sum of all scalars in a given array.
 template <typename Fr> Fr compute_sum(const Fr* src, const size_t n)
 {
@@ -236,26 +194,28 @@ template <typename Fr> Fr compute_sum(const Fr* src, const size_t n)
 }
 
 // This function computes the polynomial (x - a)(x - b)(x - c)... given n distinct roots (a, b, c, ...).
+//
+// Build the product incrementally by multiplying in one root at a time. After the i-th iteration,
+// dest[0..i+1] holds the coefficients of ∏_{k=0}^{i} (X - roots[k]). Multiplying the existing
+// polynomial P(X) by (X - r) gives
+//     P(X) · X   shifts every coefficient up by one index, and
+//    -P(X) · r   scales every coefficient by -r.
+// Walking k high-to-low allows writing the shift-and-combine update in place with total cost O(n^2).
 template <typename Fr> void compute_linear_polynomial_product(const Fr* roots, Fr* dest, const size_t n)
 {
+    if (n == 0) {
+        return;
+    }
 
-    auto scratch_space_ptr = get_scratch_space<Fr>(n);
-    auto scratch_space = scratch_space_ptr.get();
-    memcpy((void*)scratch_space, (void*)roots, n * sizeof(Fr));
-
-    dest[n] = 1;
-    dest[n - 1] = -compute_sum(scratch_space, n);
-
-    Fr temp;
-    Fr constant = 1;
-    for (size_t i = 0; i < n - 1; ++i) {
-        temp = 0;
-        for (size_t j = 0; j < n - 1 - i; ++j) {
-            scratch_space[j] = roots[j] * compute_sum(&scratch_space[j + 1], n - 1 - i - j);
-            temp += scratch_space[j];
+    dest[0] = -roots[0];
+    dest[1] = Fr(1);
+    for (size_t i = 1; i < n; ++i) {
+        const Fr r = roots[i];
+        dest[i + 1] = dest[i];
+        for (size_t k = i; k >= 1; --k) {
+            dest[k] = dest[k - 1] - r * dest[k];
         }
-        dest[n - 2 - i] = temp * constant;
-        constant *= Fr::neg_one();
+        dest[0] = -r * dest[0];
     }
 }
 
@@ -305,6 +265,16 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
         algorithm used in Kate commitment scheme, as the coefficients of N(X)/X are given by numerator_polynomial[j]
         for j=1,...,n.
     */
+    // Lagrange interpolation is mathematically ill-defined when any two evaluation points coincide:
+    // the denominator d_i contains a zero factor. batch_invert silently skips zero entries, so
+    // without this check duplicate points produce an incorrect result.
+    for (size_t i = 0; i < n; ++i) {
+        for (size_t j = i + 1; j < n; ++j) {
+            BB_ASSERT_DEBUG(evaluation_points[i] != evaluation_points[j],
+                            "compute_efficient_interpolation requires distinct evaluation points");
+        }
+    }
+
     std::vector<Fr> numerator_polynomial(n + 1);
     polynomial_arithmetic::compute_linear_polynomial_product(evaluation_points, numerator_polynomial.data(), n);
     // First half contains roots, second half contains denominators (to be inverted)
@@ -389,7 +359,6 @@ void compute_efficient_interpolation(const Fr* src, Fr* dest, const Fr* evaluati
 }
 
 template fr evaluate<fr>(const fr*, const fr&, const size_t);
-template fr evaluate<fr>(const std::vector<fr*>, const fr&, const size_t);
 template void fft_inner_parallel<fr>(fr*, fr*, const EvaluationDomain<fr>&, const fr&, const std::vector<fr*>&);
 template void ifft<fr>(fr*, fr*, const EvaluationDomain<fr>&);
 template fr compute_sum<fr>(const fr*, const size_t);
@@ -397,7 +366,6 @@ template void compute_linear_polynomial_product<fr>(const fr*, fr*, const size_t
 template void compute_efficient_interpolation<fr>(const fr*, fr*, const fr*, const size_t);
 
 template grumpkin::fr evaluate<grumpkin::fr>(const grumpkin::fr*, const grumpkin::fr&, const size_t);
-template grumpkin::fr evaluate<grumpkin::fr>(const std::vector<grumpkin::fr*>, const grumpkin::fr&, const size_t);
 template grumpkin::fr compute_sum<grumpkin::fr>(const grumpkin::fr*, const size_t);
 template void compute_linear_polynomial_product<grumpkin::fr>(const grumpkin::fr*, grumpkin::fr*, const size_t);
 template void compute_efficient_interpolation<grumpkin::fr>(const grumpkin::fr*,

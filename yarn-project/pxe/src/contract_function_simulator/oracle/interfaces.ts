@@ -54,7 +54,7 @@ export interface IMiscOracle {
   isMisc: true;
 
   getRandomField(): Fr;
-  assertCompatibleOracleVersion(version: number): void;
+  assertCompatibleOracleVersion(major: number, minor: number): void;
   log(level: number, message: string, fields: Fr[]): Promise<void>;
 }
 
@@ -120,6 +120,7 @@ export interface IUtilityExecutionOracle {
     numberOfElements: number,
   ): Promise<Fr[]>;
   getPendingTaggedLogs(pendingTaggedLogArrayBaseSlot: Fr, scope: AztecAddress): Promise<void>;
+  getPendingTaggedLogsV2(scope: AztecAddress): Promise<Fr>;
   validateAndStoreEnqueuedNotesAndEvents(
     contractAddress: AztecAddress,
     noteValidationRequestsArrayBaseSlot: Fr,
@@ -134,6 +135,15 @@ export interface IUtilityExecutionOracle {
     logRetrievalResponsesArrayBaseSlot: Fr,
     scope: AztecAddress,
   ): Promise<void>;
+  validateAndStoreEnqueuedNotesAndEventsV2(
+    noteValidationRequestsArrayBaseSlot: Fr,
+    eventValidationRequestsArrayBaseSlot: Fr,
+    maxNotePackedLen: number,
+    maxEventSerializedLen: number,
+    scope: AztecAddress,
+  ): Promise<void>;
+  getLogsByTagV2(requestArrayBaseSlot: Fr): Promise<Fr>;
+  getMessageContextsByTxHashV2(requestArrayBaseSlot: Fr): Promise<Fr>;
   getMessageContextsByTxHash(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
@@ -154,6 +164,20 @@ export interface IUtilityExecutionOracle {
   getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr>;
   setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
+  callUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]>;
+
+  // Ephemeral array methods
+  pushEphemeral(slot: Fr, elements: Fr[]): number;
+  popEphemeral(slot: Fr): Fr[];
+  getEphemeral(slot: Fr, index: number): Fr[];
+  setEphemeral(slot: Fr, index: number, elements: Fr[]): void;
+  getEphemeralLen(slot: Fr): number;
+  removeEphemeral(slot: Fr, index: number): void;
+  clearEphemeral(slot: Fr): void;
 }
 
 /**
@@ -185,6 +209,11 @@ export interface IPrivateExecutionOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }>;
+  callUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]>;
   assertValidPublicCalldata(calldataHash: Fr): Promise<void>;
   notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
   isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean>;

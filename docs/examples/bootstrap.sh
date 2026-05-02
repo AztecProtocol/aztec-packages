@@ -6,8 +6,6 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 
 export BB=${BB:-"$REPO_ROOT/barretenberg/cpp/build/bin/bb"}
 export NARGO=${NARGO:-"$REPO_ROOT/noir/noir-repo/target/release/nargo"}
-export TRANSPILER=${TRANSPILER:-"$REPO_ROOT/avm-transpiler/target/release/avm-transpiler"}
-export STRIP_AZTEC_NR_PREFIX=${STRIP_AZTEC_NR_PREFIX:-"$REPO_ROOT/noir-projects/noir-contracts/scripts/strip_aztec_nr_prefix.sh"}
 export BB_HASH=${BB_HASH:-$("$REPO_ROOT/barretenberg/cpp/bootstrap.sh" hash)}
 export NOIR_HASH=${NOIR_HASH:-$("$REPO_ROOT/noir/bootstrap.sh" hash)}
 
@@ -70,7 +68,7 @@ function compile {
   else
     local contract
     for contract in "$CONTRACTS_DIR"/*/; do
-      if [ -f "$contract/Nargo.toml" ]; then
+      if [ -f "$contract/Nargo.toml" ] && grep -q '^type = "contract"' "$contract/Nargo.toml"; then
         contracts+=("contracts/$(basename "$contract")")
       fi
     done
@@ -119,6 +117,88 @@ function compile-solidity {
 function validate-ts {
   echo_header "Validating TypeScript examples"
   (cd ts && ./bootstrap.sh "$@")
+}
+
+function validate-webapp-tutorial {
+  echo_header "Validating webapp-tutorial build"
+  local TUTORIAL_DIR="$REPO_ROOT/docs/examples/webapp-tutorial"
+  local ARTIFACTS_DIR="$REPO_ROOT/docs/target"
+  local BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
+  local YP="$REPO_ROOT/yarn-project"
+
+  # Compile the pod_racing_contract (uses existing compile infrastructure)
+  compile webapp-tutorial/contracts
+
+  (
+    cd "$TUTORIAL_DIR"
+
+    # Backup package.json (the only tracked file we mutate). yarn.lock is
+    # gitignored and regenerated on each run, so we don't back it up.
+    cp package.json package.json.bak
+
+    cleanup() {
+      local exit_code=$?
+      echo_stderr "Cleaning up webapp-tutorial..."
+      [ -f package.json.bak ] && mv package.json.bak package.json
+      rm -rf node_modules .yarn yarn.lock .yarnrc.yml 2>/dev/null || true
+      return $exit_code
+    }
+    trap cleanup EXIT
+
+    # Start from a fresh node_modules / lock so we don't reuse state from
+    # a previous run that may have been interrupted mid-cleanup.
+    # An empty yarn.lock is required to mark this directory as a standalone
+    # yarn project; otherwise yarn 4 walks up to docs/ and refuses to install
+    # because webapp-tutorial isn't listed as a workspace there.
+    rm -rf node_modules .yarn .yarnrc.yml
+    : > yarn.lock
+
+    # Replace #include_aztec_version with link: paths to local yarn-project packages
+    echo_stderr "Linking local @aztec packages..."
+    node -e "
+      const fs = require('fs');
+      const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+      const yp = '$YP';
+      for (const section of ['dependencies', 'devDependencies']) {
+        for (const [name, ver] of Object.entries(pkg[section] || {})) {
+          if (ver === '#include_aztec_version' && name.startsWith('@aztec/')) {
+            const dir = name.replace('@aztec/', '');
+            pkg[section][name] = 'link:' + yp + '/' + dir;
+          }
+        }
+      }
+      fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+    "
+
+    # Fresh yarn setup for linking
+    yarn config set nodeLinker node-modules 2>/dev/null || true
+    yarn install
+
+    # yarn's `link:` protocol creates portals into yarn-project/*, which require
+    # --preserve-symlinks for Node's ESM loader to resolve dependencies correctly
+    # (vite in particular fails to load its config without it).
+    export NODE_OPTIONS="${NODE_OPTIONS:-} --preserve-symlinks"
+
+    # Copy compiled contract artifact and run codegen
+    mkdir -p src/artifacts
+    local artifact="$ARTIFACTS_DIR/pod_racing_contract-PodRacing.json"
+    if [ ! -f "$artifact" ]; then
+      echo_stderr "ERROR: Contract artifact not found at $artifact"
+      return 1
+    fi
+    cp "$artifact" src/artifacts/
+    node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o src/artifacts
+
+    # Type check (build mode follows project references in tsconfig.json)
+    echo_stderr "Type checking webapp-tutorial..."
+    npx tsc -b --noEmit
+
+    # Vite production build
+    echo_stderr "Running vite build..."
+    npx vite build
+
+    echo_stderr "webapp-tutorial validated successfully"
+  )
 }
 
 function execute-examples {
@@ -263,6 +343,7 @@ case "$cmd" in
     run_step "Compile (Noir contracts)" compile
     run_step "Compile (Solidity)" compile-solidity
     run_step "TypeScript validation" validate-ts
+    run_step "Webapp tutorial build" validate-webapp-tutorial
 
     if [[ ${#FAILED_STEPS[@]} -gt 0 ]]; then
       send_failure_slack_message

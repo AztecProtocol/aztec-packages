@@ -1,9 +1,4 @@
-import {
-  BlockNumber,
-  type CheckpointNumber,
-  type IndexWithinCheckpoint,
-  SlotNumber,
-} from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, type IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { DutyType } from '@aztec/stdlib/ha-signing';
@@ -16,6 +11,7 @@ export interface DutyRow {
   validator_address: string;
   slot: string;
   block_number: string;
+  checkpoint_number: string;
   block_index_within_checkpoint: number;
   duty_type: DutyType;
   status: DutyStatus;
@@ -38,6 +34,7 @@ export interface StoredDutyRecord {
   validatorAddress: string;
   slot: string;
   blockNumber: string;
+  checkpointNumber: string;
   blockIndexWithinCheckpoint: number;
   dutyType: DutyType;
   status: DutyStatus;
@@ -81,8 +78,10 @@ export interface ValidatorDutyRecord {
   validatorAddress: EthAddress;
   /** Slot number for this duty */
   slot: SlotNumber;
-  /** Block number for this duty */
+  /** Block number for this duty (0 for non-block-proposal duties) */
   blockNumber: BlockNumber;
+  /** Checkpoint number for this duty (0 for attestation and vote duties) */
+  checkpointNumber: CheckpointNumber;
   /** Block index within checkpoint (0, 1, 2... for block proposals, -1 for other duty types) */
   blockIndexWithinCheckpoint: number;
   /** Type of duty being performed */
@@ -117,6 +116,7 @@ export function recordFromFields(stored: StoredDutyRecord): ValidatorDutyRecord 
     validatorAddress: EthAddress.fromString(stored.validatorAddress),
     slot: SlotNumber.fromString(stored.slot),
     blockNumber: BlockNumber.fromString(stored.blockNumber),
+    checkpointNumber: CheckpointNumber.fromString(stored.checkpointNumber),
     blockIndexWithinCheckpoint: stored.blockIndexWithinCheckpoint,
     dutyType: stored.dutyType,
     status: stored.status,
@@ -208,8 +208,10 @@ export function getBlockIndexFromDutyIdentifier(duty: DutyIdentifier): number {
  * Additional parameters for checking and recording a new duty
  */
 interface CheckAndRecordExtra {
-  /** Block number for this duty */
-  blockNumber: BlockNumber | CheckpointNumber;
+  /** Block number for this duty (0 for non-block-proposal duties) */
+  blockNumber: BlockNumber;
+  /** Checkpoint number for this duty (0 for attestation and vote duties) */
+  checkpointNumber: CheckpointNumber;
   /** The signing root (hash) for this duty */
   messageHash: string;
   /** Identifier for the node that acquired the lock */

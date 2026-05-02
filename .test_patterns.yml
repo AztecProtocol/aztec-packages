@@ -253,6 +253,13 @@ tests:
     owners:
       - *phil
 
+  # Consistently times out — prune detection timing too tight for CI resources
+  # See https://github.com/AztecProtocol/aztec-packages/pull/22392
+  - regex: "epochs_mbps.pipeline.parallel.test.ts.*prunes uncheckpointed"
+    skip: true
+    owners:
+      - *sean
+
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context

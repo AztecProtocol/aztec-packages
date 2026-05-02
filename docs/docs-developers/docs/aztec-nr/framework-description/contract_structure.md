@@ -10,28 +10,18 @@ High-level structure of how Aztec smart contracts including the different compon
 
 ## Directory structure
 
-When you create a new project with `aztec new my_project`, it generates a workspace with two crates named after your project: a `my_project_contract` crate for your smart contract and a `my_project_test` crate for Noir tests.
+When you create a new project with `aztec new my_project`, it generates a single-crate Noir contract project:
 
 ```text title="layout of an aztec contract project"
 ─── my_project
-       ├── Nargo.toml                    <-- workspace root
-       ├── my_project_contract
-       │     ├── src
-       │     │     └── main.nr           <-- your contract
-       │     └── Nargo.toml              <-- contract package and dependencies
-       └── my_project_test
-             ├── src
-             │     └── lib.nr            <-- your tests
-             └── Nargo.toml              <-- test package and dependencies
+       ├── Nargo.toml                    <-- contract package and dependencies
+       └── src
+             └── main.nr                 <-- your contract
 ```
 
-The workspace root `Nargo.toml` declares both crates as workspace members. The contract code lives in `my_project_contract/src/main.nr`, and tests live in a separate `my_project_test` crate that depends on the contract crate.
+`Nargo.toml` declares the contract package (with `type = "contract"`) and its dependencies. Your contract code lives in `src/main.nr`. Noir tests using `#[test]` live alongside the contract in the same crate — see [Testing Contracts](../testing_contracts.md).
 
-You can add more contracts to an existing workspace by running `aztec new <name>` from inside the workspace directory. This creates a new `<name>_contract` and `<name>_test` crate pair and adds them to the workspace.
-
-:::warning Keep tests out of the contract crate
-Do not add `#[test]` functions to the `<name>_contract` crate. Because the contract artifact depends on everything in its crate, any change — including a test-only change — forces a full recompilation of the contract. The separate `<name>_test` crate lets you iterate on tests without rebuilding the contract. See [Testing Contracts](../testing_contracts.md#keep-tests-in-the-test-crate) for details.
-:::
+To add another contract as a sibling of an existing one, run `aztec new <name>` from the parent directory (each contract is its own crate). To initialize a contract project inside an existing empty directory instead, `cd` into it and run `aztec init` (it takes no positional argument; pass `--name <name>` if you want the package name to differ from the directory name).
 
 See the vanilla Noir docs for [more info on packages](https://noir-lang.org/docs/noir/modules_packages_crates/crates_and_packages).
 
@@ -98,15 +88,16 @@ use aztec::macros::aztec;
 pub contract MyContract {
     use aztec::{
         macros::storage,
-        state_vars::{PrivateMutable, PublicMutable}
+        state_vars::{Owned, PrivateMutable, PublicMutable}
     };
+    use uint_note::UintNote;
 
     // The storage struct can have any name, but is typically called `Storage`. It must have the `#[storage]` macro applied to it.
     // This struct must also have a generic type called C or Context.
     #[storage]
     struct Storage<Context> {
         // A private numeric value which can change over time. This value will be hidden, and only those with the secret can know its current value.
-        my_private_state_variable: Owned<PrivateMutable<NoteType, Context>>,
+        my_private_state_variable: Owned<PrivateMutable<UintNote, Context>, Context>,
         // A public numeric value which can change over time. This value will be known to everyone and is equivalent to the Solidity example above.
         my_public_state_variable: PublicMutable<u128, Context>,
     }
@@ -142,6 +133,7 @@ use aztec::macros::aztec;
 #[aztec]
 contract MyContract {
     use aztec::macros::functions::external;
+    use aztec::protocol::address::AztecAddress;
 
     #[external("private")]
     fn my_private_function(parameter_a: u128, parameter_b: AztecAddress) {
@@ -154,7 +146,7 @@ contract MyContract {
     }
 
     #[external("utility")]
-    fn my_utility_function(parameter_a: u128, parameter_b: AztecAddress) {
+    unconstrained fn my_utility_function(parameter_a: u128, parameter_b: AztecAddress) {
         // ...
     }
 }

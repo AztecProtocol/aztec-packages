@@ -9,8 +9,8 @@ import {
   getAttestationInfoFromPayload,
 } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
-import { type L1RollupConstants, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import { ConsensusPayload } from '@aztec/stdlib/p2p';
+import { type L1RollupConstants, computeQuorum, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 
 export type { ValidateCheckpointResult };
 
@@ -18,11 +18,11 @@ export type { ValidateCheckpointResult };
  * Extracts attestation information from a published checkpoint.
  * Returns info for each attestation, preserving array indices.
  */
-export function getAttestationInfoFromPublishedCheckpoint({
-  checkpoint,
-  attestations,
-}: PublishedCheckpoint): AttestationInfo[] {
-  const payload = ConsensusPayload.fromCheckpoint(checkpoint);
+export function getAttestationInfoFromPublishedCheckpoint(
+  { checkpoint, attestations }: PublishedCheckpoint,
+  signatureContext: CoordinationSignatureContext,
+): AttestationInfo[] {
+  const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
   return getAttestationInfoFromPayload(payload, attestations);
 }
 
@@ -34,9 +34,10 @@ export async function validateCheckpointAttestations(
   publishedCheckpoint: PublishedCheckpoint,
   epochCache: EpochCache,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
+  signatureContext: CoordinationSignatureContext,
   logger?: Logger,
 ): Promise<ValidateCheckpointResult> {
-  const attestorInfos = getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint);
+  const attestorInfos = getAttestationInfoFromPublishedCheckpoint(publishedCheckpoint, signatureContext);
   const attestors = compactArray(attestorInfos.map(info => ('address' in info ? info.address : undefined)));
   const { checkpoint, attestations } = publishedCheckpoint;
   const headerHash = checkpoint.header.hash();
@@ -66,7 +67,7 @@ export async function validateCheckpointAttestations(
     return { valid: true };
   }
 
-  const requiredAttestationCount = Math.floor((committee.length * 2) / 3) + 1;
+  const requiredAttestationCount = computeQuorum(committee.length);
 
   const failedValidationResult = <TReason extends ValidateCheckpointNegativeResult['reason']>(reason: TReason) => ({
     valid: false as const,

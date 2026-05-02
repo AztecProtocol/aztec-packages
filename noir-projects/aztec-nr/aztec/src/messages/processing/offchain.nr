@@ -1,10 +1,8 @@
 use crate::{
     capsules::CapsuleArray,
     context::UtilityContext,
-    messages::{
-        encoding::MESSAGE_CIPHERTEXT_LEN,
-        processing::{get_message_contexts_by_tx_hash, MessageContext, OffchainMessageWithContext},
-    },
+    ephemeral::EphemeralArray,
+    messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::OffchainMessageWithContext},
     oracle::contract_sync::set_contract_sync_cache_invalid,
     protocol::{
         address::AztecAddress,
@@ -19,13 +17,10 @@ use crate::{
 /// This is the slot where we accumulate messages received through [`receive`].
 global OFFCHAIN_INBOX_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_INBOX_SLOT".as_bytes());
 
-/// Capsule array slot used by [`sync_inbox`] to pass tx hash resolution requests to PXE.
+/// Ephemeral array slot used by [`sync_inbox`] to pass tx hash resolution requests to PXE.
 global OFFCHAIN_CONTEXT_REQUESTS_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_REQUESTS_SLOT".as_bytes());
 
-/// Capsule array slot used by [`sync_inbox`] to read tx context responses from PXE.
-global OFFCHAIN_CONTEXT_RESPONSES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_CONTEXT_RESPONSES_SLOT".as_bytes());
-
-/// Capsule array slot used by [`sync_inbox`] to collect messages ready for processing.
+/// Ephemeral array slot used by [`sync_inbox`] to collect messages ready for processing.
 global OFFCHAIN_READY_MESSAGES_SLOT: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_READY_MESSAGES_SLOT".as_bytes());
 
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
@@ -54,9 +49,10 @@ global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + TX_EXPIRATION_TOLERANCE;
 /// The only current implementation of an `OffchainInboxSync` is [`sync_inbox`], which manages an inbox with expiration
 /// based eviction and automatic transaction context resolution.
 pub(crate) type OffchainInboxSync<Env> = unconstrained fn[Env](
-/* contract_address */AztecAddress, /* scope */ AztecAddress) -> CapsuleArray<OffchainMessageWithContext>;
+/* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
 
 /// A message delivered via the `offchain_receive` utility function.
+#[derive(Serialize, Deserialize)]
 pub struct OffchainMessage {
     /// The encrypted message payload.
     pub ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
@@ -143,21 +139,11 @@ pub unconstrained fn receive(
 pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
-) -> CapsuleArray<OffchainMessageWithContext> {
+) -> EphemeralArray<OffchainMessageWithContext> {
     let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(contract_address, OFFCHAIN_INBOX_SLOT, scope);
-    let context_resolution_requests: CapsuleArray<Field> =
-        CapsuleArray::at(contract_address, OFFCHAIN_CONTEXT_REQUESTS_SLOT, scope);
-    let resolved_contexts: CapsuleArray<Option<MessageContext>> =
-        CapsuleArray::at(contract_address, OFFCHAIN_CONTEXT_RESPONSES_SLOT, scope);
-    let ready_to_process: CapsuleArray<OffchainMessageWithContext> =
-        CapsuleArray::at(contract_address, OFFCHAIN_READY_MESSAGES_SLOT, scope);
-
-    // Clear any stale ready messages from a previous run.
-    ready_to_process.for_each(|i, _| { ready_to_process.remove(i); });
-
-    // Clear any stale context resolution requests/responses from a previous run.
-    context_resolution_requests.for_each(|i, _| { context_resolution_requests.remove(i); });
-    resolved_contexts.for_each(|i, _| { resolved_contexts.remove(i); });
+    let context_resolution_requests: EphemeralArray<Field> = EphemeralArray::at(OFFCHAIN_CONTEXT_REQUESTS_SLOT).clear();
+    let ready_to_process: EphemeralArray<OffchainMessageWithContext> =
+        EphemeralArray::at(OFFCHAIN_READY_MESSAGES_SLOT).clear();
 
     // Build a request list aligned with the inbox indices.
     let mut i = 0;
@@ -168,13 +154,10 @@ pub unconstrained fn sync_inbox(
         i += 1;
     }
 
-    // Ask PXE to resolve contexts for all requested tx hashes.
-    get_message_contexts_by_tx_hash(
-        contract_address,
-        OFFCHAIN_CONTEXT_REQUESTS_SLOT,
-        OFFCHAIN_CONTEXT_RESPONSES_SLOT,
-        scope,
-    );
+    // Ask PXE to resolve contexts for all requested tx hashes. The oracle returns responses in a new
+    // ephemeral array.
+    let resolved_contexts =
+        crate::oracle::message_processing::get_message_contexts_by_tx_hash(context_resolution_requests);
 
     assert_eq(resolved_contexts.len(), inbox_len);
 
@@ -194,7 +177,8 @@ pub unconstrained fn sync_inbox(
         // sit in the inbox until it expires.
         //
         // 3. The TX that emitted this message has been found by PXE. That gives us all the information needed to
-        // process the message. We add the message to the `ready_to_process` CapsuleArray so that the `sync_state` loop
+        // process the message. We add the message to the `ready_to_process` EphemeralArray so that the `sync_state`
+        // loop
         // processes it.
         //
         // In all cases, if the message has expired (i.e. `now > anchor_block_timestamp + MAX_MSG_TTL`), we remove it
@@ -243,11 +227,15 @@ mod test {
         receive, sync_inbox,
     };
 
-    global SCOPE: AztecAddress = AztecAddress { inner: 0xcafe };
+    unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
+        let mut env = TestEnvironment::new();
+        let scope = env.create_light_account();
+        (env, scope)
+    }
 
-    /// Creates an `OffchainMessage` with dummy ciphertext and `SCOPE` as recipient.
-    fn make_msg(tx_hash: Option<Field>, anchor_block_timestamp: u64) -> OffchainMessage {
-        OffchainMessage { ciphertext: BoundedVec::new(), recipient: SCOPE, tx_hash, anchor_block_timestamp }
+    /// Creates an `OffchainMessage` with dummy ciphertext and the given scope as recipient.
+    fn make_msg(recipient: AztecAddress, tx_hash: Option<Field>, anchor_block_timestamp: u64) -> OffchainMessage {
+        OffchainMessage { ciphertext: BoundedVec::new(), recipient, tx_hash, anchor_block_timestamp }
     }
 
     /// Advances the TXE block timestamp by `offset` seconds and returns the resulting timestamp.
@@ -259,11 +247,11 @@ mod test {
 
     #[test]
     unconstrained fn empty_inbox_returns_empty_result() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         env.utility_context(|context| {
-            let result = sync_inbox(context.this_address(), SCOPE);
+            let result = sync_inbox(context.this_address(), scope);
             let inbox: CapsuleArray<PendingOffchainMsg> =
-                CapsuleArray::at(context.this_address(), OFFCHAIN_INBOX_SLOT, SCOPE);
+                CapsuleArray::at(context.this_address(), OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0);
             assert_eq(inbox.len(), 0);
@@ -272,12 +260,12 @@ mod test {
 
     #[test]
     unconstrained fn tx_bound_msg_expires_after_max_msg_ttl() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(Option::some(random()), anchor_ts));
+            msgs.push(make_msg(scope, Option::some(random()), anchor_ts));
             receive(context.this_address(), msgs);
         });
 
@@ -286,8 +274,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address, SCOPE);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
+            let result = sync_inbox(address, scope);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 0); // expired, removed
@@ -296,12 +284,12 @@ mod test {
 
     #[test]
     unconstrained fn tx_bound_msg_not_expired_before_max_msg_ttl() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(Option::some(random()), anchor_ts));
+            msgs.push(make_msg(scope, Option::some(random()), anchor_ts));
             receive(context.this_address(), msgs);
         });
 
@@ -310,8 +298,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address, SCOPE);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
+            let result = sync_inbox(address, scope);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 1); // not expired, stays
@@ -320,12 +308,12 @@ mod test {
 
     #[test]
     unconstrained fn tx_less_msg_expires_after_max_msg_ttl() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(Option::none(), anchor_ts));
+            msgs.push(make_msg(scope, Option::none(), anchor_ts));
             receive(context.this_address(), msgs);
         });
 
@@ -334,8 +322,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address, SCOPE);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
+            let result = sync_inbox(address, scope);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
             assert_eq(inbox.len(), 0); // expired, removed
@@ -344,12 +332,12 @@ mod test {
 
     #[test]
     unconstrained fn unresolved_tx_stays_in_inbox() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(Option::some(random()), anchor_ts));
+            msgs.push(make_msg(scope, Option::some(random()), anchor_ts));
             receive(context.this_address(), msgs);
         });
 
@@ -357,8 +345,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address, SCOPE);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
+            let result = sync_inbox(address, scope);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0); // not resolved, not ready
             assert_eq(inbox.len(), 1); // not expired, stays
@@ -367,7 +355,7 @@ mod test {
 
     #[test]
     unconstrained fn multiple_messages_mixed_expiration() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         let anchor_ts = advance_by(env, 10);
 
         let survivor_tx_hash = random();
@@ -377,11 +365,11 @@ mod test {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
             // Message 0: tx-bound, anchor_ts in the past so it expires at
             // anchor_ts + MAX_MSG_TTL. We set anchor to 0 so it expires quickly.
-            msgs.push(make_msg(Option::some(random()), 0));
+            msgs.push(make_msg(scope, Option::some(random()), 0));
             // Message 1: tx-bound, anchor_ts is recent so it survives.
-            msgs.push(make_msg(Option::some(survivor_tx_hash), anchor_ts));
+            msgs.push(make_msg(scope, Option::some(survivor_tx_hash), anchor_ts));
             // Message 2: tx-less, anchor_ts=0 so it also expires.
-            msgs.push(make_msg(Option::none(), 0));
+            msgs.push(make_msg(scope, Option::none(), 0));
             receive(address, msgs);
         });
 
@@ -390,8 +378,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address, SCOPE);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
+            let result = sync_inbox(address, scope);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             assert_eq(result.len(), 0); // all contexts are None
             // Message 0 expired (anchor=0), message 1 survived (anchor=anchor_ts),
@@ -405,7 +393,7 @@ mod test {
 
     #[test]
     unconstrained fn resolved_msg_is_ready_to_process() {
-        let env = TestEnvironment::new();
+        let (env, scope) = setup();
         // TestEnvironment::new() deploys protocol contracts, creating blocks with tx effects.
         // In TXE, tx hashes equal Fr(blockNumber), so Fr(1) is the tx effect from block 1.
         // We use this as a "known resolvable" tx hash.
@@ -414,7 +402,7 @@ mod test {
 
         env.utility_context(|context| {
             let mut msgs: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> = BoundedVec::new();
-            msgs.push(make_msg(Option::some(known_tx_hash), anchor_ts));
+            msgs.push(make_msg(scope, Option::some(known_tx_hash), anchor_ts));
             receive(context.this_address(), msgs);
         });
 
@@ -422,8 +410,8 @@ mod test {
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address, SCOPE);
-            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, SCOPE);
+            let result = sync_inbox(address, scope);
+            let inbox: CapsuleArray<PendingOffchainMsg> = CapsuleArray::at(address, OFFCHAIN_INBOX_SLOT, scope);
 
             // The message should be ready to process since its tx context was resolved.
             assert_eq(result.len(), 1);

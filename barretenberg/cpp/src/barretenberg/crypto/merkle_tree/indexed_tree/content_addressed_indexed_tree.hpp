@@ -1,5 +1,5 @@
 // === AUDIT STATUS ===
-// internal:    { status: Planned, auditors: [], commit: }
+// internal:    { status: Complete, auditors: [Nishat], commit: 22d6fc368da0fbe5412f4f7b2890a052aa48d803 }
 // external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
@@ -402,9 +402,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::get_leaf(const index_t& 
     auto job = [=, this]() {
         execute_and_report<GetIndexedLeafResponse<LeafValueType>>(
             [=, this](TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) {
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to get leaf for block number 0");
-                }
                 ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
@@ -470,9 +467,6 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::find_low_leaf(const fr& 
     auto job = [=, this]() {
         execute_and_report<GetLowIndexedLeafResponse>(
             [=, this](TypedResponse<GetLowIndexedLeafResponse>& response) {
-                if (blockNumber == 0) {
-                    throw std::runtime_error("Unable to find low leaf for block 0");
-                }
                 typename Store::ReadTransactionPtr tx = store_->create_read_transaction();
                 BlockPayload blockData;
                 if (!store_->get_block_data(blockNumber, blockData, *tx)) {
