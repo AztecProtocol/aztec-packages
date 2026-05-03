@@ -19,4 +19,7 @@ export enum ProvingRequestType {
 
   PARITY_BASE,
   PARITY_ROOT,
+
+  /** Re-execute every transaction in an L2 block and enqueue the per-tx proving jobs. */
+  BLOCK_EXECUTION,
 }

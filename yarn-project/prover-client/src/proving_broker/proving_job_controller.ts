@@ -202,6 +202,10 @@ export class ProvingJobController {
         return await this.circuitProver.getRootParityProof(inputs, signal, this.epochNumber);
       }
 
+      case ProvingRequestType.BLOCK_EXECUTION: {
+        throw new Error('BLOCK_EXECUTION jobs are not yet handled by ProvingJobController');
+      }
+
       default: {
         const _exhaustive: never = type;
         return Promise.reject(new Error(`Invalid proof request type: ${type}`));
