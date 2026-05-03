@@ -26,25 +26,36 @@ import { ProvingAgent } from '../proving_broker/proving_agent.js';
 /**
  * The factory surface that `EpochProvingJob` (in `prover-node`) depends on. Implemented
  * by `ProverClient`. Defined here rather than in stdlib because the return types
- * (`CheckpointSubTreeOrchestrator`, `TopTreeOrchestrator`, `BrokerCircuitProverFacade`)
- * are concrete classes from this package.
+ * (`CheckpointSubTreeOrchestrator`, `TopTreeOrchestrator`) are concrete classes from
+ * this package.
+ *
+ * A single `BrokerCircuitProverFacade` is owned by `ProverClient` and shared across
+ * every orchestrator (every sub-tree and every top-tree across every concurrent epoch
+ * job). The broker delivers each completed-job notification exactly once (drained on
+ * the first `getCompletedJobs` poll), so multiple facades polling the same broker
+ * race and lose notifications until a 30s snapshot-sync catches up — which exceeds
+ * the proof deadline for short epochs.
+ *
+ * The facade's job map cleans up entries on resolve/reject, and the prover-node
+ * keeps `ProverClient` alive for its whole lifetime, so the long-lived singleton is
+ * safe and is the simplest design.
  */
 export interface EpochProverFactory {
   getProverId(): EthAddress;
-  createCheckpointSubTreeOrchestrator(): {
-    orchestrator: CheckpointSubTreeOrchestrator;
-    facade: BrokerCircuitProverFacade;
-  };
-  createTopTreeOrchestrator(): {
-    orchestrator: TopTreeOrchestrator;
-    facade: BrokerCircuitProverFacade;
-  };
+  createCheckpointSubTreeOrchestrator(): CheckpointSubTreeOrchestrator;
+  createTopTreeOrchestrator(): TopTreeOrchestrator;
 }
 
 /** Manages proving of epochs by orchestrating the proving of individual blocks relying on a pool of prover agents. */
 export class ProverClient implements EpochProverManager, EpochProverFactory {
   private running = false;
   private agents: ProvingAgent[] = [];
+  /**
+   * The single broker facade shared by every orchestrator created from this client.
+   * Constructed lazily on `start()` and torn down on `stop()` — see the comment on
+   * `EpochProverFactory` for why a single shared facade is required.
+   */
+  private facade: BrokerCircuitProverFacade | undefined;
 
   private constructor(
     private config: ProverClientConfig,
@@ -57,61 +68,33 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     private log: Logger = createLogger('prover-client:tx-prover'),
   ) {}
 
-  /**
-   * Creates a fresh `CheckpointSubTreeOrchestrator` plus the broker facade it needs. The
-   * facade's lifecycle follows the orchestrator's — start it before driving and stop it
-   * when the orchestrator stops. Used by `EpochProvingJob` to spin up a sub-tree per
-   * checkpoint.
-   */
-  public createCheckpointSubTreeOrchestrator(): {
-    orchestrator: CheckpointSubTreeOrchestrator;
-    facade: BrokerCircuitProverFacade;
-  } {
-    const bindings = this.log.getBindings();
-    const facade = new BrokerCircuitProverFacade(
-      this.orchestratorClient,
-      this.proofStore,
-      this.failedProofStore,
-      undefined,
-      bindings,
-    );
-    const orchestrator = new CheckpointSubTreeOrchestrator(
+  private getFacade(): BrokerCircuitProverFacade {
+    if (!this.facade) {
+      throw new Error('ProverClient is not running; call start() before constructing orchestrators.');
+    }
+    return this.facade;
+  }
+
+  public createCheckpointSubTreeOrchestrator(): CheckpointSubTreeOrchestrator {
+    return new CheckpointSubTreeOrchestrator(
       this.worldState,
-      facade,
+      this.getFacade(),
       this.config.proverId,
       this.config.cancelJobsOnStop,
       this.config.enqueueConcurrency,
       this.telemetry,
-      bindings,
+      this.log.getBindings(),
     );
-    return { orchestrator, facade };
   }
 
-  /**
-   * Creates a fresh `TopTreeOrchestrator` plus the broker facade it needs. The top tree
-   * has no world-state dependency; it consumes block-level proofs supplied by sub-trees
-   * and per-checkpoint archiver data assembled by the caller.
-   */
-  public createTopTreeOrchestrator(): {
-    orchestrator: TopTreeOrchestrator;
-    facade: BrokerCircuitProverFacade;
-  } {
-    const bindings = this.log.getBindings();
-    const facade = new BrokerCircuitProverFacade(
-      this.orchestratorClient,
-      this.proofStore,
-      this.failedProofStore,
-      undefined,
-      bindings,
-    );
-    const orchestrator = new TopTreeOrchestrator(
-      facade,
+  public createTopTreeOrchestrator(): TopTreeOrchestrator {
+    return new TopTreeOrchestrator(
+      this.getFacade(),
       this.config.proverId,
       this.config.enqueueConcurrency,
       this.telemetry,
-      bindings,
+      this.log.getBindings(),
     );
-    return { orchestrator, facade };
   }
 
   public getProverId(): EthAddress {
@@ -141,6 +124,14 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     }
 
     this.running = true;
+    this.facade = new BrokerCircuitProverFacade(
+      this.orchestratorClient,
+      this.proofStore,
+      this.failedProofStore,
+      undefined,
+      this.log.getBindings(),
+    );
+    this.facade.start();
     await this.createAndStartAgents();
   }
 
@@ -153,6 +144,14 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     }
     this.running = false;
     await this.stopAgents();
+    if (this.facade) {
+      try {
+        await this.facade.stop();
+      } catch (err) {
+        this.log.error('Error stopping shared broker facade', err);
+      }
+      this.facade = undefined;
+    }
     await tryStop(this.orchestratorClient);
   }
 

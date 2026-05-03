@@ -126,8 +126,8 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const finalizeEpochPromise = promiseWithResolvers<void>();
     let hasFinalizeEpochWaited = false;
     jest.spyOn(epochProverManager, 'createTopTreeOrchestrator').mockImplementation(() => {
-      const result = originalCreateTopTree();
-      jest.spyOn(result.orchestrator, 'prove').mockImplementation(async () => {
+      const topTree = originalCreateTopTree();
+      jest.spyOn(topTree, 'prove').mockImplementation(async () => {
         if (!hasFinalizeEpochWaited) {
           // Note the following is very fragile, as it relies on timing.
           const seconds = L2_SLOT_DURATION_IN_S * (test.epochDuration + 1); // Forgive me for I have sinned.
@@ -147,7 +147,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
         );
         return { publicInputs: ourPublicInputs, proof: Proof.empty(), batchedBlobInputs: ourBatchedBlob };
       });
-      return result;
+      return topTree;
     });
     context.proverNode = proverNode;
 

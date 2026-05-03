@@ -10,7 +10,6 @@ import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EpochProverFactory } from '@aztec/prover-client';
-import type { BrokerCircuitProverFacade } from '@aztec/prover-client/broker';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import type {
   CheckpointSubTreeOrchestrator,
@@ -102,12 +101,11 @@ type CheckpointEntry = {
    */
   addCheckpointPromise?: Promise<void>;
   /**
-   * The sub-tree orchestrator and its broker facade. Created lazily when `addCheckpoint`
-   * runs; left undefined for entries that never make it past `pending` (e.g. cancelled
-   * before their tx-gathering completes).
+   * The sub-tree orchestrator. Created lazily when `addCheckpoint` runs; left undefined
+   * for entries that never make it past `pending` (e.g. cancelled before their
+   * tx-gathering completes). All sub-trees share the job's single broker facade.
    */
   subTree?: CheckpointSubTreeOrchestrator;
-  subTreeFacade?: BrokerCircuitProverFacade;
   /**
    * Promise of the sub-tree's block-level proving result. Set when `addCheckpoint`
    * starts driving the sub-tree, awaited by the top tree (lazily) at finalize time.
@@ -170,9 +168,8 @@ export class EpochProvingJob implements Traceable {
   private readonly completionPromise: Promise<EpochProvingJobState>;
   private resolveCompletion!: (state: EpochProvingJobState) => void;
 
-  /** The top-tree orchestrator and its broker facade. Constructed inside `finalizeAndProve`. */
+  /** The top-tree orchestrator. Constructed inside `finalizeAndProve`. */
   private topTree: TopTreeOrchestrator | undefined;
-  private topTreeFacade: BrokerCircuitProverFacade | undefined;
 
   /** Cached prover id, captured at construction so we don't repeatedly call into the factory. */
   private readonly proverId: EthAddress;
@@ -387,11 +384,10 @@ export class EpochProvingJob implements Traceable {
 
       const checkpointTimer = new Timer();
 
-      // Spin up a fresh sub-tree orchestrator for this checkpoint and start its facade.
-      const { orchestrator: subTree, facade } = this.prover.createCheckpointSubTreeOrchestrator();
+      // Spin up a fresh sub-tree orchestrator for this checkpoint. The factory hands
+      // back an orchestrator wired to the prover-client's shared broker facade.
+      const subTree = this.prover.createCheckpointSubTreeOrchestrator();
       entry.subTree = subTree;
-      entry.subTreeFacade = facade;
-      facade.start();
       subTree.startNewEpoch(this.epochNumber);
       // Capture the result promise immediately. The top tree awaits it lazily at finalize
       // time so checkpoint-root rollups can pipeline against in-flight block proving.
@@ -504,15 +500,11 @@ export class EpochProvingJob implements Traceable {
     } finally {
       // If we did not transition to tracked, tear down the sub-tree we may have created.
       // This covers abort, thrown errors, and the entry being deleted concurrently.
-      if (entry.status !== 'tracked' && subTreeStarted) {
+      if (entry.status !== 'tracked' && (subTreeStarted || entry.subTree)) {
         this.log.info(`Rolling back sub-tree for checkpoint ${checkpoint.number}`, {
           checkpointNumber: checkpoint.number,
           epochNumber: this.epochNumber,
         });
-        await this.teardownSubTree(entry);
-      } else if (entry.status !== 'tracked' && entry.subTreeFacade) {
-        // We created the facade but never started the sub-tree's checkpoint — still need
-        // to stop the facade so its polling loop doesn't leak.
         await this.teardownSubTree(entry);
       }
       resolveAddCheckpoint();
@@ -524,26 +516,19 @@ export class EpochProvingJob implements Traceable {
   }
 
   /**
-   * Cancels the sub-tree (if started) and stops its facade. Called when an entry is
-   * removed or rolled back. Idempotent — clears the entry's references on completion.
+   * Cancels the sub-tree (if started). Called when an entry is removed or rolled back.
+   * Idempotent. The shared broker facade is left running — `teardownAllOrchestrators`
+   * stops it once at job teardown.
    */
   private async teardownSubTree(entry: CheckpointEntry) {
-    const { subTree, subTreeFacade } = entry;
+    const { subTree } = entry;
     entry.subTree = undefined;
-    entry.subTreeFacade = undefined;
     entry.subTreeResult = undefined;
     if (subTree) {
       try {
         await subTree.stop();
       } catch (err) {
         this.log.error('Error stopping sub-tree', err);
-      }
-    }
-    if (subTreeFacade) {
-      try {
-        await subTreeFacade.stop();
-      } catch (err) {
-        this.log.error('Error stopping sub-tree facade', err);
       }
     }
   }
@@ -723,11 +708,10 @@ export class EpochProvingJob implements Traceable {
         };
       });
 
-      // Spin up the top tree and start it pipelined against the sub-tree promises.
-      const { orchestrator: topTree, facade: topTreeFacade } = this.prover.createTopTreeOrchestrator();
+      // Spin up the top tree wired to the prover-client's shared broker facade. The
+      // top-tree pipelines its checkpoint root rollups against the sub-tree promises.
+      const topTree = this.prover.createTopTreeOrchestrator();
       this.topTree = topTree;
-      this.topTreeFacade = topTreeFacade;
-      topTreeFacade.start();
 
       const executionTime = timer.ms();
 
@@ -820,12 +804,12 @@ export class EpochProvingJob implements Traceable {
   }
 
   /**
-   * Stops every sub-tree and the top tree (if started), and their associated facades.
-   * Called from the finalize finally and from `stop()`. Safe to call multiple times.
+   * Stops every sub-tree and the top tree (if started). The shared broker facade is
+   * owned by the prover-client and outlives every job, so it is not stopped here.
    */
   private async teardownAllOrchestrators() {
     for (const entry of this.checkpoints.values()) {
-      if (entry.subTree || entry.subTreeFacade) {
+      if (entry.subTree) {
         await this.teardownSubTree(entry);
       }
     }
@@ -836,14 +820,6 @@ export class EpochProvingJob implements Traceable {
         this.log.error('Error stopping top tree', err);
       }
       this.topTree = undefined;
-    }
-    if (this.topTreeFacade) {
-      try {
-        await this.topTreeFacade.stop();
-      } catch (err) {
-        this.log.error('Error stopping top tree facade', err);
-      }
-      this.topTreeFacade = undefined;
     }
   }
 

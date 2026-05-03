@@ -48,16 +48,16 @@ describe('e2e_epochs/epochs_multi_proof', () => {
       const proverManager = proverAztecNode.getProverNode()!.getProver();
       const origCreateTopTree = proverManager.createTopTreeOrchestrator.bind(proverManager);
       proverManager.createTopTreeOrchestrator = () => {
-        const factoryResult = origCreateTopTree();
-        const origProve = factoryResult.orchestrator.prove.bind(factoryResult.orchestrator);
-        factoryResult.orchestrator.prove = async (...args: Parameters<typeof origProve>) => {
+        const topTree = origCreateTopTree();
+        const origProve = topTree.prove.bind(topTree);
+        topTree.prove = async (...args: Parameters<typeof origProve>) => {
           const result = await origProve(...args);
           const sleepTime = index * 1000 * test.constants.ethereumSlotDuration;
           logger.warn(`Delaying top-tree prove for prover node ${index} by ${sleepTime}ms`);
           await sleep(sleepTime);
           return result;
         };
-        return factoryResult;
+        return topTree;
       };
     });
 

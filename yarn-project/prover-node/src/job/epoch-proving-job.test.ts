@@ -9,7 +9,6 @@ import { toArray } from '@aztec/foundation/iterable';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { EpochProverFactory } from '@aztec/prover-client';
-import type { BrokerCircuitProverFacade } from '@aztec/prover-client/broker';
 import type {
   CheckpointSubTreeOrchestrator,
   SubTreeResult,
@@ -46,12 +45,10 @@ describe('epoch-proving-job', () => {
   // Per-checkpoint mocks built lazily by `prover.createCheckpointSubTreeOrchestrator`.
   // Tests address them in registration order via `subTrees[i]`.
   let subTrees: MockProxy<CheckpointSubTreeOrchestrator>[];
-  let subTreeFacades: MockProxy<BrokerCircuitProverFacade>[];
   let subTreeResultResolvers: PromiseWithResolvers<SubTreeResult>[];
 
   // The single top-tree mock built when finalize runs.
   let topTree: MockProxy<TopTreeOrchestrator>;
-  let topTreeFacade: MockProxy<BrokerCircuitProverFacade>;
 
   // Objects
   let publicInputs: RootRollupPublicInputs;
@@ -123,7 +120,6 @@ describe('epoch-proving-job', () => {
   const installSubTreeFactory = () => {
     prover.createCheckpointSubTreeOrchestrator.mockImplementation(() => {
       const subTree = mock<CheckpointSubTreeOrchestrator>();
-      const facade = mock<BrokerCircuitProverFacade>();
       subTree.startNewEpoch.mockReturnValue(undefined);
       subTree.startNewCheckpoint.mockResolvedValue(undefined);
       subTree.startNewBlock.mockResolvedValue(undefined);
@@ -145,13 +141,9 @@ describe('epoch-proving-job', () => {
         previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
       });
 
-      facade.start.mockReturnValue(undefined);
-      facade.stop.mockResolvedValue(undefined);
-
       subTrees.push(subTree);
-      subTreeFacades.push(facade);
       subTreeResultResolvers.push(resolvers);
-      return { orchestrator: subTree, facade };
+      return subTree;
     });
   };
 
@@ -193,21 +185,17 @@ describe('epoch-proving-job', () => {
     (db as any).close = () => Promise.resolve();
 
     subTrees = [];
-    subTreeFacades = [];
     subTreeResultResolvers = [];
 
     prover.getProverId.mockReturnValue(proverId);
     installSubTreeFactory();
 
     topTree = mock<TopTreeOrchestrator>();
-    topTreeFacade = mock<BrokerCircuitProverFacade>();
     topTree.prove.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
     topTree.cancel.mockReturnValue(undefined);
     topTree.stop.mockResolvedValue(undefined);
     topTree.getProverId.mockReturnValue(proverId);
-    topTreeFacade.start.mockReturnValue(undefined);
-    topTreeFacade.stop.mockResolvedValue(undefined);
-    prover.createTopTreeOrchestrator.mockReturnValue({ orchestrator: topTree, facade: topTreeFacade });
+    prover.createTopTreeOrchestrator.mockReturnValue(topTree);
 
     publisher.submitEpochProof.mockResolvedValue(true);
     publicProcessor.process.mockImplementation(async txs => {
@@ -397,7 +385,6 @@ describe('epoch-proving-job', () => {
       // Override the factory so the first sub-tree's startNewBlock blocks on the gate.
       prover.createCheckpointSubTreeOrchestrator.mockImplementationOnce(() => {
         const subTree = mock<CheckpointSubTreeOrchestrator>();
-        const facade = mock<BrokerCircuitProverFacade>();
         subTree.startNewEpoch.mockReturnValue(undefined);
         subTree.startNewCheckpoint.mockResolvedValue(undefined);
         subTree.startNewBlock.mockImplementation(() => {
@@ -414,12 +401,9 @@ describe('epoch-proving-job', () => {
         const resolvers = promiseWithResolvers<SubTreeResult>();
         resolvers.promise.catch(() => {});
         subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
-        facade.start.mockReturnValue(undefined);
-        facade.stop.mockResolvedValue(undefined);
         subTrees.push(subTree);
-        subTreeFacades.push(facade);
         subTreeResultResolvers.push(resolvers);
-        return { orchestrator: subTree, facade };
+        return subTree;
       });
 
       const job = createJob();
@@ -456,7 +440,6 @@ describe('epoch-proving-job', () => {
       let called = false;
       prover.createCheckpointSubTreeOrchestrator.mockImplementationOnce(() => {
         const subTree = mock<CheckpointSubTreeOrchestrator>();
-        const facade = mock<BrokerCircuitProverFacade>();
         subTree.startNewEpoch.mockReturnValue(undefined);
         subTree.startNewCheckpoint.mockResolvedValue(undefined);
         subTree.startNewBlock.mockImplementation(() => {
@@ -473,12 +456,9 @@ describe('epoch-proving-job', () => {
         const resolvers = promiseWithResolvers<SubTreeResult>();
         resolvers.promise.catch(() => {});
         subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
-        facade.start.mockReturnValue(undefined);
-        facade.stop.mockResolvedValue(undefined);
         subTrees.push(subTree);
-        subTreeFacades.push(facade);
         subTreeResultResolvers.push(resolvers);
-        return { orchestrator: subTree, facade };
+        return subTree;
       });
 
       const job = createJob();
@@ -595,7 +575,6 @@ describe('epoch-proving-job', () => {
       let called = false;
       prover.createCheckpointSubTreeOrchestrator.mockImplementationOnce(() => {
         const subTree = mock<CheckpointSubTreeOrchestrator>();
-        const facade = mock<BrokerCircuitProverFacade>();
         subTree.startNewEpoch.mockReturnValue(undefined);
         subTree.startNewCheckpoint.mockResolvedValue(undefined);
         subTree.startNewBlock.mockImplementation(() => {
@@ -619,12 +598,9 @@ describe('epoch-proving-job', () => {
             previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
           }),
         );
-        facade.start.mockReturnValue(undefined);
-        facade.stop.mockResolvedValue(undefined);
         subTrees.push(subTree);
-        subTreeFacades.push(facade);
         subTreeResultResolvers.push(resolvers);
-        return { orchestrator: subTree, facade };
+        return subTree;
       });
 
       const job = createJob();

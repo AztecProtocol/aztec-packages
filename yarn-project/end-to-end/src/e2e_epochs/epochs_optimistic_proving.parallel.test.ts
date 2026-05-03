@@ -349,15 +349,15 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
         releaseProvingGate = resolve;
       });
       proverManager.createTopTreeOrchestrator = () => {
-        const result = origCreateTopTree();
-        const origProve = result.orchestrator.prove.bind(result.orchestrator);
-        result.orchestrator.prove = async (...args: Parameters<typeof origProve>) => {
+        const topTree = origCreateTopTree();
+        const origProve = topTree.prove.bind(topTree);
+        topTree.prove = async (...args: Parameters<typeof origProve>) => {
           logger.warn('Top-tree proving gated — waiting for test to release');
           await provingGate;
           logger.warn('Proving gate released');
           return origProve(...args);
         };
-        return result;
+        return topTree;
       };
 
       // Drive the chain forward until an epoch is ready to be proved.

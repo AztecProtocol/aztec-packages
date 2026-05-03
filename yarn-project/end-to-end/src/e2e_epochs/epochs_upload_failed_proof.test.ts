@@ -61,13 +61,13 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
     const proverManager = proverNode.getProver();
     const origCreateTopTree = proverManager.createTopTreeOrchestrator.bind(proverManager);
     proverManager.createTopTreeOrchestrator = () => {
-      const result = origCreateTopTree();
-      result.orchestrator.prove = async () => {
+      const topTree = origCreateTopTree();
+      topTree.prove = async () => {
         await sleep(1000);
         logger.warn(`Triggering error on top-tree prove`);
         throw new Error(`Fake error while proving epoch`);
       };
-      return result;
+      return topTree;
     };
 
     // And track when the epoch failure upload is complete
