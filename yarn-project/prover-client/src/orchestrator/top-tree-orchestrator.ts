@@ -133,6 +133,14 @@ export class TopTreeOrchestrator {
     if (this.state) {
       throw new Error('TopTreeOrchestrator.prove called twice; construct a new orchestrator per epoch.');
     }
+    // If cancel() was already called before prove() ran (e.g. a removeCheckpoint that
+    // landed while the caller was still preparing inputs), short-circuit the whole
+    // proving path. Without this, prove() would build its state, the per-checkpoint
+    // .then handlers would all bail on `this.cancelled`, and the completion promise
+    // would never resolve — prove() would hang forever.
+    if (this.cancelled) {
+      throw new TopTreeCancelledError();
+    }
 
     const { promise: completionPromise, resolve, reject } = promiseWithResolvers<void>();
     // The completion promise is awaited inside the try/catch below. Attach a no-op catch

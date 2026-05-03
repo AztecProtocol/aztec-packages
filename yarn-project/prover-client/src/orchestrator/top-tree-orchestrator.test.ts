@@ -149,6 +149,23 @@ describe('prover/orchestrator/top-tree', () => {
     expect(actual).toBeInstanceOf(TopTreeCancelledError);
   });
 
+  it('rejects immediately if cancel is called before prove', async () => {
+    const { topTreeData } = await driveSubTree(1, 1);
+    const challenges = await context.getFinalBlobChallenges();
+
+    const topTree = new TopTreeOrchestrator(context.prover, EthAddress.ZERO, 10);
+    topTree.cancel({ abortJobs: true });
+
+    let actual: unknown;
+    try {
+      await topTree.prove(EpochNumber(1), 1, challenges, [topTreeData]);
+    } catch (err) {
+      actual = err;
+    }
+    expect(actual).toBeInstanceOf(TopTreeCancelledError);
+    await topTree.stop();
+  });
+
   it('rejects when prove is called twice', async () => {
     const { topTreeData } = await driveSubTree(1, 1);
     const challenges = await context.getFinalBlobChallenges();
