@@ -4,7 +4,7 @@
 #include <cassert>
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_data_copy.hpp"
@@ -223,10 +223,10 @@ void DataCopyTraceBuilder::process(
 const InteractionDefinition DataCopyTraceBuilder::interactions =
     InteractionDefinition()
         // Enqueued Call Col Read
-        .add<lookup_data_copy_col_read_settings, InteractionType::LookupGeneric>()
+        .add<InteractionType::LookupGeneric, lookup_data_copy_col_read_settings>()
         // GT checks
-        .add<lookup_data_copy_offset_plus_size_is_gt_data_size_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_check_src_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_check_dst_addr_in_range_settings, InteractionType::LookupGeneric>(Column::gt_sel)
-        .add<lookup_data_copy_sel_has_reads_settings, InteractionType::LookupGeneric>(Column::gt_sel);
+        .add<InteractionType::LookupGeneric, lookup_data_copy_offset_plus_size_is_gt_data_size_settings>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_data_copy_check_src_addr_in_range_settings>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_data_copy_check_dst_addr_in_range_settings>(Column::gt_sel)
+        .add<InteractionType::LookupGeneric, lookup_data_copy_sel_has_reads_settings>(Column::gt_sel);
 } // namespace bb::avm2::tracegen

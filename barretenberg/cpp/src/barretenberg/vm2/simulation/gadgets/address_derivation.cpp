@@ -2,7 +2,7 @@
 
 #include <cassert>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
@@ -15,7 +15,7 @@ namespace bb::avm2::simulation {
  * If the address has already been derived, an event has already been emitted and we skip
  * repeating the computation and emission. Otherwise, we compute the address from the instance
  * members using the poseidon2, scalar_mul, and ecc traces, which is given as:
- *   1. salted_init_hash  = Poseidon2(DOM_SEP__PARTIAL_ADDRESS, salt, init_hash, deployer_addr)
+ *   1. salted_init_hash  = Poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr)
  *   2. partial_address   = Poseidon2(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
  *   3. public_keys_hash  = Poseidon2(DOM_SEP__PUBLIC_KEYS_HASH, [...public_keys.to_fields()])
  *   4. preaddress        = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address)
@@ -44,8 +44,8 @@ void AddressDerivation::assert_derivation(const AztecAddress& address, const Con
     // First time seeing this address - do the actual derivation.
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[SALTED_INITIALIZATION_HASH_POSEIDON2_i] in
     // address_derivation.pil.
-    FF salted_initialization_hash =
-        poseidon2.hash({ DOM_SEP__PARTIAL_ADDRESS, instance.salt, instance.initialization_hash, instance.deployer });
+    FF salted_initialization_hash = poseidon2.hash(
+        { DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer });
     // Emits Poseidon2HashEvents and Poseidon2PermutationEvents, see #[PARTIAL_ADDRESS_POSEIDON2] in
     // address_derivation.pil.
     FF partial_address =

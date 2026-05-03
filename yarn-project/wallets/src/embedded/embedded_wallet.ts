@@ -141,6 +141,7 @@ export class EmbeddedWallet extends BaseWallet {
       feeOptions,
       additionalScopes: opts.additionalScopes,
       skipTxValidation: true,
+      sendMessagesAs: opts.sendMessagesAs,
     });
 
     const offchainEffects = collectOffchainEffects(simulationResult.privateExecutionResult);
@@ -239,7 +240,7 @@ export class EmbeddedWallet extends BaseWallet {
     executionPayload: ExecutionPayload,
     opts: SimulateViaEntrypointOptions,
   ): Promise<TxSimulationResultWithAppOffset> {
-    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement } = opts;
+    const { from, feeOptions, additionalScopes, skipTxValidation, skipFeeEnforcement, sendMessagesAs } = opts;
     const scopes = this.scopesFrom(from, additionalScopes);
 
     const feeExecutionPayload = await feeOptions.walletFeePaymentMethod?.getExecutionPayload();
@@ -280,6 +281,7 @@ export class EmbeddedWallet extends BaseWallet {
       skipTxValidation,
       overrides,
       scopes,
+      senderForTags: this.senderForTagsFrom(from, sendMessagesAs),
     });
     const appCallOffset = await this.computeAppCallOffset(from, feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);

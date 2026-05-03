@@ -119,8 +119,7 @@ RelationParameters<FF> compute_full_relation_params(ProverPolynomials& polynomia
         .eccvm_set_permutation_delta = eccvm_set_permutation_delta,
     };
 
-    const size_t num_rows = polynomials.get_polynomial_size();
-    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, num_rows, Flavor::TRACE_OFFSET);
+    compute_logderivative_inverse<FF, ECCVMLookupRelation<FF>>(polynomials, params, Flavor::TRACE_OFFSET);
     compute_grand_product<Flavor, ECCVMSetRelation<FF>>(polynomials, params);
     polynomials.z_perm_shift = Polynomial(polynomials.z_perm.shifted());
 

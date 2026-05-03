@@ -7,9 +7,9 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/claim.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
-#include "barretenberg/goblin/merge_constants.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -17,8 +17,11 @@
 namespace bb {
 
 /**
- * @brief Prover class for the Goblin ECC op queue transcript merge protocol
- *
+ * @brief Prover for the single-step Goblin ECC op queue merge protocol.
+ * @details Proves that the most recently merged subtable concatenates correctly with the prior aggregate table to
+ * form the new aggregate table. Used in the Chonk flow only for the final merge of the hiding kernel's subtable
+ * (placed at a fixed offset). For the multi-subtable batched merge proven once at the end of an IVC, see
+ * BatchMergeProver.
  */
 class MergeProver {
     using Curve = curve::BN254;
@@ -35,9 +38,7 @@ class MergeProver {
     using MergeProof = std::vector<FF>;
     static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 
-    explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         std::shared_ptr<Transcript> transcript,
-                         MergeSettings settings = MergeSettings::PREPEND);
+    explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::shared_ptr<Transcript> transcript);
 
     BB_PROFILE MergeProof construct_proof();
 
@@ -45,16 +46,10 @@ class MergeProver {
 
     CommitmentKey pcs_commitment_key;
 
-    // Offset for L and R: matches the circuit's ecc_op_wire layout.
-    static constexpr size_t FULL_SHIFT = MERGE_FULL_SHIFT;
-
-    // In APPEND mode (final merge), M retains a partial shift for Translator shiftability.
-    static constexpr size_t APPEND_OUTPUT_SHIFT = MERGE_APPEND_OUTPUT_SHIFT;
-
   private:
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<ECCOpQueue> op_queue;
-    MergeSettings settings;
+    size_t fixed_append_shift_size = 0;
 
     std::vector<std::string> labels_degree_check = { "LEFT_TABLE_DEGREE_CHECK_0",
                                                      "LEFT_TABLE_DEGREE_CHECK_1",
@@ -83,9 +78,8 @@ class MergeProver {
      * @param degree_check_challenges
      * @return Polynomial
      */
-    static Polynomial compute_degree_check_polynomial(const std::array<Polynomial, NUM_WIRES>& left_table,
-                                                      const std::vector<FF>& degree_check_challenges,
-                                                      size_t shift_size);
+    Polynomial compute_degree_check_polynomial(const std::array<Polynomial, NUM_WIRES>& left_table,
+                                               const std::vector<FF>& degree_check_challenges) const;
 
     /**
      * @brief Compute the batched Shplonk quotient polynomial.

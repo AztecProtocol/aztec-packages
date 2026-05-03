@@ -49,7 +49,7 @@ function echo_yellow {
 }
 
 function timeout {
-  if [ "${CI:-0}" -eq 1 ]; then
+  if [ "${CI:-0}" = "1" ] || [ "${CI:-0}" = "true" ]; then
     /usr/bin/timeout "$@"
   else
     shift
@@ -173,11 +173,14 @@ function install_foundry {
   temp_foundry_dir=$(mktemp -d) || { echo "Error: Failed to create temp directory" >&2; exit 1; }
   mkdir -p "$temp_foundry_dir/bin"
 
-  # Always install/update foundryup
-  curl --max-time 30 -L https://foundry.paradigm.xyz | bash
+  # The foundry installer defaults to $XDG_CONFIG_HOME/.foundry when that var is set, which
+  # puts foundryup somewhere we don't expect. We'll pin FOUNDRY_DIR so we control the install
+  # location regardless of the caller's environment.
+  local foundry_home="$HOME/.foundry"
+  FOUNDRY_DIR="$foundry_home" curl --max-time 30 -L https://foundry.paradigm.xyz | FOUNDRY_DIR="$foundry_home" bash
 
   # Install foundry to temp location and move to version directory
-  FOUNDRY_DIR="$temp_foundry_dir" timeout 30 "$HOME/.foundry/bin/foundryup" -i "$foundry_version"
+  FOUNDRY_DIR="$temp_foundry_dir" timeout 30 "$foundry_home/bin/foundryup" -i "$foundry_version"
 
   # Move the foundry binaries to our version bin directory
   for binary in forge cast anvil chisel; do
@@ -195,6 +198,29 @@ function install_aztec_packages {
 
   # Install npm packages to the version directory using --prefix
   npm install @aztec/aztec@$VERSION @aztec/cli-wallet@$VERSION @aztec/bb.js@$VERSION --prefix "$version_path"
+}
+
+function symlink_aztec_bins {
+  set -euo pipefail
+  # Populate version_bin_path with symlinks to @aztec-owned bins only. Adding
+  # node_modules/.bin wholesale to PATH would shadow user-installed tools
+  # (jest, tsc, semver, ...) with Aztec's transitive dependencies.
+  local npm_bin_dir="$version_path/node_modules/.bin"
+  [ -d "$npm_bin_dir" ] || return 0
+
+  local bin_link bin_name target
+  for bin_link in "$npm_bin_dir"/*; do
+    [ -L "$bin_link" ] || continue
+    target=$(readlink "$bin_link")
+    # npm writes relative symlinks like ../@aztec/aztec/... for scoped packages.
+    [[ "$target" == ../@aztec/* ]] || continue
+    bin_name=$(basename "$bin_link")
+    if [ -e "$version_bin_path/$bin_name" ] && [ ! -L "$version_bin_path/$bin_name" ]; then
+      echo_yellow "refusing to overwrite non-symlink $bin_name; @aztec package bin collides with a hand-installed toolchain binary" >&2
+      exit 1
+    fi
+    ln -sfn "../node_modules/.bin/$bin_name" "$version_bin_path/$bin_name"
+  done
 }
 
 function main {
@@ -227,6 +253,11 @@ function main {
   # Install aztec npm packages
   echo -n "Installing aztec packages... "
   dump_fail retry install_aztec_packages
+  echo_green "done."
+
+  # Expose only @aztec-owned bins on PATH (drops transitive npm deps).
+  echo -n "Making aztec commands available... "
+  dump_fail retry symlink_aztec_bins
   echo_green "done."
 }
 

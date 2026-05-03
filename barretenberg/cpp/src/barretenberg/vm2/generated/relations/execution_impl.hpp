@@ -61,7 +61,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto constants_AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT = FF(6);
     const auto constants_DOM_SEP__PUBLIC_LEAF_SLOT = FF(1247650290);
     const auto constants_DOM_SEP__WRITTEN_SLOTS_MERKLE = FF(2292766212UL);
-    const auto execution_SEL_SHOULD_RESOLVE_ADDRESS = in.get(C::execution_sel_instruction_fetching_success);
+    const auto execution_SEL_RESOLVE_ADDRESS = in.get(C::execution_sel_instruction_fetching_success);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -92,9 +92,9 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // TRACE_CONTINUITY
         using View = typename std::tuple_element_t<4, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel))) *
-                   (FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) *
-                   static_cast<View>(in.get(C::execution_sel_shift));
+        auto tmp = ((FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) -
+                    static_cast<View>(in.get(C::execution_enqueued_call_end))) *
+                   (static_cast<View>(in.get(C::execution_sel)) - static_cast<View>(in.get(C::execution_sel_shift)));
         std::get<4>(evals) += (tmp * scaling_factor);
     }
     { // EXEC_CLK_INIT
@@ -122,31 +122,31 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                         (FF(1) - static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_failure))));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
-    {
-        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_instruction_fetching_success)) -
-                    static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_success)) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_sel_instruction_fetching_failure))));
-        std::get<9>(evals) += (tmp * scaling_factor);
-    }
     { // NO_FETCHING_NO_INSTR_FETCH_ERROR
-        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_success))) *
                    static_cast<View>(in.get(C::execution_sel_instruction_fetching_failure));
+        std::get<9>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_instruction_fetching_success)) -
+                    (static_cast<View>(in.get(C::execution_sel_bytecode_retrieval_success)) -
+                     static_cast<View>(in.get(C::execution_sel_instruction_fetching_failure))));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_should_read_registers)) -
-                    CView(execution_SEL_SHOULD_RESOLVE_ADDRESS) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_sel_addressing_error))));
+        auto tmp =
+            (static_cast<View>(in.get(C::execution_sel_read_registers)) -
+             (CView(execution_SEL_RESOLVE_ADDRESS) - static_cast<View>(in.get(C::execution_sel_addressing_error))));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_should_check_gas)) -
-                    static_cast<View>(in.get(C::execution_sel_should_read_registers)) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_sel_register_read_error))));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_check_gas)) -
+                    (static_cast<View>(in.get(C::execution_sel_read_registers)) -
+                     static_cast<View>(in.get(C::execution_sel_register_read_error))));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     {
@@ -197,7 +197,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
               static_cast<View>(in.get(C::execution_sel_gas_emit_public_log)) *
                   CView(constants_AVM_DYN_GAS_ID_EMITPUBLICLOG) +
               static_cast<View>(in.get(C::execution_sel_gas_sstore)) * CView(constants_AVM_DYN_GAS_ID_SSTORE)) -
-             static_cast<View>(in.get(C::execution_sel_should_check_gas)) *
+             static_cast<View>(in.get(C::execution_sel_check_gas)) *
                  static_cast<View>(in.get(C::execution_dyn_gas_id)));
         std::get<19>(evals) += (tmp * scaling_factor);
     }
@@ -287,9 +287,9 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) -
-                    static_cast<View>(in.get(C::execution_sel_should_check_gas)) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_sel_out_of_gas))));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_execute_opcode)) -
+                    (static_cast<View>(in.get(C::execution_sel_check_gas)) -
+                     static_cast<View>(in.get(C::execution_sel_out_of_gas))));
         std::get<31>(evals) += (tmp * scaling_factor);
     }
     {
@@ -403,7 +403,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
               static_cast<View>(in.get(C::execution_sel_exec_dispatch_ecc_add)) * CView(constants_AVM_SUBTRACE_ID_ECC) +
               static_cast<View>(in.get(C::execution_sel_exec_dispatch_to_radix)) *
                   CView(constants_AVM_SUBTRACE_ID_TO_RADIX)) -
-             static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) *
+             static_cast<View>(in.get(C::execution_sel_execute_opcode)) *
                  static_cast<View>(in.get(C::execution_subtrace_id)));
         std::get<46>(evals) += (tmp * scaling_factor);
     }
@@ -575,8 +575,7 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     { // PC_NEXT_ROW_INT_CALL_JUMP
         using View = typename std::tuple_element_t<69, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::execution_sel_shift)) *
-                   (static_cast<View>(in.get(C::execution_sel_execute_internal_call)) +
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_execute_internal_call)) +
                     static_cast<View>(in.get(C::execution_sel_execute_jump))) *
                    (static_cast<View>(in.get(C::execution_pc_shift)) - static_cast<View>(in.get(C::execution_rop_0_)));
         std::get<69>(evals) += (tmp * scaling_factor);
@@ -584,7 +583,6 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     { // PC_NEXT_ROW_JUMPI
         using View = typename std::tuple_element_t<70, ContainerOverSubrelations>::View;
         auto tmp =
-            static_cast<View>(in.get(C::execution_sel_shift)) *
             static_cast<View>(in.get(C::execution_sel_execute_jumpi)) *
             ((static_cast<View>(in.get(C::execution_register_0_)) *
                   (static_cast<View>(in.get(C::execution_rop_1_)) - static_cast<View>(in.get(C::execution_next_pc))) +
@@ -756,17 +754,17 @@ void executionImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                    static_cast<View>(in.get(C::execution_sel_opcode_error));
         std::get<92>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // NO_OPCODE_ERROR_IF_NOT_EXECUTING
         using View = typename std::tuple_element_t<93, ContainerOverSubrelations>::View;
-        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_should_execute_opcode))) *
+        auto tmp = (FF(1) - static_cast<View>(in.get(C::execution_sel_execute_opcode))) *
                    static_cast<View>(in.get(C::execution_sel_opcode_error));
         std::get<93>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<94, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::execution_sel_should_write_registers)) -
-                    static_cast<View>(in.get(C::execution_sel_should_execute_opcode)) *
-                        (FF(1) - static_cast<View>(in.get(C::execution_sel_opcode_error))));
+        auto tmp = (static_cast<View>(in.get(C::execution_sel_write_registers)) -
+                    (static_cast<View>(in.get(C::execution_sel_execute_opcode)) -
+                     static_cast<View>(in.get(C::execution_sel_opcode_error))));
         std::get<94>(evals) += (tmp * scaling_factor);
     }
     {

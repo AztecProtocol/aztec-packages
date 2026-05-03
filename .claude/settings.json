@@ -10,6 +10,17 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -c 'GITROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0; [ -n \"$GITROOT\" ] && exec \"$GITROOT/.claude/scripts/format-file.sh\"; exit 0'"
+          }
+        ]
+      }
     ]
   }
 }

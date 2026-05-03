@@ -478,6 +478,32 @@ describe('EpochCache', () => {
       await epochCache.getCommittee(epoch1Slot);
       expect(epochCache.isFinalized(EpochNumber(1))).toBe(true);
     });
+
+    it('treats entries as not finalized when L1 has no finalized block yet', async () => {
+      const epoch1Slot = SlotNumber(EPOCH_DURATION);
+      const epoch1Ts = l1GenesisTime + BigInt(EPOCH_DURATION * SLOT_DURATION);
+      const latestTs = epoch1Ts + 10000n;
+
+      client.getBlock.mockImplementation((args: any) => {
+        if (args?.blockTag === 'finalized') {
+          return Promise.reject(new Error('finalized block not found'));
+        }
+        return Promise.resolve({ timestamp: latestTs, number: 100n, hash: '0xddd' } as any);
+      });
+
+      rollupContract.getCommitteeAt.mockResolvedValue(testCommittee);
+      rollupContract.getSampleSeedAt.mockResolvedValue(Buffer32.fromBigInt(42n));
+
+      const result = await epochCache.getCommittee(epoch1Slot);
+      expect(result.committee).toEqual(testCommittee);
+      expect(epochCache.isFinalized(EpochNumber(1))).toBe(false);
+
+      // Advance past TTL; should re-query since entry is not finalized.
+      jest.setSystemTime(Date.now() + SLOT_DURATION * 1000);
+      rollupContract.getCommitteeAt.mockClear();
+      await epochCache.getCommittee(epoch1Slot);
+      expect(rollupContract.getCommitteeAt).toHaveBeenCalledTimes(0); // lightweight refresh
+    });
   });
 
   describe('proposer pipelining', () => {

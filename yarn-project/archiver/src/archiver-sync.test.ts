@@ -29,10 +29,10 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import type { GetBlockReturnType } from 'viem';
 
 import { Archiver, type ArchiverEmitter } from './archiver.js';
-import { L1ToL2MessagesNotReadyError } from './errors.js';
+import { BlockOrCheckpointSlotExpiredError, L1ToL2MessagesNotReadyError } from './errors.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
-import { KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 import { FakeL1State } from './test/fake_l1_state.js';
 
@@ -51,7 +51,7 @@ describe('Archiver Sync', () => {
   let inboxContract: MockProxy<InboxContract>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let dateProvider: TestDateProvider;
-  let archiverStore: KVArchiverDataStore;
+  let archiverStore: ArchiverDataStores;
   let l1Constants: L1RollupConstants & { l1StartBlockHash: Buffer32; genesisArchiveRoot: Fr };
   let archiver: Archiver;
   let synchronizer: ArchiverL1Synchronizer;
@@ -97,10 +97,12 @@ describe('Archiver Sync', () => {
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
 
     // Create archiver store
-    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_sync_test'), 1000);
+    archiverStore = createArchiverDataStores(await openTmpStore('archiver_sync_test'), { logsMaxPageSize: 1000 });
 
     const contractAddresses = {
+      rollupAddress,
       registryAddress,
+      inboxAddress,
       governanceProposerAddress,
       slashingProposerAddress,
     };
@@ -114,13 +116,14 @@ describe('Archiver Sync', () => {
       batchSize: 1000,
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
+      skipHistoricalLogsCheck: true,
     };
 
     // Create event emitter shared by archiver and synchronizer
     const events = new EventEmitter() as ArchiverEmitter;
 
     // Create L2 tips cache shared by archiver and synchronizer
-    const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+    const l2TipsCache = new L2TipsCache(archiverStore.blocks);
 
     // Create the L1 synchronizer
     synchronizer = new ArchiverL1Synchronizer(
@@ -1215,9 +1218,9 @@ describe('Archiver Sync', () => {
       // Manually advance the sync point past where the new checkpoint will appear.
       // This simulates a scenario where the sync point was advanced (e.g., via invalid
       // attestation handling at line 204), placing it ahead of a new checkpoint.
-      await archiverStore.setCheckpointSynchedL1BlockNumber(200n);
+      await archiverStore.blocks.setSynchedL1BlockNumber(200n);
       // checkForNewCheckpointsBeforeL1SyncPoint requires validationResult?.valid to be true
-      await archiverStore.setPendingChainValidationStatus({ valid: true });
+      await archiverStore.blocks.setPendingChainValidationStatus({ valid: true });
 
       // Add checkpoint 2 at L1 block 150 (behind the manual sync point of 200).
       // This simulates an L1 reorg that added a new checkpoint in a range already scanned.
@@ -1334,6 +1337,24 @@ describe('Archiver Sync', () => {
       const lastBlockInCp1 = cp1.blocks.at(-1)!.number;
       expect(tips.finalized.checkpoint.number).toEqual(CheckpointNumber(1));
       expect(tips.finalized.block.number).toEqual(lastBlockInCp1);
+    });
+
+    it('leaves finalized checkpoint untouched when L1 has no finalized block yet', async () => {
+      await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 50n,
+        numL1ToL2Messages: 3,
+      });
+
+      fake.markCheckpointAsProven(CheckpointNumber(1));
+      fake.setL1BlockNumber(101n);
+      fake.setFinalizedL1BlockNumber(undefined);
+
+      await expect(archiver.syncImmediate()).resolves.not.toThrow();
+
+      const tips = await archiver.getL2Tips();
+      expect(tips.finalized.checkpoint.number).toEqual(CheckpointNumber(0));
+      expect(tips.finalized.block.number).toEqual(BlockNumber(0));
     });
 
     it('does not advance finalized checkpoint when finalized L1 block is before the proven checkpoint', async () => {
@@ -1501,7 +1522,7 @@ describe('Archiver Sync', () => {
       });
 
       // Try to add the block for the past slot - should be rejected
-      await expect(archiver.addBlock(pastSlotBlocks[0])).rejects.toThrow(/past slot/);
+      await expect(archiver.addBlock(pastSlotBlocks[0])).rejects.toThrow(BlockOrCheckpointSlotExpiredError);
     }, 10_000);
 
     it('adds missing blocks when checkpoint has more blocks than local', async () => {
@@ -1566,10 +1587,10 @@ describe('Archiver Sync', () => {
 
       // Add blocks from BOTH checkpoints locally (matching the L1 checkpoints)
       for (const block of cp2.blocks) {
-        await archiverStore.addProposedBlock(block, { force: true });
+        await archiverStore.blocks.addProposedBlock(block, { force: true });
       }
       for (const block of cp3.blocks) {
-        await archiverStore.addProposedBlock(block, { force: true });
+        await archiverStore.blocks.addProposedBlock(block, { force: true });
       }
 
       // Verify all blocks are visible locally
@@ -1846,7 +1867,7 @@ describe('Archiver Sync', () => {
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
       };
-      await archiver.setProposedCheckpoint(proposedCheckpoint);
+      await archiver.addProposedCheckpoint(proposedCheckpoint);
 
       // Advance L1 to block 2 (still in slot 1) — proposed checkpoint is still current
       fake.setL1BlockNumber(2n);
@@ -1857,7 +1878,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastProvisionalBlockNumber);
 
       // Proposed checkpoint should still be set
-      expect(await archiverStore.blockStore.getProposedCheckpointOnly()).toBeDefined();
+      expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeDefined();
 
       // Proposed tip should be ahead of the checkpointed tip
       const tips = await archiver.getL2Tips();
@@ -1907,7 +1928,7 @@ describe('Archiver Sync', () => {
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
       };
-      await archiver.setProposedCheckpoint(proposedCheckpoint);
+      await archiver.addProposedCheckpoint(proposedCheckpoint);
 
       // Advance L1 to block 4 (slot 2), ending slot 1 without checkpoint on L1
       fake.setL1BlockNumber(4n);
@@ -1927,7 +1948,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Proposed checkpoint should be cleared, so proposed tip falls back to checkpointed tip
-      expect(await archiverStore.blockStore.getProposedCheckpointOnly()).toBeUndefined();
+      expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeUndefined();
       const tips = await archiver.getL2Tips();
       expect(tips.proposedCheckpoint.checkpoint.number).toEqual(tips.checkpointed.checkpoint.number);
       expect(tips.proposedCheckpoint.block.number).toEqual(tips.checkpointed.block.number);

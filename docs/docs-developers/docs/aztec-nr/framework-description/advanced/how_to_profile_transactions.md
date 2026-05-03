@@ -63,6 +63,14 @@ BB=/path/to/bb aztec profile gates ./target
 ```
 :::
 
+:::tip Machine-readable output
+For build automation, use `--json` to emit gate counts as a JSON array. Each entry has `name`, `type` (`contract-function` or `program`), and `gates`:
+
+```bash
+aztec profile gates --json ./target
+```
+:::
+
 ### Flamegraphs
 
 To generate an interactive flamegraph SVG for a specific function:

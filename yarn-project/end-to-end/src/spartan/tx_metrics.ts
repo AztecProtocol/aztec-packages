@@ -1,6 +1,6 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Logger } from '@aztec/foundation/log';
-import type { L2Block } from '@aztec/stdlib/block';
+import type { BlockResponse } from '@aztec/stdlib/interfaces/client';
 import type { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, type TxReceipt } from '@aztec/stdlib/tx';
 
@@ -147,7 +147,7 @@ export type TxInclusionData = {
 export class TxInclusionMetrics {
   private data = new Map<string, TxInclusionData>();
   private groups = new Set<string>();
-  private blocks = new Map<number, Promise<L2Block | undefined>>();
+  private blocks = new Map<number, Promise<BlockResponse<{ includeTransactions: true }> | undefined>>();
 
   private p2pGossipLatencyByTopic: Partial<Record<TopicType, { p50: number; p95: number }>> = {};
 
@@ -198,7 +198,7 @@ export class TxInclusionMetrics {
     }
 
     if (!this.blocks.has(blockNumber)) {
-      this.blocks.set(blockNumber, this.aztecNode.getBlock(blockNumber));
+      this.blocks.set(blockNumber, this.aztecNode.getBlock(blockNumber, { includeTransactions: true }));
     }
 
     const block = await this.blocks.get(blockNumber)!;
@@ -229,12 +229,24 @@ export class TxInclusionMetrics {
     p99: number;
   } {
     const histogram = createHistogram({});
+    let nonPositive = 0;
     for (const tx of this.data.values()) {
       if (!tx.blocknumber || tx.group !== group || tx.minedAt === -1) {
         continue;
       }
 
-      histogram.record(tx.minedAt - tx.sentAt);
+      // `minedAt` is the block's L2 slot timestamp (seconds) while `sentAt` is the wall-clock
+      // send time. Because the slot timestamp can precede or equal the send time, the delta
+      // can be <= 0, which perf_hooks.createHistogram rejects. Skip those instead of crashing.
+      const delta = tx.minedAt - tx.sentAt;
+      if (delta <= 0) {
+        nonPositive++;
+        continue;
+      }
+      histogram.record(delta);
+    }
+    if (nonPositive > 0) {
+      this.logger?.debug(`Dropped ${nonPositive} tx inclusion samples with non-positive delta`, { group });
     }
 
     if (histogram.count === 0) {

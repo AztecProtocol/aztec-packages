@@ -249,30 +249,11 @@ Use these terms consistently throughout:
 - **Emphasis**: Use _italics_ sparingly for emphasis
 - **File paths**: Always use forward slashes (e.g., `/usr/local/bin`)
 - **Placeholders**: Use `[PLACEHOLDER_NAME]` format in examples
-- **Em-dashes (`—`)**: Do not use em-dashes. They often signal AI-generated prose and add friction when editing across tools. Rewrite with a comma, colon, parentheses, or a new sentence. Examples:
-  - ❌ `Alpha is live — bugs are expected.`
-  - ✅ `Alpha is live, and bugs are expected.`
-  - ❌ `Limits apply — number of notes, nullifiers, logs.`
-  - ✅ `Limits apply: number of notes, nullifiers, logs.`
-  - ❌ `[Networks Overview](/networks) — Technical details`
-  - ✅ `[Networks Overview](/networks): Technical details`
+- **Punctuation**: Do not use em-dashes (`—`) or en-dashes (`–`). Use commas, colons, parentheses, or separate sentences instead.
 
 ### Heading Capitalization
 
 **Use sentence case for all headings (H1 through H6).** Only capitalize the first word and proper nouns. Do not capitalize common nouns, verbs, prepositions, articles, or conjunctions.
-
-**Examples:**
-
-- ✅ `## What Alpha is`
-- ✅ `## Known limitations and expected issues`
-- ✅ `### Proving system bugs`
-- ✅ `## State migration and rollup upgrades`
-- ✅ `## Path to beta`
-- ✅ `## How to deploy a contract`
-- ❌ `## What Alpha Is`
-- ❌ `## Known Limitations and Expected Issues`
-- ❌ `## How To Deploy A Contract`
-
 **Applying this to existing files:** When editing an existing page that uses Title Case, convert the headings you touch (and ideally the whole page) to sentence case. The goal is to converge on one style across the site, rather than preserving historical inconsistency.
 
 ### Standard Sections
@@ -328,7 +309,7 @@ The description should:
 - ❌ Legal disclaimers or license text
 - ❌ Direct quotes from external sources
 - ❌ API endpoint URLs or configuration values
-- ❌ Existing migration notes in `resources/migration_notes.md`. Never modify already-published migration entries. Instead, add new migration notes to the `## TBD` section at the top of the file.
+- ❌ Existing migration notes in `resources/migration_notes.md`: never modify already-published migration entries. Instead, add new migration notes to the `## TBD` section at the top of the file.
 
 ## Review Output Format
 

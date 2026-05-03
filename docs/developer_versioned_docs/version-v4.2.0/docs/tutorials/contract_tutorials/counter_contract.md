@@ -125,8 +125,8 @@ Let’s create a constructor method to run on deployment that assigns an initial
 #[initializer]
 #[external("private")]
 // We can name our initializer anything we want as long as it's marked as aztec(initializer)
-fn initialize(headstart: u64, owner: AztecAddress) {
-    self.storage.counters.at(owner).add(headstart as u128).deliver(
+fn initialize(headstart: u128, owner: AztecAddress) {
+    self.storage.counters.at(owner).add(headstart).deliver(
         MessageDelivery.ONCHAIN_CONSTRAINED,
     );
 }

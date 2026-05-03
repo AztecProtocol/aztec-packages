@@ -6,8 +6,13 @@ import {
   ContractInstancePublishedEvent,
   ContractInstanceUpdatedEvent,
 } from '@aztec/protocol-contracts/instance-registry';
-import type { L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
-import { type ProposedCheckpointInput, type PublishedCheckpoint, validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { CommitteeAttestation, L2Block, ValidateCheckpointResult } from '@aztec/stdlib/block';
+import {
+  type L1PublishedData,
+  type ProposedCheckpointInput,
+  type PublishedCheckpoint,
+  validateCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import {
   type ContractClassPublicWithCommitment,
   computeContractAddressFromInstance,
@@ -16,7 +21,7 @@ import {
 import type { ContractClassLog, PrivateLog, PublicLog } from '@aztec/stdlib/logs';
 import type { UInt64 } from '@aztec/stdlib/types';
 
-import type { KVArchiverDataStore } from '../store/kv_archiver_store.js';
+import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
 
 /** Operation type for contract data updates. */
@@ -38,7 +43,7 @@ export class ArchiverDataStoreUpdater {
   private readonly log = createLogger('archiver:store_updater');
 
   constructor(
-    private store: KVArchiverDataStore,
+    private stores: ArchiverDataStores,
     private l2TipsCache?: L2TipsCache,
     private opts: { rollupManaLimit?: number } = {},
   ) {}
@@ -56,14 +61,15 @@ export class ArchiverDataStoreUpdater {
     block: L2Block,
     pendingChainValidationStatus?: ValidateCheckpointResult,
   ): Promise<boolean> {
-    const result = await this.store.transactionAsync(async () => {
-      await this.store.addProposedBlock(block);
+    const result = await this.stores.db.transactionAsync(async () => {
+      await this.stores.blocks.addProposedBlock(block);
 
       const opResults = await Promise.all([
         // Update the pending chain validation status if provided
-        pendingChainValidationStatus && this.store.setPendingChainValidationStatus(pendingChainValidationStatus),
+        pendingChainValidationStatus &&
+          this.stores.blocks.setPendingChainValidationStatus(pendingChainValidationStatus),
         // Add any logs emitted during the retrieved block
-        this.store.addLogs([block]),
+        this.stores.logs.addLogs([block]),
         // Unroll all logs emitted during the retrieved block and extract any contract classes and instances from it
         this.addContractDataToDb(block),
       ]);
@@ -79,24 +85,36 @@ export class ArchiverDataStoreUpdater {
    * Adds new checkpoints to the store with contract class/instance extraction from logs.
    * Prunes any local blocks that conflict with checkpoint data (by comparing archive roots).
    * Extracts ContractClassPublished, ContractInstancePublished, ContractInstanceUpdated events from the checkpoint block logs.
+   * If `promoteProposed` is supplied, the proposed-checkpoint promotion runs inside the same transaction
+   * as the added checkpoints so both updates are applied atomically.
    *
-   * @param checkpoints - The published checkpoints to add.
+   * @param checkpoints - The published checkpoints to add (excluding any being promoted from proposed).
    * @param pendingChainValidationStatus - Optional validation status to set.
+   * @param promoteProposed - Optional promotion of the current proposed checkpoint (fast path when blocks are already local).
    * @returns Result with information about any pruned blocks.
    */
   public async addCheckpoints(
     checkpoints: PublishedCheckpoint[],
     pendingChainValidationStatus?: ValidateCheckpointResult,
+    promoteProposed?: {
+      l1: L1PublishedData;
+      attestations: CommitteeAttestation[];
+      checkpoint: PublishedCheckpoint;
+    },
+    evictProposedFrom?: CheckpointNumber,
   ): Promise<ReconcileCheckpointsResult> {
     for (const checkpoint of checkpoints) {
       validateCheckpoint(checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
     }
+    if (promoteProposed) {
+      validateCheckpoint(promoteProposed.checkpoint.checkpoint, { rollupManaLimit: this.opts?.rollupManaLimit });
+    }
 
-    const result = await this.store.transactionAsync(async () => {
+    const result = await this.stores.db.transactionAsync(async () => {
       // Before adding checkpoints, check for conflicts with local blocks if any
       const { prunedBlocks, lastAlreadyInsertedBlockNumber } = await this.pruneMismatchingLocalBlocks(checkpoints);
 
-      await this.store.addCheckpoints(checkpoints);
+      await this.stores.blocks.addCheckpoints(checkpoints);
 
       // Filter out blocks that were already inserted via addProposedBlock() to avoid duplicating logs/contract data
       const newBlocks = checkpoints
@@ -105,11 +123,25 @@ export class ArchiverDataStoreUpdater {
 
       await Promise.all([
         // Update the pending chain validation status if provided
-        pendingChainValidationStatus && this.store.setPendingChainValidationStatus(pendingChainValidationStatus),
+        pendingChainValidationStatus &&
+          this.stores.blocks.setPendingChainValidationStatus(pendingChainValidationStatus),
         // Add any logs emitted during the retrieved blocks
-        this.store.addLogs(newBlocks),
+        this.stores.logs.addLogs(newBlocks),
         // Unroll all logs emitted during the retrieved blocks and extract any contract classes and instances from them
         ...newBlocks.map(block => this.addContractDataToDb(block)),
+        // Promote the proposed checkpoint if requested (uses explicit checkpoint number)
+        promoteProposed
+          ? this.stores.blocks.promoteProposedToCheckpointed(
+              promoteProposed.checkpoint.checkpoint.number,
+              promoteProposed.l1,
+              promoteProposed.attestations,
+              promoteProposed.checkpoint.checkpoint.archive.root,
+            )
+          : undefined,
+        // Evict pending checkpoints that diverged from what L1 mined
+        evictProposedFrom !== undefined
+          ? this.stores.blocks.evictProposedCheckpointsFrom(evictProposedFrom)
+          : undefined,
       ]);
 
       await this.l2TipsCache?.refresh();
@@ -118,9 +150,9 @@ export class ArchiverDataStoreUpdater {
     return result;
   }
 
-  public async setProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
-    const result = await this.store.transactionAsync(async () => {
-      await this.store.setProposedCheckpoint(proposedCheckpoint);
+  public async addProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
+    const result = await this.stores.db.transactionAsync(async () => {
+      await this.stores.blocks.addProposedCheckpoint(proposedCheckpoint);
       await this.l2TipsCache?.refresh();
     });
 
@@ -135,8 +167,8 @@ export class ArchiverDataStoreUpdater {
    */
   private async pruneMismatchingLocalBlocks(checkpoints: PublishedCheckpoint[]): Promise<ReconcileCheckpointsResult> {
     const [lastCheckpointedBlockNumber, lastBlockNumber] = await Promise.all([
-      this.store.getCheckpointedL2BlockNumber(),
-      this.store.getLatestBlockNumber(),
+      this.stores.blocks.getCheckpointedL2BlockNumber(),
+      this.stores.blocks.getLatestL2BlockNumber(),
     ]);
 
     // Exit early if there are no local uncheckpointed blocks
@@ -145,7 +177,7 @@ export class ArchiverDataStoreUpdater {
     }
 
     // Get all uncheckpointed local blocks
-    const uncheckpointedLocalBlocks = await this.store.getBlocks(
+    const uncheckpointedLocalBlocks = await this.stores.blocks.getBlocks(
       BlockNumber.add(lastCheckpointedBlockNumber, 1),
       lastBlockNumber - lastCheckpointedBlockNumber,
     );
@@ -210,9 +242,9 @@ export class ArchiverDataStoreUpdater {
    * @throws Error if any block to be removed is checkpointed.
    */
   public async removeUncheckpointedBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
-    const result = await this.store.transactionAsync(async () => {
+    const result = await this.stores.db.transactionAsync(async () => {
       // Verify we're only removing uncheckpointed blocks
-      const lastCheckpointedBlockNumber = await this.store.getCheckpointedL2BlockNumber();
+      const lastCheckpointedBlockNumber = await this.stores.blocks.getCheckpointedL2BlockNumber();
       if (blockNumber < lastCheckpointedBlockNumber) {
         throw new Error(
           `Cannot remove blocks after ${blockNumber} because checkpointed blocks exist up to ${lastCheckpointedBlockNumber}`,
@@ -221,8 +253,8 @@ export class ArchiverDataStoreUpdater {
 
       const result = await this.removeBlocksAfter(blockNumber);
 
-      // Clear the proposed checkpoint if it exists, since its blocks have been pruned
-      await this.store.deleteProposedCheckpoint();
+      // Clear all pending proposed checkpoints since their blocks have been pruned
+      await this.stores.blocks.deleteProposedCheckpoints();
 
       await this.l2TipsCache?.refresh();
       return result;
@@ -236,11 +268,11 @@ export class ArchiverDataStoreUpdater {
    */
   private async removeBlocksAfter(blockNumber: BlockNumber): Promise<L2Block[]> {
     // First get the blocks to be removed so we can clean up contract data
-    const removedBlocks = await this.store.removeBlocksAfter(blockNumber);
+    const removedBlocks = await this.stores.blocks.removeBlocksAfter(blockNumber);
 
     // Clean up contract data and logs for the removed blocks
     await Promise.all([
-      this.store.deleteLogs(removedBlocks),
+      this.stores.logs.deleteLogs(removedBlocks),
       ...removedBlocks.map(block => this.removeContractDataFromDb(block)),
     ]);
 
@@ -257,15 +289,15 @@ export class ArchiverDataStoreUpdater {
    * @returns True if the operation is successful.
    */
   public async removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<boolean> {
-    return await this.store.transactionAsync(async () => {
-      const { blocksRemoved = [] } = await this.store.removeCheckpointsAfter(checkpointNumber);
+    return await this.stores.db.transactionAsync(async () => {
+      const { blocksRemoved = [] } = await this.stores.blocks.removeCheckpointsAfter(checkpointNumber);
 
       const opResults = await Promise.all([
         // Prune rolls back to the last proven block, which is by definition valid
-        this.store.setPendingChainValidationStatus({ valid: true }),
+        this.stores.blocks.setPendingChainValidationStatus({ valid: true }),
         // Remove contract data for all blocks being removed
         ...blocksRemoved.map(block => this.removeContractDataFromDb(block)),
-        this.store.deleteLogs(blocksRemoved),
+        this.stores.logs.deleteLogs(blocksRemoved),
       ]);
 
       await this.l2TipsCache?.refresh();
@@ -278,8 +310,8 @@ export class ArchiverDataStoreUpdater {
    * @param checkpointNumber - The checkpoint number to set as proven.
    */
   public async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
-    await this.store.transactionAsync(async () => {
-      await this.store.setProvenCheckpointNumber(checkpointNumber);
+    await this.stores.db.transactionAsync(async () => {
+      await this.stores.blocks.setProvenCheckpointNumber(checkpointNumber);
       await this.l2TipsCache?.refresh();
     });
   }
@@ -289,8 +321,8 @@ export class ArchiverDataStoreUpdater {
    * @param checkpointNumber - The checkpoint number to set as finalized.
    */
   public async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
-    await this.store.transactionAsync(async () => {
-      await this.store.setFinalizedCheckpointNumber(checkpointNumber);
+    await this.stores.db.transactionAsync(async () => {
+      await this.stores.blocks.setFinalizedCheckpointNumber(checkpointNumber);
       await this.l2TipsCache?.refresh();
     });
   }
@@ -336,7 +368,7 @@ export class ArchiverDataStoreUpdater {
       const contractClasses = contractClassPublishedEvents.map(e => e.toContractClassPublic());
       if (contractClasses.length > 0) {
         contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
-        return await this.store.deleteContractClasses(contractClasses, blockNum);
+        return await this.stores.contractClasses.deleteContractClasses(contractClasses, blockNum);
       }
       return true;
     }
@@ -362,7 +394,7 @@ export class ArchiverDataStoreUpdater {
 
     if (contractClasses.length > 0) {
       contractClasses.forEach(c => this.log.verbose(`${Operation[operation]} contract class ${c.id.toString()}`));
-      return await this.store.addContractClasses(contractClasses, blockNum);
+      return await this.stores.contractClasses.addContractClasses(contractClasses, blockNum);
     }
     return true;
   }
@@ -401,9 +433,9 @@ export class ArchiverDataStoreUpdater {
         this.log.verbose(`${Operation[operation]} contract instance at ${c.address.toString()}`),
       );
       if (operation == Operation.Store) {
-        return await this.store.addContractInstances(contractInstances, blockNum);
+        return await this.stores.contractInstances.addContractInstances(contractInstances, blockNum);
       } else if (operation == Operation.Delete) {
-        return await this.store.deleteContractInstances(contractInstances, blockNum);
+        return await this.stores.contractInstances.deleteContractInstances(contractInstances);
       }
     }
     return true;
@@ -427,9 +459,9 @@ export class ArchiverDataStoreUpdater {
         this.log.verbose(`${Operation[operation]} contract instance update at ${c.address.toString()}`),
       );
       if (operation == Operation.Store) {
-        return await this.store.addContractInstanceUpdates(contractUpdates, timestamp);
+        return await this.stores.contractInstances.addContractInstanceUpdates(contractUpdates, timestamp);
       } else if (operation == Operation.Delete) {
-        return await this.store.deleteContractInstanceUpdates(contractUpdates, timestamp);
+        return await this.stores.contractInstances.deleteContractInstanceUpdates(contractUpdates, timestamp);
       }
     }
     return true;

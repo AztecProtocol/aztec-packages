@@ -370,8 +370,7 @@ class MegaFlavor {
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;
 
     // Rows reserved at the top of the trace for row-disabling / ZK masking.
-    // MegaAvmFlavor overrides to 0 (no masking needed).
-    static constexpr size_t TRACE_OFFSET = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    static constexpr size_t TRACE_OFFSET = 0;
 
     // Witness shifts sit contiguously at the start of WitnessEntities in the order
     // (w_l..w_4, p2_w_5..p2_w_8, z_perm) — matched by the first 9 entries of ShiftedEntities.

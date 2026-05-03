@@ -1,5 +1,6 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
@@ -20,7 +21,6 @@ import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { TopicType } from '@aztec/stdlib/p2p';
-import { TxStatus } from '@aztec/stdlib/tx';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -30,9 +30,12 @@ import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import {
+  SCHNORR_HARDCODED_PRIVATE_KEY,
+  SchnorrHardcodedKeyAccountContract,
+} from '../fixtures/schnorr_hardcoded_account_contract.js';
+import {
   type EndToEndContext,
   type SetupOptions,
-  deployAccounts,
   getPrivateKeyFromIndex,
   getSponsoredFPCAddress,
   setup,
@@ -71,7 +74,7 @@ export class P2PNetworkTest {
   public peerIdPrivateKeys: string[] = [];
   public validators: Operator[] = [];
 
-  public deployedAccounts: InitialAccountData[] = [];
+  public hardcodedAccountData!: InitialAccountData;
   public genesis: GenesisData | undefined;
 
   // The re-execution test needs a wallet and a spam contract
@@ -124,7 +127,6 @@ export class P2PNetworkTest {
       metricsPort: metricsPort,
       numberOfInitialFundedAccounts: 2,
       startProverNode,
-      walletMinFeePadding: 2.0,
     };
 
     this.deployL1ContractsArgs = {
@@ -187,10 +189,10 @@ export class P2PNetworkTest {
   }
 
   get fundedAccount() {
-    if (!this.deployedAccounts[0]) {
-      throw new Error('Call setupAccount to create a funded account.');
+    if (!this.hardcodedAccountData) {
+      throw new Error('Call setup to initialize the hardcoded account.');
     }
-    return this.deployedAccounts[0];
+    return this.hardcodedAccountData;
   }
 
   async addBootstrapNode() {
@@ -298,18 +300,22 @@ export class P2PNetworkTest {
     await this._sendDummyTx(this.context.deployL1ContractsValues.l1Client);
   }
 
+  /** Points the wallet to a P2P-enabled node so transactions can propagate through the network. */
+  setupWalletOnNode(node: AztecNodeService) {
+    this.logger.info('Pointing wallet to a P2P-enabled node');
+    this.context.wallet.updateNode(node);
+  }
+
+  /** Registers the hardcoded account in PXE without on-chain deployment. No sequencer needed. */
   async setupAccount() {
-    this.logger.info('Setting up account');
-    const { deployedAccounts } = await deployAccounts(1, this.logger, {
-      wait: {
-        waitForStatus: TxStatus.CHECKPOINTED,
-      },
-    })({
-      wallet: this.context.wallet,
-      initialFundedAccounts: this.context.initialFundedAccounts,
+    this.logger.info('Registering hardcoded account (no deployment)');
+    const contract = new SchnorrHardcodedKeyAccountContract();
+    const accountManager = await (this.context.wallet as TestWallet).createAccount({
+      secret: this.hardcodedAccountData.secret,
+      salt: this.hardcodedAccountData.salt,
+      contract,
     });
-    this.deployedAccounts = deployedAccounts;
-    [{ address: this.defaultAccountAddress }] = deployedAccounts;
+    this.defaultAccountAddress = accountManager.address;
     this.wallet = this.context.wallet;
   }
 
@@ -350,12 +356,29 @@ export class P2PNetworkTest {
 
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
+
+    // Pre-compute hardcoded account data so it gets funded in genesis.
+    const contract = new SchnorrHardcodedKeyAccountContract();
+    const secret = Fr.random();
+    const salt = Fr.random();
+    this.hardcodedAccountData = {
+      secret,
+      salt,
+      signingKey: SCHNORR_HARDCODED_PRIVATE_KEY,
+      address: await getAccountContractAddress(contract, secret, salt),
+    };
+
+    // Generate regular Schnorr accounts for tests that need deployable accounts (e.g. add_rollup).
+    const regularAccounts = await generateSchnorrAccounts(this.setupOptions.numberOfInitialFundedAccounts ?? 2);
+
     this.context = await setup(
       0,
       {
         ...this.setupOptions,
         fundSponsoredFPC: true,
         skipAccountDeployment: true,
+        skipInitialSequencer: true,
+        initialFundedAccounts: [...regularAccounts, this.hardcodedAccountData],
         slasherEnabled: this.setupOptions.slasherEnabled ?? this.deployL1ContractsArgs.slasherEnabled ?? false,
         aztecTargetCommitteeSize: 0,
         l1ContractsArgs: this.deployL1ContractsArgs,

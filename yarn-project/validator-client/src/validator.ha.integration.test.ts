@@ -20,7 +20,13 @@ import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { SlasherConfig, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal, mockTx } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeBlockHeader,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+  mockTx,
+} from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { INSERT_SCHEMA_VERSION, SCHEMA_SETUP, SCHEMA_VERSION } from '@aztec/validator-ha-signer/db';
@@ -123,7 +129,7 @@ describe('ValidatorClient HA Integration', () => {
     };
     keyStoreManager = new KeystoreManager(keyStore);
 
-    rollupAddress = EthAddress.random();
+    rollupAddress = TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress;
 
     // Create 5 HA validator instances for use across all tests
     const baseConfig: ValidatorClientConfig &
@@ -137,6 +143,7 @@ describe('ValidatorClient HA Integration', () => {
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
       l1Contracts: { rollupAddress },
+      l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,
       haSigningEnabled: true,
@@ -144,7 +151,7 @@ describe('ValidatorClient HA Integration', () => {
       pollingIntervalMs: 100,
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
-      databaseUrl: 'postgresql://test',
+      databaseUrl: new SecretValue('postgresql://test'),
       dataStoreMapSizeKb: 128 * 1024 * 1024,
     };
 
@@ -200,6 +207,7 @@ describe('ValidatorClient HA Integration', () => {
     const blockProposalValidator = new BlockProposalValidator(epochCache, {
       txsPermitted: true,
       maxTxsPerBlock: undefined,
+      signatureContext: TEST_COORDINATION_SIGNATURE_CONTEXT,
     });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,

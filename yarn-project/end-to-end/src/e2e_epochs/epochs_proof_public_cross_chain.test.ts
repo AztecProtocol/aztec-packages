@@ -33,6 +33,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
       minTxsPerBlock: 1,
       disableAnvilTestWatcher: true,
       sequencerPublisherAllowInvalidStates: true,
+      enableProposerPipelining: true,
     });
     ({ context, logger } = test);
   });
@@ -77,7 +78,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
     logger.warn(`Waiting for proof for tx ${txReceipt.txHash} mined at ${txReceipt.blockNumber!}`);
     await retryUntil(
       async () => {
-        const provenBlockNumber = await context.aztecNode.getProvenBlockNumber();
+        const provenBlockNumber = await context.aztecNode.getBlockNumber('proven');
         logger.info(`Proven block number is ${provenBlockNumber}`);
         return provenBlockNumber >= txReceipt.blockNumber!;
       },
@@ -85,7 +86,7 @@ describe('e2e_epochs/epochs_proof_public_cross_chain', () => {
       test.L2_SLOT_DURATION_IN_S * test.epochDuration * 3,
     );
 
-    const provenBlockNumber = await context.aztecNode.getProvenBlockNumber();
+    const provenBlockNumber = await context.aztecNode.getBlockNumber('proven');
     expect(provenBlockNumber).toBeGreaterThanOrEqual(txReceipt.blockNumber!);
 
     // Should not be able to consume the message again.

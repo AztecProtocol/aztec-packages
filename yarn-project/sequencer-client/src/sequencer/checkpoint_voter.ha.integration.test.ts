@@ -235,12 +235,13 @@ describe('CheckpointVoter HA Integration', () => {
       disableValidator: false,
       disabledValidators: [],
       haSigningEnabled: true,
+      l1ChainId: 1,
       l1Contracts: { rollupAddress: EthAddress.fromString(rollupContract.address.toString()) },
       nodeId: config.nodeId || 'ha-node-1',
       pollingIntervalMs: 100,
       signingTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
-      databaseUrl: 'postgresql://test',
+      databaseUrl: new SecretValue('postgresql://test'),
       dataStoreMapSizeKb: 128 * 1024 * 1024,
     };
 

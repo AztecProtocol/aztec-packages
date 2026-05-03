@@ -1,6 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
-import { maxBy } from '@aztec/foundation/collection';
+import { maxBy, merge } from '@aztec/foundation/collection';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
@@ -8,7 +8,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { GasFees } from '@aztec/stdlib/gas';
+import { type BlockMinFeesProvider, GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
   BlockProposal,
@@ -146,8 +146,6 @@ export class LibP2PService extends WithTracer implements P2PService {
   private protocolVersion = '';
   private topicStrings: Record<TopicType, string> = {} as Record<TopicType, string>;
 
-  private feesCache: { blockNumber: BlockNumber; gasFees: GasFees } | undefined;
-
   /** Callback invoked when a duplicate proposal is detected (triggers slashing). */
   private duplicateProposalCallback?: (info: {
     slot: SlotNumber;
@@ -197,6 +195,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     private epochCache: EpochCacheInterface,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
+    private blockMinFeesProvider: BlockMinFeesProvider,
     telemetry: TelemetryClient,
     logger: Logger = createLogger('p2p:libp2p_service'),
   ) {
@@ -232,15 +231,23 @@ export class LibP2PService extends WithTracer implements P2PService {
     const proposalValidatorOpts = {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
+      maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
       p2pPropagationTime,
+      signatureContext: {
+        chainId: config.l1ChainId,
+        rollupAddress: config.l1Contracts.rollupAddress,
+      },
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
     this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
+    const attestationValidatorOpts = {
+      l1PublishingTime: config.l1PublishingTime,
+      p2pPropagationTime,
+      signatureContext: proposalValidatorOpts.signatureContext,
+    };
     this.checkpointAttestationValidator = config.fishermanMode
-      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, {
-          l1PublishingTime: config.l1PublishingTime,
-        })
-      : new CheckpointAttestationValidator(epochCache, { l1PublishingTime: config.l1PublishingTime });
+      ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, attestationValidatorOpts)
+      : new CheckpointAttestationValidator(epochCache, attestationValidatorOpts);
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
@@ -265,8 +272,9 @@ export class LibP2PService extends WithTracer implements P2PService {
     };
   }
 
-  public updateConfig(config: Partial<P2PReqRespConfig>) {
+  public updateConfig(config: Partial<P2PReqRespConfig & Pick<P2PConfig, 'skipIncomingProposals'>>) {
     this.reqresp.updateConfig(config);
+    this.config = merge(this.config, config);
   }
 
   /**
@@ -285,6 +293,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       proofVerifier: ClientProtocolCircuitVerifier;
       worldStateSynchronizer: WorldStateSynchronizer;
       peerStore: AztecAsyncKVStore;
+      blockMinFeesProvider: BlockMinFeesProvider;
       telemetry: TelemetryClient;
       logger: Logger;
       packageVersion: string;
@@ -297,6 +306,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       mempools,
       proofVerifier,
       peerStore,
+      blockMinFeesProvider,
       telemetry,
       logger,
       packageVersion,
@@ -503,6 +513,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       epochCache,
       proofVerifier,
       worldStateSynchronizer,
+      blockMinFeesProvider,
       telemetry,
       logger,
     );
@@ -840,6 +851,15 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // Process the message, optionally within a linked span for trace propagation
     const processMessage = async () => {
+      if (
+        this.config.skipIncomingProposals &&
+        (msg.topic === this.topicStrings[TopicType.block_proposal] ||
+          msg.topic === this.topicStrings[TopicType.checkpoint_proposal])
+      ) {
+        this.logger.warn(`Ignoring incoming proposal (skipIncomingProposals is set)`, { topic: msg.topic });
+        this.node.services.pubsub.reportMessageValidationResult(msgId, source.toString(), TopicValidatorResult.Ignore);
+        return;
+      }
       if (msg.topic === this.topicStrings[TopicType.tx]) {
         await this.handleGossipedTx(p2pMessage.payload, msgId, source);
       } else if (msg.topic === this.topicStrings[TopicType.checkpoint_attestation]) {
@@ -1616,15 +1636,8 @@ export class LibP2PService extends WithTracer implements P2PService {
     });
   }
 
-  private async getGasFees(blockNumber: BlockNumber): Promise<GasFees> {
-    if (blockNumber === this.feesCache?.blockNumber) {
-      return this.feesCache.gasFees;
-    }
-
-    const header = await this.archiver.getBlockHeader(blockNumber);
-    const gasFees = header?.globalVariables.gasFees ?? GasFees.empty();
-    this.feesCache = { blockNumber, gasFees };
-    return gasFees;
+  private getGasFees(): Promise<GasFees> {
+    return this.blockMinFeesProvider.getCurrentMinFees();
   }
 
   /**
@@ -1666,7 +1679,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     currentBlockNumber: BlockNumber,
     nextSlotTimestamp: UInt64,
   ): Promise<Record<string, TransactionValidator>> {
-    const gasFees = await this.getGasFees(currentBlockNumber);
+    const gasFees = await this.getGasFees();
     const allowedInSetup = [
       ...(await getDefaultAllowedSetupFunctions()),
       ...(this.config.txPublicSetupAllowListExtend ?? []),

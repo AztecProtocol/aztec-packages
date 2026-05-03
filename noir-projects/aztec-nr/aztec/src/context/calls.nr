@@ -250,18 +250,17 @@ impl<let M: u32, let N: u32, T> PublicStaticCall<M, N, T> {
 
 // UtilityCall
 
+#[must_use = "Your utility call needs to be passed into `self.call(...)` (utility context) or `self.utility.call(...)` (private context) to be executed"]
 pub struct UtilityCall<let M: u32, let N: u32, T> {
     pub target_contract: AztecAddress,
     pub selector: FunctionSelector,
     pub name: str<M>,
-    args_hash: Field,
     pub args: [Field; N],
     return_type: T,
 }
 
 impl<let M: u32, let N: u32, T> UtilityCall<M, N, T> {
     pub fn new(target_contract: AztecAddress, selector: FunctionSelector, name: str<M>, args: [Field; N]) -> Self {
-        let args_hash = hash_args(args);
-        Self { target_contract, selector, name, args_hash, args, return_type: std::mem::zeroed() }
+        Self { target_contract, selector, name, args, return_type: std::mem::zeroed() }
     }
 }

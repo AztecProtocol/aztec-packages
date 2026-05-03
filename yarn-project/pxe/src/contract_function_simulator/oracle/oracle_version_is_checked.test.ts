@@ -213,6 +213,7 @@ describe('Oracle Version Check test suite', () => {
         jobId: 'test',
         scopes: [],
         l2TipsStore,
+        simulator,
       });
     });
 

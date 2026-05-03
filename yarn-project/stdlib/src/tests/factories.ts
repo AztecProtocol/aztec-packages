@@ -9,7 +9,6 @@ import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   CHONK_PROOF_LENGTH,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  DomainSeparator,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   MAX_CHECKPOINTS_PER_EPOCH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
@@ -46,7 +45,6 @@ import { type FieldsOf, makeTuple } from '@aztec/foundation/array';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { compact } from '@aztec/foundation/collection';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
@@ -95,6 +93,7 @@ import {
   type PrivateFunction,
   SerializableContractInstance,
   computeContractClassId,
+  computePartialAddress,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
 import { Gas, GasFees, GasSettings } from '../gas/index.js';
@@ -855,11 +854,16 @@ export function makeParityPublicInputs(seed = 0): ParityPublicInputs {
     new Fr(BigInt(seed + 0x200)),
     new Fr(BigInt(seed + 0x300)),
     new Fr(BigInt(seed + 0x400)),
+    new Fr(BigInt(seed + 0x500)),
   );
 }
 
 export function makeParityBasePrivateInputs(seed = 0): ParityBasePrivateInputs {
-  return new ParityBasePrivateInputs(makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000), new Fr(seed + 0x4000));
+  return new ParityBasePrivateInputs(
+    makeTuple(NUM_MSGS_PER_BASE_PARITY, fr, seed + 0x3000),
+    new Fr(seed + 0x4000),
+    new Fr(seed + 0x5000),
+  );
 }
 
 export function makeParityRootPrivateInputs(seed = 0) {
@@ -1245,14 +1249,12 @@ export async function makeContractInstanceFromClassId(
   const deployer = overrides?.deployer ?? new AztecAddress(new Fr(seed + 2));
   const publicKeys = overrides?.publicKeys ?? (await makePublicKeys(seed + 3));
 
-  const saltedInitializationHash = await poseidon2HashWithSeparator(
-    [salt, initializationHash, deployer],
-    DomainSeparator.PARTIAL_ADDRESS,
-  );
-  const partialAddress = await poseidon2HashWithSeparator(
-    [classId, saltedInitializationHash],
-    DomainSeparator.PARTIAL_ADDRESS,
-  );
+  const partialAddress = await computePartialAddress({
+    originalContractClassId: classId,
+    salt,
+    initializationHash,
+    deployer,
+  });
   const address = await computeAddress(publicKeys, partialAddress);
   return new SerializableContractInstance({
     version: 1,

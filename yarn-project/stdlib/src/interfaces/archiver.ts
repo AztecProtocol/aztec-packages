@@ -4,7 +4,7 @@ import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { BlockDataSchema } from '../block/block_data.js';
+import { BlockDataSchema, BlockDataWithCheckpointContextSchema } from '../block/block_data.js';
 import { BlockHash } from '../block/block_hash.js';
 import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { L2Block } from '../block/l2_block.js';
@@ -60,8 +60,14 @@ export type ArchiverSpecificConfig = {
   /** Whether to allow starting the archiver without debug/trace method support on Ethereum hosts */
   ethereumAllowNoDebugHosts?: boolean;
 
+  /** Skip the startup check that probes the L1 RPC for historical logs on the Rollup contract. */
+  archiverSkipHistoricalLogsCheck?: boolean;
+
   /** Skip validating checkpoint attestations (for testing purposes only) */
   skipValidateCheckpointAttestations?: boolean;
+
+  /** Skip promoting proposed checkpoints during L1 sync (for testing purposes only) */
+  skipPromoteProposedCheckpointDuringL1Sync?: boolean;
 };
 
 export const ArchiverSpecificConfigSchema = z.object({
@@ -72,7 +78,9 @@ export const ArchiverSpecificConfigSchema = z.object({
   archiverStoreMapSizeKb: schemas.Integer.optional(),
   maxAllowedEthClientDriftSeconds: schemas.Integer.optional(),
   ethereumAllowNoDebugHosts: z.boolean().optional(),
+  archiverSkipHistoricalLogsCheck: z.boolean().optional(),
   skipValidateCheckpointAttestations: z.boolean().optional(),
+  skipPromoteProposedCheckpointDuringL1Sync: z.boolean().optional(),
 });
 
 export type ArchiverApi = Omit<
@@ -109,6 +117,16 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getBlockHeaderByArchive: z.function().args(schemas.Fr).returns(BlockHeader.schema.optional()),
   getBlockData: z.function().args(BlockNumberSchema).returns(BlockDataSchema.optional()),
   getBlockDataByArchive: z.function().args(schemas.Fr).returns(BlockDataSchema.optional()),
+  getBlockDataWithCheckpointContext: z
+    .function()
+    .args(BlockNumberSchema)
+    .returns(BlockDataWithCheckpointContextSchema.optional()),
+  getCheckpointData: z.function().args(CheckpointNumberSchema).returns(CheckpointDataSchema.optional()),
+  getCheckpointDataRange: z
+    .function()
+    .args(CheckpointNumberSchema, schemas.Integer)
+    .returns(z.array(CheckpointDataSchema)),
+  getCheckpointNumberBySlot: z.function().args(schemas.SlotNumber).returns(CheckpointNumberSchema.optional()),
   getL2Block: z.function().args(BlockNumberSchema).returns(L2Block.schema.optional()),
   getL2BlockByHash: z.function().args(BlockHash.schema).returns(L2Block.schema.optional()),
   getL2BlockByArchive: z.function().args(schemas.Fr).returns(L2Block.schema.optional()),
@@ -150,8 +168,8 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args()
     .returns(z.object({ genesisArchiveRoot: schemas.Fr })),
   getL1Timestamp: z.function().args().returns(schemas.BigInt.optional()),
-  getProposedCheckpoint: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
-  getProposedCheckpointOnly: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
+  getLastCheckpoint: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
+  getLastProposedCheckpoint: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
   syncImmediate: z.function().args().returns(z.void()),
   isPendingChainInvalid: z.function().args().returns(z.boolean()),
   getPendingChainValidationStatus: z.function().args().returns(ValidateCheckpointResultSchema),

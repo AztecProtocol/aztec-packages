@@ -283,6 +283,7 @@ template <typename Fr> class Polynomial {
     {
         BB_BENCH_NAME("generate random polynomial");
 
+        BB_ASSERT_GTE(size, start_index);
         return random(size - start_index, size, start_index);
     }
 
@@ -402,6 +403,22 @@ template <typename Fr> class Polynomial {
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
+
+/**
+ * @brief Fused parallel batched add: dst += sum_i scalars[i] * sources[i].
+ *
+ * Equivalent to invoking dst.add_scaled(sources[i], scalars[i]) for each i, but issues a single
+ * parallel_for over the destination range and visits every source within each chunk. Amortises
+ * the per-call parallel_for startup cost from N× down to 1×, which dominates the cost of small-N
+ * batched add-scaled patterns at high core counts.
+ *
+ * Each source must satisfy add_scaled's precondition: dst's index range covers the source's.
+ */
+template <typename Fr>
+void add_scaled_batch(Polynomial<Fr>& dst,
+                      std::span<const PolynomialSpan<const Fr>> sources,
+                      std::span<const Fr> scalars);
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
 {
@@ -427,16 +444,20 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     }
 
     const size_t n = evaluation_points.size();
+    // A 0-variable MLE is the constant polynomial; return the single coefficient directly.
+    if (n == 0) {
+        return coefficients.get(0);
+    }
     const size_t dim = numeric::get_msb(coefficients.end_ - 1) + 1; // Round up to next power of 2
 
     // To simplify handling of edge cases, we assume that the index space is always a power of 2
-    BB_ASSERT_EQ(coefficients.virtual_size(), static_cast<size_t>(1 << n));
+    BB_ASSERT_EQ(coefficients.virtual_size(), 1UL << n);
 
     // We first fold over dim rounds l = 0,...,dim-1.
     // in round l, n_l is the size of the buffer containing the Polynomial partially evaluated
     // at u₀,..., u_l.
     // In round 0, this is half the size of dim
-    size_t n_l = 1 << (dim - 1);
+    size_t n_l = 1UL << (dim - 1);
 
     // temporary buffer of half the size of the Polynomial
     auto tmp_ptr = _allocate_aligned_memory<Fr_>(n_l);
@@ -463,7 +484,7 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
 
     // partially evaluate the dim-1 remaining points
     for (size_t l = 1; l < dim; ++l) {
-        n_l = 1 << (dim - l - 1);
+        n_l = 1UL << (dim - l - 1);
         u_l = evaluation_points[l];
         for (size_t i = 0; i < n_l; ++i) {
             tmp[i] = tmp[i * 2] + u_l * (tmp[(i * 2) + 1] - tmp[i * 2]);

@@ -162,23 +162,39 @@ class StandardCheckpointTimingModel extends BaseCheckpointTiming {
 /**
  * Checkpoint timing model for proposer pipelining.
  *
- * In this mode, the build work still starts in the current slot, but checkpoint
- * assembly and attestation collection can extend into the target slot. The extra
- * target-slot window getters are intended for consumers such as P2P validators
- * that need to validate pipelined messages against wallclock time.
+ * In this mode, the build work starts at the wall-clock slot boundary and the
+ * checkpoint proposal is broadcast early enough that attestations complete by
+ * the end of the build slot. L1 submission can then be sent at the boundary of
+ * the target slot. The extra target-slot window getters are intended for
+ * consumers such as P2P validators that need to validate pipelined messages
+ * against wallclock time.
  */
 class PipelinedCheckpointTimingModel extends BaseCheckpointTiming implements PipelinedCheckpointTiming {
   public get proposalWindowIntoTargetSlot(): number {
-    // Allow the p2p propagation time to receive a checkpoint proposal from leader
-    return this.p2pPropagationTime;
+    // Proposals no longer spill into the target slot: they are broadcast early
+    // enough in the build slot that attestations complete before the boundary.
+    // Any residual tolerance into the target slot is covered by clock disparity.
+    return 0;
   }
 
   public get attestationWindowIntoTargetSlot(): number {
-    return this.aztecSlotDuration - this.l1PublishingTime;
+    // Straggler grace: attestations aim to complete by build-slot end. Allow a
+    // small window into the target slot for late arrivals (round-trip p2p).
+    return 2 * this.p2pPropagationTime;
+  }
+
+  public override get pipeliningAttestationGracePeriod(): number {
+    // Under the early-pipelining regime attestations complete inside the build
+    // slot itself, so there is no extra grace into the target slot.
+    return 0;
   }
 
   public get timeReservedAtEnd(): number {
-    return this.checkpointAssembleTime + this.p2pPropagationTime;
+    // Reserve enough time at the end of the build slot for:
+    // - assembling and broadcasting the checkpoint proposal
+    // - round-trip p2p propagation (proposal out, attestations back)
+    // - validators re-executing the last block
+    return this.checkpointAssembleTime + 2 * this.p2pPropagationTime + (this.blockDuration ?? 0);
   }
 
   public get minimumBuildSlotWork(): number {
@@ -186,9 +202,8 @@ class PipelinedCheckpointTimingModel extends BaseCheckpointTiming implements Pip
   }
 
   public get checkpointAssemblyDeadline(): number {
-    // Allow enough time to
-    // - build all blocks
-    // - receive attestations
+    // Allow enough time to build all blocks and receive attestations. With
+    // `pipeliningAttestationGracePeriod = 0` this equals `aztecSlotDuration`.
     return this.aztecSlotDuration + this.pipeliningAttestationGracePeriod;
   }
 

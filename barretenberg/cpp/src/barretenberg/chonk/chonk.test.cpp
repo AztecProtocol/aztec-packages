@@ -80,7 +80,7 @@ class ChonkTests : public ::testing::Test {
     /**
      * @brief Enum for specifying which KernelIO field to tamper with in tests
      */
-    enum class KernelIOField { PAIRING_INPUTS, ACCUMULATOR_HASH, KERNEL_RETURN_DATA, APP_RETURN_DATA, ECC_OP_TABLES };
+    enum class KernelIOField { PAIRING_INPUTS, ACCUMULATOR_HASH, KERNEL_RETURN_DATA, APP_RETURN_DATA, ECC_OP_HASH };
 
     /**
      * @brief Helper function to test tampering with AppIO pairing inputs
@@ -173,8 +173,8 @@ class ChonkTests : public ::testing::Test {
                 case KernelIOField::APP_RETURN_DATA:
                     kernel_io.app_return_data = kernel_io.app_return_data + Commitment::one();
                     break;
-                case KernelIOField::ECC_OP_TABLES:
-                    kernel_io.ecc_op_tables[0] = kernel_io.ecc_op_tables[0] + Commitment::one();
+                case KernelIOField::ECC_OP_HASH:
+                    kernel_io.ecc_op_hash += FF(1);
                     break;
                 }
 
@@ -405,7 +405,7 @@ HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    const size_t NUM_APP_CIRCUITS = 18;
+    const size_t NUM_APP_CIRCUITS = (CHONK_MAX_NUM_CIRCUITS - /*trailing kernels*/ 3) / 2;
     auto [proof, vk] = ChonkTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
 
     bool verified = ChonkTests::verify_chonk(proof, vk);
@@ -507,13 +507,12 @@ TEST_F(ChonkTests, AppReturnDataTamperingFailure)
 }
 
 /**
- * @brief Test that tampering with ecc_op_tables causes verification to fail
- * @details ecc_op_tables contains commitments to merged ECC operation tables (T_prev).
- * Tampering causes the recursive merge verification to fail.
+ * @brief Test that tampering with ecc_op_hash causes verification to fail
+ * @details ecc_op_hash commits to the folded ECC operation subtable commitments for batch merge verification.
  */
-TEST_F(ChonkTests, EccOpTablesTamperingFailure)
+TEST_F(ChonkTests, EccOpHashTamperingFailure)
 {
-    ChonkTests::test_kernel_io_tampering(KernelIOField::ECC_OP_TABLES);
+    ChonkTests::test_kernel_io_tampering(KernelIOField::ECC_OP_HASH);
 }
 
 /**

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
@@ -49,6 +49,6 @@ void L1ToL2MessageTreeCheckTraceBuilder::process(
 
 const InteractionDefinition L1ToL2MessageTreeCheckTraceBuilder::interactions =
     InteractionDefinition()
-        .add<lookup_l1_to_l2_message_tree_check_merkle_check_settings, InteractionType::LookupSequential>();
+        .add<InteractionType::LookupSequential, lookup_l1_to_l2_message_tree_check_merkle_check_settings>();
 
 } // namespace bb::avm2::tracegen

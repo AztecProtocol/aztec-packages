@@ -454,9 +454,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     auto& engine = numeric::get_debug_randomness();
 
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
-    op_queue->random_op_ultra_only();
+    op_queue->construct_zk_columns();
 
     // Generate random EccOpQueue actions
 
@@ -489,7 +487,7 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
     }
     op_queue->random_op_ultra_only();
     op_queue->random_op_ultra_only();
-    op_queue->merge(MergeSettings::APPEND, op_queue->get_append_offset());
+    op_queue->merge_fixed_append(op_queue->get_append_offset());
 
     const auto batching_challenge_v = BF::random_element(&engine);
     const auto evaluation_input_x = BF::random_element(&engine);
