@@ -88,14 +88,14 @@ import { TxProvingState } from './tx-proving-state.js';
  * The orchestrator, managing the flow of recursive proving operations required to build the rollup proof tree.
  */
 export class ProvingOrchestrator implements EpochProver {
-  private provingState: EpochProvingState | undefined = undefined;
-  private pendingProvingJobs: AbortController[] = [];
+  protected provingState: EpochProvingState | undefined = undefined;
+  protected pendingProvingJobs: AbortController[] = [];
 
-  private provingPromise: Promise<ProvingResult> | undefined = undefined;
+  protected provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
-  private logger: Logger;
+  protected logger: Logger;
   private deferredJobQueue = new SerialQueue();
 
   constructor(
@@ -1294,7 +1294,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
   }
 
-  private async checkAndEnqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
+  protected async checkAndEnqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
     // Notify the epoch that this checkpoint's block-level proving may be complete.
     if (provingState.isBlockMergeTreeComplete()) {
       this.provingState?.notifyCheckpointBlockLevelComplete();

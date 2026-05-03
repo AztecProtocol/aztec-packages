@@ -307,6 +307,7 @@ export class TestContext {
 
     return {
       constants,
+      checkpoint,
       header: checkpoint.header,
       blocks,
       l1ToL2Messages,
