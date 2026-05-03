@@ -197,7 +197,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      * @brief Calculate the number of field elements needed for serialization
      * @return size_t Number of field elements
      */
-    static size_t calc_num_data_types()
+    static constexpr size_t calc_num_data_types()
     {
         size_t commitments_size = PrecomputedCommitments::size() * Codec::template calc_num_fields<Commitment>();
         size_t metadata_size = MetaData::NUM_FIELDS * Codec::template calc_num_fields<uint64_t>();

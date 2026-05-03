@@ -177,7 +177,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
         size_t round = 0;
 
-        // Round 0: Oink preamble + wires + ECC ops + databus -> eta challenge
+        // Round 0: Oink preamble + wires + ECC ops + databus + Poseidon2 aux wires -> eta challenge
         manifest.add_challenge(round, "eta");
         manifest.add_entry(round, "vk_hash", 1);
         for (size_t i = 0; i < 4; ++i) {
@@ -192,6 +192,9 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         for (const auto& bus : { "CALLDATA", "SECONDARY_CALLDATA", "RETURN_DATA" }) {
             manifest.add_entry(round, bus, frs_per_G);
             manifest.add_entry(round, std::string(bus) + "_READ_COUNTS", frs_per_G);
+        }
+        for (const auto& wire : { "P2_W_5", "P2_W_6", "P2_W_7", "P2_W_8" }) {
+            manifest.add_entry(round, wire, frs_per_G);
         }
         round++;
 
@@ -226,7 +229,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
             manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
         }
-        manifest.add_entry(round, "Sumcheck:evaluations", 57);
+        manifest.add_entry(round, "Sumcheck:evaluations", NativeFlavor::NUM_ALL_ENTITIES);
         round++;
 
         // Round 25: Sumcheck:alpha + MLB accumulator data (Sumcheck:alpha is consecutive challenge)
@@ -249,7 +252,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
 
         // Round 47: final evaluations + claim_batching_challenge
         manifest.add_challenge(round, "claim_batching_challenge");
-        manifest.add_entry(round, "Sumcheck:evaluations", 6);
+        manifest.add_entry(round, "Sumcheck:evaluations", MultilinearBatchingFlavor::NUM_ALL_ENTITIES);
 
         return manifest;
     }

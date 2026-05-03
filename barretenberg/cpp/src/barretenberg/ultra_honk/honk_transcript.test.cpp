@@ -112,6 +112,11 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_COUNTS", data_types_per_G);
             manifest_expected.add_entry(round, "RETURN_DATA", data_types_per_G);
             manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", data_types_per_G);
+            // Auxiliary Poseidon2-block witness columns (K=8 layout)
+            manifest_expected.add_entry(round, "P2_W_5", data_types_per_G);
+            manifest_expected.add_entry(round, "P2_W_6", data_types_per_G);
+            manifest_expected.add_entry(round, "P2_W_7", data_types_per_G);
+            manifest_expected.add_entry(round, "P2_W_8", data_types_per_G);
         }
 
         manifest_expected.add_challenge(round, "eta");

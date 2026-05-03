@@ -538,13 +538,22 @@ class MegaFlavor {
                     witness = witness_in;
                 }
 
-                // Set shifted commitments
+                // Set shifted witness commitments (point at the same commitment as the unshifted poly)
                 this->w_l_shift = witness_commitments->w_l;
                 this->w_r_shift = witness_commitments->w_r;
                 this->w_o_shift = witness_commitments->w_o;
                 this->w_4_shift = witness_commitments->w_4;
+                this->p2_w_5_shift = witness_commitments->p2_w_5;
+                this->p2_w_6_shift = witness_commitments->p2_w_6;
+                this->p2_w_7_shift = witness_commitments->p2_w_7;
+                this->p2_w_8_shift = witness_commitments->p2_w_8;
                 this->z_perm_shift = witness_commitments->z_perm;
             }
+
+            // Set shifted precomputed-selector commitments (q_l/q_r/q_o) — sourced from the VK.
+            this->q_l_shift = verification_key->q_l;
+            this->q_r_shift = verification_key->q_r;
+            this->q_o_shift = verification_key->q_o;
         }
     };
     // Specialize for Mega (general case used in MegaRecursive).

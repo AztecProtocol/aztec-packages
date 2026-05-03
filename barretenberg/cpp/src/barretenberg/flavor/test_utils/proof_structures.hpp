@@ -324,6 +324,10 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
     Commitment secondary_calldata_read_counts_comm;
     Commitment return_data_comm;
     Commitment return_data_read_counts_comm;
+    Commitment p2_w_5_comm;
+    Commitment p2_w_6_comm;
+    Commitment p2_w_7_comm;
+    Commitment p2_w_8_comm;
     Commitment lookup_read_counts_comm;
     Commitment lookup_read_tags_comm;
     Commitment w_4_comm;
@@ -364,6 +368,10 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         secondary_calldata_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         return_data_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         return_data_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        p2_w_5_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        p2_w_6_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        p2_w_7_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        p2_w_8_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         lookup_read_counts_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         lookup_read_tags_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         w_4_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
@@ -390,6 +398,10 @@ template <typename Flavor> struct MegaStructuredProofBase : StructuredProofHelpe
         Base::serialize_to_buffer(secondary_calldata_read_counts_comm, proof_data);
         Base::serialize_to_buffer(return_data_comm, proof_data);
         Base::serialize_to_buffer(return_data_read_counts_comm, proof_data);
+        Base::serialize_to_buffer(p2_w_5_comm, proof_data);
+        Base::serialize_to_buffer(p2_w_6_comm, proof_data);
+        Base::serialize_to_buffer(p2_w_7_comm, proof_data);
+        Base::serialize_to_buffer(p2_w_8_comm, proof_data);
         Base::serialize_to_buffer(lookup_read_counts_comm, proof_data);
         Base::serialize_to_buffer(lookup_read_tags_comm, proof_data);
         Base::serialize_to_buffer(w_4_comm, proof_data);

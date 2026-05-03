@@ -36,6 +36,12 @@ static_assert(ChonkProof::PROOF_LENGTH == 1347, "CHONK_PROOF_LENGTH changed - up
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 136,
               "MultilinearBatching proof size changed - update constants.nr");
 
+// Verification key sizes in fields (used in Noir / TypeScript)
+static_assert(UltraFlavor::VerificationKey::calc_num_data_types() == 115,
+              "ULTRA_VK_LENGTH_IN_FIELDS changed - update constants.nr");
+static_assert(MegaFlavor::VerificationKey::calc_num_data_types() == 147,
+              "MEGA_VK_LENGTH_IN_FIELDS changed - update constants.nr");
+
 /**
  * @brief Check that mock merge proof has the expected size
  */

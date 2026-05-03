@@ -41,7 +41,10 @@ inline constexpr size_t ECDSA_SECP256R1 = 72611 + ZERO_GATE + (IsMegaBuilder<Bui
 template <typename Builder> inline constexpr size_t BLAKE2S = 2952 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLAKE3 = 2158 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t KECCAK_PERMUTATION = 17387 + ZERO_GATE + MEGA_OFFSET<Builder>;
-template <typename Builder> inline constexpr size_t POSEIDON2_PERMUTATION = 73 + ZERO_GATE + MEGA_OFFSET<Builder>;
+// Mega uses the K=8 compressed encoding with the bespoke initial-linear-layer row, dropping the
+// per-permutation cost dramatically vs Ultra's standard 73-gate single-round encoding.
+template <typename Builder>
+inline constexpr size_t POSEIDON2_PERMUTATION = (IsMegaBuilder<Builder> ? 14 : 73) + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t MULTI_SCALAR_MUL = 3563 + ZERO_GATE;
 template <typename Builder> inline constexpr size_t EC_ADD = 84 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLOCK_ROM_READ = 9 + ZERO_GATE + MEGA_OFFSET<Builder>;
