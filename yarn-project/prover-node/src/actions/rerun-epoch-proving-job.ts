@@ -50,7 +50,7 @@ export async function rerunEpochProvingJob(
   const provingJob = new EpochProvingJob(
     jobData.epochNumber,
     worldState,
-    prover.createEpochProver(),
+    prover,
     publicProcessorFactory,
     publisher,
     metrics,

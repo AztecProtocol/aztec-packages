@@ -1,14 +1,24 @@
 import { BatchedBlob } from '@aztec/blob-lib/types';
+import { ARCHIVE_HEIGHT } from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { toArray } from '@aztec/foundation/iterable';
+import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
+import type { EpochProverFactory } from '@aztec/prover-client';
+import type { BrokerCircuitProverFacade } from '@aztec/prover-client/broker';
+import type {
+  CheckpointSubTreeOrchestrator,
+  SubTreeResult,
+  TopTreeOrchestrator,
+} from '@aztec/prover-client/orchestrator';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
-import type { EpochProver, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -24,7 +34,7 @@ import { EpochProvingJob } from './epoch-proving-job.js';
 
 describe('epoch-proving-job', () => {
   // Dependencies
-  let prover: MockProxy<EpochProver>;
+  let prover: MockProxy<EpochProverFactory>;
   let publisher: MockProxy<ProverNodePublisher>;
   let publicProcessorFactory: MockProxy<PublicProcessorFactory>;
   let metrics: ProverNodeJobMetrics;
@@ -32,6 +42,16 @@ describe('epoch-proving-job', () => {
   // Created by a dependency
   let db: MockProxy<MerkleTreeWriteOperations>;
   let publicProcessor: MockProxy<PublicProcessor>;
+
+  // Per-checkpoint mocks built lazily by `prover.createCheckpointSubTreeOrchestrator`.
+  // Tests address them in registration order via `subTrees[i]`.
+  let subTrees: MockProxy<CheckpointSubTreeOrchestrator>[];
+  let subTreeFacades: MockProxy<BrokerCircuitProverFacade>[];
+  let subTreeResultResolvers: PromiseWithResolvers<SubTreeResult>[];
+
+  // The single top-tree mock built when finalize runs.
+  let topTree: MockProxy<TopTreeOrchestrator>;
+  let topTreeFacade: MockProxy<BrokerCircuitProverFacade>;
 
   // Objects
   let publicInputs: RootRollupPublicInputs;
@@ -50,7 +70,6 @@ describe('epoch-proving-job', () => {
   const NUM_BLOCKS = NUM_CHECKPOINTS * BLOCKS_PER_CHECKPOINT;
   const proverId = EthAddress.random();
 
-  // Subject factory
   const dbProvider = { fork: () => Promise.resolve(db) };
 
   const createJob = (opts: { deadline?: Date; skipSubmitProof?: boolean; finalizationDelayMs?: number } = {}) =>
@@ -68,7 +87,6 @@ describe('epoch-proving-job', () => {
   /** Index of `checkpoint` in the test's `checkpoints` array, mirroring what the archiver would tell us. */
   const indexOf = (checkpoint: Checkpoint) => checkpoint.number - checkpoints[0].number;
 
-  /** Helper to register and add a checkpoint to a job. */
   const addCheckpoint = async (
     job: EpochProvingJob,
     checkpoint: Checkpoint,
@@ -81,14 +99,11 @@ describe('epoch-proving-job', () => {
     await job.addCheckpoint(checkpoint, txsMap, messages, previousBlockHeader);
   };
 
-  /** Helper to add all checkpoints to a job, mark the epoch complete, and await finalization. */
   const runJob = async (job: EpochProvingJob) => {
     const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
     for (let i = 0; i < checkpoints.length; i++) {
       const checkpoint = checkpoints[i];
       const previousBlockHeader = i === 0 ? initialHeader : checkpoints[i - 1].blocks.at(-1)!.header;
-      // Attach attestations only to the highest-numbered checkpoint — the job uses that
-      // entry's attestations at finalize time.
       const isLast = i === checkpoints.length - 1;
       await addCheckpoint(job, checkpoint, txsMap, [], previousBlockHeader, isLast ? attestations : []);
     }
@@ -96,8 +111,52 @@ describe('epoch-proving-job', () => {
     await job.whenComplete();
   };
 
+  /** Sum across all sub-trees of how many times a method on `CheckpointSubTreeOrchestrator` was called. */
+  const sumCalls = (method: keyof CheckpointSubTreeOrchestrator) =>
+    subTrees.reduce((acc, st) => acc + (st[method] as any).mock.calls.length, 0);
+
+  /**
+   * Default sub-tree factory. Builds a fresh mock with sane defaults; auto-resolves
+   * `getSubTreeResult` so tests that don't care about pipelining behaviour can run
+   * end-to-end.
+   */
+  const installSubTreeFactory = () => {
+    prover.createCheckpointSubTreeOrchestrator.mockImplementation(() => {
+      const subTree = mock<CheckpointSubTreeOrchestrator>();
+      const facade = mock<BrokerCircuitProverFacade>();
+      subTree.startNewEpoch.mockReturnValue(undefined);
+      subTree.startNewCheckpoint.mockResolvedValue(undefined);
+      subTree.startNewBlock.mockResolvedValue(undefined);
+      subTree.addTxs.mockResolvedValue(undefined);
+      subTree.setBlockCompleted.mockResolvedValue(BlockHeader.empty());
+      subTree.startChonkVerifierCircuits.mockResolvedValue(undefined);
+      subTree.getProverId.mockReturnValue(proverId);
+      subTree.cancel.mockReturnValue(undefined);
+      subTree.stop.mockResolvedValue(undefined);
+      subTree.getPreviousArchiveSiblingPath.mockReturnValue(makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO));
+
+      const resolvers = promiseWithResolvers<SubTreeResult>();
+      // Mark as handled so a cancel-on-stop rejection doesn't surface as unhandled.
+      resolvers.promise.catch(() => {});
+      subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
+      // Default: auto-resolve immediately so end-to-end tests don't have to drive it.
+      resolvers.resolve({
+        blockProofOutputs: [],
+        previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
+      });
+
+      facade.start.mockReturnValue(undefined);
+      facade.stop.mockResolvedValue(undefined);
+
+      subTrees.push(subTree);
+      subTreeFacades.push(facade);
+      subTreeResultResolvers.push(resolvers);
+      return { orchestrator: subTree, facade };
+    });
+  };
+
   beforeEach(async () => {
-    prover = mock<EpochProver>();
+    prover = mock<EpochProverFactory>();
     publisher = mock<ProverNodePublisher>();
     publicProcessorFactory = mock<PublicProcessorFactory>();
     db = mock<MerkleTreeWriteOperations>();
@@ -132,9 +191,24 @@ describe('epoch-proving-job', () => {
 
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
     (db as any).close = () => Promise.resolve();
+
+    subTrees = [];
+    subTreeFacades = [];
+    subTreeResultResolvers = [];
+
     prover.getProverId.mockReturnValue(proverId);
-    prover.finalizeEpoch.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
-    prover.waitForAllCheckpointsReady.mockResolvedValue(undefined);
+    installSubTreeFactory();
+
+    topTree = mock<TopTreeOrchestrator>();
+    topTreeFacade = mock<BrokerCircuitProverFacade>();
+    topTree.prove.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
+    topTree.cancel.mockReturnValue(undefined);
+    topTree.stop.mockResolvedValue(undefined);
+    topTree.getProverId.mockReturnValue(proverId);
+    topTreeFacade.start.mockReturnValue(undefined);
+    topTreeFacade.stop.mockResolvedValue(undefined);
+    prover.createTopTreeOrchestrator.mockReturnValue({ orchestrator: topTree, facade: topTreeFacade });
+
     publisher.submitEpochProof.mockResolvedValue(true);
     publicProcessor.process.mockImplementation(async txs => {
       const txsArray = await toArray(txs);
@@ -150,6 +224,7 @@ describe('epoch-proving-job', () => {
     expect(job.getState()).toEqual('completed');
     expect(publicProcessor.process).toHaveBeenCalledTimes(NUM_BLOCKS);
     expect(publicProcessorFactory.create).toHaveBeenCalledTimes(NUM_BLOCKS);
+    expect(topTree.prove).toHaveBeenCalled();
     expect(publisher.submitEpochProof).toHaveBeenCalledWith(
       expect.objectContaining({ epochNumber, proof, publicInputs, attestations: attestations.map(a => a.toViem()) }),
     );
@@ -199,7 +274,7 @@ describe('epoch-proving-job', () => {
     await runJob(job);
 
     expect(job.getState()).toEqual('completed');
-    expect(prover.finalizeEpoch).toHaveBeenCalled();
+    expect(topTree.prove).toHaveBeenCalled();
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
     expect(publisher.analyzeEpochProofSubmission).toHaveBeenCalledWith(
       expect.objectContaining({ epochNumber, proof, publicInputs, attestations: attestations.map(a => a.toViem()) }),
@@ -238,22 +313,21 @@ describe('epoch-proving-job', () => {
     const job = createJob();
     const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
 
-    // Add checkpoints one at a time.
     for (let i = 0; i < checkpoints.length; i++) {
       const previousBlockHeader = i === 0 ? initialHeader : checkpoints[i - 1].blocks.at(-1)!.header;
       await addCheckpoint(job, checkpoints[i], txsMap, [], previousBlockHeader);
     }
 
-    expect(prover.startNewCheckpoint).toHaveBeenCalledTimes(NUM_CHECKPOINTS);
-    expect(prover.startNewBlock).toHaveBeenCalledTimes(NUM_BLOCKS);
-    expect(prover.setBlockCompleted).toHaveBeenCalledTimes(NUM_BLOCKS);
+    expect(subTrees).toHaveLength(NUM_CHECKPOINTS);
+    expect(sumCalls('startNewCheckpoint')).toEqual(NUM_CHECKPOINTS);
+    expect(sumCalls('startNewBlock')).toEqual(NUM_BLOCKS);
+    expect(sumCalls('setBlockCompleted')).toEqual(NUM_BLOCKS);
   });
 
   it('cancel stops the job', async () => {
     const job = createJob();
     await job.cancel();
     expect(job.getState()).toEqual('stopped');
-    expect(prover.cancel).toHaveBeenCalled();
   });
 
   describe('removeCheckpoint', () => {
@@ -269,10 +343,11 @@ describe('epoch-proving-job', () => {
       expect(removed).toBe(true);
       expect(signal.aborted).toBe(true);
       expect(job.getPendingCheckpointNumbers()).toEqual([]);
-      expect(prover.removeCheckpoint).not.toHaveBeenCalled();
+      // Sub-tree was never created (the entry never reached addCheckpoint).
+      expect(subTrees).toHaveLength(0);
     });
 
-    it('removes a tracked checkpoint via the orchestrator', async () => {
+    it('removes a tracked checkpoint by cancelling its sub-tree', async () => {
       const job = createJob();
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
       await addCheckpoint(job, checkpoints[0], txsMap, [], initialHeader);
@@ -280,7 +355,8 @@ describe('epoch-proving-job', () => {
       const removed = await job.removeCheckpoint(checkpoints[0].number);
 
       expect(removed).toBe(true);
-      expect(prover.removeCheckpoint).toHaveBeenCalledWith(0);
+      expect(subTrees[0].cancel).toHaveBeenCalled();
+      expect(subTrees[0].stop).toHaveBeenCalled();
       expect(job.getTrackedCheckpoints()).toHaveLength(0);
     });
 
@@ -294,7 +370,7 @@ describe('epoch-proving-job', () => {
       const removed = await job.removeCheckpoint(checkpoints[1].number);
 
       expect(removed).toBe(true);
-      expect(prover.removeCheckpoint).toHaveBeenCalledWith(1);
+      expect(subTrees[1].cancel).toHaveBeenCalled();
       const tracked = job.getTrackedCheckpoints();
       expect(tracked).toHaveLength(2);
       expect(tracked.map(tc => tc.checkpoint.number)).toEqual([checkpoints[0].number, checkpoints[2].number]);
@@ -311,35 +387,52 @@ describe('epoch-proving-job', () => {
       expect(await job.removeCheckpoint(CheckpointNumber(0))).toBe(false);
     });
 
-    it('finds the entry while addCheckpoint is mid-flight and rolls back orchestrator state', async () => {
-      // Pause the orchestrator's startNewBlock so addCheckpoint hangs in the middle of
-      // its work. While paused, the entry must still be findable by removeCheckpoint.
+    it('finds the entry while addCheckpoint is mid-flight and tears down the sub-tree', async () => {
+      // Pause startNewBlock on the first sub-tree so addCheckpoint hangs.
       let releaseStartNewBlock: (() => void) | undefined;
       const startNewBlockGate = new Promise<void>(resolve => {
         releaseStartNewBlock = resolve;
       });
       let called = false;
-      prover.startNewBlock.mockImplementationOnce(() => {
-        called = true;
-        return startNewBlockGate;
+      // Override the factory so the first sub-tree's startNewBlock blocks on the gate.
+      prover.createCheckpointSubTreeOrchestrator.mockImplementationOnce(() => {
+        const subTree = mock<CheckpointSubTreeOrchestrator>();
+        const facade = mock<BrokerCircuitProverFacade>();
+        subTree.startNewEpoch.mockReturnValue(undefined);
+        subTree.startNewCheckpoint.mockResolvedValue(undefined);
+        subTree.startNewBlock.mockImplementation(() => {
+          called = true;
+          return startNewBlockGate;
+        });
+        subTree.addTxs.mockResolvedValue(undefined);
+        subTree.setBlockCompleted.mockResolvedValue(BlockHeader.empty());
+        subTree.startChonkVerifierCircuits.mockResolvedValue(undefined);
+        subTree.getProverId.mockReturnValue(proverId);
+        subTree.cancel.mockReturnValue(undefined);
+        subTree.stop.mockResolvedValue(undefined);
+        subTree.getPreviousArchiveSiblingPath.mockReturnValue(makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO));
+        const resolvers = promiseWithResolvers<SubTreeResult>();
+        resolvers.promise.catch(() => {});
+        subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
+        facade.start.mockReturnValue(undefined);
+        facade.stop.mockResolvedValue(undefined);
+        subTrees.push(subTree);
+        subTreeFacades.push(facade);
+        subTreeResultResolvers.push(resolvers);
+        return { orchestrator: subTree, facade };
       });
 
       const job = createJob();
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
       const signal = job.registerPendingCheckpoint(checkpoints[0], indexOf(checkpoints[0]), []);
 
-      // Kick off addCheckpoint but do not await it — it will block on startNewBlock.
       const addPromise = job.addCheckpoint(checkpoints[0], txsMap, [], initialHeader);
 
       await retryUntil(() => called, 'Wait for start block', 5, 0.01);
 
-      // The entry is still findable while addCheckpoint is hanging
       expect(job.hasCheckpoint(checkpoints[0].number)).toBe(true);
       expect(job.getPendingCheckpointNumbers()).toEqual([checkpoints[0].number]);
 
-      // Remove the checkpoint while addCheckpoint is mid-flight. removeCheckpoint
-      // awaits addCheckpoint's unwind, so when this resolves the orchestrator state
-      // has already been rolled back.
       const removedPromise = job.removeCheckpoint(checkpoints[0].number);
       releaseStartNewBlock!();
       const removed = await removedPromise;
@@ -347,32 +440,51 @@ describe('epoch-proving-job', () => {
       expect(removed).toBe(true);
       expect(signal.aborted).toBe(true);
       expect(job.hasCheckpoint(checkpoints[0].number)).toBe(false);
-      expect(prover.removeCheckpoint).toHaveBeenCalledWith(0);
+      // The sub-tree was created and torn down — its stop() must have been called.
+      expect(subTrees[0].stop).toHaveBeenCalled();
       expect(job.getTrackedCheckpoints()).toHaveLength(0);
 
-      // The original addCheckpoint call resolves cleanly (no throw).
       await addPromise;
     });
 
     it('serialises a remove + re-register of the same checkpoint number under a reorg', async () => {
-      // Simulates an L1 re-org delivering a replacement for the same checkpoint number:
-      // v1 is mid-addCheckpoint when removeCheckpoint fires; v2 is then registered and
-      // added. The orchestrator must see v1 fully rolled back before v2 starts.
+      // v1 hangs on its first sub-tree's startNewBlock; reorg removes it; v2 is registered.
       let releaseV1Block: () => void = () => {};
       const v1BlockGate = new Promise<void>(resolve => {
         releaseV1Block = resolve;
       });
       let called = false;
-      prover.startNewBlock.mockImplementationOnce(() => {
-        called = true;
-        return v1BlockGate;
+      prover.createCheckpointSubTreeOrchestrator.mockImplementationOnce(() => {
+        const subTree = mock<CheckpointSubTreeOrchestrator>();
+        const facade = mock<BrokerCircuitProverFacade>();
+        subTree.startNewEpoch.mockReturnValue(undefined);
+        subTree.startNewCheckpoint.mockResolvedValue(undefined);
+        subTree.startNewBlock.mockImplementation(() => {
+          called = true;
+          return v1BlockGate;
+        });
+        subTree.addTxs.mockResolvedValue(undefined);
+        subTree.setBlockCompleted.mockResolvedValue(BlockHeader.empty());
+        subTree.startChonkVerifierCircuits.mockResolvedValue(undefined);
+        subTree.getProverId.mockReturnValue(proverId);
+        subTree.cancel.mockReturnValue(undefined);
+        subTree.stop.mockResolvedValue(undefined);
+        subTree.getPreviousArchiveSiblingPath.mockReturnValue(makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO));
+        const resolvers = promiseWithResolvers<SubTreeResult>();
+        resolvers.promise.catch(() => {});
+        subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
+        facade.start.mockReturnValue(undefined);
+        facade.stop.mockResolvedValue(undefined);
+        subTrees.push(subTree);
+        subTreeFacades.push(facade);
+        subTreeResultResolvers.push(resolvers);
+        return { orchestrator: subTree, facade };
       });
 
       const job = createJob();
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
       const v1 = checkpoints[0];
 
-      // Build a replacement v2 for the same checkpoint number with a different hash.
       const v2 = await Checkpoint.random(v1.number, {
         numBlocks: BLOCKS_PER_CHECKPOINT,
         startBlockNumber: 1,
@@ -384,31 +496,27 @@ describe('epoch-proving-job', () => {
       );
       const v2TxsMap = new Map(v2Txs.map(tx => [tx.getTxHash().toString(), tx]));
 
-      // v1 enters addCheckpoint and hangs on startNewBlock.
       job.registerPendingCheckpoint(v1, 0, []);
       const v1AddPromise = job.addCheckpoint(v1, txsMap, [], initialHeader);
       await retryUntil(() => called, 'Wait for start block', 5, 0.01);
 
-      // v1 should have called startNewCheckpoint on the orchestrator by now.
-      expect(prover.startNewCheckpoint).toHaveBeenCalledTimes(1);
+      // v1's sub-tree should already have called startNewCheckpoint by now.
+      expect(subTrees[0].startNewCheckpoint).toHaveBeenCalledTimes(1);
 
-      // L1 reorg: removeCheckpoint(v1) fires. Release v1's block work concurrently so
-      // its unwind can complete; removeCheckpoint awaits the rollback before returning.
       const removePromise = job.removeCheckpoint(v1.number);
       releaseV1Block!();
       const removed = await removePromise;
       await v1AddPromise;
 
       expect(removed).toBe(true);
-      expect(prover.removeCheckpoint).toHaveBeenCalledWith(0);
+      expect(subTrees[0].stop).toHaveBeenCalled();
 
-      // Now register v2 and add it — orchestrator must accept this cleanly.
+      // v2 gets a fresh sub-tree from the default factory and runs cleanly.
       job.registerPendingCheckpoint(v2, 0, []);
       await job.addCheckpoint(v2, v2TxsMap, [], initialHeader);
 
-      // v2 was the only tracked checkpoint at the end; orchestrator saw startNewCheckpoint
-      // for v1 then for v2, with a removeCheckpoint between them.
-      expect(prover.startNewCheckpoint).toHaveBeenCalledTimes(2);
+      expect(subTrees).toHaveLength(2);
+      expect(subTrees[1].startNewCheckpoint).toHaveBeenCalledTimes(1);
       expect(job.getTrackedCheckpoints()).toHaveLength(1);
       expect(job.getTrackedCheckpoints()[0].checkpoint.hash().toString()).toEqual(v2.hash().toString());
     });
@@ -454,7 +562,7 @@ describe('epoch-proving-job', () => {
       const finalState = await job.whenComplete();
 
       expect(finalState).toEqual('completed');
-      expect(prover.finalizeEpoch).toHaveBeenCalled();
+      expect(topTree.prove).toHaveBeenCalled();
       expect(publisher.submitEpochProof).toHaveBeenCalled();
     });
 
@@ -464,7 +572,6 @@ describe('epoch-proving-job', () => {
       const attestationsForFirst = [CommitteeAttestation.random(), CommitteeAttestation.random()];
       const attestationsForLast = [CommitteeAttestation.random()];
 
-      // First and last checkpoints have different attestations; the job should pick the last.
       for (let i = 0; i < checkpoints.length; i++) {
         const previousBlockHeader = i === 0 ? initialHeader : checkpoints[i - 1].blocks.at(-1)!.header;
         const att = i === 0 ? attestationsForFirst : i === checkpoints.length - 1 ? attestationsForLast : [];
@@ -480,40 +587,65 @@ describe('epoch-proving-job', () => {
     });
 
     it('waits for in-flight addCheckpoint before finalizing', async () => {
-      // Pause prover.startNewBlock so addCheckpoint hangs mid-flight.
+      // First sub-tree's startNewBlock hangs.
       let releaseStartNewBlock: () => void = () => {};
       const startNewBlockGate = new Promise<void>(resolve => {
         releaseStartNewBlock = resolve;
       });
       let called = false;
-      prover.startNewBlock.mockImplementationOnce(() => {
-        called = true;
-        return startNewBlockGate;
+      prover.createCheckpointSubTreeOrchestrator.mockImplementationOnce(() => {
+        const subTree = mock<CheckpointSubTreeOrchestrator>();
+        const facade = mock<BrokerCircuitProverFacade>();
+        subTree.startNewEpoch.mockReturnValue(undefined);
+        subTree.startNewCheckpoint.mockResolvedValue(undefined);
+        subTree.startNewBlock.mockImplementation(() => {
+          called = true;
+          return startNewBlockGate;
+        });
+        subTree.addTxs.mockResolvedValue(undefined);
+        subTree.setBlockCompleted.mockResolvedValue(BlockHeader.empty());
+        subTree.startChonkVerifierCircuits.mockResolvedValue(undefined);
+        subTree.getProverId.mockReturnValue(proverId);
+        subTree.cancel.mockReturnValue(undefined);
+        subTree.stop.mockResolvedValue(undefined);
+        subTree.getPreviousArchiveSiblingPath.mockReturnValue(makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO));
+        const resolvers = promiseWithResolvers<SubTreeResult>();
+        resolvers.promise.catch(() => {});
+        subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
+        // When release fires we'll resolve the result so finalize can complete.
+        void startNewBlockGate.then(() =>
+          resolvers.resolve({
+            blockProofOutputs: [],
+            previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
+          }),
+        );
+        facade.start.mockReturnValue(undefined);
+        facade.stop.mockResolvedValue(undefined);
+        subTrees.push(subTree);
+        subTreeFacades.push(facade);
+        subTreeResultResolvers.push(resolvers);
+        return { orchestrator: subTree, facade };
       });
 
       const job = createJob();
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
       job.registerPendingCheckpoint(checkpoints[0], 0, attestations);
 
-      // Kick off addCheckpoint without awaiting — it will block on startNewBlock.
       const addPromise = job.addCheckpoint(checkpoints[0], txsMap, [], initialHeader);
 
       await retryUntil(() => called, 'Wait for start block', 5, 0.01);
 
-      // Mark the epoch complete while addCheckpoint is still hanging.
       job.completeEpoch();
 
-      // Finalization should NOT have started — pending entry is still in flight.
-      expect(prover.finalizeEpoch).not.toHaveBeenCalled();
+      // Finalization must NOT have started — the pending entry's sub-tree is still hanging.
+      expect(topTree.prove).not.toHaveBeenCalled();
 
-      // Release the gate. addCheckpoint completes, transitions the entry to tracked,
-      // which triggers the auto-finalize.
       releaseStartNewBlock();
       const finalState = await job.whenComplete();
       await addPromise;
 
       expect(finalState).toEqual('completed');
-      expect(prover.finalizeEpoch).toHaveBeenCalled();
+      expect(topTree.prove).toHaveBeenCalled();
     });
 
     it('whenComplete resolves with stopped state when the job is cancelled before completeEpoch', async () => {
@@ -533,29 +665,23 @@ describe('epoch-proving-job', () => {
     });
 
     it('uses the caller-supplied checkpoint index, regardless of registration or addCheckpoint order', async () => {
-      // Register out of order (highest first) with absolute indices, and run the
-      // addCheckpoint calls out of order too. Each checkpoint must land at its
-      // caller-supplied index in the orchestrator.
       const job = createJob();
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
 
-      // Register out of order: 2, 0, 1.
       job.registerPendingCheckpoint(checkpoints[2], 2, []);
       job.registerPendingCheckpoint(checkpoints[0], 0, []);
       job.registerPendingCheckpoint(checkpoints[1], 1, []);
 
-      // Add in yet another order: 1, 2, 0.
       await job.addCheckpoint(checkpoints[1], txsMap, [], checkpoints[0].blocks.at(-1)!.header);
       await job.addCheckpoint(checkpoints[2], txsMap, [], checkpoints[1].blocks.at(-1)!.header);
       await job.addCheckpoint(checkpoints[0], txsMap, [], initialHeader);
 
-      // Each checkpoint lands at its caller-supplied index, not the addition order.
-      expect(prover.startNewCheckpoint).toHaveBeenCalledTimes(3);
-      const indicesPassed = prover.startNewCheckpoint.mock.calls.map(call => call[0]);
-      expect(indicesPassed).toEqual([1, 2, 0]);
+      // Each sub-tree is created in addCheckpoint order. The job's tracked-checkpoint
+      // ordering is by checkpointIndex (checkpoint number), not by creation order.
+      expect(subTrees).toHaveLength(3);
+      expect(sumCalls('startNewCheckpoint')).toEqual(3);
 
-      // getProvingData should pick up the predecessor header of the lowest tracked
-      // checkpoint — the one passed in for checkpoint 0.
+      // getProvingData picks up the predecessor header of the lowest tracked checkpoint.
       const data = job.getProvingData();
       expect(data.previousBlockHeader).toBe(initialHeader);
     });
@@ -569,16 +695,14 @@ describe('epoch-proving-job', () => {
         await addCheckpoint(job, checkpoints[i], txsMap, [], previousBlockHeader, isLast ? attestations : []);
       }
 
-      // First call kicks off finalization. Second call should not re-trigger it.
       job.completeEpoch();
       job.completeEpoch();
       await job.whenComplete();
 
-      expect(prover.finalizeEpoch).toHaveBeenCalledTimes(1);
+      expect(topTree.prove).toHaveBeenCalledTimes(1);
     });
 
     it('honors finalizationDelayMs and still allows removeCheckpoint during the delay', async () => {
-      // 100ms delay is plenty for the test's controlled timing.
       const job = createJob({ finalizationDelayMs: 100 });
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
       for (let i = 0; i < checkpoints.length; i++) {
@@ -589,21 +713,17 @@ describe('epoch-proving-job', () => {
 
       job.completeEpoch();
 
-      // The job is in the delay window — finalize hasn't started yet, and
-      // removeCheckpoint is still allowed.
-      expect(prover.finalizeEpoch).not.toHaveBeenCalled();
+      expect(topTree.prove).not.toHaveBeenCalled();
       const removed = await job.removeCheckpoint(checkpoints[checkpoints.length - 1].number);
       expect(removed).toBe(true);
-      expect(prover.removeCheckpoint).toHaveBeenCalled();
+      expect(subTrees[checkpoints.length - 1].cancel).toHaveBeenCalled();
 
-      // After the delay, finalization proceeds with the remaining checkpoints.
       const finalState = await job.whenComplete();
       expect(finalState).toEqual('completed');
-      expect(prover.finalizeEpoch).toHaveBeenCalledTimes(1);
+      expect(topTree.prove).toHaveBeenCalledTimes(1);
     });
 
     it('postpones finalization if a new pending checkpoint appears during the delay', async () => {
-      // 100ms delay window for the test.
       const job = createJob({ finalizationDelayMs: 100 });
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
       for (let i = 0; i < checkpoints.length; i++) {
@@ -612,8 +732,6 @@ describe('epoch-proving-job', () => {
         await addCheckpoint(job, checkpoints[i], txsMap, [], previousBlockHeader, isLast ? attestations : []);
       }
 
-      // Mark complete, then drop in a brand-new pending entry while the job is sleeping.
-      // The delay re-check should observe it and postpone finalization until it settles.
       job.completeEpoch();
       const lateCheckpoint = await Checkpoint.random(CheckpointNumber(checkpoints.length + 1), {
         numBlocks: BLOCKS_PER_CHECKPOINT,
@@ -622,11 +740,9 @@ describe('epoch-proving-job', () => {
       });
       job.registerPendingCheckpoint(lateCheckpoint, indexOf(lateCheckpoint), []);
 
-      // Wait for the delay to expire — we should NOT have finalized yet.
       await new Promise(resolve => setTimeout(resolve, 250));
-      expect(prover.finalizeEpoch).not.toHaveBeenCalled();
+      expect(topTree.prove).not.toHaveBeenCalled();
 
-      // Settle the late pending entry; finalization resumes.
       const lateTxHashes = lateCheckpoint.blocks.flatMap(b => b.body.txEffects.map(tx => tx.txHash));
       const lateTxsMap = new Map<string, Tx>(
         lateTxHashes.map(txHash => [
@@ -638,7 +754,7 @@ describe('epoch-proving-job', () => {
 
       const finalState = await job.whenComplete();
       expect(finalState).toEqual('completed');
-      expect(prover.finalizeEpoch).toHaveBeenCalledTimes(1);
+      expect(topTree.prove).toHaveBeenCalledTimes(1);
     });
   });
 });

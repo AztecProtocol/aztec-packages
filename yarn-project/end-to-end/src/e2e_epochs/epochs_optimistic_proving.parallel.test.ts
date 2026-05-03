@@ -338,26 +338,26 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
     });
 
     it('handles a reorg arriving while proving is in progress', async () => {
-      // Gate the prover so finalizeEpoch deterministically blocks until we release it.
+      // Gate top-tree proving so it deterministically blocks until we release it.
       // This gives us a window where the job has been told `completeEpoch()` and is
       // mid-proof, and we can fire the reorg precisely during that window.
       const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
       const proverManager = proverNode.getProver();
-      const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
+      const origCreateTopTree = proverManager.createTopTreeOrchestrator.bind(proverManager);
       let releaseProvingGate: () => void = () => {};
       const provingGate = new Promise<void>(resolve => {
         releaseProvingGate = resolve;
       });
-      proverManager.createEpochProver = () => {
-        const epochProver = origCreateEpochProver();
-        const origFinalizeEpoch = epochProver.finalizeEpoch.bind(epochProver);
-        epochProver.finalizeEpoch = async () => {
-          logger.warn('Proving gated — waiting for test to release');
+      proverManager.createTopTreeOrchestrator = () => {
+        const result = origCreateTopTree();
+        const origProve = result.orchestrator.prove.bind(result.orchestrator);
+        result.orchestrator.prove = async (...args: Parameters<typeof origProve>) => {
+          logger.warn('Top-tree proving gated — waiting for test to release');
           await provingGate;
           logger.warn('Proving gate released');
-          return origFinalizeEpoch();
+          return origProve(...args);
         };
-        return epochProver;
+        return result;
       };
 
       // Drive the chain forward until an epoch is ready to be proved.

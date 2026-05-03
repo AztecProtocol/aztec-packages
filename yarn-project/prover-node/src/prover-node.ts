@@ -7,6 +7,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
+import type { EpochProverFactory } from '@aztec/prover-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   type L2BlockSource,
@@ -88,7 +89,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
   protected publisher: ProverNodePublisher | undefined;
 
   constructor(
-    protected readonly prover: EpochProverManager,
+    protected readonly prover: EpochProverManager & EpochProverFactory,
     protected readonly publisherFactory: ProverPublisherFactory,
     protected readonly l2BlockSource: L2BlockSource & Partial<Service>,
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
@@ -771,7 +772,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     return new EpochProvingJob(
       epochNumber,
       this.worldState,
-      this.prover.createEpochProver(),
+      this.prover,
       publicProcessorFactory,
       publisher,
       this.jobMetrics,

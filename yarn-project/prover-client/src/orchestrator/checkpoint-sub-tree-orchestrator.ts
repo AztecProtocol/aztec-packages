@@ -127,6 +127,23 @@ export class CheckpointSubTreeOrchestrator extends ProvingOrchestrator {
   }
 
   /**
+   * Returns the archive sibling path captured at `startNewCheckpoint`. Available
+   * synchronously once `startNewCheckpoint` has resolved, before block-level proving
+   * completes. The top-tree consumer uses this to assemble checkpoint root rollup hints
+   * up-front so checkpoint root proofs can pipeline against in-flight sub-tree proving.
+   */
+  public getPreviousArchiveSiblingPath(): Tuple<Fr, typeof ARCHIVE_HEIGHT> {
+    if (!this.provingState) {
+      throw new Error('Sub-tree state not initialised; call startNewEpoch first.');
+    }
+    const checkpoint = this.provingState.getCheckpointProvingState(0);
+    if (!checkpoint) {
+      throw new Error('Checkpoint not started; call startNewCheckpoint first.');
+    }
+    return checkpoint.getLastArchiveSiblingPath();
+  }
+
+  /**
    * Override the checkpoint-root boundary: instead of escalating to checkpoint root,
    * resolve the sub-tree promise with the block-level proof outputs once they're all ready.
    */

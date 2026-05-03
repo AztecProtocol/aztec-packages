@@ -3,6 +3,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { P2PClient, TxProvider } from '@aztec/p2p';
+import type { EpochProverFactory } from '@aztec/prover-client';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   CommitteeAttestation,
@@ -36,7 +37,7 @@ import { ProverPublisherFactory } from './prover-publisher-factory.js';
 
 describe('prover-node', () => {
   // Prover node dependencies
-  let prover: MockProxy<EpochProverManager>;
+  let prover: MockProxy<EpochProverManager & EpochProverFactory>;
   let publisher: MockProxy<ProverNodePublisher>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -83,7 +84,7 @@ describe('prover-node', () => {
     );
 
   beforeEach(async () => {
-    prover = mock<EpochProverManager>({
+    prover = mock<EpochProverManager & EpochProverFactory>({
       getProverId: () => EthAddress.random(),
     });
     publisher = mock<ProverNodePublisher>();

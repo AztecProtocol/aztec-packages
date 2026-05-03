@@ -18,14 +18,34 @@ import {
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { ProverClientConfig } from '../config.js';
+import { CheckpointSubTreeOrchestrator } from '../orchestrator/checkpoint-sub-tree-orchestrator.js';
 import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
+import { TopTreeOrchestrator } from '../orchestrator/top-tree-orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore, type ProofStore, createProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
 import { ServerEpochProver } from './server-epoch-prover.js';
 
+/**
+ * The factory surface that `EpochProvingJob` (in `prover-node`) depends on. Implemented
+ * by `ProverClient`. Defined here rather than in stdlib because the return types
+ * (`CheckpointSubTreeOrchestrator`, `TopTreeOrchestrator`, `BrokerCircuitProverFacade`)
+ * are concrete classes from this package.
+ */
+export interface EpochProverFactory {
+  getProverId(): EthAddress;
+  createCheckpointSubTreeOrchestrator(): {
+    orchestrator: CheckpointSubTreeOrchestrator;
+    facade: BrokerCircuitProverFacade;
+  };
+  createTopTreeOrchestrator(): {
+    orchestrator: TopTreeOrchestrator;
+    facade: BrokerCircuitProverFacade;
+  };
+}
+
 /** Manages proving of epochs by orchestrating the proving of individual blocks relying on a pool of prover agents. */
-export class ProverClient implements EpochProverManager {
+export class ProverClient implements EpochProverManager, EpochProverFactory {
   private running = false;
   private agents: ProvingAgent[] = [];
 
@@ -59,6 +79,63 @@ export class ProverClient implements EpochProverManager {
       bindings,
     );
     return new ServerEpochProver(facade, orchestrator);
+  }
+
+  /**
+   * Creates a fresh `CheckpointSubTreeOrchestrator` plus the broker facade it needs. The
+   * facade's lifecycle follows the orchestrator's — start it before driving and stop it
+   * when the orchestrator stops. Used by `EpochProvingJob` to spin up a sub-tree per
+   * checkpoint.
+   */
+  public createCheckpointSubTreeOrchestrator(): {
+    orchestrator: CheckpointSubTreeOrchestrator;
+    facade: BrokerCircuitProverFacade;
+  } {
+    const bindings = this.log.getBindings();
+    const facade = new BrokerCircuitProverFacade(
+      this.orchestratorClient,
+      this.proofStore,
+      this.failedProofStore,
+      undefined,
+      bindings,
+    );
+    const orchestrator = new CheckpointSubTreeOrchestrator(
+      this.worldState,
+      facade,
+      this.config.proverId,
+      this.config.cancelJobsOnStop,
+      this.config.enqueueConcurrency,
+      this.telemetry,
+      bindings,
+    );
+    return { orchestrator, facade };
+  }
+
+  /**
+   * Creates a fresh `TopTreeOrchestrator` plus the broker facade it needs. The top tree
+   * has no world-state dependency; it consumes block-level proofs supplied by sub-trees
+   * and per-checkpoint archiver data assembled by the caller.
+   */
+  public createTopTreeOrchestrator(): {
+    orchestrator: TopTreeOrchestrator;
+    facade: BrokerCircuitProverFacade;
+  } {
+    const bindings = this.log.getBindings();
+    const facade = new BrokerCircuitProverFacade(
+      this.orchestratorClient,
+      this.proofStore,
+      this.failedProofStore,
+      undefined,
+      bindings,
+    );
+    const orchestrator = new TopTreeOrchestrator(
+      facade,
+      this.config.proverId,
+      this.config.enqueueConcurrency,
+      this.telemetry,
+      bindings,
+    );
+    return { orchestrator, facade };
   }
 
   public getProverId(): EthAddress {
