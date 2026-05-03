@@ -9,10 +9,11 @@ import { toArray } from '@aztec/foundation/iterable';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { EpochProverFactory } from '@aztec/prover-client';
-import type {
-  CheckpointSubTreeOrchestrator,
-  SubTreeResult,
-  TopTreeOrchestrator,
+import {
+  type CheckpointSubTreeOrchestrator,
+  type SubTreeResult,
+  TopTreeCancelledError,
+  type TopTreeOrchestrator,
 } from '@aztec/prover-client/orchestrator';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
@@ -731,6 +732,153 @@ describe('epoch-proving-job', () => {
       const finalState = await job.whenComplete();
       expect(finalState).toEqual('completed');
       expect(topTree.prove).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('reorg-after-finalize', () => {
+    /**
+     * Builds two distinct top-tree mocks: the first hangs on `prove()` until its
+     * `cancel()` is called (resolving with `TopTreeCancelledError`); the second resolves
+     * cleanly. Wires `prover.createTopTreeOrchestrator` to return them in order.
+     */
+    const installCancellableThenSuccessfulTopTrees = () => {
+      const firstTopTree = mock<TopTreeOrchestrator>();
+      const secondTopTree = mock<TopTreeOrchestrator>();
+
+      let firstReject: (err: Error) => void = () => {};
+      const firstProvePromise = new Promise<{
+        publicInputs: RootRollupPublicInputs;
+        proof: Proof;
+        batchedBlobInputs: BatchedBlob;
+      }>((_, reject) => {
+        firstReject = reject;
+      });
+      // Mark as handled so the rejection on cancel doesn't surface as unhandled.
+      firstProvePromise.catch(() => {});
+      firstTopTree.prove.mockReturnValue(firstProvePromise);
+      firstTopTree.cancel.mockImplementation(() => {
+        firstReject(new TopTreeCancelledError());
+      });
+      firstTopTree.stop.mockResolvedValue(undefined);
+      firstTopTree.getProverId.mockReturnValue(proverId);
+
+      secondTopTree.prove.mockResolvedValue({ publicInputs, proof, batchedBlobInputs });
+      secondTopTree.cancel.mockReturnValue(undefined);
+      secondTopTree.stop.mockResolvedValue(undefined);
+      secondTopTree.getProverId.mockReturnValue(proverId);
+
+      prover.createTopTreeOrchestrator.mockReturnValueOnce(firstTopTree).mockReturnValueOnce(secondTopTree);
+
+      return { firstTopTree, secondTopTree };
+    };
+
+    it('removeCheckpoint after finalize-start cancels the top tree and restarts with survivors', async () => {
+      const { firstTopTree, secondTopTree } = installCancellableThenSuccessfulTopTrees();
+
+      const job = createJob();
+      const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+      for (let i = 0; i < checkpoints.length; i++) {
+        const previousBlockHeader = i === 0 ? initialHeader : checkpoints[i - 1].blocks.at(-1)!.header;
+        const isLast = i === checkpoints.length - 1;
+        await addCheckpoint(job, checkpoints[i], txsMap, [], previousBlockHeader, isLast ? attestations : []);
+      }
+
+      job.completeEpoch();
+
+      // Wait until the first top-tree prove has been called (finalize-start has happened).
+      await retryUntil(() => firstTopTree.prove.mock.calls.length > 0, 'wait for first prove', 5, 0.01);
+
+      // Now remove a tracked checkpoint. This used to be a no-op while finalization was
+      // running; with the restart loop it cancels the in-flight top tree.
+      const removed = await job.removeCheckpoint(checkpoints.at(-1)!.number);
+      expect(removed).toBe(true);
+      expect(firstTopTree.cancel).toHaveBeenCalledWith({ abortJobs: true });
+
+      // Loop restarts with the surviving set; second prove succeeds → epoch completes.
+      const finalState = await job.whenComplete();
+      expect(finalState).toEqual('completed');
+      expect(prover.createTopTreeOrchestrator).toHaveBeenCalledTimes(2);
+      expect(secondTopTree.prove).toHaveBeenCalledTimes(1);
+      // Second prove was given the smaller surviving count.
+      const secondProveArgs = secondTopTree.prove.mock.calls[0];
+      expect(secondProveArgs[1]).toEqual(checkpoints.length - 1);
+      // Submitted proof matches the second top tree's output.
+      expect(publisher.submitEpochProof).toHaveBeenCalledTimes(1);
+    });
+
+    it('prune lands during prove → top tree is cancelled and rebuilt with surviving set', async () => {
+      const { firstTopTree, secondTopTree } = installCancellableThenSuccessfulTopTrees();
+
+      const job = createJob();
+      const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+      for (let i = 0; i < checkpoints.length; i++) {
+        const previousBlockHeader = i === 0 ? initialHeader : checkpoints[i - 1].blocks.at(-1)!.header;
+        const isLast = i === checkpoints.length - 1;
+        await addCheckpoint(job, checkpoints[i], txsMap, [], previousBlockHeader, isLast ? attestations : []);
+      }
+
+      job.completeEpoch();
+      await retryUntil(() => firstTopTree.prove.mock.calls.length > 0, 'wait for first prove', 5, 0.01);
+
+      // Remove the middle checkpoint and verify the second prove sees a smaller count
+      // and the surviving fromCheckpoint/toCheckpoint range.
+      const removedCheckpointNumber = checkpoints[1].number;
+      const removed = await job.removeCheckpoint(removedCheckpointNumber);
+      expect(removed).toBe(true);
+      expect(firstTopTree.cancel).toHaveBeenCalledWith({ abortJobs: true });
+
+      const finalState = await job.whenComplete();
+      expect(finalState).toEqual('completed');
+      expect(secondTopTree.prove).toHaveBeenCalledTimes(1);
+
+      // Submit-epoch-proof carries the surviving from/to range.
+      expect(publisher.submitEpochProof).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fromCheckpoint: checkpoints[0].number,
+          toCheckpoint: checkpoints.at(-1)!.number,
+        }),
+      );
+    });
+
+    it('fails the epoch if all checkpoints are removed mid-finalize', async () => {
+      const firstTopTree = mock<TopTreeOrchestrator>();
+      let firstReject: (err: Error) => void = () => {};
+      const firstProvePromise = new Promise<{
+        publicInputs: RootRollupPublicInputs;
+        proof: Proof;
+        batchedBlobInputs: BatchedBlob;
+      }>((_, reject) => {
+        firstReject = reject;
+      });
+      firstProvePromise.catch(() => {});
+      firstTopTree.prove.mockReturnValue(firstProvePromise);
+      firstTopTree.cancel.mockImplementation(() => {
+        firstReject(new TopTreeCancelledError());
+      });
+      firstTopTree.stop.mockResolvedValue(undefined);
+      firstTopTree.getProverId.mockReturnValue(proverId);
+      prover.createTopTreeOrchestrator.mockReturnValueOnce(firstTopTree);
+
+      const job = createJob();
+      const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
+      for (let i = 0; i < checkpoints.length; i++) {
+        const previousBlockHeader = i === 0 ? initialHeader : checkpoints[i - 1].blocks.at(-1)!.header;
+        const isLast = i === checkpoints.length - 1;
+        await addCheckpoint(job, checkpoints[i], txsMap, [], previousBlockHeader, isLast ? attestations : []);
+      }
+
+      job.completeEpoch();
+      await retryUntil(() => firstTopTree.prove.mock.calls.length > 0, 'wait for first prove', 5, 0.01);
+
+      // Remove every checkpoint. The last one cancels the top tree; the loop tries to
+      // restart with no survivors and the job transitions to 'failed'.
+      for (const cp of checkpoints) {
+        await job.removeCheckpoint(cp.number);
+      }
+
+      const finalState = await job.whenComplete();
+      expect(finalState).toEqual('failed');
+      expect(publisher.submitEpochProof).not.toHaveBeenCalled();
     });
   });
 });
