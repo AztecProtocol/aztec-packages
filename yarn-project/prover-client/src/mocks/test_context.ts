@@ -37,7 +37,7 @@ import {
   insertSideEffects,
 } from '../orchestrator/block-building-helpers.js';
 import type { BlockProvingState } from '../orchestrator/block-proving-state.js';
-import { ProvingOrchestrator } from '../orchestrator/index.js';
+import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { TestBroker } from '../test/mock_prover.js';
 import { getEnvironmentConfig, getSimulator, makeCheckpointConstants, makeGlobals } from './fixtures.js';

@@ -20,7 +20,6 @@ import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { EthAddress } from '@aztec/stdlib/block';
 import type {
-  EpochProver,
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
   PublicInputsAndRecursiveProof,
@@ -86,8 +85,13 @@ import { TxProvingState } from './tx-proving-state.js';
 
 /**
  * The orchestrator, managing the flow of recursive proving operations required to build the rollup proof tree.
+ *
+ * Internal: production code drives epoch proving via the split `CheckpointSubTreeOrchestrator`
+ * + `TopTreeOrchestrator` pair. This class survives only as a base for the sub-tree
+ * (which extends it) and as a single-class end-to-end driver used by the
+ * `orchestrator_*.test.ts` integration tests.
  */
-export class ProvingOrchestrator implements EpochProver {
+export class ProvingOrchestrator {
   protected provingState: EpochProvingState | undefined = undefined;
   protected pendingProvingJobs: AbortController[] = [];
 

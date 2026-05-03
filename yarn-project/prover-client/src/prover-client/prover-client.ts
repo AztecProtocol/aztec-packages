@@ -5,7 +5,6 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import {
   type ActualProverConfig,
-  type EpochProver,
   type EpochProverManager,
   type ForkMerkleTreeOperations,
   type ProvingJobBroker,
@@ -19,12 +18,10 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import type { ProverClientConfig } from '../config.js';
 import { CheckpointSubTreeOrchestrator } from '../orchestrator/checkpoint-sub-tree-orchestrator.js';
-import { ProvingOrchestrator } from '../orchestrator/orchestrator.js';
 import { TopTreeOrchestrator } from '../orchestrator/top-tree-orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore, type ProofStore, createProofStore } from '../proving_broker/proof_store/index.js';
 import { ProvingAgent } from '../proving_broker/proving_agent.js';
-import { ServerEpochProver } from './server-epoch-prover.js';
 
 /**
  * The factory surface that `EpochProvingJob` (in `prover-node`) depends on. Implemented
@@ -59,27 +56,6 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log: Logger = createLogger('prover-client:tx-prover'),
   ) {}
-
-  public createEpochProver(): EpochProver {
-    const bindings = this.log.getBindings();
-    const facade = new BrokerCircuitProverFacade(
-      this.orchestratorClient,
-      this.proofStore,
-      this.failedProofStore,
-      undefined,
-      bindings,
-    );
-    const orchestrator = new ProvingOrchestrator(
-      this.worldState,
-      facade,
-      this.config.proverId,
-      this.config.cancelJobsOnStop,
-      this.config.enqueueConcurrency,
-      this.telemetry,
-      bindings,
-    );
-    return new ServerEpochProver(facade, orchestrator);
-  }
 
   /**
    * Creates a fresh `CheckpointSubTreeOrchestrator` plus the broker facade it needs. The
