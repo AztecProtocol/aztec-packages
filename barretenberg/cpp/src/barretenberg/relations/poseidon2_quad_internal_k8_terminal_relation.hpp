@@ -104,70 +104,48 @@ template <typename FF_> class Poseidon2QuadInternalK8TerminalRelationImpl {
         auto u_6 = pow5(Accumulator(p2_w_7 + q_5));
         auto u_7 = pow5(Accumulator(p2_w_8 + q_6));
 
-        // Vandermonde RHS (b_1, b_2, b_3) — same as interior.
-        auto u_0_D1 = u_0 * D1;
-        auto b_1 = Accumulator(w_r) - u_0_D1;
-        auto b_2 = Accumulator(w_o - w_r - w_r) + (u_0_D1 + u_0_D1) - (u_0 + u_0 + u_0) - u_1 * D1;
-        auto b_3 = Accumulator(w_4 - w_o - w_r * SIGMA_PLUS_2) + u_0 * B3_U0_COEF + u_1 * D1_MINUS_3 - u_2 * D1;
-
-        // Lagrange solve at round 0.
-        auto s1 = b_1 * A11 + b_2 * A12 + b_3 * A13;
-        auto s2 = b_1 * A21 + b_2 * A22 + b_3 * A23;
-        auto s3 = b_1 * A31 + b_2 * A32 + b_3 * A33;
-
-        auto step = [](Accumulator& s1, Accumulator& s2, Accumulator& s3, const Accumulator& u) {
-            auto sum = s1 + s2 + s3;
-            auto t = u + sum;
-            Accumulator new_s1 = t + s1 * (D2 - fr(1));
-            Accumulator new_s2 = t + s2 * (D3 - fr(1));
-            Accumulator new_s3 = t + s3 * (D4 - fr(1));
-            s1 = new_s1;
-            s2 = new_s2;
-            s3 = new_s3;
+        auto row_u_terms_4 = [&](const auto& row) { return u_0 * row[3] + u_1 * row[4] + u_2 * row[5] + u_3 * row[6]; };
+        auto row_u_terms_5 = [&](const auto& row) { return row_u_terms_4(row) + u_4 * row[7]; };
+        auto row_u_terms_6 = [&](const auto& row) { return row_u_terms_5(row) + u_5 * row[8]; };
+        auto row_u_terms_7 = [&](const auto& row) { return row_u_terms_6(row) + u_6 * row[9]; };
+        auto row_u_terms_8 = [&](const auto& row) {
+            return u_0 * row[3] + u_1 * row[4] + u_2 * row[5] + u_3 * row[6] + u_4 * row[7] + u_5 * row[8] +
+                   u_6 * row[9] + u_7 * row[10];
         };
 
-        step(s1, s2, s3, u_0);
-        step(s1, s2, s3, u_1);
-        step(s1, s2, s3, u_2);
+        const auto& out_0_4_row = QuadParams::k8_tables.s0_after_round[0];
+        const auto& out_0_5_row = QuadParams::k8_tables.s0_after_round[1];
+        const auto& out_0_6_row = QuadParams::k8_tables.s0_after_round[2];
+        const auto& out_0_7_row = QuadParams::k8_tables.s0_after_round[3];
+        const auto& out_0_row = QuadParams::k8_tables.output_after_round_8[0];
+        const auto& out_1_row = QuadParams::k8_tables.output_after_round_8[1];
+        const auto& out_2_row = QuadParams::k8_tables.output_after_round_8[2];
+        const auto& out_3_row = QuadParams::k8_tables.output_after_round_8[3];
 
-        // After step 3, capture s_0_4 and check vs p2_w_5.
-        auto T_3 = s1 + s2 + s3;
-        auto out_0_4 = u_3 * D1 + T_3;
-        step(s1, s2, s3, u_3);
+        auto out_0_wire = w_r * out_0_row[0] + w_o * out_0_row[1] + w_4 * out_0_row[2] - w_l_shift;
+        auto out_1_wire = w_r * out_1_row[0] + w_o * out_1_row[1] + w_4 * out_1_row[2] - w_r_shift;
+        auto out_2_wire = w_r * out_2_row[0] + w_o * out_2_row[1] + w_4 * out_2_row[2] - w_o_shift;
+        auto out_3_wire = w_r * out_3_row[0] + w_o * out_3_row[1] + w_4 * out_3_row[2] - w_4_shift;
 
-        auto T_4 = s1 + s2 + s3;
-        auto out_0_5 = u_4 * D1 + T_4;
-        step(s1, s2, s3, u_4);
-
-        auto T_5 = s1 + s2 + s3;
-        auto out_0_6 = u_5 * D1 + T_5;
-        step(s1, s2, s3, u_5);
-
-        auto T_6 = s1 + s2 + s3;
-        auto out_0_7 = u_6 * D1 + T_6;
-        step(s1, s2, s3, u_6);
-
-        auto T_7 = s1 + s2 + s3;
-        auto out_0 = u_7 * D1 + T_7;
-        step(s1, s2, s3, u_7);
-        auto& out_1 = s1;
-        auto& out_2 = s2;
-        auto& out_3 = s3;
+        auto out_0_4_wire = w_r * out_0_4_row[0] + w_o * out_0_4_row[1] + w_4 * out_0_4_row[2] - p2_w_5;
+        auto out_0_5_wire = w_r * out_0_5_row[0] + w_o * out_0_5_row[1] + w_4 * out_0_5_row[2] - p2_w_6;
+        auto out_0_6_wire = w_r * out_0_6_row[0] + w_o * out_0_6_row[1] + w_4 * out_0_6_row[2] - p2_w_7;
+        auto out_0_7_wire = w_r * out_0_7_row[0] + w_o * out_0_7_row[1] + w_4 * out_0_7_row[2] - p2_w_8;
 
         const auto q_times_scaling_m = q_sel * scaling_factor;
         const auto q_times_scaling = Accumulator(q_times_scaling_m);
 
         // Boundary: standard 4-wire check (no shift-side Vandermonde — successor is standard-encoded).
-        std::get<0>(evals) += q_times_scaling * (out_0 - Accumulator(w_l_shift));
-        std::get<1>(evals) += q_times_scaling * (out_1 - Accumulator(w_r_shift));
-        std::get<2>(evals) += q_times_scaling * (out_2 - Accumulator(w_o_shift));
-        std::get<3>(evals) += q_times_scaling * (out_3 - Accumulator(w_4_shift));
+        std::get<0>(evals) += q_times_scaling * (row_u_terms_8(out_0_row) + Accumulator(out_0_wire));
+        std::get<1>(evals) += q_times_scaling * (row_u_terms_8(out_1_row) + Accumulator(out_1_wire));
+        std::get<2>(evals) += q_times_scaling * (row_u_terms_8(out_2_row) + Accumulator(out_2_wire));
+        std::get<3>(evals) += q_times_scaling * (row_u_terms_8(out_3_row) + Accumulator(out_3_wire));
 
         // Internal consistency at rounds 4..7.
-        std::get<4>(evals) += q_times_scaling * (out_0_4 - Accumulator(p2_w_5));
-        std::get<5>(evals) += q_times_scaling * (out_0_5 - Accumulator(p2_w_6));
-        std::get<6>(evals) += q_times_scaling * (out_0_6 - Accumulator(p2_w_7));
-        std::get<7>(evals) += q_times_scaling * (out_0_7 - Accumulator(p2_w_8));
+        std::get<4>(evals) += q_times_scaling * (row_u_terms_4(out_0_4_row) + Accumulator(out_0_4_wire));
+        std::get<5>(evals) += q_times_scaling * (row_u_terms_5(out_0_5_row) + Accumulator(out_0_5_wire));
+        std::get<6>(evals) += q_times_scaling * (row_u_terms_6(out_0_6_row) + Accumulator(out_0_6_wire));
+        std::get<7>(evals) += q_times_scaling * (row_u_terms_7(out_0_7_row) + Accumulator(out_0_7_wire));
     }
 };
 

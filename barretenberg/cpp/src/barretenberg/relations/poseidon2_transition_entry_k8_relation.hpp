@@ -120,64 +120,48 @@ template <typename FF_> class Poseidon2TransitionEntryK8RelationImpl {
             return quart * x;
         };
 
-        // Native recurrence on (s_0, s_1, s_2, s_3). Each step takes the currently-known s_0
-        // (witness on this row or shifted), computes u_k = (s_0_k + c_k)^5, then advances
-        // (s_1, s_2, s_3) via M_I. The recurrence-output s_0_{k+1} is checked against the
-        // corresponding shifted witness.
-        auto step = [](Accumulator& s1, Accumulator& s2, Accumulator& s3, const Accumulator& u) {
-            auto sum = s1 + s2 + s3;
-            auto t = u + sum;
-            Accumulator new_s1 = t + s1 * (D2 - fr(1));
-            Accumulator new_s2 = t + s2 * (D3 - fr(1));
-            Accumulator new_s3 = t + s3 * (D4 - fr(1));
-            s1 = new_s1;
-            s2 = new_s2;
-            s3 = new_s3;
-        };
+        auto u_0 = pow5(Accumulator(w_l + q_l));
+        auto u_1 = pow5(Accumulator(w_r_shift + q_r));
+        auto u_2 = pow5(Accumulator(w_o_shift + q_o));
+        auto u_3 = pow5(Accumulator(w_4_shift + q_4));
+        auto u_4 = pow5(Accumulator(p2_w_5_shift + q_m));
+        auto u_5 = pow5(Accumulator(p2_w_6_shift + q_c));
+        auto u_6 = pow5(Accumulator(p2_w_7_shift + q_5));
 
-        Accumulator s1 = Accumulator(w_r);
-        Accumulator s2 = Accumulator(w_o);
-        Accumulator s3 = Accumulator(w_4);
+        auto row_u_terms_1 = [&](const auto& row) { return u_0 * row[3]; };
+        auto row_u_terms_2 = [&](const auto& row) { return row_u_terms_1(row) + u_1 * row[4]; };
+        auto row_u_terms_3 = [&](const auto& row) { return row_u_terms_2(row) + u_2 * row[5]; };
+        auto row_u_terms_4 = [&](const auto& row) { return row_u_terms_3(row) + u_3 * row[6]; };
+        auto row_u_terms_5 = [&](const auto& row) { return row_u_terms_4(row) + u_4 * row[7]; };
+        auto row_u_terms_6 = [&](const auto& row) { return row_u_terms_5(row) + u_5 * row[8]; };
+        auto row_u_terms_7 = [&](const auto& row) { return row_u_terms_6(row) + u_6 * row[9]; };
 
         const auto q_times_scaling_m = q_sel * scaling_factor;
         const auto q_times_scaling = Accumulator(q_times_scaling_m);
 
-        // Round 0 -> 1 using w_l as s_0 input.
-        // Internal-round transition: s_0^{(k+1)} = D_1 * u_k + (s_1 + s_2 + s_3) at round k.
-        auto u_0 = pow5(Accumulator(w_l + q_l));
-        auto t0 = u_0 * D1 + s1 + s2 + s3;
-        std::get<0>(evals) += q_times_scaling * (t0 - Accumulator(w_r_shift));
-        step(s1, s2, s3, u_0);
+        const auto& row_1 = QuadParams::k8_tables.entry_s0_after_round[0];
+        const auto& row_2 = QuadParams::k8_tables.entry_s0_after_round[1];
+        const auto& row_3 = QuadParams::k8_tables.entry_s0_after_round[2];
+        const auto& row_4 = QuadParams::k8_tables.entry_s0_after_round[3];
+        const auto& row_5 = QuadParams::k8_tables.entry_s0_after_round[4];
+        const auto& row_6 = QuadParams::k8_tables.entry_s0_after_round[5];
+        const auto& row_7 = QuadParams::k8_tables.entry_s0_after_round[6];
 
-        // Round 1 -> 2 using w_r_shift (degree firewall) as s_0_1 input.
-        auto u_1 = pow5(Accumulator(w_r_shift + q_r));
-        auto t1 = u_1 * D1 + s1 + s2 + s3;
-        std::get<1>(evals) += q_times_scaling * (t1 - Accumulator(w_o_shift));
-        step(s1, s2, s3, u_1);
+        auto wire_1 = w_r * row_1[0] + w_o * row_1[1] + w_4 * row_1[2] - w_r_shift;
+        auto wire_2 = w_r * row_2[0] + w_o * row_2[1] + w_4 * row_2[2] - w_o_shift;
+        auto wire_3 = w_r * row_3[0] + w_o * row_3[1] + w_4 * row_3[2] - w_4_shift;
+        auto wire_4 = w_r * row_4[0] + w_o * row_4[1] + w_4 * row_4[2] - p2_w_5_shift;
+        auto wire_5 = w_r * row_5[0] + w_o * row_5[1] + w_4 * row_5[2] - p2_w_6_shift;
+        auto wire_6 = w_r * row_6[0] + w_o * row_6[1] + w_4 * row_6[2] - p2_w_7_shift;
+        auto wire_7 = w_r * row_7[0] + w_o * row_7[1] + w_4 * row_7[2] - p2_w_8_shift;
 
-        auto u_2 = pow5(Accumulator(w_o_shift + q_o));
-        auto t2 = u_2 * D1 + s1 + s2 + s3;
-        std::get<2>(evals) += q_times_scaling * (t2 - Accumulator(w_4_shift));
-        step(s1, s2, s3, u_2);
-
-        auto u_3 = pow5(Accumulator(w_4_shift + q_4));
-        auto t3 = u_3 * D1 + s1 + s2 + s3;
-        std::get<3>(evals) += q_times_scaling * (t3 - Accumulator(p2_w_5_shift));
-        step(s1, s2, s3, u_3);
-
-        auto u_4 = pow5(Accumulator(p2_w_5_shift + q_m));
-        auto t4 = u_4 * D1 + s1 + s2 + s3;
-        std::get<4>(evals) += q_times_scaling * (t4 - Accumulator(p2_w_6_shift));
-        step(s1, s2, s3, u_4);
-
-        auto u_5 = pow5(Accumulator(p2_w_6_shift + q_c));
-        auto t5 = u_5 * D1 + s1 + s2 + s3;
-        std::get<5>(evals) += q_times_scaling * (t5 - Accumulator(p2_w_7_shift));
-        step(s1, s2, s3, u_5);
-
-        auto u_6 = pow5(Accumulator(p2_w_7_shift + q_5));
-        auto t6 = u_6 * D1 + s1 + s2 + s3;
-        std::get<6>(evals) += q_times_scaling * (t6 - Accumulator(p2_w_8_shift));
+        std::get<0>(evals) += q_times_scaling * (row_u_terms_1(row_1) + Accumulator(wire_1));
+        std::get<1>(evals) += q_times_scaling * (row_u_terms_2(row_2) + Accumulator(wire_2));
+        std::get<2>(evals) += q_times_scaling * (row_u_terms_3(row_3) + Accumulator(wire_3));
+        std::get<3>(evals) += q_times_scaling * (row_u_terms_4(row_4) + Accumulator(wire_4));
+        std::get<4>(evals) += q_times_scaling * (row_u_terms_5(row_5) + Accumulator(wire_5));
+        std::get<5>(evals) += q_times_scaling * (row_u_terms_6(row_6) + Accumulator(wire_6));
+        std::get<6>(evals) += q_times_scaling * (row_u_terms_7(row_7) + Accumulator(wire_7));
     }
 };
 

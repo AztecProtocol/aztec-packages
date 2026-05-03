@@ -2017,6 +2017,33 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_compressed_gate(
 }
 
 /**
+ * @brief Poseidon2 initial-linear-layer gate (Mega only). Activates the q_poseidon2_external_initial
+ * selector and relation. Wires a..d hold the raw permutation input; the next row holds M_E * input
+ * and is consumed by the first external_compressed gate. All q-selectors are zero on this row.
+ */
+template <typename FF>
+void UltraCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in)
+{
+    if constexpr (requires { this->blocks.poseidon2_compressed; }) {
+        auto& block = this->blocks.poseidon2_compressed;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
+        block.q_6().emplace_back(0);
+        block.set_external_initial_gate_selector(1);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    } else {
+        throw_or_abort("create_poseidon2_initial_external_gate is Mega-only");
+    }
+}
+
+/**
  * @brief Transition-entry gate (Mega K=8): bridges standard external output to the K=8
  * compressed internal block.
  * @details Wires a..d hold the standard 4-wide state (s_0, s_1, s_2, s_3) at the start of the

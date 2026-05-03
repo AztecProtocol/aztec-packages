@@ -165,103 +165,67 @@ template <typename FF_> class Poseidon2QuadInternalK8RelationImpl {
         auto u_6 = pow5(Accumulator(p2_w_7 + q_5));
         auto u_7 = pow5(Accumulator(p2_w_8 + q_6));
 
-        // ── Compute b_1, b_2, b_3 (RHS of the 3x3 Vandermonde) — same algebra as K=4 ──
-        // Share u_0 * D_1 between b_1 and b_2: u_0*(2 D_1 - 3) = 2*(u_0*D_1) - 3*u_0
-        auto u_0_D1 = u_0 * D1;
-        auto b_1 = Accumulator(w_r) - u_0_D1;
-        auto b_2 = Accumulator(w_o - w_r - w_r) + (u_0_D1 + u_0_D1) - (u_0 + u_0 + u_0) - u_1 * D1;
-        auto b_3 = Accumulator(w_4 - w_o - w_r * SIGMA_PLUS_2) + u_0 * B3_U0_COEF + u_1 * D1_MINUS_3 - u_2 * D1;
-
-        // ── Lagrange solve: s_j at round 0 = α_j^(1) b_1 + α_j^(2) b_2 + α_j^(3) b_3 ──
-        auto s1 = b_1 * A11 + b_2 * A12 + b_3 * A13;
-        auto s2 = b_1 * A21 + b_2 * A22 + b_3 * A23;
-        auto s3 = b_1 * A31 + b_2 * A32 + b_3 * A33;
-
-        // ── Iterate the recurrence 8 times on (s_1, s_2, s_3) ──
-        // Each step: state' = M_I . (u_k, s_1, s_2, s_3) where M_I is diagonal-plus-ones with
-        // diagonal (D_1, D_2, D_3, D_4). The first row of M_I gives s_0_{k+1} = D_1 u_k + sum;
-        // we use that to feed the inter-round consistency checks at rounds 4..7. The other 3
-        // rows update (s_1, s_2, s_3).
-        auto step = [](Accumulator& s1, Accumulator& s2, Accumulator& s3, const Accumulator& u) {
-            auto sum = s1 + s2 + s3;
-            auto t = u + sum;
-            Accumulator new_s1 = t + s1 * (D2 - fr(1));
-            Accumulator new_s2 = t + s2 * (D3 - fr(1));
-            Accumulator new_s3 = t + s3 * (D4 - fr(1));
-            s1 = new_s1;
-            s2 = new_s2;
-            s3 = new_s3;
-        };
-
-        // Steps 0..2 (rounds 0→1, 1→2, 2→3) — these consume w_r, w_o, w_4 implicitly via b_1..b_3.
-        step(s1, s2, s3, u_0);
-        step(s1, s2, s3, u_1);
-        step(s1, s2, s3, u_2);
-
-        // Step 3 (round 3→4): produces s_0 at round 4. Compare to p2_w_5.
-        auto T_3 = s1 + s2 + s3;
-        auto out_0_4 = u_3 * D1 + T_3;
-        step(s1, s2, s3, u_3);
-
-        // Step 4 (round 4→5): produces s_0 at round 5. Compare to p2_w_6.
-        auto T_4 = s1 + s2 + s3;
-        auto out_0_5 = u_4 * D1 + T_4;
-        step(s1, s2, s3, u_4);
-
-        // Step 5 (round 5→6): produces s_0 at round 6. Compare to p2_w_7.
-        auto T_5 = s1 + s2 + s3;
-        auto out_0_6 = u_5 * D1 + T_5;
-        step(s1, s2, s3, u_5);
-
-        // Step 6 (round 6→7): produces s_0 at round 7. Compare to p2_w_8.
-        auto T_6 = s1 + s2 + s3;
-        auto out_0_7 = u_6 * D1 + T_6;
-        step(s1, s2, s3, u_6);
-
-        // Step 7 (round 7→8): produces s_0 at round 8 = w_l_shift.
-        auto T_7 = s1 + s2 + s3;
-        auto out_0 = u_7 * D1 + T_7;
-        step(s1, s2, s3, u_7);
-        // After step 7, (s1, s2, s3) are state[1..3] at round 8.
-        auto& out_1 = s1;
-        auto& out_2 = s2;
-        auto& out_3 = s3;
-
         // ── Compute b_1_next, b_2_next, b_3_next using shifted wires + next-pair constants ──
         auto u_0_next = pow5(Accumulator(w_l_shift + q_l_shift));
         auto u_1_next = pow5(Accumulator(w_r_shift + q_r_shift));
         auto u_2_next = pow5(Accumulator(w_o_shift + q_o_shift));
 
         auto u_0_next_D1 = u_0_next * D1;
-        auto b_1_next = Accumulator(w_r_shift) - u_0_next_D1;
-        auto b_2_next = Accumulator(w_o_shift - w_r_shift - w_r_shift) + (u_0_next_D1 + u_0_next_D1) -
-                        (u_0_next + u_0_next + u_0_next) - u_1_next * D1;
-        auto b_3_next = Accumulator(w_4_shift - w_o_shift - w_r_shift * SIGMA_PLUS_2) + u_0_next * B3_U0_COEF +
-                        u_1_next * D1_MINUS_3 - u_2_next * D1;
+
+        auto row_u_terms_4 = [&](const auto& row) { return u_0 * row[3] + u_1 * row[4] + u_2 * row[5] + u_3 * row[6]; };
+        auto row_u_terms_5 = [&](const auto& row) { return row_u_terms_4(row) + u_4 * row[7]; };
+        auto row_u_terms_6 = [&](const auto& row) { return row_u_terms_5(row) + u_5 * row[8]; };
+        auto row_u_terms_7 = [&](const auto& row) { return row_u_terms_6(row) + u_6 * row[9]; };
+        auto row_u_terms_8 = [&](const auto& row) {
+            return u_0 * row[3] + u_1 * row[4] + u_2 * row[5] + u_3 * row[6] + u_4 * row[7] + u_5 * row[8] +
+                   u_6 * row[9] + u_7 * row[10];
+        };
+
+        const auto& out_0_4_row = QuadParams::k8_tables.s0_after_round[0];
+        const auto& out_0_5_row = QuadParams::k8_tables.s0_after_round[1];
+        const auto& out_0_6_row = QuadParams::k8_tables.s0_after_round[2];
+        const auto& out_0_7_row = QuadParams::k8_tables.s0_after_round[3];
+        const auto& out_0_row = QuadParams::k8_tables.output_after_round_8[0];
+        const auto& lhs_1_row = QuadParams::k8_tables.forward_vandermonde_lhs[0];
+        const auto& lhs_2_row = QuadParams::k8_tables.forward_vandermonde_lhs[1];
+        const auto& lhs_3_row = QuadParams::k8_tables.forward_vandermonde_lhs[2];
+
+        auto out_0_4_wire = w_r * out_0_4_row[0] + w_o * out_0_4_row[1] + w_4 * out_0_4_row[2] - p2_w_5;
+        auto out_0_5_wire = w_r * out_0_5_row[0] + w_o * out_0_5_row[1] + w_4 * out_0_5_row[2] - p2_w_6;
+        auto out_0_6_wire = w_r * out_0_6_row[0] + w_o * out_0_6_row[1] + w_4 * out_0_6_row[2] - p2_w_7;
+        auto out_0_7_wire = w_r * out_0_7_row[0] + w_o * out_0_7_row[1] + w_4 * out_0_7_row[2] - p2_w_8;
+        auto out_0_wire = w_r * out_0_row[0] + w_o * out_0_row[1] + w_4 * out_0_row[2] - w_l_shift;
+
+        auto lhs_1_wire = w_r * lhs_1_row[0] + w_o * lhs_1_row[1] + w_4 * lhs_1_row[2] - w_r_shift;
+        auto lhs_2_wire =
+            w_r * lhs_2_row[0] + w_o * lhs_2_row[1] + w_4 * lhs_2_row[2] - w_o_shift + w_r_shift + w_r_shift;
+        auto lhs_3_wire = w_r * lhs_3_row[0] + w_o * lhs_3_row[1] + w_4 * lhs_3_row[2] - w_4_shift + w_o_shift +
+                          w_r_shift * SIGMA_PLUS_2;
 
         // ── Constraint scalings ──
         const auto q_times_scaling_m = q_sel * scaling_factor;
         const auto q_times_scaling = Accumulator(q_times_scaling_m);
 
         // ── A_0: out_0 - w_l_shift = 0 ──
-        std::get<0>(evals) += q_times_scaling * (out_0 - Accumulator(w_l_shift));
+        std::get<0>(evals) += q_times_scaling * (row_u_terms_8(out_0_row) + Accumulator(out_0_wire));
 
         // ── A_1: (out_1 + out_2 + out_3) - b_1_next = 0 ──
-        std::get<1>(evals) += q_times_scaling * ((out_1 + out_2 + out_3) - b_1_next);
+        std::get<1>(evals) += q_times_scaling * (row_u_terms_8(lhs_1_row) + u_0_next_D1 + Accumulator(lhs_1_wire));
 
         // ── A_2: (D_2 out_1 + D_3 out_2 + D_4 out_3) - b_2_next = 0 ──
-        auto lhs_2 = out_1 * D2 + out_2 * D3 + out_3 * D4;
-        std::get<2>(evals) += q_times_scaling * (lhs_2 - b_2_next);
+        std::get<2>(evals) +=
+            q_times_scaling * (row_u_terms_8(lhs_2_row) - (u_0_next_D1 + u_0_next_D1) +
+                               (u_0_next + u_0_next + u_0_next) + u_1_next * D1 + Accumulator(lhs_2_wire));
 
         // ── A_3: (D_2^2 out_1 + D_3^2 out_2 + D_4^2 out_3) - b_3_next = 0 ──
-        auto lhs_3 = out_1 * D2_SQ + out_2 * D3_SQ + out_3 * D4_SQ;
-        std::get<3>(evals) += q_times_scaling * (lhs_3 - b_3_next);
+        std::get<3>(evals) += q_times_scaling * (row_u_terms_8(lhs_3_row) - u_0_next * B3_U0_COEF -
+                                                 u_1_next * D1_MINUS_3 + u_2_next * D1 + Accumulator(lhs_3_wire));
 
         // ── Internal consistency at rounds 4..7 ──
-        std::get<4>(evals) += q_times_scaling * (out_0_4 - Accumulator(p2_w_5));
-        std::get<5>(evals) += q_times_scaling * (out_0_5 - Accumulator(p2_w_6));
-        std::get<6>(evals) += q_times_scaling * (out_0_6 - Accumulator(p2_w_7));
-        std::get<7>(evals) += q_times_scaling * (out_0_7 - Accumulator(p2_w_8));
+        std::get<4>(evals) += q_times_scaling * (row_u_terms_4(out_0_4_row) + Accumulator(out_0_4_wire));
+        std::get<5>(evals) += q_times_scaling * (row_u_terms_5(out_0_5_row) + Accumulator(out_0_5_wire));
+        std::get<6>(evals) += q_times_scaling * (row_u_terms_6(out_0_6_row) + Accumulator(out_0_6_wire));
+        std::get<7>(evals) += q_times_scaling * (row_u_terms_7(out_0_7_row) + Accumulator(out_0_7_wire));
     }
 };
 

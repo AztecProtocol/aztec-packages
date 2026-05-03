@@ -22,8 +22,26 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
     }
 
     // Apply 1st linear layer both natively and in-circuit.
+    // Mega constrains the whole linear layer with a bespoke row; Ultra keeps the arithmetic-gate lowering.
     NativePermutation::matrix_multiplication_external(current_native_state);
-    matrix_multiplication_external(current_state);
+    if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
+        for (auto& state_limb : current_state) {
+            if (state_limb.is_constant()) {
+                state_limb = field_t<Builder>::from_witness_index(
+                    builder, builder->put_constant_variable(state_limb.get_value()));
+            }
+        }
+        poseidon2_initial_external_gate_<FF> in{ current_state[0].get_witness_index(),
+                                                 current_state[1].get_witness_index(),
+                                                 current_state[2].get_witness_index(),
+                                                 current_state[3].get_witness_index() };
+        builder->create_poseidon2_initial_external_gate(in);
+        for (size_t j = 0; j < t; ++j) {
+            current_state[j] = witness_t<Builder>(builder, current_native_state[j]);
+        }
+    } else {
+        matrix_multiplication_external(current_state);
+    }
 
     constexpr size_t rounds_f_beginning = rounds_f / 2;
     const size_t p_end = rounds_f_beginning + rounds_p;

@@ -189,8 +189,9 @@ template <> class RelationChecker<MegaFlavor> : public RelationChecker<void> {
         try_check.template operator()<EccOpQueueRelation<FF>>("MegaEccOpQueue");
         try_check.template operator()<DatabusLookupRelation<FF>, true>("MegaDatabusLookup");
 
-        // Compressed Poseidon2 relations (K=8 internal + 2-per-row external).
+        // Compressed Poseidon2 relations (K=8 internal + 2-per-row external + initial linear layer).
         try_check.template operator()<Poseidon2ExternalCompressedRelation<FF>>("Poseidon2ExternalCompressed");
+        try_check.template operator()<Poseidon2InitialExternalRelation<FF>>("Poseidon2InitialExternal");
         try_check.template operator()<Poseidon2QuadInternalK8Relation<FF>>("Poseidon2QuadInternalK8");
         try_check.template operator()<Poseidon2QuadInternalK8TerminalRelation<FF>>("Poseidon2QuadInternalK8Terminal");
         try_check.template operator()<Poseidon2TransitionEntryK8Relation<FF>>("Poseidon2TransitionEntryK8");

@@ -27,21 +27,31 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
     static std::size_t gate_count(std::size_t N)
     {
+        constexpr bool is_mega = std::is_same_v<Builder, MegaCircuitBuilder>;
+
+        // Number of Poseidon2 permutation invocations
+        size_t P_N = (N + 2) / 3;
+        // Number of extra additions in squeeze
+        size_t N_3 = N % 3;
+
+        if constexpr (is_mega) {
+            // Mega uses the K=8 compressed encoding with a custom initial-linear-layer row.
+            if (N == 1) {
+                return 15;
+            }
+            return (N_3 == 0) ? (17 * P_N - 2) : (17 * P_N - 5 + N_3);
+        }
+
+        // Ultra uses the standard single-round encoding (73 gates per permutation).
         if (N == 1) {
             return 73;
         }
         const size_t P_cost = 73;
         const size_t D_full_adds = 3;
-
-        // Number of Poseidon2 permutation invocations
-        size_t P_N = (N + 2) / 3;
-        // Number of extra additions in sqeeze
-        size_t N_3 = N % 3;
         if (N_3 == 0) {
             return (1 + P_N * P_cost + (P_N - 1) * D_full_adds);
-        } else {
-            return (1 + P_N * P_cost + (P_N - 2) * D_full_adds + N_3);
         }
+        return (1 + P_N * P_cost + (P_N - 2) * D_full_adds + N_3);
     }
     /**
      * @brief Call poseidon2 on a vector of inputs

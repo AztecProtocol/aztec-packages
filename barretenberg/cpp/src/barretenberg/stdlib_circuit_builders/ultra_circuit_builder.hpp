@@ -640,6 +640,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     // poseidon2_compressed block, populating the 4 standard wires + 4 auxiliary fr values
     // p2_w_5..p2_w_8 + the appropriate gate selector.
     void create_poseidon2_external_compressed_gate(const poseidon2_external_compressed_gate_<FF>& in);
+    void create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in);
     void create_poseidon2_transition_entry_k8_gate(const poseidon2_transition_entry_k8_gate_<FF>& in);
     void create_poseidon2_k8_internal_gate(const poseidon2_k8_internal_gate_<FF>& in);
 
