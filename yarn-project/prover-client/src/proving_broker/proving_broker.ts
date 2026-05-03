@@ -67,6 +67,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
     [ProvingRequestType.PARITY_BASE]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
     [ProvingRequestType.PARITY_ROOT]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
+
+    [ProvingRequestType.BLOCK_EXECUTION]: new PriorityMemoryQueue<EnqueuedProvingJob>(provingJobComparator),
   };
 
   // holds a copy of the database in memory in order to quickly fulfill requests
@@ -736,6 +738,9 @@ function proofTypeComparator(a: ProvingRequestType, b: ProvingRequestType): -1 |
  * is to get picked up by agents
  */
 export const PROOF_TYPES_IN_PRIORITY_ORDER: ProvingRequestType[] = [
+  // Block execution gates the rest of the proving DAG: per-tx jobs only become enqueued
+  // once a BLOCK_EXECUTION job has run, so we want it ahead of every proof type below.
+  ProvingRequestType.BLOCK_EXECUTION,
   ProvingRequestType.ROOT_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_FIRST_ROLLUP,
   ProvingRequestType.BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP,

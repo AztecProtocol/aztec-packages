@@ -4,13 +4,15 @@ import {
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
-import { EpochNumber, EpochNumberSchema } from '@aztec/foundation/branded-types';
+import { type BlockNumber, EpochNumber, EpochNumberSchema, type SlotNumber } from '@aztec/foundation/branded-types';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
 import { AvmCircuitInputs } from '../avm/avm.js';
 import { AvmProvingRequestSchema } from '../avm/avm_proving_request.js';
+import { BlockExecutionInputs } from '../block_execution/block_execution_inputs.js';
+import { BlockExecutionResult } from '../block_execution/block_execution_result.js';
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
@@ -131,6 +133,7 @@ export const ProvingJobInputs = z.discriminatedUnion('type', [
     inputs: CheckpointMergeRollupPrivateInputs.schema,
   }),
   z.object({ type: z.literal(ProvingRequestType.ROOT_ROLLUP), inputs: RootRollupPrivateInputs.schema }),
+  z.object({ type: z.literal(ProvingRequestType.BLOCK_EXECUTION), inputs: BlockExecutionInputs.schema }),
 ]);
 
 export function getProvingJobInputClassFor(type: ProvingRequestType) {
@@ -171,6 +174,8 @@ export function getProvingJobInputClassFor(type: ProvingRequestType) {
       return ParityBasePrivateInputs;
     case ProvingRequestType.PARITY_ROOT:
       return ParityRootPrivateInputs;
+    case ProvingRequestType.BLOCK_EXECUTION:
+      return BlockExecutionInputs;
     default: {
       const _exhaustive: never = type;
       throw new Error(`Cannot find circuit inputs class for proving type ${type}`);
@@ -199,6 +204,7 @@ export type ProvingJobInputsMap = {
   [ProvingRequestType.ROOT_ROLLUP]: RootRollupPrivateInputs;
   [ProvingRequestType.PARITY_BASE]: ParityBasePrivateInputs;
   [ProvingRequestType.PARITY_ROOT]: ParityRootPrivateInputs;
+  [ProvingRequestType.BLOCK_EXECUTION]: BlockExecutionInputs;
 };
 
 export const ProvingJobResult = z.discriminatedUnion('type', [
@@ -316,6 +322,10 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
     type: z.literal(ProvingRequestType.PARITY_ROOT),
     result: schemaForPublicInputsAndRecursiveProof(ParityPublicInputs.schema, NESTED_RECURSIVE_PROOF_LENGTH),
   }),
+  z.object({
+    type: z.literal(ProvingRequestType.BLOCK_EXECUTION),
+    result: BlockExecutionResult.schema,
+  }),
 ]);
 export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
 export type ProvingJobResultsMap = {
@@ -382,6 +392,7 @@ export type ProvingJobResultsMap = {
     ParityPublicInputs,
     typeof NESTED_RECURSIVE_PROOF_LENGTH
   >;
+  [ProvingRequestType.BLOCK_EXECUTION]: BlockExecutionResult;
 };
 
 export type ProvingRequestResultFor<T extends ProvingRequestType> = { type: T; result: ProvingJobResultsMap[T] };
@@ -409,6 +420,28 @@ export const ProvingJob: z.ZodType<ProvingJobShape, z.ZodTypeDef, any> = z.objec
 
 export const makeProvingJobId = (epochNumber: EpochNumber, type: ProvingRequestType, inputsHash: string) => {
   return `${epochNumber}:${ProvingRequestType[type]}:${inputsHash}`;
+};
+
+/**
+ * Build a deterministic job ID for a proving job whose result is produced by re-execution
+ * of an L2 block (e.g. AVM proofs). The orchestrator and the execution agent both compute
+ * the same ID from `(epoch, blockNumber, slotNumber, txIndex, type)` and never have to
+ * exchange any data to agree on it. Distinct from `makeProvingJobId` which hashes inputs.
+ *
+ * The format keeps `epochNumber` as the first colon-separated segment so
+ * `getEpochFromProvingJobId` continues to work.
+ */
+export const makeExecutionResultJobId = (
+  epochNumber: EpochNumber,
+  blockNumber: BlockNumber,
+  slotNumber: SlotNumber,
+  txIndex: number,
+  type: ProvingRequestType,
+): ProvingJobId => {
+  if (!Number.isSafeInteger(txIndex) || txIndex < 0) {
+    throw new Error(`txIndex must be a non-negative safe integer, got ${txIndex}`);
+  }
+  return `${epochNumber}:${ProvingRequestType[type]}:exec-${blockNumber}-${slotNumber}-${txIndex}`;
 };
 
 export const getEpochFromProvingJobId = (id: ProvingJobId): EpochNumber => {
