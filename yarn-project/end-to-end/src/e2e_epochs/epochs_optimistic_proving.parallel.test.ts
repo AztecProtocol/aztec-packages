@@ -1,16 +1,12 @@
-import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { waitUntilL1Timestamp } from '@aztec/ethereum/l1-tx-utils';
-import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { EthAddress } from '@aztec/foundation/eth-address';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 
 import { expect, jest } from '@jest/globals';
-import { hexToBigInt } from 'viem';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
 import { EpochsTestContext } from './epochs_test.js';
@@ -370,7 +366,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       logger.info(`Epoch ${currentEpoch} ended at checkpoint ${epochEndCheckpoint}`);
 
       // Wait until the job hits the gate. Job state transitions to 'awaiting-prover'
-      // immediately before awaiting `finalizeEpoch`, so this is our deterministic
+      // immediately before awaiting `topTree.prove`, so this is our deterministic
       // signal that the job is now blocked inside proving.
       await retryUntil(
         async () => {
@@ -382,6 +378,16 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
         0.5,
       );
       logger.info('Job is blocked inside proving — firing reorg now');
+
+      // Capture the in-flight job so we can poll its tracked-checkpoint count after
+      // the reorg lands. The prover-node uses the L2BlockStream's own polling cadence
+      // to detect prunes, so we need a deterministic signal that the prune has reached
+      // the job before we release the proving gate.
+      const inFlightJob = proverNode.epochJobs.get(currentEpoch);
+      if (!inFlightJob) {
+        throw new Error(`No in-flight job for epoch ${currentEpoch}`);
+      }
+      const trackedBeforeReorg = inFlightJob.getTrackedCheckpoints().length;
 
       // Stop block production so no replacement comes in.
       await context.aztecNodeAdmin!.setConfig({ skipPublishingCheckpointsPercent: 100 });
@@ -405,43 +411,33 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       expect(afterReorgCheckpoint).toBeLessThan(epochEndCheckpoint);
       logger.info(`Reorg fired: checkpoint ${afterReorgCheckpoint} (was ${epochEndCheckpoint})`);
 
-      // The proof for the in-flight epoch references checkpoints that no longer exist
-      // on L1, so its submission will be rejected. The contract enforces sequential
-      // epoch proofs, so without intervention every subsequent epoch's submission would
-      // also fail (proven would never advance). To simulate the recovery the prover
-      // node ought to perform itself, write the post-reorg `proven` directly into the
-      // rollup's storage so the next epoch's proof can land.
-      const stfSlot = hexToBigInt(RollupContract.stfStorageSlot);
-      const currentTips = await context.cheatCodes.eth.load(EthAddress.fromString(rollup.address), stfSlot);
-      const pendingCheckpoint = currentTips >> 128n;
-      const newTips = (pendingCheckpoint << 128n) | BigInt(afterReorgCheckpoint);
-      await context.cheatCodes.eth.store(EthAddress.fromString(rollup.address), stfSlot, newTips);
-      logger.info(`Cheated rollup proven checkpoint to ${afterReorgCheckpoint}`);
-
-      // Release the gate; proving completes for this epoch (its submission will be
-      // rejected because the checkpoints it covers no longer exist on L1) and the
-      // prover node moves on to subsequent epochs, whose proofs can now land thanks
-      // to the cheated proven checkpoint.
-      releaseProvingGate();
-
-      // Resume publishing and let the chain progress into another full epoch. Use a
-      // generous timeout — `waitUntilEpochStarts` defaults to 30 * epochDuration s
-      // (= 120s here), but a single L2 epoch is 144s, so we'd race the boundary.
-      await context.aztecNodeAdmin!.setConfig({ skipPublishingCheckpointsPercent: 0 });
-      const [nextEpochStart] = getTimestampRangeForEpoch(EpochNumber(currentEpoch + 2), test.constants);
-      await waitUntilL1Timestamp(
-        test.l1Client,
-        nextEpochStart - BigInt(test.L1_BLOCK_TIME_IN_S),
-        undefined,
-        test.L2_SLOT_DURATION_IN_S * test.epochDuration * 2,
+      // Wait until the prover-node observes the prune and removes the reorged-out
+      // checkpoint(s) from the in-flight job. This is the prerequisite for the
+      // restart-with-survivors path: when we release the gate below, the cancelled
+      // top tree throws `TopTreeCancelledError` and the finalize loop rebuilds with
+      // the surviving checkpoints. Without this wait we'd race the L2BlockStream
+      // poll and risk top tree #1 starting its real prove before cancellation lands.
+      await retryUntil(
+        () => Promise.resolve(inFlightJob.getTrackedCheckpoints().length < trackedBeforeReorg),
+        'prover-node sees the prune and trims the in-flight job',
+        30,
+        0.2,
+      );
+      logger.info(
+        `Prover-node trimmed in-flight job: ${trackedBeforeReorg} → ${inFlightJob.getTrackedCheckpoints().length} tracked checkpoints`,
       );
 
-      // Wait for the next epoch to be proven — demonstrates that the prover node
-      // recovered from the mid-proving reorg and keeps producing proofs.
-      const nextEpochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
-      await test.waitUntilProvenCheckpointNumber(CheckpointNumber(nextEpochEndCheckpoint), 240);
-      expect(await rollup.getProvenCheckpointNumber()).toBeGreaterThanOrEqual(nextEpochEndCheckpoint);
-      logger.info(`Subsequent epoch ${currentEpoch + 1} proven after mid-proving reorg recovery`);
+      // Release the gate. The cancelled top tree #1 short-circuits with
+      // TopTreeCancelledError, the finalize loop restarts with the surviving sub-trees,
+      // and a fresh top tree submits a valid proof for checkpoints 1..afterReorgCheckpoint.
+      releaseProvingGate();
+
+      // The in-flight epoch should now be proven on L1 — no storage cheats needed.
+      // (Subsequent epochs would also prove naturally; we only assert the in-flight
+      // recovery here.)
+      await test.waitUntilProvenCheckpointNumber(CheckpointNumber(afterReorgCheckpoint), 240);
+      expect(await rollup.getProvenCheckpointNumber()).toBeGreaterThanOrEqual(afterReorgCheckpoint);
+      logger.info(`In-flight epoch proven up to surviving checkpoint ${afterReorgCheckpoint}`);
     });
   });
 });

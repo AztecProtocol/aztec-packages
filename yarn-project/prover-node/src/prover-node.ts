@@ -66,7 +66,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
 
   private jobs: Map<string, EpochProvingJob> = new Map();
   /** Maps epoch number to the active proving job for that epoch. */
-  private epochJobs: Map<number, EpochProvingJob> = new Map();
+  protected epochJobs: Map<number, EpochProvingJob> = new Map();
   /**
    * Epochs the prover node has determined are complete on L1 (no more checkpoints will
    * be produced). Used to gate the call to `job.completeEpoch` — only fires once we've
