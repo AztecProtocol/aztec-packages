@@ -280,6 +280,21 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             if constexpr (requires { blk.q_poseidon2_external(); }) {
                 try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());
             }
+            if constexpr (requires { blk.q_poseidon2_external_initial(); }) {
+                try_pattern(POSEIDON2_INITIAL_EXTERNAL, blk.q_poseidon2_external_initial());
+            }
+            if constexpr (requires { blk.q_poseidon2_external_compressed(); }) {
+                try_pattern(POSEIDON2_EXTERNAL_COMPRESSED, blk.q_poseidon2_external_compressed());
+            }
+            if constexpr (requires { blk.q_poseidon2_transition_entry_k8(); }) {
+                try_pattern(POSEIDON2_TRANSITION_ENTRY_K8, blk.q_poseidon2_transition_entry_k8());
+            }
+            if constexpr (requires { blk.q_poseidon2_k8_internal(); }) {
+                try_pattern(POSEIDON2_K8_INTERNAL, blk.q_poseidon2_k8_internal());
+            }
+            if constexpr (requires { blk.q_poseidon2_k8_internal_terminal(); }) {
+                try_pattern(POSEIDON2_K8_INTERNAL_TERMINAL, blk.q_poseidon2_k8_internal_terminal());
+            }
             try_pattern(NON_NATIVE_FIELD, blk.q_nnf());
             try_pattern(MEMORY, blk.q_memory()); // consistency gates only; access gates via ROM/RAM transcripts
             try_pattern(DELTA_RANGE, blk.q_delta_range());
@@ -1266,6 +1281,32 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_poseidon2s_gate_info(size_t gate
             info("w_2_shift == ", block.w_r()[gate_index + 1]);
             info("w_3_shift == ", block.w_o()[gate_index + 1]);
             info("w_4_shift == ", block.w_4()[gate_index + 1]);
+        }
+    }
+    if constexpr (requires { block.q_poseidon2_external_compressed(); }) {
+        auto external_initial_selector = block.q_poseidon2_external_initial()[gate_index];
+        auto external_compressed_selector = block.q_poseidon2_external_compressed()[gate_index];
+        auto transition_entry_selector = block.q_poseidon2_transition_entry_k8()[gate_index];
+        auto k8_internal_selector = block.q_poseidon2_k8_internal()[gate_index];
+        auto k8_terminal_selector = block.q_poseidon2_k8_internal_terminal()[gate_index];
+        if (!external_initial_selector.is_zero() || !external_compressed_selector.is_zero() ||
+            !transition_entry_selector.is_zero() || !k8_internal_selector.is_zero() ||
+            !k8_terminal_selector.is_zero()) {
+            info("q_poseidon2_external_initial == ", external_initial_selector);
+            info("q_poseidon2_external_compressed == ", external_compressed_selector);
+            info("q_poseidon2_transition_entry_k8 == ", transition_entry_selector);
+            info("q_poseidon2_k8_internal == ", k8_internal_selector);
+            info("q_poseidon2_k8_internal_terminal == ", k8_terminal_selector);
+            info("w_1 == ", block.w_l()[gate_index]);
+            info("w_2 == ", block.w_r()[gate_index]);
+            info("w_3 == ", block.w_o()[gate_index]);
+            info("w_4 == ", block.w_4()[gate_index]);
+            if (gate_index + 1 < block.size()) {
+                info("w_1_shift == ", block.w_l()[gate_index + 1]);
+                info("w_2_shift == ", block.w_r()[gate_index + 1]);
+                info("w_3_shift == ", block.w_o()[gate_index + 1]);
+                info("w_4_shift == ", block.w_4()[gate_index + 1]);
+            }
         }
     }
 }

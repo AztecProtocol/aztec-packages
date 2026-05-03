@@ -18,8 +18,13 @@
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/memory_relation.hpp"
 #include "barretenberg/relations/non_native_field_relation.hpp"
+#include "barretenberg/relations/poseidon2_external_compressed_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_initial_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_quad_internal_k8_relation.hpp"
+#include "barretenberg/relations/poseidon2_quad_internal_k8_terminal_relation.hpp"
+#include "barretenberg/relations/poseidon2_transition_entry_k8_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include <gtest/gtest.h>
@@ -423,6 +428,36 @@ TEST(PatternTest, Poseidon2ExternalUltra)
 {
     ultra_pattern_test::verify_pattern<Poseidon2ExternalRelation<FF>>(
         POSEIDON2_EXTERNAL, [](UltraEntities& e) { return e.q_poseidon2_external = FF(1); });
+}
+
+TEST(PatternTest, Poseidon2InitialExternalMega)
+{
+    verify_pattern<Poseidon2InitialExternalRelation<FF>>(
+        POSEIDON2_INITIAL_EXTERNAL, [](Entities& e) { return e.q_poseidon2_external_initial = FF(1); });
+}
+
+TEST(PatternTest, Poseidon2ExternalCompressedMega)
+{
+    verify_pattern<Poseidon2ExternalCompressedRelation<FF>>(
+        POSEIDON2_EXTERNAL_COMPRESSED, [](Entities& e) { return e.q_poseidon2_external_compressed = FF(1); });
+}
+
+TEST(PatternTest, Poseidon2TransitionEntryK8Mega)
+{
+    verify_pattern<Poseidon2TransitionEntryK8Relation<FF>>(
+        POSEIDON2_TRANSITION_ENTRY_K8, [](Entities& e) { return e.q_poseidon2_transition_entry_k8 = FF(1); });
+}
+
+TEST(PatternTest, Poseidon2K8InternalMega)
+{
+    verify_pattern<Poseidon2QuadInternalK8Relation<FF>>(POSEIDON2_K8_INTERNAL,
+                                                        [](Entities& e) { return e.q_poseidon2_k8_internal = FF(1); });
+}
+
+TEST(PatternTest, Poseidon2K8InternalTerminalMega)
+{
+    verify_pattern<Poseidon2QuadInternalK8TerminalRelation<FF>>(
+        POSEIDON2_K8_INTERNAL_TERMINAL, [](Entities& e) { return e.q_poseidon2_k8_internal_terminal = FF(1); });
 }
 
 // =============================================================================

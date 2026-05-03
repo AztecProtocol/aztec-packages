@@ -166,26 +166,6 @@ void TraceToPolynomials<Flavor>::add_poseidon2_state_wires_to_prover_instance(Bu
     }
 }
 
-template <class Flavor>
-void TraceToPolynomials<Flavor>::add_poseidon2_state_wires_to_prover_instance(Builder& builder,
-                                                                              ProverPolynomials& polynomials)
-    requires IsMegaFlavor<Flavor>
-{
-    // Compressed-Poseidon2 layouts (K=8 internal, external 2-per-row, entry/terminal) commit raw
-    // fr values for p2_w_5..p2_w_8 per row, stored on the trace block as parallel
-    // SlabVectorSelector<fr> arrays. Copy them into the witness polynomials at the block's trace
-    // offset. Outside this block, the polynomials remain zero (sparse) so Pippenger filters them.
-    auto& block = builder.blocks.poseidon2_compressed;
-    const size_t offset = block.trace_offset();
-    const size_t block_size = block.size();
-    for (size_t i = 0; i < block_size; ++i) {
-        polynomials.p2_w_5.at(offset + i) = block.p2_w_5_aux()[i];
-        polynomials.p2_w_6.at(offset + i) = block.p2_w_6_aux()[i];
-        polynomials.p2_w_7.at(offset + i) = block.p2_w_7_aux()[i];
-        polynomials.p2_w_8.at(offset + i) = block.p2_w_8_aux()[i];
-    }
-}
-
 template class TraceToPolynomials<UltraFlavor>;
 template class TraceToPolynomials<UltraZKFlavor>;
 template class TraceToPolynomials<UltraKeccakFlavor>;

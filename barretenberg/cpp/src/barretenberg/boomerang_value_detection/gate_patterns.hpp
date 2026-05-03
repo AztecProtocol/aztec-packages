@@ -323,6 +323,86 @@ inline const GatePattern POSEIDON2_EXTERNAL = { .name = "poseidon2_external",
                                                 } };
 
 // ============================================================================
+// Poseidon2 Initial External Pattern (from poseidon2_initial_external_relation.hpp)
+//
+// Mega-only initial-linear-layer row. Wires hold raw permutation input u_1..u_4; the next
+// row's shifted wires hold M_E * u. All 4 current wires and all 4 shifted wires are constrained.
+//
+// gate_selector = q_poseidon2_external_initial
+// ============================================================================
+
+inline const GatePattern POSEIDON2_INITIAL_EXTERNAL = { .name = "poseidon2_initial_external",
+                                                        .wires = {
+                                                            { Wire::W_L, [](const Selectors&) { return true; } },
+                                                            { Wire::W_R, [](const Selectors&) { return true; } },
+                                                            { Wire::W_O, [](const Selectors&) { return true; } },
+                                                            { Wire::W_4, [](const Selectors&) { return true; } },
+                                                            { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                                            { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                                        } };
+
+// ============================================================================
+// Compressed Poseidon2 External / K=8 Internal Patterns (Mega)
+//
+// The compressed Poseidon2 block also has auxiliary p2_w_5..p2_w_8 columns, but
+// those are raw field values in the execution-trace block rather than builder
+// witness indices. The static analyzer graph only tracks the standard four
+// trace wires and their shifted successors.
+// ============================================================================
+
+inline const GatePattern
+    POSEIDON2_EXTERNAL_COMPRESSED = { .name = "poseidon2_external_compressed",
+                                      .wires = {
+                                          { Wire::W_L, [](const Selectors&) { return true; } },
+                                          { Wire::W_R, [](const Selectors&) { return true; } },
+                                          { Wire::W_O, [](const Selectors&) { return true; } },
+                                          { Wire::W_4, [](const Selectors&) { return true; } },
+                                          { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                          { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                          { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                          { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                      } };
+
+inline const GatePattern
+    POSEIDON2_TRANSITION_ENTRY_K8 = { .name = "poseidon2_transition_entry_k8",
+                                      .wires = {
+                                          { Wire::W_L, [](const Selectors&) { return true; } },
+                                          { Wire::W_R, [](const Selectors&) { return true; } },
+                                          { Wire::W_O, [](const Selectors&) { return true; } },
+                                          { Wire::W_4, [](const Selectors&) { return true; } },
+                                          { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                          { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                          { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                      } };
+
+inline const GatePattern POSEIDON2_K8_INTERNAL = { .name = "poseidon2_k8_internal",
+                                                   .wires = {
+                                                       { Wire::W_L, [](const Selectors&) { return true; } },
+                                                       { Wire::W_R, [](const Selectors&) { return true; } },
+                                                       { Wire::W_O, [](const Selectors&) { return true; } },
+                                                       { Wire::W_4, [](const Selectors&) { return true; } },
+                                                       { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                                       { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                                       { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                                       { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                                   } };
+
+inline const GatePattern
+    POSEIDON2_K8_INTERNAL_TERMINAL = { .name = "poseidon2_k8_internal_terminal",
+                                       .wires = {
+                                           { Wire::W_L, [](const Selectors&) { return true; } },
+                                           { Wire::W_R, [](const Selectors&) { return true; } },
+                                           { Wire::W_O, [](const Selectors&) { return true; } },
+                                           { Wire::W_4, [](const Selectors&) { return true; } },
+                                           { Wire::W_L_SHIFT, [](const Selectors&) { return true; } },
+                                           { Wire::W_R_SHIFT, [](const Selectors&) { return true; } },
+                                           { Wire::W_O_SHIFT, [](const Selectors&) { return true; } },
+                                           { Wire::W_4_SHIFT, [](const Selectors&) { return true; } },
+                                       } };
+
+// ============================================================================
 // Databus Pattern (from databus_lookup_relation.hpp)
 //
 // Read term uses: w_l (value), w_r (index)
