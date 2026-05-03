@@ -18,6 +18,7 @@ import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-clien
 
 import type { ProverClientConfig } from '../config.js';
 import { CheckpointSubTreeOrchestrator } from '../orchestrator/checkpoint-sub-tree-orchestrator.js';
+import { EpochProvingContext } from '../orchestrator/epoch-proving-context.js';
 import { TopTreeOrchestrator } from '../orchestrator/top-tree-orchestrator.js';
 import { BrokerCircuitProverFacade } from '../proving_broker/broker_prover_facade.js';
 import { InlineProofStore, type ProofStore, createProofStore } from '../proving_broker/proof_store/index.js';
@@ -42,7 +43,20 @@ import { ProvingAgent } from '../proving_broker/proving_agent.js';
  */
 export interface EpochProverFactory {
   getProverId(): EthAddress;
-  createCheckpointSubTreeOrchestrator(): CheckpointSubTreeOrchestrator;
+  /**
+   * Constructs a per-epoch shared chonk-verifier cache wired to the prover-client's
+   * broker facade. The caller (`EpochProvingJob`) constructs one per epoch and passes
+   * it to every sub-tree it creates so the chonk proof for a tx that gets reorged out
+   * and re-appears in a replacement checkpoint can be reused.
+   */
+  createEpochProvingContext(): EpochProvingContext;
+  /**
+   * @param epochContext - Optional shared chonk-verifier cache. When supplied, every
+   *   sub-tree created with the same context shares its proof cache, so a tx whose
+   *   checkpoint is reorged out and re-appears in a replacement checkpoint reuses the
+   *   cached proof. The caller (`EpochProvingJob`) constructs one context per epoch.
+   */
+  createCheckpointSubTreeOrchestrator(epochContext?: EpochProvingContext): CheckpointSubTreeOrchestrator;
   createTopTreeOrchestrator(): TopTreeOrchestrator;
 }
 
@@ -75,7 +89,11 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     return this.facade;
   }
 
-  public createCheckpointSubTreeOrchestrator(): CheckpointSubTreeOrchestrator {
+  public createEpochProvingContext(): EpochProvingContext {
+    return new EpochProvingContext(this.getFacade(), this.log.getBindings());
+  }
+
+  public createCheckpointSubTreeOrchestrator(epochContext?: EpochProvingContext): CheckpointSubTreeOrchestrator {
     return new CheckpointSubTreeOrchestrator(
       this.worldState,
       this.getFacade(),
@@ -84,6 +102,7 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
       this.config.enqueueConcurrency,
       this.telemetry,
       this.log.getBindings(),
+      epochContext,
     );
   }
 

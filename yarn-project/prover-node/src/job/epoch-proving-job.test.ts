@@ -11,6 +11,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import type { EpochProverFactory } from '@aztec/prover-client';
 import {
   type CheckpointSubTreeOrchestrator,
+  type EpochProvingContext,
   type SubTreeResult,
   TopTreeCancelledError,
   type TopTreeOrchestrator,
@@ -50,6 +51,9 @@ describe('epoch-proving-job', () => {
 
   // The single top-tree mock built when finalize runs.
   let topTree: MockProxy<TopTreeOrchestrator>;
+
+  // The per-epoch shared chonk-verifier cache.
+  let epochContext: MockProxy<EpochProvingContext>;
 
   // Objects
   let publicInputs: RootRollupPublicInputs;
@@ -189,6 +193,9 @@ describe('epoch-proving-job', () => {
     subTreeResultResolvers = [];
 
     prover.getProverId.mockReturnValue(proverId);
+    epochContext = mock<EpochProvingContext>();
+    epochContext.stop.mockReturnValue(undefined);
+    prover.createEpochProvingContext.mockReturnValue(epochContext);
     installSubTreeFactory();
 
     topTree = mock<TopTreeOrchestrator>();

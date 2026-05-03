@@ -14,6 +14,7 @@ import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import {
   type CheckpointSubTreeOrchestrator,
   type CheckpointTopTreeData,
+  EpochProvingContext,
   type SubTreeResult,
   TopTreeCancelledError,
   type TopTreeOrchestrator,
@@ -172,6 +173,13 @@ export class EpochProvingJob implements Traceable {
   /** The top-tree orchestrator. Constructed inside `finalizeAndProve`. */
   private topTree: TopTreeOrchestrator | undefined;
 
+  /**
+   * Per-epoch shared chonk-verifier proof cache. Hoisting this above the per-checkpoint
+   * sub-trees lets a tx whose original checkpoint is reorged out and re-appears in a
+   * replacement checkpoint reuse the cached proof rather than re-prove from scratch.
+   */
+  private readonly epochContext: EpochProvingContext;
+
   /** Cached prover id, captured at construction so we don't repeatedly call into the factory. */
   private readonly proverId: EthAddress;
 
@@ -196,6 +204,7 @@ export class EpochProvingJob implements Traceable {
     });
     this.tracer = metrics.tracer;
     this.proverId = prover.getProverId();
+    this.epochContext = prover.createEpochProvingContext();
 
     this.completionPromise = new Promise<EpochProvingJobState>(resolve => {
       this.resolveCompletion = resolve;
@@ -386,8 +395,9 @@ export class EpochProvingJob implements Traceable {
       const checkpointTimer = new Timer();
 
       // Spin up a fresh sub-tree orchestrator for this checkpoint. The factory hands
-      // back an orchestrator wired to the prover-client's shared broker facade.
-      const subTree = this.prover.createCheckpointSubTreeOrchestrator();
+      // back an orchestrator wired to the prover-client's shared broker facade and the
+      // job's per-epoch chonk-verifier cache.
+      const subTree = this.prover.createCheckpointSubTreeOrchestrator(this.epochContext);
       entry.subTree = subTree;
       subTree.startNewEpoch(this.epochNumber);
       // Capture the result promise immediately. The top tree awaits it lazily at finalize
@@ -860,8 +870,9 @@ export class EpochProvingJob implements Traceable {
   }
 
   /**
-   * Stops every sub-tree and the top tree (if started). The shared broker facade is
-   * owned by the prover-client and outlives every job, so it is not stopped here.
+   * Stops every sub-tree, the top tree (if started), and the per-epoch chonk-verifier
+   * cache. The shared broker facade is owned by the prover-client and outlives every
+   * job, so it is not stopped here.
    */
   private async teardownAllOrchestrators() {
     for (const entry of this.checkpoints.values()) {
@@ -877,6 +888,7 @@ export class EpochProvingJob implements Traceable {
       }
       this.topTree = undefined;
     }
+    this.epochContext.stop();
   }
 
   /**

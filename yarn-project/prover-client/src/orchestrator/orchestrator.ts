@@ -849,7 +849,7 @@ export class ProvingOrchestrator {
 
   // Enqueues the public chonk verifier circuit for a given transaction index, or reuses the one already enqueued.
   // Once completed, will enqueue the the public tx base rollup.
-  private getOrEnqueueChonkVerifier(provingState: BlockProvingState, txIndex: number) {
+  protected getOrEnqueueChonkVerifier(provingState: BlockProvingState, txIndex: number) {
     if (!provingState.verifyState()) {
       this.logger.debug('Not running chonk verifier circuit, state invalid');
       return;
@@ -1371,7 +1371,7 @@ export class ProvingOrchestrator {
     });
   }
 
-  private checkAndEnqueueBaseRollup(provingState: BlockProvingState, txIndex: number) {
+  protected checkAndEnqueueBaseRollup(provingState: BlockProvingState, txIndex: number) {
     const txProvingState = provingState.getTxProvingState(txIndex);
     if (!txProvingState.ready()) {
       return;

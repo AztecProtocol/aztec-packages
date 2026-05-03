@@ -13,10 +13,13 @@ import type {
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
 import type { BlockRollupPublicInputs, CheckpointConstantData } from '@aztec/stdlib/rollup';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { getPublicChonkVerifierPrivateInputsFromTx } from './block-building-helpers.js';
+import type { BlockProvingState } from './block-proving-state.js';
 import type { CheckpointProvingState } from './checkpoint-proving-state.js';
+import type { EpochProvingContext } from './epoch-proving-context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
 
 /**
@@ -59,6 +62,13 @@ export class CheckpointSubTreeOrchestrator extends ProvingOrchestrator {
     enqueueConcurrency: number,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
+    /**
+     * Optional shared chonk-verifier proof cache. When supplied, every chonk-verifier
+     * proof started by this sub-tree lives on the context and survives the sub-tree's
+     * cancellation, so a tx whose original checkpoint is reorged out and re-appears
+     * in a replacement checkpoint reuses the cached proof.
+     */
+    private readonly epochContext?: EpochProvingContext,
   ) {
     super(dbProvider, prover, proverId, cancelJobsOnStop, enqueueConcurrency, telemetryClient, bindings);
   }
@@ -164,6 +174,77 @@ export class CheckpointSubTreeOrchestrator extends ProvingOrchestrator {
     this.subTreeResult.resolve({
       blockProofOutputs: nonEmpty,
       previousArchiveSiblingPath: provingState.getLastArchiveSiblingPath(),
+    });
+  }
+
+  /**
+   * Kickstart chonk-verifier circuits via the shared `EpochProvingContext` if one is
+   * supplied. The context owns the broker job lifecycle, so the proof survives this
+   * sub-tree's `cancel()` — a tx that ends up in a replacement checkpoint after a
+   * reorg can pick the cached promise up and skip re-proving.
+   */
+  public override startChonkVerifierCircuits(txs: Tx[]): Promise<void> {
+    if (!this.epochContext) {
+      return super.startChonkVerifierCircuits(txs);
+    }
+    if (!this.provingState?.verifyState()) {
+      return Promise.reject(
+        new Error('Empty epoch proving state. call startNewEpoch before starting chonk verifier circuits.'),
+      );
+    }
+    const publicTxs = txs.filter(tx => tx.data.forPublic);
+    for (const tx of publicTxs) {
+      const txHash = tx.getTxHash().toString();
+      const inputs = getPublicChonkVerifierPrivateInputsFromTx(tx, this.getProverId().toField());
+      // Fire and forget — getOrEnqueueChonkVerifier later picks up the cached promise
+      // when the tx is processed inside its block.
+      void this.epochContext.enqueue(txHash, inputs, this.provingState.epochNumber);
+    }
+    return Promise.resolve();
+  }
+
+  /**
+   * When a context is in play, route the tx's chonk-verifier dependency through it:
+   * read the cached promise (or enqueue if missing), then `.then(handleResult)` to
+   * progress to the base rollup once the proof lands. The handler is identical to
+   * the parent's; only the cache source differs.
+   */
+  protected override getOrEnqueueChonkVerifier(provingState: BlockProvingState, txIndex: number) {
+    if (!this.epochContext) {
+      super.getOrEnqueueChonkVerifier(provingState, txIndex);
+      return;
+    }
+    if (!provingState.verifyState()) {
+      return;
+    }
+
+    const txProvingState = provingState.getTxProvingState(txIndex);
+    const txHash = txProvingState.processedTx.hash.toString();
+
+    const handleResult = (
+      result: PublicInputsAndRecursiveProof<
+        import('@aztec/stdlib/rollup').PublicChonkVerifierPublicInputs,
+        typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+      >,
+    ) => {
+      if (!provingState.verifyState()) {
+        return;
+      }
+      txProvingState.setPublicChonkVerifierProof(result);
+      this.checkAndEnqueueBaseRollup(provingState, txIndex);
+    };
+
+    let promise = this.epochContext.getCached(txHash);
+    if (!promise) {
+      promise = this.epochContext.enqueue(
+        txHash,
+        txProvingState.getPublicChonkVerifierPrivateInputs(),
+        provingState.epochNumber,
+      );
+    }
+    void promise.then(handleResult).catch(() => {
+      // The context self-cleans on rejection; a future call (replacement sub-tree
+      // for this tx) will see the miss and re-enqueue. No action needed here.
     });
   }
 }
