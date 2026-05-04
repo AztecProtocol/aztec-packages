@@ -4,7 +4,7 @@ import { getAztecVersion } from '@aztec/stdlib/update-checker';
 
 import { execFileSync } from 'child_process';
 import type { Command } from 'commander';
-import { readFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 import { readArtifactFiles } from './utils/artifacts.js';
