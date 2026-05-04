@@ -417,7 +417,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
 /// ## Type Parameters
 ///
 /// - `CallSelf`: Macro-generated type for calling the contract's own utility functions (same type
-/// as `CallSelf` in [`ContractSelfUtility`])
+/// as `CallSelf` in \[`ContractSelfUtility`\])
 // Implemented as a separate struct (rather than inlined in ContractSelfPrivate) because Noir does
 // not allow passing `&mut PrivateContext` (held by `ContractSelfPrivate`) into unconstrained code.
 // This struct holds no mutable references, so it can be passed freely into `unconstrained`
