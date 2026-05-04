@@ -88,12 +88,9 @@ pub contract HandshakeRegistry {
     ///
     /// This is the discovery surface a contract uses (via oracle) to obtain a note hint before asserting existence
     /// of the note at this registry's address.
-    ///
-    /// TODO: This utility takes `sender_for_tags` as an explicit parameter for now. The ideal interface is get_handshake(recipient, handshake_type).
-    /// We could add a `aztec_utl_getSenderForTags` oracle so the utility can retrieve the identity itself.
     #[external("utility")]
     unconstrained fn get_handshake(
-        sender_for_tags: AztecAddress,
+        sender: AztecAddress,
         recipient: AztecAddress,
         handshake_type: u8,
     ) -> Option<HandshakeNote> {
