@@ -12,7 +12,7 @@ pub contract NestedUtility {
         if n == 0 {
             1
         } else {
-            x * self.call(NestedUtility::at(self.address).pow_utility(x, n - 1))
+            x * self.call_self.pow_utility(x, n - 1)
         }
     }
 
@@ -21,7 +21,7 @@ pub contract NestedUtility {
         // Safety: this is a test contract; the unconstrained result is returned directly
         // and never used as input to a constrained assertion
         unsafe {
-            self.utility.call(NestedUtility::at(self.address).pow_utility(x, n))
+            self.utility.call_self.pow_utility(x, n)
         }
     }
 }

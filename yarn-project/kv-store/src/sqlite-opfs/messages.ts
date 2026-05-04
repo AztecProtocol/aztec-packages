@@ -11,7 +11,7 @@ export type SqlValue = string | number | bigint | null | Uint8Array;
 export type ResultRow = SqlValue[];
 
 export type WorkerRequest =
-  | { type: 'init'; id: number; dbName: string; ephemeral: boolean; poolDirectory?: string }
+  | { type: 'init'; id: number; dbName: string; ephemeral: boolean; poolDirectory?: string; encryptionKey?: Uint8Array }
   | { type: 'close'; id: number }
   | { type: 'deleteDb'; id: number; dbName: string }
   | { type: 'run'; id: number; sql: string; bind?: SqlValue[] }
