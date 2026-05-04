@@ -14,7 +14,7 @@ use crate::protocol::{address::AztecAddress, traits::Deserialize};
 /// - `Storage`: The contract's storage struct (defined with [`storage`](crate::macros::storage::storage), or `()` if
 /// the contract has no storage
 /// - `CallSelf`: Macro-generated type for calling the contract's own utility functions (same type
-/// as `CallSelf` in \[`ContractPrivateUtility`\])
+/// as `CallSelf` in \[`PrivateUtilityCalls`\])
 pub struct ContractSelfUtility<Storage, CallSelf> {
     /// The address of this contract
     pub address: AztecAddress,

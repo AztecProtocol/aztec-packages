@@ -57,7 +57,7 @@ pub(crate) comptime fn generate_private_external(f: FunctionDefinition) -> Quote
             let enqueue_self_static: EnqueueSelfStatic<&mut aztec::context::PrivateContext> = EnqueueSelfStatic { address: self_address, context: &mut context };
             let internal: CallInternal<&mut aztec::context::PrivateContext> = CallInternal { context: &mut context };
             let call_self_utility = CallSelfUtility { address: self_address };
-            let utility: aztec::contract_self::ContractPrivateUtility<CallSelfUtility> = aztec::contract_self::ContractPrivateUtility { call_self: call_self_utility };
+            let utility: aztec::contract_self::PrivateUtilityCalls<CallSelfUtility> = aztec::contract_self::PrivateUtilityCalls { call_self: call_self_utility };
             aztec::contract_self::ContractSelfPrivate::new(&mut context, storage, call_self, enqueue_self, call_self_static, enqueue_self_static, internal, utility)
         };
     };

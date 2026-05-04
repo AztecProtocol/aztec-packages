@@ -118,7 +118,7 @@ pub struct ContractSelfPrivate<Storage, CallSelf, EnqueueSelf, CallSelfStatic, E
     /// // Safety: result is unconstrained
     /// unsafe { self.utility.call(MyContract::at(address).my_utility_function(args)) }
     /// ```
-    pub utility: ContractPrivateUtility<CallSelfUtility>,
+    pub utility: PrivateUtilityCalls<CallSelfUtility>,
 }
 
 impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal, CallSelfUtility> ContractSelfPrivate<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInternal, CallSelfUtility> {
@@ -133,7 +133,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
         call_self_static: CallSelfStatic,
         enqueue_self_static: EnqueueSelfStatic,
         internal: CallInternal,
-        utility: ContractPrivateUtility<CallSelfUtility>,
+        utility: PrivateUtilityCalls<CallSelfUtility>,
     ) -> Self {
         Self {
             context,
@@ -422,7 +422,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
 // not allow passing `&mut PrivateContext` (held by `ContractSelfPrivate`) into unconstrained code.
 // This struct holds no mutable references, so it can be passed freely into `unconstrained`
 // functions.
-pub struct ContractPrivateUtility<CallSelf> {
+pub struct PrivateUtilityCalls<CallSelf> {
     /// Provides type-safe methods for calling this contract's own utility functions.
     ///
     /// Example API:
@@ -433,7 +433,7 @@ pub struct ContractPrivateUtility<CallSelf> {
     pub call_self: CallSelf,
 }
 
-impl<CallSelf> ContractPrivateUtility<CallSelf> {
+impl<CallSelf> PrivateUtilityCalls<CallSelf> {
     /// Makes a utility contract call from a private function.
     ///
     /// Note: only same-contract utility calls are currently supported. See TODO(F-29).
