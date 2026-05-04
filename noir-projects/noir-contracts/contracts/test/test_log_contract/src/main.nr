@@ -1,3 +1,5 @@
+mod test;
+
 use aztec::macros::aztec;
 
 #[aztec]
@@ -39,6 +41,28 @@ pub contract TestLog {
     #[storage]
     struct Storage<Context> {
         example_set: Owned<PrivateSet<FieldNote, Context>, Context>,
+    }
+
+    /// Emits a single private log with the given raw tag and a one-field payload.
+    #[external("private")]
+    fn emit_raw_private_log(tag: Field, payload: Field) {
+        self.context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array([payload]));
+    }
+
+    /// Emits three private logs with payloads of different lengths (1, 3, and 5 fields). Used to
+    /// exercise the nested `BoundedVec<BoundedVec<Field, _>, _>` serialization between TXE and Noir.
+    #[external("private")]
+    fn emit_three_raw_private_logs_diff_lengths(
+        tag1: Field,
+        payload1: Field,
+        tag2: Field,
+        payload2: [Field; 3],
+        tag3: Field,
+        payload3: [Field; 5],
+    ) {
+        self.context.emit_private_log_vec_unsafe(tag1, BoundedVec::from_array([payload1]));
+        self.context.emit_private_log_vec_unsafe(tag2, BoundedVec::from_array(payload2));
+        self.context.emit_private_log_vec_unsafe(tag3, BoundedVec::from_array(payload3));
     }
 
     #[external("private")]
