@@ -44,6 +44,14 @@ export type SpecificProverNodeConfig = {
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
   txGatheringMaxParallelRequestsPerNode: number;
+  /**
+   * Number of `BLOCK_EXECUTION` agents to run inside the prover node process. Set to
+   * `0` to disable. The agents share the prover node's archiver and world state, no
+   * RPC archiver needed.
+   */
+  proverNodeExecutionAgentCount: number;
+  /** Poll interval for in-process execution agents. Tighter than regular agents because execution gates the rest of the proving DAG. */
+  proverNodeExecutionAgentPollIntervalMs: number;
 };
 
 export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
@@ -95,6 +103,16 @@ export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProver
     env: 'PROVER_NODE_DISABLE_PROOF_PUBLISH',
     description: 'Whether the prover node skips publishing proofs to L1',
     ...booleanConfigHelper(false),
+  },
+  proverNodeExecutionAgentCount: {
+    env: 'PROVER_NODE_EXECUTION_AGENT_COUNT',
+    description: 'Number of in-process BLOCK_EXECUTION agents to run inside the prover node (0 disables)',
+    ...numberConfigHelper(0),
+  },
+  proverNodeExecutionAgentPollIntervalMs: {
+    env: 'PROVER_NODE_EXECUTION_AGENT_POLL_INTERVAL_MS',
+    description: 'Poll interval for in-process BLOCK_EXECUTION agents',
+    ...numberConfigHelper(100),
   },
 };
 

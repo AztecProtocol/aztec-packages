@@ -13,12 +13,14 @@ import { DateProvider } from '@aztec/foundation/timer';
 import { KeystoreManager } from '@aztec/node-keystore';
 import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
 import { type ProverClientConfig, type ProverClientUserConfig, createProverClient } from '@aztec/prover-client';
+import { InternalExecutionAgents, type TxFetcher } from '@aztec/prover-client/block_execution';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import {
   type ProverPublisherConfig,
   type ProverTxSenderConfig,
   getPublisherConfigFromProverConfig,
 } from '@aztec/sequencer-client';
+import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type {
   ITxProvider,
   ProverConfig,
@@ -155,6 +157,8 @@ export async function createProverNode(
       'txGatheringTimeoutMs',
       'proverNodeFailedEpochStore',
       'proverNodeDisableProofPublish',
+      'proverNodeExecutionAgentCount',
+      'proverNodeExecutionAgentPollIntervalMs',
       'dataDirectory',
       'l1ChainId',
       'rollupVersion',
@@ -176,6 +180,41 @@ export async function createProverNode(
   // Extract the shared delayer from the first L1TxUtils instance (all instances share the same delayer)
   const delayer = l1TxUtils[0]?.delayer;
 
+  // Wire up in-process BLOCK_EXECUTION agents when configured. They share the prover
+  // node's broker, world state and contract data source — no RPC archiver needed.
+  let internalExecutionAgents: InternalExecutionAgents | undefined;
+  if (config.proverNodeExecutionAgentCount > 0) {
+    const txProvider = p2pClient.getTxProvider();
+    const txFetcher: TxFetcher = async (txHashes, _opts) => {
+      const { txs, missingTxs } = await txProvider.getAvailableTxs(txHashes);
+      if (missingTxs.length > 0) {
+        throw new Error(`Execution agent: missing txs ${missingTxs.map(h => h.toString()).join(', ')}`);
+      }
+      const byHash = new Map(txs.map(tx => [tx.getTxHash().toString(), tx]));
+      return txHashes.map(h => {
+        const tx = byHash.get(h.toString());
+        if (!tx) {
+          throw new Error(`Execution agent: tx provider did not return tx ${h.toString()}`);
+        }
+        return tx;
+      });
+    };
+
+    const publicProcessorFactory = new PublicProcessorFactory(archiver, dateProvider, telemetry, log.getBindings());
+    internalExecutionAgents = new InternalExecutionAgents(
+      {
+        count: config.proverNodeExecutionAgentCount,
+        pollIntervalMs: config.proverNodeExecutionAgentPollIntervalMs,
+      },
+      broker,
+      worldStateSynchronizer,
+      publicProcessorFactory,
+      txFetcher,
+      proverId.toField(),
+      log.getBindings(),
+    );
+  }
+
   return new ProverNode(
     prover,
     publisherFactory,
@@ -191,5 +230,6 @@ export async function createProverNode(
     telemetry,
     delayer,
     dateProvider,
+    internalExecutionAgents,
   );
 }

@@ -7,6 +7,7 @@ import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { EpochProverFactory } from '@aztec/prover-client';
+import type { InternalExecutionAgents } from '@aztec/prover-client/block_execution';
 import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
@@ -98,6 +99,12 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
     private delayer?: Delayer,
     private readonly dateProvider: DateProvider = new DateProvider(),
+    /**
+     * Optional set of in-process `BLOCK_EXECUTION` agents. When provided, the prover
+     * node starts/stops them alongside its other services so the agents share the
+     * prover node's archiver and world state without an RPC archiver.
+     */
+    protected readonly internalExecutionAgents?: InternalExecutionAgents,
   ) {
     this.config = {
       proverNodePollingIntervalMs: 1_000,
@@ -109,6 +116,8 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
       txGatheringTimeoutMs: 120_000,
       proverNodeFailedEpochStore: undefined,
       proverNodeEpochProvingDelayMs: undefined,
+      proverNodeExecutionAgentCount: 0,
+      proverNodeExecutionAgentPollIntervalMs: 100,
       ...compact(config),
     };
 
@@ -445,6 +454,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     this.publisher = await this.publisherFactory.create();
     await this.rewardsMetrics.start();
     this.l1Metrics.start();
+    await this.internalExecutionAgents?.start();
     this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.config);
   }
 
@@ -458,6 +468,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     // Stop the jobs first so that any in-flight gather tasks see their abort signal.
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.waitForPendingCheckpointTasks();
+    await this.internalExecutionAgents?.stop();
     await this.prover.stop();
     await tryStop(this.publisherFactory);
     this.publisher?.interrupt();
