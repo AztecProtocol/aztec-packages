@@ -39,7 +39,7 @@ import { General, Fees } from '@site/src/components/Snippets/general_snippets';
 Run:
 
 ```bash
-VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)
+VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network)
 ```
 
 This will install the following tools and add them to your `PATH`:
