@@ -146,6 +146,11 @@ tests:
       - *palla
 
   # yarn-project tests
+  # Attempt to catch all kv-store browser test failures (consider them quarantined for now)
+  - regex: "yarn-project/kv-store"
+    error_regex: "vitest"
+    owners:
+      - *martin
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -153,7 +158,7 @@ tests:
   - regex: "yarn-project/kv-store"
     error_regex: "timeout: sending signal TERM to command"
     owners:
-      - *alex
+      - *martin
   - regex: "yarn-project/kv-store"
     error_regex: "Failed to fetch dynamically imported module"
     owners:
