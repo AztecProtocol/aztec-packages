@@ -57,10 +57,7 @@ unconstrained fn handshakes_are_isolated_per_sender() {
     let registry = HandshakeRegistry::at(registry_address);
 
     env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
-    env.call_private(
-        other_sender,
-        registry.non_interactive_handshake(other_sender, recipient),
-    );
+    env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
 
     assert(
         env
@@ -135,10 +132,7 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
     let logs_first = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_first.len(), 2);
 
-    env.call_private(
-        other_sender,
-        registry.non_interactive_handshake(other_sender, recipient),
-    );
+    env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
     let logs_second = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_second.len(), 2);
 
