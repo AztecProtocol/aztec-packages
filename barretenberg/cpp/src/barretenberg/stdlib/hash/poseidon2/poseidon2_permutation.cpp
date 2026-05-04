@@ -192,9 +192,6 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
     State current_state(input);
     NativeState current_native_state;
 
-    if constexpr (IsMegaBuilder<Builder>) {
-        materialize_constants_for_initial_layer(builder, current_state);
-    }
     matrix_multiplication_external(current_state);
     sync_native_state_from_state<Builder>(current_native_state, current_state);
 
@@ -263,6 +260,8 @@ void Poseidon2Permutation<Builder>::matrix_multiplication_external(State& state)
         native_state[i] = state[i].get_value();
     }
     NativePermutation::matrix_multiplication_external(native_state);
+
+    materialize_constants_for_initial_layer(builder, state);
 
     poseidon2_initial_external_gate_<FF> in{ state[0].get_witness_index(),
                                              state[1].get_witness_index(),

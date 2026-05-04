@@ -64,7 +64,7 @@ template <typename Builder> class Poseidon2Permutation {
     static State permutation(Builder* builder, const State& input);
 
     /**
-     * @brief In-circuit method to multiply the initial state by the external matrix \f$ M_E \f$.
+     * @brief In-circuit method to efficiently multiply the initial state by the external matrix \f$ M_E \f$.
      */
     static void matrix_multiplication_external(State& state)
         requires IsMegaBuilder<Builder>;
