@@ -26,7 +26,6 @@ pub contract HandshakeRegistry {
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
-        oracle::notes::get_sender_for_tags,
         protocol::{
             address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
             hash::compute_log_tag, traits::ToField,
@@ -36,34 +35,30 @@ pub contract HandshakeRegistry {
 
     #[storage]
     struct Storage<Context> {
-        /// Per-sender set of [`HandshakeNote`]s. The sender should be unconstrained throughout the constrained-delivery protocol.
+        /// Per-sender set of [`HandshakeNote`]s. The sender is chosen by the caller and is unconstrained throughout the constrained-delivery protocol.
         handshakes: Owned<PrivateSet<HandshakeNote, Context>, Context>,
     }
 
-    /// Performs a non-interactive handshake to `recipient` on behalf of the PXE-supplied sender-for-tags.
+    /// Performs a non-interactive handshake from `sender` to `recipient`.
     ///
     /// Generates a fresh ephemeral key pair `(eph_sk, eph_pk)`, computes the raw ECDH shared secret point
     /// `S = eph_sk * recipient_address_point`, and produces two effects:
     ///
-    /// 1. Inserts a [`HandshakeNote`] owned by `sender` (from [`get_sender_for_tags`]).
+    /// 1. Inserts a [`HandshakeNote`] owned by `sender`.
     /// 2. Emits a 1-field private log under a recipient-keyed tag with payload `[eph_pk.x]`. The recipient
     ///    discovers handshakes addressed to them by scanning their tag and recovers the master shared secret
     ///    from `eph_pk` via their own ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
     ///    [`generate_positive_ephemeral_key_pair`] convention, so only `eph_pk.x` is transmitted.
     ///
+    /// `sender` is the identity the handshake is recorded under. The registry deliberately accepts it as a
+    /// parameter rather than reading it from the PXE-supplied default.
+    ///
     /// # Reverts
-    /// If `recipient` is not a valid curve point, or if PXE has not provided a sender. There are
-    /// no upstream side effects in this call frame to protect, and a fallback would insert a permanent note
-    /// recording a handshake with an invalid recipient, polluting registry state.
+    /// If `recipient` is not a valid curve point. There are no upstream side effects in this call frame to
+    /// protect, and a fallback would insert a permanent note recording a handshake with an invalid recipient,
+    /// polluting registry state.
     #[external("private")]
-    fn non_interactive_handshake(recipient: AztecAddress) {
-        // Safety: `sender_for_tags` is unconstrained throughout the constrained-delivery protocol. This is
-        // whatever identity the wallet/PXE wants to associate with this handshake.
-        // The registry is typically reached through an intermediate contract, so this is expected to differ from `self.msg_sender()`.
-        let sender_for_tags = unsafe { get_sender_for_tags() }.expect(
-            f"sender_for_tags must be set by PXE before calling non_interactive_handshake",
-        );
-
+    fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress) {
         let recipient_point =
             recipient.to_address_point().expect(f"recipient address is not on the curve");
 
@@ -75,8 +70,9 @@ pub contract HandshakeRegistry {
         // Delivery is `ONCHAIN_UNCONSTRAINED`. The recipient is not involved in this note's delivery. They
         // discover the handshake via the recipient-keyed log emitted below, not via the sender's note.
         // We use onchain unconstrained delivery rather than `OFFCHAIN` so the note is
-        // discoverable via normal PXE sync.
-        self.storage.handshakes.at(sender_for_tags).insert(note).deliver(
+        // discoverable via normal PXE sync. The discovery tag for this note is computed against the
+        // PXE-supplied `sender_for_tags`, which the account contract is expected to have set.
+        self.storage.handshakes.at(sender).insert(note).deliver(
             MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
 
