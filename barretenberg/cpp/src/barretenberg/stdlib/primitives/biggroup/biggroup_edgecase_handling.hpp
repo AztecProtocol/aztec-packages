@@ -78,7 +78,11 @@ std::tuple<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>, element<C, Fq, F
         scalars.push_back(_scalars[i]);
 
         // Convert point into point + (2ⁱ)⋅G_offset
-        points.push_back(_points[i].add_internal(running_point));
+        element masked = _points[i].add_internal(running_point);
+        // Each masked point must also be finite, for the same ROM table reason as the offset generator above.
+        masked.is_point_at_infinity().assert_equal(false,
+                                                   "mask_points: masked point must not be the point at infinity");
+        points.push_back(masked);
 
         // Add 2ⁱ⋅scalar_i to the last scalar
         last_scalar += _scalars[i] * running_scalar;
