@@ -336,22 +336,18 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     }
 
     // Populate per-column indicators: 1 on the column's data rows, 0 elsewhere (default).
-    bb::constexpr_for<0, NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
+    std::array<std::reference_wrapper<Polynomial>, NUM_BUS_COLUMNS> indicators{
+        polynomials.calldata_indicator,
+        polynomials.secondary_calldata_indicator,
+        polynomials.return_data_indicator,
+    };
+    for (size_t bus_idx = 0; bus_idx < NUM_BUS_COLUMNS; ++bus_idx) {
         const size_t bus_size = circuit.get_bus_vector(bus_idx).size();
-        auto& indicator = [&]() -> auto& {
-            if constexpr (bus_idx == 0) {
-                return polynomials.calldata_indicator;
-            } else if constexpr (bus_idx == 1) {
-                return polynomials.secondary_calldata_indicator;
-            } else {
-                static_assert(bus_idx == 2);
-                return polynomials.return_data_indicator;
-            }
-        }();
+        auto& indicator = indicators[bus_idx].get();
         for (size_t i = 0; i < bus_size; ++i) {
             indicator.at(NUM_DISABLED_ROWS_IN_SUMCHECK + i) = 1;
         }
-    });
+    }
 }
 
 /**
