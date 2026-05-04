@@ -1,6 +1,5 @@
 import { BatchedBlob, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib/types';
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -17,7 +16,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { EthAddress } from '@aztec/stdlib/block';
-import { AvmProvingInputs } from '@aztec/stdlib/block_execution';
+import { AvmProvingInputs, type AvmProvingResult } from '@aztec/stdlib/block_execution';
 import type {
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
@@ -25,7 +24,7 @@ import type {
   ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
-import type { Proof, RecursiveProof } from '@aztec/stdlib/proofs';
+import { type Proof, ProofDataForFixedVk } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
   BlockRootEmptyTxFirstRollupPrivateInputs,
@@ -37,7 +36,9 @@ import {
   PrivateTxBaseRollupPrivateInputs,
   PublicChonkVerifierPrivateInputs,
   PublicChonkVerifierPublicInputs,
+  PublicTxBaseRollupPrivateInputs,
   RootRollupPublicInputs,
+  type TxRollupPublicInputs,
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
@@ -62,6 +63,7 @@ import {
   getSubtreeSiblingPath,
   getTreeSnapshot,
   insertSideEffectsAndBuildBaseRollupHints,
+  toProofData,
   validatePartialState,
   validateTx,
 } from './block-building-helpers.js';
@@ -82,6 +84,26 @@ import { TxProvingState } from './tx-proving-state.js';
  *
  * The proving implementation is determined by the provided prover. This could be for example a local prover or a remote prover pool.
  */
+
+/**
+ * Callbacks the orchestrator's offloaded-execution path uses to obtain agent-produced
+ * proofs without enqueueing them itself. Each callback is invoked once per applicable
+ * tx and is expected to resolve when the broker reports the deterministic-ID job
+ * complete.
+ */
+export type BlockExecutionWatchers = {
+  /** Resolves with the agent-enqueued PRIVATE_TX_BASE_ROLLUP proof for the given tx index. */
+  expectPrivateBaseRollupProofForTx: (
+    txIndex: number,
+    signal: AbortSignal,
+  ) => Promise<PublicInputsAndRecursiveProof<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>>;
+  /**
+   * Resolves with the agent-enqueued PUBLIC_VM proof for the given tx index. The result
+   * carries the per-tx execution data passenger the orchestrator needs to enqueue
+   * `PUBLIC_TX_BASE_ROLLUP`.
+   */
+  expectAvmProofForTx: (txIndex: number, signal: AbortSignal) => Promise<AvmProvingResult>;
+};
 
 /**
  * The orchestrator, managing the flow of recursive proving operations required to build the rollup proof tree.
@@ -302,29 +324,55 @@ export class ProvingOrchestrator extends TopTreeProvingScheduler {
   }
 
   /**
-   * Adds processed txs to the orchestrator without enqueueing AVM proving jobs itself.
-   * For each public tx, the supplied `expectAvmProofForTx` callback is used to obtain
-   * the AVM proof — typically by awaiting a deterministic-ID job already (or about to
-   * be) enqueued by an execution agent. Used by the prover node when AVM execution has
-   * been offloaded; the existing `addTxs` path is otherwise unchanged.
+   * Adds raw `Tx` objects to the orchestrator for an offloaded-execution block. The
+   * orchestrator does not run `prepareBaseRollupInputs` or hold a per-block fork in
+   * this path — the execution agent has already produced the per-tx base-rollup
+   * hints. The supplied `watchers` provide the per-tx proofs:
    *
-   * @param txs - The processed txs to add to the block (in tx order).
-   * @param expectAvmProofForTx - Returns a promise for the AVM proof of the tx at the
-   * given index. Only invoked for public txs.
+   * - For each private-only tx: the agent enqueues `PRIVATE_TX_BASE_ROLLUP` directly
+   *   under a deterministic ID; `watchers.expectPrivateBaseRollupProofForTx` resolves
+   *   when that proof is ready, and the orchestrator pipes it into the merge tree.
+   * - For each public tx: the orchestrator enqueues the chonk verifier itself (it has
+   *   the original `Tx` data); `watchers.expectAvmProofForTx` resolves once the
+   *   agent-enqueued AVM job completes, returning both the proof and the
+   *   `BlockExecutionTxData` passenger. Once chonk verifier and AVM are both ready,
+   *   the orchestrator builds `PublicTxBaseRollupPrivateInputs` from the passenger
+   *   hints + the two proofs and enqueues `PUBLIC_TX_BASE_ROLLUP`.
+   *
+   * Block-level summary state (end sponge, end state, total fees / mana) is supplied
+   * separately via {@link setBlockSummary} once the BLOCK_EXECUTION job completes —
+   * this keeps the per-tx proving DAG decoupled from the block-aggregation step.
    */
-  @trackSpan('ProvingOrchestrator.addBlockForExecution', txs => ({
+  @trackSpan('ProvingOrchestrator.addBlockForExecution', (_blockNumber, txs) => ({
     [Attributes.BLOCK_TXS_COUNT]: txs.length,
   }))
-  public addBlockForExecution(
-    txs: ProcessedTx[],
-    expectAvmProofForTx: (
-      txIndex: number,
-      signal: AbortSignal,
-    ) => Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>,
-  ): Promise<void> {
-    return this.addProcessedTxsToBlock(txs, (provingState, txIndex) =>
-      this.watchAvmJobForTx(provingState, txIndex, expectAvmProofForTx),
-    );
+  public addBlockForExecution(blockNumber: BlockNumber, txs: Tx[], watchers: BlockExecutionWatchers): Promise<void> {
+    if (!this.provingState) {
+      return Promise.reject(new Error('Empty epoch proving state. Call startNewEpoch before adding txs.'));
+    }
+    const provingState = this.provingState.getBlockProvingStateByBlockNumber(blockNumber);
+    if (!provingState) {
+      return Promise.reject(new Error(`Proving state for block ${blockNumber} not found. Call startNewBlock first.`));
+    }
+    if (provingState.totalNumTxs !== txs.length) {
+      return Promise.reject(
+        new Error(
+          `Block ${blockNumber} should be filled with ${provingState.totalNumTxs} txs. Received ${txs.length} txs.`,
+        ),
+      );
+    }
+
+    this.logger.info(`Setting up offloaded execution watchers for ${txs.length} txs in block ${blockNumber}`);
+
+    for (let txIndex = 0; txIndex < txs.length; txIndex++) {
+      const tx = txs[txIndex];
+      if (tx.data.forPublic) {
+        this.driveOffloadedPublicBaseRollup(provingState, txIndex, tx, watchers.expectAvmProofForTx);
+      } else {
+        this.watchOffloadedPrivateBaseRollup(provingState, txIndex, watchers.expectPrivateBaseRollupProofForTx);
+      }
+    }
+    return Promise.resolve();
   }
 
   /**
@@ -1138,38 +1186,151 @@ export class ProvingOrchestrator extends TopTreeProvingScheduler {
   }
 
   /**
-   * Awaits an AVM proof produced by an offloaded execution agent (rather than enqueueing a new
-   * AVM proving job locally). The supplied callback typically resolves via the broker facade's
-   * `expectJob` against a deterministic ID computed from `(epoch, blockNumber, slotNumber, txIndex)`.
+   * Watches a `PRIVATE_TX_BASE_ROLLUP` proof the execution agent has enqueued under
+   * a deterministic ID. When the proof arrives the orchestrator records it on the
+   * proving state's merge tree just as if `enqueueBaseRollup` had produced it.
    */
-  private watchAvmJobForTx(
+  private watchOffloadedPrivateBaseRollup(
     provingState: BlockProvingState,
     txIndex: number,
-    expectAvmProofForTx: (
-      txIndex: number,
-      signal: AbortSignal,
-    ) => Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>,
+    expectPrivateBaseRollupProofForTx: BlockExecutionWatchers['expectPrivateBaseRollupProofForTx'],
   ) {
     if (!provingState.verifyState()) {
-      this.logger.debug(`Not awaiting AVM proof for tx ${txIndex} as state is no longer valid`);
+      this.logger.debug(`Not awaiting private base rollup proof for tx ${txIndex} as state is no longer valid`);
+      return;
+    }
+    if (!provingState.tryStartProvingBase(txIndex)) {
+      this.logger.debug(`Base rollup for tx ${txIndex} already started.`);
       return;
     }
 
-    const txProvingState = provingState.getTxProvingState(txIndex);
-    const awaitAvmProof = wrapCallbackInSpan(
+    const awaitProof = wrapCallbackInSpan(
+      this.tracer,
+      'ProvingOrchestrator.expectPrivateBaseRollupProof',
+      { [Attributes.PROTOCOL_CIRCUIT_NAME]: 'rollup-tx-base-private' satisfies CircuitName },
+      (signal: AbortSignal) => expectPrivateBaseRollupProofForTx(txIndex, signal),
+    );
+
+    this.deferredProving(provingState, awaitProof, result => {
+      this.logger.debug(`Received offloaded private base rollup proof for tx index: ${txIndex}`);
+      const leafLocation = provingState.setBaseRollupProof(txIndex, result);
+      if (provingState.totalNumTxs === 1) {
+        this.checkAndEnqueueBlockRootRollup(provingState);
+      } else {
+        this.checkAndEnqueueNextMergeRollup(provingState, leafLocation);
+      }
+    });
+  }
+
+  /**
+   * Drives the orchestrator-side public-tx base-rollup pipeline for an offloaded
+   * execution: enqueues the chonk verifier from the raw `Tx`, awaits the
+   * agent-enqueued AVM proving job (which carries the per-tx execution data
+   * passenger), then assembles `PublicTxBaseRollupPrivateInputs` and enqueues
+   * `PUBLIC_TX_BASE_ROLLUP` itself.
+   */
+  private driveOffloadedPublicBaseRollup(
+    provingState: BlockProvingState,
+    txIndex: number,
+    tx: Tx,
+    expectAvmProofForTx: BlockExecutionWatchers['expectAvmProofForTx'],
+  ) {
+    if (!provingState.verifyState()) {
+      this.logger.debug(`Not driving offloaded public base rollup for tx ${txIndex} as state is no longer valid`);
+      return;
+    }
+
+    const txHash = tx.getTxHash().toString();
+    const chonkPromise = this.startChonkVerifierForTx(provingState, txHash, tx);
+
+    const awaitAvm = wrapCallbackInSpan(
       this.tracer,
       'ProvingOrchestrator.expectAvmProof',
-      {
-        [Attributes.TX_HASH]: txProvingState.processedTx.hash.toString(),
-      },
+      { [Attributes.TX_HASH]: txHash },
       (signal: AbortSignal) => expectAvmProofForTx(txIndex, signal),
     );
 
-    this.deferredProving(provingState, awaitAvmProof, proof => {
-      this.logger.debug(`Received offloaded AVM proof for tx index: ${txIndex}`);
-      txProvingState.setAvmProof(proof);
-      this.checkAndEnqueueBaseRollup(provingState, txIndex);
+    this.deferredProving(provingState, awaitAvm, async avmResult => {
+      this.logger.debug(`Received offloaded AVM proof for tx index: ${txIndex}`, { txHash });
+      if (!avmResult.executionTxData) {
+        provingState.reject(`AVM proof for tx ${txIndex} arrived without execution-tx-data passenger`);
+        return;
+      }
+      const chonkResult = await chonkPromise;
+      if (!provingState.verifyState()) {
+        return;
+      }
+      this.enqueuePublicBaseRollupForOffloadedTx(provingState, txIndex, txHash, avmResult, chonkResult);
     });
+  }
+
+  private startChonkVerifierForTx(
+    provingState: BlockProvingState,
+    txHash: string,
+    tx: Tx,
+  ): Promise<
+    PublicInputsAndRecursiveProof<PublicChonkVerifierPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+  > {
+    const cached = this.provingState?.cachedChonkVerifierProofs.get(txHash);
+    if (cached) {
+      return cached;
+    }
+    const inputs = getPublicChonkVerifierPrivateInputsFromTx(tx, this.proverId.toField());
+    const deferred =
+      promiseWithResolvers<
+        PublicInputsAndRecursiveProof<PublicChonkVerifierPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
+      >();
+    deferred.promise.catch(() => {});
+    this.doEnqueueChonkVerifier(txHash, inputs, proof => {
+      this.provingState?.cachedChonkVerifierProofs.delete(txHash);
+      deferred.resolve(proof);
+    });
+    this.provingState!.cachedChonkVerifierProofs.set(txHash, deferred.promise);
+    return deferred.promise;
+  }
+
+  private enqueuePublicBaseRollupForOffloadedTx(
+    provingState: BlockProvingState,
+    txIndex: number,
+    txHash: string,
+    avmResult: AvmProvingResult,
+    chonkResult: PublicInputsAndRecursiveProof<
+      PublicChonkVerifierPublicInputs,
+      typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
+    >,
+  ) {
+    if (!provingState.tryStartProvingBase(txIndex)) {
+      this.logger.debug(`Public base rollup for tx ${txIndex} already started.`);
+      return;
+    }
+
+    const baseRollupHints = avmResult.executionTxData!.baseRollupHints;
+    const avmCircuitPublicInputs = avmResult.executionTxData!.avmCircuitPublicInputs;
+    const publicChonkVerifierProofData = toProofData(chonkResult);
+    const avmProofData = new ProofDataForFixedVk(avmCircuitPublicInputs, avmResult.proof);
+    const inputs = new PublicTxBaseRollupPrivateInputs(publicChonkVerifierProofData, avmProofData, baseRollupHints);
+
+    this.deferredProving(
+      provingState,
+      wrapCallbackInSpan(
+        this.tracer,
+        'ProvingOrchestrator.prover.getPublicTxBaseRollupProof',
+        {
+          [Attributes.TX_HASH]: txHash,
+          [Attributes.PROTOCOL_CIRCUIT_NAME]: 'rollup-tx-base-public' satisfies CircuitName,
+        },
+        signal => this.prover.getPublicTxBaseRollupProof(inputs, signal, provingState.epochNumber),
+      ),
+      result => {
+        this.logger.debug(`Received public base rollup proof for offloaded tx ${txIndex}`, { txHash });
+        const leafLocation = provingState.setBaseRollupProof(txIndex, result);
+        if (provingState.totalNumTxs === 1) {
+          this.checkAndEnqueueBlockRootRollup(provingState);
+        } else {
+          this.checkAndEnqueueNextMergeRollup(provingState, leafLocation);
+        }
+      },
+    );
   }
 
   protected checkAndEnqueueBaseRollup(provingState: BlockProvingState, txIndex: number) {
