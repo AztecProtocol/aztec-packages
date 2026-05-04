@@ -43,9 +43,9 @@ export default defineConfig({
       'idb-keyval',
       'comlink',
     ],
-    // sqlite-wasm ships its own .wasm asset loader; let Vite serve it as a static asset
+    // sqlite3mc-wasm ships its own .wasm asset loader; let Vite serve it as a static asset
     // rather than pre-bundling, per the upstream docs' recommendation.
-    exclude: ['@sqlite.org/sqlite-wasm'],
+    exclude: ['@aztec/sqlite3mc-wasm'],
   },
   test: {
     globals: true,
