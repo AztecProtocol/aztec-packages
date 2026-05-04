@@ -119,6 +119,9 @@ function compile_all {
     return
   fi
 
+  # Ensure the pinned version sqlite3mc-wasm upstream artifacts are present before any package builds.
+  ./sqlite3mc-wasm/scripts/vendor.sh ensure
+
   compile_project ::: constants foundation stdlib blob-lib builder ethereum l1-artifacts
 
   # Call all projects that have a generation stage.
