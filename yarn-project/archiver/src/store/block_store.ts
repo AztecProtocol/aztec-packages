@@ -1055,12 +1055,14 @@ export class BlockStore {
     const blockNumber = BlockNumber(txEffect.l2BlockNumber);
 
     // Use existing archiver methods to determine finalization level
-    const [provenBlockNumber, checkpointedBlockNumber, finalizedBlockNumber, blockData] = await Promise.all([
-      this.getProvenBlockNumber(),
-      this.getCheckpointedL2BlockNumber(),
-      this.getFinalizedL2BlockNumber(),
-      this.getBlockData({ number: blockNumber }),
-    ]);
+    const [provenBlockNumber, checkpointedBlockNumber, proposedCheckpointBlockNumber, finalizedBlockNumber, blockData] =
+      await Promise.all([
+        this.getProvenBlockNumber(),
+        this.getCheckpointedL2BlockNumber(),
+        this.getProposedCheckpointL2BlockNumber(),
+        this.getFinalizedL2BlockNumber(),
+        this.getBlockData({ number: blockNumber }),
+      ]);
 
     let status: TxStatus;
     if (blockNumber <= finalizedBlockNumber) {
@@ -1069,6 +1071,8 @@ export class BlockStore {
       status = TxStatus.PROVEN;
     } else if (blockNumber <= checkpointedBlockNumber) {
       status = TxStatus.CHECKPOINTED;
+    } else if (blockNumber <= proposedCheckpointBlockNumber) {
+      status = TxStatus.PROPOSED_CHECKPOINTED;
     } else {
       status = TxStatus.PROPOSED;
     }

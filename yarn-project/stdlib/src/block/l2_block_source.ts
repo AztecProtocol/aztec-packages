@@ -66,11 +66,14 @@ export type CheckpointQuery =
 export type CheckpointsQuery = { from: CheckpointNumber; limit: number } | { epoch: EpochNumber };
 
 /**
- * Lookup a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint.
+ * Lookup a proposed (not-yet-L1-confirmed) checkpoint.
  * Distinct from CheckpointQuery because proposed checkpoints have a different shape
  * (no l1, no attestations, but carries totalManaUsed) and live in their own LMDB map.
  */
-export type ProposedCheckpointQuery = { number: CheckpointNumber } | { slot: SlotNumber } | { tag: 'proposed' };
+export type ProposedCheckpointQuery =
+  | { number: CheckpointNumber }
+  | { slot: SlotNumber }
+  | { tag: 'proposedCheckpoint' };
 
 export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, z.ZodTypeDef, unknown> = z.union([
   z.object({ number: CheckpointNumberSchema }).strict(),
@@ -86,7 +89,7 @@ export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, z.ZodTypeDef, u
 export const ProposedCheckpointQuerySchema: z.ZodType<ProposedCheckpointQuery, z.ZodTypeDef, unknown> = z.union([
   z.object({ number: CheckpointNumberSchema }).strict(),
   z.object({ slot: SlotNumberSchema }).strict(),
-  z.object({ tag: z.literal('proposed') }).strict(),
+  z.object({ tag: z.literal('proposedCheckpoint') }).strict(),
 ]);
 
 /**
@@ -241,8 +244,8 @@ export interface L2BlockSource {
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult>;
 
   /**
-   * Looks up a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint.
-   * Returns the latest proposed entry when called with no args or `{ tag: 'proposed' }`.
+   * Looks up a proposed (not-yet-L1-confirmed) checkpoint.
+   * Returns the latest proposed entry when called with no args or `{ tag: 'proposedCheckpoint' }`.
    * With `{ number }` or `{ slot }`, returns the matching entry or undefined.
    * Never falls back to confirmed checkpoints.
    */
@@ -311,18 +314,13 @@ export interface L2BlockSourceEventEmitter extends L2BlockSource {
 }
 
 /**
- * Identifier for L2 block tags. Internal counterpart to {@link BlockTag} that exposes
- * the additional `proposedCheckpoint` value (used for the optimistic chain tip on the
- * archiver side) and omits `latest` (which is an alias for `proposed` accepted only at
- * the public RPC surface).
+ * Canonical set of L2 block tags (omits the `latest` alias accepted only at the public RPC surface).
  *
  * - proposed: Latest block proposed on L2.
- * - proposedCheckpoint: Latest block in the most recent proposed checkpoint (archiver-internal).
+ * - proposedCheckpoint: Latest block in the most recent proposed (not-yet-L1-confirmed) checkpoint.
  * - checkpointed: Latest block whose enclosing checkpoint has been published on L1.
  * - proven: Latest block whose enclosing checkpoint has been proven on L1.
  * - finalized: Latest block whose proving L1 transaction has reached L1 finality.
- *
- * TODO(palla): Remove `proposedCheckpoint` and unify with `proposed`.
  */
 export type L2BlockTag = 'proposed' | 'proposedCheckpoint' | 'checkpointed' | 'proven' | 'finalized';
 

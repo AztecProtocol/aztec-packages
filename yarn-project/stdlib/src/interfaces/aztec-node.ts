@@ -205,12 +205,10 @@ export interface AztecNode {
   getBlockNumber(tip?: ChainTip): Promise<BlockNumber>;
 
   /**
-   * Returns the checkpoint number at a given chain tip, or the latest checkpoint number when
-   * `tip` is omitted.
+   * Returns the checkpoint number at a given chain tip, or the latest confirmed checkpoint number
+   * when `tip` is omitted.
    *
-   * @remarks **Semantic foot-gun**: block-side `'proposed'` means "latest proposed block" (chain
-   * head), but checkpoint-side `'proposed'` means "latest confirmed checkpoint" — pre-L1-confirm
-   * checkpoints are not exposed over RPC. `'checkpointed'` on the checkpoint side is equivalent.
+   * Use `'proposedCheckpoint'` to query the latest proposed (not-yet-L1-confirmed) checkpoint.
    */
   getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber>;
 

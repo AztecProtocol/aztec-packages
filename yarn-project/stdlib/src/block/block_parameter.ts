@@ -7,11 +7,12 @@ import { z } from 'zod';
 
 import { BlockHash } from './block_hash.js';
 
-export const BlockTag = ['latest', 'proposed', 'checkpointed', 'proven', 'finalized'] as const;
+export const BlockTag = ['latest', 'proposed', 'proposedCheckpoint', 'checkpointed', 'proven', 'finalized'] as const;
 
 /**
  * Tag identifying a block by its position in the chain rather than by an absolute identifier.
  * - `latest` / `proposed`: Latest L2 block proposed (not necessarily checkpointed/proven yet).
+ * - `proposedCheckpoint`: Latest block in the most recent proposed (not-yet-L1-confirmed) checkpoint.
  * - `checkpointed`: Latest L2 block whose enclosing checkpoint has been published on L1.
  * - `proven`: Latest L2 block whose enclosing checkpoint has been proven on L1.
  * - `finalized`: Latest L2 block whose proving L1 transaction has reached L1 finality.
@@ -20,6 +21,7 @@ export type BlockTag = (typeof BlockTag)[number];
 
 export const BlockTagWithoutLatestSchema = z.union([
   z.literal('proposed'),
+  z.literal('proposedCheckpoint'),
   z.literal('checkpointed'),
   z.literal('proven'),
   z.literal('finalized'),

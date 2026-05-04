@@ -474,7 +474,7 @@ describe('Archiver Store', () => {
     it('returns the latest proposed entry for tag=proposed', async () => {
       await addProposedCheckpoint(CheckpointNumber(1), SlotNumber(5), BlockNumber(1));
 
-      const result = await archiver.getProposedCheckpointData({ tag: 'proposed' });
+      const result = await archiver.getProposedCheckpointData({ tag: 'proposedCheckpoint' });
       expect(result).toBeDefined();
       expect(result!.checkpointNumber).toBe(1);
     });
@@ -518,7 +518,7 @@ describe('Archiver Store', () => {
 
       // No proposed checkpoint exists — all queries should return undefined
       expect(await archiver.getProposedCheckpointData()).toBeUndefined();
-      expect(await archiver.getProposedCheckpointData({ tag: 'proposed' })).toBeUndefined();
+      expect(await archiver.getProposedCheckpointData({ tag: 'proposedCheckpoint' })).toBeUndefined();
       expect(await archiver.getProposedCheckpointData({ number: CheckpointNumber(1) })).toBeUndefined();
       expect(await archiver.getProposedCheckpointData({ number: CheckpointNumber(2) })).toBeUndefined();
     });
@@ -803,9 +803,9 @@ describe('Archiver Store', () => {
       });
       await archiverStore.blocks.addCheckpoints(testCheckpoints);
 
-      const block = await archiver.getBlock({ tag: 'proposed' });
+      const block = await archiver.getBlock({ tag: 'proposedCheckpoint' });
       expect(block?.number).toBe(BlockNumber(6));
-      const data = await archiver.getBlockData({ tag: 'proposed' });
+      const data = await archiver.getBlockData({ tag: 'proposedCheckpoint' });
       expect(data?.header.globalVariables.blockNumber).toBe(BlockNumber(6));
     });
 

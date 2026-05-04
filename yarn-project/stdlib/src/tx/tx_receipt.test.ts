@@ -3,7 +3,7 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import { BlockHash } from '../block/block_hash.js';
 import { TxHash } from './tx_hash.js';
-import { TxExecutionResult, TxReceipt, TxStatus } from './tx_receipt.js';
+import { SortedTxStatuses, TxExecutionResult, TxReceipt, TxStatus } from './tx_receipt.js';
 
 describe('TxReceipt', () => {
   it('serializes and deserializes from json', () => {
@@ -66,8 +66,9 @@ describe('TxReceipt', () => {
       expect(receipt.hasExecutionReverted()).toBe(false);
     });
 
-    it('isMined returns true for proposed, checkpointed, proven, and finalized', () => {
+    it('isMined returns true for proposed, proposedCheckpointed, checkpointed, proven, and finalized', () => {
       expect(new TxReceipt(TxHash.random(), TxStatus.PROPOSED, undefined, undefined).isMined()).toBe(true);
+      expect(new TxReceipt(TxHash.random(), TxStatus.PROPOSED_CHECKPOINTED, undefined, undefined).isMined()).toBe(true);
       expect(new TxReceipt(TxHash.random(), TxStatus.CHECKPOINTED, undefined, undefined).isMined()).toBe(true);
       expect(new TxReceipt(TxHash.random(), TxStatus.PROVEN, undefined, undefined).isMined()).toBe(true);
       expect(new TxReceipt(TxHash.random(), TxStatus.FINALIZED, undefined, undefined).isMined()).toBe(true);
@@ -86,6 +87,14 @@ describe('TxReceipt', () => {
     it('isDropped returns true for dropped status', () => {
       const receipt = new TxReceipt(TxHash.random(), TxStatus.DROPPED, undefined, undefined);
       expect(receipt.isDropped()).toBe(true);
+    });
+
+    it('SortedTxStatuses contains PROPOSED_CHECKPOINTED between PROPOSED and CHECKPOINTED', () => {
+      const proposedIdx = SortedTxStatuses.indexOf(TxStatus.PROPOSED);
+      const proposedCheckpointedIdx = SortedTxStatuses.indexOf(TxStatus.PROPOSED_CHECKPOINTED);
+      const checkpointedIdx = SortedTxStatuses.indexOf(TxStatus.CHECKPOINTED);
+      expect(proposedIdx).toBeLessThan(proposedCheckpointedIdx);
+      expect(proposedCheckpointedIdx).toBeLessThan(checkpointedIdx);
     });
   });
 });

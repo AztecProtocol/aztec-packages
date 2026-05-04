@@ -215,9 +215,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return status.syncSummary;
   }
 
-  public async getChainTips(): Promise<ChainTips> {
-    const { proposed, checkpointed, proven, finalized } = await this.blockSource.getL2Tips();
-    return { proposed, checkpointed, proven, finalized };
+  public getChainTips(): Promise<ChainTips> {
+    return this.blockSource.getL2Tips();
   }
 
   public getL2Tips() {
@@ -249,11 +248,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.blockSource.getCheckpointsData(query);
   }
 
-  public getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
+  public async getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
     switch (tip) {
       case undefined:
       case 'proposed':
         return this.blockSource.getBlockNumber();
+      case 'proposedCheckpoint':
+        return (await this.blockSource.getL2Tips()).proposedCheckpoint.block.number;
       case 'checkpointed':
         return this.blockSource.getCheckpointedL2BlockNumber();
       case 'proven':
@@ -269,8 +270,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       case undefined:
       case 'checkpointed':
         return tips.checkpointed.checkpoint.number;
-      case 'proposed':
+      case 'proposedCheckpoint':
         return tips.proposedCheckpoint.checkpoint.number;
+      case 'proposed':
+        return tips.checkpointed.checkpoint.number;
       case 'proven':
         return tips.proven.checkpoint.number;
       case 'finalized':
@@ -279,7 +282,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   private isChainTip(value: unknown): value is ChainTip {
-    return value === 'proposed' || value === 'checkpointed' || value === 'proven' || value === 'finalized';
+    return (
+      value === 'proposed' ||
+      value === 'proposedCheckpoint' ||
+      value === 'checkpointed' ||
+      value === 'proven' ||
+      value === 'finalized'
+    );
   }
 
   /**
@@ -337,8 +346,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       const number = param as CheckpointNumber;
       return { confirmed: { number }, proposed: { number }, isProposedTag: false };
     }
+    if (param === 'proposedCheckpoint') {
+      return { confirmed: undefined, proposed: { tag: 'proposedCheckpoint' }, isProposedTag: true };
+    }
     if (param === 'proposed') {
-      return { confirmed: undefined, proposed: { tag: 'proposed' }, isProposedTag: true };
+      return { confirmed: { tag: 'checkpointed' }, proposed: undefined, isProposedTag: false };
     }
     if (this.isChainTip(param)) {
       return {

@@ -585,6 +585,8 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       case 'latest':
       case 'proposed':
         return this.l2Blocks.length;
+      case 'proposedCheckpoint':
+        return this.proposedCheckpointBlockNumber;
       case 'checkpointed':
         return this.checkpointedBlockNumber;
       case 'proven':

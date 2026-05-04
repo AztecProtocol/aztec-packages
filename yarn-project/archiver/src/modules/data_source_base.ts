@@ -256,7 +256,10 @@ export abstract class ArchiverDataSourceBase
   }
 
   public getProposedCheckpointData(query?: ProposedCheckpointQuery): Promise<ProposedCheckpointData | undefined> {
-    if (!query || 'tag' in query) {
+    if (!query) {
+      return this.stores.blocks.getLastProposedCheckpoint();
+    }
+    if ('tag' in query) {
       return this.stores.blocks.getLastProposedCheckpoint();
     }
     if ('number' in query) {
@@ -448,6 +451,8 @@ export abstract class ArchiverDataSourceBase
       case 'latest':
       case 'proposed':
         return this.stores.blocks.getLatestL2BlockNumber();
+      case 'proposedCheckpoint':
+        return this.stores.blocks.getProposedCheckpointL2BlockNumber();
       case 'checkpointed':
         return this.stores.blocks.getCheckpointedL2BlockNumber();
       case 'proven':

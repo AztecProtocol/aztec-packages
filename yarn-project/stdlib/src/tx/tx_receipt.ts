@@ -13,6 +13,7 @@ export enum TxStatus {
   DROPPED = 'dropped',
   PENDING = 'pending',
   PROPOSED = 'proposed',
+  PROPOSED_CHECKPOINTED = 'proposedCheckpointed',
   CHECKPOINTED = 'checkpointed',
   PROVEN = 'proven',
   FINALIZED = 'finalized',
@@ -23,6 +24,7 @@ export const SortedTxStatuses: TxStatus[] = [
   TxStatus.DROPPED,
   TxStatus.PENDING,
   TxStatus.PROPOSED,
+  TxStatus.PROPOSED_CHECKPOINTED,
   TxStatus.CHECKPOINTED,
   TxStatus.PROVEN,
   TxStatus.FINALIZED,
@@ -85,10 +87,11 @@ export class TxReceipt {
     return this.executionResult !== undefined && this.executionResult !== TxExecutionResult.SUCCESS;
   }
 
-  /** Returns true if the transaction has been included in a block (proposed, checkpointed, proven, or finalized). */
+  /** Returns true if the transaction has been included in a block (proposed, proposedCheckpointed, checkpointed, proven, or finalized). */
   isMined(): boolean {
     return (
       this.status === TxStatus.PROPOSED ||
+      this.status === TxStatus.PROPOSED_CHECKPOINTED ||
       this.status === TxStatus.CHECKPOINTED ||
       this.status === TxStatus.PROVEN ||
       this.status === TxStatus.FINALIZED

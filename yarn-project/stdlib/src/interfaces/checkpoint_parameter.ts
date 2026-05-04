@@ -21,7 +21,7 @@ export type NormalizedCheckpointDispatch = {
  * Selector for a checkpoint in RPC calls.
  *
  * Accepts a numeric checkpoint number (or `{ number }`), a slot number (`{ slot }`),
- * or a chain-tip name (e.g. `'proposed'`, `'proven'`).
+ * or a chain-tip name (e.g. `'proposedCheckpoint'`, `'checkpointed'`, `'proven'`).
  */
 export const CheckpointParameterSchema = z.union([
   z.object({ number: CheckpointNumberSchema }).strict(),
