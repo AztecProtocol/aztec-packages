@@ -1,73 +1,9 @@
-use crate::{
-    components::{
-        private_call_data_validator::PrivateCallDataValidator,
-        private_kernel_circuit_output_composer::PrivateKernelCircuitOutputComposer,
-        private_kernel_circuit_output_validator::PrivateKernelCircuitOutputValidator,
-    },
-    private_kernel_init::{self, PrivateKernelInitCircuitPrivateInputs},
-};
+use crate::private_kernel_init_3::{self, PrivateKernelInit3CircuitPrivateInputs};
 use protocol_test_utils::{assert_claimed_length_array_eq, FixtureBuilder};
 use types::abis::{
     kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
-    transaction::tx_request::TxRequest,
+    protocol_contracts::ProtocolContracts, transaction::tx_request::TxRequest,
 };
-
-struct PrivateKernelBatch3CircuitPrivateInputs {
-    tx_request: TxRequest,
-    private_call_0: PrivateCallData,
-    private_call_1: PrivateCallData,
-    private_call_2: PrivateCallData,
-    vk_tree_root: Field,
-    protocol_contracts: ProtocolContracts,
-    is_private_only: bool,
-    first_nullifier_hint: Field,
-    revertible_counter_hint: u32,
-}
-
-unconstrained fn generate_next_output(
-    previous_kernel: PrivateKernelCircuitPublicInputs,
-    private_call: PrivateCallData,
-) -> PrivateKernelCircuitPublicInputs {
-    PrivateKernelCircuitOutputComposer::new_from_previous_kernel(previous_kernel)
-        .pop_top_call_request()
-        .with_private_call(private_call)
-        .finish()
-}
-
-fn execute_next_private_call(
-    previous_kernel: PrivateKernelCircuitPublicInputs,
-    private_call: PrivateCallData,
-) -> PrivateKernelCircuitPublicInputs {
-    PrivateCallDataValidator::new(private_call).validate_as_inner_call(previous_kernel);
-
-    let output = unsafe { generate_next_output(previous_kernel, private_call) };
-    PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
-        previous_kernel,
-        private_call,
-    );
-
-    output
-}
-
-fn execute_three_private_calls(
-    inputs: PrivateKernelBatch3CircuitPrivateInputs,
-) -> PrivateKernelCircuitPublicInputs {
-    let output_0 = private_kernel_init::execute(
-        PrivateKernelInitCircuitPrivateInputs {
-            tx_request: inputs.tx_request,
-            private_call: inputs.private_call_0,
-            vk_tree_root: inputs.vk_tree_root,
-            protocol_contracts: inputs.protocol_contracts,
-            is_private_only: inputs.is_private_only,
-            first_nullifier_hint: inputs.first_nullifier_hint,
-            revertible_counter_hint: inputs.revertible_counter_hint,
-        },
-    );
-
-    let output_1 = execute_next_private_call(output_0, inputs.private_call_1);
-    execute_next_private_call(output_1, inputs.private_call_2)
-}
 
 struct Batch3TestBuilder {
     tx_request: TxRequest,
@@ -175,7 +111,7 @@ impl Batch3TestBuilder {
             }
         }
 
-        let inputs = PrivateKernelBatch3CircuitPrivateInputs {
+        let inputs = PrivateKernelInit3CircuitPrivateInputs {
             tx_request: self.tx_request,
             private_call_0: private_call_0.to_private_call_data(),
             private_call_1: private_call_1.to_private_call_data(),
@@ -186,7 +122,7 @@ impl Batch3TestBuilder {
             first_nullifier_hint: self.first_nullifier_hint,
             revertible_counter_hint: self.revertible_counter_hint,
         };
-        execute_three_private_calls(inputs)
+        private_kernel_init_3::execute(inputs)
     }
 }
 

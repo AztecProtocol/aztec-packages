@@ -12,6 +12,7 @@ members = [
     "crates/parity-root",
     "crates/private-kernel-lib",
     "crates/private-kernel-init",
+    "crates/private-kernel-init-3",
     "crates/private-kernel-init-simulated",
     "crates/private-kernel-inner",
     "crates/private-kernel-inner-simulated",

@@ -3,6 +3,7 @@ mod abis;
 mod accumulated_data;
 mod components;
 pub mod private_kernel_init;
+pub mod private_kernel_init_3;
 pub mod private_kernel_inner;
 pub mod private_kernel_tail;
 pub mod private_kernel_tail_to_public;
@@ -15,6 +16,7 @@ pub use abis::{PaddedSideEffectAmounts, PaddedSideEffects, PrivateKernelResetHin
 pub use hiding_kernel_to_public::HidingKernelToPublicPrivateInputs;
 pub use hiding_kernel_to_rollup::HidingKernelToRollupPrivateInputs;
 pub use private_kernel_init::PrivateKernelInitCircuitPrivateInputs;
+pub use private_kernel_init_3::PrivateKernelInit3CircuitPrivateInputs;
 pub use private_kernel_inner::PrivateKernelInnerCircuitPrivateInputs;
 pub use private_kernel_reset::PrivateKernelResetCircuitPrivateInputs;
 pub use private_kernel_tail::PrivateKernelTailCircuitPrivateInputs;
