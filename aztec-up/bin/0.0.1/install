@@ -221,11 +221,11 @@ function install_native_symlinks {
   set -euo pipefail
   local tool
   for tool in forge cast anvil chisel nargo noir-profiler; do
-    [ -e "$version_internal_bin_path/$tool" ] || continue
     # Earlier installer versions placed native binaries directly at
     # bin/<tool>; remove that bare entry on reinstall so it does not stay
     # on PATH and shadow user-installed tools.
     rm -f "$version_bin_path/$tool"
+    [ -e "$version_internal_bin_path/$tool" ] || continue
     ln -sfn "../internal-bin/$tool" "$version_bin_path/aztec-$tool"
   done
 }

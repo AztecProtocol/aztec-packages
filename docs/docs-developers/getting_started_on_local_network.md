@@ -48,10 +48,10 @@ This will install the following tools and add them to your `PATH`:
 - **aztec-up** - a version manager for the Aztec toolchain. Use `aztec-up install <version>` to install a new version, `aztec-up use <version>` to switch between installed versions, or `aztec-up list` to see installed versions.
 - **aztec-wallet** - a tool for interacting with the Aztec network
 - **aztec-bb** - the Barretenberg proving backend
-- **aztec-nargo** - the Noir compiler and simulator (a wrapper around the bundled `nargo`; see below)
-- **aztec-forge**, **aztec-cast**, **aztec-anvil**, **aztec-chisel** - wrappers around the bundled Foundry tools
+- **aztec-nargo** - the Noir compiler and simulator
+- **aztec-forge**, **aztec-cast**, **aztec-anvil**, **aztec-chisel** - the bundled Foundry tools
 
-The Aztec installer exposes Foundry, Noir, and Barretenberg under `aztec-` prefixes (`aztec-forge`, `aztec-nargo`, `aztec-bb`, ...) rather than as bare `forge` / `nargo` / `bb`. This avoids shadowing any existing install you may have. The bare names continue to resolve to your own installs (if any).
+Foundry, Noir, and Barretenberg are bundled at the versions `aztec` needs. Your own `forge` / `nargo` / `bb` installs still work under their bare names.
 
 For syntax highlighting and LSP support while editing contracts, see the [Noir VSCode Extension guide](./docs/aztec-nr/installation.md).
 
