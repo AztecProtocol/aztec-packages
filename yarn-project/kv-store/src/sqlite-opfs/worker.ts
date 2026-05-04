@@ -32,12 +32,8 @@ async function ensurePool(directory: string): Promise<SAHPoolUtil> {
   sqlite3 ??= await sqlite3InitModule();
   const s = sqlite3;
   if (!pool) {
-<<<<<<< HEAD
     poolDirectory = directory;
-    pool = await sqlite3.installOpfsSAHPoolVfs({
-=======
     pool = await s.installOpfsSAHPoolVfs({
->>>>>>> 97c6e48fe9 (feat: kv-store sqlite backend with page level encryption (#22759))
       name: SAH_POOL_VFS_NAME,
       directory,
       initialCapacity: 8,
