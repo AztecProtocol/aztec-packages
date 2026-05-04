@@ -194,6 +194,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return proof;
   }
 
+  public executeBlock(): Promise<never> {
+    return Promise.reject(
+      new Error('BBNativeRollupProver does not handle BLOCK_EXECUTION jobs; use a dedicated execution agent'),
+    );
+  }
+
   public async getPublicChonkVerifierProof(
     inputs: PublicChonkVerifierPrivateInputs,
   ): Promise<

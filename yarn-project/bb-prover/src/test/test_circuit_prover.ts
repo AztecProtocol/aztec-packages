@@ -411,6 +411,12 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
+  public executeBlock(): Promise<never> {
+    return Promise.reject(
+      new Error('TestCircuitProver does not handle BLOCK_EXECUTION jobs; use a dedicated execution agent'),
+    );
+  }
+
   private async applyDelay<F extends () => any>(type: ProvingRequestType, fn: F): Promise<Awaited<ReturnType<F>>> {
     const timer = new Timer();
     const res = await fn();

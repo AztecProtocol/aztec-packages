@@ -203,7 +203,7 @@ export class ProvingJobController {
       }
 
       case ProvingRequestType.BLOCK_EXECUTION: {
-        throw new Error('BLOCK_EXECUTION jobs are not yet handled by ProvingJobController');
+        return await this.circuitProver.executeBlock(inputs, signal, this.epochNumber);
       }
 
       default: {
