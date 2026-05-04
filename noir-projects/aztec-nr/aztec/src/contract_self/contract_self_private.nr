@@ -111,7 +111,7 @@ pub struct ContractSelfPrivate<Storage, CallSelf, EnqueueSelf, CallSelfStatic, E
     /// ```
     pub internal: CallInternal,
 
-    /// Provides access to utility functions from this private context.
+    /// A struct that allows for ergonomic calling of utility functions from this private context.
     ///
     /// Example API:
     /// ```noir
@@ -409,7 +409,7 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     }
 }
 
-/// Provides access to utility functions from a private context.
+/// A struct that allows for ergonomic calling of utility functions from a private context.
 ///
 /// Accessible via `self.utility` in private functions. Results are not part of any circuit
 /// proof; use them to inform logic, not as inputs to constrained assertions.
