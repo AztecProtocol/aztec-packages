@@ -124,7 +124,7 @@ describe('e2e_multi_validator_node', () => {
 
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const blockData = await dataStore.getBlockData({ number: BlockNumber(tx.blockNumber!) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(blockData!.checkpointNumber, 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
     const signatureContext = {
       chainId: config.l1ChainId,
       rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
@@ -186,7 +186,7 @@ describe('e2e_multi_validator_node', () => {
 
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const blockData = await dataStore.getBlockData({ number: BlockNumber(tx.blockNumber!) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(blockData!.checkpointNumber, 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
     const signatureContext = {
       chainId: config.l1ChainId,
       rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,

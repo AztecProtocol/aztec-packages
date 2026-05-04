@@ -208,7 +208,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     const { blocksSynchedTo = l1StartBlock, messagesSynchedTo = l1StartBlock } = await getArchiverSynchPoint(
       this.stores,
     );
-    const currentL2Checkpoint = await this.getSynchedCheckpointNumber();
+    const currentL2Checkpoint = await this.getCheckpointNumber();
     this.log.info(
       `Starting archiver sync to rollup contract ${this.rollup.address} from L1 block ${blocksSynchedTo} and L2 checkpoint ${currentL2Checkpoint}`,
       { blocksSynchedTo, messagesSynchedTo, currentL2Checkpoint },

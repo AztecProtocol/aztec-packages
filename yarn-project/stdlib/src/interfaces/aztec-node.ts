@@ -22,7 +22,7 @@ import type { AztecAddress } from '../aztec-address/index.js';
 import { BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { type CheckpointsQuery, CheckpointsQuerySchema, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
 import { type CheckpointData, CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
@@ -227,8 +227,11 @@ export interface AztecNode {
   getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined>;
   /** @deprecated Scheduled for removal; use `getBlocks(from, limit, { includeL1PublishInfo: true, includeAttestations: true })`. */
   getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<BlockResponse[]>;
-  /** @deprecated Scheduled for removal; use `getCheckpoints(from, limit)` over an explicit checkpoint range. */
-  getCheckpointsDataForEpoch(epoch: EpochNumber): Promise<CheckpointData[]>;
+  /**
+   * Gets lightweight checkpoint metadata for a contiguous range or for an entire epoch.
+   * @param query - Either `{ from, limit }` or `{ epoch }`.
+   */
+  getCheckpointsData(query: CheckpointsQuery): Promise<CheckpointData[]>;
 
   /**
    * Unified block fetch. Returns the block identified by `param`, with optional fields controlled
@@ -569,7 +572,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
     .returns(z.array(BlockResponseSchema)),
 
-  getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
+  getCheckpointsData: z.function().args(CheckpointsQuerySchema).returns(z.array(CheckpointDataSchema)),
 
   getBlock: z
     .function()

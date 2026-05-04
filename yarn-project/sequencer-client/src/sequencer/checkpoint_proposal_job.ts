@@ -561,7 +561,7 @@ export class CheckpointProposalJob implements Traceable {
       const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
 
       // Collect the out hashes of all the checkpoints before this one in the same epoch
-      const previousCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsDataForEpoch(this.targetEpoch))
+      const previousCheckpointOutHashes = (await this.l2BlockSource.getCheckpointsData({ epoch: this.targetEpoch }))
         .filter(c => c.checkpointNumber < this.checkpointNumber)
         .map(c => c.checkpointOutHash);
 

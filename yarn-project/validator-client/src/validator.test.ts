@@ -152,7 +152,7 @@ describe('ValidatorClient', () => {
 
     blockSource = mock<L2BlockSource & L2BlockSink>();
     blockSource.getBlocks.mockResolvedValue([]);
-    blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
+    blockSource.getCheckpointsData.mockResolvedValue([]);
     blockSource.getBlocksForSlot.mockResolvedValue([]);
     blockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER));
     blockSource.syncImmediate.mockResolvedValue(undefined);

@@ -29,14 +29,22 @@ import {
   type BlockQuery,
   L2Block,
   type L2BlockSource,
+  type L2Tips,
 } from '@aztec/stdlib/block';
+import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx } from '@aztec/stdlib/testing';
-import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import {
+  AppendOnlyTreeSnapshot,
+  MerkleTreeId,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
 import type { FeeProvider } from '@aztec/stdlib/tx';
 import {
   BlockHeader,
@@ -1119,6 +1127,254 @@ describe('aztec node', () => {
       // First checkpoint (slot 0): 1 block with 1 tx with 1 message
       // Second checkpoint (slot 1): 1 block with 1 tx with 1 message
       expect(result).toEqual([[[[msg1]]], [[[msg2]]]]);
+    });
+  });
+
+  /** Builds an L2Tips stub with the given checkpoint numbers per tip. */
+  function makeTips(args: {
+    proposedCheckpoint?: CheckpointNumber;
+    checkpointed?: CheckpointNumber;
+    proven?: CheckpointNumber;
+    finalized?: CheckpointNumber;
+  }): L2Tips {
+    const emptyBlockId = { number: BlockNumber(0), hash: '' };
+    const makeTipId = (n: CheckpointNumber) => ({ block: emptyBlockId, checkpoint: { number: n, hash: '' } });
+    return {
+      proposed: emptyBlockId,
+      checkpointed: makeTipId(args.checkpointed ?? CheckpointNumber(0)),
+      proposedCheckpoint: makeTipId(args.proposedCheckpoint ?? CheckpointNumber(0)),
+      proven: makeTipId(args.proven ?? CheckpointNumber(0)),
+      finalized: makeTipId(args.finalized ?? CheckpointNumber(0)),
+    };
+  }
+
+  describe('getCheckpoint', () => {
+    /** Builds a minimal ProposedCheckpointData stub. */
+    function makeProposedCheckpointData(
+      checkpointNumber: CheckpointNumber,
+      slotNumber: SlotNumber,
+    ): ProposedCheckpointData {
+      return {
+        checkpointNumber,
+        header: CheckpointHeader.random({ slotNumber }),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.ZERO,
+        startBlock: BlockNumber(Number(checkpointNumber)),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      };
+    }
+
+    /** Builds a minimal CheckpointData stub. */
+    function makeCheckpointData(checkpointNumber: CheckpointNumber): CheckpointData {
+      return {
+        checkpointNumber,
+        header: CheckpointHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.ZERO,
+        startBlock: BlockNumber(Number(checkpointNumber)),
+        blockCount: 1,
+        feeAssetPriceModifier: 0n,
+        attestations: [],
+        l1: { blockNumber: 10n, blockTimestamp: 1000n, blockHash: '0x0000' } as any,
+      };
+    }
+
+    describe('throw guards', () => {
+      it('throws BadRequestError when "proposed" resolves to a proposed entry and includeL1PublishInfo is requested', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposedCheckpoint: CheckpointNumber(5) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpointData(CheckpointNumber(5), SlotNumber(10)),
+        );
+
+        await expect(node.getCheckpoint('proposed', { includeL1PublishInfo: true })).rejects.toThrow(BadRequestError);
+      });
+
+      it('throws BadRequestError when "proposed" resolves to a proposed entry and includeAttestations is requested', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposedCheckpoint: CheckpointNumber(5) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpointData(CheckpointNumber(5), SlotNumber(10)),
+        );
+
+        await expect(node.getCheckpoint('proposed', { includeAttestations: true })).rejects.toThrow(BadRequestError);
+      });
+
+      it('throws BadRequestError when number lookup resolves to a proposed entry and includeL1PublishInfo is requested', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpointData(CheckpointNumber(5), SlotNumber(10)),
+        );
+
+        await expect(
+          node.getCheckpoint({ number: CheckpointNumber(5) }, { includeL1PublishInfo: true }),
+        ).rejects.toThrow(BadRequestError);
+      });
+
+      it('throws BadRequestError when slot lookup resolves to a proposed entry and includeAttestations is requested', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpointData(CheckpointNumber(3), SlotNumber(7)),
+        );
+
+        await expect(node.getCheckpoint({ slot: SlotNumber(7) }, { includeAttestations: true })).rejects.toThrow(
+          BadRequestError,
+        );
+      });
+    });
+
+    describe('fallback semantics', () => {
+      it('getCheckpoint("proposed") returns the projected proposed entry when one exists at the proposed-tip number', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposedCheckpoint: CheckpointNumber(2) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        const proposed = makeProposedCheckpointData(CheckpointNumber(2), SlotNumber(5));
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(proposed);
+
+        const result = await node.getCheckpoint('proposed');
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(2));
+      });
+
+      it('getCheckpoint("proposed") returns the latest confirmed checkpoint when no proposed entry exists', async () => {
+        // When no proposed entry exists, the proposedCheckpoint tip falls back to the confirmed tip.
+        l2BlockSource.getL2Tips.mockResolvedValue(
+          makeTips({ proposedCheckpoint: CheckpointNumber(3), checkpointed: CheckpointNumber(3) }),
+        );
+        const confirmed = makeCheckpointData(CheckpointNumber(3));
+        l2BlockSource.getCheckpointData.mockResolvedValue(confirmed);
+
+        const result = await node.getCheckpoint('proposed');
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(3));
+      });
+
+      it('getCheckpoint({ number }) returns the confirmed entry when one exists', async () => {
+        const confirmed = makeCheckpointData(CheckpointNumber(3));
+        l2BlockSource.getCheckpointData.mockResolvedValue(confirmed);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
+          makeProposedCheckpointData(CheckpointNumber(3), SlotNumber(99)),
+        );
+
+        const result = await node.getCheckpoint({ number: CheckpointNumber(3) });
+        // The confirmed entry should be returned; proposed should not be reached
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(3));
+        // l1 is not included by default — confirm no throw and correct shape
+        expect(result!.l1).toBeUndefined();
+      });
+
+      it('getCheckpoint({ number }) falls back to proposed entry when no confirmed match', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        const proposed = makeProposedCheckpointData(CheckpointNumber(4), SlotNumber(8));
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(proposed);
+
+        const result = await node.getCheckpoint({ number: CheckpointNumber(4) });
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(4));
+      });
+
+      it('getCheckpoint({ slot }) falls back to proposed entry when no confirmed match', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        const proposed = makeProposedCheckpointData(CheckpointNumber(5), SlotNumber(11));
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(proposed);
+
+        const result = await node.getCheckpoint({ slot: SlotNumber(11) });
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(5));
+      });
+
+      it('getCheckpoint("checkpointed") returns the confirmed entry at the checkpointed tip', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ checkpointed: CheckpointNumber(2) }));
+        const confirmed = makeCheckpointData(CheckpointNumber(2));
+        l2BlockSource.getCheckpointData.mockResolvedValue(confirmed);
+
+        const result = await node.getCheckpoint('checkpointed');
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(2));
+      });
+
+      it('getCheckpoint("checkpointed") returns undefined when neither store has the resolved number', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ checkpointed: CheckpointNumber(2) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(undefined);
+
+        const result = await node.getCheckpoint('checkpointed');
+        expect(result).toBeUndefined();
+      });
+
+      it('getCheckpoint("proven") returns the confirmed entry at the proven tip', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proven: CheckpointNumber(4) }));
+        const confirmed = makeCheckpointData(CheckpointNumber(4));
+        l2BlockSource.getCheckpointData.mockResolvedValue(confirmed);
+
+        const result = await node.getCheckpoint('proven');
+        expect(result).toBeDefined();
+        expect(result!.number).toEqual(CheckpointNumber(4));
+      });
+
+      it('getCheckpoint("proven") returns undefined when neither store has the resolved number', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proven: CheckpointNumber(4) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(undefined);
+
+        const result = await node.getCheckpoint('proven');
+        expect(result).toBeUndefined();
+      });
+
+      it('getCheckpoint("finalized") returns undefined when neither store has the resolved number', async () => {
+        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ finalized: CheckpointNumber(6) }));
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(undefined);
+
+        const result = await node.getCheckpoint('finalized');
+        expect(result).toBeUndefined();
+      });
+
+      it('getCheckpoint({ number }) returns undefined when neither confirmed nor proposed exist', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(undefined);
+
+        const result = await node.getCheckpoint({ number: CheckpointNumber(99) });
+        expect(result).toBeUndefined();
+      });
+    });
+
+    describe('includeBlocks on a proposed match', () => {
+      it('pre-fetches inner blocks and passes them into the projected response', async () => {
+        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
+        const proposed = makeProposedCheckpointData(CheckpointNumber(2), SlotNumber(5));
+        l2BlockSource.getProposedCheckpointData.mockResolvedValue(proposed);
+
+        const fakeBlock = L2Block.empty();
+        l2BlockSource.getBlocks.mockResolvedValue([fakeBlock]);
+
+        const result = await node.getCheckpoint({ number: CheckpointNumber(2) }, { includeBlocks: true });
+        expect(result).toBeDefined();
+        expect(result!.blocks).toBeDefined();
+        expect(result!.blocks!.length).toBe(1);
+      });
+    });
+  });
+
+  describe('getCheckpointNumber', () => {
+    it('returns the proposed checkpoint number from proposedCheckpoint tip', async () => {
+      l2BlockSource.getL2Tips.mockResolvedValue(
+        makeTips({ proposedCheckpoint: CheckpointNumber(7), checkpointed: CheckpointNumber(5) }),
+      );
+
+      const result = await node.getCheckpointNumber('proposed');
+      expect(result).toEqual(CheckpointNumber(7));
+    });
+
+    it('returns the proposedCheckpoint tip number when it equals the confirmed checkpoint (fallback already baked in)', async () => {
+      l2BlockSource.getL2Tips.mockResolvedValue(
+        makeTips({ proposedCheckpoint: CheckpointNumber(5), checkpointed: CheckpointNumber(5) }),
+      );
+
+      const result = await node.getCheckpointNumber('proposed');
+      expect(result).toEqual(CheckpointNumber(5));
     });
   });
 });

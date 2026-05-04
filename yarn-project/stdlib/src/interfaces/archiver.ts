@@ -6,9 +6,16 @@ import { z } from 'zod';
 
 import { BlockDataSchema } from '../block/block_data.js';
 import { L2Block } from '../block/l2_block.js';
-import { BlockQuerySchema, BlocksQuerySchema, type L2BlockSource, L2TipsSchema } from '../block/l2_block_source.js';
+import {
+  BlockQuerySchema,
+  BlocksQuerySchema,
+  CheckpointQuerySchema,
+  CheckpointsQuerySchema,
+  type L2BlockSource,
+  L2TipsSchema,
+  ProposedCheckpointQuerySchema,
+} from '../block/l2_block_source.js';
 import { ValidateCheckpointResultSchema } from '../block/validate_block_result.js';
-import { Checkpoint } from '../checkpoint/checkpoint.js';
 import { CheckpointDataSchema, ProposedCheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import {
@@ -93,22 +100,14 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getCheckpointedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
   getCheckpointNumber: z.function().args().returns(CheckpointNumberSchema),
   getFinalizedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
-  getCheckpoints: z
-    .function()
-    .args(CheckpointNumberSchema, schemas.Integer)
-    .returns(z.array(PublishedCheckpoint.schema)),
-  getCheckpointData: z.function().args(CheckpointNumberSchema).returns(CheckpointDataSchema.optional()),
-  getCheckpointDataRange: z
-    .function()
-    .args(CheckpointNumberSchema, schemas.Integer)
-    .returns(z.array(CheckpointDataSchema)),
-  getCheckpointNumberBySlot: z.function().args(schemas.SlotNumber).returns(CheckpointNumberSchema.optional()),
+  getCheckpoint: z.function().args(CheckpointQuerySchema).returns(PublishedCheckpoint.schema.optional()),
+  getCheckpoints: z.function().args(CheckpointsQuerySchema).returns(z.array(PublishedCheckpoint.schema)),
+  getCheckpointData: z.function().args(CheckpointQuerySchema).returns(CheckpointDataSchema.optional()),
+  getCheckpointsData: z.function().args(CheckpointsQuerySchema).returns(z.array(CheckpointDataSchema)),
   getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getSyncedL2SlotNumber: z.function().args().returns(schemas.SlotNumber.optional()),
   getSyncedL2EpochNumber: z.function().args().returns(EpochNumberSchema.optional()),
-  getCheckpointsForEpoch: z.function().args(EpochNumberSchema).returns(z.array(Checkpoint.schema)),
-  getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
   getBlocksForSlot: z.function().args(schemas.SlotNumber).returns(z.array(L2Block.schema)),
   isEpochComplete: z.function().args(EpochNumberSchema).returns(z.boolean()),
   getL2Tips: z.function().args().returns(L2TipsSchema),
@@ -139,8 +138,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .args()
     .returns(z.object({ genesisArchiveRoot: schemas.Fr })),
   getL1Timestamp: z.function().args().returns(schemas.BigInt.optional()),
-  getLastCheckpoint: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
-  getLastProposedCheckpoint: z.function().args().returns(ProposedCheckpointDataSchema.optional()),
+  getProposedCheckpointData: z
+    .function()
+    .args(optional(ProposedCheckpointQuerySchema))
+    .returns(ProposedCheckpointDataSchema.optional()),
   syncImmediate: z.function().args().returns(z.void()),
   isPendingChainInvalid: z.function().args().returns(z.boolean()),
   getPendingChainValidationStatus: z.function().args().returns(ValidateCheckpointResultSchema),
