@@ -24,7 +24,7 @@ import { Archiver, type ArchiverDeps } from './archiver.js';
 import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
-import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { ARCHIVER_DB_VERSION, type ArchiverDataStores, createArchiverDataStores } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 
 export const ARCHIVER_STORE_NAME = 'archiver';
@@ -32,13 +32,13 @@ export const ARCHIVER_STORE_NAME = 'archiver';
 /** Creates an archiver store. */
 export async function createArchiverStore(
   userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
-) {
+): Promise<ArchiverDataStores> {
   const config = {
     ...userConfig,
     dataStoreMapSizeKb: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKb,
   };
   const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config);
-  return new KVArchiverDataStore(store, config.maxLogs);
+  return createArchiverDataStores(store, { logsMaxPageSize: config.maxLogs });
 }
 
 /**
@@ -128,13 +128,13 @@ export async function createArchiver(
 
   const epochCache = deps.epochCache ?? (await EpochCache.create(config.l1Contracts.rollupAddress, config, deps));
   const telemetry = deps.telemetry ?? getTelemetryClient();
-  const instrumentation = await ArchiverInstrumentation.new(telemetry, () => archiverStore.estimateSize());
+  const instrumentation = await ArchiverInstrumentation.new(telemetry, () => archiverStore.db.estimateSize());
 
   // Create the event emitter that will be shared by archiver and synchronizer
   const events = new EventEmitter() as ArchiverEmitter;
 
   // Create L2 tips cache shared by archiver and synchronizer
-  const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+  const l2TipsCache = new L2TipsCache(archiverStore.blocks);
 
   // Create the L1 synchronizer
   const synchronizer = new ArchiverL1Synchronizer(
@@ -175,14 +175,14 @@ export async function createArchiver(
 }
 
 /** Registers protocol contracts in the archiver store. Idempotent — skips contracts that already exist (e.g. on node restart). */
-export async function registerProtocolContracts(store: KVArchiverDataStore) {
+export async function registerProtocolContracts(stores: ArchiverDataStores) {
   const blockNumber = 0;
   for (const name of protocolContractNames) {
     const provider = new BundledProtocolContractsProvider();
     const contract = await provider.getProtocolContractArtifact(name);
 
     // Skip if already registered (happens on node restart with a persisted store).
-    if (await store.getContractClass(contract.contractClass.id)) {
+    if (await stores.contractClasses.getContractClass(contract.contractClass.id)) {
       continue;
     }
 
@@ -196,8 +196,8 @@ export async function registerProtocolContracts(store: KVArchiverDataStore) {
       .filter(fn => fn.functionType === FunctionType.PUBLIC)
       .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
 
-    await store.registerContractFunctionSignatures(publicFunctionSignatures);
-    await store.addContractClasses([contractClassPublic], BlockNumber(blockNumber));
-    await store.addContractInstances([contract.instance], BlockNumber(blockNumber));
+    await stores.functionNames.register(publicFunctionSignatures);
+    await stores.contractClasses.addContractClasses([contractClassPublic], BlockNumber(blockNumber));
+    await stores.contractInstances.addContractInstances([contract.instance], BlockNumber(blockNumber));
   }
 }

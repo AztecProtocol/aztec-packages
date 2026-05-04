@@ -3,6 +3,7 @@ import { Fr, Point } from '@aztec/aztec.js/fields';
 import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
   PRIVATE_LOG_CIPHERTEXT_LEN,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
@@ -296,12 +297,38 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_txe_getLastTxEffects() {
-    const { txHash, noteHashes, nullifiers } = await this.handlerAsTxe().getLastTxEffects();
+    const { txHash, noteHashes, nullifiers, privateLogs } = await this.handlerAsTxe().getLastTxEffects();
+
+    if (privateLogs.length > MAX_PRIVATE_LOGS_PER_TX) {
+      throw new Error(`${privateLogs.length} private logs exceed max ${MAX_PRIVATE_LOGS_PER_TX}`);
+    }
+
+    // Same workaround as `aztec_txe_getPrivateEvents`: Noir cannot yet return nested structs with arrays, so we return
+    // a flat multidimensional array plus per-log lengths and the total count, and reassemble into a
+    // `BoundedVec<BoundedVec<T>>` on the Noir side. Each log contributes only its emitted fields. The rest
+    // is zero-padded to `PRIVATE_LOG_SIZE_IN_FIELDS`.
+    const emittedLogs = privateLogs.map(log => log.getEmittedFields());
+
+    const rawLogStorage = emittedLogs
+      .map(fields => fields.concat(Array(PRIVATE_LOG_SIZE_IN_FIELDS - fields.length).fill(new Fr(0))))
+      .concat(
+        Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(new Fr(0))),
+      )
+      .flat();
+
+    const logLengths = emittedLogs
+      .map(fields => new Fr(fields.length))
+      .concat(Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(new Fr(0)));
+
+    const logCount = new Fr(emittedLogs.length);
 
     return toForeignCallResult([
       toSingle(txHash.hash),
       ...arrayToBoundedVec(toArray(noteHashes), MAX_NOTE_HASHES_PER_TX),
       ...arrayToBoundedVec(toArray(nullifiers), MAX_NULLIFIERS_PER_TX),
+      toArray(rawLogStorage),
+      toArray(logLengths),
+      toSingle(logCount),
     ]);
   }
 

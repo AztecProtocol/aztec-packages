@@ -186,7 +186,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txEffects = block!.body.txEffects[0];
 
-    return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
+    return {
+      txHash: txEffects.txHash,
+      noteHashes: txEffects.noteHashes,
+      nullifiers: txEffects.nullifiers,
+      privateLogs: txEffects.privateLogs,
+    };
   }
 
   async syncContractNonOracleMethod(contractAddress: AztecAddress, scope: AztecAddress, jobId: string) {
@@ -767,6 +772,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     try {
       const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+      const simulator = new WASMSimulator();
       const oracle = new UtilityExecutionOracle({
         contractAddress: call.to,
         authWitnesses: [],
@@ -786,8 +792,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         l2TipsStore: this.stateMachine.node,
         jobId,
         scopes,
+        simulator,
       });
-      const acirExecutionResult = await new WASMSimulator()
+      const acirExecutionResult = await simulator
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);

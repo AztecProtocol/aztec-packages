@@ -5,13 +5,14 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
+import type { BaseBuffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
-import { tryRecoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+
+import type { TypedDataDefinition } from 'viem';
 
 import type { L2Block } from '../block/l2_block.js';
 import type { L2BlockInfo } from '../block/l2_block_info.js';
@@ -22,9 +23,15 @@ import { TxHash } from '../tx/index.js';
 import type { Tx } from '../tx/tx.js';
 import { Gossipable } from './gossipable.js';
 import {
-  SignatureDomainSeparator,
-  getHashedSignaturePayload,
-  getHashedSignaturePayloadEthSignedMessage,
+  type CoordinationSignatureContext,
+  type CoordinationSignatureType,
+  EMPTY_COORDINATION_SIGNATURE_CONTEXT,
+  type Signable,
+  coordinationSignatureContextEquals,
+  getCoordinationSignatureTypedData,
+  readCoordinationSignatureContext,
+  recoverCoordinationSigner,
+  serializeCoordinationSignatureContext,
 } from './signature_utils.js';
 import { SignedTxs } from './signed_txs.js';
 import { TopicType } from './topic_type.js';
@@ -49,10 +56,12 @@ export type BlockProposalOptions = {
  * to be included in a block within a checkpoint. This is used for non-last blocks in a slot.
  * The last block is sent as part of a CheckpointProposal.
  */
-export class BlockProposal extends Gossipable {
+export class BlockProposal extends Gossipable implements Signable {
   static override p2pTopic = TopicType.block_proposal;
 
-  private sender: EthAddress | undefined;
+  readonly primaryType: CoordinationSignatureType = 'BlockProposal';
+
+  private cachedSender: EthAddress | undefined | null = undefined;
 
   constructor(
     /** The per-block header containing block state and global variables */
@@ -72,6 +81,9 @@ export class BlockProposal extends Gossipable {
 
     /** The proposer's signature over the block data */
     public readonly signature: Signature,
+
+    /** The signing domain (chainId + rollupAddress) the signature is bound to */
+    public readonly signatureContext: CoordinationSignatureContext,
 
     /** The signed transactions in the block (optional, for DA guarantees) */
     public readonly signedTxs?: SignedTxs,
@@ -114,9 +126,8 @@ export class BlockProposal extends Gossipable {
    * Get the payload to sign for this block proposal.
    * The signature is over: blockHeader + indexWithinCheckpoint + inHash + archiveRoot + txHashes
    */
-  getPayloadToSign(domainSeparator: SignatureDomainSeparator): Buffer {
+  getPayloadToSign(): Buffer {
     return serializeToBuffer([
-      domainSeparator,
       this.blockHeader,
       this.indexWithinCheckpoint,
       this.inHash,
@@ -134,7 +145,9 @@ export class BlockProposal extends Gossipable {
     archiveRoot: Fr,
     txHashes: TxHash[],
     txs: Tx[] | undefined,
-    payloadSigner: (payload: Buffer32, context: SigningContext) => Promise<Signature>,
+    signatureContext: CoordinationSignatureContext,
+    proposalSigner: (typedData: TypedDataDefinition, context: SigningContext) => Promise<Signature>,
+    txsSigner?: (typedData: TypedDataDefinition, context: SigningContext) => Promise<Signature>,
   ): Promise<BlockProposal> {
     // Create a temporary proposal to get the payload to sign
     const tempProposal = new BlockProposal(
@@ -144,6 +157,7 @@ export class BlockProposal extends Gossipable {
       archiveRoot,
       txHashes,
       Signature.empty(),
+      signatureContext,
     );
 
     // Create the block signing context
@@ -155,47 +169,64 @@ export class BlockProposal extends Gossipable {
       dutyType: DutyType.BLOCK_PROPOSAL,
     };
 
-    const hashed = getHashedSignaturePayload(tempProposal, SignatureDomainSeparator.blockProposal);
-    const sig = await payloadSigner(hashed, blockContext);
+    const typedData = getCoordinationSignatureTypedData(tempProposal);
+    const sig = await proposalSigner(typedData, blockContext);
 
     // If txs are provided, sign them as well
     let signedTxs: SignedTxs | undefined;
     if (txs) {
       const txsSigningContext: SigningContext = { dutyType: DutyType.TXS };
-      const txsSigner = (payload: Buffer32) => payloadSigner(payload, txsSigningContext);
-      signedTxs = await SignedTxs.createFromSigner(txs, txsSigner);
+      if (!txsSigner) {
+        throw new Error('signed_txs requires a typed-data signer');
+      }
+      signedTxs = await SignedTxs.createFromSigner(txs, signatureContext, typedData =>
+        txsSigner(typedData, txsSigningContext),
+      );
     }
 
-    return new BlockProposal(blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txHashes, sig, signedTxs);
+    return new BlockProposal(
+      blockHeader,
+      indexWithinCheckpoint,
+      inHash,
+      archiveRoot,
+      txHashes,
+      sig,
+      signatureContext,
+      signedTxs,
+    );
   }
 
   /**
    * Lazily evaluate the sender of the proposal; result is cached.
-   * If there's signedTxs, also verifies the signedTxs sender matches the block proposal sender.
-   * @returns The sender address, or undefined if signature recovery fails or senders don't match
+   * If there's signedTxs, also verifies that its signing domain matches this proposal's and
+   * that the signedTxs sender matches the block proposal sender. This prevents a proposer
+   * from wrapping a foreign-chain SignedTxs bundle inside a local-chain proposal.
+   * @returns The sender address, or undefined if signature recovery fails or inner/outer mismatch
    */
   getSender(): EthAddress | undefined {
-    if (!this.sender) {
-      const hashed = getHashedSignaturePayloadEthSignedMessage(this, SignatureDomainSeparator.blockProposal);
-      const blockSender = tryRecoverAddress(hashed, this.signature);
+    if (this.cachedSender === undefined) {
+      const blockSender = recoverCoordinationSigner(this, this.signature);
 
-      // If there's signedTxs, verify the sender matches
       if (blockSender && this.signedTxs) {
+        if (!coordinationSignatureContextEquals(this.signedTxs.signatureContext, this.signatureContext)) {
+          this.cachedSender = null;
+          return undefined;
+        }
         const txsSender = this.signedTxs.getSender();
         if (!txsSender || !txsSender.equals(blockSender)) {
-          return undefined; // Sender mismatch - fail
+          this.cachedSender = null;
+          return undefined;
         }
       }
 
-      // Cache the sender for later use
-      this.sender = blockSender;
+      this.cachedSender = blockSender ?? null;
     }
 
-    return this.sender;
+    return this.cachedSender ?? undefined;
   }
 
   getPayload() {
-    return this.getPayloadToSign(SignatureDomainSeparator.blockProposal);
+    return this.getPayloadToSign();
   }
 
   toBuffer(): Buffer {
@@ -205,6 +236,7 @@ export class BlockProposal extends Gossipable {
       this.inHash,
       this.archiveRoot,
       this.signature,
+      serializeCoordinationSignatureContext(this.signatureContext),
       this.txHashes.length,
       this.txHashes,
     ];
@@ -225,6 +257,7 @@ export class BlockProposal extends Gossipable {
     const inHash = reader.readObject(Fr);
     const archiveRoot = reader.readObject(Fr);
     const signature = reader.readObject(Signature);
+    const signatureContext = readCoordinationSignatureContext(reader);
     const txHashCount = reader.readNumber();
     if (txHashCount > MAX_TXS_PER_BLOCK) {
       throw new Error(`txHashes count ${txHashCount} exceeds maximum ${MAX_TXS_PER_BLOCK}`);
@@ -242,12 +275,21 @@ export class BlockProposal extends Gossipable {
           archiveRoot,
           txHashes,
           signature,
+          signatureContext,
           signedTxs,
         );
       }
     }
 
-    return new BlockProposal(blockHeader, indexWithinCheckpoint, inHash, archiveRoot, txHashes, signature);
+    return new BlockProposal(
+      blockHeader,
+      indexWithinCheckpoint,
+      inHash,
+      archiveRoot,
+      txHashes,
+      signature,
+      signatureContext,
+    );
   }
 
   getSize(): number {
@@ -257,6 +299,8 @@ export class BlockProposal extends Gossipable {
       this.inHash.size +
       this.archiveRoot.size +
       this.signature.getSize() +
+      4 /* chainId */ +
+      20 /* rollupAddress */ +
       4 /* txHashes.length */ +
       this.txHashes.length * TxHash.SIZE +
       4 /* hasSignedTxs flag */ +
@@ -265,7 +309,15 @@ export class BlockProposal extends Gossipable {
   }
 
   static empty(): BlockProposal {
-    return new BlockProposal(BlockHeader.empty(), IndexWithinCheckpoint(0), Fr.ZERO, Fr.ZERO, [], Signature.empty());
+    return new BlockProposal(
+      BlockHeader.empty(),
+      IndexWithinCheckpoint(0),
+      Fr.ZERO,
+      Fr.ZERO,
+      [],
+      Signature.empty(),
+      EMPTY_COORDINATION_SIGNATURE_CONTEXT,
+    );
   }
 
   static random(): BlockProposal {
@@ -276,6 +328,7 @@ export class BlockProposal extends Gossipable {
       Fr.random(),
       [TxHash.random(), TxHash.random()],
       Signature.random(),
+      EMPTY_COORDINATION_SIGNATURE_CONTEXT,
     );
   }
 
@@ -287,6 +340,8 @@ export class BlockProposal extends Gossipable {
       archiveRoot: this.archiveRoot.toString(),
       signature: this.signature.toString(),
       txHashes: this.txHashes.map(h => h.toString()),
+      chainId: this.signatureContext.chainId,
+      rollupAddress: this.signatureContext.rollupAddress.toString(),
     };
   }
 
@@ -312,6 +367,7 @@ export class BlockProposal extends Gossipable {
       this.archiveRoot,
       this.txHashes,
       this.signature,
+      this.signatureContext,
     );
   }
 }

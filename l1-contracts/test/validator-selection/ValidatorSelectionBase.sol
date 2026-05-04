@@ -13,7 +13,6 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 
 import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
@@ -37,7 +36,6 @@ import {Math} from "@oz/utils/math/Math.sol";
  * The tests in this file is testing the sequencer selection
  */
 contract ValidatorSelectionTestBase is DecoderBase {
-  using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
 
   struct ProposeTestData {

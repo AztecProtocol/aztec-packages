@@ -188,7 +188,11 @@ describe('e2e_p2p_network', () => {
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
     const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
     const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const signatureContext = {
+      chainId: t.ctx.aztecNodeConfig.l1ChainId,
+      rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
@@ -207,7 +211,7 @@ describe('e2e_p2p_network', () => {
     // Ensure prover node did its job and collected txs from p2p
     await retryUntil(
       async () => {
-        const provenBlock = await nodes[0].getProvenBlockNumber();
+        const provenBlock = await nodes[0].getBlockNumber('proven');
         return provenBlock > 0;
       },
       'proven block',

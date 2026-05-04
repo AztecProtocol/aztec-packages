@@ -132,7 +132,7 @@ void TraceContainer::clear_column(Column col)
     auto& column_data = (*trace)[static_cast<size_t>(col)];
     std::unique_lock lock(column_data.mutex);
     column_data.rows.clear();
-    column_data.max_row_number = 0;
+    column_data.max_row_number = -1;
     column_data.row_number_dirty = false;
 }
 

@@ -3,6 +3,7 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  optionalNumberConfigHelper,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -29,6 +30,12 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
         .filter(address => address && address.trim().length > 0)
         .map(address => EthAddress.fromString(address.trim())),
     defaultValue: [],
+  },
+  l1ChainId: {
+    env: 'L1_CHAIN_ID',
+    description: 'The chain ID of the ethereum host.',
+    parseEnv: (val: string) => +val,
+    defaultValue: 31337,
   },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
@@ -75,22 +82,22 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
   validateMaxL2BlockGas: {
     env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
     description: 'Maximum L2 block gas for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxDABlockGas: {
     env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
     description: 'Maximum DA block gas for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxTxsPerBlock: {
     env: 'VALIDATOR_MAX_TX_PER_BLOCK',
     description: 'Maximum transactions per block for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   validateMaxTxsPerCheckpoint: {
     env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
     description: 'Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected.',
-    parseEnv: (val: string) => parseInt(val, 10),
+    ...optionalNumberConfigHelper(),
   },
   ...localSignerConfigMappings,
   ...validatorHASignerConfigMappings,
