@@ -343,7 +343,7 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getNotes(
+  async aztec_utl_getNotesRENAMED_COMPAT_TEST(
     [ownerSome]: ACVMField[],
     [ownerValue]: ACVMField[],
     [storageSlot]: ACVMField[],

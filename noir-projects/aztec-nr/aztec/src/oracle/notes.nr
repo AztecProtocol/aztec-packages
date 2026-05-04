@@ -75,7 +75,7 @@ unconstrained fn notify_nullified_note_oracle_wrapper(nullifier: Field, note_has
 #[oracle(aztec_prv_notifyNullifiedNote)]
 unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) {}
 
-#[oracle(aztec_utl_getNotes)]
+#[oracle(aztec_utl_getNotesRENAMED_COMPAT_TEST)]
 unconstrained fn get_notes_oracle<Note, let M: u32, let MaxNotes: u32>(
     _owner: Option<AztecAddress>,
     _storage_slot: Field,

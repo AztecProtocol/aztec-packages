@@ -454,7 +454,7 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  async aztec_utl_getNotes(
+  async aztec_utl_getNotesRENAMED_COMPAT_TEST(
     foreignOwnerIsSome: ForeignCallSingle,
     foreignOwnerValue: ForeignCallSingle,
     foreignStorageSlot: ForeignCallSingle,
