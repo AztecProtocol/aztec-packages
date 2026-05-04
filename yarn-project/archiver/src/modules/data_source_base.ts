@@ -64,10 +64,6 @@ export abstract class ArchiverDataSourceBase
   protected readonly initialBlockHash: BlockHash;
   /** Archive root after block 0 was appended — read from L1 (`Rollup.getGenesisArchiveTreeRoot`). */
   protected readonly genesisArchiveRoot: Fr;
-  /** Memoized genesis L2Block. Built once on first need and reused for every query. */
-  private genesisBlockPromise?: Promise<L2Block>;
-  /** Memoized genesis BlockData. */
-  private genesisBlockDataPromise?: Promise<BlockData>;
 
   constructor(
     protected readonly stores: ArchiverDataStores,
@@ -81,45 +77,31 @@ export abstract class ArchiverDataSourceBase
     this.genesisArchiveRoot = genesisArchiveRoot;
   }
 
-  /**
-   * Returns the precomputed hash of the genesis block header. Synchronous because the hash is
-   * derived from the initial header at construction time and cached.
-   */
+  /** Returns the precomputed hash of the genesis block header. */
   public getGenesisBlockHash(): BlockHash {
     return this.initialBlockHash;
   }
 
-  /**
-   * Returns the cached genesis L2Block, building it on first call.
-   * The block's `archive` snapshot reflects the post-block-0 archive root fetched from L1
-   * (`Rollup.getGenesisArchiveTreeRoot`). Without it, the L1 `canPropose` check rejects
-   * the first proposal because the sequencer would advertise `Fr.ZERO` instead of the
-   * real root that L1 stored at `archives[0]`.
-   */
-  private getGenesisBlock(): Promise<L2Block> {
-    return (this.genesisBlockPromise ??= Promise.resolve(
-      new L2Block(
-        new AppendOnlyTreeSnapshot(this.genesisArchiveRoot, 1),
-        this.initialHeader,
-        Body.empty(),
-        CheckpointNumber.ZERO,
-        IndexWithinCheckpoint(0),
-      ),
-    ));
+  /** Returns the genesis L2Block. */
+  private getGenesisBlock(): L2Block {
+    return new L2Block(
+      new AppendOnlyTreeSnapshot(this.genesisArchiveRoot, 1),
+      this.initialHeader,
+      Body.empty(),
+      CheckpointNumber.ZERO,
+      IndexWithinCheckpoint(0),
+    );
   }
 
-  /** Returns the cached genesis BlockData, building it on first call. */
-  private getGenesisBlockData(): Promise<BlockData> {
-    return (this.genesisBlockDataPromise ??= (async () => {
-      const block = await this.getGenesisBlock();
-      return {
-        header: block.header,
-        archive: block.archive,
-        blockHash: this.initialBlockHash,
-        checkpointNumber: block.checkpointNumber,
-        indexWithinCheckpoint: block.indexWithinCheckpoint,
-      };
-    })());
+  /** Returns genesis block data. */
+  private getGenesisBlockData(): BlockData {
+    return {
+      header: this.initialHeader,
+      archive: new AppendOnlyTreeSnapshot(this.genesisArchiveRoot, 1),
+      blockHash: this.initialBlockHash,
+      checkpointNumber: CheckpointNumber.ZERO,
+      indexWithinCheckpoint: IndexWithinCheckpoint(0),
+    };
   }
 
   /**
