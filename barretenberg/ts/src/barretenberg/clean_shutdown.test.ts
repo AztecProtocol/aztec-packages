@@ -15,10 +15,12 @@
 
 import { spawn } from 'child_process';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.resolve(HERE, '..', '..');
+// `barretenberg/ts/scripts/run_test.sh` cd's into `barretenberg/ts/` before
+// invoking jest, so cwd is the package root regardless of where the compiled
+// test file lives (`dest/node/...`). Resolving the harness off cwd keeps the
+// path stable as we don't ship the harness source into `dest/`.
+const PROJECT_ROOT = process.cwd();
 const ENTRYPOINT = path.join(PROJECT_ROOT, 'src', 'barretenberg', 'clean_shutdown.harness.ts');
 
 describe('Barretenberg clean shutdown', () => {
