@@ -107,13 +107,16 @@ ProverPolynomials build_valid_eccvm_msm_state()
     return ProverPolynomials(builder);
 }
 
+// The following helper methods are for a regression test: MSMRoundTransitionPhaseSelectorSwap.
+// Without the correct constraints, one can swap a `double` for a `skew` at the last round, which allows one to spoof an MSM. 
+
 /**
  * @brief Build a single-MSM trace with one point and one odd 128-bit scalar.
  *
  * Using a small (<2^128) odd scalar guarantees that the (z1, z2) decomposition of the scalar
  * yields z2 = 0, so the resulting MSM has size 1 (just the z1 mul). The scalar is odd so
  * `wnaf_skew = false` and therefore `precompute_skew = 0` for the underlying ScalarMul, which
- * is the precondition for the malicious phase-selector swap at the round 31->32 boundary.
+ * is the precondition for a potential malicious phase-selector swap at the round 31->32 boundary.
  */
 ProverPolynomials build_size1_eccvm_msm_state()
 {
@@ -556,9 +559,9 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
 }
 
 /**
- * @brief PoC for the round 31->32 phase-selector swap soundness gap.
+ * @brief Regression test for the round 31->32 phase-selector swap soundness gap.
  *
- * Demonstrates that an honest q_skew transition at round 31->32 can be replaced by
+ * Demonstrated that an honest q_skew transition at round 31->32 can be replaced by
  *   q_double (extra 4 doublings, accumulator multiplied by 16)
  *   followed by q_add at round=32 with slice=0 (lookup forces (x1,y1) = T[0] = -15 P_pc)
  * and, before the fix, the resulting trace satisfied every existing ECCVM relation -- demonstrating that
