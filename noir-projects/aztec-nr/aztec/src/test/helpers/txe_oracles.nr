@@ -99,11 +99,16 @@ pub type TxPrivateLog = BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>;
 /// [`get_last_tx_effects`].
 pub type TxPrivateLogs = BoundedVec<TxPrivateLog, MAX_PRIVATE_LOGS_PER_TX>;
 
+/// The side effects of a single transaction, as surfaced by [`get_last_tx_effects`].
+pub struct TxEffects {
+    pub tx_hash: Field,
+    pub note_hashes: TxNoteHashes,
+    pub nullifiers: TxNullifiers,
+    pub private_logs: TxPrivateLogs,
+}
+
 /// Returns the effects of the last transaction included by the TXE.
-///
-/// The returned tuple is `(tx_hash, note_hashes, nullifiers, private_logs)`. See [`TxPrivateLog`]
-/// for the shape of each private log entry.
-pub unconstrained fn get_last_tx_effects() -> (Field, TxNoteHashes, TxNullifiers, TxPrivateLogs) {
+pub unconstrained fn get_last_tx_effects() -> TxEffects {
     let (tx_hash, note_hashes, nullifiers, raw_log_storage, log_lengths, log_count) =
         get_last_tx_effects_oracle();
 
@@ -112,7 +117,7 @@ pub unconstrained fn get_last_tx_effects() -> (Field, TxNoteHashes, TxNullifiers
         private_logs.push(BoundedVec::from_parts(raw_log_storage[i], log_lengths[i]));
     }
 
-    (tx_hash, note_hashes, nullifiers, private_logs)
+    TxEffects { tx_hash, note_hashes, nullifiers, private_logs }
 }
 
 #[oracle(aztec_txe_getLastTxEffects)]

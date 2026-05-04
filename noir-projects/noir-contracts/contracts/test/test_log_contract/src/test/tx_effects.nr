@@ -13,13 +13,25 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
 }
 
 #[test]
+unconstrained fn get_last_tx_effects_returns_no_private_logs_when_none_emitted() {
+    let (env, contract_address, sender) = setup();
+    let test_log = TestLog::at(contract_address);
+
+    env.call_public(sender, test_log.emit_unencrypted_events([1, 2, 3, 4]));
+
+    let private_logs = txe_oracles::get_last_tx_effects().private_logs;
+
+    assert_eq(private_logs.len(), 0);
+}
+
+#[test]
 unconstrained fn get_last_tx_effects_returns_emitted_private_log() {
     let (env, contract_address, sender) = setup();
     let test_log = TestLog::at(contract_address);
 
     env.call_private(sender, test_log.emit_raw_private_log(RAW_TAG, PAYLOAD));
 
-    let (_, _, _, private_logs) = txe_oracles::get_last_tx_effects();
+    let private_logs = txe_oracles::get_last_tx_effects().private_logs;
 
     assert_eq(private_logs.len(), 1);
 
@@ -57,7 +69,7 @@ unconstrained fn get_last_tx_effects_returns_multiple_private_logs_with_varying_
         ),
     );
 
-    let (_, _, _, private_logs) = txe_oracles::get_last_tx_effects();
+    let private_logs = txe_oracles::get_last_tx_effects().private_logs;
 
     assert_eq(private_logs.len(), 3);
 
