@@ -50,9 +50,6 @@ pub contract HandshakeRegistry {
     ///    from `eph_pk` via their own ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
     ///    [`generate_positive_ephemeral_key_pair`] convention, so only `eph_pk.x` is transmitted.
     ///
-    /// `sender` is the identity the handshake is recorded under. The registry deliberately accepts it as a
-    /// parameter rather than reading it from the PXE-supplied default.
-    ///
     /// # Reverts
     /// If `recipient` is not a valid curve point. There are no upstream side effects in this call frame to
     /// protect, and a fallback would insert a permanent note recording a handshake with an invalid recipient,
