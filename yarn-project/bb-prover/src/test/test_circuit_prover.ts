@@ -48,20 +48,14 @@ import { ProtocolCircuitVks } from '@aztec/noir-protocol-circuits-types/server/v
 import { mapProtocolArtifactNameToCircuitName } from '@aztec/noir-protocol-circuits-types/types';
 import type { WitnessMap } from '@aztec/noir-types';
 import { type CircuitSimulator, WASMSimulatorWithBlobs, emitCircuitSimulationStats } from '@aztec/simulator/server';
-import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { type AvmProvingInputs, AvmProvingResult } from '@aztec/stdlib/block_execution';
 import {
   type PublicInputsAndRecursiveProof,
   type ServerCircuitProver,
   makePublicInputsAndRecursiveProof,
 } from '@aztec/stdlib/interfaces/server';
 import type { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
-import {
-  type Proof,
-  ProvingRequestType,
-  RecursiveProof,
-  makeEmptyRecursiveProof,
-  makeRecursiveProof,
-} from '@aztec/stdlib/proofs';
+import { type Proof, ProvingRequestType, makeEmptyRecursiveProof, makeRecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BlockMergeRollupPrivateInputs,
   type BlockRollupPublicInputs,
@@ -402,13 +396,14 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getAvmProof(_inputs: AvmCircuitInputs): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+  public async getAvmProof(inputs: AvmProvingInputs): Promise<AvmProvingResult> {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
-    // We just return an empty proof.
+    // We just return an empty proof, with the passenger data passed through.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
-    return this.applyDelay(ProvingRequestType.PUBLIC_VM, () =>
+    const proof = await this.applyDelay(ProvingRequestType.PUBLIC_VM, () =>
       makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
     );
+    return new AvmProvingResult(proof, inputs.executionTxData);
   }
 
   public executeBlock(): Promise<never> {

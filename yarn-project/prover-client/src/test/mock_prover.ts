@@ -5,7 +5,7 @@ import {
   RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
 import { times } from '@aztec/foundation/collection';
-import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { type AvmProvingInputs, AvmProvingResult } from '@aztec/stdlib/block_execution';
 import {
   type ProvingJob,
   type ProvingJobId,
@@ -103,8 +103,10 @@ export class TestBroker implements ProvingJobProducer {
 export class MockProver implements ServerCircuitProver {
   constructor() {}
 
-  getAvmProof(_inputs: AvmCircuitInputs, _signal?: AbortSignal, _epochNumber?: number) {
-    return Promise.resolve(makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED));
+  getAvmProof(inputs: AvmProvingInputs, _signal?: AbortSignal, _epochNumber?: number): Promise<AvmProvingResult> {
+    return Promise.resolve(
+      new AvmProvingResult(makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED), inputs.executionTxData),
+    );
   }
 
   executeBlock(): Promise<never> {

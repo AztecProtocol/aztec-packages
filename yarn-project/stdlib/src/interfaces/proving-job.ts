@@ -1,5 +1,4 @@
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -9,8 +8,7 @@ import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
 
-import { AvmCircuitInputs } from '../avm/avm.js';
-import { AvmProvingRequestSchema } from '../avm/avm_proving_request.js';
+import { AvmProvingInputs, AvmProvingResult } from '../block_execution/avm_proving_job.js';
 import { BlockExecutionInputs } from '../block_execution/block_execution_inputs.js';
 import { BlockExecutionResult } from '../block_execution/block_execution_result.js';
 import { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
@@ -82,7 +80,7 @@ export function makePublicInputsAndRecursiveProof<T, N extends number = typeof N
 }
 
 export const ProvingJobInputs = z.discriminatedUnion('type', [
-  AvmProvingRequestSchema,
+  z.object({ type: z.literal(ProvingRequestType.PUBLIC_VM), inputs: AvmProvingInputs.schema }),
   z.object({ type: z.literal(ProvingRequestType.PARITY_BASE), inputs: ParityBasePrivateInputs.schema }),
   z.object({ type: z.literal(ProvingRequestType.PARITY_ROOT), inputs: ParityRootPrivateInputs.schema }),
   z.object({
@@ -139,7 +137,7 @@ export const ProvingJobInputs = z.discriminatedUnion('type', [
 export function getProvingJobInputClassFor(type: ProvingRequestType) {
   switch (type) {
     case ProvingRequestType.PUBLIC_VM:
-      return AvmCircuitInputs;
+      return AvmProvingInputs;
     case ProvingRequestType.PUBLIC_CHONK_VERIFIER:
       return PublicChonkVerifierPrivateInputs;
     case ProvingRequestType.PRIVATE_TX_BASE_ROLLUP:
@@ -186,7 +184,7 @@ export function getProvingJobInputClassFor(type: ProvingRequestType) {
 export type ProvingJobInputs = z.infer<typeof ProvingJobInputs>;
 
 export type ProvingJobInputsMap = {
-  [ProvingRequestType.PUBLIC_VM]: AvmCircuitInputs;
+  [ProvingRequestType.PUBLIC_VM]: AvmProvingInputs;
   [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: PublicChonkVerifierPrivateInputs;
   [ProvingRequestType.PRIVATE_TX_BASE_ROLLUP]: PrivateTxBaseRollupPrivateInputs;
   [ProvingRequestType.PUBLIC_TX_BASE_ROLLUP]: PublicTxBaseRollupPrivateInputs;
@@ -210,7 +208,7 @@ export type ProvingJobInputsMap = {
 export const ProvingJobResult = z.discriminatedUnion('type', [
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_VM),
-    result: RecursiveProof.schemaFor(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
+    result: AvmProvingResult.schema,
   }),
   z.object({
     type: z.literal(ProvingRequestType.PUBLIC_CHONK_VERIFIER),
@@ -329,7 +327,7 @@ export const ProvingJobResult = z.discriminatedUnion('type', [
 ]);
 export type ProvingJobResult = z.infer<typeof ProvingJobResult>;
 export type ProvingJobResultsMap = {
-  [ProvingRequestType.PUBLIC_VM]: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
+  [ProvingRequestType.PUBLIC_VM]: AvmProvingResult;
   [ProvingRequestType.PUBLIC_CHONK_VERIFIER]: PublicInputsAndRecursiveProof<
     PublicChonkVerifierPublicInputs,
     typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH

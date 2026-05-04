@@ -3,7 +3,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
-import { BlockExecutionInputs, BlockExecutionResult } from '@aztec/stdlib/block_execution';
+import { AvmProvingInputs, BlockExecutionInputs, BlockExecutionResult } from '@aztec/stdlib/block_execution';
 import {
   type ForkMerkleTreeOperations,
   type ProvingJobProducer,
@@ -122,7 +122,7 @@ export class BlockExecutionHandler implements ServerCircuitProver {
         const inputsUri = await this.proofStore.saveProofInput(
           jobId,
           ProvingRequestType.PUBLIC_VM,
-          ptx.avmProvingRequest.inputs,
+          AvmProvingInputs.fromAvmCircuitInputs(ptx.avmProvingRequest.inputs),
         );
         await this.broker.enqueueProvingJob({
           id: jobId,
