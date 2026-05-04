@@ -335,7 +335,7 @@ function main {
   # (bb, pxe, txe, ...) are intentionally NOT exposed as they would shadow
   # user-installed tools.
   echo -n "Making aztec commands available... "
-  dump_fail retry install_npm_bin_symlinks
+  dump_fail install_npm_bin_symlinks
   # Wrap `aztec` so its subprocesses see internal-bin on PATH.
   dump_fail install_aztec_wrapper
   echo_green "done."
