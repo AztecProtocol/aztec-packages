@@ -103,6 +103,11 @@ function test {
 }
 
 function bench_cmds {
+  # Per-flow IVC and UltraHonk circuit benches glob over $bench_fixtures_dir / $ultrahonk_bench_dir
+  # at command-generation time. Populate them first (idempotent on cache hit) so the loops below
+  # actually emit commands instead of silently expanding to nothing.
+  build_bench 1>&2
+
   echo "$hash:ISOLATE=1:NAME=bench_build_block BENCH_OUTPUT=bench-out/build-block.bench.json yarn-project/end-to-end/scripts/run_test.sh simple bench_build_block"
   echo "$hash:ISOLATE=1:CPUS=8:NAME=tx_stats BB_IVC_CONCURRENCY=1 BB_NUM_IVC_VERIFIERS=8 BENCH_OUTPUT=bench-out/tx_stats.bench.json yarn-project/end-to-end/scripts/run_test.sh simple tx_stats_bench"
   echo "$hash:ISOLATE=1:NAME=node_rpc_perf BENCH_OUTPUT=bench-out/node_rpc_perf.bench.json yarn-project/end-to-end/scripts/run_test.sh simple node_rpc_perf"
