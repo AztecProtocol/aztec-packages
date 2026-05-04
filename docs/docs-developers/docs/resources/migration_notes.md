@@ -23,17 +23,23 @@ const result = await contract.methods.read_balance(account).simulate({
 
 The same option flows through `wallet.simulateTx` and eventually to `simulatePublicCalls` RPC on `AztecNode`.
 
-A separate top-level option, `contractOverrides`, swaps contract instances in the simulator's contract DB — useful for simulating a contract being on a different class than the one it was deployed with. To simulate a complete on-chain upgrade flow, use the `fastForwardContractUpdate` helper which returns both `stateOverrides` and `contractOverrides`:
+`.simulate(...)` also accepts `contractOverrides` - an array of `ContractInstanceWithAddress` that override deployed instances at their addresses. Applied on both the AVM (public dispatch) and PXE (private dispatch via ACIR) sides. Register the new class artifact locally first via `wallet.registerContractClass(artifact)` (newly exposed for this purpose) so PXE has the ACIR.
+
+To simulate a complete on-chain upgrade flow, use the `fastForwardContractUpdate` helper. It returns both `stateOverrides` (registry storage rewrites) and `contractOverrides` (instance with bumped class id). Register the new artifact locally via `wallet.registerContractClass(artifact)` first:
 
 ```typescript
-import { fastForwardContractUpdate } from '@aztec/aztec.js';
+import { fastForwardContractUpdate, getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
 
+await wallet.registerContractClass(UpdatedContract.artifact);
+
+const newClassId = (await getContractClassFromArtifact(UpdatedContract.artifact)).id;
 const overrides = await fastForwardContractUpdate({
   instanceAddress: contract.address,
-  newClassId: upgradedClass.id,
+  newClassId,
   node,
 });
-const result = await contract.methods.upgraded_method().simulate({ ...overrides });
+const upgradedContract = UpdatedContract.at(contract.address, wallet);
+const result = await upgradedContract.methods.upgraded_method().simulate({ ...overrides });
 ```
 
 ### [PXE] `proveTx` takes an options bag

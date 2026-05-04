@@ -38,9 +38,9 @@ export class ProxiedContractStoreFactory {
           }
           case 'getFunctionArtifact': {
             return async (contractAddress: AztecAddress, selector: FunctionSelector) => {
-              if (overrides[contractAddress.toString()]) {
-                const { artifact } = overrides[contractAddress.toString()]!;
-                const functions = artifact.functions;
+              const override = overrides[contractAddress.toString()];
+              if (override?.artifact) {
+                const functions = override.artifact.functions;
                 for (let i = 0; i < functions.length; i++) {
                   const fn = functions[i];
                   const fnSelector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
@@ -58,9 +58,9 @@ export class ProxiedContractStoreFactory {
           }
           case 'getFunctionArtifactWithDebugMetadata': {
             return async (contractAddress: AztecAddress, selector: FunctionSelector) => {
-              if (overrides[contractAddress.toString()]) {
-                const { artifact } = overrides[contractAddress.toString()]!;
-                const functions = artifact.functions;
+              const override = overrides[contractAddress.toString()];
+              if (override?.artifact) {
+                const functions = override.artifact.functions;
                 for (let i = 0; i < functions.length; i++) {
                   const fn = functions[i];
                   const fnSelector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);

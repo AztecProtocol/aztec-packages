@@ -208,4 +208,29 @@ describe('e2e_contract_updates', () => {
       contract.methods.set_public_value(5678n).simulate({ from: defaultAccountAddress }),
     ).resolves.toBeDefined();
   });
+
+  // UpdatedContract.set_private_value is a private function that doesn't exist on UpdatableContract.
+  // For PXE-side ACIR dispatch to find it, the artifact must be registered locally first via
+  // wallet.registerContractClass; the helper itself only takes the class id.
+  it('fastForwardContractUpdate enables simulation of post-upgrade private calls', async () => {
+    const updatedContract = UpdatedContract.at(contract.address, wallet);
+
+    // Without overrides (and without local artifact registration), the new private function isn't
+    // available on the deployed class.
+    await expect(
+      updatedContract.methods.set_private_value().simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow();
+
+    // Register the new artifact in the local PXE so the ACIR simulator can find its private functions.
+    await wallet.registerContractClass(UpdatedContract.artifact);
+
+    const overrides = await fastForwardContractUpdate({
+      instanceAddress: contract.address,
+      newClassId: updatedContractClassId,
+      node: aztecNode,
+    });
+    await expect(
+      updatedContract.methods.set_private_value().simulate({ from: defaultAccountAddress, ...overrides }),
+    ).resolves.toBeDefined();
+  });
 });

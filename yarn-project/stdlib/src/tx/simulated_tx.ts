@@ -24,14 +24,27 @@ import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simu
 import { Tx } from './tx.js';
 
 /*
- * If passed during the execution of a user circuit, the contract function simulator will replace the instance and class
- * of the contract with the one provided in the overrides for that address. An example use case
- * would be overriding your own account contract so that valid signatures don't have to be provided while simulating.
+ * Per-address contract DB overrides applied during simulation. For each address, replaces the
+ * (instance, optional artifact) pair the simulator uses for that address:
+ *
+ * - `instance` is always applied. The AVM-side PublicContractsDB uses it for public-call dispatch;
+ *   the PXE-side ACIR simulator uses it to resolve address → class id.
+ * - `artifact` is optional. When present, the PXE-side simulator uses the override artifact for
+ *   ACIR/function lookups during private execution. When absent, PXE falls back to whatever artifact
+ *   is registered for the override's `instance.currentContractClassId`.
+ *
+ * Common use cases: simulating an upgraded class without scheduling a real upgrade; overriding your
+ * own account contract so signatures don't need to be valid during simulation.
  */
 export type ContractOverrides = Record<
   string /* AztecAddress as string */,
-  { instance: ContractInstanceWithAddress; artifact: ContractArtifact }
+  { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }
 >;
+
+export const ContractOverridesSchema = z.record(
+  z.string(),
+  z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema.optional() }),
+);
 
 /*
  * Optional values that can be overridden during simulation. In order to simulate a transaction with these
@@ -50,7 +63,7 @@ export class SimulationOverrides {
         contracts: optional(
           z.record(
             z.string(),
-            z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
+            z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema.optional() }),
           ),
         ),
       })

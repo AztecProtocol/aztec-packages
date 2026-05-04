@@ -57,6 +57,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
   BlockHeader,
   ExecutionPayload,
+  SimulationOverrides,
   type TxExecutionRequest,
   type TxProfileResult,
   type UtilityExecutionResult,
@@ -354,6 +355,10 @@ export abstract class BaseWallet implements Wallet {
     return instance;
   }
 
+  registerContractClass(artifact: ContractArtifact): Promise<void> {
+    return this.pxe.registerContractClass(artifact);
+  }
+
   /**
    * Simulates calls through the standard PXE path (account entrypoint).
    * @param executionPayload - The execution payload to simulate.
@@ -373,6 +378,11 @@ export abstract class BaseWallet implements Wallet {
       senderForTags: this.senderForTagsFrom(opts.from, opts.sendMessagesAs),
       stateOverrides: opts.stateOverrides,
       contractOverrides: opts.contractOverrides,
+      overrides: opts.contractOverrides?.length
+        ? new SimulationOverrides(
+            Object.fromEntries(opts.contractOverrides.map(instance => [instance.address.toString(), { instance }])),
+          )
+        : undefined,
     });
     const appCallOffset = await this.computeAppCallOffset(opts.from, opts.feeOptions);
     return TxSimulationResultWithAppOffset.fromResultAndOffset(result, appCallOffset);

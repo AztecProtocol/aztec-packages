@@ -67,9 +67,12 @@ Test that invalid operations revert as expected:
 
 Use `.simulate()` to test reverts without spending gas. The simulation will throw if the transaction would fail onchain.
 
-## Simulating with state overrides
+## Simulating with state and contract overrides
 
-`.simulate()` accepts a `stateOverrides` option that injects values into the simulator's ephemeral world-state fork before the call runs. The override is scoped to that single simulation; the real chain state is untouched.
+`.simulate()` accepts two override options that are scoped to that single simulation; real chain state is untouched.
+
+- `stateOverrides`: state-tree overrides (e.g. `publicStorage` writes).
+- `contractOverrides`: an array of `ContractInstanceWithAddress` to override deployed contract instances. Register the new class artifact locally first via `wallet.registerContractClass(artifact)`.
 
 Override a public-storage slot:
 
@@ -81,26 +84,37 @@ const result = await contract.methods.read_balance(account).simulate({
 });
 ```
 
-Use this to:
+Use these to:
 
 - Set up state preconditions without running a full setup transaction
 - Reproduce a bug from production by pinning storage to the values seen at a specific block
+- Simulate a contract instance as if it had been upgraded
 - Test branches that depend on rare values without orchestrating the contract calls that produce them
 
 ### Fast-forwarding a contract update
 
-`fastForwardContractUpdate` builds the full set of overrides needed to simulate a deployed instance as if it had already been upgraded to a new contract class. The new class must already be registered on chain. The cheat mirrors a real `pxe.updateContract` followed by waiting out the upgrade delay: the instance's `currentContractClassId` is bumped, and the `ContractInstanceRegistry`'s delayed-public-mutable storage is rewritten to look like the upgrade was scheduled in the past.
+`fastForwardContractUpdate` builds the override blobs needed to simulate a deployed instance as if it had already been upgraded to a new contract class. The new class must already be registered on chain. Mirrors a real `pxe.updateContract` followed by waiting out the upgrade delay.
+
+It returns `stateOverrides` (registry storage rewrites) and `contractOverrides` (instance with bumped class id). A single spread covers any mix of private and public function calls on the upgraded contract.
+
+Register the new class artifact in your local PXE first via `wallet.registerContractClass(artifact)`.
 
 ```typescript
 import { fastForwardContractUpdate } from '@aztec/aztec.js';
+import { getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
 
+// One-time local PXE registration of the new class artifact
+await wallet.registerContractClass(UpdatedContract.artifact);
+
+const newClassId = (await getContractClassFromArtifact(UpdatedContract.artifact)).id;
 const overrides = await fastForwardContractUpdate({
   instanceAddress: contract.address,
-  newClassId: upgradedClass.id,
+  newClassId,
   node,
 });
 
-const result = await contract.methods.upgraded_method().simulate({ ...overrides });
+const upgradedContract = UpdatedContract.at(contract.address, wallet);
+const result = await upgradedContract.methods.upgraded_method().simulate({ ...overrides });
 ```
 
 Use this to test code paths that only execute after an upgrade, without orchestrating the full delayed-mutable upgrade flow.

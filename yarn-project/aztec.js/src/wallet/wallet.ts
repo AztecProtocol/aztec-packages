@@ -272,6 +272,12 @@ export type Wallet = {
     artifact?: ContractArtifact,
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
+  /**
+   * Registers a contract class artifact in the local PXE without binding it to any instance.
+   * Useful for simulation flows that need the artifact available locally before any on-chain
+   * upgrade has taken effect. The artifact's class id must match its content; no chain check.
+   */
+  registerContractClass(artifact: ContractArtifact): Promise<void>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset>;
   executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
@@ -560,6 +566,7 @@ const WalletMethodSchemas = {
     .function()
     .args(ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
     .returns(ContractInstanceWithAddressSchema),
+  registerContractClass: z.function().args(ContractArtifactSchema).returns(z.void()),
   simulateTx: z
     .function()
     .args(ExecutionPayloadSchema, SimulateOptionsSchema)
