@@ -110,6 +110,11 @@ These resources help you understand Aztec concepts, read docs, or provide additi
   These are especially useful as context for code generation since they reflect the current API surface.
 
 - **llms.txt** - The docs site publishes `llms.txt` and `llms-full.txt` at [docs.aztec.network/llms.txt](https://docs.aztec.network/llms.txt) for automatic LLM discovery. Many AI tools can consume these files directly to index documentation.
+- **Markdown page variants** - Every versioned developer and operate page has a clean markdown sibling. Two ways to fetch it:
+  - Append `.md` to the URL: `https://docs.aztec.network/developers/<slug>.md` and `https://docs.aztec.network/operate/<slug>.md`.
+  - Send `Accept: text/markdown` to the canonical URL: `curl -H 'Accept: text/markdown' https://docs.aztec.network/developers/<slug>`. The site honours content negotiation per [acceptmarkdown.com](https://acceptmarkdown.com/) / RFC 9110.
+
+  MDX components (images, tabs, snippets) are resolved at build time so the markdown reads cleanly for both humans and LLMs.
 - **Reference repositories** - Point your AI tool at these repos for additional context:
   - [AztecProtocol/aztec-packages](https://github.com/AztecProtocol/aztec-packages) - main monorepo, best general reference
   - [AztecProtocol/aztec-starter](https://github.com/AztecProtocol/aztec-starter) - smaller starter project, easier for onboarding
