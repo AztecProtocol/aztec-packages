@@ -181,12 +181,34 @@ unconstrained fn duplicate_handshake_accumulates_distinct_secrets() {
         "ephemeral keys should differ across repeated handshakes",
     );
 
-    // `get_handshake` returns the first match by view order
     assert(
         env
             .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
             .is_some(),
         "get_handshake should still return a note when duplicates exist",
+    );
+}
+
+#[test]
+unconstrained fn get_handshake_returns_most_recent_note() {
+    // After a second handshake to the same `(sender, recipient, type)`, `get_handshake` must return the new
+    // note, not the original one.
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let first = env
+        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
+        .expect(f"first handshake note should be present");
+
+    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let latest = env
+        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
+        .expect(f"second handshake note should be present");
+
+    assert(
+        first.secret_hash != latest.secret_hash,
+        "should return the most recent note, not the first",
     );
 }
 

@@ -83,8 +83,11 @@ pub contract HandshakeRegistry {
         self.context.emit_private_log_vec_unsafe(log_tag, BoundedVec::from_array([eph_pk.x]));
     }
 
-    /// Returns the first [`HandshakeNote`] held for `sender_for_tags` matching `(recipient, handshake_type)`,
-    /// or `None` if no such note exists.
+    /// Returns the most recently inserted [`HandshakeNote`] held for `sender` matching
+    /// `(recipient, handshake_type)`, or `None` if no such note exists.
+    ///
+    /// Returning the latest (rather than the first) lets a sender re-initiate by issuing a fresh handshake; e.g.
+    /// if the previous secret was leaked.
     ///
     /// This is the discovery surface a contract uses (via oracle) to obtain a note hint before asserting existence
     /// of the note at this registry's address.
@@ -94,12 +97,13 @@ pub contract HandshakeRegistry {
         recipient: AztecAddress,
         handshake_type: u8,
     ) -> Option<HandshakeNote> {
-        // We pull all notes for `sender_for_tags` and filter (recipient, handshake_type) below.
-        let notes =
-            self.storage.handshakes.at(sender_for_tags).view_notes(NoteViewerOptions::new());
+        // We pull all notes for `sender` and filter (recipient, handshake_type) below, walking from the end so the
+        // first hit is the most recently inserted match.
+        let notes = self.storage.handshakes.at(sender).view_notes(NoteViewerOptions::new());
         let mut found: Option<HandshakeNote> = Option::none();
-        for i in 0..notes.len() {
-            let note = notes.get(i);
+        let len = notes.len();
+        for i in 0..len {
+            let note = notes.get(len - 1 - i);
             if (note.recipient == recipient) & (note.handshake_type == handshake_type) {
                 found = Option::some(note);
                 break;
