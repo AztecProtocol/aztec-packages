@@ -131,6 +131,8 @@ class MegaTraceBusReadBlock : public MegaTraceBlock {
         q_elliptic().emplace_back(0);
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
+        q_5().emplace_back(0);
+        q_6().emplace_back(0);
         q_poseidon2_external_compressed().emplace_back(0);
         q_poseidon2_external_initial().emplace_back(0);
         q_poseidon2_transition_entry_k8().emplace_back(0);
@@ -155,6 +157,8 @@ class MegaTraceLookupBlock : public MegaTraceBlock {
         q_elliptic().emplace_back(0);
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
+        q_5().emplace_back(0);
+        q_6().emplace_back(0);
         q_poseidon2_external_compressed().emplace_back(0);
         q_poseidon2_external_initial().emplace_back(0);
         q_poseidon2_transition_entry_k8().emplace_back(0);
@@ -179,6 +183,8 @@ class MegaTraceArithmeticBlock : public MegaTraceBlock {
         q_elliptic().emplace_back(0);
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
+        q_5().emplace_back(0);
+        q_6().emplace_back(0);
         q_poseidon2_external_compressed().emplace_back(0);
         q_poseidon2_external_initial().emplace_back(0);
         q_poseidon2_transition_entry_k8().emplace_back(0);
@@ -203,6 +209,8 @@ class MegaTraceDeltaRangeBlock : public MegaTraceBlock {
         q_elliptic().emplace_back(0);
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
+        q_5().emplace_back(0);
+        q_6().emplace_back(0);
         q_poseidon2_external_compressed().emplace_back(0);
         q_poseidon2_external_initial().emplace_back(0);
         q_poseidon2_transition_entry_k8().emplace_back(0);
@@ -227,6 +235,8 @@ class MegaTraceEllipticBlock : public MegaTraceBlock {
         gate_selector.emplace_back(value);
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
+        q_5().emplace_back(0);
+        q_6().emplace_back(0);
         q_poseidon2_external_compressed().emplace_back(0);
         q_poseidon2_external_initial().emplace_back(0);
         q_poseidon2_transition_entry_k8().emplace_back(0);
@@ -251,6 +261,8 @@ class MegaTraceMemoryBlock : public MegaTraceBlock {
         q_elliptic().emplace_back(0);
         gate_selector.emplace_back(value);
         q_nnf().emplace_back(0);
+        q_5().emplace_back(0);
+        q_6().emplace_back(0);
         q_poseidon2_external_compressed().emplace_back(0);
         q_poseidon2_external_initial().emplace_back(0);
         q_poseidon2_transition_entry_k8().emplace_back(0);
@@ -275,6 +287,8 @@ class MegaTraceNonNativeFieldBlock : public MegaTraceBlock {
         q_elliptic().emplace_back(0);
         q_memory().emplace_back(0);
         gate_selector.emplace_back(value);
+        q_5().emplace_back(0);
+        q_6().emplace_back(0);
         q_poseidon2_external_compressed().emplace_back(0);
         q_poseidon2_external_initial().emplace_back(0);
         q_poseidon2_transition_entry_k8().emplace_back(0);
