@@ -171,7 +171,12 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     // checkpoints whose target slot is at or after the slot we waited for, assert every checkpoint is fully
     // filled (BLOCKS_PER_CHECKPOINT blocks × TXS_PER_BLOCK txs each) and the checkpoint tx landed in the 1st
     // or 2nd L1 block of the target slot.
-    const blocks = await nodes[0].getCheckpointedBlocks(BlockNumber(1), 50);
+    const blocks = await nodes[0].getBlocks(BlockNumber(1), 50, {
+      includeL1PublishInfo: true,
+      includeAttestations: true,
+      includeTransactions: true,
+      onlyCheckpointed: true,
+    });
     const ethereumSlotDuration = test.L1_BLOCK_TIME_IN_S;
     const checkpoints = chunkBy(blocks, b => Number(b.checkpointNumber));
     let checkedFullCheckpoints = 0;

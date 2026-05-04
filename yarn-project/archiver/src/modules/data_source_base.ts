@@ -167,18 +167,6 @@ export abstract class ArchiverDataSourceBase
     return this.stores.blocks.getBlockNumber(resolved);
   }
 
-  public getProvenBlockNumber(): Promise<BlockNumber> {
-    return this.stores.blocks.getProvenBlockNumber();
-  }
-
-  public getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
-    return this.stores.blocks.getCheckpointedL2BlockNumber();
-  }
-
-  public getFinalizedL2BlockNumber(): Promise<BlockNumber> {
-    return this.stores.blocks.getFinalizedL2BlockNumber();
-  }
-
   /**
    * Resolves a {@link CheckpointQuery} to a concrete `CheckpointNumber`, or undefined when the
    * query refers to a position that has no checkpoint yet (e.g. `{ slot }` not found).

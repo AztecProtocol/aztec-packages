@@ -170,7 +170,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async getLastBlockTimestamp() {
-    return (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.timestamp;
+    return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
   async getLastTxEffects() {
@@ -409,7 +409,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       senderForTags: from,
       simulator,
       messageContextService: this.stateMachine.messageContextService,
-      l2TipsStore: this.stateMachine.node,
+      l2TipsStore: this.stateMachine.l2TipsProvider,
     });
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
@@ -775,7 +775,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         privateEventStore: this.privateEventStore,
         messageContextService: this.stateMachine.messageContextService,
         contractSyncService: this.stateMachine.contractSyncService,
-        l2TipsStore: this.stateMachine.node,
+        l2TipsStore: this.stateMachine.l2TipsProvider,
         jobId,
         scopes,
         simulator,
@@ -808,7 +808,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {
-    const header = await this.stateMachine.node.getBlockHeader('latest');
-    return header ? header.globalVariables.blockNumber : BlockNumber.ZERO;
+    const block = await this.stateMachine.node.getBlock('latest');
+    return block ? block.header.globalVariables.blockNumber : BlockNumber.ZERO;
   }
 }

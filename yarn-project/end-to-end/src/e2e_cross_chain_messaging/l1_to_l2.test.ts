@@ -67,7 +67,11 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         if (!isCheckpointed) {
           return undefined;
         }
-        const [checkpointedBlock] = await aztecNode.getCheckpointedBlocks(blockNumber, 1);
+        const [checkpointedBlock] = await aztecNode.getBlocks(blockNumber, 1, {
+          includeL1PublishInfo: true,
+          includeAttestations: true,
+          onlyCheckpointed: true,
+        });
         return checkpointedBlock.checkpointNumber;
       },
       'wait for block to checkpoint',
@@ -206,7 +210,11 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     async (scope: 'private' | 'public') => {
       // Stop proving
       const lastProven = await aztecNode.getBlockNumber();
-      const [checkpointedProvenBlock] = await aztecNode.getCheckpointedBlocks(lastProven, 1);
+      const [checkpointedProvenBlock] = await aztecNode.getBlocks(lastProven, 1, {
+        includeL1PublishInfo: true,
+        includeAttestations: true,
+        onlyCheckpointed: true,
+      });
       log.warn(`Stopping proof submission at checkpoint ${checkpointedProvenBlock.checkpointNumber} to allow drift`);
       t.context.watcher.setIsMarkingAsProven(false);
 

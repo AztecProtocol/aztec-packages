@@ -4,6 +4,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
+import { isL1ToL2MessageReady, waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { createBlobClient } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
@@ -101,10 +102,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     };
 
     /** Returns the last synced checkpoint number for a node */
-    const getCheckpointNumber = (node: AztecNode) => node.getL2Tips().then(tips => tips.checkpointed.checkpoint.number);
+    const getCheckpointNumber = (node: AztecNode) =>
+      node.getChainTips().then(tips => tips.checkpointed.checkpoint.number);
 
     /** Returns the last proven checkpoint number for a node */
-    const getProvenCheckpointNumber = (node: AztecNode) => node.getL2Tips().then(tips => tips.proven.checkpoint.number);
+    const getProvenCheckpointNumber = (node: AztecNode) =>
+      node.getChainTips().then(tips => tips.proven.checkpoint.number);
 
     it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
       /** Logs a full state snapshot: L1 latest/finalized and archiver L2 tips. */
@@ -469,12 +472,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       });
       logger.warn(`Sent messages on L1 blocks ${msgs.map(m => m.txReceipt.blockNumber)}`);
 
-      await retryUntil(
-        () => node.isL1ToL2MessageSynced(msgs.at(-1)!.msgHash),
-        'message sync',
-        msgs.length * L1_BLOCK_TIME_IN_S * 2,
-        1,
-      );
+      await waitForL1ToL2MessageReady(node, msgs.at(-1)!.msgHash, {
+        timeoutSeconds: msgs.length * L1_BLOCK_TIME_IN_S * 2,
+      });
 
       // Reorg the last message out
       logger.warn(`Triggering reorg to remove last message`);
@@ -485,9 +485,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       logger.warn(`Sent new message on L1 block ${newMsg.txReceipt.blockNumber}`);
 
       // New msg gets synced, and old one is out
-      await retryUntil(() => node.isL1ToL2MessageSynced(newMsg.msgHash), 'new message sync', L1_BLOCK_TIME_IN_S * 6, 1);
-      expect(await node.isL1ToL2MessageSynced(msgs[0].msgHash)).toBe(true);
-      expect(await node.isL1ToL2MessageSynced(msgs.at(-1)!.msgHash)).toBe(false);
+      await waitForL1ToL2MessageReady(node, newMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 6 });
+      expect(await isL1ToL2MessageReady(node, msgs[0].msgHash)).toBe(true);
+      expect(await isL1ToL2MessageReady(node, msgs.at(-1)!.msgHash)).toBe(false);
 
       // Verify multi-block checkpoints were built
       await test.assertMultipleBlocksPerSlot(2);
@@ -502,7 +502,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       logger.warn(`Sending first cross chain message`);
       const firstMsg = await sendMessage();
       logger.warn(`Sent first message on L1 block ${firstMsg.txReceipt.blockNumber}`);
-      await retryUntil(() => node.isL1ToL2MessageSynced(firstMsg.msgHash), '1st msg sync', L1_BLOCK_TIME_IN_S * 3, 1);
+      await waitForL1ToL2MessageReady(node, firstMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 3 });
       logger.warn(`Synced first message`);
 
       // Next message shall not land
@@ -528,7 +528,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       // Archiver should see the new message and should be able to accept a third one on top, without any rolling hash issues
       logger.warn(`Reorged-in second message on L1 block ${secondMsg.txReceipt.blockNumber}. Sending third message.`);
       const thirdMsg = await sendMessage();
-      await retryUntil(() => node.isL1ToL2MessageSynced(thirdMsg.msgHash), '3rd msg sync', L1_BLOCK_TIME_IN_S * 3, 1);
+      await waitForL1ToL2MessageReady(node, thirdMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 3 });
 
       // Verify multi-block checkpoints were built
       await test.assertMultipleBlocksPerSlot(2);

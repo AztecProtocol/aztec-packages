@@ -1,6 +1,6 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -9,15 +9,21 @@ import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/prov
 import { WASMSimulator } from '@aztec/simulator/client';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, GENESIS_BLOCK_HEADER_HASH, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  BlockHash,
+  GENESIS_BLOCK_HEADER_HASH,
+  GENESIS_CHECKPOINT_HEADER_HASH,
+} from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
-import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import { SiloedTag } from '@aztec/stdlib/logs';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
   randomDeployedContract,
 } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
@@ -182,10 +188,28 @@ describe('PXE', () => {
       const blockHeader = BlockHeader.empty({
         globalVariables,
       });
-      node.getBlockHeader.mockResolvedValue(blockHeader);
-      node.getBlock.mockResolvedValue({ header: blockHeader } as any);
+      const blockHash = BlockHash.random();
+      const archive = AppendOnlyTreeSnapshot.empty();
+      const checkpointNumber = CheckpointNumber.fromBlockNumber(lastKnownBlockNumber);
+      const blockResponse: BlockResponse = {
+        header: blockHeader,
+        archive,
+        hash: blockHash,
+        checkpointNumber,
+        indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
+        number: lastKnownBlockNumber,
+      };
+      const blockData: BlockData = {
+        header: blockHeader,
+        archive,
+        blockHash,
+        checkpointNumber,
+        indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
+      };
+      node.getBlock.mockResolvedValue(blockResponse);
+      node.getBlockData.mockResolvedValue(blockData);
 
-      // Mock getL2Tips which is needed for syncing tagged logs
+      // Mock getChainTips which is needed for syncing tagged logs
       const tipId = {
         block: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpoint: {
@@ -193,12 +217,11 @@ describe('PXE', () => {
           hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
         },
       };
-      node.getL2Tips.mockResolvedValue({
+      node.getChainTips.mockResolvedValue({
         proposed: { number: lastKnownBlockNumber, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
         checkpointed: tipId,
         proven: tipId,
         finalized: tipId,
-        proposedCheckpoint: tipId,
       });
 
       // This is read when PXE tries to resolve the
@@ -289,7 +312,6 @@ describe('PXE', () => {
     describe('filtering', () => {
       let eventsInPastBlocks: PackedPrivateEvent[];
       let eventsInLatestKnownBlock: PackedPrivateEvent[];
-      let _eventsInNotYetSyncedBlocks: PackedPrivateEvent[];
 
       beforeEach(async () => {
         eventsInPastBlocks = await Promise.all([
@@ -302,10 +324,8 @@ describe('PXE', () => {
           storeEvent(lastKnownBlockNumber),
         ]);
 
-        _eventsInNotYetSyncedBlocks = await Promise.all([
-          storeEvent(lastKnownBlockNumber + 1),
-          storeEvent(lastKnownBlockNumber + 1),
-        ]);
+        // Events in not-yet-synced blocks; stored only to verify they are filtered out.
+        await Promise.all([storeEvent(lastKnownBlockNumber + 1), storeEvent(lastKnownBlockNumber + 1)]);
 
         await privateEventStore.commit('test');
       });

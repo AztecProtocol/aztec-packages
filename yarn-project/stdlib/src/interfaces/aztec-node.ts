@@ -19,10 +19,11 @@ import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { z } from 'zod';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import { type BlockData, BlockDataSchema } from '../block/block_data.js';
 import { BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { type CheckpointsQuery, CheckpointsQuerySchema, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { type CheckpointsQuery, CheckpointsQuerySchema } from '../block/l2_block_source.js';
 import { type CheckpointData, CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
@@ -43,7 +44,6 @@ import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import {
-  BlockHeader,
   type IndexedTxEffect,
   PublicSimulationOutput,
   Tx,
@@ -63,6 +63,8 @@ import {
   BlockIncludeOptionsSchema,
   type BlockResponse,
   BlockResponseSchema,
+  type BlocksIncludeOptions,
+  BlocksIncludeOptionsSchema,
 } from './block_response.js';
 import { type ChainTip, ChainTipSchema, type ChainTips, ChainTipsSchema } from './chain_tips.js';
 import { type CheckpointParameter, CheckpointParameterSchema } from './checkpoint_parameter.js';
@@ -183,14 +185,6 @@ export interface AztecNode {
   getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined>;
 
   /**
-   * Returns whether an L1 to L2 message is synced by archiver.
-   * @param l1ToL2Message - The L1 to L2 message to check.
-   * @returns Whether the message is synced.
-   * @deprecated Use `getL1ToL2MessageCheckpoint` instead. This method may return true even if the message is not ready to use.
-   */
-  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
-
-  /**
    * Returns all the L2 to L1 messages in an epoch.
    * @param epoch - The epoch at which to get the data.
    * @returns A nested array of the L2 to L1 messages in each tx of each block in each checkpoint in the epoch (empty
@@ -217,16 +211,6 @@ export interface AztecNode {
   /** Returns the tips of the L2 chain. */
   getChainTips(): Promise<ChainTips>;
 
-  // TODO(spl/new-rpc-api): the following methods are kept on the interface as a stop-gap because
-  // `L2BlockStream` (used by PXE's block synchronizer) and `computeL2ToL1MembershipWitness` (used
-  // by end-to-end tests) still consume the internal archiver shapes. Remove them when those
-  // consumers are rewired to the unified `BlockResponse` / `CheckpointResponse` API.
-  /** @deprecated Scheduled for removal; use `getChainTips` for public callers. */
-  getL2Tips(): Promise<L2Tips>;
-  /** @deprecated Scheduled for removal; use `getBlock(param).then(r => r?.header)`. */
-  getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined>;
-  /** @deprecated Scheduled for removal; use `getBlocks(from, limit, { includeL1PublishInfo: true, includeAttestations: true })`. */
-  getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<BlockResponse[]>;
   /**
    * Gets lightweight checkpoint metadata for a contiguous range or for an entire epoch.
    * @param query - Either `{ from, limit }` or `{ epoch }`.
@@ -245,10 +229,17 @@ export interface AztecNode {
   ): Promise<BlockResponse<Opts> | undefined>;
 
   /**
+   * Lightweight block-metadata fetch. Returns the block identified by `param` without transaction
+   * bodies or other optional context. Cheaper than `getBlock` for header-only access.
+   * @param param - A block number, block hash, archive root, chain-tip name, or object variant.
+   */
+  getBlockData(param: BlockParameter): Promise<BlockData | undefined>;
+
+  /**
    * Returns up to `limit` blocks starting from `from`, projected to the {@link BlockResponse}
    * shape determined by `options`.
    */
-  getBlocks<Opts extends BlockIncludeOptions = {}>(
+  getBlocks<Opts extends BlocksIncludeOptions = {}>(
     from: BlockNumber,
     limit: number,
     options?: Opts,
@@ -547,8 +538,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getL1ToL2MessageCheckpoint: z.function().args(schemas.Fr).returns(CheckpointNumberSchema.optional()),
 
-  isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
-
   getL2ToL1Messages: z
     .function()
     .args(EpochNumberSchema)
@@ -560,18 +549,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getChainTips: z.function().args().returns(ChainTipsSchema),
 
-  getL2Tips: z.function().args().returns(L2TipsSchema),
-
-  getBlockHeader: z
-    .function()
-    .args(z.union([BlockNumberSchema, z.literal('latest')]))
-    .returns(BlockHeader.schema.optional()),
-
-  getCheckpointedBlocks: z
-    .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(BlockResponseSchema)),
-
   getCheckpointsData: z.function().args(CheckpointsQuerySchema).returns(z.array(CheckpointDataSchema)),
 
   getBlock: z
@@ -579,9 +556,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(BlockParameterSchema, optional(BlockIncludeOptionsSchema))
     .returns(BlockResponseSchema.optional()),
 
+  getBlockData: z.function().args(BlockParameterSchema).returns(BlockDataSchema.optional()),
+
   getBlocks: z
     .function()
-    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN), optional(BlockIncludeOptionsSchema))
+    .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN), optional(BlocksIncludeOptionsSchema))
     .returns(z.array(BlockResponseSchema)),
 
   getCheckpoint: z

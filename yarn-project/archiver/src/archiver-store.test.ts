@@ -995,13 +995,13 @@ describe('Archiver Store', () => {
       // Mark checkpoints 1 and 2 as proven and finalized
       await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(2));
       await archiverStore.blocks.setFinalizedCheckpointNumber(CheckpointNumber(2));
-      expect(await archiver.getFinalizedL2BlockNumber()).toEqual(BlockNumber(4));
+      expect(await archiver.getBlockNumber({ tag: 'finalized' })).toEqual(BlockNumber(4));
 
       // Roll back to block 2 (end of checkpoint 1), which is before finalized block 4
       await archiver.rollbackTo(BlockNumber(2));
 
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
-      expect(await archiver.getFinalizedL2BlockNumber()).toEqual(BlockNumber(2));
+      expect(await archiver.getBlockNumber({ tag: 'finalized' })).toEqual(BlockNumber(2));
     });
 
     it('preserves finalized checkpoint number when target is after finalized block', async () => {
@@ -1016,13 +1016,13 @@ describe('Archiver Store', () => {
       // Mark checkpoint 1 as finalized, checkpoint 2 as proven
       await archiverStore.blocks.setProvenCheckpointNumber(CheckpointNumber(2));
       await archiverStore.blocks.setFinalizedCheckpointNumber(CheckpointNumber(1));
-      expect(await archiver.getFinalizedL2BlockNumber()).toEqual(BlockNumber(2));
+      expect(await archiver.getBlockNumber({ tag: 'finalized' })).toEqual(BlockNumber(2));
 
       // Roll back to block 4 (end of checkpoint 2), which is after finalized block 2
       await archiver.rollbackTo(BlockNumber(4));
 
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
-      expect(await archiver.getFinalizedL2BlockNumber()).toEqual(BlockNumber(2));
+      expect(await archiver.getBlockNumber({ tag: 'finalized' })).toEqual(BlockNumber(2));
     });
   });
 

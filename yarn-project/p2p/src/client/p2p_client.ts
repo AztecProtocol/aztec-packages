@@ -639,7 +639,7 @@ export class P2PClient extends WithTracer implements P2P {
       // are already proven, but the archiver has not yet updated its state. Until this is properly
       // fixed, it is mitigated by the expiration date of collection requests, which depends on
       // the slot number of the block.
-      const provenBlockNumber = await this.l2BlockSource.getProvenBlockNumber();
+      const provenBlockNumber = (await this.l2BlockSource.getBlockNumber({ tag: 'proven' })) ?? BlockNumber.ZERO;
       const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
       for (const block of unprovenBlocks) {
         const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);

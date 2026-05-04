@@ -293,9 +293,6 @@ describe('L1Publisher integration', () => {
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
       },
-      getProvenBlockNumber(): Promise<BlockNumber> {
-        return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
-      },
     });
 
     const worldStateConfig: WorldStateConfig = {
