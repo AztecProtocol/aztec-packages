@@ -374,6 +374,55 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
         EXPECT_CIRCUIT_CORRECTNESS(builder);
     }
 
+    /**
+     * @brief Pins the invariant that `secp256k1_ecdsa_mul` constrains the unused `u2_lo` stagger fragment to 0.
+     *
+     * Mirrors the `compute_secp256k1_endo_wnaf<4, 0, 1>` + `assert_equal(0)` sequence from `secp256k1_ecdsa_mul`,
+     * confirms the honest fragment is 0, and verifies that tampering with the witness causes the circuit to be
+     * rejected by `CircuitChecker::check`.
+     */
+    static void test_secp256k1_ecdsa_mul_u2_lo_stagger_fragment_constrained()
+    {
+        // Honest case: the u2_lo fragment is identically 0 in all stagger configurations.
+        {
+            Builder builder = Builder();
+            scalar_ct scalar = scalar_ct::from_witness(&builder, fr::random_element());
+
+            // (lo_stagger=0, hi_stagger=1) — used by `secp256k1_ecdsa_mul` for `u2`.
+            const auto pair_u2 = element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(scalar, false);
+            EXPECT_EQ(pair_u2.klo.least_significant_wnaf_fragment.get_value(), 0);
+
+            // (lo_stagger=1, hi_stagger=0) — symmetric: stagger==0 on the high half.
+            const auto pair_swap = element_ct::template compute_secp256k1_endo_wnaf<4, 1, 0>(scalar, false);
+            EXPECT_EQ(pair_swap.khi.least_significant_wnaf_fragment.get_value(), 0);
+
+            EXPECT_CIRCUIT_CORRECTNESS(builder);
+        }
+
+        // Tampering case: reproduce the exact sequence from `secp256k1_ecdsa_mul`, then overwrite the fragment
+        // witness and verify the assertion rejects it. `BB_DISABLE_ASSERTS` lets us call `set_variable` outside
+        // of vk-write mode.
+        {
+            BB_DISABLE_ASSERTS();
+            Builder builder = Builder();
+            scalar_ct scalar = scalar_ct::from_witness(&builder, fr::random_element());
+
+            const auto pair = element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(scalar, false);
+            pair.klo.least_significant_wnaf_fragment.assert_equal(
+                0, "secp256k1_ecdsa_mul: u2_lo stagger fragment must be 0");
+
+            EXPECT_TRUE(CircuitChecker::check(builder));
+
+            const uint32_t fragment_idx = pair.klo.least_significant_wnaf_fragment.get_witness_index();
+            const auto backup = builder.get_variable(fragment_idx);
+            using FF = typename Builder::FF;
+            builder.set_variable(fragment_idx, FF(1));
+            EXPECT_FALSE(CircuitChecker::check(builder));
+            builder.set_variable(fragment_idx, backup);
+            EXPECT_TRUE(CircuitChecker::check(builder));
+        }
+    }
+
     static void test_secp256k1_ecdsa_mul_point_at_infinity_fails()
     {
         // ============================================================================
@@ -478,4 +527,8 @@ TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1StaggerRegression)
 TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1PointAtInfinityFails)
 {
     TestFixture::test_secp256k1_ecdsa_mul_point_at_infinity_fails();
+}
+TYPED_TEST(stdlibBiggroupSecp256k1, EcdsaMulSecp256k1U2LoStaggerFragmentConstrained)
+{
+    TestFixture::test_secp256k1_ecdsa_mul_u2_lo_stagger_fragment_constrained();
 }

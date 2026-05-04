@@ -229,8 +229,7 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     secp256k1_wnaf wnaf_out{ .wnaf = wnaf,
                              .positive_skew = positive_skew,
                              .negative_skew = negative_skew,
-                             .least_significant_wnaf_fragment = stagger_fragment,
-                             .has_wnaf_fragment = (stagger > 0) };
+                             .least_significant_wnaf_fragment = stagger_fragment };
 
     return std::make_pair(reconstructed, wnaf_out);
 }

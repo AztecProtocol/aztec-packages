@@ -115,6 +115,10 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::secp256k1_ecdsa_mul(const element& 
     accumulator += add_2;
     accumulator += add_3;
 
+    // Since the stagger in u2_lo is 0, the stagger fragment is therefore an unused witness. We enforce it to be 0
+    // to ensure a malicious prover cannot poison the reconstruction of the scalar.
+    u2_lo_wnaf.least_significant_wnaf_fragment.assert_equal(0, "secp256k1_ecdsa_mul: u2_lo stagger fragment must be 0");
+
     /**
      * Handle wNAF skew.
      *
