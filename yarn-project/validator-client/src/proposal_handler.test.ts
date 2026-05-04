@@ -211,6 +211,30 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(blockSource.syncImmediate).toHaveBeenCalled();
     });
 
+    // Regression for A-1013: cache used to key by (archive, slot) which let two proposals at the
+    // same slot+archive but with a different feeAssetPriceModifier share the same cache entry.
+    it('does not cache across proposals that share archive and slot but differ in feeAssetPriceModifier', async () => {
+      blockSource.getBlockData.mockResolvedValue(undefined);
+      const sharedHeader = makeCheckpointHeader(0, { slotNumber: SlotNumber(1) });
+      const sharedArchive = Fr.random();
+
+      const proposalA = await makeProposal({
+        checkpointHeader: sharedHeader,
+        archiveRoot: sharedArchive,
+        feeAssetPriceModifier: 50n,
+      });
+      await handler.handleCheckpointProposal(proposalA, proposalInfo);
+      blockSource.syncImmediate.mockClear();
+
+      const proposalB = await makeProposal({
+        checkpointHeader: sharedHeader,
+        archiveRoot: sharedArchive,
+        feeAssetPriceModifier: -50n,
+      });
+      await handler.handleCheckpointProposal(proposalB, proposalInfo);
+      expect(blockSource.syncImmediate).toHaveBeenCalled();
+    });
+
     it('returns block_fetch_error when getBlockData throws', async () => {
       blockSource.getBlockData.mockRejectedValue(new Error('db connection failed'));
 

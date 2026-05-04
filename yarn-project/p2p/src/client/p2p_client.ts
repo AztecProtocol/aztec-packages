@@ -1,5 +1,10 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  type CheckpointProposalHash,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -379,10 +384,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public async getCheckpointAttestationsForSlot(
     slot: SlotNumber,
-    proposalId?: string,
+    proposalPayloadHash?: CheckpointProposalHash,
   ): Promise<CheckpointAttestation[]> {
-    return await (proposalId
-      ? this.attestationPool.getCheckpointAttestationsForSlotAndProposal(slot, proposalId)
+    return await (proposalPayloadHash
+      ? this.attestationPool.getCheckpointAttestationsForSlotAndProposal(slot, proposalPayloadHash)
       : this.attestationPool.getCheckpointAttestationsForSlot(slot));
   }
 

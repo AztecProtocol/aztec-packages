@@ -4,7 +4,12 @@ import { type Blob, encodeCheckpointBlobDataFromBlocks, getBlobsPerL1Block } fro
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { validateFeeAssetPriceModifier } from '@aztec/ethereum/contracts';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  type CheckpointProposalHash,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
@@ -88,10 +93,11 @@ type CheckpointComputationResult =
 export class ProposalHandler {
   public readonly tracer: Tracer;
 
-  /** Cached last checkpoint validation result to avoid double-validation on validator nodes. */
+  /** Cached last checkpoint validation result to avoid double-validation on validator nodes.
+   *  Keyed by signed-payload hash so two proposals at the same (slot, archive) but with a
+   *  different `feeAssetPriceModifier` (or any other signed field) are validated independently. */
   private lastCheckpointValidationResult?: {
-    archive: Fr;
-    slotNumber: SlotNumber;
+    payloadHash: CheckpointProposalHash;
     result: CheckpointProposalValidationResult;
   };
 
@@ -735,13 +741,10 @@ export class ProposalHandler {
     proposalInfo: LogData,
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;
+    const payloadHash = proposal.getPayloadHash();
 
-    // Check cache: same archive+slot means we already validated this proposal
-    if (
-      this.lastCheckpointValidationResult &&
-      this.lastCheckpointValidationResult.archive.equals(proposal.archive) &&
-      this.lastCheckpointValidationResult.slotNumber === slot
-    ) {
+    // Check cache: same signed-payload hash means we already validated this exact proposal.
+    if (this.lastCheckpointValidationResult && this.lastCheckpointValidationResult.payloadHash === payloadHash) {
       this.log.debug(`Returning cached validation result for checkpoint proposal at slot ${slot}`, proposalInfo);
       return this.lastCheckpointValidationResult.result;
     }
@@ -750,7 +753,7 @@ export class ProposalHandler {
     if (!proposer) {
       this.log.warn(`Received checkpoint proposal with invalid signature for slot ${proposal.slotNumber}`);
       const result: CheckpointProposalValidationResult = { isValid: false, reason: 'invalid_signature' };
-      this.lastCheckpointValidationResult = { archive: proposal.archive, slotNumber: slot, result };
+      this.lastCheckpointValidationResult = { payloadHash, result };
       return result;
     }
 
@@ -759,12 +762,12 @@ export class ProposalHandler {
         `Received checkpoint proposal with invalid feeAssetPriceModifier ${proposal.feeAssetPriceModifier} for slot ${proposal.slotNumber}`,
       );
       const result: CheckpointProposalValidationResult = { isValid: false, reason: 'invalid_fee_asset_price_modifier' };
-      this.lastCheckpointValidationResult = { archive: proposal.archive, slotNumber: slot, result };
+      this.lastCheckpointValidationResult = { payloadHash, result };
       return result;
     }
 
     const result = await this.validateCheckpointProposal(proposal, proposalInfo);
-    this.lastCheckpointValidationResult = { archive: proposal.archive, slotNumber: slot, result };
+    this.lastCheckpointValidationResult = { payloadHash, result };
 
     // Upload blobs to filestore if validation passed (fire and forget)
     if (result.isValid) {
