@@ -5,11 +5,12 @@ import { MAX_FEE_ASSET_PRICE_MODIFIER_BPS } from '@aztec/ethereum/contracts';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import type { FieldsOf } from '@aztec/foundation/types';
+import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
-import type { L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
@@ -75,7 +76,7 @@ describe('ProposalHandler checkpoint validation', () => {
       l1GenesisTime: 0n,
       slotDuration: 24,
       epochDuration: 8,
-    } as any);
+    } as L1RollupConstants);
     epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
     epochCache.pipeliningOffset.mockReturnValue(1);
 
@@ -133,7 +134,7 @@ describe('ProposalHandler checkpoint validation', () => {
     });
 
     it('returns no_blocks_for_slot when no blocks exist for the slot', async () => {
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as any);
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
       blockSource.getBlocksForSlot.mockResolvedValue([]);
 
       const result = await handler.handleCheckpointProposal(await makeProposal(), proposalInfo);
@@ -141,7 +142,7 @@ describe('ProposalHandler checkpoint validation', () => {
     });
 
     it('returns last_block_archive_mismatch when last block archive does not match', async () => {
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as any);
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
       const blocks = [
         { archive: new AppendOnlyTreeSnapshot(Fr.random(), 1), number: 1 },
         { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
@@ -171,7 +172,7 @@ describe('ProposalHandler checkpoint validation', () => {
       );
 
       const archiveRoot = Fr.random();
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
       const blocks = [
         { archive: new AppendOnlyTreeSnapshot(Fr.random(), 1), number: 1 },
         { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
@@ -234,7 +235,7 @@ describe('ProposalHandler checkpoint validation', () => {
         checkpointNumber: CheckpointNumber(3),
         header: { getBlockNumber: () => 9 },
         indexWithinCheckpoint: 2,
-      } as any;
+      } as BlockData;
       blockSource.getBlockData.mockResolvedValue(blockData);
 
       jest
@@ -265,7 +266,7 @@ describe('ProposalHandler checkpoint validation', () => {
         header: { globalVariables: GlobalVariables.empty({ slotNumber: SlotNumber(1) }) },
       } as unknown as L2Block;
 
-      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as any);
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as BlockData);
       blockSource.getBlocksForSlot.mockResolvedValue([block]);
 
       mockDispose = jest.fn();
@@ -360,7 +361,7 @@ describe('ProposalHandler checkpoint validation', () => {
         gasFees: header.gasFees,
         timestamp: header.timestamp,
       });
-      (blockHeader as any).lastArchive = new AppendOnlyTreeSnapshot(lastArchiveRoot, 0);
+      unfreeze(blockHeader).lastArchive = new AppendOnlyTreeSnapshot(lastArchiveRoot, 0);
 
       const minimalBlock = {
         archive: new AppendOnlyTreeSnapshot(archiveRoot, 1),

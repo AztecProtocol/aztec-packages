@@ -1,13 +1,22 @@
-import { BlockNumber, CheckpointNumber, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  type EpochNumber,
+  IndexWithinCheckpoint,
+  type SlotNumber,
+} from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
+  type BlockHash,
   type BlockQuery,
   type BlockTag,
   type BlocksQuery,
+  Body,
   L2Block,
   type L2Tips,
 } from '@aztec/stdlib/block';
@@ -25,13 +34,21 @@ import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
-import type { IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
+import type { BlockHeader, IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiverDataSource } from '../interfaces.js';
 import type { ResolvedBlockQuery, ResolvedBlocksQuery } from '../store/block_store.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { ValidateCheckpointResult } from './validation.js';
+
+/**
+ * Sentinel returned by {@link ArchiverDataSourceBase#resolveBlockQuery} when a query resolves
+ * to the genesis block. Forces single-block lookup methods to take the genesis branch
+ * explicitly rather than silently falling through to the BlockStore (which never has a block 0).
+ */
+type GenesisBlockQuery = { genesis: true };
 
 /**
  * Abstract base class implementing ArchiverDataSource using a bundle of archiver substores.
@@ -41,10 +58,60 @@ import type { ValidateCheckpointResult } from './validation.js';
 export abstract class ArchiverDataSourceBase
   implements ArchiverDataSource, L2LogsSource, ContractDataSource, L1ToL2MessageSource
 {
+  /** The injected genesis block header. */
+  protected readonly initialHeader: BlockHeader;
+  /** Precomputed hash of the initial header, exposed via {@link getGenesisBlockHash}. */
+  protected readonly initialBlockHash: BlockHash;
+  /** Archive root after block 0 was appended — read from L1 (`Rollup.getGenesisArchiveTreeRoot`). */
+  protected readonly genesisArchiveRoot: Fr;
+
   constructor(
     protected readonly stores: ArchiverDataStores,
-    protected readonly l1Constants?: L1RollupConstants,
-  ) {}
+    protected readonly l1Constants: L1RollupConstants | undefined,
+    initialHeader: BlockHeader,
+    initialBlockHash: BlockHash,
+    genesisArchiveRoot: Fr,
+  ) {
+    this.initialHeader = initialHeader;
+    this.initialBlockHash = initialBlockHash;
+    this.genesisArchiveRoot = genesisArchiveRoot;
+  }
+
+  /** Returns the precomputed hash of the genesis block header. */
+  public getGenesisBlockHash(): BlockHash {
+    return this.initialBlockHash;
+  }
+
+  /** Returns the genesis L2Block. */
+  private getGenesisBlock(): L2Block {
+    return new L2Block(
+      new AppendOnlyTreeSnapshot(this.genesisArchiveRoot, 1),
+      this.initialHeader,
+      Body.empty(),
+      CheckpointNumber.ZERO,
+      IndexWithinCheckpoint(0),
+    );
+  }
+
+  /** Returns genesis block data. */
+  private getGenesisBlockData(): BlockData {
+    return {
+      header: this.initialHeader,
+      archive: new AppendOnlyTreeSnapshot(this.genesisArchiveRoot, 1),
+      blockHash: this.initialBlockHash,
+      checkpointNumber: CheckpointNumber.ZERO,
+      indexWithinCheckpoint: IndexWithinCheckpoint(0),
+    };
+  }
+
+  /**
+   * Type guard distinguishing the genesis sentinel from a {@link ResolvedBlockQuery}.
+   * `resolveBlockQuery` already rewrites every genesis-matching shape to the sentinel,
+   * so callers only need this single sync check.
+   */
+  private isGenesisBlockQuery(query: ResolvedBlockQuery | GenesisBlockQuery): query is GenesisBlockQuery {
+    return 'genesis' in query;
+  }
 
   abstract getRollupAddress(): Promise<EthAddress>;
 
@@ -85,8 +152,11 @@ export abstract class ArchiverDataSourceBase
       return this.stores.blocks.getLatestL2BlockNumber();
     }
     const resolved = await this.resolveBlockQuery(query);
-    if (!resolved) {
+    if (resolved === undefined) {
       return undefined;
+    }
+    if (this.isGenesisBlockQuery(resolved)) {
+      return BlockNumber.ZERO;
     }
     return this.stores.blocks.getBlockNumber(resolved);
   }
@@ -284,9 +354,21 @@ export abstract class ArchiverDataSourceBase
 
   public async getBlock(query: BlockQuery): Promise<L2Block | undefined> {
     const resolved = await this.resolveBlockQuery(query);
-    return resolved ? this.stores.blocks.getBlock(resolved) : undefined;
+    if (resolved === undefined) {
+      return undefined;
+    }
+    if (this.isGenesisBlockQuery(resolved)) {
+      return this.getGenesisBlock();
+    }
+    return this.stores.blocks.getBlock(resolved);
   }
 
+  /**
+   * Range queries iterate physical blocks only; the genesis block is NOT prepended.
+   * `L2BlockStream` consumers (`world-state.handleL2Blocks`, etc.) emit `blocks-added` events for
+   * real blocks and would be surprised by a synthetic block 0. Use {@link getBlock} or
+   * {@link getBlockData} for genesis-aware single-block lookups.
+   */
   public async getBlocks(query: BlocksQuery): Promise<L2Block[]> {
     const resolved = await this.resolveBlocksQuery(query);
     return resolved ? this.stores.blocks.getBlocks(resolved) : [];
@@ -294,26 +376,40 @@ export abstract class ArchiverDataSourceBase
 
   public async getBlockData(query: BlockQuery): Promise<BlockData | undefined> {
     const resolved = await this.resolveBlockQuery(query);
-    return resolved ? this.stores.blocks.getBlockData(resolved) : undefined;
+    if (resolved === undefined) {
+      return undefined;
+    }
+    if (this.isGenesisBlockQuery(resolved)) {
+      return this.getGenesisBlockData();
+    }
+    return this.stores.blocks.getBlockData(resolved);
   }
 
+  /** See {@link getBlocks} — range queries do not prepend the genesis block. */
   public async getBlocksData(query: BlocksQuery): Promise<BlockData[]> {
     const resolved = await this.resolveBlocksQuery(query);
     return resolved ? this.stores.blocks.getBlocksData(resolved) : [];
   }
 
   /**
-   * Resolves a tag-based BlockQuery to a number-based query understood by BlockStore.
-   * Returns undefined when the tag points at block 0 (genesis / no blocks yet) so callers
-   * can short-circuit without entering BlockStore.
+   * Resolves a {@link BlockQuery} to either the genesis sentinel or a {@link ResolvedBlockQuery}
+   * understood by BlockStore. Detects every shape that points at block 0 — `{number:0}`,
+   * `{hash}` matching the initial header, `{archive}` matching the post-genesis archive root,
+   * and `{tag}` resolving to 0 — and rewrites them to the sentinel so callers branch once.
    */
-  private async resolveBlockQuery(query: BlockQuery): Promise<ResolvedBlockQuery | undefined> {
-    if (!('tag' in query)) {
-      return query;
+  private async resolveBlockQuery(query: BlockQuery): Promise<ResolvedBlockQuery | GenesisBlockQuery | undefined> {
+    if ('number' in query) {
+      return query.number === BlockNumber.ZERO ? { genesis: true } : query;
+    }
+    if ('hash' in query) {
+      return query.hash.equals(this.initialBlockHash) ? { genesis: true } : query;
+    }
+    if ('archive' in query) {
+      return query.archive.equals(this.genesisArchiveRoot) ? { genesis: true } : query;
     }
     const number = await this.resolveBlockTag(query.tag);
     if (number === BlockNumber.ZERO) {
-      return undefined;
+      return { genesis: true };
     }
     return { number };
   }
@@ -340,6 +436,12 @@ export abstract class ArchiverDataSourceBase
    */
   private async resolveBlocksQuery(query: BlocksQuery): Promise<ResolvedBlocksQuery | undefined> {
     if (!('epoch' in query)) {
+      if (query.from < INITIAL_L2_BLOCK_NUM) {
+        throw new Error(
+          `getBlocks/getBlocksData: 'from' must be >= ${INITIAL_L2_BLOCK_NUM}, got ${query.from}. ` +
+            `Use getBlock({number:0})/getBlockData({number:0}) for genesis-aware single-block lookups.`,
+        );
+      }
       return query;
     }
     const checkpointNumbers = await this.getCheckpointNumbersForEpoch(query.epoch);

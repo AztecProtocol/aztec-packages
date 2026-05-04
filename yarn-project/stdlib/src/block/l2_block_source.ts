@@ -201,6 +201,12 @@ export interface L2BlockSource {
   /** Returns values for the genesis block */
   getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }>;
 
+  /**
+   * Returns the precomputed hash of the genesis block header. Synchronous because the hash
+   * is derived from the initial block header at construction time and cached by implementers.
+   */
+  getGenesisBlockHash(): BlockHash;
+
   /** Latest synced L1 timestamp. */
   getL1Timestamp(): Promise<bigint | undefined>;
 

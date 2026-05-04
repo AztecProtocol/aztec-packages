@@ -1,7 +1,8 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -58,6 +59,8 @@ describe('world-state integration', () => {
     archiver = new MockPrefilledArchiver(checkpoints);
 
     db = (await createWorldState(config)) as NativeWorldStateService;
+    await archiver.setInitialHeader(db.getInitialHeader());
+    archiver.setGenesisArchiveRoot(new Fr(GENESIS_ARCHIVE_ROOT));
     synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
     log.info(`Created synchronizer`);
   }, 30_000);

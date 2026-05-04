@@ -4,7 +4,13 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import { BlockHash, GENESIS_CHECKPOINT_HEADER_HASH, L2Block, type L2BlockStream } from '@aztec/stdlib/block';
+import {
+  BlockHash,
+  GENESIS_BLOCK_HEADER_HASH,
+  GENESIS_CHECKPOINT_HEADER_HASH,
+  L2Block,
+  type L2BlockStream,
+} from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -52,7 +58,7 @@ describe('BlockSynchronizer', () => {
     store = await openTmpStore('test');
     blockStream = mock<L2BlockStream>();
     aztecNode = mock<AztecNode>();
-    tipsStore = new L2TipsKVStore(store, 'pxe');
+    tipsStore = new L2TipsKVStore(store, 'pxe', GENESIS_BLOCK_HEADER_HASH);
     anchorBlockStore = new AnchorBlockStore(store);
     noteStore = new NoteStore(store);
     privateEventStore = new PrivateEventStore(store);

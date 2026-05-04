@@ -25,7 +25,13 @@ import { EthCheatCodesWithState, RollupCheatCodes, startAnvil } from '@aztec/eth
 import type { Anvil } from '@aztec/ethereum/test';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { range } from '@aztec/foundation/array';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  EpochNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
@@ -42,10 +48,12 @@ import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-co
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import {
+  type BlockData,
+  type BlockQuery,
   type BlocksQuery,
+  Body,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
-  GENESIS_BLOCK_HEADER_HASH,
   L2Block,
   type L2Tips,
   Signature,
@@ -63,13 +71,9 @@ import {
 } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { fr, mockProcessedTx } from '@aztec/stdlib/testing';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import type { BlockHeader, CheckpointGlobalVariables, ProcessedTx } from '@aztec/stdlib/tx';
-import {
-  type MerkleTreeAdminDatabase,
-  NativeWorldStateService,
-  ServerWorldStateSynchronizer,
-  type WorldStateConfig,
-} from '@aztec/world-state';
+import { NativeWorldStateService, ServerWorldStateSynchronizer, type WorldStateConfig } from '@aztec/world-state';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -110,7 +114,7 @@ describe('L1Publisher integration', () => {
 
   let publisher: SequencerPublisher;
 
-  let builderDb: MerkleTreeAdminDatabase;
+  let builderDb: NativeWorldStateService;
 
   // The header of the last block
   let prevHeader: BlockHeader;
@@ -203,12 +207,47 @@ describe('L1Publisher integration', () => {
 
     builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
     blocks = [];
+    // World-state derives block 0's hash from its initial header (which depends on prefilled state and
+    // genesisTimestamp), not from the static GENESIS_BLOCK_HEADER_HASH constant. The mock must report the
+    // same hash so L2BlockStream's reorg-search at genesis sees matching local/source hashes.
+    const initialHeader = builderDb.getInitialHeader();
+    const initialHeaderHash = (await initialHeader.hash()).toString();
+    const genesisArchiveSnapshot = new AppendOnlyTreeSnapshot(
+      deployL1ContractsArgs.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+      1,
+    );
+    const genesisBlock = new L2Block(
+      genesisArchiveSnapshot,
+      initialHeader,
+      Body.empty(),
+      CheckpointNumber.ZERO,
+      IndexWithinCheckpoint(0),
+    );
+    const genesisBlockData: BlockData = {
+      header: initialHeader,
+      archive: genesisArchiveSnapshot,
+      blockHash: await initialHeader.hash(),
+      checkpointNumber: CheckpointNumber.ZERO,
+      indexWithinCheckpoint: IndexWithinCheckpoint(0),
+    };
     blockSource = mock<ArchiverDataSource>({
       getBlocks(query: BlocksQuery) {
         if (!('from' in query)) {
           return Promise.resolve([]);
         }
         return Promise.resolve(blocks.slice(query.from - 1, query.from - 1 + query.limit));
+      },
+      getBlock(query: BlockQuery) {
+        if ('number' in query && Number(query.number) === 0) {
+          return Promise.resolve(genesisBlock);
+        }
+        return Promise.resolve(undefined);
+      },
+      getBlockData(query: BlockQuery) {
+        if ('number' in query && Number(query.number) === 0) {
+          return Promise.resolve(genesisBlockData);
+        }
+        return Promise.resolve(undefined);
       },
       async getCheckpoints(checkpointNumber, _limit) {
         // Test uses 1-block-per-checkpoint, so we find block by checkpoint number
@@ -234,7 +273,7 @@ describe('L1Publisher integration', () => {
         const latestBlock = blocks.at(-1);
         const blockId = latestBlock
           ? { number: latestBlock.number, hash: (await latestBlock.hash()).toString() }
-          : { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+          : { number: BlockNumber.ZERO, hash: initialHeaderHash };
         // Test uses 1-block-per-checkpoint, so checkpoint number equals block number
         const tipId = {
           block: blockId,

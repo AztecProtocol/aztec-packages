@@ -8,6 +8,7 @@ import type { P2PClient } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '@aztec/slasher';
 import {
   CommitteeAttestation,
+  GENESIS_BLOCK_HEADER_HASH,
   L2Block,
   type L2BlockSource,
   type L2BlockStream,
@@ -61,6 +62,7 @@ describe('sentinel', () => {
   beforeEach(async () => {
     epochCache = mock<EpochCache>();
     archiver = mock<L2BlockSource>();
+    archiver.getGenesisBlockHash.mockReturnValue(GENESIS_BLOCK_HEADER_HASH);
     p2p = mock<P2PClient>();
     blockStream = mock<L2BlockStream>();
 
