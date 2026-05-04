@@ -6,6 +6,8 @@ import type {
 } from '@aztec/constants';
 
 import type { AvmCircuitInputs } from '../avm/avm.js';
+import type { BlockExecutionInputs } from '../block_execution/block_execution_inputs.js';
+import type { BlockExecutionResult } from '../block_execution/block_execution_result.js';
 import type { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import type { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import type { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
@@ -190,6 +192,15 @@ export interface ServerCircuitProver {
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>;
+
+  /**
+   * Re-execute every transaction in an L2 block on a forked world state and enqueue
+   * the per-tx proving jobs (AVM, etc.) under deterministic IDs. The returned promise
+   * resolves once execution is complete and the dependent jobs are visible to the
+   * broker. Their proofs are picked up separately via the deterministic-ID monitor on
+   * the orchestrator side.
+   */
+  executeBlock(inputs: BlockExecutionInputs, signal?: AbortSignal, epochNumber?: number): Promise<BlockExecutionResult>;
 }
 
 export type IVCProofVerificationResult = {

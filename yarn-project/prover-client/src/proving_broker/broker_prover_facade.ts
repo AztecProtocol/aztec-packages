@@ -11,6 +11,7 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundatio
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { truncate } from '@aztec/foundation/string';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import type { BlockExecutionInputs, BlockExecutionResult } from '@aztec/stdlib/block_execution';
 import {
   type ProofUri,
   type ProvingJobId,
@@ -650,6 +651,39 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
       epochNumber,
       signal,
     );
+  }
+
+  executeBlock(
+    inputs: BlockExecutionInputs,
+    signal?: AbortSignal,
+    epochNumber?: EpochNumber,
+  ): Promise<BlockExecutionResult> {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.BLOCK_EXECUTION, inputs, epochNumber),
+      ProvingRequestType.BLOCK_EXECUTION,
+      inputs,
+      epochNumber,
+      signal,
+    );
+  }
+
+  /**
+   * Reserves a Promise for a job ID that the facade did not enqueue itself. Used by
+   * the orchestrator to await per-tx execution results (AVM, etc.) whose jobs are
+   * enqueued by an execution agent under deterministic IDs computed from
+   * `(epoch, blockNumber, slotNumber, txIndex)`. The reserved promise resolves once
+   * the broker reports the job complete via the same `monitorForCompletedJobs` path.
+   */
+  expectJob<T extends ProvingRequestType>(
+    id: ProvingJobId,
+    type: T,
+    signal?: AbortSignal,
+  ): Promise<ProvingJobResultsMap[T]> {
+    const { job } = this.getOrCreateProvingJob(id, type, signal);
+    if (signal && job.abortFn) {
+      signal.addEventListener('abort', job.abortFn);
+    }
+    return job.deferred.promise as Promise<ProvingJobResultsMap[T]>;
   }
 
   private generateId(

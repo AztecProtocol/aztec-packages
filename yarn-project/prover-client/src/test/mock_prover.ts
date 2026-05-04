@@ -107,6 +107,12 @@ export class MockProver implements ServerCircuitProver {
     return Promise.resolve(makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED));
   }
 
+  executeBlock(): Promise<never> {
+    return Promise.reject(
+      new Error('MockProver does not handle BLOCK_EXECUTION jobs; use a dedicated execution agent'),
+    );
+  }
+
   getBaseParityProof(_inputs: ParityBasePrivateInputs, _signal?: AbortSignal, _epochNumber?: number) {
     return Promise.resolve(
       makePublicInputsAndRecursiveProof(
