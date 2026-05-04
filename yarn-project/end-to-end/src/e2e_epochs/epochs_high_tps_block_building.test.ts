@@ -209,7 +209,7 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     // Check that we've gone through all checkpoints, and at least one checkpoint reached
     // expected number of blocks, and at least one block reached the expected number of txs.
     expect(checkedFullCheckpoints).toBe(CHECKPOINTS_TO_CHECK);
-    expect(Math.max(...blocks.map(b => b.block.body.txEffects.length))).toEqual(TXS_PER_BLOCK);
+    expect(Math.max(...blocks.map(b => b.body!.txEffects.length))).toEqual(TXS_PER_BLOCK);
     expect(Math.max(...checkpoints.map(c => c.length))).toEqual(BLOCKS_PER_CHECKPOINT);
 
     // Expect no failures from sequencers during block building. Filter out the self-proposal 'Rollup contract
