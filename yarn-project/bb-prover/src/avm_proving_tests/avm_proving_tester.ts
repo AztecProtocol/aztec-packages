@@ -137,6 +137,11 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     );
     if (proofRes.status === BB_RESULT.FAILURE) {
       this.logger.error(`Proof generation failed: ${proofRes.reason}`);
+      // Dump captured bb stdout/stderr so transient bb-avm crashes are debuggable from CI logs.
+      // Without this, bb output only surfaces when the test logger runs at verbose level.
+      for (const line of interceptingLogger.logs) {
+        this.logger.error(`bb-avm: ${line}`);
+      }
     }
     expect(proofRes.status).toEqual(BB_RESULT.SUCCESS);
 
