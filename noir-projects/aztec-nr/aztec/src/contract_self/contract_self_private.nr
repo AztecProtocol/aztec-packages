@@ -111,7 +111,7 @@ pub struct ContractSelfPrivate<Storage, CallSelf, EnqueueSelf, CallSelfStatic, E
     /// ```
     pub internal: CallInternal,
 
-    /// Gateway for calling utility functions from this private context.
+    /// Provides access to utility functions from this private context.
     ///
     /// Example API:
     /// ```noir
@@ -409,19 +409,20 @@ impl<Storage, CallSelf, EnqueueSelf, CallSelfStatic, EnqueueSelfStatic, CallInte
     }
 }
 
-/// Gateway for calling utility functions from a private context.
+/// Provides access to utility functions from a private context.
 ///
 /// Accessible via `self.utility` in private functions. Results are not part of any circuit
 /// proof; use them to inform logic, not as inputs to constrained assertions.
 ///
 /// ## Type Parameters
 ///
-/// - `CallSelfUtility`: Macro-generated type for calling the contract's own utility functions
+/// - `CallSelf`: Macro-generated type for calling the contract's own utility functions (same type
+/// as `CallSelf` in [`ContractSelfUtility`])
 // Implemented as a separate struct (rather than inlined in ContractSelfPrivate) because Noir does
 // not allow passing `&mut PrivateContext` (held by `ContractSelfPrivate`) into unconstrained code.
 // This struct holds no mutable references, so it can be passed freely into `unconstrained`
 // functions.
-pub struct ContractPrivateUtility<CallSelfUtility> {
+pub struct ContractPrivateUtility<CallSelf> {
     /// Provides type-safe methods for calling this contract's own utility functions.
     ///
     /// Example API:
@@ -429,10 +430,10 @@ pub struct ContractPrivateUtility<CallSelfUtility> {
     /// // Safety: result is unconstrained
     /// unsafe { self.utility.call_self.some_utility_function(args) }
     /// ```
-    pub call_self: CallSelfUtility,
+    pub call_self: CallSelf,
 }
 
-impl<CallSelfUtility> ContractPrivateUtility<CallSelfUtility> {
+impl<CallSelf> ContractPrivateUtility<CallSelf> {
     /// Makes a utility contract call from a private function.
     ///
     /// Note: only same-contract utility calls are currently supported. See TODO(F-29).
