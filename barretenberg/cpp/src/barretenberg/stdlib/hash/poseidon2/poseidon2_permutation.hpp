@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
+#include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 
 namespace bb::stdlib {
@@ -63,10 +64,13 @@ template <typename Builder> class Poseidon2Permutation {
     static State permutation(Builder* builder, const State& input);
 
     /**
-     * @brief In-circuit method to efficiently multiply the inital state by the external matrix \f$ M_E \f$. Uses 6
-     * aritmetic gates.
+     * @brief In-circuit method to multiply the initial state by the external matrix \f$ M_E \f$.
      */
-    static void matrix_multiplication_external(State& state);
+    static void matrix_multiplication_external(State& state)
+        requires IsMegaBuilder<Builder>;
+
+    static void matrix_multiplication_external(State& state)
+        requires(!IsMegaBuilder<Builder>);
 
     /**
      * @brief  The result of applying a round of Poseidon2 is stored in the next row and is accessed by Poseidon2

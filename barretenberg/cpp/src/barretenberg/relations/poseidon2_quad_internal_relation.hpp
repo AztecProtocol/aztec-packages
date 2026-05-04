@@ -11,7 +11,7 @@ namespace bb {
  * @details Processes FOUR consecutive internal rounds per row. The row stores state[0] at four
  * consecutive rounds:
  *     w_l = s_0^{(0)}, w_r = s_0^{(1)}, w_o = s_0^{(2)}, w_4 = s_0^{(3)}
- * plus this pair's 4 round constants in q_l, q_r, q_o, q_4 and the NEXT pair's first 3 round
+ * plus this quad's 4 round constants in q_l, q_r, q_o, q_4 and the NEXT quad's first 3 round
  * constants in q_m, q_c, q_5 (used for the shifted Vandermonde check).
  *
  * The non-S-boxed state elements (s_1, s_2, s_3) at round-start are DERIVED (not committed) by
@@ -93,7 +93,7 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
         const auto q_r = CoeffAcc(in.q_r); // c_{4i+1}
         const auto q_o = CoeffAcc(in.q_o); // c_{4i+2}
         const auto q_4 = CoeffAcc(in.q_4); // c_{4i+3}
-        // Next-pair round constants (for forward-Vandermonde shift-side check)
+        // Next-quad round constants (for forward-Vandermonde shift-side check)
         const auto q_m = CoeffAcc(in.q_m); // c_{4(i+1)}
         const auto q_c = CoeffAcc(in.q_c); // c_{4(i+1)+1}
         const auto q_5 = CoeffAcc(in.q_5); // c_{4(i+1)+2}

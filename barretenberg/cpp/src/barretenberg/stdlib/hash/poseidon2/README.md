@@ -136,7 +136,7 @@ Mega permutation rows
 1      poseidon2_quad_internal      q_poseidon2_transition_entry
 13     poseidon2_quad_internal      q_poseidon2_quad_internal
 1      poseidon2_quad_internal      q_poseidon2_quad_internal_terminal
-1      poseidon2_quad_internal      unconstrained standard bridge
+1      poseidon2_quad_internal      selector-unconstrained standard bridge
 4 + 1  poseidon2_external           final external rounds + propagate
 --
 27 rows
@@ -299,8 +299,8 @@ terminal quad row                  bridge row
 (s0^52, s0^53, s0^54, s0^55) --->  (s0^56, s1^56, s2^56, s3^56)
 ```
 
-The bridge row is unconstrained by its own selector, but its wire witnesses are constrained by
-the terminal relation and then copy-constrained into the final external block.
+The bridge row has no active selector of its own, but its wire witnesses are constrained by the
+terminal relation via shifted wires and then copy-constrained into the final external block.
 
 ## Soundness Argument
 
@@ -372,6 +372,10 @@ Mega removes `q_poseidon2_internal` and adds the following Poseidon2-specific se
 | `q_poseidon2_quad_internal` | Interior K=4 rows |
 | `q_poseidon2_quad_internal_terminal` | Quad-to-standard terminal boundary |
 | `q_5` | Non-gate selector for the next quad's third round constant |
+
+`q_m`, `q_c`, and `q_5` duplicate the next quad row's first three round constants on the current
+row. They are carried explicitly because Mega relations currently have shifted wire values but do
+not have shifted selector values such as `q_l_shift`, `q_r_shift`, or `q_o_shift`.
 
 Implementation entry points:
 

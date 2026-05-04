@@ -122,6 +122,10 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
     void finalize_circuit();
 
+    void create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in);
+    void create_poseidon2_quad_internal_gate(const poseidon2_quad_internal_gate_<FF>& in);
+    void create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in);
+
     size_t get_num_constant_gates() const override { return 0; }
 
     /**

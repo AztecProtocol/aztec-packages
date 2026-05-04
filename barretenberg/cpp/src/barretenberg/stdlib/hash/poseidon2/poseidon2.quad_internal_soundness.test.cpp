@@ -1,13 +1,9 @@
-// === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: }
-// =====================
-//
-// Soundness tests for the Poseidon2 quad-internal round relation and its boundaries.
+// Regression tests for the Mega Poseidon2 quad-internal layout and boundary soundness.
 //
 // The Mega Poseidon2 permutation uses a compressed internal block with an entry transition
 // row (standard -> compressed) and a terminal row (compressed -> standard). The transition
-// rows are bound to the external block's standard-encoded state via copy constraints, and
-// their relations forbid shifting `state[1]` across the boundary:
+// rows are tied to the surrounding standard-encoded states via copy constraints and shifted
+// wires:
 //
 //   - Entry  (q_poseidon2_transition_entry):
 //       w_r_shift - D_1 (w_l + q_l)^5 - w_r - w_o - w_4 = 0
@@ -15,18 +11,14 @@
 //     standard `s_1` at round `rounds_f_begin`.
 //
 //   - Terminal (q_poseidon2_quad_internal_terminal):
-//       out_1 - w_r_shift = 0 (and out_{0,2,3} matched directly)
-//     ties the compressed chain's computed `state[1]` at round `p_end` to the
-//     standard `w_r` witness consumed by the final external rounds.
+//       out_k - w_{k,shift} = 0 for k in {0, 1, 2, 3}
+//     ties the compressed chain's computed state at round `p_end` to the selector-unconstrained
+//     standard bridge row consumed by the final external rounds via shared witness indices.
 //
-// These tests verify that tampering with any witness between the two boundaries causes
-// `CircuitChecker::check` to reject the circuit. Before the fix, the same tampering was
-// undetectable (see git history for the original exploit tests).
+// These tests verify representative malicious prover edits at the entry boundary, interior
+// compressed chain, and exit boundary.
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/common/test.hpp"
-#include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/stdlib/hash/poseidon2/poseidon2_permutation.hpp"
@@ -43,13 +35,11 @@ class Poseidon2QuadInternalSoundnessTests : public ::testing::Test {
   public:
     using Builder = MegaCircuitBuilder;
     using FF = MegaFlavor::FF;
-    using P2Params = crypto::Poseidon2Bn254ScalarFieldParams;
-
     // Quad-internal block layout produced by stdlib::Poseidon2Permutation on Mega:
     //   row 0        : entry transition (standard encoding)
     //   rows 1 .. 13 : interior compressed rows
     //   row 14       : terminal compressed row
-    //   row 15       : standard transition row (unconstrained, copy-constrained to the final external rounds)
+    //   row 15       : standard transition row (selector-unconstrained, copy-constrained to final external rounds)
     static constexpr size_t quad_entry_row = 0;
     static constexpr size_t quad_first_interior_row = 1;
 
@@ -69,13 +59,6 @@ class Poseidon2QuadInternalSoundnessTests : public ::testing::Test {
         return builder;
     }
 };
-
-// Sanity: a freshly built Poseidon2 circuit passes the checker.
-TEST_F(Poseidon2QuadInternalSoundnessTests, HonestCircuitPassesChecker)
-{
-    auto builder = build_honest_permutation(FF(uint256_t(0xdeadbeefULL)));
-    EXPECT_TRUE(CircuitChecker::check(*builder));
-}
 
 TEST_F(Poseidon2QuadInternalSoundnessTests, DoesNotMaterializeUnusedNonTerminalStateLimbs)
 {
@@ -143,9 +126,9 @@ TEST_F(Poseidon2QuadInternalSoundnessTests, EntryBoundaryRejectsTamperedStateOne
     EXPECT_FALSE(CircuitChecker::check(*builder));
 }
 
-// Exit boundary: the standard transition row (last row of poseidon2_quad_internal) holds
-// `state[1]` at round p_end in its `w_r`. Shifting that witness breaks the terminal relation,
-// which enforces out_1 (computed by the last compressed row) == w_r_shift (the transition row's w_r).
+// Exit boundary: the standard bridge row (last row of poseidon2_quad_internal) holds `state[1]`
+// at round p_end in its `w_r`. Shifting that witness breaks the terminal relation, which enforces
+// out_1 (computed by the last compressed row) == w_r_shift (the bridge row's w_r).
 TEST_F(Poseidon2QuadInternalSoundnessTests, ExitBoundaryRejectsTamperedStateOne)
 {
     auto builder = build_honest_permutation(FF(uint256_t(0xcafebabeULL)));

@@ -134,16 +134,16 @@ template <typename FF> struct poseidon2_internal_gate_ {
 // (s_1, s_2, s_3) at row start are reconstructed inside the relation via a 3x3 Vandermonde solve.
 //
 // Round constants on the row (see Poseidon2QuadInternalRelationImpl):
-//   q_l, q_r, q_o, q_4 = c_{4i}, c_{4i+1}, c_{4i+2}, c_{4i+3}   // this pair's 4 S-box constants
-//   q_m, q_c, q_5      = c_{4(i+1)}, c_{4(i+1)+1}, c_{4(i+1)+2} // next pair's first 3 constants
+//   q_l, q_r, q_o, q_4 = c_{4i}, c_{4i+1}, c_{4i+2}, c_{4i+3}   // this quad's 4 S-box constants
+//   q_m, q_c, q_5      = c_{4(i+1)}, c_{4(i+1)+1}, c_{4(i+1)+2} // next quad's first 3 constants
 //                                                               // (unused on terminal row)
 template <typename FF> struct poseidon2_quad_internal_gate_ {
     uint32_t a;             // state[0] at round 4i+0
     uint32_t b;             // state[0] at round 4i+1
     uint32_t c;             // state[0] at round 4i+2
     uint32_t d;             // state[0] at round 4i+3
-    size_t round_idx_start; // absolute round_constants index of round 4i (this pair's 1st round)
-    size_t next_pair_start; // absolute round_constants index of round 4(i+1) (next pair's 1st round);
+    size_t round_idx_start; // absolute round_constants index of round 4i (this quad's 1st round)
+    size_t next_pair_start; // absolute round_constants index of round 4(i+1) (next quad's 1st round);
                             // ignored when is_terminal = true
     bool is_terminal;       // true on the last compressed row (successor is standard-encoded)
 };

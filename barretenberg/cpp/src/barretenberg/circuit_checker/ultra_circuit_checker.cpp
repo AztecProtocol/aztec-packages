@@ -374,33 +374,22 @@ void UltraCircuitChecker::populate_values(
     values.q_r = block.q_2()[idx];
     values.q_o = block.q_3()[idx];
     values.q_4 = block.q_4()[idx];
-    if constexpr (requires { values.q_5; }) {
-        values.q_5 = block.q_5()[idx];
-    }
     values.q_arith = block.q_arith()[idx];
     values.q_delta_range = block.q_delta_range()[idx];
     values.q_elliptic = block.q_elliptic()[idx];
     values.q_memory = block.q_memory()[idx];
     values.q_nnf = block.q_nnf()[idx];
     values.q_lookup = block.q_lookup()[idx];
-    if constexpr (requires { values.q_poseidon2_internal; }) {
-        values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
-    }
     values.q_poseidon2_external = block.q_poseidon2_external()[idx];
-    if constexpr (requires { values.q_poseidon2_external_initial; }) {
-        values.q_poseidon2_external_initial = block.q_poseidon2_external_initial()[idx];
-    }
-    if constexpr (requires { values.q_poseidon2_quad_internal; }) {
-        values.q_poseidon2_quad_internal = block.q_poseidon2_quad_internal()[idx];
-    }
-    if constexpr (requires { values.q_poseidon2_quad_internal_terminal; }) {
-        values.q_poseidon2_quad_internal_terminal = block.q_poseidon2_quad_internal_terminal()[idx];
-    }
-    if constexpr (requires { values.q_poseidon2_transition_entry; }) {
-        values.q_poseidon2_transition_entry = block.q_poseidon2_transition_entry()[idx];
-    }
     if constexpr (IsMegaBuilder<Builder>) {
+        values.q_5 = block.q_5()[idx];
+        values.q_poseidon2_external_initial = block.q_poseidon2_external_initial()[idx];
+        values.q_poseidon2_quad_internal = block.q_poseidon2_quad_internal()[idx];
+        values.q_poseidon2_quad_internal_terminal = block.q_poseidon2_quad_internal_terminal()[idx];
+        values.q_poseidon2_transition_entry = block.q_poseidon2_transition_entry()[idx];
         values.q_busread = block.q_busread()[idx];
+    } else {
+        values.q_poseidon2_internal = block.q_poseidon2_internal()[idx];
     }
 }
 

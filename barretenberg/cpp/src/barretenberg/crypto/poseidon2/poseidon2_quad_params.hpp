@@ -1,14 +1,8 @@
-// === AUDIT STATUS ===
-// internal:    { status: not started, auditors: [], commit: }
-// external_1:  { status: not started, auditors: [], commit: }
-// external_2:  { status: not started, auditors: [], commit: }
-// =====================
-
 // Derived parameters for the K=4 "quad" compressed Poseidon2 internal-round encoding on BN254.
 // Treated like the base Poseidon2 constants: fixed, derivable from the sponge spec, pre-computed.
 //
-// See `barretenberg/cpp/src/barretenberg/relations/poseidon2_quad_internal_round.md` for the
-// algebraic derivation. The short version:
+// See `barretenberg/cpp/src/barretenberg/stdlib/hash/poseidon2/README.md` for the algebraic
+// derivation. The short version:
 //
 //   The compressed K=4 row stores state[0] at 4 consecutive internal rounds. Solving for the
 //   non-S-boxed elements (s_1, s_2, s_3) at row-start reduces (via row-reduction) to a 3x3

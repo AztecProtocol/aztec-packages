@@ -16,8 +16,8 @@ namespace bb {
  * witnesses that the first final-external gate consumes via shared witness indices.
  *
  * Selector layout on the terminal row:
- *     q_l = c_{4i}, q_r = c_{4i+1}, q_o = c_{4i+2}, q_4 = c_{4i+3}   // this (last) pair
- *     q_m, q_c, q_5 = 0 (unused — no next pair)
+ *     q_l = c_{4i}, q_r = c_{4i+1}, q_o = c_{4i+2}, q_4 = c_{4i+3}   // this final quad
+ *     q_m, q_c, q_5 = 0 (unused — no next quad)
  */
 template <typename FF_> class Poseidon2QuadInternalTerminalRelationImpl {
   public:

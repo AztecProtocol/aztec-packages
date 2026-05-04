@@ -41,8 +41,6 @@ inline constexpr size_t ECDSA_SECP256R1 = 72611 + ZERO_GATE + (IsMegaBuilder<Bui
 template <typename Builder> inline constexpr size_t BLAKE2S = 2952 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLAKE3 = 2158 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t KECCAK_PERMUTATION = 17387 + ZERO_GATE + MEGA_OFFSET<Builder>;
-// Mega uses the K=4 compressed internal-round encoding (32 gates/permutation); Ultra uses the
-// standard single-round layout (73 gates/permutation).
 template <typename Builder>
 inline constexpr size_t POSEIDON2_PERMUTATION = (IsMegaBuilder<Builder> ? 27 : 73) + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t MULTI_SCALAR_MUL = 3563 + ZERO_GATE;
