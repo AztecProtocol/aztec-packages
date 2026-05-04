@@ -1,17 +1,15 @@
 import type {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
 
-import type { AvmCircuitInputs } from '../avm/avm.js';
+import type { AvmProvingInputs, AvmProvingResult } from '../block_execution/avm_proving_job.js';
 import type { BlockExecutionInputs } from '../block_execution/block_execution_inputs.js';
 import type { BlockExecutionResult } from '../block_execution/block_execution_result.js';
 import type { ParityBasePrivateInputs } from '../parity/parity_base_private_inputs.js';
 import type { ParityPublicInputs } from '../parity/parity_public_inputs.js';
 import type { ParityRootPrivateInputs } from '../parity/parity_root_private_inputs.js';
-import type { RecursiveProof } from '../proofs/recursive_proof.js';
 import type { BlockMergeRollupPrivateInputs } from '../rollup/block_merge_rollup_private_inputs.js';
 import type { BlockRollupPublicInputs } from '../rollup/block_rollup_public_inputs.js';
 import type {
@@ -185,13 +183,10 @@ export interface ServerCircuitProver {
 
   /**
    * Create a proof for the AVM circuit.
-   * @param inputs - Inputs to the AVM circuit.
+   * @param inputs - Wrapped AVM circuit inputs (carries optional execution-agent passenger data).
+   * @returns The AVM proof, plus the passenger data (passed through unchanged from inputs).
    */
-  getAvmProof(
-    inputs: AvmCircuitInputs,
-    signal?: AbortSignal,
-    epochNumber?: number,
-  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>;
+  getAvmProof(inputs: AvmProvingInputs, signal?: AbortSignal, epochNumber?: number): Promise<AvmProvingResult>;
 
   /**
    * Re-execute every transaction in an L2 block on a forked world state and enqueue

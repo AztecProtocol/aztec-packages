@@ -20,6 +20,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { EthAddress } from '@aztec/stdlib/block';
+import { AvmProvingInputs } from '@aztec/stdlib/block_execution';
 import type {
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
@@ -1400,8 +1401,10 @@ export class ProvingOrchestrator {
         [Attributes.TX_HASH]: txProvingState.processedTx.hash.toString(),
       },
       async (signal: AbortSignal) => {
-        const inputs = txProvingState.getAvmInputs();
-        return await this.prover.getAvmProof(inputs, signal, provingState.epochNumber);
+        const avmCircuitInputs = txProvingState.getAvmInputs();
+        const inputs = AvmProvingInputs.fromAvmCircuitInputs(avmCircuitInputs);
+        const result = await this.prover.getAvmProof(inputs, signal, provingState.epochNumber);
+        return result.proof;
       },
     );
 

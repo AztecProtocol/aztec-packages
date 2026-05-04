@@ -1,6 +1,7 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
+import { AvmProvingInputs } from '@aztec/stdlib/block_execution';
 
 import { jest } from '@jest/globals';
 
@@ -43,12 +44,15 @@ describe('prover/orchestrator/addBlockForExecution', () => {
     // enqueue AVM proofs itself — the callback is the only path.
     const enqueueAvmSpy = jest.spyOn(context.prover, 'getAvmProof');
 
-    const expectAvmProofForTx = jest.fn((txIndex: number) => {
+    const expectAvmProofForTx = jest.fn(async (txIndex: number) => {
       const tx = block.txs[txIndex];
       if (!tx.avmProvingRequest) {
         throw new Error(`Tx at index ${txIndex} is private-only; expectAvmProofForTx should not be called for it`);
       }
-      return context.prover.getAvmProof(tx.avmProvingRequest.inputs);
+      const result = await context.prover.getAvmProof(
+        AvmProvingInputs.fromAvmCircuitInputs(tx.avmProvingRequest.inputs),
+      );
+      return result.proof;
     });
 
     await context.orchestrator.addBlockForExecution(block.txs, expectAvmProofForTx);

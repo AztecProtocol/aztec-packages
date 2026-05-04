@@ -53,6 +53,7 @@ import { mapProtocolArtifactNameToCircuitName } from '@aztec/noir-protocol-circu
 import type { WitnessMap } from '@aztec/noir-types';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
+import { type AvmProvingInputs, AvmProvingResult } from '@aztec/stdlib/block_execution';
 import { ProvingError } from '@aztec/stdlib/errors';
 import {
   type PublicInputsAndRecursiveProof,
@@ -180,18 +181,17 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   /**
    * Creates an AVM proof and verifies it.
-   * @param inputs - The inputs to the AVM circuit.
-   * @returns The proof.
+   * @param inputs - Wrapped AVM proving inputs (AVM circuit inputs + optional execution-agent passenger data).
+   * @returns The AVM proof, with the passenger data passed through unchanged.
    */
   @trackSpan('BBNativeRollupProver.getAvmProof', inputs => ({
-    [Attributes.APP_CIRCUIT_NAME]: inputs.hints.tx.hash,
+    [Attributes.APP_CIRCUIT_NAME]: inputs.avmCircuitInputs.hints.tx.hash,
   }))
-  public async getAvmProof(
-    inputs: AvmCircuitInputs,
-  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
-    const proof = await this.createAvmProof(inputs);
-    await this.verifyAvmProof(proof.binaryProof, inputs.publicInputs);
-    return proof;
+  public async getAvmProof(inputs: AvmProvingInputs): Promise<AvmProvingResult> {
+    const { avmCircuitInputs, executionTxData } = inputs;
+    const proof = await this.createAvmProof(avmCircuitInputs);
+    await this.verifyAvmProof(proof.binaryProof, avmCircuitInputs.publicInputs);
+    return new AvmProvingResult(proof, executionTxData);
   }
 
   public executeBlock(): Promise<never> {
