@@ -8,13 +8,13 @@ namespace bb {
 /**
  * @brief K=4 compressed internal-round relation for Poseidon2.
  *
- * @details Processes FOUR consecutive internal rounds per row. The row stores state[0] at four
+ * @details Processes four consecutive internal rounds per row. The row stores state[0] at four
  * consecutive rounds:
  *     w_l = s_0^{(0)}, w_r = s_0^{(1)}, w_o = s_0^{(2)}, w_4 = s_0^{(3)}
- * plus this quad's 4 round constants in q_l, q_r, q_o, q_4 and the NEXT quad's first 3 round
+ * plus this quad's four round constants in q_l, q_r, q_o, q_4 and the next quad's first three round
  * constants in q_m, q_c, q_5 (used for the shifted Vandermonde check).
  *
- * The non-S-boxed state elements (s_1, s_2, s_3) at round-start are DERIVED (not committed) by
+ * The non-S-boxed state elements (s_1, s_2, s_3) at round-start are derived, not committed, by
  * solving a 3x3 Vandermonde linear system:
  *     V * (s_1, s_2, s_3)^T = (b_1, b_2, b_3)^T
  * with V = [[1,1,1],[D_2,D_3,D_4],[D_2^2,D_3^2,D_4^2]] and
@@ -26,9 +26,9 @@ namespace bb {
  * The inverse uses pre-computed Lagrange coefficients α_j^(k) from `Poseidon2QuadBn254Params`:
  *     s_j = α_j^(1) b_1 + α_j^(2) b_2 + α_j^(3) b_3.
  *
- * After the 4 rounds are applied natively inside the relation, we obtain
+ * The closed-form table represents the result after applying the four internal rounds:
  *     (out_0, out_1, out_2, out_3) = state after round 4.
- * The constraints against the NEXT row use the *forward* Vandermonde (avoids Lagrange on the
+ * The constraints against the next row use the forward Vandermonde matrix (avoids Lagrange on the
  * shift side): if the successor is another compressed row with wires
  * (w_l_shift, w_r_shift, w_o_shift, w_4_shift) and next-quad constants (q_m, q_c, q_5), then
  *     A_0: out_0 = w_l_shift                                                       (direct)
@@ -38,7 +38,7 @@ namespace bb {
  * where b_k_next are the same RHS formulas applied to the shifted wires and next-quad constants.
  *
  * Degree: each subrelation has degree 5 in any single sumcheck variable (all S-boxes land on
- * distinct wires — degree firewall). Plus selector + gate separator = 7.
+ * distinct wires). Plus selector + gate separator = 7.
  */
 template <typename FF_> class Poseidon2QuadInternalRelationImpl {
   public:
@@ -61,7 +61,7 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
     static constexpr fr D1_MINUS_3 = D1 - fr(3);                                    // D_1 - 3
 
     /**
-     * @brief Skip when the selector is identically zero on this edge.
+     * @brief Skip when the selector is identically zero on this row.
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -100,7 +100,7 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
 
         const auto q_sel = CoeffAcc(in.q_poseidon2_quad_internal);
 
-        // Helper: compute fifth power as Accumulator (degree 5 in the input wire)
+        // Helper: compute fifth power as Accumulator (degree 5 in the input wire).
         auto pow5 = [](const Accumulator& x) -> Accumulator {
             auto sq = x.sqr();
             auto quart = sq.sqr();
@@ -120,8 +120,8 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
         // `forward_vandermonde_lhs`. We compute those LHS sums directly — `out_1, out_2, out_3`
         // never need to be materialized individually here.
         //
-        // Per-row layout: 7 coefficients on (w_r, w_o, w_4, u_0, u_1, u_2, u_3). Wire scalings
-        // stay in CoeffAcc (2 muls each); u-scalings are Acc×Fr (7 muls each).
+        // Table row layout: 7 coefficients on (w_r, w_o, w_4, u_0, u_1, u_2, u_3). Wire scalings
+        // stay in CoeffAcc; u-scalings are Acc×Fr.
         // ── Shift-side S-boxes (next-quad constants on shifted wires) ──
         auto u_0_next = pow5(Accumulator(w_l_shift + q_m));
         auto u_1_next = pow5(Accumulator(w_r_shift + q_c));

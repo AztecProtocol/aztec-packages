@@ -203,8 +203,8 @@ TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
             if (&block != &builder.blocks.poseidon2_external) {
                 EXPECT_EQ(block.q_poseidon2_external()[i], 0);
             }
-            // The compressed Poseidon2 block carries three gate selectors (interior / terminal / entry),
-            // all of which must be zero outside `poseidon2_quad_internal`.
+            // The Mega compressed Poseidon2 relations are selected only inside `poseidon2_quad_internal`;
+            // all three selectors must be zero on every other block.
             if (&block != &builder.blocks.poseidon2_quad_internal) {
                 EXPECT_EQ(block.q_poseidon2_quad_internal()[i], 0);
                 EXPECT_EQ(block.q_poseidon2_quad_internal_terminal()[i], 0);

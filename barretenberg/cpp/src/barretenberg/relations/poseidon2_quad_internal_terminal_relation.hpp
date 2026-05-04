@@ -9,8 +9,9 @@ namespace bb {
  * @brief Terminal variant of the K=4 compressed internal-round relation.
  *
  * @details Same 4-round computation as `Poseidon2QuadInternalRelationImpl`, but the successor
- * is the standard-encoded bridge row (not another compressed row). The A_k constraints directly
- * match out_k against w_{k,shift} — no forward-Vandermonde reconstruction on the shift side.
+ * is the standard-encoded bridge row (not another compressed row). The four subrelations directly
+ * match (out_0, out_1, out_2, out_3) against (w_l_shift, w_r_shift, w_o_shift, w_4_shift) — no
+ * forward-Vandermonde reconstruction on the shift side.
  *
  * This ties the compressed chain's output state (state[0..3] after 56 internal rounds) to
  * witnesses that the first final-external gate consumes via shared witness indices.

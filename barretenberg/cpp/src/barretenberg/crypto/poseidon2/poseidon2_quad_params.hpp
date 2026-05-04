@@ -9,8 +9,8 @@
 //   Vandermonde system with nodes (D_2, D_3, D_4). Its Lagrange-basis inverse has 9 fixed
 //   coefficients α_j^(k) that let us write s_j = Σ_k α_j^(k) b_k where b_k are linear in wires.
 //
-// This file exposes those 9 coefficients as constexpr members of `Poseidon2QuadBn254Params`,
-// plus helper derived constants used by the relation (e.g. D_i, Σ = D_2 + D_3 + D_4).
+// This file exposes those 9 coefficients, the derived diagonal constants used by the entry
+// relation, and the closed-form propagation tables consumed by the quad relations.
 //
 // `static_assert`s at the bottom guard invertibility: the three Vandermonde differences
 // (D_3 - D_2), (D_4 - D_2), (D_4 - D_3) must all be nonzero. For the published BN254 Poseidon2
@@ -28,10 +28,9 @@ namespace bb::crypto {
 
 struct Poseidon2QuadBn254Params {
     using FF = Poseidon2Bn254ScalarFieldParams::FF;
+    static constexpr size_t VANDERMONDE_SIZE = Poseidon2Bn254ScalarFieldParams::t - 1;
 
-    // ------------------------------------------------------------
     // Internal matrix diagonal D_i (computed from the stored `D_i - 1` values).
-    // ------------------------------------------------------------
     static constexpr FF D1 = FF(1) + Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[0];
     static constexpr FF D2 = FF(1) + Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[1];
     static constexpr FF D3 = FF(1) + Poseidon2Bn254ScalarFieldParams::internal_matrix_diagonal_minus_one[2];
@@ -39,14 +38,25 @@ struct Poseidon2QuadBn254Params {
 
     static constexpr FF SIGMA = D2 + D3 + D4; // Σ = D_2 + D_3 + D_4, recurs in the relation algebra
 
-    // ------------------------------------------------------------
+  private:
     // Vandermonde differences (used below and also asserted non-zero).
-    // ------------------------------------------------------------
     static constexpr FF D2_minus_D3 = D2 - D3;
     static constexpr FF D2_minus_D4 = D2 - D4;
     static constexpr FF D3_minus_D4 = D3 - D4;
 
-    // ------------------------------------------------------------
+    // 1 / ((D_2 - D_3)(D_2 - D_4)) — denominator for α_1^(·)
+    static constexpr FF inv_denom_1 = (D2_minus_D3 * D2_minus_D4).invert();
+    // 1 / ((D_3 - D_2)(D_3 - D_4)) — denominator for α_2^(·)
+    static constexpr FF inv_denom_2 = ((-D2_minus_D3) * D3_minus_D4).invert();
+    // 1 / ((D_4 - D_2)(D_4 - D_3)) — denominator for α_3^(·)
+    static constexpr FF inv_denom_3 = ((-D2_minus_D4) * (-D3_minus_D4)).invert();
+
+    // Invertibility guard. det(V) = (D_3 - D_2)(D_4 - D_2)(D_4 - D_3).
+    static_assert(!D2_minus_D3.is_zero(), "Poseidon2 quad: D_2 == D_3, Vandermonde singular");
+    static_assert(!D2_minus_D4.is_zero(), "Poseidon2 quad: D_2 == D_4, Vandermonde singular");
+    static_assert(!D3_minus_D4.is_zero(), "Poseidon2 quad: D_3 == D_4, Vandermonde singular");
+
+  public:
     // Lagrange basis coefficients α_j^(k).
     //
     //   s_j = α_j^(1) * b_1 + α_j^(2) * b_2 + α_j^(3) * b_3
@@ -62,15 +72,6 @@ struct Poseidon2QuadBn254Params {
     //   α_1^(2) = -(D_3 + D_4)   / ((D_2 - D_3)(D_2 - D_4))
     //   α_1^(3) =  1             / ((D_2 - D_3)(D_2 - D_4))
     //   (and analogously for α_2^(k), α_3^(k))
-    // ------------------------------------------------------------
-
-    // 1 / ((D_2 - D_3)(D_2 - D_4)) — denominator for α_1^(·)
-    static constexpr FF inv_denom_1 = (D2_minus_D3 * D2_minus_D4).invert();
-    // 1 / ((D_3 - D_2)(D_3 - D_4)) — denominator for α_2^(·)
-    static constexpr FF inv_denom_2 = ((-D2_minus_D3) * D3_minus_D4).invert();
-    // 1 / ((D_4 - D_2)(D_4 - D_3)) — denominator for α_3^(·)
-    static constexpr FF inv_denom_3 = ((-D2_minus_D4) * (-D3_minus_D4)).invert();
-
     // α_j^(1): constant term of L_j (= 1 / D_{j+1}-node product)
     static constexpr FF alpha_1_1 = D3 * D4 * inv_denom_1;
     static constexpr FF alpha_2_1 = D2 * D4 * inv_denom_2;
@@ -86,14 +87,6 @@ struct Poseidon2QuadBn254Params {
     static constexpr FF alpha_2_3 = inv_denom_2;
     static constexpr FF alpha_3_3 = inv_denom_3;
 
-    // ------------------------------------------------------------
-    // Invertibility guard. det(V) = (D_3 - D_2)(D_4 - D_2)(D_4 - D_3).
-    // ------------------------------------------------------------
-    static_assert(!D2_minus_D3.is_zero(), "Poseidon2 quad: D_2 == D_3, Vandermonde singular");
-    static_assert(!D2_minus_D4.is_zero(), "Poseidon2 quad: D_2 == D_4, Vandermonde singular");
-    static_assert(!D3_minus_D4.is_zero(), "Poseidon2 quad: D_3 == D_4, Vandermonde singular");
-
-    // ============================================================
     // Closed-form 4-round propagation coefficients.
     //
     // The four-round internal-block update on the non-S-boxed lanes (s_1, s_2, s_3) is linear
@@ -113,23 +106,21 @@ struct Poseidon2QuadBn254Params {
     //
     // Equivalence to the step iteration is verified at unit-test time
     // (see `poseidon2_quad_closed_form.test.cpp`).
-    // ------------------------------------------------------------
-  public:
-    // -----------------------------------------------------------
     // Linear round-propagation vectors  (A^k · 1)_j  for k = 1, 2.
     //
     // Used by both the entry relation (which checks state[0] at rounds 1, 2 from a standard
-    // encoded predecessor) and the closed-form table builder below. Closed-form scalars, so
-    // these survive constexpr.
+    // encoded predecessor) and the closed-form table builder below. These simple scalar formulas
+    // remain constexpr.
     //
     //   A_one[j]  = (A · 1)_j   = D_{j+1} + 2
     //   A2_one[j] = (A^2 · 1)_j = D_{j+1}^2 + D_{j+1} + Σ + 4
     //   sum_A_one = 1^T A · 1   = Σ + 6  (also = (A · 1) summed over rows)
-    // -----------------------------------------------------------
-    static constexpr std::array<FF, 3> A_one = { D2 + FF(2), D3 + FF(2), D4 + FF(2) };
-    static constexpr std::array<FF, 3> A2_one = { D2 * D2 + D2 + SIGMA + FF(4),
-                                                  D3* D3 + D3 + SIGMA + FF(4),
-                                                  D4* D4 + D4 + SIGMA + FF(4) };
+    static constexpr std::array<FF, VANDERMONDE_SIZE> A_one = { D2 + FF(2), D3 + FF(2), D4 + FF(2) };
+    static constexpr std::array<FF, VANDERMONDE_SIZE> A2_one = {
+        D2 * D2 + D2 + SIGMA + FF(4),
+        D3* D3 + D3 + SIGMA + FF(4),
+        D4* D4 + D4 + SIGMA + FF(4),
+    };
     static constexpr FF sum_A_one = SIGMA + FF(6);
 
     // Storage for the closed-form coefficient tables. Each row is laid out as
@@ -151,7 +142,7 @@ struct Poseidon2QuadBn254Params {
     // rows for A_1, A_2, A_3 — it never materialises out_1, out_2, out_3 individually.
     using ClosedFormRow = std::array<FF, 7>;
     using ClosedFormTable = std::array<ClosedFormRow, 4>;
-    using ForwardVandermondeTable = std::array<ClosedFormRow, 3>;
+    using ForwardVandermondeTable = std::array<ClosedFormRow, VANDERMONDE_SIZE>;
 
   private:
     // One-shot derivation at static-init time. `fr` arithmetic isn't deeply constexpr-capable
@@ -169,15 +160,15 @@ struct Poseidon2QuadBn254Params {
 
     static Tables build_tables()
     {
-        using Mat3 = std::array<std::array<FF, 3>, 3>;
-        using Vec3 = std::array<FF, 3>;
+        using Mat = std::array<std::array<FF, VANDERMONDE_SIZE>, VANDERMONDE_SIZE>;
+        using Vec = std::array<FF, VANDERMONDE_SIZE>;
 
-        auto mm = [](const Mat3& a, const Mat3& b) {
-            Mat3 r{};
-            for (size_t i = 0; i < 3; ++i) {
-                for (size_t j = 0; j < 3; ++j) {
+        auto mm = [](const Mat& a, const Mat& b) {
+            Mat r{};
+            for (size_t i = 0; i < VANDERMONDE_SIZE; ++i) {
+                for (size_t j = 0; j < VANDERMONDE_SIZE; ++j) {
                     FF s = FF(0);
-                    for (size_t k = 0; k < 3; ++k) {
+                    for (size_t k = 0; k < VANDERMONDE_SIZE; ++k) {
                         s += a[i][k] * b[k][j];
                     }
                     r[i][j] = s;
@@ -185,11 +176,11 @@ struct Poseidon2QuadBn254Params {
             }
             return r;
         };
-        auto mv = [](const Mat3& a, const Vec3& v) {
-            Vec3 r{};
-            for (size_t i = 0; i < 3; ++i) {
+        auto mv = [](const Mat& a, const Vec& v) {
+            Vec r{};
+            for (size_t i = 0; i < VANDERMONDE_SIZE; ++i) {
                 FF s = FF(0);
-                for (size_t k = 0; k < 3; ++k) {
+                for (size_t k = 0; k < VANDERMONDE_SIZE; ++k) {
                     s += a[i][k] * v[k];
                 }
                 r[i] = s;
@@ -197,40 +188,40 @@ struct Poseidon2QuadBn254Params {
             return r;
         };
 
-        const Vec3 ones = { FF(1), FF(1), FF(1) };
+        const Vec ones = { FF(1), FF(1), FF(1) };
         // A: internal-round update on (s_1, s_2, s_3). step(v, u) = A v + u·1.
-        const Mat3 A = { { { D2, FF(1), FF(1) }, { FF(1), D3, FF(1) }, { FF(1), FF(1), D4 } } };
-        const Mat3 A2 = mm(A, A);
-        const Mat3 A3 = mm(A2, A);
-        const Mat3 A4 = mm(A3, A);
-        const Vec3 A_one = mv(A, ones);
-        const Vec3 A2_one = mv(A2, ones);
-        const Vec3 A3_one = mv(A3, ones);
+        const Mat A = { { { D2, FF(1), FF(1) }, { FF(1), D3, FF(1) }, { FF(1), FF(1), D4 } } };
+        const Mat A2 = mm(A, A);
+        const Mat A3 = mm(A2, A);
+        const Mat A4 = mm(A3, A);
+        const Vec A_one = mv(A, ones);
+        const Vec A2_one = mv(A2, ones);
+        const Vec A3_one = mv(A3, ones);
 
         // V_inv (rows are Lagrange coefs α_j^(*)).
-        const Mat3 Vinv = { { { alpha_1_1, alpha_1_2, alpha_1_3 },
-                              { alpha_2_1, alpha_2_2, alpha_2_3 },
-                              { alpha_3_1, alpha_3_2, alpha_3_3 } } };
+        const Mat Vinv = { { { alpha_1_1, alpha_1_2, alpha_1_3 },
+                             { alpha_2_1, alpha_2_2, alpha_2_3 },
+                             { alpha_3_1, alpha_3_2, alpha_3_3 } } };
         // M = A^4 · V_inv: maps b → b-derived part of out_{1,2,3} at round 4.
-        const Mat3 M = mm(A4, Vinv);
+        const Mat M = mm(A4, Vinv);
 
         // B_w: rows are w-coefs of b_1, b_2, b_3 on (w_r, w_o, w_4).
-        const Mat3 Bw = { { { FF(1), FF(0), FF(0) }, { -FF(2), FF(1), FF(0) }, { -(SIGMA + FF(2)), -FF(1), FF(1) } } };
+        const Mat Bw = { { { FF(1), FF(0), FF(0) }, { -FF(2), FF(1), FF(0) }, { -(SIGMA + FF(2)), -FF(1), FF(1) } } };
         // B_u: rows are (u_0, u_1, u_2)-coefs of b_1, b_2, b_3.
-        const Mat3 Bu = { { { -D1, FF(0), FF(0) },
-                            { FF(2) * D1 - FF(3), -D1, FF(0) },
-                            { (SIGMA + FF(2)) * D1 - SIGMA - FF(3), D1 - FF(3), -D1 } } };
+        const Mat Bu = { { { -D1, FF(0), FF(0) },
+                           { FF(2) * D1 - FF(3), -D1, FF(0) },
+                           { (SIGMA + FF(2)) * D1 - SIGMA - FF(3), D1 - FF(3), -D1 } } };
 
-        const Mat3 Mw = mm(M, Bw);  // w-coefs of out_{1,2,3}
-        const Mat3 MBu = mm(M, Bu); // b-derived part of u-coefs
+        const Mat Mw = mm(M, Bw);  // w-coefs of out_{1,2,3}
+        const Mat MBu = mm(M, Bu); // b-derived part of u-coefs
 
         // T_3 = sum of state[1..3] at round 3.
         // q_T3 = (1^T A^3) · V_inv: projection coefficients for the b-derived part of T_3.
-        const Vec3 col_sum_A3 = { A3[0][0] + A3[1][0] + A3[2][0],
-                                  A3[0][1] + A3[1][1] + A3[2][1],
-                                  A3[0][2] + A3[1][2] + A3[2][2] };
-        Vec3 q_T3{};
-        for (size_t i = 0; i < 3; ++i) {
+        const Vec col_sum_A3 = { A3[0][0] + A3[1][0] + A3[2][0],
+                                 A3[0][1] + A3[1][1] + A3[2][1],
+                                 A3[0][2] + A3[1][2] + A3[2][2] };
+        Vec q_T3{};
+        for (size_t i = 0; i < VANDERMONDE_SIZE; ++i) {
             q_T3[i] = col_sum_A3[0] * Vinv[0][i] + col_sum_A3[1] * Vinv[1][i] + col_sum_A3[2] * Vinv[2][i];
         }
         const FF sum_A_one = A_one[0] + A_one[1] + A_one[2];
@@ -240,7 +231,7 @@ struct Poseidon2QuadBn254Params {
         // T_3's wire-coefs:  q_T3 · B_w  (1×3 · 3×3 → 1×3)
         // T_3's u-coefs:     q_T3 · B_u  + (sum_A2_one, sum_A_one, 3) inhomogeneous additions
         ClosedFormRow row0{};
-        for (size_t i = 0; i < 3; ++i) {
+        for (size_t i = 0; i < VANDERMONDE_SIZE; ++i) {
             row0[i] = q_T3[0] * Bw[0][i] + q_T3[1] * Bw[1][i] + q_T3[2] * Bw[2][i]; // c_wr, c_wo, c_w4
         }
         row0[3] = (q_T3[0] * Bu[0][0] + q_T3[1] * Bu[1][0] + q_T3[2] * Bu[2][0]) + sum_A2_one; // c_u0
@@ -269,12 +260,12 @@ struct Poseidon2QuadBn254Params {
         //   row 2: (D_2², D_3², D_4²)     → D_2² out_1 + D_3² out_2 + D_4² out_3
         // Each row's coefficients on (w_*, u_*) are obtained by the same weighted sum applied
         // to the corresponding (w_*, u_*) coefficients of out_1..out_3.
-        const std::array<Vec3, 3> lhs_weights = {
+        const std::array<Vec, VANDERMONDE_SIZE> lhs_weights = {
             { { FF(1), FF(1), FF(1) }, { D2, D3, D4 }, { D2 * D2, D3 * D3, D4 * D4 } }
         };
         ForwardVandermondeTable lhs_table{};
-        for (size_t k = 0; k < 3; ++k) {
-            const Vec3& w = lhs_weights[k];
+        for (size_t k = 0; k < VANDERMONDE_SIZE; ++k) {
+            const Vec& w = lhs_weights[k];
             ClosedFormRow& r = lhs_table[k];
             for (size_t i = 0; i < 7; ++i) {
                 r[i] = w[0] * closed_form_table[1][i] + w[1] * closed_form_table[2][i] + w[2] * closed_form_table[3][i];
@@ -285,7 +276,6 @@ struct Poseidon2QuadBn254Params {
     }
 
   public:
-    // -----------------------------------------------------------
     // Public coefficient tables consumed by the relations.
     //
     // `tables` is a single static-inline-const aggregate whose fields are read directly via
@@ -293,7 +283,6 @@ struct Poseidon2QuadBn254Params {
     // Because the symbol address is fixed at link time and the field offsets are compile-time
     // constants, the hot path emits a plain mov from a known address — no pointer chase, no
     // atomic guard, no per-call construction. `build_tables()` runs exactly once before main().
-    // -----------------------------------------------------------
     static inline const Tables tables = build_tables();
 };
 

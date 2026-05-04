@@ -9,9 +9,9 @@ namespace bb {
  * @brief Entry transition relation for the K=4 compressed Poseidon2 internal block.
  *
  * @details The entry row holds the external-round output in standard encoding:
- *     (w_l, w_r, w_o, w_4) = (s_0, s_1, s_2, s_3) at round 0 of internal rounds.
+ *     (w_l, w_r, w_o, w_4) = (s_0, s_1, s_2, s_3) at the internal-block entry.
  * Its wires share witness indices with the `poseidon2_external` propagate row, so they
- * cryptographically match the true external output via the sigma permutation.
+ * are copy-constrained to the true external output by the permutation relation.
  *
  * The successor is the first compressed row, whose wires encode state[0] at 4 consecutive rounds:
  *     (w_l_shift, w_r_shift, w_o_shift, w_4_shift)
@@ -22,7 +22,7 @@ namespace bb {
  * subrelation here; the three subrelations below cover rounds 1, 2, 3.
  *
  * The "stepwise degree firewall" pattern keeps each subrelation at degree 5: each subrelation
- * computes state[0] at the target round using the *previous* shifted wire as a fresh variable
+ * computes state[0] at the target round using the previous shifted wire as a fresh variable
  * (instead of inlining its degree-5 definition).
  *
  * Subrelations (each × q_poseidon2_transition_entry × gate separator, degree 7):
