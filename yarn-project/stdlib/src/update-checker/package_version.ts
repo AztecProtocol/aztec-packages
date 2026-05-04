@@ -24,7 +24,7 @@ export function getPackageVersion(): string {
 export const DEV_VERSION = 'dev';
 
 /**
- * Returns the precise Aztec stack version for embedding in contract artifacts.
+ * Returns the Aztec stack version for embedding in contract artifacts.
  *
  * 1. package.json version — when a developer installs the CLI (e.g. via aztec-up or npm) and runs `aztec compile`. The
  *    installed package.json carries the exact version.
@@ -32,18 +32,9 @@ export const DEV_VERSION = 'dev';
  */
 export function getAztecVersion(): string {
   const dir = dirname(fileURLToPath(import.meta.url));
-
-  try {
-    const packageJsonPath = resolve(dir, '../../package.json');
-    const version = JSON.parse(readFileSync(packageJsonPath).toString()).version;
-    // 0.1.0 is the placeholder version in all monorepo package.json files during development. Published packages will
-    // have the real version (e.g. 5.0.0-nightly.20260414).
-    if (version && version !== '0.1.0') {
-      return version;
-    }
-  } catch {
-    // No package.json found.
-  }
-
-  return DEV_VERSION;
+  const packageJsonPath = resolve(dir, '../../package.json');
+  const version = JSON.parse(readFileSync(packageJsonPath).toString()).version;
+  // 0.1.0 is the placeholder version in all monorepo package.json files during development. Published packages will
+  // have the real version (e.g. 5.0.0-nightly.20260414).
+  return version === '0.1.0' ? DEV_VERSION : version;
 }
