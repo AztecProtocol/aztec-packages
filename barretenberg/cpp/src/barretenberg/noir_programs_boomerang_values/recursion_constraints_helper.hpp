@@ -907,8 +907,10 @@ static constexpr size_t NUM_OINK_SQUEEZES = 3;      // eta, beta/gamma pair, alp
 static constexpr size_t NUM_STEP2_SQUEEZES = 1;     // gate_challenge[0]
 static constexpr size_t NUM_SUMCHECK_SQUEEZES = 17; // u_0..u_15 + ZK correction
 static constexpr size_t NUM_SHPLEMINI_SQUEEZES = 4; // rho, Gemini:r, Shplonk:nu, Shplonk:z
+static constexpr size_t NUM_KZG_SQUEEZES = 1;       // KZG:masking_challenge
 static constexpr size_t NUM_TOTAL_SQUEEZES =
     NUM_OINK_SQUEEZES + NUM_STEP2_SQUEEZES + NUM_SUMCHECK_SQUEEZES + NUM_SHPLEMINI_SQUEEZES;
+static constexpr size_t NUM_TOTAL_WITH_KZG_SQUEEZES = NUM_TOTAL_SQUEEZES + NUM_KZG_SQUEEZES;
 
 struct Step2Challenge {
     bool valid = false;
@@ -930,6 +932,13 @@ struct ShpleminiChallenges {
     uint32_t gemini_r = UINT32_MAX;
     uint32_t shplonk_nu = UINT32_MAX;
     uint32_t shplonk_z = UINT32_MAX;
+    std::set<size_t> squeeze_gate_indices;
+};
+
+struct KZGMaskingChallenge {
+    bool valid = false;
+    uint32_t masking_challenge = UINT32_MAX;
+    size_t squeeze_gate = 0;
     std::set<size_t> squeeze_gate_indices;
 };
 
@@ -1044,6 +1053,27 @@ ShpleminiChallenges shplemini_challenges(CircuitBuilder& builder,
     out.shplonk_nu = to_real(arith.w_l()[gates[2]]);
     out.shplonk_z = to_real(arith.w_l()[gates[3]]);
     out.squeeze_gate_indices = std::set(gates.begin(), gates.end());
+    out.valid = true;
+    return out;
+}
+
+/**
+ * @brief Extract KZG masking challenge from the next unclaimed squeeze gate.
+ */
+template <typename CircuitBuilder>
+KZGMaskingChallenge kzg_masking_challenge(CircuitBuilder& builder,
+                                          const std::vector<size_t>& all_squeezes,
+                                          const std::set<size_t>& consumed)
+{
+    KZGMaskingChallenge out;
+    auto gates = take_unclaimed_squeezes(all_squeezes, consumed, NUM_KZG_SQUEEZES);
+    if (gates.empty()) {
+        return out;
+    }
+    auto& arith = builder.blocks.arithmetic;
+    out.squeeze_gate = gates[0];
+    out.masking_challenge = builder.real_variable_index[arith.w_l()[out.squeeze_gate]];
+    out.squeeze_gate_indices = { out.squeeze_gate };
     out.valid = true;
     return out;
 }
@@ -2597,3 +2627,76 @@ PostZScanResult scan_post_z_functions_mega_zk(CircuitBuilder& builder, size_t sc
 }
 
 } // namespace recursion_helpers
+
+/**
+ * @namespace KZGVerification
+ * @brief Namespace for KZG verification-related data structures and utilities.
+ */
+namespace KZGVerification {
+
+/**
+ * @brief Structure storing a reference to a block and its associated fingerprint.
+ * @tparam BlockType The type of the block (e.g., arithmetic block, poseidon2 block)
+ */
+template <typename BlockType> struct FunctionBlockFingerPrint {
+    const BlockType& block;                             // Reference to the block
+    recursion_helpers::FunctionFingerprint fingerprint; // Fingerprint for this block
+};
+
+static constexpr recursion_helpers::FunctionFingerprint TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC = {
+    79, 0xb44f41ca2be07184ULL, 0x7e14d02952bda35aULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint TRANSCRIPT_RECEIVE_KZG_W_NNF = {
+    62, 0xff2ca3c0bde9b337ULL, 0x6f7911bba1f0ffe7ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+
+static constexpr recursion_helpers::FunctionFingerprint MASKING_CHALLENGE_ARITHMETIC = {
+    34, 0x241e4591236fc64cULL, 0xf1e15184839eaab7ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint MASKING_CHALLENGE_POSEIDON2_EXT = {
+    20, 0x0ec92a899925d755ULL, 0x0ec92a899925d755ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint MASKING_CHALLENGE_POSEIDON2_INT = {
+    114, 0xee3a7ac895f8a6d9ULL, 0x8112ac29167e98daULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+
+static constexpr recursion_helpers::FunctionFingerprint BATCH_MUL_ARITHMETIC = {
+    326064, 0xd26f43ff1466a143ULL, 0xed39caefb5f53b02ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint BATCH_MUL_MEMORY = {
+    21855, 0xe7fd0be5c039f40fULL, 0xb3119f71068352b8ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint BATCH_MUL_NNF = {
+    180686, 0xff2ca3c0bde9b337ULL, 0x83d2f8a03cd96b83ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+
+
+template <typename TraceBlock> struct KZGFunctionBlockFingerprints {
+    FunctionBlockFingerPrint<TraceBlock> transcript_receive_kzg_w_arithmetic;
+    FunctionBlockFingerPrint<TraceBlock> transcript_receive_kzg_w_nnf;
+
+    FunctionBlockFingerPrint<TraceBlock> masking_challenge_arithmetic;
+    FunctionBlockFingerPrint<TraceBlock> masking_challenge_poseidon2_ext;
+    FunctionBlockFingerPrint<TraceBlock> masking_challenge_poseidon2_int;
+
+    FunctionBlockFingerPrint<TraceBlock> batch_mul_arithmetic;
+    FunctionBlockFingerPrint<TraceBlock> batch_mul_memory;
+    FunctionBlockFingerPrint<TraceBlock> batch_mul_nnf;
+};
+
+template <typename TraceBlock, typename TraceBlocks>
+KZGFunctionBlockFingerprints<TraceBlock> create_kzg_function_block_fingerprints(TraceBlocks& blocks)
+{
+    return {
+        { blocks.arithmetic, TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC },
+        { blocks.nnf, TRANSCRIPT_RECEIVE_KZG_W_NNF },
+        { blocks.arithmetic, MASKING_CHALLENGE_ARITHMETIC },
+        { blocks.poseidon2_external, MASKING_CHALLENGE_POSEIDON2_EXT },
+        { blocks.poseidon2_internal, MASKING_CHALLENGE_POSEIDON2_INT },
+        { blocks.arithmetic, BATCH_MUL_ARITHMETIC },
+        { blocks.memory, BATCH_MUL_MEMORY },
+        { blocks.nnf, BATCH_MUL_NNF },
+    };
+}
+
+} // namespace KZGVerification

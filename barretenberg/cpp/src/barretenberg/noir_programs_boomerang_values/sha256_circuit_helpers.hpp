@@ -150,6 +150,25 @@ size_t compute_selector_hash_without_table_index(size_t combined_hash, Block& bl
     return combined_hash;
 }
 
+/**
+ * @brief Update selector hash for a single gate.
+ * @details Updates the combined_hash by hashing all selectors of the gate at gate_idx.
+ * @param combined_hash The current hash value to update (passed by reference)
+ * @param block The block containing the gate
+ * @param gate_idx The index of the gate to hash
+ * @return The updated hash value (same as combined_hash after update)
+ */
+template <typename Block>
+size_t update_selector_hash(size_t& combined_hash, Block& block, size_t gate_idx)
+{
+    auto selectors = block.get_selectors();
+    for (size_t s = 0; s < selectors.size(); ++s) {
+        auto reduced = selectors[s][gate_idx].reduce_once();
+        combined_hash = hash_combine(combined_hash, reduced.data[0]);
+    }
+    return combined_hash;
+}
+
 // Pinned selector hashes for SHA256 lookup gate blocks (excluding q_3/table_index).
 // These are deterministic hashes over all selectors except q_3 for each lookup table type.
 static constexpr size_t SHA256_CH_INPUT_HASH = 0x449F9039F2C000BCULL;       // choose_with_sigma1 INPUT (3 gates)
