@@ -102,6 +102,19 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         }
         break;
       }
+      case 'checkpoint-proposed': {
+        if (this.config.syncChainTip === 'proposedCheckpoint') {
+          const block = await this.node.getBlock(BlockNumber(event.block.number));
+          if (block) {
+            await this.updateAnchorBlockHeader(block.header);
+          } else {
+            this.log.warn(
+              `Block header not found for proposedCheckpoint block ${event.block.number}, skipping anchor update`,
+            );
+          }
+        }
+        break;
+      }
       case 'chain-pruned': {
         const currentAnchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const currentAnchorBlockNumber = currentAnchorBlockHeader.getBlockNumber();

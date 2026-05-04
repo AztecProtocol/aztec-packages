@@ -25,8 +25,8 @@ export interface KernelProverConfig {
 export interface BlockSynchronizerConfig {
   /** Maximum amount of blocks to pull from the stream in one request when synchronizing */
   l2BlockBatchSize: number;
-  /** Which chain tip to sync to (proposed, checkpointed, proven, finalized) */
-  syncChainTip?: 'proposed' | 'checkpointed' | 'proven' | 'finalized';
+  /** Which chain tip to sync to (proposed, proposedCheckpoint, checkpointed, proven, finalized) */
+  syncChainTip?: 'proposed' | 'proposedCheckpoint' | 'checkpointed' | 'proven' | 'finalized';
 }
 
 export type PXEConfig = KernelProverConfig & DataStoreConfig & ChainConfig & BlockSynchronizerConfig;
@@ -58,8 +58,8 @@ export const pxeConfigMappings: ConfigMappingsType<PXEConfig> = {
   },
   syncChainTip: {
     env: 'PXE_SYNC_CHAIN_TIP',
-    description: 'Which chain tip to sync to (proposed, checkpointed, proven, finalized)',
-    ...enumConfigHelper(['proposed', 'checkpointed', 'proven', 'finalized'], 'proposed'),
+    description: 'Which chain tip to sync to (proposed, proposedCheckpoint, checkpointed, proven, finalized)',
+    ...enumConfigHelper(['proposed', 'proposedCheckpoint', 'checkpointed', 'proven', 'finalized'], 'proposed'),
   },
 };
 

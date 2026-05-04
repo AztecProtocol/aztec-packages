@@ -43,6 +43,11 @@ export type L2BlockStreamEvent =
   | /** Reports new finalized block (proven and finalized on L1). */ {
       type: 'chain-finalized';
       block: L2BlockId;
+    }
+  | /** Reports new proposed-checkpoint tip (sequencer-side optimistic checkpoint). */ {
+      type: 'checkpoint-proposed';
+      block: L2BlockId;
+      checkpoint: CheckpointId;
     };
 
 export type L2TipsStore = L2BlockStreamEventHandler & L2BlockStreamLocalDataProvider;

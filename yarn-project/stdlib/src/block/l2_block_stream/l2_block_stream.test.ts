@@ -261,6 +261,46 @@ describe('L2BlockStream', () => {
       ] satisfies L2BlockStreamEvent[]);
     });
 
+    it('emits checkpoint-proposed when proposedCheckpoint tip advances', async () => {
+      setRemoteTips(5, 0, 0, 0, 3);
+      localData.proposed.number = BlockNumber(5);
+
+      await blockStream.work();
+      expect(handler.events).toEqual([
+        {
+          type: 'checkpoint-proposed',
+          block: makeBlockId(3),
+          checkpoint: makeCheckpointId(3),
+        },
+      ] satisfies L2BlockStreamEvent[]);
+    });
+
+    it('does not emit checkpoint-proposed when proposedCheckpoint is unchanged', async () => {
+      setRemoteTips(5, 0, 0, 0, 3);
+      localData.proposed.number = BlockNumber(5);
+      localData.proposedCheckpointed.block.number = BlockNumber(3);
+
+      await blockStream.work();
+      const checkpointProposedEvents = handler.events.filter(e => e.type === 'checkpoint-proposed');
+      expect(checkpointProposedEvents).toHaveLength(0);
+    });
+
+    it('emits checkpoint-proposed after proven and finalized events', async () => {
+      setRemoteTips(10, 0, 8, 6, 5);
+      localData.proposed.number = BlockNumber(10);
+      localData.proven.block.number = BlockNumber(4);
+      localData.finalized.block.number = BlockNumber(2);
+
+      await blockStream.work();
+      const types = handler.events.map(e => e.type);
+      const provenIdx = types.indexOf('chain-proven');
+      const finalizedIdx = types.indexOf('chain-finalized');
+      const proposedCpIdx = types.indexOf('checkpoint-proposed');
+      expect(provenIdx).toBeGreaterThanOrEqual(0);
+      expect(finalizedIdx).toBeGreaterThan(provenIdx);
+      expect(proposedCpIdx).toBeGreaterThan(finalizedIdx);
+    });
+
     it('fetches checkpointed blocks and emits chain-checkpointed events', async () => {
       // All blocks are checkpointed (checkpointed=5, proposed=5)
       setRemoteTips(5, 5);

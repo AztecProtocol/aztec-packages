@@ -114,6 +114,9 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
       case 'chain-finalized':
         await this.handleChainFinalized(event);
         break;
+      case 'checkpoint-proposed':
+        await this.handleCheckpointProposed(event);
+        break;
     }
   }
 
@@ -172,12 +175,15 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     await this.runInTransaction(async () => {
       await this.saveTag('checkpointed', event.block);
       await this.saveCheckpoint(event.checkpoint);
-      // proposedCheckpoint is always >= checkpointed. If checkpointed has caught up
-      // or surpassed it, advance proposedCheckpoint to match.
-      const proposedCheckpointBlock = await this.getBlockId('proposedCheckpoint');
-      if (event.block.number > proposedCheckpointBlock.number) {
-        await this.saveTag('proposedCheckpoint', event.block);
-      }
+    });
+  }
+
+  private async handleCheckpointProposed(event: L2BlockStreamEvent): Promise<void> {
+    if (event.type !== 'checkpoint-proposed') {
+      return;
+    }
+    await this.runInTransaction(async () => {
+      await this.saveTag('proposedCheckpoint', event.block);
     });
   }
 

@@ -541,4 +541,55 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     // No checkpoint for block 3 since it wasn't checkpointed
     expect(tips.proven.checkpoint.number).toEqual(CheckpointNumber.ZERO);
   });
+
+  it('advances proposedCheckpoint tip on checkpoint-proposed event', async () => {
+    const blocks = await Promise.all(times(3, i => makeBlock(i + 1)));
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks });
+
+    await tipsStore.handleBlockStreamEvent({
+      type: 'checkpoint-proposed',
+      block: makeBlockId(3),
+      checkpoint: { number: CheckpointNumber(1), hash: new Fr(1).toString() },
+    });
+
+    const tips = await tipsStore.getL2Tips();
+    expect(tips.proposedCheckpoint.block).toEqual(makeTip(3));
+  });
+
+  it('does not advance proposedCheckpoint on chain-checkpointed (checkpoint-proposed is the source of truth)', async () => {
+    const blocks = await Promise.all(times(3, i => makeBlock(i + 1)));
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks });
+
+    const checkpoint1 = await makeCheckpoint(1, blocks);
+    await tipsStore.handleBlockStreamEvent(await makeCheckpointedEvent(checkpoint1));
+
+    const tips = await tipsStore.getL2Tips();
+    // checkpointed should advance
+    expect(tips.checkpointed.block).toEqual(makeTip(3));
+    // proposedCheckpoint should NOT be advanced by chain-checkpointed alone
+    expect(tips.proposedCheckpoint.block).toEqual(makeTip(0));
+  });
+
+  it('resets proposedCheckpoint on chain-pruned', async () => {
+    const blocks = await Promise.all(times(5, i => makeBlock(i + 1)));
+    await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks });
+
+    await tipsStore.handleBlockStreamEvent({
+      type: 'checkpoint-proposed',
+      block: makeBlockId(5),
+      checkpoint: { number: CheckpointNumber(1), hash: new Fr(1).toString() },
+    });
+
+    let tips = await tipsStore.getL2Tips();
+    expect(tips.proposedCheckpoint.block).toEqual(makeTip(5));
+
+    await tipsStore.handleBlockStreamEvent({
+      type: 'chain-pruned',
+      block: makeBlockId(3),
+      checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+    });
+
+    tips = await tipsStore.getL2Tips();
+    expect(tips.proposedCheckpoint.block).toEqual(makeTip(3));
+  });
 }

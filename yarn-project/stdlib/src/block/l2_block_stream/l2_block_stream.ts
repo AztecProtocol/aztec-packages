@@ -256,7 +256,7 @@ export class L2BlockStream {
         nextBlockNumber = blocks.at(-1)!.number + 1;
       }
 
-      // Update the proven and finalized tips.
+      // Update the proven, finalized, and proposedCheckpoint tips.
       if (localTips.proven !== undefined && sourceTips.proven.block.number !== localTips.proven.block.number) {
         await this.emitEvent({
           type: 'chain-proven',
@@ -265,6 +265,13 @@ export class L2BlockStream {
       }
       if (localTips.finalized !== undefined && sourceTips.finalized.block.number !== localTips.finalized.block.number) {
         await this.emitEvent({ type: 'chain-finalized', block: sourceTips.finalized.block });
+      }
+      if (sourceTips.proposedCheckpoint.block.number !== localTips.proposedCheckpoint.block.number) {
+        await this.emitEvent({
+          type: 'checkpoint-proposed',
+          block: sourceTips.proposedCheckpoint.block,
+          checkpoint: sourceTips.proposedCheckpoint.checkpoint,
+        });
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
