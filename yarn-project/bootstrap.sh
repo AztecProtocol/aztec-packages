@@ -170,7 +170,7 @@ function test_cmds {
 
   # Exclusions:
   # end-to-end: e2e tests handled separately with end-to-end/bootstrap.sh.
-  # kv-store: Uses mocha so will need different treatment.
+  # kv-store: per-file fan-out handled by kv-store/bootstrap.sh test_cmds.
   for test in !(end-to-end|kv-store|aztec)/src/**/*.test.ts; do
     # Skip benchmarks here.
     [[ "$test" =~ \.bench\.test\.ts$ ]] && continue
@@ -218,8 +218,8 @@ function test_cmds {
     echo "${prefix}${cmd_env} yarn-project/scripts/run_test.sh $test"
   done
 
-  # Uses mocha for browser tests, so we have to treat it differently.
-  echo "$hash:ISOLATE=1 cd yarn-project/kv-store && yarn test"
+  # kv-store: per-file fan-out (mocha for node tests, vitest for browser tests).
+  kv-store/bootstrap.sh test_cmds
 
   # Aztec CLI tests
   aztec/bootstrap.sh test_cmds
