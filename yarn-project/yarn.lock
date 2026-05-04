@@ -1479,9 +1479,9 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/native": "workspace:^"
+    "@aztec/sqlite3mc-wasm": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
-    "@sqlite.org/sqlite-wasm": "npm:3.50.4-build1"
     "@types/chai": "npm:^5.0.1"
     "@types/chai-as-promised": "npm:^8.0.1"
     "@types/jest": "npm:^30.0.0"
@@ -2056,6 +2056,19 @@ __metadata:
     typescript: "npm:^5.3.3"
     viem: "npm:@aztec/viem@2.38.2"
     zod: "npm:^3.23.8"
+  languageName: unknown
+  linkType: soft
+
+"@aztec/sqlite3mc-wasm@workspace:^, @aztec/sqlite3mc-wasm@workspace:sqlite3mc-wasm":
+  version: 0.0.0-use.local
+  resolution: "@aztec/sqlite3mc-wasm@workspace:sqlite3mc-wasm"
+  dependencies:
+    "@jest/globals": "npm:^30.0.0"
+    "@sqlite.org/sqlite-wasm": "npm:3.50.4-build1"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
+    jest: "npm:^30.0.0"
+    ts-node: "npm:^10.9.1"
+    typescript: "npm:^5.3.3"
   languageName: unknown
   linkType: soft
 

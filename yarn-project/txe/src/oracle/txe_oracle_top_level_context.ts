@@ -184,7 +184,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txEffects = block!.body.txEffects[0];
 
-    return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
+    return {
+      txHash: txEffects.txHash,
+      noteHashes: txEffects.noteHashes,
+      nullifiers: txEffects.nullifiers,
+      privateLogs: txEffects.privateLogs,
+    };
   }
 
   async syncContractNonOracleMethod(contractAddress: AztecAddress, scope: AztecAddress, jobId: string) {
