@@ -65,6 +65,11 @@ export abstract class ArchiverDataSourceBase
   /** Archive root after block 0 was appended — read from L1 (`Rollup.getGenesisArchiveTreeRoot`). */
   protected readonly genesisArchiveRoot: Fr;
 
+  /** Memoized synthetic genesis block — callers rely on referential identity for caching. */
+  private readonly genesisBlock: L2Block;
+  /** Memoized synthetic genesis block data — kept consistent with {@link genesisBlock}. */
+  private readonly genesisBlockData: BlockData;
+
   constructor(
     protected readonly stores: ArchiverDataStores,
     protected readonly l1Constants: L1RollupConstants | undefined,
@@ -75,6 +80,22 @@ export abstract class ArchiverDataSourceBase
     this.initialHeader = initialHeader;
     this.initialBlockHash = initialBlockHash;
     this.genesisArchiveRoot = genesisArchiveRoot;
+
+    const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+    this.genesisBlock = new L2Block(
+      genesisArchive,
+      initialHeader,
+      Body.empty(),
+      CheckpointNumber.ZERO,
+      IndexWithinCheckpoint(0),
+    );
+    this.genesisBlockData = {
+      header: initialHeader,
+      archive: genesisArchive,
+      blockHash: initialBlockHash,
+      checkpointNumber: CheckpointNumber.ZERO,
+      indexWithinCheckpoint: IndexWithinCheckpoint(0),
+    };
   }
 
   /** Returns the precomputed hash of the genesis block header. */
@@ -82,26 +103,14 @@ export abstract class ArchiverDataSourceBase
     return this.initialBlockHash;
   }
 
-  /** Returns the genesis L2Block. */
+  /** Returns the synthetic genesis L2Block (memoized — same instance across calls). */
   private getGenesisBlock(): L2Block {
-    return new L2Block(
-      new AppendOnlyTreeSnapshot(this.genesisArchiveRoot, 1),
-      this.initialHeader,
-      Body.empty(),
-      CheckpointNumber.ZERO,
-      IndexWithinCheckpoint(0),
-    );
+    return this.genesisBlock;
   }
 
-  /** Returns genesis block data. */
+  /** Returns genesis block data (memoized — same instance across calls). */
   private getGenesisBlockData(): BlockData {
-    return {
-      header: this.initialHeader,
-      archive: new AppendOnlyTreeSnapshot(this.genesisArchiveRoot, 1),
-      blockHash: this.initialBlockHash,
-      checkpointNumber: CheckpointNumber.ZERO,
-      indexWithinCheckpoint: IndexWithinCheckpoint(0),
-    };
+    return this.genesisBlockData;
   }
 
   /**
