@@ -15,22 +15,23 @@ const path = require("path");
 const BUILD_DIR = path.join(__dirname, "..", "build");
 const STATIC_DIR = path.join(__dirname, "..", "static");
 
-// Load version from developer_versions.json (same as docusaurus.config.js)
+// Load version config (source of truth for type→version mapping)
+let developerVersionConfig;
+try {
+  developerVersionConfig = require("../developer_version_config.json");
+} catch {
+  // Fallback to legacy array-based detection
+  developerVersionConfig = null;
+}
 const developerVersions = require("../developer_versions.json");
 
-// Find testnet version dynamically (same logic as docusaurus.config.js)
-const testnetVersion = developerVersions.find((v) => v.includes("rc") || v.includes("testnet"));
+// Determine the default (highest-priority) API docs version to append.
+// Only include one set to avoid bloating llms.txt. Priority: mainnet > testnet.
+const defaultType = developerVersionConfig?.mainnet ? "mainnet"
+  : developerVersionConfig?.testnet ? "testnet"
+  : null;
+const defaultVersion = defaultType ? developerVersionConfig[defaultType] : (developerVersions[0] || null);
 
-<<<<<<< HEAD
-// The API docs directories use stable folder names
-const API_DIRS = [
-  ...(testnetVersion ? [{
-    name: "Aztec.nr API Reference (Testnet)",
-    dir: "aztec-nr-api/testnet",
-    description: `Auto-generated API documentation for Aztec.nr (${testnetVersion})`,
-  }] : []),
-];
-=======
 const API_DIRS = [];
 if (defaultType && fs.existsSync(path.join(STATIC_DIR, `aztec-nr-api/${defaultType}`))) {
   API_DIRS.push({
@@ -50,7 +51,6 @@ if (defaultType && fs.existsSync(path.join(STATIC_DIR, `typescript-api/${default
     format: "markdown",
   });
 }
->>>>>>> 77db5987e2 (feat(docs): improve discoverability of Aztec.nr API reference docs (#22861))
 
 /**
  * Extract text content from HTML, stripping tags and normalizing whitespace.
