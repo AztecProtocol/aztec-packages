@@ -93,6 +93,18 @@ import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_so
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
 
+/**
+ * The default `GasSettings` used by transaction-producing TXE flows when the test does not call
+ * `env.set_gas_settings`. Uses max processable gas limits and zero fees, preserving prior TXE
+ * behavior for existing tests.
+ */
+export const DEFAULT_TXE_GAS_SETTINGS = new GasSettings(
+  new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS),
+  new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, FALLBACK_TEARDOWN_L2_GAS_LIMIT),
+  GasFees.empty(),
+  GasFees.empty(),
+);
+
 export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
   isMisc = true as const;
   isTxe = true as const;
@@ -115,6 +127,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
+    private currentGasSettings: GasSettings,
   ) {
     this.logger = createLogger('txe:top_level_context');
     this.logger.debug('Entering Top Level Context');
@@ -228,6 +241,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   advanceTimestampBy(duration: UInt64) {
     this.logger.debug(`time traveling ${duration} seconds`);
     this.nextBlockTimestamp += duration;
+  }
+
+  setGasSettings(gasSettings: GasSettings) {
+    this.logger.debug(`updating gas settings`, { gasSettings });
+    this.currentGasSettings = gasSettings;
+  }
+
+  getGasSettings(): GasSettings {
+    return this.currentGasSettings;
   }
 
   async deploy(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: Fr) {
@@ -356,11 +378,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const callContext = new CallContext(from, targetContractAddress, functionSelector, isStaticCall);
 
-    const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
-    const teardownGasLimits = new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, FALLBACK_TEARDOWN_L2_GAS_LIMIT);
-    const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
-
-    const txContext = new TxContext(this.chainId, this.version, gasSettings);
+    const txContext = new TxContext(this.chainId, this.version, this.currentGasSettings);
 
     const protocolNullifier = await computeProtocolNullifier(getSingleTxBlockRequestHash(blockNumber));
     const noteCache = new ExecutionNoteCache(protocolNullifier);
@@ -559,13 +577,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const blockNumber = await this.getNextBlockNumber();
 
-    const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
-
-    const teardownGasLimits = new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, FALLBACK_TEARDOWN_L2_GAS_LIMIT);
-
-    const gasSettings = new GasSettings(gasLimits, teardownGasLimits, GasFees.empty(), GasFees.empty());
-
-    const txContext = new TxContext(this.chainId, this.version, gasSettings);
+    const txContext = new TxContext(this.chainId, this.version, this.currentGasSettings);
 
     const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
 
@@ -797,9 +809,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>] {
+  close(): [bigint, Map<string, AuthWitness>, GasSettings] {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits];
+    return [this.nextBlockTimestamp, this.authwits, this.currentGasSettings];
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {

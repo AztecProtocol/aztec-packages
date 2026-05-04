@@ -128,6 +128,13 @@ pub contract Test {
         }
     }
 
+    /// Returns the `GasSettings` from the current `TxContext`. Used by TXE tests of
+    /// `env.set_gas_settings` to confirm the configured settings reach `context.gas_settings()`.
+    #[external("private")]
+    fn echo_gas_settings() -> aztec::protocol::abis::gas_settings::GasSettings {
+        self.context.gas_settings()
+    }
+
     #[external("public")]
     #[only_self]
     fn dummy_public_call() {}

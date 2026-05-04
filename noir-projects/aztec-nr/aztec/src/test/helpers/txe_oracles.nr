@@ -4,13 +4,13 @@ use crate::{
 };
 
 use crate::protocol::{
-    abis::function_selector::FunctionSelector,
+    abis::{function_selector::FunctionSelector, gas_settings::GasSettings},
     address::AztecAddress,
     constants::{
         CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULL_MSG_SENDER_CONTRACT_ADDRESS,
     },
     contract_instance::ContractInstance,
-    traits::{Deserialize, ToField},
+    traits::{Deserialize, Serialize, ToField},
 };
 
 /// Upper bound on the number of raw offchain effects the TXE test environment will surface
@@ -153,6 +153,25 @@ pub unconstrained fn advance_blocks_by(blocks: u32) {}
 
 #[oracle(aztec_txe_advanceTimestampBy)]
 pub unconstrained fn advance_timestamp_by(duration: u64) {}
+
+/// Sets the `gas_settings` field of the `TxContext` used by subsequent transaction-producing TXE
+/// flows (`call_private`, `view_private`, `call_public`, `view_public`, etc., as well as the inline
+/// `private_context` closure). The setting persists until overwritten.
+///
+/// The default value uses max processable gas limits and zero fees, so existing tests continue to
+/// behave identically. Tests that exercise contracts which read `context.gas_settings()` (e.g.
+/// FPCs computing whether a fee budget is sufficient) should call this before the contract call.
+///
+/// Note: this setter does NOT affect `globals.gas_fees` (the per-block "actual" gas price the AVM
+/// reads via `min_fee_per_l2_gas` in public functions), which is a separate concern.
+pub unconstrained fn set_gas_settings(gas_settings: GasSettings) {
+    set_gas_settings_oracle(gas_settings.serialize());
+}
+
+/// We pass the serialized GasSettings as a flat field array so the oracle resolver does not need to
+/// know the struct shape (mirrors the capsule pattern in `crate::oracle::capsules`).
+#[oracle(aztec_txe_setGasSettings)]
+unconstrained fn set_gas_settings_oracle<let N: u32>(serialized_gas_settings: [Field; N]) {}
 
 #[oracle(aztec_txe_deploy)]
 pub unconstrained fn deploy_oracle<let N: u32, let P: u32>(
