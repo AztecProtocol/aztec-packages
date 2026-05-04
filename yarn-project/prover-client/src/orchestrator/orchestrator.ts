@@ -1,5 +1,6 @@
 import { BatchedBlob, FinalBlobBatchingChallenges, SpongeBlob } from '@aztec/blob-lib/types';
 import {
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -26,7 +27,7 @@ import type {
   ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
-import type { Proof } from '@aztec/stdlib/proofs';
+import type { Proof, RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
   BlockRootEmptyTxFirstRollupPrivateInputs,
@@ -367,7 +368,47 @@ export class ProvingOrchestrator {
   @trackSpan('ProvingOrchestrator.addTxs', txs => ({
     [Attributes.BLOCK_TXS_COUNT]: txs.length,
   }))
-  public async addTxs(txs: ProcessedTx[]): Promise<void> {
+  public addTxs(txs: ProcessedTx[]): Promise<void> {
+    return this.addProcessedTxsToBlock(txs, (provingState, txIndex) => this.enqueueVM(provingState, txIndex));
+  }
+
+  /**
+   * Adds processed txs to the orchestrator without enqueueing AVM proving jobs itself.
+   * For each public tx, the supplied `expectAvmProofForTx` callback is used to obtain
+   * the AVM proof — typically by awaiting a deterministic-ID job already (or about to
+   * be) enqueued by an execution agent. Used by the prover node when AVM execution has
+   * been offloaded; the existing `addTxs` path is otherwise unchanged.
+   *
+   * @param txs - The processed txs to add to the block (in tx order).
+   * @param expectAvmProofForTx - Returns a promise for the AVM proof of the tx at the
+   * given index. Only invoked for public txs.
+   */
+  @trackSpan('ProvingOrchestrator.addBlockForExecution', txs => ({
+    [Attributes.BLOCK_TXS_COUNT]: txs.length,
+  }))
+  public addBlockForExecution(
+    txs: ProcessedTx[],
+    expectAvmProofForTx: (
+      txIndex: number,
+      signal: AbortSignal,
+    ) => Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>,
+  ): Promise<void> {
+    return this.addProcessedTxsToBlock(txs, (provingState, txIndex) =>
+      this.watchAvmJobForTx(provingState, txIndex, expectAvmProofForTx),
+    );
+  }
+
+  /**
+   * Shared implementation of {@link addTxs} and {@link addBlockForExecution}. Walks
+   * each tx in order, prepares base-rollup inputs (mutating the orchestrator's fork),
+   * creates a `TxProvingState`, and dispatches the per-tx proving work. The `obtainAvmProof`
+   * callback decides how the AVM proof is obtained for public txs — either by enqueuing
+   * a new proving job or by awaiting a pre-enqueued deterministic-ID job.
+   */
+  private async addProcessedTxsToBlock(
+    txs: ProcessedTx[],
+    obtainAvmProof: (provingState: BlockProvingState, txIndex: number) => void,
+  ): Promise<void> {
     if (!this.provingState) {
       throw new Error(`Empty epoch proving state. Call startNewEpoch before adding txs.`);
     }
@@ -375,7 +416,7 @@ export class ProvingOrchestrator {
     if (!txs.length) {
       // To avoid an ugly throw below. If we require an empty block, we can just call setBlockCompleted
       // on a block with no txs. We cannot do that here because we cannot find the blockNumber without any txs.
-      this.logger.warn(`Provided no txs to orchestrator addTxs.`);
+      this.logger.warn(`Provided no txs to orchestrator.`);
       return;
     }
 
@@ -431,8 +472,8 @@ export class ProvingOrchestrator {
         const txIndex = provingState.addNewTx(txProvingState);
         if (txProvingState.requireAvmProof) {
           this.getOrEnqueueChonkVerifier(provingState, txIndex);
-          this.logger.debug(`Enqueueing public VM for tx ${txIndex}`);
-          this.enqueueVM(provingState, txIndex);
+          this.logger.debug(`Setting up AVM proof for tx ${txIndex}`);
+          obtainAvmProof(provingState, txIndex);
         } else {
           this.logger.debug(`Enqueueing base rollup for private-only tx ${txIndex}`);
           this.enqueueBaseRollup(provingState, txIndex);
@@ -1366,6 +1407,41 @@ export class ProvingOrchestrator {
 
     this.deferredProving(provingState, doAvmProving, proof => {
       this.logger.debug(`Proven VM for tx index: ${txIndex}`);
+      txProvingState.setAvmProof(proof);
+      this.checkAndEnqueueBaseRollup(provingState, txIndex);
+    });
+  }
+
+  /**
+   * Awaits an AVM proof produced by an offloaded execution agent (rather than enqueueing a new
+   * AVM proving job locally). The supplied callback typically resolves via the broker facade's
+   * `expectJob` against a deterministic ID computed from `(epoch, blockNumber, slotNumber, txIndex)`.
+   */
+  private watchAvmJobForTx(
+    provingState: BlockProvingState,
+    txIndex: number,
+    expectAvmProofForTx: (
+      txIndex: number,
+      signal: AbortSignal,
+    ) => Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>,
+  ) {
+    if (!provingState.verifyState()) {
+      this.logger.debug(`Not awaiting AVM proof for tx ${txIndex} as state is no longer valid`);
+      return;
+    }
+
+    const txProvingState = provingState.getTxProvingState(txIndex);
+    const awaitAvmProof = wrapCallbackInSpan(
+      this.tracer,
+      'ProvingOrchestrator.expectAvmProof',
+      {
+        [Attributes.TX_HASH]: txProvingState.processedTx.hash.toString(),
+      },
+      (signal: AbortSignal) => expectAvmProofForTx(txIndex, signal),
+    );
+
+    this.deferredProving(provingState, awaitAvmProof, proof => {
+      this.logger.debug(`Received offloaded AVM proof for tx index: ${txIndex}`);
       txProvingState.setAvmProof(proof);
       this.checkAndEnqueueBaseRollup(provingState, txIndex);
     });
