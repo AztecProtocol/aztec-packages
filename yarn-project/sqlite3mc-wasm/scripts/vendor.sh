@@ -1,41 +1,74 @@
 #!/usr/bin/env bash
-# Re-vendor the sqlite3mc WASM release into vendor/jswasm/.
+# Fetch the sqlite3mc WASM release into vendor/jswasm/.
 #
-# Usage:
-#   scripts/vendor.sh <sqlite3mc-version> <sqlite-version> <expected-sha256>
+# Two modes:
 #
-# Example (verify the current pinned version):
-#   scripts/vendor.sh 2.2.4 3.50.4 e73514200d76286d7d4a239589589b4f64d24ac4f4f7b2760e1f07b14ac5f6a5
+#   scripts/vendor.sh
+#     Fetches the version pinned in scripts/vendor.pin, replacing vendor/jswasm/
+#     with pristine upstream files and regenerating SHA256SUMS. Used at build
+#     time and when bumping the pinned version.
 #
-# The script fetches
-#   https://github.com/utelle/SQLite3MultipleCiphers/releases/download/v<ver>/
-#     sqlite3mc-<ver>-sqlite-<sqlite-ver>-wasm.zip
-# verifies the SHA256 matches, extracts, and copies the jswasm/ contents into
-# vendor/jswasm/ replacing what was there. It preserves our locally-authored
-# sqlite3-bundler-friendly.d.mts (TypeScript companion types — see README) and
-# regenerates vendor/jswasm/SHA256SUMS from the final file set.
+#   scripts/vendor.sh ensure
+#     Idempotent: if vendor/jswasm/ is already populated and verifies against
+#     SHA256SUMS, exits 0 without touching anything. Otherwise behaves like the
+#     no-arg form. Wired into yarn-project/bootstrap.sh to populate vendor files
+#     on fresh checkouts before compilation.
 #
-# After running, update README.md's provenance table with the new version/hash.
+#   scripts/vendor.sh <mc-version> <sqlite-version> <expected-sha256>
+#     Override pin file. Used to verify a candidate release before editing the
+#     pin file. Does NOT update the pin file, that's a manual step.
+#
+# After bumping: edit scripts/vendor.pin, run scripts/vendor.sh (no args),
+# commit pin + SHA256SUMS together.
 
 set -euo pipefail
-
-if [[ $# -ne 3 ]]; then
-  echo "usage: $0 <sqlite3mc-version> <sqlite-version> <expected-sha256>" >&2
-  echo "example: $0 2.2.4 3.50.4 e73514200d76286d7d4a239589589b4f64d24ac4f4f7b2760e1f07b14ac5f6a5" >&2
-  exit 2
-fi
-
-MC_VERSION=$1
-SQLITE_VERSION=$2
-EXPECTED_SHA=$3
 
 # Resolve package root relative to this script so the script works from any cwd.
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PKG_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 
+LOCAL_DMTS="$PKG_ROOT/vendor/jswasm/sqlite3-bundler-friendly.d.mts"
+LOCAL_GITIGNORE="$PKG_ROOT/vendor/jswasm/.gitignore"
+SHA256SUMS="$PKG_ROOT/vendor/jswasm/SHA256SUMS"
+PIN_FILE="$SCRIPT_DIR/vendor.pin"
+
+# `ensure` mode: short-circuit if vendor files are already present and verify.
+if [[ "${1:-}" == "ensure" ]]; then
+  if [[ -f "$SHA256SUMS" ]] && (cd "$PKG_ROOT/vendor/jswasm" && sha256sum --status -c SHA256SUMS) 2>/dev/null; then
+    exit 0
+  fi
+  shift
+fi
+
+# Resolve pin: explicit args override pin file.
+if [[ $# -eq 3 ]]; then
+  MC_VERSION=$1
+  SQLITE_VERSION=$2
+  EXPECTED_SHA=$3
+elif [[ $# -eq 0 ]]; then
+  if [[ ! -f "$PIN_FILE" ]]; then
+    echo "Pin file not found at $PIN_FILE" >&2
+    exit 2
+  fi
+  # shellcheck disable=SC1090
+  source "$PIN_FILE"
+  MC_VERSION=${MC_VERSION:-}
+  SQLITE_VERSION=${SQLITE_VERSION:-}
+  EXPECTED_SHA=${SHA256:-}
+  if [[ -z "$MC_VERSION" || -z "$SQLITE_VERSION" || -z "$EXPECTED_SHA" ]]; then
+    echo "Pin file $PIN_FILE missing MC_VERSION / SQLITE_VERSION / SHA256" >&2
+    exit 2
+  fi
+else
+  echo "usage: $0 [ensure] [<mc-version> <sqlite-version> <expected-sha256>]" >&2
+  echo "  no args:   fetch the version pinned in scripts/vendor.pin" >&2
+  echo "  ensure:    no-op if files already verify; else fetch from pin" >&2
+  echo "  3 args:    override pin (used to verify a candidate release)" >&2
+  exit 2
+fi
+
 ASSET="sqlite3mc-${MC_VERSION}-sqlite-${SQLITE_VERSION}-wasm.zip"
 URL="https://github.com/utelle/SQLite3MultipleCiphers/releases/download/v${MC_VERSION}/${ASSET}"
-LOCAL_DMTS="$PKG_ROOT/vendor/jswasm/sqlite3-bundler-friendly.d.mts"
 
 WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
@@ -64,11 +97,18 @@ if [[ -z "$EXTRACTED" ]]; then
   exit 1
 fi
 
-# Preserve our locally-authored .d.mts across re-vendoring.
+# Preserve files that aren't part of the upstream release across re-vendoring:
+#   - sqlite3-bundler-friendly.d.mts: locally-authored TypeScript declaration
+#   - .gitignore: allowlist that keeps upstream artifacts untracked
 DMTS_BACKUP=""
 if [[ -f "$LOCAL_DMTS" ]]; then
   DMTS_BACKUP=$(mktemp)
   cp "$LOCAL_DMTS" "$DMTS_BACKUP"
+fi
+GITIGNORE_BACKUP=""
+if [[ -f "$LOCAL_GITIGNORE" ]]; then
+  GITIGNORE_BACKUP=$(mktemp)
+  cp "$LOCAL_GITIGNORE" "$GITIGNORE_BACKUP"
 fi
 
 echo "==> Replacing vendor/jswasm/ with pristine upstream files"
@@ -76,11 +116,16 @@ rm -rf "$PKG_ROOT/vendor/jswasm"
 mkdir -p "$PKG_ROOT/vendor/jswasm"
 cp -r "$EXTRACTED/jswasm/." "$PKG_ROOT/vendor/jswasm/"
 
-# Restore our .d.mts if it existed.
+# Restore preserved files.
 if [[ -n "$DMTS_BACKUP" ]]; then
   cp "$DMTS_BACKUP" "$LOCAL_DMTS"
   rm "$DMTS_BACKUP"
   echo "==> Restored locally-authored sqlite3-bundler-friendly.d.mts"
+fi
+if [[ -n "$GITIGNORE_BACKUP" ]]; then
+  cp "$GITIGNORE_BACKUP" "$LOCAL_GITIGNORE"
+  rm "$GITIGNORE_BACKUP"
+  echo "==> Restored .gitignore"
 fi
 
 echo "==> Generating vendor/jswasm/SHA256SUMS"
@@ -92,11 +137,3 @@ mv "$PKG_ROOT/vendor/jswasm/SHA256SUMS.tmp" "$PKG_ROOT/vendor/jswasm/SHA256SUMS"
 
 echo "==> Done. Updated files:"
 ls "$PKG_ROOT/vendor/jswasm/" | sed 's/^/    /'
-
-echo ""
-echo "Next steps:"
-echo "  1. Update yarn-project/sqlite3mc-wasm/README.md provenance table"
-echo "     (sqlite3mc version, SQLite version, SHA256)"
-echo "  2. Re-run kv-store tests to confirm the new WASM is compatible:"
-echo "       yarn workspace @aztec/kv-store test:browser"
-echo "  3. Commit vendor/ + README.md"
