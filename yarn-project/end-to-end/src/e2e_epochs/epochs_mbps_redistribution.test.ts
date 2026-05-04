@@ -311,7 +311,7 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
 
     await retryUntil(
       async () => {
-        const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+        const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
         for (const pc of checkpoints) {
           if (pc.checkpoint.number <= lastSeenCheckpoint) {
             continue;

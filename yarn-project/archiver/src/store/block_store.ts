@@ -798,6 +798,21 @@ export class BlockStore {
   }
 
   /**
+   * Returns the pending checkpoint whose header slot matches the given slot, or undefined if not found.
+   * Iterates `#proposedCheckpoints` rather than reading an index because the map carries 0–1 entries
+   * in normal operation (bounded by the proposer pipelining window). Returns the first match.
+   */
+  async getProposedCheckpointBySlot(slot: SlotNumber): Promise<ProposedCheckpointData | undefined> {
+    for await (const [, stored] of this.#proposedCheckpoints.entriesAsync()) {
+      const header = CheckpointHeader.fromBuffer(stored.header);
+      if (header.slotNumber === slot) {
+        return this.convertToProposedCheckpointData(stored);
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * Evicts all pending checkpoints with checkpoint number >= fromNumber.
    * Used for divergent-mined-checkpoint cleanup: when L1 mines checkpoint N with a different archive,
    * all pending >= N must be evicted since they chain off the now-invalid pending N.

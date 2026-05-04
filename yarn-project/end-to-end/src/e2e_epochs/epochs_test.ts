@@ -465,7 +465,7 @@ export class EpochsTestContext {
   /** Verifies at least one checkpoint has the target number of blocks (for MBPS validation). */
   public async assertMultipleBlocksPerSlot(targetBlockCount: number) {
     const archiver = (this.context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
 
     this.logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),

@@ -53,13 +53,16 @@ import {
   BlockHash,
   type BlockParameter,
   BlockTag,
+  type CheckpointQuery,
+  type CheckpointsQuery,
   type CommitteeAttestation,
   type DataInBlock,
   type L2BlockSource,
   type NormalizedBlockParameter,
+  type ProposedCheckpointQuery,
   inspectBlockParameter,
 } from '@aztec/stdlib/block';
-import { L1PublishedData } from '@aztec/stdlib/checkpoint';
+import { type CheckpointData, L1PublishedData, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -83,6 +86,7 @@ import type {
   CheckpointResponse,
   GetContractClassLogsResponse,
   GetPublicLogsResponse,
+  NormalizedCheckpointDispatch,
 } from '@aztec/stdlib/interfaces/client';
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
@@ -143,6 +147,7 @@ import {
   blockResponseFromL2Block,
   checkpointResponseFromCheckpointData,
   checkpointResponseFromPublishedCheckpoint,
+  projectProposedToCheckpointResponse,
 } from './block_response_helpers.js';
 import { type AztecNodeConfig, createKeyStoreForValidator } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
@@ -240,8 +245,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     );
   }
 
-  public getCheckpointsDataForEpoch(epoch: EpochNumber) {
-    return this.blockSource.getCheckpointsDataForEpoch(epoch);
+  public getCheckpointsData(query: CheckpointsQuery) {
+    return this.blockSource.getCheckpointsData(query);
   }
 
   public getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
@@ -259,16 +264,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber> {
+    const tips = await this.blockSource.getL2Tips();
     switch (tip) {
       case undefined:
-      case 'proposed':
       case 'checkpointed':
-        return await this.blockSource.getCheckpointNumber();
+        return tips.checkpointed.checkpoint.number;
+      case 'proposed':
+        return tips.proposedCheckpoint.checkpoint.number;
       case 'proven':
-      case 'finalized': {
-        const tips = await this.blockSource.getL2Tips();
-        return tip === 'proven' ? tips.proven.checkpoint.number : tips.finalized.checkpoint.number;
-      }
+        return tips.proven.checkpoint.number;
+      case 'finalized':
+        return tips.finalized.checkpoint.number;
     }
   }
 
@@ -318,24 +324,35 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return BlockTag.includes(value as BlockTag);
   }
 
-  private async resolveCheckpointParameter(
-    param: CheckpointParameter,
-  ): Promise<{ number?: CheckpointNumber; slot?: SlotNumber }> {
+  /**
+   * Normalizes a {@link CheckpointParameter} into the confirmed/proposed/isProposedTag triplet
+   * used by the confirmed→proposed fallback dispatch in {@link getCheckpoint}.
+   *
+   * - By number or slot: try confirmed first, then fall back to proposed.
+   * - 'proposed' tag: proposed only (confirmed is undefined).
+   * - 'checkpointed'/'proven'/'finalized' tags: confirmed only (proposed is undefined).
+   */
+  private normalizeCheckpointParameter(param: CheckpointParameter): NormalizedCheckpointDispatch {
     if (typeof param === 'number') {
-      return { number: param as CheckpointNumber };
+      const number = param as CheckpointNumber;
+      return { confirmed: { number }, proposed: { number }, isProposedTag: false };
     }
-    if (param === 'latest') {
-      return { number: await this.blockSource.getCheckpointNumber() };
+    if (param === 'proposed') {
+      return { confirmed: undefined, proposed: { tag: 'proposed' }, isProposedTag: true };
     }
     if (this.isChainTip(param)) {
-      return { number: await this.getCheckpointNumber(param) };
+      return {
+        confirmed: { tag: param as 'checkpointed' | 'proven' | 'finalized' },
+        proposed: undefined,
+        isProposedTag: false,
+      };
     }
     if (typeof param === 'object' && param !== null) {
       if ('number' in param) {
-        return { number: param.number };
+        return { confirmed: { number: param.number }, proposed: { number: param.number }, isProposedTag: false };
       }
       if ('slot' in param) {
-        return { slot: param.slot };
+        return { confirmed: { slot: param.slot }, proposed: { slot: param.slot }, isProposedTag: false };
       }
     }
     throw new BadRequestError(`Invalid CheckpointParameter: ${JSON.stringify(param)}`);
@@ -345,7 +362,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   async #getCheckpointContext(
     checkpointNumber: CheckpointNumber,
   ): Promise<{ l1?: L1PublishedData; attestations?: CommitteeAttestation[] } | undefined> {
-    const checkpoint = await this.blockSource.getCheckpointData(checkpointNumber);
+    const checkpoint = await this.blockSource.getCheckpointData({ number: checkpointNumber });
     if (!checkpoint) {
       return undefined;
     }
@@ -412,26 +429,49 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     param: CheckpointParameter,
     options: Opts = {} as Opts,
   ): Promise<CheckpointResponse<Opts> | undefined> {
-    const resolved = await this.resolveCheckpointParameter(param);
-    let checkpointNumber = resolved.number;
-    if (checkpointNumber === undefined && resolved.slot !== undefined) {
-      checkpointNumber = await this.blockSource.getCheckpointNumberBySlot(resolved.slot);
+    const wantsAttestations = !!options.includeAttestations;
+    const wantsL1PublishInfo = !!options.includeL1PublishInfo;
+    const wantsConfirmedOnly = wantsAttestations || wantsL1PublishInfo;
+
+    const norm = this.normalizeCheckpointParameter(param);
+
+    if (norm.isProposedTag && wantsConfirmedOnly) {
+      throw new BadRequestError(
+        `getCheckpoint: includeL1PublishInfo / includeAttestations cannot be requested for a proposed checkpoint`,
+      );
     }
-    if (checkpointNumber === undefined) {
-      return undefined;
-    }
-    if (options.includeBlocks) {
-      const [checkpoint] = await this.blockSource.getCheckpoints(checkpointNumber, 1);
-      if (!checkpoint) {
-        return undefined;
+
+    if (norm.confirmed !== undefined) {
+      const confirmed = options.includeBlocks
+        ? await this.blockSource.getCheckpoint(norm.confirmed)
+        : await this.blockSource.getCheckpointData(norm.confirmed);
+      if (confirmed) {
+        if (options.includeBlocks) {
+          return (await checkpointResponseFromPublishedCheckpoint(
+            confirmed as PublishedCheckpoint,
+            options,
+          )) as CheckpointResponse<Opts>;
+        }
+        return checkpointResponseFromCheckpointData(confirmed as CheckpointData, options) as CheckpointResponse<Opts>;
       }
-      return (await checkpointResponseFromPublishedCheckpoint(checkpoint, options)) as CheckpointResponse<Opts>;
     }
-    const data = await this.blockSource.getCheckpointData(checkpointNumber);
-    if (!data) {
-      return undefined;
+
+    if (norm.proposed !== undefined) {
+      const proposed = await this.blockSource.getProposedCheckpointData(norm.proposed);
+      if (proposed) {
+        if (wantsConfirmedOnly) {
+          throw new BadRequestError(
+            `getCheckpoint: matching checkpoint is proposed, which has no L1 publish info or attestations`,
+          );
+        }
+        const blocks = options.includeBlocks
+          ? await this.blockSource.getBlocks({ from: proposed.startBlock, limit: proposed.blockCount })
+          : undefined;
+        return (await projectProposedToCheckpointResponse(proposed, options, blocks)) as CheckpointResponse<Opts>;
+      }
     }
-    return checkpointResponseFromCheckpointData(data, options) as CheckpointResponse<Opts>;
+
+    return undefined;
   }
 
   public async getCheckpoints<Opts extends CheckpointIncludeOptions = {}>(
@@ -440,12 +480,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     options: Opts = {} as Opts,
   ): Promise<CheckpointResponse<Opts>[]> {
     if (options.includeBlocks) {
-      const checkpoints = await this.blockSource.getCheckpoints(from, limit);
+      const checkpoints = await this.blockSource.getCheckpoints({ from, limit });
       return (await Promise.all(
         checkpoints.map(cp => checkpointResponseFromPublishedCheckpoint(cp, options)),
       )) as CheckpointResponse<Opts>[];
     }
-    const datas = await this.blockSource.getCheckpointDataRange(from, limit);
+    const datas = await this.blockSource.getCheckpointsData({ from, limit });
     return datas.map(d => checkpointResponseFromCheckpointData(d, options)) as CheckpointResponse<Opts>[];
   }
 
