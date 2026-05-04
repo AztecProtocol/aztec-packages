@@ -21,11 +21,6 @@ pub(crate) global MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY: u32 = 64;
 /// Maximum number of fields in a single raw offchain effect payload.
 pub(crate) global MAX_OFFCHAIN_EFFECT_LEN: u32 = 2 + MESSAGE_CIPHERTEXT_LEN;
 
-/// Upper bound on the number of private logs the TXE test environment will surface for a single
-/// tag in a `private_logs_by_tag` query. Matches the production archiver page size sufficient
-/// for typical tests; raise if a test legitimately needs more matches.
-pub(crate) global MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY: u32 = 64;
-
 global MAX_PRIVATE_EVENTS_PER_TXE_QUERY: u32 = 5;
 global MAX_EVENT_SERIALIZATION_LENGTH: u32 = 10;
 
@@ -195,33 +190,6 @@ unconstrained fn get_private_events_oracle(
     contract_address: AztecAddress,
     scope: AztecAddress,
     ) -> ([[Field; MAX_EVENT_SERIALIZATION_LENGTH]; MAX_PRIVATE_EVENTS_PER_TXE_QUERY], [u32; MAX_PRIVATE_EVENTS_PER_TXE_QUERY], u32) {}
-
-/// Returns the raw fields of every private log indexed by the kernel-siloed form of `raw_tag`
-/// under `contract_address`. The TXE handler applies the same first-field siloing that the
-/// kernel applies during transaction processing, so callers pass the raw tag the contract emits
-/// (e.g. `compute_log_tag(...)`) rather than a pre-siloed value.
-///
-/// Each returned `BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>` is a single log's `log_data`:
-/// the first element is the kernel-siloed tag and the remainder is the ciphertext payload.
-pub(crate) unconstrained fn get_private_logs_by_tag(
-    raw_tag: Field,
-    contract_address: AztecAddress,
-) -> BoundedVec<BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>, MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY> {
-    let (raw_array_storage, log_lengths, query_length) =
-        get_private_logs_by_tag_oracle(raw_tag, contract_address);
-
-    let mut logs = BoundedVec::new();
-    for i in 0..query_length {
-        logs.push(BoundedVec::from_parts(raw_array_storage[i], log_lengths[i]));
-    }
-    logs
-}
-
-#[oracle(aztec_txe_getPrivateLogsByTag)]
-unconstrained fn get_private_logs_by_tag_oracle(
-    raw_tag: Field,
-    contract_address: AztecAddress,
-) -> ([[Field; PRIVATE_LOG_SIZE_IN_FIELDS]; MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY], [u32; MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY], u32) {}
 
 #[oracle(aztec_txe_advanceBlocksBy)]
 pub unconstrained fn advance_blocks_by(blocks: u32) {}

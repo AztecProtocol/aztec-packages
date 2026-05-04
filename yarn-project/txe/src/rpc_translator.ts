@@ -38,8 +38,6 @@ import {
 
 const MAX_EVENT_LEN = 10; // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN
 const MAX_PRIVATE_EVENTS_PER_TXE_QUERY = 5;
-// Must match MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY in txe_oracles.nr.
-const MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY = 64;
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -411,39 +409,6 @@ export class RPCTranslator {
     const queryLength = new Fr(events.length);
 
     return toForeignCallResult([toArray(rawArrayStorage), toArray(eventLengths), toSingle(queryLength)]);
-  }
-
-  // eslint-disable-next-line camelcase
-  async aztec_txe_getPrivateLogsByTag(foreignRawTag: ForeignCallSingle, foreignContractAddress: ForeignCallSingle) {
-    const rawTag = fromSingle(foreignRawTag);
-    const contractAddress = addressFromSingle(foreignContractAddress);
-
-    const logs = await this.handlerAsTxe().getPrivateLogsByTag(rawTag, contractAddress);
-
-    if (logs.length > MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY) {
-      throw new Error(`Array of length ${logs.length} larger than maxLen ${MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY}`);
-    }
-    if (logs.some(log => log.length > PRIVATE_LOG_SIZE_IN_FIELDS)) {
-      throw new Error(`Some private log has length larger than maxLen ${PRIVATE_LOG_SIZE_IN_FIELDS}`);
-    }
-
-    // Same workaround as `aztec_txe_getPrivateEvents`: Noir cannot yet return nested structs with arrays, so we return
-    // a flat multidimensional array plus per-log lengths and the total count, and reassemble into a
-    // `BoundedVec<BoundedVec<Field, _>, _>` on the Noir side.
-    const rawArrayStorage = logs
-      .map(log => log.concat(Array(PRIVATE_LOG_SIZE_IN_FIELDS - log.length).fill(new Fr(0))))
-      .concat(
-        Array(MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY - logs.length).fill(
-          Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(new Fr(0)),
-        ),
-      )
-      .flat();
-    const logLengths = logs
-      .map(log => new Fr(log.length))
-      .concat(Array(MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY - logs.length).fill(new Fr(0)));
-    const queryLength = new Fr(logs.length);
-
-    return toForeignCallResult([toArray(rawArrayStorage), toArray(logLengths), toSingle(queryLength)]);
   }
 
   // eslint-disable-next-line camelcase

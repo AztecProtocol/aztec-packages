@@ -1,7 +1,6 @@
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::PRIVATE_LOG_SIZE_IN_FIELDS,
     traits::{Deserialize, FromField, Packable, Serialize},
 };
 
@@ -665,27 +664,6 @@ impl TestEnvironment {
         }
 
         messages
-    }
-
-    /// Returns the raw fields of every private log indexed by the kernel-siloed form of `raw_tag`
-    /// under `contract_address`.
-    ///
-    /// `raw_tag` is the value the contract passes to `emit_private_log_vec_unsafe` (i.e. the output
-    /// of `compute_log_tag(...)`). The TXE handler applies the same first-field siloing the kernel
-    /// applies during transaction processing, mirroring how PXE recipient-sync constructs siloed
-    /// tags before querying the node.
-    ///
-    /// Each returned `BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>` is one log's `log_data`: the
-    /// first element is the kernel-siloed tag and the remainder is the ciphertext payload to feed
-    /// into the encryption scheme's `decrypt`.
-    ///
-    /// Returns up to `MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY` logs.
-    pub unconstrained fn private_logs_by_tag(
-        _self: Self,
-        raw_tag: Field,
-        contract_address: AztecAddress,
-    ) -> BoundedVec<BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>, txe_oracles::MAX_PRIVATE_LOGS_PER_TAG_PER_TXE_QUERY> {
-        txe_oracles::get_private_logs_by_tag(raw_tag, contract_address)
     }
 
     /// Performs a public contract function call, including the processing of any nested public calls. Returns the

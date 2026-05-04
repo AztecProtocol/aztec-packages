@@ -4,10 +4,10 @@ use aztec::{
     protocol::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
-        hash::compute_log_tag,
+        hash::{compute_log_tag, compute_siloed_private_log_first_field},
         traits::{FromField, ToField},
     },
-    test::helpers::test_environment::TestEnvironment,
+    test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
@@ -102,16 +102,19 @@ unconstrained fn non_interactive_handshake_emits_recipient_discoverable_log() {
 
     env.call_private(sender, registry.non_interactive_handshake(recipient));
 
+    let logs = txe_oracles::get_last_tx_effects().private_logs;
+    assert_eq(logs.len(), 1);
+
     let raw_tag = compute_log_tag(
         recipient.to_field(),
         DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
     );
-    let logs = env.private_logs_by_tag(raw_tag, registry_address);
-    assert_eq(logs.len(), 1);
+    let expected_siloed_tag = compute_siloed_private_log_first_field(registry_address, raw_tag);
 
     // siloed tag (1) + eph_pk.x (1) = 2 fields.
     let log_data = logs.get(0);
     assert_eq(log_data.len(), 2);
+    assert_eq(log_data.get(0), expected_siloed_tag);
     let eph_pk_x = log_data.get(1);
     assert(eph_pk_x != 0, "eph_pk.x should be non-zero");
 }
@@ -124,17 +127,23 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
     let registry = HandshakeRegistry::at(registry_address);
 
     env.call_private(sender, registry.non_interactive_handshake(recipient));
+    let logs_first = txe_oracles::get_last_tx_effects().private_logs;
+    assert_eq(logs_first.len(), 1);
+
     env.call_private(other_sender, registry.non_interactive_handshake(recipient));
+    let logs_second = txe_oracles::get_last_tx_effects().private_logs;
+    assert_eq(logs_second.len(), 1);
 
     let raw_tag = compute_log_tag(
         recipient.to_field(),
         DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
     );
-    let logs = env.private_logs_by_tag(raw_tag, registry_address);
-    assert_eq(logs.len(), 2);
+    let expected_siloed_tag = compute_siloed_private_log_first_field(registry_address, raw_tag);
+    assert_eq(logs_first.get(0).get(0), expected_siloed_tag);
+    assert_eq(logs_second.get(0).get(0), expected_siloed_tag);
 
-    let eph_pk_x_0 = logs.get(0).get(1);
-    let eph_pk_x_1 = logs.get(1).get(1);
+    let eph_pk_x_0 = logs_first.get(0).get(1);
+    let eph_pk_x_1 = logs_second.get(0).get(1);
     assert(
         eph_pk_x_0 != eph_pk_x_1,
         "ephemeral keys should differ in handshakes from different senders",
@@ -150,16 +159,23 @@ unconstrained fn duplicate_handshake_accumulates_distinct_secrets() {
     let registry = HandshakeRegistry::at(registry_address);
 
     env.call_private(sender, registry.non_interactive_handshake(recipient));
+    let logs_first = txe_oracles::get_last_tx_effects().private_logs;
+    assert_eq(logs_first.len(), 1);
+
     env.call_private(sender, registry.non_interactive_handshake(recipient));
+    let logs_second = txe_oracles::get_last_tx_effects().private_logs;
+    assert_eq(logs_second.len(), 1);
 
     let raw_tag = compute_log_tag(
         recipient.to_field(),
         DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
     );
-    let logs = env.private_logs_by_tag(raw_tag, registry_address);
-    assert_eq(logs.len(), 2);
+    let expected_siloed_tag = compute_siloed_private_log_first_field(registry_address, raw_tag);
+    assert_eq(logs_first.get(0).get(0), expected_siloed_tag);
+    assert_eq(logs_second.get(0).get(0), expected_siloed_tag);
+
     assert(
-        logs.get(0).get(1) != logs.get(1).get(1),
+        logs_first.get(0).get(1) != logs_second.get(0).get(1),
         "ephemeral keys should differ across repeated handshakes",
     );
 
@@ -178,7 +194,12 @@ unconstrained fn different_recipients_have_different_tags() {
     let registry = HandshakeRegistry::at(registry_address);
 
     env.call_private(sender, registry.non_interactive_handshake(recipient_a));
+    let logs_a = txe_oracles::get_last_tx_effects().private_logs;
+    assert_eq(logs_a.len(), 1);
+
     env.call_private(sender, registry.non_interactive_handshake(recipient_b));
+    let logs_b = txe_oracles::get_last_tx_effects().private_logs;
+    assert_eq(logs_b.len(), 1);
 
     let tag_a = compute_log_tag(
         recipient_a.to_field(),
@@ -190,8 +211,14 @@ unconstrained fn different_recipients_have_different_tags() {
     );
     assert(tag_a != tag_b, "recipient-keyed tags must differ");
 
-    assert_eq(env.private_logs_by_tag(tag_a, registry_address).len(), 1);
-    assert_eq(env.private_logs_by_tag(tag_b, registry_address).len(), 1);
+    assert_eq(
+        logs_a.get(0).get(0),
+        compute_siloed_private_log_first_field(registry_address, tag_a),
+    );
+    assert_eq(
+        logs_b.get(0).get(0),
+        compute_siloed_private_log_first_field(registry_address, tag_b),
+    );
 }
 
 #[test]
