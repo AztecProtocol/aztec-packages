@@ -97,7 +97,6 @@ export class EpochCache implements EpochCacheInterface {
    * Single map holding both resolved entries and in-flight promises.
    * A `Promise` value means a fetch is in progress; concurrent callers await it.
    */
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   protected cache: Map<EpochNumber, CachedEpochEntry | Promise<CachedEpochEntry>> = new Map();
   private allValidators: Set<string> = new Set();
   private lastValidatorRefresh = 0;

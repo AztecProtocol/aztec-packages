@@ -5,6 +5,21 @@ import * as ts from 'typescript';
  * @fileoverview Rule to disallow non-primitive types in Set<T> and Map<T, ...> collections
  */
 
+/**
+ * Branded primitive types whose underlying representation is a primitive (number/string/etc.)
+ * and are therefore safe to use as Set/Map keys. Used as a fallback when the TypeScript type
+ * checker is unavailable (AST-only mode). The type-checker path detects these structurally
+ * via the `Branded<T, Brand>` intersection encoding, so this list only needs to cover the
+ * names — not their full definitions.
+ */
+const BRANDED_PRIMITIVE_TYPES = new Set([
+  'BlockNumber',
+  'SlotNumber',
+  'CheckpointNumber',
+  'EpochNumber',
+  'IndexWithinCheckpoint',
+]);
+
 /** @type {import('eslint').Rule.RuleModule} */
 export default {
   meta: {
@@ -100,7 +115,59 @@ export default {
         }
       }
 
+      // Check for branded primitive types: T & { _branding: Brand } where T is a primitive.
+      // Permits SlotNumber, BlockNumber, etc. while still rejecting branded class types
+      // such as BlockProposalHash = Branded<BaseBuffer32, ...>.
+      if (flags & ts.TypeFlags.Intersection) {
+        if (tsType.isIntersection && tsType.isIntersection()) {
+          return isBrandedPrimitive(tsType);
+        }
+      }
+
       return false;
+    }
+
+    /**
+     * Detect a Branded<Primitive, Brand> intersection. The intersection must contain
+     * at least one primitive constituent and all non-primitive constituents must be
+     * the brand marker object (a single `_branding` property and nothing else).
+     */
+    function isBrandedPrimitive(tsType) {
+      const components = tsType.types;
+      if (!components || components.length === 0) return false;
+
+      const allowedPrimitiveFlags =
+        ts.TypeFlags.String |
+        ts.TypeFlags.Number |
+        ts.TypeFlags.BigInt |
+        ts.TypeFlags.Boolean |
+        ts.TypeFlags.ESSymbol |
+        ts.TypeFlags.Literal |
+        ts.TypeFlags.TemplateLiteral |
+        ts.TypeFlags.StringMapping |
+        ts.TypeFlags.Enum |
+        ts.TypeFlags.EnumLiteral;
+
+      let hasPrimitive = false;
+      let hasBrandMarker = false;
+
+      for (const component of components) {
+        const componentFlags = component.getFlags();
+        if (componentFlags & allowedPrimitiveFlags) {
+          hasPrimitive = true;
+          continue;
+        }
+        if (componentFlags & ts.TypeFlags.Object) {
+          const props = component.getProperties ? component.getProperties() : [];
+          if (props.length === 1 && props[0].getName() === '_branding') {
+            hasBrandMarker = true;
+            continue;
+          }
+        }
+        return false;
+      }
+
+      return hasPrimitive && hasBrandMarker;
     }
 
     /**
@@ -146,6 +213,11 @@ export default {
             // Basic primitive type names
             const primitives = ['string', 'number', 'bigint', 'boolean', 'symbol', 'undefined', 'null'];
             if (primitives.includes(name)) {
+              return true;
+            }
+
+            // Branded primitives that wrap number/string — safe to use as keys
+            if (BRANDED_PRIMITIVE_TYPES.has(name)) {
               return true;
             }
           }

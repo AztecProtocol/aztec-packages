@@ -62,7 +62,6 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
 
   protected initialSlot: SlotNumber | undefined;
   protected lastProcessedSlot: SlotNumber | undefined;
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   protected slotNumberToCheckpoint: Map<
     SlotNumber,
     { checkpointNumber: CheckpointNumber; archive: string; attestors: EthAddress[] }
