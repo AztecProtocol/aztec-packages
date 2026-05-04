@@ -31,16 +31,6 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=${BB_HASH:-$(../../barretenberg/cpp/bootstrap.sh hash)}
 export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
-# Aztec version to inject into contract artifacts.
-# On release builds (REF_NAME is valid semver), use the tag without the leading "v".
-# Otherwise default to "dev".
-if [ -z "${AZTEC_VERSION:-}" ]; then
-  if semver check "$REF_NAME" 2>/dev/null; then
-    export AZTEC_VERSION="${REF_NAME#v}"
-  else
-    export AZTEC_VERSION="dev"
-  fi
-fi
 
 # Set common flags for parallel.
 export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(memsuspend_limit)"
@@ -103,6 +93,19 @@ function get_contract_path {
 }
 export -f get_contract_path
 
+# Stamps the aztec version into a contract artifact JSON in place. Mirrors injectAztecVersion in
+# yarn-project/aztec/src/cli/cmds/compile.ts so monorepo-built artifacts match those produced by `aztec compile`.
+# On release builds (REF_NAME is valid semver) the tag without the leading "v" is used; otherwise "dev".
+function inject_aztec_version {
+  local json_path=$1
+  local version="dev"
+  semver check "$REF_NAME" 2>/dev/null && version="${REF_NAME#v}"
+  local tmp=$(mktemp)
+  jq --arg v "$version" '.aztec_version = $v' "$json_path" > "$tmp"
+  mv "$tmp" "$json_path"
+}
+export -f inject_aztec_version
+
 # This compiles a noir contract, transpiles public functions, strips internal prefixes,
 # and generates verification keys for private functions via 'bb aztec_process'.
 # $1 is the input package name, $2 is the folder name (e.g. "contracts" or "examples")
@@ -123,6 +126,9 @@ function compile {
     $BB aztec_process -i $json_path
     cache_upload contract-$contract_hash.tar.gz $json_path
   fi
+  # Stamp the current version after the cache block so the field always matches the build's version, whether
+  # the artifact came from a fresh compile or a cache hit.
+  inject_aztec_version "$json_path"
 }
 export -f compile
 
