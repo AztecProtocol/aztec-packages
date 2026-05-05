@@ -222,12 +222,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
   ],
   ARCHIVER: [
-    {
-      flag: '--archiver',
-      description: 'Starts Aztec Archiver with options',
-      defaultValue: undefined,
-      env: undefined,
-    },
     ...getOptions(
       'archiver',
       omitConfigMappings(archiverConfigMappings, Object.keys(l1ContractsConfigMappings) as (keyof ArchiverConfig)[]),

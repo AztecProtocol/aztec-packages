@@ -221,7 +221,7 @@ describe('p2p client integration batch txs', () => {
     const peerIds = clients.map(client => (client as any).p2pService.node.peerId);
     connectionSampler.getPeerListSortedByConnectionCountAsc.mockReturnValue(peerIds);
 
-    attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(blockProposal);
 
     // Client 0 is missing all transactions
     const missingTxHashes = txHashes;
