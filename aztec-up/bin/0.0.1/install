@@ -221,21 +221,20 @@ function install_native_symlinks {
   set -euo pipefail
   local tool
   for tool in forge cast anvil chisel nargo noir-profiler; do
-    [ -e "$version_internal_bin_path/$tool" ] || continue
+    if [ ! -e "$version_internal_bin_path/$tool" ]; then
+      echo "Error: expected bundled binary '$tool' missing from $version_internal_bin_path" >&2
+      exit 1
+    fi
     ln -sfn "../internal-bin/$tool" "$version_bin_path/aztec-$tool"
   done
 }
 
-# For each @aztec-owned bin in node_modules/.bin, expose an aztec-prefixed
-# symlink in bin/ (renaming bare names like `bb`, `pxe`, `txe`). The `aztec`
-# bin is skipped here -- install_aztec_wrapper writes a wrapper script for it.
-# We do NOT mirror npm bins into internal-bin: tools that the aztec workflow
-# spawns by basename are expected to resolve their dependencies via absolute
-# paths or pinned env vars (e.g. compile.ts uses `findBbBinary()` from
-# @aztec/bb.js which returns an absolute path; profile_*.ts honours `BB` and
-# `PROFILER_PATH` env vars). If a future tool starts cross-calling a sibling
-# by basename, fix that tool to resolve an absolute bundled path instead of
-# broadening internal-bin here.
+# Npm bins are NOT mirrored into internal-bin. The contract for any TS tool
+# that needs to spawn a sibling binary is to resolve an absolute bundled
+# path itself (e.g. via @aztec/bb.js findBbBinary(), or a BB-style env
+# var) -- never by basename + PATH lookup. If you find yourself wanting to
+# add an npm bin to internal-bin so a child process can find it on PATH,
+# fix the caller instead of broadening this list.
 function install_npm_bin_symlinks {
   set -euo pipefail
   local npm_bin_dir="$version_path/node_modules/.bin"
