@@ -1,4 +1,4 @@
-import type { SlotNumber } from '@aztec/foundation/branded-types';
+import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/branded-types';
 
 import { z } from 'zod';
 
@@ -49,13 +49,19 @@ export interface P2PApi {
   getPeers(includePending?: boolean): Promise<PeerInfo[]>;
 
   /**
-   * Queries the Attestation pool for checkpoint attestations for the given slot
+   * Queries the Attestation pool for checkpoint attestations for the given slot.
    *
    * @param slot - the slot to query
-   * @param proposalId - the proposal id to query, or undefined to query all proposals for the slot
+   * @param proposalPayloadHash - hex-encoded keccak256 of the target proposal's signed
+   *        payload (`CheckpointProposal.getPayloadHash()`). When provided, only
+   *        attestations whose own signed payload hashes to the same value are returned.
+   *        When omitted, all attestations for the slot are returned.
    * @returns CheckpointAttestations
    */
-  getCheckpointAttestationsForSlot(slot: SlotNumber, proposalId?: string): Promise<CheckpointAttestation[]>;
+  getCheckpointAttestationsForSlot(
+    slot: SlotNumber,
+    proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]>;
 }
 
 export interface P2PClient extends P2PApi {
@@ -66,7 +72,10 @@ export interface P2PClient extends P2PApi {
 export const P2PApiSchema: ApiSchemaFor<P2PApi> = {
   getCheckpointAttestationsForSlot: z
     .function()
-    .args(schemas.SlotNumber, optional(z.string()))
+    .args(
+      schemas.SlotNumber,
+      optional(z.string().regex(/^0x[0-9a-fA-F]+$/) as unknown as z.ZodType<CheckpointProposalHash>),
+    )
     .returns(z.array(CheckpointAttestation.schema)),
   getPendingTxs: z
     .function()

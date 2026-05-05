@@ -2,13 +2,7 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import {
-  BlockHash,
-  GENESIS_BLOCK_HEADER_HASH,
-  L2Block,
-  type L2BlockSource,
-  type L2BlockStream,
-} from '@aztec/stdlib/block';
+import { BlockHash, L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -285,9 +279,9 @@ describe('ServerWorldStateSynchronizer', () => {
 });
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
-  public latest = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
-  public finalized = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
-  public proven = { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+  public latest = { number: BlockNumber.ZERO, hash: BlockHash.random().toString() };
+  public finalized = { number: BlockNumber.ZERO, hash: BlockHash.random().toString() };
+  public proven = { number: BlockNumber.ZERO, hash: BlockHash.random().toString() };
 
   constructor(
     merkleTrees: MerkleTreeAdminDatabase,

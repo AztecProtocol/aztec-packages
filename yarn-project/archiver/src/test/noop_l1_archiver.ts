@@ -6,8 +6,9 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { FunctionsOf } from '@aztec/foundation/types';
-import type { ArchiverEmitter } from '@aztec/stdlib/block';
+import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { mock } from 'jest-mock-extended';
@@ -17,6 +18,7 @@ import { Archiver } from '../archiver.js';
 import { ArchiverInstrumentation } from '../modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from '../modules/l1_synchronizer.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
+import { L2TipsCache } from '../store/l2_tips_cache.js';
 
 /** Noop L1 synchronizer for testing without L1 connectivity. */
 class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
@@ -51,6 +53,9 @@ export class NoopL1Archiver extends Archiver {
     dataStores: ArchiverDataStores,
     l1Constants: L1RollupConstants & { genesisArchiveRoot: Fr },
     instrumentation: ArchiverInstrumentation,
+    initialHeader: BlockHeader,
+    initialBlockHash: BlockHash,
+    l2TipsCache: L2TipsCache,
   ) {
     // Create mocks for L1 clients
     const publicClient = mock<ViemPublicClient>();
@@ -90,6 +95,9 @@ export class NoopL1Archiver extends Archiver {
       { ...l1Constants, l1StartBlockHash: Buffer32.random() },
       synchronizer as ArchiverL1Synchronizer,
       events,
+      initialHeader,
+      initialBlockHash,
+      l2TipsCache,
     );
   }
 
@@ -111,7 +119,14 @@ export async function createNoopL1Archiver(
   dataStores: ArchiverDataStores,
   l1Constants: L1RollupConstants & { genesisArchiveRoot: Fr },
   telemetry: TelemetryClient = getTelemetryClient(),
+  initialHeader: BlockHeader,
 ): Promise<NoopL1Archiver> {
   const instrumentation = await ArchiverInstrumentation.new(telemetry, () => dataStores.db.estimateSize());
-  return new NoopL1Archiver(dataStores, l1Constants, instrumentation);
+  // Mirror the production factory: precompute the dynamic genesis block hash from the injected
+  // initial header so `L2TipsCache` reports the correct tip hash at block 0. Without this, the
+  // cache falls back to the static `GENESIS_BLOCK_HEADER_HASH`, which only matches deployments
+  // with default empty genesis.
+  const initialBlockHash = await initialHeader.hash();
+  const l2TipsCache = new L2TipsCache(dataStores.blocks, initialBlockHash);
+  return new NoopL1Archiver(dataStores, l1Constants, instrumentation, initialHeader, initialBlockHash, l2TipsCache);
 }
