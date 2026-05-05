@@ -10,7 +10,7 @@ pub(crate) global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 ///
 /// The registry's job is to establish a master shared secret between a sender and a recipient, and to store a
 /// per-sender note recording that the handshake happened. A contract that later wants to use this
-/// handshake retrieves the note via the [`HandshakeRegistry::get_handshake_for`] utility, asserts it exists in the registry,
+/// handshake retrieves the note via the [`HandshakeRegistry::get_handshake`] utility, asserts it exists in the registry,
 /// and uses the kernel key-validation mechanism to derive its own app-siloed shared secret from the master hash stored in the note.
 ///
 /// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
@@ -26,6 +26,7 @@ pub contract HandshakeRegistry {
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
+        oracle::notes::set_sender_for_tags,
         protocol::{
             address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
             hash::compute_log_tag, traits::ToField,
@@ -64,6 +65,7 @@ pub contract HandshakeRegistry {
 
         let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient);
 
+        unsafe { set_sender_for_tags(sender) };
         // Delivery is `ONCHAIN_UNCONSTRAINED`. The recipient is not involved in this note's delivery. They
         // discover the handshake via the recipient-keyed log emitted below, not via the sender's note.
         // We use onchain unconstrained delivery rather than `OFFCHAIN` so the note is
