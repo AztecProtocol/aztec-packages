@@ -1,0 +1,47 @@
+name: Nightly Release Tag (v4-next)
+on:
+  schedule:
+    # Run the workflow every night at 5:00 AM UTC.
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-v4-next
+
+jobs:
+  nightly-release-tag-v4-next:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: v4-next
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          # Fetch all existing nightly tags so we can detect duplicates.
+          fetch-depth: 0
+          fetch-tags: true
+
+      # Skip if HEAD of v4-next already has a nightly tag pointing at it
+      # (branch has not moved since the previous nightly, so a new tag would
+      # just produce identical artifacts under a new version string).
+      - name: Create v4-next Nightly Tag
+        run: |
+          set -euo pipefail
+          git config --global user.email "tech@aztecprotocol.com"
+          git config --global user.name "AztecBot"
+
+          head_sha=$(git rev-parse HEAD)
+          existing_nightly=$(git tag --points-at "$head_sha" --list 'v*-nightly.*' | head -n1 || true)
+          if [[ -n "$existing_nightly" ]]; then
+            echo "v4-next HEAD ($head_sha) already tagged as $existing_nightly — branch has not moved since the previous nightly run. Skipping new tag."
+            exit 0
+          fi
+
+          current_version=$(jq -r '."."' .release-please-manifest.json)
+          echo "Current version: $current_version"
+          nightly_tag="v${current_version}-nightly.$(date -u +%Y%m%d)"
+          echo "v4-next nightly tag: $nightly_tag (HEAD: $head_sha)"
+          git tag -a "$nightly_tag" -m "$nightly_tag"
+          git push origin "$nightly_tag"
