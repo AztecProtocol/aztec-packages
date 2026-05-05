@@ -212,17 +212,10 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     expect(Math.max(...blocks.map(b => b.body!.txEffects.length))).toEqual(TXS_PER_BLOCK);
     expect(Math.max(...checkpoints.map(c => c.length))).toEqual(BLOCKS_PER_CHECKPOINT);
 
-    // Expect no failures from sequencers during block building. Filter out the self-proposal 'Rollup contract
-    // check failed' spam: when a validator proposes two consecutive checkpoints, the archiver's sequentiality
-    // guard rejects persisting the second proposed checkpoint until the first is confirmed on L1, so the next
-    // pipelining cycle falls through without simulation overrides and canProposeAt reverts until state catches
-    // up. Tracked in A-910.
-    const significantFailEvents = failEvents.filter(
-      e => !(e.type === 'proposer-rollup-check-failed' && e.reason === 'Rollup contract check failed'),
-    );
-    if (significantFailEvents.length > 0) {
-      logger.error(`Failed events from sequencers`, significantFailEvents);
+    // Expect no failures from sequencers during block building
+    if (failEvents.length > 0) {
+      logger.error(`Failed events from sequencers`, failEvents);
     }
-    expect(significantFailEvents).toEqual([]);
+    expect(failEvents).toEqual([]);
   });
 });
