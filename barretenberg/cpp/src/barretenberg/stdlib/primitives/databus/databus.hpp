@@ -116,8 +116,6 @@ template <class Builder> class DataBusDepot {
         kernel_return_data_commitment_exists = true;
     }
 
-    void set_app_return_data_commitment(const Commitment& commitment) { set_app_return_data_commitment(commitment, 0); }
-
     void set_app_return_data_commitment(const Commitment& commitment, const size_t idx)
     {
         BB_ASSERT_LT(idx, NUM_APP_PER_KERNEL, "DataBusDepot app return-data index out of bounds");
@@ -154,8 +152,6 @@ template <class Builder> class DataBusDepot {
      * @brief Get the previously set app return data commitment if it exists, else a default one
      *
      */
-    Commitment get_app_return_data_commitment(Builder& builder) { return get_app_return_data_commitment(builder, 0); }
-
     Commitment get_app_return_data_commitment(Builder& builder, const size_t idx)
     {
         BB_ASSERT_LT(idx, NUM_APP_PER_KERNEL, "DataBusDepot app return-data index out of bounds");
