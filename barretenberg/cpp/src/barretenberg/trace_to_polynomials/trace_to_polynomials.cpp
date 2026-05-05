@@ -59,9 +59,9 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     const size_t num_blocks = blocks_array.size();
 
     // Pre-pass: count copy-cycle sizes per real-variable index so each copy_cycles[i] can be
-    // reserve()d once instead of paying the amortized 1.5x reallocation cost across the
-    // serial concat in phase 1.5. Bounds-checked .at() access here justifies indexing
-    // copy_cycles[real_var_idx] without .at() in phase 1.5.
+    // reserve()d once before the serial concat in phase 1.5, avoiding repeated reallocations.
+    // Bounds-checked .at() access here justifies indexing copy_cycles[real_var_idx] without
+    // .at() in phase 1.5.
     {
         BB_BENCH_NAME("counting copy_cycles");
         std::vector<uint32_t> cycle_counts(builder.real_variable_index.size(), 0);

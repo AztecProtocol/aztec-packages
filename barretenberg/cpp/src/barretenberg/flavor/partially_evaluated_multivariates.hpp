@@ -33,10 +33,9 @@ class PartiallyEvaluatedMultivariatesBase : public AllEntitiesBase {
         for (auto [poly, full_poly] : zip_view(this->get_all(), full_polynomials.get_all())) {
             // After the initial sumcheck round, the new size is CEIL(size/2).
             size_t desired_size = (full_poly.end_index() / 2) + (full_poly.end_index() % 2);
-            // partial_evaluation writes dest.at(i>>1) for every i = 0, 2, ..., 2*desired_size - 2,
-            // covering the entire [0, desired_size) backing storage before any read. The virtual
-            // tail past desired_size is served by SharedShiftedVirtualZeroesArray's implicit zeros,
-            // so leaving the backing memory uninitialized is safe.
+            // partially_evaluate writes every cell in [0, desired_size) before any read, and the
+            // virtual tail past desired_size is served by SharedShiftedVirtualZeroesArray's
+            // implicit zeros, so the backing memory can be left uninitialized.
             poly = Polynomial(desired_size, circuit_size / 2, 0, Polynomial::DontZeroMemory::FLAG);
         }
     }
