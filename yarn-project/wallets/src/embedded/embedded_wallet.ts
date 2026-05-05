@@ -360,7 +360,8 @@ export class EmbeddedWallet extends BaseWallet {
     this.estimatedGasPadding = value ?? DEFAULT_ESTIMATED_GAS_PADDING;
   }
 
-  stop() {
-    return this.pxe.stop();
+  async stop(): Promise<void> {
+    await this.pxe.stop();
+    await this.walletDB.close();
   }
 }
