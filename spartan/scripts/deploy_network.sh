@@ -492,12 +492,28 @@ DEPLOY_OVERRIDES=$(jq -n \
 # Promote env-side construction outputs (R2-derived URLs from
 # load_network_config.sh's resolve_secrets) into deploy: -- main.tf gates
 # helm releases on these (e.g. blob_sink only if BLOB_FILE_STORE_UPLOAD_URL).
+#
+# Replica / HA counts must match too: `variables.tf` / main.tf read these only
+# from `var.deploy`, while many network YAMLs set them under `env:` (pods).
+# If we skip this merge, Terraform deploys the wrong topology (e.g. HA=0,
+# no bots) while pods still see VALIDATOR_HA_REPLICAS=1 in ConfigMaps — same
+# image as next-net but missing validators-ha-*, postgres, and bot releases.
 echo "${LOADER_JSON}" | jq \
   --argjson overrides "${DEPLOY_OVERRIDES}" \
   '.deploy = (.deploy + $overrides)
    | .deploy.BLOB_FILE_STORE_UPLOAD_URL = (.env.BLOB_FILE_STORE_UPLOAD_URL // "")
    | .deploy.STORE_SNAPSHOT_URL         = (.env.STORE_SNAPSHOT_URL // "")
-   | .deploy.TX_FILE_STORE_URL          = (.env.TX_FILE_STORE_URL // "")' \
+   | .deploy.TX_FILE_STORE_URL          = (.env.TX_FILE_STORE_URL // "")
+   | .deploy.VALIDATOR_REPLICAS           = (.env.VALIDATOR_REPLICAS // .deploy.VALIDATOR_REPLICAS)
+   | .deploy.VALIDATOR_HA_REPLICAS        = (.env.VALIDATOR_HA_REPLICAS // .deploy.VALIDATOR_HA_REPLICAS)
+   | .deploy.VALIDATOR_HA_REPLICA_COUNT   = (.env.VALIDATOR_HA_REPLICA_COUNT // .deploy.VALIDATOR_HA_REPLICA_COUNT)
+   | .deploy.PROVER_REPLICAS             = (.env.PROVER_REPLICAS // .deploy.PROVER_REPLICAS)
+   | .deploy.RPC_REPLICAS                = (.env.RPC_REPLICAS // .deploy.RPC_REPLICAS)
+   | .deploy.FISHERMAN_REPLICAS          = (.env.FISHERMAN_REPLICAS // .deploy.FISHERMAN_REPLICAS)
+   | .deploy.FULL_NODE_REPLICAS          = (.env.FULL_NODE_REPLICAS // .deploy.FULL_NODE_REPLICAS)
+   | .deploy.BOT_TRANSFERS_REPLICAS      = (.env.BOT_TRANSFERS_REPLICAS // .deploy.BOT_TRANSFERS_REPLICAS)
+   | .deploy.BOT_SWAPS_REPLICAS          = (.env.BOT_SWAPS_REPLICAS // .deploy.BOT_SWAPS_REPLICAS)
+   | .deploy.BOT_CROSS_CHAIN_REPLICAS    = (.env.BOT_CROSS_CHAIN_REPLICAS // .deploy.BOT_CROSS_CHAIN_REPLICAS)' \
   > "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars.json"
 
 k8s_denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""
