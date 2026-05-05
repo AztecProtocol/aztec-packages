@@ -30,7 +30,7 @@ import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import { EpochsTestContext, type TrackedSequencerEvent } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -61,6 +61,7 @@ describe('e2e_epochs/epochs_mbps', () => {
   let crossChainContract: TestContract | undefined;
   let wallet: TestWallet;
   let from: AztecAddress;
+  let failEvents: TrackedSequencerEvent[];
 
   /**
    * Creates validators and sets up the test context with MBPS configuration.
@@ -123,6 +124,10 @@ describe('e2e_epochs/epochs_mbps', () => {
       test.createValidatorNode([privateKey], { dontStartSequencer: true }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
+    ({ failEvents } = test.watchSequencerEvents(
+      nodes.map(n => n.getSequencer()!),
+      i => ({ validator: validators[i].attester }),
+    ));
 
     // Point the wallet at a validator node. The initial node-0 has all validator keys in its config,
     // so it rejects block proposals from validators thinking they come from itself. By redirecting
@@ -183,10 +188,21 @@ describe('e2e_epochs/epochs_mbps', () => {
 
   /** Waits until a specific multi-block checkpoint is proven, verifying that proving succeeds with MBPS blocks. */
   async function waitForProvenCheckpoint(targetCheckpoint: CheckpointNumber) {
+    logger.warn(`Stopping validator sequencers before waiting for checkpoint ${targetCheckpoint} to be proven`);
+    await Promise.all(nodes.map(n => n.getSequencer()?.stop()));
+
     const provenTimeout = test.L2_SLOT_DURATION_IN_S * test.epochDuration * 4;
     logger.warn(`Waiting for checkpoint ${targetCheckpoint} to be proven (timeout=${provenTimeout}s)`);
     await test.waitUntilProvenCheckpointNumber(targetCheckpoint, provenTimeout);
     logger.warn(`Proven checkpoint advanced to ${test.monitor.provenCheckpointNumber}`);
+
+    const significantFailEvents = failEvents.filter(
+      e => !(e.type === 'proposer-rollup-check-failed' && e.reason === 'Rollup contract check failed'),
+    );
+    if (significantFailEvents.length > 0) {
+      logger.error(`Failed events from sequencers`, significantFailEvents);
+    }
+    expect(significantFailEvents).toEqual([]);
   }
 
   afterEach(async () => {

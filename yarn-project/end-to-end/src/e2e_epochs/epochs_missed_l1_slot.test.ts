@@ -124,6 +124,11 @@ describe('e2e_epochs/epochs_missed_l1_slot', () => {
     await executeTimeout(
       signal =>
         new Promise<void>((res, rej) => {
+          if (sequencer.getState() === SequencerState.PUBLISHING_CHECKPOINT) {
+            res();
+            return;
+          }
+
           const stateListener = ({ newState }: { newState: SequencerState }) => {
             if (newState === SequencerState.PUBLISHING_CHECKPOINT) {
               sequencer.off('state-changed', stateListener);

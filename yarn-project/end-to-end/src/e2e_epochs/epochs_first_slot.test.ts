@@ -62,9 +62,10 @@ describe('e2e_epochs/epochs_first_slot', () => {
       aztecProofSubmissionEpochs: 1024,
       aztecEpochDuration: 32,
       // Widened from 3 to 6 L1 slots per L2 slot for pipelining: with only 3 L1 blocks per L2 slot
-      // there is no margin for the previous checkpoint's L1 tx to land before the next pipelined
-      // proposer starts simulating against it (see PIPELINING.md §7.6 / A-918). 6 L1 slots mirrors
-      // the standard 36s/12s production timing.
+      // there is no margin for the previous checkpoint's L1 publish to land before the next
+      // pipelined proposer starts simulating canProposeAt against the rollup contract (A-918).
+      // 6 L1 slots matches the production default (72s L2 slot over 12s L1 slots; see
+      // ETHEREUM_SLOT_DURATION/AZTEC_SLOT_DURATION in ethereum/src/generated/l1-contracts-defaults.ts).
       aztecSlotDurationInL1Slots: 6,
       startProverNode: false,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
@@ -118,9 +119,11 @@ describe('e2e_epochs/epochs_first_slot', () => {
 
     // Warp so that the next pipelined build cycle targets the first slot of the epoch. Under
     // proposer pipelining the build window starts one L2 slot earlier than the target slot
-    // (PROPOSER_PIPELINING_SLOT_OFFSET = 1 in epoch-cache/src/epoch_cache.ts), so the warp lands
-    // inside the last slot of the previous epoch — the proposer for `firstSlot` then has its full
-    // build window available before the epoch boundary is crossed on L1.
+    // (PROPOSER_PIPELINING_SLOT_OFFSET = 1 in epoch-cache/src/epoch_cache.ts), so we want
+    // wall-clock to enter `firstSlot - 1` (the last slot of the previous epoch) before the next
+    // L1 block. Subtracting `L2_SLOT_DURATION + L1_BLOCK_TIME` puts us one L1 block before that
+    // build slot starts, so the proposer for `firstSlot` gets the full build window available
+    // before the epoch boundary is crossed on L1.
     const [epochStart] = getTimestampRangeForEpoch(EPOCH, test.constants);
     await test.context.cheatCodes.eth.warp(Number(epochStart) - test.L2_SLOT_DURATION_IN_S - test.L1_BLOCK_TIME_IN_S, {
       resetBlockInterval: true,

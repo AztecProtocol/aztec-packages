@@ -53,6 +53,9 @@ describe('e2e_epochs/epochs_simple_block_building', () => {
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       aztecProofSubmissionEpochs: 1024,
+      // Keep enough L1 blocks inside each L2 slot for the previous pipelined checkpoint publish to land before
+      // the next proposer simulates canProposeAt against L1 state.
+      aztecSlotDurationInL1Slots: 6,
       startProverNode: false,
       enforceTimeTable: true,
       skipInitialSequencer: true,
