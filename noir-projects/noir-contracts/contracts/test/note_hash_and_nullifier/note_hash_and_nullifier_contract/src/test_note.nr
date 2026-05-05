@@ -1,11 +1,8 @@
 use aztec::{
     context::PrivateContext,
     macros::notes::custom_note,
-    note::note_interface::NoteHash,
-    protocol::{
-        address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator,
-        traits::Packable,
-    },
+    note::{note_interface::NoteHash, utils::compute_note_hash},
+    protocol::{address::AztecAddress, traits::Packable},
 };
 
 #[derive(Eq, Packable)]
@@ -23,8 +20,7 @@ impl NoteHash for TestNote {
         storage_slot: Field,
         randomness: Field,
     ) -> Field {
-        let inputs = self.pack().concat([storage_slot, randomness]);
-        poseidon2_hash_with_separator(inputs, DOM_SEP__NOTE_HASH)
+        compute_note_hash(storage_slot, self.pack().concat([randomness]))
     }
 
     fn compute_nullifier(

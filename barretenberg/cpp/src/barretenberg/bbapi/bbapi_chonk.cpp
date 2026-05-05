@@ -312,7 +312,7 @@ ChonkStats::Response ChonkStats::execute([[maybe_unused]] BBApiRequest& request)
 
     // Create and finalize circuit
     auto builder = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
 
     // Set response values
     response.acir_opcodes = program.constraints.num_acir_opcodes;

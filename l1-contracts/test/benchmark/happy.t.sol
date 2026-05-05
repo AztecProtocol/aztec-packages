@@ -56,7 +56,6 @@ import {
   FeeHeaderModel,
   ManaMinFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
-import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {MultiAdder, CheatDepositArgs} from "@aztec/mock/MultiAdder.sol";
 import {RollupBuilder} from "../builder/RollupBuilder.sol";
@@ -98,7 +97,6 @@ contract FakeCanonical is IRewardDistributor {
 }
 
 contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
-  using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
   using TimeLib for Slot;
   using TimeLib for Timestamp;
@@ -286,7 +284,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       ProposePayload memory proposePayload =
         ProposePayload({archive: proposeArgs.archive, oracleInput: proposeArgs.oracleInput, headerHash: headerHash});
 
-      bytes32 digest = ProposeLib.digest(proposePayload);
+      bytes32 digest = ProposeLib.digest(proposePayload, address(rollup));
 
       // loop through to make sure we create an attestation for the proposer
       for (uint256 i = 0; i < validators.length; i++) {
@@ -318,7 +316,9 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     if (proposer != address(0)) {
       attestationsAndSignersSignature = createAttestation(
         proposer,
-        AttestationLib.getAttestationsAndSignersDigest(AttestationLibHelper.packAttestations(attestations), signers)
+        AttestationLib.getAttestationsAndSignersDigest(
+          AttestationLibHelper.packAttestations(attestations), signers, address(rollup)
+        )
       ).signature;
     }
 
@@ -334,8 +334,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   function createAttestation(address _signer, bytes32 _digest) internal view returns (CommitteeAttestation memory) {
     uint256 privateKey = attesterPrivateKeys[_signer];
 
-    bytes32 digest = _digest.toEthSignedMessageHash();
-    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, _digest);
 
     Signature memory signature = Signature({v: v, r: r, s: s});
     // Address can be zero for signed attestations

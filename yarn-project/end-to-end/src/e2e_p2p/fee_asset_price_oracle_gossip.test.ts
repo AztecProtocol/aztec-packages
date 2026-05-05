@@ -185,7 +185,11 @@ describe('e2e_p2p_network', () => {
       120,
       1,
     );
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const signatureContext = {
+      chainId: t.ctx.aztecNodeConfig.l1ChainId,
+      rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));

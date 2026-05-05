@@ -10,6 +10,7 @@ import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import { L2Block } from '@aztec/stdlib/block';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { setup } from './fixtures/utils.js';
@@ -80,7 +81,14 @@ describe('e2e_multiple_blobs', () => {
     const blockNumber = receipts[0].blockNumber!;
     expect(receipts.every(r => r.blockNumber === blockNumber)).toBe(true);
 
-    const block = (await aztecNode.getBlock(blockNumber))!;
+    const response = (await aztecNode.getBlock(blockNumber, { includeTransactions: true }))!;
+    const block = new L2Block(
+      response.archive,
+      response.header,
+      response.body,
+      response.checkpointNumber,
+      response.indexWithinCheckpoint,
+    );
 
     const numBlobFields = encodeCheckpointBlobDataFromBlocks([block.toBlockBlobData()]).length;
     const numBlobs = Math.ceil(numBlobFields / FIELDS_PER_BLOB);

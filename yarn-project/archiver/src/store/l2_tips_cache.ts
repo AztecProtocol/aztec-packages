@@ -108,7 +108,7 @@ export class L2TipsCache {
   private async getCheckpointIdForProposedCheckpoint(
     checkpointedBlockData: Pick<BlockData, 'checkpointNumber'>,
   ): Promise<CheckpointId> {
-    const checkpointData = await this.blockStore.getProposedCheckpointOnly();
+    const checkpointData = await this.blockStore.getLastProposedCheckpoint();
     if (!checkpointData) {
       return this.getCheckpointIdForBlock(checkpointedBlockData);
     }

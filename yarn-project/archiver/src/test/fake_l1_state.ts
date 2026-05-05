@@ -15,12 +15,8 @@ import { CommitteeAttestation, CommitteeAttestationsAndSigners, L2Block } from '
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
-import { ConsensusPayload, SignatureDomainSeparator } from '@aztec/stdlib/p2p';
-import {
-  makeAndSignCommitteeAttestationsAndSigners,
-  makeCheckpointAttestationFromCheckpoint,
-  mockCheckpointAndMessages,
-} from '@aztec/stdlib/testing';
+import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
+import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -519,6 +515,9 @@ export class FakeL1State {
     const publicClient = mock<ViemPublicClient>();
 
     publicClient.getChainId.mockResolvedValue(1);
+    // Several consumers (CalldataRetriever, ArchiverL1Synchronizer) derive the EIP-712 signing
+    // context from `publicClient.chain.id`. Pin it so it matches `getSignatureContext()` below.
+    (publicClient as unknown as { chain: { id: number } }).chain = { id: 1 };
     publicClient.getBlockNumber.mockImplementation(() => Promise.resolve(this.l1BlockNumber));
 
     publicClient.getBlock.mockImplementation((async (args: { blockNumber?: bigint; blockTag?: string } = {}) => {
@@ -660,9 +659,11 @@ export class FakeL1State {
     checkpoint: Checkpoint,
     signers: Secp256k1Signer[],
   ): Promise<{ tx: Transaction; attestationsHash: Buffer32; payloadDigest: Buffer32 }> {
+    const signatureContext = this.getSignatureContext();
+    const consensusPayload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
+    const attestationDigest = getHashedSignaturePayloadTypedData(consensusPayload);
     const attestations = signers
-      .map(signer => makeCheckpointAttestationFromCheckpoint(checkpoint, signer))
-      .map(attestation => CommitteeAttestation.fromSignature(attestation.signature))
+      .map(signer => CommitteeAttestation.fromSignature(signer.sign(attestationDigest)))
       .map(committeeAttestation => committeeAttestation.toViem());
 
     const header = checkpoint.header.toViem();
@@ -670,11 +671,15 @@ export class FakeL1State {
     const archive = toHex(checkpoint.archive.root.toBuffer());
     const attestationsAndSigners = new CommitteeAttestationsAndSigners(
       attestations.map(attestation => CommitteeAttestation.fromViem(attestation)),
+      signatureContext,
     );
 
-    const attestationsAndSignersSignature = makeAndSignCommitteeAttestationsAndSigners(
-      attestationsAndSigners,
-      signers[0],
+    // Fall back to a random signer when no attesters are provided, so tests that
+    // don't care about the proposer identity (e.g. sync tests) still produce a
+    // valid-looking signature for the attestationsAndSigners struct.
+    const proposerSigner = signers[0] ?? Secp256k1Signer.random();
+    const attestationsAndSignersSignature = proposerSigner.sign(
+      getHashedSignaturePayloadTypedData(attestationsAndSigners),
     );
 
     const packedAttestations = attestationsAndSigners.getPackedAttestations();
@@ -715,9 +720,7 @@ export class FakeL1State {
     );
 
     // Compute payloadDigest (same logic as CalldataRetriever)
-    const consensusPayload = ConsensusPayload.fromCheckpoint(checkpoint);
-    const payloadToSign = consensusPayload.getPayloadToSign(SignatureDomainSeparator.checkpointAttestation);
-    const payloadDigest = Buffer32.fromString(keccak256(payloadToSign));
+    const payloadDigest = getHashedSignaturePayloadTypedData(consensusPayload);
 
     const tx = {
       input: multiCallInput,
@@ -727,6 +730,13 @@ export class FakeL1State {
     } as Transaction<bigint, number>;
 
     return { tx, attestationsHash, payloadDigest };
+  }
+
+  private getSignatureContext() {
+    return {
+      chainId: 1,
+      rollupAddress: this.config.rollupAddress,
+    };
   }
 
   /** Extracts the CommitteeAttestations struct definition from RollupAbi for hash computation. */

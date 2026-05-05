@@ -71,7 +71,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
     await t.advanceToEpochProven(txReceipt);
 
     // Check that the block contains the 2 messages.
-    const block = (await aztecNode.getBlock(blockNumber))!;
+    const block = (await aztecNode.getBlock(blockNumber, { includeTransactions: true }))!;
     const l2ToL1Messages = block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs);
     expect(l2ToL1Messages).toStrictEqual([computeMessageLeaf(messages[0]), computeMessageLeaf(messages[1])]);
 
@@ -130,7 +130,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
     // Check that the block contains all the messages.
     {
-      const block = (await aztecNode.getBlock(blockNumber))!;
+      const block = (await aztecNode.getBlock(blockNumber, { includeTransactions: true }))!;
       const messagesForAllTxs = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
       // We cannot guarantee the order of txs in a block, so we rearrange the leaves if call1 was rolled up first.
       const [firstTx, secondTx] = messagesForAllTxs[0].length === 3 ? [tx0, tx1] : [tx1, tx0];

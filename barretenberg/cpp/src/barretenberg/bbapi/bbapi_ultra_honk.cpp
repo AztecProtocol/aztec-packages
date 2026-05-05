@@ -176,7 +176,7 @@ CircuitStats::Response _stats(std::vector<uint8_t>&& bytecode, bool include_gate
 
     acir_format::AcirProgram program{ std::move(constraint_system), {} };
     auto builder = acir_format::create_circuit<Circuit>(program, metadata);
-    builder.finalize_circuit(/*ensure_nonzero=*/true);
+    builder.finalize_circuit();
 
     response.num_gates = static_cast<uint32_t>(builder.get_finalized_total_circuit_size());
     response.num_gates_dyadic = static_cast<uint32_t>(builder.get_circuit_subgroup_size(response.num_gates));
