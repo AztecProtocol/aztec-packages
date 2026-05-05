@@ -17,7 +17,7 @@ A conforming implementation MUST implement the gossip, request-response, and pee
 ## Requirements
 
 1. **Transaction propagation** — Proven transactions MUST be disseminated to all nodes with low latency so that sequencers can include them in blocks.
-2. **Block proposal dissemination** — Block proposals MUST reach all validators within the slot window so that attestations can be produced.
+2. **Block/Checkpoint proposal dissemination** — Block and checkpoint proposals MUST reach all validators within the slot window so that attestations can be produced.
 3. **Checkpoint attestation gossip** — Checkpoint attestations MUST be broadcast to the proposer and all validators so that checkpoints can be submitted to L1 with sufficient signatures.
 4. **Equivocation detection** — The network MUST propagate evidence of equivocation (duplicate proposals or attestations at the same slot) to enable slashing.
 5. **Peer discovery** — Nodes MUST be able to discover peers without centralized infrastructure, using bootstrap nodes for initial connectivity.
@@ -143,12 +143,16 @@ The protocol defines four gossip topics. Each topic string follows the format:
 | `checkpoint_proposal` | `/aztec/checkpoint_proposal/v0.1.0` | Checkpoint proposals grouping blocks for L1 |
 | `checkpoint_attestation` | `/aztec/checkpoint_attestation/v0.1.0` | Validator attestations on checkpoints |
 
-#### Topic Subscriptions by Node Type
+#### Topic Subscriptions
 
-| Node Type | tx | block_proposal | checkpoint_proposal | checkpoint_attestation |
-|---|---|---|---|---|
-| Full Node (Sequencer/Validator) | Yes | Yes | Yes | Yes |
-| Prover Node | Yes | Yes | Yes | No |
+All nodes subscribe to all four topics by default. Subscriptions are not auto-determined by node role; the only filter is the `disableTransactions` configuration flag, which causes the node to skip the `tx` topic. 
+
+| Topic | Subscribed |
+|---|---|
+| `tx` | Unless `disableTransactions` is set |
+| `block_proposal` | Always |
+| `checkpoint_proposal` | Always |
+| `checkpoint_attestation` | Always |
 
 ### Message Encoding
 
@@ -190,11 +194,9 @@ Each gossip message is wrapped in a `P2PMessage` envelope before Snappy compress
 Standard mode (production):
   [payload_length: 4 bytes BE] [payload: variable]
 
-Instrumented mode (debug only):
-  [timestamp: 8 bytes UInt64 BE] [trace_context: 4-byte-length-prefixed string] [payload_length: 4 bytes BE] [payload: variable]
 ```
 
-The `payload` field contains the serialized `Gossipable` object (Tx, BlockProposal, etc.). Instrumented mode is NOT required for protocol conformance and SHOULD only be enabled for debugging.
+The `payload` field contains the serialized `Gossipable` object (Tx, BlockProposal, etc.).
 
 ### Gossip Message Types
 
@@ -278,7 +280,6 @@ In addition to gossip, nodes MUST support direct request-response communication 
 | STATUS | `/aztec/req/status/1.0.0` | `StatusMessage` | `StatusMessage` |
 | GOODBYE | `/aztec/req/goodbye/1.0.0` | `GoodbyeReason` (1 byte) | Empty |
 | TX | `/aztec/req/tx/1.0.0` | `TxHashArray` | `TxArray` |
-| BLOCK | `/aztec/req/block/1.0.0` | `Field` (block number) | `L2Block` |
 | AUTH | `/aztec/req/auth/1.0.0` | `AuthRequest` | `AuthResponse` |
 | BLOCK_TXS | `/aztec/req/block_txs/1.0.0` | `BlockTxsRequest` | `BlockTxsResponse` |
 
@@ -351,10 +352,6 @@ Sent before intentionally disconnecting from a peer. The payload is a single byt
 Request transactions by hash. The request contains a `TxHashArray` (length-prefixed vector of 32-byte `TxHash` values). The response contains a `TxArray` (length-prefixed vector of serialized `Tx` objects). Partial responses are permitted — the responder returns only the transactions it has in its mempool.
 
 Requests SHOULD be chunked into batches (default: 1 transaction per request) to bound response sizes.
-
-#### BLOCK
-
-Request a full block by number. The request is a single `Field` element encoding the block number. The response is a serialized `L2Block` (see Spec #6). If the block is not available, the responder returns status `NOT_FOUND`.
 
 #### AUTH
 
@@ -456,7 +453,6 @@ Request-response subprotocols are rate-limited using a GCRA (Generic Cell Rate A
 | STATUS | 5 / second | 10 / second |
 | AUTH | 5 / second | 10 / second |
 | TX | 10 / second | 200 / second |
-| BLOCK | 2 / second | 5 / second |
 | GOODBYE | 5 / second | 10 / second |
 | BLOCK_TXS | 10 / second | 200 / second |
 
@@ -549,22 +545,26 @@ Before topic-specific validation, nodes MUST:
 
 ### Transaction Validation (`tx`)
 
-Transaction gossip validation applies the following checks in order. If any check fails, the transaction is rejected and the sender is penalized at the indicated severity.
+Transaction gossip validation runs in two stages with a pool pre-check between them. Stage 1 contains fast checks; the pool pre-check skips proof verification when the pool would not accept the transaction (e.g., duplicate, capacity reached); Stage 2 performs expensive proof verification. If any validator fails, the transaction is rejected and the peer is penalized at the listed severity.
 
-| # | Check | Severity | Description |
+The Penalty column refers to the `PeerErrorSeverity` enum (see [Penalty Severities](#penalty-severities)). The order in which Stage 1 validators run is not part of the protocol — only the first observed failure determines the penalty.
+
+| Stage | Check | Penalty | Description |
 |---|---|---|---|
-| 1 | Transactions permitted | Mid | Node is accepting transactions |
-| 2 | Data validity | High | Transaction structure and field constraints |
-| 3 | Metadata validity | High | `l1ChainId`, `rollupVersion`, protocol contracts hash, VK tree root match local values |
-| 4 | Timestamp validity | Mid | Transaction timestamp is consistent with current block |
-| 5 | Double-spend check | High | Nullifiers do not conflict with committed state (see note below) |
-| 6 | Gas validity | High | Gas limits within bounds; DA gas sufficient |
-| 7 | Phases validity | Mid | Private/public function phases are correct |
-| 8 | Block header validity | High | Parent block hash matches known chain |
-| 9 | Size validity | — | Transaction size ≤ `MAX_TX_SIZE_KB × 1024` bytes |
-| 10 | Proof validity | Mid | Chonk proof verifies against the VK |
+| 1 | Transactions permitted | `MidToleranceError` | Node is currently accepting transactions |
+| 1 | Timestamp validity | `HighToleranceError` | Transaction has not expired against the next slot timestamp |
+| 1 | Size validity | `MidToleranceError` | Transaction size ≤ `MAX_TX_SIZE_KB × 1024` bytes |
+| 1 | Metadata validity | `MidToleranceError` | `l1ChainId`, `rollupVersion`, protocol contracts hash, VK tree root match local values |
+| 1 | Phases validity | `MidToleranceError` | Setup-phase public calls are on the allow list |
+| 1 | Block header validity | `HighToleranceError` | Anchor block hash exists in the archive tree |
+| 1 | Double-spend check | dynamic† | Nullifiers do not exist in the committed nullifier tree |
+| 1 | Gas validity | `MidToleranceError` | Gas limits within bounds; max fee per gas ≥ block fee; fee payer balance sufficient |
+| 1 | Data validity | `MidToleranceError` | Transaction structure and field constraints |
+| 1 | Contract instance validity | `MidToleranceError` | Embedded contract instance deployment is well-formed |
+| Pool pre-check | `canAddPendingTx` | — | If the pool would not accept the tx (duplicate, capacity, etc.), the message is ignored without penalty and Stage 2 is skipped |
+| 2 | Proof validity | `LowToleranceError` | Client proof verifies against the VK |
 
-**Double-spend grace period**: For nullifier checks, nodes SHOULD apply a grace period for transactions containing nullifiers that appear in very recently published blocks. A peer SHOULD NOT be penalized for propagating a transaction whose nullifiers were committed during the most recent few blocks, since the sender may not yet have processed those blocks. To avoid unknowingly propagating invalid transactions, nodes MUST NOT join the gossip mesh until they are fully synchronized with the chain tip.
+† **Double-spend severity is determined dynamically.** When the double-spend check fails, the caller examines how recently the conflicting nullifier was published. If the nullifier was committed within the most recent `doubleSpendSeverePeerPenaltyWindow` (default: 30) blocks, the peer is penalized with `HighToleranceError` — the peer may not yet have processed the block that contains the nullifier. If the nullifier is older than that window, the peer is penalized with `LowToleranceError`. To avoid unknowingly propagating invalid transactions, nodes MUST NOT join the gossip mesh until they are fully synchronized with the chain tip.
 
 After all checks pass, the transaction is added to the mempool. Validation results:
 
@@ -576,14 +576,15 @@ For request-response TX validation (responding to `TX` requests), a reduced set 
 
 ### Block Proposal Validation (`block_proposal`)
 
-| # | Check | Severity | Description |
+| # | Check | Penalty | Description |
 |---|---|---|---|
-| 1 | Slot check | High | Proposal slot is current or next slot, or within clock tolerance of previous slot |
-| 2 | Signature validity | Mid | Proposer signature verifies |
-| 3 | Transactions permitted | Mid | If node is not accepting txs, proposal MUST contain no tx hashes |
-| 4 | Embedded tx hash consistency | Mid | Every embedded transaction's hash appears in `tx_hashes` |
-| 5 | Expected proposer | Mid | Proposer matches the expected proposer for the slot from the epoch cache |
-| 6 | Tx hash verification | Low | Each embedded transaction's computed hash matches its declared hash |
+| 1 | Slot check | `HighToleranceError` | Proposal slot is current or next slot, or within clock tolerance of previous slot |
+| 2 | Signature validity | `MidToleranceError` | Proposer signature verifies |
+| 3 | Expected proposer | `MidToleranceError` | Proposer matches the expected proposer for the slot from the epoch cache |
+| 4 | Transactions permitted | `MidToleranceError` | If node is not accepting txs, proposal MUST contain no tx hashes |
+| 5 | Max txs per block | `MidToleranceError` | `tx_hashes` length ≤ configured `maxTxsPerBlock` |
+| 6 | Embedded tx hash consistency | `MidToleranceError` | Every embedded transaction's hash appears in `tx_hashes` |
+| 7 | Tx hash verification | `LowToleranceError` | Each embedded transaction's computed hash matches its declared hash |
 
 #### Equivocation Detection
 
@@ -602,13 +603,13 @@ Checkpoint proposals follow the same validation rules as block proposals (slot c
 
 ### Checkpoint Attestation Validation (`checkpoint_attestation`)
 
-| # | Check | Severity | Description |
+| # | Check | Penalty | Description |
 |---|---|---|---|
-| 1 | Slot check | High | Attestation slot is current or next slot, or within clock tolerance |
-| 2 | Attester signature | Low | Attester's signature over the payload verifies |
-| 3 | Committee membership | High | Attester is a member of the committee for the attested slot |
-| 4 | Proposer signature | Low | The embedded proposer signature verifies |
-| 5 | Proposer match | High | Proposer matches expected proposer for the slot |
+| 1 | Slot check | `HighToleranceError` | Attestation slot is current or next slot, or within clock tolerance |
+| 2 | Attester signature | `LowToleranceError` | Attester's signature over the payload verifies |
+| 3 | Committee membership | `HighToleranceError` | Attester is a member of the committee for the attested slot |
+| 4 | Proposer signature | `LowToleranceError` | The embedded proposer signature verifies |
+| 5 | Proposer match | `HighToleranceError` | Proposer matches expected proposer for the slot |
 
 #### Attestation Equivocation Detection
 
@@ -649,11 +650,13 @@ Each peer maintains a floating-point score, starting at 0. Penalties are applied
 
 #### Penalty Severities
 
-| Severity | Penalty Points | Example Triggers |
-|---|---|---|
-| `LowToleranceError` | 50 | Deserialization failure, invalid tx hash, invalid signature |
-| `MidToleranceError` | 10 | Invalid proposer, timestamp violation, failed proof |
-| `HighToleranceError` | 2 | Connection reset, double-spend, unsupported protocol, rate limit violation |
+The `PeerErrorSeverity` enum names the system's *tolerance* for an error class — not the harshness of the punishment. `HighToleranceError` is the mildest penalty (the system tolerates many such failures); `LowToleranceError` is the harshest (very few are tolerated before a peer is banned).
+
+| Severity | Penalty Points | Approximate ban after | Example Triggers |
+|---|---|---|---|
+| `LowToleranceError` | 50 | ~2 occurrences | Deserialization failure, invalid tx hash, invalid signature |
+| `MidToleranceError` | 10 | ~10 occurrences | Invalid proposer, timestamp violation, failed proof |
+| `HighToleranceError` | 2 | ~50 occurrences | Connection reset, recent double-spend, rate limit violation |
 
 #### Score Decay
 
@@ -822,32 +825,11 @@ Nodes mitigate eclipse attacks through:
 
 ### Equivocation and Slashing
 
-The P2P layer detects and propagates equivocation evidence (conflicting proposals or attestations at the same slot). This evidence can be used by the L1 rollup contract for slashing (see Spec #10). The network intentionally re-broadcasts equivocating messages to ensure evidence reaches all validators.
+The P2P layer detects and propagates equivocation evidence (conflicting proposals or attestations at the same slot). This evidence can be used by the validator network for slashing. The network intentionally re-broadcasts equivocating messages to ensure evidence reaches all validators.
 
 ### Clock Disparity
 
 The 500 ms clock tolerance window is deliberately narrow to limit the window for timing attacks while accommodating reasonable NTP drift. Nodes SHOULD maintain accurate clocks via NTP.
-
-## Discarded Alternatives
-
-### Transaction Pool Synchronization Protocol
-
-A dedicated protocol for synchronizing the full transaction pool between peers (beyond GossipSub) was considered and rejected for the following reasons:
-
-1. **Bandwidth cost** — Transactions can be up to `MAX_TX_SIZE_KB` (512 KB) each. Downloading the entire pool would require transferring hundreds of megabytes, representing both a performance burden and a DoS vector.
-2. **Redundancy** — At the point a node joins the network, block production is likely already underway. Many pooled transactions will be removed when the next block is published, making a full download wasteful.
-3. **Natural convergence** — Nodes converge on the current pool state by participating in GossipSub and observing published blocks. After one or two block cycles, a newly joined node's local pool reflects the network state. The request-response `TX` subprotocol allows targeted retrieval of specific missing transactions when needed (e.g., for block proposal processing).
-
-Implementations MUST NOT require a pool synchronization handshake for normal operation.
-
-## Open Questions
-
-1. **Transaction chunk size**: The current implementation defaults to 1 transaction per TX request chunk. Should this be increased to reduce round-trips? A value of 8 has been suggested.
-2. **Fisherman mode**: The implementation includes a "fisherman" validation mode that validates all messages without participating in consensus. Should this be formally specified as a node role?
-3. **Double-spend penalty window**: The severe penalty window for double-spend detection is 30 L2 blocks. Is this sufficient for all reorg scenarios?
-4. **Validator-only mode**: When `allowOnlyValidators` is enabled, non-validator peers are rejected. Should this mode be the default or remain opt-in?
-5. **ENR version encoding**: The ENR `aztec` key can store either a compressed version string or an xxHash digest. Should the spec mandate one format for interoperability?
-6. **mplex deprecation**: The transport stack includes mplex as a fallback multiplexer. Should implementations be required to support mplex, or is yamux sufficient?
 
 ## References
 
