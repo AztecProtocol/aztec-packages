@@ -1,8 +1,14 @@
-use crate::private_kernel_init_3::{self, PrivateKernelInit3CircuitPrivateInputs};
+use crate::{
+    private_kernel_init_3::{self, PrivateKernelInit3CircuitPrivateInputs},
+    private_kernel_inner_3::{self, PrivateKernelInner3CircuitPrivateInputs},
+};
 use protocol_test_utils::{assert_claimed_length_array_eq, FixtureBuilder};
-use types::abis::{
-    kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-    protocol_contracts::ProtocolContracts, transaction::tx_request::TxRequest,
+use types::{
+    abis::{
+        kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
+        protocol_contracts::ProtocolContracts, transaction::tx_request::TxRequest,
+    },
+    constants::PRIVATE_KERNEL_INIT_VK_INDEX,
 };
 
 struct Batch3TestBuilder {
@@ -126,6 +132,82 @@ impl Batch3TestBuilder {
     }
 }
 
+struct Inner3TestBuilder {
+    previous_kernel: FixtureBuilder,
+    private_call_0: FixtureBuilder,
+    private_call_1: FixtureBuilder,
+    private_call_2: FixtureBuilder,
+}
+
+impl Inner3TestBuilder {
+    fn new() -> Self {
+        let mut previous_kernel = FixtureBuilder::new_from_counter(135)
+            .in_vk_tree(PRIVATE_KERNEL_INIT_VK_INDEX)
+            .as_parent_contract();
+        previous_kernel.compute_update_tree_and_hints();
+
+        let mut private_call_0 = FixtureBuilder::new_from_counter(1000);
+        private_call_0.anchor_block_header = previous_kernel.anchor_block_header;
+        private_call_0.tx_context = previous_kernel.tx_context;
+        private_call_0.compute_update_tree_and_hints();
+
+        let mut private_call_1 = FixtureBuilder::new_from_counter(2000);
+        private_call_1.anchor_block_header = previous_kernel.anchor_block_header;
+        private_call_1.tx_context = previous_kernel.tx_context;
+        private_call_1.compute_update_tree_and_hints();
+
+        let mut private_call_2 = FixtureBuilder::new_from_counter(3000);
+        private_call_2.anchor_block_header = previous_kernel.anchor_block_header;
+        private_call_2.tx_context = previous_kernel.tx_context;
+        private_call_2.compute_update_tree_and_hints();
+
+        Inner3TestBuilder { previous_kernel, private_call_0, private_call_1, private_call_2 }
+    }
+
+    fn execute_linear_chain(self) -> PrivateKernelCircuitPublicInputs {
+        let mut previous_kernel = self.previous_kernel;
+        let mut private_call_0 = self.private_call_0;
+        let mut private_call_1 = self.private_call_1;
+        let mut private_call_2 = self.private_call_2;
+
+        private_call_0.add_private_call_request();
+        let call_1_request = private_call_0.private_call_requests.get(0);
+        private_call_1.msg_sender = private_call_0.contract_address;
+        private_call_1.counter_start = call_1_request.start_side_effect_counter;
+        if private_call_1.counter <= call_1_request.start_side_effect_counter {
+            private_call_1.counter = call_1_request.start_side_effect_counter + 1;
+        }
+
+        private_call_1.add_private_call_request();
+        let call_2_request = private_call_1.private_call_requests.get(0);
+        private_call_2.msg_sender = private_call_1.contract_address;
+        private_call_2.counter_start = call_2_request.start_side_effect_counter;
+        if private_call_2.counter <= call_2_request.start_side_effect_counter {
+            private_call_2.counter = call_2_request.start_side_effect_counter + 1;
+        }
+
+        private_call_1.private_call_requests.set(0, private_call_2.to_private_call_request());
+        if private_call_1.counter <= private_call_2.counter {
+            private_call_1.counter = private_call_2.counter + 1;
+        }
+
+        private_call_0.private_call_requests.set(0, private_call_1.to_private_call_request());
+        if private_call_0.counter <= private_call_1.counter {
+            private_call_0.counter = private_call_1.counter + 1;
+        }
+
+        previous_kernel.private_call_requests.push(private_call_0.to_private_call_request());
+
+        let inputs = PrivateKernelInner3CircuitPrivateInputs {
+            previous_kernel: previous_kernel.to_private_kernel_data(),
+            private_call_0: private_call_0.to_private_call_data(),
+            private_call_1: private_call_1.to_private_call_data(),
+            private_call_2: private_call_2.to_private_call_data(),
+        };
+        private_kernel_inner_3::execute(inputs)
+    }
+}
+
 #[test]
 fn batch_3_accumulates_side_effects_across_slots() {
     let mut builder = Batch3TestBuilder::new();
@@ -202,4 +284,40 @@ fn batch_3_fee_payer_conflict_fails() {
     builder.private_call_1.is_fee_payer = true;
 
     builder.execute_linear_chain();
+}
+
+#[test]
+fn inner_3_accumulates_side_effects_after_previous_kernel() {
+    let mut builder = Inner3TestBuilder::new();
+
+    builder.previous_kernel.append_note_hashes(1);
+    builder.private_call_0.append_note_hashes(1);
+    builder.private_call_1.append_note_hashes(1);
+    builder.private_call_2.append_note_hashes(1);
+
+    let previous_note_hashes = builder.previous_kernel.note_hashes.storage();
+    let call_0_note_hashes = builder.private_call_0.note_hashes.storage();
+    let call_1_note_hashes = builder.private_call_1.note_hashes.storage();
+    let call_2_note_hashes = builder.private_call_2.note_hashes.storage();
+
+    let output = builder.execute_linear_chain();
+
+    assert_claimed_length_array_eq(
+        output.end.note_hashes,
+        [
+            previous_note_hashes[0],
+            call_0_note_hashes[0],
+            call_1_note_hashes[0],
+            call_2_note_hashes[0],
+        ],
+    );
+}
+
+#[test]
+fn inner_3_linear_chain_consumes_all_calls() {
+    let builder = Inner3TestBuilder::new();
+
+    let output = builder.execute_linear_chain();
+
+    assert_eq(output.end.private_call_stack.length, 0);
 }
