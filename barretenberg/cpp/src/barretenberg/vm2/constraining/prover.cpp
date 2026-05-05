@@ -16,6 +16,7 @@
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
@@ -253,7 +254,11 @@ void AvmProver::execute_pcs_rounds()
         batched_unshifted *= unshifted_challenges[max_idx_unshifted];
         batched_unshifted += batched_shifted;
     } else {
-        batched_unshifted = batched_shifted;
+        // batched_unshifted has a start_index == 1 which would assert if we directly call
+        // batched_unshifted.add_scaled(unshifted_polys[..]..). We therefore first initialize
+        // a zero polynomial with start_index == 0 and size = end_index.
+        batched_unshifted = Polynomial(batched_shifted.end_index());
+        batched_unshifted += batched_shifted;
         batched_unshifted.add_scaled(unshifted_polys[max_idx_unshifted], unshifted_challenges[max_idx_unshifted]);
     }
     for (size_t idx = 0; idx < WIRES_TO_BE_SHIFTED_START_IDX; idx++) {
