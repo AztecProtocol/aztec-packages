@@ -118,8 +118,6 @@ namespace ecc_add_mem;
     pol commit p_x, p_y;
     pol commit q_x, q_y;
 
-    // MW NOTE: Still using p_is_inf, q_is_inf just as flags to tell ecc.pil how to treat the points.
-    // TODO(#AVM-266): Remove p_is_inf, q_is_inf entirely.
     // Needs to be committed columns as they are used in the lookups
     pol commit p_is_inf, q_is_inf; // constrained to be @boolean in the ecc subtrace (see #[INPUT_OUTPUT_ECC_ADD])
 
@@ -185,12 +183,8 @@ namespace ecc_add_mem;
     pol commit sel_should_exec; // @boolean (by definition)
     sel_should_exec = sel * (1 - err);
 
-    // MW NOTE: Still using p_is_inf, q_is_inf just as flags to tell ecc.pil how to treat the points.
-    // MW NOTE: Output inifinities - in ecc.pil, if result_infinity, then r_x = INFINITY_X = 0, r_y = INFINITY_Y = 0.
-    // Sufficient to just lookup res_x, res_y here?
-
-    // TODO(#AVM-266): Remove p_is_inf, q_is_inf entirely. For now, we ensure that the flag being set means that the coordinates
-    // are set to our infinity representation: (INFINITY_X, INFINITY_Y) = (0, 0). The reverse ((INFINITY_X, INFINITY_Y) ==> is_inf)
+    // TODO(#AVM-266): For now, we ensure that the flag being set means that the coordinates are set to our infinity
+    // representation: (INFINITY_X, INFINITY_Y) = (0, 0). The reverse ((INFINITY_X, INFINITY_Y) ==> is_inf)
     // is constrained by #[P/Q_ON_CURVE_CHECK]. Output infinities are already constrained to be (0, 0) in the subtrace.
     #[P_INF_X_CHECK]
     sel * p_is_inf * (p_x - ecc.INFINITY_X) = 0;
@@ -232,12 +226,3 @@ namespace ecc_add_mem;
     memory.sel_ecc_write[1] {
         memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
     };
-
-    // #[WRITE_MEM_2]
-    // sel_should_exec {
-    //     execution_clk, space_id, dst_addr[2], res_is_inf, /*U1_mem_tag=1*/ sel_should_exec, /*rw=1*/ sel_should_exec
-    // } is
-    // memory.sel_ecc_write[2] {
-    //     memory.clk, memory.space_id, memory.address, memory.value, memory.tag, memory.rw
-    // };
-

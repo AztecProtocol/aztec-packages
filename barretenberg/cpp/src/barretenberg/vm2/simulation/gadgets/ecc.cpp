@@ -112,19 +112,14 @@ void Ecc::add(MemoryInterface& memory,
     uint16_t space_id = memory.get_space_id();
 
     try {
-        // TODO(#AVM-266): Remove is_infinity flag from point representation.
-        // The resulting EmbeddedCurvePoint is a triple of (x, y, is_infinity).
-        // The x and y coordinates are stored at dst_address and dst_address + 1 respectively,
-        // and the is_infinity flag is stored at dst_address + 2.
-        // Therefore, the maximum address that needs to be written to is dst_address + 2.
-        uint64_t max_write_address = static_cast<uint64_t>(dst_address) + 2;
+        // The resulting EmbeddedCurvePoint is (x, y), stored at dst_address and dst_address + 1 respectively.
+        // Therefore, the maximum address that needs to be written to is dst_address + 1.
+        uint64_t max_write_address = static_cast<uint64_t>(dst_address) + 1;
         // Emits GreaterThanEvent, see #[CHECK_DST_ADDR_IN_RANGE] in ecc_mem.pil.
         if (gt.gt(max_write_address, AVM_HIGHEST_MEM_ADDRESS)) {
             throw InternalEccException("dst address out of range");
         }
 
-        // TODO(#AVM-266): Remove is_infinity flag from point representation. We assume here input
-        // points follow the Noir convention of (x=0, y=0) <==> is_infinity.
         if (!p.on_curve() || !q.on_curve()) {
             throw InternalEccException("One of the points is not on the curve");
         }

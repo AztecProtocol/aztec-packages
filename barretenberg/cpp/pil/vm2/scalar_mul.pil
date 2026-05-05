@@ -81,14 +81,12 @@ namespace scalar_mul;
     // Point P in affine form
     pol commit point_x;
     pol commit point_y;
-    // TODO(#AVM-266): Remove infinity flags from point representation.
     pol commit point_inf; // @boolean
     point_inf * (1 - point_inf) = 0;
 
     // Point R = sP in affine form
     pol commit res_x;
     pol commit res_y;
-    // TODO(#AVM-266): Remove infinity flags from point representation.
     pol commit res_inf; // @boolean (constrained to be @boolean by lookup in the ecc subtrace)
 
     ///////////////////////////////
@@ -123,6 +121,7 @@ namespace scalar_mul;
     sel_not_end * (point_x - point_x') = 0;
     #[INPUT_CONSISTENCY_Y]
     sel_not_end * (point_y - point_y') = 0;
+    // TODO(MW): remove/rework below? only used at end
     #[INPUT_CONSISTENCY_INF]
     sel_not_end * (point_inf - point_inf') = 0;
     #[INPUT_CONSISTENCY_SCALAR]
@@ -175,7 +174,6 @@ namespace scalar_mul;
     end * (temp_y - point_y) = 0;
     end * (temp_inf - point_inf) = 0;
 
-    // TODO(MW): Remove result_infinity?
     #[DOUBLE]
     sel_not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', sel_not_end /* = 1 */ }
     in
@@ -204,7 +202,6 @@ namespace scalar_mul;
     SHOULD_PASS * (res_y - res_y') = 0;
     SHOULD_PASS * (res_inf - res_inf') = 0;
 
-    // TODO(MW): Remove result_infinity?
     #[ADD]
     should_add { res_x, res_y, res_inf, res_x', res_y', res_inf', temp_x, temp_y, temp_inf }
     in

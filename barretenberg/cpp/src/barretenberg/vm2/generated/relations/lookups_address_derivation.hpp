@@ -332,7 +332,7 @@ using lookup_address_derivation_preaddress_scalar_mul_relation =
 struct lookup_address_derivation_address_ecadd_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_ADDRESS_DERIVATION_ADDRESS_ECADD";
     static constexpr std::string_view RELATION_NAME = "address_derivation";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 9;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 8;
     static constexpr Column SRC_SELECTOR = Column::address_derivation_sel;
     static constexpr Column DST_SELECTOR = Column::ecc_sel;
     static constexpr Column COUNTS = Column::lookup_address_derivation_address_ecadd_counts;
@@ -345,13 +345,12 @@ struct lookup_address_derivation_address_ecadd_settings_ {
         ColumnAndShifts::address_derivation_incoming_viewing_key_y,
         ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::address_derivation_address,
-        ColumnAndShifts::address_derivation_address_y,
-        ColumnAndShifts::precomputed_zero
+        ColumnAndShifts::address_derivation_address_y
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::ecc_p_x, ColumnAndShifts::ecc_p_y, ColumnAndShifts::ecc_p_is_inf,
         ColumnAndShifts::ecc_q_x, ColumnAndShifts::ecc_q_y, ColumnAndShifts::ecc_q_is_inf,
-        ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y, ColumnAndShifts::ecc_result_infinity
+        ColumnAndShifts::ecc_r_x, ColumnAndShifts::ecc_r_y
     };
 };
 
