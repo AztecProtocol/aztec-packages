@@ -1,3 +1,5 @@
+import { DEV_VERSION } from '@aztec/stdlib/update-checker';
+
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { mkdir, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
@@ -136,13 +138,14 @@ describe('warnIfAztecVersionMismatch', () => {
     expect(logMessages.filter(m => m.includes('WARNING'))).toHaveLength(0);
   });
 
-  it('warns when the CLI version is not available', async () => {
-    await makePackage(tempDir, 'project', 'contract');
+  it('skips the check when running from a monorepo checkout', async () => {
+    await makePackage(tempDir, 'project', 'contract', {
+      aztec: '{ git = "https://github.com/AztecProtocol/aztec-nr", tag = "v1.2.3", directory = "aztec" }',
+    });
 
-    await warnIfAztecVersionMismatch(log, '');
+    await warnIfAztecVersionMismatch(log, DEV_VERSION);
 
-    expect(logMessages).toHaveLength(1);
-    expect(logMessages[0]).toContain('CLI version not found');
+    expect(logMessages).toHaveLength(0);
   });
 
   it('does not warn when the project has no aztec dependency', async () => {
