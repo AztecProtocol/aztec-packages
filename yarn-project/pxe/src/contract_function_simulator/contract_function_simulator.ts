@@ -350,6 +350,7 @@ export class ContractFunctionSimulator {
       l2TipsStore: this.l2TipsStore,
       jobId,
       scopes,
+      simulator: this.simulator,
     });
 
     try {

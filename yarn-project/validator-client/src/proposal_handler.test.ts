@@ -14,7 +14,12 @@ import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } f
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { accumulateCheckpointOutHashes } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { makeBlockHeader, makeCheckpointHeader, makeCheckpointProposal } from '@aztec/stdlib/testing';
+import {
+  TEST_COORDINATION_SIGNATURE_CONTEXT,
+  makeBlockHeader,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+} from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -77,7 +82,10 @@ describe('ProposalHandler checkpoint validation', () => {
     dateProvider = new TestDateProvider();
     metrics = mock<ValidatorMetrics>();
 
-    config = {} as ValidatorClientFullConfig;
+    config = {
+      l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
+      l1Contracts: { rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress },
+    } as ValidatorClientFullConfig;
 
     handler = new ProposalHandler(
       checkpointsBuilder,
@@ -146,6 +154,36 @@ describe('ProposalHandler checkpoint validation', () => {
       expect(result).toEqual({ isValid: false, reason: 'last_block_archive_mismatch' });
     });
 
+    it('returns too_many_blocks_in_checkpoint when blocks exceed maxBlocksPerCheckpoint', async () => {
+      config = { ...config, maxBlocksPerCheckpoint: 2 };
+      handler = new ProposalHandler(
+        checkpointsBuilder,
+        mock<WorldStateSynchronizer>(),
+        blockSource,
+        l1ToL2MessageSource,
+        mock<ITxProvider>(),
+        mock<BlockProposalValidator>(),
+        epochCache,
+        config,
+        mock<BlobClientInterface>(),
+        metrics,
+        dateProvider,
+      );
+
+      const archiveRoot = Fr.random();
+      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      const blocks = [
+        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 1), number: 1 },
+        { archive: new AppendOnlyTreeSnapshot(Fr.random(), 2), number: 2 },
+        { archive: new AppendOnlyTreeSnapshot(archiveRoot, 3), number: 3 },
+      ] as unknown as L2Block[];
+      blockSource.getBlocksForSlot.mockResolvedValue(blocks);
+
+      const proposal = await makeProposal({ archiveRoot });
+      const result = await handler.handleCheckpointProposal(proposal, proposalInfo);
+      expect(result).toEqual({ isValid: false, reason: 'too_many_blocks_in_checkpoint' });
+    });
+
     it('caches validation result and returns it on second call', async () => {
       blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
       const proposal = await makeProposal();
@@ -189,8 +227,8 @@ describe('ProposalHandler checkpoint validation', () => {
         checkpointHandler = handler;
       });
 
-      const archiver = mock<Pick<Archiver, 'setProposedCheckpoint' | 'getL1Constants'>>();
-      archiver.setProposedCheckpoint.mockResolvedValue(undefined);
+      const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>>();
+      archiver.addProposedCheckpoint.mockResolvedValue(undefined);
 
       const blockData = {
         checkpointNumber: CheckpointNumber(3),
@@ -206,7 +244,7 @@ describe('ProposalHandler checkpoint validation', () => {
       handler.register(p2p, true, archiver);
       await checkpointHandler!(proposal, {} as any);
 
-      expect(archiver.setProposedCheckpoint).toHaveBeenCalled();
+      expect(archiver.addProposedCheckpoint).toHaveBeenCalled();
       expect(metrics.recordCheckpointProposalToPipelinedStateDuration).toHaveBeenCalledWith(expect.any(Number));
     });
   });

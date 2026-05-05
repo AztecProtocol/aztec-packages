@@ -246,6 +246,7 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // Number of random ops at the beginning of Translator trace
     static constexpr size_t NUM_RANDOM_OPS_START = 3;
     static_assert(NUM_RANDOM_OPS_START == 3);
+    static_assert(NUM_RANDOM_OPS_START == ECC_NUM_RANDOM_OPS_START);
 
     // Number of random ops at the end of Translator trace
     static constexpr size_t NUM_RANDOM_OPS_END = 2;

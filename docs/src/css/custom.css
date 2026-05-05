@@ -534,6 +534,14 @@ html[data-theme="dark"] .sidebar-divider {
   box-shadow: 0 8px 16px rgba(169, 204, 31, 0.15);
 }
 
+/* Allow DocCard titles and descriptions to wrap instead of being clipped to a
+   single line by Docusaurus's default `text--truncate` utility. */
+.card .text--truncate {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
 /* ============================================
    Table Wrapping Styles for Long Content
    ============================================ */

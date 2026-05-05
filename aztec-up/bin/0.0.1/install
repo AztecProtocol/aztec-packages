@@ -173,11 +173,14 @@ function install_foundry {
   temp_foundry_dir=$(mktemp -d) || { echo "Error: Failed to create temp directory" >&2; exit 1; }
   mkdir -p "$temp_foundry_dir/bin"
 
-  # Always install/update foundryup
-  curl --max-time 30 -L https://foundry.paradigm.xyz | bash
+  # The foundry installer defaults to $XDG_CONFIG_HOME/.foundry when that var is set, which
+  # puts foundryup somewhere we don't expect. We'll pin FOUNDRY_DIR so we control the install
+  # location regardless of the caller's environment.
+  local foundry_home="$HOME/.foundry"
+  FOUNDRY_DIR="$foundry_home" curl --max-time 30 -L https://foundry.paradigm.xyz | FOUNDRY_DIR="$foundry_home" bash
 
   # Install foundry to temp location and move to version directory
-  FOUNDRY_DIR="$temp_foundry_dir" timeout 30 "$HOME/.foundry/bin/foundryup" -i "$foundry_version"
+  FOUNDRY_DIR="$temp_foundry_dir" timeout 30 "$foundry_home/bin/foundryup" -i "$foundry_version"
 
   # Move the foundry binaries to our version bin directory
   for binary in forge cast anvil chisel; do

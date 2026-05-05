@@ -86,28 +86,115 @@ void MSM<Curve>::transform_scalar_and_get_nonzero_scalar_indices(std::span<typen
 }
 
 template <typename Curve>
+void MSM<Curve>::compute_scalar_slice_weights(std::span<const typename Curve::ScalarField> scalars,
+                                              std::span<const uint32_t> nonzero_indices,
+                                              uint32_t bits_per_slice,
+                                              std::vector<uint16_t>& weights) noexcept
+{
+    // weight = ceil(bit_length / bps) + FIXED_PER_SCALAR_WEIGHT. The fixed term approximates the
+    // O(num_rounds) per-scalar overhead in build_schedule, sort_schedule, and reduce_buckets that
+    // doesn't scale with bit_length. Without it, threads assigned many lightweight scalars end up
+    // with disproportionate build/sort/reduce work (empirically observed via per-phase profiling).
+    // Max is ceil(NUM_BITS_IN_FIELD / 1) + FIXED.
+    static constexpr uint16_t FIXED_PER_SCALAR_WEIGHT = 4;
+    static_assert(NUM_BITS_IN_FIELD + FIXED_PER_SCALAR_WEIGHT <= std::numeric_limits<uint16_t>::max(),
+                  "slice-count weight overflows uint16_t");
+    BB_ASSERT_GT(bits_per_slice, 0U);
+
+    const size_t n = nonzero_indices.size();
+    weights.resize(n);
+
+    parallel_for([&](const ThreadChunk& chunk) {
+        for (size_t k : chunk.range(n)) {
+            const auto& scalar = scalars[nonzero_indices[k]];
+            // Scalars were filtered for nonzero and are in non-Montgomery form, so get_msb()
+            // returns a valid bit index in [0, NUM_BITS_IN_FIELD).
+            const uint64_t msb = uint256_t{ scalar.data[0], scalar.data[1], scalar.data[2], scalar.data[3] }.get_msb();
+            const size_t bit_length = static_cast<size_t>(msb) + 1;
+            weights[k] =
+                static_cast<uint16_t>((bit_length + bits_per_slice - 1) / bits_per_slice) + FIXED_PER_SCALAR_WEIGHT;
+        }
+    });
+}
+
+template <typename Curve>
+std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::partition_by_weight(
+    std::span<const std::vector<uint16_t>> msm_scalar_weights, size_t num_threads) noexcept
+{
+    BB_ASSERT_GT(num_threads, 0U);
+    std::vector<ThreadWorkUnits> work_units(num_threads);
+
+    size_t grand_total_weight = 0;
+    for (const auto& weights : msm_scalar_weights) {
+        for (uint16_t w : weights) {
+            grand_total_weight += w;
+        }
+    }
+    if (grand_total_weight == 0) {
+        return work_units;
+    }
+
+    const size_t weight_per_thread = numeric::ceil_div(grand_total_weight, num_threads);
+
+    size_t thread_accumulated_weight = 0;
+    size_t current_thread_idx = 0;
+    for (size_t i = 0; i < msm_scalar_weights.size(); ++i) {
+        const auto& weights = msm_scalar_weights[i];
+        const size_t n = weights.size();
+
+        size_t start = 0;
+        for (size_t k = 0; k < n; ++k) {
+            thread_accumulated_weight += weights[k];
+
+            if (current_thread_idx < num_threads - 1 && thread_accumulated_weight >= weight_per_thread) {
+                work_units[current_thread_idx].push_back(MSMWorkUnit{
+                    .batch_msm_index = i,
+                    .start_index = start,
+                    .size = k + 1 - start,
+                });
+                start = k + 1;
+                current_thread_idx++;
+                thread_accumulated_weight = 0;
+            }
+        }
+        if (start < n) {
+            work_units[current_thread_idx].push_back(MSMWorkUnit{
+                .batch_msm_index = i,
+                .start_index = start,
+                .size = n - start,
+            });
+        }
+    }
+    return work_units;
+}
+
+template <typename Curve>
 std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
     std::span<std::span<ScalarField>> scalars, std::vector<std::vector<uint32_t>>& msm_scalar_indices) noexcept
 {
     const size_t num_msms = scalars.size();
     msm_scalar_indices.resize(num_msms);
+
+    // Weight scalars by their Pippenger cost (slice count + fixed overhead, see
+    // compute_scalar_slice_weights) to improve thread balancing.
+    std::vector<std::vector<uint16_t>> msm_scalar_weights(num_msms);
+    size_t total_work = 0;
     for (size_t i = 0; i < num_msms; ++i) {
         transform_scalar_and_get_nonzero_scalar_indices(scalars[i], msm_scalar_indices[i]);
-    }
-
-    size_t total_work = 0;
-    for (const auto& indices : msm_scalar_indices) {
-        total_work += indices.size();
+        const size_t n = msm_scalar_indices[i].size();
+        total_work += n;
+        if (n == 0) {
+            continue;
+        }
+        const uint32_t bps = get_optimal_log_num_buckets(n);
+        compute_scalar_slice_weights(scalars[i], msm_scalar_indices[i], bps, msm_scalar_weights[i]);
     }
 
     const size_t num_threads = get_num_cpus();
-    std::vector<ThreadWorkUnits> work_units(num_threads);
-
-    const size_t work_per_thread = numeric::ceil_div(total_work, num_threads);
-    const size_t work_of_last_thread = total_work - (work_per_thread * (num_threads - 1));
 
     // Only use a single work unit if we don't have enough work for every thread
     if (num_threads > total_work) {
+        std::vector<ThreadWorkUnits> work_units(num_threads);
         for (size_t i = 0; i < num_msms; ++i) {
             work_units[0].push_back(MSMWorkUnit{
                 .batch_msm_index = i,
@@ -118,37 +205,7 @@ std::vector<typename MSM<Curve>::ThreadWorkUnits> MSM<Curve>::get_work_units(
         return work_units;
     }
 
-    size_t thread_accumulated_work = 0;
-    size_t current_thread_idx = 0;
-    for (size_t i = 0; i < num_msms; ++i) {
-        size_t msm_work_remaining = msm_scalar_indices[i].size();
-        const size_t initial_msm_work = msm_work_remaining;
-
-        while (msm_work_remaining > 0) {
-            BB_ASSERT_LT(current_thread_idx, work_units.size());
-
-            const size_t total_thread_work =
-                (current_thread_idx == num_threads - 1) ? work_of_last_thread : work_per_thread;
-            const size_t available_thread_work = total_thread_work - thread_accumulated_work;
-            const size_t work_to_assign = std::min(available_thread_work, msm_work_remaining);
-
-            work_units[current_thread_idx].push_back(MSMWorkUnit{
-                .batch_msm_index = i,
-                .start_index = initial_msm_work - msm_work_remaining,
-                .size = work_to_assign,
-            });
-
-            thread_accumulated_work += work_to_assign;
-            msm_work_remaining -= work_to_assign;
-
-            // Move to next thread if current thread is full
-            if (thread_accumulated_work >= total_thread_work) {
-                current_thread_idx++;
-                thread_accumulated_work = 0;
-            }
-        }
-    }
-    return work_units;
+    return partition_by_weight(msm_scalar_weights, num_threads);
 }
 
 /**

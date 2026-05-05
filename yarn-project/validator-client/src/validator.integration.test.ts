@@ -36,6 +36,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { hashTypedData } from 'viem';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { CheckpointBuilder, FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
@@ -162,6 +163,7 @@ describe('ValidatorClient Integration', () => {
     const validator = await ValidatorClient.new(
       {
         l1Contracts: { rollupAddress },
+        l1ChainId: chainId.toNumber(),
         validatorPrivateKeys: new SecretValue([privateKey]),
         attestationPollingIntervalMs: 100,
         disableValidator: false,
@@ -415,8 +417,8 @@ describe('ValidatorClient Integration', () => {
     it('validates and attests with txs anchored to proposed blocks and non-empty l1-to-l2 messages', async () => {
       // Create l1 to l2 messages and seed them into the archivers
       const l1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
-      await proposer.archiver.dataStore.addL1ToL2Messages(l1ToL2Messages);
-      await attestor.archiver.dataStore.addL1ToL2Messages(l1ToL2Messages);
+      await proposer.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
+      await attestor.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
 
       // Build txs anchored to the previously proposed block
       const { blocks, proposal } = await buildCheckpoint(
@@ -545,7 +547,8 @@ describe('ValidatorClient Integration', () => {
         CheckpointNumber(1),
         0n,
         undefined,
-        payload => Promise.resolve(proposerSigner.sign(payload)),
+        { chainId: chainId.toNumber(), rollupAddress },
+        typedData => Promise.resolve(proposerSigner.sign(Buffer32.fromString(hashTypedData(typedData)))),
       );
 
       await attestorValidateBlocks(blocks);
@@ -607,10 +610,10 @@ describe('ValidatorClient Integration', () => {
 
     it('refuses block proposal with mismatching l1 to l2 messages', async () => {
       const l1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
-      await proposer.archiver.dataStore.addL1ToL2Messages(l1ToL2Messages);
+      await proposer.archiver.dataStores.messages.addL1ToL2Messages(l1ToL2Messages);
 
       const otherL1ToL2Messages = makeInboxMessages(4, { messagesPerCheckpoint: 4 });
-      await attestor.archiver.dataStore.addL1ToL2Messages(otherL1ToL2Messages);
+      await attestor.archiver.dataStores.messages.addL1ToL2Messages(otherL1ToL2Messages);
 
       const { blocks } = await buildCheckpoint(
         CheckpointNumber(1),

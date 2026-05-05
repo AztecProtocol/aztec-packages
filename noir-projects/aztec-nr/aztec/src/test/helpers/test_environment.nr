@@ -125,7 +125,6 @@ struct UtilityContextOptions {
     contract_address: Option<AztecAddress>,
 }
 
-
 /// Configuration for [`TestEnvironment::call_private_opts`].
 ///
 /// Constructed by calling [`CallPrivateOptions::new`] and then chaining methods setting each value:
@@ -808,10 +807,7 @@ impl TestEnvironment {
     /// Performs a public contract function call, including the processing of any nested public calls. Returns the
     /// result of the called function. Variant of `call_public`, but the `from` address (`msg_sender`) is set to
     /// "null".
-    pub unconstrained fn call_public_incognito<let M: u32, let N: u32, T>(
-        _self: Self,
-        call: PublicCall<M, N, T>,
-    ) -> T
+    pub unconstrained fn call_public_incognito<let M: u32, let N: u32, T>(_self: Self, call: PublicCall<M, N, T>) -> T
     where
         T: Deserialize,
     {
@@ -846,7 +842,7 @@ impl TestEnvironment {
         T::deserialize(serialized_return_values)
     }
 
-    #[deprecated("use `TestEnvironment::view_public` instead)]
+    #[deprecated("use `TestEnvironment::view_public` instead")]
     pub unconstrained fn view_public_incognito<let M: u32, let N: u32, T>(
         self: Self,
         call: PublicStaticCall<M, N, T>,
@@ -1011,6 +1007,7 @@ impl TestEnvironment {
     ///
     /// env.discover_event_at(contract_address, event_message);
     /// ```
+    #[allow(dead_code)]
     pub(crate) unconstrained fn discover_event_at<Event>(
         self: Self,
         addr: AztecAddress,
@@ -1090,14 +1087,17 @@ impl TestEnvironment {
         // `MessageContext`, and might contain information about data (e.g. notes, events) contained in the message. In
         // a real contract this data would have either been supplied by the `process_message` caller, of retrieved
         // along with the message from a tagged log.
-        let (tx_hash, unique_note_hashes_in_tx, nullifiers_in_tx) = txe_oracles::get_last_tx_effects();
+        let effects = txe_oracles::get_last_tx_effects();
 
         // Real messages would also have a recipient, a concept which is currently half-supported in `TestEnvironment`
         // as events are properly scoped by recipient, but notes use a global scope instead. We therefore simply set
         // the zero address as the recipient if one is not supplied, which PXE accepts as a scope despite this not
         // being a registered account.
-        let message_context =
-            MessageContext { tx_hash, unique_note_hashes_in_tx, first_nullifier_in_tx: nullifiers_in_tx.get(0) };
+        let message_context = MessageContext {
+            tx_hash: effects.tx_hash,
+            unique_note_hashes_in_tx: effects.note_hashes,
+            first_nullifier_in_tx: effects.nullifiers.get(0),
+        };
 
         // The scope controls which PXE account can see discovered notes/events. We use the zero address as the
         // default scope if no recipient is supplied, which PXE accepts despite this not being a registered account.

@@ -161,10 +161,11 @@ describe('full_prover', () => {
       const publishedCheckpoints = await t.aztecNode.getCheckpoints(
         CheckpointNumber(Number(oldProvenCheckpointNumber) + 1),
         numCheckpointsProven,
+        { includeBlocks: true },
       );
 
       // Extract all blocks from all proven checkpoints
-      const allBlocks = publishedCheckpoints.flatMap(pc => pc.checkpoint.blocks);
+      const allBlocks = publishedCheckpoints.flatMap(pc => pc.blocks!);
       const fees = allBlocks.map(b => b.header.totalFees.toBigInt());
 
       const totalRewards = fees.map(fee => fee + reward).reduce((acc, reward) => acc + reward, 0n);

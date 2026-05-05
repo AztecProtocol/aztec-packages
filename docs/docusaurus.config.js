@@ -264,12 +264,16 @@ const config = {
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
-        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}/`,
+        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
         version: mainnetDeveloperVersion || developerTestnetVersion,
+        addMdExtension: false,
         pathTransformation: {
-          ignorePaths: ["docs"],
+          ignorePaths: [
+            `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}`,
+          ],
+          addPaths: ["developers"],
         },
       },
     ],

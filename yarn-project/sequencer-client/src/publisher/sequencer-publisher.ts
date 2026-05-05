@@ -709,7 +709,7 @@ export class SequencerPublisher {
 
     const args = [
       header.toViem(),
-      CommitteeAttestationsAndSigners.empty().getPackedAttestations(),
+      CommitteeAttestationsAndSigners.packAttestations([]),
       [], // no signers
       Signature.empty().toViemSignature(),
       `0x${'0'.repeat(64)}`, // 32 empty bytes
@@ -850,9 +850,7 @@ export class SequencerPublisher {
     const logData = { ...checkpoint, reason };
     this.log.debug(`Building invalidate checkpoint ${checkpoint.checkpointNumber} request`, logData);
 
-    const attestationsAndSigners = new CommitteeAttestationsAndSigners(
-      validationResult.attestations,
-    ).getPackedAttestations();
+    const attestationsAndSigners = CommitteeAttestationsAndSigners.packAttestations(validationResult.attestations);
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(

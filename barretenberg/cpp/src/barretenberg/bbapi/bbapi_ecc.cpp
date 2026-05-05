@@ -99,6 +99,12 @@ Bn254G2Mul::Response Bn254G2Mul::execute(BBApiRequest& request) &&
     if (!point.on_curve()) {
         BBAPI_ERROR(request, "Input point must be on the curve");
     }
+    // BN254 G2 has cofactor h2 ≈ 2^254. An on-curve point may lie in a cofactor subgroup of order
+    // dividing h2 rather than the prime-order subgroup; we do not want to allow such points
+    // as inputs to bbapi.
+    if (!point.is_in_prime_subgroup()) {
+        BBAPI_ERROR(request, "Input point must lie in the prime-order subgroup");
+    }
     auto result = point * scalar;
     if (!result.on_curve()) {
         BBAPI_ERROR(request, "Output point must be on the curve");

@@ -9,14 +9,13 @@ export async function inspectBlock(
   log: LogFn,
   opts: { showTxs?: boolean } = {},
 ) {
-  const block = await aztecNode.getBlock(blockNumber);
+  const block = await aztecNode.getBlock(blockNumber, { includeTransactions: opts.showTxs });
   if (!block) {
     log(`No block found for block number ${blockNumber}`);
     return;
   }
 
-  const blockHash = await block.hash();
-  log(`Block ${blockNumber} (${blockHash.toString()})`);
+  log(`Block ${blockNumber} (${block.hash.toString()})`);
   log(` Total fees: ${block.header.totalFees.toBigInt()}`);
   log(` Total mana used: ${block.header.totalManaUsed.toBigInt()}`);
   log(
@@ -25,12 +24,12 @@ export async function inspectBlock(
   log(` Coinbase: ${block.header.globalVariables.coinbase}`);
   log(` Fee recipient: ${block.header.globalVariables.feeRecipient}`);
   log(` Timestamp: ${new Date(Number(block.header.globalVariables.timestamp) * 500)}`);
-  if (opts.showTxs) {
+  if (opts.showTxs && block.body) {
     log(``);
     for (const txHash of block.body.txEffects.map(tx => tx.txHash)) {
       await inspectTx(aztecNode, txHash, log, { includeBlockInfo: false });
     }
-  } else {
+  } else if (block.body) {
     log(` Transactions: ${block.body.txEffects.length}`);
   }
 }
