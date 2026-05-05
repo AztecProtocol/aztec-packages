@@ -153,6 +153,13 @@ impl Batch3TestBuilder {
         self.execute_with_shape(false, false)
     }
 
+    fn execute_linear_chain_without_first_to_second_sync(self) -> PrivateKernelCircuitPublicInputs {
+        let mut inputs = self.inputs_with_shape(false, true);
+        inputs.private_call_0.public_inputs.private_call_requests.array[0].args_hash += 1;
+
+        private_kernel_init_3::execute(inputs)
+    }
+
     fn execute_depth_first_with_sibling(self) -> PrivateKernelCircuitPublicInputs {
         self.execute_with_shape(true, true)
     }
@@ -416,12 +423,60 @@ fn batch_3_third_call_must_match_second_call_stack_fails() {
     let _ = builder.execute_linear_chain_without_second_to_third_sync();
 }
 
+#[test(should_fail_with = "args_hash does not match call request")]
+fn batch_3_second_call_must_match_first_call_stack_fails() {
+    let builder = Batch3TestBuilder::new();
+
+    let _ = builder.execute_linear_chain_without_first_to_second_sync();
+}
+
 #[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
 fn batch_3_fee_payer_conflict_fails() {
     let mut builder = Batch3TestBuilder::new();
 
     builder.private_call_0.is_fee_payer = true;
     builder.private_call_1.is_fee_payer = true;
+
+    let _ = builder.execute_linear_chain();
+}
+
+#[test(should_fail_with = "Public teardown call request already set")]
+fn batch_3_public_teardown_conflict_fails() {
+    let mut builder = Batch3TestBuilder::new();
+
+    builder.private_call_0.set_public_teardown_call_request();
+    builder.private_call_1.set_public_teardown_call_request();
+
+    let _ = builder.execute_linear_chain();
+}
+
+#[test(should_fail_with = "cannot overwrite non-zero min_revertible_side_effect_counter")]
+fn batch_3_min_revertible_side_effect_counter_conflict_fails() {
+    let mut builder = Batch3TestBuilder::new();
+
+    builder.private_call_0.end_setup();
+    builder.private_call_1.end_setup();
+    builder.revertible_counter_hint = builder.private_call_0.min_revertible_side_effect_counter;
+
+    let _ = builder.execute_linear_chain();
+}
+
+#[test(should_fail_with = "nested private call of a static call must be static")]
+fn batch_3_static_call_requires_static_nested_private_call_fails() {
+    let mut builder = Batch3TestBuilder::new();
+
+    let _ = builder.private_call_1.is_static_call();
+
+    let _ = builder.execute_linear_chain();
+}
+
+#[test(should_fail_with = "note_hashes must be empty for static calls")]
+fn batch_3_static_call_restrictions_apply_to_next_slot_fails() {
+    let mut builder = Batch3TestBuilder::new();
+
+    let _ = builder.private_call_1.is_static_call();
+    let _ = builder.private_call_2.is_static_call();
+    builder.private_call_2.append_note_hashes(1);
 
     let _ = builder.execute_linear_chain();
 }
