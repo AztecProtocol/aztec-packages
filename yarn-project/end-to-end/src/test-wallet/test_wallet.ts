@@ -25,7 +25,11 @@ import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import {
+  type ContractClassIdPreimage,
+  type ContractClassWithId,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoteDao } from '@aztec/stdlib/note';
 import {
@@ -113,6 +117,30 @@ export class TestWallet extends BaseWallet {
   }
 
   /**
+   * Per-account-type cache of the stub class id and preimage. The Promise is stored (not the resolved
+   * value) so concurrent first-time callers dedupe on the same hashing + registration work.
+   */
+  #stubClasses = new Map<AccountType, Promise<ContractClassWithId & ContractClassIdPreimage>>();
+
+  /**
+   * Lazily hashes and registers the stub class for the given account type, caching the result so
+   * subsequent simulations skip the artifact-hashing + registration round-trip.
+   */
+  #getStubClass(type: AccountType): Promise<ContractClassWithId & ContractClassIdPreimage> {
+    let cached = this.#stubClasses.get(type);
+    if (!cached) {
+      cached = (async () => {
+        const stubArtifact = type === 'schnorr' ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
+        const stubClass = await getContractClassFromArtifact(stubArtifact);
+        await this.pxe.registerContractClass(stubArtifact);
+        return stubClass;
+      })();
+      this.#stubClasses.set(type, cached);
+    }
+    return cached;
+  }
+
+  /**
    * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
    */
   protected async buildAccountOverrides(addresses: AztecAddress[]): Promise<ContractOverrides> {
@@ -132,17 +160,10 @@ export class TestWallet extends BaseWallet {
         );
       }
 
-      const stubArtifact = this.getStubArtifactFor(address);
-      const stubConstructorArgs =
-        this.getTypeFor(address) === 'schnorr' ? [Fr.ZERO, Fr.ZERO] : [Buffer.alloc(32), Buffer.alloc(32)];
-      const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
-        salt: Fr.random(),
-        constructorArgs: stubConstructorArgs,
-      });
+      const { id: stubClassId } = await this.#getStubClass(this.getTypeFor(address));
 
       contracts[address.toString()] = {
-        instance: stubInstance,
-        artifact: stubArtifact,
+        instance: { ...contractInstance, currentContractClassId: stubClassId },
       };
     }
 
@@ -153,12 +174,6 @@ export class TestWallet extends BaseWallet {
 
   private getTypeFor(address: AztecAddress): AccountType {
     return this.accounts.get(address.toString())?.type ?? 'schnorr';
-  }
-
-  private getStubArtifactFor(address: AztecAddress) {
-    return this.getTypeFor(address) === 'schnorr'
-      ? StubSchnorrAccountContractArtifact
-      : StubEcdsaAccountContractArtifact;
   }
 
   private getStubAccountFor(address: AztecAddress, completeAddress: CompleteAddress) {

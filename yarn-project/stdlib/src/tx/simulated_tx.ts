@@ -3,7 +3,6 @@ import type { FieldsOf } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import { type ContractArtifact, ContractArtifactSchema } from '../abi/abi.js';
 import {
   type ContractInstanceWithAddress,
   ContractInstanceWithAddressSchema,
@@ -24,18 +23,17 @@ import { NestedProcessReturnValues, PublicSimulationOutput } from './public_simu
 import { Tx } from './tx.js';
 
 /*
- * If passed during the execution of a user circuit, the contract function simulator will replace the instance and class
- * of the contract with the one provided in the overrides for that address. An example use case
- * would be overriding your own account contract so that valid signatures don't have to be provided while simulating.
+ * If passed during the execution of a user circuit, the contract function simulator will replace
+ * the contract instance at that address with the one provided. An example use case would be
+ * overriding your own account contract so that valid signatures don't have to be provided while
+ * simulating. The override's `currentContractClassId` resolves through PXE's locally registered
+ * classes, so pre-register the target artifact via `pxe.registerContractClass(...)`.
  */
-export type ContractOverrides = Record<
-  string /* AztecAddress as string */,
-  { instance: ContractInstanceWithAddress; artifact: ContractArtifact }
->;
+export type ContractOverrides = Record<string /* AztecAddress as string */, { instance: ContractInstanceWithAddress }>;
 
 /*
  * Optional values that can be overridden during simulation. In order to simulate a transaction with these
- * set, it *must* be run without the kernel circuits, or validations will fail
+ * set, it *must* be run without the kernel circuits, or validations will fail.
  */
 export class SimulationOverrides {
   public contracts?: ContractOverrides;
@@ -47,12 +45,7 @@ export class SimulationOverrides {
   static get schema() {
     return z
       .object({
-        contracts: optional(
-          z.record(
-            z.string(),
-            z.object({ instance: ContractInstanceWithAddressSchema, artifact: ContractArtifactSchema }),
-          ),
-        ),
+        contracts: optional(z.record(z.string(), z.object({ instance: ContractInstanceWithAddressSchema }))),
       })
       .transform(({ contracts }) => {
         return new SimulationOverrides(contracts);

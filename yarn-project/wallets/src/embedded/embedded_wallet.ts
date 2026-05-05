@@ -11,7 +11,11 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import {
+  type ContractClassIdPreimage,
+  type ContractClassWithId,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -75,6 +79,12 @@ const DEFAULT_ESTIMATED_GAS_PADDING = 0.1;
 
 export class EmbeddedWallet extends BaseWallet {
   protected estimatedGasPadding = DEFAULT_ESTIMATED_GAS_PADDING;
+
+  /**
+   * Per-account-type cache of the stub class id and preimage. The Promise is stored (not the resolved
+   * value) so concurrent first-time callers dedupe on the same hashing + registration work.
+   */
+  #stubClasses = new Map<AccountType, Promise<ContractClassWithId & ContractClassIdPreimage>>();
 
   constructor(
     pxe: PXE,
@@ -193,6 +203,24 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
+   * Lazily hashes and registers the stub class for the given account type, caching the result so
+   * subsequent simulations skip the artifact-hashing + registration round-trip.
+   */
+  #getStubClass(type: AccountType): Promise<ContractClassWithId & ContractClassIdPreimage> {
+    let cached = this.#stubClasses.get(type);
+    if (!cached) {
+      cached = (async () => {
+        const stubArtifact = await this.accountContracts.getStubAccountContractArtifact(type);
+        const stubClass = await getContractClassFromArtifact(stubArtifact);
+        await this.pxe.registerContractClass(stubArtifact);
+        return stubClass;
+      })();
+      this.#stubClasses.set(type, cached);
+    }
+    return cached;
+  }
+
+  /**
    * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
    * Uses a type-specific stub artifact so that the stub's constructor selector matches the real account's constructor.
    */
@@ -205,7 +233,7 @@ export class EmbeddedWallet extends BaseWallet {
     for (const account of filtered) {
       const address = account.item;
       const { type } = await this.walletDB.retrieveAccount(address);
-      const stubArtifact = await this.accountContracts.getStubAccountContractArtifact(type);
+      const { id: stubClassId } = await this.#getStubClass(type);
 
       const originalAccount = await this.getAccountFromAddress(address);
       const completeAddress = originalAccount.getCompleteAddress();
@@ -216,15 +244,8 @@ export class EmbeddedWallet extends BaseWallet {
         );
       }
 
-      const stubConstructorArgs = type === 'schnorr' ? [Fr.ZERO, Fr.ZERO] : [Buffer.alloc(32), Buffer.alloc(32)];
-      const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
-        salt: Fr.random(),
-        constructorArgs: stubConstructorArgs,
-      });
-
       contracts[address.toString()] = {
-        instance: stubInstance,
-        artifact: stubArtifact,
+        instance: { ...contractInstance, currentContractClassId: stubClassId },
       };
     }
 

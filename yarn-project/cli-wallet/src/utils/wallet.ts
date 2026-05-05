@@ -4,11 +4,7 @@ import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec
 import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
 import { getIdentities } from '@aztec/accounts/utils';
 import { type Account, type AccountContract, NO_FROM } from '@aztec/aztec.js/account';
-import {
-  type InteractionFeeOptions,
-  getContractInstanceFromInstantiationParams,
-  getGasLimits,
-} from '@aztec/aztec.js/contracts';
+import { type InteractionFeeOptions, getContractClassFromArtifact, getGasLimits } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { AccountManager, type Aliased, type SimulateOptions } from '@aztec/aztec.js/wallet';
 import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
@@ -21,6 +17,7 @@ import type { PXEConfig } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractClassIdPreimage, ContractClassWithId } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
 import type { SimulationOverrides, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
@@ -34,6 +31,11 @@ import { printGasEstimates } from './options/fees.js';
 
 export class CLIWallet extends BaseWallet {
   private accountCache = new Map<string, Account>();
+  /**
+   * Per-stub-flavor cache of the stub class id and preimage. The Promise is stored (not the resolved
+   * value) so concurrent first-time callers dedupe on the same hashing + registration work.
+   */
+  #stubClasses = new Map<'schnorr' | 'ecdsa', Promise<ContractClassWithId & ContractClassIdPreimage>>();
 
   constructor(
     pxe: PXE,
@@ -203,10 +205,28 @@ export class CLIWallet extends BaseWallet {
     }
     const { type } = await this.db!.retrieveAccount(address);
     const isSchnorr = type === 'schnorr';
-    const artifact = isSchnorr ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
     const stubAccount = isSchnorr ? createStubSchnorrAccount(originalAddress) : createStubEcdsaAccount(originalAddress);
-    const instance = await getContractInstanceFromInstantiationParams(artifact, { salt: Fr.random() });
-    return { account: stubAccount, instance, artifact };
+    const { id: stubClassId } = await this.#getStubClass(isSchnorr ? 'schnorr' : 'ecdsa');
+    const instance = { ...contractInstance, currentContractClassId: stubClassId };
+    return { account: stubAccount, instance };
+  }
+
+  /**
+   * Lazily hashes and registers the stub class for the given flavor, caching the result so
+   * subsequent simulations skip the artifact-hashing + registration round-trip.
+   */
+  #getStubClass(flavor: 'schnorr' | 'ecdsa'): Promise<ContractClassWithId & ContractClassIdPreimage> {
+    let cached = this.#stubClasses.get(flavor);
+    if (!cached) {
+      cached = (async () => {
+        const artifact = flavor === 'schnorr' ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
+        const stubClass = await getContractClassFromArtifact(artifact);
+        await this.pxe.registerContractClass(artifact);
+        return stubClass;
+      })();
+      this.#stubClasses.set(flavor, cached);
+    }
+    return cached;
   }
 
   override async simulateTx(
@@ -249,9 +269,9 @@ export class CLIWallet extends BaseWallet {
       const entrypoint = new DefaultEntrypoint();
       txRequest = await entrypoint.createTxExecutionRequest(finalExecutionPayload, feeOptions.gasSettings, chainInfo);
     } else {
-      const { account, instance, artifact } = await this.getFakeAccountDataFor(from);
+      const { account, instance } = await this.getFakeAccountDataFor(from);
       overrides = {
-        contracts: { [from.toString()]: { instance, artifact } },
+        contracts: { [from.toString()]: { instance } },
       };
       const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),
