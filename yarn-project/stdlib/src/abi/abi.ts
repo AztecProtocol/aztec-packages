@@ -6,7 +6,7 @@ import { schemas, zodFor } from '@aztec/foundation/schemas';
 import { inflate } from 'pako';
 import { z } from 'zod';
 
-import { DEV_VERSION } from '../update-checker/package_version.js';
+import { DEV_VERSION } from '../update-checker/dev_version.js';
 import { FunctionSelector } from './function_selector.js';
 
 /** A basic value. */

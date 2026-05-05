@@ -75,7 +75,7 @@ import { NestedProcessReturnValues, PublicSimulationOutput } from '../tx/public_
 import { TxSimulationResult } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { DEV_VERSION } from '../update-checker/package_version.js';
+import { DEV_VERSION } from '../update-checker/dev_version.js';
 import {
   makeAvmCircuitInputs,
   makeAztecAddress,
