@@ -9,4 +9,3 @@ export { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version
 export { type PXECreationOptions } from '../pxe_creation_options.js';
 export { JobCoordinator } from '../../job_coordinator/job_coordinator.js';
 export { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-export { getAllPrivateLogsByTags } from '../../tagging/get_all_logs_by_tags.js';
