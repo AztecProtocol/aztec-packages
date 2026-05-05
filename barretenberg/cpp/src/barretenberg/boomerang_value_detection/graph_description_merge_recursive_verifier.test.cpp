@@ -47,22 +47,37 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         EXPECT_EQ(result.second.size(), 0);
     }
 
-    static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue,
-                                       const MergeSettings settings = MergeSettings::PREPEND,
-                                       const bool run_analyzer = false)
+    static std::shared_ptr<ECCOpQueue> construct_final_merge_op_queue(const size_t num_subtables_up_to_tail)
+    {
+        auto op_queue = std::make_shared<ECCOpQueue>();
+
+        for (size_t idx = 0; idx < num_subtables_up_to_tail; ++idx) {
+            InnerBuilder circuit{ op_queue };
+            GoblinMockCircuits::construct_simple_circuit(circuit);
+            op_queue->merge();
+        }
+
+        op_queue->construct_zk_columns();
+
+        InnerBuilder hiding_circuit{ op_queue };
+        GoblinMockCircuits::construct_simple_circuit(hiding_circuit);
+        return op_queue;
+    }
+
+    static void prove_and_verify_merge(const std::shared_ptr<ECCOpQueue>& op_queue, const bool run_analyzer = false)
 
     {
         RecursiveBuilder outer_circuit;
 
         auto prover_transcript = std::make_shared<NativeTranscript>();
-        MergeProver merge_prover{ op_queue, prover_transcript, settings };
+        MergeProver merge_prover{ op_queue, prover_transcript };
         auto merge_proof = merge_prover.construct_proof();
 
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
         RecursiveMergeCommitments recursive_merge_commitments;
         auto t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-        auto T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+        auto T_prev = op_queue->construct_table_columns_up_to_tail();
         for (size_t idx = 0; idx < InnerFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = merge_prover.pcs_commitment_key.commit(t_current[idx]);
             merge_commitments.T_prev_commitments[idx] = merge_prover.pcs_commitment_key.commit(T_prev[idx]);
@@ -78,7 +93,7 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
 
         // Create a recursive merge verification circuit for the merge proof
         auto merge_transcript = std::make_shared<StdlibTranscript<RecursiveBuilder>>();
-        RecursiveMergeVerifier verifier{ settings, merge_transcript };
+        RecursiveMergeVerifier verifier{ merge_transcript };
         const stdlib::Proof<RecursiveBuilder> stdlib_merge_proof(outer_circuit, merge_proof);
         auto [pairing_points, merged_commitments, reduction_succeeded] =
             verifier.reduce_to_pairing_check(stdlib_merge_proof, recursive_merge_commitments);
@@ -96,38 +111,10 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         }
     }
 
-    static void test_recursive_merge_verification_prepend()
+    static void test_recursive_merge_verification()
     {
-        auto op_queue = std::make_shared<ECCOpQueue>();
-
-        InnerBuilder circuit{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit);
-        prove_and_verify_merge(op_queue);
-
-        InnerBuilder circuit2{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit2);
-        prove_and_verify_merge(op_queue);
-
-        InnerBuilder circuit3{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit3);
-        prove_and_verify_merge(op_queue, MergeSettings::PREPEND, true);
-    }
-
-    static void test_recursive_merge_verification_append()
-    {
-        auto op_queue = std::make_shared<ECCOpQueue>();
-
-        InnerBuilder circuit{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit);
-        prove_and_verify_merge(op_queue);
-
-        InnerBuilder circuit2{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit2);
-        prove_and_verify_merge(op_queue);
-
-        InnerBuilder circuit3{ op_queue };
-        GoblinMockCircuits::construct_simple_circuit(circuit3);
-        prove_and_verify_merge(op_queue, MergeSettings::APPEND, true);
+        auto op_queue = construct_final_merge_op_queue(/*num_subtables_up_to_tail=*/3);
+        prove_and_verify_merge(op_queue, /*run_analyzer=*/true);
     }
 };
 
@@ -135,14 +122,9 @@ using Builder = testing::Types<MegaCircuitBuilder>;
 
 TYPED_TEST_SUITE(BoomerangRecursiveMergeVerifierTest, Builder);
 
-TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveVerificationPrepend)
+TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveMergeVerification)
 {
-    TestFixture::test_recursive_merge_verification_prepend();
-};
-
-TYPED_TEST(BoomerangRecursiveMergeVerifierTest, RecursiveVerificationAppend)
-{
-    TestFixture::test_recursive_merge_verification_append();
+    TestFixture::test_recursive_merge_verification();
 };
 
 } // namespace bb::stdlib::recursion::goblin

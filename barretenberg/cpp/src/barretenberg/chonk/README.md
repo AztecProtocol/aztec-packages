@@ -400,13 +400,12 @@ A Chonk proof must reveal nothing about the private execution. ZK is achieved th
 
 The op queue contains EC operations from all circuits and must be hidden:
 
-1. **`hide_op_queue_accumulation_result`**: Hides the final accumulator point
-2. **`hide_op_queue_content_in_tail`**: Protects tail kernel op queue data
-3. **`hide_op_queue_content_in_hiding`**: Final ZK protection in Hiding kernel
+1. **Batch merge ZK prefix**: `BatchMergeProver` constructs the initial ZK rows used to hide the op queue up to the tail.
+2. **`hide_op_queue_content_in_hiding`**: Adds the final random non-ops in the hiding kernel.
 
 ### Constant Merged Table Size for ZK
 
-**Problem**: The final merge step uses APPEND mode. If the merged table size varied with transaction complexity, an observer could infer information about the transaction from the proof structure.
+**Problem**: The final merge step appends the hiding kernel table to the accumulated table. If the merged table size varied with transaction complexity, an observer could infer information about the transaction from the proof structure.
 
 **Solution**: We always merge to a **uniform total size** = `OP_QUEUE_SIZE`. In the code, `shift_size` is set to `(OP_QUEUE_SIZE - |hiding_ops|) × NUM_ROWS_PER_OP`, which represents the total degree of the prepended table and places the hiding kernel's ops at fixed positions at the end of the table, regardless of how many ops the actual transaction used.
 
@@ -791,7 +790,7 @@ The type is assigned to the circuit being accumulated based on its position:
 |-----------------|------------|-------------|
 | Circuit 0 | `OINK` | First app - no prior accumulator, just Oink verification |
 | Circuits 1..n-4 | `HN` | Apps, inner kernels, reset kernels - standard HyperNova folding |
-| Circuit n-3 | `HN_TAIL` | Pre-tail kernel - adds ZK masking at op queue start |
+| Circuit n-3 | `HN_TAIL` | Pre-tail kernel |
 | Circuit n-2 | `HN_FINAL` | Tail kernel - final folding + decider verification |
 | Circuit n-1 | `MEGA` | Hiding kernel - MegaZK proof, no folding |
 
@@ -802,8 +801,8 @@ The type indicates which proof is being verified BY the current kernel:
 |---------------------|-------------------|---------|
 | `OINK` | Init kernel (circuit 1) | Verify first app's Oink proof |
 | `HN` | Inner/reset kernel | Verify standard HN folding proof |
-| `HN_TAIL` | **Tail kernel** (circuit n-2) | Verify pre-tail kernel's proof, add ZK ops |
-| `HN_FINAL` | **Hiding kernel** (circuit n-1) | Verify tail kernel's proof + decider |
+| `HN_TAIL` | **Tail kernel** (circuit n-2) | Verify pre-tail kernel's proof |
+| `HN_FINAL` | **Hiding kernel** (circuit n-1) | Verify tail kernel's proof + verify batch merge +  decider |
 
 **Key Point**: `HN_TAIL` is the proof FROM circuit n-3, verified BY the tail kernel (n-2). Similarly, `HN_FINAL` is the proof FROM the tail kernel (n-2), verified BY the hiding kernel (n-1).
 
@@ -891,7 +890,7 @@ kernel_io.reconstruct_from_public(oink_result.public_inputs);
 - Extracts `ecc_op_tables` = $[M_{tail}]$ from `HidingKernelIO` public inputs
 - MegaZK verification (completed by the joint sumcheck+PCS) ensures `ecc_op_tables` is bound to the hiding kernel's proof
 
-**Step 6: Final merge (APPEND mode) - merges hiding kernel's ops with constant shift size**
+**Step 6: Final merge - merges hiding kernel's ops with constant shift size**
 
 ### Key Verifier Guarantees
 

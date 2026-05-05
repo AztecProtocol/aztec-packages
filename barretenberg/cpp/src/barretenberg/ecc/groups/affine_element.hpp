@@ -92,6 +92,22 @@ template <typename Fq_, typename Fr_, typename Params_> class alignas(64) affine
 
     [[nodiscard]] constexpr bool on_curve() const noexcept;
 
+    /**
+     * @brief Check that the point lies in the prime-order subgroup of size `Fr::modulus`.
+     *
+     * @details For curves whose cofactor is 1 (e.g. BN254 G1, Grumpkin) every on-curve point trivially
+     * satisfies this, so callers that already validated `on_curve()` can skip the call. For curves with
+     * non-trivial cofactor (notably BN254 G2, with cofactor h2 ≈ 2^254), `on_curve()` alone is
+     * insufficient: an attacker can supply a curve point that lies in a small subgroup of order
+     * dividing h2 and pass `on_curve()`. This routine performs the full subgroup check via `[r]·P == ∞`.
+     *
+     * @note Not constant-time. Intended for one-shot validation of public, externally-supplied points
+     * (e.g. at the bbapi boundary or when loading SRS bytes).
+     *
+     * @return true iff `*this` is the point at infinity or has order dividing `Fr::modulus`.
+     */
+    [[nodiscard]] bool is_in_prime_subgroup() const noexcept;
+
     static constexpr std::optional<affine_element> derive_from_x_coordinate(const Fq& x, bool sign_bit) noexcept;
 
     /**

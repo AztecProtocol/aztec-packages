@@ -54,7 +54,7 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     // Step 3: Merge verification
     MergeCommitments merge_commitments{ .t_commitments = oink_result.ecc_op_wires,
                                         .T_prev_commitments = kernel_io.ecc_op_tables };
-    GoblinVerifier::MergeVerifier merge_verifier{ MergeSettings::APPEND, transcript };
+    GoblinVerifier::MergeVerifier merge_verifier{ transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);
     vinfo("ChonkVerifier: Merge reduced to pairing check: ", merge_result.reduction_succeeded ? "true" : "false");
 
@@ -155,7 +155,7 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
     // Step 3: Merge verification
     MergeCommitments merge_commitments{ .t_commitments = oink_result.ecc_op_wires,
                                         .T_prev_commitments = kernel_io.ecc_op_tables };
-    typename GoblinVerifier::MergeVerifier merge_verifier{ MergeSettings::APPEND, transcript };
+    typename GoblinVerifier::MergeVerifier merge_verifier{ transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);
     vinfo("ChonkRecursiveVerifier: Merge reduced to pairing check: ",
           merge_result.reduction_succeeded ? "true" : "false");
