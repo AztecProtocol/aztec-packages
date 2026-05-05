@@ -58,6 +58,32 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     auto blocks_array = builder.blocks.get();
     const size_t num_blocks = blocks_array.size();
 
+    // Pre-pass: count copy-cycle sizes per real-variable index so each copy_cycles[i] can be
+    // reserve()d once instead of paying the amortized 1.5x reallocation cost across the
+    // serial concat in phase 1.5. Bounds-checked .at() access here justifies dropping bounds
+    // checks on the same indices in phase 1 / phase 1.5.
+    {
+        BB_BENCH_NAME("counting copy_cycles");
+        std::vector<uint32_t> cycle_counts(builder.real_variable_index.size(), 0);
+        for (auto& block : blocks_array) {
+            const uint32_t block_size = static_cast<uint32_t>(block.size());
+            for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
+                for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+                    uint32_t var_idx = block.wires[wire_idx][block_row_idx];
+                    ++cycle_counts.at(builder.real_variable_index.at(var_idx));
+                }
+            }
+        }
+        for (size_t i = 0; i < copy_cycles.size(); ++i) {
+            copy_cycles[i].reserve(cycle_counts[i]);
+        }
+    }
+
+    // Hoist data() pointers so phase 1 and phase 1.5 can skip bounds checks already validated
+    // in the counting pre-pass.
+    const uint32_t* const real_variable_index = builder.real_variable_index.data();
+    const auto* const variables = builder.get_variables().data();
+
     // Phase 1: per-block parallel pass over wires and emit copy-cycle nodes.
     std::vector<std::vector<std::pair<uint32_t, cycle_node>>> per_block_nodes(num_blocks);
     {
@@ -73,11 +99,10 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx]; // an index into the variables array
-                    // Use .at() so out-of-range var_idx is caught instead of producing a silent OOB read.
-                    uint32_t real_var_idx = builder.real_variable_index.at(var_idx);
+                    uint32_t real_var_idx = real_variable_index[var_idx];
                     uint32_t trace_row_idx = block_row_idx + offset;
                     // Insert the real witness values from this block into the wire polys at the correct offset
-                    wires[wire_idx].at(trace_row_idx) = builder.get_variable(var_idx);
+                    wires[wire_idx].at(trace_row_idx) = variables[real_var_idx];
                     local_nodes.emplace_back(real_var_idx, cycle_node{ wire_idx, trace_row_idx });
                 }
             }
@@ -89,7 +114,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         BB_BENCH_NAME("fill_copy_cycles");
         for (const auto& block_nodes : per_block_nodes) {
             for (const auto& [real_var_idx, node] : block_nodes) {
-                copy_cycles.at(real_var_idx).emplace_back(node);
+                copy_cycles[real_var_idx].emplace_back(node);
             }
         }
     }

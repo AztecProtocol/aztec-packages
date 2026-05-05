@@ -154,12 +154,15 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_permutation_ar
 {
     BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
-    // Sigma and ID polynomials are zero outside the active trace range
+    // Sigma and ID polynomials are zero outside the active trace range. Inside the active range,
+    // compute_honk_style_permutation_lagrange_polynomials_from_mapping writes every cell in
+    // [start_index, start_index + size), so we can skip the zero-initialization of the backing
+    // storage. The virtual tail outside the active range remains implicitly zero.
     for (auto& sigma : polynomials.get_sigmas()) {
-        sigma = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+        sigma = Polynomial::shiftable_dont_zero(trace_active_range_size(), dyadic_size());
     }
     for (auto& id : polynomials.get_ids()) {
-        id = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+        id = Polynomial::shiftable_dont_zero(trace_active_range_size(), dyadic_size());
     }
 
     polynomials.z_perm = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Flavor::HasZK);
