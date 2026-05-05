@@ -81,13 +81,12 @@ template <typename Builder> class databus {
  * \pi_i, and it has access to [C_i] directly from \pi_i. The consistency checks in circuit (i+1) are thus of the
  * form \pi_i.public_inputs.[R_{i-1}] = \pi_i.[C_i].
  *
- * For consistent behavior across kernels, every kernel propagates two return data commitments via its
- * public inputs. If one of either the app or kernel return data does not exist, it is populated with a default
- * value that will satisfy the consistency check on the next cycle. For example, the first kernel has no previous
- * kernel to verify and thus neither receives a previous kernel return data commitment nor a calldata input
- * corresponding to a previous kernel. The "empty" calldata will be populated with a default value, resulting in a
- * default commitment value. We set the same value for the missing return data herein so that the commitments agree
- * and the corresponding consistency check will be satisfied in the kernel in which it's performed.
+ * For consistent behavior across kernels, every kernel propagates `MAX_APPS_PER_KERNEL + 1` return-data commitments
+ * via its public inputs: one for the previous kernel and one per app slot. If any of these does not exist (e.g., the
+ * first kernel has no previous kernel; a kernel with fewer than MAX apps leaves the trailing app slots unset), it is
+ * populated with a default commitment value that will satisfy the consistency check on the next cycle. The "empty"
+ * calldata column on the next kernel side will commit to the same default value, so the commitments agree and the
+ * consistency check passes trivially.
  *
  * @tparam Builder
  */
