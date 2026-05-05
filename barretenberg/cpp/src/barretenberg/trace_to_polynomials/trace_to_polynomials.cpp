@@ -60,8 +60,6 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
 
     // Pre-pass: count copy-cycle sizes per real-variable index so each copy_cycles[i] can be
     // reserve()d once before the serial concat in phase 1.5, avoiding repeated reallocations.
-    // Bounds-checked .at() access here justifies indexing copy_cycles[real_var_idx] without
-    // .at() in phase 1.5.
     {
         BB_BENCH_NAME("counting copy_cycles");
         std::vector<uint32_t> cycle_counts(builder.real_variable_index.size(), 0);
@@ -70,6 +68,9 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
             for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx];
+                    // var_idx may be untrusted (e.g. from ACIR) so use .at() to catch OOB. This validates real_var_idx
+                    // as an in-range index for both cycle_counts and copy_cycles (same size), which is why phase 1.5
+                    // below can index copy_cycles[real_var_idx] without .at().
                     ++cycle_counts.at(builder.real_variable_index.at(var_idx));
                 }
             }
