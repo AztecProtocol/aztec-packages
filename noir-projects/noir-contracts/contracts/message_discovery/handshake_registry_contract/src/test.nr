@@ -57,14 +57,6 @@ unconstrained fn handshakes_are_isolated_per_sender() {
     let registry = HandshakeRegistry::at(registry_address);
 
     env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
-    env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
-
-    assert(
-        env
-            .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
-            .is_some(),
-        "primary sender should see its handshake",
-    );
     assert(
         env
             .execute_utility(registry.get_handshake(
@@ -72,8 +64,22 @@ unconstrained fn handshakes_are_isolated_per_sender() {
                 recipient,
                 NON_INTERACTIVE_HANDSHAKE,
             ))
-            .is_some(),
-        "other sender should see its handshake",
+            .is_none(),
+        "other sender should not see primary sender's handshake",
+    );
+
+    env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
+
+    let sender_note = env
+        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
+        .expect(f"primary sender should see its handshake");
+    let other_sender_note = env
+        .execute_utility(registry.get_handshake(other_sender, recipient, NON_INTERACTIVE_HANDSHAKE))
+        .expect(f"other sender should see its handshake");
+
+    assert(
+        sender_note.secret_hash != other_sender_note.secret_hash,
+        "senders should not resolve to the same handshake",
     );
 }
 
