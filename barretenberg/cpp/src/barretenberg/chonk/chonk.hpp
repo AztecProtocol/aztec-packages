@@ -240,8 +240,9 @@ class Chonk : public IVCBase {
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
 
+    template <typename Flavor>
     void debug_incoming_circuit(ClientCircuit& circuit,
-                                const std::shared_ptr<ProverInstance>& prover_instance,
+                                const std::shared_ptr<ProverInstance_<Flavor>>& prover_instance,
                                 const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 #endif
 
