@@ -18,11 +18,8 @@ pub unconstrained fn setup(
     };
 
     // Deploy token contract
-    let initializer_call = NFT::interface().constructor(
-        owner,
-        "TestNFT000000000000000000000000",
-        "TN00000000000000000000000000000",
-    );
+    let initializer_call =
+        NFT::interface().constructor(owner, "TestNFT000000000000000000000000", "TN00000000000000000000000000000");
     let nft_contract_address = env.deploy("NFT").with_public_initializer(owner, initializer_call);
 
     (env, nft_contract_address, owner, recipient)
@@ -43,14 +40,10 @@ pub unconstrained fn setup_and_mint(
 pub unconstrained fn setup_mint_and_transfer_to_private(
     with_account_contracts: bool,
 ) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, Field) {
-    let (env, nft_contract_address, owner, recipient, minted_token_id) =
-        setup_and_mint(with_account_contracts);
+    let (env, nft_contract_address, owner, recipient, minted_token_id) = setup_and_mint(with_account_contracts);
 
     // We transfer the public NFT to private.
-    env.call_private(
-        owner,
-        NFT::at(nft_contract_address).transfer_to_private(owner, minted_token_id),
-    );
+    env.call_private(owner, NFT::at(nft_contract_address).transfer_to_private(owner, minted_token_id));
 
     (env, nft_contract_address, owner, recipient, minted_token_id)
 }
@@ -71,8 +64,7 @@ pub unconstrained fn assert_owns_private_nft(
     owner: AztecAddress,
     token_id: Field,
 ) {
-    let (private_nfts, _) =
-        env.execute_utility(NFT::at(nft_contract_address).get_private_nfts(owner, 0));
+    let (private_nfts, _) = env.execute_utility(NFT::at(nft_contract_address).get_private_nfts(owner, 0));
 
     let mut nft_found = false;
     for obtained_token_id in private_nfts {

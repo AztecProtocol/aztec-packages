@@ -19,18 +19,12 @@ pub contract TokenBlacklist {
     // Libs
     use aztec::{
         hash::compute_secret_hash,
-        macros::{
-            functions::{authorize_once, external, initializer, only_self, view},
-            storage::storage,
-        },
+        macros::{functions::{authorize_once, external, initializer, only_self, view}, storage::storage},
         messages::{
             discovery::private_notes::attempt_note_discovery, message_delivery::MessageDelivery,
             processing::validate_and_store_enqueued_notes_and_events,
         },
-        note::{
-            note_getter_options::NoteGetterOptions,
-            note_interface::{NoteHash, NoteProperties, NoteType},
-        },
+        note::{note_getter_options::NoteGetterOptions, note_interface::{NoteHash, NoteProperties, NoteType}},
         protocol::traits::ToField,
         state_vars::{DelayedPublicMutable, Map, Owned, PrivateSet, PublicMutable, StateVariable},
         utils::comparison::Comparator,
@@ -39,9 +33,7 @@ pub contract TokenBlacklist {
     use std::ops::{Add, Sub};
 
     use crate::types::{roles::UserFlags, transparent_note::TransparentNote};
-    use aztec::protocol::{
-        address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable,
-    };
+    use aztec::protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::Packable};
     use balance_set::BalanceSet;
 
     // Changing an address' roles has a certain delay before it goes into effect. Here set to 1 day.
@@ -198,7 +190,8 @@ pub contract TokenBlacklist {
             .select(TransparentNote::properties().secret_hash, Comparator.EQ, secret_hash)
             .set_limit(1);
 
-        // We use AztecAddress::zero() as the owner since TransparentNote is not owned by a specific address but instead by
+        // We use AztecAddress::zero() as the owner since TransparentNote is not owned by a specific address but instead
+        // by
         // anyone who has the secret (preimage of the secret_hash stored in the note).
         let notes = self.storage.pending_shields.at(AztecAddress::zero()).pop_notes(options);
         assert(notes.len() == 1, "note not popped");

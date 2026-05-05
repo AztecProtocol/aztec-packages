@@ -70,9 +70,6 @@ pub contract SimulatedSchnorrAccount {
 
     #[external("utility")]
     unconstrained fn sync_state() {
-        assert(
-            false,
-            "BUG ALERT: sync_state on a simulated account contract should never be triggered.",
-        );
+        assert(false, "BUG ALERT: sync_state on a simulated account contract should never be triggered.");
     }
 }
