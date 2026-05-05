@@ -1,5 +1,6 @@
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 import { testL2TipsStore } from '@aztec/stdlib/block/test';
 
 import { L2TipsKVStore } from './l2_tips_store.js';
@@ -13,6 +14,6 @@ describe('L2TipsStore', () => {
 
   testL2TipsStore(async () => {
     kvStore = await openTmpStore('test', true);
-    return new L2TipsKVStore(kvStore, 'test');
+    return new L2TipsKVStore(kvStore, 'test', GENESIS_BLOCK_HEADER_HASH);
   });
 });

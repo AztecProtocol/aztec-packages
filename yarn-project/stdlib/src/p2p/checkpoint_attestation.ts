@@ -1,6 +1,5 @@
-import { CheckpointAttestationHash, SlotNumber } from '@aztec/foundation/branded-types';
-import type { BaseBuffer32 } from '@aztec/foundation/buffer';
-import { keccak256 } from '@aztec/foundation/crypto/keccak';
+import { CheckpointProposalHash, type SlotNumber } from '@aztec/foundation/branded-types';
+import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -14,8 +13,6 @@ import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
 import { type CoordinationSignatureContext, recoverCoordinationSigner } from './signature_utils.js';
 import { TopicType } from './topic_type.js';
-
-export type { CheckpointAttestationHash } from '@aztec/foundation/branded-types';
 
 /**
  * CheckpointAttestation
@@ -53,7 +50,7 @@ export class CheckpointAttestation extends Gossipable {
   }
 
   override generateP2PMessageIdentifier(): Promise<BaseBuffer32> {
-    return Promise.resolve(CheckpointAttestationHash.fromBuffer(keccak256(this.signature.toBuffer())));
+    return Promise.resolve(new Buffer32(this.payload.getPayloadHash()));
   }
 
   get archive(): Fr {
@@ -102,6 +99,14 @@ export class CheckpointAttestation extends Gossipable {
 
   getPayload(): Buffer {
     return this.payload.getPayloadToSign();
+  }
+
+  /**
+   * Returns a keccak256 hash of the signed consensus payload.
+   * Used to dedup distinct signed payloads. Returns same hash than the corresponding proposal.
+   */
+  getPayloadHash(): CheckpointProposalHash {
+    return CheckpointProposalHash.fromBuffer(this.payload.getPayloadHash());
   }
 
   toBuffer(): Buffer {

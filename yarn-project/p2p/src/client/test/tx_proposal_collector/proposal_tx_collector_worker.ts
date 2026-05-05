@@ -125,6 +125,7 @@ async function startClient(config: P2PConfig, clientIndex: number) {
     new DateProvider(),
     telemetry as TelemetryClient,
     deps,
+    await l2BlockSource.getInitialHeader().hash(),
   );
 
   await client.start();

@@ -45,8 +45,8 @@ describe('reqRespBlockTxsHandler', () => {
     txPool = mock<TxPoolV2>();
     peerId = mock<PeerId>();
 
-    attestationPool.getBlockProposal.mockResolvedValue(undefined);
-    archiver.getL2BlockByArchive.mockResolvedValue(undefined);
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
+    archiver.getBlock.mockResolvedValue(undefined);
     txPool.getTxsByHash.mockResolvedValue([]);
     txPool.hasTxs.mockResolvedValue([]);
   });
@@ -91,7 +91,7 @@ describe('reqRespBlockTxsHandler', () => {
       const proposal = await createBlockProposal(txHashes);
       const txs = txHashes.map(h => makeTx(h));
 
-      attestationPool.getBlockProposal.mockResolvedValue(proposal);
+      attestationPool.getBlockProposalByArchive.mockResolvedValue(proposal);
       txPool.hasTxs.mockResolvedValue([true, true, true]);
       txPool.getTxsByHash.mockResolvedValue(txs);
 
@@ -107,7 +107,7 @@ describe('reqRespBlockTxsHandler', () => {
       const txHashes = [TxHash.random(), TxHash.random(), TxHash.random()];
       const proposal = await createBlockProposal(txHashes);
 
-      attestationPool.getBlockProposal.mockResolvedValue(proposal);
+      attestationPool.getBlockProposalByArchive.mockResolvedValue(proposal);
       txPool.hasTxs.mockResolvedValue([true, false, true]);
       txPool.getTxsByHash.mockResolvedValue([makeTx(txHashes[0]), undefined, makeTx(txHashes[2])]);
 
@@ -122,7 +122,7 @@ describe('reqRespBlockTxsHandler', () => {
       const txHashes = [TxHash.random(), TxHash.random()];
       const proposal = await createBlockProposal(txHashes);
 
-      attestationPool.getBlockProposal.mockResolvedValue(proposal);
+      attestationPool.getBlockProposalByArchive.mockResolvedValue(proposal);
       txPool.hasTxs.mockResolvedValue([true, false]);
       txPool.getTxsByHash.mockResolvedValue([makeTx(txHashes[0]), undefined]);
 
@@ -139,7 +139,7 @@ describe('reqRespBlockTxsHandler', () => {
       const txHashes = block.body.txEffects.map(e => e.txHash);
       const txs = txHashes.map(h => makeTx(h));
 
-      archiver.getL2BlockByArchive.mockResolvedValue(block);
+      archiver.getBlock.mockResolvedValue(block);
       txPool.hasTxs.mockResolvedValue([true, true, true]);
       txPool.getTxsByHash.mockResolvedValue(txs);
 
@@ -150,15 +150,15 @@ describe('reqRespBlockTxsHandler', () => {
       expect(response.txs.length).toBe(3);
       expect(response.txIndices.getTrueIndices()).toEqual([0, 1, 2]);
 
-      expect(attestationPool.getBlockProposal).toHaveBeenCalledWith(block.archive.root.toString());
-      expect(archiver.getL2BlockByArchive).toHaveBeenCalledWith(block.archive.root);
+      expect(attestationPool.getBlockProposalByArchive).toHaveBeenCalledWith(block.archive.root.toString());
+      expect(archiver.getBlock).toHaveBeenCalledWith({ archive: block.archive.root });
     });
 
     it('returns partial availability when some txs missing from pool', async () => {
       const block = await L2Block.random(BlockNumber(5), { txsPerBlock: 3 });
       const txHashes = block.body.txEffects.map(e => e.txHash);
 
-      archiver.getL2BlockByArchive.mockResolvedValue(block);
+      archiver.getBlock.mockResolvedValue(block);
       txPool.hasTxs.mockResolvedValue([true, false, true]);
       txPool.getTxsByHash.mockResolvedValue([makeTx(txHashes[0]), undefined, makeTx(txHashes[2])]);
 
@@ -168,8 +168,8 @@ describe('reqRespBlockTxsHandler', () => {
       expect(response.txs.length).toBe(2);
       expect(response.txIndices.getTrueIndices()).toEqual([0, 2]);
 
-      expect(attestationPool.getBlockProposal).toHaveBeenCalledWith(block.archive.root.toString());
-      expect(archiver.getL2BlockByArchive).toHaveBeenCalledWith(block.archive.root);
+      expect(attestationPool.getBlockProposalByArchive).toHaveBeenCalledWith(block.archive.root.toString());
+      expect(archiver.getBlock).toHaveBeenCalledWith({ archive: block.archive.root });
     });
 
     it('does not query archiver if attestation pool has the block', async () => {
@@ -177,15 +177,15 @@ describe('reqRespBlockTxsHandler', () => {
       const proposal = await createBlockProposal(txHashes);
       const txs = txHashes.map(h => makeTx(h));
 
-      attestationPool.getBlockProposal.mockResolvedValue(proposal);
+      attestationPool.getBlockProposalByArchive.mockResolvedValue(proposal);
       txPool.hasTxs.mockResolvedValue([true, true]);
       txPool.getTxsByHash.mockResolvedValue(txs);
 
       const request = new BlockTxsRequest(proposal.archive, new TxHashArray(), BitVector.init(2, [0, 1]));
       await callHandler(request);
 
-      expect(attestationPool.getBlockProposal).toHaveBeenCalledWith(proposal.archive.toString());
-      expect(archiver.getL2BlockByArchive).not.toHaveBeenCalled();
+      expect(attestationPool.getBlockProposalByArchive).toHaveBeenCalledWith(proposal.archive.toString());
+      expect(archiver.getBlock).not.toHaveBeenCalled();
     });
   });
 });

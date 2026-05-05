@@ -148,7 +148,7 @@ describe('FishermanAttestationValidator', () => {
       const result = await validator.validate(mockAttestation);
       expect(result).toEqual({ result: 'accept' });
 
-      expect(attestationPool.getCheckpointProposal).toHaveBeenCalledWith(mockAttestation.archive.toString());
+      expect(attestationPool.getCheckpointProposal).toHaveBeenCalledWith(mockAttestation.payload.header.slotNumber);
     });
 
     it('returns low tolerance error if attestation payload does not match proposal payload', async () => {
@@ -173,7 +173,7 @@ describe('FishermanAttestationValidator', () => {
       const result = await validator.validate(mockAttestation);
       expect(result).toEqual({ result: 'reject', severity: PeerErrorSeverity.LowToleranceError });
 
-      expect(attestationPool.getCheckpointProposal).toHaveBeenCalledWith(mockAttestation.archive.toString());
+      expect(attestationPool.getCheckpointProposal).toHaveBeenCalledWith(mockAttestation.payload.header.slotNumber);
     });
 
     it('returns accept if proposal is not found yet (attestation arrived before proposal)', async () => {
@@ -189,7 +189,7 @@ describe('FishermanAttestationValidator', () => {
       const result = await validator.validate(mockAttestation);
       expect(result).toEqual({ result: 'accept' });
 
-      expect(attestationPool.getCheckpointProposal).toHaveBeenCalledWith(mockAttestation.archive.toString());
+      expect(attestationPool.getCheckpointProposal).toHaveBeenCalledWith(mockAttestation.payload.header.slotNumber);
     });
 
     it('detects payload mismatch with different archive roots', async () => {

@@ -1,11 +1,25 @@
-import { range } from '@aztec/foundation/array';
-import { BlockNumber, CheckpointNumber, type EpochNumber, type SlotNumber } from '@aztec/foundation/branded-types';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  type EpochNumber,
+  IndexWithinCheckpoint,
+  type SlotNumber,
+} from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { isDefined } from '@aztec/foundation/types';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type BlockData, type BlockHash, CheckpointedL2Block, L2Block, type L2Tips } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  type BlockHash,
+  type BlockQuery,
+  type BlockTag,
+  type BlocksQuery,
+  Body,
+  L2Block,
+  type L2Tips,
+} from '@aztec/stdlib/block';
 import {
   Checkpoint,
   type CheckpointData,
@@ -20,12 +34,21 @@ import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import type { BlockHeader, IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { ArchiverDataSource } from '../interfaces.js';
+import type { ResolvedBlockQuery, ResolvedBlocksQuery } from '../store/block_store.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
 import type { ValidateCheckpointResult } from './validation.js';
+
+/**
+ * Sentinel returned by {@link ArchiverDataSourceBase#resolveBlockQuery} when a query resolves
+ * to the genesis block. Forces single-block lookup methods to take the genesis branch
+ * explicitly rather than silently falling through to the BlockStore (which never has a block 0).
+ */
+type GenesisBlockQuery = { genesis: true };
 
 /**
  * Abstract base class implementing ArchiverDataSource using a bundle of archiver substores.
@@ -35,10 +58,69 @@ import type { ValidateCheckpointResult } from './validation.js';
 export abstract class ArchiverDataSourceBase
   implements ArchiverDataSource, L2LogsSource, ContractDataSource, L1ToL2MessageSource
 {
+  /** The injected genesis block header. */
+  protected readonly initialHeader: BlockHeader;
+  /** Precomputed hash of the initial header, exposed via {@link getGenesisBlockHash}. */
+  protected readonly initialBlockHash: BlockHash;
+  /** Archive root after block 0 was appended — read from L1 (`Rollup.getGenesisArchiveTreeRoot`). */
+  protected readonly genesisArchiveRoot: Fr;
+
+  /** Memoized synthetic genesis block — callers rely on referential identity for caching. */
+  private readonly genesisBlock: L2Block;
+  /** Memoized synthetic genesis block data — kept consistent with {@link genesisBlock}. */
+  private readonly genesisBlockData: BlockData;
+
   constructor(
     protected readonly stores: ArchiverDataStores,
-    protected readonly l1Constants?: L1RollupConstants,
-  ) {}
+    protected readonly l1Constants: L1RollupConstants | undefined,
+    initialHeader: BlockHeader,
+    initialBlockHash: BlockHash,
+    genesisArchiveRoot: Fr,
+  ) {
+    this.initialHeader = initialHeader;
+    this.initialBlockHash = initialBlockHash;
+    this.genesisArchiveRoot = genesisArchiveRoot;
+
+    const genesisArchive = new AppendOnlyTreeSnapshot(genesisArchiveRoot, 1);
+    this.genesisBlock = new L2Block(
+      genesisArchive,
+      initialHeader,
+      Body.empty(),
+      CheckpointNumber.ZERO,
+      IndexWithinCheckpoint(0),
+    );
+    this.genesisBlockData = {
+      header: initialHeader,
+      archive: genesisArchive,
+      blockHash: initialBlockHash,
+      checkpointNumber: CheckpointNumber.ZERO,
+      indexWithinCheckpoint: IndexWithinCheckpoint(0),
+    };
+  }
+
+  /** Returns the precomputed hash of the genesis block header. */
+  public getGenesisBlockHash(): BlockHash {
+    return this.initialBlockHash;
+  }
+
+  /** Returns the synthetic genesis L2Block (memoized — same instance across calls). */
+  private getGenesisBlock(): L2Block {
+    return this.genesisBlock;
+  }
+
+  /** Returns genesis block data (memoized — same instance across calls). */
+  private getGenesisBlockData(): BlockData {
+    return this.genesisBlockData;
+  }
+
+  /**
+   * Type guard distinguishing the genesis sentinel from a {@link ResolvedBlockQuery}.
+   * `resolveBlockQuery` already rewrites every genesis-matching shape to the sentinel,
+   * so callers only need this single sync check.
+   */
+  private isGenesisBlockQuery(query: ResolvedBlockQuery | GenesisBlockQuery): query is GenesisBlockQuery {
+    return 'genesis' in query;
+  }
 
   abstract getRollupAddress(): Promise<EthAddress>;
 
@@ -72,25 +154,24 @@ export abstract class ArchiverDataSourceBase
     return this.stores.blocks.getProvenCheckpointNumber();
   }
 
-  public getBlockNumber(): Promise<BlockNumber> {
-    return this.stores.blocks.getLatestL2BlockNumber();
+  public getBlockNumber(): Promise<BlockNumber>;
+  public getBlockNumber(query: BlockQuery): Promise<BlockNumber | undefined>;
+  public async getBlockNumber(query?: BlockQuery): Promise<BlockNumber | undefined> {
+    if (!query) {
+      return this.stores.blocks.getLatestL2BlockNumber();
+    }
+    const resolved = await this.resolveBlockQuery(query);
+    if (resolved === undefined) {
+      return undefined;
+    }
+    if (this.isGenesisBlockQuery(resolved)) {
+      return BlockNumber.ZERO;
+    }
+    return this.stores.blocks.getBlockNumber(resolved);
   }
 
   public getProvenBlockNumber(): Promise<BlockNumber> {
     return this.stores.blocks.getProvenBlockNumber();
-  }
-
-  public async getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
-    const blockNumber = number === 'latest' ? await this.stores.blocks.getLatestL2BlockNumber() : number;
-    if (blockNumber === 0) {
-      return undefined;
-    }
-    const headers = await this.stores.blocks.getBlockHeaders(blockNumber, 1);
-    return headers.length === 0 ? undefined : headers[0];
-  }
-
-  public getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
-    return this.stores.blocks.getCheckpointedBlock(number);
   }
 
   public getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
@@ -123,10 +204,6 @@ export abstract class ArchiverDataSourceBase
     return BlockNumber(checkpointData.startBlock + checkpointData.blockCount - 1);
   }
 
-  public getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]> {
-    return this.stores.blocks.getCheckpointedBlocks(from, limit);
-  }
-
   public getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined> {
     return this.stores.blocks.getCheckpointData(checkpointNumber);
   }
@@ -137,37 +214,6 @@ export abstract class ArchiverDataSourceBase
 
   public getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined> {
     return this.stores.blocks.getCheckpointNumberBySlot(slot);
-  }
-
-  public getBlockDataWithCheckpointContext(blockNumber: BlockNumber) {
-    return this.stores.blocks.getBlockDataWithCheckpointContext(blockNumber);
-  }
-
-  public getBlockHeaderByHash(blockHash: BlockHash): Promise<BlockHeader | undefined> {
-    return this.stores.blocks.getBlockHeaderByHash(blockHash);
-  }
-
-  public getBlockHeaderByArchive(archive: Fr): Promise<BlockHeader | undefined> {
-    return this.stores.blocks.getBlockHeaderByArchive(archive);
-  }
-
-  public getBlockData(number: BlockNumber): Promise<BlockData | undefined> {
-    return this.stores.blocks.getBlockData(number);
-  }
-
-  public getBlockDataByArchive(archive: Fr): Promise<BlockData | undefined> {
-    return this.stores.blocks.getBlockDataByArchive(archive);
-  }
-
-  public async getL2Block(number: BlockNumber): Promise<L2Block | undefined> {
-    // If the number provided is -ve, then return the latest block.
-    if (number < 0) {
-      number = await this.stores.blocks.getLatestL2BlockNumber();
-    }
-    if (number === 0) {
-      return undefined;
-    }
-    return this.stores.blocks.getBlock(number);
   }
 
   public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
@@ -233,9 +279,8 @@ export abstract class ArchiverDataSourceBase
   ): Promise<ContractInstanceWithAddress | undefined> {
     let timestamp;
     if (maybeTimestamp === undefined) {
-      const latestBlockHeader = await this.getBlockHeader('latest');
-      // If we get undefined block header, it means that the archiver has not yet synced any block so we default to 0.
-      timestamp = latestBlockHeader ? latestBlockHeader.globalVariables.timestamp : 0n;
+      const latestBlockData = await this.getBlockData({ tag: 'proposed' });
+      timestamp = latestBlockData ? latestBlockData.header.globalVariables.timestamp : 0n;
     } else {
       timestamp = maybeTimestamp;
     }
@@ -289,30 +334,6 @@ export abstract class ArchiverDataSourceBase
     return this.stores.blocks.getBlocksForSlot(slotNumber);
   }
 
-  public async getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]> {
-    const checkpointsData = await this.getCheckpointsDataForEpoch(epochNumber);
-    const blocks = await Promise.all(
-      checkpointsData.flatMap(checkpoint =>
-        range(checkpoint.blockCount, checkpoint.startBlock).map(blockNumber =>
-          this.getCheckpointedBlock(BlockNumber(blockNumber)),
-        ),
-      ),
-    );
-    return blocks.filter(isDefined);
-  }
-
-  public async getCheckpointedBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
-    const checkpointsData = await this.getCheckpointsDataForEpoch(epochNumber);
-    const blocks = await Promise.all(
-      checkpointsData.flatMap(checkpoint =>
-        range(checkpoint.blockCount, checkpoint.startBlock).map(blockNumber =>
-          this.getBlockHeader(BlockNumber(blockNumber)),
-        ),
-      ),
-    );
-    return blocks.filter(isDefined);
-  }
-
   public async getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
     const checkpointsData = await this.getCheckpointsDataForEpoch(epochNumber);
     return Promise.all(
@@ -330,36 +351,124 @@ export abstract class ArchiverDataSourceBase
     return this.stores.blocks.getCheckpointDataForSlotRange(start, end);
   }
 
-  public async getBlock(number: BlockNumber): Promise<L2Block | undefined> {
-    // If the number provided is -ve, then return the latest block.
-    if (number < 0) {
-      number = await this.stores.blocks.getLatestL2BlockNumber();
+  /** Returns just the checkpoint numbers for all checkpoints whose slot falls within the given epoch. */
+  public getCheckpointNumbersForEpoch(epochNumber: EpochNumber): Promise<CheckpointNumber[]> {
+    if (!this.l1Constants) {
+      throw new Error('L1 constants not set');
     }
-    if (number === 0) {
+
+    const [start, end] = getSlotRangeForEpoch(epochNumber, this.l1Constants);
+    return this.stores.blocks.getCheckpointNumbersForSlotRange(start, end);
+  }
+
+  public async getBlock(query: BlockQuery): Promise<L2Block | undefined> {
+    const resolved = await this.resolveBlockQuery(query);
+    if (resolved === undefined) {
       return undefined;
     }
-    return this.stores.blocks.getBlock(number);
+    if (this.isGenesisBlockQuery(resolved)) {
+      return this.getGenesisBlock();
+    }
+    return this.stores.blocks.getBlock(resolved);
   }
 
-  public getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]> {
-    return this.stores.blocks.getBlocks(from, limit);
+  /**
+   * Range queries iterate physical blocks only; the genesis block is NOT prepended.
+   * `L2BlockStream` consumers (`world-state.handleL2Blocks`, etc.) emit `blocks-added` events for
+   * real blocks and would be surprised by a synthetic block 0. Use {@link getBlock} or
+   * {@link getBlockData} for genesis-aware single-block lookups.
+   */
+  public async getBlocks(query: BlocksQuery): Promise<L2Block[]> {
+    const resolved = await this.resolveBlocksQuery(query);
+    return resolved ? this.stores.blocks.getBlocks(resolved) : [];
   }
 
-  public getCheckpointedBlockByHash(blockHash: BlockHash): Promise<CheckpointedL2Block | undefined> {
-    return this.stores.blocks.getCheckpointedBlockByHash(blockHash);
+  public async getBlockData(query: BlockQuery): Promise<BlockData | undefined> {
+    const resolved = await this.resolveBlockQuery(query);
+    if (resolved === undefined) {
+      return undefined;
+    }
+    if (this.isGenesisBlockQuery(resolved)) {
+      return this.getGenesisBlockData();
+    }
+    return this.stores.blocks.getBlockData(resolved);
   }
 
-  public getCheckpointedBlockByArchive(archive: Fr): Promise<CheckpointedL2Block | undefined> {
-    return this.stores.blocks.getCheckpointedBlockByArchive(archive);
+  /** See {@link getBlocks} — range queries do not prepend the genesis block. */
+  public async getBlocksData(query: BlocksQuery): Promise<BlockData[]> {
+    const resolved = await this.resolveBlocksQuery(query);
+    return resolved ? this.stores.blocks.getBlocksData(resolved) : [];
   }
 
-  public async getL2BlockByHash(blockHash: BlockHash): Promise<L2Block | undefined> {
-    const checkpointedBlock = await this.stores.blocks.getCheckpointedBlockByHash(blockHash);
-    return checkpointedBlock?.block;
+  /**
+   * Resolves a {@link BlockQuery} to either the genesis sentinel or a {@link ResolvedBlockQuery}
+   * understood by BlockStore. Detects every shape that points at block 0 — `{number:0}`,
+   * `{hash}` matching the initial header, `{archive}` matching the post-genesis archive root,
+   * and `{tag}` resolving to 0 — and rewrites them to the sentinel so callers branch once.
+   */
+  private async resolveBlockQuery(query: BlockQuery): Promise<ResolvedBlockQuery | GenesisBlockQuery | undefined> {
+    if ('number' in query) {
+      return query.number === BlockNumber.ZERO ? { genesis: true } : query;
+    }
+    if ('hash' in query) {
+      return query.hash.equals(this.initialBlockHash) ? { genesis: true } : query;
+    }
+    if ('archive' in query) {
+      return query.archive.equals(this.genesisArchiveRoot) ? { genesis: true } : query;
+    }
+    const number = await this.resolveBlockTag(query.tag);
+    if (number === BlockNumber.ZERO) {
+      return { genesis: true };
+    }
+    return { number };
   }
 
-  public async getL2BlockByArchive(archive: Fr): Promise<L2Block | undefined> {
-    const checkpointedBlock = await this.stores.blocks.getCheckpointedBlockByArchive(archive);
-    return checkpointedBlock?.block;
+  /** Maps a {@link BlockTag} to the matching block number for the current chain state. */
+  private resolveBlockTag(tag: BlockTag): Promise<BlockNumber> {
+    switch (tag) {
+      case 'latest':
+      case 'proposed':
+        return this.stores.blocks.getLatestL2BlockNumber();
+      case 'checkpointed':
+        return this.stores.blocks.getCheckpointedL2BlockNumber();
+      case 'proven':
+        return this.stores.blocks.getProvenBlockNumber();
+      case 'finalized':
+        return this.stores.blocks.getFinalizedL2BlockNumber();
+    }
+  }
+
+  /**
+   * Converts an epoch-based BlocksQuery to a from/limit query using l1Constants.
+   * Returns undefined when the epoch has no checkpoints, so callers can return [] without
+   * entering BlockStore. Reads only the two endpoint checkpoints rather than the whole epoch.
+   */
+  private async resolveBlocksQuery(query: BlocksQuery): Promise<ResolvedBlocksQuery | undefined> {
+    if (!('epoch' in query)) {
+      if (query.from < INITIAL_L2_BLOCK_NUM) {
+        throw new Error(
+          `getBlocks/getBlocksData: 'from' must be >= ${INITIAL_L2_BLOCK_NUM}, got ${query.from}. ` +
+            `Use getBlock({number:0})/getBlockData({number:0}) for genesis-aware single-block lookups.`,
+        );
+      }
+      return query;
+    }
+    const checkpointNumbers = await this.getCheckpointNumbersForEpoch(query.epoch);
+    if (checkpointNumbers.length === 0) {
+      return undefined;
+    }
+    const firstNumber = checkpointNumbers[0];
+    const lastNumber = checkpointNumbers[checkpointNumbers.length - 1];
+    const first = await this.stores.blocks.getCheckpointData(firstNumber);
+    if (!first) {
+      return undefined;
+    }
+    const last = firstNumber === lastNumber ? first : await this.stores.blocks.getCheckpointData(lastNumber);
+    if (!last) {
+      return undefined;
+    }
+    const from = BlockNumber(first.startBlock);
+    const limit = last.startBlock + last.blockCount - first.startBlock;
+    return { from, limit, onlyCheckpointed: true };
   }
 }
