@@ -22,10 +22,12 @@ namespace bb::group_elements {
  * @brief element class. Implements ecc group arithmetic using Jacobian coordinates
  * See https://hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
  *
- * Note: Currently subgroup checks are NOT IMPLEMENTED
- * Our current implementation uses G1 points that have a cofactor of 1.
- * All G2 points are precomputed (generator [1]_2 and trusted setup point [x]_2).
- * Explicitly assume precomputed points are valid members of the prime-order subgroup for G2.
+ * Note: BN254 / Grumpkin G1 have cofactor 1, so on-curve membership coincides with prime-order
+ * subgroup membership. BN254 G2 has a non-trivial cofactor; an explicit subgroup check is provided
+ * by `affine_element::is_in_prime_subgroup()` and must be applied to externally-supplied G2 bytes
+ * (see bbapi). The arithmetic in this file does not rederive subgroup membership and assumes the
+ * caller already ensured operands are valid prime-order subgroup elements.
+ *
  * @tparam Fq prime field the curve is defined over
  * @tparam Fr prime field whose characteristic equals the size of the prime-order elliptic curve subgroup
  * @tparam Params curve parameters

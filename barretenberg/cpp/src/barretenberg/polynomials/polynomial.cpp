@@ -284,6 +284,44 @@ void Polynomial<Fr>::add_scaled_chunk(const ThreadChunk& chunk,
     }
 }
 
+template <typename Fr>
+void add_scaled_batch(Polynomial<Fr>& dst,
+                      std::span<const PolynomialSpan<const Fr>> sources,
+                      std::span<const Fr> scalars)
+{
+    BB_BENCH_NAME("add_scaled_batch");
+    BB_ASSERT_EQ(sources.size(), scalars.size(), "sources and scalars must have the same length");
+    if (sources.empty()) {
+        return;
+    }
+
+    size_t min_start = sources[0].start_index;
+    size_t max_end = sources[0].end_index();
+    for (size_t i = 1; i < sources.size(); ++i) {
+        min_start = std::min(min_start, sources[i].start_index);
+        max_end = std::max(max_end, sources[i].end_index());
+    }
+    BB_ASSERT_LTE(dst.start_index(), min_start);
+    BB_ASSERT_GTE(dst.end_index(), max_end);
+
+    const size_t union_size = max_end - min_start;
+    parallel_for([&](const ThreadChunk& chunk) {
+        BB_BENCH_TRACY_NAME("add_scaled_batch/chunk");
+        auto chunk_indices = chunk.range(union_size, min_start);
+        for (size_t k = 0; k < sources.size(); ++k) {
+            const auto& src = sources[k];
+            const Fr c = scalars[k];
+            const size_t src_start = src.start_index;
+            const size_t src_end = src.end_index();
+            for (size_t i : chunk_indices) {
+                if (i >= src_start && i < src_end) {
+                    dst.at(i) += c * src[i];
+                }
+            }
+        }
+    });
+}
+
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
 {
     BB_ASSERT_GTE(coefficients_.start_, static_cast<size_t>(1));
@@ -308,4 +346,11 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::reverse() const
 
 template class Polynomial<bb::fr>;
 template class Polynomial<grumpkin::fr>;
+
+template void add_scaled_batch<bb::fr>(Polynomial<bb::fr>& dst,
+                                       std::span<const PolynomialSpan<const bb::fr>> sources,
+                                       std::span<const bb::fr> scalars);
+template void add_scaled_batch<grumpkin::fr>(Polynomial<grumpkin::fr>& dst,
+                                             std::span<const PolynomialSpan<const grumpkin::fr>> sources,
+                                             std::span<const grumpkin::fr> scalars);
 } // namespace bb
