@@ -90,8 +90,12 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     static Builder construct_circuit_with_calldata_reads(Builder& builder)
     {
         // Define interfaces for the add and read methods for databus calldata
-        auto add_method = [](Builder& builder, uint32_t witness_idx) { builder.add_public_calldata(witness_idx); };
-        auto read_method = [](Builder& builder, uint32_t witness_idx) { return builder.read_calldata(witness_idx); };
+        auto add_method = [](Builder& builder, uint32_t witness_idx) {
+            builder.add_public_calldata(BusId::KERNEL_CALLDATA, witness_idx);
+        };
+        auto read_method = [](Builder& builder, uint32_t witness_idx) {
+            return builder.read_calldata(BusId::KERNEL_CALLDATA, witness_idx);
+        };
 
         return construct_circuit_with_databus_reads(builder, add_method, read_method);
     }
@@ -100,10 +104,10 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
     {
         // Define interfaces for the add and read methods for databus secondary_calldata
         auto add_method = [](Builder& builder, uint32_t witness_idx) {
-            builder.add_public_secondary_calldata(witness_idx);
+            builder.add_public_calldata(BusId::APP_CALLDATA, witness_idx);
         };
         auto read_method = [](Builder& builder, uint32_t witness_idx) {
-            return builder.read_secondary_calldata(witness_idx);
+            return builder.read_calldata(BusId::APP_CALLDATA, witness_idx);
         };
 
         return construct_circuit_with_databus_reads(builder, add_method, read_method);
@@ -186,7 +190,7 @@ TYPED_TEST(DataBusTests, CallDataDuplicateRead)
 
     std::vector<FF> calldata_values = { 7, 10, 3, 12, 1 };
     for (auto& val : calldata_values) {
-        builder.add_public_calldata(builder.add_variable(val));
+        builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(val));
     }
 
     // Define some read indices with a duplicate
@@ -198,7 +202,7 @@ TYPED_TEST(DataBusTests, CallDataDuplicateRead)
         // Create a variable corresponding to the index at which we want to read into calldata
         uint32_t read_idx_witness_idx = builder.add_variable(FF(read_idx));
 
-        auto value_witness_idx = builder.read_calldata(read_idx_witness_idx);
+        auto value_witness_idx = builder.read_calldata(BusId::KERNEL_CALLDATA, read_idx_witness_idx);
         result_witness_indices.emplace_back(value_witness_idx);
     }
 

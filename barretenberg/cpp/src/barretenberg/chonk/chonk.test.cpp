@@ -171,7 +171,7 @@ class ChonkTests : public ::testing::Test {
                     kernel_io.kernel_return_data = kernel_io.kernel_return_data + Commitment::one();
                     break;
                 case KernelIOField::APP_RETURN_DATA:
-                    kernel_io.app_return_data = kernel_io.app_return_data + Commitment::one();
+                    kernel_io.app_return_data[0] = kernel_io.app_return_data[0] + Commitment::one();
                     break;
                 case KernelIOField::ECC_OP_HASH:
                     kernel_io.ecc_op_hash += FF(1);

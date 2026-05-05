@@ -202,7 +202,8 @@ class Chonk : public IVCBase {
             const StdlibVerifierInputs& verifier_inputs,
             const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
             const std::optional<StdlibFF>& running_hash,
-            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
+            const std::optional<size_t>& app_return_data_idx = std::nullopt);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
@@ -248,10 +249,12 @@ class Chonk : public IVCBase {
                                  const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
                                  const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript) const;
 
-    PublicInputsResult process_public_inputs_and_consistency_checks(const StdlibVerifierInputs& verifier_inputs,
-                                                                    std::vector<StdlibFF>& public_inputs,
-                                                                    WitnessCommitments& witness_commitments,
-                                                                    const std::optional<StdlibFF>& prev_accum_hash);
+    PublicInputsResult process_public_inputs_and_consistency_checks(
+        const StdlibVerifierInputs& verifier_inputs,
+        std::vector<StdlibFF>& public_inputs,
+        WitnessCommitments& witness_commitments,
+        const std::optional<StdlibFF>& prev_accum_hash,
+        const std::optional<size_t>& app_return_data_idx = std::nullopt);
 
     void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 

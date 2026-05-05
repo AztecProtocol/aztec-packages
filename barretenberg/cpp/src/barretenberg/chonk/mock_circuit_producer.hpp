@@ -24,7 +24,7 @@ class MockDatabusProducer {
     using BusDataArray = std::vector<FF>;
 
     static constexpr size_t BUS_ARRAY_SIZE = 3; // arbitrary length of mock bus inputs
-    BusDataArray app_return_data;
+    std::array<BusDataArray, NUM_APP_PER_KERNEL> app_return_data;
     BusDataArray kernel_return_data;
 
     FF dummy_return_val = 1; // use simple return val for easier test debugging
@@ -45,9 +45,11 @@ class MockDatabusProducer {
      */
     void populate_app_databus(ClientCircuit& circuit)
     {
-        app_return_data = generate_random_bus_array();
-        for (auto& val : app_return_data) {
-            circuit.add_public_return_data(circuit.add_variable(val));
+        for (auto& app_data : app_return_data) {
+            app_data = generate_random_bus_array();
+            for (auto& val : app_data) {
+                circuit.add_public_return_data(circuit.add_variable(val));
+            }
         }
     };
 
@@ -59,13 +61,15 @@ class MockDatabusProducer {
     {
         // Populate calldata from previous kernel return data (if it exists)
         for (auto& val : kernel_return_data) {
-            circuit.add_public_calldata(circuit.add_variable(val));
+            circuit.add_public_calldata(BusId::KERNEL_CALLDATA, circuit.add_variable(val));
         }
         // Populate secondary_calldata from app return data (if it exists), then clear the app return data
-        for (auto& val : app_return_data) {
-            circuit.add_public_secondary_calldata(circuit.add_variable(val));
+        for (size_t idx = 0; idx < app_return_data.size(); ++idx) {
+            for (auto& val : app_return_data[idx]) {
+                circuit.add_public_calldata(static_cast<BusId>(idx + 1), circuit.add_variable(val));
+            }
+            app_return_data[idx].clear();
         }
-        app_return_data.clear();
 
         // Mock the return data for the present kernel circuit
         kernel_return_data = generate_random_bus_array();
@@ -78,7 +82,7 @@ class MockDatabusProducer {
      * @brief Add an arbitrary value to the app return data. This leads to a descrepency between the values used by the
      * app itself and the secondary_calldata values in the kernel that will be set based on these tampered values.
      */
-    void tamper_with_app_return_data() { app_return_data.emplace_back(17); }
+    void tamper_with_app_return_data() { app_return_data[0].emplace_back(17); }
 };
 
 /**

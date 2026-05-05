@@ -147,7 +147,8 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     const StdlibVerifierInputs& verifier_inputs,
     std::vector<StdlibFF>& public_inputs,
     WitnessCommitments& witness_commitments,
-    const std::optional<StdlibFF>& prev_accum_hash)
+    const std::optional<StdlibFF>& prev_accum_hash,
+    const std::optional<size_t>& app_return_data_idx)
 {
     if (verifier_inputs.is_kernel) {
         BB_ASSERT_EQ(verifier_inputs.type == QUEUE_TYPE::HN || verifier_inputs.type == QUEUE_TYPE::HN_TAIL ||
@@ -171,14 +172,19 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
                                                                        << witness_commitments.calldata.get_value());
         kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
 
-        // App return data
-        bool app_return_data_match =
-            kernel_input.app_return_data.get_value() == witness_commitments.secondary_calldata.get_value();
-        BB_ASSERT_DEBUG(app_return_data_match,
-                        "app_return_data mismatch: proof contains "
-                            << kernel_input.app_return_data.get_value() << " but secondary_calldata commitment is "
-                            << witness_commitments.secondary_calldata.get_value());
-        kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
+        // App return data. Mega currently exposes a single app calldata witness commitment
+        // (`secondary_calldata`), so NUM_APP_PER_KERNEL remains 1.
+        for (size_t idx = 0; idx < NUM_APP_PER_KERNEL; ++idx) {
+            BB_ASSERT_EQ(NUM_APP_PER_KERNEL, 1UL, "Multiple app calldata witness columns are not wired yet");
+            bool app_return_data_match =
+                kernel_input.app_return_data[idx].get_value() == witness_commitments.secondary_calldata.get_value();
+            BB_ASSERT_DEBUG(app_return_data_match,
+                            "app_return_data mismatch: proof contains "
+                                << kernel_input.app_return_data[idx].get_value()
+                                << " but secondary_calldata commitment is "
+                                << witness_commitments.secondary_calldata.get_value());
+            kernel_input.app_return_data[idx].incomplete_assert_equal(witness_commitments.secondary_calldata);
+        }
 
         // ============= Perform accumulator hash consistency check =========================
 
@@ -203,7 +209,8 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     app_input.reconstruct_from_public(public_inputs);
 
     // Set the app return data commitment to be propagated via the public inputs
-    bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
+    BB_ASSERT(app_return_data_idx.has_value(), "App return-data index expected for app verifier inputs");
+    bus_depot.set_app_return_data_commitment(witness_commitments.return_data, app_return_data_idx.value());
 
     return { std::move(app_input.pairing_inputs), std::nullopt };
 }
@@ -227,7 +234,8 @@ Chonk::recursive_verification_and_consistency_checks(
     const StdlibVerifierInputs& verifier_inputs,
     const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
     const std::optional<StdlibFF>& running_hash,
-    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
+    const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
+    const std::optional<size_t>& app_return_data_idx)
 {
     BB_BENCH_NAME("Chonk::recursive_verification_and_consistency_checks");
 
@@ -253,7 +261,7 @@ Chonk::recursive_verification_and_consistency_checks(
 
     // Step 2: Process public inputs and perform databus consistency checks
     auto [io_pairing_points, previous_ecc_op_hash] = process_public_inputs_and_consistency_checks(
-        verifier_inputs, public_inputs, witness_commitments, prev_accum_hash);
+        verifier_inputs, public_inputs, witness_commitments, prev_accum_hash, app_return_data_idx);
 
     std::optional<StdlibFF> updated_hash = running_hash;
     if (previous_ecc_op_hash.has_value()) {
@@ -324,15 +332,22 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         current_stdlib_verifier_accumulator = RecursiveVerifierAccumulator::stdlib_from_native<RecursiveFlavor::Curve>(
             &circuit, recursive_verifier_native_accum);
     }
+    size_t app_return_data_idx = 0;
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
+        std::optional<size_t> current_app_return_data_idx = std::nullopt;
+        if (!verifier_input.is_kernel) {
+            BB_ASSERT_LT(app_return_data_idx, NUM_APP_PER_KERNEL, "Too many app proofs in kernel verification queue");
+            current_app_return_data_idx = app_return_data_idx++;
+        }
 
         auto [output_stdlib_verifier_accumulator, pairing_points, updated_hash] =
             recursive_verification_and_consistency_checks(circuit,
                                                           verifier_input,
                                                           current_stdlib_verifier_accumulator,
                                                           running_hash,
-                                                          accumulation_recursive_transcript);
+                                                          accumulation_recursive_transcript,
+                                                          current_app_return_data_idx);
         points_accumulator.insert(points_accumulator.end(), pairing_points.begin(), pairing_points.end());
         running_hash = updated_hash;
 
@@ -376,9 +391,11 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Extract native verifier accumulator from the stdlib accum to use it in the next round
         recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
 
-        // Get databus commitments
         auto kernel_return_data_commitment = bus_depot.get_kernel_return_data_commitment(circuit);
-        auto app_return_data_commitment = bus_depot.get_app_return_data_commitment(circuit);
+        KernelIO::AppReturnDataCommitments app_return_data_commitments;
+        for (size_t idx = 0; idx < NUM_APP_PER_KERNEL; ++idx) {
+            app_return_data_commitments[idx] = bus_depot.get_app_return_data_commitment(circuit, idx);
+        }
 
         // Compute hash of output accumulator
         RecursiveTranscript hash_transcript;
@@ -394,7 +411,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Propagate public inputs
         KernelIO kernel_output{ pairing_points_aggregator,
                                 kernel_return_data_commitment,
-                                app_return_data_commitment,
+                                app_return_data_commitments,
                                 running_hash.value(),
                                 current_verifier_accum_hash };
         kernel_output.set_public();

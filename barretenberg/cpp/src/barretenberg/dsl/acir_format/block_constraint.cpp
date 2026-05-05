@@ -165,17 +165,15 @@ void process_call_data_operations(Builder& builder,
         }
     };
 
-    // Process primary or secondary calldata based on calldata_id
-    switch (constraint.calldata_id) {
-    case CallDataType::Primary:
-        process_calldata(databus.calldata);
-        break;
-    case CallDataType::Secondary:
-        process_calldata(databus.secondary_calldata);
-        break;
-    default:
-        bb::assert_failure("Databus only supports two calldata arrays.");
-        break;
+    // Process kernel or app calldata based on the ACIR calldata id. Id 0 is kernel calldata; app calldata ids start at
+    // 1 and map directly onto app_calldata[id - 1].
+    const auto calldata_id = static_cast<uint32_t>(constraint.calldata_id);
+    if (calldata_id == static_cast<uint32_t>(CallDataType::KernelCalldata)) {
+        process_calldata(databus.kernel_calldata);
+    } else {
+        const size_t app_calldata_idx = calldata_id - static_cast<uint32_t>(CallDataType::AppCalldata);
+        BB_ASSERT_LT(app_calldata_idx, NUM_APP_PER_KERNEL, "Databus app calldata index out of bounds");
+        process_calldata(databus.app_calldata[app_calldata_idx]);
     }
 }
 

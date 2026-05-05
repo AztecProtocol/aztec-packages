@@ -7,6 +7,7 @@
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
 #include <cstdint>
@@ -73,9 +74,14 @@ struct BusVector {
  * in-circuit as we would with public inputs).
  *
  */
-constexpr size_t NUM_BUS_COLUMNS = 3;
+constexpr size_t NUM_BUS_COLUMNS = NUM_APP_PER_KERNEL + /*kernel calldata*/ 1 + /*return data*/ 1;
 
 using DataBus = std::array<BusVector, NUM_BUS_COLUMNS>;
-enum class BusId { CALLDATA, SECONDARY_CALLDATA, RETURNDATA };
+enum class BusId : uint8_t {
+    KERNEL_CALLDATA = 0,
+    APP_CALLDATA = 1,
+    RETURNDATA = NUM_APP_PER_KERNEL + 1,
+};
+static_assert(static_cast<size_t>(BusId::RETURNDATA) == NUM_BUS_COLUMNS - 1, "BusId must match DataBus layout");
 
 } // namespace bb

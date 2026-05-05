@@ -791,7 +791,7 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
         .init = {},
         .trace = {},
         .type = BlockType::ROM,
-        .calldata_id = CallDataType::None,
+        .calldata_id = CallDataType::KernelCalldata,
     };
 
     for (const auto& init : mem_init.init) {
@@ -802,10 +802,10 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
     // array.
     if (std::holds_alternative<Acir::BlockType::CallData>(mem_init.block_type.value)) {
         uint32_t calldata_id = std::get<Acir::BlockType::CallData>(mem_init.block_type.value).value;
-        BB_ASSERT(calldata_id == 0 || calldata_id == 1, "acir_format::handle_memory_init: Unsupported calldata id");
+        BB_ASSERT_LTE(calldata_id, NUM_APP_PER_KERNEL, "acir_format::handle_memory_init: Unsupported calldata id");
 
         block.type = BlockType::CallData;
-        block.calldata_id = calldata_id == 0 ? CallDataType::Primary : CallDataType::Secondary;
+        block.calldata_id = static_cast<CallDataType>(calldata_id);
     } else if (std::holds_alternative<Acir::BlockType::ReturnData>(mem_init.block_type.value)) {
         block.type = BlockType::ReturnData;
     }

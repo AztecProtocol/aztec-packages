@@ -12,20 +12,21 @@ namespace bb::stdlib::recursion::honk {
 /**
  * @brief **For test purposes only**: Native representation and serde for KernelIO public inputs
  * @details Used for testing and verification with native bb::fr vectors.
- * Mirrors the structure of stdlib KernelIO but works with native types.
+ * Mirrors the structure of stdlib KernelIO_<N> but works with native types.
  */
-class KernelIOSerde {
+template <size_t N> class KernelIOSerde_ {
   public:
     using NativeFF = bb::fr;
     using NativeG1 = curve::BN254::AffineElement;
     using NativeFq = curve::BN254::BaseField;
     using NativePairingPoints = bb::PairingPoints<curve::BN254>;
+    using NativeAppReturnDataCommitments = std::array<NativeG1, N>;
 
-    static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = kernel_public_inputs_size(N);
 
     NativePairingPoints pairing_inputs;
     NativeG1 kernel_return_data;
-    NativeG1 app_return_data;
+    NativeAppReturnDataCommitments app_return_data;
     NativeFF ecc_op_hash;
     NativeFF output_hn_accum_hash;
 
@@ -36,9 +37,9 @@ class KernelIOSerde {
      * @details KernelIO is at the END of the public inputs section, so we start at
      *          offset (num_public_inputs - PUBLIC_INPUTS_SIZE)
      */
-    static KernelIOSerde from_proof(const std::vector<NativeFF>& proof, size_t num_public_inputs)
+    static KernelIOSerde_ from_proof(const std::vector<NativeFF>& proof, size_t num_public_inputs)
     {
-        KernelIOSerde result;
+        KernelIOSerde_ result;
         // KernelIO is at the end of public inputs, which are at the start of the proof
         size_t idx = num_public_inputs - PUBLIC_INPUTS_SIZE;
 
@@ -53,7 +54,9 @@ class KernelIOSerde {
         result.pairing_inputs.P0() = deserialize_point();
         result.pairing_inputs.P1() = deserialize_point();
         result.kernel_return_data = deserialize_point();
-        result.app_return_data = deserialize_point();
+        for (auto& app_commitment : result.app_return_data) {
+            app_commitment = deserialize_point();
+        }
         result.ecc_op_hash = proof[idx++];
         result.output_hn_accum_hash = proof[idx];
 
@@ -93,11 +96,15 @@ class KernelIOSerde {
         serialize_point(pairing_inputs.P0());
         serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
-        serialize_point(app_return_data);
+        for (const auto& app_commitment : app_return_data) {
+            serialize_point(app_commitment);
+        }
         proof[idx++] = ecc_op_hash;
         proof[idx] = output_hn_accum_hash;
     }
 };
+
+using KernelIOSerde = KernelIOSerde_<NUM_APP_PER_KERNEL>;
 
 /**
  * @brief Native representation and serde for HidingKernelIO public inputs
