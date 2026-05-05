@@ -63,6 +63,7 @@ function generateProtocolContractArtifact(input: ContractArtifact): string {
 
   return `{
   name: '${input.name}',
+  aztecVersion: '${input.aztecVersion}',
   functions: [
     ${functionsArray}
   ],

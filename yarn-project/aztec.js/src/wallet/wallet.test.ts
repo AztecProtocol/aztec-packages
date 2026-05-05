@@ -18,6 +18,7 @@ import {
   TxSimulationResult,
   UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
+import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 
 import {
   type InteractionWaitOptions,
@@ -126,6 +127,7 @@ describe('WalletSchema', () => {
   it('registerContract', async () => {
     const mockArtifact: ContractArtifact = {
       name: 'TestContract',
+      aztecVersion: DEV_VERSION,
       functions: [],
       nonDispatchPublicFunctions: [],
       outputs: { structs: {}, globals: {} },
@@ -318,6 +320,7 @@ describe('WalletSchema', () => {
 
     const mockArtifact: ContractArtifact = {
       name: 'TestContract',
+      aztecVersion: DEV_VERSION,
       functions: [],
       nonDispatchPublicFunctions: [],
       outputs: { structs: {}, globals: {} },
