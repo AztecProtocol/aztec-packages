@@ -169,8 +169,12 @@ export async function executeBbChonkProof(
     if (writeVk) {
       args.push('--write_vk');
     }
+    const cpuBefore = process.cpuUsage();
+    log(`Starting bb prove (chonk), cpu user: ${cpuBefore.user}µs, system: ${cpuBefore.system}µs`);
     const result = await executeBB(pathToBB, 'prove', args, logFunction);
     const durationMs = timer.ms();
+    const cpuDelta = process.cpuUsage(cpuBefore);
+    log(`Finished bb prove (chonk) in ${durationMs}ms, cpu user: ${cpuDelta.user}µs, system: ${cpuDelta.system}µs`);
 
     if (result.status == BB_RESULT.SUCCESS) {
       return {
@@ -276,8 +280,14 @@ export async function generateProof(
     const logFunction = (message: string) => {
       log.info(`${circuitName} BB out - ${message}`);
     };
+    const cpuBefore = process.cpuUsage();
+    log.debug(`Starting bb prove (${circuitName}), cpu user: ${cpuBefore.user}µs, system: ${cpuBefore.system}µs`);
     const result = await executeBB(pathToBB, `prove`, args, logFunction);
     const duration = timer.ms();
+    const cpuDelta = process.cpuUsage(cpuBefore);
+    log.debug(
+      `Finished bb prove (${circuitName}) in ${duration}ms, cpu user: ${cpuDelta.user}µs, system: ${cpuDelta.system}µs`,
+    );
 
     if (result.status == BB_RESULT.SUCCESS) {
       return {
@@ -359,8 +369,12 @@ export async function generateAvmProof(
     const logFunction = (message: string) => {
       logger.verbose(`AvmCircuit (${cmd}) BB out - ${message}`);
     };
+    const cpuBefore = process.cpuUsage();
+    logger.debug(`Starting bb ${cmd}, cpu user: ${cpuBefore.user}µs, system: ${cpuBefore.system}µs`);
     const result = await executeBB(pathToBB, cmd, args, logFunction);
     const duration = timer.ms();
+    const cpuDelta = process.cpuUsage(cpuBefore);
+    logger.debug(`Finished bb ${cmd} in ${duration}ms, cpu user: ${cpuDelta.user}µs, system: ${cpuDelta.system}µs`);
 
     if (result.status == BB_RESULT.SUCCESS) {
       return {
@@ -510,8 +524,14 @@ async function verifyProofInternal(
     const finalArgs = loggingArg !== '' ? [...args, loggingArg] : args;
 
     const timer = new Timer();
+    const cpuBefore = process.cpuUsage();
+    logger.debug(`Starting bb ${command}, cpu user: ${cpuBefore.user}µs, system: ${cpuBefore.system}µs`);
     const result = await executeBB(pathToBB, command, finalArgs, logFunction, concurrency);
     const duration = timer.ms();
+    const cpuDelta = process.cpuUsage(cpuBefore);
+    logger.debug(
+      `Finished bb ${command} in ${duration}ms, cpu user: ${cpuDelta.user}µs, system: ${cpuDelta.system}µs`,
+    );
     if (result.status == BB_RESULT.SUCCESS) {
       return { status: BB_RESULT.SUCCESS, durationMs: duration };
     }
