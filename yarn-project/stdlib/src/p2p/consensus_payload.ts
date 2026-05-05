@@ -1,3 +1,4 @@
+import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeSignedBigInt, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -67,6 +68,14 @@ export class ConsensusPayload implements Signable {
     const encodedData = encodeAbiParameters(abi, [[archiveRoot, [this.feeAssetPriceModifier], headerHash]] as const);
 
     return hexToBuffer(encodedData);
+  }
+
+  /**
+   * Returns a keccak256 hash of the signed payload (header + archive + feeAssetPriceModifier).
+   * Used by the attestation pool to dedup distinct signed payloads.
+   */
+  getPayloadHash(): Buffer {
+    return keccak256(this.getPayloadToSign());
   }
 
   toBuffer(): Buffer {

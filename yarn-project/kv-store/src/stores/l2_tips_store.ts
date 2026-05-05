@@ -1,5 +1,5 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { type L2BlockTag, L2TipsStoreBase } from '@aztec/stdlib/block';
+import { type BlockHash, type L2BlockTag, L2TipsStoreBase } from '@aztec/stdlib/block';
 import { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 
 import type { AztecAsyncMap } from '../interfaces/map.js';
@@ -18,8 +18,9 @@ export class L2TipsKVStore extends L2TipsStoreBase {
   constructor(
     private store: AztecAsyncKVStore,
     namespace: string,
+    initialBlockHash: BlockHash,
   ) {
-    super();
+    super(initialBlockHash);
     this.l2TipsStore = store.openMap([namespace, 'l2_tips'].join('_'));
     this.l2BlockHashesStore = store.openMap([namespace, 'l2_block_hashes'].join('_'));
     this.l2BlockNumberToCheckpointNumberStore = store.openMap(
