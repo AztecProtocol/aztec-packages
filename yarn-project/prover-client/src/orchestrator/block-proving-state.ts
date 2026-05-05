@@ -26,7 +26,7 @@ import {
 } from '@aztec/stdlib/rollup';
 import type { CircuitName } from '@aztec/stdlib/stats';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, StateReference } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, StateReference, type TxEffect } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import { buildHeaderFromCircuitOutputs, toProofData } from './block-building-helpers.js';
@@ -61,6 +61,14 @@ export class BlockProvingState {
   private txs: TxProvingState[] = [];
   private isFirstBlock: boolean;
   private error: string | undefined;
+  /**
+   * Aggregate per-block data supplied by the execution agent (offloaded path) in
+   * lieu of populating `txs` with full `TxProvingState` instances. When set, the
+   * various block-aggregate getters read from this in preference to iterating
+   * `txs`, and `isAcceptingTxs()` returns `false` (the agent has executed the
+   * full block).
+   */
+  private blockSummary: { txEffects: TxEffect[]; totalFees: Fr; totalManaUsed: bigint } | undefined;
 
   constructor(
     public readonly index: number,
@@ -103,11 +111,29 @@ export class BlockProvingState {
   }
 
   public isAcceptingTxs() {
+    if (this.blockSummary) {
+      return false;
+    }
     return this.txs.length < this.totalNumTxs;
   }
 
   public getProcessedTxs() {
     return this.txs.map(t => t.processedTx);
+  }
+
+  /**
+   * Records the agent-computed aggregate state for an offloaded execution. After
+   * this call the block is considered "fully populated" — `isAcceptingTxs` returns
+   * false — and header/blob construction reads from the summary rather than from
+   * a per-tx `TxProvingState[]`.
+   */
+  public setBlockSummary(summary: { txEffects: TxEffect[]; totalFees: Fr; totalManaUsed: bigint }) {
+    if (summary.txEffects.length !== this.totalNumTxs) {
+      throw new Error(
+        `Block summary tx count (${summary.txEffects.length}) does not match expected (${this.totalNumTxs}) for block ${this.blockNumber}`,
+      );
+    }
+    this.blockSummary = summary;
   }
 
   public tryStartProvingBase(txIndex: number) {
@@ -300,6 +326,9 @@ export class BlockProvingState {
   }
 
   public getTxEffects() {
+    if (this.blockSummary) {
+      return this.blockSummary.txEffects;
+    }
     return this.txs.map(t => t.processedTx.txEffect);
   }
 
@@ -473,10 +502,16 @@ export class BlockProvingState {
   }
 
   #getTotalFees() {
+    if (this.blockSummary) {
+      return this.blockSummary.totalFees;
+    }
     return this.txs.reduce((acc, tx) => acc.add(tx.processedTx.txEffect.transactionFee), Fr.ZERO);
   }
 
   #getTotalManaUsed() {
+    if (this.blockSummary) {
+      return this.blockSummary.totalManaUsed;
+    }
     return this.txs.reduce((acc, tx) => acc + BigInt(tx.processedTx.gasUsed.billedGas.l2Gas), 0n);
   }
 }

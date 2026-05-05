@@ -19,7 +19,7 @@ import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { EthAddress } from '@aztec/stdlib/block';
-import { AvmProvingInputs, type AvmProvingResult } from '@aztec/stdlib/block_execution';
+import { AvmProvingInputs, type AvmProvingResult, type BlockExecutionResult } from '@aztec/stdlib/block_execution';
 import type {
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
@@ -445,6 +445,57 @@ export class ProvingOrchestrator {
       }
     }
     return Promise.resolve();
+  }
+
+  /**
+   * Returns the start-of-block sponge-blob accumulator for the given block. For the
+   * first block of a checkpoint this is the empty sponge; for subsequent blocks it
+   * is the previous block's end sponge (set via `applyBlockExecutionResult`).
+   */
+  public getBlockStartSpongeBlob(blockNumber: BlockNumber): SpongeBlob {
+    if (!this.provingState) {
+      throw new Error('Empty epoch proving state. Call startNewEpoch first.');
+    }
+    const provingState = this.provingState.getBlockProvingStateByBlockNumber(blockNumber);
+    if (!provingState) {
+      throw new Error(`Proving state for block ${blockNumber} not found.`);
+    }
+    return provingState.getStartSpongeBlob();
+  }
+
+  /**
+   * Applies the per-block summary returned by the execution agent to the orchestrator's
+   * `BlockProvingState`. Sets the end state, end-sponge-blob (after absorbing block-end
+   * blob fields, mirroring the legacy `addTxs` flow), and the per-block aggregate
+   * (total fees, total mana used, per-tx effects). Must be called once per block in the
+   * offloaded path before `setBlockCompleted`.
+   */
+  public async applyBlockExecutionResult(blockNumber: BlockNumber, result: BlockExecutionResult): Promise<void> {
+    if (!this.provingState) {
+      throw new Error('Empty epoch proving state. Call startNewEpoch before applying execution results.');
+    }
+    const provingState = this.provingState.getBlockProvingStateByBlockNumber(blockNumber);
+    if (!provingState) {
+      throw new Error(`Proving state for block ${blockNumber} not found.`);
+    }
+
+    provingState.setBlockSummary({
+      txEffects: result.txEffects,
+      totalFees: result.totalFees,
+      totalManaUsed: result.totalManaUsed.toBigInt(),
+    });
+    provingState.setEndState(result.endState);
+
+    // Absorb the block-end blob fields the legacy addTxs flow would have absorbed,
+    // then commit the resulting end-sponge-blob.
+    const endSpongeBlob = result.endSpongeBlob.clone();
+    const blockEndBlobFields = provingState.getBlockEndBlobFields();
+    await endSpongeBlob.absorb(blockEndBlobFields);
+    provingState.setEndSpongeBlob(endSpongeBlob);
+
+    // Try to accumulate the out hashes and blobs as far as we can.
+    await this.provingState.accumulateCheckpointOutHashes();
+    await this.provingState.setBlobAccumulators();
   }
 
   /**

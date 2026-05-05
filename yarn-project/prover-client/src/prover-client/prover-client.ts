@@ -63,6 +63,12 @@ export interface EpochProverFactory {
    */
   createCheckpointSubTreeOrchestrator(epochContext?: EpochProvingContext): CheckpointSubTreeOrchestrator;
   createTopTreeOrchestrator(): TopTreeOrchestrator;
+  /**
+   * Returns the broker facade. Used by `EpochProvingJob` to dispatch
+   * `BLOCK_EXECUTION` jobs and watch deterministic-ID per-tx jobs through the
+   * same facade the orchestrators use.
+   */
+  getBrokerCircuitProverFacade(): BrokerCircuitProverFacade;
 }
 
 /** Manages proving of epochs by orchestrating the proving of individual blocks relying on a pool of prover agents. */
@@ -93,6 +99,15 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
       throw new Error('ProverClient is not running; call start() before constructing orchestrators.');
     }
     return this.facade;
+  }
+
+  /**
+   * Returns the single shared broker facade. Public so the prover node can dispatch
+   * BLOCK_EXECUTION and watch deterministic-ID per-tx jobs through the same facade
+   * that the orchestrators use.
+   */
+  public getBrokerCircuitProverFacade(): BrokerCircuitProverFacade {
+    return this.getFacade();
   }
 
   public createEpochProvingContext(): EpochProvingContext {

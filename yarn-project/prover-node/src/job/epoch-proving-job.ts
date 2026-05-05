@@ -12,6 +12,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EpochProverFactory } from '@aztec/prover-client';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
 import {
+  type BlockExecutionWatchers,
   type CheckpointSubTreeOrchestrator,
   type CheckpointTopTreeData,
   EpochProvingContext,
@@ -22,12 +23,15 @@ import {
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { BlockExecutionInputs } from '@aztec/stdlib/block_execution';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import {
   type EpochProvingJobState,
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
+  makeExecutionResultJobId,
 } from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader, ProcessedTx, Tx } from '@aztec/stdlib/tx';
@@ -997,6 +1001,75 @@ export class EpochProvingJob implements Traceable {
     }
 
     return processedTxs;
+  }
+
+  /**
+   * Dispatches the block as a `BLOCK_EXECUTION` job and wires up the orchestrator's
+   * deterministic-ID watchers for the per-tx proving jobs the agent will enqueue
+   * (`PRIVATE_TX_BASE_ROLLUP` for private-only txs, `PUBLIC_VM` carrying the
+   * `BlockExecutionTxData` passenger for public txs). Once the agent reports
+   * `BLOCK_EXECUTION` complete, applies the per-block summary to the orchestrator.
+   *
+   * Replaces the legacy in-prover-node `publicProcessor.process` + `addTxs` flow.
+   */
+  private async dispatchOffloadedBlock(
+    subTree: CheckpointSubTreeOrchestrator,
+    block: L2Block,
+    blockIndex: number,
+    l1ToL2Messages: Fr[],
+    blockTxs: Tx[],
+    signal: AbortSignal,
+  ): Promise<void> {
+    const facade = this.prover.getBrokerCircuitProverFacade();
+    const blockNumber = block.header.getBlockNumber();
+    const slotNumber = block.header.getSlot();
+
+    // Watchers must be registered before the agent enqueues per-tx jobs so the broker's
+    // completion notifications are not lost.
+    const watchers: BlockExecutionWatchers = {
+      expectPrivateBaseRollupProofForTx: (txIndex, abortSignal) => {
+        const id = makeExecutionResultJobId(
+          this.epochNumber,
+          blockNumber,
+          slotNumber,
+          txIndex,
+          ProvingRequestType.PRIVATE_TX_BASE_ROLLUP,
+        );
+        return facade.expectJob(id, ProvingRequestType.PRIVATE_TX_BASE_ROLLUP, abortSignal);
+      },
+      expectAvmProofForTx: (txIndex, abortSignal) => {
+        const id = makeExecutionResultJobId(
+          this.epochNumber,
+          blockNumber,
+          slotNumber,
+          txIndex,
+          ProvingRequestType.PUBLIC_VM,
+        );
+        return facade.expectJob(id, ProvingRequestType.PUBLIC_VM, abortSignal);
+      },
+    };
+    await subTree.addBlockForExecution(blockNumber, blockTxs, watchers);
+    if (signal.aborted) {
+      return;
+    }
+
+    const startSpongeBlob = subTree.getBlockStartSpongeBlob(blockNumber);
+    const inputs = new BlockExecutionInputs(
+      this.epochNumber,
+      0, // checkpointIndex within the sub-tree's single-checkpoint epoch — irrelevant to the agent's per-tx work
+      block.header,
+      block.body.txEffects.map(e => e.txHash),
+      blockIndex === 0,
+      l1ToL2Messages,
+      startSpongeBlob,
+    );
+
+    const result = await facade.executeBlock(inputs, signal, this.epochNumber);
+    if (signal.aborted) {
+      return;
+    }
+
+    await subTree.applyBlockExecutionResult(blockNumber, result);
   }
 }
 
