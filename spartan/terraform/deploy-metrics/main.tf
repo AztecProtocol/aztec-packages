@@ -125,7 +125,8 @@ resource "helm_release" "aztec-gke-cluster" {
 
         env = {
           # we have to set an admin username through env vars otherwise the chart expects to find an 'admin-user' key in the admin secret
-          GF_SECURITY_ADMIN_USER = "admin"
+          GF_SECURITY_ADMIN_USER       = "admin"
+          SLACK_ALERT_MENTION_USER_IDS = join(",", var.SLACK_ALERT_MENTION_USER_IDS)
         }
 
         sidecar = {
