@@ -96,7 +96,7 @@ pub contract HandshakeRegistry {
         // We pull all notes for `sender` and filter (recipient, handshake_type) below, walking from the end so the
         // first hit is the most recently inserted match.
         let notes = self.storage.handshakes.at(sender).view_notes(NoteViewerOptions::new());
-        let mut found: Option<HandshakeNote> = Option::none();
+        let mut found = Option::none();
         let len = notes.len();
         for i in 0..len {
             let note = notes.get(len - 1 - i);
