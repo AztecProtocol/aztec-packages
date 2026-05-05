@@ -148,7 +148,7 @@ template <size_t N> class KernelIO_ {
     }
 };
 
-using KernelIO = KernelIO_<NUM_APP_PER_KERNEL>;
+using KernelIO = KernelIO_<MAX_APPS_PER_KERNEL>;
 
 /**
  * @brief Manages the data that is propagated on the public inputs of an application/function circuit

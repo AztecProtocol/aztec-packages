@@ -63,9 +63,9 @@ template <typename Builder> class databus {
   public:
     // The columns of the DataBus.
     bus_vector kernel_calldata{ BusId::KERNEL_CALLDATA };
-    std::array<bus_vector, NUM_APP_PER_KERNEL> app_calldata = []() {
-        std::array<bus_vector, NUM_APP_PER_KERNEL> result{};
-        for (uint8_t idx = 0; idx < NUM_APP_PER_KERNEL; ++idx) {
+    std::array<bus_vector, MAX_APPS_PER_KERNEL> app_calldata = []() {
+        std::array<bus_vector, MAX_APPS_PER_KERNEL> result{};
+        for (uint8_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
             result[idx] = bus_vector{ static_cast<BusId>(idx + 1) };
         }
         return result;
@@ -99,12 +99,12 @@ template <class Builder> class DataBusDepot {
     using FrNative = typename Curve::ScalarFieldNative;
 
     // Storage for the return data commitments to be propagated via the public inputs
-    std::array<Commitment, NUM_APP_PER_KERNEL> app_return_data_commitments;
+    std::array<Commitment, MAX_APPS_PER_KERNEL> app_return_data_commitments;
     Commitment kernel_return_data_commitment;
 
     // Existence flags indicating whether each return data commitment has been set
-    std::array<bool, NUM_APP_PER_KERNEL> app_return_data_commitment_exists = []() {
-        std::array<bool, NUM_APP_PER_KERNEL> result{};
+    std::array<bool, MAX_APPS_PER_KERNEL> app_return_data_commitment_exists = []() {
+        std::array<bool, MAX_APPS_PER_KERNEL> result{};
         result.fill(false);
         return result;
     }();
@@ -124,7 +124,7 @@ template <class Builder> class DataBusDepot {
      */
     bool app_return_data_slots_are_empty() const
     {
-        for (size_t idx = 0; idx < NUM_APP_PER_KERNEL; ++idx) {
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
             if (app_return_data_commitment_exists[idx]) {
                 return false;
             }
@@ -141,7 +141,7 @@ template <class Builder> class DataBusDepot {
      */
     void set_app_return_data_commitment(const Commitment& commitment)
     {
-        for (size_t idx = 0; idx < NUM_APP_PER_KERNEL; ++idx) {
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
             if (!app_return_data_commitment_exists[idx]) {
                 app_return_data_commitments[idx] = commitment;
                 app_return_data_commitment_exists[idx] = true;
@@ -182,7 +182,7 @@ template <class Builder> class DataBusDepot {
      */
     Commitment get_app_return_data_commitment(Builder& builder, const size_t idx)
     {
-        BB_ASSERT_LT(idx, NUM_APP_PER_KERNEL, "DataBusDepot app return-data index out of bounds");
+        BB_ASSERT_LT(idx, MAX_APPS_PER_KERNEL, "DataBusDepot app return-data index out of bounds");
         if (!app_return_data_commitment_exists[idx]) {
             return construct_default_commitment(builder);
         }

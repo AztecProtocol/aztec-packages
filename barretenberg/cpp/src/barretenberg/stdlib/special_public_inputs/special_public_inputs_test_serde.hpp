@@ -104,7 +104,7 @@ template <size_t N> class KernelIOSerde_ {
     }
 };
 
-using KernelIOSerde = KernelIOSerde_<NUM_APP_PER_KERNEL>;
+using KernelIOSerde = KernelIOSerde_<MAX_APPS_PER_KERNEL>;
 
 /**
  * @brief Native representation and serde for HidingKernelIO public inputs

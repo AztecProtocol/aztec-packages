@@ -74,13 +74,13 @@ struct BusVector {
  * in-circuit as we would with public inputs).
  *
  */
-constexpr size_t NUM_BUS_COLUMNS = NUM_APP_PER_KERNEL + /*kernel calldata*/ 1 + /*return data*/ 1;
+constexpr size_t NUM_BUS_COLUMNS = MAX_APPS_PER_KERNEL + /*kernel calldata*/ 1 + /*return data*/ 1;
 
 using DataBus = std::array<BusVector, NUM_BUS_COLUMNS>;
 enum class BusId : uint8_t {
     KERNEL_CALLDATA = 0,
     APP_CALLDATA = 1,
-    RETURNDATA = NUM_APP_PER_KERNEL + 1,
+    RETURNDATA = MAX_APPS_PER_KERNEL + 1,
 };
 static_assert(static_cast<size_t>(BusId::RETURNDATA) == NUM_BUS_COLUMNS - 1, "BusId must match DataBus layout");
 

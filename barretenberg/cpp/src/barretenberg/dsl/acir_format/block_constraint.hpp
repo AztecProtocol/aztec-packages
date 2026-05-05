@@ -47,7 +47,7 @@ enum BlockType : std::uint8_t {
  *          2. trace holds the sequence of memory operations (reads/writes) performed on the table
  *          3. type indicates the type of memory being constrained (RAM/ROM/CallData/ReturnData)
  *          4. calldata_id (used only for CallData) indicates whether we are operating on kernel calldata or an app
- *             calldata slot. The kernel calldata id is 0, app calldata ids are in [1, NUM_APP_PER_KERNEL].
+ *             calldata slot. The kernel calldata id is 0, app calldata ids are in [1, MAX_APPS_PER_KERNEL].
  */
 struct BlockConstraint {
     std::vector<uint32_t> init;

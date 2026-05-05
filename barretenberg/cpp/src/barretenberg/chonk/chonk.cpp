@@ -172,9 +172,9 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
         kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
 
         // App return data. Mega currently exposes a single app calldata witness commitment
-        // (`secondary_calldata`), so NUM_APP_PER_KERNEL remains 1.
-        for (size_t idx = 0; idx < NUM_APP_PER_KERNEL; ++idx) {
-            BB_ASSERT_EQ(NUM_APP_PER_KERNEL, 1UL, "Multiple app calldata witness columns are not wired yet");
+        // (`secondary_calldata`), so MAX_APPS_PER_KERNEL remains 1.
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+            BB_ASSERT_EQ(MAX_APPS_PER_KERNEL, 1UL, "Multiple app calldata witness columns are not wired yet");
             bool app_return_data_match =
                 kernel_input.app_return_data[idx].get_value() == witness_commitments.secondary_calldata.get_value();
             BB_ASSERT_DEBUG(app_return_data_match,
@@ -386,7 +386,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
         auto kernel_return_data_commitment = bus_depot.get_kernel_return_data_commitment(circuit);
         KernelIO::AppReturnDataCommitments app_return_data_commitments;
-        for (size_t idx = 0; idx < NUM_APP_PER_KERNEL; ++idx) {
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
             app_return_data_commitments[idx] = bus_depot.get_app_return_data_commitment(circuit, idx);
         }
 

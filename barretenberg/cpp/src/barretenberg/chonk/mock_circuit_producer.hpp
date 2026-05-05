@@ -24,7 +24,7 @@ class MockDatabusProducer {
     using BusDataArray = std::vector<FF>;
 
     static constexpr size_t BUS_ARRAY_SIZE = 3; // arbitrary length of mock bus inputs
-    std::array<BusDataArray, NUM_APP_PER_KERNEL> app_return_data;
+    std::array<BusDataArray, MAX_APPS_PER_KERNEL> app_return_data;
     BusDataArray kernel_return_data;
 
     FF dummy_return_val = 1; // use simple return val for easier test debugging

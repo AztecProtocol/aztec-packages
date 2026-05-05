@@ -64,7 +64,7 @@ constexpr std::size_t kernel_public_inputs_size(std::size_t num_apps)
            /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
 }
 
-static constexpr std::size_t KERNEL_PUBLIC_INPUTS_SIZE = kernel_public_inputs_size(NUM_APP_PER_KERNEL);
+static constexpr std::size_t KERNEL_PUBLIC_INPUTS_SIZE = kernel_public_inputs_size(MAX_APPS_PER_KERNEL);
 
 // Number of bb::fr elements used to represent the default public inputs, i.e., the pairing points
 static constexpr std::size_t DEFAULT_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
