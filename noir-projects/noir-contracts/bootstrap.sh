@@ -98,6 +98,7 @@ export -f get_contract_path
 # On release builds (REF_NAME is valid semver) the tag without the leading "v" is used; otherwise "dev".
 function stamp_aztec_version {
   local json_path=$1
+  # "dev" here corresponds to DEV_VERSION in yarn-project/stdlib/src/update-checker/package_version.ts.
   local version="dev"
   semver check "$REF_NAME" 2>/dev/null && version="${REF_NAME#v}"
   local tmp=$(mktemp)
