@@ -93,10 +93,10 @@ function get_contract_path {
 }
 export -f get_contract_path
 
-# Stamps the aztec version into a contract artifact JSON in place. Mirrors injectAztecVersion in
+# Stamps the aztec version into a contract artifact JSON in place. Mirrors stampAztecVersion in
 # yarn-project/aztec/src/cli/cmds/compile.ts so monorepo-built artifacts match those produced by `aztec compile`.
 # On release builds (REF_NAME is valid semver) the tag without the leading "v" is used; otherwise "dev".
-function inject_aztec_version {
+function stamp_aztec_version {
   local json_path=$1
   local version="dev"
   semver check "$REF_NAME" 2>/dev/null && version="${REF_NAME#v}"
@@ -104,7 +104,7 @@ function inject_aztec_version {
   jq --arg v "$version" '.aztec_version = $v' "$json_path" > "$tmp"
   mv "$tmp" "$json_path"
 }
-export -f inject_aztec_version
+export -f stamp_aztec_version
 
 # This compiles a noir contract, transpiles public functions, strips internal prefixes,
 # and generates verification keys for private functions via 'bb aztec_process'.
@@ -128,7 +128,7 @@ function compile {
   fi
   # Stamp the current version after the cache block so the field always matches the build's version, whether
   # the artifact came from a fresh compile or a cache hit.
-  inject_aztec_version "$json_path"
+  stamp_aztec_version "$json_path"
 }
 export -f compile
 
