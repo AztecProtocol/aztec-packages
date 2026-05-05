@@ -186,8 +186,11 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 {
     if constexpr (flavor_has_gemini_masking<Flavor>()) {
-        // Gemini masking poly only needs to cover the actual polynomial extent, not full dyadic size
-        const size_t polynomial_size = prover_instance->polynomials.max_end_index();
+        // Gemini masking poly only needs to cover the actual polynomial extent, not full dyadic size.
+        // Round up to even so sumcheck's pairwise (edge_idx, edge_idx + 1) iteration over the effective
+        // round size — which itself rounds max_end_index up to even — stays in bounds.
+        const size_t max_end_index = prover_instance->polynomials.max_end_index();
+        const size_t polynomial_size = max_end_index + (max_end_index % 2);
         prover_instance->polynomials.gemini_masking_poly = Polynomial<FF>::random(polynomial_size);
 
         // Commit to the masking polynomial and send to transcript
