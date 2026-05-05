@@ -63,6 +63,9 @@ broker:
   statefulSet:
     enabled: true
 
+  env:
+    P2P_ENABLED: "false"
+
   node:
     env:
       OTEL_SERVICE_NAME: "prover-broker"
@@ -90,6 +93,9 @@ agent:
 
   statefulSet:
     enabled: false
+
+  env:
+    P2P_ENABLED: "false"
 
   node:
     env:

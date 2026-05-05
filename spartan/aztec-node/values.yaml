@@ -53,7 +53,8 @@ hostNetwork: false
 # env var names, e.g. PROVER_REAL_PROOFS, LOG_LEVEL, SLASH_PRUNE_PENALTY.
 # This is the single source of truth for runtime config; populated by
 # spartan/scripts/load_network_config.sh from per-network YAMLs.
-env: {}
+env:
+  P2P_ENABLED: "true"
 
 # -- Number of replicas
 replicaCount: 1
