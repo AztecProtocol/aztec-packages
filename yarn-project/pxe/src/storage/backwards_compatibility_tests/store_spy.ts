@@ -1,16 +1,18 @@
 import type {
   AztecAsyncArray,
+  AztecAsyncCounter,
   AztecAsyncKVStore,
   AztecAsyncMap,
   AztecAsyncMultiMap,
+  AztecAsyncSet,
   AztecAsyncSingleton,
+  Key,
 } from '@aztec/kv-store';
 
-type Key = string | number | Uint8Array | Array<string | number>;
 type Value = NonNullable<any>;
 
 /** The kind of named sub-store opened on an `AztecAsyncKVStore`. */
-export type StoreKind = 'map' | 'multimap' | 'array' | 'singleton';
+export type StoreKind = 'map' | 'multimap' | 'array' | 'singleton' | 'set' | 'counter';
 
 /** A single recorded `open*()` call against a spied store. */
 export interface OpenedStoreEntry {
@@ -21,13 +23,12 @@ export interface OpenedStoreEntry {
 /** A spied `AztecAsyncKVStore` together with a function that returns the sorted log of `open*()` calls. */
 export interface StoreSpy {
   store: AztecAsyncKVStore;
-  openedStores: () => OpenedStoreEntry[];
+  getOpenedStores: () => OpenedStoreEntry[];
 }
 
 /**
- * Wraps an `AztecAsyncKVStore` so every `openMap`/`openMultiMap`/`openArray`/`openSingleton` call is recorded
- * before being delegated to the inner store. `openedStores()` returns a defensive copy sorted by `(name, kind)`,
- * giving callers a stable canonical view suitable for snapshot assertions.
+ * Wraps an `AztecAsyncKVStore` so every `openMap`/`openMultiMap`/`openArray`/`openSingleton`/`openSet`/`openCounter`
+ * call is recorded before being delegated to the inner store.
  */
 export function createStoreSpy(inner: AztecAsyncKVStore): StoreSpy {
   const entries: OpenedStoreEntry[] = [];
@@ -49,8 +50,14 @@ export function createStoreSpy(inner: AztecAsyncKVStore): StoreSpy {
       entries.push({ name, kind: 'singleton' });
       return inner.openSingleton<T>(name);
     },
-    openSet: name => inner.openSet(name),
-    openCounter: name => inner.openCounter(name),
+    openSet<K extends Key>(name: string): AztecAsyncSet<K> {
+      entries.push({ name, kind: 'set' });
+      return inner.openSet<K>(name);
+    },
+    openCounter<K extends Key>(name: string): AztecAsyncCounter<K> {
+      entries.push({ name, kind: 'counter' });
+      return inner.openCounter<K>(name);
+    },
     transactionAsync: callback => inner.transactionAsync(callback),
     clear: () => inner.clear(),
     delete: () => inner.delete(),
@@ -59,8 +66,8 @@ export function createStoreSpy(inner: AztecAsyncKVStore): StoreSpy {
     backupTo: (dstPath, compact) => inner.backupTo(dstPath, compact),
   };
 
-  const openedStores = () =>
+  const getOpenedStores = () =>
     [...entries].sort((a, b) => (a.name === b.name ? a.kind.localeCompare(b.kind) : a.name.localeCompare(b.name)));
 
-  return { store, openedStores };
+  return { store, getOpenedStores };
 }

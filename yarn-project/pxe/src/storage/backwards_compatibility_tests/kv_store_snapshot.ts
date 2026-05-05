@@ -1,4 +1,4 @@
-import type { AztecAsyncArray, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton, Key } from '@aztec/kv-store';
+import type { AztecAsyncArray, AztecAsyncMap, AztecAsyncSingleton, Key } from '@aztec/kv-store';
 
 /**
  * This file contains helpers that produce stable, snapshot-friendly text representations of our kv-stores'
@@ -24,26 +24,12 @@ export type MapEntry = { key: string; value: string };
 export type ArrayEntry = { index: number; value: string };
 
 /**
- * Returns every entry of `map`, with both keys and values rendered as strings, sorted by key (with value as a
- * tiebreaker). The sort decouples the result from the kv-store iteration order, which is implementation-defined and
- * not part of the schema contract. Without it, a backend change to iteration strategy would unnecessarily churn
- * snapshots.
+ * Returns every entry of the given map (or multimap), with both keys and values rendered as strings, sorted by key
+ * with value as a tiebreaker.
  */
 export async function snapshotMap<K extends Key, V>(map: AztecAsyncMap<K, V>): Promise<MapEntry[]> {
   const entries: MapEntry[] = [];
   for await (const [k, v] of map.entriesAsync()) {
-    entries.push({ key: keyToString(k), value: valueToString(v) });
-  }
-  return entries.sort(compareMapEntries);
-}
-
-/**
- * Same shape as {@link snapshotMap}, but for multimaps where the same key can map to multiple values. The
- * `(key, value)` tiebreaker imposes a deterministic order among the values that share a key.
- */
-export async function snapshotMultiMap<K extends Key, V>(multiMap: AztecAsyncMultiMap<K, V>): Promise<MapEntry[]> {
-  const entries: MapEntry[] = [];
-  for await (const [k, v] of multiMap.entriesAsync()) {
     entries.push({ key: keyToString(k), value: valueToString(v) });
   }
   return entries.sort(compareMapEntries);
