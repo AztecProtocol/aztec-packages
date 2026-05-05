@@ -99,7 +99,7 @@ export class MsgpackChannel<
     }
 
     if (response.msgType !== request.msgType) {
-      throw new Error('Invalid response message type: ' + response.msgType + ' != ' + response.msgType);
+      throw new Error('Invalid response message type: ' + response.msgType + ' != ' + request.msgType);
     }
 
     duration.totalUs = Number((process.hrtime.bigint() - start) / 1000n);

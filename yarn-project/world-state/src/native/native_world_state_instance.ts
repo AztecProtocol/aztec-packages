@@ -218,8 +218,20 @@ export class NativeWorldState implements NativeWorldStateInstance {
       return;
     }
     this.open = false;
-    const queue = this.queues.get(0)!;
 
+    // Drain non-canonical fork queues before closing the canonical native context so that any
+    // pending operations on those forks complete before the native is freed. Without this, a
+    // fork operation already past the open-check assert could be mid-flight to native while
+    // CLOSE runs, racing with the C++ destruction of the tree-store data. The canonical queue
+    // is drained at the bottom via the CLOSE message + queue.stop().
+    for (const [forkId, q] of this.queues) {
+      if (forkId !== 0) {
+        await q.stop();
+        this.queues.delete(forkId);
+      }
+    }
+
+    const queue = this.queues.get(0)!;
     await queue.execute(
       async () => {
         await this._sendMessage(WorldStateMessageType.CLOSE, { canonical: true });

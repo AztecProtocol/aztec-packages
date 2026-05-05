@@ -88,6 +88,8 @@
     "./committable": "./dest/committable/index.js",
     "./noir": "./dest/noir/index.js",
     "./testing": "./dest/testing/index.js",
+    "./testing/elu_monitor": "./dest/testing/elu_monitor.js",
+    "./testing/elu_jest_setup": "./dest/testing/elu_jest_setup.js",
     "./testing/files": "./dest/testing/files/index.js",
     "./profiler": "./dest/profiler/index.js",
     "./array": "./dest/array/index.js",
@@ -170,7 +172,7 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",
-    "@libp2p/interface": "1.3.1",
+    "@libp2p/interface": "^2.11.0",
     "@types/detect-node": "^2.0.0",
     "@types/jest": "^30.0.0",
     "@types/koa": "^2.15.0",

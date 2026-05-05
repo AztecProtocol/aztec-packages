@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { EpochNumber } from '@aztec/foundation/branded-types';
@@ -9,7 +8,8 @@ import os from 'os';
 import path from 'path';
 
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
+import { P2PNetworkTest, type P2PTestNode } from './p2p_network.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 const NUM_NODES = 6;
 const NUM_VALIDATORS = NUM_NODES;
@@ -27,9 +27,9 @@ const SLASHING_AMOUNT = SLASHING_UNIT * 3n;
 const SETUP_EPOCH_DURATION = 8;
 
 export class P2PInactivityTest {
-  public nodes!: AztecNodeService[];
-  public activeNodes!: AztecNodeService[];
-  public inactiveNodes!: AztecNodeService[];
+  public nodes!: P2PTestNode[];
+  public activeNodes!: WorkerAztecNode[];
+  public inactiveNodes!: WorkerAztecNode[];
 
   public rollup!: RollupContract;
   public offlineValidators!: EthAddress[];
@@ -128,6 +128,9 @@ export class P2PInactivityTest {
       NUM_NODES - this.inactiveNodeCount,
     );
 
+    // Register all worker nodes for time sync
+    this.test.registerWorkerNodes([...this.activeNodes, ...this.inactiveNodes]);
+
     this.nodes = [
       ...(this.keepInitialNode ? [this.test.ctx.aztecNodeService] : []),
       ...this.activeNodes,
@@ -158,8 +161,8 @@ export class P2PInactivityTest {
   }
 
   public async teardown() {
-    await this.test.stopNodes(this.nodes);
     await this.test.teardown();
+    await this.test.stopNodes(this.nodes);
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${this.dataDir}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }

@@ -1,6 +1,5 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
-
 import type { P2PNetworkTest } from '../p2p_network.js';
+import type { WorkerAztecNode } from '../worker_node.js';
 import { cleanupReqrespTest, createReqrespDataDir, createReqrespTest, runReqrespTxTest } from './utils.js';
 
 // TODO: DELETE THIS FILE
@@ -11,7 +10,7 @@ const DATA_DIR = createReqrespDataDir();
 
 describe('e2e_p2p_reqresp_tx_no_handshake', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
 
   beforeEach(async () => {
     t = await createReqrespTest({ disableStatusHandshake: true });

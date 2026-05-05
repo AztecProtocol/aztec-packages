@@ -1,11 +1,10 @@
-import type { Archiver } from '@aztec/archiver';
-import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
-import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
-import type { SequencerClient } from '@aztec/sequencer-client';
+import { ENR } from '@aztec/p2p';
+import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
@@ -16,8 +15,14 @@ import path from 'path';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import {
+  P2PNetworkTest,
+  type P2PTestNode,
+  SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+  WAIT_FOR_TX_TIMEOUT,
+} from './p2p_network.js';
 import { submitTransactions } from './shared.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
@@ -56,20 +61,19 @@ const qosAlerts: AlertConfig[] = [
 
 describe('e2e_p2p_preferred_network', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
-  let validators: AztecNodeService[];
-  let preferredNodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
+  let validators: WorkerAztecNode[];
+  let preferredNodes: WorkerAztecNode[];
 
   const waitForNodeToAcquirePeers = async (
-    node: AztecNodeService,
+    node: P2PTestNode,
     numRequiredPeers: number,
     timeout: number,
     identifier: string,
   ) => {
     return await retryUntil(
       async () => {
-        const p2pClient = (node as any).p2pClient as P2PClient;
-        const peers = await p2pClient.getPeers();
+        const peers = await node.getP2P().getPeers();
         if (peers.length !== numRequiredPeers) {
           t.logger.warn(`Got ${peers.length}, expected ${numRequiredPeers} for ${identifier}`);
         }
@@ -79,51 +83,6 @@ describe('e2e_p2p_preferred_network', () => {
       'Wait for peers',
       timeout,
     );
-  };
-
-  // Intercepts all P2P gossip and verifies that it is received from one of a set of expect peers
-  const monitorP2PTraffic = (node: AztecNodeService, expectedPeers: string[]) => {
-    const p2pService = (node.getP2P() as any).p2pService as P2PService;
-
-    // @ts-expect-error - we want to spy on received tx handler
-    const oldTxHandler = p2pService.handleGossipedTx.bind(p2pService);
-    // Mock the function to just call the old one
-    const handleGossipedTxSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
-      expect(expectedPeers.includes(source.toString())).toBe(true);
-      await oldTxHandler(payload, msgId, source);
-    });
-    // @ts-expect-error - replace with our own handler
-    p2pService.handleGossipedTx = handleGossipedTxSpy;
-
-    // @ts-expect-error - we want to spy on received proposal handler
-    const oldProposalHandler = p2pService.processBlockFromPeer.bind(p2pService);
-
-    // Mock the function to just call the old one
-    const handleGossipedProposalSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
-      expect(expectedPeers.includes(source.toString())).toBe(true);
-      await oldProposalHandler(payload, msgId, source);
-    });
-    // @ts-expect-error - replace with our own handler
-    p2pService.processBlockFromPeer = handleGossipedProposalSpy;
-
-    // @ts-expect-error - we want to spy on received attestation handler
-    const oldAttestationHandler = p2pService.processCheckpointAttestationFromPeer.bind(p2pService);
-
-    // Mock the function to just call the old one
-    const handleGossipedAttestationSpy = jest.fn(async (payload: Buffer, msgId: string, source: PeerId) => {
-      expect(expectedPeers.includes(source.toString())).toBe(true);
-      await oldAttestationHandler(payload, msgId, source);
-    });
-    // @ts-expect-error - replace with our own handler
-    p2pService.processCheckpointAttestationFromPeer = handleGossipedAttestationSpy;
-  };
-
-  const mockFailedAuthHandler = (node: AztecNodeService) => {
-    const p2pService = (node.getP2P() as any).p2pService as P2PService;
-    const peerManager = (p2pService as any).peerManager;
-
-    // Don't mark auth fails
-    peerManager.markAuthHandshakeFailed = jest.fn().mockImplementation(() => {});
   };
 
   beforeEach(async () => {
@@ -139,8 +98,10 @@ describe('e2e_p2p_preferred_network', () => {
         aztecEpochDuration: 4,
         listenAddress: '127.0.0.1',
         p2pDisableStatusHandshake: false,
-        // Just for testing be aggressive here, don't allow any auth handshake failures
-        p2pMaxFailedAuthAttemptsAllowed: 0,
+        // Allow many failed auth attempts so that localhost-shared-IP bans don't cascade across
+        // validators and non-validators. Peer gating still works because non-validators fail auth
+        // on connection attempts to preferred nodes — they just don't get banned for retrying.
+        p2pMaxFailedAuthAttemptsAllowed: Number.MAX_SAFE_INTEGER,
       },
     });
 
@@ -149,8 +110,9 @@ describe('e2e_p2p_preferred_network', () => {
   });
 
   afterEach(async () => {
-    await t.stopNodes([t.ctx.aztecNodeService].concat(nodes).concat(validators).concat(preferredNodes));
     await t.teardown();
+    const workerNodes: P2PTestNode[] = [...nodes, ...validators, ...preferredNodes];
+    await t.stopNodes(workerNodes);
     for (let i = 0; i < NUM_NODES + NUM_VALIDATORS + NUM_PREFERRED_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
@@ -202,10 +164,6 @@ describe('e2e_p2p_preferred_network', () => {
     indexOffset += NUM_PREFERRED_NODES;
 
     const preferredNodeEnrs = await Promise.all(preferredNodes.map(node => node.getEncodedEnr()));
-
-    // w/o this mock the test would fail, because we gate peers by IP and all the nodes share the same IP (localhost)
-    // This also proves that our peer gating works as expected
-    preferredNodes.forEach(node => mockFailedAuthHandler(node));
 
     t.logger.info('Preferred nodes created', {
       preferredNodeEnrs: preferredNodeEnrs.map(enr => enr?.toString()),
@@ -280,6 +238,9 @@ describe('e2e_p2p_preferred_network', () => {
       indexOffset,
     );
 
+    // Register all worker nodes so DateProvider setTime broadcasts reach them.
+    t.registerWorkerNodes([...preferredNodes, ...nodes, ...validators, ...noDiscoveryValidators]);
+
     // The initial node has P2P disabled (skipInitialSequencer), so exclude it from peer expectations.
     const allNodes = [...nodes, ...preferredNodes, ...validators, ...noDiscoveryValidators];
     const identifiers = nodes
@@ -304,29 +265,48 @@ describe('e2e_p2p_preferred_network', () => {
       `All node peer connections established: ${identifiers.map((id, i) => `${id} (${expectedPeerCounts[i]})`).join(', ')}`,
     );
 
+    // Wait for gossipsub mesh to form before proceeding. TCP connections alone are not
+    // sufficient — gossipsub needs heartbeat cycles to GRAFT peers into the mesh.
+    // Without this, validators may miss proposals/attestations via gossip.
+    //
+    // We skip the mesh check for preferred nodes and no-discovery validators because gossipsub's
+    // `directPeers` mechanism prevents them from ever forming mesh links:
+    // - Preferred nodes (indices 2,3): validators have them as directPeers, so when the preferred
+    //   node tries to GRAFT a validator, the validator rejects with PRUNE (gossipsub never GRAFTs
+    //   to/from directPeers). The PRUNE triggers a 60s backoff, creating an infinite cycle.
+    // - Picky validator (index 6): ALL its peers are its own directPeers, and gossipsub excludes
+    //   directPeers from mesh candidacy during heartbeats.
+    // Message delivery still works for these nodes via gossipsub's directPeers relay path, which
+    // always sends messages to directPeers regardless of mesh membership.
+    const preferredNodeStartIndex = nodes.length;
+    const pickyValidatorIndex = nodes.length + preferredNodes.length + validators.length;
+    const skipMeshCheck = new Set<number>();
+    for (let i = 0; i < preferredNodes.length; i++) {
+      skipMeshCheck.add(preferredNodeStartIndex + i);
+    }
+    for (let i = 0; i < noDiscoveryValidators.length; i++) {
+      skipMeshCheck.add(pickyValidatorIndex + i);
+    }
+    await t.waitForGossipSubMesh(allNodes, undefined, undefined, undefined, skipMeshCheck);
+
     validators.push(...noDiscoveryValidators);
 
-    // We will setup some gossip monitors to ensure that nodes that restrict who they connect to
-    // only receive messages from expected peers
+    // Install gossip source observers in the workers so we can assert that nodes that restrict
+    // who they connect to only receive gossip from the expected peers. Replaces the inline
+    // `monitorP2PTraffic` monkey-patch that the pre-worker-thread version of this test used.
+    const preferredNodePeerIds = preferredNodeEnrs.map(enr => ENR.decodeTxt(enr!).peerId.toString());
+    const validatorEnrs = await Promise.all(validators.map(v => v.getEncodedEnr()));
+    const validatorPeerIds = validatorEnrs.map(enr => ENR.decodeTxt(enr!).peerId.toString());
 
-    const preferredNodePeerIds = await Promise.all(preferredNodeEnrs.map(x => ENR.decodeTxt(x!).peerId()));
-    const validatorEnrs = await Promise.all(validators.map(p => p.getEncodedEnr()));
-    const validatorPeerIds = await Promise.all(validatorEnrs.map(x => ENR.decodeTxt(x!).peerId()));
+    // No-discovery validators should only receive P2P gossip from preferred nodes, as those are
+    // the only peers they connect to.
+    await Promise.all(noDiscoveryValidators.map(v => v.startGossipSourceRecording()));
+    // Preferred nodes should only receive P2P gossip from validators (incl. the picky one).
+    await Promise.all(preferredNodes.map(n => n.startGossipSourceRecording()));
 
-    // No-discovery validators should only receive P2P gossip from preferred nodes, as that is all they connect to
-    noDiscoveryValidators.forEach(validator => {
-      monitorP2PTraffic(
-        validator,
-        preferredNodePeerIds.map(x => x.toString()),
-      );
-    });
-    // Preferred nodes should only receive P2P gossip from validators
-    preferredNodes.forEach(node => {
-      monitorP2PTraffic(
-        node,
-        validatorPeerIds.map(x => x.toString()),
-      );
-    });
+    // Advance to a fresh slot so the proposer gets a clean window for block building.
+    const [timestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+    t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
@@ -354,15 +334,23 @@ describe('e2e_p2p_preferred_network', () => {
 
     // Gather signers from attestations downloaded from L1
     const blockNumber = receipts[0].blockNumber!;
-    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
+    const [checkpointedBlock] = await nodes[0].getCheckpointedBlocks(blockNumber, 1);
+    const [publishedCheckpoint] = await nodes[0].getCheckpoints(checkpointedBlock.checkpointNumber, 1, {
+      includeAttestations: true,
+    });
     const signatureContext = {
       chainId: t.ctx.aztecNodeConfig.l1ChainId,
       rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     };
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
-    const attestations = publishedCheckpoint.attestations
+    const checkpoint = new Checkpoint(
+      publishedCheckpoint.archive,
+      publishedCheckpoint.header,
+      [],
+      publishedCheckpoint.number,
+      publishedCheckpoint.feeAssetPriceModifier,
+    );
+    const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
+    const attestations = (publishedCheckpoint.attestations ?? [])
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
     const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
@@ -371,12 +359,36 @@ describe('e2e_p2p_preferred_network', () => {
     expect(signers.length).toEqual(validators.length);
 
     // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
-    const validatorAddresses = validators.flatMap(node =>
-      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(a => a.toString()),
-    );
+    const validatorAddressesPerNode = await Promise.all(validators.map(node => node.getValidatorAddresses()));
+    const validatorAddresses = validatorAddressesPerNode.flatMap(addrs => addrs?.map(a => a.toString()) ?? []);
     t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
     for (const signer of signers) {
       expect(validatorAddresses).toContain(signer);
+    }
+
+    // Assert each recording node only received gossip from its allowed peer set. This is the
+    // worker-thread equivalent of the old `monitorP2PTraffic` spies — proves that libp2p v2's
+    // peer gating is actually rejecting gossip from non-allowed peers rather than relying on the
+    // peer-count assertion alone.
+    const assertSourcesIn = async (node: WorkerAztecNode, allowed: string[], label: string) => {
+      const records = await node.getGossipSources();
+      t.logger.info(`Gossip sources for ${label}`, {
+        total: records.length,
+        byTopic: records.reduce<Record<string, number>>((acc, r) => {
+          acc[r.topic] = (acc[r.topic] ?? 0) + 1;
+          return acc;
+        }, {}),
+      });
+      expect(records.length).toBeGreaterThan(0);
+      for (const record of records) {
+        expect(allowed).toContain(record.source);
+      }
+    };
+    for (let i = 0; i < noDiscoveryValidators.length; i++) {
+      await assertSourcesIn(noDiscoveryValidators[i], preferredNodePeerIds, `Picky Validator ${i + 1}`);
+    }
+    for (let i = 0; i < preferredNodes.length; i++) {
+      await assertSourcesIn(preferredNodes[i], validatorPeerIds, `Preferred Node ${i + 1}`);
     }
   });
 });

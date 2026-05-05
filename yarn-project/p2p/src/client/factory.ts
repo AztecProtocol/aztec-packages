@@ -30,7 +30,7 @@ import { createFileStoreTxSources } from '../services/tx_collection/file_store_t
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import { NodeRpcTxSource, type TxSource, createNodeRpcTxSources } from '../services/tx_collection/tx_source.js';
 import { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
-import { configureP2PClientAddresses, createLibP2PPeerIdFromPrivateKey, getPeerIdPrivateKey } from '../util.js';
+import { configureP2PClientAddresses, getPeerIdPrivateKey } from '../util.js';
 
 export type P2PClientDeps = {
   txPool?: TxPoolV2;
@@ -39,7 +39,7 @@ export type P2PClientDeps = {
   logger?: Logger;
   txCollectionNodeSources?: TxSource[];
   rpcTxProviders?: AztecNode[];
-  p2pServiceFactory?: (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService>;
+  p2pServiceFactory?: (...args: Parameters<typeof LibP2PService.new>) => Promise<LibP2PService>;
 };
 
 export const P2P_STORE_NAME = 'p2p';
@@ -236,10 +236,9 @@ async function createP2PService(
   logger.verbose('P2P is enabled. Using LibP2P service.');
 
   // Create peer discovery service
-  const peerIdPrivateKey = await getPeerIdPrivateKey(config, store, logger);
-  const peerId = await createLibP2PPeerIdFromPrivateKey(peerIdPrivateKey.getValue());
+  const privateKey = await getPeerIdPrivateKey(config, store, logger);
 
-  const p2pService = await (p2pServiceFactory ?? LibP2PService.new)(config, peerId, {
+  const p2pService = await (p2pServiceFactory ?? LibP2PService.new)(config, privateKey, {
     packageVersion,
     mempools,
     l2BlockSource: archiver,

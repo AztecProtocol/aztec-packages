@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { sleep } from '@aztec/foundation/sleep';
@@ -8,9 +7,10 @@ import os from 'os';
 import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
+import { createNodes, createWorkerNode } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
@@ -21,7 +21,7 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rediscovery-'));
 
 describe('e2e_p2p_rediscovery', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -43,8 +43,8 @@ describe('e2e_p2p_rediscovery', () => {
 
   afterEach(async () => {
     t.logger.info('Stopping nodes and cleaning up data directories');
-    await t.stopNodes(nodes);
     await t.teardown();
+    await t.stopNodes(nodes);
     for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
@@ -63,6 +63,7 @@ describe('e2e_p2p_rediscovery', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       shouldCollectMetrics(),
     );
+    t.registerWorkerNodes(nodes);
 
     // wait a bit for peers to discover each other
     await sleep(8000);
@@ -76,7 +77,7 @@ describe('e2e_p2p_rediscovery', () => {
     await t.bootstrapNode?.stop();
 
     // create new nodes from datadir
-    const newNodes: AztecNodeService[] = [];
+    const newNodes: WorkerAztecNode[] = [];
 
     // stop all nodes
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -85,7 +86,7 @@ describe('e2e_p2p_rediscovery', () => {
       t.logger.info(`Node ${i} stopped`);
       await sleep(2500);
 
-      const newNode = await createNode(
+      const newNode = await createWorkerNode(
         t.ctx.aztecNodeConfig,
         t.ctx.dateProvider,
         i + 1 + BOOT_NODE_UDP_PORT,
@@ -93,11 +94,14 @@ describe('e2e_p2p_rediscovery', () => {
         i,
         t.genesis,
         `${DATA_DIR}-${i}`,
+        undefined,
+        i,
       );
       t.logger.info(`Node ${i} restarted`);
       newNodes.push(newNode);
     }
     nodes = newNodes;
+    t.registerWorkerNodes(nodes);
 
     // wait a bit for peers to discover each other
     await sleep(2000);

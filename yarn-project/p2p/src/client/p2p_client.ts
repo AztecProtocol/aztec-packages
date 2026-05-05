@@ -23,8 +23,8 @@ import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, typ
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
+import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
-import type { ENR } from '@nethermindeth/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { TxPoolError } from '../errors/tx-pool.error.js';

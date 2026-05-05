@@ -1,0 +1,8 @@
+{
+  "jest": {
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs",
+      "../../foundation/src/testing/elu_jest_setup.ts"
+    ]
+  }
+}

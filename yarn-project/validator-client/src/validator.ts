@@ -340,6 +340,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   }
 
   public async stop() {
+    // Drain in-flight blob uploads before any other shutdown step so they finish their LMDB walks
+    // while the L2BlockSource is still alive.
+    await this.proposalHandler.stop();
     await this.epochCacheUpdateLoop.stop();
     await this.keyStore.stop();
   }

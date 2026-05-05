@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
@@ -20,6 +19,7 @@ import { encodeFunctionData, getAddress, getContract } from 'viem';
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
@@ -37,7 +37,7 @@ jest.setTimeout(1000 * 60 * 10);
  */
 describe('e2e_p2p_governance_proposer', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
   let l1TxUtils: L1TxUtils;
 
   beforeEach(async () => {
@@ -64,8 +64,8 @@ describe('e2e_p2p_governance_proposer', () => {
   });
 
   afterEach(async () => {
-    await t.stopNodes(nodes);
     await t.teardown();
+    await t.stopNodes(nodes);
     for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
@@ -156,6 +156,7 @@ describe('e2e_p2p_governance_proposer', () => {
       DATA_DIR,
       shouldCollectMetrics(),
     );
+    t.registerWorkerNodes(nodes);
 
     await sleep(4000);
 

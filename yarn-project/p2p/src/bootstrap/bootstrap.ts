@@ -3,10 +3,10 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { P2PBootstrapApi } from '@aztec/stdlib/interfaces/server';
 import { OtelMetricsAdapter, type TelemetryClient } from '@aztec/telemetry-client';
 
+import { Discv5, type Discv5EventEmitter } from '@chainsafe/discv5';
+import { ENR, type SignableENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import { type Multiaddr, multiaddr } from '@multiformats/multiaddr';
-import { Discv5, type Discv5EventEmitter } from '@nethermindeth/discv5';
-import { ENR, type SignableENR } from '@nethermindeth/enr';
 
 import type { BootnodeConfig } from '../config.js';
 import { createBootnodeENRandPeerId } from '../enr/generate-enr.js';
@@ -56,10 +56,10 @@ export class BootstrapNode implements P2PBootstrapApi {
 
     const listenAddrUdp = multiaddr(convertToMultiaddr(listenAddress, config.p2pBroadcastPort!, 'udp'));
 
-    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store, this.logger);
+    const libp2pPrivateKey = await getPeerIdPrivateKey(config, this.store, this.logger);
 
-    const { enr: ourEnr, peerId } = await createBootnodeENRandPeerId(
-      peerIdPrivateKey.getValue(),
+    const { enr: ourEnr, peerId } = createBootnodeENRandPeerId(
+      libp2pPrivateKey,
       p2pIp,
       config.p2pBroadcastPort!,
       config.l1ChainId,
@@ -71,7 +71,7 @@ export class BootstrapNode implements P2PBootstrapApi {
     const metricsRegistry = new OtelMetricsAdapter(this.telemetry, this.logger.getBindings());
     this.node = Discv5.create({
       enr: ourEnr,
-      peerId,
+      privateKey: libp2pPrivateKey,
       bindAddrs: { ip4: listenAddrUdp },
       config: {
         lookupTimeout: 2000,

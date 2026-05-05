@@ -1,5 +1,5 @@
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
-import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -15,10 +15,15 @@ import { EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
+import type { EluSummaryStats } from '@aztec/foundation/testing/elu_monitor';
+import { writeAggregateEluSummary } from '@aztec/foundation/testing/elu_monitor';
 import { RollupAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
+import { privateKeyFromHex } from '@aztec/p2p';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode, PeerInfo } from '@aztec/stdlib/interfaces/server';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { TopicType } from '@aztec/stdlib/p2p';
 import type { GenesisData } from '@aztec/stdlib/world-state';
@@ -48,9 +53,11 @@ import {
 } from '../fixtures/setup_p2p_test.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
-const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
+const BOOTSTRAP_NODE_PRIVATE_KEY_HEX = '080212208f988fc0899e4a73a5aee4d271a5f20670603a756ad8d84f2c94263a6427c591';
+const BOOTSTRAP_NODE_PRIVATE_KEY = privateKeyFromHex(BOOTSTRAP_NODE_PRIVATE_KEY_HEX);
 const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
@@ -59,6 +66,19 @@ export const SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES = {
   ethereumSlotDuration: 4,
   aztecProofSubmissionEpochs: 640,
 };
+
+/**
+ * Minimal node interface satisfied by both AztecNodeService (in-process) and WorkerAztecNode (worker thread).
+ * Used by P2PNetworkTest helpers that need to operate on either type of node.
+ */
+export type P2PTestNode = AztecNode &
+  AztecNodeAdmin & {
+    getP2P(): {
+      getPeers(includePending?: boolean): Promise<PeerInfo[]>;
+      getGossipMeshPeerCount(topicType: TopicType): Promise<number>;
+    };
+    stop(): Promise<void>;
+  };
 
 export class P2PNetworkTest {
   public context!: EndToEndContext;
@@ -168,7 +188,7 @@ export class P2PNetworkTest {
   }) {
     const port = basePort || (await getPort());
 
-    const bootstrapNodeENR = await getBootstrapNodeEnr(BOOTSTRAP_NODE_PRIVATE_KEY, port);
+    const bootstrapNodeENR = getBootstrapNodeEnr(BOOTSTRAP_NODE_PRIVATE_KEY, port);
     const bootstrapNodeEnr = bootstrapNodeENR.encodeTxt();
 
     const initialValidatorConfig = await createValidatorConfig(
@@ -199,7 +219,7 @@ export class P2PNetworkTest {
     this.logger.info('Adding bootstrap node');
     const telemetry = await getEndToEndTestTelemetryClient(this.metricsPort);
     this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
-      BOOTSTRAP_NODE_PRIVATE_KEY,
+      BOOTSTRAP_NODE_PRIVATE_KEY_HEX,
       this.bootNodePort,
       telemetry,
       this.context.config,
@@ -301,7 +321,7 @@ export class P2PNetworkTest {
   }
 
   /** Points the wallet to a P2P-enabled node so transactions can propagate through the network. */
-  setupWalletOnNode(node: AztecNodeService) {
+  setupWalletOnNode(node: AztecNode) {
     this.logger.info('Pointing wallet to a P2P-enabled node');
     this.context.wallet.updateNode(node);
   }
@@ -401,10 +421,34 @@ export class P2PNetworkTest {
 
     const rollupContract = RollupContract.getFromL1ContractsValues(this.context.deployL1ContractsValues);
     this.monitor = new ChainMonitor(rollupContract, this.context.dateProvider).start();
-    this.monitor.on('l1-block', ({ timestamp }) => this.context.dateProvider.setTime(Number(timestamp) * 1000));
+    this.monitor.on('l1-block', ({ timestamp }) => {
+      const timeMs = Number(timestamp) * 1000;
+      this.context.dateProvider.setTime(timeMs);
+      // Also broadcast to any registered worker nodes (fire-and-forget)
+      for (const wn of this.workerNodes) {
+        wn.setTime(timeMs).catch(() => {});
+      }
+    });
   }
 
-  async stopNodes(nodes: AztecNodeService[]) {
+  /** Worker nodes registered for time sync broadcasts. */
+  private workerNodes: WorkerAztecNode[] = [];
+
+  /** Registers worker nodes so setTime calls are broadcast to their DateProviders. */
+  registerWorkerNodes(nodes: WorkerAztecNode[]) {
+    this.workerNodes = nodes;
+  }
+
+  /**
+   * Sets time on the shared DateProvider AND broadcasts to all registered worker nodes.
+   * Use this instead of context.dateProvider.setTime() when worker nodes are active.
+   */
+  async setTimeOnAllNodes(timeMs: number) {
+    this.context.dateProvider.setTime(timeMs);
+    await Promise.all(this.workerNodes.map(wn => wn.setTime(timeMs).catch(() => {})));
+  }
+
+  async stopNodes(nodes: P2PTestNode[]) {
     this.logger.info('Stopping nodes');
 
     if (!nodes || !nodes.length) {
@@ -412,8 +456,32 @@ export class P2PNetworkTest {
       return;
     }
 
+    // Stop all nodes first. For worker nodes, stop() also captures the ELU summary just before
+    // terminating the worker thread (the summary isn't available until eluMonitor.stop() runs
+    // inside the worker, which happens as part of the stopNode RPC).
     await Promise.all(nodes.map(node => node.stop()));
 
+    // Now collect the captured ELU stats from each worker (served from in-memory cache on the
+    // proxy since the worker thread is already terminated).
+    const eluStats: EluSummaryStats[] = [];
+    for (const wn of this.workerNodes) {
+      try {
+        const stats = await wn.getEluStats();
+        if (stats) {
+          eluStats.push(stats);
+        }
+      } catch {
+        // Worker may already be dead
+      }
+    }
+
+    // Write aggregate ELU summary to the shared file after all workers are stopped
+    const eluFilePath = process.env.ELU_MONITOR_FILE;
+    if (eluFilePath && eluStats.length > 0) {
+      writeAggregateEluSummary(eluFilePath, eluStats);
+    }
+
+    this.workerNodes = [];
     this.logger.info('Nodes stopped');
   }
 
@@ -427,8 +495,51 @@ export class P2PNetworkTest {
    * @param timeoutSeconds - Maximum time to wait for connections (default: 30 seconds)
    * @param checkIntervalSeconds - How often to check connectivity (default: 0.1 seconds)
    */
+  /**
+   * Wait for gossipsub mesh to form for all specified topics across all nodes.
+   * Each node must have at least 1 mesh peer per topic before this resolves.
+   *
+   * @param skipNodeIndices - Indices of nodes to skip the mesh check for. This is needed for
+   *   nodes whose only gossipsub peers are configured as `directPeers` (e.g. via `preferredPeers`).
+   *   Gossipsub's `directPeers` bypass the mesh entirely: they are excluded from mesh candidacy
+   *   during heartbeats and GRAFT attempts from directPeers are rejected with PRUNE. This means
+   *   nodes that ONLY connect to peers that have them as `directPeers` will never form mesh links,
+   *   even though message delivery still works via the directPeers relay path.
+   */
+  async waitForGossipSubMesh(
+    nodes: P2PTestNode[],
+    topics: TopicType[] = [TopicType.tx],
+    timeoutSeconds = 30,
+    checkIntervalSeconds = 0.1,
+    skipNodeIndices: Set<number> = new Set(),
+  ) {
+    for (const topic of topics) {
+      this.logger.warn(`Waiting for GossipSub mesh to form for ${topic} topic...`);
+      await Promise.all(
+        nodes.map(async (node, index) => {
+          if (skipNodeIndices.has(index)) {
+            this.logger.warn(`Skipping gossip mesh check for node ${index} (directPeers-only node)`);
+            return;
+          }
+          const p2p = node.getP2P();
+          await retryUntil(
+            async () => {
+              const meshPeers = await p2p.getGossipMeshPeerCount(topic);
+              this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for ${topic} topic`);
+              return meshPeers >= 1 ? true : undefined;
+            },
+            `Node ${index} to have gossip mesh peers for ${topic} topic`,
+            timeoutSeconds,
+            checkIntervalSeconds,
+          );
+        }),
+      );
+      this.logger.warn(`All nodes have gossip mesh peers for ${topic} topic`);
+    }
+  }
+
   async waitForP2PMeshConnectivity(
-    nodes: AztecNodeService[],
+    nodes: P2PTestNode[],
     expectedNodeCount?: number,
     timeoutSeconds = 30,
     checkIntervalSeconds = 0.1,
@@ -459,28 +570,7 @@ export class P2PNetworkTest {
 
     this.logger.warn('All nodes connected to P2P mesh');
 
-    // Wait for GossipSub mesh to form for all specified topics.
-    // We only require at least 1 mesh peer per node because GossipSub
-    // stops grafting once it reaches Dlo peers and won't fill the mesh to all available peers.
-    for (const topic of topics) {
-      this.logger.warn(`Waiting for GossipSub mesh to form for ${topic} topic...`);
-      await Promise.all(
-        nodes.map(async (node, index) => {
-          const p2p = node.getP2P();
-          await retryUntil(
-            async () => {
-              const meshPeers = await p2p.getGossipMeshPeerCount(topic);
-              this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for ${topic} topic`);
-              return meshPeers >= 1 ? true : undefined;
-            },
-            `Node ${index} to have gossip mesh peers for ${topic} topic`,
-            timeoutSeconds,
-            checkIntervalSeconds,
-          );
-        }),
-      );
-      this.logger.warn(`All nodes have gossip mesh peers for ${topic} topic`);
-    }
+    await this.waitForGossipSubMesh(nodes, topics, timeoutSeconds, checkIntervalSeconds);
   }
 
   async teardown() {

@@ -1,5 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
-import { createLogger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { Tx } from '@aztec/aztec.js/tx';
 import { RollupContract } from '@aztec/ethereum/contracts';
@@ -7,7 +5,7 @@ import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 
-import { expect, jest } from '@jest/globals';
+import { expect } from '@jest/globals';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -16,6 +14,7 @@ import { getBootNodeUdpPort, shouldCollectMetrics } from '../../fixtures/fixture
 import { createNodes } from '../../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from '../p2p_network.js';
 import { prepareTransactions } from '../shared.js';
+import type { WorkerAztecNode } from '../worker_node.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 export const NUM_VALIDATORS = 6;
@@ -56,12 +55,12 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
   return t;
 }
 
-export async function cleanupReqrespTest(params: { t: P2PNetworkTest; nodes?: AztecNodeService[]; dataDir: string }) {
+export async function cleanupReqrespTest(params: { t: P2PNetworkTest; nodes?: WorkerAztecNode[]; dataDir: string }) {
   const { t, nodes, dataDir } = params;
+  await t.teardown();
   if (nodes) {
     await t.stopNodes(nodes);
   }
-  await t.teardown();
   for (let i = 0; i < NUM_VALIDATORS; i++) {
     fs.rmSync(`${dataDir}-${i}`, { recursive: true, force: true, maxRetries: 3 });
   }
@@ -73,7 +72,7 @@ export async function runReqrespTxTest(params: {
   t: P2PNetworkTest;
   dataDir: string;
   disableStatusHandshake?: boolean;
-}): Promise<AztecNodeService[]> {
+}): Promise<WorkerAztecNode[]> {
   const { t, dataDir, disableStatusHandshake = false } = params;
 
   if (!t.bootstrapNodeEnr) {
@@ -95,9 +94,14 @@ export async function runReqrespTxTest(params: {
     dataDir,
     shouldCollectMetrics(),
   );
+  t.registerWorkerNodes(nodes);
 
   t.logger.info('Waiting for nodes to connect');
   await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
+
+  // Advance to a fresh slot so the proposer gets a clean window for block building.
+  const [setupTimestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+  t.ctx.dateProvider.setTime(Number(setupTimestamp) * 1000);
 
   await t.setupAccount();
 
@@ -129,18 +133,14 @@ export async function runReqrespTxTest(params: {
   t.logger.info(`Turning off tx gossip for nodes: ${nodesToTurnOffTxGossip.map(getNodePort)}`);
   t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes.map(getNodePort)}`);
 
-  // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
-  // Original implementation of `handleGossipedTx` will store received transactions in the tx pool.
-  // We chose the first 2 nodes that will be the proposers for the next few slots
+  // Configure non-proposer nodes to drop txs received via the pending-pool path (gossip + direct sendTx).
+  // This forces them to fetch tx data via req/resp when they need it for attestations.
+  // Req/resp-fetched txs go through addProtectedTxs/addMinedTxs which bypass this drop, so the test
+  // can verify the req/resp fallback. We only send sendTx to proposers, so the direct-submission
+  // side-effect is irrelevant here.
   for (const nodeIndex of nodesToTurnOffTxGossip) {
-    const logger = createLogger(`p2p:${getNodePort(nodeIndex)}`);
-    jest.spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx').mockImplementation(((
-      payloadData: Buffer,
-    ) => {
-      const txHash = Tx.fromBuffer(payloadData).getTxHash();
-      logger.info(`Skipping storage of gossiped transaction ${txHash.toString()}`);
-      return Promise.resolve();
-    }) as any);
+    t.logger.info(`Disabling pending-tx storage on node ${getNodePort(nodeIndex)}`);
+    await nodes[nodeIndex].setTxPoolDropProbability(1);
   }
 
   // We send the tx to the proposer nodes directly, ignoring the pxe and node in each context
@@ -158,8 +158,18 @@ export async function runReqrespTxTest(params: {
       );
       await Promise.all(
         batch.map(async tx => {
+          // Strip ProvenTx's extras (node reference, offchainEffects, stats) before sending over
+          // the worker-thread RPC. ProvenTx.node holds an AztecNode proxy that contains viem
+          // contract proxies — their toJSON getters throw during JSON.stringify.
+          const plainTx = new Tx(
+            tx.getTxHash(),
+            tx.data,
+            tx.chonkProof,
+            tx.contractClassLogFields,
+            tx.publicFunctionCalldata,
+          );
           try {
-            await proposerNode.sendTx(tx);
+            await proposerNode.sendTx(plainTx);
           } catch (err) {
             t.logger.error(`Error sending tx: ${err}`);
             throw err;

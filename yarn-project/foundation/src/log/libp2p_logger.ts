@@ -23,7 +23,7 @@ function replaceFormatting(message: string) {
     return message;
   }
 
-  return message.replace(/(%p|%a)/g, '%s');
+  return message.replace(/(%p|%a|%e)/g, '%s');
 }
 
 function createLibp2pLogger(component: string, bindings?: LoggerBindings): Logger {
@@ -69,6 +69,10 @@ function createLibp2pLogger(component: string, bindings?: LoggerBindings): Logge
 
     trace(message: string, ...args: unknown[]) {
       logIfEnabled('trace', message, ...args);
+    },
+
+    newScope(name: string): Logger {
+      return createLibp2pLogger(`${component}:${name}`, bindings);
     },
   });
 }

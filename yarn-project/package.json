@@ -99,6 +99,7 @@
     "koa": "^2.16.4",
     "serialize-javascript": "^7.0.3",
     "@modelcontextprotocol/sdk": "^1.27.1",
-    "jws": "^4.0.1"
+    "jws": "^4.0.1",
+    "@multiformats/multiaddr": "~12.4.0"
   }
 }

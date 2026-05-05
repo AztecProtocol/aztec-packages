@@ -13,6 +13,7 @@ import path from 'path';
 import { getBootNodeUdpPort } from '../fixtures/fixtures.js';
 import { createNodes, createNonValidatorNode } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 const NUM_NODES = 2;
 const VALIDATORS_PER_NODE = 3;
@@ -32,7 +33,7 @@ jest.setTimeout(1000 * 60 * 10);
 // REFACTOR: This test shares much code with `validators_sentinel` so we may be able to refactor common parts out.
 describe('e2e_p2p_multiple_validators_sentinel', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
   let sentinel: AztecNodeService;
   let rollup: RollupContract;
 
@@ -78,6 +79,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
       0, // index offset
       VALIDATORS_PER_NODE, // validators per node
     );
+    t.registerWorkerNodes(nodes);
 
     sentinel = await createNonValidatorNode(
       t.ctx.aztecNodeConfig,
@@ -95,8 +97,8 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
   });
 
   afterAll(async () => {
-    await t.stopNodes([...nodes, sentinel]);
     await t.teardown();
+    await t.stopNodes([...nodes, sentinel]);
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }

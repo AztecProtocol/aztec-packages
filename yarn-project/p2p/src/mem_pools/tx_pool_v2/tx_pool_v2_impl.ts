@@ -765,6 +765,9 @@ export class TxPoolV2Impl {
     if (config.minTxPoolAgeMs !== undefined) {
       this.#config.minTxPoolAgeMs = config.minTxPoolAgeMs;
     }
+    if (config.dropTransactionsProbability !== undefined) {
+      this.#config.dropTransactionsProbability = config.dropTransactionsProbability;
+    }
     // Update eviction rules with new config
     this.#evictionManager.updateConfig(config);
   }

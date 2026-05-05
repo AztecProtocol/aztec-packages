@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -25,6 +24,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { P2PNetworkTest } from './p2p_network.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 const debugLogger = createLogger('e2e:spartan-test:slash-veto-demo');
 
@@ -55,9 +55,9 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slash-veto-demo-'));
 
 describe('veto slash', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
   let slashingAmount: bigint;
-  let additionalNode: AztecNodeService | undefined;
+  let additionalNode: WorkerAztecNode | undefined;
   let rollup: RollupContract;
   let vetoerL1TxUtils: L1TxUtils;
   let vetoerL1Client: ExtendedViemWalletClient;
@@ -102,6 +102,7 @@ describe('veto slash', () => {
 
       DATA_DIR,
     );
+    t.registerWorkerNodes(nodes);
 
     vetoerL1Client = createExtendedL1Client(
       t.ctx.aztecNodeConfig.l1RpcUrls,
@@ -134,11 +135,11 @@ describe('veto slash', () => {
   });
 
   afterEach(async () => {
+    await t.teardown();
     await t.stopNodes(nodes);
     if (additionalNode !== undefined) {
       await t.stopNodes([additionalNode]);
     }
-    await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }

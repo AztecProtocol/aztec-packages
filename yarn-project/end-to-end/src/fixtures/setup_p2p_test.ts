@@ -11,6 +11,7 @@ import type { GenesisData } from '@aztec/stdlib/world-state';
 
 import getPort from 'get-port';
 
+import { type WorkerAztecNode, createWorkerAztecNode } from '../e2e_p2p/worker_node.js';
 import { TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { createAndSyncProverNode, getPrivateKeyFromIndex } from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
@@ -34,7 +35,57 @@ export function generatePrivateKeys(startIndex: number, numberOfKeys: number): `
   return privateKeys;
 }
 
+/**
+ * Creates P2P-enabled validator nodes in separate worker threads.
+ * Each node gets its own event loop, preventing event-loop saturation under CI conditions.
+ */
 export async function createNodes(
+  config: AztecNodeConfig & { dontStartSequencer?: boolean },
+  dateProvider: DateProvider,
+  bootstrapNodeEnr: string,
+  numNodes: number,
+  bootNodePort: number,
+  genesis?: GenesisData,
+  dataDirectory?: string,
+  metricsPort?: number,
+  indexOffset = 0,
+  validatorsPerNode = 1,
+): Promise<WorkerAztecNode[]> {
+  const eluFilePath = process.env.ELU_MONITOR_FILE;
+  const nodePromises: Promise<WorkerAztecNode>[] = [];
+
+  for (let i = 0; i < numNodes; i++) {
+    const index = indexOffset + i;
+    const port = bootNodePort + 1 + index;
+    const validatorIndices = validatorsPerNode === 1 ? index : range(validatorsPerNode, validatorsPerNode * index);
+    const dataDir = dataDirectory ? `${dataDirectory}-${index}` : undefined;
+
+    const validatorConfig = createValidatorConfig(config, bootstrapNodeEnr, port, validatorIndices, dataDir);
+
+    nodePromises.push(
+      createWorkerAztecNode({
+        config: await validatorConfig,
+        genesis,
+        dontStartSequencer: config.dontStartSequencer,
+        initialTimeMs: dateProvider.now(),
+        metricsPort,
+        eluFilePath,
+        workerIndex: index,
+      }),
+    );
+  }
+
+  return await Promise.all(nodePromises);
+}
+
+/**
+ * Creates in-process validator nodes that share the main thread's event loop.
+ *
+ * Only use this for tests that need direct access to node internals (monkey-patching).
+ * All other tests should use {@link createNodes} which runs each node in its own worker thread.
+ * These monkey-patching tests are scheduled for redesign to remove the need for this function.
+ */
+export async function createInProcessNodes(
   config: AztecNodeConfig & { dontStartSequencer?: boolean },
   dateProvider: DateProvider,
   bootstrapNodeEnr: string,
@@ -110,6 +161,34 @@ export async function createNode(
       { telemetry, dateProvider },
       { genesis, dontStartSequencer: config.dontStartSequencer },
     );
+  });
+}
+
+/**
+ * Creates a single P2P-enabled validator node in a worker thread.
+ * Worker-thread equivalent of {@link createNode} — use when a test needs to spawn
+ * individual nodes (not a whole batch via {@link createNodes}), e.g. for restart scenarios.
+ */
+export async function createWorkerNode(
+  config: CreateNodeConfig,
+  dateProvider: DateProvider,
+  tcpPort: number,
+  bootstrapNode: string | undefined,
+  addressIndex: number | number[],
+  genesis?: GenesisData,
+  dataDirectory?: string,
+  metricsPort?: number,
+  workerIndex?: number,
+): Promise<WorkerAztecNode> {
+  const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
+  return await createWorkerAztecNode({
+    config: validatorConfig,
+    genesis,
+    dontStartSequencer: config.dontStartSequencer,
+    initialTimeMs: dateProvider.now(),
+    metricsPort,
+    eluFilePath: process.env.ELU_MONITOR_FILE,
+    workerIndex,
   });
 }
 

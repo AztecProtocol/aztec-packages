@@ -10,8 +10,8 @@ import type {
 } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
 
+import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
-import type { ENR } from '@nethermindeth/enr';
 import type EventEmitter from 'events';
 
 import type { BatchTxRequesterLibP2PService } from './reqresp/batch-tx-requester/interface.js';

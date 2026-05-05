@@ -432,6 +432,102 @@ function build_and_test {
   return 0
 }
 
+# Temporary: grind all libp2p p2p tests back-to-back on one EC2 instance.
+# See local-notes/grind-p2p-reference.md. Revert with the ci-grind-p2p commit.
+function grind_p2p {
+  export CI=1
+  export USE_TEST_CACHE=0
+
+  # Per-test grind budget; integration lists are light, e2e runs under docker.
+  local timeout=${GRIND_TIMEOUT:-20m}
+  local memsuspend_pct=${MEMSUSPEND_PCT:-50}
+  # Integration tests are light (no docker isolation); pack at 2x oversub.
+  local int_jobs_pct=${INTEGRATION_JOBS_PCT:-100}
+  # E2E tests use worker threads (~7 Node threads each) + docker --cpus=2.
+  # jobs_pct=35 → ~67 replicas on 192-core = ~469 concurrent Node threads
+  # (~2.4x oversub). 50% triggered native heap corruption in libp2p v2 bindings
+  # under contention; 35% is a middle ground with scheduler slack. No strict
+  # CPU_LIST pinning.
+  local e2e_jobs_pct=${E2E_JOBS_PCT:-35}
+  # Per-replica outer timeout (source_test_params default is 600s). Must exceed
+  # Jest's --testTimeout below or the outer SIGTERM fires first.
+  local e2e_per_test_timeout=${E2E_PER_TEST_TIMEOUT:-1200s}
+  # Jest internal --testTimeout. Matches what our local tier3 scripts use;
+  # worker-thread slashing tests routinely need >300s under any real load.
+  local jest_test_timeout=${JEST_TEST_TIMEOUT:-900000}
+
+  local commit=$(git rev-parse HEAD)
+  local failed_tests=()
+
+  local integration_tests=(
+    "p2p/src/client/test/p2p_client.integration_status_handshake.test.ts"
+    "p2p/src/client/test/p2p_client.integration_block_txs.test.ts"
+    "p2p/src/client/test/p2p_client.integration_message_propagation.test.ts"
+    "p2p/src/client/test/p2p_client.integration_batch_txs.test.ts"
+    "p2p/src/client/test/p2p_client.integration_reqresp.test.ts"
+  )
+
+  # E2E tests run with --detectOpenHandles. With the orphan-blob-upload fix in
+  # ProposalHandler.stop() and the teardown order swap (teardown before stopNodes),
+  # workers now stop gracefully and --forceExit is no longer needed. Keeping
+  # --detectOpenHandles surfaces any new handle leak with a stack trace instead of
+  # silently passing. See local-notes/blob-upload-orphan-promise-bug.md and
+  # local-notes/l2-block-stream-teardown-races.md.
+  local e2e_tests=(
+    "e2e_p2p/gossip_network.test.ts"
+    "e2e_p2p/gossip_network_no_cheat.test.ts"
+    "e2e_p2p/fee_asset_price_oracle_gossip.test.ts"
+    "e2e_p2p/reqresp/reqresp.test.ts"
+    "e2e_p2p/reqresp/reqresp_no_handshake.test.ts"
+    "e2e_p2p/rediscovery.test.ts"
+    "e2e_p2p/multiple_validators_sentinel.parallel.test.ts"
+    "e2e_p2p/validators_sentinel.test.ts"
+    "e2e_p2p/duplicate_proposal_slash.test.ts"
+    "e2e_p2p/duplicate_attestation_slash.test.ts"
+    "e2e_p2p/inactivity_slash_with_consecutive_epochs.test.ts"
+    "e2e_p2p/preferred_gossip_network.test.ts"
+  )
+
+  # Helper: build an e2e test command with Jest extra args and a bumped outer TIMEOUT.
+  # LOG_LEVEL, JEST_TEST_TIMEOUT, JEST_EXTRA_ARGS are injected as inline env vars so they
+  # take effect inside the `bash -c` spawned by exec_test (no ENV_VARS_TO_INJECT plumbing).
+  # Escaped double quotes survive: bootstrap → grind_test → parallel → run_test_cmd → exec_test.
+  _e2e_grind_cmd() {
+    local _name=$1 _test=$2 _extra=$3
+    echo "grind:ISOLATE=1:MAKEFILE_TARGET=yarn-project:TIMEOUT=${e2e_per_test_timeout}:NAME=${_name} LOG_LEVEL=\"verbose; debug:p2p\" JEST_TEST_TIMEOUT=${jest_test_timeout} JEST_EXTRA_ARGS=\"${_extra}\" yarn-project/end-to-end/scripts/run_test.sh simple src/${_test}"
+  }
+
+  # E2E tests run FIRST so their (longer-running, higher-signal) results show up
+  # in the CI log before the cheap integration tests.
+  for test in "${e2e_tests[@]}"; do
+    local name=${test##*/}
+    name=${name%.test.ts}
+    local cmd=$(_e2e_grind_cmd "$name" "$test" "--detectOpenHandles")
+    echo_header "grind-p2p: $name (jobs_pct=$e2e_jobs_pct, --detectOpenHandles)"
+    grind_test "$cmd" "$timeout" "$e2e_jobs_pct" "$memsuspend_pct" "$commit" \
+      || failed_tests+=("$test")
+  done
+
+  unset -f _e2e_grind_cmd
+
+  for test in "${integration_tests[@]}"; do
+    local name=${test##*/}
+    name=${name%.test.ts}
+    local cmd="grind:ISOLATE=1:MAKEFILE_TARGET=yarn-project:NAME=$name LOG_LEVEL=debug yarn-project/scripts/run_test.sh $test"
+    echo_header "grind-p2p: $name (jobs_pct=$int_jobs_pct)"
+    grind_test "$cmd" "$timeout" "$int_jobs_pct" "$memsuspend_pct" "$commit" \
+      || failed_tests+=("$test")
+  done
+
+  if [ "${#failed_tests[@]}" -gt 0 ]; then
+    echo_header "grind-p2p: FAILED (${#failed_tests[@]} tests had at least one replica failure)"
+    printf '  %s\n' "${failed_tests[@]}"
+    return 1
+  fi
+  echo_header "grind-p2p: all tests passed"
+  return 0
+}
+
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
     set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/noir-protocol-circuits l1-contracts
@@ -661,6 +757,11 @@ case "$cmd" in
     commit="${5:-}"
 
     grind_test "$full_cmd" "$timeout" "$jobs_pct" "$memsuspend_pct" "$commit"
+    ;;
+  "ci-grind-p2p")
+    # Temporary target: grind all libp2p p2p tests on a single EC2 instance.
+    # See local-notes/grind-p2p-reference.md. Revert with the ci-grind-p2p commit.
+    grind_p2p
     ;;
 
   ##########################################

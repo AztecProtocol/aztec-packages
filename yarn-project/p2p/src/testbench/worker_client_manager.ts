@@ -231,7 +231,7 @@ class WorkerClientManager {
       this.messageReceivedByClient = new Array(numberOfClients).fill(0);
       this.peerIdPrivateKeys = generatePeerIdPrivateKeys(numberOfClients);
       this.ports = await getPorts(numberOfClients);
-      this.peerEnrs = await makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
+      this.peerEnrs = makeEnrs(this.peerIdPrivateKeys, this.ports, testChainConfig);
       this.peerIds = new Array(numberOfClients);
 
       this.processes = [];
@@ -316,7 +316,7 @@ class WorkerClientManager {
       this.ports[clientIndex] = newPort;
 
       // Update the port in the peerEnrs array
-      this.peerEnrs[clientIndex] = await makeEnr(this.peerIdPrivateKeys[clientIndex], newPort, testChainConfig);
+      this.peerEnrs[clientIndex] = makeEnr(this.peerIdPrivateKeys[clientIndex], newPort, testChainConfig);
 
       // Maximum seed with 10 other peers to allow peer discovery to connect them at a smoother rate
       const otherNodes = this.peerEnrs.filter(
@@ -522,7 +522,11 @@ class WorkerClientManager {
       };
 
       this.processes[i].send(cmd);
-      readyPromises.push(this.waitForBenchReady(i, 30000));
+      // Scale timeout with tx count: generating mock txs is CPU-intensive, and with many
+      // workers competing for CPUs, late-joining workers need more time. 120ms per tx gives
+      // enough headroom on resource-constrained CI (16 CPUs, 30 workers).
+      const readyTimeoutMs = Math.max(30_000, config.txCount * 120);
+      readyPromises.push(this.waitForBenchReady(i, readyTimeoutMs));
     }
 
     await Promise.all(readyPromises);

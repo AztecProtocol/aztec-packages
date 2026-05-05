@@ -28,6 +28,7 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
+import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { computeL2ToL1MembershipWitness, getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -45,6 +46,7 @@ import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from
 import { setupSharedBlobStorage } from '../fixtures/utils.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
@@ -64,7 +66,7 @@ jest.setTimeout(1000 * 60 * 10);
  */
 describe('e2e_p2p_add_rollup', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
   let proverAztecNode: AztecNodeService;
   let l1TxUtils: L1TxUtils;
 
@@ -95,8 +97,8 @@ describe('e2e_p2p_add_rollup', () => {
 
   afterAll(async () => {
     await tryStop(proverAztecNode);
-    await t.stopNodes(nodes);
     await t.teardown();
+    await t.stopNodes(nodes);
     for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
@@ -246,6 +248,7 @@ describe('e2e_p2p_add_rollup', () => {
       DATA_DIR,
       shouldCollectMetrics(),
     );
+    t.registerWorkerNodes(nodes);
 
     // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
     t.logger.warn(`Creating prover node`);
@@ -267,7 +270,7 @@ describe('e2e_p2p_add_rollup', () => {
     t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
 
     const bridging = async (
-      node: AztecNodeService,
+      node: AztecNode,
       aliceAccount: InitialAccountData,
       l1Client: ExtendedViemWalletClient,
       l1ContractAddresses: L1ContractAddresses,
@@ -560,6 +563,7 @@ describe('e2e_p2p_add_rollup', () => {
       DATA_DIR_NEW,
       shouldCollectMetrics(),
     );
+    t.registerWorkerNodes(nodes);
 
     t.logger.warn(`Creating new prover node`);
     ({ proverNode: proverAztecNode } = await createProverNode(

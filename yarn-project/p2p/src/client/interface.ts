@@ -4,8 +4,8 @@ import type { ITxProvider, P2PClient } from '@aztec/stdlib/interfaces/server';
 import type { BlockProposal, CheckpointAttestation, CheckpointProposal, TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
+import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
-import type { ENR } from '@nethermindeth/enr';
 
 import type { P2PConfig } from '../config.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';

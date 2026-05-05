@@ -44,9 +44,10 @@ describe('e2e_p2p_inactivity_slash_with_consecutive_epochs', () => {
     await test.test.monitor.waitUntilL2Slot(SlotNumber(initialEpoch * aztecEpochDuration));
 
     test.logger.warn(`Re-enabling offline validator ${reenabledValidator}`);
-    const reenabledNode = test.nodes.at(-1)!;
-    expect(reenabledNode.getSequencer()!.validatorAddresses![0].toString()).toEqual(reenabledValidator.toString());
-    await reenabledNode.getSequencer()!.start();
+    const reenabledNode = test.inactiveNodes.at(-1)!;
+    const validatorAddresses = await reenabledNode.getValidatorAddresses();
+    expect(validatorAddresses![0].toString()).toEqual(reenabledValidator.toString());
+    await reenabledNode.startSequencer();
 
     test.logger.warn(`Waiting until offenses are created for ${offlineValidator}`);
     const offenses = await retryUntil(

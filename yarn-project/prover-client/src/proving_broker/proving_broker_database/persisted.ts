@@ -85,6 +85,9 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
 
   private batchQueue: BatchQueue<ProvingJob | [ProvingJobId, ProvingJobSettledResult], number>;
 
+  /** Epochs whose LMDB stores have been deleted. Writes for these epochs are silently dropped. */
+  private deletedEpochs = new Set<number>();
+
   public readonly tracer: Tracer;
 
   private constructor(
@@ -113,6 +116,11 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
 
   // exposed for testing
   public async commitWrites(items: Array<ProvingJob | [ProvingJobId, ProvingJobSettledResult]>, epochNumber: number) {
+    if (this.deletedEpochs.has(epochNumber)) {
+      this.logger.debug(`Dropping ${items.length} writes for deleted epoch ${epochNumber}`);
+      return;
+    }
+
     const jobsToAdd = items.filter((item): item is ProvingJob => 'id' in item);
     const resultsToAdd = items.filter((item): item is [ProvingJobId, ProvingJobSettledResult] => Array.isArray(item));
 
@@ -181,14 +189,35 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   }))
   async deleteAllProvingJobsOlderThanEpoch(epochNumber: EpochNumber): Promise<void> {
     const oldEpochs = Array.from(this.epochs.keys()).filter(e => e < Number(epochNumber));
+    if (oldEpochs.length === 0) {
+      return;
+    }
+
+    // Mark epochs as deleted and remove from the map BEFORE flushing. This ensures
+    // any batch enqueued after this point (or currently buffered) will be dropped by
+    // the deletedEpochs guard in commitWrites rather than reopening a deleted store.
+    const dbsToDelete: SingleEpochDatabase[] = [];
     for (const old of oldEpochs) {
       const db = this.epochs.get(old);
       if (!db) {
         continue;
       }
       this.logger.verbose(`Deleting broker database for epoch ${old}`);
-      await db.delete();
+      this.deletedEpochs.add(old);
       this.epochs.delete(old);
+      dbsToDelete.push(db);
+    }
+
+    // Flush the current batch so any pending writes for the deleted epochs get pushed
+    // to the processing queue, where commitWrites will drop them.
+    this.batchQueue.flushCurrentBatch();
+
+    // Now safe to delete the physical stores. Any in-flight commitWrites for these
+    // epochs will have already obtained a db reference and completed its batchWrite
+    // (since the batch queue processes items sequentially), or will be dropped by
+    // the deletedEpochs guard.
+    for (const db of dbsToDelete) {
+      await db.delete();
     }
   }
 

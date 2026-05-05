@@ -13,10 +13,12 @@ import type { MsgIdStr, PeerIdStr, PublishOpts, TopicStr } from '@chainsafe/libp
 import {
   type Libp2pStatus,
   type PeerId,
+  type PrivateKey,
   type PublishResult,
   type TopicValidatorResult,
   TypedEventEmitter,
 } from '@libp2p/interface';
+import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 
 import type { P2PConfig } from '../config.js';
 import type { MemPools } from '../mem_pools/interface.js';
@@ -48,7 +50,7 @@ export function getMockPubSubP2PServiceFactory(
 ): (...args: Parameters<(typeof LibP2PService)['new']>) => Promise<LibP2PService> {
   return (
     config: P2PConfig,
-    peerId: PeerId,
+    privateKey: PrivateKey,
     deps: {
       packageVersion: string;
       mempools: MemPools;
@@ -63,6 +65,7 @@ export function getMockPubSubP2PServiceFactory(
     },
   ) => {
     deps.logger.verbose('Creating mock PubSub service');
+    const peerId = peerIdFromPrivateKey(privateKey);
     const libp2p = new MockPubSub(peerId, network);
     const peerManager = new DummyPeerManager(peerId, network);
     const reqresp: ReqRespInterface = new MockReqResp(peerId, network);

@@ -1,18 +1,10 @@
 import { createLogger } from '@aztec/aztec.js/log';
+// Side-effect import: registers beforeEach/afterEach ELU monitoring hooks.
+import '@aztec/foundation/testing/elu_jest_setup';
 
-import { afterAll, afterEach, beforeEach, expect } from '@jest/globals';
+import { afterAll, beforeEach, expect } from '@jest/globals';
 import { readlinkSync } from 'fs';
 import { basename } from 'path';
-
-import { EluMonitor } from '../fixtures/elu_monitor.js';
-
-const eluMonitor = process.env.ELU_MONITOR_FILE
-  ? new EluMonitor(process.env.ELU_MONITOR_FILE, Number(process.env.ELU_MONITOR_INTERVAL_MS) || undefined)
-  : undefined;
-
-if (eluMonitor) {
-  process.on('exit', () => eluMonitor.stop());
-}
 
 beforeEach(() => {
   const { testPath, currentTestName } = expect.getState();
@@ -21,11 +13,6 @@ beforeEach(() => {
   }
   const logger = createLogger(`e2e:${basename(testPath).replace('.test.ts', '')}`);
   logger.info(`Running test: ${currentTestName}`);
-  eluMonitor?.startTest(currentTestName);
-});
-
-afterEach(() => {
-  eluMonitor?.stopTest();
 });
 
 // Log leaked handles after all tests complete. This runs after test-level afterAll hooks,

@@ -18,7 +18,7 @@ import os from 'os';
 import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { createNodes } from '../fixtures/setup_p2p_test.js';
+import { createInProcessNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { submitComplexTxsTo } from './shared.js';
 
@@ -61,7 +61,7 @@ describe('e2e_p2p_reex', () => {
     }
 
     t.logger.info('Creating peer nodes');
-    nodes = await createNodes(
+    nodes = await createInProcessNodes(
       {
         ...t.ctx.aztecNodeConfig,
         minTxsPerBlock: 1,
@@ -97,9 +97,8 @@ describe('e2e_p2p_reex', () => {
   }, 360 * 1000);
 
   afterAll(async () => {
-    // shutdown all nodes.
-    await t.stopNodes(nodes);
     await t.teardown();
+    await t.stopNodes(nodes);
     for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }

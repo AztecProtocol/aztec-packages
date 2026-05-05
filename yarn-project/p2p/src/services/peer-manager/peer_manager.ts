@@ -3,16 +3,17 @@ import { makeEthSignDigest, tryRecoverAddress } from '@aztec/foundation/crypto/s
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
+import { ENR } from '@chainsafe/enr';
 import type { Connection, PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 import type { Multiaddr } from '@multiformats/multiaddr';
-import { ENR } from '@nethermindeth/enr';
 import { inspect } from 'util';
 
 import type { P2PConfig } from '../../config.js';
@@ -23,7 +24,7 @@ import { AuthRequest, AuthResponse } from '../reqresp/protocols/auth.js';
 import { GoodByeReason, prettyGoodbyeReason } from '../reqresp/protocols/goodbye.js';
 import { StatusMessage } from '../reqresp/protocols/status.js';
 import type { ReqResp } from '../reqresp/reqresp.js';
-import { ReqRespStatus } from '../reqresp/status.js';
+import { ReqRespFailureSource, ReqRespStatus } from '../reqresp/status.js';
 import type { PeerDiscoveryService } from '../service.js';
 import type { PeerManagerInterface } from './interface.js';
 import { PeerManagerMetrics } from './metrics.js';
@@ -35,6 +36,13 @@ const MAX_CACHED_PEER_AGE_MS = 5 * 60 * 1000; // 5 minutes
 const DEFAULT_FAILED_PEER_BAN_TIME_MS = 5 * 60 * 1000; // 5 minutes timeout after failing MAX_DIAL_ATTEMPTS
 const GOODBYE_DIAL_TIMEOUT_MS = 1000;
 const FAILED_AUTH_HANDSHAKE_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+const AUTH_HANDSHAKE_RETRY_DELAY_MS = 500;
+const AUTH_HANDSHAKE_MAX_RETRIES = 1;
+// Grace period during which gossipsub accepts messages from peers awaiting AUTH.
+// Derived from retry config so it stays in sync: (1 + retries) * delay + buffer.
+// Without this, gossipsub drops subscription RPCs before AUTH completes (appSpecificScore = -Infinity),
+// permanently isolating the peer from topic-level gossip (IHAVE, mesh, message forwarding).
+const AUTH_HANDSHAKE_GRACE_PERIOD_MS = (1 + AUTH_HANDSHAKE_MAX_RETRIES) * AUTH_HANDSHAKE_RETRY_DELAY_MS + 1000;
 
 type CachedPeer = {
   peerId: PeerId;
@@ -68,6 +76,8 @@ export class PeerManager implements PeerManagerInterface {
   private authenticatedValidatorAddressToPeerId: Map<string, PeerId> = new Map();
   private peersToBeDisconnected: Set<string> = new Set();
   private failedAuthHandshakes: Map<string, FailedAuthHandshakeEntry> = new Map();
+  /** Peers currently undergoing AUTH handshake. Value is the timestamp when AUTH started. */
+  private pendingAuthPeers: Map<string, number> = new Map();
   private validatorAddresses: EthAddress[] = [];
   private initializedPreferredPeers: boolean = false;
 
@@ -120,40 +130,44 @@ export class PeerManager implements PeerManagerInterface {
    *
    * This function is called when the peer manager is initialized.
    */
-  async initializePeers() {
+  initializePeers() {
     if (this.config.trustedPeers) {
       const trustedPeersEnrs: ENR[] = this.config.trustedPeers.map(enr => ENR.decodeTxt(enr));
-      await Promise.all(trustedPeersEnrs.map(enr => enr.peerId()))
-        .then(peerIds => peerIds.forEach(peerId => this.trustedPeers.add(peerId.toString())))
-        .finally(() => {
-          this.trustedPeersInitialized = true;
-        })
-        .catch(e => this.logger.error('Error initializing trusted peers', e));
+      try {
+        trustedPeersEnrs.map(enr => enr.peerId).forEach(peerId => this.trustedPeers.add(peerId.toString()));
+      } catch (e) {
+        this.logger.error('Error initializing trusted peers', e);
+      } finally {
+        this.trustedPeersInitialized = true;
+      }
     }
 
     if (this.config.privatePeers) {
       const privatePeersEnrs: ENR[] = this.config.privatePeers.map(enr => ENR.decodeTxt(enr));
-      await Promise.all(privatePeersEnrs.map(enr => enr.peerId()))
-        .then(peerIds =>
-          peerIds.forEach(peerId => {
+      try {
+        privatePeersEnrs
+          .map(enr => enr.peerId)
+          .forEach(peerId => {
             this.trustedPeers.add(peerId.toString());
             this.privatePeers.add(peerId.toString());
-          }),
-        )
-        .finally(() => {
-          if (!this.config.trustedPeers) {
-            this.trustedPeersInitialized = true;
-          }
-          this.privatePeersInitialized = true;
-        })
-        .catch(e => this.logger.error('Error initializing private peers', e));
+          });
+      } catch (e) {
+        this.logger.error('Error initializing private peers', e);
+      } finally {
+        if (!this.config.trustedPeers) {
+          this.trustedPeersInitialized = true;
+        }
+        this.privatePeersInitialized = true;
+      }
     }
 
     if (this.config.preferredPeers) {
       const preferredPeersEnrs: ENR[] = this.config.preferredPeers.map(enr => ENR.decodeTxt(enr));
-      await Promise.all(preferredPeersEnrs.map(enr => enr.peerId()))
-        .then(peerIds => peerIds.forEach(peerId => this.preferredPeers.add(peerId.toString())))
-        .catch(e => this.logger.error('Error initializing preferred peers', e));
+      try {
+        preferredPeersEnrs.map(enr => enr.peerId).forEach(peerId => this.preferredPeers.add(peerId.toString()));
+      } catch (e) {
+        this.logger.error('Error initializing preferred peers', e);
+      }
     }
   }
 
@@ -194,25 +208,25 @@ export class PeerManager implements PeerManagerInterface {
     }
 
     const preferredPeersEnrs: ENR[] = this.config.preferredPeers.map(enr => ENR.decodeTxt(enr));
-    await Promise.all(preferredPeersEnrs.map(enr => enr.peerId()))
-      .then(peerIds => peerIds.forEach(peerId => this.preferredPeers.add(peerId.toString())))
-      .catch(e => this.logger.error('Error initializing preferred peers', e));
+    try {
+      preferredPeersEnrs.map(enr => enr.peerId).forEach(peerId => this.preferredPeers.add(peerId.toString()));
+    } catch (e) {
+      this.logger.error('Error initializing preferred peers', e);
+    }
 
-    const directPeers = (
-      await Promise.all(
-        preferredPeersEnrs.map(async enr => {
-          const peerId = await enr.peerId();
-          const address = enr.getLocationMultiaddr('tcp');
-          if (address === undefined) {
-            throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
-          }
-          return {
-            id: peerId,
-            addrs: [address],
-          };
-        }),
-      )
-    ).filter(peer => peer !== undefined);
+    const directPeers = preferredPeersEnrs
+      .map(enr => {
+        const peerId = enr.peerId;
+        const address = enr.getLocationMultiaddr('tcp');
+        if (address === undefined) {
+          throw new Error(`Direct peer ${peerId.toString()} has no TCP address, ENR: ${enr.encodeTxt()}`);
+        }
+        return {
+          id: peerId,
+          addrs: [address],
+        };
+      })
+      .filter(peer => peer !== undefined);
 
     await Promise.all(
       directPeers.map(peer => {
@@ -440,8 +454,20 @@ export class PeerManager implements PeerManagerInterface {
   }
 
   public shouldDisableP2PGossip(peerId: string): boolean {
-    const isAuthenticated = this.isAuthenticatedPeer(peerIdFromString(peerId));
-    return (this.config.p2pAllowOnlyValidators ?? false) && !isAuthenticated;
+    if (!this.config.p2pAllowOnlyValidators) {
+      return false;
+    }
+    if (this.isAuthenticatedPeer(peerIdFromString(peerId))) {
+      return false;
+    }
+    // Allow gossip during the AUTH grace period so gossipsub subscription exchange
+    // can complete before AUTH finishes. Without this, gossipsub drops subscription
+    // RPCs (appSpecificScore = -Infinity) and the peer is permanently invisible.
+    const authStarted = this.pendingAuthPeers.get(peerId);
+    if (authStarted !== undefined) {
+      return this.dateProvider.now() - authStarted > AUTH_HANDSHAKE_GRACE_PERIOD_MS;
+    }
+    return true;
   }
 
   public getPeers(includePending = false): PeerInfo[] {
@@ -675,6 +701,7 @@ export class PeerManager implements PeerManagerInterface {
   private markPeerForDisconnect(peer: PeerId) {
     const peerIdStr = peer.toString();
     this.logger.debug(`Scheduling peer ${peerIdStr} for disconnection`);
+    this.pendingAuthPeers.delete(peerIdStr);
     this.peersToBeDisconnected.add(peerIdStr);
   }
 
@@ -704,7 +731,7 @@ export class PeerManager implements PeerManagerInterface {
    */
   private async handleDiscoveredPeer(enr: ENR) {
     // Check that the peer has not already been banned
-    const peerId = await enr.peerId();
+    const peerId = enr.peerId;
     const peerIdString = peerId.toString();
 
     // Don't attempt to connect to peers scheduled for disconnection
@@ -857,16 +884,32 @@ export class PeerManager implements PeerManagerInterface {
       const ourStatus = await this.createStatusMessage();
       //Note: Technically we don't have to send out status to peer as well, but we do.
       //It will be easier to update protocol in the future this way if need be.
-      this.logger.trace(`Initiating status handshake with peer ${peerId}`);
+      const handshakeStart = Date.now();
+      this.logger.debug(`Initiating status handshake with peer ${peerId}`);
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.STATUS, ourStatus.toBuffer());
+      this.logger.debug(`Status handshake completed for peer ${peerId}`, {
+        durationMs: Date.now() - handshakeStart,
+        status: ReqRespStatus[response.status],
+      });
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
-        //TODO: maybe hard ban these peers in the future.
-        //We could allow this to happen up to N times, and then hard ban?
-        //Hard ban: Disallow connection via e.g. libp2p's Gater
-        this.logger.debug(`Disconnecting peer ${peerId} who failed to respond status handshake`, {
+        const { failureSource } = response;
+        if (failureSource === ReqRespFailureSource.TRANSPORT || failureSource === ReqRespFailureSource.TIMEOUT) {
+          // Transport errors (StreamResetError, timeout, etc.) are transient — don't disconnect.
+          // Disconnecting here causes a reconnect→handshake→fail churn loop that prevents
+          // gossipsub mesh formation.
+          this.logger.debug(`Status handshake transport error for peer ${peerId}, keeping connection`, {
+            peerId,
+            status: ReqRespStatus[status],
+            failureSource,
+          });
+          return;
+        }
+        // Genuine protocol failure (remote peer explicitly rejected, or unknown error) — disconnect.
+        this.logger.debug(`Disconnecting peer ${peerId} due to status handshake failure`, {
           peerId,
           status: ReqRespStatus[status],
+          failureSource,
         });
         this.markPeerForDisconnect(peerId);
         return;
@@ -882,6 +925,8 @@ export class PeerManager implements PeerManagerInterface {
       }
       this.logger.debug(`Successfully completed status handshake with peer ${peerId}`, logData);
     } catch (err: any) {
+      // This catch handles errors from parsing a successful response (e.g., invalid StatusMessage buffer).
+      // These are protocol violations — the peer sent garbage data — so disconnect.
       //TODO: maybe hard ban these peers in the future
       this.logger.debug(`Disconnecting peer ${peerId} due to error during status handshake: ${err.message ?? err}`, {
         peerId,
@@ -895,8 +940,14 @@ export class PeerManager implements PeerManagerInterface {
    * A superset of the status handshake. Also includes a challenge that needs to be signed by the peer's validator key.
    * @param: peerId The Id of the peer to request the Status from.
    * */
-  private async exchangeAuthHandshake(peerId: PeerId) {
+  private async exchangeAuthHandshake(peerId: PeerId, retryCount = 0): Promise<void> {
     const peerIdString = peerId.toString();
+
+    // Track the start of AUTH so shouldDisableP2PGossip can grant a grace period.
+    // Only set on first attempt — retries keep the original timestamp.
+    if (retryCount === 0) {
+      this.pendingAuthPeers.set(peerIdString, this.dateProvider.now());
+    }
 
     try {
       const ourStatus = await this.createStatusMessage();
@@ -909,11 +960,25 @@ export class PeerManager implements PeerManagerInterface {
       const response = await this.reqresp.sendRequestToPeer(peerId, ReqRespSubProtocol.AUTH, authRequest.toBuffer());
       const { status } = response;
       if (status !== ReqRespStatus.SUCCESS) {
-        this.logger.verbose(`Disconnecting peer ${peerId} who failed to respond auth handshake`, {
+        this.markAuthHandshakeFailed(peerId);
+        const { failureSource } = response;
+        const isTransient =
+          failureSource === ReqRespFailureSource.TRANSPORT || failureSource === ReqRespFailureSource.TIMEOUT;
+
+        // Only retry on transient transport errors — genuine auth rejections disconnect immediately.
+        if (isTransient && retryCount < AUTH_HANDSHAKE_MAX_RETRIES) {
+          this.logger.verbose(
+            `Auth handshake transport error for peer ${peerId}, retrying (${retryCount + 1}/${AUTH_HANDSHAKE_MAX_RETRIES})`,
+            { peerId, status: ReqRespStatus[status], failureSource },
+          );
+          await sleep(AUTH_HANDSHAKE_RETRY_DELAY_MS);
+          return this.exchangeAuthHandshake(peerId, retryCount + 1);
+        }
+
+        this.logger.verbose(`Auth handshake failed after retries for peer ${peerId}, disconnecting`, {
           peerId,
           status: ReqRespStatus[status],
         });
-        this.markAuthHandshakeFailed(peerId);
         this.markPeerForDisconnect(peerId);
         return;
       }
@@ -973,6 +1038,8 @@ export class PeerManager implements PeerManagerInterface {
         { ...logData, address: sender.toString() },
       );
     } catch (err: any) {
+      // This catch handles errors from parsing a successful response (e.g., invalid AuthResponse buffer).
+      // These are protocol violations — the peer sent garbage data — so disconnect.
       //TODO: maybe hard ban these peers in the future
       this.logger.verbose(`Disconnecting peer ${peerId} due to error during auth handshake: ${err.message}`, {
         peerId,
@@ -1022,6 +1089,7 @@ export class PeerManager implements PeerManagerInterface {
    * Removes any failed previous attempts
    * */
   private markAuthHandshakeSuccess(peerId: PeerId) {
+    this.pendingAuthPeers.delete(peerId.toString());
     this.failedAuthHandshakes.delete(peerId.toString());
 
     const connections = this.libP2PNode.getConnections(peerId);

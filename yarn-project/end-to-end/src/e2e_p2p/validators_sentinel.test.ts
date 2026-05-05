@@ -12,6 +12,7 @@ import path from 'path';
 
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 const NUM_NODES = 5;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
@@ -27,7 +28,7 @@ jest.setTimeout(1000 * 60 * 10);
 
 describe('e2e_p2p_validators_sentinel', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
   let additionalNode: AztecNodeService | undefined;
   let offlineValidator: EthAddress;
 
@@ -63,20 +64,20 @@ describe('e2e_p2p_validators_sentinel', () => {
       NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
       BOOT_NODE_UDP_PORT,
       t.genesis,
-
       DATA_DIR,
     );
+    t.registerWorkerNodes(nodes);
     await t.removeInitialNode();
 
     t.logger.info(`Setup complete`, { validators: t.validators });
   });
 
   afterAll(async () => {
+    await t.teardown();
     await t.stopNodes(nodes);
     if (additionalNode !== undefined) {
       await t.stopNodes([additionalNode]);
     }
-    await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }

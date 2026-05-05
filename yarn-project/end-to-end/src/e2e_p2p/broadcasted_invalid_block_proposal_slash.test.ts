@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -14,6 +13,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { awaitCommitteeExists, awaitOffenseDetected } from './shared.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 const TEST_TIMEOUT = 1_000_000;
 
@@ -41,7 +41,7 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'broadcasted-invalid-bloc
  */
 describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
 
   const slashingUnit = BigInt(1e18);
   const slashingQuorum = 3;
@@ -79,8 +79,8 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
   });
 
   afterEach(async () => {
-    await t.stopNodes(nodes);
     await t.teardown();
+    await t.stopNodes(nodes);
     for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
@@ -129,7 +129,8 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
       0,
     );
 
-    const invalidProposerAddress = invalidProposerNodes[0].getSequencer()!.validatorAddresses![0];
+    const invalidProposerAddresses = await invalidProposerNodes[0].getValidatorAddresses();
+    const invalidProposerAddress = invalidProposerAddresses![0];
     t.logger.warn(`Invalid proposer address: ${invalidProposerAddress.toString()}`);
 
     // Create remaining honest nodes
@@ -146,6 +147,7 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
     );
 
     nodes = [...invalidProposerNodes, ...honestNodes];
+    t.registerWorkerNodes(nodes);
 
     // Wait for P2P mesh to be fully formed before proceeding
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);

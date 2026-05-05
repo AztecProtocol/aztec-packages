@@ -137,7 +137,7 @@ describe('p2p client integration batch txs', () => {
           await sleep(1000);
         }
       }
-      const peerEnrs = await makeEnrs(peerIdPrivateKeys, ports, p2pBaseConfig);
+      const peerEnrs = makeEnrs(peerIdPrivateKeys, ports, p2pBaseConfig);
 
       for (let i = 0; i < numberOfPeers; i++) {
         const client = await makeAndStartTestP2PClient(peerIdPrivateKeys[i], ports[i], peerEnrs, {

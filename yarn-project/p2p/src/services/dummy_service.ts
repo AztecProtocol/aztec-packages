@@ -3,8 +3,8 @@ import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { CheckpointProposalCore, Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
+import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
-import type { ENR } from '@nethermindeth/enr';
 import EventEmitter from 'events';
 
 import type { PeerManagerInterface } from './peer-manager/interface.js';
@@ -255,8 +255,8 @@ export class DummyPeerManager implements PeerManagerInterface {
       }));
   }
 
-  public initializePeers(): Promise<void> {
-    return Promise.resolve();
+  public initializePeers(): void {
+    // No-op for dummy service
   }
   public getPeerScore(_peerId: string): number {
     return 0;

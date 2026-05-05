@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
@@ -14,6 +13,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest } from './p2p_network.js';
 import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected } from './shared.js';
+import type { WorkerAztecNode } from './worker_node.js';
 
 jest.setTimeout(10 * 60_000); // 10 minutes
 
@@ -34,7 +34,7 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'valid-epoch-pruned-slash
  */
 describe('e2e_p2p_valid_epoch_pruned_slash', () => {
   let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
+  let nodes: WorkerAztecNode[];
 
   const slashingQuorum = 3;
   const slashingRoundSize = 4;
@@ -77,8 +77,8 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
   });
 
   afterEach(async () => {
-    await t.stopNodes(nodes);
     await t.teardown();
+    await t.stopNodes(nodes);
     for (let i = 0; i < NUM_VALIDATORS; i++) {
       fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
@@ -122,6 +122,7 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
     );
+    t.registerWorkerNodes(nodes);
 
     // Wait a bit for peers to discover each other
     await sleep(4000);
