@@ -425,7 +425,9 @@ TYPED_TEST(DataBusTests, OutOfBodyReadCountsRejectedCrossColumn)
     constexpr size_t FORGERY_BUS_IDX = 7;
     static_assert(FORGERY_BUS_IDX >= CALLDATA_SIZE);
     static_assert(FORGERY_BUS_IDX < RETURN_DATA_SIZE);
-    // Actual polynomial row, accounting for the NUM_DISABLED_ROWS_IN_SUMCHECK offset.
+    // Actual polynomial row at which the honest read occurs
+    constexpr size_t HONEST_ROW = NUM_DISABLED_ROWS_IN_SUMCHECK;
+    // Actual polynomial row at which the forgery is done
     constexpr size_t FORGERY_ROW = NUM_DISABLED_ROWS_IN_SUMCHECK + FORGERY_BUS_IDX;
 
     const FF v_honest_0 = FF(7);
@@ -459,7 +461,7 @@ TYPED_TEST(DataBusTests, OutOfBodyReadCountsRejectedCrossColumn)
 
     polys.calldata.at(FORGERY_ROW) = v_attack;
     polys.calldata_read_counts.at(FORGERY_ROW) = FF(NUM_READS);
-    polys.calldata_read_counts.at(NUM_DISABLED_ROWS_IN_SUMCHECK) = FF(0);
+    polys.calldata_read_counts.at(HONEST_ROW) = FF(0);
 
     // Both w_l and w_r are dangling, so each can be rewritten without breaking the
     // permutation argument. The wire 2 (read index) is set to FORGERY_BUS_IDX, which is
