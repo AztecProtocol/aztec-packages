@@ -21,7 +21,7 @@ import {
 import { ProofData, ProvingRequestType } from '@aztec/stdlib/proofs';
 import { PrivateBaseRollupHints, PrivateTxBaseRollupPrivateInputs, PublicBaseRollupHints } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { ProcessedTx, Tx, TxHash } from '@aztec/stdlib/tx';
+import type { ProcessedTx, Tx, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import {
   getChonkProofFromTx,
@@ -131,6 +131,9 @@ export class BlockExecutionHandler implements ServerCircuitProver {
       const publicProcessor = this.publicProcessorFactory.create(fork, inputs.blockHeader.globalVariables, config);
 
       const spongeBlobState = inputs.startSpongeBlob.clone();
+      const txEffects: TxEffect[] = [];
+      let totalFees = Fr.ZERO;
+      let totalManaUsed = 0n;
       let enqueuedAvmJobs = 0;
       let enqueuedPrivateBaseJobs = 0;
 
@@ -161,6 +164,10 @@ export class BlockExecutionHandler implements ServerCircuitProver {
         );
         await spongeBlobState.absorb(ptx.txEffect.toBlobFields());
 
+        txEffects.push(ptx.txEffect);
+        totalFees = totalFees.add(ptx.txEffect.transactionFee);
+        totalManaUsed += BigInt(ptx.gasUsed.billedGas.l2Gas);
+
         if (ptx.avmProvingRequest) {
           await this.enqueuePublicVmJob(
             epochNumber,
@@ -184,6 +191,11 @@ export class BlockExecutionHandler implements ServerCircuitProver {
         }
       }
 
+      // The block-end blob fields are absorbed on the orchestrator side once it has
+      // `endState` and `totalManaUsed`. This `endSpongeBlob` only reflects the
+      // per-tx effects.
+      const endState = await fork.getStateReference();
+
       this.log.info(`Block ${blockNumber} execution complete`, {
         epochNumber,
         blockNumber,
@@ -193,7 +205,14 @@ export class BlockExecutionHandler implements ServerCircuitProver {
         enqueuedPrivateBaseJobs,
       });
 
-      return new BlockExecutionResult(blockNumber, spongeBlobState);
+      return new BlockExecutionResult(
+        blockNumber,
+        spongeBlobState,
+        endState,
+        totalFees,
+        new Fr(totalManaUsed),
+        txEffects,
+      );
     } finally {
       try {
         await fork.close();

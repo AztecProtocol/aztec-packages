@@ -1,6 +1,7 @@
 export { ProvingOrchestrator } from './orchestrator.js';
 export { CheckpointSubTreeOrchestrator, type SubTreeResult } from './checkpoint-sub-tree-orchestrator.js';
 export { EpochProvingContext, type ChonkVerifierProofResult } from './epoch-proving-context.js';
+export type { BlockExecutionWatchers } from './orchestrator.js';
 export {
   TopTreeOrchestrator,
   TopTreeCancelledError,

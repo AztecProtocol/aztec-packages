@@ -1,7 +1,7 @@
-import { BatchedBlob } from '@aztec/blob-lib/types';
+import { BatchedBlob, SpongeBlob } from '@aztec/blob-lib/types';
 import { ARCHIVE_HEIGHT } from '@aztec/constants';
 import { makeTuple } from '@aztec/foundation/array';
-import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -18,15 +18,17 @@ import {
 } from '@aztec/prover-client/orchestrator';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { CommitteeAttestation } from '@aztec/stdlib/block';
+import { BlockExecutionResult } from '@aztec/stdlib/block_execution';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { Proof } from '@aztec/stdlib/proofs';
 import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
-import { BlockHeader } from '@aztec/stdlib/tx';
+import { BlockHeader, StateReference } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProverNodeJobMetrics } from '../metrics.js';
@@ -225,6 +227,20 @@ describe('epoch-proving-job', () => {
     epochContext = mock<EpochProvingContext>();
     epochContext.stop.mockReturnValue(undefined);
     prover.createEpochProvingContext.mockReturnValue(epochContext);
+
+    // Stub the broker facade so dispatchOffloadedBlock returns synthetic execution
+    // results — the orchestrator-side bookkeeping is exercised separately in the
+    // prover-client orchestrator tests.
+    const facade = {
+      executeBlock: jest.fn(() =>
+        Promise.resolve(
+          new BlockExecutionResult(BlockNumber(1), SpongeBlob.init(), StateReference.empty(), Fr.ZERO, Fr.ZERO, []),
+        ),
+      ),
+      expectJob: jest.fn(() => new Promise(() => {})),
+    };
+    (prover as any).getBrokerCircuitProverFacade = () => facade;
+
     installSubTreeFactory();
 
     topTree = mock<TopTreeOrchestrator>();
