@@ -173,8 +173,8 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         // App return data. Mega currently exposes a single app calldata witness commitment
         // (`secondary_calldata`), so MAX_APPS_PER_KERNEL remains 1.
+        static_assert(MAX_APPS_PER_KERNEL == 1, "Multiple app calldata witness columns are not wired yet");
         for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
-            BB_ASSERT_EQ(MAX_APPS_PER_KERNEL, 1UL, "Multiple app calldata witness columns are not wired yet");
             bool app_return_data_match =
                 kernel_input.app_return_data[idx].get_value() == witness_commitments.secondary_calldata.get_value();
             BB_ASSERT_DEBUG(app_return_data_match,
