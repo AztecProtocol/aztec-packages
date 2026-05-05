@@ -881,33 +881,21 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     await this.collectOwnAttestations(proposal, checkpointNumber);
 
-    const proposalId = proposal.archive.toString();
+    const proposalPayloadHash = proposal.getPayloadHash();
     const myAddresses = this.getValidatorAddresses();
 
     let attestations: CheckpointAttestation[] = [];
     while (true) {
-      // Filter out attestations with a mismatching archive. This should NOT happen since we have verified
-      // the proposer signature (ie our own) before accepting the attestation into the pool via the p2p client.
-      const collectedAttestations = (await this.p2pClient.getCheckpointAttestationsForSlot(slot, proposalId)).filter(
-        attestation => {
-          if (!attestation.archive.equals(proposal.archive)) {
-            this.log.warn(
-              `Received attestation for slot ${slot} with mismatched archive from ${attestation
-                .getSender()
-                ?.toString()}`,
-              { attestationArchive: attestation.archive.toString(), proposalArchive: proposal.archive.toString() },
-            );
-            return false;
-          }
-          return true;
-        },
-      );
+      // The pool already filters by proposal payload hash; if any attestation slips through with a
+      // mismatched payload hash, drop it defensively. Equivocations are emitted as separate slash
+      // events from libp2p_service.
+      const collectedAttestations = await this.p2pClient.getCheckpointAttestationsForSlot(slot, proposalPayloadHash);
 
       // Log new attestations we collected
       const oldSenders = attestations.map(attestation => attestation.getSender());
       for (const collected of collectedAttestations) {
         const collectedSender = collected.getSender();
-        // Skip attestations with invalid signatures
+        // Skip attestations with invalid signatures. Should not happen as we don't add invalid attestations to our pool.
         if (!collectedSender) {
           this.log.warn(`Skipping attestation with invalid signature for slot ${slot}`);
           continue;

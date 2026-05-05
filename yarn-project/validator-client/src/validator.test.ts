@@ -261,8 +261,9 @@ describe('ValidatorClient', () => {
         makeCheckpointAttestation({ signer: attestor1, archive, header: proposal.checkpointHeader }),
         makeCheckpointAttestation({ signer: attestor2, archive, header: proposal.checkpointHeader }),
       ];
-      p2pClient.getCheckpointAttestationsForSlot.mockImplementation((slot, proposalId) => {
-        if (proposal.slotNumber === slot && proposalId === proposal.archive.toString()) {
+      const expectedPayloadHash = proposal.getPayloadHash();
+      p2pClient.getCheckpointAttestationsForSlot.mockImplementation((slot, proposalPayloadHash) => {
+        if (proposal.slotNumber === slot && proposalPayloadHash === expectedPayloadHash) {
           return Promise.resolve(expectedAttestations);
         }
         return Promise.resolve([]);
@@ -294,41 +295,36 @@ describe('ValidatorClient', () => {
       expect(addCheckpointAttestationsSpy.mock.calls[0][0]).toHaveLength(2);
     });
 
-    it('should filter out attestations with mismatched payload', async () => {
+    it('forwards the proposal payload hash to the pool so mismatched attestations are filtered out', async () => {
       const signer = Secp256k1Signer.random();
       const attestor1 = Secp256k1Signer.random();
-      const attestor2 = Secp256k1Signer.random();
 
       const archive = Fr.random();
       const txHashes = [0, 1, 2, 3, 4, 5].map(() => TxHash.random());
 
       const proposal = await makeCheckpointProposal({ signer, archiveRoot: archive, lastBlock: { txHashes } });
 
-      // Create attestations - one with matching payload, one with mismatched
+      // The pool is responsible for filtering by payload hash; the validator just forwards it.
+      // We mock the pool to return the matching attestation only when queried with the right hash.
       const validAttestation = makeCheckpointAttestation({
         signer: attestor1,
         archive,
         header: proposal.checkpointHeader,
       });
-      const invalidAttestation = makeCheckpointAttestation({
-        signer: attestor2,
-        archive: Fr.random(),
-        header: proposal.checkpointHeader,
-      });
 
-      p2pClient.getCheckpointAttestationsForSlot.mockImplementation((slot, proposalId) =>
-        proposal.slotNumber === slot && proposalId === proposal.archive.toString()
-          ? Promise.resolve([validAttestation, invalidAttestation])
+      const expectedPayloadHash = proposal.getPayloadHash();
+      p2pClient.getCheckpointAttestationsForSlot.mockImplementation((slot, proposalPayloadHash) =>
+        proposal.slotNumber === slot && proposalPayloadHash === expectedPayloadHash
+          ? Promise.resolve([validAttestation])
           : Promise.resolve([]),
       );
 
-      // Perform the query - should timeout but we're testing the filtering behavior
+      // Only one matching attestation is returned, but the validator needs 2 -> times out.
       await expect(
         validatorClient.collectAttestations(proposal, 2, new Date(dateProvider.now() + 1000), CheckpointNumber(1)),
       ).rejects.toThrow(AttestationTimeoutError);
 
-      // Verify that getCheckpointAttestationsForSlot was called (meaning the loop ran)
-      expect(p2pClient.getCheckpointAttestationsForSlot).toHaveBeenCalled();
+      expect(p2pClient.getCheckpointAttestationsForSlot).toHaveBeenCalledWith(proposal.slotNumber, expectedPayloadHash);
     });
   });
 
