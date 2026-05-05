@@ -67,8 +67,7 @@ pub contract HandshakeRegistry {
         // Delivery is `ONCHAIN_UNCONSTRAINED`. The recipient is not involved in this note's delivery. They
         // discover the handshake via the recipient-keyed log emitted below, not via the sender's note.
         // We use onchain unconstrained delivery rather than `OFFCHAIN` so the note is
-        // discoverable via normal PXE sync. The discovery tag for this note is computed against the
-        // PXE-supplied `sender_for_tags`, which the account contract is expected to have set.
+        // discoverable via normal PXE sync.
         self.storage.handshakes.at(sender).insert(note).deliver(
             MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
