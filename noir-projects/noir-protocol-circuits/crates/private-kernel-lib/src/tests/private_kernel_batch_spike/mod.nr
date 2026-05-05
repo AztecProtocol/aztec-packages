@@ -1,15 +1,111 @@
 use crate::{
+    private_kernel_init::{self, PrivateKernelInitCircuitPrivateInputs},
     private_kernel_init_3::{self, PrivateKernelInit3CircuitPrivateInputs},
+    private_kernel_inner::{self, PrivateKernelInnerCircuitPrivateInputs},
     private_kernel_inner_3::{self, PrivateKernelInner3CircuitPrivateInputs},
 };
 use protocol_test_utils::{assert_claimed_length_array_eq, FixtureBuilder};
 use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        transaction::tx_request::TxRequest,
+        private_kernel_data::PrivateKernelData, transaction::tx_request::TxRequest,
     },
-    constants::PRIVATE_KERNEL_INIT_VK_INDEX,
+    constants::{PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX},
 };
+
+fn private_kernel_data_with_vk_index(
+    public_inputs: PrivateKernelCircuitPublicInputs,
+    vk_index: u32,
+) -> PrivateKernelData {
+    let kernel_data = FixtureBuilder::new().in_vk_tree(vk_index).to_private_kernel_data();
+    PrivateKernelData { public_inputs, vk_data: kernel_data.vk_data }
+}
+
+fn assert_private_kernel_public_inputs_eq(
+    actual: PrivateKernelCircuitPublicInputs,
+    expected: PrivateKernelCircuitPublicInputs,
+) {
+    assert_eq(actual.constants, expected.constants);
+    assert_eq(
+        actual.min_revertible_side_effect_counter,
+        expected.min_revertible_side_effect_counter,
+    );
+    assert_eq(actual.end, expected.end);
+    assert_eq(actual.validation_requests, expected.validation_requests);
+    assert_eq(actual.public_teardown_call_request, expected.public_teardown_call_request);
+    assert_eq(actual.fee_payer, expected.fee_payer);
+    assert_eq(actual.expiration_timestamp, expected.expiration_timestamp);
+    assert_eq(actual.is_private_only, expected.is_private_only);
+    assert_eq(actual.claimed_first_nullifier, expected.claimed_first_nullifier);
+    assert_eq(actual.claimed_revertible_counter, expected.claimed_revertible_counter);
+}
+
+fn execute_init_3_sequential(
+    inputs: PrivateKernelInit3CircuitPrivateInputs,
+) -> PrivateKernelCircuitPublicInputs {
+    let output_0 = private_kernel_init::execute(
+        PrivateKernelInitCircuitPrivateInputs {
+            tx_request: inputs.tx_request,
+            private_call: inputs.private_call_0,
+            vk_tree_root: inputs.vk_tree_root,
+            protocol_contracts: inputs.protocol_contracts,
+            is_private_only: inputs.is_private_only,
+            first_nullifier_hint: inputs.first_nullifier_hint,
+            revertible_counter_hint: inputs.revertible_counter_hint,
+        },
+    );
+
+    let output_1 = private_kernel_inner::execute(
+        PrivateKernelInnerCircuitPrivateInputs {
+            previous_kernel: private_kernel_data_with_vk_index(
+                output_0,
+                PRIVATE_KERNEL_INIT_VK_INDEX,
+            ),
+            private_call: inputs.private_call_1,
+        },
+    );
+
+    private_kernel_inner::execute(
+        PrivateKernelInnerCircuitPrivateInputs {
+            previous_kernel: private_kernel_data_with_vk_index(
+                output_1,
+                PRIVATE_KERNEL_INNER_VK_INDEX,
+            ),
+            private_call: inputs.private_call_2,
+        },
+    )
+}
+
+fn execute_inner_3_sequential(
+    inputs: PrivateKernelInner3CircuitPrivateInputs,
+) -> PrivateKernelCircuitPublicInputs {
+    let output_0 = private_kernel_inner::execute(
+        PrivateKernelInnerCircuitPrivateInputs {
+            previous_kernel: inputs.previous_kernel,
+            private_call: inputs.private_call_0,
+        },
+    );
+
+    let output_1 = private_kernel_inner::execute(
+        PrivateKernelInnerCircuitPrivateInputs {
+            previous_kernel: private_kernel_data_with_vk_index(
+                output_0,
+                PRIVATE_KERNEL_INNER_VK_INDEX,
+            ),
+            private_call: inputs.private_call_1,
+        },
+    );
+
+    private_kernel_inner::execute(
+        PrivateKernelInnerCircuitPrivateInputs {
+            previous_kernel: private_kernel_data_with_vk_index(
+                output_1,
+                PRIVATE_KERNEL_INNER_VK_INDEX,
+            ),
+            private_call: inputs.private_call_2,
+        },
+    )
+}
 
 struct Batch3TestBuilder {
     tx_request: TxRequest,
@@ -66,6 +162,24 @@ impl Batch3TestBuilder {
         include_sibling: bool,
         sync_second_to_third: bool,
     ) -> PrivateKernelCircuitPublicInputs {
+        private_kernel_init_3::execute(self.inputs_with_shape(include_sibling, sync_second_to_third))
+    }
+
+    fn execute_sequential_with_shape(
+        self,
+        include_sibling: bool,
+        sync_second_to_third: bool,
+    ) -> PrivateKernelCircuitPublicInputs {
+        execute_init_3_sequential(
+            self.inputs_with_shape(include_sibling, sync_second_to_third),
+        )
+    }
+
+    fn inputs_with_shape(
+        self,
+        include_sibling: bool,
+        sync_second_to_third: bool,
+    ) -> PrivateKernelInit3CircuitPrivateInputs {
         let mut private_call_0 = self.private_call_0;
         let mut private_call_1 = self.private_call_1;
         let mut private_call_2 = self.private_call_2;
@@ -117,7 +231,7 @@ impl Batch3TestBuilder {
             }
         }
 
-        let inputs = PrivateKernelInit3CircuitPrivateInputs {
+        PrivateKernelInit3CircuitPrivateInputs {
             tx_request: self.tx_request,
             private_call_0: private_call_0.to_private_call_data(),
             private_call_1: private_call_1.to_private_call_data(),
@@ -127,8 +241,7 @@ impl Batch3TestBuilder {
             is_private_only: self.is_private_only,
             first_nullifier_hint: self.first_nullifier_hint,
             revertible_counter_hint: self.revertible_counter_hint,
-        };
-        private_kernel_init_3::execute(inputs)
+        }
     }
 }
 
@@ -165,6 +278,14 @@ impl Inner3TestBuilder {
     }
 
     fn execute_linear_chain(self) -> PrivateKernelCircuitPublicInputs {
+        private_kernel_inner_3::execute(self.linear_chain_inputs())
+    }
+
+    fn execute_linear_chain_sequential(self) -> PrivateKernelCircuitPublicInputs {
+        execute_inner_3_sequential(self.linear_chain_inputs())
+    }
+
+    fn linear_chain_inputs(self) -> PrivateKernelInner3CircuitPrivateInputs {
         let mut previous_kernel = self.previous_kernel;
         let mut private_call_0 = self.private_call_0;
         let mut private_call_1 = self.private_call_1;
@@ -198,13 +319,12 @@ impl Inner3TestBuilder {
 
         previous_kernel.private_call_requests.push(private_call_0.to_private_call_request());
 
-        let inputs = PrivateKernelInner3CircuitPrivateInputs {
+        PrivateKernelInner3CircuitPrivateInputs {
             previous_kernel: previous_kernel.to_private_kernel_data(),
             private_call_0: private_call_0.to_private_call_data(),
             private_call_1: private_call_1.to_private_call_data(),
             private_call_2: private_call_2.to_private_call_data(),
-        };
-        private_kernel_inner_3::execute(inputs)
+        }
     }
 }
 
@@ -261,12 +381,32 @@ fn batch_3_linear_chain_consumes_all_calls() {
 }
 
 #[test]
+fn batch_3_linear_chain_matches_sequential_kernels() {
+    let builder = Batch3TestBuilder::new();
+
+    let batched = builder.execute_linear_chain();
+    let sequential = builder.execute_sequential_with_shape(false, true);
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
+}
+
+#[test]
 fn batch_3_depth_first_child_keeps_sibling_on_stack() {
     let builder = Batch3TestBuilder::new();
 
     let output = builder.execute_depth_first_with_sibling();
 
     assert_eq(output.end.private_call_stack.length, 1);
+}
+
+#[test]
+fn batch_3_depth_first_with_sibling_matches_sequential_kernels() {
+    let builder = Batch3TestBuilder::new();
+
+    let batched = builder.execute_depth_first_with_sibling();
+    let sequential = builder.execute_sequential_with_shape(true, true);
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
 }
 
 #[test(should_fail_with = "call_context does not match call request")]
@@ -314,10 +454,35 @@ fn inner_3_accumulates_side_effects_after_previous_kernel() {
 }
 
 #[test]
+fn inner_3_with_previous_side_effects_matches_sequential_kernels() {
+    let mut builder = Inner3TestBuilder::new();
+
+    builder.previous_kernel.append_note_hashes(1);
+    builder.private_call_0.append_note_hashes(1);
+    builder.private_call_1.append_note_hashes(1);
+    builder.private_call_2.append_note_hashes(1);
+
+    let batched = builder.execute_linear_chain();
+    let sequential = builder.execute_linear_chain_sequential();
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
+}
+
+#[test]
 fn inner_3_linear_chain_consumes_all_calls() {
     let builder = Inner3TestBuilder::new();
 
     let output = builder.execute_linear_chain();
 
     assert_eq(output.end.private_call_stack.length, 0);
+}
+
+#[test]
+fn inner_3_linear_chain_matches_sequential_kernels() {
+    let builder = Inner3TestBuilder::new();
+
+    let batched = builder.execute_linear_chain();
+    let sequential = builder.execute_linear_chain_sequential();
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
 }
