@@ -45,3 +45,37 @@
 ## Final status
 
 - Green with residual pipelining/teardown log noise.
+
+## Opus Review
+
+**Verdict: APPROVE WITH NITS**
+
+**Analysis quality.** The agent's review is correct, well-reasoned, and largely complete. I independently verified:
+
+- `Rollup contract check failed` is emitted only at `sequencer.ts:418`, the first of three `proposer-rollup-check-failed` branches (alongside `Slot mismatch:428` and `Block mismatch:438`). The exact-string filter in the test correctly excludes only the `canProposeAt` branch and leaves the other two visible.
+- The same filter shape is the established convention across `epochs_first_slot.test.ts:163`, `epochs_mbps.parallel.test.ts:200`, `epochs_high_tps_block_building.test.ts:221`, and `epochs_equivocation.test.ts:233`. So this is consistent with the rest of the suite.
+- `ProposedCheckpointNotSequentialError` does fire from `archiver/src/store/block_store.ts:1144`, supporting the agent's A-910 narrative.
+- The added `aztecSlotDurationInL1Slots: 6` matches the rationale in the inline comment and is consistent with `epochs_first_slot.test.ts`.
+
+**Soundness of the test change.** The change is light and appropriate: turn pipelining on, raise the L2/L1 slot ratio so a checkpoint publish has room to land before the next pipelined `canProposeAt`, and filter the known A-910 noise. The test is still meaningful: it asserts no `block-build-failed`, no `checkpoint-publish-failed`, and no `proposer-rollup-check-failed` with reasons `Slot mismatch` or `Block mismatch`. Those are the failure classes that would represent a real pipelining regression for "build N blocks across N slots."
+
+**Concerns.**
+
+1. The filter is reason-string based (`'Rollup contract check failed'`). If someone changes that literal in `sequencer.ts:418`, this filter silently goes from masking-noise to passing-it-through-as-failure. That is the safe direction (test starts failing instead of silently green), so it's acceptable, but a unit-test-style constant would be more robust.
+2. The inline comment says "self-proposal" — that's a bit imprecise. The A-910 path also fires when the same validator is the next proposer in two consecutive slots and the previous publish hasn't landed; "consecutive-proposer" or simply "previous publish in flight" is more accurate.
+3. The agent's analysis observed `ProposedCheckpointNotSequentialError` (`block-build-failed` class) at teardown only — that is reassuring but means the test would catch it during the run. Worth keeping an eye on whether this becomes intermittent.
+
+**Suggested tweak (optional).** Tighten the comment so the failure mode is described precisely:
+
+```diff
+-    // Expect no failures from sequencers during block building. Filter out the self-proposal 'Rollup contract
+-    // check failed' spam: when a validator proposes two consecutive checkpoints, the archiver's sequentiality
+-    // guard rejects persisting the second proposed checkpoint until the first is confirmed on L1, so the next
+-    // pipelining cycle falls through without simulation overrides and canProposeAt reverts until state catches
+-    // up. Tracked in A-910.
++    // Expect no failures from sequencers during block building. Filter out the benign 'Rollup contract check
++    // failed' noise that occurs when the same validator is proposer for two consecutive checkpoints: the
++    // archiver's sequentiality guard rejects persisting checkpoint N+1 until N is confirmed on L1, so the next
++    // pipelining cycle falls through without simulation overrides and canProposeAt reverts until state catches
++    // up. Tracked in A-910. Slot/block-mismatch reasons remain unfiltered.
+```

@@ -63,3 +63,40 @@
 ## Final status
 
 - Review complete. No test-file changes were needed.
+
+## Opus Review
+
+**Verdict: APPROVE WITH NITS**
+
+### On the change itself
+
+The doc-only comment expansion is sound. The technical claim is well-supported by the code:
+
+- `CheckpointProposalJob.waitForValidParentCheckpointOnL1` exists at `sequencer-client/src/sequencer/checkpoint_proposal_job.ts:399`, gated on `isPipelining` at line 244.
+- Discard reasons `parent-not-on-l1` and `parent-hash-mismatch` are emitted at `checkpoint_proposal_job.ts:433` and `:445` and registered as metric labels at `sequencer-client/src/sequencer/metrics.ts:154-155`.
+- The L1 simulation override (`l1SimulationOverridesBuilder.forPendingCheckpoint(parentCheckpointNumber).withPendingArchive(syncedTo.archive)`) lives at `sequencer-client/src/sequencer/sequencer.ts:384-388` (slightly off from the cited 373-379 — minor, but cite the actual lines if they're called out).
+- The test config truly does set `cancelTxOnTimeout: false` and `maxSpeedUpAttempts: 0` (lines 76-77), and uses `reorgTo` / `reorgWithReplacement` / `reorg` / `cancelNextTx` throughout — pipelining's "parent landed" assumption is genuinely violated.
+
+"Fundamentally incompatible" is defensible here. Other tests merely *delay* L1 inclusion (which pipelining handles via the wait gate); this test *unwinds* committed parent txs via L1 reorg, which is precisely the case where the L1 state override produces an archive against a chain tip that no longer exists. Calling that "incompatible" rather than "delayed" is fair.
+
+### On the other agent's analysis
+
+The analysis is correct on the substantive points (timing, reorg interactions, why pipelining is off, fail-event filtering not applicable). It is also more thorough than required — the "determinism concerns" section is useful but not part of the review brief. The agent ran the test (1081s, passed) which is helpful corroboration. No factual errors spotted.
+
+The agent did **not** flag the dangling `PIPELINING.md §7.5 / Pattern C` reference in the comment, which is a real defect: there is no `PIPELINING.md` anywhere in the repo (`find /mnt/user-data/santiago/code/aztec -iname PIPELINING.md` returns nothing), and the sibling A-918 cleanup commit (`991e4a3c17`, "test(pipelining): enable pipelining in epochs_first_slot") removed an analogous dangling reference. This file should get the same cleanup.
+
+### Suggested change
+
+```diff
+--- a/end-to-end/src/e2e_epochs/epochs_l1_reorgs.parallel.test.ts
++++ b/end-to-end/src/e2e_epochs/epochs_l1_reorgs.parallel.test.ts
+@@ -69,8 +69,7 @@
+     // pipelined work is discarded with reason `parent-not-on-l1` / `parent-hash-mismatch`.
+     // Worse, pipelining builds against an L1 state override that pretends the parent has landed,
+     // so a reorg mid-build produces an invalid archive against the post-reorg L1 state. Enabling
+-    // pipelining is fundamentally incompatible with this test's design — see PIPELINING.md
+-    // §7.5 / Pattern C.
++    // pipelining is fundamentally incompatible with this test's design.
+```
+
+Everything else in the comment stands on its own without needing the dangling reference.

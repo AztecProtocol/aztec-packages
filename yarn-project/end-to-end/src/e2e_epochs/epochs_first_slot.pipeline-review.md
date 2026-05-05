@@ -86,3 +86,38 @@
 
 - Green locally with the focused command above on Anvil port `18545`.
 - Residual risk: the test's fail-event assertion is evaluated before teardown, so teardown-time sequencer failures from later slot/checkpoint work are not part of the assertion. The focused behavior under review, blocks in epoch slots 128 and 129 under pipelining, passed.
+
+## Opus Review
+
+**Verdict:** APPROVE WITH NITS
+
+**On the analysis.** The other agent's claims check out:
+- `PROPOSER_PIPELINING_SLOT_OFFSET = 1` confirmed in `epoch_cache.ts:26`.
+- Default `ethereumSlotDuration = 8` (env-driven) and `aztecSlotDurationInL1Slots: 6` give L2_SLOT=48, L1_BLOCK=8 (confirmed in `epochs_test.ts:107-131`).
+- Production ratio 72/12 = 6 confirmed in `ethereum/src/generated/l1-contracts-defaults.ts`.
+- `watchSequencerEvents` records exactly the three keys claimed (`block-build-failed`, `checkpoint-publish-failed`, `proposer-rollup-check-failed`), confirmed at `epochs_test.ts:506-510`.
+- Warp math: `cheatCodes.eth.warp` mines a block at `timestamp` then resumes interval mining (`eth_cheat_codes.ts:248-280`). Warping to `epochStart - L2_SLOT - L1_BLOCK = epochStart - 56` followed by an 8s interval puts the next L1 block at `epochStart - 48`, i.e. exactly the start of `firstSlot - 1` (the build slot). Math is sound.
+
+The agent did **not** mention the user's hint that commit `09279f8325` already applied to drop the `PIPELINING.md §7.6` reference. I verified there are no `PIPELINING.md` references left in this file, while the sibling tests (`epochs_proof_fails.parallel`, `epochs_missed_l1_slot`, `epochs_l1_reorgs.parallel`) still reference it. The current test comments do not need that reference — the agent's silence is fine.
+
+**On the change.** The change is sound. Two concerns worth recording:
+
+1. The fail-event filter is broad: it drops *every* `proposer-rollup-check-failed` event whose reason is exactly `Rollup contract check failed`, across the entire test run. That includes any such event raised after the asserted blocks (slots 128/129) were observed but before the assertion fires. If a real regression caused this exact reason at the moment we expected blocks to land, it would also be hidden. This is acceptable given A-910 tracks the underlying noise, but worth a TODO to tighten once A-910 lands.
+
+2. The `secondSlot` claim in the test's title ("first two slots") is a softer guarantee than the regression covers — `slots.includes(firstSlot) && slots.includes(secondSlot)` is satisfied as long as at some point those blocks exist within the first 10 archived blocks. That matches the prior assertion shape, so not introduced by this diff.
+
+**Suggested nit (markdown only).** The notes file conflates "Initial diff summary" with `origin/master...HEAD` even though the actual base for this branch is `merge-train/spartan`. Recommend:
+
+```diff
+ - Committed branch diff checked with:
+-  - `git diff origin/master...HEAD -- end-to-end/src/e2e_epochs/epochs_first_slot.test.ts`
+-- Against `origin/master...HEAD`, this test is a new file on the branch. The new test:
++  - `git diff origin/merge-train/spartan -- yarn-project/end-to-end/src/e2e_epochs/epochs_first_slot.test.ts`
++- Against `origin/merge-train/spartan`, the diff enables pipelining on an already-existing test:
++  - widens `aztecSlotDurationInL1Slots` from 3 to 6,
++  - adds `enableProposerPipelining: true` and `inboxLag: 2`,
++  - shifts the warp target back by one L2 slot to land in the pipelined build window,
++  - filters expected `proposer-rollup-check-failed` / `Rollup contract check failed` spam (A-910).
+```
+
+The "new file on the branch" framing is wrong — the file pre-existed; only the pipelining-related fields are new.

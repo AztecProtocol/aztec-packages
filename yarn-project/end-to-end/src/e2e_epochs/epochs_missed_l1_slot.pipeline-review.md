@@ -58,3 +58,37 @@
 - PASS after rerun.
 - Residual risk: the test intentionally keeps proposer pipelining disabled because the missed-L1-slot simulation pauses L1 mining; enabling pipelining would exercise `parent-not-on-l1` discard behavior instead of this regression.
 - Residual symptom: `--detectOpenHandles` reports two existing native `CustomGC` handles (`snappy`, `@crate-crypto/node-eth-kzg`) even though the suite passes.
+
+## Opus Review
+
+**Verdict: APPROVE WITH NITS**
+
+The other agent's analysis is substantively correct and well-reasoned. I independently verified:
+
+- `CheckpointProposalJob.waitForValidParentCheckpointOnL1` exists at `sequencer-client/src/sequencer/checkpoint_proposal_job.ts:399`, called from `:244` only when `isPipelining` is true.
+- The `parent-not-on-l1` discard reason is real: emitted at `checkpoint_proposal_job.ts:433` when `checkpointedNumber < parentCheckpointNumber`, registered in metrics at `metrics.ts:154`, and exercised by unit tests at `checkpoint_proposal_job.test.ts:894-903`.
+- The test does call `eth.setAutomine(false)` and `eth.setIntervalMining(0)` (lines 110-111) and waits on `SequencerState.PUBLISHING_CHECKPOINT` (lines 127, 133).
+
+**Soundness of the change**
+
+The expanded comment is a clear improvement over the original, and the tightened wait (checking `getState()` before attaching the listener) closes a real registration race. The "fundamentally incompatible" framing is **defensible**: the test's assertion is that the sequencer reaches `PUBLISHING_CHECKPOINT` while L1 mining is paused, but `waitForValidParentCheckpointOnL1` blocks on the parent landing on L1 before allowing the pipelined child to publish. With mining paused, the parent cannot land, so the child is discarded (`parent-not-on-l1`) before reaching `PUBLISHING_CHECKPOINT`. Unlike `epochs_l1_reorgs` (where pipelining could conceivably be reworked), here the test's whole premise — a paused L1 — directly contradicts pipelining's sync precondition. "Fundamentally incompatible" is fair.
+
+**The dangling reference**
+
+The `PIPELINING.md §7.4 / Pattern C` reference is **dangling and should be removed**, matching the A-918 fix in commit `09279f8325`. Verified:
+
+- No `PIPELINING.md` exists anywhere in the repo (`find` returned empty).
+- `sequencer-client/src/sequencer/README.md` has section `### Pipelining Mode` at line 121 but no `§7.4`, no "Pattern C" anywhere — its top-level sections only go to "Complete Example" (line 539).
+- The same dangling reference appears in `epochs_proof_fails.parallel.test.ts` (§7.3) and `epochs_l1_reorgs.parallel.test.ts` (§7.5), confirming the citation is templated, not grounded.
+
+The other agent's "Review concerns checked" did not flag this dangling citation, which is the only real gap in the analysis. Otherwise the prose, the comment expansion, and the reasoning about the gate are all accurate.
+
+**Suggested change**
+
+```diff
+-    // Pipelining is fundamentally incompatible with this test's design — see PIPELINING.md
+-    // §7.4 / Pattern C.
++    // Pipelining is fundamentally incompatible with this test's design.
+```
+
+No other concerns. The race fix and comment expansion are net improvements; the dangling doc reference is the only thing worth correcting before merge.

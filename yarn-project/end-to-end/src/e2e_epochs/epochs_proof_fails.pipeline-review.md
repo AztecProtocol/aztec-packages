@@ -64,3 +64,36 @@
 
 - Green on Anvil port 18550.
 - Residual risks: the first test still relies on the delayers' last sent tx hashes being the relevant proof/proposal txs, and the second test is intentionally timing-sensitive due to the mocked long `finalizeEpoch` sleep. The passing verbose run matched the intended proof-deadline and rollback behavior.
+
+## Opus Review
+
+**Verdict: APPROVE WITH NITS**
+
+The other agent's analysis is largely sound — it correctly verifies the test mechanics, the timing math, and confirms that `enableProposerPipelining:false` is the runtime state. The actual review work (running the test, observing the rollback log lines, confirming the prover tx revert) is solid.
+
+The diff itself is doc-only and the technical claims are correct:
+
+- `CheckpointProposalJob.waitForValidParentCheckpointOnL1` exists at `yarn-project/sequencer-client/src/sequencer/checkpoint_proposal_job.ts:399` and is gated on `isPipelining` at line 244 — confirming pipelining-only behavior.
+- The `parent-not-on-l1` discard reason is emitted at line 433 of the same file via `emitPipelinedCheckpointDiscarded`.
+- The test really does use `cancelTxOnTimeout: false` and `maxSpeedUpAttempts: 0` for both setup and the explicitly-created prover node.
+- The causal chain ("hold parent forever -> child discarded as `parent-not-on-l1` -> rollback-triggering tx never sent") is accurate for the first `it` block.
+
+**However, the prior review's finding stands and was not addressed by either the diff or the agent's review:**
+
+`PIPELINING.md` does not exist anywhere in the repo (`find` returns nothing). The "§7.3 / Pattern C" reference is dangling. The same dangling reference appears in `epochs_l1_reorgs.parallel.test.ts:72` (§7.5) and `epochs_missed_l1_slot.test.ts:36` (§7.4), and was already removed from the `epochs_first_slot.test.ts` sibling in commit `09279f8325`. This file should follow suit.
+
+The "fundamentally incompatible" framing is defensible: the gate is unconditional when `isPipelining` is true, and there is no per-slot bypass — so within the current code, holding the parent tx forever genuinely will suppress the child propose tx. "Fundamentally" is slightly strong (a future bypass flag would change this), but it is accurate for the codebase as it stands today.
+
+The other agent's analysis omitted this dangling-reference issue entirely, which is the one substantive nit on this otherwise-fine doc change.
+
+**Suggested fix:**
+
+```diff
+     // `parent-not-on-l1`, which suppresses the very rollback-triggering tx the first `it` block
+-    // asserts on. There is no per-slot pipelining bypass, so enabling pipelining is fundamentally
+-    // incompatible with this test's design — see PIPELINING.md §7.3 / Pattern C.
++    // asserts on. There is no per-slot pipelining bypass, so enabling pipelining is fundamentally
++    // incompatible with this test's design.
+```
+
+(matching the resolution applied in commit `09279f8325` for the `epochs_first_slot.test.ts` sibling).

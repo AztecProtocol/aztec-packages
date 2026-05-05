@@ -74,3 +74,39 @@
 ## Final status
 
 - Review complete for the target file. Targeted e2e run is green. No changes were made to the test file.
+
+## Opus Review
+
+**Verdict: APPROVE WITH NITS**
+
+### On the actual diff
+The task description mentions a swap from "strict `each block <= 1 tx`" to a "production cap formula" assertion. That swap is NOT in the branch diff against `origin/merge-train/spartan` — `git diff` shows only two lines added: `enableProposerPipelining: true` and `inboxLag: 2`. The cap-formula assertion logic (and the `blockTxCounts[0] > 1` HIGH-multiplier check) already existed on the base. The other agent did not call out this discrepancy with the task framing, but its narrower scope (just enabling pipelining) is the right read of the actual change.
+
+### On the other agent's analysis
+Correct on the substance and the test-run outcome. Concerns flagged (timing tightness, mempool nondeterminism in test 1, lack of fail-event watcher) are valid. Two gaps:
+- Does not verify the cap math against `checkpoint_builder.ts:218-227`. I confirmed: `cappedMaxTransactions` is first bounded by `remainingTxs` at line 216 (`Math.min(opts.maxTransactions ?? Infinity, remainingTxs)`), then further reduced by `Math.ceil((remainingTxs / remainingBlocks) * multiplier)` at 226. So the `Math.min(., remainingTxs)` clamp the agent omits in its cap-loop comment is actually applied upstream — the production code is safe and the test comment ("capped by remaining = 2") matches.
+- Does not validate that `MAX_BLOCKS_PER_CHECKPOINT` is genuinely 3 at runtime under the configured timings. The setup comment derives 35s of useful slot from a 36s `aztecSlotDuration`, which yields exactly 3 sub-slots. The green test run is consistent with this, but it is timing-sensitive.
+
+### Discrimination of HIGH (10) vs NORMAL (1.2)
+For the first block of an empty checkpoint with `maxTxsPerCheckpoint=2`, `remainingBlocks=3`:
+- NORMAL: `min(2, ceil(2/3 * 1.2)) = min(2, 1) = 1`
+- HIGH:   `min(2, ceil(2/3 * 10))  = min(2, 7) = 2`
+
+So `blockTxCounts[0] > 1` is uniquely satisfiable by HIGH proposers — assertion is meaningful. Good.
+
+### Nits
+- Test 2 has no fail-event watcher. Sibling pipelining tests (e.g. `epochs_first_slot`) install one. Worth adding for symmetry.
+- Test 2 only asserts a HIGH-proposer multi-tx first block; it never positively asserts that a NORMAL proposer's checkpoint was attested-and-finalized (the original "no fair-share re-execution" claim). Today this is implicit (the chain advances to the next HIGH checkpoint). A stronger assertion would explicitly verify a NORMAL-proposer checkpoint was finalized.
+
+### Suggested doc patch
+
+```diff
+--- a/yarn-project/end-to-end/src/e2e_epochs/epochs_mbps_redistribution.pipeline-review.md
++++ b/yarn-project/end-to-end/src/e2e_epochs/epochs_mbps_redistribution.pipeline-review.md
+@@ -28,6 +28,9 @@
+ - The second test identifies checkpoint proposer via `EpochCache` and asserts production fair-share caps for normal proposers. This looks directionally correct, but the hard-coded `MAX_BLOCKS_PER_CHECKPOINT = 3` must match the timetable produced by the configured slot timings.
+ - No fail-event watcher is currently installed in this test, unlike nearby pipelining tests that filter known `proposer-rollup-check-failed` / `Rollup contract check failed` noise and assert no significant events.
++- Verified against `validator-client/src/checkpoint_builder.ts:216-226`: `cappedMaxTransactions` is clamped to `remainingTxs` before the proposer-mode multiplier is applied, so HIGH (10) caps to `min(2, 7) = 2` and NORMAL (1.2) caps to `min(2, 1) = 1`. The `blockTxCounts[0] > 1` assertion uniquely discriminates HIGH from NORMAL.
++- Test 2 never positively asserts that a NORMAL-proposer checkpoint was attested and finalized; that part of the docstring's claim is only implicit in chain progression.
+```
+
