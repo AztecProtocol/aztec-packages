@@ -108,7 +108,8 @@ ProverPolynomials build_valid_eccvm_msm_state()
 }
 
 // The following helper methods are for a regression test: MSMRoundTransitionPhaseSelectorSwap.
-// Without the correct constraints, one can swap a `double` for a `skew` at the last round, which allows one to spoof an MSM. 
+// Without the correct constraints, one can swap a `double` for a `skew` at the last round, which allows one to spoof an
+// MSM.
 
 /**
  * @brief Build a single-MSM trace with one point and one odd 128-bit scalar.
