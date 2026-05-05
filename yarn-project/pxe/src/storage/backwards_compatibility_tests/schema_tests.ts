@@ -657,6 +657,7 @@ function buildL2Block(): L2Block {
 function buildSchemaContractArtifact(): ContractArtifact {
   return {
     name: 'SchemaFixtureContract',
+    aztecVersion: 'schema-fixture-version',
     functions: [
       {
         name: 'private_fn',
