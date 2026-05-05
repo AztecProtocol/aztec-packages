@@ -13,6 +13,7 @@ import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/bra
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
+import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerEvents } from '@aztec/sequencer-client';
@@ -113,8 +114,24 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
   }
 
+  /**
+   * Waits for the archiver to ingest every checkpoint that the rollup contract has already published on L1.
+   * On node 0 we run with `skipPromoteProposedCheckpointDuringL1Sync`, so the archiver must download blobs
+   * via the L1-sync path; that path can lag the tx-receipt path that `waitForTx` follows by a few hundred ms.
+   */
+  async function waitUntilArchiverMatchesL1Checkpoint() {
+    const expected = await rollup.getCheckpointNumber();
+    await retryUntil(
+      async () => (await archiver.getCheckpointNumber()) >= expected,
+      `archiver to ingest checkpoint ${expected}`,
+      test.L2_SLOT_DURATION_IN_S,
+      0.1,
+    );
+  }
+
   /** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
   async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger): Promise<CheckpointNumber> {
+    await waitUntilArchiverMatchesL1Checkpoint();
     const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
     logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
