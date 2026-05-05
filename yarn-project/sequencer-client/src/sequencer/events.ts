@@ -1,4 +1,5 @@
-import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import type { BlockHash } from '@aztec/stdlib/block';
 
 import type { Action } from '../publisher/sequencer-publisher.js';
 import type { SequencerState } from './utils.js';
@@ -13,7 +14,14 @@ export type SequencerEvents = {
   ['proposer-rollup-check-failed']: (args: { reason: string; slot: SlotNumber }) => void;
   ['block-tx-count-check-failed']: (args: { minTxs: number; availableTxs: number; slot: SlotNumber }) => void;
   ['block-build-failed']: (args: { reason: string; slot: SlotNumber }) => void;
-  ['block-proposed']: (args: { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber }) => void;
+  ['block-proposed']: (args: {
+    blockNumber: BlockNumber;
+    blockHash: BlockHash;
+    checkpointNumber: CheckpointNumber;
+    indexWithinCheckpoint: IndexWithinCheckpoint;
+    slot: SlotNumber;
+    buildSlot: SlotNumber;
+  }) => void;
   ['checkpoint-empty']: (args: { slot: SlotNumber }) => void;
   ['checkpoint-publish-failed']: (args: {
     slot: SlotNumber;

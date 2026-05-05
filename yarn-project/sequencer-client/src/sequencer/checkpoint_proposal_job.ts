@@ -607,6 +607,8 @@ export class CheckpointProposalJob implements Traceable {
         );
         blocksInCheckpoint = result.blocksInCheckpoint;
         blockPendingBroadcast = result.blockPendingBroadcast;
+        checkpointProposalOptions.broadcastInvalidCheckpointProposal ||=
+          blocksInCheckpoint.at(-1)?.indexWithinCheckpoint === this.config.invalidBlockProposalIndexWithinCheckpoint;
       } catch (err) {
         // These errors are expected in HA mode, so we yield and let another HA node handle the slot
         // The only distinction between the 2 errors is SlashingProtectionError throws when the payload is different,
@@ -1066,6 +1068,9 @@ export class CheckpointProposalJob implements Traceable {
       // `buildSlot` is the wall-clock slot during which the block was actually built.
       this.eventEmitter.emit('block-proposed', {
         blockNumber: block.number,
+        blockHash,
+        checkpointNumber: this.checkpointNumber,
+        indexWithinCheckpoint: block.indexWithinCheckpoint,
         slot: this.targetSlot,
         buildSlot: this.slotNow,
       });

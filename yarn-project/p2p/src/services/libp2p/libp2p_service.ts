@@ -233,6 +233,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       maxTxsPerBlock: config.validateMaxTxsPerBlock ?? config.validateMaxTxsPerCheckpoint,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
       p2pPropagationTime,
+      skipSlotValidation: config.skipProposalSlotValidation,
       signatureContext: {
         chainId: config.l1ChainId,
         rollupAddress: config.l1Contracts.rollupAddress,

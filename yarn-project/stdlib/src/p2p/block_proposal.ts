@@ -49,6 +49,11 @@ export type BlockProposalOptions = {
    * Use only for testing.
    */
   broadcastInvalidBlockProposal?: boolean;
+  /**
+   * Whether to corrupt this specific block proposal.
+   * Use only for testing.
+   */
+  broadcastInvalidThisBlockProposal?: boolean;
 };
 
 /**

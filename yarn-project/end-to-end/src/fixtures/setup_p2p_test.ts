@@ -88,6 +88,10 @@ export type CreateNodeConfig = AztecNodeConfig & {
   dontStartSequencer?: boolean;
   /** Override the private key (instead of deriving from addressIndex). */
   validatorPrivateKey?: `0x${string}`;
+  /** Corrupt only the block proposal at this indexWithinCheckpoint (testing only). */
+  invalidBlockProposalIndexWithinCheckpoint?: number;
+  /** Accept proposal gossip regardless of slot timing (testing only). */
+  skipProposalSlotValidation?: boolean;
 };
 
 /** Creates a P2P enabled instance of Aztec Node Service with a validator. */
