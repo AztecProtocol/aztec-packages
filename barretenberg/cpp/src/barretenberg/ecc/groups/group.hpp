@@ -24,10 +24,12 @@ namespace bb {
  * @brief group class. Represents an elliptic curve group element.
  * Group is parametrised by Fq and Fr
  *
- * Note: Currently subgroup checks are NOT IMPLEMENTED
- * Our current implementation uses G1 points that have a cofactor of 1.
- * All G2 points are precomputed (generator [1]_2 and trusted setup point [x]_2).
- * Explicitly assume precomputed points are valid members of the prime-order subgroup for G2.
+ * Note: BN254 / Grumpkin G1 have cofactor 1, so `affine_element::on_curve()` is itself a subgroup
+ * check. BN254 G2 has a non-trivial cofactor, so callers that accept externally-supplied G2 bytes
+ * must additionally invoke `affine_element::is_in_prime_subgroup()` to reject cofactor-subgroup
+ * points before they reach pairing-based verifiers; routine internal G2 arithmetic stays inside
+ * the prime-order subgroup because every starting point is the precomputed generator [1]_2 or the
+ * SRS point [x]_2.
  *
  * @tparam Fq
  * @tparam subgroup_field
