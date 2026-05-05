@@ -354,7 +354,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       // writes back to the staged map; `commit` then flushes it to disk with the populated trailer and adds the
       // corresponding `note_block_number_to_nullifier` entry.
       await noteStore.applyNullifiers(
-        [{ data: note3.siloedNullifier, l2BlockNumber: BlockNumber(223), l2BlockHash: BlockHash.ZERO }],
+        [{ data: note3.siloedNullifier, l2BlockNumber: BlockNumber(223), l2BlockHash: new BlockHash(Fr.ZERO) }],
         jobId,
       );
 
