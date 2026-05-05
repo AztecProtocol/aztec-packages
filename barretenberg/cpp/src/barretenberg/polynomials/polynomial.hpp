@@ -403,6 +403,22 @@ template <typename Fr> class Polynomial {
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
+
+/**
+ * @brief Fused parallel batched add: dst += sum_i scalars[i] * sources[i].
+ *
+ * Equivalent to invoking dst.add_scaled(sources[i], scalars[i]) for each i, but issues a single
+ * parallel_for over the destination range and visits every source within each chunk. Amortises
+ * the per-call parallel_for startup cost from N× down to 1×, which dominates the cost of small-N
+ * batched add-scaled patterns at high core counts.
+ *
+ * Each source must satisfy add_scaled's precondition: dst's index range covers the source's.
+ */
+template <typename Fr>
+void add_scaled_batch(Polynomial<Fr>& dst,
+                      std::span<const PolynomialSpan<const Fr>> sources,
+                      std::span<const Fr> scalars);
+
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
 {
