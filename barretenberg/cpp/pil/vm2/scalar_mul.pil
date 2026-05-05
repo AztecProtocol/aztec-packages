@@ -174,7 +174,6 @@ namespace scalar_mul;
     end * (temp_y - point_y) = 0;
     end * (temp_inf - point_inf) = 0;
 
-    // TODO(MW): Remove result_infinity?
     #[DOUBLE]
     sel_not_end { temp_x, temp_y, temp_inf, temp_x', temp_y', temp_inf', sel_not_end /* = 1 */ }
     in
@@ -203,7 +202,6 @@ namespace scalar_mul;
     SHOULD_PASS * (res_y - res_y') = 0;
     SHOULD_PASS * (res_inf - res_inf') = 0;
 
-    // TODO(MW): Remove result_infinity?
     #[ADD]
     should_add { res_x, res_y, res_inf, res_x', res_y', res_inf', temp_x, temp_y, temp_inf }
     in

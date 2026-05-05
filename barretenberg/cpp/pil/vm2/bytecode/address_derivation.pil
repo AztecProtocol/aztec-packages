@@ -307,7 +307,6 @@ namespace address_derivation;
 
     // Enforces address_point = preaddress_public_key + incoming_viewing_key on Grumpkin, and that
     // address = address_point.x.
-    // TODO(MW): Remove result_infinity?
     #[ADDRESS_ECADD]
     sel {
         preaddress_public_key_x, preaddress_public_key_y, precomputed.zero,
