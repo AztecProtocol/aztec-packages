@@ -77,7 +77,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
     protected logger = createLogger('node:sentinel'),
   ) {
     super();
-    this.l2TipsStore = new L2TipsMemoryStore();
+    this.l2TipsStore = new L2TipsMemoryStore(archiver.getGenesisBlockHash());
     const interval = (epochCache.getL1Constants().ethereumSlotDuration * 1000) / 4;
     this.runningPromise = new RunningPromise(this.work.bind(this), logger, interval);
   }
@@ -151,7 +151,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
       return;
     }
     const blockNumber = event.block.number;
-    const header = await this.archiver.getBlockHeader(blockNumber);
+    const header = (await this.archiver.getBlockData({ number: blockNumber }))?.header;
     if (!header) {
       this.logger.error(`Failed to get block header ${blockNumber}`);
       return;

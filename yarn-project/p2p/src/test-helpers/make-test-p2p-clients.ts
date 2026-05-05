@@ -114,6 +114,7 @@ export async function makeTestP2PClient(
       logger,
       p2pServiceFactory: mockGossipSubNetwork && getMockPubSubP2PServiceFactory(mockGossipSubNetwork),
     },
+    await l2BlockSource.getInitialHeader().hash(),
   );
 
   return client;

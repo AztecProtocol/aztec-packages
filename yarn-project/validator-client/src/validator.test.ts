@@ -151,7 +151,7 @@ describe('ValidatorClient', () => {
     });
 
     blockSource = mock<L2BlockSource & L2BlockSink>();
-    blockSource.getCheckpointedBlocksForEpoch.mockResolvedValue([]);
+    blockSource.getBlocks.mockResolvedValue([]);
     blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
     blockSource.getBlocksForSlot.mockResolvedValue([]);
     blockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(Number.MAX_SAFE_INTEGER));
@@ -338,6 +338,7 @@ describe('ValidatorClient', () => {
     let sender: PeerId;
     let blockBuildResult: BuildBlockInCheckpointResult;
     let mockCheckpointBuilder: MockProxy<CheckpointBuilder>;
+    let parentBlockData: BlockData;
 
     const makeTxFromHash = (txHash: TxHash) => ({ getTxHash: () => txHash, txHash }) as Tx;
     const getExpectedWallClockDeadline = (currentSlot: SlotNumber) =>
@@ -393,9 +394,10 @@ describe('ValidatorClient', () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
       epochCache.isEscapeHatchOpenAtSlot.mockResolvedValue(false);
 
-      // Return parent block data when requested (includes checkpoint info, avoids loading full L2Block)
+      // Return parent block data when requested by archive root (parent block lookup).
+      // Return undefined for number-based queries (existence check — the proposed block must not exist yet).
       const parentSlot = SlotNumber(Number(blockHeader.globalVariables.slotNumber) - 1);
-      blockSource.getBlockDataByArchive.mockResolvedValue({
+      parentBlockData = {
         header: {
           getBlockNumber: () => blockNumber - 1,
           getSlot: () => parentSlot,
@@ -405,7 +407,10 @@ describe('ValidatorClient', () => {
         blockHash: BlockHash.random(),
         checkpointNumber: CheckpointNumber(1),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
-      } as unknown as BlockData);
+      } as unknown as BlockData;
+      blockSource.getBlockData.mockImplementation(query =>
+        Promise.resolve('number' in query ? undefined : parentBlockData),
+      );
 
       blockSource.getGenesisValues.mockResolvedValue({ genesisArchiveRoot: new Fr(GENESIS_ARCHIVE_ROOT) });
       blockSource.syncImmediate.mockImplementation(() => Promise.resolve());
@@ -636,8 +641,8 @@ describe('ValidatorClient', () => {
         },
       });
 
-      // Mock getBlockHeaderByArchive to return a header so retryUntil succeeds
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      // Mock getBlockData to return block data so retryUntil succeeds
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as any);
       blockSource.getBlocksForSlot.mockResolvedValue(blocks);
 
       // Checkpoint validation should fail: proposal points to block 2 but last block in slot is block 3
@@ -648,12 +653,13 @@ describe('ValidatorClient', () => {
 
     it('should wait for previous block to sync', async () => {
       epochCache.filterInCommittee.mockResolvedValue([EthAddress.fromString(validatorAccounts[0].address)]);
-      blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
-      blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
-      blockSource.getBlockDataByArchive.mockResolvedValueOnce(undefined);
+      blockSource.getBlockData.mockResolvedValueOnce(undefined);
+      blockSource.getBlockData.mockResolvedValueOnce(undefined);
+      blockSource.getBlockData.mockResolvedValueOnce(undefined);
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
-      // Direct call returns undefined, then retryUntil: 2 undefined + 1 success = 4 total
-      expect(blockSource.getBlockDataByArchive).toHaveBeenCalledTimes(4);
+      // Archive lookups: 1 direct + 2 retryUntil (undefined) + 1 retryUntil (success) = 4
+      // Plus 1 number-based existence check after parent block is found = 5 total
+      expect(blockSource.getBlockData).toHaveBeenCalledTimes(5);
       expect(isValid).toBe(true);
     });
 
@@ -694,10 +700,13 @@ describe('ValidatorClient', () => {
     });
 
     it('should not validate proposal if the proposed block number is taken', async () => {
-      blockSource.getBlockHeader.mockResolvedValue({} as BlockHeader);
+      // Parent block lookup (by archive) returns valid data; existence check (by number) also returns data → block taken.
+      blockSource.getBlockData.mockImplementation(query =>
+        Promise.resolve('number' in query ? ({ header: {} as BlockHeader } as any) : parentBlockData),
+      );
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
       expect(isValid).toBe(false);
-      expect(blockSource.getBlockHeader).toHaveBeenCalledWith(blockNumber);
+      expect(blockSource.getBlockData).toHaveBeenCalledWith({ number: blockNumber });
     });
 
     it('should not emit WANT_TO_SLASH_EVENT if slashing is disabled', async () => {
@@ -889,8 +898,8 @@ describe('ValidatorClient', () => {
           nowSeconds: 0n,
         });
 
-        // Mock parent block data returned by getBlockDataByArchive
-        blockSource.getBlockDataByArchive.mockResolvedValue({
+        // Mock parent block data returned by getBlockData
+        blockSource.getBlockData.mockResolvedValue({
           header: {
             getBlockNumber: () => BlockNumber(parentBlockNumber),
             getSlot: () => SlotNumber(parentSlotNumber),
@@ -1025,7 +1034,7 @@ describe('ValidatorClient', () => {
 
     it('should send blobs from blocks in the slot to filestore', async () => {
       const mockBlock = L2Block.empty();
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as any);
       blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
 
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
@@ -1039,7 +1048,7 @@ describe('ValidatorClient', () => {
     });
 
     it('should not upload if last block header is not found', async () => {
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(undefined);
+      blockSource.getBlockData.mockResolvedValue(undefined);
 
       const proposal = await makeCheckpointProposal({ lastBlock: {} });
       await (validatorClient.getProposalHandler() as TestProposalHandler).uploadBlobsForCheckpoint(
@@ -1052,7 +1061,7 @@ describe('ValidatorClient', () => {
 
     it('should not throw when blob upload fails', async () => {
       const mockBlock = L2Block.empty();
-      blockSource.getBlockHeaderByArchive.mockResolvedValue(makeBlockHeader());
+      blockSource.getBlockData.mockResolvedValue({ header: makeBlockHeader() } as any);
       blockSource.getBlocksForSlot.mockResolvedValue([mockBlock]);
       blobClient.sendBlobsToFilestore.mockRejectedValue(new Error('upload failed'));
 
