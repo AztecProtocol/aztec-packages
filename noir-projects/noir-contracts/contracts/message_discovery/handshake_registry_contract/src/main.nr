@@ -87,7 +87,7 @@ pub contract HandshakeRegistry {
     /// Returning the latest (rather than the first) lets a sender re-initiate by issuing a fresh handshake; e.g.
     /// if the previous secret was leaked.
     ///
-    /// This is the discovery surface a contract uses (via oracle) to obtain a note hint before asserting existence
+    /// This is the discovery surface a contract uses to obtain a note hint before asserting existence
     /// of the note at this registry's address.
     #[external("utility")]
     unconstrained fn get_handshake(
