@@ -7,7 +7,7 @@ description: Learn how to install and configure the Noir Language Server for a b
 
 Install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) to get syntax highlighting, syntax error detection, and go-to definitions for your Aztec contracts.
 
-The extension drives its language server with `nargo`. The Aztec installer ships a bundled `nargo` and exposes it as the `aztec-nargo` wrapper on your `PATH`. Bare `nargo` is intentionally not provided so it does not shadow your own install (if any). Verify the wrapper is on your `PATH`:
+The extension drives its language server with `nargo`. The Aztec installer ships a bundled `nargo` and exposes it as the `aztec-nargo` symlink on your `PATH`. Bare `nargo` is intentionally not provided so it does not shadow your own install (if any). Verify the symlink is on your `PATH`:
 
 ```bash
 which aztec-nargo
@@ -18,7 +18,7 @@ If you have not installed the Aztec toolchain yet, follow [Getting Started on Lo
 
 ## Configure the extension
 
-Set the extension's `Noir: Nargo Path` setting to the absolute path printed by `which aztec-nargo` (for example `$HOME/.aztec/current/bin/aztec-nargo`), then reload the window. The wrapper is a drop-in replacement for `nargo` because it `exec`s the bundled binary while preserving the language server protocol.
+Set the extension's `Noir: Nargo Path` setting to the absolute path printed by `which aztec-nargo` (for example `$HOME/.aztec/current/bin/aztec-nargo`), then reload the window. `aztec-nargo` is a symlink to the bundled `nargo`, so any tool that invokes it speaks plain `nargo` (LSP included).
 
 To confirm the extension is using the bundled toolchain, hover over **Nargo** in the VSCode status bar in the bottom right corner: it should show the path you set.
 

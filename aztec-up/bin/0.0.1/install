@@ -240,7 +240,7 @@ function install_npm_bin_symlinks {
   local npm_bin_dir="$version_path/node_modules/.bin"
   [ -d "$npm_bin_dir" ] || return 0
 
-  local bin_link bin_name target wrapper_name
+  local bin_link bin_name target link_name
   for bin_link in "$npm_bin_dir"/*; do
     [ -L "$bin_link" ] || continue
     target=$(readlink "$bin_link")
@@ -254,16 +254,16 @@ function install_npm_bin_symlinks {
     # Already prefixed (e.g. aztec-wallet) keeps its name; everything else gets
     # renamed to aztec-<orig> so it cannot shadow a user-installed binary.
     if [[ "$bin_name" == aztec-* ]]; then
-      wrapper_name="$bin_name"
+      link_name="$bin_name"
     else
-      wrapper_name="aztec-$bin_name"
+      link_name="aztec-$bin_name"
     fi
 
-    if [ -e "$version_bin_path/$wrapper_name" ] && [ ! -L "$version_bin_path/$wrapper_name" ]; then
-      echo_yellow "refusing to overwrite non-symlink $wrapper_name; @aztec package bin collides with a hand-installed toolchain binary" >&2
+    if [ -e "$version_bin_path/$link_name" ] && [ ! -L "$version_bin_path/$link_name" ]; then
+      echo_yellow "refusing to overwrite non-symlink $link_name; @aztec package bin collides with a hand-installed toolchain binary" >&2
       exit 1
     fi
-    ln -sfn "../node_modules/.bin/$bin_name" "$version_bin_path/$wrapper_name"
+    ln -sfn "../node_modules/.bin/$bin_name" "$version_bin_path/$link_name"
   done
 }
 

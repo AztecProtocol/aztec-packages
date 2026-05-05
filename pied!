@@ -1,0 +1,57 @@
+[1mdiff --git a/aztec-up/bin/0.0.1/install b/aztec-up/bin/0.0.1/install[m
+[1mindex c617328808..6f3dfadfed 100755[m
+[1m--- a/aztec-up/bin/0.0.1/install[m
+[1m+++ b/aztec-up/bin/0.0.1/install[m
+[36m@@ -240,7 +240,7 @@[m [mfunction install_npm_bin_symlinks {[m
+   local npm_bin_dir="$version_path/node_modules/.bin"[m
+   [ -d "$npm_bin_dir" ] || return 0[m
+ [m
+[31m-  local bin_link bin_name target wrapper_name[m
+[32m+[m[32m  local bin_link bin_name target link_name[m
+   for bin_link in "$npm_bin_dir"/*; do[m
+     [ -L "$bin_link" ] || continue[m
+     target=$(readlink "$bin_link")[m
+[36m@@ -254,16 +254,16 @@[m [mfunction install_npm_bin_symlinks {[m
+     # Already prefixed (e.g. aztec-wallet) keeps its name; everything else gets[m
+     # renamed to aztec-<orig> so it cannot shadow a user-installed binary.[m
+     if [[ "$bin_name" == aztec-* ]]; then[m
+[31m-      wrapper_name="$bin_name"[m
+[32m+[m[32m      link_name="$bin_name"[m
+     else[m
+[31m-      wrapper_name="aztec-$bin_name"[m
+[32m+[m[32m      link_name="aztec-$bin_name"[m
+     fi[m
+ [m
+[31m-    if [ -e "$version_bin_path/$wrapper_name" ] && [ ! -L "$version_bin_path/$wrapper_name" ]; then[m
+[31m-      echo_yellow "refusing to overwrite non-symlink $wrapper_name; @aztec package bin collides with a hand-installed toolchain binary" >&2[m
+[32m+[m[32m    if [ -e "$version_bin_path/$link_name" ] && [ ! -L "$version_bin_path/$link_name" ]; then[m
+[32m+[m[32m      echo_yellow "refusing to overwrite non-symlink $link_name; @aztec package bin collides with a hand-installed toolchain binary" >&2[m
+       exit 1[m
+     fi[m
+[31m-    ln -sfn "../node_modules/.bin/$bin_name" "$version_bin_path/$wrapper_name"[m
+[32m+[m[32m    ln -sfn "../node_modules/.bin/$bin_name" "$version_bin_path/$link_name"[m
+   done[m
+ }[m
+ [m
+[1mdiff --git a/docs/docs-developers/docs/aztec-nr/installation.md b/docs/docs-developers/docs/aztec-nr/installation.md[m
+[1mindex 84a2f5e81b..5eb244c3c7 100644[m
+[1m--- a/docs/docs-developers/docs/aztec-nr/installation.md[m
+[1m+++ b/docs/docs-developers/docs/aztec-nr/installation.md[m
+[36m@@ -7,7 +7,7 @@[m [mdescription: Learn how to install and configure the Noir Language Server for a b[m
+ [m
+ Install the [Noir Language Support extension](https://marketplace.visualstudio.com/items?itemName=noir-lang.vscode-noir) to get syntax highlighting, syntax error detection, and go-to definitions for your Aztec contracts.[m
+ [m
+[31m-The extension drives its language server with `nargo`. The Aztec installer ships a bundled `nargo` and exposes it as the `aztec-nargo` wrapper on your `PATH`. Bare `nargo` is intentionally not provided so it does not shadow your own install (if any). Verify the wrapper is on your `PATH`:[m
+[32m+[m[32mThe extension drives its language server with `nargo`. The Aztec installer ships a bundled `nargo` and exposes it as the `aztec-nargo` symlink on your `PATH`. Bare `nargo` is intentionally not provided so it does not shadow your own install (if any). Verify the symlink is on your `PATH`:[m
+ [m
+ ```bash[m
+ which aztec-nargo[m
+[36m@@ -18,7 +18,7 @@[m [mIf you have not installed the Aztec toolchain yet, follow [Getting Started on Lo[m
+ [m
+ ## Configure the extension[m
+ [m
+[31m-Set the extension's `Noir: Nargo Path` setting to the absolute path printed by `which aztec-nargo` (for example `$HOME/.aztec/current/bin/aztec-nargo`), then reload the window. The wrapper is a drop-in replacement for `nargo` because it `exec`s the bundled binary while preserving the language server protocol.[m
+[32m+[m[32mSet the extension's `Noir: Nargo Path` setting to the absolute path printed by `which aztec-nargo` (for example `$HOME/.aztec/current/bin/aztec-nargo`), then reload the window. `aztec-nargo` is a symlink to the bundled `nargo`, so any tool that invokes it speaks plain `nargo` (LSP included).[m
+ [m
+ To confirm the extension is using the bundled toolchain, hover over **Nargo** in the VSCode status bar in the bottom right corner: it should show the path you set.[m
+ [m
