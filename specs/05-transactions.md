@@ -900,20 +900,6 @@ The following mechanisms protect against mempool flooding:
 - **Double-spend checking**: Prevents duplicate transactions.
 - **Gas fee filtering**: Transactions below current fee levels are skipped.
 
-## Open Questions
-
-1. **Transaction Cancellation**: How can a user cancel a pending transaction? Currently, the only mechanism is to emit the same nullifier in a new transaction, causing the original to fail double-spend validation. Should there be an explicit cancellation mechanism?
-
-2. **MaxPriorityFeesPerGas Usage**: The `GasSettings` includes `max_priority_fees_per_gas` (EIP-1559-style tips), but the current implementation does not appear to use this field for sequencer prioritization. How should priority fees affect transaction ordering?
-
-3. **Include-by-Timestamp vs. Include-by-Block**: The `expiration_timestamp` field uses wall-clock time rather than block numbers. Given that block times may vary, should the protocol also support block-number-based expiration?
-
-4. **Calldata Size Limit**: The `MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS = 16,000` limit applies to the total calldata across all public calls. Is this sufficient for complex transactions with many public interactions? Should per-call limits also be enforced?
-
-5. **Setup Allow List Governance**: The setup function allow list is currently configured per sequencer. Should this be a protocol-level consensus parameter to ensure uniform validation across all nodes?
-
-6. **Proof Type Migration**: The current implementation uses "Chonk" proofs (client Honk with incremental folding). What is the migration path if the proof system changes? How will the VK tree and proof type identifiers be updated?
-
 ## References
 
 - Spec #1: Protocol Overview & Architecture — transaction lifecycle overview
