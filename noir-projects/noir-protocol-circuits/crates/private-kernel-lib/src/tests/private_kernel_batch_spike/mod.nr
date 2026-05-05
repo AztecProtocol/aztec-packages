@@ -6,7 +6,7 @@ use protocol_test_utils::{assert_claimed_length_array_eq, FixtureBuilder};
 use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        protocol_contracts::ProtocolContracts, transaction::tx_request::TxRequest,
+        transaction::tx_request::TxRequest,
     },
     constants::PRIVATE_KERNEL_INIT_VK_INDEX,
 };
@@ -273,7 +273,7 @@ fn batch_3_depth_first_child_keeps_sibling_on_stack() {
 fn batch_3_third_call_must_match_second_call_stack_fails() {
     let builder = Batch3TestBuilder::new();
 
-    builder.execute_linear_chain_without_second_to_third_sync();
+    let _ = builder.execute_linear_chain_without_second_to_third_sync();
 }
 
 #[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
@@ -283,7 +283,7 @@ fn batch_3_fee_payer_conflict_fails() {
     builder.private_call_0.is_fee_payer = true;
     builder.private_call_1.is_fee_payer = true;
 
-    builder.execute_linear_chain();
+    let _ = builder.execute_linear_chain();
 }
 
 #[test]
