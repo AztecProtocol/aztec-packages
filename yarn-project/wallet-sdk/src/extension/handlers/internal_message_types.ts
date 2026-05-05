@@ -9,11 +9,13 @@ export const InternalMessageType = {
   KEY_EXCHANGE_REQUEST: 'key-exchange-request',
   SECURE_MESSAGE: 'secure-message',
   DISCONNECT_REQUEST: 'disconnect-request',
+  PING: 'ping',
   // Background → Content script
   DISCOVERY_APPROVED: 'discovery-approved',
   KEY_EXCHANGE_RESPONSE: 'key-exchange-response',
   SECURE_RESPONSE: 'secure-response',
   SESSION_DISCONNECTED: 'session-disconnected',
+  PONG: 'pong',
 } as const;
 
 /**
