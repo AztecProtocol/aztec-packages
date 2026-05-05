@@ -282,7 +282,7 @@ void BytecodeTraceBuilder::process_retrieval(
 
                 // Tree context (for lookup into contract_instance_retrieval)
                 { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
-                { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
+                { C::bc_retrieval_nullifier_tree_root, event.nullifier_tree_root },
 
                 // Retrieved bytecodes tree context (for lookup into indexed_tree_check)
                 { C::bc_retrieval_retrieved_bytecodes_tree_height, AVM_RETRIEVED_BYTECODES_TREE_HEIGHT },
