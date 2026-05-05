@@ -1,13 +1,11 @@
 import { findBbBinary } from '@aztec/bb.js';
 import type { LogFn } from '@aztec/foundation/log';
-import { DEV_VERSION } from '@aztec/stdlib/update-checker';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { execFileSync } from 'child_process';
 import type { Command } from 'commander';
-import { readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
-import { dirname, join, resolve } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 
 import { readArtifactFiles } from './utils/artifacts.js';
 import { needsRecompile } from './utils/needs_recompile.js';
@@ -28,20 +26,9 @@ async function collectContractArtifacts(): Promise<string[]> {
   return files.filter(f => Array.isArray(f.content.functions)).map(f => f.filePath);
 }
 
-/**
- * Returns the package version for embedding in contract artifacts or `dev` if the version in package.json is
- * the placeholder value (that would indicate that this is used from a locally checked out monorepo instead of npm).
- */
-function getPackageVersionOrDev(): string {
-  const dir = dirname(fileURLToPath(import.meta.url));
-  const packageJsonPath = resolve(dir, '../../../package.json');
-  const version = JSON.parse(readFileSync(packageJsonPath).toString()).version;
-  return version === '0.1.0' ? DEV_VERSION : version;
-}
-
 /** Injects the Aztec stack version into contract artifacts. */
 async function injectAztecVersion(artifactPaths: string[]): Promise<void> {
-  const version = getPackageVersionOrDev();
+  const version = getPackageVersion();
   for (const path of artifactPaths) {
     const artifact = JSON.parse(await readFile(path, 'utf-8'));
     // eslint-disable-next-line camelcase

@@ -16,9 +16,3 @@ export function getPackageVersion(): string {
   const version = JSON.parse(readFileSync(packageJsonPath).toString()).version;
   return version === '0.1.0' ? DEV_VERSION : version;
 }
-
-/**
- * Placeholder aztec version stamped into artifacts compiled from a local repo checkout, where the real release version
- * isn't yet known. Published CLIs stamp the installed package.json version instead.
- */
-export const DEV_VERSION = 'dev';
