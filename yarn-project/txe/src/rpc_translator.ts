@@ -1312,19 +1312,22 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_txe_privateCallNewFlow(
-    foreignFrom: ForeignCallSingle,
+    foreignFromIsSome: ForeignCallSingle,
+    foreignFromValue: ForeignCallSingle,
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
     foreignArgsHash: ForeignCallSingle,
     foreignIsStaticCall: ForeignCallSingle,
+    foreignAdditionalScopes: ForeignCallArray,
   ) {
-    const from = addressFromSingle(foreignFrom);
+    const from = fromSingle(foreignFromIsSome).toBool() ? addressFromSingle(foreignFromValue) : undefined;
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
+    const additionalScopes = fromArray(foreignAdditionalScopes).map(field => AztecAddress.fromField(field));
 
     const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
@@ -1334,6 +1337,7 @@ export class RPCTranslator {
         args,
         argsHash,
         isStaticCall,
+        additionalScopes,
         this.stateHandler.getCurrentJob(),
       );
 
@@ -1390,12 +1394,13 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_txe_publicCallNewFlow(
-    foreignFrom: ForeignCallSingle,
+    foreignFromIsSome: ForeignCallSingle,
+    foreignFromValue: ForeignCallSingle,
     foreignAddress: ForeignCallSingle,
     foreignCalldata: ForeignCallArray,
     foreignIsStaticCall: ForeignCallSingle,
   ) {
-    const from = addressFromSingle(foreignFrom);
+    const from = fromSingle(foreignFromIsSome).toBool() ? addressFromSingle(foreignFromValue) : undefined;
     const address = addressFromSingle(foreignAddress);
     const calldata = fromArray(foreignCalldata);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
