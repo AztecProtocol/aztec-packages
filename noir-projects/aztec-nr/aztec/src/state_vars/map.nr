@@ -3,49 +3,88 @@ use crate::state_vars::StateVariable;
 
 /// A key-value container for state variables.
 ///
-/// A key-value storage container that maps keys to state variables, similar to Solidity mappings.
+/// A `Map` wraps another state variable type (the 'value') and creates independent instances of it for each key,
+/// resulting in effectively as many state variables as there are key values. This behavior is similar to a Solidity
+/// `mapping (K => V)`.
 ///
-/// `Map` enables you to associate keys (like addresses or other identifiers) with state variables in your Aztec smart
-/// contract. This is conceptually similar to Solidity's `mapping(K => V)` syntax, where you can store and retrieve
-/// values by their associated keys.
+/// ## Use Cases
 ///
-/// You can declare a state variable contained within a Map in your contract's
-/// [`storage`](crate::macros::storage::storage) struct.
+/// Any scenario in which a fixed number of variables is insufficient to represent contract state requires `Map` e.g.
+/// per-election configuration in a voting contract, per-user state, etc. `Map` also composes naturally into more
+/// complex containers: an array could be implemented as a `Map` with indices as keys.
 ///
-/// For example, you might use `Map<AztecAddress, PublicMutable<FieldNote, Context>, Context>` to track token balances
-/// for different users, similar to how you'd use `mapping(address => uint256)` in Solidity.
+/// Note that some private state variables, such as [`PrivateMutable`](crate::state_vars::PrivateMutable) and
+/// [`PrivateSet`](crate::state_vars::PrivateSet) cannot be wrapped in a `Map`. These types implement the
+/// [`OwnedStateVariable`](crate::state_vars::OwnedStateVariable) trait, and as such should instead be wrapped using the
+/// [`Owned`](crate::state_vars::Owned) container, which can be thought of as a specialization of `Map` for private
+/// state 'owned' by a single account.
 ///
-/// > Aside: the verbose `Context` in the declaration is a consequence of > leveraging Noir's regular syntax for
-/// generics to ensure that certain > state variable methods can only be called in some contexts (private, > public,
-/// utility).
+/// ## Examples
 ///
-/// The methods of Map are:
-/// - `at` (access state variable for a given key) (see the method's own doc comments for more info).
+/// Since `Map` is also a [`StateVariable`], it is declared in the contract's
+/// [`#[storage]`](crate::macros::storage::storage) struct along with all others:
 ///
-/// ## Generic Parameters
-/// - `K`: The key type (must implement `ToField` trait for hashing)
-/// - `V`: The value type:
-/// - any Aztec state variable (variable that implements the StateVariable trait):
-/// - `PublicMutable`
-/// - `PublicImmutable`
-/// - `DelayedPublicMutable`
-/// - `Map`
-/// - `Context`: The execution context (handles private/public function contexts)
+/// ```noir
+/// #[storage]
+/// struct Storage<C> {
+///     is_admin: Map<AztecAddress, PublicMutable<bool, C>, C>,
+///     vote_tallies: Map<ElectionId, PublicMutable<u128, C>, C>,
+/// }
+/// ```
 ///
-/// ## Usage Maps are typically declared in your contract's [`storage`](crate::macros::storage::storage) struct and accessed using the `at(key)` method to get the state variable for a specific key. The resulting state variable can then be read from or written to using its own methods.
+/// ### Multiple `Map`s
 ///
-/// Note that maps cannot be used with owned state variables (variables that implement the OwnedStateVariable trait) -
-/// those need to be wrapped in an `Owned` state variable instead.
+/// There is no limit to how many `Map` containers a contract can have, and `Map`s can themselves wrap other `Map`s,
+/// resulting in nested layouts.
 ///
-/// ## Advanced Internally, `Map` uses a single base storage slot to represent the mapping itself, similar to Solidity's approach. Individual key-value pairs are stored at derived storage slots computed by hashing the base storage slot with the key using Poseidon2. This ensures:
-/// - No storage slot collisions between different keys
-/// - Uniform distribution of storage slots across the storage space
-/// - Compatibility with Aztec's storage tree structure
-/// - Gas-efficient storage access patterns similar to Solidity mappings
+/// ```noir
+/// #[storage]
+/// struct Storage<C> {
+///     // A nested map where the first key is an address and the second a `Year` type, such that
+///     // self.storage.user_yearly_config.at(user).at(year) results in distinct `UserConfig` variables for each
+///     // `(user, year)` tuple.
+///     user_yearly_config: Map<AztecAddress, Map<Year, UserConfig<C>, C>, C>,
+/// }
+/// ```
 ///
-/// The storage slot derivation uses `derive_storage_slot_in_map(base_slot, key)` which computes
-/// `poseidon2_hash([base_slot, key.to_field()])`, ensuring cryptographically secure slot separation.
+/// ## Requirements
 ///
+/// The value type `V` must implement the [`StateVariable`] trait. The key type `K` must implement the [`ToField`] trait
+/// in such a way that the `Field` representation is unique for each key.
+///
+/// For key types that cannot be converted into a `Field`, consider wrapping them in a type that implements `ToField` as
+/// the hash of the key.
+///
+/// ```noir
+/// struct MyKey {
+///     a: Field,
+///     b: Field,
+/// }
+///
+/// struct MyKeyWrapper {
+///     inner: MyKey,
+/// }
+///
+/// impl ToField for MyKeyWrapper {
+///     fn to_field(self) -> Field {
+///         poseidon2_hash([self.inner.a, self.inner.b])
+///     }
+/// }
+///
+/// #[storage]
+/// struct Storage<C> {
+///     a: Map<MyKeyWrapper, PublicMutable<bool, C>, C>,
+/// }
+/// ```
+///
+/// ## Implementation Details
+///
+/// Like all other state variables, `Map` gets assigned a unique storage slot. It uses this value to derive unique
+/// storage slots for each key, resulting in independent state variables. Nothing gets stored at `Map`'s storage slot.
+/// This is equivalent to Solidity's implementation of `mapping`.
+///
+/// Because the storage slot derivation is done using a hash function, it is not possible to compute the key (preimage)
+/// used to obtain a given derived state variable slot.
 pub struct Map<K, V, Context> {
     pub context: Context,
     storage_slot: Field,
@@ -66,35 +105,20 @@ impl<K, V, Context> StateVariable<1, Context> for Map<K, V, Context> {
 }
 
 impl<K, V, Context> Map<K, V, Context> {
-    /// Returns the state variable associated with the given key.
+    /// Returns the state variable for a key.
     ///
-    /// This is equivalent to accessing `mapping[`key`]` in Solidity. It returns the state variable instance for the
-    /// specified key, which can then be used to read or write the value at that key.
+    /// This derives a unique storage slot for `key` and returns a state variable of type `V` at that slot. It is
+    /// equivalent to accessing a `mapping` via the `[]` operator in Solidity (e.g. `balances[user]` would be
+    /// `balances.at(user)`).
     ///
-    /// Unlike Solidity mappings which return the value directly, this returns the state variable wrapper (like
-    /// PublicMutable, nested Map etc.) that you then call methods on to interact with the actual value.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - The key to look up in the map. Must implement the ToField trait (which most basic Noir & Aztec types
-    /// do).
-    ///
-    /// # Returns
-    ///
-    /// * `V` - The state variable instance for this key. You can then call methods like `.read()`, `.write()`,
-    /// `.get_note()`, etc. on this depending on the specific state variable type.
-    ///
-    /// # Example
+    /// ## Example
     ///
     /// ```noir
-    /// // Get a user's balance (assuming PrivateMutable<FieldNote>)
-    /// let user_balance = self.storage.balances.at(user_address);
-    /// let current_note = user_balance.get_note();
-    ///
-    /// // Update the balance
-    /// user_balance.replace(new_note);
+    /// #[external("utility")]
+    /// fn get_election_vote_tallies(election: ElectionId) -> u128 {
+    ///     self.storage.vote_tallies.at(election).read()
+    /// }
     /// ```
-    ///
     pub fn at<let N: u32>(self, key: K) -> V
     where
         K: ToField,

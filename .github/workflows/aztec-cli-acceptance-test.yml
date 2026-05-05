@@ -21,7 +21,9 @@ jobs:
     runs-on: ubuntu-latest
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+      (github.event_name == 'workflow_run'
+       && github.event.workflow_run.conclusion == 'success'
+       && !contains(github.event.workflow_run.head_branch, '-commit.'))
     timeout-minutes: 30
     env:
       VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
@@ -30,6 +32,13 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # Node is only used to run the .ts harness in run-test.sh, which needs >=22.18 for TS
+      # type-stripping. The aztec CLI installer manages its own node version independently.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Run Aztec CLI acceptance test
         run: ./aztec-up/test/aztec-cli-acceptance-test/run-test.sh

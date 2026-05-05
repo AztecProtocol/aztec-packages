@@ -43,9 +43,9 @@ export default defineConfig({
       'idb-keyval',
       'comlink',
     ],
-    // sqlite-wasm ships its own .wasm asset loader; let Vite serve it as a static asset
+    // sqlite3mc-wasm ships its own .wasm asset loader; let Vite serve it as a static asset
     // rather than pre-bundling, per the upstream docs' recommendation.
-    exclude: ['@sqlite.org/sqlite-wasm'],
+    exclude: ['@aztec/sqlite3mc-wasm'],
   },
   test: {
     globals: true,
@@ -56,6 +56,7 @@ export default defineConfig({
       // Benchmarks self-skip unless VITE_BENCH=1; include so they're discoverable.
       './src/bench/indexeddb/**/*.test.ts',
       './src/bench/sqlite-opfs/**/*.test.ts',
+      './src/bench/sqlite-opfs-encrypted/**/*.test.ts',
     ],
     // Bench suites do full-population + N-iteration work; default 30s is too tight.
     testTimeout: process.env.VITE_BENCH === '1' ? 300_000 : 30_000,
