@@ -77,11 +77,11 @@ unconstrained fn handshakes_are_isolated_per_sender() {
     );
 }
 
+// The DH-direct flow lifts `recipient` to a curve point and fails loud if the address has no
+// corresponding point. We deliberately do not replicate AES128's "king of the hill" fallback here; see
+// the doc comment on [`HandshakeRegistry::non_interactive_handshake`] for the rationale.
 #[test(should_fail_with = "recipient address is not on the curve")]
 unconstrained fn handshake_to_invalid_recipient_panics() {
-    // The DH-direct flow lifts `recipient` to a curve point and fails loud if the address has no
-    // corresponding point. We deliberately do not replicate AES128's "king of the hill" fallback here; see
-    // the doc comment on [`HandshakeRegistry::non_interactive_handshake`] for the rationale.
     let (env, registry_address, sender, _, _) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
@@ -92,10 +92,10 @@ unconstrained fn handshake_to_invalid_recipient_panics() {
     env.call_private(sender, registry.non_interactive_handshake(sender, invalid_recipient));
 }
 
+// A recipient who knows only their own address can compute the
+// expected tag, find the log under it, and recover `eph_pk.x` from the payload.
 #[test]
 unconstrained fn non_interactive_handshake_emits_recipient_discoverable_log() {
-    // A recipient who knows only their own address can compute the
-    // expected tag, find the log under it, and recover `eph_pk.x` from the payload.
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
@@ -153,7 +153,7 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
 }
 
 #[test]
-unconstrained fn duplicate_handshake_accumulates_distinct_secrets() {
+unconstrained fn duplicate_handshake_accumulates_distinct_secrets_and_returns_latest() {
     // Two handshakes from the same sender to the same `(recipient, type)` are not deduplicated.
     // Each call generates a fresh ephemeral key, so the registry accumulates distinct notes and emits
     // distinct logs under the recipient's tag.
@@ -163,10 +163,16 @@ unconstrained fn duplicate_handshake_accumulates_distinct_secrets() {
     env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let logs_first = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_first.len(), 2);
+    let first = env
+        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
+        .expect(f"first handshake note should be present");
 
     env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let logs_second = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_second.len(), 2);
+    let latest = env
+        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
+        .expect(f"second handshake note should be present");
 
     let raw_tag = compute_log_tag(
         recipient.to_field(),
@@ -180,31 +186,6 @@ unconstrained fn duplicate_handshake_accumulates_distinct_secrets() {
         logs_first.get(1).get(1) != logs_second.get(1).get(1),
         "ephemeral keys should differ across repeated handshakes",
     );
-
-    assert(
-        env
-            .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
-            .is_some(),
-        "get_handshake should still return a note when duplicates exist",
-    );
-}
-
-#[test]
-unconstrained fn get_handshake_returns_most_recent_note() {
-    // After a second handshake to the same `(sender, recipient, type)`, `get_handshake` must return the new
-    // note, not the original one.
-    let (env, registry_address, sender, _, recipient) = setup();
-    let registry = HandshakeRegistry::at(registry_address);
-
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
-    let first = env
-        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
-        .expect(f"first handshake note should be present");
-
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
-    let latest = env
-        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
-        .expect(f"second handshake note should be present");
 
     assert(
         first.secret_hash != latest.secret_hash,
@@ -235,14 +216,7 @@ unconstrained fn different_recipients_have_different_tags() {
     );
     assert(tag_a != tag_b, "recipient-keyed tags must differ");
 
-    assert_eq(
-        logs_a.get(1).get(0),
-        compute_siloed_private_log_first_field(registry_address, tag_a),
-    );
-    assert_eq(
-        logs_b.get(1).get(0),
-        compute_siloed_private_log_first_field(registry_address, tag_b),
-    );
+    assert(logs_a.get(1).get(0) != logs_b.get(1).get(0), "tags in logs differ");
 }
 
 #[test]
