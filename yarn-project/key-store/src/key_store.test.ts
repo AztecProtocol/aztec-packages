@@ -19,7 +19,7 @@ describe('KeyStore', () => {
 
     const { address: accountAddress } = await keyStore.addAccount(sk, partialAddress);
     expect(accountAddress.toString()).toMatchInlineSnapshot(
-      `"0x2e54c8067c410d03d417dddd51e1cad76cece48ff39fa0fe908782b93a209a52"`,
+      `"0x2f635d468044055ab4f3fcf63eb8e96f34ced057217f4f6898885cefe9144d58"`,
     );
 
     const { pkM: masterNullifierPublicKey } = await keyStore.getKeyValidationRequest(
@@ -68,7 +68,7 @@ describe('KeyStore', () => {
     // Returned accounts are as expected
     const accounts = await keyStore.getAccounts();
     expect(accounts.toString()).toMatchInlineSnapshot(
-      `"0x2e54c8067c410d03d417dddd51e1cad76cece48ff39fa0fe908782b93a209a52"`,
+      `"0x2f635d468044055ab4f3fcf63eb8e96f34ced057217f4f6898885cefe9144d58"`,
     );
 
     // Manages to find master nullifier hiding key for pub key

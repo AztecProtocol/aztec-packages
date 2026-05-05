@@ -752,7 +752,7 @@ pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 777457226;
 // Address
 pub global DOM_SEP__PARTIAL_ADDRESS: u32 = 2103633018;
 
-pub global DOM_SEP__CONTRACT_ADDRESS_V1: u32 = 1788365517;
+pub global DOM_SEP__CONTRACT_ADDRESS_V2: u32 = 4099338721;
 
 // ---------------------------------------------------------------
 

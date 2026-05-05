@@ -72,14 +72,17 @@ TEST(AddressDerivationConstrainingTest, Basic)
 
     auto instance = testing::random_contract_instance();
 
-    FF salted_initialization_hash = poseidon2::hash(
-        { DOM_SEP__SALTED_INITIALIZATION_HASH, instance.salt, instance.initialization_hash, instance.deployer });
+    FF salted_initialization_hash = poseidon2::hash({ DOM_SEP__SALTED_INITIALIZATION_HASH,
+                                                      instance.salt,
+                                                      instance.initialization_hash,
+                                                      instance.deployer,
+                                                      instance.immutables_hash });
 
     FF partial_address =
         poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS, instance.original_contract_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
-    FF preaddress = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
+    FF preaddress = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address });
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
     EmbeddedCurvePoint preaddress_public_key = g1 * Fq(preaddress);
@@ -215,6 +218,62 @@ TEST(AddressDerivationConstrainingTest, NegativeWithInteractions)
         "Failed.*PREADDRESS_SCALAR_MUL. Could not find tuple in destination.");
 }
 
+TEST(AddressDerivationConstrainingTest, NegativeMutateImmutablesHash)
+{
+    EventEmitter<EccAddEvent> ecadd_event_emitter;
+    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
+    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
+    EventEmitter<Poseidon2HashEvent> hash_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationEvent> perm_event_emitter;
+    NoopEventEmitter<Poseidon2PermutationMemoryEvent> perm_mem_event_emitter;
+    EventEmitter<AddressDerivationEvent> address_derivation_event_emitter;
+
+    StrictMock<MockExecutionIdManager> mock_exec_id_manager;
+    EXPECT_CALL(mock_exec_id_manager, get_execution_id).WillRepeatedly(Return(0));
+    StrictMock<MockGreaterThan> mock_gt;
+    Poseidon2 poseidon2_simulator(
+        mock_exec_id_manager, mock_gt, hash_event_emitter, perm_event_emitter, perm_mem_event_emitter);
+
+    PureToRadix to_radix_simulator;
+    Ecc ecc_simulator(mock_exec_id_manager,
+                      mock_gt,
+                      to_radix_simulator,
+                      ecadd_event_emitter,
+                      scalar_mul_event_emitter,
+                      ecc_add_memory_event_emitter);
+
+    AddressDerivation address_derivation(poseidon2_simulator, ecc_simulator, address_derivation_event_emitter);
+
+    TestTraceContainer trace({
+        { { C::precomputed_first_row, 1 } },
+    });
+
+    AddressDerivationTraceBuilder builder;
+    Poseidon2TraceBuilder poseidon2_builder;
+    EccTraceBuilder ecc_builder;
+
+    ContractInstance instance = testing::random_contract_instance();
+    AztecAddress address = compute_contract_address(instance);
+    address_derivation.assert_derivation(address, instance);
+
+    builder.process(address_derivation_event_emitter.dump_events(), trace);
+    poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
+    ecc_builder.process_add(ecadd_event_emitter.dump_events(), trace);
+    ecc_builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
+
+    check_all_interactions<AddressDerivationTraceBuilder>(trace);
+    check_relation<address_derivation_relation>(trace);
+
+    // Mutate immutables_hash (the second input of the second poseidon2 round). The salted-init-hash
+    // round-2 lookup into poseidon2 should now fail because (deployer, mutated_immutables_hash, 0,
+    // salted_init_hash) no longer exists in the poseidon2 trace.
+    trace.set(C::address_derivation_immutables_hash, 0, instance.immutables_hash + 1);
+    EXPECT_THROW_WITH_MESSAGE(
+        (check_interaction<AddressDerivationTraceBuilder,
+                           lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings>(trace)),
+        "Failed.*SALTED_INITIALIZATION_HASH_POSEIDON2_1. Could not find tuple in destination.");
+}
+
 TEST(AddressDerivationConstrainingTest, NegativeIVKNotOnCurve)
 {
     TestTraceContainer trace;
@@ -232,7 +291,7 @@ TEST(AddressDerivationConstrainingTest, NegativeIVKNotOnCurve)
         poseidon2::hash({ DOM_SEP__PARTIAL_ADDRESS, instance.original_contract_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
-    FF preaddress = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
+    FF preaddress = poseidon2::hash({ DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address });
 
     EmbeddedCurvePoint g1 = EmbeddedCurvePoint::one();
     EmbeddedCurvePoint preaddress_public_key = g1 * Fq(preaddress);

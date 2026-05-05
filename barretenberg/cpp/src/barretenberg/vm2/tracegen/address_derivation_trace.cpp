@@ -18,10 +18,11 @@ namespace bb::avm2::tracegen {
  *
  *  This trace is non memory-aware and does not handle any errors. It relies on the poseidon2,
  *  scalar_mul, and ecc traces to constrain correctness of the address, which is derived as:
- *   1. salted_init_hash  = Poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr)
+ *   1. salted_init_hash  = Poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, salt, init_hash, deployer_addr,
+ *                          immutables_hash)
  *   2. partial_address   = Poseidon2(DOM_SEP__PARTIAL_ADDRESS, class_id, salted_init_hash)
  *   3. public_keys_hash  = Poseidon2(DOM_SEP__PUBLIC_KEYS_HASH, [...public_keys.to_fields()])
- *   4. preaddress        = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address)
+ *   4. preaddress        = Poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, public_keys_hash, partial_address)
  *   5. preaddress_public_key = preaddress * G1  (Grumpkin scalar multiplication)
  *   6. address           = (preaddress_public_key + incoming_viewing_key).x  (Grumpkin EC add)
  *
@@ -48,6 +49,7 @@ void AddressDerivationTraceBuilder::process(
                 { C::address_derivation_deployer_addr, event.instance.deployer },
                 { C::address_derivation_class_id, event.instance.original_contract_class_id },
                 { C::address_derivation_init_hash, event.instance.initialization_hash },
+                { C::address_derivation_immutables_hash, event.instance.immutables_hash },
                 // Public keys (Grumpkin curve points).
                 { C::address_derivation_nullifier_key_x, event.instance.public_keys.nullifier_key.x },
                 { C::address_derivation_nullifier_key_y, event.instance.public_keys.nullifier_key.y },
@@ -70,12 +72,13 @@ void AddressDerivationTraceBuilder::process(
                 { C::address_derivation_salted_init_hash_domain_separator, DOM_SEP__SALTED_INITIALIZATION_HASH },
                 { C::address_derivation_partial_address_domain_separator, DOM_SEP__PARTIAL_ADDRESS },
                 { C::address_derivation_public_keys_hash_domain_separator, DOM_SEP__PUBLIC_KEYS_HASH },
-                { C::address_derivation_preaddress_domain_separator, DOM_SEP__CONTRACT_ADDRESS_V1 },
+                { C::address_derivation_preaddress_domain_separator, DOM_SEP__CONTRACT_ADDRESS_V2 },
                 { C::address_derivation_g1_x, g1.x() },
                 { C::address_derivation_g1_y, g1.y() },
                 { C::address_derivation_const_two, 2 },
                 { C::address_derivation_const_three, 3 },
                 { C::address_derivation_const_four, 4 },
+                { C::address_derivation_const_five, 5 },
                 { C::address_derivation_const_thirteen, 13 } } });
         row++;
     }

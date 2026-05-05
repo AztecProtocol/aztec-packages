@@ -31,6 +31,7 @@ impl ContractInstance {
                 self.salt,
                 self.initialization_hash,
                 self.deployer,
+                self.immutables_hash,
             ),
         )
     }

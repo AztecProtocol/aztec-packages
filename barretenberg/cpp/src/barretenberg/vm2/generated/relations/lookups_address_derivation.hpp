@@ -26,7 +26,7 @@ struct lookup_address_derivation_salted_initialization_hash_poseidon2_0_settings
         ColumnAndShifts::address_derivation_salt,
         ColumnAndShifts::address_derivation_init_hash,
         ColumnAndShifts::address_derivation_salted_init_hash,
-        ColumnAndShifts::address_derivation_const_four
+        ColumnAndShifts::address_derivation_const_five
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::poseidon2_hash_input_0,
@@ -55,7 +55,7 @@ struct lookup_address_derivation_salted_initialization_hash_poseidon2_1_settings
     static constexpr Column INVERSES = Column::lookup_address_derivation_salted_initialization_hash_poseidon2_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::address_derivation_deployer_addr,
-        ColumnAndShifts::precomputed_zero,
+        ColumnAndShifts::address_derivation_immutables_hash,
         ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::address_derivation_salted_init_hash
     };
