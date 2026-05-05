@@ -107,29 +107,51 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
     // Find slotOne (>=4 ahead) such that proposers for slotOne, slotTwo, slotThree are three
     // distinct validators. The +4 margin (vs +2 in equivocation) gives the warp+sequencer-start
     // path enough headroom to reach the build window for slotZero even if node creation jitters.
-    const { slot: currentSlot } = test.epochCache.getEpochAndSlotNow();
-    const scanStart = currentSlot + 4;
-    const scanEnd = currentSlot + 60;
+    //
+    // The L1 rollup contract only exposes proposers for epochs whose randao seed is "stable"
+    // (i.e. queryable on L1 right now). When we look too far into the future the contract
+    // reverts with `ValidatorSelection__EpochNotStable`. We handle this by warping L1 forward
+    // one epoch at a time and retrying — after each warp the previously-unstable epoch becomes
+    // queryable, and we bump the candidate to keep the +4 slot margin from the new "now".
     let slotOne: SlotNumber | undefined;
     let proposerOne: EthAddress | undefined;
     let proposerTwo: EthAddress | undefined;
     let proposerThree: EthAddress | undefined;
-    for (let candidate = scanStart; candidate <= scanEnd; candidate++) {
-      const [p1, p2, p3] = await Promise.all([
-        test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate)),
-        test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 1)),
-        test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 2)),
-      ]);
-      if (p1 && p2 && p3 && !p1.equals(p2) && !p1.equals(p3) && !p2.equals(p3)) {
-        slotOne = SlotNumber(candidate);
-        proposerOne = p1;
-        proposerTwo = p2;
-        proposerThree = p3;
-        break;
+    let candidate = Number(test.epochCache.getEpochAndSlotNow().slot) + 4;
+    const maxAttempts = 200;
+    for (let attempt = 0; attempt < maxAttempts && slotOne === undefined; attempt++) {
+      try {
+        const [p1, p2, p3] = await Promise.all([
+          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate)),
+          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 1)),
+          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 2)),
+        ]);
+        if (p1 && p2 && p3 && !p1.equals(p2) && !p1.equals(p3) && !p2.equals(p3)) {
+          slotOne = SlotNumber(candidate);
+          proposerOne = p1;
+          proposerTwo = p2;
+          proposerThree = p3;
+          break;
+        }
+        candidate++;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!msg.includes('EpochNotStable')) {
+          throw err;
+        }
+        const block = await test.l1Client.getBlock({ includeTransactions: false });
+        const warpBy = test.epochDuration * test.L2_SLOT_DURATION_IN_S;
+        const newTs = Number(block.timestamp) + warpBy;
+        logger.warn(`Hit EpochNotStable at candidate ${candidate}, warping L1 forward by ${warpBy}s to ${newTs}`);
+        await test.context.cheatCodes.eth.warp(newTs, { resetBlockInterval: true });
+        const newCurrentSlot = Number(test.epochCache.getEpochAndSlotNow().slot);
+        if (candidate < newCurrentSlot + 4) {
+          candidate = newCurrentSlot + 4;
+        }
       }
     }
     if (slotOne === undefined || !proposerOne || !proposerTwo || !proposerThree) {
-      throw new Error(`Could not find a slot in [${scanStart}, ${scanEnd}] with three distinct consecutive proposers`);
+      throw new Error(`Could not find a slot with three distinct consecutive proposers after ${maxAttempts} attempts`);
     }
 
     const slotZero = SlotNumber(slotOne - 1);
