@@ -516,7 +516,7 @@ TYPED_TEST(UltraHonkTests, RomMaliciousFieldWrap)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
     // Explicitly finalize so process_ROM_array runs and we can inspect the sorted gates.
-    circuit_builder.finalize_circuit(/*ensure_nonzero=*/true);
+    circuit_builder.finalize_circuit();
 
     // Locate the first sorted ROM consistency check gate (q_memory=1, q_1=1, q_2=1, q_m=0).
     auto& mem = circuit_builder.blocks.memory;
@@ -578,7 +578,7 @@ TYPED_TEST(UltraHonkTests, RamMaliciousFieldWrap)
     TestFixture::set_default_pairing_points_and_ipa_claim_and_proof(circuit_builder);
 
     // Explicitly finalize so process_RAM_array runs and we can inspect the sorted gates.
-    circuit_builder.finalize_circuit(/*ensure_nonzero=*/true);
+    circuit_builder.finalize_circuit();
 
     // Locate the first sorted RAM consistency check gate (q_memory=1, q_3=1, q_1=q_2=q_m=0).
     auto& mem = circuit_builder.blocks.memory;
