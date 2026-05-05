@@ -20,6 +20,11 @@ import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
+import {
+  BlockExecutionHandler,
+  CompositeServerCircuitProver,
+  type ProverClientBlockExecutionDeps,
+} from '../block_execution/index.js';
 import type { ProverClientConfig } from '../config.js';
 import { CheckpointSubTreeOrchestrator } from '../orchestrator/checkpoint-sub-tree-orchestrator.js';
 import { EpochProvingContext } from '../orchestrator/epoch-proving-context.js';
@@ -76,12 +81,13 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
   private constructor(
     private config: ProverClientConfig,
     private worldState: ForkMerkleTreeOperations & ReadonlyWorldStateAccess,
-    private orchestratorClient: ProvingJobProducer,
+    private orchestratorClient: ProvingJobProducer & ProvingJobConsumer,
     private proofStore: ProofStore,
     private failedProofStore: ProofStore | undefined,
     private agentClient?: ProvingJobConsumer,
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log: Logger = createLogger('prover-client:tx-prover'),
+    private blockExecutionDeps?: ProverClientBlockExecutionDeps,
   ) {}
 
   /**
@@ -207,10 +213,21 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     worldState: ForkMerkleTreeOperations & ReadonlyWorldStateAccess,
     broker: ProvingJobBroker,
     telemetry: TelemetryClient = getTelemetryClient(),
+    blockExecutionDeps?: ProverClientBlockExecutionDeps,
   ) {
     const proofStore = await createProofStore(config.proofStore);
     const failedProofStore = config.failedProofStore ? await createProofStore(config.failedProofStore) : undefined;
-    const prover = new ProverClient(config, worldState, broker, proofStore, failedProofStore, broker, telemetry);
+    const prover = new ProverClient(
+      config,
+      worldState,
+      broker,
+      proofStore,
+      failedProofStore,
+      broker,
+      telemetry,
+      undefined,
+      blockExecutionDeps,
+    );
     await prover.start();
     return prover;
   }
@@ -233,12 +250,40 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     }
 
     const proofStore = new InlineProofStore();
-    const prover = await buildServerCircuitProver(this.config, this.telemetry);
+    const baseProver = await buildServerCircuitProver(this.config, this.telemetry);
     const bindings = this.log.getBindings();
+
+    // When the caller has supplied block-execution dependencies, every agent runs a
+    // composite prover: regular proving methods go to the base prover, BLOCK_EXECUTION
+    // jobs go to a `BlockExecutionHandler` wired to the supplied world state, public
+    // processor factory and tx fetcher. With no deps, the agents are proving-only and
+    // `executeBlock` rejects.
+    const circuitProver: ServerCircuitProver = this.blockExecutionDeps
+      ? new CompositeServerCircuitProver(
+          baseProver,
+          new BlockExecutionHandler(
+            this.worldState,
+            this.blockExecutionDeps.publicProcessorFactory,
+            this.blockExecutionDeps.txFetcher,
+            proofStore,
+            this.orchestratorClient,
+            this.config.proverId.toField(),
+            bindings,
+          ),
+        )
+      : baseProver;
+
     this.agents = times(
       this.config.proverAgentCount,
       () =>
-        new ProvingAgent(this.agentClient!, proofStore, prover, [], this.config.proverAgentPollIntervalMs, bindings),
+        new ProvingAgent(
+          this.agentClient!,
+          proofStore,
+          circuitProver,
+          [],
+          this.config.proverAgentPollIntervalMs,
+          bindings,
+        ),
     );
 
     await Promise.all(this.agents.map(agent => agent.start()));
