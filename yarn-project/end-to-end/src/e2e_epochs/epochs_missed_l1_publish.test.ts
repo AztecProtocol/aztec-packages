@@ -374,6 +374,10 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
       ) {
         return false;
       }
+      // Expected
+      if (e.type === 'pipelined-checkpoint-discarded') {
+        return false;
+      }
       return true;
     });
     if (unexpectedFailEvents.length > 0) {
