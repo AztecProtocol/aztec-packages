@@ -116,11 +116,39 @@ template <class Builder> class DataBusDepot {
         kernel_return_data_commitment_exists = true;
     }
 
-    void set_app_return_data_commitment(const Commitment& commitment, const size_t idx)
+    /**
+     * @brief Whether all app return-data slots are currently empty.
+     * @details Used to assert the kernel-boundary invariant: at the start of each kernel completion, every slot must
+     * have been drained by the prior kernel's get-loop so that `set_app_return_data_commitment` begins filling from
+     * slot 0.
+     */
+    bool app_return_data_slots_are_empty() const
     {
-        BB_ASSERT_LT(idx, NUM_APP_PER_KERNEL, "DataBusDepot app return-data index out of bounds");
-        app_return_data_commitments[idx] = commitment;
-        app_return_data_commitment_exists[idx] = true;
+        for (size_t idx = 0; idx < NUM_APP_PER_KERNEL; ++idx) {
+            if (app_return_data_commitment_exists[idx]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * @brief Record an app return-data commitment in the next available slot.
+     * @details Slot assignment is implicit: the depot fills slot 0 first, then slot 1, etc., as apps are processed in
+     * the kernel's verification queue. Slots are released by `get_app_return_data_commitment`; each kernel-completion
+     * pass drains every slot via the get-loop in `Chonk::complete_kernel_circuit_logic`, so the next kernel begins
+     * filling from slot 0 again.
+     */
+    void set_app_return_data_commitment(const Commitment& commitment)
+    {
+        for (size_t idx = 0; idx < NUM_APP_PER_KERNEL; ++idx) {
+            if (!app_return_data_commitment_exists[idx]) {
+                app_return_data_commitments[idx] = commitment;
+                app_return_data_commitment_exists[idx] = true;
+                return;
+            }
+        }
+        BB_ASSERT(false, "DataBusDepot has no free app return-data slot");
     }
 
     /**
