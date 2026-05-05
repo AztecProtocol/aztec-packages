@@ -9,8 +9,7 @@ import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
-import { BenchmarkingContractArtifact } from '@aztec/noir-test-contracts.js/Benchmarking';
-import { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, Body, L2Block } from '@aztec/stdlib/block';
@@ -103,7 +102,8 @@ function expectMatchesSnapshot(value: unknown, name: string) {
  * Returns the actionable header to prepend to a snapshot-mismatch failure. Branches on whether the gatekeeper
  * (`opened_stores`) or a specific store's snapshot mismatched, because the corrective actions are different: a
  * gatekeeper failure usually means a `SCHEMA_TESTS` entry is missing for a newly-wired store; a per-store failure
- * means the on-disk format has changed and existing PXE databases need a wipe via `PXE_DATA_SCHEMA_VERSION`.
+ * means the on-disk format has changed and the dev needs to decide whether the change is breaking (requires a
+ * `PXE_DATA_SCHEMA_VERSION` bump) or read-defaultable (no bump).
  */
 function compatibilityTestGuidance(name: string): string {
   if (name === 'opened_stores') {
@@ -117,16 +117,20 @@ function compatibilityTestGuidance(name: string): string {
       '  1. If a new store was added: add a corresponding entry to the SCHEMA_TESTS array in this file',
       '     (pxe_db_compatibility.test.ts). This is needed to prove that we are providing backwards',
       '     compatibility tests for all kv-stores effectively used by PXE.',
-      '  2. If the change breaks existing on-device PXE databases (e.g., a sub-store was renamed or removed):',
-      '     bump PXE_DATA_SCHEMA_VERSION in pxe/src/storage/metadata.ts. DatabaseVersionManager wipes any DB',
-      '     whose stored version is below the current one when it next opens; without this bump, existing',
-      '     wallets see corrupted data with no migration path.',
+      '  2. Determine whether the inventory change is BREAKING or READ-DEFAULTABLE:',
+      '       - If BREAKING (e.g., a sub-store was renamed or removed; existing data becomes inaccessible):',
+      '         bump PXE_DATA_SCHEMA_VERSION in pxe/src/storage/metadata.ts. DatabaseVersionManager wipes any',
+      '         DB whose stored version is below the current one when it next opens; without this bump,',
+      '         existing wallets see corrupted data with no migration path.',
+      '       - If READ-DEFAULTABLE (e.g., a new sub-store was added; existing data continues to work because',
+      '         the new sub-store starts empty for pre-existing DBs and is populated as new events arrive):',
+      '         leave PXE_DATA_SCHEMA_VERSION alone, but document the reasoning in the commit/PR description.',
       '  3. Regenerate ONLY the gatekeeper snapshot (opened_stores.json). From the yarn-project directory, run:',
       "         yarn workspace @aztec/pxe test src/storage/backwards_compatibility_tests/pxe_db_compatibility.test.ts -u -t 'opens the expected'",
       "     The `-u` flag is Jest's --updateSnapshot; the `-t '<pattern>'` flag scopes the update to the matching",
       '     test. Without `-t`, this command would also rewrite any per-store snapshots that happened to have drifted',
       '     in the same change, masking unrelated regressions under your intentional inventory change.',
-      '  4. Run `git status` and verify only opened_stores.json was modified.',
+      '  4. Run `git status` and verify only opened_stores.json was modified (plus metadata.ts if BREAKING).',
     ].join('\n');
   }
   return [
@@ -137,16 +141,26 @@ function compatibilityTestGuidance(name: string): string {
     'the snapshot. The diff below tells you what changed.',
     '',
     'If intentional (deliberate on-disk format change):',
-    '  1. Bump PXE_DATA_SCHEMA_VERSION in pxe/src/storage/metadata.ts. DatabaseVersionManager wipes any DB',
-    '     whose stored version is below the current one when it next opens. Skipping this commits a breaking',
-    '     schema change with no migration path; existing on-device wallets will see corrupted data.',
-    `  2. Regenerate ONLY ${name}.json. From the yarn-project directory, run:`,
+    '  1. Determine whether the change is BREAKING or READ-DEFAULTABLE:',
+    '       - BREAKING: existing on-device databases become unreadable or semantically wrong under the new',
+    '         code. Examples: a renamed key, a removed field, an encoding change, a semantic change a read',
+    "         path can't transparently default.",
+    '       - READ-DEFAULTABLE: the new code reads existing data correctly because of explicit fallbacks.',
+    '         Examples: a new key whose absence resolves to a sentinel (genesis, undefined, etc.); a new',
+    '         field with a safe default. Existing wallets continue working after upgrade and the on-disk',
+    '         state self-heals as new events arrive.',
+    '  2. If BREAKING: bump PXE_DATA_SCHEMA_VERSION in pxe/src/storage/metadata.ts. DatabaseVersionManager',
+    '     wipes any DB whose stored version is below the current one when it next opens; without this bump,',
+    '     existing wallets see corrupted data with no migration path.',
+    '     If READ-DEFAULTABLE: leave PXE_DATA_SCHEMA_VERSION alone, but document the reasoning in the',
+    '     commit/PR description (which fallback applies, where, and what state pre-upgrade DBs converge to).',
+    `  3. Regenerate ONLY ${name}.json. From the yarn-project directory, run:`,
     `         yarn workspace @aztec/pxe test src/storage/backwards_compatibility_tests/pxe_db_compatibility.test.ts -u -t '${name} compatibility test'`,
     "     The `-u` flag is Jest's --updateSnapshot; the `-t '<pattern>'` flag scopes the update to the matching",
     '     test. Without `-t`, the command would also rewrite any other per-store snapshots that happened to have',
     `     drifted in the same change, masking unrelated regressions under your intentional ${name} change.`,
-    `  3. Run \`git status\` and verify only ${name}.json was modified (plus opened_stores.json if you bumped`,
-    '     the schema version in step 1).',
+    `  4. Run \`git status\` and verify only ${name}.json was modified (plus metadata.ts if BREAKING, plus`,
+    '     opened_stores.json if the inventory changed).',
   ].join('\n');
 }
 
@@ -260,9 +274,15 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
     writeToStore: async kvStore => {
       const contractStore = new ContractStore(kvStore);
 
-      // Register an artifact with a precomputed class so the `contract_classes` bytes are hardcoded by this test
-      // rather than derived from `getContractClassFromArtifact`. Decouples the snapshot from artifact recompilation
-      // churn and from the hashing chain (which is covered by stdlib tests, not by this schema test).
+      // Hand-rolled artifact (see `buildSchemaContractArtifact` below) instead of importing a noir-compiled fixture.
+      // The compiled fixture's JSON contains noir-compiler outputs (error-type hashes, debug symbols, struct paths)
+      // that drift across compiler versions and produce spurious ContractStore.json diffs that have nothing to do with
+      // PXE's on-disk schema. The hand-rolled artifact is small, deterministic across versions, and exercises the
+      // `addContractArtifact` write path identically.
+      const artifact = buildSchemaContractArtifact();
+
+      // Precomputed class so the `contract_classes` bytes are hardcoded by this test rather than derived from
+      // `getContractClassFromArtifact`.
       const populatedClass = {
         version: 1 as const,
         id: new Fr(2n),
@@ -276,11 +296,11 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
         packedBytecode: Buffer.alloc(0),
       };
 
-      await contractStore.addContractArtifact(BenchmarkingContractArtifact, populatedClass);
+      await contractStore.addContractArtifact(artifact, populatedClass);
 
       // Same artifact, different class with empty `privateFunctions`. Tests zero-length-vector encoding for the
       // privateFunctions field, which the populated case can't reach.
-      await contractStore.addContractArtifact(BenchmarkingContractArtifact, {
+      await contractStore.addContractArtifact(artifact, {
         version: 1 as const,
         id: new Fr(23n),
         artifactHash: new Fr(29n),
@@ -292,7 +312,7 @@ const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       // Re-register the populated class: must hit the `#contractArtifactCache` short-circuit and leave both
       // `contract_artifacts` and `contract_classes` unchanged.
-      await contractStore.addContractArtifact(BenchmarkingContractArtifact, populatedClass);
+      await contractStore.addContractArtifact(artifact, populatedClass);
 
       await contractStore.addContractInstance(
         new SerializableContractInstance({
@@ -823,4 +843,65 @@ function buildL2Block(): L2Block {
   );
 
   return new L2Block(archive, header, new Body([txEffect]), CheckpointNumber(331), IndexWithinCheckpoint(337));
+}
+
+/**
+ * Builds a deterministic, hand-rolled `ContractArtifact` for the ContractStore schema test. Every collection field
+ * has at least one entry so that JSON serialization branches for non-empty arrays and records are exercised; values
+ * are picked to be distinguishable so a reorder or shape change of `ContractArtifact`/`FunctionAbi` is visible in
+ * the snapshot diff.
+ *
+ * Why not import a real noir-compiled artifact? Compiled artifacts embed noir-compiler output (error-type hashes,
+ * debug symbols, struct paths) that drifts across compiler versions and produces spurious schema diffs unrelated to
+ * PXE's on-disk layout.
+ *  */
+function buildSchemaContractArtifact(): ContractArtifact {
+  return {
+    name: 'SchemaFixtureContract',
+    functions: [
+      {
+        name: 'private_fn',
+        functionType: FunctionType.PRIVATE,
+        isOnlySelf: false,
+        isStatic: false,
+        isInitializer: true,
+        parameters: [
+          { name: 'first', type: { kind: 'field' }, visibility: 'private' },
+          { name: 'second', type: { kind: 'integer', sign: 'unsigned', width: 32 }, visibility: 'public' },
+        ],
+        returnTypes: [{ kind: 'boolean' }],
+        errorTypes: {
+          // Single entry. Exercises the non-empty `Record<string, AbiErrorType>` branch without depending on
+          // noir compiler output.
+          schema_test_error: { error_kind: 'string', string: 'fixed schema-test error' },
+        },
+        bytecode: Buffer.from([2, 3, 5, 7]),
+        debugSymbols: 'schema-fixture-debug',
+      },
+    ],
+    nonDispatchPublicFunctions: [
+      {
+        name: 'public_fn',
+        functionType: FunctionType.PUBLIC,
+        isOnlySelf: true,
+        isStatic: true,
+        isInitializer: false,
+        parameters: [],
+        returnTypes: [],
+        errorTypes: {},
+      },
+    ],
+    outputs: {
+      structs: { my_struct: [{ kind: 'field' }, { kind: 'boolean' }] },
+      globals: {},
+    },
+    storageLayout: { my_field: { slot: new Fr(11n) } },
+    fileMap: {
+      1: {
+        source: 'schema fixture source',
+        path: 'src/schema_fixture.nr',
+        function_locations: [],
+      },
+    },
+  };
 }
