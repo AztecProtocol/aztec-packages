@@ -6,14 +6,9 @@ namespace bb {
 /**
  * @brief Initial-linear-layer relation for Poseidon2 (Mega).
  *
- * @details The standard Poseidon2 permutation begins with a "linear-only" application of the
- * external MDS matrix to the raw input — no S-box, no round constants. Concretely, given input
- * \f$ \mathbf{x} = (x_0, x_1, x_2, x_3) \f$, it computes \f$ \mathbf{y} = M_E \cdot \mathbf{x} \f$,
- * where M_E is the same matrix used by `Poseidon2ExternalRelation`.
- *
- * Without this relation, the initial linear layer would lower into ~6 arithmetic gates per hash
- * (see the previous `matrix_multiplication_external` lowering). Replacing those gates with a
- * single bespoke row constrained by this relation saves ~5 trace rows per Poseidon2 hash on Mega.
+ * @details Poseidon2 begins with a linear-only application of the external matrix. Given input
+ * \f$ \mathbf{x} = (x_0, x_1, x_2, x_3) \f$, this relation enforces
+ * \f$ \mathbf{y} = M_E \cdot \mathbf{x} \f$.
  *
  * The row's wires hold the raw input; the next row's wires hold M_E · input. That next row is
  * the first external-round row, which consumes M_E · input as its starting state.
@@ -61,8 +56,7 @@ template <typename FF_> class Poseidon2InitialExternalRelationImpl {
         const auto q_sel = CoeffAcc(in.q_poseidon2_external_initial);
         const auto q_by_scaling = Accumulator(q_sel * scaling_factor);
 
-        // Shared partial sums (CoeffAcc-level — all free adds, no muls).
-        // M_E layout (matching Poseidon2ExternalRelation):
+        // Shared partial sums for M_E:
         //   y0 = 5x0 + 7x1 +  x2 + 3x3 = (4x0 + 6x1 + x2 + x3) + (x0 + x1 + 2x3)
         //   y1 = 4x0 + 6x1 +  x2 +  x3 = (2x0 + 2x1) + (2x0 + 2x1) + (2x1 + x2 + x3)
         //   y2 =  x0 + 3x1 + 5x2 + 7x3 = (2x1 + x2 + x3) + (x0 + x1 + 4x2 + 6x3)
@@ -79,8 +73,7 @@ template <typename FF_> class Poseidon2InitialExternalRelationImpl {
         auto y0_calc = t3 + y1_calc;      // (x0 + x1 + 2x3) + (4x0 + 6x1 + x2 + x3) = 5x0 + 7x1 + x2 + 3x3
         auto y2_calc = t2 + y3_calc;      // (2x1 + x2 + x3) + (x0 + x1 + 4x2 + 6x3) = x0 + 3x1 + 5x2 + 7x3
 
-        // Each subrelation: q_sel · (y_k_calc - y_k) = 0, with y_k_calc - y_k in CoeffAcc form
-        // (free adds), promoted once per subrelation.
+        // Each subrelation: q_sel · (y_k_calc - y_k) = 0.
         std::get<0>(evals) += q_by_scaling * Accumulator(y0_calc - y_0);
         std::get<1>(evals) += q_by_scaling * Accumulator(y1_calc - y_1);
         std::get<2>(evals) += q_by_scaling * Accumulator(y2_calc - y_2);

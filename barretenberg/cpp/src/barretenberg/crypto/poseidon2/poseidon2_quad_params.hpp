@@ -12,9 +12,8 @@
 // This file exposes those 9 coefficients, the derived diagonal constants used by the entry
 // relation, and the closed-form propagation tables consumed by the quad relations.
 //
-// `static_assert`s at the bottom guard invertibility: the three Vandermonde differences
-// (D_3 - D_2), (D_4 - D_2), (D_4 - D_3) must all be nonzero. For the published BN254 Poseidon2
-// parameters these are distinct 256-bit values, so the assertion holds.
+// Static assertions guard invertibility: the three Vandermonde differences (D_3 - D_2),
+// (D_4 - D_2), (D_4 - D_3) must all be nonzero.
 
 #pragma once
 
@@ -61,7 +60,7 @@ struct Poseidon2QuadBn254Params {
     //
     //   s_j = α_j^(1) * b_1 + α_j^(2) * b_2 + α_j^(3) * b_3
     //
-    // where b_k is the k-th right-hand side of the row-reduced Vandermonde system. The coefs are
+    // where b_k is the k-th right-hand side of the row-reduced Vandermonde system. These are
     // the coefficients of the Lagrange polynomial at node D_{j+1} (taking nodes (D_2, D_3, D_4)):
     //
     //   L_j(x) = α_j^(1) + α_j^(2) * x + α_j^(3) * x^2
@@ -72,7 +71,7 @@ struct Poseidon2QuadBn254Params {
     //   α_1^(2) = -(D_3 + D_4)   / ((D_2 - D_3)(D_2 - D_4))
     //   α_1^(3) =  1             / ((D_2 - D_3)(D_2 - D_4))
     //   (and analogously for α_2^(k), α_3^(k))
-    // α_j^(1): constant term of L_j (= 1 / D_{j+1}-node product)
+    // α_j^(1): constant term of L_j.
     static constexpr FF alpha_1_1 = D3 * D4 * inv_denom_1;
     static constexpr FF alpha_2_1 = D2 * D4 * inv_denom_2;
     static constexpr FF alpha_3_1 = D2 * D3 * inv_denom_3;
@@ -100,12 +99,8 @@ struct Poseidon2QuadBn254Params {
     // enters through  s^{(0)} = V^{-1} b  and  b_k = linear(w_*, u_0..u_2). Composing  A^4 V^{-1}
     // with the b_k formulas gives the 28 constants below, one per (output, input) cell.
     //
-    // Cost side: at sumcheck time these coefficients let us bypass the ~37-mul Vandermonde-RHS
-    // construction, the ~63-mul Lagrange solve, and the ~84-mul step iteration — replacing all
-    // three with one Acc×Fr per (u_k, out_j) entry and one CoeffAcc×Fr per (w_*, out_j) entry.
+    // Equivalence to the step iteration is verified in a unit test (see `poseidon2_quad_closed_form.test.cpp`).
     //
-    // Equivalence to the step iteration is verified at unit-test time
-    // (see `poseidon2_quad_closed_form.test.cpp`).
     // Linear round-propagation vectors  (A^k · 1)_j  for k = 1, 2.
     //
     // Used by both the entry relation (which checks state[0] at rounds 1, 2 from a standard
@@ -123,87 +118,128 @@ struct Poseidon2QuadBn254Params {
     };
     static constexpr FF sum_A_one = SIGMA + FF(6);
 
-    // Storage for the closed-form coefficient tables. Each row is laid out as
-    //   (c_wr, c_wo, c_w4, c_u0, c_u1, c_u2, c_u3),
-    // so the relation body evaluates  Σ_i c_i · input_i  with one Acc×Fr per u-term and one
-    // CoeffAcc×Fr per wire-term.
+    // Closed-form coefficient table layout. Each row gives coefficients for the inputs
+    //   (w_r, w_o, w_4, u_0, u_1, u_2, u_3),
+    // where u_k = (s_0^{(k)} + c_k)^5.
     //
-    //   `closed_form[j]` for j ∈ {0,1,2,3}  : coefficients of `out_j` (state[j] at round 4).
-    //                                         Used by the terminal relation (direct match against
-    //                                         standard-encoded successor) and by A_0 in the
-    //                                         interior relation.
-    //   `forward_vandermonde_lhs[k]` for k ∈ {0,1,2}  : coefficients of the k-th forward-Vandermonde
-    //                                                  LHS used in interior subrelations A_{k+1}.
-    //                                                  Row 0 = out_1 + out_2 + out_3
-    //                                                  Row 1 = D_2 out_1 + D_3 out_2 + D_4 out_3
-    //                                                  Row 2 = D_2² out_1 + D_3² out_2 + D_4² out_3
+    //   closed_form[j] for j in {0,1,2,3}: coefficients of out_j, i.e. state[j] after four
+    //                                      internal rounds. The terminal relation consumes all
+    //                                      four rows; the interior relation consumes row 0.
     //
-    // The interior relation uses `closed_form[0]` for A_0 and the three `forward_vandermonde_lhs`
-    // rows for A_1, A_2, A_3 — it never materialises out_1, out_2, out_3 individually.
-    using ClosedFormRow = std::array<FF, 7>;
+    //   forward_vandermonde_lhs[k] for k in {0,1,2}: coefficients of the forward-Vandermonde
+    //                                                combinations used by the interior relation:
+    //                                                row 0 = out_1 + out_2 + out_3
+    //                                                row 1 = D_2 out_1 + D_3 out_2 + D_4 out_3
+    //                                                row 2 = D_2^2 out_1 + D_3^2 out_2 + D_4^2 out_3
+    enum ClosedFormColumn : size_t {
+        W_R,
+        W_O,
+        W_4,
+        U_0,
+        U_1,
+        U_2,
+        U_3,
+    };
+    enum ClosedFormOutput : size_t {
+        OUT_0,
+        OUT_1,
+        OUT_2,
+        OUT_3,
+    };
+    static constexpr size_t CLOSED_FORM_INPUT_COUNT = VANDERMONDE_SIZE + Poseidon2Bn254ScalarFieldParams::t;
+    static_assert(CLOSED_FORM_INPUT_COUNT == U_3 + 1);
+    using ClosedFormRow = std::array<FF, CLOSED_FORM_INPUT_COUNT>;
     using ClosedFormTable = std::array<ClosedFormRow, 4>;
     using ForwardVandermondeTable = std::array<ClosedFormRow, VANDERMONDE_SIZE>;
 
   private:
-    // One-shot derivation at static-init time. `fr` arithmetic isn't deeply constexpr-capable
-    // (matrix loops over 3x3 don't survive `constexpr_var_requires_const_init`), so tables
-    // are built once at program start instead.
-    //
-    // The hot path (sumcheck relation `accumulate`) reads only `closed_form` and
-    // `forward_vandermonde_lhs` below — `static inline const` arrays at class scope are
-    // zero-init then constructor-init exactly once before main(), with no per-access guard
-    // (unlike function-local statics).
+    // Derive the coefficient tables once from the fixed Poseidon2 parameters. The relation code
+    // reads only the resulting `closed_form` and `forward_vandermonde_lhs` tables.
     struct Tables {
         ClosedFormTable closed_form;
         ForwardVandermondeTable forward_vandermonde_lhs;
     };
 
-    static Tables build_tables()
-    {
-        using Mat = std::array<std::array<FF, VANDERMONDE_SIZE>, VANDERMONDE_SIZE>;
-        using Vec = std::array<FF, VANDERMONDE_SIZE>;
+    using Mat = std::array<std::array<FF, VANDERMONDE_SIZE>, VANDERMONDE_SIZE>;
+    using Vec = std::array<FF, VANDERMONDE_SIZE>;
 
-        auto mm = [](const Mat& a, const Mat& b) {
-            Mat r{};
-            for (size_t i = 0; i < VANDERMONDE_SIZE; ++i) {
-                for (size_t j = 0; j < VANDERMONDE_SIZE; ++j) {
-                    FF s = FF(0);
-                    for (size_t k = 0; k < VANDERMONDE_SIZE; ++k) {
-                        s += a[i][k] * b[k][j];
-                    }
-                    r[i][j] = s;
-                }
-            }
-            return r;
-        };
-        auto mv = [](const Mat& a, const Vec& v) {
-            Vec r{};
-            for (size_t i = 0; i < VANDERMONDE_SIZE; ++i) {
+    static constexpr Mat matrix_multiply(const Mat& a, const Mat& b)
+    {
+        Mat r{};
+        for (size_t i = 0; i < VANDERMONDE_SIZE; ++i) {
+            for (size_t j = 0; j < VANDERMONDE_SIZE; ++j) {
                 FF s = FF(0);
                 for (size_t k = 0; k < VANDERMONDE_SIZE; ++k) {
-                    s += a[i][k] * v[k];
+                    s += a[i][k] * b[k][j];
                 }
-                r[i] = s;
+                r[i][j] = s;
             }
-            return r;
-        };
+        }
+        return r;
+    }
 
+    static constexpr Vec matrix_vector_multiply(const Mat& a, const Vec& v)
+    {
+        Vec r{};
+        for (size_t i = 0; i < VANDERMONDE_SIZE; ++i) {
+            FF s = FF(0);
+            for (size_t k = 0; k < VANDERMONDE_SIZE; ++k) {
+                s += a[i][k] * v[k];
+            }
+            r[i] = s;
+        }
+        return r;
+    }
+
+    static constexpr Vec vector_matrix_multiply(const Vec& v, const Mat& a)
+    {
+        Vec r{};
+        for (size_t j = 0; j < VANDERMONDE_SIZE; ++j) {
+            FF s = FF(0);
+            for (size_t k = 0; k < VANDERMONDE_SIZE; ++k) {
+                s += v[k] * a[k][j];
+            }
+            r[j] = s;
+        }
+        return r;
+    }
+
+    static constexpr FF vector_sum(const Vec& v)
+    {
+        FF result = FF(0);
+        for (const auto& entry : v) {
+            result += entry;
+        }
+        return result;
+    }
+
+    static constexpr ClosedFormRow weighted_closed_form_sum(const Vec& weights, const ClosedFormTable& table)
+    {
+        ClosedFormRow r{};
+        for (size_t i = 0; i < CLOSED_FORM_INPUT_COUNT; ++i) {
+            r[i] = weights[0] * table[OUT_1][i] + weights[1] * table[OUT_2][i] + weights[2] * table[OUT_3][i];
+        }
+        return r;
+    }
+
+    static Tables build_tables()
+    {
         const Vec ones = { FF(1), FF(1), FF(1) };
         // A: internal-round update on (s_1, s_2, s_3). step(v, u) = A v + u·1.
         const Mat A = { { { D2, FF(1), FF(1) }, { FF(1), D3, FF(1) }, { FF(1), FF(1), D4 } } };
-        const Mat A2 = mm(A, A);
-        const Mat A3 = mm(A2, A);
-        const Mat A4 = mm(A3, A);
-        const Vec A_one = mv(A, ones);
-        const Vec A2_one = mv(A2, ones);
-        const Vec A3_one = mv(A3, ones);
+        const Mat A2 = matrix_multiply(A, A);
+        const Mat A3 = matrix_multiply(A2, A);
+        const Mat A4 = matrix_multiply(A3, A);
+        const Vec A_one = matrix_vector_multiply(A, ones);
+        const Vec A2_one = matrix_vector_multiply(A2, ones);
+        const Vec A3_one = matrix_vector_multiply(A3, ones);
 
         // V_inv (rows are Lagrange coefs α_j^(*)).
         const Mat Vinv = { { { alpha_1_1, alpha_1_2, alpha_1_3 },
                              { alpha_2_1, alpha_2_2, alpha_2_3 },
                              { alpha_3_1, alpha_3_2, alpha_3_3 } } };
         // M = A^4 · V_inv: maps b → b-derived part of out_{1,2,3} at round 4.
-        const Mat M = mm(A4, Vinv);
+        const Mat M = matrix_multiply(A4, Vinv);
 
         // B_w: rows are w-coefs of b_1, b_2, b_3 on (w_r, w_o, w_4).
         const Mat Bw = { { { FF(1), FF(0), FF(0) }, { -FF(2), FF(1), FF(0) }, { -(SIGMA + FF(2)), -FF(1), FF(1) } } };
@@ -212,43 +248,41 @@ struct Poseidon2QuadBn254Params {
                            { FF(2) * D1 - FF(3), -D1, FF(0) },
                            { (SIGMA + FF(2)) * D1 - SIGMA - FF(3), D1 - FF(3), -D1 } } };
 
-        const Mat Mw = mm(M, Bw);  // w-coefs of out_{1,2,3}
-        const Mat MBu = mm(M, Bu); // b-derived part of u-coefs
+        const Mat Mw = matrix_multiply(M, Bw);  // w-coefs of out_{1,2,3}
+        const Mat MBu = matrix_multiply(M, Bu); // b-derived part of u-coefs
 
         // T_3 = sum of state[1..3] at round 3.
         // q_T3 = (1^T A^3) · V_inv: projection coefficients for the b-derived part of T_3.
-        const Vec col_sum_A3 = { A3[0][0] + A3[1][0] + A3[2][0],
-                                 A3[0][1] + A3[1][1] + A3[2][1],
-                                 A3[0][2] + A3[1][2] + A3[2][2] };
-        Vec q_T3{};
-        for (size_t i = 0; i < VANDERMONDE_SIZE; ++i) {
-            q_T3[i] = col_sum_A3[0] * Vinv[0][i] + col_sum_A3[1] * Vinv[1][i] + col_sum_A3[2] * Vinv[2][i];
-        }
-        const FF sum_A_one = A_one[0] + A_one[1] + A_one[2];
-        const FF sum_A2_one = A2_one[0] + A2_one[1] + A2_one[2];
+        const Vec col_sum_A3 = vector_matrix_multiply(ones, A3);
+        const Vec q_T3 = vector_matrix_multiply(col_sum_A3, Vinv);
+        const FF sum_A_one = vector_sum(A_one);
+        const FF sum_A2_one = vector_sum(A2_one);
+
+        const Vec row0_wire_coefficients = vector_matrix_multiply(q_T3, Bw);
+        const Vec row0_u_coefficients = vector_matrix_multiply(q_T3, Bu);
 
         // out_0 = D_1 u_3 + T_3.
         // T_3's wire-coefs:  q_T3 · B_w  (1×3 · 3×3 → 1×3)
         // T_3's u-coefs:     q_T3 · B_u  + (sum_A2_one, sum_A_one, 3) inhomogeneous additions
         ClosedFormRow row0{};
         for (size_t i = 0; i < VANDERMONDE_SIZE; ++i) {
-            row0[i] = q_T3[0] * Bw[0][i] + q_T3[1] * Bw[1][i] + q_T3[2] * Bw[2][i]; // c_wr, c_wo, c_w4
+            row0[i] = row0_wire_coefficients[i];
         }
-        row0[3] = (q_T3[0] * Bu[0][0] + q_T3[1] * Bu[1][0] + q_T3[2] * Bu[2][0]) + sum_A2_one; // c_u0
-        row0[4] = (q_T3[0] * Bu[0][1] + q_T3[1] * Bu[1][1] + q_T3[2] * Bu[2][1]) + sum_A_one;  // c_u1
-        row0[5] = (q_T3[0] * Bu[0][2] + q_T3[1] * Bu[1][2] + q_T3[2] * Bu[2][2]) + FF(3);      // c_u2
-        row0[6] = D1;                                                                          // c_u3 = D_1
+        row0[U_0] = row0_u_coefficients[0] + sum_A2_one;
+        row0[U_1] = row0_u_coefficients[1] + sum_A_one;
+        row0[U_2] = row0_u_coefficients[2] + FF(3);
+        row0[U_3] = D1;
 
         // out_j (j=1,2,3): u_3 coefficient is identically 1 (free add at use site).
         auto build_out_j = [&](size_t j) {
             ClosedFormRow r{};
-            r[0] = Mw[j][0];
-            r[1] = Mw[j][1];
-            r[2] = Mw[j][2];
-            r[3] = MBu[j][0] + A3_one[j];
-            r[4] = MBu[j][1] + A2_one[j];
-            r[5] = MBu[j][2] + A_one[j];
-            r[6] = FF(1);
+            r[W_R] = Mw[j][0];
+            r[W_O] = Mw[j][1];
+            r[W_4] = Mw[j][2];
+            r[U_0] = MBu[j][0] + A3_one[j];
+            r[U_1] = MBu[j][1] + A2_one[j];
+            r[U_2] = MBu[j][2] + A_one[j];
+            r[U_3] = FF(1);
             return r;
         };
 
@@ -265,11 +299,7 @@ struct Poseidon2QuadBn254Params {
         };
         ForwardVandermondeTable lhs_table{};
         for (size_t k = 0; k < VANDERMONDE_SIZE; ++k) {
-            const Vec& w = lhs_weights[k];
-            ClosedFormRow& r = lhs_table[k];
-            for (size_t i = 0; i < 7; ++i) {
-                r[i] = w[0] * closed_form_table[1][i] + w[1] * closed_form_table[2][i] + w[2] * closed_form_table[3][i];
-            }
+            lhs_table[k] = weighted_closed_form_sum(lhs_weights[k], closed_form_table);
         }
 
         return Tables{ closed_form_table, lhs_table };
@@ -277,12 +307,6 @@ struct Poseidon2QuadBn254Params {
 
   public:
     // Public coefficient tables consumed by the relations.
-    //
-    // `tables` is a single static-inline-const aggregate whose fields are read directly via
-    // `QuadParams::tables.closed_form[...]` / `QuadParams::tables.forward_vandermonde_lhs[...]`.
-    // Because the symbol address is fixed at link time and the field offsets are compile-time
-    // constants, the hot path emits a plain mov from a known address — no pointer chase, no
-    // atomic guard, no per-call construction. `build_tables()` runs exactly once before main().
     static inline const Tables tables = build_tables();
 };
 

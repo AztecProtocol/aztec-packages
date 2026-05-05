@@ -17,13 +17,11 @@ namespace bb {
  *     (w_l_shift, w_r_shift, w_o_shift, w_4_shift)
  *       = (state[0] at round 0, round 1, round 2, round 3).
  *
- * w_l_shift = state[0] at round 0 = s_0 — established via shared witness indices with the entry
- * row's w_l (enforced by the permutation relation). We therefore do NOT duplicate this as a
- * subrelation here; the three subrelations below cover rounds 1, 2, 3.
+ * w_l_shift = state[0] at round 0 = s_0 is enforced by the permutation relation because it shares
+ * the entry row's w_l witness. The three subrelations below cover rounds 1, 2, 3.
  *
- * The "stepwise degree firewall" pattern keeps each subrelation at degree 5: each subrelation
- * computes state[0] at the target round using the previous shifted wire as a fresh variable
- * (instead of inlining its degree-5 definition).
+ * Each subrelation computes state[0] at the target round using the previous shifted wire, keeping
+ * the per-variable degree at 5.
  *
  * Subrelations (each × q_poseidon2_transition_entry × gate separator, degree 7):
  *
@@ -104,29 +102,28 @@ template <typename FF_> class Poseidon2TransitionEntryRelationImpl {
 
         // u_0 = (w_l + q_l)^5
         auto u_0 = pow5(Accumulator(w_l + q_l));
-        // u_1 = (w_r_shift + q_r)^5  — uses shifted wire as degree firewall
+        // u_1 = (w_r_shift + q_r)^5
         auto u_1 = pow5(Accumulator(w_r_shift + q_r));
-        // u_2 = (w_o_shift + q_o)^5  — uses shifted wire as degree firewall
+        // u_2 = (w_o_shift + q_o)^5
         auto u_2 = pow5(Accumulator(w_o_shift + q_o));
 
         const auto q_by_scaling_m = q_sel * scaling_factor;
         const auto q_by_scaling = Accumulator(q_by_scaling_m);
 
-        // Wire CoeffAcc combinations with the subrelation RHS (shifted-wire targets) folded in,
-        // so each body promotes exactly once instead of twice.
+        // Wire parts of the three subrelations, including shifted-row targets.
         auto wp_0 = w_r + w_o + w_4 - w_r_shift;
         auto wp_1 = w_r * A_one[0] + w_o * A_one[1] + w_4 * A_one[2] - w_o_shift;
         auto wp_2 = w_r * A2_one[0] + w_o * A2_one[1] + w_4 * A2_one[2] - w_4_shift;
 
-        // ── A_0: D_1 u_0 + (w_r + w_o + w_4) - w_r_shift = 0 ──
+        // A_0: D_1 u_0 + (w_r + w_o + w_4) - w_r_shift = 0.
         auto a0_body = u_0 * D1 + Accumulator(wp_0);
         std::get<0>(evals) += q_by_scaling * a0_body;
 
-        // ── A_1: D_1 u_1 + 3 u_0 + (A·1)_j-weighted wire combo - w_o_shift = 0 ──
+        // A_1: D_1 u_1 + 3 u_0 + (A·1)_j-weighted wire combo - w_o_shift = 0.
         auto a1_body = u_1 * D1 + u_0 * fr(3) + Accumulator(wp_1);
         std::get<1>(evals) += q_by_scaling * a1_body;
 
-        // ── A_2: D_1 u_2 + 3 u_1 + (Σ+6) u_0 + (A^2·1)_j-weighted wire combo - w_4_shift = 0 ──
+        // A_2: D_1 u_2 + 3 u_1 + (Σ+6) u_0 + (A^2·1)_j-weighted wire combo - w_4_shift = 0.
         auto a2_body = u_2 * D1 + u_1 * fr(3) + u_0 * sum_A_one + Accumulator(wp_2);
         std::get<2>(evals) += q_by_scaling * a2_body;
     }

@@ -8,10 +8,10 @@ namespace bb {
 /**
  * @brief Terminal variant of the K=4 compressed internal-round relation.
  *
- * @details Same 4-round computation as `Poseidon2QuadInternalRelationImpl`, but the successor
- * is the standard-encoded bridge row (not another compressed row). The four subrelations directly
- * match (out_0, out_1, out_2, out_3) against (w_l_shift, w_r_shift, w_o_shift, w_4_shift) — no
- * forward-Vandermonde reconstruction on the shift side.
+ * @details Same four-round closed-form computation as `Poseidon2QuadInternalRelationImpl`, but
+ * the successor is the standard-encoded bridge row rather than another compressed row. The four
+ * subrelations directly match (out_0, out_1, out_2, out_3) against
+ * (w_l_shift, w_r_shift, w_o_shift, w_4_shift).
  *
  * This ties the compressed chain's output state (state[0..3] after 56 internal rounds) to
  * witnesses that the first final-external gate consumes via shared witness indices.
@@ -64,16 +64,13 @@ template <typename FF_> class Poseidon2QuadInternalTerminalRelationImpl {
             return quart * x;
         };
 
-        // ── S-boxes for the 4 rounds ──
+        // S-boxes for the four rounds.
         auto u_0 = pow5(Accumulator(w_l + q_l));
         auto u_1 = pow5(Accumulator(w_r + q_r));
         auto u_2 = pow5(Accumulator(w_o + q_o));
         auto u_3 = pow5(Accumulator(w_4 + q_4));
 
-        // ── Closed-form 4-round propagation, with direct-match RHS folded into the wire CoeffAcc ──
-        // See `Poseidon2QuadInternalRelationImpl` for the derivation of the 28 coefficients.
-        // Each subrelation's `out_k - w_*_shift` collapses to a single CoeffAcc combo wp_k that
-        // is promoted exactly once per subrelation.
+        // Closed-form output rows, with shifted bridge-row terms folded into the wire part.
         const auto& C = QuadParams::tables.closed_form;
         auto wp_0 = w_r * C[0][0] + w_o * C[0][1] + w_4 * C[0][2] - w_l_shift;
         auto wp_1 = w_r * C[1][0] + w_o * C[1][1] + w_4 * C[1][2] - w_r_shift;
@@ -83,8 +80,7 @@ template <typename FF_> class Poseidon2QuadInternalTerminalRelationImpl {
         const auto q_by_scaling_m = q_sel * scaling_factor;
         const auto q_by_scaling = Accumulator(q_by_scaling_m);
 
-        // ── Subrelation bodies: out_k - w_*_shift = 0 ──
-        // For out_{1,2,3} the u_3 coefficient is identically 1 (free add).
+        // Subrelation bodies: out_k - w_*_shift = 0.
         auto a0_body = u_0 * C[0][3] + u_1 * C[0][4] + u_2 * C[0][5] + u_3 * C[0][6] + Accumulator(wp_0);
         auto a1_body = u_0 * C[1][3] + u_1 * C[1][4] + u_2 * C[1][5] + u_3 + Accumulator(wp_1);
         auto a2_body = u_0 * C[2][3] + u_1 * C[2][4] + u_2 * C[2][5] + u_3 + Accumulator(wp_2);

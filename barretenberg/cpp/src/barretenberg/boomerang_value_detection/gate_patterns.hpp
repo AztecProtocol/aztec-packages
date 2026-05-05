@@ -345,10 +345,6 @@ inline const GatePattern POSEIDON2_INITIAL_EXTERNAL = { .name = "poseidon2_initi
 // ============================================================================
 // Poseidon2 Quad-Internal Pattern (from poseidon2_quad_internal_relation.hpp)
 //
-// Four subrelations tie each output wire (w_l, w_r, w_o, w_4) to the corresponding
-// shifted wire (w_l_shift, w_r_shift, w_o_shift, w_4_shift). All 4 current + all 4
-// shifted wires are constrained.
-//
 // gate_selector = q_poseidon2_quad_internal
 // ============================================================================
 
@@ -368,9 +364,6 @@ inline const GatePattern POSEIDON2_QUAD_INTERNAL = { .name = "poseidon2_quad_int
 // Poseidon2 Quad-Internal Terminal Pattern
 // (from poseidon2_quad_internal_terminal_relation.hpp)
 //
-// Four subrelations: A_k: out_k - w_k_shift (k = l, r, o, 4). All 4 current
-// + all 4 shifted wires are constrained.
-//
 // gate_selector = q_poseidon2_quad_internal_terminal
 // ============================================================================
 
@@ -389,16 +382,6 @@ inline const GatePattern
 
 // ============================================================================
 // Poseidon2 Transition Entry Pattern (from poseidon2_transition_entry_relation.hpp)
-//
-// K=4: 3 subrelations forcing state[0] at rounds start+1, start+2, start+3 onto the first
-// compressed row. Each subrelation uses the PREVIOUS shifted wire as a fresh variable
-// (degree firewall), so A_0 reads w_l + w_r_shift, A_1 reads w_r_shift + w_o_shift, and
-// A_2 reads w_o_shift + w_4_shift. Linear terms in all of (w_r, w_o, w_4) appear in A_1
-// and A_2.
-//
-// Constrained wires: w_l, w_r, w_o, w_4 (current) + w_r_shift, w_o_shift, w_4_shift.
-// w_l_shift is handled implicitly via shared witness indices (sigma permutation) — the
-// first compressed row's w_l uses the same witness index as this row's w_l.
 //
 // gate_selector = q_poseidon2_transition_entry
 // ============================================================================

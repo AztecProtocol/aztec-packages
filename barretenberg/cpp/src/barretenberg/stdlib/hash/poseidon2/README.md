@@ -1,4 +1,4 @@
-# stdlib Poseidon2 Hash Implementation
+# Stdlib Poseidon2 Hash Implementation
 
 Poseidon2 is a **SNARK-friendly cryptographic hash** designed to be efficient inside prime-field arithmetic circuits.
 It follows the [Poseidon2 paper](https://eprint.iacr.org/2023/323.pdf) and refines the original Poseidon hash.
@@ -9,6 +9,18 @@ This implementation includes:
 - The **Poseidon2 permutation**, i.e. the round function used by the sponge.
 - **Circuit custom gate relations** that enforce the permutation’s correctness.
 
+## Contents
+
+- [The Sponge Construction](#the-sponge-construction)
+- [The Poseidon2 Permutation](#the-poseidon2-permutation)
+- [Trace Layouts](#trace-layouts)
+- [Initial External Linear Layer](#initial-external-linear-layer)
+- [External Round Subrelations](#external-round-subrelations)
+- [Mega Internal Compression](#mega-internal-compression)
+- [Compressed Block Subrelations](#compressed-block-subrelations)
+- [Soundness Argument](#soundness-argument)
+- [Witness Materialization](#witness-materialization)
+- [Selectors and File Map](#selectors-and-file-map)
 
 ## The Sponge Construction
 
@@ -20,7 +32,7 @@ output elements.
 | State size | $t = 4$ field elements |
 | Rate | $r = 3$ field elements |
 | Capacity | $c = 1$ field element |
-| Domain separator | $\mathrm{IV} = \texttt{input\_length}^{64}$ |
+| Domain separator | $\mathrm{IV} = \texttt{input\_length} \ll 64$ |
 
 Let the input be:
 
@@ -69,13 +81,13 @@ input state
 initial external linear layer M_E
     |
     v
-4 external rounds  : full S-box on all 4 limbs, then M_E
+4 external rounds  : full S-box on all 4 state entries, then M_E
     |
     v
 56 internal rounds : S-box only on state[0], then M_I
     |
     v
-4 external rounds  : full S-box on all 4 limbs, then M_E
+4 external rounds  : full S-box on all 4 state entries, then M_E
     |
     v
 output state
@@ -83,24 +95,31 @@ output state
 
 External matrix:
 
-```text
-M_E = [ 5 7 1 3 ]
-      [ 4 6 1 1 ]
-      [ 1 3 5 7 ]
-      [ 1 1 4 6 ]
-```
+$$
+M_E =
+\begin{bmatrix}
+5 & 7 & 1 & 3 \\
+4 & 6 & 1 & 1 \\
+1 & 3 & 5 & 7 \\
+1 & 1 & 4 & 6
+\end{bmatrix}
+$$
 
-Internal matrix:
+Internal matrix, written with the actual diagonal entries $D_i$:
 
-```text
-M_I = [ D1 1  1  1  ]
-      [ 1  D2 1  1  ]
-      [ 1  1  D3 1  ]
-      [ 1  1  1  D4 ]
-```
+$$
+M_I =
+\begin{bmatrix}
+D_1 & 1 & 1 & 1 \\
+1 & D_2 & 1 & 1 \\
+1 & 1 & D_3 & 1 \\
+1 & 1 & 1 & D_4
+\end{bmatrix}
+$$
 
-The code stores `internal_matrix_diagonal_minus_one[i] = D_i - 1`, because multiplication is
-implemented as `(D_i - 1) * x_i + sum(x)`.
+The parameter table stores `internal_matrix_diagonal_minus_one[i] = D_i - 1`, not $D_i$
+itself. This lets the implementation compute the internal matrix product as
+`(D_i - 1) * x_i + sum(x)`, which is equal to $D_i x_i + \sum_{j \ne i} x_j$.
 
 The constants are generated from the Sage script authored by Markus Schofnegger in the Horizen
 Labs Poseidon2 parameter tooling. With `R_P = 56`, `R_F = 8`, `d = 5`, and a 254-bit scalar
@@ -145,11 +164,91 @@ Mega permutation rows
 The stdlib hash also has one fixed-witness IV row outside the permutation when it starts from
 the sponge IV.
 
-## Mega K=4 Internal Compression
+## Initial External Linear Layer
 
-Poseidon2 internal rounds are special because only `state[0]` passes through an S-box. The other
-three limbs evolve linearly. Mega exploits this by committing four consecutive `state[0]` values
-per row instead of committing the full state for every internal round.
+The initial external linear layer has no S-boxes. Mega constrains it in one row under
+`q_poseidon2_external_initial`, while Ultra emits arithmetic rows for the same matrix product.
+Given:
+
+$$
+\mathbf{x} =
+\begin{bmatrix}
+w_l \\
+w_r \\
+w_o \\
+w_4
+\end{bmatrix},
+\qquad
+\mathbf{y} =
+M_E\mathbf{x},
+$$
+
+the four subrelations constrain the shifted row:
+
+$$
+\begin{aligned}
+A_0 &: y_0 - w_l' = 0, \\
+A_1 &: y_1 - w_r' = 0, \\
+A_2 &: y_2 - w_o' = 0, \\
+A_3 &: y_3 - w_4' = 0.
+\end{aligned}
+$$
+
+## External Round Subrelations
+
+An external round starts from a standard-encoded row:
+
+$$
+(w_l, w_r, w_o, w_4)
+$$
+
+with round constants in `(q_l, q_r, q_o, q_4)`. The relation computes:
+
+$$
+\begin{aligned}
+u_1 &= (w_l + q_l)^5, \\
+u_2 &= (w_r + q_r)^5, \\
+u_3 &= (w_o + q_o)^5, \\
+u_4 &= (w_4 + q_4)^5,
+\end{aligned}
+$$
+
+then applies the external matrix:
+
+$$
+\begin{bmatrix}
+v_1 \\
+v_2 \\
+v_3 \\
+v_4
+\end{bmatrix}
+=
+M_E
+\begin{bmatrix}
+u_1 \\
+u_2 \\
+u_3 \\
+u_4
+\end{bmatrix}.
+$$
+
+The four external subrelations constrain the result against the shifted row:
+
+$$
+\begin{aligned}
+A_0 &: v_1 - w_l' = 0, \\
+A_1 &: v_2 - w_r' = 0, \\
+A_2 &: v_3 - w_o' = 0, \\
+A_3 &: v_4 - w_4' = 0.
+\end{aligned}
+$$
+
+## Mega Internal Compression
+
+Mega uses a K=4 layout: each compressed row commits four consecutive `state[0]` values instead of the full state at
+every internal round. This is sound because only `state[0]` passes through the internal-round
+S-box. Once the four S-box outputs are fixed, the update of `state[1..3]` is linear and can be
+checked through an invertible 3 by 3 linear encoding.
 
 For a quad row that starts at internal round `4i`:
 
@@ -198,109 +297,216 @@ standard bridge row
 final external rounds
 ```
 
-## Algebra Inside A Quad Row
+## Compressed Block Subrelations
 
-Let a quad row start from `(s0, s1, s2, s3)`, and let:
+Every subrelation in the compressed block enforces the Poseidon2 internal-round recurrence in
+the encoding appropriate for its boundary:
 
-```text
-u_k = (s0^(k) + c_{4i+k})^5
-```
+| Boundary | What's known | What the subrelations enforce |
+|---|---|---|
+| **Entry** | full standard state at row-start | first three `state[0]` values of the first compressed row |
+| **Interior** | `state[0]` chain on this row and the next | four-round output, with the next row's `state[1..3]` checked through the same linear encoding |
+| **Terminal** | `state[0]` chain on this row, full standard state on the next bridge row | four-round output matched directly against the bridge row |
 
-The first row of `M_I` gives:
+The interior and terminal boundaries share a four-round closed form that we cover first.
 
-```text
-s0^(k+1) = D1 * u_k + s1^(k) + s2^(k) + s3^(k)
-```
+### Closed Form for Four Rounds
 
-The lower three limbs are linear. Applying the recurrence three times gives a 3 by 3
-Vandermonde system:
+Write the committed quad-row wires as:
 
-```text
-[ 1    1    1   ] [s1]   [b1]
-[ D2   D3   D4  ] [s2] = [b2]
-[ D2^2 D3^2 D4^2] [s3]   [b3]
-```
+$$
+(w_l, w_r, w_o, w_4) = (s_0^{(0)}, s_0^{(1)}, s_0^{(2)}, s_0^{(3)})
+$$
 
-where:
+and define the four S-box outputs:
 
-```text
-b1 = w_r - D1 * u_0
-b2 = w_o - 2*w_r + (2*D1 - 3)*u_0 - D1*u_1
-b3 = w_4 - w_o - (Sigma + 2)*w_r
-     + ((Sigma + 2)*D1 - Sigma - 3)*u_0
-     + (D1 - 3)*u_1 - D1*u_2
-Sigma = D2 + D3 + D4
-```
+$$
+u_k = (s_0^{(k)} + c_{4i+k})^5, \qquad k \in \{0, 1, 2, 3\}.
+$$
 
-The determinant is:
+The row does not store `state[1..3]`. Instead, the claimed successor values
+$w_r = s_0^{(1)}$, $w_o = s_0^{(2)}$, and $w_4 = s_0^{(3)}$ determine three linear
+combinations of the hidden start-of-row values
+$(s_1^{(0)}, s_2^{(0)}, s_3^{(0)})$. For this reconstruction, use Vandermonde nodes
+$\lambda_1 = D_2$, $\lambda_2 = D_3$, and $\lambda_3 = D_4$:
 
-```text
-(D3 - D2) * (D4 - D2) * (D4 - D3)
-```
+$$
+\begin{bmatrix}
+1 & 1 & 1 \\
+\lambda_1 & \lambda_2 & \lambda_3 \\
+\lambda_1^2 & \lambda_2^2 & \lambda_3^2
+\end{bmatrix}
+\begin{bmatrix}
+s_1^{(0)} \\
+s_2^{(0)} \\
+s_3^{(0)}
+\end{bmatrix}
+=
+\begin{bmatrix}
+b_1 \\
+b_2 \\
+b_3
+\end{bmatrix}.
+$$
 
-`poseidon2_quad_params.hpp` has `static_assert`s that `D2`, `D3`, and `D4` are pairwise
-distinct, so the system is invertible for the BN254 Poseidon2 parameters. The inverse
-coefficients are fixed constants.
+Solving the internal-round recurrence gives the right-hand sides:
 
-Degree stays bounded because each S-box is applied to a committed wire, not to an inlined
-degree-5 expression. The Vandermonde solve is linear in those S-box outputs. Each subrelation
-therefore has degree 5 before multiplying by its selector and gate separator, and partial
-length 7 after those factors.
+$$
+\begin{aligned}
+b_1 &= w_r - D_1 u_0, \\
+b_2 &= w_o - 2w_r + (2D_1 - 3)u_0 - D_1u_1, \\
+b_3 &= w_4 - w_o - (\Sigma + 2)w_r \\
+    &\quad + ((\Sigma + 2)D_1 - \Sigma - 3)u_0
+       + (D_1 - 3)u_1 - D_1u_2, \\
+\Sigma &= D_2 + D_3 + D_4.
+\end{aligned}
+$$
 
-## Relations
+The Vandermonde determinant is:
 
-### Initial External
+$$
+(\lambda_2 - \lambda_1)(\lambda_3 - \lambda_1)(\lambda_3 - \lambda_2).
+$$
 
-`Poseidon2InitialExternalRelationImpl` constrains the Mega-only initial `M_E` multiplication in
-one row under `q_poseidon2_external_initial`. Ultra uses six arithmetic rows for the same layer.
+`poseidon2_quad_params.hpp` has `static_assert`s that the three nodes are pairwise distinct,
+so the hidden start-of-row `state[1..3]` values are uniquely determined by the committed
+`state[0]` chain.
 
-### External
+After this reconstruction, iterating four internal rounds expresses the row-end state as a
+fixed linear combination of $(w_r, w_o, w_4, u_0, u_1, u_2, u_3)$:
 
-`Poseidon2ExternalRelationImpl` constrains each full external round. The row holds the current
-standard-encoded state. The relation applies full S-boxes, multiplies by `M_E`, and checks the
-result against the shifted row.
+$$
+\operatorname{out} =
+C \cdot
+\begin{bmatrix}
+w_r \\
+w_o \\
+w_4 \\
+u_0 \\
+u_1 \\
+u_2 \\
+u_3
+\end{bmatrix},
+\qquad
+\operatorname{out} =
+(\operatorname{out}_0, \operatorname{out}_1, \operatorname{out}_2, \operatorname{out}_3)
+= (s_0^{(4)}, s_1^{(4)}, s_2^{(4)}, s_3^{(4)}).
+$$
 
-### Entry
+The coefficients of $C$ are precomputed in `poseidon2_quad_params.hpp` and unit-tested against
+explicit four-step iteration in `poseidon2_quad_closed_form.test.cpp`.
 
-`Poseidon2TransitionEntryRelationImpl` bridges from standard encoding to quad encoding.
+`w_l` does not appear in the input vector because it enters only through $u_0 = (w_l + c_{4i})^5$.
 
-```text
-entry row                 first quad row
-(s0, s1, s2, s3)   --->   (s0^0, s0^1, s0^2, s0^3)
-```
+Thus `out` is the predicted Poseidon2 state after the four internal rounds represented by this
+quad row. The boundary subrelations check this predicted state against the successor row. For a
+terminal row, the successor exposes all four output state entries directly. For an interior row,
+the successor again exposes only its `state[0]` chain, so the relation compares `out_0`
+directly and compares `out_1..out_3` through the same Vandermonde encoding.
 
-`s0^0` is copy-constrained to the entry row's `s0`. The relation has three subrelations that
-force `s0^1`, `s0^2`, and `s0^3`. Each uses the previous shifted wire as a degree firewall.
+### Entry: Standard to First Quad Row
 
-### Interior Quad
+The entry row holds $(s_0^{(0)}, s_1^{(0)}, s_2^{(0)}, s_3^{(0)})$ in standard encoding; the
+first compressed row encodes $s_0$ at rounds $0, 1, 2, 3$ as $(w_l', w_r', w_o', w_4')$. The
+entry row's `w_l` and the first compressed row's `w_l'` share a witness index, so the
+permutation argument enforces that both occurrences carry $s_0^{(0)}$.
 
-`Poseidon2QuadInternalRelationImpl` is active on the 13 non-terminal quad rows.
+The three subrelations enforce the `state[0]` recurrence at $k = 0, 1, 2$. Because
+`state[1..3]` are committed on the standard entry row, this boundary does not need a
+Vandermonde reconstruction. With $u_0 = (s_0^{(0)} + c_0)^5$,
+$u_1 = (w_r' + c_1)^5$, $u_2 = (w_o' + c_2)^5$, and $\Sigma = D_2 + D_3 + D_4$:
 
-```text
-current quad row                       next quad row
-(s0^k, s0^{k+1}, s0^{k+2}, s0^{k+3}) -> (s0^{k+4}, s0^{k+5}, s0^{k+6}, s0^{k+7})
-```
+$$
+\begin{aligned}
+\operatorname{entry}_1 &= D_1 u_0 + s_1^{(0)} + s_2^{(0)} + s_3^{(0)}, \\
+\operatorname{entry}_2 &= D_1 u_1 + 3 u_0
+    + (D_2 + 2) s_1^{(0)} + (D_3 + 2) s_2^{(0)} + (D_4 + 2) s_3^{(0)}, \\
+\operatorname{entry}_3 &= D_1 u_2 + 3 u_1 + (\Sigma + 6) u_0 \\
+    &\quad + (D_2^2 + D_2 + \Sigma + 4) s_1^{(0)}
+        + (D_3^2 + D_3 + \Sigma + 4) s_2^{(0)}
+        + (D_4^2 + D_4 + \Sigma + 4) s_3^{(0)}.
+\end{aligned}
+$$
 
-The relation:
+The entry subrelations are:
 
-1. Reconstructs the current hidden limbs `(s1, s2, s3)` from the current row.
-2. Applies four internal rounds.
-3. Fixes the next row's `w_l = s0^{k+4}`.
-4. Checks that the next row's hidden limbs implied by its own `state[0]` chain match the computed
-   output hidden limbs, using the next constants in `q_m`, `q_c`, and `q_5`.
+$$
+\begin{aligned}
+A_0 &: \operatorname{entry}_1 - w_r' = 0, \\
+A_1 &: \operatorname{entry}_2 - w_o' = 0, \\
+A_2 &: \operatorname{entry}_3 - w_4' = 0.
+\end{aligned}
+$$
 
-### Terminal Quad
+Each later S-box ($u_1, u_2$) consumes an already-committed compressed-row wire instead of
+inlining the previous round's S-box, keeping per-variable degree at 5.
 
-`Poseidon2QuadInternalTerminalRelationImpl` is active on the final quad row. It computes the
-last four internal rounds and pins the shifted standard bridge row:
+This boundary has no hidden degrees of freedom: after the shared witness index fixes $w_l'$,
+the three equations above form a triangular system in the remaining first-compressed-row
+variables $(w_r', w_o', w_4')$. `A_0` fixes $w_r'$. Then `A_1` uses that fixed $w_r'$ in
+$u_1 = (w_r' + c_1)^5$ and fixes $w_o'$. Then `A_2` uses that fixed $w_o'$ in
+$u_2 = (w_o' + c_2)^5$ and fixes $w_4'$. Each subrelation has coefficient $-1$ on the next
+wire it solves for, so the first compressed row is uniquely determined by the standard entry
+state and the fixed round constants.
 
-```text
-terminal quad row                  bridge row
-(s0^52, s0^53, s0^54, s0^55) --->  (s0^56, s1^56, s2^56, s3^56)
-```
+### Terminal: Final Quad Row to Bridge Row
 
-The bridge row has no active selector of its own, but its wire witnesses are constrained by the
-terminal relation via shifted wires and then copy-constrained into the final external block.
+The terminal row's successor is the standard bridge row carrying $(s_0^{(4)}, s_1^{(4)},
+s_2^{(4)}, s_3^{(4)})$. The four subrelations match the closed-form output directly:
+
+$$
+\begin{aligned}
+A_0 &: \operatorname{out}_0 - w_l' = 0, \\
+A_1 &: \operatorname{out}_1 - w_r' = 0, \\
+A_2 &: \operatorname{out}_2 - w_o' = 0, \\
+A_3 &: \operatorname{out}_3 - w_4' = 0.
+\end{aligned}
+$$
+
+The bridge row's wire indices are reused by the first final-external-round gate, so the same
+four witnesses feed the next standard-encoded block.
+
+This boundary has no hidden degrees of freedom: the successor is a full standard-encoded row,
+and each equation has coefficient $-1$ on a distinct shifted bridge wire. Once the current
+terminal quad row determines `out`, the four bridge wires $(w_l', w_r', w_o', w_4')$ are
+uniquely determined.
+
+### Interior: Quad Row to Quad Row
+
+The interior row's successor is another compressed row that commits only $s_0$ at four rounds.
+The next row's `state[1..3]` values are not committed. Instead, the relation compares their
+Vandermonde encoding against the encoding reconstructed from the next row's `state[0]` chain.
+This enforces:
+
+- **$A_0$:** $\operatorname{out}_0 = w_l'$ — first $s_0$ value of the next row matches the
+  predicted $s_0^{(4)}$.
+- **$A_1, A_2, A_3$:** the three Vandermonde combinations of
+  $(\operatorname{out}_1, \operatorname{out}_2, \operatorname{out}_3)$ match the next row's
+  reconstructed encoding.
+
+Concretely, with $b_1'$, $b_2'$, and $b_3'$ reconstructed from the next row's `state[0]` chain
+using the same formulas as above:
+
+$$
+\begin{aligned}
+A_0 &: \operatorname{out}_0 - w_l' = 0, \\
+A_1 &: \operatorname{out}_1 + \operatorname{out}_2 + \operatorname{out}_3 - b_1' = 0, \\
+A_2 &: \lambda_1 \operatorname{out}_1 + \lambda_2 \operatorname{out}_2
+      + \lambda_3 \operatorname{out}_3 - b_2' = 0, \\
+A_3 &: \lambda_1^2 \operatorname{out}_1 + \lambda_2^2 \operatorname{out}_2
+      + \lambda_3^2 \operatorname{out}_3 - b_3' = 0.
+\end{aligned}
+$$
+
+Each subrelation has per-variable degree 5 before multiplying by selector and gate separator,
+giving partial length 7.
+
+This quad-row-to-quad-row transition has no hidden degrees of freedom either. `A_0` fixes the next row's first
+`state[0]` value. The remaining three equations say that the Vandermonde encoding of
+$(\operatorname{out}_1, \operatorname{out}_2, \operatorname{out}_3)$ equals
+$(b_1', b_2', b_3')$, the encoding reconstructed from the next row's claimed `state[0]` chain.
+Because the Vandermonde matrix is invertible, equality of these three encoded values is
+equivalent to equality of the underlying `state[1..3]` values.
 
 ## Soundness Argument
 
@@ -310,11 +516,11 @@ direct standard encoding.
 ```text
 external output
    |
-   | entry relation + copy constraint
+   | shared witness indices + entry transition
    v
 quad row 0
    |
-   | one-step lemma
+   | quad-row-to-quad-row transition
    v
 quad row 1
    |
@@ -322,46 +528,51 @@ quad row 1
    v
 quad row 13
    |
-   | terminal relation + copy constraint
+   | terminal transition + shared witness indices
    v
 final external input
 ```
 
-The one-step lemma for an interior row is:
+For each interior quad-row-to-quad-row transition:
 
-1. The row's four `state[0]` values uniquely determine the hidden starting limbs because the
-   Vandermonde matrix is invertible.
-2. Four Poseidon2 internal rounds are deterministic once the full starting state is known.
-3. The first subrelation fixes the next row's first wire.
-4. The remaining subrelations force the next row's hidden limbs, equivalently forcing the next
-   row's remaining `state[0]` chain to be consistent with the computed output.
+1. The row's four `state[0]` values uniquely determine the hidden starting `state[1..3]` values
+   by the Vandermonde reconstruction.
+2. The fixed linear map `C` computes the unique four-round output `out`.
+3. `A_0` fixes the successor row's first `state[0]` value to `out_0`.
+4. `A_1..A_3` force the successor row's reconstructed `state[1..3]` values to equal
+   `(out_1, out_2, out_3)`.
 
-The boundary cases close the induction:
+The non-interior transitions close the chain:
 
-| Boundary | Why the prover has no freedom |
+| Transition | Why the prover has no freedom |
 |----------|-------------------------------|
-| External -> entry | Standard state wires are copy-constrained from the external propagate row. |
-| Entry -> first quad | Entry relation fixes `s0^1`, `s0^2`, `s0^3`; `s0^0` is copied. |
-| Interior -> interior | One-step lemma uniquely determines the successor row. |
-| Terminal -> bridge | Terminal relation pins all four bridge wires. |
-| Bridge -> final external | Bridge witnesses are copy-constrained into the final external rows. |
+| External output -> entry row | Standard state wires share witness indices with the external propagate row. |
+| Entry row -> first quad row | The entry transition is triangular in `(w_r', w_o', w_4')`, after shared witness indices fix `w_l'`. |
+| Final quad row -> bridge row | The terminal transition directly fixes all four shifted bridge wires. |
+| Bridge row -> final external rows | Bridge witnesses share witness indices with the final external rows. |
 
-Thus every fresh witness in the compressed internal block is tied to a deterministic function of
-the previous state. There is no free hidden `state[1..3]` channel left for the prover.
+Thus the compressed block has no independent witness channel: each committed `state[0]` value
+is fixed by the previous state, and each uncommitted `state[1..3]` value is fixed implicitly by
+an invertible encoding. The terminal bridge then materializes the unique final full state.
 
 ## Witness Materialization
 
-The relation derives `state[1..3]` from the committed `state[0]` chain, so the stdlib only
-materializes hidden limbs when they are needed by the terminal bridge.
+Interior quad rows materialize only the next `state[0]` witness. The relation reconstructs
+`state[1..3]` algebraically when checking the row transition, so those three witnesses are not
+created on non-terminal quad rows.
+
+The terminal row materializes the full four-entry state because the following final external
+rounds use the standard encoding.
 
 ```text
 non-terminal quad output: create witness for next state[0] only
 terminal quad output:     create witnesses for state[0], state[1], state[2], state[3]
 ```
 
-This saves 39 witness variables per permutation: 13 non-terminal quad rows times 3 hidden limbs.
+This saves 39 witness variables per permutation: 13 non-terminal quad rows times 3 omitted
+state entries.
 
-## Selector And File Map
+## Selectors and File Map
 
 Mega removes `q_poseidon2_internal` and adds the following Poseidon2-specific selectors:
 
@@ -390,5 +601,3 @@ Implementation entry points:
 | `crypto/poseidon2/poseidon2_quad_params.hpp` | Vandermonde constants and static checks |
 | `honk/execution_trace/mega_execution_trace.hpp` | Mega trace blocks and selector partitioning |
 | `flavor/mega_flavor.hpp` | Mega relation and selector set |
-
-Historical performance notes live at the repository root in `poseidon2-compression-analysis.md`.
