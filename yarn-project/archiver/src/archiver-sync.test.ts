@@ -945,6 +945,102 @@ describe('Archiver Sync', () => {
       );
     });
 
+    it('short-circuits rollback at the finalized L1 block', async () => {
+      // Sync two checkpoints worth of messages so we have history to roll back over.
+      const msgs1 = [Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, msgs1);
+
+      const msgs3 = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(3), 101n, msgs3);
+
+      // Mark block 100 as finalized so messages there cannot be reorged.
+      fake.setFinalizedL1BlockNumber(100n);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
+      expect(await archiver.getL1ToL2Messages(CheckpointNumber(3))).toHaveLength(4);
+
+      // Simulate L1 reorg: remove the last 2 messages from checkpoint 3 and add new ones.
+      fake.removeMessagesAfter(4);
+      const msg40 = Fr.random();
+      fake.addMessages(CheckpointNumber(4), 102n, [msg40]);
+
+      fake.setL1BlockNumber(111n);
+
+      // Spy on getMessageSentEventByHash — used by retrieveL1ToL2Message for per-message log queries.
+      const eventByHashSpy = jest.spyOn(inboxContract, 'getMessageSentEventByHash');
+
+      await archiver.syncImmediate();
+
+      // The two checkpoint-1 messages sit at L1 block 100 (≤ finalized). The rollback loop
+      // should stop there without issuing a per-message log query for them.
+      const callsAtFinalizedOrBelow = eventByHashSpy.mock.calls.filter(
+        ([, aroundL1BlockNumber]) => aroundL1BlockNumber <= 100n,
+      );
+      expect(callsAtFinalizedOrBelow).toHaveLength(0);
+
+      expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
+      expect(await archiver.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(1);
+    });
+
+    it('falls back to per-message log queries when finalized block is undefined', async () => {
+      const msgs1 = [Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, msgs1);
+
+      const msgs3 = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(3), 101n, msgs3);
+
+      // No finalized block — simulates a fresh devnet.
+      fake.setFinalizedL1BlockNumber(undefined);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      // Reorg: remove last 2 messages from checkpoint 3.
+      fake.removeMessagesAfter(4);
+      const msg40 = Fr.random();
+      fake.addMessages(CheckpointNumber(4), 102n, [msg40]);
+      fake.setL1BlockNumber(111n);
+
+      const eventByHashSpy = jest.spyOn(inboxContract, 'getMessageSentEventByHash');
+
+      await archiver.syncImmediate();
+
+      // Without a finalized pointer the synchronizer must use per-message log queries to find the common point.
+      // 2 messages mismatch on remote (msgs3[2], msgs3[3]) and one matches (msgs3[1]) before we break.
+      expect(eventByHashSpy).toHaveBeenCalledTimes(3);
+
+      expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toHaveLength(2);
+      expect(await archiver.getL1ToL2Messages(CheckpointNumber(4))).toHaveLength(1);
+    });
+
+    it('persists the finalized L1 block monotonically after message sync', async () => {
+      const msgs1 = [Fr.random(), Fr.random()];
+      fake.addMessages(CheckpointNumber(1), 100n, msgs1);
+
+      fake.setFinalizedL1BlockNumber(95n);
+      fake.setL1BlockNumber(110n);
+      await archiver.syncImmediate();
+
+      const stored1 = await archiverStore.messages.getMessagesFinalizedL1Block();
+      expect(stored1?.l1BlockNumber).toEqual(95n);
+
+      // A second sync where the finalized block has not advanced.
+      fake.setL1BlockNumber(111n);
+      await archiver.syncImmediate();
+
+      const stored2 = await archiverStore.messages.getMessagesFinalizedL1Block();
+      expect(stored2?.l1BlockNumber).toEqual(95n);
+
+      // Now advance the finalized block — the pointer should follow.
+      fake.setFinalizedL1BlockNumber(105n);
+      fake.setL1BlockNumber(112n);
+      await archiver.syncImmediate();
+
+      const stored3 = await archiverStore.messages.getMessagesFinalizedL1Block();
+      expect(stored3?.l1BlockNumber).toEqual(105n);
+    });
+
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/13604
     it('handles a checkpoint gap due to a spurious L2 prune', async () => {
       expect(await archiver.getBlockNumber()).toEqual(0);

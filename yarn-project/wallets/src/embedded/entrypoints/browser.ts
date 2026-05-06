@@ -67,7 +67,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
             1,
             rootLogger.createChild('wallet:data'),
           ));
-    const walletDB = WalletDB.init(walletDBStore, rootLogger.createChild('wallet:db').info);
+    const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
     return new this(pxe, aztecNode, walletDB, new LazyAccountContractsProvider(), rootLogger) as T;
   }

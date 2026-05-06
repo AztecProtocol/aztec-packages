@@ -7,9 +7,7 @@ pub contract StateVars {
         macros::{functions::{external, view}, storage::{storage, storage_no_init}},
         messages::message_delivery::MessageDelivery,
         protocol::{address::AztecAddress, traits::{Deserialize, Packable, Serialize}},
-        state_vars::{
-            Owned, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable, StateVariable,
-        },
+        state_vars::{Owned, PrivateImmutable, PrivateMutable, PublicImmutable, PublicMutable, StateVariable},
     };
 
     use field_note::FieldNote;
@@ -100,9 +98,7 @@ pub contract StateVars {
         let owner = self.msg_sender();
         let new_note = FieldNote { value };
 
-        self.storage.private_immutable.at(owner).initialize(new_note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        self.storage.private_immutable.at(owner).initialize(new_note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     #[external("private")]
@@ -110,9 +106,7 @@ pub contract StateVars {
         let owner = self.msg_sender();
         let private_mutable = FieldNote { value };
 
-        self.storage.private_mutable.at(owner).initialize(private_mutable).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        self.storage.private_mutable.at(owner).initialize(private_mutable).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     #[external("private")]

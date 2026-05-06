@@ -6,6 +6,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import { OFFCHAIN_MESSAGE_IDENTIFIER, type OffchainEffect } from '@aztec/stdlib/tx';
+import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -19,6 +20,7 @@ describe('DeployMethod', () => {
 
   const artifact: ContractArtifact = {
     name: 'TestContract',
+    aztecVersion: DEV_VERSION,
     functions: [
       {
         name: 'constructor',

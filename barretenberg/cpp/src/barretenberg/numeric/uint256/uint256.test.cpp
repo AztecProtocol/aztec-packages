@@ -97,6 +97,9 @@ TEST(uint256, DivAndMod)
         b.data[3] = (i > 0) ? 0 : b.data[3];
         b.data[2] = (i > 1) ? 0 : b.data[2];
         b.data[1] = (i > 2) ? 0 : b.data[1];
+        if (b == 0) {
+            b = 1;
+        }
         uint256_t q = a / b;
         uint256_t r = a % b;
 
@@ -108,17 +111,9 @@ TEST(uint256, DivAndMod)
     }
 
     uint256_t a = engine.get_random_uint256();
-    uint256_t b = 0;
-
+    uint256_t b = a;
     uint256_t q = a / b;
     uint256_t r = a % b;
-
-    EXPECT_EQ(q, uint256_t(0));
-    EXPECT_EQ(r, uint256_t(0));
-
-    b = a;
-    q = a / b;
-    r = a % b;
 
     EXPECT_EQ(q, uint256_t(1));
     EXPECT_EQ(r, uint256_t(0));

@@ -75,6 +75,7 @@ import { NestedProcessReturnValues, PublicSimulationOutput } from '../tx/public_
 import { TxSimulationResult } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
+import { DEV_VERSION } from '../update-checker/dev_version.js';
 import {
   makeAvmCircuitInputs,
   makeAztecAddress,
@@ -491,6 +492,7 @@ export async function mockCheckpointAndMessages(
 
 export const randomContractArtifact = (): ContractArtifact => ({
   name: randomBytes(4).toString('hex'),
+  aztecVersion: DEV_VERSION,
   functions: [],
   nonDispatchPublicFunctions: [],
   outputs: {

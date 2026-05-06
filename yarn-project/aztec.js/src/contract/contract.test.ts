@@ -9,6 +9,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { TxExecutionRequest, TxReceipt, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
+import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -38,6 +39,7 @@ describe('Contract Class', () => {
 
   const defaultArtifact: ContractArtifact = {
     name: 'FooContract',
+    aztecVersion: DEV_VERSION,
     functions: [
       {
         name: 'bar',

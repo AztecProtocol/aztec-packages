@@ -15,11 +15,7 @@ impl Config {
         Self { token0, token1 }
     }
 
-    pub fn validate_input_tokens_and_get_direction(
-        self,
-        bid_token: AztecAddress,
-        ask_token: AztecAddress,
-    ) -> bool {
+    pub fn validate_input_tokens_and_get_direction(self, bid_token: AztecAddress, ask_token: AztecAddress) -> bool {
         assert((bid_token == self.token0) | (bid_token == self.token1), "BID_TOKEN_IS_INVALID");
         assert((ask_token == self.token0) | (ask_token == self.token1), "ASK_TOKEN_IS_INVALID");
         assert(bid_token != ask_token, "SAME_TOKEN_TRADE");

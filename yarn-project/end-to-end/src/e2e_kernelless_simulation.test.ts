@@ -1,8 +1,13 @@
+import { EcdsaKAccountContract } from '@aztec/accounts/ecdsa';
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { CallAuthorizationRequest } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
+import { randomBytes } from '@aztec/foundation/crypto/random';
+import { Fq } from '@aztec/foundation/curves/bn254';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { type TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AuthWitTestContract, AuthWitTestContractArtifact } from '@aztec/noir-test-contracts.js/AuthWitTest';
@@ -418,6 +423,62 @@ describe('Kernelless simulation', () => {
 
       expect(noteHashMembershipWitnessSpy).toHaveBeenCalled();
       noteHashMembershipWitnessSpy.mockRestore();
+    });
+  });
+
+  describe('account contract deployment', () => {
+    it('simulates Schnorr account deployment and gas matches with-kernels counterpart', async () => {
+      const signingKey = Fq.random();
+      const accountManager = await wallet.createAccount({
+        secret: Fr.random(),
+        salt: Fr.random(),
+        contract: new SchnorrAccountContract(signingKey),
+        type: 'schnorr',
+      });
+      const deployMethod = await accountManager.getDeployMethod();
+      const deployOptions = { from: NO_FROM, skipClassPublication: true };
+
+      wallet.setSimulationMode('kernelless-override');
+      const kernellessResult = await deployMethod.simulate(deployOptions);
+      const kernellessGas = kernellessResult.estimatedGas!;
+
+      wallet.setSimulationMode('full');
+      const withKernelsResult = await deployMethod.simulate(deployOptions);
+      const withKernelsGas = withKernelsResult.estimatedGas!;
+
+      logger.info(`Schnorr kernelless gas: L2=${kernellessGas.gasLimits.l2Gas} DA=${kernellessGas.gasLimits.daGas}`);
+      logger.info(
+        `Schnorr with kernels gas: L2=${withKernelsGas.gasLimits.l2Gas} DA=${withKernelsGas.gasLimits.daGas}`,
+      );
+
+      expect(kernellessGas.gasLimits.daGas).toEqual(withKernelsGas.gasLimits.daGas);
+      expect(kernellessGas.gasLimits.l2Gas).toEqual(withKernelsGas.gasLimits.l2Gas);
+    });
+
+    it('simulates ECDSA account deployment and gas matches with-kernels counterpart', async () => {
+      const signingKey = randomBytes(32);
+      const accountManager = await wallet.createAccount({
+        secret: Fr.random(),
+        salt: Fr.random(),
+        contract: new EcdsaKAccountContract(signingKey),
+        type: 'ecdsasecp256k1',
+      });
+      const deployMethod = await accountManager.getDeployMethod();
+      const deployOptions = { from: NO_FROM, skipClassPublication: true };
+
+      wallet.setSimulationMode('kernelless-override');
+      const kernellessResult = await deployMethod.simulate(deployOptions);
+      const kernellessGas = kernellessResult.estimatedGas!;
+
+      wallet.setSimulationMode('full');
+      const withKernelsResult = await deployMethod.simulate(deployOptions);
+      const withKernelsGas = withKernelsResult.estimatedGas!;
+
+      logger.info(`ECDSA kernelless gas: L2=${kernellessGas.gasLimits.l2Gas} DA=${kernellessGas.gasLimits.daGas}`);
+      logger.info(`ECDSA with kernels gas: L2=${withKernelsGas.gasLimits.l2Gas} DA=${withKernelsGas.gasLimits.daGas}`);
+
+      expect(kernellessGas.gasLimits.daGas).toEqual(withKernelsGas.gasLimits.daGas);
+      expect(kernellessGas.gasLimits.l2Gas).toEqual(withKernelsGas.gasLimits.l2Gas);
     });
   });
 });

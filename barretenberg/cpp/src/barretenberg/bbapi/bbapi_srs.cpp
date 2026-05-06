@@ -50,8 +50,15 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
                        std::to_string(bytes_per_point));
     }
 
-    // Parse G2 point from buffer (128 bytes)
+    // Parse G2 point from buffer (128 bytes). `serialize_from_buffer` validates that the bytes
+    // decode to a curve point but does NOT enforce subgroup membership. BN254 G2 has a non-trivial
+    // cofactor (h2 ≈ 2^254), so a curve point may lie in a small cofactor subgroup of order
+    // dividing h2 rather than the prime-order subgroup of order r. Reject anything outside
+    // the prime-order subgroup before it reaches the SRS factory.
     auto g2_point_elem = from_buffer<g2::affine_element>(g2_point.data());
+    if (!g2_point_elem.is_in_prime_subgroup()) {
+        throw_or_abort("SrsInitSrs: g2_point is not in the BN254 G2 prime-order subgroup");
+    }
 
     // Initialize BN254 SRS
     bb::srs::init_bn254_mem_crs_factory(g1_points, g2_point_elem);

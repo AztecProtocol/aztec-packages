@@ -29,7 +29,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   if (options.localNetwork) {
     const localNetwork = extractNamespacedOptions(options, 'localNetwork');
     userLog(`${splash}\n${github}\n\n`);
-    userLog(`Setting up Aztec local network ${packageVersion ?? 'unknown'}, please stand by...`);
+    userLog(`Setting up Aztec local network ${packageVersion}, please stand by...`);
 
     const { node, stop } = await createLocalNetwork(
       {
