@@ -234,7 +234,7 @@ describe('CheckpointProposalJob', () => {
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue(Array(4).fill(Fr.ZERO));
 
     l2BlockSource = mock<L2BlockSource>();
-    l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
+    l2BlockSource.getCheckpointsData.mockResolvedValue([]);
 
     blockSink = mock<L2BlockSink>();
     blockSink.addBlock.mockResolvedValue(undefined);
@@ -460,7 +460,7 @@ describe('CheckpointProposalJob', () => {
       );
 
       // Mock l2BlockSource to return the previous checkpoints
-      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue(previousCheckpointsData);
+      l2BlockSource.getCheckpointsData.mockResolvedValue(previousCheckpointsData);
 
       // Build block successfully
       const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
@@ -497,7 +497,7 @@ describe('CheckpointProposalJob', () => {
       );
 
       // Mock l2BlockSource to return all three checkpoints as data
-      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([
+      l2BlockSource.getCheckpointsData.mockResolvedValue([
         toCheckpointData(previousCheckpoint),
         toCheckpointData(currentCheckpoint),
         toCheckpointData(futureCheckpoint),
@@ -529,7 +529,7 @@ describe('CheckpointProposalJob', () => {
       checkpointNumber = CheckpointNumber(2);
       const previousCheckpoint = await Checkpoint.random(CheckpointNumber(1));
 
-      l2BlockSource.getCheckpointsDataForEpoch.mockResolvedValue([toCheckpointData(previousCheckpoint)]);
+      l2BlockSource.getCheckpointsData.mockResolvedValue([toCheckpointData(previousCheckpoint)]);
 
       job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch });
       job.setTimetable(
@@ -548,8 +548,8 @@ describe('CheckpointProposalJob', () => {
 
       await job.execute();
 
-      // Verify getCheckpointsDataForEpoch was called with targetEpoch (1), not the wall-clock epoch (0)
-      expect(l2BlockSource.getCheckpointsDataForEpoch).toHaveBeenCalledWith(targetEpoch);
+      // Verify getCheckpointsData was called with targetEpoch (1), not the wall-clock epoch (0)
+      expect(l2BlockSource.getCheckpointsData).toHaveBeenCalledWith({ epoch: targetEpoch });
     });
   });
 
@@ -1263,6 +1263,26 @@ describe('CheckpointProposalJob', () => {
 
       // waitUntilTimeInSlot should NOT be called since the only block is the last block
       expect(waitSpy).not.toHaveBeenCalled();
+    });
+
+    it('stops at maxBlocksPerCheckpoint even when the timetable would allow more', async () => {
+      jest
+        .spyOn(job.getTimetable(), 'canStartNextBlock')
+        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 8, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 12, isLastBlock: true })
+        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+
+      const { lastBlock } = await setupMultipleBlocks(3, 1);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      job.updateConfig({ maxBlocksPerCheckpoint: 2 });
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
     });
   });
 

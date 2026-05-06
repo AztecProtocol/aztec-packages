@@ -115,7 +115,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
 
   /** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
   async function assertMultipleBlocksPerSlot(targetBlockCount: number, logger: Logger): Promise<CheckpointNumber> {
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
     logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
     });
@@ -162,7 +162,7 @@ describe('e2e_epochs/epochs_mbps_pipeline', () => {
     blockProposedEvents: { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber }[],
     logger: Logger,
   ) {
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
     const allBlocks = checkpoints.flatMap(pc => pc.checkpoint.blocks);
 
     logger.warn(`assertProposerPipelining: ${allBlocks.length} blocks, ${blockProposedEvents.length} events`, {

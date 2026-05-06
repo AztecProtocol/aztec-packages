@@ -1,6 +1,6 @@
 use crate::tests::private_kernel_reset::{PRIVATE_LOG_SILOING_AMOUNT, TestBuilder};
-use protocol_test_utils::swap_items;
 use super::rebuild_bounded_vec;
+use protocol_test_utils::swap_items;
 
 #[test]
 fn previous_private_logs_sorted() {
@@ -158,7 +158,8 @@ fn with_padded_private_logs() {
         builder.previous_kernel.private_logs.pop().innermost().log;
 
     // BoundedVec.pop() no longer zeroes vacated slots; rebuild with clean storage.
-    builder.previous_kernel.private_logs = rebuild_bounded_vec(builder.previous_kernel.private_logs);
+    builder.previous_kernel.private_logs =
+        rebuild_bounded_vec(builder.previous_kernel.private_logs);
 
     builder.output.append_siloed_private_logs(1);
     builder.output.append_padded_private_logs(2);
@@ -189,7 +190,8 @@ fn total_private_logs_more_than_capped_size() {
         builder.previous_kernel.private_logs.pop().innermost().log;
 
     // BoundedVec.pop() no longer zeroes vacated slots; rebuild with clean storage.
-    builder.previous_kernel.private_logs = rebuild_bounded_vec(builder.previous_kernel.private_logs);
+    builder.previous_kernel.private_logs =
+        rebuild_bounded_vec(builder.previous_kernel.private_logs);
 
     builder.output.append_siloed_private_logs(PRIVATE_LOG_SILOING_AMOUNT);
     builder.output.append_padded_private_logs(1);

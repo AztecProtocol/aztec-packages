@@ -94,7 +94,6 @@ export class ProvingOrchestrator extends ProvingScheduler {
 
   protected provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
 
   constructor(

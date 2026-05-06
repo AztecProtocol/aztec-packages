@@ -156,10 +156,14 @@ describe('prover-node', () => {
       attestations: [CommitteeAttestation.random()],
     } as PublishedCheckpoint;
 
+    const publishedCheckpoints: PublishedCheckpoint[] = [
+      ...checkpoints.slice(0, -1).map(cp => ({ checkpoint: cp, attestations: [] }) as unknown as PublishedCheckpoint),
+      lastPublishedCheckpoint,
+    ];
+
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
-    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue(checkpoints);
-    l2BlockSource.getCheckpoints.mockResolvedValue([lastPublishedCheckpoint]);
+    l2BlockSource.getCheckpoints.mockResolvedValue(publishedCheckpoints);
     const latestBlockNumber = BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number);
     const latestHash = checkpoints.at(-1)!.hash().toString();
     const genesisTipId = {
@@ -179,13 +183,13 @@ describe('prover-node', () => {
       proven: genesisTipId,
       finalized: genesisTipId,
     });
-    // Return a header for any block number requested (needed for checkpoint-driven flow).
-    l2BlockSource.getBlockHeader.mockImplementation((number: BlockNumber | 'latest') => {
-      if (number === 'latest') {
-        return Promise.resolve(previousBlockHeader);
-      }
-      return Promise.resolve(BlockHeader.random({ blockNumber: number }));
-    });
+    l2BlockSource.getBlockData.mockImplementation(query =>
+      Promise.resolve(
+        'number' in query && query.number === checkpoints[0].blocks[0].number - 1
+          ? ({ header: previousBlockHeader } as any)
+          : undefined,
+      ),
+    );
 
     // L1 to L2 message source returns no messages
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
@@ -220,8 +224,8 @@ describe('prover-node', () => {
   });
 
   it('does not start a proof if there are no checkpoints in the epoch', async () => {
-    l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([]);
-    await expect(proverNode.startProof(EpochNumber.fromBigInt(10n))).rejects.toThrow('No blocks found');
+    l2BlockSource.getCheckpoints.mockResolvedValue([]);
+    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
     expect(proverNode.totalJobCount).toEqual(0);
   });
 

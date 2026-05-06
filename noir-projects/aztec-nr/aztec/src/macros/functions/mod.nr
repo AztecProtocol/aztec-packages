@@ -5,7 +5,7 @@ pub(crate) mod auth_registry;
 
 use crate::macros::{
     internals_functions_generation::{external_functions_registry, internal_functions_registry},
-    utils::{is_fn_external, module_has_initializer},
+    utils::{assert_params_serializable, assert_return_type_serializable, is_fn_external, module_has_initializer},
 };
 use super::utils::{fn_has_allow_phase_change, fn_has_noinitcheck, is_fn_initializer, is_fn_only_self, is_fn_view};
 use auth_registry::AUTHORIZE_ONCE_REGISTRY;
@@ -341,6 +341,9 @@ pub comptime fn authorize_once(f: FunctionDefinition, from_arg_name: CtString, n
 pub comptime fn external(f: FunctionDefinition, f_type: CtString) {
     // In this function we perform basic checks on the function to ensure it is valid and then we add the function to
     // the external functions registry for later processing by the `#[aztec]` macro.
+
+    assert_return_type_serializable(f);
+    assert_params_serializable(f);
 
     if f_type.eq("private") {
         assert_valid_private(f);

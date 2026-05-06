@@ -195,10 +195,13 @@ constexpr fq12 final_exponentiation_tricky_part(const fq12& elt);
 // ======================
 // Pairing
 //
-// NOTE: All points supplied for pairing calculations are checked to be on the curve. This is equivalent to a subgroup
-// membership check for points in G1 = BN254. We don't implement subgroup membership checks for G2 because the only
-// place in the codebase where we use pairings is in PairingPoints::check(), which takes two points P1, P2 in G1
-// and checks e(P1, [1]) * e(P2, [x]) = 1. The points [1] and [x] are taken from the SRS, so we know they belong to G2.
+// NOTE: All points supplied for pairing calculations are checked to be on the curve. For G1 = BN254 this is equivalent
+// to a subgroup membership check (cofactor 1). For G2 = BN254 twist, on-curve does NOT imply membership in the
+// prime-order subgroup because the cofactor is non-trivial. The two G2 points consumed inside pairings come from
+// PairingPoints::check(), which feeds them the SRS values [1]_2 and [x]_2 — the SRS ingress (bbapi::SrsInitSrs)
+// invokes `affine_element::is_in_prime_subgroup()` on the user-supplied [x]_2 before installation, so by the time
+// they reach this file they are already known to be in the prime-order subgroup. Any future code path that brings a
+// new G2 point in from outside the SRS must run the subgroup check itself.
 //
 // ======================
 

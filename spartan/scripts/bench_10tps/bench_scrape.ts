@@ -12,22 +12,37 @@
 //   ./bench_scrape.ts \
 //     --run-id <id> --started <iso> --ended <iso> \
 //     --target-tps 10 --workload sha256_hash_1024
+//
+// By default the scraper waits for pending TxPool depth to reach zero before
+// finalizing the run. Use --no-wait-for-pending-zero for historical replays
+// where the namespace no longer exists.
 
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { argv, env, exit, stderr } from "node:process";
 import { setTimeout as sleep } from "node:timers/promises";
 
 // --- Config ---
 
 const NAMESPACE = env.NAMESPACE ?? "bench-10tps";
+
+const GCP_PROJECT_ID = env.GCP_PROJECT_ID;
+if (!GCP_PROJECT_ID) {
+  throw new Error("Missing GCP_PROJECT_ID env var");
+}
+
+const GCP_REGION = env.GCP_REGION ?? "us-west1-a";
+const GKE_CLUSTER = env.CLUSTER ?? "aztec-gke-private";
 // Prometheus is cluster-shared in the "metrics" namespace, not per-environment.
 const PROM_NS = env.PROM_NS ?? "metrics";
 const PROM_SERVICE = env.PROM_SERVICE ?? "metrics-prometheus-server";
 const PROM_PORT = Number(env.PROM_PORT ?? 9090);
 const STEP_SECONDS = 15;
 const DRAIN_BUFFER_SECONDS = 90; // OTel batch push 60s + one Prom scrape 15s + slack
+const PENDING_POLL_SECONDS = 30;
+const DEFAULT_MAX_PENDING_WAIT_SECONDS = 60 * 60;
+const GCLOUD_LOG_FRESHNESS = env.BENCH_SCRAPE_GCLOUD_LOG_FRESHNESS ?? "2d";
 
 // --- CLI ---
 
@@ -38,6 +53,8 @@ type Args = {
   targetTps: number;
   workload: string;
   output: string | undefined;
+  waitForPendingZero: boolean;
+  maxPendingWaitSeconds: number;
 };
 
 function parseArgs(): Args {
@@ -61,6 +78,17 @@ function parseArgs(): Args {
       argv.indexOf("--output") === -1
         ? undefined
         : argv[argv.indexOf("--output") + 1],
+    waitForPendingZero:
+      !argv.includes("--no-wait-for-pending-zero") &&
+      (argv.includes("--wait-for-pending-zero") ||
+        env.BENCH_SCRAPE_WAIT_FOR_PENDING_ZERO !== "0"),
+    maxPendingWaitSeconds: Number(
+      get(
+        "--max-pending-wait-seconds",
+        env.BENCH_SCRAPE_MAX_PENDING_WAIT_SECONDS ??
+          String(DEFAULT_MAX_PENDING_WAIT_SECONDS),
+      ),
+    ),
   };
 }
 
@@ -164,12 +192,39 @@ async function queryRange(
 // staging-v4-1, nightly-block-capacity, etc.
 
 const NS = `{k8s_namespace_name="${NAMESPACE}"}`;
+const pendingTxsQueryForRole = (role: string) =>
+  `max(aztec_mempool_tx_count{k8s_namespace_name="${NAMESPACE}",aztec_pool_name="TxPool",aztec_status="pending",k8s_pod_name=~"${NAMESPACE}-${role}.*"})`;
+const PENDING_RPC_TXS_QUERY = pendingTxsQueryForRole("rpc");
+const PENDING_VALIDATOR_TXS_QUERY = pendingTxsQueryForRole("validator");
+const PENDING_FULL_NODE_TXS_QUERY = pendingTxsQueryForRole("full-node");
 const histQuantile = (q: number, bucket: string, groupBy: string[] = []) => {
   const groupKeys = ["le", ...groupBy].join(", ");
   return `histogram_quantile(${q}, sum by (${groupKeys})(rate(${bucket}${NS}[1m])))`;
 };
 
 type TimeSeriesDef = { metric: string; unit: string; query: string };
+
+type PreviousRunContext = {
+  image?: string;
+  aztecConfig?: Record<string, string>;
+  infrastructure?: Infrastructure;
+};
+
+async function loadPreviousRunContext(
+  output: string | undefined,
+): Promise<PreviousRunContext> {
+  if (!output) {
+    return {};
+  }
+  try {
+    const existing = JSON.parse(await readFile(output, "utf8")) as {
+      run?: PreviousRunContext;
+    };
+    return existing.run ?? {};
+  } catch {
+    return {};
+  }
+}
 
 const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
   // aztec_archiver_block_tx_count is a histogram where each observation is
@@ -191,36 +246,43 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     unit: "tps",
     query: `sum(rate(aztec_node_receive_tx_count${NS}[1m]))`,
   },
-  // Mempool size sliced by pod role. Three single-series slugs make cross-run
+  // Pending mempool size sliced by pod role. Three single-series slugs make cross-run
   // overlay clean: pod names are unstable (replica counts and restart suffixes
   // change between runs) but role is stable. Each query filters to TxPool to
-  // avoid mixing in the AttestationPool counters that share the metric name.
+  // avoid mixing in the AttestationPool counters that share the metric name, and
+  // to pending status so max() does not collapse pending/protected/mined/softDeleted.
   // max() over a role collapses the per-pod fan-out — for an under-fill
   // investigation we care about the role's deepest backlog at any moment.
   mempoolSizeRpc: {
     metric: "aztec_mempool_tx_count",
     unit: "count",
-    query: `max(aztec_mempool_tx_count{k8s_namespace_name="${NAMESPACE}",aztec_pool_name="TxPool",k8s_pod_name=~"${NAMESPACE}-rpc.*"})`,
+    query: `max(aztec_mempool_tx_count{k8s_namespace_name="${NAMESPACE}",aztec_pool_name="TxPool",aztec_status="pending",k8s_pod_name=~"${NAMESPACE}-rpc.*"})`,
   },
   mempoolSizeValidator: {
     metric: "aztec_mempool_tx_count",
     unit: "count",
-    query: `max(aztec_mempool_tx_count{k8s_namespace_name="${NAMESPACE}",aztec_pool_name="TxPool",k8s_pod_name=~"${NAMESPACE}-validator.*"})`,
+    query: `max(aztec_mempool_tx_count{k8s_namespace_name="${NAMESPACE}",aztec_pool_name="TxPool",aztec_status="pending",k8s_pod_name=~"${NAMESPACE}-validator.*"})`,
   },
   mempoolSizeFullNode: {
     metric: "aztec_mempool_tx_count",
     unit: "count",
-    query: `max(aztec_mempool_tx_count{k8s_namespace_name="${NAMESPACE}",aztec_pool_name="TxPool",k8s_pod_name=~"${NAMESPACE}-full-node.*"})`,
+    query: `max(aztec_mempool_tx_count{k8s_namespace_name="${NAMESPACE}",aztec_pool_name="TxPool",aztec_status="pending",k8s_pod_name=~"${NAMESPACE}-full-node.*"})`,
+  },
+  mempoolMinedMax: {
+    metric: "aztec_mempool_tx_count",
+    unit: "count",
+    query: `max(aztec_mempool_tx_count{k8s_namespace_name="${NAMESPACE}",aztec_pool_name="TxPool",aztec_status="mined"})`,
   },
   mempoolEvictedByReasonRate: {
     metric: "aztec_mempool_tx_pool_v2_evicted_count",
     unit: "tps",
-    query: `sum by (rejection_reason)(rate(aztec_mempool_tx_pool_v2_evicted_count${NS}[1m]))`,
+    query: `sum by (aztec_mempool_eviction_reason)(rate(aztec_mempool_tx_pool_v2_evicted_count${NS}[1m]))`,
   },
   mempoolRejectedByReasonRate: {
     metric: "aztec_mempool_tx_pool_v2_rejected_count",
     unit: "tps",
-    query: `sum by (rejection_reason)(rate(aztec_mempool_tx_pool_v2_rejected_count${NS}[1m]))`,
+    // Rejections currently do not carry a reason label, unlike evictions.
+    query: `sum(rate(aztec_mempool_tx_pool_v2_rejected_count${NS}[1m]))`,
   },
   blockBuildDurationP50: {
     metric: "aztec_sequencer_block_build_duration_milliseconds",
@@ -255,11 +317,11 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     ),
   },
   publicProcessorGasRate: {
-    metric: "aztec_public_processor_total_gas",
+    metric: "aztec_public_processor_gas_rate_per_second",
     unit: "mana/s",
-    // Every pod that processes public calls emits this counter for the same
-    // blocks — avg() collapses to per-block rate (same reasoning as inclusionTps).
-    query: `avg(rate(aztec_public_processor_total_gas${NS}[1m]))`,
+    // gas_rate is a histogram of per-block public-processor L2 mana/s. The
+    // total_gas metric is a gauge, so rate(total_gas) is not meaningful.
+    query: `sum(rate(aztec_public_processor_gas_rate_per_second_sum{k8s_namespace_name="${NAMESPACE}",aztec_gas_dimension="L2"}[1m])) / sum(rate(aztec_public_processor_gas_rate_per_second_count{k8s_namespace_name="${NAMESPACE}",aztec_gas_dimension="L2"}[1m]))`,
   },
   checkpointLastBlockToBroadcastP95: {
     metric:
@@ -270,8 +332,9 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
       "aztec_sequencer_checkpoint_last_block_to_broadcast_duration_milliseconds_bucket",
     ),
   },
-  // archiver exports this as _seconds (not _milliseconds) — convert to ms for
-  // consistency with the schema's p95Ms summary keys.
+  // Archiver exports this as seconds into the L2 slot when the checkpoint L1
+  // tx was included, not submit→mined latency. Convert to ms so the dashboard
+  // can use the same duration formatting as the other build-internals panels.
   l1InclusionDelayP95: {
     metric: "aztec_archiver_checkpoint_l1_inclusion_delay_seconds",
     unit: "ms",
@@ -287,23 +350,28 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
       ["aztec_gossip_topic_name"],
     ),
   },
-  peerCountMean: {
+  peerCountByRole: {
     metric: "aztec_peer_manager_peer_count_peers",
     unit: "count",
-    query: `avg(aztec_peer_manager_peer_count_peers${NS})`,
+    query: `avg by (service_name)(aztec_peer_manager_peer_count_peers${NS})`,
   },
-  attestationsCollectDurationP95: {
+  peerCountByValidator: {
+    metric: "aztec_peer_manager_peer_count_peers",
+    unit: "count",
+    query: `max by (k8s_pod_name)(aztec_peer_manager_peer_count_peers{k8s_namespace_name="${NAMESPACE}",k8s_pod_name=~"${NAMESPACE}-validator.*"})`,
+  },
+  attestationsCollectDurationMean: {
     metric: "aztec_sequencer_attestations_collect_duration_milliseconds",
     unit: "ms",
-    query: histQuantile(
-      0.95,
-      "aztec_sequencer_attestations_collect_duration_milliseconds_bucket",
-    ),
+    // This metric is exported as a gauge, not a histogram.
+    query: `avg(aztec_sequencer_attestations_collect_duration_milliseconds${NS})`,
   },
   attestationsCollectAllowanceMean: {
     metric: "aztec_sequencer_attestations_collect_allowance_milliseconds",
     unit: "ms",
-    query: `avg(aztec_sequencer_attestations_collect_allowance_milliseconds${NS})`,
+    // The metric is declared/exported as milliseconds, but current sequencer
+    // code records attestationTimeAllowed in seconds.
+    query: `avg(aztec_sequencer_attestations_collect_allowance_milliseconds${NS}) * 1000`,
   },
   checkpointBlockCountMean: {
     metric: "aztec_sequencer_checkpoint_block_count",
@@ -315,28 +383,34 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     unit: "count",
     query: `avg(aztec_sequencer_checkpoint_tx_count${NS})`,
   },
-  // tx_collector signals: the proposer's view of where its txs came from.
-  // from_p2p / (from_p2p + from_mempool) ratio answers "did the proposer have
-  // to network-fetch?", which is the gossip-propagation hypothesis.
+  // tx_collector signals: each node's view of where proposal txs came from.
+  // These counters are emitted by every node reconstructing/validating blocks;
+  // avg() keeps this as a per-node view instead of multiplying by node count.
+  txCollectorTxsFromProposalRate: {
+    metric: "aztec_tx_collector_txs_from_proposal_count",
+    unit: "tps",
+    query: `avg(rate(aztec_tx_collector_txs_from_proposal_count${NS}[1m]))`,
+  },
   txCollectorTxsFromMempoolRate: {
     metric: "aztec_tx_collector_txs_from_mempool_count",
     unit: "tps",
-    query: `sum(rate(aztec_tx_collector_txs_from_mempool_count${NS}[1m]))`,
+    query: `avg(rate(aztec_tx_collector_txs_from_mempool_count${NS}[1m]))`,
   },
   txCollectorTxsFromP2pRate: {
     metric: "aztec_tx_collector_txs_from_p2p_count",
     unit: "tps",
-    query: `sum(rate(aztec_tx_collector_txs_from_p2p_count${NS}[1m]))`,
+    query: `avg(rate(aztec_tx_collector_txs_from_p2p_count${NS}[1m]))`,
   },
   txCollectorMissingRate: {
     metric: "aztec_tx_collector_missing_txs_count",
     unit: "tps",
-    query: `sum(rate(aztec_tx_collector_missing_txs_count${NS}[1m]))`,
+    query: `avg(rate(aztec_tx_collector_missing_txs_count${NS}[1m]))`,
   },
   txCollectorRequestedFractionMean: {
     metric: "aztec_tx_collector_txs_requested_fraction",
     unit: "fraction",
-    query: `avg(aztec_tx_collector_txs_requested_fraction${NS})`,
+    // Exported as a histogram even though the observation is already a fraction.
+    query: `sum(rate(aztec_tx_collector_txs_requested_fraction_sum${NS}[1m])) / sum(rate(aztec_tx_collector_txs_requested_fraction_count${NS}[1m]))`,
   },
   txCollectorRequestDelayP95: {
     metric: "aztec_tx_collector_txs_requested_delay_milliseconds",
@@ -354,7 +428,7 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     query: histQuantile(
       0.95,
       "aztec_sequencer_state_duration_milliseconds_bucket",
-      ["sequencer_state"],
+      ["aztec_sequencer_state"],
     ),
   },
 };
@@ -408,9 +482,11 @@ async function gcloudRead(filter: string): Promise<GcloudEntry[]> {
         "logging",
         "read",
         filter,
+        "--project",
+        GCP_PROJECT_ID,
         "--format=json",
         "--order=asc",
-        "--freshness=24h",
+        `--freshness=${GCLOUD_LOG_FRESHNESS}`,
         "--limit=50000",
       ],
       { stdio: ["ignore", "pipe", "pipe"] },
@@ -442,10 +518,37 @@ const timeFilter = (startedAt: string, endedAt: string) =>
 
 // --- Run-context capture (image + aztec config env) ---
 
+type RoleNode = {
+  role: string;
+  podName: string;
+  nodeName: string;
+  instanceType?: string;
+  nodePool?: string;
+};
+
+type RoleInfrastructure = {
+  instanceTypes: string[];
+  nodePools: string[];
+  nodes: RoleNode[];
+};
+
+type Infrastructure = {
+  roles: Record<string, RoleInfrastructure>;
+};
+
+const INFRASTRUCTURE_ROLE_PATTERNS = [
+  { role: "validator", pattern: /-validator(?:-|$)/ },
+  { role: "prover", pattern: /-prover-(?:agent|node|broker)(?:-|$)/ },
+  { role: "rpc", pattern: /-rpc(?:-|$)/ },
+  { role: "fullNode", pattern: /-full-node(?:-|$)/ },
+];
+
 // Curated subset of env vars worth recording per run so the dashboard can
 // show e.g. "pool=20k vs pool=1000" alongside two compared runs. Anything not
 // in this list is excluded — full env would be huge and mostly uninteresting.
 const AZTEC_CONFIG_KEYS = [
+  "SEQ_ENABLE_PROPOSER_PIPELINING",
+  "SEQ_BLOCK_DURATION_MS",
   "SEQ_MAX_TX_PER_BLOCK",
   "SEQ_MAX_TX_PER_CHECKPOINT",
   "SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT",
@@ -534,6 +637,107 @@ async function captureAztecConfig(): Promise<Record<string, string>> {
   }
 }
 
+async function captureInfrastructure(): Promise<Infrastructure | undefined> {
+  try {
+    const [podsOut, nodesOut] = await Promise.all([
+      runKubectl(["get", "pods", "-n", NAMESPACE, "-o", "json"]),
+      runKubectl(["get", "nodes", "-o", "json"]),
+    ]);
+    const podsJson = JSON.parse(podsOut) as {
+      items?: Array<{
+        metadata?: { name?: string };
+        spec?: { nodeName?: string };
+      }>;
+    };
+    const nodesJson = JSON.parse(nodesOut) as {
+      items?: Array<{
+        metadata?: {
+          name?: string;
+          labels?: Record<string, string>;
+        };
+      }>;
+    };
+
+    const nodesByName = new Map(
+      (nodesJson.items ?? [])
+        .map((node) => {
+          const name = node.metadata?.name;
+          return name ? ([name, node.metadata?.labels ?? {}] as const) : null;
+        })
+        .filter(
+          (entry): entry is readonly [string, Record<string, string>] =>
+            entry !== null,
+        ),
+    );
+
+    const roleNodes = (podsJson.items ?? [])
+      .map((pod): RoleNode | undefined => {
+        const podName = pod.metadata?.name;
+        const nodeName = pod.spec?.nodeName;
+        const role = podName ? roleForPodName(podName) : undefined;
+        if (!podName || !nodeName || !role) {
+          return undefined;
+        }
+        const labels = nodesByName.get(nodeName) ?? {};
+        return {
+          role,
+          podName,
+          nodeName,
+          instanceType:
+            labels["node.kubernetes.io/instance-type"] ??
+            labels["beta.kubernetes.io/instance-type"],
+          nodePool:
+            labels["cloud.google.com/gke-nodepool"] ??
+            labels["eks.amazonaws.com/nodegroup"],
+        };
+      })
+      .filter((node): node is RoleNode => node !== undefined)
+      .sort((a, b) => a.podName.localeCompare(b.podName));
+
+    if (roleNodes.length === 0) {
+      return undefined;
+    }
+
+    const roles: Record<string, RoleInfrastructure> = {};
+    for (const { role } of INFRASTRUCTURE_ROLE_PATTERNS) {
+      const nodes = roleNodes.filter((node) => node.role === role);
+      if (nodes.length === 0) {
+        continue;
+      }
+      roles[role] = infrastructureForNodes(nodes);
+    }
+    return { roles };
+  } catch (err) {
+    log("infrastructure capture failed", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return undefined;
+  }
+}
+
+function roleForPodName(podName: string): string | undefined {
+  if (!podName.startsWith(`${NAMESPACE}-`)) {
+    return undefined;
+  }
+  return INFRASTRUCTURE_ROLE_PATTERNS.find(({ pattern }) =>
+    pattern.test(podName),
+  )?.role;
+}
+
+function infrastructureForNodes(nodes: RoleNode[]): RoleInfrastructure {
+  return {
+    instanceTypes: Array.from(
+      new Set(
+        nodes.flatMap((node) => (node.instanceType ? [node.instanceType] : [])),
+      ),
+    ).sort(),
+    nodePools: Array.from(
+      new Set(nodes.flatMap((node) => (node.nodePool ? [node.nodePool] : []))),
+    ).sort(),
+    nodes,
+  };
+}
+
 type BlockRecord = {
   blockNumber: number;
   blockNumberInTest: number;
@@ -552,73 +756,240 @@ async function scrapeBlocks(
   startedAt: string,
   endedAt: string,
 ): Promise<BlockRecord[]> {
-  const filter = [
+  const canonicalFilter = [
+    `resource.labels.namespace_name="${NAMESPACE}"`,
+    `resource.labels.pod_name=~"${NAMESPACE}-(validator|rpc).*"`,
+    `jsonPayload.eventName="l2-block-handled"`,
+    timeFilter(startedAt, endedAt),
+  ].join(" AND ");
+  const builtFilter = [
+    `resource.labels.namespace_name="${NAMESPACE}"`,
+    `resource.labels.pod_name=~"${NAMESPACE}-(validator|rpc).*"`,
+    `jsonPayload.eventName="l2-block-built"`,
+    timeFilter(startedAt, endedAt),
+  ].join(" AND ");
+  const processorFilter = [
     `resource.labels.namespace_name="${NAMESPACE}"`,
     `resource.labels.pod_name=~"${NAMESPACE}-(validator|rpc).*"`,
     `jsonPayload.message=~"^Processed [0-9]+ successful txs and"`,
     timeFilter(startedAt, endedAt),
   ].join(" AND ");
-  const entries = await gcloudRead(filter);
 
-  // Each block is logged once per pod that processed it (validators +
-  // RPC-colocated full node sync). Dedupe by blockNumber, keep the earliest
-  // timestamp — that's most likely the proposer who built the block.
-  const byBlock = new Map<number, { entry: GcloudEntry; time: number }>();
-  for (const entry of entries) {
-    const p = entry.jsonPayload;
-    if (!p) {
-      continue;
-    }
-    const blockNumber =
-      typeof p.blockNumber === "number"
-        ? p.blockNumber
-        : typeof p.blockNumber === "string"
-          ? Number(p.blockNumber)
-          : NaN;
-    if (!Number.isFinite(blockNumber)) {
-      continue;
-    }
-    const t = Date.parse(entry.timestamp);
-    const prev = byBlock.get(blockNumber);
-    if (!prev || t < prev.time) {
-      byBlock.set(blockNumber, { entry, time: t });
-    }
-  }
+  const [canonicalEntries, builtEntries, processorEntries] = await Promise.all([
+    gcloudRead(canonicalFilter),
+    gcloudRead(builtFilter).catch((err) => {
+      log("built-block log scrape failed, continuing without build durations", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+      return [] as GcloudEntry[];
+    }),
+    gcloudRead(processorFilter).catch((err) => {
+      log(
+        "public-processor log scrape failed, continuing without gas/silent-skip fields",
+        {
+          err: err instanceof Error ? err.message : String(err),
+        },
+      );
+      return [] as GcloudEntry[];
+    }),
+  ]);
 
-  if (byBlock.size === 0) {
+  const canonicalByBlock = dedupeBlockEntries(canonicalEntries, (entry) => ({
+    blockNumber: numberPayloadField(entry.jsonPayload ?? {}, "blockNumber"),
+    txCount: numberPayloadField(entry.jsonPayload ?? {}, "txCount"),
+    time: Date.parse(entry.timestamp),
+  }));
+  const builtByBlock = entriesByBlock(builtEntries);
+  const processorByBlock = entriesByBlock(processorEntries);
+
+  if (canonicalByBlock.size === 0) {
     return [];
   }
-  const blockNumbers = [...byBlock.keys()].sort((a, b) => a - b);
+  const blockNumbers = [...canonicalByBlock.keys()].sort((a, b) => a - b);
   const first = blockNumbers[0];
 
   return blockNumbers.map((bn) => {
-    const { entry } = byBlock.get(bn)!;
-    const p = entry.jsonPayload!;
+    const canonical = canonicalByBlock.get(bn)!;
+    const p = canonical.jsonPayload!;
+    const txCount = finiteOrZero(numberPayloadField(p, "txCount"));
+    const built = chooseBestMatchingEntry(
+      builtByBlock.get(bn) ?? [],
+      txCount,
+      "txCount",
+    );
+    const processor = chooseBestMatchingEntry(
+      processorByBlock.get(bn) ?? [],
+      txCount,
+      "successfulCount",
+    );
+    const processorPayload = processor?.jsonPayload;
     return {
       blockNumber: bn,
       blockNumberInTest: bn - first,
-      minedAt: entry.timestamp,
-      successfulCount: Number(p.successfulCount ?? 0),
-      failedCount: Number(p.failedCount ?? 0),
-      silentlySkippedCount: Number(p.silentlySkippedCount ?? 0),
-      silentlySkippedDurationMs: Number(p.silentlySkippedDurationMs ?? 0),
-      buildDurationSeconds: Number(p.duration ?? 0),
-      totalPublicGas: p.totalPublicGas as
+      minedAt: canonical.timestamp,
+      successfulCount: txCount,
+      failedCount: finiteOrZero(
+        numberPayloadField(processorPayload ?? {}, "failedCount"),
+      ),
+      silentlySkippedCount: finiteOrZero(
+        numberPayloadField(processorPayload ?? {}, "silentlySkippedCount"),
+      ),
+      silentlySkippedDurationMs: finiteOrZero(
+        numberPayloadField(processorPayload ?? {}, "silentlySkippedDurationMs"),
+      ),
+      buildDurationSeconds:
+        built?.jsonPayload === undefined
+          ? finiteOrZero(numberPayloadField(processorPayload ?? {}, "duration"))
+          : finiteOrZero(numberPayloadField(built.jsonPayload, "duration")) /
+            1000,
+      totalPublicGas: processorPayload?.totalPublicGas as
         | { daGas: number; l2Gas: number }
         | undefined,
       totalSizeInBytes:
-        typeof p.totalSizeInBytes === "number" ? p.totalSizeInBytes : undefined,
+        typeof processorPayload?.totalSizeInBytes === "number"
+          ? processorPayload.totalSizeInBytes
+          : undefined,
       source: "log",
     };
   });
 }
 
-type Event = {
+type BlockEntryProjection = {
+  blockNumber: number;
+  txCount: number;
+  time: number;
+};
+
+function dedupeBlockEntries(
+  entries: GcloudEntry[],
+  project: (entry: GcloudEntry) => BlockEntryProjection,
+): Map<number, GcloudEntry> {
+  const byBlock = new Map<
+    number,
+    { entry: GcloudEntry; projection: BlockEntryProjection }
+  >();
+  for (const entry of entries) {
+    const projection = project(entry);
+    if (
+      !Number.isFinite(projection.blockNumber) ||
+      !Number.isFinite(projection.txCount) ||
+      !Number.isFinite(projection.time)
+    ) {
+      continue;
+    }
+    const prev = byBlock.get(projection.blockNumber);
+    if (!prev || isBetterCanonicalBlockEntry(projection, prev.projection)) {
+      byBlock.set(projection.blockNumber, { entry, projection });
+    }
+  }
+  return new Map(
+    [...byBlock.entries()].map(([blockNumber, value]) => [
+      blockNumber,
+      value.entry,
+    ]),
+  );
+}
+
+function isBetterCanonicalBlockEntry(
+  candidate: BlockEntryProjection,
+  previous: BlockEntryProjection,
+): boolean {
+  // Same tx count usually means the same block observed by another pod; keep
+  // the earliest timestamp. Different tx count implies a distinct block at the
+  // same height, so prefer the later observation as the best final-chain proxy.
+  if (candidate.txCount !== previous.txCount) {
+    return candidate.time > previous.time;
+  }
+  return candidate.time < previous.time;
+}
+
+function entriesByBlock(entries: GcloudEntry[]): Map<number, GcloudEntry[]> {
+  const out = new Map<number, GcloudEntry[]>();
+  for (const entry of entries) {
+    const blockNumber = numberPayloadField(
+      entry.jsonPayload ?? {},
+      "blockNumber",
+    );
+    if (!Number.isFinite(blockNumber)) {
+      continue;
+    }
+    const bucket = out.get(blockNumber) ?? [];
+    bucket.push(entry);
+    out.set(blockNumber, bucket);
+  }
+  return out;
+}
+
+function chooseBestMatchingEntry(
+  entries: GcloudEntry[],
+  txCount: number,
+  txCountField: string,
+): GcloudEntry | undefined {
+  const candidates = entries.filter(
+    (entry) =>
+      numberPayloadField(entry.jsonPayload ?? {}, txCountField) === txCount,
+  );
+  const source = candidates.length > 0 ? candidates : entries;
+  return source
+    .filter((entry) => Number.isFinite(Date.parse(entry.timestamp)))
+    .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp))[0];
+}
+
+function numberPayloadField(
+  payload: Record<string, unknown>,
+  key: string,
+): number {
+  const value = payload[key];
+  if (typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "string") {
+    return Number(value);
+  }
+  return NaN;
+}
+
+function finiteOrZero(value: number): number {
+  return Number.isFinite(value) ? value : 0;
+}
+
+type ChainPrunedEvent = {
   at: string;
   type: "chainPruned";
   source: "log";
   fromBlock?: number;
   toBlock?: number;
+};
+
+type SlotSummaryEvent = {
+  at: string;
+  type: "slotSummary";
+  source: "log";
+  slotNumber: number;
+  buildSlot?: number;
+  checkpointNumber?: number;
+  sourcePod?: string;
+  proposer?: string;
+  attestorAddress?: string;
+  publisherAddress?: string;
+  blocksBuilt?: number;
+  txCount?: number;
+  totalMana?: number;
+  blockBuildFailures?: Array<Record<string, unknown>>;
+  checkpointBuildFailure?: Record<string, unknown>;
+  attestations?: Record<string, unknown>;
+  publish?: Record<string, unknown>;
+};
+
+type Event = ChainPrunedEvent | SlotSummaryEvent;
+
+type SequencerStateSlot = {
+  slotNumber: number;
+  startedAt: string;
+  endedAt: string;
+  sourcePod?: string;
+  totalMs: number;
+  states: Record<string, number>;
 };
 
 const CHAIN_PRUNED_MSG = /Chain pruned to block (\d+)/;
@@ -628,6 +999,20 @@ async function scrapeEvents(
   endedAt: string,
   blocks: BlockRecord[],
 ): Promise<Event[]> {
+  const [chainPruned, slotSummaries] = await Promise.all([
+    scrapeChainPrunedEvents(startedAt, endedAt, blocks),
+    scrapeSlotSummaryEvents(startedAt, endedAt),
+  ]);
+  return [...chainPruned, ...slotSummaries].sort(
+    (a, b) => Date.parse(a.at) - Date.parse(b.at),
+  );
+}
+
+async function scrapeChainPrunedEvents(
+  startedAt: string,
+  endedAt: string,
+  blocks: BlockRecord[],
+): Promise<ChainPrunedEvent[]> {
   const filter = [
     `resource.labels.namespace_name="${NAMESPACE}"`,
     `jsonPayload.message=~"Chain pruned to block [0-9]+"`,
@@ -688,6 +1073,312 @@ async function scrapeEvents(
   });
 }
 
+async function scrapeSlotSummaryEvents(
+  startedAt: string,
+  endedAt: string,
+): Promise<SlotSummaryEvent[]> {
+  const filter = [
+    `resource.labels.namespace_name="${NAMESPACE}"`,
+    `resource.labels.pod_name=~"${NAMESPACE}-validator.*"`,
+    `jsonPayload.eventName=~"^(benchmark-|sequencer-checkpoint-)"`,
+    timeFilter(startedAt, endedAt),
+  ].join(" AND ");
+  const entries = await gcloudRead(filter);
+
+  const bySlot = new Map<number, SlotSummaryEvent>();
+  for (const entry of entries) {
+    const p = entry.jsonPayload;
+    const slotNumber = numberField(p?.slot);
+    if (!p || !Number.isFinite(slotNumber)) {
+      continue;
+    }
+    const eventName = normalizeSlotSummaryEventName(String(p.eventName ?? ""));
+    if (eventName === undefined) {
+      continue;
+    }
+    const event = getOrCreateSlotSummary(bySlot, slotNumber, entry);
+
+    if (eventName === "slot-started") {
+      assignDefined(event, {
+        buildSlot: numberOrUndefined(p.buildSlot),
+        checkpointNumber: numberOrUndefined(p.checkpointNumber),
+        proposer: stringOrUndefined(p.proposer),
+        attestorAddress: stringOrUndefined(p.attestorAddress),
+        publisherAddress: stringOrUndefined(p.publisherAddress),
+      });
+    } else if (eventName === "checkpoint-built") {
+      assignDefined(event, {
+        buildSlot: numberOrUndefined(p.buildSlot),
+        checkpointNumber: numberOrUndefined(p.checkpointNumber),
+        proposer: stringOrUndefined(p.proposer),
+        attestorAddress: stringOrUndefined(p.attestorAddress),
+        publisherAddress: stringOrUndefined(p.publisherAddress),
+        blocksBuilt: numberOrUndefined(p.blocksBuilt),
+        txCount: numberOrUndefined(p.txCount),
+        totalMana: numberOrUndefined(p.totalMana),
+      });
+    } else if (eventName === "block-build-failed") {
+      event.blockBuildFailures ??= [];
+      event.blockBuildFailures.push(
+        compactObject({
+          at: entry.timestamp,
+          reason: stringOrUndefined(p.reason),
+          blockNumber: numberOrUndefined(p.blockNumber),
+          checkpointNumber: numberOrUndefined(p.checkpointNumber),
+          indexWithinCheckpoint: numberOrUndefined(p.indexWithinCheckpoint),
+          availableTxs: numberOrUndefined(p.availableTxs),
+          minTxs: numberOrUndefined(p.minTxs),
+          minValidTxs: numberOrUndefined(p.minValidTxs),
+          numTxs: numberOrUndefined(p.numTxs),
+        }),
+      );
+    } else if (eventName === "checkpoint-build-failed") {
+      event.checkpointBuildFailure = compactObject({
+        at: entry.timestamp,
+        reason: stringOrUndefined(p.reason),
+        checkpointNumber: numberOrUndefined(p.checkpointNumber),
+        blocksBuilt: numberOrUndefined(p.blocksBuilt),
+        minBlocksForCheckpoint: numberOrUndefined(p.minBlocksForCheckpoint),
+      });
+    } else if (
+      eventName === "attestations-collected" ||
+      eventName === "attestations-failed"
+    ) {
+      event.attestations = compactObject({
+        status: eventName === "attestations-collected" ? "collected" : "failed",
+        checkpointNumber: numberOrUndefined(p.checkpointNumber),
+        committeeSize: numberOrUndefined(p.committeeSize),
+        requiredAttestations: numberOrUndefined(p.requiredAttestations),
+        collectedAttestations: numberOrUndefined(p.collectedAttestations),
+        submittedAttestations: numberOrUndefined(p.submittedAttestations),
+        missingValidatorCount: numberOrUndefined(p.missingValidatorCount),
+        missingValidators: stringArrayOrUndefined(p.missingValidators),
+        reason: stringOrUndefined(p.reason),
+      });
+    } else if (
+      eventName === "checkpoint-published" ||
+      eventName === "checkpoint-publish-failed"
+    ) {
+      event.publish = compactObject({
+        status: eventName === "checkpoint-published" ? "published" : "failed",
+        checkpointNumber: numberOrUndefined(p.checkpointNumber),
+        successfulActions: stringArrayOrUndefined(p.successfulActions),
+        failedActions: stringArrayOrUndefined(p.failedActions),
+        sentActions: stringArrayOrUndefined(p.sentActions),
+        expiredActions: stringArrayOrUndefined(p.expiredActions),
+        reason: stringOrUndefined(p.reason),
+      });
+    }
+  }
+
+  return [...bySlot.values()].sort((a, b) => a.slotNumber - b.slotNumber);
+}
+
+function normalizeSlotSummaryEventName(eventName: string): string | undefined {
+  if (eventName.startsWith("benchmark-")) {
+    return eventName.slice("benchmark-".length);
+  }
+  if (!eventName.startsWith("sequencer-checkpoint-")) {
+    return undefined;
+  }
+
+  const name = eventName.slice("sequencer-checkpoint-".length);
+  const aliases: Record<string, string> = {
+    built: "checkpoint-built",
+    "build-failed": "checkpoint-build-failed",
+    published: "checkpoint-published",
+    "publish-failed": "checkpoint-publish-failed",
+  };
+  return aliases[name] ?? name;
+}
+
+function getOrCreateSlotSummary(
+  bySlot: Map<number, SlotSummaryEvent>,
+  slotNumber: number,
+  entry: GcloudEntry,
+): SlotSummaryEvent {
+  const existing = bySlot.get(slotNumber);
+  if (existing) {
+    if (Date.parse(entry.timestamp) < Date.parse(existing.at)) {
+      existing.at = entry.timestamp;
+    }
+    return existing;
+  }
+  const created: SlotSummaryEvent = {
+    at: entry.timestamp,
+    type: "slotSummary",
+    source: "log",
+    slotNumber,
+    sourcePod: entry.resource?.labels?.pod_name,
+  };
+  bySlot.set(slotNumber, created);
+  return created;
+}
+
+function assignDefined(
+  target: Record<string, unknown>,
+  values: Record<string, unknown>,
+): void {
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== undefined) {
+      target[key] = value;
+    }
+  }
+}
+
+function compactObject<T extends Record<string, unknown>>(obj: T): T {
+  for (const key of Object.keys(obj)) {
+    if (obj[key] === undefined) {
+      delete obj[key];
+    }
+  }
+  return obj;
+}
+
+function numberOrUndefined(v: unknown): number | undefined {
+  const n = numberField(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function stringOrUndefined(v: unknown): string | undefined {
+  return typeof v === "string" && v !== "" ? v : undefined;
+}
+
+function stringArrayOrUndefined(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) {
+    return undefined;
+  }
+  return v.map(String);
+}
+
+const SEQUENCER_STATE_MSG = /^Transitioning from ([A-Z_]+) to ([A-Z_]+)/;
+const PROPOSER_STATE_SCORE = new Set([
+  "INITIALIZING_CHECKPOINT",
+  "WAITING_FOR_TXS",
+  "CREATING_BLOCK",
+  "WAITING_UNTIL_NEXT_BLOCK",
+  "ASSEMBLING_CHECKPOINT",
+  "COLLECTING_ATTESTATIONS",
+  "PUBLISHING_CHECKPOINT",
+]);
+
+async function scrapeSequencerStateSlots(
+  startedAt: string,
+  endedAt: string,
+): Promise<SequencerStateSlot[]> {
+  const filter = [
+    `resource.labels.namespace_name="${NAMESPACE}"`,
+    `resource.labels.pod_name=~"${NAMESPACE}-validator.*"`,
+    `jsonPayload.message=~"^Transitioning from "`,
+    timeFilter(startedAt, endedAt),
+  ].join(" AND ");
+  const entries = await gcloudRead(filter);
+
+  type PodSlot = {
+    slotNumber: number;
+    sourcePod?: string;
+    startedAt: string;
+    endedAt: string;
+    firstTime: number;
+    lastTime: number;
+    states: Record<string, number>;
+  };
+
+  const byPodSlot = new Map<string, PodSlot>();
+
+  for (const entry of entries) {
+    const p = entry.jsonPayload;
+    if (!p) {
+      continue;
+    }
+    const message = String(p.message ?? "");
+    const match = SEQUENCER_STATE_MSG.exec(message);
+    const state =
+      typeof p.oldState === "string" ? p.oldState : (match?.[1] ?? "");
+    const slotNumber = numberField(p.stateSlotNumber);
+    const durationMs = numberField(p.stateDurationMs);
+    if (
+      !state ||
+      !Number.isFinite(slotNumber) ||
+      !Number.isFinite(durationMs)
+    ) {
+      continue;
+    }
+    const time = Date.parse(entry.timestamp);
+    if (!Number.isFinite(time)) {
+      continue;
+    }
+    const podName = entry.resource?.labels?.pod_name;
+    const key = `${podName ?? "unknown"}:${slotNumber}`;
+    const current = byPodSlot.get(key);
+    if (!current) {
+      byPodSlot.set(key, {
+        slotNumber,
+        sourcePod: podName,
+        startedAt: entry.timestamp,
+        endedAt: entry.timestamp,
+        firstTime: time,
+        lastTime: time,
+        states: { [state]: durationMs },
+      });
+      continue;
+    }
+    current.states[state] = (current.states[state] ?? 0) + durationMs;
+    if (time < current.firstTime) {
+      current.firstTime = time;
+      current.startedAt = entry.timestamp;
+    }
+    if (time > current.lastTime) {
+      current.lastTime = time;
+      current.endedAt = entry.timestamp;
+    }
+  }
+
+  // Multiple validator pods can log sequencer transitions for the same slot.
+  // For the benchmark chart we want the proposer path, so choose the pod-slot
+  // with the most time in checkpoint/block-production states.
+  const bestBySlot = new Map<number, PodSlot>();
+  for (const candidate of byPodSlot.values()) {
+    const prev = bestBySlot.get(candidate.slotNumber);
+    if (!prev || podSlotScore(candidate) > podSlotScore(prev)) {
+      bestBySlot.set(candidate.slotNumber, candidate);
+    }
+  }
+
+  return [...bestBySlot.values()]
+    .sort((a, b) => a.slotNumber - b.slotNumber)
+    .map((slot) => {
+      const totalMs = Object.values(slot.states).reduce((a, b) => a + b, 0);
+      return {
+        slotNumber: slot.slotNumber,
+        startedAt: slot.startedAt,
+        endedAt: slot.endedAt,
+        ...(slot.sourcePod !== undefined && { sourcePod: slot.sourcePod }),
+        totalMs,
+        states: slot.states,
+      };
+    });
+}
+
+function podSlotScore(slot: { states: Record<string, number> }): number {
+  let score = 0;
+  for (const [state, durationMs] of Object.entries(slot.states)) {
+    score += PROPOSER_STATE_SCORE.has(state) ? durationMs * 10 : durationMs;
+  }
+  return score;
+}
+
+function numberField(v: unknown): number {
+  if (typeof v === "number") {
+    return Number.isFinite(v) ? v : NaN;
+  }
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : NaN;
+  }
+  return NaN;
+}
+
 // --- Summary ---
 
 const meanNonNull = (points: TsPoint[]): number | null => {
@@ -709,7 +1400,10 @@ const maxNonNull = (points: TsPoint[]): number | null => {
 
 type SummaryArgs = {
   targetTps: number;
+  startedAtEpoch: number;
+  inclusionEndedAtEpoch: number;
   windowSec: number;
+  histogramWindowSec: number;
   endedAtEpoch: number;
   timeSeries: Record<string, { series: SeriesEntry[] }>;
   blocks: BlockRecord[];
@@ -718,9 +1412,40 @@ type SummaryArgs = {
 
 async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
   // inclusionTps is single-series; series[0] holds all points.
-  const inclusionPoints = a.timeSeries.inclusionTps?.series?.[0]?.points ?? [];
-  const inclusionTpsMean = meanNonNull(inclusionPoints);
+  const inclusionPoints = (
+    a.timeSeries.inclusionTps?.series?.[0]?.points ?? []
+  ).filter(
+    (p) =>
+      p.unixEpoch >= a.startedAtEpoch && p.unixEpoch <= a.inclusionEndedAtEpoch,
+  );
+  const inclusionBlocks = a.blocks.filter((b) => {
+    const minedAtEpoch = Math.floor(Date.parse(b.minedAt) / 1000);
+    return (
+      Number.isFinite(minedAtEpoch) &&
+      minedAtEpoch >= a.startedAtEpoch &&
+      minedAtEpoch <= a.inclusionEndedAtEpoch
+    );
+  });
+  const hasInclusionBlockRecords = inclusionBlocks.length > 0;
+  const totalTxsMined = hasInclusionBlockRecords
+    ? inclusionBlocks.reduce((s, b) => s + b.successfulCount, 0)
+    : null;
+  const promInclusionTpsMean = meanNonNull(inclusionPoints);
+  const inclusionTpsMean =
+    totalTxsMined !== null && a.windowSec > 0
+      ? totalTxsMined / a.windowSec
+      : promInclusionTpsMean;
   const inclusionTpsPeak = maxNonNull(inclusionPoints);
+
+  if (!hasInclusionBlockRecords && promInclusionTpsMean !== null) {
+    log(
+      "No block records found in inclusion window; using Prometheus inclusion TPS mean for summary",
+      {
+        promInclusionTpsMean,
+        inclusionPointCount: inclusionPoints.length,
+      },
+    );
+  }
 
   const safeInstant = async (promql: string): Promise<number | null> => {
     try {
@@ -734,7 +1459,7 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     }
   };
 
-  const windowSpec = `${a.windowSec}s`;
+  const windowSpec = `${a.histogramWindowSec}s`;
   const oneShotQuantile = (q: number, bucket: string) =>
     `histogram_quantile(${q}, sum by (le)(rate(${bucket}${NS}[${windowSpec}])))`;
 
@@ -801,16 +1526,16 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     blockBuildDurationP95Ms: buildP95,
     publicProcessorTxDurationP50Ms: ppTxP50,
     publicProcessorTxDurationP95Ms: ppTxP95,
-    totalTxsMined: a.blocks.reduce((s, b) => s + b.successfulCount, 0),
-    totalTxsFailed: a.blocks.reduce((s, b) => s + b.failedCount, 0),
-    totalSilentSkipCount: a.blocks.reduce(
-      (s, b) => s + b.silentlySkippedCount,
-      0,
-    ),
-    totalSilentSkipDurationMs: a.blocks.reduce(
-      (s, b) => s + b.silentlySkippedDurationMs,
-      0,
-    ),
+    totalTxsMined,
+    totalTxsFailed: hasInclusionBlockRecords
+      ? inclusionBlocks.reduce((s, b) => s + b.failedCount, 0)
+      : null,
+    totalSilentSkipCount: hasInclusionBlockRecords
+      ? inclusionBlocks.reduce((s, b) => s + b.silentlySkippedCount, 0)
+      : null,
+    totalSilentSkipDurationMs: hasInclusionBlockRecords
+      ? inclusionBlocks.reduce((s, b) => s + b.silentlySkippedDurationMs, 0)
+      : null,
     reorgCount: reorgs.length,
     deepestReorgBlocks: deepest,
   };
@@ -845,6 +1570,185 @@ function assertShape(payload: Record<string, unknown>): void {
   }
 }
 
+// --- Live drain gate ---
+
+async function waitForScrapeWindowEnd(args: Args, endedAtEpoch: number) {
+  const minimumEndEpoch = endedAtEpoch + DRAIN_BUFFER_SECONDS;
+  const invokedAtEpoch = Math.floor(Date.now() / 1000);
+
+  if (!args.waitForPendingZero) {
+    const drainSeconds = Math.max(0, minimumEndEpoch - invokedAtEpoch);
+    if (drainSeconds > 0) {
+      log(
+        `Draining ${drainSeconds}s to let OTel batches (60s) + Prom scrape (15s) settle`,
+      );
+      await sleep(drainSeconds * 1000);
+    }
+    return {
+      scrapeWindowEndEpoch: minimumEndEpoch,
+      inclusionEndedAtEpoch: minimumEndEpoch,
+      pendingAtEnd: null as number | null,
+      pendingByRoleAtEnd: null,
+      pendingTimedOut: false,
+    };
+  }
+
+  if (
+    !Number.isFinite(args.maxPendingWaitSeconds) ||
+    args.maxPendingWaitSeconds < 0
+  ) {
+    throw new Error(
+      `invalid --max-pending-wait-seconds: ${args.maxPendingWaitSeconds}`,
+    );
+  }
+
+  const deadlineEpoch = endedAtEpoch + args.maxPendingWaitSeconds;
+  const historicalZeroEpoch = await findPendingZeroEpoch(
+    endedAtEpoch,
+    Math.min(invokedAtEpoch, deadlineEpoch),
+  );
+  if (historicalZeroEpoch !== undefined) {
+    const scrapeWindowEndEpoch = Math.max(
+      minimumEndEpoch,
+      historicalZeroEpoch + DRAIN_BUFFER_SECONDS,
+    );
+    const waitSeconds = Math.max(0, scrapeWindowEndEpoch - invokedAtEpoch);
+    if (waitSeconds > 0) {
+      log("Pending txs drained; waiting for telemetry/log settle window", {
+        pendingZeroAt: historicalZeroEpoch,
+        waitSeconds,
+      });
+      await sleep(waitSeconds * 1000);
+    } else {
+      log("Found historical pending-drain point; starting scrape", {
+        pendingZeroAt: historicalZeroEpoch,
+        scrapeWindowEndEpoch,
+      });
+    }
+    return {
+      scrapeWindowEndEpoch,
+      inclusionEndedAtEpoch: historicalZeroEpoch,
+      pendingAtEnd: 0,
+      pendingByRoleAtEnd: await readPendingByRole(scrapeWindowEndEpoch),
+      pendingTimedOut: false,
+    };
+  }
+
+  let lastPending: number | null = null;
+  let pendingZeroSinceEpoch: number | undefined;
+
+  while (Math.floor(Date.now() / 1000) <= deadlineEpoch) {
+    const nowEpoch = Math.floor(Date.now() / 1000);
+    try {
+      lastPending = await queryInstant(PENDING_VALIDATOR_TXS_QUERY, nowEpoch);
+      const pending = lastPending;
+      pendingZeroSinceEpoch =
+        pending !== null && pending <= 0
+          ? (pendingZeroSinceEpoch ?? nowEpoch)
+          : undefined;
+      const zeroSettleEndEpoch =
+        pendingZeroSinceEpoch === undefined
+          ? undefined
+          : pendingZeroSinceEpoch + DRAIN_BUFFER_SECONDS;
+      const scrapeReadyEpoch = Math.max(
+        minimumEndEpoch,
+        zeroSettleEndEpoch ?? Number.POSITIVE_INFINITY,
+      );
+      const settleRemainingSeconds = Math.max(
+        0,
+        Number.isFinite(scrapeReadyEpoch) ? scrapeReadyEpoch - nowEpoch : 0,
+      );
+      if (pending !== null && pending <= 0 && settleRemainingSeconds === 0) {
+        const pendingByRoleAtEnd = await readPendingByRole(scrapeReadyEpoch);
+        log("Validator pending txs drained; starting scrape", {
+          pending,
+          pendingByRoleAtEnd,
+        });
+        return {
+          scrapeWindowEndEpoch: scrapeReadyEpoch,
+          inclusionEndedAtEpoch: pendingZeroSinceEpoch ?? nowEpoch,
+          pendingAtEnd: pending,
+          pendingByRoleAtEnd,
+          pendingTimedOut: false,
+        };
+      }
+      log("Waiting for validator pending txs to drain before scrape", {
+        validatorPending: pending,
+        pendingZeroSinceEpoch,
+        settleRemainingSeconds,
+        timeoutRemainingSeconds: Math.max(0, deadlineEpoch - nowEpoch),
+      });
+    } catch (err) {
+      log("pending tx drain check failed", {
+        err: err instanceof Error ? err.message : String(err),
+        timeoutRemainingSeconds: Math.max(0, deadlineEpoch - nowEpoch),
+      });
+    }
+    await sleep(PENDING_POLL_SECONDS * 1000);
+  }
+
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  log("Timed out waiting for pending txs to drain; scraping current window", {
+    validatorPending: lastPending,
+    maxPendingWaitSeconds: args.maxPendingWaitSeconds,
+  });
+  return {
+    scrapeWindowEndEpoch: Math.max(nowEpoch, minimumEndEpoch),
+    inclusionEndedAtEpoch: Math.max(nowEpoch, minimumEndEpoch),
+    pendingAtEnd: lastPending,
+    pendingByRoleAtEnd: await readPendingByRole(nowEpoch),
+    pendingTimedOut: true,
+  };
+}
+
+async function readPendingByRole(tEpoch: number) {
+  const read = async (promql: string): Promise<number | null> => {
+    try {
+      return await queryInstant(promql, tEpoch);
+    } catch (err) {
+      log("pending-by-role instant query failed", {
+        err: err instanceof Error ? err.message : String(err),
+        promql,
+      });
+      return null;
+    }
+  };
+  const [rpc, validator, fullNode] = await Promise.all([
+    read(PENDING_RPC_TXS_QUERY),
+    read(PENDING_VALIDATOR_TXS_QUERY),
+    read(PENDING_FULL_NODE_TXS_QUERY),
+  ]);
+  return { rpc, validator, fullNode };
+}
+
+async function findPendingZeroEpoch(
+  startEpoch: number,
+  endEpoch: number,
+): Promise<number | undefined> {
+  if (endEpoch <= startEpoch) {
+    return undefined;
+  }
+  try {
+    const series = await queryRange(
+      PENDING_VALIDATOR_TXS_QUERY,
+      startEpoch,
+      endEpoch,
+      PENDING_POLL_SECONDS,
+    );
+    const points = series
+      .flatMap((s) => s.points)
+      .sort((a, b) => {
+        return a.unixEpoch - b.unixEpoch;
+      });
+    return points.find((p) => p.value !== null && p.value <= 0)?.unixEpoch;
+  } catch (err) {
+    log("historical pending tx drain check failed", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return undefined;
+  }
+}
+
 // --- Main ---
 
 async function main(): Promise<void> {
@@ -858,30 +1762,34 @@ async function main(): Promise<void> {
   }
   const windowSec = Math.max(1, endedAtEpoch - startedAtEpoch);
 
-  const now = Math.floor(Date.now() / 1000);
-  const drainSeconds = Math.max(0, endedAtEpoch + DRAIN_BUFFER_SECONDS - now);
-  if (drainSeconds > 0) {
-    log(
-      `Draining ${drainSeconds}s to let OTel batches (60s) + Prom scrape (15s) settle`,
-    );
-    await sleep(drainSeconds * 1000);
-  }
-  const drainEndedAt = new Date().toISOString();
-
   log("Opening port-forward to Prometheus");
   const teardown = await portForwardProm();
 
   try {
-    // Bounded window: always [startedAt, endedAt + drain buffer]. Using wall-clock
-    // "now" here would over-extend when the scraper is replaying a historical
-    // window (drainSeconds clamped to 0), pulling in unrelated data.
-    const promEndEpoch = endedAtEpoch + DRAIN_BUFFER_SECONDS;
+    const drain = await waitForScrapeWindowEnd(args, endedAtEpoch);
+    const drainEndedAt = new Date(
+      drain.scrapeWindowEndEpoch * 1000,
+    ).toISOString();
 
-    log("Capturing run context (image + aztec config env)");
-    const [image, aztecConfig] = await Promise.all([
-      captureImage(),
-      captureAztecConfig(),
-    ]);
+    // Bounded window: by default [startedAt, endedAt + drain buffer]. Live runs
+    // can opt into extending the end until pending TxPool depth reaches zero.
+    const promEndEpoch = drain.scrapeWindowEndEpoch;
+
+    log("Capturing run context (image + aztec config env + pod nodes)");
+    const [capturedImage, capturedAztecConfig, capturedInfrastructure] =
+      await Promise.all([
+        captureImage(),
+        captureAztecConfig(),
+        captureInfrastructure(),
+      ]);
+    const previousRunContext = await loadPreviousRunContext(args.output);
+    const image = capturedImage ?? previousRunContext.image;
+    const aztecConfig =
+      Object.keys(capturedAztecConfig).length > 0
+        ? capturedAztecConfig
+        : (previousRunContext.aztecConfig ?? {});
+    const infrastructure =
+      capturedInfrastructure ?? previousRunContext.infrastructure;
 
     log("Scraping Prometheus time-series");
     const timeSeries = await scrapeTimeSeries(startedAtEpoch, promEndEpoch);
@@ -889,9 +1797,7 @@ async function main(): Promise<void> {
     log("Scraping per-block logs from gcloud");
     // Extend the log window by the drain buffer too — some blocks near endedAt
     // arrive in gcloud after the test stops sending.
-    const logEndedAt = new Date(
-      (endedAtEpoch + DRAIN_BUFFER_SECONDS) * 1000,
-    ).toISOString();
+    const logEndedAt = drainEndedAt;
     let blocks: BlockRecord[] = [];
     try {
       blocks = await scrapeBlocks(args.startedAt, logEndedAt);
@@ -913,11 +1819,32 @@ async function main(): Promise<void> {
       });
     }
 
+    log("Scraping sequencer state transition logs from gcloud");
+    let sequencerStateSlots: SequencerStateSlot[] = [];
+    try {
+      sequencerStateSlots = await scrapeSequencerStateSlots(
+        args.startedAt,
+        logEndedAt,
+      );
+      log(`Collected ${sequencerStateSlots.length} sequencer state slots`);
+    } catch (err) {
+      log("sequencer state scrape failed", {
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     log("Building summary");
+    const observedWindowSec = Math.max(
+      1,
+      drain.inclusionEndedAtEpoch - startedAtEpoch,
+    );
     const summary = await buildSummary({
       targetTps: args.targetTps,
-      windowSec,
-      endedAtEpoch,
+      startedAtEpoch,
+      inclusionEndedAtEpoch: drain.inclusionEndedAtEpoch,
+      windowSec: observedWindowSec,
+      histogramWindowSec: observedWindowSec,
+      endedAtEpoch: drain.inclusionEndedAtEpoch,
       timeSeries: timeSeries as Record<string, { series: SeriesEntry[] }>,
       blocks,
       events,
@@ -929,23 +1856,36 @@ async function main(): Promise<void> {
         runId: args.runId,
         startedAt: args.startedAt,
         endedAt: args.endedAt,
+        inclusionEndedAt: new Date(
+          drain.inclusionEndedAtEpoch * 1000,
+        ).toISOString(),
         drainEndedAt,
         namespace: NAMESPACE,
+        gcpProject: GCP_PROJECT_ID,
+        gcpLocation: GCP_REGION,
+        gkeCluster: GKE_CLUSTER,
         ...(image !== undefined && { image }),
         targetTps: args.targetTps,
         testDurationSeconds: windowSec,
         workload: args.workload,
         ...(Object.keys(aztecConfig).length > 0 && { aztecConfig }),
+        ...(infrastructure !== undefined && { infrastructure }),
         scrapeConfig: {
-          drainSeconds,
+          drainSeconds: Math.max(0, drain.scrapeWindowEndEpoch - endedAtEpoch),
           stepSeconds: STEP_SECONDS,
           promUrl: `http://localhost:${PROM_PORT}`,
+          waitForPendingZero: args.waitForPendingZero,
+          maxPendingWaitSeconds: args.maxPendingWaitSeconds,
+          pendingAtScrape: drain.pendingAtEnd,
+          pendingByRoleAtScrape: drain.pendingByRoleAtEnd,
+          pendingWaitTimedOut: drain.pendingTimedOut,
         },
       },
       summary,
       timeSeries,
       blocks,
       events,
+      sequencerStateSlots,
     };
 
     assertShape(payload);

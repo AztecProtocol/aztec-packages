@@ -89,7 +89,7 @@ class Chonk : public IVCBase {
 
     struct PublicInputsResult {
         PairingPoints pairing_points;
-        std::optional<TableCommitments> T_prev_commitments; // set only for kernels
+        std::optional<StdlibFF> ecc_op_hash; // set only for kernels
     };
 
     /**
@@ -101,7 +101,7 @@ class Chonk : public IVCBase {
      * State machine transitions based on `num_circuits_accumulated`:
      *   - OINK:     First app (circuit 0) - no prior accumulator, just Oink verification
      *   - HN:       Apps 1..n-3, inner kernels, and reset kernels - full HyperNova folding verification
-     *   - HN_TAIL:  Circuit n-3 (last kernel before tail) - adds ZK masking at op queue start
+     *   - HN_TAIL:  Circuit n-3 (last kernel before tail)
      *   - HN_FINAL: Circuit n-2 (tail kernel) - final folding + decider verification
      *   - MEGA:     Circuit n-1 (hiding kernel) - MegaZK proof, no folding
      *
@@ -196,12 +196,12 @@ class Chonk : public IVCBase {
                                                const std::vector<std::shared_ptr<RecursiveVKAndHash>>& input_keys = {});
 
     [[nodiscard("Pairing points should be accumulated")]] std::
-        tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, TableCommitments>
+        tuple<std::optional<RecursiveVerifierAccumulator>, std::vector<PairingPoints>, StdlibFF>
         recursive_verification_and_consistency_checks(
             ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,
             const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
-            const TableCommitments& T_prev_commitments,
+            const std::optional<StdlibFF>& running_hash,
             const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
@@ -219,8 +219,6 @@ class Chonk : public IVCBase {
 
     ChonkProof prove();
 
-    static void hide_op_queue_accumulation_result(ClientCircuit& circuit);
-    static void hide_op_queue_content_in_tail(ClientCircuit& circuit);
     static void hide_op_queue_content_in_hiding(ClientCircuit& circuit);
 
     /**

@@ -1,32 +1,58 @@
-import type { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  type BlockQuery,
+  type BlocksQuery,
+  type CheckpointsQuery,
+  L2Block,
+  type L2BlockSource,
+} from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
-// TODO(spl/new-rpc-api): delete once `L2BlockStream` is refactored to consume the new
-// `BlockResponse` / `CheckpointResponse` shapes. For now the stream requires concrete `L2Block`
-// and `PublishedCheckpoint` instances, so we rehydrate them from RPC responses.
 /**
- * Lifts an {@link AztecNode} RPC client into the shape {@link L2BlockStream} expects. `getBlocks`
- * requests transaction bodies so that real `L2Block` instances can be constructed;
+ * Lifts an {@link AztecNode} RPC client into the shape {@link L2BlockStream} expects.
+ * `getBlocks` requests transaction bodies so that real `L2Block` instances can be constructed;
  * `getCheckpoints` requests blocks + L1 info + attestations so that `PublishedCheckpoint`
  * instances are fully populated.
  */
 export function blockStreamSourceFromAztecNode(
   node: AztecNode,
-): Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips' | 'getCheckpoints' | 'getCheckpointedBlocks'> {
+): Pick<L2BlockSource, 'getBlocks' | 'getBlockData' | 'getL2Tips' | 'getCheckpoints'> {
   return {
     getL2Tips: () => node.getL2Tips(),
-    getBlockHeader: number => node.getBlockHeader(number),
-    getCheckpointedBlocks: (from: BlockNumber, limit: number) => node.getCheckpointedBlocks(from, limit),
 
-    async getBlocks(from: BlockNumber, limit: number): Promise<L2Block[]> {
-      const responses = await node.getBlocks(from, limit, { includeTransactions: true });
+    async getBlockData(query: BlockQuery): Promise<BlockData | undefined> {
+      const response = await node.getBlock(query);
+      if (!response) {
+        return undefined;
+      }
+      return {
+        header: response.header,
+        archive: response.archive,
+        blockHash: response.hash,
+        checkpointNumber: response.checkpointNumber,
+        indexWithinCheckpoint: response.indexWithinCheckpoint,
+      };
+    },
+
+    async getBlocks(query: BlocksQuery): Promise<L2Block[]> {
+      // Epoch lookups are not exposed on the public AztecNode RPC; only `from + limit` is.
+      if (!('from' in query)) {
+        throw new Error('getBlocks with epoch query not supported via AztecNode RPC');
+      }
+      if (query.onlyCheckpointed) {
+        throw new Error('getBlocks with onlyCheckpointed not supported via AztecNode RPC');
+      }
+      const responses = await node.getBlocks(query.from, query.limit, { includeTransactions: true });
       return responses.map(r => new L2Block(r.archive, r.header, r.body!, r.checkpointNumber, r.indexWithinCheckpoint));
     },
 
-    async getCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    async getCheckpoints(query: CheckpointsQuery): Promise<PublishedCheckpoint[]> {
+      if (!('from' in query)) {
+        throw new Error('getCheckpoints with epoch query not supported via AztecNode RPC');
+      }
+      const { from, limit } = query;
       const responses = await node.getCheckpoints(from, limit, {
         includeBlocks: true,
         includeTransactions: true,

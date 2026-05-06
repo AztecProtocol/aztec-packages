@@ -443,7 +443,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: max by (k8s_namespace_name) (increase(aztec_archiver_block_height{k8s_namespace_name!="",aztec_status=""}[10m]))
+                expr: max by (k8s_namespace_name) (increase(aztec_archiver_block_height{k8s_namespace_name!="",aztec_status="proposed"}[10m]))
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -779,7 +779,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: avg by (k8s_namespace_name,service_name) (process_memory_usage) / 1024^3
+                expr: avg by (k8s_namespace_name,service_name) (system_memory_utilization{system_memory_state="used"})
                 instant: true
                 intervalMs: 1000
                 legendFormat: __auto
@@ -823,7 +823,7 @@ groups:
                 conditions:
                     - evaluator:
                         params:
-                            - 5
+                            - 0.8 # trigger alert if using more than 80% total memory
                         type: gt
                       operator:
                         type: and

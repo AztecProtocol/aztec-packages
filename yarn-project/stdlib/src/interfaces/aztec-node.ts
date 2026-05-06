@@ -21,9 +21,8 @@ import { z } from 'zod';
 import type { AztecAddress } from '../aztec-address/index.js';
 import { BlockHash } from '../block/block_hash.js';
 import { type BlockParameter, BlockParameterSchema } from '../block/block_parameter.js';
-import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type DataInBlock, dataInBlockSchemaFor } from '../block/in_block.js';
-import { type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { type CheckpointsQuery, CheckpointsQuerySchema, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
 import { type CheckpointData, CheckpointDataSchema } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
@@ -227,9 +226,12 @@ export interface AztecNode {
   /** @deprecated Scheduled for removal; use `getBlock(param).then(r => r?.header)`. */
   getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined>;
   /** @deprecated Scheduled for removal; use `getBlocks(from, limit, { includeL1PublishInfo: true, includeAttestations: true })`. */
-  getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<CheckpointedL2Block[]>;
-  /** @deprecated Scheduled for removal; use `getCheckpoints(from, limit)` over an explicit checkpoint range. */
-  getCheckpointsDataForEpoch(epoch: EpochNumber): Promise<CheckpointData[]>;
+  getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<BlockResponse[]>;
+  /**
+   * Gets lightweight checkpoint metadata for a contiguous range or for an entire epoch.
+   * @param query - Either `{ from, limit }` or `{ epoch }`.
+   */
+  getCheckpointsData(query: CheckpointsQuery): Promise<CheckpointData[]>;
 
   /**
    * Unified block fetch. Returns the block identified by `param`, with optional fields controlled
@@ -568,9 +570,9 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getCheckpointedBlocks: z
     .function()
     .args(BlockNumberPositiveSchema, z.number().gt(0).lte(MAX_RPC_BLOCKS_LEN))
-    .returns(z.array(CheckpointedL2Block.schema)),
+    .returns(z.array(BlockResponseSchema)),
 
-  getCheckpointsDataForEpoch: z.function().args(EpochNumberSchema).returns(z.array(CheckpointDataSchema)),
+  getCheckpointsData: z.function().args(CheckpointsQuerySchema).returns(z.array(CheckpointDataSchema)),
 
   getBlock: z
     .function()

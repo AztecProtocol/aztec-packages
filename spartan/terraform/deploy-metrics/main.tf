@@ -65,6 +65,19 @@ provider "helm" {
   }
 }
 
+locals {
+  metrics_chart_path = "${path.module}/../../metrics"
+  metrics_chart_trigger_files = sort(concat(
+    tolist(fileset(local.metrics_chart_path, "Chart.yaml")),
+    tolist(fileset(local.metrics_chart_path, "Chart.lock")),
+    tolist(fileset(local.metrics_chart_path, "templates/**")),
+    tolist(fileset(local.metrics_chart_path, "grafana/**")),
+  ))
+  metrics_chart_content_hash = sha256(join("", [
+    for file in local.metrics_chart_trigger_files : "${file}:${filesha256("${local.metrics_chart_path}/${file}")}"
+  ]))
+}
+
 # Aztec Helm release for gke-cluster
 resource "helm_release" "aztec-gke-cluster" {
   provider          = helm.gke-cluster
@@ -83,6 +96,9 @@ resource "helm_release" "aztec-gke-cluster" {
     file("../../metrics/values.yaml"),
     file("../../metrics/values/${var.VALUES_FILE}"),
     yamlencode({
+      aztecMetricsChart = {
+        contentHash = local.metrics_chart_content_hash
+      }
       grafana = {
         service = {
           annotations = {
@@ -99,6 +115,9 @@ resource "helm_release" "aztec-gke-cluster" {
             "ingress.gcp.kubernetes.io/pre-shared-cert"   = data.terraform_remote_state.ssl.outputs.grafana_cert_name
           }
         }
+        podAnnotations = {
+          "aztec.network/metrics-chart-content-hash" = local.metrics_chart_content_hash
+        }
         admin = {
           existingSecret = "grafana-admin"
           passwordKey    = "admin-password"
@@ -106,7 +125,21 @@ resource "helm_release" "aztec-gke-cluster" {
 
         env = {
           # we have to set an admin username through env vars otherwise the chart expects to find an 'admin-user' key in the admin secret
-          GF_SECURITY_ADMIN_USER = "admin"
+          GF_SECURITY_ADMIN_USER       = "admin"
+          SLACK_ALERT_MENTION_USER_IDS = join(",", var.SLACK_ALERT_MENTION_USER_IDS)
+        }
+
+        sidecar = {
+          alerts = {
+            env = {
+              REQ_USERNAME = "admin"
+            }
+          }
+          dashboards = {
+            env = {
+              REQ_USERNAME = "admin"
+            }
+          }
         }
 
         envFromSecrets = [

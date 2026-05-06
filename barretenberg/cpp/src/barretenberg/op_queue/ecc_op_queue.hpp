@@ -31,8 +31,7 @@ namespace bb {
  * - Updates the native accumulator (shadow computation for verification)
  * - Appends to both ECCVM and Ultra tables
  *
- * Tables grow via prepending subtables (one per circuit in an IVC). The deque-based storage avoids
- * expensive memory reallocation. See ecc_ops_table.hpp for details.
+ * Tables grow by appending subtables (one per circuit in an IVC). See ecc_ops_table.hpp for details.
  *
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
@@ -50,13 +49,14 @@ class ECCOpQueue {
     EccvmOpsTable eccvm_ops_table;    // table of ops in the ECCVM format
     UltraEccOpsTable ultra_ops_table; // table of ops in the Ultra-arithmetization format
 
-    // Storage for the reconstructed eccvm ops table in contiguous memory. (Intended to be constructed once and for all
-    // prior to ECCVM construction to avoid repeated prepending of subtables in physical memory).
+    // Storage for the reconstructed eccvm ops table in contiguous memory. (Intended to be constructed once and for
+    // all prior to ECCVM construction to avoid repeated traversal of the per-subtable storage.)
     std::vector<ECCVMOperation> eccvm_ops_reconstructed;
 
-    // Storage for the reconstructed ultra ops table in contiguous memory. (Intended to be constructed once and for all
-    // prior to Translator circuit construction to avoid repeated prepending of subtables in physical memory).
-    std::vector<UltraOp> ultra_ops_reconstructed;
+    // Storage for the reconstructed ultra ops tables in contiguous memory. (Intended to be constructed once and for
+    // all prior to Translator circuit construction to avoid repeated traversal of the per-subtable storage.)
+    std::vector<UltraOp> ultra_ops_zk_reconstructed;    // Chonk table
+    std::vector<UltraOp> ultra_ops_no_zk_reconstructed; // AVM table
 
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
@@ -78,6 +78,8 @@ class ECCOpQueue {
         ultra_ops_table.create_new_subtable();
     }
 
+    size_t num_subtables() const { return eccvm_ops_table.num_subtables(); }
+
     size_t get_current_subtable_size() const { return ultra_ops_table.get_current_subtable_size(); }
 
     /**
@@ -89,25 +91,47 @@ class ECCOpQueue {
     size_t get_append_offset() const
     {
         constexpr size_t reserved_op_slots = UltraEccOpsTable::APPEND_TRACE_OFFSET / UltraEccOpsTable::NUM_ROWS_PER_OP;
-        return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots;
+        constexpr size_t zk_op_slots = UltraEccOpsTable::ZK_ULTRA_OPS / UltraEccOpsTable::NUM_ROWS_PER_OP;
+        return OP_QUEUE_SIZE - get_current_subtable_size() - reserved_op_slots - zk_op_slots;
     }
 
-    void merge(MergeSettings settings = MergeSettings::PREPEND, std::optional<size_t> ultra_fixed_offset = std::nullopt)
+    void merge()
     {
-        eccvm_ops_table.merge(settings);
-        ultra_ops_table.merge(settings, ultra_fixed_offset);
+        eccvm_ops_table.merge();
+        ultra_ops_table.merge();
+    }
+
+    void merge_fixed_append(size_t ultra_fixed_offset)
+    {
+        eccvm_ops_table.merge();
+        ultra_ops_table.merge_with_fixed_append_offset(ultra_fixed_offset);
+    }
+
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_zk_columns()
+    {
+        auto [column_polynomials, hiding_op] = ultra_ops_table.construct_zk_columns();
+        this->hiding_op_for_eccvm = hiding_op;
+        this->has_hiding_op = true;
+
+        return column_polynomials;
+    }
+
+    std::vector<std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH>> construct_subtable_columns() const
+    {
+        return ultra_ops_table.construct_subtable_columns();
     }
 
     // Construct column polynomials for the full aggregate ultra ops table
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns() const
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_ultra_ops_table_columns(
+        const bool include_zk_ops = true) const
     {
-        return ultra_ops_table.construct_table_columns();
+        return ultra_ops_table.construct_table_columns(include_zk_ops);
     }
 
-    // Construct column polynomials for the aggregate table excluding the most recent subtable
-    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_previous_ultra_ops_table_columns() const
+    // Construct column polynomials for the aggregate table up to and including the tail subtable.
+    std::array<Polynomial<Fr>, ULTRA_TABLE_WIDTH> construct_table_columns_up_to_tail() const
     {
-        return ultra_ops_table.construct_previous_table_columns();
+        return ultra_ops_table.construct_table_columns_up_to_tail();
     }
 
     // Construct column polynomials for the most recently merged subtable
@@ -119,19 +143,26 @@ class ECCOpQueue {
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
     void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
 
-    // Reconstruct the full table of ultra ops in contiguous memory from the independent subtables
-    void construct_full_ultra_ops_table() { ultra_ops_reconstructed = ultra_ops_table.get_reconstructed(); }
+    // Reconstruct the ZK-prefixed full table of ultra ops in contiguous memory from the independent subtables.
+    void construct_zk_reconstructed_ultra_ops_table()
+    {
+        ultra_ops_zk_reconstructed = ultra_ops_table.get_zk_reconstructed_ultra_ops();
+    }
 
+    // Reconstruct the non-ZK full table of ultra ops in contiguous memory from the independent subtables.
+    void construct_no_zk_reconstructed_ultra_ops_table()
+    {
+        ultra_ops_no_zk_reconstructed = ultra_ops_table.get_no_zk_reconstructed_ultra_ops();
+    }
+
+    // Excludes the optional ZK prefix; see UltraEccOpsTable::num_ultra_rows
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.num_ultra_rows(); }
     size_t get_ultra_ops_count() const { return ultra_ops_table.num_ops(); } // actual operation count without padding
-    size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
-    size_t get_previous_ultra_ops_table_num_rows() const { return ultra_ops_table.previous_ultra_table_size(); }
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops
-    // getters more memory efficient
+    // Excludes the optional ZK prefix, same as get_ultra_ops_table_num_rows.
+    size_t get_ultra_ops_table_num_rows_up_to_tail() const { return ultra_ops_table.ultra_table_size_up_to_tail(); }
 
     // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already.
-    // The hiding op (set via append_hiding_op) is always prepended at index 0.
+    // The hiding op is always prepended at index 0.
     std::vector<ECCVMOperation>& get_eccvm_ops()
     {
         if (eccvm_ops_reconstructed.empty()) {
@@ -145,12 +176,20 @@ class ECCOpQueue {
         return eccvm_ops_reconstructed;
     }
 
-    std::vector<UltraOp>& get_ultra_ops()
+    std::vector<UltraOp>& get_no_zk_reconstructed_ultra_ops()
     {
-        if (ultra_ops_reconstructed.empty()) {
-            construct_full_ultra_ops_table();
+        if (ultra_ops_no_zk_reconstructed.empty()) {
+            construct_no_zk_reconstructed_ultra_ops_table();
         }
-        return ultra_ops_reconstructed;
+        return ultra_ops_no_zk_reconstructed;
+    }
+
+    std::vector<UltraOp>& get_zk_reconstructed_ultra_ops()
+    {
+        if (ultra_ops_zk_reconstructed.empty()) {
+            construct_zk_reconstructed_ultra_ops_table();
+        }
+        return ultra_ops_zk_reconstructed;
     }
 
     /**
@@ -249,9 +288,8 @@ class ECCOpQueue {
     /**
      * @brief Writes a no-op to the ultra ops table but adds no eccvm operations.
      *
-     * @details Used by the tail kernel to ensure the op queue wires in Translator are shiftable: the no-op
-     * contributes two zero rows at the start of the tail subtable, which ends up at the top of the final aggregate
-     * table (because the tail is prepended last), giving the Translator's op queue wires two leading zero rows.
+     * @details Adds two zero rows (one no-op = NUM_ROWS_PER_OP rows) to the ultra ops table. Translator needs two
+     * leading zero rows for polynomial shiftability.
      */
     UltraOp no_op_ultra_only()
     {
@@ -319,7 +357,8 @@ class ECCOpQueue {
      * on-curve check is similarly gated. q_reset = 1 is required for Translator compatibility (only opcodes {0,3,4,8}
      * are allowed).
      *
-     * This method should be called ONCE per IVC in the tail kernel, after the random non-ops.
+     * This method writes the same hiding op to both the ECCVM and Ultra tables in one step, ensuring the two
+     * representations agree (required for the translation check).
      *
      * @param Px Random field element (not necessarily a valid x-coordinate on BN254)
      * @param Py Random field element (not necessarily a valid y-coordinate on BN254)
@@ -327,34 +366,10 @@ class ECCOpQueue {
      */
     UltraOp append_hiding_op(const Fq& Px, const Fq& Py)
     {
-        // Create an ECCVM operation with q_eq = 1, q_reset = 1 (opcode = 3) and the random Px, Py values.
-        // We construct the base_point directly with the raw coordinates - it may not be on the curve.
-        // Note: reset = true is required for Translator compatibility (only opcodes {0,3,4,8} are allowed)
-        EccOpCode op_code{ .eq = true, .reset = true }; // q_eq = 1, q_reset = 1
-        Point base_point;
-        base_point.x = Px;
-        base_point.y = Py;
-        // Note: We don't call is_point_at_infinity() or any curve operations on this point
+        auto [ultra_op, eccvm_op] = UltraEccOpsTable::make_hiding_op_pair(Px, Py);
 
-        // Store the hiding op for ECCVM - it will be prepended to the front during reconstruction (index 0 -> row 1)
-        hiding_op_for_eccvm = ECCVMOperation{ .op_code = op_code, .base_point = base_point };
+        hiding_op_for_eccvm = eccvm_op;
         has_hiding_op = true;
-
-        // Push to Ultra ops through normal flow (appends to current subtable)
-        // Decompose Px, Py (Fq) into hi-lo chunks (Fr)
-        const size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-        uint256_t x_256(Px);
-        uint256_t y_256(Py);
-        UltraOp ultra_op{
-            .op_code = op_code,
-            .x_lo = Fr(x_256.slice(0, CHUNK_SIZE)),
-            .x_hi = Fr(x_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
-            .y_lo = Fr(y_256.slice(0, CHUNK_SIZE)),
-            .y_hi = Fr(y_256.slice(CHUNK_SIZE, CHUNK_SIZE * 2)),
-            .z_1 = Fr(0),
-            .z_2 = Fr(0),
-            .return_is_infinity = false,
-        };
         ultra_ops_table.push(ultra_op);
 
         // Do NOT update the accumulator - the hiding op doesn't perform any actual EC computation
@@ -363,17 +378,15 @@ class ECCOpQueue {
 
   private:
     // === Hiding Op State ===
-    // The hiding op is handled asymmetrically but ends up at the same functional relative position in both:
-    // - ECCVM: Stored here and prepended at index 0 during get_eccvm_ops() reconstruction
-    // - Ultra: Pushed to ultra_ops_table at index 4 (after 1 no-op + 3 random padding ops)
-    //
-    // Both end up with hiding op as the first "real" op because:
-    // - ECCVM: prepending puts it at index 0; padding ops don't exist in ECCVM table
-    // - Translator: skips first 4 Ultra ops (padding), so accumulation starts at the hiding op
-    //
-    // This alignment is required for the translation check (ECCVM and Translator must compute
-    // the same accumulated_result). ECCVM places it at row 1 (lagrange_second) where on-curve
-    // and eq constraints are gated off, allowing non-curve (x, y) values.
+    // The hiding op exists in both the ECCVM and Ultra tables (same Px, Py values, opcode q_eq=q_reset=1) so the
+    // translation check holds. It is set by exactly one of two entry points, depending on the proving flow:
+    //   - Chonk: UltraEccOpsTable::construct_zk_columns() builds the full ZK prefix (1 no-op + 3 random + 1 hiding)
+    //     at the front of the reconstructed Ultra table; the hiding op lands at index 4.
+    //   - Goblin AVM: append_hiding_op() pushes the Ultra side into the current subtable directly, with no surrounding
+    //     prefix.
+    // In both cases the ECCVM side is stored here and prepended to the reconstructed ECCVM table at index 0 by
+    // get_eccvm_ops(), placing it at row 1 (lagrange_second) where the on-curve and eq constraints are gated off
+    // so that non-curve (x, y) values are accepted.
     ECCVMOperation hiding_op_for_eccvm;
     bool has_hiding_op = false;
 

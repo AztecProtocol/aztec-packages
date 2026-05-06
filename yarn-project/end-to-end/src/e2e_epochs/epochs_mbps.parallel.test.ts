@@ -145,7 +145,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     const waitTimeout = test.L2_SLOT_DURATION_IN_S * 3;
     await retryUntil(
       async () => {
-        const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+        const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
         return checkpoints.some(pc => pc.checkpoint.blocks.length >= targetBlockCount) || undefined;
       },
       `checkpoint with at least ${targetBlockCount} blocks`,
@@ -153,7 +153,7 @@ describe('e2e_epochs/epochs_mbps', () => {
       0.5,
     );
 
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
     logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
     });
@@ -308,7 +308,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, logger);
 
     // Verify L2→L1 messages are in the blocks
-    const checkpoints = await archiver.getCheckpoints(CheckpointNumber(1), 50);
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
     const allBlocks = checkpoints.flatMap(pc => pc.checkpoint.blocks);
     const allL2ToL1Messages = allBlocks.flatMap(block => block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs));
     logger.warn(`Found ${allL2ToL1Messages.length} L2→L1 message(s) across all blocks`, { allL2ToL1Messages });
@@ -442,15 +442,15 @@ describe('e2e_epochs/epochs_mbps', () => {
         if (tips.proposed.number <= tips.checkpointed.block.number) {
           return false;
         }
-        const header = await nonValidatorArchiver.getBlockHeader(tips.proposed.number);
-        if (!header) {
+        const blockData = await nonValidatorArchiver.getBlockData({ number: tips.proposed.number });
+        if (!blockData) {
           return false;
         }
-        const blocksInSlot = await nonValidatorArchiver.getBlocksForSlot(header.globalVariables.slotNumber);
+        const blocksInSlot = await nonValidatorArchiver.getBlocksForSlot(blockData.header.globalVariables.slotNumber);
         if (blocksInSlot.length < 2) {
           return false;
         }
-        multiBlockSlotNumber = header.globalVariables.slotNumber;
+        multiBlockSlotNumber = blockData.header.globalVariables.slotNumber;
         checkpointedBlockNumber = tips.checkpointed.block.number;
         return true;
       },

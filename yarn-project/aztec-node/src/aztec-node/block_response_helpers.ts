@@ -1,12 +1,11 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import {
-  type BlockData,
-  type BlockDataWithCheckpointContext,
-  type CheckpointedL2Block,
-  type CommitteeAttestation,
-  L2Block,
-} from '@aztec/stdlib/block';
-import type { CheckpointData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { type BlockData, type CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import type {
+  CheckpointData,
+  L1PublishedData,
+  ProposedCheckpointData,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import {
   type BlockIncludeOptions,
   type BlockResponse,
@@ -19,7 +18,7 @@ import {
 export async function blockResponseFromL2Block(
   block: L2Block,
   options: BlockIncludeOptions,
-  context?: { l1?: BlockDataWithCheckpointContext['l1']; attestations?: CommitteeAttestation[] },
+  context?: { l1?: L1PublishedData; attestations?: CommitteeAttestation[] },
 ): Promise<BlockResponse> {
   const response: BlockResponse = {
     header: block.header,
@@ -44,9 +43,8 @@ export async function blockResponseFromL2Block(
 /** Projects metadata-only {@link BlockData} into a {@link BlockResponse}. */
 export function blockResponseFromBlockData(
   data: BlockData,
-  blockNumber: BlockNumber,
   options: BlockIncludeOptions,
-  context?: { l1?: BlockDataWithCheckpointContext['l1']; attestations?: CommitteeAttestation[] },
+  context?: { l1?: L1PublishedData; attestations?: CommitteeAttestation[] },
 ): BlockResponse {
   const response: BlockResponse = {
     header: data.header,
@@ -54,7 +52,7 @@ export function blockResponseFromBlockData(
     hash: data.blockHash,
     checkpointNumber: data.checkpointNumber,
     indexWithinCheckpoint: data.indexWithinCheckpoint,
-    number: blockNumber,
+    number: data.header.getBlockNumber(),
   };
   if (options.includeL1PublishInfo) {
     (response as BlockResponse).l1 = l1PublishInfoFromL1PublishedData(context?.l1);
@@ -63,14 +61,6 @@ export function blockResponseFromBlockData(
     (response as BlockResponse).attestations = context?.attestations ?? [];
   }
   return response;
-}
-
-/** Projects a {@link CheckpointedL2Block} into a {@link BlockResponse}. */
-export function blockResponseFromCheckpointedL2Block(
-  cp: CheckpointedL2Block,
-  options: BlockIncludeOptions,
-): Promise<BlockResponse> {
-  return blockResponseFromL2Block(cp.block, options, { l1: cp.l1, attestations: cp.attestations });
 }
 
 /** Projects a {@link PublishedCheckpoint} into a {@link CheckpointResponse}. */
@@ -126,6 +116,46 @@ export function checkpointResponseFromCheckpointData(
   }
   if (options.includeAttestations) {
     (response as CheckpointResponse).attestations = cd.attestations;
+  }
+  return response;
+}
+
+/**
+ * Projects a {@link ProposedCheckpointData} into a {@link CheckpointResponse}.
+ * Pure projection — caller pre-fetches `blocks` via `blockSource.getBlocks(...)` when
+ * `options.includeBlocks` is true. Throws if `includeL1PublishInfo` or `includeAttestations`
+ * is requested (proposed checkpoints have no L1 publish info or attestations).
+ */
+export async function projectProposedToCheckpointResponse(
+  proposed: ProposedCheckpointData,
+  options: CheckpointIncludeOptions,
+  blocks?: L2Block[],
+): Promise<CheckpointResponse> {
+  if (options.includeL1PublishInfo || options.includeAttestations) {
+    throw new Error('Proposed checkpoints have no L1 publish info or attestations');
+  }
+  const response: CheckpointResponse = {
+    number: proposed.checkpointNumber,
+    header: proposed.header,
+    archive: proposed.archive,
+    checkpointOutHash: proposed.checkpointOutHash,
+    startBlock: proposed.startBlock,
+    blockCount: proposed.blockCount,
+    feeAssetPriceModifier: proposed.feeAssetPriceModifier,
+  };
+  if (options.includeBlocks) {
+    if (!blocks) {
+      throw new Error('Blocks must be supplied when includeBlocks is true');
+    }
+    (response as CheckpointResponse).blocks = await Promise.all(
+      blocks.map(block =>
+        blockResponseFromL2Block(block, {
+          includeTransactions: options.includeTransactions,
+          includeL1PublishInfo: false,
+          includeAttestations: false,
+        }),
+      ),
+    );
   }
   return response;
 }

@@ -259,6 +259,24 @@ pub comptime fn create_public_self_enqueue_static_stub(f: FunctionDefinition) ->
     }
 }
 
+/// Creates a stub for calling a utility function on the same contract (for CallSelfUtility).
+pub comptime fn create_utility_self_call_stub(f: FunctionDefinition) -> Quoted {
+    let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, _, _, _, fn_selector) =
+        create_stub_base(f);
+    let fn_return_type = f.return_type();
+
+    quote {
+        pub unconstrained fn $fn_name(self, $fn_parameters_list) -> $fn_return_type {
+            $serialized_args_array_construction
+            let selector = $FROM_FIELD($fn_selector);
+            let returns = aztec::oracle::call_utility_function::call_utility_function(
+                self.address, selector, $serialized_args_array_name,
+            );
+            aztec::protocol::traits::Deserialize::deserialize(returns)
+        }
+    }
+}
+
 /// Creates a stub for enqueuing a public function from private context (for EnqueueSelf<&mut PrivateContext>)
 pub comptime fn create_public_self_enqueue_stub(f: FunctionDefinition) -> Quoted {
     let (fn_name, fn_parameters_list, serialized_args_array_construction, serialized_args_array_name, _serialized_args_array_len, _fn_name_str, _fn_name_len, fn_selector) =

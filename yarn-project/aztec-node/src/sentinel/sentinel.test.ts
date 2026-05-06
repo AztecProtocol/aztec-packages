@@ -8,6 +8,7 @@ import type { P2PClient } from '@aztec/p2p';
 import { OffenseType, WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '@aztec/slasher';
 import {
   CommitteeAttestation,
+  GENESIS_BLOCK_HEADER_HASH,
   L2Block,
   type L2BlockSource,
   type L2BlockStream,
@@ -61,6 +62,7 @@ describe('sentinel', () => {
   beforeEach(async () => {
     epochCache = mock<EpochCache>();
     archiver = mock<L2BlockSource>();
+    archiver.getGenesisBlockHash.mockReturnValue(GENESIS_BLOCK_HEADER_HASH);
     p2p = mock<P2PClient>();
     blockStream = mock<L2BlockStream>();
 
@@ -607,7 +609,7 @@ describe('sentinel', () => {
       epochCache.getTargetSlot.mockReturnValue(slot);
       epochCache.getEpochNow.mockReturnValue(epochNumber);
       epochCache.getTargetEpoch.mockReturnValue(epochNumber);
-      archiver.getBlockHeader.calledWith(blockNumber).mockResolvedValue(mockBlock.header);
+      archiver.getBlockData.mockResolvedValue({ header: mockBlock.header } as any);
       archiver.getL1Constants.mockResolvedValue(l1Constants);
       epochCache.getL1Constants.mockReturnValue(l1Constants);
 
@@ -729,7 +731,7 @@ describe('sentinel', () => {
       const epochNumber = getEpochAtSlot(blockSlot, l1Constants);
       const validator1 = EthAddress.random();
 
-      archiver.getBlockHeader.calledWith(blockNumber).mockResolvedValue(mockBlock.header);
+      archiver.getBlockData.mockResolvedValue({ header: mockBlock.header } as any);
 
       epochCache.getCommittee.mockResolvedValue({
         committee: [validator1],

@@ -178,7 +178,7 @@ describe('e2e_p2p_network', () => {
         const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
         const checkpointNumber = (await t.monitor.run()).checkpointNumber;
         t.logger.info(`Current block numbers ${blockNumbers} (checkpoint number on L1 is ${checkpointNumber})`);
-        const [checkpoint] = await dataStore.getCheckpoints(CheckpointNumber(1), 1);
+        const [checkpoint] = await dataStore.getCheckpoints({ from: CheckpointNumber(1), limit: 1 });
         return checkpoint;
       },
       'published checkpoint to be indexed',

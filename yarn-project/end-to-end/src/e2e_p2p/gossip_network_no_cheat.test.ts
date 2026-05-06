@@ -6,7 +6,7 @@ import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { addL1Validator } from '@aztec/cli/l1/validators';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -246,8 +246,8 @@ describe('e2e_p2p_network', () => {
     // Gather signers from attestations downloaded from L1
     const blockNumber = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]).then(r => r.blockNumber!);
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
+    const blockData = await dataStore.getBlockData({ number: BlockNumber(blockNumber) });
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
     const signatureContext = {
       chainId: t.ctx.aztecNodeConfig.l1ChainId,
       rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,

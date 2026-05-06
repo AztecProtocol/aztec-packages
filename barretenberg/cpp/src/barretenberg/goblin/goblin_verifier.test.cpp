@@ -64,14 +64,16 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
         Goblin goblin;
         GoblinMockCircuits::construct_and_merge_mock_circuits(goblin, num_circuits);
+        goblin.op_queue->construct_zk_columns();
 
         // Merge the ecc ops from the newly constructed circuit
         auto goblin_proof = goblin.prove();
         // Subtable values and commitments - needed for (Recursive)MergeVerifier
         MergeCommitments merge_commitments;
         auto t_current = goblin.op_queue->construct_current_ultra_ops_subtable_columns();
-        auto T_prev = goblin.op_queue->construct_previous_ultra_ops_table_columns();
-        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
+        auto T_prev = goblin.op_queue->construct_table_columns_up_to_tail();
+        CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows() +
+                                                       UltraEccOpsTable::ZK_ULTRA_OPS);
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             merge_commitments.t_commitments[idx] = pcs_commitment_key.commit(t_current[idx]);
             merge_commitments.T_prev_commitments[idx] = pcs_commitment_key.commit(T_prev[idx]);
@@ -105,7 +107,7 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
     auto [proof, merge_commitments, _] = create_goblin_prover_output();
 
     auto transcript = std::make_shared<NativeTranscript>();
-    bb::GoblinVerifier verifier(transcript, proof, merge_commitments, MergeSettings::APPEND);
+    bb::GoblinVerifier verifier(transcript, proof, merge_commitments);
     auto result = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     // Check pairing points (aggregate merge + translator)
@@ -132,9 +134,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 
     auto transcript = std::make_shared<Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
-    bb::GoblinRecursiveVerifier verifier{
-        transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
-    };
+    bb::GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
     auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     // Aggregate merge + translator pairing points
@@ -181,9 +181,7 @@ TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 
         auto transcript = std::make_shared<Transcript>();
         GoblinStdlibProof stdlib_proof(builder, proof);
-        bb::GoblinRecursiveVerifier verifier{
-            transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
-        };
+        bb::GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
         auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
         // Aggregate merge + translator pairing points
@@ -241,9 +239,7 @@ TEST_F(GoblinRecursiveVerifierTests, MergeToTranslatorBindingFailure)
 
     auto transcript = std::make_shared<Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
-    bb::GoblinRecursiveVerifier verifier{
-        transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
-    };
+    bb::GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
     auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     // Aggregate merge + translator pairing points
@@ -277,9 +273,7 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMToTranslatorBindingFailure)
 
     auto transcript = std::make_shared<Transcript>();
     GoblinStdlibProof stdlib_proof(builder, proof);
-    bb::GoblinRecursiveVerifier verifier{
-        transcript, stdlib_proof, recursive_merge_commitments, MergeSettings::APPEND
-    };
+    bb::GoblinRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_merge_commitments };
     [[maybe_unused]] auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
 
     EXPECT_FALSE(CircuitChecker::check(builder));

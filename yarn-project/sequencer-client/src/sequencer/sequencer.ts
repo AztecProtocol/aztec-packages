@@ -1,12 +1,11 @@
 import { getKzg } from '@aztec/blob-lib';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import type { EpochCache } from '@aztec/epoch-cache';
 import { NoCommitteeError, type RollupContract, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
@@ -25,7 +24,6 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 import { FullNodeCheckpointsBuilder, NodeKeystoreAdapter, type ValidatorClient } from '@aztec/validator-client';
 
@@ -58,9 +56,11 @@ export { SequencerState };
 export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<SequencerEvents>) {
   private runningPromise?: RunningPromise;
   private state = SequencerState.STOPPED;
+  private stateSlotNumber: SlotNumber | undefined;
   private stateEnteredAtMs = performance.now();
   private metrics: SequencerMetrics;
   private checkpointProposalJobMetrics: CheckpointProposalJobMetrics;
+  private readonly stateLog: Logger;
 
   /** The last slot for which we attempted to perform our voting duties with degraded block production */
   private lastSlotForFallbackVote: SlotNumber | undefined;
@@ -106,6 +106,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected log = createLogger('sequencer'),
   ) {
     super();
+    this.stateLog = log.createChild('state');
 
     // Add [FISHERMAN] prefix to logger if in fisherman mode
     if (config.fishermanMode) {
@@ -180,17 +181,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     try {
       await this.work();
     } catch (err) {
-      this.emit('checkpoint-error', { error: err as Error });
-      if (err instanceof SequencerTooSlowError) {
-        // Log as warn only if we had to abort halfway through the block proposal
-        const logLvl = [SequencerState.INITIALIZING_CHECKPOINT, SequencerState.PROPOSER_CHECK].includes(
-          err.proposedState,
-        )
-          ? ('debug' as const)
-          : ('warn' as const);
-        this.log[logLvl](err.message, { now: this.dateProvider.nowInSeconds() });
+      if (
+        err instanceof SequencerTooSlowError &&
+        [SequencerState.INITIALIZING_CHECKPOINT, SequencerState.PROPOSER_CHECK].includes(err.proposedState)
+      ) {
+        // No need to alert if we just didn't get to start in time
+        this.log.debug(err.message, { now: this.dateProvider.nowInSeconds() });
       } else {
         // Re-throw other errors
+        this.emit('checkpoint-error', { error: err as Error });
         throw err;
       }
     } finally {
@@ -545,22 +544,34 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.timetable.assertTimeLeft(proposedState, secondsIntoSlot);
     }
 
+    const oldState = this.state;
+    const oldStateSlotNumber = this.stateSlotNumber;
+    const stateChanged = proposedState !== oldState;
+    const transitionAtMs = performance.now();
+    const stateDurationMs = transitionAtMs - this.stateEnteredAtMs;
+
     const boringStates = [SequencerState.IDLE, SequencerState.SYNCHRONIZING];
     const logLevel =
-      boringStates.includes(proposedState) && boringStates.includes(this.state)
-        ? ('trace' as const)
-        : ('debug' as const);
-    this.log[logLevel](`Transitioning from ${this.state} to ${proposedState}`, { slotNumber, secondsIntoSlot });
+      boringStates.includes(proposedState) && boringStates.includes(oldState) ? ('trace' as const) : ('debug' as const);
+    this.stateLog[logLevel](`Transitioning from ${oldState} to ${proposedState}`, {
+      oldState,
+      newState: proposedState,
+      slotNumber,
+      stateSlotNumber: oldStateSlotNumber,
+      secondsIntoSlot,
+      ...(stateChanged && { stateDurationMs: Math.ceil(stateDurationMs) }),
+    });
 
     this.emit('state-changed', {
-      oldState: this.state,
+      oldState,
       newState: proposedState,
       secondsIntoSlot,
       slot: slotNumber,
     });
-    if (proposedState !== this.state) {
-      this.metrics.recordStateDuration(performance.now() - this.stateEnteredAtMs, this.state);
-      this.stateEnteredAtMs = performance.now();
+    if (stateChanged) {
+      this.metrics.recordStateDuration(stateDurationMs, oldState);
+      this.stateEnteredAtMs = transitionAtMs;
+      this.stateSlotNumber = slotNumber;
     }
     this.state = proposedState;
   }
@@ -594,29 +605,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.l2BlockSource.getPendingChainValidationStatus(),
-      this.l2BlockSource.getLastProposedCheckpoint(),
+      this.l2BlockSource.getProposedCheckpointData(),
     ] as const);
 
     const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpointData] =
       syncedBlocks;
 
-    // Handle zero as a special case, since the block hash won't match across services if we're changing the prefilled data for the genesis block,
-    // as the world state can compute the new genesis block hash, but other components use the hardcoded constant.
-    // TODO(palla/mbps): Fix the above. All components should be able to handle dynamic genesis block hashes.
     const result =
-      (l2Tips.proposed.number === 0 &&
-        l2Tips.checkpointed.block.number === 0 &&
-        l2Tips.checkpointed.checkpoint.number === 0 &&
-        worldState.number === 0 &&
-        p2p.number === 0 &&
-        l1ToL2MessageSourceTips.proposed.number === 0 &&
-        l1ToL2MessageSourceTips.checkpointed.block.number === 0 &&
-        l1ToL2MessageSourceTips.checkpointed.checkpoint.number === 0) ||
-      (worldState.hash === l2Tips.proposed.hash &&
-        p2p.hash === l2Tips.proposed.hash &&
-        l1ToL2MessageSourceTips.proposed.hash === l2Tips.proposed.hash &&
-        l1ToL2MessageSourceTips.checkpointed.block.hash === l2Tips.checkpointed.block.hash &&
-        l1ToL2MessageSourceTips.checkpointed.checkpoint.hash === l2Tips.checkpointed.checkpoint.hash);
+      worldState.hash === l2Tips.proposed.hash &&
+      p2p.hash === l2Tips.proposed.hash &&
+      l1ToL2MessageSourceTips.proposed.hash === l2Tips.proposed.hash &&
+      l1ToL2MessageSourceTips.checkpointed.block.hash === l2Tips.checkpointed.block.hash &&
+      l1ToL2MessageSourceTips.checkpointed.checkpoint.hash === l2Tips.checkpointed.checkpoint.hash;
 
     if (!result) {
       this.log.debug(`Sequencer sync check failed`, {
@@ -628,22 +628,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    // Special case for genesis state
     const blockNumber = worldState.number;
-    if (blockNumber < INITIAL_L2_BLOCK_NUM) {
-      const archive = new Fr((await this.worldState.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
-      return {
-        checkpointNumber: CheckpointNumber.ZERO,
-        checkpointedCheckpointNumber: CheckpointNumber.ZERO,
-        blockNumber: BlockNumber.ZERO,
-        archive,
-        hasProposedCheckpoint: false,
-        syncedL2Slot,
-        pendingChainValidationStatus,
-      };
-    }
-
-    const blockData = await this.l2BlockSource.getBlockData(blockNumber);
+    const blockData = await this.l2BlockSource.getBlockData({ number: blockNumber });
     if (!blockData) {
       // this shouldn't really happen because a moment ago we checked that all components were in sync
       this.log.error(`Failed to get L2 block data ${blockNumber} from the archiver with all components in sync`);
