@@ -15,13 +15,11 @@ Salt, deployer, and public keys are now passed when the `DeployMethod` is constr
 
 `contractAddressSalt`, `deployer`, and `universalDeploy` have been removed from `DeployOptions`, `RequestDeployOptions`, and `SimulateDeployOptions`. They now live on a new `DeployInstantiationOptions` argument passed at construction. `deployer` and `universalDeploy` are mutually exclusive; passing both throws. `Contract.deployWithPublicKeys` and the generated `MyContract.deployWithPublicKeys(...)` factories have been removed; pass `publicKeys` via the `instantiation` argument of `deploy(...)` instead. The buggy synchronous `address` and `partialAddress` getters have been removed and replaced with `getAddress()` and `getPartialAddress()` (both `async`).
 
-The compact form keeps working: `MyContract.deploy(wallet, ...args).send({ from: alice })` deploys with `deployer = alice` and `salt = random()`, exactly as before. The deployer is locked the first time `request` / `send` / `simulate` / `profile` is called (from `options.from`, with `NO_FROM` or undefined → universal) and cannot change after that:
+The compact form keeps working: `MyContract.deploy(wallet, ...args).send({ from: alice })` deploys with `deployer = alice` and `salt = random()`, exactly as before. The deployer is locked the first time `send` / `simulate` / `profile` is called (from `options.from`, with `NO_FROM` or undefined → universal) and cannot change after that:
 
-- Subsequent calls with a `from` that would imply a different deployer throw, instead of silently producing a different address.
+- Subsequent `send` / `simulate` / `profile` calls with a `from` that would imply a different deployer throw, instead of silently producing a different address.
 - A lock to universal (`AztecAddress.ZERO`) is the only one compatible with any sender, since the universal address does not depend on `from`.
 - A lock to a concrete address only accepts that exact `from` on subsequent calls.
-
-If you call `getInstance()` / `getAddress()` / `getPartialAddress()` _before_ any send-side call, you must lock the deployer explicitly at construction (`deployer: <address>` or `universalDeploy: true`); otherwise the call throws, since the address would otherwise change once the user finally sends.
 
 **Migration:**
 

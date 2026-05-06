@@ -38,27 +38,20 @@ import {
 } from './interaction_options.js';
 import type { WaitOpts } from './wait_opts.js';
 
-/** Mixin type carrying just the optional `from` field used by `request` to lazy-lock the deployer. */
-interface RequestFromField {
-  /** Sender of the deploy tx; lazily locks the deployer if not set at construction. */
-  from?: SendInteractionOptionsWithoutWait['from'];
-}
-
 /**
  * Inputs that determine the contract's deployment address.
  *
  * `salt` and `publicKeys` are optional and default to a random Fr and `PublicKeys.default()` respectively.
  *
  * `deployer` and `universalDeploy` are mutually exclusive and both optional:
- * - If neither is supplied, the deployer is locked lazily on the first `request` / `send` / `simulate` /
+ * - If neither is supplied, the deployer is locked lazily on the first `send` / `simulate` /
  *   `profile` call from `options.from` (NO_FROM/undefined → universal). This preserves the
  *   ergonomics of `MyContract.deploy(wallet, ...args).send({ from: alice })`.
  * - If `deployer` or `universalDeploy: true` is supplied, the deployer is locked at construction.
  *
  * Once locked, the deployer cannot change. Subsequent calls with a `from` that would imply a different
  * deployer throw — except when locked to `AztecAddress.ZERO` (universal), which is compatible with any
- * sender. `getInstance` / `getAddress` / `getPartialAddress` throw if called before the deployer is
- * locked, since the address would otherwise silently change once the user finally sends.
+ * sender.
  */
 export type DeployInstantiationOptions = {
   /** Salt used to derive the contract address. Defaults to a random Fr. */
@@ -150,17 +143,15 @@ export type DeployReturn<TContract extends ContractBase, W extends InteractionWa
  *
  * The deployer (and therefore the deployed address) is locked once and never changes. Locking
  * happens either at construction (via `deployer` or `universalDeploy: true` in the instantiation
- * options) or lazily on the first send-side call (`request` / `send` / `simulate` / `profile`),
- * which locks the deployer from `options.from`. Once locked:
+ * options) or lazily on the first `send` / `simulate` / `profile` call, which lock from
+ * `options.from`. Once locked:
  *
  * - The address is stable for the lifetime of this object.
- * - Subsequent send calls with a `from` that would imply a different deployer throw, to prevent
- *   silently deploying at a different address than `getInstance()` / `getAddress()` reported.
+ * - Subsequent `send` / `simulate` / `profile` calls with a `from` that would imply a different
+ *   deployer throw, to prevent silently deploying at a different address than `getAddress()`
+ *   reported.
  * - A locked universal deployer (`AztecAddress.ZERO`) is compatible with any `from`, since the
  *   address does not depend on the sender.
- *
- * `getInstance` / `getAddress` / `getPartialAddress` throw if called before the deployer is locked,
- * because the address would otherwise change once the user finally sends.
  *
  * Note that for some contracts, a tx is not required as part of its "creation":
  * If there are no public functions, and if there are no initialization functions,
@@ -244,14 +235,25 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   /**
    * Returns the execution payload that allows this operation to happen on chain.
    *
-   * If the deployer is not yet locked at construction, it is locked here from `options.from`
-   * (NO_FROM → universal deploy). Subsequent calls with an incompatible `from` throw.
+   * Requires the deployer to be locked already (either at construction via `deployer` /
+   * `universalDeploy: true`, or as a side effect of a prior `send` / `simulate` / `profile` call,
+   * which lock from `options.from`). Throws otherwise — `request` is purely about payload
+   * construction and does not look at sender information.
    *
    * @param options - Configuration options.
    * @returns The execution payload for this operation
    */
-  public async request(options: RequestDeployOptions & RequestFromField = {}): Promise<ExecutionPayload> {
-    this.lockDeployerFromSendOptions(options.from);
+  public async request(options: RequestDeployOptions = {}): Promise<ExecutionPayload> {
+    if (this.deployer === undefined) {
+      throw new Error(
+        'Cannot build deploy execution payload: deployer is not yet locked. Pass `deployer: <address>` ' +
+          'or `universalDeploy: true` as the instantiation option when constructing the deploy ' +
+          '(e.g. `MyContract.deploy(wallet, ...args, { deployer: alice })`), or call `.send` / ' +
+          '`.simulate` / `.profile` first to lock the deployer from the sender. When wrapping a ' +
+          'DeployMethod inside a BatchCall, lock the deployer at construction since BatchCall ' +
+          'invokes `request()` directly.',
+      );
+    }
     const publication = await this.getPublicationExecutionPayload(options);
 
     if (!options?.skipRegistration) {
@@ -404,6 +406,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   ): Promise<DeployReturn<TContract, W>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override async send(options: DeployOptions<InteractionWaitOptions>): Promise<any> {
+    this.lockDeployerFromSendOptions(options.from);
     const executionPayload = await this.request(options);
     const sendOptions = this.convertDeployOptionsToSendOptions(options);
 
@@ -471,6 +474,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * estimations (if requested via options), execution statistics and emitted offchain effects
    */
   public async simulate(options: SimulateDeployOptions): Promise<SimulationResult> {
+    this.lockDeployerFromSendOptions(options.from);
     const executionPayload = await this.request(options);
     const simulatedTx = await this.wallet.simulateTx(
       executionPayload,
@@ -499,6 +503,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @returns An object containing the function return value and profile result.
    */
   public async profile(options: DeployOptionsWithoutWait & ProfileInteractionOptions): Promise<TxProfileResult> {
+    this.lockDeployerFromSendOptions(options.from);
     const executionPayload = await this.request(options);
     return await this.wallet.profileTx(executionPayload, this.convertDeployOptionsToProfileOptions(options));
   }
