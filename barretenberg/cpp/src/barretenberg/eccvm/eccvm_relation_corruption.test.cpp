@@ -501,8 +501,8 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsTransitionZeroOnFirstRow)
     // Recompute logderivative inverse / grand product since msm_transition feeds into them.
     auto params_after = compute_full_relation_params(polynomials);
 
-    auto msm_failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
-        polynomials, params_after, "MSM", Flavor::TRACE_OFFSET);
+    auto msm_failures =
+        RelationChecker<void>::check<ECCVMMSMRelation<FF>>(polynomials, params_after, "MSM", Flavor::TRACE_OFFSET);
     EXPECT_FALSE(msm_failures.empty()) << "MSM-start anchor should reject msm_transition[first_msm_row] = 0";
     EXPECT_TRUE(msm_failures.contains(ECCVMMSMRelationImpl<FF>::MSM_TRANSITION_AT_ACTIVE_START))
         << "The rejecting subrelation should be the MSM-start anchor";

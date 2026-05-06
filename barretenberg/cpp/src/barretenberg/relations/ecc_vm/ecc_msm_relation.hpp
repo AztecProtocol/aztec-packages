@@ -126,9 +126,10 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+    static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS{
+        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+    };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>

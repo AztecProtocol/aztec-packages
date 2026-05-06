@@ -515,7 +515,8 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     //
     // We force msm_transition_shift = 1 whenever the current row is not actively computing an MSM phase
     // (lagrange_first, idle padding, or the synthetic-final sentinel of the previous MSM) and the next
-    // row activates a phase. q_add/q_double/q_skew are mutually exclusive booleans, so q_add_shift + q_double_shift + q_skew_shift is itself boolean.
+    // row activates a phase. q_add/q_double/q_skew are mutually exclusive booleans, so q_add_shift + q_double_shift +
+    // q_skew_shift is itself boolean.
     auto curr_not_phase = (-q_add + 1) * (-q_double + 1) * (-q_skew + 1); // degree 3
     auto next_phase = q_add_shift + q_double_shift + q_skew_shift;        // degree 1
     std::get<MSM_TRANSITION_AT_ACTIVE_START>(accumulator) +=
