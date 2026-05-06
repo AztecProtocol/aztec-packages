@@ -65,7 +65,7 @@ static constexpr size_t NUM_ZERO_ROWS = 1;
 // The maximum number of app circuits a single kernel can recursively verify
 static constexpr uint8_t MAX_APPS_PER_KERNEL = 1;
 
-static constexpr size_t CHONK_MAX_NUM_CIRCUITS = 56 + /*trailing kernels*/ 3;
+static constexpr size_t CHONK_MAX_NUM_CIRCUITS = 54 + /*trailing kernels*/ 3;
 
 static constexpr size_t BATCH_MERGE_PROOF_SIZE =
     /*num subtables*/ 1 +
