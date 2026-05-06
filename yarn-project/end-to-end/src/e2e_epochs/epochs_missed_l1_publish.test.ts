@@ -374,9 +374,6 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
       ) {
         return false;
       }
-      if (e.type === 'proposer-rollup-check-failed') {
-        return false;
-      }
       return true;
     });
     if (unexpectedFailEvents.length > 0) {
