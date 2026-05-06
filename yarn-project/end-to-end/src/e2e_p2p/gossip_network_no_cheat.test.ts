@@ -6,7 +6,7 @@ import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { addL1Validator } from '@aztec/cli/l1/validators';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -206,7 +206,11 @@ describe('e2e_p2p_network', () => {
     // validator committee. If we submit txs before a checkpoint lands on L1, a failed checkpoint
     // publish can prune locally-proposed blocks, causing txs to reference pruned block headers.
     t.logger.info('Waiting for first checkpoint to be published');
-    await retryUntil(async () => (await nodes[0].getCheckpointedBlockNumber()) > 0, 'first checkpoint published', 120);
+    await retryUntil(
+      async () => (await nodes[0].getBlockNumber('checkpointed')) > 0,
+      'first checkpoint published',
+      120,
+    );
     t.logger.info('First checkpoint published');
 
     // We need to `createNodes` before we setup account, because
@@ -242,9 +246,13 @@ describe('e2e_p2p_network', () => {
     // Gather signers from attestations downloaded from L1
     const blockNumber = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]).then(r => r.blockNumber!);
     const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const checkpointedBlock = await dataStore.getCheckpointedBlock(blockNumber);
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(checkpointedBlock!.checkpointNumber, 1);
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint);
+    const blockData = await dataStore.getBlockData({ number: BlockNumber(blockNumber) });
+    const [publishedCheckpoint] = await dataStore.getCheckpoints(blockData!.checkpointNumber, 1);
+    const signatureContext = {
+      chainId: t.ctx.aztecNodeConfig.l1ChainId,
+      rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    };
+    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
     const attestations = publishedCheckpoint.attestations
       .filter(a => !a.signature.isEmpty())
       .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));

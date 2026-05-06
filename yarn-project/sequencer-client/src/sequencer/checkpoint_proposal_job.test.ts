@@ -41,7 +41,7 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { BlockProposal, CheckpointProposal } from '@aztec/stdlib/p2p';
+import { BlockProposal, CheckpointProposal, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { type FailedTx, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
@@ -121,6 +121,10 @@ describe('CheckpointProposalJob', () => {
   const committee = [signer.address];
   const attestorAddress = EthAddress.random();
   const proposer = EthAddress.random();
+  const signatureContext: CoordinationSignatureContext = {
+    chainId: chainId.toNumber(),
+    rollupAddress: EthAddress.random(),
+  };
 
   const getSignatures = () => [mockedAttestation];
 
@@ -247,22 +251,36 @@ describe('CheckpointProposalJob', () => {
           archiveRoot,
           txHashes,
           mockedSig,
+          signatureContext,
         );
       },
     );
     validatorClient.createCheckpointProposal.mockImplementation(
       async (checkpointHeader, archiveRoot, _checkpointNumber, feeAssetPriceModifier, lastBlockInfo) => {
         if (!lastBlockInfo) {
-          return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig);
+          return new CheckpointProposal(
+            checkpointHeader,
+            archiveRoot,
+            feeAssetPriceModifier,
+            mockedSig,
+            signatureContext,
+          );
         }
         const txHashes = await Promise.all((lastBlockInfo.txs ?? []).map((tx: Tx) => tx.getTxHash()));
-        return new CheckpointProposal(checkpointHeader, archiveRoot, feeAssetPriceModifier, mockedSig, {
-          blockHeader: lastBlockInfo.blockHeader,
-          indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
-          txHashes,
-          signature: mockedSig,
-          // Note: signedTxs omitted since publishTxsWithProposals is false in tests
-        });
+        return new CheckpointProposal(
+          checkpointHeader,
+          archiveRoot,
+          feeAssetPriceModifier,
+          mockedSig,
+          signatureContext,
+          {
+            blockHeader: lastBlockInfo.blockHeader,
+            indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
+            txHashes,
+            signature: mockedSig,
+            // Note: signedTxs omitted since publishTxsWithProposals is false in tests
+          },
+        );
       },
     );
     validatorClient.signAttestationsAndSigners.mockImplementation(() => Promise.resolve(getSignatures()[0].signature));
@@ -635,6 +653,7 @@ describe('CheckpointProposalJob', () => {
       checkpointsBuilder as unknown as FullNodeCheckpointsBuilder,
       blockSink,
       l1Constants,
+      signatureContext,
       config,
       timetable,
       slasherClient,
@@ -1245,6 +1264,26 @@ describe('CheckpointProposalJob', () => {
       // waitUntilTimeInSlot should NOT be called since the only block is the last block
       expect(waitSpy).not.toHaveBeenCalled();
     });
+
+    it('stops at maxBlocksPerCheckpoint even when the timetable would allow more', async () => {
+      jest
+        .spyOn(job.getTimetable(), 'canStartNextBlock')
+        .mockReturnValueOnce({ canStart: true, deadline: 4, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 8, isLastBlock: false })
+        .mockReturnValueOnce({ canStart: true, deadline: 12, isLastBlock: true })
+        .mockReturnValue({ canStart: false, deadline: undefined, isLastBlock: false });
+
+      const { lastBlock } = await setupMultipleBlocks(3, 1);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(lastBlock));
+
+      job.updateConfig({ maxBlocksPerCheckpoint: 2 });
+
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(2);
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('build single block', () => {
@@ -1602,6 +1641,7 @@ function toCheckpointData(checkpoint: Checkpoint): CheckpointData {
     checkpointOutHash: checkpoint.getCheckpointOutHash(),
     startBlock: BlockNumber(checkpoint.blocks[0]?.number ?? 1),
     blockCount: checkpoint.blocks.length,
+    feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     attestations: [],
     l1: L1PublishedData.random(),
   };

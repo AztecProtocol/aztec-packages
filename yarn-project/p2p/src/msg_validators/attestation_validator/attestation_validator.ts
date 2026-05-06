@@ -3,9 +3,11 @@ import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type CheckpointAttestation,
+  type CoordinationSignatureContext,
   type P2PValidator,
   PeerErrorSeverity,
   type ValidationResult,
+  hasValidSignatureContext,
 } from '@aztec/stdlib/p2p';
 
 import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
@@ -14,15 +16,22 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
   protected epochCache: EpochCacheInterface;
   protected logger: Logger;
   private readonly pipeliningWindow: PipeliningWindow;
+  protected readonly signatureContext: CoordinationSignatureContext;
 
   constructor(
     epochCache: EpochCacheInterface,
     opts: {
       l1PublishingTime?: number;
+      p2pPropagationTime?: number;
+      signatureContext: CoordinationSignatureContext;
     },
   ) {
     this.epochCache = epochCache;
-    this.pipeliningWindow = new PipeliningWindow(epochCache, { l1PublishingTime: opts.l1PublishingTime });
+    this.pipeliningWindow = new PipeliningWindow(epochCache, {
+      l1PublishingTime: opts.l1PublishingTime,
+      p2pPropagationTime: opts.p2pPropagationTime,
+    });
+    this.signatureContext = opts.signatureContext;
     this.logger = createLogger('p2p:checkpoint-attestation-validator');
   }
 
@@ -30,6 +39,17 @@ export class CheckpointAttestationValidator implements P2PValidator<CheckpointAt
     const slotNumber = message.payload.header.slotNumber;
 
     try {
+      // Cross-chain replay check: reject attestations that carry a foreign signing domain.
+      if (!hasValidSignatureContext(message.payload, this.signatureContext)) {
+        this.logger.warn(`Rejecting checkpoint attestation with foreign signature context for slot ${slotNumber}`, {
+          chainId: message.payload.signatureContext.chainId,
+          rollupAddress: message.payload.signatureContext.rollupAddress.toString(),
+          expectedChainId: this.signatureContext.chainId,
+          expectedRollupAddress: this.signatureContext.rollupAddress.toString(),
+        });
+        return { result: 'reject', severity: PeerErrorSeverity.LowToleranceError };
+      }
+
       // Use target slots since proposals target pipeline slots (slot + 1 when pipelining).
       const { targetSlot, nextSlot } = this.epochCache.getTargetAndNextSlot();
 

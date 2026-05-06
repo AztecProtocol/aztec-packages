@@ -60,6 +60,9 @@ struct SideEffectArgs {
     common: CommonArgs,
     #[arg(long, default_value_t = 5)]
     storage_slots: usize,
+    /// Directory containing compiled contract artifacts.
+    #[arg(long, default_value = "/tmp")]
+    artifacts_dir: String,
 }
 
 fn parse_hex_u64(s: &str) -> Result<u64, String> {
@@ -123,6 +126,7 @@ fn main() {
             let mut machine = side_effect::SideEffectMachine {
                 storage_slots: se_args.storage_slots,
                 bridge: Some(&bridge),
+                artifacts_dir: se_args.artifacts_dir.clone(),
             };
             log::debug!(
                 "Starting side-effect machine with parameters: {:?}",
@@ -162,6 +166,10 @@ mod integration_tests {
             bridge
         });
         &BRIDGE
+    }
+
+    fn artifacts_dir() -> String {
+        std::env::var("ARTIFACTS_DIR").unwrap_or_else(|_| "/tmp".to_string())
     }
 
     /// Verifies the sandbox is reachable and test accounts can be imported.
@@ -205,6 +213,7 @@ mod integration_tests {
         let mut machine = side_effect::SideEffectMachine {
             storage_slots: 2,
             bridge: Some(bridge),
+            artifacts_dir: artifacts_dir(),
         };
         smt::fixed_size_builder(1024).run(|u| smt::run(u, &mut machine, 5))
     }
@@ -271,6 +280,7 @@ mod integration_tests {
         let mut machine = side_effect::SideEffectMachine {
             storage_slots: 1,
             bridge: Some(bridge),
+            artifacts_dir: artifacts_dir(),
         };
         let state = side_effect::machine::SideEffectState {
             accounts: vec![0, 1, 2],
@@ -327,6 +337,7 @@ mod integration_tests {
             let mut machine = side_effect::SideEffectMachine {
                 storage_slots: 3,
                 bridge: None,
+                artifacts_dir: artifacts_dir(),
             };
             let mut state = machine.gen_state(&mut u).unwrap();
             let mut commands = Vec::new();

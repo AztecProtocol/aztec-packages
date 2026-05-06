@@ -2,7 +2,7 @@ import type { LoggerBindings } from '@aztec/foundation/log';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { EMPTY_GENESIS_DATA, type GenesisData } from '@aztec/stdlib/world-state';
+import { EMPTY_GENESIS_DATA, type GenesisData, isGenesisData } from '@aztec/stdlib/world-state';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
@@ -22,21 +22,23 @@ export interface WorldStateTreeMapSizes {
 export async function createWorldStateSynchronizer(
   config: WorldStateConfig & DataStoreConfig,
   l2BlockSource: L2BlockSource & L1ToL2MessageSource,
-  genesis: GenesisData = EMPTY_GENESIS_DATA,
+  genesisOrNativeWorldState: GenesisData | NativeWorldStateService,
   client: TelemetryClient = getTelemetryClient(),
   bindings?: LoggerBindings,
   wsdbBackend?: WsdbIpcBackend,
   recreateIpcInstance?: () => Promise<import('../native/native_world_state_instance.js').NativeWorldStateInstance>,
 ) {
   const instrumentation = new WorldStateInstrumentation(client);
-  const merkleTrees = await createWorldState(
-    config,
-    genesis,
-    instrumentation,
-    bindings,
-    wsdbBackend,
-    recreateIpcInstance,
-  );
+  const merkleTrees = isGenesisData(genesisOrNativeWorldState)
+    ? await createWorldState(
+        config,
+        genesisOrNativeWorldState,
+        instrumentation,
+        bindings,
+        wsdbBackend,
+        recreateIpcInstance,
+      )
+    : genesisOrNativeWorldState;
   return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, instrumentation);
 }
 

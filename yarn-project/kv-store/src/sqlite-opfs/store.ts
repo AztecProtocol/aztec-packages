@@ -68,18 +68,48 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
    * Pass `poolDirectory` to place the SAH Pool in a non-default OPFS subdirectory —
    * required when multiple stores coexist in the same tab, because the SAH Pool holds
    * an exclusive lock on its directory.
+   *
+   * Pass `encryptionKey` (exactly 32 bytes) to enable at-rest encryption via sqlite3mc's
+   * ChaCha20 page cipher. The key buffer is **transferred** to the worker — its
+   * ArrayBuffer detaches on the caller side after `postMessage`. This is intentional:
+   * the API encodes a one-key-one-owner invariant. A caller that wants to use the same
+   * key for multiple stores must explicitly clone it per call (e.g.
+   * `new Uint8Array(savedKey)`), making the duplication a visible, deliberate decision
+   * rather than a silent structured-clone operation. The default path (one `.open()`,
+   * one consumption of the key) leaves zero key bytes on the main thread after the call.
    */
   static async open(
     log: Logger,
     name?: string,
     ephemeral: boolean = false,
     poolDirectory?: string,
+    encryptionKey?: Uint8Array,
   ): Promise<AztecSQLiteOPFSStore> {
+    if (encryptionKey !== undefined && encryptionKey.length !== 32) {
+      throw new Error(`encryptionKey must be 32 bytes (got ${encryptionKey.length})`);
+    }
+    if (encryptionKey !== undefined && ephemeral) {
+      throw new Error('encryptionKey is not supported for ephemeral (:memory:) stores');
+    }
     const dbName = name && !ephemeral ? name : `tmp-${globalThis.crypto.getRandomValues(new Uint8Array(8)).join('')}`;
-    log.debug(`Opening SQLite-OPFS ${ephemeral ? 'ephemeral ' : ''}database ${dbName}`);
+    log.debug(
+      `Opening SQLite-OPFS ${ephemeral ? 'ephemeral ' : ''}${encryptionKey ? 'encrypted ' : ''}database ${dbName}`,
+    );
     const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
     const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral);
-    await store.#sendRequest({ type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory });
+    // Transfer (not clone) the key buffer to the worker so we don't leave a
+    // second copy on the main thread. Caveat: this detaches the caller's
+    // encryptionKey.buffer — subsequent reads from the same Uint8Array are empty.
+    const transfer = encryptionKey ? [encryptionKey.buffer as ArrayBuffer] : undefined;
+    try {
+      await store.#sendRequest(
+        { type: 'init', id: store.#allocId(), dbName, ephemeral, poolDirectory, encryptionKey },
+        transfer,
+      );
+    } catch (err) {
+      worker.terminate();
+      throw err;
+    }
     return store;
   }
 
@@ -230,7 +260,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     this.#pending.clear();
   }
 
-  #sendRequest(req: WorkerRequest): Promise<WorkerResponse> {
+  #sendRequest(req: WorkerRequest, transfer?: Transferable[]): Promise<WorkerResponse> {
     return new Promise<WorkerResponse>((resolve, reject) => {
       this.#pending.set(req.id, {
         resolve: resp => {
@@ -242,7 +272,11 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
         },
         reject,
       });
-      this.#worker.postMessage(req);
+      if (transfer && transfer.length > 0) {
+        this.#worker.postMessage(req, transfer);
+      } else {
+        this.#worker.postMessage(req);
+      }
     });
   }
 }

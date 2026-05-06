@@ -18,7 +18,6 @@ class ChonkRecursionConstraintTest : public ::testing::Test {
     using ProverInstance = ProverInstance_<Flavor>;
     using VerificationKey = Flavor::VerificationKey;
     // Types for Chonk
-    using DeciderZKProvingKey = ProverInstance_<MegaZKFlavor>;
     using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
 
     // Public inputs added by bb to a Chonk proof

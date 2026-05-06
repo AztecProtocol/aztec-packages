@@ -1,0 +1,1 @@
+Function foo must be marked as either #[external(...)], #[internal(...)], or #[test]

@@ -4,7 +4,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { AztecLMDBStoreV2, createStore } from '@aztec/kv-store/lmdb-v2';
-import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockHash, L2BlockSource } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { BlockMinFeesProvider } from '@aztec/stdlib/gas';
@@ -58,6 +58,7 @@ export async function createP2PClient(
   dateProvider: DateProvider = new DateProvider(),
   telemetry: TelemetryClient = getTelemetryClient(),
   deps: P2PClientDeps = {},
+  initialBlockHash: BlockHash,
 ) {
   const config = await configureP2PClientAddresses({
     ...inputConfig,
@@ -76,7 +77,7 @@ export async function createP2PClient(
   const store = deps.store ?? (await createStore(P2P_STORE_NAME, 2, config, bindings));
   const archive = await createStore(P2P_ARCHIVE_STORE_NAME, 1, config, bindings);
   const peerStore = await createStore(P2P_PEER_STORE_NAME, 1, config, bindings);
-  const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 1, config, bindings);
+  const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 2, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
   const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
@@ -210,6 +211,8 @@ export async function createP2PClient(
     config,
     dateProvider,
     telemetry,
+    undefined,
+    initialBlockHash,
   );
 }
 

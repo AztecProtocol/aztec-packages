@@ -24,7 +24,7 @@ using namespace bb;
  * - INNER kernel: Two HN constraints (verifies previous kernel + new app)
  * - RESET kernel: Single HN constraint (verifies kernel only, resets accumulation)
  * - TAIL kernel: Single HN_TAIL constraint (final kernel before hiding kernel)
- * - HIDING kernel: Single HN_FINAL constraint (adds ZK hiding)
+ * - HIDING kernel: Single HN_FINAL constraint (adds ZK hiding and verifies one batch merge proof)
  *
  * @param constraints The IVC recursion constraints extracted from an Aztec kernel's ACIR
  * @return Chonk instance with mock verification queue entries matching the constraint pattern
@@ -139,8 +139,7 @@ Chonk::VerifierInputs create_mock_verification_queue_entry(const Chonk::QUEUE_TY
  * 1. Initializes the recursive verifier accumulator (challenge vector, evaluations, commitments)
  *    - This is hashed in-circuit to bind the accumulator state
  * 2. Adds a mock verification queue entry (proof + VK) for the accumulated circuit
- * 3. Adds a mock merge proof
- * 4. For HN_FINAL: also adds a mock decider/PCS proof
+ * 3. For HN_FINAL: adds one mock batch merge proof and a mock decider/PCS proof
  *
  * @param ivc The Chonk instance to populate
  * @param type Verification queue type determining proof structure
@@ -160,8 +159,8 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, Chonk::QUEUE_TYP
 
     Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry(type, is_kernel);
     ivc->verification_queue.emplace_back(entry);
-    ivc->goblin.merge_verification_queue.emplace_back(acir_format::create_mock_merge_proof());
     if (type == Chonk::QUEUE_TYPE::HN_FINAL) {
+        ivc->goblin.batch_merge_proof = acir_format::create_mock_batch_merge_proof();
         ivc->decider_proof = acir_format::create_mock_pcs_proof<Chonk::Flavor>();
     }
     ivc->num_circuits_accumulated++;

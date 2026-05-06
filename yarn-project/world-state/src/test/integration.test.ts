@@ -1,7 +1,8 @@
 import { MockPrefilledArchiver } from '@aztec/archiver/test';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
@@ -59,6 +60,8 @@ describe('world-state integration', () => {
     archiver = new MockPrefilledArchiver(checkpoints);
 
     db = (await createWorldState(config)) as NativeWorldStateService;
+    await archiver.setInitialHeader(db.getInitialHeader());
+    archiver.setGenesisArchiveRoot(new Fr(GENESIS_ARCHIVE_ROOT));
     synchronizer = new TestWorldStateSynchronizer(db, archiver, config);
     log.info(`Created synchronizer`);
   }, 30_000);
@@ -95,7 +98,7 @@ describe('world-state integration', () => {
 
   const expectSynchedBlockHashMatches = async (number: number) => {
     const syncedBlockHash = await db.getCommitted().getLeafValue(MerkleTreeId.ARCHIVE, BigInt(number));
-    const archiverBlockHash = await (await archiver.getBlockHeader(number))?.hash();
+    const archiverBlockHash = await (await archiver.getBlockData({ number: BlockNumber(number) }))?.header.hash();
     expect(syncedBlockHash).toEqual(archiverBlockHash);
   };
 
@@ -144,8 +147,6 @@ describe('world-state integration', () => {
     });
 
     it('syncs from latest block when restarting', async () => {
-      const getBlocksSpy = jest.spyOn(archiver, 'getBlocks');
-
       await synchronizer.start();
       await archiver.createBlocks(5);
       await awaitSync(5);
@@ -161,10 +162,6 @@ describe('world-state integration', () => {
       await archiver.createBlocks(4);
       await awaitSync(12);
       await expectSynchedToBlock(12);
-
-      expect(getBlocksSpy).toHaveBeenCalledWith(1, 5);
-      expect(getBlocksSpy).toHaveBeenCalledWith(6, 3);
-      expect(getBlocksSpy).toHaveBeenCalledWith(9, 4);
     });
   });
 

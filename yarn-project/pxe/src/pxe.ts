@@ -18,7 +18,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2TipsProvider } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -89,6 +89,14 @@ export type PackedPrivateEvent = InTx & {
   eventSelector: EventSelector;
 };
 
+/** Options for PXE.proveTx. */
+export type ProveTxOpts = {
+  /** Addresses whose private state and keys are accessible during private execution. */
+  scopes: AztecAddress[];
+  /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
+  senderForTags?: AztecAddress;
+};
+
 /** Options for PXE.profileTx. */
 export type ProfileTxOpts = {
   /** The profiling mode to use. */
@@ -97,6 +105,8 @@ export type ProfileTxOpts = {
   skipProofGeneration?: boolean;
   /** Addresses whose private state and keys are accessible during private execution. */
   scopes: AztecAddress[];
+  /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
+  senderForTags?: AztecAddress;
 };
 
 /** Options for PXE.simulateTx. */
@@ -113,6 +123,8 @@ export type SimulateTxOpts = {
   overrides?: SimulationOverrides;
   /** Addresses whose private state and keys are accessible during private execution */
   scopes: AztecAddress[];
+  /** Sender address used to derive discovery tags for private messages (notes, events, logs) this tx emits. */
+  senderForTags?: AztecAddress;
 };
 
 /** Options for PXE.executeUtility. */
@@ -200,6 +212,14 @@ export class PXE {
 
     const info = await node.getNodeInfo();
 
+    // Source the genesis block hash from the node so PXE's L2BlockStream agrees with the node's
+    // archiver on the dynamic initial header hash. Without this the tip store would fall back to
+    // the static `GENESIS_BLOCK_HEADER_HASH` constant, which only matches deployments with the
+    // default empty genesis (timestamp 0, no prefilled public data) and diverges otherwise — the
+    // sync at block 0 would then get stuck in `areBlockHashesEqualAt` and abort. If the node does
+    // not return a genesis block (older node or test fixture) we fall back to the static constant.
+    const initialBlockHash = (await node.getBlock(BlockNumber.ZERO))?.hash ?? GENESIS_BLOCK_HEADER_HASH;
+
     const proverEnabled = config.proverEnabled !== undefined ? config.proverEnabled : info.realProofs;
     const addressStore = new AddressStore(store);
     const privateEventStore = new PrivateEventStore(store);
@@ -211,7 +231,7 @@ export class PXE {
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const capsuleStore = new CapsuleStore(store);
     const keyStore = new KeyStore(store);
-    const tipsStore = new L2TipsKVStore(store, 'pxe');
+    const tipsStore = new L2TipsKVStore(store, 'pxe', initialBlockHash);
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,
@@ -368,13 +388,21 @@ export class PXE {
 
   // Executes the entrypoint private function, as well as all nested private
   // functions that might arise.
-  async #executePrivate(
-    contractFunctionSimulator: ContractFunctionSimulator,
-    txRequest: TxExecutionRequest,
-    anchorBlockHeader: BlockHeader,
-    scopes: AztecAddress[],
-    jobId: string,
-  ): Promise<PrivateExecutionResult> {
+  async #executePrivate({
+    contractFunctionSimulator,
+    txRequest,
+    anchorBlockHeader,
+    scopes,
+    jobId,
+    senderForTags,
+  }: {
+    contractFunctionSimulator: ContractFunctionSimulator;
+    txRequest: TxExecutionRequest;
+    anchorBlockHeader: BlockHeader;
+    scopes: AztecAddress[];
+    jobId: string;
+    senderForTags?: AztecAddress;
+  }): Promise<PrivateExecutionResult> {
     const { origin: contractAddress, functionSelector } = txRequest;
 
     try {
@@ -394,6 +422,7 @@ export class PXE {
         anchorBlockHeader,
         scopes,
         jobId,
+        senderForTags,
       });
       this.log.debug(`Private simulation completed for ${contractAddress.toString()}:${functionSelector}`);
       return result;
@@ -740,7 +769,7 @@ export class PXE {
    * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
-  public proveTx(txRequest: TxExecutionRequest, scopes: AztecAddress[]): Promise<TxProvingResult> {
+  public proveTx(txRequest: TxExecutionRequest, { scopes, senderForTags }: ProveTxOpts): Promise<TxProvingResult> {
     let privateExecutionResult: PrivateExecutionResult;
     // We disable proving concurrently mostly out of caution, since it accesses some of our stores. Proving is so
     // computationally demanding that it'd be rare for someone to try to do it concurrently regardless.
@@ -752,13 +781,14 @@ export class PXE {
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        privateExecutionResult = await this.#executePrivate(
+        privateExecutionResult = await this.#executePrivate({
           contractFunctionSimulator,
           txRequest,
           anchorBlockHeader,
           scopes,
           jobId,
-        );
+          senderForTags,
+        });
 
         const {
           publicInputs,
@@ -828,7 +858,7 @@ export class PXE {
    */
   public profileTx(
     txRequest: TxExecutionRequest,
-    { profileMode, skipProofGeneration = true, scopes }: ProfileTxOpts,
+    { profileMode, skipProofGeneration = true, scopes, senderForTags }: ProfileTxOpts,
   ): Promise<TxProfileResult> {
     // We disable concurrent profiles for consistency with simulateTx.
     return this.#putInJobQueue(async jobId => {
@@ -852,13 +882,14 @@ export class PXE {
         const syncTime = syncTimer.ms();
 
         const contractFunctionSimulator = this.#getSimulatorForTx();
-        const privateExecutionResult = await this.#executePrivate(
+        const privateExecutionResult = await this.#executePrivate({
           contractFunctionSimulator,
           txRequest,
           anchorBlockHeader,
           scopes,
           jobId,
-        );
+          senderForTags,
+        });
 
         const { executionSteps, timings: { proving } = {} } = await this.#prove(
           txRequest,
@@ -932,6 +963,7 @@ export class PXE {
       skipKernels = true,
       overrides,
       scopes,
+      senderForTags,
     }: SimulateTxOpts,
   ): Promise<TxSimulationResult> {
     // We disable concurrent simulations since those might execute oracles which read and write to the PXE stores (e.g.
@@ -974,13 +1006,14 @@ export class PXE {
         }
 
         // Execution of private functions only; no proving, and no kernel logic.
-        const privateExecutionResult = await this.#executePrivate(
+        const privateExecutionResult = await this.#executePrivate({
           contractFunctionSimulator,
           txRequest,
           anchorBlockHeader,
           scopes,
           jobId,
-        );
+          senderForTags,
+        });
 
         let publicInputs: PrivateKernelTailCircuitPublicInputs | undefined;
         let executionSteps: PrivateExecutionStep[] = [];

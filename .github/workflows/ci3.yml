@@ -291,20 +291,19 @@ jobs:
         uses: benchmark-action/github-action-benchmark@4de1bed97a47495fc4c5404952da0499e31f5c29
         with: *ci_benchmark_args
 
-      - name: Notify Slack on failure
+      - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure() && startsWith(github.ref, 'refs/tags/v')
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           GIT_REF: ${{ github.ref }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TEST_SET: ${{ matrix.test_set }}
         run: |
-          if [ -n "${SLACK_BOT_TOKEN}" ]; then
-            TEXT="Nightly Spartan Scenario FAILED in ci3.yml (nightly tag ${GIT_REF}: <${RUN_URL}|View Run>"
-            curl -X POST https://slack.com/api/chat.postMessage \
-              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
-              -H "Content-type: application/json" \
-              --data "$(jq -n --arg c "#alerts-next-scenario" --arg t "$TEXT" '{channel:$c, text:$t}')"
-          fi
+          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
+            "Nightly Spartan Scenario FAILED in ci3.yml (set ${TEST_SET}, nightly tag ${GIT_REF}): <${RUN_URL}|View Run> (🤖)" \
+            "Nightly Spartan Scenario tests failed (matrix set ${TEST_SET}, nightly tag ${GIT_REF}). CI run: ${RUN_URL}. Investigate the scenario test failure and identify the root cause." \
+            --link "$RUN_URL"
 
   # Spartan network benchmarks triggered on-demand from a PR label.
   # Runs TPS and proving benchmarks in parallel, uploads results to a PR-specific
@@ -446,3 +445,108 @@ jobs:
           AWS_SHUTDOWN_TIME: 180
         run: |
           ./.github/ci3.sh network-tests-kind
+
+  # Backwards compatibility e2e tests.
+  # Runs e2e tests with contract artifacts from every prior stable release to validate
+  # that new client code works with old contract artifacts ("new pxe / old contracts").
+  # Blocking for stable/RC releases: ci-release-publish requires this job to pass before
+  # publishing. Observational for nightlies: runs, but continue-on-error keeps the workflow
+  # green and ci-release-publish's condition publishes nightlies regardless of the result.
+  # Escape hatch: ci-skip-compat-e2e label makes failures non-blocking on release PRs.
+  ci-compat-e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    needs: [ci]
+    if: |
+      always()
+      && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
+      && github.event.pull_request.head.repo.fork != true
+      && github.event.pull_request.draft == false
+      && (
+        (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-commit.'))
+        || contains(github.event.pull_request.labels.*.name, 'ci-compat-e2e')
+        || contains(github.event.pull_request.labels.*.name, 'ci-release-pr')
+      )
+    # Non-blocking for nightlies and when ci-skip-compat-e2e escape hatch is applied.
+    continue-on-error: ${{ contains(github.ref_name, '-nightly.') || contains(github.event.pull_request.labels.*.name, 'ci-skip-compat-e2e') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: ci3-compat-e2e-${{ github.run_id }}
+          role-duration-seconds: 21600 # 6h – covers AWS_SHUTDOWN_TIME (300 min) + 60 min buffer
+
+      - name: Run Backwards Compatibility E2E Tests
+        timeout-minutes: 330
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
+          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
+          RUN_ID: ${{ github.run_id }}
+          AWS_SHUTDOWN_TIME: 300
+        run: ./.github/ci3.sh compat-e2e
+
+  # Publishes the release (npm, Docker, GitHub release, aztec-up scripts, etc.).
+  # Gated on ci-compat-e2e: a compat regression blocks stable/RC publishing. Nightlies
+  # publish regardless — compat-e2e runs there observationally. Dev `-commit.` tags from
+  # the ci-release-pr flow never reach this job (they are not real releases).
+  ci-release-publish:
+    runs-on: ubuntu-latest
+    environment: master
+    permissions:
+      id-token: write
+      contents: read
+    needs: [ci, ci-compat-e2e]
+    if: |
+      startsWith(github.ref, 'refs/tags/v')
+      && !contains(github.ref_name, '-commit.')
+      && needs.ci.result == 'success'
+      && (
+        contains(github.ref_name, '-nightly.')
+        || needs.ci-compat-e2e.result == 'success'
+      )
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: ci3-release-publish-${{ github.run_id }}
+          role-duration-seconds: 21600
+
+      - name: Run Release Publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
+          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
+          RUN_ID: ${{ github.run_id }}
+        run: ./.github/ci3.sh release-publish

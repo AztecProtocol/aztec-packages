@@ -364,9 +364,9 @@ export class ProverNodePublisher {
       end: argsArray[1],
       args: argsArray[2],
       fees: argsArray[3],
-      attestations: new CommitteeAttestationsAndSigners(
+      attestations: CommitteeAttestationsAndSigners.packAttestations(
         args.attestations.map(a => CommitteeAttestation.fromViem(a)),
-      ).getPackedAttestations(),
+      ),
       blobInputs: argsArray[4],
       proof: proofHex,
     };

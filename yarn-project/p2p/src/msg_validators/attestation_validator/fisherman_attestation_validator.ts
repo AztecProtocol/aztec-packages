@@ -1,5 +1,10 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { type CheckpointAttestation, PeerErrorSeverity, type ValidationResult } from '@aztec/stdlib/p2p';
+import {
+  type CheckpointAttestation,
+  type CoordinationSignatureContext,
+  PeerErrorSeverity,
+  type ValidationResult,
+} from '@aztec/stdlib/p2p';
 import { Attributes, Metrics, type TelemetryClient, createUpDownCounterWithDefault } from '@aztec/telemetry-client';
 
 import type { AttestationPoolApi } from '../../mem_pools/attestation_pool/attestation_pool.js';
@@ -22,7 +27,9 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
     telemetryClient: TelemetryClient,
     opts: {
       l1PublishingTime?: number;
-    } = {},
+      p2pPropagationTime?: number;
+      signatureContext: CoordinationSignatureContext;
+    },
   ) {
     super(epochCache, opts);
     this.logger = this.logger.createChild('[FISHERMAN]');
@@ -57,8 +64,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
       return { result: 'accept' };
     }
 
-    const proposalId = message.archive.toString();
-    const proposal = await this.attestationPool.getCheckpointProposal(proposalId);
+    const proposal = await this.attestationPool.getCheckpointProposal(message.payload.header.slotNumber);
 
     if (proposal) {
       // Compare the attestation payload with the proposal payload
@@ -87,9 +93,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
       }
     } else {
       // We might receive attestations before proposals in some cases
-      this.logger.debug(
-        `Received attestation for slot ${slotNumberBigInt} but proposal not found yet. ` + `Proposal ID: ${proposalId}`,
-      );
+      this.logger.debug(`Received attestation for slot ${slotNumberBigInt} but proposal not found yet.`);
     }
 
     return { result: 'accept' };

@@ -1,4 +1,4 @@
-import { createArchiverStore } from '@aztec/archiver';
+import { createArchiverStore, createContractDataSource } from '@aztec/archiver';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { Logger } from '@aztec/foundation/log';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
@@ -42,8 +42,9 @@ export async function rerunEpochProvingJob(
     throw new Error('aztec-avm binary not found');
   }
 
+  const contractDataSource = createContractDataSource(archiver);
   const cdbServer = new CdbIpcServer();
-  const contractsDB = new PublicContractsDB(archiver);
+  const contractsDB = new PublicContractsDB(contractDataSource);
   cdbServer.registerFork(0, contractsDB, 0n);
 
   const avmPool = new AvmSimulatorPool({
@@ -53,7 +54,7 @@ export async function rerunEpochProvingJob(
   });
 
   const publicProcessorFactory = new PublicProcessorFactory(
-    archiver,
+    contractDataSource,
     avmPool,
     cdbServer,
     undefined,

@@ -81,6 +81,8 @@ export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, 'l1Contracts'
     'archiverPollingIntervalMS' | 'archiverBatchSize' | 'skipValidateCheckpointAttestations'
   > & {
     maxPendingTxCount: number;
+    // Keep in sync with P2PConfig.skipIncomingProposals (circular dep prevents Pick<P2PConfig, ...> here)
+    skipIncomingProposals?: boolean;
   };
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
@@ -93,7 +95,7 @@ export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConf
       skipValidateCheckpointAttestations: true,
     }),
   )
-  .merge(z.object({ maxPendingTxCount: z.number() }));
+  .merge(z.object({ maxPendingTxCount: z.number(), skipIncomingProposals: z.boolean().optional() }));
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   getConfig: z.function().returns(AztecNodeAdminConfigSchema),

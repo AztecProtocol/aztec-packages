@@ -37,9 +37,11 @@ export function reqRespBlockTxsHandler(
       throw new ReqRespStatusError(ReqRespStatus.BADLY_FORMED_REQUEST, { cause: err });
     }
     // First try attestation pool, then fall back to archiver
-    let txHashes = (await attestationPool.getBlockProposal(request.archiveRoot.toString()))?.txHashes;
+    let txHashes = (await attestationPool.getBlockProposalByArchive(request.archiveRoot.toString()))?.txHashes;
     if (!txHashes) {
-      txHashes = (await archiver.getL2BlockByArchive(request.archiveRoot))?.body.txEffects.map(effect => effect.txHash);
+      txHashes = (await archiver.getBlock({ archive: request.archiveRoot }))?.body.txEffects.map(
+        effect => effect.txHash,
+      );
     }
 
     let requestedTxsHashes;

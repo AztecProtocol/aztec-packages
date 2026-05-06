@@ -23,6 +23,7 @@ import {
   type InteractionWaitOptions,
   NO_FROM,
   type ProfileInteractionOptions,
+  type SendInteractionOptionsWithoutWait,
 } from '../contract/interaction_options.js';
 import type { FeePaymentMethod } from '../fee/fee_payment_method.js';
 import { AccountEntrypointMetaPaymentMethod } from './account_entrypoint_meta_payment_method.js';
@@ -72,6 +73,12 @@ export type DeployAccountOptions<W extends InteractionWaitOptions = undefined> =
  * for account contracts that is fixed in the constructor
  */
 export type SimulateDeployAccountOptions = Omit<SimulateDeployOptions, 'contractAddressSalt'>;
+
+/** Fields from any interaction option shape that `DeployAccountMethod.prepareDeployOptions` reads or sets. */
+type DeployAccountInteractionOptions = Pick<
+  SendInteractionOptionsWithoutWait,
+  'additionalScopes' | 'from' | 'sendMessagesAs'
+>;
 
 /**
  * Modified version of the DeployMethod used to deploy account contracts. Supports deploying
@@ -184,30 +191,35 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
   protected override convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
   ): SendOptions<W> {
-    return super.convertDeployOptionsToSendOptions(this.injectContractAddressIntoScopes(options));
+    return super.convertDeployOptionsToSendOptions(this.prepareDeployOptions(options));
   }
 
   protected override convertDeployOptionsToSimulateOptions(options: SimulateDeployOptions): SimulateOptions {
-    return super.convertDeployOptionsToSimulateOptions(this.injectContractAddressIntoScopes(options));
+    return super.convertDeployOptionsToSimulateOptions(this.prepareDeployOptions(options));
   }
 
   protected override convertDeployOptionsToProfileOptions(
     options: DeployOptionsWithoutWait & ProfileInteractionOptions,
   ): ProfileOptions {
-    return super.convertDeployOptionsToProfileOptions(this.injectContractAddressIntoScopes(options));
+    return super.convertDeployOptionsToProfileOptions(this.prepareDeployOptions(options));
   }
 
   /**
-   * Injects the contract's own address into scopes so the constructor can access its own keys.
-   * @param options - The deploy options to augment with the contract address.
+   * Augments deploy options so that the PXE has the context it needs to simulate/prove the deploy.
+   *
+   * - Injects the contract's own address into scopes so the constructor can access its own keys.
+   * - When `from === NO_FROM` (self-paid deploy), supplies the to-be-deployed address as `sendMessagesAs`. Without
+   *   this, fee-payment calls would have no sender for message tagging, and any private log they emit would fail
+   *   the "Sender for tags is not set" assertion.
+   * @param options - The deploy options to augment.
    */
-  // eslint-disable-next-line jsdoc/require-jsdoc
-  private injectContractAddressIntoScopes<T extends { additionalScopes?: AztecAddress[] }>(options: T): T {
+  private prepareDeployOptions<T extends DeployAccountInteractionOptions>(options: T): T {
     if (!this.address) {
       throw new Error('Instance not yet constructed. This is a bug!');
     }
     const existing = options.additionalScopes ?? [];
-    return { ...options, additionalScopes: [...existing, this.address] };
+    const sendMessagesAs = options.sendMessagesAs ?? (options.from === NO_FROM ? this.address : undefined);
+    return { ...options, additionalScopes: [...existing, this.address], sendMessagesAs };
   }
 
   /**

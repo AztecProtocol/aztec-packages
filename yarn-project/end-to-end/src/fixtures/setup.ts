@@ -734,7 +734,7 @@ export async function waitForProvenChain(node: AztecNode, targetBlock?: BlockNum
   targetBlock ??= await node.getBlockNumber();
 
   await retryUntil(
-    async () => (await node.getProvenBlockNumber()) >= targetBlock,
+    async () => (await node.getBlockNumber('proven')) >= targetBlock,
     'proven chain status',
     timeoutSec,
     intervalSec,

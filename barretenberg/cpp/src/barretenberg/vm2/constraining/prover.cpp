@@ -222,11 +222,20 @@ void AvmProver::execute_pcs_rounds()
 
     Polynomial batched_shifted = std::move(shifted_polys[max_idx]);
     batched_shifted *= shifted_challenges[max_idx];
-    for (size_t idx = 0; const auto [poly, challenge] : zip_view(shifted_polys, shifted_challenges)) {
-        if (idx != max_idx) {
-            batched_shifted.add_scaled(poly, challenge);
+    {
+        // Fuse the remaining add_scaled dispatches into a single parallel_for to amortise startup cost.
+        std::vector<PolynomialSpan<const FF>> sources;
+        std::vector<FF> scalars;
+        sources.reserve(shifted_polys.size());
+        scalars.reserve(shifted_polys.size());
+        for (size_t idx = 0; idx < shifted_polys.size(); ++idx) {
+            if (idx != max_idx) {
+                sources.emplace_back(shifted_polys[idx]);
+                scalars.push_back(shifted_challenges[idx]);
+            }
         }
-        idx++;
+        add_scaled_batch(
+            batched_shifted, std::span<const PolynomialSpan<const FF>>(sources), std::span<const FF>(scalars));
     }
 
     // Batch unshifted polys (to avoid allocating a zero polynomial of circuit size, we initialize the batched
@@ -236,14 +245,24 @@ void AvmProver::execute_pcs_rounds()
     Polynomial batched_unshifted = std::move(unshifted_polys[max_idx]);
     batched_unshifted *= unshifted_challenges[max_idx];
     batched_unshifted += batched_shifted;
-    for (size_t idx = 0; const auto [poly, challenge] : zip_view(unshifted_polys, unshifted_challenges)) {
-        // Only operate in the range of not to be shifted polys, as the contribution for those has already been added
-        if (idx < WIRES_TO_BE_SHIFTED_START_IDX || idx >= WIRES_TO_BE_SHIFTED_END_IDX) {
-            if (idx != max_idx) {
-                batched_unshifted.add_scaled(poly, challenge);
+    {
+        // Only operate in the range of not to be shifted polys, as the contribution for those has already been added.
+        std::vector<PolynomialSpan<const FF>> sources;
+        std::vector<FF> scalars;
+        sources.reserve(unshifted_polys.size());
+        scalars.reserve(unshifted_polys.size());
+        for (size_t idx = 0; idx < unshifted_polys.size(); ++idx) {
+            if (idx >= WIRES_TO_BE_SHIFTED_START_IDX && idx < WIRES_TO_BE_SHIFTED_END_IDX) {
+                continue;
             }
+            if (idx == max_idx) {
+                continue;
+            }
+            sources.emplace_back(unshifted_polys[idx]);
+            scalars.push_back(unshifted_challenges[idx]);
         }
-        idx++;
+        add_scaled_batch(
+            batched_unshifted, std::span<const PolynomialSpan<const FF>>(sources), std::span<const FF>(scalars));
     }
 
     const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());

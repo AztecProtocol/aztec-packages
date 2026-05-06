@@ -52,6 +52,7 @@ members = [
     "contracts/test/import_test_contract",
     "contracts/test/init_test_contract",
     "contracts/test/invalid_account_contract",
+    "contracts/test/nested_utility_contract",
     "contracts/test/no_constructor_contract",
     "contracts/test/note_hash_and_nullifier/note_hash_and_nullifier_contract",
     "contracts/test/note_getter_contract",
@@ -66,6 +67,7 @@ members = [
     "contracts/test/public_immutable_contract",
     "contracts/test/returning_tuple_contract",
     "contracts/test/scope_test_contract",
+    "contracts/test/sender_for_tags_test_contract",
     "contracts/test/spam_contract",
     "contracts/test/sponsored_fpc_no_end_setup_contract",
     "contracts/test/state_vars_contract",
@@ -75,6 +77,7 @@ members = [
     "contracts/test/storage_proof_test_contract",
     "contracts/test/test_contract",
     "contracts/test/test_log_contract",
+    "contracts/test/unit_return_type_contract",
     "contracts/test/updatable_contract",
     "contracts/test/updated_contract"
 ]

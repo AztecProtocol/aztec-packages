@@ -1,6 +1,6 @@
 use crate::tests::private_kernel_reset::{NOTE_HASH_SILOING_AMOUNT, TestBuilder};
-use protocol_test_utils::swap_items;
 use super::rebuild_bounded_vec;
+use protocol_test_utils::swap_items;
 
 #[test]
 fn previous_note_hashes_sorted() {

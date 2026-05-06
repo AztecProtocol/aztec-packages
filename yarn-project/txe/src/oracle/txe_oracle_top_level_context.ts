@@ -15,7 +15,6 @@ import {
   CapsuleService,
   CapsuleStore,
   type ContractStore,
-  type ContractSyncService,
   NoteStore,
   ORACLE_VERSION_MAJOR,
   PrivateEventStore,
@@ -116,7 +115,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
-    private readonly contractSyncService: ContractSyncService,
   ) {
     this.logger = createLogger('txe:top_level_context');
     this.logger.debug('Entering Top Level Context');
@@ -177,7 +175,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
   async getLastTxEffects() {
     const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
-    const block = await this.stateMachine.archiver.getBlock(latestBlockNumber);
+    const block = await this.stateMachine.archiver.getBlock({ number: latestBlockNumber });
 
     if (block!.body.txEffects.length != 1) {
       // Note that calls like env.mine() will result in blocks with no transactions, hitting this
@@ -186,7 +184,12 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txEffects = block!.body.txEffects[0];
 
-    return { txHash: txEffects.txHash, noteHashes: txEffects.noteHashes, nullifiers: txEffects.nullifiers };
+    return {
+      txHash: txEffects.txHash,
+      noteHashes: txEffects.noteHashes,
+      nullifiers: txEffects.nullifiers,
+      privateLogs: txEffects.privateLogs,
+    };
   }
 
   async syncContractNonOracleMethod(contractAddress: AztecAddress, scope: AztecAddress, jobId: string) {
@@ -519,9 +522,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         }
       }
 
+      // Walk the nested private-call tree and collect every offchain effect the transaction emitted.
+      // PXE stores these on each `PrivateCallExecutionResult` and they never reach TXE via the
+      // `aztec_utl_emitOffchainEffect` foreign-call path (that path only fires at the top-level), so
+      // we pull them out here and the RPC wrapper will hand them to `TXESession` for buffering.
+      const offchainEffects = collectNested([executionResult], r => r.offchainEffects.map(e => e.data));
+
       if (isStaticCall) {
         await checkpoint!.revert();
-        return executionResult.returnValues ?? [];
+        return { returnValues: executionResult.returnValues ?? [], offchainEffects };
       }
 
       const txEffect = TxEffect.empty();
@@ -541,7 +550,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
       await this.stateMachine.handleL2Block(l2Block);
 
-      return executionResult.returnValues ?? [];
+      return { returnValues: executionResult.returnValues ?? [], offchainEffects };
     } finally {
       cdbServer.unregisterFork(forkId);
       await forkedWorldTrees.close();
@@ -758,6 +767,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     try {
       const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+      const simulator = new WASMSimulator();
       const oracle = new UtilityExecutionOracle({
         contractAddress: call.to,
         authWitnesses: [],
@@ -773,12 +783,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         capsuleService: new CapsuleService(this.capsuleStore, scopes),
         privateEventStore: this.privateEventStore,
         messageContextService: this.stateMachine.messageContextService,
-        contractSyncService: this.contractSyncService,
+        contractSyncService: this.stateMachine.contractSyncService,
         l2TipsStore: this.stateMachine.node,
         jobId,
         scopes,
+        simulator,
       });
-      const acirExecutionResult = await new WASMSimulator()
+      const acirExecutionResult = await simulator
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);

@@ -5,7 +5,7 @@ use aztec::{
         address::AztecAddress,
         constants::DOM_SEP__SIGNATURE_PAYLOAD,
         hash::poseidon2_hash_with_separator,
-        traits::{Hash, Serialize},
+        traits::{Deserialize, Hash, Serialize},
     },
 };
 use std::meta::derive;
@@ -13,7 +13,7 @@ use std::meta::derive;
 global DAPP_MAX_CALLS: u32 = 1;
 
 // @dev: If you change the following struct you have to update default_entrypoint.ts
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct DAppPayload {
     function_calls: [FunctionCall; DAPP_MAX_CALLS],
     // A nonce that enables transaction cancellation. When the cancellable flag is enabled, this nonce is used to

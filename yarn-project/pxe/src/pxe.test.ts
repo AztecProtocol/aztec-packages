@@ -183,6 +183,7 @@ describe('PXE', () => {
         globalVariables,
       });
       node.getBlockHeader.mockResolvedValue(blockHeader);
+      node.getBlock.mockResolvedValue({ header: blockHeader } as any);
 
       // Mock getL2Tips which is needed for syncing tagged logs
       const tipId = {

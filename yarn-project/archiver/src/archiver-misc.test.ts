@@ -10,6 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -18,7 +19,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { Archiver, type ArchiverEmitter } from './archiver.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
-import { KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { createArchiverDataStores } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 
 describe('Archiver misc', () => {
@@ -55,9 +56,11 @@ describe('Archiver misc', () => {
 
     const tracer = getTelemetryClient().getTracer('');
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    const archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_misc_test'), 1000);
+    const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'), { logsMaxPageSize: 1000 });
     const events = new EventEmitter() as ArchiverEmitter;
-    const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+    const initialHeader = BlockHeader.empty();
+    const initialBlockHash = await initialHeader.hash();
+    const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);
 
     archiver = new Archiver(
       publicClient,
@@ -77,6 +80,8 @@ describe('Archiver misc', () => {
       l1Constants,
       synchronizer,
       events,
+      initialHeader,
+      initialBlockHash,
       l2TipsCache,
     );
   });

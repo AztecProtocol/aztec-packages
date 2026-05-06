@@ -400,6 +400,12 @@ export const SEQUENCER_STATE_TRANSITION_BUFFER_DURATION: MetricDefinition = {
   unit: 'ms',
   valueType: ValueType.INT,
 };
+export const SEQUENCER_STATE_DURATION: MetricDefinition = {
+  name: 'aztec.sequencer.state_duration',
+  description: 'Wall-clock time spent in each sequencer state, labelled by the state being left',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
 export const SEQUENCER_BLOCK_BUILD_DURATION: MetricDefinition = {
   name: 'aztec.sequencer.block.build_duration',
   description: 'Duration to build a block',
@@ -1035,6 +1041,17 @@ export const PUBLIC_PROCESSOR_GAS_RATE: MetricDefinition = {
 export const PUBLIC_PROCESSOR_TREE_INSERTION: MetricDefinition = {
   name: 'aztec.public_processor.tree_insertion',
   description: 'Duration of tree insertion in public processor',
+  unit: 'ms',
+  valueType: ValueType.INT,
+};
+export const PUBLIC_PROCESSOR_SILENTLY_SKIPPED_COUNT: MetricDefinition = {
+  name: 'aztec.public_processor.silently_skipped_count',
+  description: 'Public txs fully processed then skipped (e.g. blob-field limit); not counted as processed or failed',
+  valueType: ValueType.INT,
+};
+export const PUBLIC_PROCESSOR_SILENTLY_SKIPPED_DURATION: MetricDefinition = {
+  name: 'aztec.public_processor.silently_skipped_duration',
+  description: 'Wall-clock time spent processing txs that were then silently skipped',
   unit: 'ms',
   valueType: ValueType.INT,
 };

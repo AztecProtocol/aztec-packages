@@ -14,6 +14,7 @@
 #pragma once
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/ref_span.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -80,6 +81,7 @@ template <size_t NUM_WIRES> struct PermutationMapping {
         }
 
         parallel_for([&](const ThreadChunk& chunk) {
+            BB_BENCH_TRACY_NAME("Permutation::init_mappings");
             // Initialize every element to point to itself
             for (uint8_t col_idx = 0; col_idx < NUM_WIRES; ++col_idx) {
                 for (size_t i : chunk.range(circuit_size)) {
@@ -124,6 +126,7 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
     const size_t dyadic_size,
     const std::vector<CyclicPermutation>& wire_copy_cycles)
 {
+    BB_BENCH_NAME("compute_permutation_mapping");
 
     // Initialize the table of permutations so that every element points to itself
     PermutationMapping<Flavor::NUM_WIRES> mapping(dyadic_size);
@@ -131,44 +134,47 @@ PermutationMapping<Flavor::NUM_WIRES> compute_permutation_mapping(
     // Represents the idx of a variable in circuit_constructor.variables
     std::span<const uint32_t> real_variable_tags = circuit_constructor.real_variable_tags;
 
-    // Go through each cycle
-    for (size_t cycle_idx = 0; cycle_idx < wire_copy_cycles.size(); ++cycle_idx) {
-        // We go through the cycle and fill-out/modify `mapping`. Following the generalized permutation algorithm, we
-        // take separate care of first/last node handling.
-        const CyclicPermutation& cycle = wire_copy_cycles[cycle_idx];
-        const auto cycle_size = cycle.size();
-        if (cycle_size == 0) {
-            continue;
-        }
+    // Cycles are disjoint by construction of the generalized permutation argument: every (gate_idx, wire_idx) position
+    // belongs to exactly one variable, hence to exactly one cycle. Per-(col, row) writes from different cycles never
+    // alias, so parallelising across cycle_idx is safe without per-thread staging or merge.
+    parallel_for_heuristic(
+        wire_copy_cycles.size(),
+        [&](size_t cycle_idx) {
+            const CyclicPermutation& cycle = wire_copy_cycles[cycle_idx];
+            const auto cycle_size = cycle.size();
+            if (cycle_size == 0) {
+                return;
+            }
 
-        const cycle_node& first_node = cycle[0];
-        const cycle_node& last_node = cycle[cycle_size - 1];
+            const cycle_node& first_node = cycle[0];
+            const cycle_node& last_node = cycle[cycle_size - 1];
 
-        const auto first_row = static_cast<ptrdiff_t>(first_node.gate_idx);
-        const auto first_col = first_node.wire_idx;
-        const auto last_row = static_cast<ptrdiff_t>(last_node.gate_idx);
-        const auto last_col = last_node.wire_idx;
+            const auto first_row = static_cast<ptrdiff_t>(first_node.gate_idx);
+            const auto first_col = first_node.wire_idx;
+            const auto last_row = static_cast<ptrdiff_t>(last_node.gate_idx);
+            const auto last_col = last_node.wire_idx;
 
-        // First node: id gets tagged with the cycle's variable tag
-        mapping.ids[first_col].is_tag[first_row] = true;
-        mapping.ids[first_col].row_idx[first_row] = real_variable_tags[cycle_idx];
+            // First node: id gets tagged with the cycle's variable tag
+            mapping.ids[first_col].is_tag[first_row] = true;
+            mapping.ids[first_col].row_idx[first_row] = real_variable_tags[cycle_idx];
 
-        // Last node: sigma gets tagged and points to tau(tag) instead of wrapping to first node
-        mapping.sigmas[last_col].is_tag[last_row] = true;
-        mapping.sigmas[last_col].row_idx[last_row] = circuit_constructor.tau().at(real_variable_tags[cycle_idx]);
+            // Last node: sigma gets tagged and points to tau(tag) instead of wrapping to first node
+            mapping.sigmas[last_col].is_tag[last_row] = true;
+            mapping.sigmas[last_col].row_idx[last_row] = circuit_constructor.tau().at(real_variable_tags[cycle_idx]);
 
-        // All nodes except the last: sigma points to the next node in the cycle
-        for (size_t node_idx = 0; node_idx + 1 < cycle_size; ++node_idx) {
-            const cycle_node& current_node = cycle[node_idx];
-            const cycle_node& next_node = cycle[node_idx + 1];
+            // All nodes except the last: sigma points to the next node in the cycle
+            for (size_t node_idx = 0; node_idx + 1 < cycle_size; ++node_idx) {
+                const cycle_node& current_node = cycle[node_idx];
+                const cycle_node& next_node = cycle[node_idx + 1];
 
-            const auto current_row = static_cast<ptrdiff_t>(current_node.gate_idx);
-            const auto current_col = current_node.wire_idx;
-            // Point current node to next node.
-            mapping.sigmas[current_col].row_idx[current_row] = next_node.gate_idx;
-            mapping.sigmas[current_col].col_idx[current_row] = static_cast<uint8_t>(next_node.wire_idx);
-        }
-    }
+                const auto current_row = static_cast<ptrdiff_t>(current_node.gate_idx);
+                const auto current_col = current_node.wire_idx;
+                // Point current node to next node.
+                mapping.sigmas[current_col].row_idx[current_row] = next_node.gate_idx;
+                mapping.sigmas[current_col].col_idx[current_row] = static_cast<uint8_t>(next_node.wire_idx);
+            }
+        },
+        /*heuristic_cost=*/thread_heuristics::FF_COPY_COST * 8);
 
     // Add information about public inputs so that the cycles can be altered later; See the construction of the
     // permutation polynomials for details. This _only_ effects sigma_0, the 0th sigma polynomial, as the structure of
@@ -215,6 +221,7 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
     size_t wire_idx = 0;
     for (auto& current_permutation_poly : permutation_polynomials) {
         parallel_for(thread_data.num_threads, [&](size_t j) {
+            BB_BENCH_TRACY_NAME("Permutation::compute_polys");
             const size_t start = thread_data.start[j];
             const size_t end = thread_data.end[j];
             for (size_t i = start; i < end; ++i) {
@@ -230,22 +237,22 @@ void compute_honk_style_permutation_lagrange_polynomials_from_mapping(
                     // We intentionally want to break the cycles of the public input variables as an optimization.
                     // During the witness generation, both the left and right wire polynomials (w_l and w_r
                     // respectively) at row idx i contain the i-th public input. Let n = SEPARATOR. The initial
-                    // CyclicPermutation created for these variables copy-constrained to the ith public input therefore
-                    // always starts with (i) -> (n+i), followed by the indices of the variables in the "real" gates
-                    // (i.e., the gates not merely present to set-up inputs).
+                    // CyclicPermutation created for these variables copy-constrained to the ith public input
+                    // therefore always starts with (i) -> (n+i), followed by the indices of the variables in the
+                    // "real" gates (i.e., the gates not merely present to set-up inputs).
                     //
-                    // We change this and make i point to -(i+1). This choice "unbalances" the grand product argument,
-                    // so that the final result of the grand product is _not_ 1. These indices are chosen so they can
-                    // easily be computed by the verifier (just knowing the public inputs), and this algorithm
-                    // constitutes a specification of the "permutation argument with public inputs" optimization due to
-                    // Gabizon and Williamson. The verifier can expect the final product to be equal to the "public
-                    // input delta" that is computed in <honk/library/grand_product_delta.hpp>.
+                    // We change this and make i point to -(i+1). This choice "unbalances" the grand product
+                    // argument, so that the final result of the grand product is _not_ 1. These indices are chosen
+                    // so they can easily be computed by the verifier (just knowing the public inputs), and this
+                    // algorithm constitutes a specification of the "permutation argument with public inputs"
+                    // optimization due to Gabizon and Williamson. The verifier can expect the final product to be
+                    // equal to the "public input delta" that is computed in <honk/library/grand_product_delta.hpp>.
                     current_permutation_poly.at(poly_idx) = -FF(current_row_idx + 1 + SEPARATOR * current_col_idx);
                 } else if (current_is_tag) {
                     // Set evaluations to (arbitrary) values disjoint from non-tag values. This is for the
-                    // multiset-equality part of the generalized permutation argument, which requires auxiliary values
-                    // which have not been used as indices. In particular, these are the actual tags assigned to the
-                    // cycle.
+                    // multiset-equality part of the generalized permutation argument, which requires auxiliary
+                    // values which have not been used as indices. In particular, these are the actual tags assigned
+                    // to the cycle.
                     current_permutation_poly.at(poly_idx) = SEPARATOR * Flavor::NUM_WIRES + current_row_idx;
                 } else {
                     // For the regular permutation we simply point to the next location by setting the
