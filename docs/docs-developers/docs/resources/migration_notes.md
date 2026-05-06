@@ -9,6 +9,37 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [aztec-up] Bundled binaries are no longer exposed under bare names on `PATH`
+
+The Aztec installer previously placed bundled binaries directly into `$HOME/.aztec/current/bin` under bare names (`forge`, `nargo`, `bb`, `pxe`, ...). Anything with the same name in your own `PATH` was silently shadowed in unrelated projects.
+
+Every bundled binary is now exposed only under an `aztec-` prefixed name in `$HOME/.aztec/current/bin`. Bare names are not on `PATH` at all and resolve to your own install (if any).
+
+| Was on `PATH` | Now |
+|---|---|
+| `forge` | `aztec-forge` |
+| `cast` | `aztec-cast` |
+| `anvil` | `aztec-anvil` |
+| `chisel` | `aztec-chisel` |
+| `nargo` | `aztec-nargo` |
+| `noir-profiler` | `aztec-noir-profiler` |
+| `bb` | `aztec-bb` |
+| `bb-cli` | `aztec-bb-cli` |
+| `pxe` | `aztec-pxe` |
+| `txe` | `aztec-txe` |
+| `validator-client` | `aztec-validator-client` |
+| `blob-client` | `aztec-blob-client` |
+
+`aztec`, `aztec-wallet`, and `aztec-up` keep their existing names.
+
+If you relied on a bundled bare-name binary for general use:
+
+- For Aztec contract work, prefer `aztec compile` and `aztec test`.
+- For other Noir / Foundry commands, invoke the `aztec-*` symlink directly (e.g. `aztec-nargo fmt`, `aztec-forge build`).
+- Or install Foundry / nargo separately via `foundryup` / `noirup`.
+
+If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/current/bin/nargo`, change it to `$HOME/.aztec/current/bin/aztec-nargo` (the symlink is a drop-in for `nargo`). See the [Noir VSCode Extension guide](../aztec-nr/installation.md) for details.
+
 ### [PXE] `proveTx` takes an options bag
 
 `PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:
