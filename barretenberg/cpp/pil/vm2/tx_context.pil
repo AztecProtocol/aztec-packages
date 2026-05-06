@@ -330,12 +330,12 @@ namespace tx;
     NOT_LAST_ROW * (1 - is_teardown') * (da_gas_limit - da_gas_limit') = 0;
 
     // Selectors to allow prev => next state changes in the different phases
-    pol SEL_CAN_EMIT_NOTE_HASH = is_public_call_request + sel_non_revertible_append_note_hash + sel_revertible_append_note_hash;
-    pol SEL_CAN_EMIT_NULLIFIER = is_public_call_request + sel_non_revertible_append_nullifier + sel_revertible_append_nullifier;
+    pol SEL_CAN_EMIT_NOTE_HASH = is_public_call_request + sel_append_note_hash;
+    pol SEL_CAN_EMIT_NULLIFIER = is_public_call_request + sel_append_nullifier;
     pol SEL_CAN_WRITE_PUBLIC_DATA = is_public_call_request + is_collect_fee;
     pol SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS = is_public_call_request;
     pol SEL_CAN_EMIT_PUBLIC_LOG = is_public_call_request;
-    pol SEL_CAN_EMIT_L2_L1_MSG = is_public_call_request + sel_non_revertible_append_l2_l1_msg + sel_revertible_append_l2_l1_msg;
+    pol SEL_CAN_EMIT_L2_L1_MSG = is_public_call_request + sel_append_l2_l1_msg;
     // The 6 above selectors are booleans on active rows due to #[READ_PHASE_SPEC] and
     // mutual exclusivity of the selectors on the right-hand side.
 
