@@ -46,9 +46,12 @@ class MockDatabusProducer {
     void populate_app_databus(ClientCircuit& circuit)
     {
         for (auto& app_data : app_return_data) {
-            app_data = generate_random_bus_array();
-            for (auto& val : app_data) {
-                circuit.add_public_return_data(circuit.add_variable(val));
+            if (app_data.empty()) {
+                app_data = generate_random_bus_array();
+                for (auto& val : app_data) {
+                    circuit.add_public_return_data(circuit.add_variable(val));
+                }
+                return;
             }
         }
     };
