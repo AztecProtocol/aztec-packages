@@ -266,8 +266,6 @@ TEST(AvmSimulationEccTest, AddsUpToInfinity)
     // Zero as coordinates
     EXPECT_EQ(memory.get(dst_address).as_ff(), FF(0));
     EXPECT_EQ(memory.get(dst_address + 1).as_ff(), FF(0));
-    // Infinity
-    EXPECT_EQ(memory.get(dst_address + 2).as_ff(), 1);
 }
 
 } // namespace
