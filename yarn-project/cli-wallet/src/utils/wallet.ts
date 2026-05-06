@@ -32,10 +32,12 @@ import { printGasEstimates } from './options/fees.js';
 export class CLIWallet extends BaseWallet {
   private accountCache = new Map<string, Account>();
   /**
-   * Per-stub-flavor cache of the stub class id and preimage. The Promise is stored (not the resolved
-   * value) so concurrent first-time callers dedupe on the same hashing + registration work.
+   * Per-account-type cache of the stub class id and preimage. The Promise is stored (not the resolved
+   * value) so concurrent first-time callers dedupe on the same hashing + registration work. ECDSA
+   * variants all map to the same stub artifact but get their own cache slot, so we may hash + register
+   * the same artifact one extra time per variant on first miss; that cost is bounded and one-time.
    */
-  #stubClasses = new Map<'schnorr' | 'ecdsa', Promise<ContractClassWithId & ContractClassIdPreimage>>();
+  #stubClasses = new Map<AccountType, Promise<ContractClassWithId & ContractClassIdPreimage>>();
 
   constructor(
     pxe: PXE,
@@ -204,27 +206,27 @@ export class CLIWallet extends BaseWallet {
       throw new Error(`No contract instance found for address: ${originalAddress.address}`);
     }
     const { type } = await this.db!.retrieveAccount(address);
-    const isSchnorr = type === 'schnorr';
-    const stubAccount = isSchnorr ? createStubSchnorrAccount(originalAddress) : createStubEcdsaAccount(originalAddress);
-    const { id: stubClassId } = await this.#getStubClass(isSchnorr ? 'schnorr' : 'ecdsa');
+    const stubAccount =
+      type === 'schnorr' ? createStubSchnorrAccount(originalAddress) : createStubEcdsaAccount(originalAddress);
+    const { id: stubClassId } = await this.#getStubClass(type);
     const instance = { ...contractInstance, currentContractClassId: stubClassId };
     return { account: stubAccount, instance };
   }
 
   /**
-   * Lazily hashes and registers the stub class for the given flavor, caching the result so
+   * Lazily hashes and registers the stub class for the given account type, caching the result so
    * subsequent simulations skip the artifact-hashing + registration round-trip.
    */
-  #getStubClass(flavor: 'schnorr' | 'ecdsa'): Promise<ContractClassWithId & ContractClassIdPreimage> {
-    let cached = this.#stubClasses.get(flavor);
+  #getStubClass(type: AccountType): Promise<ContractClassWithId & ContractClassIdPreimage> {
+    let cached = this.#stubClasses.get(type);
     if (!cached) {
       cached = (async () => {
-        const artifact = flavor === 'schnorr' ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
+        const artifact = type === 'schnorr' ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
         const stubClass = await getContractClassFromArtifact(artifact);
         await this.pxe.registerContractClass(artifact);
         return stubClass;
       })();
-      this.#stubClasses.set(flavor, cached);
+      this.#stubClasses.set(type, cached);
     }
     return cached;
   }
