@@ -1,4 +1,5 @@
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 
 import { toMatchFile } from 'jest-file-snapshot';
 import { dirname, join } from 'path';
@@ -125,7 +126,7 @@ async function collectOpenedStores() {
   const kvStore = await openTmpStore('pxe-schema-stores', true);
   try {
     const spy = createStoreSpy(kvStore);
-    openPxeStores(spy.store);
+    openPxeStores(spy.store, GENESIS_BLOCK_HEADER_HASH);
     return spy.getOpenedStores();
   } finally {
     await kvStore.close();
