@@ -973,10 +973,10 @@ export class ArchiverL1Synchronizer implements Traceable {
           ),
         );
 
-        if (checkpointsToAdd.length > 0) {
+        if (validCheckpoints.length > 0) {
           this.instrumentation.processNewCheckpointedBlocks(
-            processDuration / checkpointsToAdd.length,
-            checkpointsToAdd.flatMap(c => c.checkpoint.blocks),
+            processDuration / validCheckpoints.length,
+            validCheckpoints.flatMap(c => c.checkpoint.blocks),
           );
         }
 
