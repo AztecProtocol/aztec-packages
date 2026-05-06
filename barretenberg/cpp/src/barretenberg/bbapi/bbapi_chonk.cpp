@@ -47,7 +47,10 @@ ChonkLoad::Response ChonkLoad::execute(BBApiRequest& request) &&
     }
 
     request.loaded_circuit_name = circuit.name;
-    request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    {
+        BB_BENCH_NAME("ChonkLoad::parse_bytecode");
+        request.loaded_circuit_constraints = acir_format::circuit_buf_to_acir_format(std::move(circuit.bytecode));
+    }
     request.loaded_circuit_vk = circuit.verification_key;
 
     info("ChonkLoad - loaded circuit '", request.loaded_circuit_name, "'");
@@ -66,7 +69,11 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
         throw_or_abort("No circuit loaded. Call ChonkLoad first.");
     }
 
-    acir_format::WitnessVector witness_data = acir_format::witness_buf_to_witness_vector(std::move(witness));
+    acir_format::WitnessVector witness_data;
+    {
+        BB_BENCH_NAME("ChonkAccumulate::parse_witness");
+        witness_data = acir_format::witness_buf_to_witness_vector(std::move(witness));
+    }
     acir_format::AcirProgram program{ std::move(request.loaded_circuit_constraints.value()), std::move(witness_data) };
 
     // Clear loaded state immediately after moving out of it. This ensures that if any subsequent
@@ -83,7 +90,11 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     const bool is_hiding_kernel = (request.ivc_stack_depth + 1 == chonk->get_num_circuits());
 
     const acir_format::ProgramMetadata metadata{ .ivc = request.ivc_in_progress };
-    auto circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
+    IVCBase::ClientCircuit circuit;
+    {
+        BB_BENCH_NAME("ChonkAccumulate::create_circuit");
+        circuit = acir_format::create_circuit<IVCBase::ClientCircuit>(program, metadata);
+    }
 
     std::shared_ptr<Chonk::MegaVerificationKey> precomputed_vk;
 
@@ -91,16 +102,23 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
         precomputed_vk = nullptr;
     } else if (request.vk_policy == VkPolicy::DEFAULT || request.vk_policy == VkPolicy::CHECK) {
         if (!loaded_vk.empty()) {
-            validate_vk_size<Chonk::MegaVerificationKey>(loaded_vk);
-            precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(loaded_vk);
+            {
+                BB_BENCH_NAME("ChonkAccumulate::deserialize_vk");
+                validate_vk_size<Chonk::MegaVerificationKey>(loaded_vk);
+                precomputed_vk = from_buffer<std::shared_ptr<Chonk::MegaVerificationKey>>(loaded_vk);
+            }
 
             if (request.vk_policy == VkPolicy::CHECK) {
                 // Note that MegaZKVerificationKey = MegaVerificationKey as C++ classes but their content differs
                 // between ZK and non-ZK flavors.
-                auto computed_vk = is_hiding_kernel ? std::make_shared<Chonk::MegaVerificationKey>(
-                                                          Chonk::HidingKernelProverInstance(circuit).get_precomputed())
-                                                    : std::make_shared<Chonk::MegaVerificationKey>(
-                                                          Chonk::ProverInstance(circuit).get_precomputed());
+                std::shared_ptr<Chonk::MegaVerificationKey> computed_vk;
+                {
+                    BB_BENCH_NAME("ChonkAccumulate::compute_vk_for_check");
+                    computed_vk = is_hiding_kernel ? std::make_shared<Chonk::MegaVerificationKey>(
+                                                         Chonk::HidingKernelProverInstance(circuit).get_precomputed())
+                                                   : std::make_shared<Chonk::MegaVerificationKey>(
+                                                         Chonk::ProverInstance(circuit).get_precomputed());
+                }
 
                 // Dereference to compare VK contents
                 if (*precomputed_vk != *computed_vk) {
@@ -117,7 +135,10 @@ ChonkAccumulate::Response ChonkAccumulate::execute(BBApiRequest& request) &&
     if (detail::use_memory_profile) {
         detail::GLOBAL_MEMORY_PROFILE.set_circuit_name(circuit_name);
     }
-    request.ivc_in_progress->accumulate(circuit, precomputed_vk);
+    {
+        BB_BENCH_NAME("ChonkAccumulate::accumulate");
+        request.ivc_in_progress->accumulate(circuit, precomputed_vk);
+    }
     request.ivc_stack_depth++;
 
     return Response{};
