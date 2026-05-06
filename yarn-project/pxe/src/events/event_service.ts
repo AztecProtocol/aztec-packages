@@ -44,8 +44,14 @@ export class EventService {
     txEffects: Map<string, IndexedTxEffect>,
     anchorBlockNumber: number,
   ): Promise<void> {
-    const { contractAddress, eventTypeId: selector, randomness, serializedEvent: content, eventCommitment, txHash } =
-      request;
+    const {
+      contractAddress,
+      eventTypeId: selector,
+      randomness,
+      serializedEvent: content,
+      eventCommitment,
+      txHash,
+    } = request;
 
     // Defense-in-depth: the built-in private-event path derives this commitment from content before enqueueing, but
     // unconstrained PXE-side code (e.g. a custom message handler) can reach this oracle with arbitrary

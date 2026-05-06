@@ -1,7 +1,7 @@
 import { chunk } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { DataInBlock } from '@aztec/stdlib/block';
+import { BlockHash, type DataInBlock } from '@aztec/stdlib/block';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import { type AztecNode, MAX_RPC_LEN } from '@aztec/stdlib/interfaces/client';
 import { Note, NoteDao, NoteStatus } from '@aztec/stdlib/note';
@@ -219,13 +219,11 @@ export class NoteService {
     }
   }
 
-  async #findNullifierIndexes(anchorBlockHash: Fr, siloedNullifiers: Fr[]) {
+  async #findNullifierIndexes(anchorBlockHash: BlockHash, siloedNullifiers: Fr[]) {
     const batches = chunk(siloedNullifiers, MAX_RPC_LEN);
     return (
       await Promise.all(
-        batches.map(batch =>
-          this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, batch),
-        ),
+        batches.map(batch => this.aztecNode.findLeavesIndexes(anchorBlockHash, MerkleTreeId.NULLIFIER_TREE, batch)),
       )
     ).flat();
   }
