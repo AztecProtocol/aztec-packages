@@ -101,13 +101,16 @@ namespace sha256;
     pol commit and_op_id;
     perform_round * (and_op_id - constants.AVM_BITWISE_AND_OP_ID) = 0;
 
-    // Counter — tracks how many compression rounds remain.
-    // The constraint below is a compound: on the start row it forces rounds_remaining = 64,
-    // and on every perform_round row it decrements by 1 (rounds_remaining' = rounds_remaining - 1).
-    // Both terms are mutually exclusive (start implies first row, perform_round excludes start/end).
+    // Counter - tracks how many compression rounds remain.
+    // - Initialization: on the start row it forces rounds_remaining = 64,
+    // - On every perform_round row it decrements by 1 (rounds_remaining' = rounds_remaining - 1).
     pol NUM_ROUNDS = 64;
     pol commit rounds_remaining;
-    start * (rounds_remaining - NUM_ROUNDS) + perform_round * (rounds_remaining - rounds_remaining' - 1) = 0;
+    #[ROUNDS_REM_INIT]
+    start * (rounds_remaining - NUM_ROUNDS) = 0;
+    #[ROUNDS_REM_DECREMENT]
+    perform_round * (rounds_remaining - rounds_remaining' - 1) = 0;
+
     pol commit round_count;
     SEL_NO_ERR * (round_count - (NUM_ROUNDS - rounds_remaining)) = 0;
     // rounds_remaining_inv is the inverse of rounds_remaining, used in the zero-check below.
