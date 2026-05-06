@@ -349,7 +349,7 @@ export class ProposalHandler {
 
     // Collect the out hashes of all the checkpoints before this one in the same epoch
     const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
-    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsDataForEpoch(epoch))
+    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsData({ epoch }))
       .filter(c => c.checkpointNumber < checkpointNumber)
       .map(c => c.checkpointOutHash);
 
@@ -856,7 +856,7 @@ export class ProposalHandler {
 
     // Collect the out hashes of all the checkpoints before this one in the same epoch
     const epoch = getEpochAtSlot(slot, this.epochCache.getL1Constants());
-    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsDataForEpoch(epoch))
+    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsData({ epoch }))
       .filter(c => c.checkpointNumber < checkpointNumber)
       .map(c => c.checkpointOutHash);
 

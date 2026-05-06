@@ -605,7 +605,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.l2BlockSource.getPendingChainValidationStatus(),
-      this.l2BlockSource.getLastProposedCheckpoint(),
+      this.l2BlockSource.getProposedCheckpointData(),
     ] as const);
 
     const [worldState, l2Tips, p2p, l1ToL2MessageSourceTips, pendingChainValidationStatus, proposedCheckpointData] =

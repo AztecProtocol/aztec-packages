@@ -52,6 +52,7 @@ import {
   type BlockQuery,
   type BlocksQuery,
   Body,
+  type CheckpointsQuery,
   type CommitteeAttestation,
   CommitteeAttestationsAndSigners,
   L2Block,
@@ -249,9 +250,10 @@ describe('L1Publisher integration', () => {
         }
         return Promise.resolve(undefined);
       },
-      async getCheckpoints(checkpointNumber, _limit) {
+      async getCheckpoints(query: CheckpointsQuery) {
         // Test uses 1-block-per-checkpoint, so we find block by checkpoint number
-        const block = blocks.find(b => Number(b.number) === Number(checkpointNumber));
+        const from = 'from' in query ? query.from : undefined;
+        const block = from !== undefined ? blocks.find(b => Number(b.number) === Number(from)) : undefined;
         if (!block) {
           return Promise.resolve([]);
         }
@@ -259,7 +261,7 @@ describe('L1Publisher integration', () => {
           block.archive,
           CheckpointHeader.random({ lastArchiveRoot: block.header.lastArchive.root }),
           [block],
-          checkpointNumber,
+          from!,
         );
         return [
           new PublishedCheckpoint(

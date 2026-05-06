@@ -15,7 +15,8 @@ import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import type { DataInBlock } from '../block/in_block.js';
 import { BlockHash, type BlockParameter } from '../block/index.js';
-import type { L2Tips } from '../block/l2_block_source.js';
+import type { CheckpointsQuery, L2Tips } from '../block/l2_block_source.js';
+import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -253,8 +254,13 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([]);
   });
 
-  it('getCheckpointsDataForEpoch', async () => {
-    const response = await context.client.getCheckpointsDataForEpoch(EpochNumber(1));
+  it('getCheckpointsData (epoch)', async () => {
+    const response = await context.client.getCheckpointsData({ epoch: EpochNumber(1) });
+    expect(response).toEqual([]);
+  });
+
+  it('getCheckpointsData (range)', async () => {
+    const response = await context.client.getCheckpointsData({ from: CheckpointNumber(1), limit: 1 });
     expect(response).toEqual([]);
   });
 
@@ -578,7 +584,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve([]);
   }
 
-  getCheckpointsDataForEpoch(_epochNumber: EpochNumber) {
+  getCheckpointsData(_query: CheckpointsQuery): Promise<CheckpointData[]> {
     return Promise.resolve([]);
   }
 

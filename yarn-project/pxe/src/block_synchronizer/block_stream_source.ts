@@ -1,6 +1,12 @@
-import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type BlockData, type BlockQuery, type BlocksQuery, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import {
+  type BlockData,
+  type BlockQuery,
+  type BlocksQuery,
+  type CheckpointsQuery,
+  L2Block,
+  type L2BlockSource,
+} from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -42,7 +48,11 @@ export function blockStreamSourceFromAztecNode(
       return responses.map(r => new L2Block(r.archive, r.header, r.body!, r.checkpointNumber, r.indexWithinCheckpoint));
     },
 
-    async getCheckpoints(from: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]> {
+    async getCheckpoints(query: CheckpointsQuery): Promise<PublishedCheckpoint[]> {
+      if (!('from' in query)) {
+        throw new Error('getCheckpoints with epoch query not supported via AztecNode RPC');
+      }
+      const { from, limit } = query;
       const responses = await node.getCheckpoints(from, limit, {
         includeBlocks: true,
         includeTransactions: true,

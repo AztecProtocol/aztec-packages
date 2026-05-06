@@ -55,7 +55,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
   beforeEach(() => {
     blockSource = mock<L2BlockSource & L2BlockSink>();
-    blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
+    blockSource.getCheckpointsData.mockResolvedValue([]);
     blockSource.getBlocksForSlot.mockResolvedValue([]);
     blockSource.syncImmediate.mockResolvedValue(undefined);
 
