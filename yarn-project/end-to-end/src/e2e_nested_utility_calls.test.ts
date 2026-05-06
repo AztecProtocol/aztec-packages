@@ -68,7 +68,6 @@ describe('authorizeUtilityCall hook', () => {
   let teardown: () => Promise<void>;
   jest.setTimeout(TIMEOUT);
 
-  // Mutable flag lets each test control hook behavior without spinning up a new PXE.
   let hookAllows = false;
   let lastRequest: UtilityCallAuthorizationRequest | undefined;
 
@@ -88,8 +87,6 @@ describe('authorizeUtilityCall hook', () => {
       },
     }));
 
-    // Deploy two separate instances so caller (contractA) != target (contractB).
-    // Sequential deploys avoid nullifier conflicts from the same wallet.
     ({ contract: contractA } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
     ({ contract: contractB } = await NestedUtilityContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
