@@ -1,8 +1,8 @@
 use crate::{
     private_kernel_init::{self, PrivateKernelInitCircuitPrivateInputs},
-    private_kernel_init_3::{self, PrivateKernelInit3CircuitPrivateInputs},
+    private_kernel_init_n::{self, PrivateKernelInitNCircuitPrivateInputs},
     private_kernel_inner::{self, PrivateKernelInnerCircuitPrivateInputs},
-    private_kernel_inner_3::{self, PrivateKernelInner3CircuitPrivateInputs},
+    private_kernel_inner_n::{self, PrivateKernelInnerNCircuitPrivateInputs},
 };
 use protocol_test_utils::{assert_claimed_length_array_eq, FixtureBuilder};
 use types::{
@@ -41,12 +41,12 @@ fn assert_private_kernel_public_inputs_eq(
 }
 
 fn execute_init_3_sequential(
-    inputs: PrivateKernelInit3CircuitPrivateInputs,
+    inputs: PrivateKernelInitNCircuitPrivateInputs<3>,
 ) -> PrivateKernelCircuitPublicInputs {
     let output_0 = private_kernel_init::execute(
         PrivateKernelInitCircuitPrivateInputs {
             tx_request: inputs.tx_request,
-            private_call: inputs.private_call_0,
+            private_call: inputs.private_calls[0],
             vk_tree_root: inputs.vk_tree_root,
             protocol_contracts: inputs.protocol_contracts,
             is_private_only: inputs.is_private_only,
@@ -61,7 +61,7 @@ fn execute_init_3_sequential(
                 output_0,
                 PRIVATE_KERNEL_INIT_VK_INDEX,
             ),
-            private_call: inputs.private_call_1,
+            private_call: inputs.private_calls[1],
         },
     );
 
@@ -71,18 +71,18 @@ fn execute_init_3_sequential(
                 output_1,
                 PRIVATE_KERNEL_INNER_VK_INDEX,
             ),
-            private_call: inputs.private_call_2,
+            private_call: inputs.private_calls[2],
         },
     )
 }
 
 fn execute_inner_3_sequential(
-    inputs: PrivateKernelInner3CircuitPrivateInputs,
+    inputs: PrivateKernelInnerNCircuitPrivateInputs<3>,
 ) -> PrivateKernelCircuitPublicInputs {
     let output_0 = private_kernel_inner::execute(
         PrivateKernelInnerCircuitPrivateInputs {
             previous_kernel: inputs.previous_kernel,
-            private_call: inputs.private_call_0,
+            private_call: inputs.private_calls[0],
         },
     );
 
@@ -92,7 +92,7 @@ fn execute_inner_3_sequential(
                 output_0,
                 PRIVATE_KERNEL_INNER_VK_INDEX,
             ),
-            private_call: inputs.private_call_1,
+            private_call: inputs.private_calls[1],
         },
     );
 
@@ -102,7 +102,7 @@ fn execute_inner_3_sequential(
                 output_1,
                 PRIVATE_KERNEL_INNER_VK_INDEX,
             ),
-            private_call: inputs.private_call_2,
+            private_call: inputs.private_calls[2],
         },
     )
 }
@@ -155,9 +155,9 @@ impl Batch3TestBuilder {
 
     fn execute_linear_chain_without_first_to_second_sync(self) -> PrivateKernelCircuitPublicInputs {
         let mut inputs = self.inputs_with_shape(false, true);
-        inputs.private_call_0.public_inputs.private_call_requests.array[0].args_hash += 1;
+        inputs.private_calls[0].public_inputs.private_call_requests.array[0].args_hash += 1;
 
-        private_kernel_init_3::execute(inputs)
+        private_kernel_init_n::execute::<3>(inputs)
     }
 
     fn execute_depth_first_with_sibling(self) -> PrivateKernelCircuitPublicInputs {
@@ -169,7 +169,10 @@ impl Batch3TestBuilder {
         include_sibling: bool,
         sync_second_to_third: bool,
     ) -> PrivateKernelCircuitPublicInputs {
-        private_kernel_init_3::execute(self.inputs_with_shape(include_sibling, sync_second_to_third))
+        private_kernel_init_n::execute::<3>(self.inputs_with_shape(
+            include_sibling,
+            sync_second_to_third,
+        ))
     }
 
     fn execute_sequential_with_shape(
@@ -186,7 +189,7 @@ impl Batch3TestBuilder {
         self,
         include_sibling: bool,
         sync_second_to_third: bool,
-    ) -> PrivateKernelInit3CircuitPrivateInputs {
+    ) -> PrivateKernelInitNCircuitPrivateInputs<3> {
         let mut private_call_0 = self.private_call_0;
         let mut private_call_1 = self.private_call_1;
         let mut private_call_2 = self.private_call_2;
@@ -238,11 +241,13 @@ impl Batch3TestBuilder {
             }
         }
 
-        PrivateKernelInit3CircuitPrivateInputs {
+        PrivateKernelInitNCircuitPrivateInputs {
             tx_request: self.tx_request,
-            private_call_0: private_call_0.to_private_call_data(),
-            private_call_1: private_call_1.to_private_call_data(),
-            private_call_2: private_call_2.to_private_call_data(),
+            private_calls: [
+                private_call_0.to_private_call_data(),
+                private_call_1.to_private_call_data(),
+                private_call_2.to_private_call_data(),
+            ],
             vk_tree_root: private_call_0.vk_tree_root,
             protocol_contracts: private_call_0.protocol_contracts,
             is_private_only: self.is_private_only,
@@ -285,14 +290,14 @@ impl Inner3TestBuilder {
     }
 
     fn execute_linear_chain(self) -> PrivateKernelCircuitPublicInputs {
-        private_kernel_inner_3::execute(self.linear_chain_inputs())
+        private_kernel_inner_n::execute::<3>(self.linear_chain_inputs())
     }
 
     fn execute_linear_chain_sequential(self) -> PrivateKernelCircuitPublicInputs {
         execute_inner_3_sequential(self.linear_chain_inputs())
     }
 
-    fn linear_chain_inputs(self) -> PrivateKernelInner3CircuitPrivateInputs {
+    fn linear_chain_inputs(self) -> PrivateKernelInnerNCircuitPrivateInputs<3> {
         let mut previous_kernel = self.previous_kernel;
         let mut private_call_0 = self.private_call_0;
         let mut private_call_1 = self.private_call_1;
@@ -326,11 +331,13 @@ impl Inner3TestBuilder {
 
         previous_kernel.private_call_requests.push(private_call_0.to_private_call_request());
 
-        PrivateKernelInner3CircuitPrivateInputs {
+        PrivateKernelInnerNCircuitPrivateInputs {
             previous_kernel: previous_kernel.to_private_kernel_data(),
-            private_call_0: private_call_0.to_private_call_data(),
-            private_call_1: private_call_1.to_private_call_data(),
-            private_call_2: private_call_2.to_private_call_data(),
+            private_calls: [
+                private_call_0.to_private_call_data(),
+                private_call_1.to_private_call_data(),
+                private_call_2.to_private_call_data(),
+            ],
         }
     }
 }

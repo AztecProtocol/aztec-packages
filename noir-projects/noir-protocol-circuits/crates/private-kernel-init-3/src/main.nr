@@ -1,4 +1,4 @@
-use private_kernel_lib::{private_kernel_init_3, PrivateKernelInit3CircuitPrivateInputs};
+use private_kernel_lib::{private_kernel_init_n, PrivateKernelInitNCircuitPrivateInputs};
 use types::{
     abis::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
@@ -22,16 +22,18 @@ fn main(
     app_public_inputs_1: call_data(2) PrivateCircuitPublicInputs,
     app_public_inputs_2: call_data(3) PrivateCircuitPublicInputs,
 ) -> return_data PrivateKernelCircuitPublicInputs {
-    let private_inputs = PrivateKernelInit3CircuitPrivateInputs {
+    let private_inputs = PrivateKernelInitNCircuitPrivateInputs {
         tx_request,
         vk_tree_root,
         protocol_contracts,
-        private_call_0: private_call_0.to_private_call_data(app_public_inputs_0),
-        private_call_1: private_call_1.to_private_call_data(app_public_inputs_1),
-        private_call_2: private_call_2.to_private_call_data(app_public_inputs_2),
+        private_calls: [
+            private_call_0.to_private_call_data(app_public_inputs_0),
+            private_call_1.to_private_call_data(app_public_inputs_1),
+            private_call_2.to_private_call_data(app_public_inputs_2),
+        ],
         is_private_only,
         first_nullifier_hint,
         revertible_counter_hint,
     };
-    private_kernel_init_3::execute(private_inputs)
+    private_kernel_init_n::execute::<3>(private_inputs)
 }

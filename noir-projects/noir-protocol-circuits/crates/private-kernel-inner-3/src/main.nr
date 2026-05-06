@@ -1,4 +1,4 @@
-use private_kernel_lib::{private_kernel_inner_3, PrivateKernelInner3CircuitPrivateInputs};
+use private_kernel_lib::{private_kernel_inner_n, PrivateKernelInnerNCircuitPrivateInputs};
 use types::{
     abis::{
         private_circuit_public_inputs::PrivateCircuitPublicInputs,
@@ -18,11 +18,13 @@ fn main(
     app_public_inputs_1: call_data(2) PrivateCircuitPublicInputs,
     app_public_inputs_2: call_data(3) PrivateCircuitPublicInputs,
 ) -> return_data PrivateKernelCircuitPublicInputs {
-    let private_inputs = PrivateKernelInner3CircuitPrivateInputs {
+    let private_inputs = PrivateKernelInnerNCircuitPrivateInputs {
         previous_kernel: previous_kernel.to_private_kernel_data(previous_kernel_public_inputs),
-        private_call_0: private_call_0.to_private_call_data(app_public_inputs_0),
-        private_call_1: private_call_1.to_private_call_data(app_public_inputs_1),
-        private_call_2: private_call_2.to_private_call_data(app_public_inputs_2),
+        private_calls: [
+            private_call_0.to_private_call_data(app_public_inputs_0),
+            private_call_1.to_private_call_data(app_public_inputs_1),
+            private_call_2.to_private_call_data(app_public_inputs_2),
+        ],
     };
-    private_kernel_inner_3::execute(private_inputs)
+    private_kernel_inner_n::execute::<3>(private_inputs)
 }
