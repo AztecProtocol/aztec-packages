@@ -855,7 +855,7 @@ export class SequencerPublisher {
             slotNumber,
             'empire-slashing-signal',
             action.payload,
-            this.slashingProposerContract,
+            this.slashingProposerContract as any,
             signerAddress,
             signer,
           );
