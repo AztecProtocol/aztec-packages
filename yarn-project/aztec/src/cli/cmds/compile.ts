@@ -1,9 +1,10 @@
 import { findBbBinary } from '@aztec/bb.js';
 import type { LogFn } from '@aztec/foundation/log';
+import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { execFileSync } from 'child_process';
 import type { Command } from 'commander';
-import { readFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 
 import { readArtifactFiles } from './utils/artifacts.js';
@@ -23,6 +24,17 @@ async function collectContractArtifacts(): Promise<string[]> {
     throw err;
   }
   return files.filter(f => Array.isArray(f.content.functions)).map(f => f.filePath);
+}
+
+/** Stamps the Aztec stack version into the contract artifacts. */
+async function stampAztecVersion(artifactPaths: string[]): Promise<void> {
+  const version = getPackageVersion();
+  for (const path of artifactPaths) {
+    const artifact = JSON.parse(await readFile(path, 'utf-8'));
+    // eslint-disable-next-line camelcase
+    artifact.aztec_version = version;
+    await writeFile(path, JSON.stringify(artifact, null, 2) + '\n');
+  }
 }
 
 /** Returns the set of package names that are contract crates in the current workspace. */
@@ -148,6 +160,8 @@ async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<vo
     log('Postprocessing contracts...');
     const bbArgs = artifacts.flatMap(a => ['-i', a]);
     await run(bb, ['aztec_process', ...bbArgs]);
+
+    await stampAztecVersion(artifacts);
   }
 
   log('Compilation complete!');

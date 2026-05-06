@@ -3,8 +3,7 @@ import { fileURLToPath } from '@aztec/foundation/url';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 
-/** Placeholder version returned when running from a local monorepo checkout rather than an npm-installed package. */
-export const DEV_VERSION = 'dev';
+import { DEV_VERSION } from './dev_version.js';
 
 /**
  * Returns the package version from the stdlib `package.json`, or `DEV_VERSION` when the version is the `0.1.0`
