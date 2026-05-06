@@ -109,37 +109,40 @@ class MegaFlavor {
         bool operator==(const PrecomputedEntities&) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              q_m,                  // column 0
-                              q_c,                  // column 1
-                              q_l,                  // column 2
-                              q_r,                  // column 3
-                              q_o,                  // column 4
-                              q_4,                  // column 5
-                              q_busread,            // column 6
-                              q_lookup,             // column 7
-                              q_arith,              // column 8
-                              q_delta_range,        // column 9
-                              q_elliptic,           // column 10
-                              q_memory,             // column 11
-                              q_nnf,                // column 12
-                              q_poseidon2_external, // column 13
-                              q_poseidon2_internal, // column 14
-                              sigma_1,              // column 15
-                              sigma_2,              // column 16
-                              sigma_3,              // column 17
-                              sigma_4,              // column 18
-                              id_1,                 // column 19
-                              id_2,                 // column 20
-                              id_3,                 // column 21
-                              id_4,                 // column 22
-                              table_1,              // column 23
-                              table_2,              // column 24
-                              table_3,              // column 25
-                              table_4,              // column 26
-                              lagrange_first,       // column 27
-                              lagrange_last,        // column 28
-                              lagrange_ecc_op,      // column 29 // indicator poly for ecc op gates
-                              databus_id            // column 30 // id polynomial, i.e. id_i = i
+                              q_m,                          // column 0
+                              q_c,                          // column 1
+                              q_l,                          // column 2
+                              q_r,                          // column 3
+                              q_o,                          // column 4
+                              q_4,                          // column 5
+                              q_busread,                    // column 6
+                              q_lookup,                     // column 7
+                              q_arith,                      // column 8
+                              q_delta_range,                // column 9
+                              q_elliptic,                   // column 10
+                              q_memory,                     // column 11
+                              q_nnf,                        // column 12
+                              q_poseidon2_external,         // column 13
+                              q_poseidon2_internal,         // column 14
+                              sigma_1,                      // column 15
+                              sigma_2,                      // column 16
+                              sigma_3,                      // column 17
+                              sigma_4,                      // column 18
+                              id_1,                         // column 19
+                              id_2,                         // column 20
+                              id_3,                         // column 21
+                              id_4,                         // column 22
+                              table_1,                      // column 23
+                              table_2,                      // column 24
+                              table_3,                      // column 25
+                              table_4,                      // column 26
+                              lagrange_first,               // column 27
+                              lagrange_last,                // column 28
+                              lagrange_ecc_op,              // column 29 // indicator poly for ecc op gates
+                              databus_id,                   // column 30 // id polynomial, i.e. id_i = i
+                              calldata_indicator,           // column 31 // 1 on calldata data rows
+                              secondary_calldata_indicator, // column 32 // 1 on sec_calldata data rows
+                              return_data_indicator         // column 33 // 1 on return_data data rows
         )
 
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };

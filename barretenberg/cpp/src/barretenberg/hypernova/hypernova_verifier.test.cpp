@@ -229,7 +229,7 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
             manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
         }
         manifest.add_challenge(round, "Sumcheck:alpha");
-        manifest.add_entry(round, "Sumcheck:evaluations", 57);
+        manifest.add_entry(round, "Sumcheck:evaluations", MegaFlavor::NUM_ALL_ENTITIES);
         round++;
 
         // MLB sumcheck univariates

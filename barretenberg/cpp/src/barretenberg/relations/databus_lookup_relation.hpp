@@ -68,17 +68,21 @@ template <typename FF_> class DatabusLookupRelationImpl {
     static constexpr size_t INVERSE_READ_SUBREL_LENGTH = 6;  // deg 5: (I*L*T - 1) * is_read
     static constexpr size_t INVERSE_WRITE_SUBREL_LENGTH = 6; // deg 4: (I*L*T - 1) * count
     static constexpr size_t LOOKUP_SUBREL_LENGTH = 6;        // deg 4: (is_read*T - count*L) * I
-    static constexpr size_t NUM_SUB_RELATION_PER_IDX = 3;    // the number of subrelations per bus column
+    // Read-count locality subrelation: (1 - indicator_j) * read_counts_j = 0. Forces read_counts
+    // to vanish outside the column's data rows so the table multi-set can only contain honest entries.
+    static constexpr size_t READ_COUNT_LOCALITY_SUBREL_LENGTH = 3; // deg 2: (1 - indicator) * count
+    static constexpr size_t NUM_SUB_RELATION_PER_IDX = 4;          // the number of subrelations per bus column
 
-    // Per-bus subrelation layout: (1a) inverse-on-read, (1b) inverse-on-write, (2) lookup identity.
-    // The whole-relation arrays below repeat this layout once per bus column.
+    // Per-bus subrelation layout: (1a) inverse-on-read, (1b) inverse-on-write, (2) lookup identity,
+    // (3) read-count locality. The whole-relation arrays below repeat this layout once per bus column.
     static constexpr std::array<size_t, NUM_SUB_RELATION_PER_IDX> PER_BUS_SUBREL_LENGTHS{
         INVERSE_READ_SUBREL_LENGTH,
         INVERSE_WRITE_SUBREL_LENGTH,
         LOOKUP_SUBREL_LENGTH,
+        READ_COUNT_LOCALITY_SUBREL_LENGTH,
     };
-    // (1a) and (1b) are per-row identities; (2) is a sum across the trace.
-    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX> PER_BUS_LIN_INDEPENDENT{ true, true, false };
+    // (1a), (1b), and (3) are per-row identities; (2) is a sum across the trace.
+    static constexpr std::array<bool, NUM_SUB_RELATION_PER_IDX> PER_BUS_LIN_INDEPENDENT{ true, true, false, true };
 
     template <typename T, size_t N>
     static constexpr std::array<T, N * NUM_BUS_COLUMNS> repeat_per_bus(const std::array<T, N>& pattern)
@@ -119,6 +123,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.calldata_inverses; }
         static auto& inverses(const AllEntities& in) { return in.calldata_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.calldata_read_counts; }
+        static auto& indicator(const AllEntities& in) { return in.calldata_indicator; }
     };
 
     // Specialization for secondary_calldata (bus_idx = 1)
@@ -128,6 +133,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.secondary_calldata_inverses; }
         static auto& inverses(const AllEntities& in) { return in.secondary_calldata_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.secondary_calldata_read_counts; }
+        static auto& indicator(const AllEntities& in) { return in.secondary_calldata_indicator; }
     };
 
     // Specialization for return data (bus_idx = 2)
@@ -137,6 +143,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.return_data_inverses; }
         static auto& inverses(const AllEntities& in) { return in.return_data_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.return_data_read_counts; }
+        static auto& indicator(const AllEntities& in) { return in.return_data_indicator; }
     };
 
     /**
@@ -250,10 +257,11 @@ template <typename FF_> class DatabusLookupRelationImpl {
 
     /**
      * @brief Accumulate the subrelation contributions for reads from a single databus column
-     * @details Three subrelations are required per bus column:
+     * @details Four subrelations are required per bus column:
      *   (1a) Inverse correctness on read rows: (I*L*T - 1) * is_read = 0
      *   (1b) Inverse correctness on write rows: (I*L*T - 1) * count = 0
      *   (2)  Lookup identity (linearly dependent): (is_read*T - count*L) * I = 0
+     *   (3)  Read-count locality: (1 - indicator) * count = 0
      */
     template <typename FF,
               size_t bus_idx,
@@ -266,9 +274,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
                                                      const FF& scaling_factor)
     {
         // Subrelation indices for this bus column
-        constexpr size_t subrel_idx_inv_read = NUM_SUB_RELATION_PER_IDX * bus_idx;      // (1a)
-        constexpr size_t subrel_idx_inv_write = NUM_SUB_RELATION_PER_IDX * bus_idx + 1; // (1b)
-        constexpr size_t subrel_idx_lookup = NUM_SUB_RELATION_PER_IDX * bus_idx + 2;    // (2)
+        constexpr size_t subrel_idx_inv_read = NUM_SUB_RELATION_PER_IDX * bus_idx;           // (1a)
+        constexpr size_t subrel_idx_inv_write = NUM_SUB_RELATION_PER_IDX * bus_idx + 1;      // (1b)
+        constexpr size_t subrel_idx_lookup = NUM_SUB_RELATION_PER_IDX * bus_idx + 2;         // (2)
+        constexpr size_t subrel_idx_count_locality = NUM_SUB_RELATION_PER_IDX * bus_idx + 3; // (3)
 
         using Accumulator = typename std::tuple_element_t<subrel_idx_inv_read, ContainerOverSubrelations>;
         using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
@@ -297,6 +306,17 @@ template <typename FF_> class DatabusLookupRelationImpl {
         tmp -= read_counts * lookup_term;
         tmp *= inverses;
         std::get<subrel_idx_lookup>(accumulator) += tmp;
+
+        // (3) Read-count locality: (1 - indicator) * count = 0. Forces read_counts to zero outside
+        // the column's data rows, so the prover cannot plant a forged table entry at a row the
+        // indicator marks as not belonging to this column.
+        using ShortAccumulator = typename std::tuple_element_t<subrel_idx_count_locality, ContainerOverSubrelations>;
+        const auto indicator_m = CoefficientAccumulator(BusData<bus_idx, AllEntities>::indicator(in));
+        const ShortAccumulator indicator_short(indicator_m);
+        const ShortAccumulator read_counts_short(read_counts_m);
+        // degree                                                 1                          1                  =  2
+        std::get<subrel_idx_count_locality>(accumulator) +=
+            (read_counts_short - indicator_short * read_counts_short) * scaling_factor;
     }
 
     /**
