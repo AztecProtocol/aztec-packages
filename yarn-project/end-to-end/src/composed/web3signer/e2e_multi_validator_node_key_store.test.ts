@@ -324,11 +324,10 @@ describe('e2e_multi_validator_node', () => {
     await rmdir(keyStoreDirectory, { recursive: true });
   });
 
-  const sendTx = (contractAddressSalt: Fr) => {
+  const sendTx = (salt: Fr) => {
     const deployer = new ContractDeployer(artifact, wallet);
-    return deployer.deploy(ownerAddress, 1).send({
+    return deployer.deploy({ salt }, ownerAddress, 1).send({
       from: ownerAddress,
-      contractAddressSalt,
       skipClassPublication: true,
       wait: NO_WAIT,
     });

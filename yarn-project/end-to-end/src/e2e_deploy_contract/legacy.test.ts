@@ -35,8 +35,10 @@ describe('e2e_deploy_contract legacy', () => {
       salt,
       deployer: defaultAccountAddress,
     });
-    const deployer = new ContractDeployer(TestContractArtifact, wallet);
-    const { contract } = await deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt: salt });
+    const contractDeployer = new ContractDeployer(TestContractArtifact, wallet);
+    const { contract } = await contractDeployer
+      .deploy({ salt, deployer: defaultAccountAddress })
+      .send({ from: defaultAccountAddress });
     expect(contract.address).toEqual(deploymentData.address);
     const { instance, isContractPublished } = await wallet.getContractMetadata(deploymentData.address);
     expect(instance).toBeDefined();
@@ -47,11 +49,11 @@ describe('e2e_deploy_contract legacy', () => {
    * Verify that we can produce multiple rollups.
    */
   it('should deploy one contract after another in consecutive rollups', async () => {
-    const deployer = new ContractDeployer(TestContractArtifact, wallet);
+    const contractDeployer = new ContractDeployer(TestContractArtifact, wallet);
 
     for (let index = 0; index < 2; index++) {
       logger.info(`Deploying contract ${index + 1}...`);
-      await deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt: Fr.random() });
+      await contractDeployer.deploy({ salt: Fr.random() }).send({ from: defaultAccountAddress });
     }
   });
 
@@ -59,13 +61,13 @@ describe('e2e_deploy_contract legacy', () => {
    * Verify that we can deploy multiple contracts and interact with all of them.
    */
   it('should deploy multiple contracts and interact with them', async () => {
-    const deployer = new ContractDeployer(TestContractArtifact, wallet);
+    const contractDeployer = new ContractDeployer(TestContractArtifact, wallet);
 
     for (let index = 0; index < 2; index++) {
       logger.info(`Deploying contract ${index + 1}...`);
-      const { contract: deployed } = await deployer
-        .deploy()
-        .send({ from: defaultAccountAddress, contractAddressSalt: Fr.random() });
+      const { contract: deployed } = await contractDeployer
+        .deploy({ salt: Fr.random() })
+        .send({ from: defaultAccountAddress });
       logger.info(`Sending TX to contract ${index + 1}...`);
       await deployed.methods
         .get_master_incoming_viewing_public_key(defaultAccountAddress)
@@ -78,11 +80,11 @@ describe('e2e_deploy_contract legacy', () => {
    * https://hackmd.io/-a5DjEfHTLaMBR49qy6QkA
    */
   it('should not deploy a contract with the same salt twice', async () => {
-    const contractAddressSalt = Fr.random();
-    const deployer = new ContractDeployer(TestContractArtifact, wallet);
+    const salt = Fr.random();
+    const contractDeployer = new ContractDeployer(TestContractArtifact, wallet);
 
-    await deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt });
-    await expect(deployer.deploy().send({ from: defaultAccountAddress, contractAddressSalt })).rejects.toThrow(
+    await contractDeployer.deploy({ salt }).send({ from: defaultAccountAddress });
+    await expect(contractDeployer.deploy({ salt }).send({ from: defaultAccountAddress })).rejects.toThrow(
       TX_ERROR_EXISTING_NULLIFIER,
     );
   });
@@ -92,7 +94,7 @@ describe('e2e_deploy_contract legacy', () => {
     const artifact = TokenContractArtifact;
     const initArgs = ['TokenName', 'TKN', 18] as const;
     const goodDeploy = StatefulTestContract.deploy(wallet, defaultAccountAddress, 42);
-    const badDeploy = new ContractDeployer(artifact, wallet).deploy(AztecAddress.ZERO, ...initArgs);
+    const badDeploy = new ContractDeployer(artifact, wallet).deploy({}, AztecAddress.ZERO, ...initArgs);
 
     const firstOpts: DeployOptions = {
       from: defaultAccountAddress,

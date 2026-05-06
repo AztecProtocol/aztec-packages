@@ -331,9 +331,8 @@ describe('HA Full Setup', () => {
     // Deploy a contract to trigger block building
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
     logger.info(`Deploying contract from ${ownerAddress}`);
-    const { receipt } = await deployer.deploy(ownerAddress, 1).send({
+    const { receipt } = await deployer.deploy({ salt: new Fr(BigInt(1)) }, ownerAddress, 1).send({
       from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
     });
 
     await waitForProven(aztecNode, receipt, {
@@ -449,9 +448,8 @@ describe('HA Full Setup', () => {
     // Send a transaction to trigger block building which will also trigger voting
     logger.info('Sending transaction to trigger block building...');
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const { receipt } = await deployer.deploy(ownerAddress, 42).send({
+    const { receipt } = await deployer.deploy({ salt: Fr.random() }, ownerAddress, 42).send({
       from: ownerAddress,
-      contractAddressSalt: Fr.random(),
     });
     expect(receipt.blockNumber).toBeDefined();
     logger.info(`Transaction mined in block ${receipt.blockNumber}`);
@@ -606,9 +604,8 @@ describe('HA Full Setup', () => {
       }
 
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const receipt = await deployer.deploy(ownerAddress, 201).send({
+      const receipt = await deployer.deploy({ salt: new Fr(201) }, ownerAddress, 201).send({
         from: ownerAddress,
-        contractAddressSalt: new Fr(201),
       });
       expect(receipt.receipt.blockNumber).toBeDefined();
       const [block] = await aztecNode.getCheckpointedBlocks(receipt.receipt.blockNumber!, 1);
@@ -648,9 +645,8 @@ describe('HA Full Setup', () => {
       logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
 
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const { receipt } = await deployer.deploy(ownerAddress, i + 100).send({
+      const { receipt } = await deployer.deploy({ salt: new Fr(BigInt(i + 100)) }, ownerAddress, i + 100).send({
         from: ownerAddress,
-        contractAddressSalt: new Fr(BigInt(i + 100)),
       });
 
       expect(receipt.blockNumber).toBeDefined();
