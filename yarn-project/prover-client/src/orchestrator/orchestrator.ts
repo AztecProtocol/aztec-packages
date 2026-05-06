@@ -93,7 +93,6 @@ export class ProvingOrchestrator implements EpochProver {
 
   private provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
   private logger: Logger;
   private deferredJobQueue = new SerialQueue();

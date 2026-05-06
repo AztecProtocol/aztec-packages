@@ -20,14 +20,13 @@ class KernelIOSerde {
     using NativeG1 = curve::BN254::AffineElement;
     using NativeFq = curve::BN254::BaseField;
     using NativePairingPoints = bb::PairingPoints<curve::BN254>;
-    using NativeTableCommitments = std::array<NativeG1, MegaCircuitBuilder::NUM_WIRES>;
 
     static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
 
     NativePairingPoints pairing_inputs;
     NativeG1 kernel_return_data;
     NativeG1 app_return_data;
-    NativeTableCommitments ecc_op_tables;
+    NativeFF ecc_op_hash;
     NativeFF output_hn_accum_hash;
 
     /**
@@ -55,9 +54,7 @@ class KernelIOSerde {
         result.pairing_inputs.P1() = deserialize_point();
         result.kernel_return_data = deserialize_point();
         result.app_return_data = deserialize_point();
-        for (auto& commitment : result.ecc_op_tables) {
-            commitment = deserialize_point();
-        }
+        result.ecc_op_hash = proof[idx++];
         result.output_hn_accum_hash = proof[idx];
 
         return result;
@@ -97,9 +94,7 @@ class KernelIOSerde {
         serialize_point(pairing_inputs.P1());
         serialize_point(kernel_return_data);
         serialize_point(app_return_data);
-        for (const auto& commitment : ecc_op_tables) {
-            serialize_point(commitment);
-        }
+        proof[idx++] = ecc_op_hash;
         proof[idx] = output_hn_accum_hash;
     }
 };

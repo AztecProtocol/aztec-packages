@@ -283,8 +283,8 @@ template <typename Builder_> class field_t {
     field_t sqr() const { return operator*(*this); }
 
     field_t pow(const uint32_t& exponent) const;
-    // N.B. we implicitly range-constrain 'exponent' to be a 32-bit integer!
-    field_t pow(const field_t& exponent) const;
+    // N.B. we implicitly range-constrain 'exponent' to be a num_bits-bit integer!
+    template <size_t num_bits = 32> field_t pow(const field_t& exponent) const;
 
     field_t operator+=(const field_t& other)
     {

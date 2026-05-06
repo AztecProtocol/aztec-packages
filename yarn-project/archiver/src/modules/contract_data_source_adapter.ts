@@ -35,12 +35,8 @@ export class ArchiverContractDataSourceAdapter implements ContractDataSource {
     let timestamp = maybeTimestamp;
     if (timestamp === undefined) {
       const latest = await this.stores.blocks.getLatestL2BlockNumber();
-      if ((latest as BlockNumber) === 0) {
-        timestamp = 0n;
-      } else {
-        const [header] = await this.stores.blocks.getBlockHeaders(latest, 1);
-        timestamp = header ? header.globalVariables.timestamp : 0n;
-      }
+      const blockData = latest > 0 ? await this.stores.blocks.getBlockData({ number: latest }) : undefined;
+      timestamp = blockData ? blockData.header.globalVariables.timestamp : 0n;
     }
     return this.stores.contractInstances.getContractInstance(address, timestamp);
   }
