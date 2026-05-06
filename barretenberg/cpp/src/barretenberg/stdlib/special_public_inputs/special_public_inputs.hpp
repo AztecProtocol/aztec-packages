@@ -55,10 +55,11 @@ std::array<typename bn254<Builder>::Group, Builder::NUM_WIRES> empty_ecc_op_tabl
 }
 
 /**
- * @brief Manages the data that is propagated on the public inputs of a kernel circuit
+ * @brief Manages the data that is propagated on the public inputs of a kernel circuit.
  *
+ * @tparam N Number of app return-data commitments carried by the kernel public inputs.
  */
-class KernelIO {
+template <size_t N> class KernelIO_ {
   public:
     using Builder = MegaCircuitBuilder;   // kernel builder is always Mega
     using Curve = stdlib::bn254<Builder>; // curve is always bn254
@@ -66,19 +67,20 @@ class KernelIO {
     using FF = Curve::ScalarField;
     using PairingInputs = stdlib::recursion::PairingPoints<Curve>;
     using TableCommitments = std::array<G1, Builder::NUM_WIRES>;
+    using AppReturnDataCommitments = std::array<G1, N>;
 
     using PublicPoint = stdlib::PublicInputComponent<G1>;
     using PublicPairingPoints = stdlib::PublicInputComponent<PairingInputs>;
     using PublicFF = stdlib::PublicInputComponent<FF>;
 
-    PairingInputs pairing_inputs; // Inputs {P0, P1} to an EC pairing check
-    G1 kernel_return_data;        // Commitment to the return data of a kernel circuit
-    G1 app_return_data;           // Commitment to the return data of an app circuit
-    FF ecc_op_hash;               // Running Poseidon2 hash over ECC op column commitments
-    FF output_hn_accum_hash;      // hash of the output HN verifier accumulator
+    PairingInputs pairing_inputs;             // Inputs {P0, P1} to an EC pairing check
+    G1 kernel_return_data;                    // Commitment to the return data of a kernel circuit
+    AppReturnDataCommitments app_return_data; // Commitment to each verified app circuit's return data
+    FF ecc_op_hash;                           // Running Poseidon2 hash over ECC op column commitments
+    FF output_hn_accum_hash;                  // hash of the output HN verifier accumulator
 
     // Total size of the kernel IO public inputs
-    static constexpr size_t PUBLIC_INPUTS_SIZE = KERNEL_PUBLIC_INPUTS_SIZE;
+    static constexpr size_t PUBLIC_INPUTS_SIZE = kernel_public_inputs_size(N);
     static constexpr bool HasIPA = false;
 
     /**
@@ -97,8 +99,10 @@ class KernelIO {
         index += PairingInputs::PUBLIC_INPUTS_SIZE;
         kernel_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
         index += G1::PUBLIC_INPUTS_SIZE;
-        app_return_data = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
-        index += G1::PUBLIC_INPUTS_SIZE;
+        for (auto& app_commitment : app_return_data) {
+            app_commitment = PublicPoint::reconstruct(public_inputs, PublicComponentKey{ index });
+            index += G1::PUBLIC_INPUTS_SIZE;
+        }
         ecc_op_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
         index += FF::PUBLIC_INPUTS_SIZE;
         output_hn_accum_hash = PublicFF::reconstruct(public_inputs, PublicComponentKey{ index });
@@ -115,7 +119,9 @@ class KernelIO {
 
         pairing_inputs.set_public(builder);
         kernel_return_data.set_public();
-        app_return_data.set_public();
+        for (auto& app_commitment : app_return_data) {
+            app_commitment.set_public();
+        }
         ecc_op_hash.set_public();
         output_hn_accum_hash.set_public();
 
@@ -129,16 +135,20 @@ class KernelIO {
      */
     static void add_default(Builder& builder)
     {
-        KernelIO inputs;
+        KernelIO_ inputs;
 
         inputs.pairing_inputs = PairingInputs::construct_default();
         inputs.kernel_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
-        inputs.app_return_data = DataBusDepot<Builder>::construct_default_commitment(builder);
+        for (auto& app_commitment : inputs.app_return_data) {
+            app_commitment = DataBusDepot<Builder>::construct_default_commitment(builder);
+        }
         inputs.ecc_op_hash = FF::from_witness(&builder, typename FF::native(0));
         inputs.output_hn_accum_hash = FF::from_witness(&builder, typename FF::native(0));
         inputs.set_public();
     }
 };
+
+using KernelIO = KernelIO_<MAX_APPS_PER_KERNEL>;
 
 /**
  * @brief Manages the data that is propagated on the public inputs of an application/function circuit

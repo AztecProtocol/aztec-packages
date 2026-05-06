@@ -17,7 +17,7 @@ class AvmHardCodedVKAndHash {
     using FF = bb::curve::BN254::ScalarField;
 
     // Precomputed VK hash (hash of all commitments below).
-    static FF vk_hash() { return FF(uint256_t("0x183783fd7c3f269b595307224be99cf3773b781f8d1d59a305ce711101d43a60")); }
+    static FF vk_hash() { return FF(uint256_t("0x23a03c6f87c465dbecc386b091e8123a8936597b5b0749f276d042a8964bd390")); }
 
     static constexpr std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> get_all()
     {
@@ -233,6 +233,18 @@ class AvmHardCodedVKAndHash {
                 uint256_t(
                     "0x062522db0dc283ad1d328147904f0fdc0e44add870aa0b099cf16c3d73352a9e")), // precomputed_sel_addressing_gas
             Commitment(
+                uint256_t("0x095419f3dc475e499012c5d001c266643669a19173217b51fd5f2a86b3e1a8b2"),
+                uint256_t(
+                    "0x0f9bf4c4f62da52213998f25ab3eca754175cf4580e070f1abb251e2d8a8e64a")), // precomputed_sel_append_l2_l1_msg
+            Commitment(
+                uint256_t("0x2932e8961b4b905fe11c2f93092e57d7e541a9bb00aca69af2a6d213577670ea"),
+                uint256_t(
+                    "0x20b57b640b0186c53727c6f4724dc71b51387a34d8db51af06b1f9ad3a92d467")), // precomputed_sel_append_note_hash
+            Commitment(
+                uint256_t("0x1eba8da14083ce2c1b307a5493006a232c89e55fa657f9c193f5654990f06544"),
+                uint256_t(
+                    "0x07b64d628ee70ee71e89aaabb91abd9005096a24e8c4cd3543cbf1b9344e108f")), // precomputed_sel_append_nullifier
+            Commitment(
                 uint256_t("0x2059be69211e5ea9bb365ab69c1132eb7b7c6814925453953f62bf731e5e42f9"),
                 uint256_t(
                     "0x00a0c3ab39b3041e7996f98bb8065ff6d0ddcf70403dff0f8f3cf91da4ca69ce")), // precomputed_sel_envvar_pi_lookup_col0
@@ -280,18 +292,6 @@ class AvmHardCodedVKAndHash {
                 uint256_t("0x089cdab4e8e8381977b093cb267a1b7c8c60f4466c39a99af1247e37fe56ebfe"),
                 uint256_t(
                     "0x1144347d2bfe5c1f4a6d44418562facb9a5c9c7bf2b6b463424e8b0915254710")), // precomputed_sel_mem_tag_out_of_range
-            Commitment(
-                uint256_t("0x020ad6e43ccd48a6a39e43897cc85187bd364919be8a3b82d4809715cfe489db"),
-                uint256_t(
-                    "0x21a79ebae2ea3d92b49c521407d2600ac061146f2c188c6c6a33c598179e4543")), // precomputed_sel_non_revertible_append_l2_l1_msg
-            Commitment(
-                uint256_t("0x2d360628289ff943ff6bd1a87bbe4e62abe7fb61ba83effd266f22bdcf31e6f9"),
-                uint256_t(
-                    "0x26b92a79e563c3f48252cce7feeca2f0f8d33dcb4ef7b0643bf07bd405700aaa")), // precomputed_sel_non_revertible_append_note_hash
-            Commitment(
-                uint256_t("0x0000000000000000000000000000000000000000000000000000000000000001"),
-                uint256_t(
-                    "0x0000000000000000000000000000000000000000000000000000000000000002")), // precomputed_sel_non_revertible_append_nullifier
             Commitment(
                 uint256_t("0x0bf1970c2e92fee577ba15d063fa78fdd17752cafd19261ff0f176a1d3348769"),
                 uint256_t(
@@ -404,18 +404,6 @@ class AvmHardCodedVKAndHash {
                 uint256_t("0x2e51e57417ece86800e7afa2ac53cfffcf35343cfb4bad1f6016a5b657fc3bfe"),
                 uint256_t(
                     "0x2c8617a36d1bbb5e7bf06c192e8ffc9aa90c714d222f8c8c29ed6a8a7e5eb717")), // precomputed_sel_range_8
-            Commitment(
-                uint256_t("0x262d212add82bcbcf96d0773c59926e1b8e68e45c662f9348f2e4f64770595b3"),
-                uint256_t(
-                    "0x2fe4de705da2b7bfb03cb3baa199ed4cc97e6ce620d0e939b603493223e88703")), // precomputed_sel_revertible_append_l2_l1_msg
-            Commitment(
-                uint256_t("0x041008987db8f55ded689b589133da9860150ed8c97b6bb5e87f0a31f78582b8"),
-                uint256_t(
-                    "0x113ecb4f4d07b4efb19a22b59e5634d58e5f1d5a433b08a32f1ac2bdd0e7c01a")), // precomputed_sel_revertible_append_note_hash
-            Commitment(
-                uint256_t("0x2a56ce41f6b0be13b9c26747621b821eee81b23a887f299049b14c11e98460d6"),
-                uint256_t(
-                    "0x1aa98f2de3ddda547d8f6de4e725ded5827d6338c78656c0d12ca1aea6ef2c7c")), // precomputed_sel_revertible_append_nullifier
             Commitment(
                 uint256_t("0x2db8d548af3efd182047c9081ce2870f3c2e7a96b4a6469aca26167209285d9b"),
                 uint256_t(

@@ -241,18 +241,15 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     {
         using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::tx_is_tree_insert_phase)) -
-                    (static_cast<View>(in.get(C::tx_sel_revertible_append_note_hash)) +
-                     static_cast<View>(in.get(C::tx_sel_non_revertible_append_note_hash)) +
-                     static_cast<View>(in.get(C::tx_sel_revertible_append_nullifier)) +
-                     static_cast<View>(in.get(C::tx_sel_non_revertible_append_nullifier))));
+                    (static_cast<View>(in.get(C::tx_sel_append_note_hash)) +
+                     static_cast<View>(in.get(C::tx_sel_append_nullifier))));
         std::get<29>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::tx_sel_try_note_hash_append)) -
                     (static_cast<View>(in.get(C::tx_sel)) - static_cast<View>(in.get(C::tx_is_padded))) *
-                        (static_cast<View>(in.get(C::tx_sel_revertible_append_note_hash)) +
-                         static_cast<View>(in.get(C::tx_sel_non_revertible_append_note_hash))));
+                        static_cast<View>(in.get(C::tx_sel_append_note_hash)));
         std::get<30>(evals) += (tmp * scaling_factor);
     }
     { // MAX_NOTE_HASH_WRITES_REACHED
@@ -291,8 +288,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::tx_sel_try_nullifier_append)) -
                     (static_cast<View>(in.get(C::tx_sel)) - static_cast<View>(in.get(C::tx_is_padded))) *
-                        (static_cast<View>(in.get(C::tx_sel_revertible_append_nullifier)) +
-                         static_cast<View>(in.get(C::tx_sel_non_revertible_append_nullifier))));
+                        static_cast<View>(in.get(C::tx_sel_append_nullifier)));
         std::get<35>(evals) += (tmp * scaling_factor);
     }
     {
@@ -365,8 +361,7 @@ void txImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         using View = typename std::tuple_element_t<45, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::tx_sel_try_l2_l1_msg_append)) -
                     (static_cast<View>(in.get(C::tx_sel)) - static_cast<View>(in.get(C::tx_is_padded))) *
-                        (static_cast<View>(in.get(C::tx_sel_revertible_append_l2_l1_msg)) +
-                         static_cast<View>(in.get(C::tx_sel_non_revertible_append_l2_l1_msg))));
+                        static_cast<View>(in.get(C::tx_sel_append_l2_l1_msg)));
         std::get<45>(evals) += (tmp * scaling_factor);
     }
     { // MAX_L2_L1_MSG_WRITES_REACHED

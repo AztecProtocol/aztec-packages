@@ -171,14 +171,19 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
                                                                        << witness_commitments.calldata.get_value());
         kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
 
-        // App return data
-        bool app_return_data_match =
-            kernel_input.app_return_data.get_value() == witness_commitments.secondary_calldata.get_value();
-        BB_ASSERT_DEBUG(app_return_data_match,
-                        "app_return_data mismatch: proof contains "
-                            << kernel_input.app_return_data.get_value() << " but secondary_calldata commitment is "
-                            << witness_commitments.secondary_calldata.get_value());
-        kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
+        // App return data. Mega currently exposes a single app calldata witness commitment
+        // (`secondary_calldata`), so MAX_APPS_PER_KERNEL remains 1.
+        static_assert(MAX_APPS_PER_KERNEL == 1, "Multiple app calldata witness columns are not wired yet");
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+            bool app_return_data_match =
+                kernel_input.app_return_data[idx].get_value() == witness_commitments.secondary_calldata.get_value();
+            BB_ASSERT_DEBUG(app_return_data_match,
+                            "app_return_data mismatch: proof contains "
+                                << kernel_input.app_return_data[idx].get_value()
+                                << " but secondary_calldata commitment is "
+                                << witness_commitments.secondary_calldata.get_value());
+            kernel_input.app_return_data[idx].incomplete_assert_equal(witness_commitments.secondary_calldata);
+        }
 
         // ============= Perform accumulator hash consistency check =========================
 
@@ -202,7 +207,7 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     AppIO app_input; // pairing points
     app_input.reconstruct_from_public(public_inputs);
 
-    // Set the app return data commitment to be propagated via the public inputs
+    // Set the app return data commitment to be propagated via the public inputs. The depot owns slot allocation.
     bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
 
     return { std::move(app_input.pairing_inputs), std::nullopt };
@@ -318,6 +323,9 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // Step 2: VERIFICATION LOOP - Recursively verify each proof in the queue
 
+    BB_ASSERT(bus_depot.app_return_data_slots_are_empty(),
+              "DataBusDepot has stale app return-data slots at kernel-completion boundary");
+
     std::vector<PairingPoints> points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
     if (!is_init_kernel) {
@@ -376,9 +384,11 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Extract native verifier accumulator from the stdlib accum to use it in the next round
         recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
 
-        // Get databus commitments
         auto kernel_return_data_commitment = bus_depot.get_kernel_return_data_commitment(circuit);
-        auto app_return_data_commitment = bus_depot.get_app_return_data_commitment(circuit);
+        KernelIO::AppReturnDataCommitments app_return_data_commitments;
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+            app_return_data_commitments[idx] = bus_depot.get_app_return_data_commitment(circuit, idx);
+        }
 
         // Compute hash of output accumulator
         RecursiveTranscript hash_transcript;
@@ -394,7 +404,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Propagate public inputs
         KernelIO kernel_output{ pairing_points_aggregator,
                                 kernel_return_data_commitment,
-                                app_return_data_commitment,
+                                app_return_data_commitments,
                                 running_hash.value(),
                                 current_verifier_accum_hash };
         kernel_output.set_public();
