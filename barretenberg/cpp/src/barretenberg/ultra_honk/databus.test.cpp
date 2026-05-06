@@ -1,3 +1,4 @@
+#include "barretenberg/stdlib_circuit_builders/databus.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <gtest/gtest.h>
@@ -61,10 +62,7 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
      * @param read_bus_data Method for reading from a given bus column
      * @return Builder
      */
-    static Builder construct_circuit_with_databus_reads(
-        Builder& builder,
-        const std::function<void(Builder&, uint32_t)>& add_bus_data,
-        const std::function<uint32_t(Builder&, uint32_t)>& read_bus_data)
+    static Builder construct_circuit_with_databus_reads(Builder& builder, const BusId& bus_idx)
     {
 
         const uint32_t NUM_BUS_ENTRIES = 5; // number of entries in the bus column
@@ -74,52 +72,17 @@ template <typename Flavor> class DataBusTests : public ::testing::Test {
         for (size_t i = 0; i < NUM_BUS_ENTRIES; ++i) {
             FF val = FF::random_element();
             uint32_t val_witness_idx = builder.add_variable(val);
-            add_bus_data(builder, val_witness_idx);
+            builder.add_public_calldata(bus_idx, val_witness_idx);
         }
 
         // Read from the bus at some random indices
         for (size_t i = 0; i < NUM_READS; ++i) {
             uint32_t read_idx = engine.get_random_uint32() % NUM_BUS_ENTRIES;
             uint32_t read_idx_witness_idx = builder.add_variable(FF(read_idx));
-            read_bus_data(builder, read_idx_witness_idx);
+            builder.read_calldata(bus_idx, read_idx_witness_idx);
         }
 
         return builder;
-    }
-
-    static Builder construct_circuit_with_calldata_reads(Builder& builder)
-    {
-        // Define interfaces for the add and read methods for databus calldata
-        auto add_method = [](Builder& builder, uint32_t witness_idx) {
-            builder.add_public_calldata(BusId::KERNEL_CALLDATA, witness_idx);
-        };
-        auto read_method = [](Builder& builder, uint32_t witness_idx) {
-            return builder.read_calldata(BusId::KERNEL_CALLDATA, witness_idx);
-        };
-
-        return construct_circuit_with_databus_reads(builder, add_method, read_method);
-    }
-
-    static Builder construct_circuit_with_secondary_calldata_reads(Builder& builder)
-    {
-        // Define interfaces for the add and read methods for databus secondary_calldata
-        auto add_method = [](Builder& builder, uint32_t witness_idx) {
-            builder.add_public_calldata(BusId::APP_CALLDATA, witness_idx);
-        };
-        auto read_method = [](Builder& builder, uint32_t witness_idx) {
-            return builder.read_calldata(BusId::APP_CALLDATA, witness_idx);
-        };
-
-        return construct_circuit_with_databus_reads(builder, add_method, read_method);
-    }
-
-    static Builder construct_circuit_with_return_data_reads(Builder& builder)
-    {
-        // Define interfaces for the add and read methods for databus return data
-        auto add_method = [](Builder& builder, uint32_t witness_idx) { builder.add_public_return_data(witness_idx); };
-        auto read_method = [](Builder& builder, uint32_t witness_idx) { return builder.read_return_data(witness_idx); };
-
-        return construct_circuit_with_databus_reads(builder, add_method, read_method);
     }
 };
 
@@ -129,10 +92,10 @@ TYPED_TEST_SUITE(DataBusTests, FlavorTypes);
  * @brief Test proof construction/verification for a circuit with calldata lookup gates
  *
  */
-TYPED_TEST(DataBusTests, CallDataRead)
+TYPED_TEST(DataBusTests, KernelCallDataRead)
 {
     typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
-    this->construct_circuit_with_calldata_reads(builder);
+    this->construct_circuit_with_databus_reads(builder, BusId::KERNEL_CALLDATA);
     EXPECT_TRUE(CircuitChecker::check(builder));
     EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
@@ -141,12 +104,14 @@ TYPED_TEST(DataBusTests, CallDataRead)
  * @brief Test proof construction/verification for a circuit with secondary_calldata lookup gates
  *
  */
-TYPED_TEST(DataBusTests, CallData2Read)
+TYPED_TEST(DataBusTests, AppCallDataRead)
 {
-    typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
-    this->construct_circuit_with_secondary_calldata_reads(builder);
+    for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+        typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
+        this->construct_circuit_with_databus_reads(builder, static_cast<BusId>(idx + 1));
 
-    EXPECT_TRUE(this->construct_and_verify_proof(builder));
+        EXPECT_TRUE(this->construct_and_verify_proof(builder)) << "Failed for app calldata bus with index " << idx;
+    }
 }
 
 /**
@@ -156,7 +121,7 @@ TYPED_TEST(DataBusTests, CallData2Read)
 TYPED_TEST(DataBusTests, ReturnDataRead)
 {
     typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
-    this->construct_circuit_with_return_data_reads(builder);
+    this->construct_circuit_with_databus_reads(builder, BusId::RETURNDATA);
 
     EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
@@ -168,9 +133,11 @@ TYPED_TEST(DataBusTests, ReturnDataRead)
 TYPED_TEST(DataBusTests, ReadAll)
 {
     typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
-    this->construct_circuit_with_calldata_reads(builder);
-    this->construct_circuit_with_secondary_calldata_reads(builder);
-    this->construct_circuit_with_return_data_reads(builder);
+    this->construct_circuit_with_databus_reads(builder, BusId::KERNEL_CALLDATA);
+    for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+        this->construct_circuit_with_databus_reads(builder, static_cast<BusId>(idx + 1));
+    }
+    this->construct_circuit_with_databus_reads(builder, BusId::RETURNDATA);
 
     EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
