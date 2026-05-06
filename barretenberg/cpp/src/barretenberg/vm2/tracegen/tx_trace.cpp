@@ -80,28 +80,6 @@ bool is_revertible(TransactionPhase phase)
 }
 
 /**
- * @brief Returns true if the given phase is a note hash insertion phase.
- *
- * @param phase
- * @return true if the given phase is a note hash insert phase, false otherwise.
- */
-bool is_note_hash_insert_phase(TransactionPhase phase)
-{
-    return get_tx_phase_spec_map().at(phase).append_note_hash;
-}
-
-/**
- * @brief Returns true if the given phase is a nullifier insertion phase.
- *
- * @param phase
- * @return true if the given phase is a nullifier insertion phase, false otherwise.
- */
-bool is_nullifier_insert_phase(TransactionPhase phase)
-{
-    return get_tx_phase_spec_map().at(phase).append_nullifier;
-}
-
-/**
  * @brief Returns true if the given phase is a one-shot phase, i.e., a phase with exactly one phase event/row.
  *        One-shot phases are COLLECT_GAS_FEES, TREE_PADDING and CLEANUP.
  *
@@ -247,13 +225,13 @@ std::vector<std::pair<C, FF>> handle_phase_spec(TransactionPhase phase)
         { C::tx_is_revertible, phase_spec.is_revertible ? 1 : 0 },
         { C::tx_read_pi_start_offset, phase_spec.read_pi_start_offset },
         { C::tx_read_pi_length_offset, phase_spec.read_pi_length_offset },
-        { C::tx_sel_append_note_hash, is_note_hash_insert_phase(phase) ? 1 : 0 },
-        { C::tx_sel_append_nullifier, is_nullifier_insert_phase(phase) ? 1 : 0 },
+        { C::tx_sel_append_note_hash, phase_spec.append_note_hash ? 1 : 0 },
+        { C::tx_sel_append_nullifier, phase_spec.append_nullifier ? 1 : 0 },
         { C::tx_sel_append_l2_l1_msg, phase_spec.append_l2_l1_msg ? 1 : 0 },
         { C::tx_next_phase_on_revert, phase_spec.next_phase_on_revert },
 
         // Directly derived from the phase spec but not part of the phase spec struct.
-        { C::tx_is_tree_insert_phase, (is_note_hash_insert_phase(phase) || is_nullifier_insert_phase(phase)) ? 1 : 0 },
+        { C::tx_is_tree_insert_phase, (phase_spec.append_note_hash || phase_spec.append_nullifier) ? 1 : 0 },
     };
 }
 
@@ -390,10 +368,12 @@ std::vector<std::pair<C, FF>> handle_append_tree_event(const PrivateAppendTreeEv
                                                        TransactionPhase phase,
                                                        const TxContextEvent& state_before)
 {
-    if (is_note_hash_insert_phase(phase)) {
+    const auto& phase_spec = get_tx_phase_spec_map().at(phase);
+
+    if (phase_spec.append_note_hash) {
         return handle_note_hash_append(event, state_before);
     }
-    if (is_nullifier_insert_phase(phase)) {
+    if (phase_spec.append_nullifier) {
         return handle_nullifier_append(event, state_before);
     }
 
