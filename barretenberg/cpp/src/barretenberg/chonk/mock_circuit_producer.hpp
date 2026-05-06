@@ -137,6 +137,18 @@ class PrivateFunctionExecutionMockCircuitProducer {
         }
     }
 
+    PrivateFunctionExecutionMockCircuitProducer(std::vector<bool> leading_is_kernel_flags, bool large_first_app = false)
+        : is_kernel_flags(std::move(leading_is_kernel_flags))
+        , large_first_app(large_first_app)
+    {
+        BB_ASSERT(!is_kernel_flags.empty(), "Mock circuit layout must contain at least one leading circuit");
+        BB_ASSERT_EQ(is_kernel_flags[0], false, "Mock circuit layout must start with an app circuit");
+        for (size_t i = 0; i < NUM_TRAILING_KERNELS; ++i) {
+            is_kernel_flags.emplace_back(true);
+        }
+        total_num_circuits = is_kernel_flags.size();
+    }
+
     /**
      * @brief Precompute the verification key for the given circuit.
      */
