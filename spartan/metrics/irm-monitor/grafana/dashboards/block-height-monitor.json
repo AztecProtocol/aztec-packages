@@ -107,11 +107,11 @@
         {
           "editorMode": "code",
           "exemplar": false,
-          "expr": "max(rollup_pending_checkpoint_number) by (network)",
+          "expr": "max(rollup_pending_block_number) by (network)",
           "instant": false,
-          "legendFormat": "Pending checkpoint height - {{network}}",
+          "legendFormat": "Pending block height - {{network}}",
           "range": true,
-          "refId": "Pending Checkpoint Height"
+          "refId": "Pending Block Height"
         },
         {
           "datasource": {
@@ -120,18 +120,18 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "max(rollup_proven_checkpoint_number) by (network)",
+          "expr": "max(rollup_proven_block_number) by (network)",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Proven checkpoint height - {{network}}",
+          "legendFormat": "Proven block height - {{network}}",
           "range": true,
           "refId": "B",
           "useBackend": false
         }
       ],
-      "title": "Pending & Proven Checkpoint Number",
+      "title": "Pending & Proven Block Number",
       "type": "timeseries"
     },
     {
@@ -219,13 +219,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rollup_pending_checkpoint_number",
+          "expr": "rollup_pending_block_number",
           "legendFormat": "{{network}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Pending Checkpoint Number",
+      "title": "Pending Block Number",
       "type": "timeseries"
     },
     {
@@ -313,13 +313,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "rollup_proven_checkpoint_number",
+          "expr": "rollup_proven_block_number",
           "legendFormat": "{{network}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Proven Checkpoint Number",
+      "title": "Proven Block Number",
       "type": "timeseries"
     }
   ],
@@ -338,5 +338,5 @@
   "timezone": "browser",
   "title": "Aztec Network Block Height Monitor",
   "uid": "alpha-testnet-monitor",
-  "version": 13
+  "version": 12
 }
