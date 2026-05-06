@@ -236,14 +236,14 @@ TYPED_TEST(DataBusTests, OutOfBodyReadCountsRejectedPrefix)
     const FF v_attack = FF(424242);
 
     Builder builder = this->construct_test_builder();
-    builder.add_public_calldata(builder.add_variable(v_honest_0));
-    builder.add_public_calldata(builder.add_variable(FF(11)));
-    builder.add_public_calldata(builder.add_variable(FF(13)));
-    builder.add_public_calldata(builder.add_variable(FF(17)));
-    builder.add_public_calldata(builder.add_variable(FF(19)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(v_honest_0));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(11)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(13)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(17)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(19)));
     for (size_t i = 0; i < NUM_READS; ++i) {
         const uint32_t read_idx_witness = builder.add_variable(FF(0));
-        (void)builder.read_calldata(read_idx_witness);
+        (void)builder.read_calldata(BusId::KERNEL_CALLDATA, read_idx_witness);
     }
     EXPECT_TRUE(CircuitChecker::check(builder));
 
@@ -314,16 +314,16 @@ TYPED_TEST(DataBusTests, OutOfBodyReadCountsRejected)
     const FF v_attack = FF(424242);
 
     Builder builder = this->construct_test_builder();
-    builder.add_public_calldata(builder.add_variable(v_honest_0));
-    builder.add_public_calldata(builder.add_variable(FF(11)));
-    builder.add_public_calldata(builder.add_variable(FF(13)));
-    builder.add_public_calldata(builder.add_variable(FF(17)));
-    builder.add_public_calldata(builder.add_variable(FF(19)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(v_honest_0));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(11)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(13)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(17)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(19)));
     // The result wires of these reads are unconsumed so each forms a trivial copy cycle;
     // rewriting w_l at the busread row is permutation-safe.
     for (size_t i = 0; i < NUM_READS; ++i) {
         const uint32_t read_idx_witness = builder.add_variable(FF(0));
-        (void)builder.read_calldata(read_idx_witness);
+        (void)builder.read_calldata(BusId::KERNEL_CALLDATA, read_idx_witness);
     }
     EXPECT_TRUE(CircuitChecker::check(builder));
 
@@ -405,17 +405,17 @@ TYPED_TEST(DataBusTests, OutOfBodyReadCountsRejectedCrossColumn)
     const FF v_attack = FF(424242);
 
     Builder builder = this->construct_test_builder();
-    builder.add_public_calldata(builder.add_variable(v_honest_0));
-    builder.add_public_calldata(builder.add_variable(FF(11)));
-    builder.add_public_calldata(builder.add_variable(FF(13)));
-    builder.add_public_calldata(builder.add_variable(FF(17)));
-    builder.add_public_calldata(builder.add_variable(FF(19)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(v_honest_0));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(11)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(13)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(17)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(19)));
     for (size_t i = 0; i < RETURN_DATA_SIZE; ++i) {
         builder.add_public_return_data(builder.add_variable(FF(1000 + i)));
     }
     for (size_t i = 0; i < NUM_READS; ++i) {
         const uint32_t read_idx_witness = builder.add_variable(FF(0));
-        (void)builder.read_calldata(read_idx_witness);
+        (void)builder.read_calldata(BusId::KERNEL_CALLDATA, read_idx_witness);
     }
     EXPECT_TRUE(CircuitChecker::check(builder));
 
