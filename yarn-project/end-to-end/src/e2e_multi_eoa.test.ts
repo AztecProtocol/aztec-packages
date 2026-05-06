@@ -108,7 +108,10 @@ describe('e2e_multi_eoa', () => {
     // We should then see that another block is published but this time with a different expected account
     const testAccountRotation = async (expectedFirstSender: number, expectedSecondSender: number) => {
       // the L2 tx we are going to try and execute
-      const deployMethod = StatefulTestContract.deploy(wallet, defaultAccountAddress, 0, { salt: Fr.random() });
+      const deployMethod = StatefulTestContract.deploy(wallet, defaultAccountAddress, 0, {
+        salt: Fr.random(),
+        deployer: defaultAccountAddress,
+      });
       const deployMethodTx = await proveInteraction(wallet, deployMethod, { from: defaultAccountAddress });
 
       const l1Utils: L1TxUtils[] = (publisherManager as any).publishers;
