@@ -46,18 +46,18 @@ describe('e2e_epochs/epochs_multi_proof', () => {
     // This prevents the race condition where multiple provers submit to L1 at the same time
     test.proverNodes.forEach((proverAztecNode, index) => {
       const proverManager = proverAztecNode.getProverNode()!.getProver();
-      const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
-      proverManager.createEpochProver = () => {
-        const epochProver = origCreateEpochProver();
-        const origFinalizeEpoch = epochProver.finalizeEpoch.bind(epochProver);
-        epochProver.finalizeEpoch = async () => {
-          const result = await origFinalizeEpoch();
+      const origCreateTopTree = proverManager.createTopTreeOrchestrator.bind(proverManager);
+      proverManager.createTopTreeOrchestrator = () => {
+        const topTree = origCreateTopTree();
+        const origProve = topTree.prove.bind(topTree);
+        topTree.prove = async (...args: Parameters<typeof origProve>) => {
+          const result = await origProve(...args);
           const sleepTime = index * 1000 * test.constants.ethereumSlotDuration;
-          logger.warn(`Delaying finalizeEpoch for prover node ${index} by ${sleepTime}ms`);
+          logger.warn(`Delaying top-tree prove for prover node ${index} by ${sleepTime}ms`);
           await sleep(sleepTime);
           return result;
         };
-        return epochProver;
+        return topTree;
       };
     });
 

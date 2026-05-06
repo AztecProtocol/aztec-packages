@@ -54,18 +54,18 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
   });
 
   it('uploads failed proving job state and re-runs it on a fresh instance', async () => {
-    // Make initial prover node fail to prove
+    // Make initial prover node fail to prove.
     const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
     const proverManager = proverNode.getProver();
-    const origCreateEpochProver = proverManager.createEpochProver.bind(proverManager);
-    proverManager.createEpochProver = () => {
-      const epochProver = origCreateEpochProver();
-      epochProver.finalizeEpoch = async () => {
+    const origCreateTopTree = proverManager.createTopTreeOrchestrator.bind(proverManager);
+    proverManager.createTopTreeOrchestrator = () => {
+      const topTree = origCreateTopTree();
+      topTree.prove = async () => {
         await sleep(1000);
-        logger.warn(`Triggering error on finalizeEpoch`);
+        logger.warn(`Triggering error on top-tree prove`);
         throw new Error(`Fake error while proving epoch`);
       };
-      return epochProver;
+      return topTree;
     };
 
     // And track when the epoch failure upload is complete
