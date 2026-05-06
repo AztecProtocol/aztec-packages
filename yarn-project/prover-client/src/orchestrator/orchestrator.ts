@@ -15,7 +15,6 @@ import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
 import { EthAddress } from '@aztec/stdlib/block';
 import type {
-  EpochProver,
   ForkMerkleTreeOperations,
   MerkleTreeWriteOperations,
   PublicInputsAndRecursiveProof,
@@ -84,12 +83,12 @@ import { TxProvingState } from './tx-proving-state.js';
 /**
  * The orchestrator, managing the flow of recursive proving operations required to build the rollup proof tree.
  */
-export class ProvingOrchestrator extends TopTreeProvingScheduler implements EpochProver {
+export class ProvingOrchestrator extends TopTreeProvingScheduler {
   protected provingState: EpochProvingState | undefined = undefined;
 
   protected provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
-  // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
+
   private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
 
   constructor(

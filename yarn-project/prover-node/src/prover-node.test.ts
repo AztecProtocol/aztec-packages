@@ -1,17 +1,16 @@
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import type { P2PClient, TxProvider } from '@aztec/p2p';
+import type { EpochProverFactory } from '@aztec/prover-client';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   CommitteeAttestation,
   GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2BlockSource,
+  type L2BlockStreamEvent,
 } from '@aztec/stdlib/block';
 import { Checkpoint, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -19,6 +18,7 @@ import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
   type EpochProvingJobState,
+  type MerkleTreeReadOperations,
   type MerkleTreeWriteOperations,
   WorldStateRunningState,
   type WorldStateSynchronizer,
@@ -30,7 +30,6 @@ import { L1Metrics } from '@aztec/telemetry-client';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { SpecificProverNodeConfig } from './config.js';
-import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
 import type { EpochProvingJob } from './job/epoch-proving-job.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import type { ProverNodePublisher } from './prover-node-publisher.js';
@@ -39,7 +38,7 @@ import { ProverPublisherFactory } from './prover-publisher-factory.js';
 
 describe('prover-node', () => {
   // Prover node dependencies
-  let prover: MockProxy<EpochProverManager>;
+  let prover: MockProxy<EpochProverManager & EpochProverFactory>;
   let publisher: MockProxy<ProverNodePublisher>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
@@ -86,7 +85,7 @@ describe('prover-node', () => {
     );
 
   beforeEach(async () => {
-    prover = mock<EpochProverManager>({
+    prover = mock<EpochProverManager & EpochProverFactory>({
       getProverId: () => EthAddress.random(),
     });
     publisher = mock<ProverNodePublisher>();
@@ -132,6 +131,14 @@ describe('prover-node', () => {
       },
     });
 
+    // Register-time data needs a working `syncImmediate` and a snapshot the archive
+    // sibling-path read can drive against.
+    worldState.syncImmediate.mockResolvedValue(BlockNumber(1));
+    const snapshot = mock<MerkleTreeReadOperations>();
+    snapshot.getTreeInfo.mockResolvedValue({ treeId: 0, size: 0n, root: Buffer.alloc(32), depth: 0 } as any);
+    snapshot.getSiblingPath.mockResolvedValue({ toFields: () => [] } as any);
+    worldState.getSnapshot.mockReturnValue(snapshot);
+
     // Publisher returns its sender address
     address = EthAddress.random();
     publisher.getSenderAddress.mockReturnValue(address);
@@ -156,6 +163,7 @@ describe('prover-node', () => {
 
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
+    l2BlockSource.getGenesisBlockHash.mockReturnValue(GENESIS_BLOCK_HEADER_HASH);
     l2BlockSource.getCheckpoints.mockResolvedValue(publishedCheckpoints);
     const latestBlockNumber = BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number);
     const latestHash = checkpoints.at(-1)!.hash().toString();
@@ -176,13 +184,17 @@ describe('prover-node', () => {
       proven: genesisTipId,
       finalized: genesisTipId,
     });
-    l2BlockSource.getBlockData.mockImplementation(query =>
-      Promise.resolve(
-        'number' in query && query.number === checkpoints[0].blocks[0].number - 1
-          ? ({ header: previousBlockHeader } as any)
-          : undefined,
-      ),
-    );
+    // Return a header for any block number requested (needed for checkpoint-driven flow).
+    l2BlockSource.getBlockData.mockImplementation((query: any) => {
+      if (!('number' in query)) {
+        return Promise.resolve(undefined);
+      }
+      const num = Number(query.number);
+      if (num === checkpoints[0].blocks[0].number - 1) {
+        return Promise.resolve({ header: previousBlockHeader } as any);
+      }
+      return Promise.resolve({ header: BlockHeader.random({ blockNumber: BlockNumber(num) }) } as any);
+    });
 
     // L1 to L2 message source returns no messages
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
@@ -205,15 +217,14 @@ describe('prover-node', () => {
     proverNode = createProverNode();
   });
 
-  it('starts a proof on a finished epoch', async () => {
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+  it('starts a proof via startProof', async () => {
+    await proverNode.startProof(EpochNumber.fromBigInt(10n));
     expect(jobs[0].epochNumber).toEqual(EpochNumber.fromBigInt(10n));
-    expect(jobs[0].job.getDeadline()).toEqual(new Date((l1GenesisTime + 10 + 2) * 1000));
     expect(proverNode.totalJobCount).toEqual(1);
   });
 
   it('requests a publisher for each epoch', async () => {
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
+    await proverNode.startProof(EpochNumber.fromBigInt(10n));
     expect(publisherFactory.create).toHaveBeenCalledTimes(1);
   });
 
@@ -224,73 +235,105 @@ describe('prover-node', () => {
   });
 
   it('gathers txs via the p2p client tx provider', async () => {
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
-    // The prover node must route tx gathering through the shared p2p client's tx provider
+    await proverNode.startProof(EpochNumber.fromBigInt(10n));
     expect(p2p.getTxProvider).toHaveBeenCalled();
-    // One call per block across all checkpoints in the epoch
     const totalBlocks = checkpoints.flatMap(c => c.blocks).length;
     expect(txProvider.getTxsForBlock).toHaveBeenCalledTimes(totalBlocks);
   });
 
   it('does not start a proof if there is a tx missing from coordinator', async () => {
     txProvider.getTxsForBlock.mockResolvedValue({ missingTxs: [TxHash.random()], txs: [] });
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
-    expect(proverNode.totalJobCount).toEqual(0);
-  });
-
-  it('does not prove the same epoch twice', async () => {
-    const firstJob = promiseWithResolvers<void>();
-    proverNode.nextJobRun = () => firstJob.promise;
-    proverNode.nextJobState = 'processing';
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
-
-    firstJob.resolve();
-    expect(proverNode.totalJobCount).toEqual(1);
-  });
-
-  it('restarts a proof on a reorg', async () => {
-    proverNode.nextJobState = 'reorg';
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
-    await retryUntil(() => proverNode.totalJobCount === 2, 'job retried', 5);
-    expect(proverNode.totalJobCount).toEqual(2);
-  });
-
-  it('does not restart a proof on an error', async () => {
-    proverNode.nextJobState = 'failed';
-    await proverNode.handleEpochReadyToProve(EpochNumber.fromBigInt(10n));
-    await sleep(1000);
-    expect(proverNode.totalJobCount).toEqual(1);
+    await expect(proverNode.startProof(EpochNumber.fromBigInt(10n))).rejects.toThrow('Txs not found');
   });
 
   class TestProverNode extends ProverNode {
     public totalJobCount = 0;
     public nextJobState: EpochProvingJobState = 'completed';
-    public nextJobRun: () => Promise<void> = () => Promise.resolve();
 
     protected override doCreateEpochProvingJob(
-      data: EpochProvingJobData,
+      epochNumber: EpochNumber,
       deadline: Date | undefined,
       _publicProcessorFactory: PublicProcessorFactory,
     ): EpochProvingJob {
-      const state = this.nextJobState;
+      const finalState = this.nextJobState;
       this.nextJobState = 'completed';
-      const run = this.nextJobRun;
-      this.nextJobRun = () => Promise.resolve();
-      const job = mock<EpochProvingJob>({
-        run,
-        getState: () => state,
-        getEpochNumber: () => data.epochNumber,
-        getDeadline: () => deadline,
+      // Single live-checkpoint registry mirroring the real EpochProvingJob.
+      type LiveEntry = { checkpoint: any; abortController: AbortController; txsProvided: boolean };
+      const liveCheckpoints: Map<number, LiveEntry> = new Map();
+      let epochComplete = false;
+      let resolveCompletion: (state: EpochProvingJobState) => void = () => {};
+      const completionPromise = new Promise<EpochProvingJobState>(resolve => {
+        resolveCompletion = resolve;
       });
+
+      const job = mock<EpochProvingJob>();
+      const maybeFinalize = () => {
+        if (!epochComplete) {
+          return;
+        }
+        // Simulate the job's internal finalizeAndProve.
+        (job.getState as jest.Mock).mockReturnValue(finalState);
+        void job.finalizeAndProve();
+        resolveCompletion(finalState);
+      };
+
+      job.registerCheckpoint.mockImplementation((checkpoint: any, _checkpointIndex: number, _attestations: any) => {
+        const ac = new AbortController();
+        liveCheckpoints.set(Number(checkpoint.number), { checkpoint, abortController: ac, txsProvided: false });
+        return ac.signal;
+      });
+      job.hasCheckpoint.mockImplementation((n: any) => liveCheckpoints.has(Number(n)));
+      job.getCheckpointCount.mockImplementation(() => liveCheckpoints.size);
+      job.getCheckpointNumbers.mockImplementation(() =>
+        Array.from(liveCheckpoints.keys())
+          .sort((a, b) => a - b)
+          .map(n => CheckpointNumber(n)),
+      );
+      job.provideTxs.mockImplementation((checkpoint: any) => {
+        const entry = liveCheckpoints.get(Number(checkpoint.number));
+        if (entry) {
+          entry.txsProvided = true;
+        }
+        maybeFinalize();
+        return Promise.resolve();
+      });
+      job.removeCheckpointsAfter.mockImplementation((thresholdNumber: any) => {
+        const threshold = Number(thresholdNumber);
+        const numbers = Array.from(liveCheckpoints.keys()).filter(n => n > threshold);
+        for (const n of numbers) {
+          const entry = liveCheckpoints.get(n)!;
+          entry.abortController.abort();
+          liveCheckpoints.delete(n);
+        }
+        if (numbers.length > 0) {
+          maybeFinalize();
+        }
+        return numbers.length;
+      });
+      job.completeEpoch.mockImplementation(() => {
+        epochComplete = true;
+        maybeFinalize();
+      });
+      job.isEpochComplete.mockImplementation(() => epochComplete);
+      job.whenComplete.mockImplementation(() => completionPromise);
+      job.finalizeAndProve.mockImplementation(() => Promise.resolve());
+      (job.getState as jest.Mock).mockReturnValue('processing' as EpochProvingJobState);
+      job.getEpochNumber.mockReturnValue(epochNumber);
+      job.getDeadline.mockReturnValue(deadline);
+      job.cancel.mockResolvedValue(undefined);
+      job.stop.mockResolvedValue(undefined);
       job.getId.mockReturnValue(jobs.length.toString());
-      jobs.push({ epochNumber: data.epochNumber, job });
+      jobs.push({ epochNumber, job });
       this.totalJobCount++;
-      return job;
+      return job as unknown as EpochProvingJob;
     }
 
     public override triggerMonitors() {
       return super.triggerMonitors();
+    }
+
+    public publicComputeStartingBlock() {
+      return this.computeStartingBlock();
     }
 
     public override getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: EpochNumber }[]> {
@@ -299,4 +342,478 @@ describe('prover-node', () => {
       );
     }
   }
+
+  // Helper to create a chain-checkpointed event
+  const makeCheckpointEvent = (
+    checkpoint: Checkpoint,
+    attestations: CommitteeAttestation[] = [],
+  ): L2BlockStreamEvent => {
+    const lastBlock = checkpoint.blocks.at(-1)!;
+    return {
+      type: 'chain-checkpointed',
+      checkpoint: { checkpoint, attestations } as PublishedCheckpoint,
+      block: { number: lastBlock.number, hash: 'fake-hash' },
+    };
+  };
+
+  // Helper to create a chain-pruned event
+  const makePruneEvent = (checkpointNumber: CheckpointNumber): L2BlockStreamEvent => ({
+    type: 'chain-pruned',
+    block: { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() },
+    checkpoint: { number: checkpointNumber, hash: 'fake-hash' },
+  });
+
+  describe('checkpoint-driven flow via L2BlockStream', () => {
+    beforeEach(() => {
+      // Use a large epoch duration so all test checkpoints map to the same epoch.
+      l2BlockSource.getL1Constants.mockResolvedValue({
+        ...EmptyL1RollupConstants,
+        l1GenesisTime: BigInt(l1GenesisTime),
+        epochDuration: 100_000,
+      });
+      // Default: epoch is not yet complete on L1. Tests that exercise EpochMonitor or
+      // the tertiary cross-epoch signal must flip this to true at the right moment to
+      // mirror production (where the archiver's `isEpochComplete` agrees with the
+      // signal that triggered finalization).
+      l2BlockSource.isEpochComplete.mockResolvedValue(false);
+    });
+
+    /** Deliver a checkpoint event and wait for its detached gathering task to settle. */
+    const deliverCheckpoint = async (checkpoint: Checkpoint) => {
+      await proverNode.handleBlockStreamEvent(makeCheckpointEvent(checkpoint));
+      await proverNode.waitForPendingCheckpointTasks();
+    };
+
+    it('creates a job when first checkpoint arrives', async () => {
+      await deliverCheckpoint(checkpoints[0]);
+      expect(proverNode.totalJobCount).toEqual(1);
+    });
+
+    it('reuses existing job for same epoch', async () => {
+      await deliverCheckpoint(checkpoints[0]);
+      await deliverCheckpoint(checkpoints[1]);
+      expect(proverNode.totalJobCount).toEqual(1);
+    });
+
+    it('adds checkpoints to the job', async () => {
+      await deliverCheckpoint(checkpoints[0]);
+      await deliverCheckpoint(checkpoints[1]);
+      const job = jobs[0].job;
+      expect(job.provideTxs).toHaveBeenCalledTimes(2);
+    });
+
+    it('finalizes when epoch monitor fires after all checkpoints delivered', async () => {
+      // Deliver all checkpoints via stream.
+      for (const cp of checkpoints) {
+        await deliverCheckpoint(cp);
+      }
+      const job = jobs[0].job;
+      const jobEpoch = job.getEpochNumber();
+      expect(job.finalizeAndProve).not.toHaveBeenCalled();
+
+      // EpochMonitor signals the same epoch as complete; in production the archiver
+      // already agrees by the time the monitor fires, so flip the mock to match.
+      l2BlockSource.isEpochComplete.mockResolvedValue(true);
+      await proverNode.handleEpochReadyToProve(jobEpoch);
+      expect(job.finalizeAndProve).toHaveBeenCalled();
+    });
+
+    it('finalizes when last checkpoint arrives after epoch monitor fired', async () => {
+      // Deliver first 2 checkpoints.
+      await deliverCheckpoint(checkpoints[0]);
+      await deliverCheckpoint(checkpoints[1]);
+      const job = jobs[0].job;
+      const jobEpoch = job.getEpochNumber();
+
+      // EpochMonitor fires — but only 2/3 checkpoints delivered.
+      l2BlockSource.isEpochComplete.mockResolvedValue(true);
+      await proverNode.handleEpochReadyToProve(jobEpoch);
+      expect(job.finalizeAndProve).not.toHaveBeenCalled();
+
+      // Last checkpoint arrives — now finalization should trigger.
+      await deliverCheckpoint(checkpoints[2]);
+      expect(job.finalizeAndProve).toHaveBeenCalled();
+    });
+
+    it('removes checkpoints on prune event', async () => {
+      // Deliver all checkpoints.
+      for (const cp of checkpoints) {
+        await deliverCheckpoint(cp);
+      }
+      const job = jobs[0].job;
+      expect(job.getCheckpointCount()).toBe(3);
+
+      // Prune removes the last 2 checkpoints (prune to checkpoint 1, removing checkpoint 2 and 3).
+      await proverNode.handleBlockStreamEvent(makePruneEvent(checkpoints[0].number));
+      expect(job.removeCheckpointsAfter).toHaveBeenCalledWith(checkpoints[0].number);
+      expect(job.getCheckpointCount()).toBe(1);
+    });
+
+    it('cancels job when all checkpoints are pruned', async () => {
+      await deliverCheckpoint(checkpoints[0]);
+      const job = jobs[0].job;
+      expect(job.getCheckpointCount()).toBe(1);
+
+      // Prune to before all checkpoints.
+      await proverNode.handleBlockStreamEvent(makePruneEvent(CheckpointNumber(0)));
+      expect(job.cancel).toHaveBeenCalled();
+    });
+
+    it('does not block the stream while gathering txs', async () => {
+      // Make tx gathering pause until we manually release it.
+      let releaseGather: (() => void) | undefined;
+      const gatherPromise = new Promise<{ txs: Tx[]; missingTxs: never[] }>(resolve => {
+        releaseGather = () => resolve({ txs: [makeTx(TxHash.random())], missingTxs: [] });
+      });
+      txProvider.getTxsForBlock.mockReturnValue(gatherPromise as any);
+
+      // The handler should still return promptly.
+      await expect(proverNode.handleBlockStreamEvent(makeCheckpointEvent(checkpoints[0]))).resolves.toBeUndefined();
+
+      // The job is created and the checkpoint is registered as pending.
+      expect(proverNode.totalJobCount).toEqual(1);
+      const job = jobs[0].job;
+      expect(job.registerCheckpoint).toHaveBeenCalledTimes(1);
+      // addCheckpoint should not have been called yet because gathering is still hanging.
+      expect(job.provideTxs).not.toHaveBeenCalled();
+
+      // Release the gather so afterEach can cleanly stop.
+      releaseGather!();
+      await proverNode.waitForPendingCheckpointTasks();
+    });
+
+    it('finalizes earlier in-flight epochs when a checkpoint for a later epoch arrives', async () => {
+      // Build two checkpoints whose slots map to epoch 0 and epoch 1 respectively.
+      const cp0 = await Checkpoint.random(CheckpointNumber(1), {
+        numBlocks: 1,
+        startBlockNumber: 20,
+        slotNumber: SlotNumber(0),
+      });
+      const cp1 = await Checkpoint.random(CheckpointNumber(2), {
+        numBlocks: 1,
+        startBlockNumber: 21,
+        slotNumber: SlotNumber(1),
+      });
+      l2BlockSource.getL1Constants.mockResolvedValue({
+        ...EmptyL1RollupConstants,
+        l1GenesisTime: BigInt(l1GenesisTime),
+        epochDuration: 1,
+      });
+      // Each epoch has exactly one checkpoint (the one matching the epoch number).
+      l2BlockSource.getCheckpoints.mockImplementation((query: any) =>
+        Promise.resolve(
+          'epoch' in query
+            ? [
+                {
+                  checkpoint: Number(query.epoch) === 0 ? cp0 : cp1,
+                  attestations: [],
+                } as unknown as PublishedCheckpoint,
+              ]
+            : [],
+        ),
+      );
+      // Mirror the archiver's semantics: an epoch is complete once L1 time has crossed
+      // its last slot. The "latest delivered checkpoint" tracks how far L1 has advanced.
+      let latestDeliveredEpoch = -1;
+      l2BlockSource.isEpochComplete.mockImplementation((epoch: any) =>
+        Promise.resolve(Number(epoch) < latestDeliveredEpoch),
+      );
+
+      // Deliver checkpoint for epoch 0.
+      latestDeliveredEpoch = 0;
+      await deliverCheckpoint(cp0);
+      const job0 = jobs[0].job;
+      expect(job0.finalizeAndProve).not.toHaveBeenCalled();
+
+      // Deliver checkpoint for epoch 1 — L1 has advanced past epoch 0, so isEpochComplete(0)
+      // now returns true and finalization fires.
+      latestDeliveredEpoch = 1;
+      await deliverCheckpoint(cp1);
+      expect(job0.finalizeAndProve).toHaveBeenCalled();
+    });
+
+    it('completes the epoch immediately on final-checkpoint registration when the monitor fired earlier', async () => {
+      // Inverse of the test below: EpochMonitor fires *before* the final checkpoint
+      // arrives. When that checkpoint is delivered via the stream, the prover-node should
+      // hand the epoch off to the job as soon as it's registered — without waiting for
+      // the (hung) tx-gather to land.
+      const slowBlockNumber = checkpoints[2].blocks[0].number;
+      let releaseSlowGather: (() => void) | undefined;
+      txProvider.getTxsForBlock.mockImplementation(block => {
+        if (block.number === slowBlockNumber) {
+          return new Promise(resolve => {
+            releaseSlowGather = () =>
+              resolve({ txs: block.body.txEffects.map(tx => makeTx(tx.txHash)), missingTxs: [] });
+          });
+        }
+        return Promise.resolve({ txs: block.body.txEffects.map(tx => makeTx(tx.txHash)), missingTxs: [] });
+      });
+
+      // Deliver the first two checkpoints; both gather and provideTxs cleanly.
+      await deliverCheckpoint(checkpoints[0]);
+      await deliverCheckpoint(checkpoints[1]);
+
+      const job = jobs[0].job;
+      // EpochMonitor fires while we're still missing the final checkpoint.
+      l2BlockSource.isEpochComplete.mockResolvedValue(true);
+      await proverNode.handleEpochReadyToProve(job.getEpochNumber());
+      // count=2 < archiver=3 → completeEpoch should NOT have fired yet.
+      expect(job.completeEpoch).not.toHaveBeenCalled();
+
+      // Final checkpoint arrives via the block stream; its gather hangs.
+      await proverNode.handleBlockStreamEvent(makeCheckpointEvent(checkpoints[2]));
+      // Registration alone brought count to 3 == archiver. Since the monitor already
+      // signalled, completeEpoch fires immediately — without the hung gather.
+      expect(job.getCheckpointCount()).toBe(3);
+      expect(job.provideTxs).toHaveBeenCalledTimes(2);
+      expect(job.completeEpoch).toHaveBeenCalled();
+      expect(job.finalizeAndProve).toHaveBeenCalled();
+
+      // Release the hung gather so afterEach can clean up.
+      releaseSlowGather!();
+      await proverNode.waitForPendingCheckpointTasks();
+      expect(job.provideTxs).toHaveBeenCalledTimes(3);
+    });
+
+    it('completes the epoch as soon as registered count matches the archiver, even with tx-gather still in flight', async () => {
+      // Pause gathering for the LAST checkpoint only. The first two gather immediately;
+      // the third's tx-gather hangs while its register-time data is already in place.
+      // Under early-start, the prover-node fires `completeEpoch` as soon as registration
+      // count meets the archiver count — it does not wait on the hung gather.
+      const slowBlockNumber = checkpoints[2].blocks[0].number;
+      let releaseSlowGather: (() => void) | undefined;
+      txProvider.getTxsForBlock.mockImplementation(block => {
+        if (block.number === slowBlockNumber) {
+          return new Promise(resolve => {
+            releaseSlowGather = () =>
+              resolve({ txs: block.body.txEffects.map(tx => makeTx(tx.txHash)), missingTxs: [] });
+          });
+        }
+        return Promise.resolve({ txs: block.body.txEffects.map(tx => makeTx(tx.txHash)), missingTxs: [] });
+      });
+
+      await deliverCheckpoint(checkpoints[0]);
+      await deliverCheckpoint(checkpoints[1]);
+      await proverNode.handleBlockStreamEvent(makeCheckpointEvent(checkpoints[2]));
+
+      const job = jobs[0].job;
+      // All three are registered. Two have had provideTxs called; the third is hung.
+      expect(job.getCheckpointCount()).toBe(3);
+      expect(job.provideTxs).toHaveBeenCalledTimes(2);
+
+      // EpochMonitor signals the epoch as complete. The prover-node sees count=3 == archiver=3
+      // and calls completeEpoch immediately — finalize fires regardless of the hung gather.
+      const jobEpoch = job.getEpochNumber();
+      l2BlockSource.isEpochComplete.mockResolvedValue(true);
+      await proverNode.handleEpochReadyToProve(jobEpoch);
+      expect(job.completeEpoch).toHaveBeenCalled();
+      expect(job.finalizeAndProve).toHaveBeenCalled();
+
+      // Release the hung gather; the provideTxs eventually lands on the (already
+      // finalized in our mock) job. The real EpochProvingJob ignores late provideTxs
+      // for cancelled jobs; the mock just records the call.
+      releaseSlowGather!();
+      await proverNode.waitForPendingCheckpointTasks();
+      expect(job.provideTxs).toHaveBeenCalledTimes(3);
+    });
+
+    it('processes checkpoints for a partially-proven epoch', async () => {
+      // Epoch is 32 slots. The proven block sits at slot 10 — well before the last
+      // slot of epoch 0 (slot 31) — so the epoch is only partially proven and we
+      // need to ingest all of its checkpoints to be able to prove it.
+      l2BlockSource.getL1Constants.mockResolvedValue({
+        ...EmptyL1RollupConstants,
+        l1GenesisTime: BigInt(l1GenesisTime),
+        epochDuration: 32,
+      });
+      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(10));
+      l2BlockSource.getBlockData.mockImplementation((query: any) => {
+        if (!('number' in query)) {
+          return Promise.resolve(undefined);
+        }
+        // Block N sits at slot N — both ≤ 31, so still in epoch 0.
+        const num = Number(query.number);
+        return Promise.resolve({
+          header: BlockHeader.random({ blockNumber: BlockNumber(num), slotNumber: SlotNumber(num) }),
+        } as any);
+      });
+
+      // Deliver an early checkpoint at slot 5 (block 5) — in the same partially-proven
+      // epoch 0, with last block at slot 5 (≤ proven block 10).
+      const earlyCheckpoint = await Checkpoint.random(CheckpointNumber(5), {
+        numBlocks: 1,
+        startBlockNumber: 5,
+        slotNumber: SlotNumber(5),
+      });
+      l2BlockSource.getCheckpoints.mockResolvedValue([
+        { checkpoint: earlyCheckpoint, attestations: [] } as unknown as PublishedCheckpoint,
+      ]);
+
+      await deliverCheckpoint(earlyCheckpoint);
+
+      expect(proverNode.totalJobCount).toEqual(1);
+      expect(jobs[0].epochNumber).toEqual(EpochNumber.fromBigInt(0n));
+      expect(jobs[0].job.registerCheckpoint).toHaveBeenCalled();
+    });
+
+    it('aborts pending gather tasks when a prune removes the checkpoint', async () => {
+      // Make tx gathering pause until manually released.
+      let releaseGather: (() => void) | undefined;
+      const gatherPromise = new Promise<{ txs: Tx[]; missingTxs: never[] }>(resolve => {
+        releaseGather = () => resolve({ txs: [makeTx(TxHash.random())], missingTxs: [] });
+      });
+      txProvider.getTxsForBlock.mockReturnValue(gatherPromise as any);
+
+      await proverNode.handleBlockStreamEvent(makeCheckpointEvent(checkpoints[0]));
+      const job = jobs[0].job;
+      expect(job.getCheckpointNumbers()).toEqual([checkpoints[0].number]);
+
+      // Prune away the pending checkpoint.
+      await proverNode.handleBlockStreamEvent(makePruneEvent(CheckpointNumber(0)));
+
+      // removeCheckpointsAfter should have been invoked for the pruned threshold.
+      expect(job.removeCheckpointsAfter).toHaveBeenCalledWith(CheckpointNumber(0));
+      expect(job.getCheckpointNumbers()).toEqual([]);
+
+      // Release the gather so the detached task can complete (it bails out due to abort).
+      releaseGather!();
+      await proverNode.waitForPendingCheckpointTasks();
+    });
+  });
+
+  describe('computeStartingBlock', () => {
+    const setupBlock = (blockNumber: number, slot: number) => {
+      const header = BlockHeader.random({ blockNumber: BlockNumber(blockNumber), slotNumber: SlotNumber(slot) });
+      l2BlockSource.getBlockData.mockImplementation((query: any) => {
+        if (!('number' in query)) {
+          return Promise.resolve(undefined);
+        }
+        const num = Number(query.number);
+        if (num === blockNumber) {
+          return Promise.resolve({ header } as any);
+        }
+        // For surrounding blocks, return a header with a slot computed assuming 1 block per slot.
+        return Promise.resolve({
+          header: BlockHeader.random({ blockNumber: BlockNumber(num), slotNumber: SlotNumber(num) }),
+        } as any);
+      });
+    };
+
+    it('returns 1 when nothing has been proven', async () => {
+      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber.ZERO);
+      const start = await proverNode.publicComputeStartingBlock();
+      expect(start).toEqual(1);
+    });
+
+    it('returns the next block when the proven block is the last block of its epoch', async () => {
+      // epochDuration=4: epoch 1 covers slots 4..7. Proven block at slot 7 (end of epoch 1).
+      l2BlockSource.getL1Constants.mockResolvedValue({
+        ...EmptyL1RollupConstants,
+        l1GenesisTime: BigInt(l1GenesisTime),
+        epochDuration: 4,
+      });
+      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(7));
+      setupBlock(7, 7);
+      const start = await proverNode.publicComputeStartingBlock();
+      expect(start).toEqual(8);
+    });
+
+    it('rewinds to the first block of a partially-proven epoch', async () => {
+      // epochDuration=4: epoch 1 covers slots 4..7. Proven block at slot 5 (mid-epoch).
+      l2BlockSource.getL1Constants.mockResolvedValue({
+        ...EmptyL1RollupConstants,
+        l1GenesisTime: BigInt(l1GenesisTime),
+        epochDuration: 4,
+      });
+      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(5));
+      // Block 5 -> slot 5 (epoch 1), block 4 -> slot 4 (epoch 1), block 3 -> slot 3 (epoch 0).
+      l2BlockSource.getBlockData.mockImplementation((query: any) =>
+        'number' in query
+          ? Promise.resolve({
+              header: BlockHeader.random({
+                blockNumber: BlockNumber(Number(query.number)),
+                slotNumber: SlotNumber(Number(query.number)),
+              }),
+            } as any)
+          : Promise.resolve(undefined),
+      );
+      // First checkpoint of epoch 1 starts at block 4.
+      l2BlockSource.getCheckpointsData.mockResolvedValue([{ startBlock: BlockNumber(4) } as any]);
+      const start = await proverNode.publicComputeStartingBlock();
+      expect(start).toEqual(4); // First block of epoch 1.
+    });
+
+    it('treats the proven block as the last of its epoch when the trailing slots are empty and the epoch is over on L1', async () => {
+      // epochDuration=4: epoch 1 covers slots 4..7. Proven block 5 at slot 5; slots 6, 7
+      // were skipped (no blocks). No block 6 exists. Epoch 1 is over on L1.
+      l2BlockSource.getL1Constants.mockResolvedValue({
+        ...EmptyL1RollupConstants,
+        l1GenesisTime: BigInt(l1GenesisTime),
+        epochDuration: 4,
+      });
+      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(5));
+      l2BlockSource.getBlockData.mockImplementation((query: any) => {
+        if (!('number' in query)) {
+          return Promise.resolve(undefined);
+        }
+        const num = Number(query.number);
+        if (num === 5) {
+          return Promise.resolve({
+            header: BlockHeader.random({ blockNumber: BlockNumber(5), slotNumber: SlotNumber(5) }),
+          } as any);
+        }
+        if (num === 4) {
+          return Promise.resolve({
+            header: BlockHeader.random({ blockNumber: BlockNumber(4), slotNumber: SlotNumber(4) }),
+          } as any);
+        }
+        // Block 6 (and beyond) doesn't exist yet.
+        return Promise.resolve(undefined);
+      });
+      l2BlockSource.isEpochComplete.mockResolvedValue(true);
+
+      const start = await proverNode.publicComputeStartingBlock();
+      expect(start).toEqual(6); // Next block after the proven last-of-epoch.
+    });
+
+    it('rewinds when no later block exists but the proven epoch is still active on L1', async () => {
+      // epochDuration=4: epoch 1 covers slots 4..7. Proven block 5 at slot 5; no block 6
+      // yet but epoch 1 is still active (more blocks could still arrive).
+      l2BlockSource.getL1Constants.mockResolvedValue({
+        ...EmptyL1RollupConstants,
+        l1GenesisTime: BigInt(l1GenesisTime),
+        epochDuration: 4,
+      });
+      l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(5));
+      l2BlockSource.getBlockData.mockImplementation((query: any) => {
+        if (!('number' in query)) {
+          return Promise.resolve(undefined);
+        }
+        const num = Number(query.number);
+        if (num === 5) {
+          return Promise.resolve({
+            header: BlockHeader.random({ blockNumber: BlockNumber(5), slotNumber: SlotNumber(5) }),
+          } as any);
+        }
+        if (num === 4) {
+          return Promise.resolve({
+            header: BlockHeader.random({ blockNumber: BlockNumber(4), slotNumber: SlotNumber(4) }),
+          } as any);
+        }
+        if (num === 3) {
+          // Block 3 sits in epoch 0 — boundary marker for the rewind loop.
+          return Promise.resolve({
+            header: BlockHeader.random({ blockNumber: BlockNumber(3), slotNumber: SlotNumber(3) }),
+          } as any);
+        }
+        return Promise.resolve(undefined);
+      });
+      l2BlockSource.isEpochComplete.mockResolvedValue(false);
+      // First checkpoint of epoch 1 starts at block 4.
+      l2BlockSource.getCheckpointsData.mockResolvedValue([{ startBlock: BlockNumber(4) } as any]);
+
+      const start = await proverNode.publicComputeStartingBlock();
+      expect(start).toEqual(4); // First block of epoch 1.
+    });
+  });
 });

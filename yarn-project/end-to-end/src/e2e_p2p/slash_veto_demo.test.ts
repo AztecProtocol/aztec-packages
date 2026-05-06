@@ -88,6 +88,7 @@ describe('veto slash', () => {
         slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / EPOCH_DURATION,
         slashingQuorum: SLASHING_QUORUM,
         slashInactivityTargetPercentage: SLASH_INACTIVITY_TARGET_PERCENTAGE,
+        proverBrokerMaxEpochsToKeepResultsFor: 20,
       },
     });
 
