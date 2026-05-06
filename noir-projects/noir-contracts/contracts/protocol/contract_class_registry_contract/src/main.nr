@@ -26,10 +26,7 @@ pub contract ContractClassRegistry {
         oracle::capsules,
         protocol::{
             address::AztecAddress,
-            constants::{
-                CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT,
-                MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
-            },
+            constants::{CONTRACT_CLASS_REGISTRY_BYTECODE_CAPSULE_SLOT, MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS},
             contract_class_id::ContractClassId,
             traits::ToField,
         },
@@ -64,12 +61,10 @@ pub contract ContractClassRegistry {
         // body, I have removed that check.
         aztec::oracle::version::assert_compatible_oracle_version();
 
-        let serialized_params: [Field; 3] =
-            [artifact_hash, private_functions_root, public_bytecode_commitment];
+        let serialized_params: [Field; 3] = [artifact_hash, private_functions_root, public_bytecode_commitment];
 
         let args_hash: Field = aztec::hash::hash_args(serialized_params);
-        let mut context: aztec::context::PrivateContext =
-            aztec::context::PrivateContext::new(inputs, args_hash);
+        let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
         // MACRO CODE END
 
         // Safety: We load the bytecode via a capsule, which is unconstrained. In order to ensure the loaded bytecode
@@ -101,12 +96,7 @@ pub contract ContractClassRegistry {
         // Broadcast class info including public bytecode
         aztec::oracle::logging::debug_log_format(
             "ContractClassPublished: {}",
-            [
-                contract_class_id.to_field(),
-                artifact_hash,
-                private_functions_root,
-                public_bytecode_commitment,
-            ],
+            [contract_class_id.to_field(), artifact_hash, private_functions_root, public_bytecode_commitment],
         );
 
         let event = ContractClassPublished {

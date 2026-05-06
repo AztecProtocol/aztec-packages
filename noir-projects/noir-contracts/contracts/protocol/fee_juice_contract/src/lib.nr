@@ -8,7 +8,8 @@ pub fn calculate_fee<TPublicContext>(context: PublicContext) -> Field {
 }
 
 /// Computes the content hash for an L1-to-L2 "bridge gas" message, matching the hash produced on L1 by
-/// `FeeJuicePortal.depositToAztecPublic`: `sha256ToField(abi.encodeWithSignature("claim(bytes32,uint256)", to, amount))`.
+/// `FeeJuicePortal.depositToAztecPublic`: `sha256ToField(abi.encodeWithSignature("claim(bytes32,uint256)", to,
+/// amount))`.
 ///
 /// The 68-byte buffer is: [4-byte selector of "claim(bytes32,uint256)"][32-byte recipient][32-byte amount], hashed
 /// with `sha256_to_field` to produce a single Field.

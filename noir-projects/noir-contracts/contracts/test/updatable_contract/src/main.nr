@@ -27,9 +27,7 @@ contract Updatable {
     fn initialize(initial_value: Field) {
         let owner = self.msg_sender();
         let note = FieldNote { value: initial_value };
-        self.storage.private_value.at(owner).initialize(note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        self.storage.private_value.at(owner).initialize(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
         self.enqueue_self._initialize_public_value(initial_value);
     }
 
@@ -46,20 +44,19 @@ contract Updatable {
 
     #[external("private")]
     fn update_to(new_class_id: ContractClassId) {
-        self.enqueue(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .update(new_class_id));
+        self.enqueue(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).update(new_class_id));
     }
 
     #[external("private")]
     fn set_update_delay(new_delay: u64) {
-        self.enqueue(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .set_update_delay(new_delay));
+        self.enqueue(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).set_update_delay(
+            new_delay,
+        ));
     }
 
     #[external("public")]
     fn get_update_delay() -> u64 {
-        self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS)
-            .get_update_delay())
+        self.view(ContractInstanceRegistry::at(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS).get_update_delay())
     }
 
     #[internal("public")]

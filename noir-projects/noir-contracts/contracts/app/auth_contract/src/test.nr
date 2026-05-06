@@ -47,8 +47,7 @@ unconstrained fn admin_can_schedule_set_authorized() {
 
     env.call_public(admin, auth.set_authorized(to_authorize));
 
-    let (scheduled_authorized, timestamp_of_change) =
-        env.view_public(auth.get_scheduled_authorized());
+    let (scheduled_authorized, timestamp_of_change) = env.view_public(auth.get_scheduled_authorized());
     assert_eq(scheduled_authorized, to_authorize);
     assert_eq(timestamp_of_change, env.last_block_timestamp() + Auth::CHANGE_AUTHORIZED_DELAY);
 }
