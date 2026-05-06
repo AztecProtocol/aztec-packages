@@ -239,7 +239,9 @@ void AvmProver::execute_pcs_rounds()
                         continue;
                     }
 
-                    for (size_t idx = sources[poly_id].start_index(); idx < sources[poly_id].end_index(); idx++) {
+                    const size_t start_idx = sources[poly_id].start_index();
+                    const size_t end_idx = sources[poly_id].end_index();
+                    for (size_t idx = start_idx; idx < end_idx; idx++) {
                         batched_polys[slot_id].at(idx) += scalars[poly_id] * sources[poly_id][idx];
                     }
                 }
