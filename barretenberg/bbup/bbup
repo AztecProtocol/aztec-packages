@@ -50,8 +50,8 @@ get_bb_version_for_noir() {
 
     local lookup_url="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/next/barretenberg/bbup/bb-versions.json"
 
-    # Extract BB version from install script
-    local bb_version=$(curl --fail -s "$lookup_url" | jq -r --arg version "$resolved_version" '.[$version]')
+    # bb-versions.json is a flat "<noir-version>": "<bb-version>" map with one entry per line.
+    local bb_version=$(curl --fail -s "$lookup_url" | grep -F "\"$resolved_version\":" | head -1 | cut -d'"' -f4)
     echo "$bb_version"
 }
 

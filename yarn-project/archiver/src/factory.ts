@@ -12,9 +12,10 @@ import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
-import type { ArchiverEmitter } from '@aztec/stdlib/block';
+import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -46,12 +47,17 @@ export async function createArchiverStore(
  * @param config - The archiver configuration.
  * @param deps - The archiver dependencies (blobClient, epochCache, dateProvider, telemetry).
  * @param opts - The options.
+ * @param initialHeader - The genesis block header from world-state, used to answer block-0 queries.
+ * @param initialBlockHash - Precomputed hash of `initialHeader`. Hoisted to the caller so the archiver
+ * can expose `getGenesisBlockHash()` synchronously.
  * @returns The local archiver.
  */
 export async function createArchiver(
   config: ArchiverConfig & DataStoreConfig,
   deps: ArchiverDeps,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
+  initialHeader: BlockHeader,
+  initialBlockHash: BlockHash,
 ): Promise<Archiver> {
   const archiverStore = await createArchiverStore(config);
   await registerProtocolContracts(archiverStore);
@@ -133,8 +139,10 @@ export async function createArchiver(
   // Create the event emitter that will be shared by archiver and synchronizer
   const events = new EventEmitter() as ArchiverEmitter;
 
-  // Create L2 tips cache shared by archiver and synchronizer
-  const l2TipsCache = new L2TipsCache(archiverStore.blocks);
+  // Create L2 tips cache shared by archiver and synchronizer. The genesis block hash is dynamic —
+  // it depends on the injected initial header (genesisTimestamp + prefilled state). Hoisted to the
+  // caller so we can pass the same value to the archiver and expose it via `getGenesisBlockHash()`.
+  const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);
 
   // Create the L1 synchronizer
   const synchronizer = new ArchiverL1Synchronizer(
@@ -167,6 +175,8 @@ export async function createArchiver(
     l1Constants,
     synchronizer,
     events,
+    initialHeader,
+    initialBlockHash,
     l2TipsCache,
   );
 

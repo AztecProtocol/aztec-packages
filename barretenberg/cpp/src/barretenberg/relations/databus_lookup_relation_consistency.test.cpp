@@ -34,16 +34,16 @@ struct DatabusInputElements {
 
     // Column selectors (determine which bus column is being read)
     FF q_l; // calldata selector
-    FF q_r; // secondary_calldata selector
+    FF q_r; // app calldata selector
     FF q_o; // return_data selector
 
-    // Calldata (bus_idx = 0)
+    // Kernel calldata (bus_idx = 0)
     FF calldata;
     FF calldata_read_counts;
     FF calldata_inverses;
     FF calldata_indicator;
 
-    // Secondary calldata (bus_idx = 1)
+    // App calldata (bus_idx = 1)
     FF secondary_calldata;
     FF secondary_calldata_read_counts;
     FF secondary_calldata_inverses;

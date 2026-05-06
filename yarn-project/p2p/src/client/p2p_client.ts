@@ -1,14 +1,20 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  type CheckpointProposalHash,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
+  type BlockData,
+  type BlockHash,
   type CheckpointId,
   type EthAddress,
-  GENESIS_BLOCK_HEADER_HASH,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
@@ -95,6 +101,7 @@ export class P2PClient extends WithTracer implements P2P {
     private _dateProvider: DateProvider = new DateProvider(),
     private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p'),
+    initialBlockHash: BlockHash,
   ) {
     super(telemetry, 'P2PClient');
 
@@ -110,7 +117,7 @@ export class P2PClient extends WithTracer implements P2P {
       this.telemetry,
     );
 
-    this.l2Tips = new L2TipsKVStore(store, 'p2p_client');
+    this.l2Tips = new L2TipsKVStore(store, 'p2p_client', initialBlockHash);
     this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
   }
 
@@ -164,7 +171,7 @@ export class P2PClient extends WithTracer implements P2P {
         const from = BlockNumber(oldFinalizedBlockNum + 1);
         const limit = event.block.number - from + 1;
         if (limit > 0) {
-          const oldBlocks = await this.l2BlockSource.getBlocks(from, limit);
+          const oldBlocks = await this.l2BlockSource.getBlocksData({ from, limit });
           await this.handleFinalizedL2Blocks(oldBlocks);
         }
         break;
@@ -377,10 +384,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public async getCheckpointAttestationsForSlot(
     slot: SlotNumber,
-    proposalId?: string,
+    proposalPayloadHash?: CheckpointProposalHash,
   ): Promise<CheckpointAttestation[]> {
-    return await (proposalId
-      ? this.attestationPool.getCheckpointAttestationsForSlotAndProposal(slot, proposalId)
+    return await (proposalPayloadHash
+      ? this.attestationPool.getCheckpointAttestationsForSlotAndProposal(slot, proposalPayloadHash)
       : this.attestationPool.getCheckpointAttestationsForSlot(slot));
   }
 
@@ -584,13 +591,10 @@ export class P2PClient extends WithTracer implements P2P {
    */
   public async getStatus(): Promise<P2PSyncState> {
     const blockNumber = await this.getSyncedLatestBlockNum();
-    const blockHash =
-      blockNumber === 0
-        ? GENESIS_BLOCK_HEADER_HASH.toString()
-        : await this.l2BlockSource
-            .getBlockHeader(blockNumber)
-            .then(header => header?.hash())
-            .then(hash => hash?.toString());
+    const blockHash = await this.l2BlockSource
+      .getBlockData({ number: blockNumber })
+      .then(data => data?.header.hash())
+      .then(hash => hash?.toString());
 
     return {
       state: this.currentState,
@@ -660,7 +664,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @param blocks - A list of finalized L2 blocks.
    * @returns Empty promise.
    */
-  private async handleFinalizedL2Blocks(blocks: L2Block[]): Promise<void> {
+  private async handleFinalizedL2Blocks(blocks: BlockData[]): Promise<void> {
     if (!blocks.length) {
       return;
     }

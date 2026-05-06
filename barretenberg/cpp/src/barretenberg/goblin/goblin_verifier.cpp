@@ -20,7 +20,7 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
 {
     BB_BENCH_NAME("GoblinVerifier::reduce");
     // Step 1: Verify the merge proof
-    MergeVerifier merge_verifier{ merge_settings, transcript };
+    MergeVerifier merge_verifier{ transcript };
     auto merge_result = merge_verifier.reduce_to_pairing_check(proof.merge_proof, merge_commitments);
     vinfo("Goblin: Merge reduced to pairing check successfully: ", merge_result.reduction_succeeded ? "true" : "false");
 

@@ -60,7 +60,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { createWorldStateSynchronizer } from '@aztec/world-state';
+import { createWorldState, createWorldStateSynchronizer } from '@aztec/world-state';
 
 import * as fs from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -595,14 +595,19 @@ describe('e2e_synching', () => {
             opts.config!,
             createLogger('test:blob-client:client'),
           );
+          const nativeWs = await createWorldState(opts.config!, opts.genesis);
+          const initialHeader = nativeWs.getInitialHeader();
+          const initialBlockHash = await initialHeader.hash();
           const archiver = await createArchiver(
             opts.config!,
             { blobClient, dateProvider: opts.dateProvider! },
             { blockUntilSync: true },
+            initialHeader,
+            initialBlockHash,
           );
           const pendingCheckpointNumber = CheckpointNumber.fromBigInt(await rollup.read.getPendingCheckpointNumber());
 
-          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, opts.genesis);
+          const worldState = await createWorldStateSynchronizer(opts.config!, archiver, nativeWs);
           await worldState.start();
 
           // We prune the last token and schnorr contract
@@ -616,7 +621,7 @@ describe('e2e_synching', () => {
           await opts.cheatCodes!.eth.warp(Number(timeJumpTo), { resetBlockInterval: true });
 
           expect(await archiver.getCheckpointNumber()).toBeGreaterThan(provenThrough);
-          const blockTip = (await archiver.getBlock(await archiver.getBlockNumber()))!;
+          const blockTip = (await archiver.getBlock({ number: await archiver.getBlockNumber() }))!;
           const txHash = blockTip.body.txEffects[0].txHash;
 
           const contractClassIds = await archiver.getContractClassIds();

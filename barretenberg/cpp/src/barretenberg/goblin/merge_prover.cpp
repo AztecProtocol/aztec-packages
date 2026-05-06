@@ -16,29 +16,23 @@ namespace bb {
  * @details We require an SRS at least as large as the current ultra ecc ops table
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
-MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
-                         std::shared_ptr<Transcript> transcript,
-                         MergeSettings settings)
+MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::shared_ptr<Transcript> transcript)
     : transcript(std::move(transcript))
     , op_queue(op_queue)
-    , settings(settings)
 {
-    // Merge the current subtable (for which a merge proof is being constructed) prior to
-    // procedeing with proving.
-    if (settings == MergeSettings::APPEND) {
-        op_queue->merge(settings, op_queue->get_append_offset());
+    // MergeProver is used only for the final merge, where the hiding kernel subtable is appended at a fixed offset.
+    const size_t append_offset = op_queue->get_append_offset();
+    fixed_append_shift_size = UltraEccOpsTable::ZK_ULTRA_OPS + (append_offset * UltraEccOpsTable::NUM_ROWS_PER_OP);
+    op_queue->merge_fixed_append(append_offset);
 
-    } else {
-        op_queue->merge(settings);
-    }
-
-    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows());
+    pcs_commitment_key = CommitmentKey(op_queue->get_ultra_ops_table_num_rows() + UltraEccOpsTable::ZK_ULTRA_OPS);
 };
 
 MergeProver::Polynomial MergeProver::compute_degree_check_polynomial(
-    const std::array<Polynomial, NUM_WIRES>& left_table, const std::vector<FF>& degree_check_challenges)
+    const std::array<Polynomial, NUM_WIRES>& left_table, const std::vector<FF>& degree_check_challenges) const
 {
-    Polynomial reversed_batched_left_tables(left_table[0].size());
+    // The left table has a fixed length, so we need to compute the reverse according to that length
+    Polynomial reversed_batched_left_tables(fixed_append_shift_size);
     for (size_t idx = 0; idx < NUM_WIRES; idx++) {
         reversed_batched_left_tables.add_scaled(left_table[idx], degree_check_challenges[idx]);
     }
@@ -153,8 +147,8 @@ MergeProver::OpeningClaim MergeProver::compute_shplonk_opening_claim(
  * @details Proves that M_j(X) = L_j(X) + X^k * R_j(X) and deg(L_j) < k for j = 1,2,3,4.
  * Uses degree-check polynomial G(X) and Shplonk for batched openings.
  *
- * For PREPEND: L = subtable (t), R = previous table (T_prev)
- * For APPEND:  L = previous table (T_prev), R = subtable (t)
+ * L = aggregate table up to and including the tail subtable (T_tail), R = the hiding kernel's subtable (t,
+ * appended at a fixed offset and carrying APPEND_TRACE_OFFSET leading zeros), M = the resulting full table (T).
  *
  * @see MERGE_PROTOCOL.md for complete protocol specification.
  * @return MergeProver::MergeProof
@@ -166,19 +160,12 @@ MergeProver::MergeProof MergeProver::construct_proof()
     std::array<Polynomial, NUM_WIRES> right_table;
     std::array<Polynomial, NUM_WIRES> merged_table = op_queue->construct_ultra_ops_table_columns(); // T
 
-    if (settings == MergeSettings::PREPEND) {
-        left_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t
-        right_table = op_queue->construct_previous_ultra_ops_table_columns();  // T_prev
-    } else {
-        left_table = op_queue->construct_previous_ultra_ops_table_columns();    // T_prev
-        right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t (hiding kernel subtable,
-                                                                                // carries MegaZKFlavor::TRACE_OFFSET
-                                                                                // leading zeros internally)
-    }
+    left_table = op_queue->construct_table_columns_up_to_tail();            // T_tail
+    right_table = op_queue->construct_current_ultra_ops_subtable_columns(); // t (fixed append carries
+                                                                            // APPEND_TRACE_OFFSET leading zeros)
 
     // Send shift_size to the verifier
-    const size_t shift_size = left_table[0].size();
-    transcript->send_to_verifier("shift_size", static_cast<uint32_t>(shift_size));
+    transcript->send_to_verifier("shift_size", static_cast<uint32_t>(fixed_append_shift_size));
 
     // Compute commitments [M_j] and send to the verifier
     for (size_t idx = 0; idx < NUM_WIRES; ++idx) {

@@ -212,10 +212,9 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         program.constraints.max_witness_index = static_cast<uint32_t>(program.witness.size() - 1);
         program.constraints.num_acir_opcodes = static_cast<uint32_t>(hn_recursion_constraints.size());
         program.constraints.hn_recursion_constraints = hn_recursion_constraints;
-        program.constraints.original_opcode_indices =
-            hn_recursion_constraints.size() == 1
-                ? AcirFormatOriginalOpcodeIndices{ .hn_recursion_constraints = { 0 } }
-                : AcirFormatOriginalOpcodeIndices{ .hn_recursion_constraints = { 0, 1 } };
+        for (size_t idx = 0; idx < hn_recursion_constraints.size(); ++idx) {
+            program.constraints.original_opcode_indices.hn_recursion_constraints.push_back(static_cast<uint32_t>(idx));
+        }
 
         return program;
     }
