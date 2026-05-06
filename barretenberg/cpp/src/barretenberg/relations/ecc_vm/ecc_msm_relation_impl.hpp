@@ -507,6 +507,22 @@ void ECCVMMSMRelationImpl<FF>::accumulate(ContainerOverSubrelations& accumulator
     std::get<IDLE_ROW_PRESERVES_ACC_Y>(accumulator) +=
         no_op_selector * (acc_y_shift - acc_y) * scaling_factor; // degree 6
 
+    // MSM-START ANCHOR: the first row of every MSM block must have msm_transition = 1.
+    //
+    // `first_add` is gated on `msm_transition`: when msm_transition = 1 the chain begins from
+    // offset_generator, when msm_transition = 0 the chain begins from the row's witness (acc_x, acc_y).
+    // Without an anchor, the prover can flip msm_transition to 0 at the first row of an MSM and
+    // open the chain from any point A, shifting the user-visible MSM result by (A - offset_generator).
+    //
+    // We force msm_transition_shift = 1 whenever the current row is not actively computing an MSM phase
+    // (lagrange_first, idle padding, or the synthetic-final sentinel of the previous MSM) and the next
+    // row activates a phase. q_add/q_double/q_skew are mutually exclusive booleans, so q_add_shift + q_double_shift +
+    // q_skew_shift is itself boolean.
+    auto curr_not_phase = (-q_add + 1) * (-q_double + 1) * (-q_skew + 1); // degree 3
+    auto next_phase = q_add_shift + q_double_shift + q_skew_shift;        // degree 1
+    std::get<MSM_TRANSITION_AT_ACTIVE_START>(accumulator) +=
+        curr_not_phase * next_phase * (msm_transition_shift - 1) * scaling_factor; // degree 5
+
     // Validate that if q_add = 1 or q_skew = 1, add1 also is 1
     // NOTE(#2222): could just get rid of add1 as a column, as it is a linear combination.
     std::get<ADD1_DECOMPOSITION>(accumulator) += (add1 - q_add - q_skew) * scaling_factor;

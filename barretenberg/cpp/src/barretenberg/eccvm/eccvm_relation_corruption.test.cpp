@@ -533,3 +533,80 @@ TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsMissingRoundMinus31Invers
     EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::DOUBLE_SHIFT_FORBIDS_ROUND_31))
         << "DOUBLE_SHIFT_FORBIDS_ROUND_31 should be the failing subrelation";
 }
+
+/**
+ * @brief Regression test for the MSM-start anchor (MSM_TRANSITION_AT_ACTIVE_START).
+ *
+ * The full attack (pre-fix): `first_add` is gated on `msm_transition`: when msm_transition = 0 the
+ * chain begins from the row's witness (acc_x, acc_y) instead of offset_generator. A prover flips
+ * msm_transition[first_msm_row] from 1 to 0, replaces (acc_x, acc_y) at that row with any chosen
+ * point A, recomputes lambda1 and the resulting acc_shift, and propagates the new (acc_x, acc_y)
+ * chain through every subsequent ADD/DOUBLE/SKEW row of the MSM. The set relation's third term
+ * cross-checks (msm_acc_x_shift, msm_acc_y_shift) at the synthetic-final sentinel against the
+ * transcript's transcript_msm_(x,y), which the prover patches to match. The transcript subtracts
+ * a fixed offset_generator, so the user-visible MSM result is shifted by (A - offset_generator).
+ *
+ * What this test proves: that the new MSM_TRANSITION_AT_ACTIVE_START subrelation fires on the
+ * msm_transition flip. We do NOT recompute the acc/lambda chain or the transcript patches -- the
+ * point of the test is to certify that *the missing pin is now in place*, not to reconstruct the
+ * full forgery.
+ *
+ * Why the minimal flip is a faithful regression target:
+ * On the honest trace, (acc_x, acc_y) at the first MSM row is exactly offset_generator. With
+ * those values, `first_add` produces the same output for both msm_transition branches
+ * (selector = 1 plants offset_generator literal; selector = 0 reads (acc_x, acc_y) which equals
+ * offset_generator). So the flip is invisible to every relation that consumes acc downstream --
+ * pre-fix every relation passed despite the flip (this is precisely what made the attack viable).
+ * Post-fix, the new gate detects the flip directly and the rest of the trace is unchanged.
+ *
+ * Trace layout (recall TRACE_OFFSET disabled rows precede the active region):
+ *   rows 0..TRACE_OFFSET-1     -- disabled head region
+ *   row  TRACE_OFFSET          -- lagrange_first, all phase selectors off
+ *   row  TRACE_OFFSET + 1      -- first MSM row: q_add = 1, msm_transition = 1 honestly
+ *
+ * Where the new subrelation is non-trivial:
+ * `curr_not_phase * next_phase * (msm_transition_shift - 1)` is checked at every row. The first
+ * two factors are simultaneously non-zero only at "MSM-start boundaries" -- rows whose successor
+ * activates a phase: lagrange_first -> first MSM, and synthetic-final sentinel of one MSM ->
+ * start of the next. The third factor pins msm_transition to 1 on the next row at every such
+ * boundary. This fixture has a single MSM, so the lagrange_first row is the only such boundary.
+ * Flipping msm_transition[TRACE_OFFSET + 1] from 1 to 0 makes the third factor -1 at row
+ * TRACE_OFFSET and the relation fails.
+ */
+TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsTransitionZeroOnFirstRow)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    auto params = compute_full_relation_params(polynomials);
+
+    EXPECT_TRUE(
+        RelationChecker<void>::check<ECCVMMSMRelation<FF>>(polynomials, params, "MSM", Flavor::TRACE_OFFSET).empty());
+    EXPECT_TRUE(
+        RelationChecker<void>::check<ECCVMSetRelation<FF>>(polynomials, params, "Set", Flavor::TRACE_OFFSET).empty());
+    EXPECT_TRUE((RelationChecker<void>::check<ECCVMLookupRelation<FF>, /*has_linearly_dependent=*/true>(
+                     polynomials, params, "Lookup", Flavor::TRACE_OFFSET)
+                     .empty()));
+
+    constexpr size_t first_msm_row = Flavor::TRACE_OFFSET + 1;
+    ASSERT_EQ(polynomials.msm_transition[first_msm_row], FF(1));
+    ASSERT_EQ(polynomials.msm_add[first_msm_row], FF(1));
+    polynomials.msm_transition.at(first_msm_row) = FF(0);
+    polynomials.set_shifted();
+
+    // Recompute logderivative inverse / grand product since msm_transition feeds into them.
+    auto params_after = compute_full_relation_params(polynomials);
+
+    auto msm_failures =
+        RelationChecker<void>::check<ECCVMMSMRelation<FF>>(polynomials, params_after, "MSM", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(msm_failures.empty()) << "MSM-start anchor should reject msm_transition[first_msm_row] = 0";
+    EXPECT_TRUE(msm_failures.contains(ECCVMMSMRelationImpl<FF>::MSM_TRANSITION_AT_ACTIVE_START))
+        << "The rejecting subrelation should be the MSM-start anchor";
+
+    // The rejection is exclusively in the MSM relation: the other relations have no role anchoring
+    // msm_transition at the first MSM row.
+    EXPECT_TRUE(
+        RelationChecker<void>::check<ECCVMSetRelation<FF>>(polynomials, params_after, "Set", Flavor::TRACE_OFFSET)
+            .empty());
+    EXPECT_TRUE((RelationChecker<void>::check<ECCVMLookupRelation<FF>, /*has_linearly_dependent=*/true>(
+                     polynomials, params_after, "Lookup", Flavor::TRACE_OFFSET)
+                     .empty()));
+}
