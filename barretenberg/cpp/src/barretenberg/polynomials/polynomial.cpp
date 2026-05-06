@@ -316,7 +316,7 @@ void add_scaled_batch(Polynomial<Fr>& dst,
 
         for (size_t k = 0; k < sources.size(); ++k) {
             const auto& src = sources[k];
-            const Fr c = scalars[k];
+            const Fr& c = scalars[k];
             const size_t src_start = src.start_index;
             const size_t src_end = src.end_index();
 
