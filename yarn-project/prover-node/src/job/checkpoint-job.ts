@@ -10,10 +10,10 @@ import { Timer } from '@aztec/foundation/timer';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EpochProverFactory } from '@aztec/prover-client';
-import {
-  type CheckpointSubTreeOrchestrator,
-  type EpochProvingContext,
-  type SubTreeResult,
+import type {
+  CheckpointSubTreeOrchestrator,
+  EpochProvingContext,
+  SubTreeResult,
 } from '@aztec/prover-client/orchestrator';
 import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';

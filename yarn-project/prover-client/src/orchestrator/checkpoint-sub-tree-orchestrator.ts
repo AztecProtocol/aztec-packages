@@ -12,7 +12,11 @@ import type {
   ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
-import type { BlockRollupPublicInputs, CheckpointConstantData } from '@aztec/stdlib/rollup';
+import type {
+  BlockRollupPublicInputs,
+  CheckpointConstantData,
+  PublicChonkVerifierPublicInputs,
+} from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -248,7 +252,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingOrchestrator {
 
     const handleResult = (
       result: PublicInputsAndRecursiveProof<
-        import('@aztec/stdlib/rollup').PublicChonkVerifierPublicInputs,
+        PublicChonkVerifierPublicInputs,
         typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH
       >,
     ) => {

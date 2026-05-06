@@ -93,7 +93,6 @@ export class EpochProvingJob implements Traceable {
 
   private epochComplete = false;
   private finalizationScheduled = false;
-  private finalizationStarted = false;
 
   private readonly completionPromise: Promise<EpochProvingJobState>;
   private resolveCompletion!: (state: EpochProvingJobState) => void;
@@ -392,7 +391,6 @@ export class EpochProvingJob implements Traceable {
         return;
       }
     }
-    this.finalizationStarted = true;
     try {
       await this.finalizeAndProve();
     } catch (err) {

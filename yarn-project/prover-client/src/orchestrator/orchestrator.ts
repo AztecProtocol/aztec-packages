@@ -165,62 +165,6 @@ export class ProvingOrchestrator extends ProvingScheduler {
   }
 
   /**
-   * Removes the checkpoint at the given index from the epoch. Only valid before
-   * `finalizeEpochStructure` has been called. Closes world state forks and cleans up
-   * cached chonk verifier proofs for the removed checkpoint.
-   *
-   * In-flight proving jobs for the removed checkpoint may continue to run and their callbacks will fire,
-   * but they are safe to ignore:
-   * - checkAndEnqueueCheckpointRootRollup gates on isEpochStructureFinalized (false before finalization)
-   *   and isReadyForCheckpointRoot (requires blob data which is never set on removed checkpoints)
-   * - notifyCheckpointBlockLevelComplete re-evaluates using the epoch's checkpoints array, which no longer
-   *   includes the removed checkpoint
-   * - Block merge jobs may be enqueued wastefully but will hit the same safe gates
-   */
-  public removeCheckpoint(checkpointIndex: number) {
-    if (!this.provingState) {
-      throw new Error('Empty epoch proving state. Call startNewEpoch before removing checkpoints.');
-    }
-
-    const removed = this.provingState.removeCheckpoint(checkpointIndex);
-    if (!removed) {
-      this.logger.warn(`No checkpoint to remove at index ${checkpointIndex}.`);
-      return;
-    }
-
-    this.logger.info(`Removed checkpoint ${removed.index} from epoch ${this.provingState.epochNumber}.`);
-
-    // Close world state forks for all blocks in the removed checkpoint.
-    for (let i = 0; i < removed.totalNumBlocks; i++) {
-      const blockNumber = BlockNumber(Number(removed.firstBlockNumber) + i);
-      const db = this.dbs.get(blockNumber);
-      if (db) {
-        void db.close().catch(err => this.logger.error(`Error closing db for block ${blockNumber}`, err));
-        this.dbs.delete(blockNumber);
-      }
-    }
-
-    // Clean up cached chonk verifier proofs for txs in the removed checkpoint.
-    for (let i = 0; i < removed.totalNumBlocks; i++) {
-      const blockNumber = BlockNumber(Number(removed.firstBlockNumber) + i);
-      const block = removed.getBlockProvingStateByBlockNumber(blockNumber);
-      if (block) {
-        for (const tx of block.getProcessedTxs()) {
-          this.provingState.cachedChonkVerifierProofs.delete(tx.hash.toString());
-        }
-      }
-    }
-  }
-
-  /** Returns a promise that resolves when all current checkpoints have completed block-level proving. */
-  public waitForAllCheckpointsReady(): Promise<void> {
-    if (!this.provingState) {
-      throw new Error('Empty epoch proving state. Call startNewEpoch before waiting for checkpoints.');
-    }
-    return this.provingState.waitForAllCheckpointsReady();
-  }
-
-  /**
    * Starts a new checkpoint.
    * @param checkpointIndex - The index of the checkpoint in the epoch.
    * @param constants - The constants for this checkpoint.
@@ -1204,16 +1148,9 @@ export class ProvingOrchestrator extends ProvingScheduler {
   }
 
   protected async checkAndEnqueueCheckpointRootRollup(provingState: CheckpointProvingState) {
-    // Notify the epoch that this checkpoint's block-level proving may be complete.
-    if (provingState.isBlockMergeTreeComplete()) {
-      this.provingState?.notifyCheckpointBlockLevelComplete();
-    }
-
-    // Two-input gate: only enqueue if BOTH block merge proofs are ready AND epoch structure is finalized.
-    if (!this.provingState?.isEpochStructureFinalized) {
-      return;
-    }
-
+    // `isReadyForCheckpointRoot` already gates on `previousOutHashHint` and
+    // `startBlobAccumulator`, both of which are populated only inside
+    // `finalizeEpochStructure`, so this check naturally waits for finalization too.
     if (!provingState.isReadyForCheckpointRoot()) {
       return;
     }

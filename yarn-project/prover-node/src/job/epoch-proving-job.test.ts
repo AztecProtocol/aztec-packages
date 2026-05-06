@@ -356,14 +356,14 @@ describe('epoch-proving-job', () => {
   });
 
   describe('removeCheckpoint', () => {
-    it('aborts a pending checkpoint and clears the entry', async () => {
+    it('aborts a pending checkpoint and clears the entry', () => {
       const job = createJob();
       const signal = registerPending(job, checkpoints[0], indexOf(checkpoints[0]), []);
 
       expect(job.getCheckpointNumbers()).toEqual([checkpoints[0].number]);
       expect(signal.aborted).toBe(false);
 
-      const removed = await job.removeCheckpoint(checkpoints[0].number);
+      const removed = job.removeCheckpoint(checkpoints[0].number);
 
       expect(removed).toBe(true);
       expect(signal.aborted).toBe(true);
@@ -394,22 +394,22 @@ describe('epoch-proving-job', () => {
       await addCheckpoint(job, checkpoints[1], txsMap, [], checkpoints[0].blocks.at(-1)!.header);
       await addCheckpoint(job, checkpoints[2], txsMap, [], checkpoints[1].blocks.at(-1)!.header);
 
-      const removed = await job.removeCheckpoint(checkpoints[1].number);
+      const removed = job.removeCheckpoint(checkpoints[1].number);
 
       expect(removed).toBe(true);
       expect(subTrees[1].cancel).toHaveBeenCalled();
       expect(job.getCheckpointNumbers()).toEqual([checkpoints[0].number, checkpoints[2].number]);
     });
 
-    it('returns false for an unknown checkpoint number', async () => {
+    it('returns false for an unknown checkpoint number', () => {
       const job = createJob();
-      expect(await job.removeCheckpoint(CheckpointNumber(999))).toBe(false);
+      expect(job.removeCheckpoint(CheckpointNumber(999))).toBe(false);
     });
 
     it('returns false when the job is in a terminal state', async () => {
       const job = createJob();
       await job.cancel();
-      expect(await job.removeCheckpoint(CheckpointNumber(0))).toBe(false);
+      expect(job.removeCheckpoint(CheckpointNumber(0))).toBe(false);
     });
 
     it('finds the entry while addCheckpoint is mid-flight and tears down the sub-tree', async () => {
@@ -440,9 +440,12 @@ describe('epoch-proving-job', () => {
       expect(job.hasCheckpoint(checkpoints[0].number)).toBe(true);
       expect(job.getCheckpointNumbers()).toEqual([checkpoints[0].number]);
 
-      const removedPromise = job.removeCheckpoint(checkpoints[0].number);
+      const removed = job.removeCheckpoint(checkpoints[0].number);
       releaseStartNewBlock!();
-      const removed = await removedPromise;
+      // Let the in-flight provideTxs unwind — its `finally` is what tears down the
+      // sub-tree (the cancel-driven path delegates teardown to provideTxs's finally
+      // when addCheckpoint is still mid-flight).
+      await addPromise;
 
       expect(removed).toBe(true);
       expect(signal.aborted).toBe(true);
@@ -450,8 +453,6 @@ describe('epoch-proving-job', () => {
       // The sub-tree was created and torn down — its stop() must have been called.
       expect(subTrees[0].stop).toHaveBeenCalled();
       expect(job.getCheckpointCount()).toBe(0);
-
-      await addPromise;
     });
 
     it('coexists a remove + re-register of the same checkpoint number via slot identity', async () => {
@@ -494,9 +495,8 @@ describe('epoch-proving-job', () => {
       // v1's sub-tree should already have been constructed (and started) by now.
       expect(subTrees).toHaveLength(1);
 
-      const removePromise = job.removeCheckpoint(v1.number);
+      const removed = job.removeCheckpoint(v1.number);
       releaseV1Block!();
-      const removed = await removePromise;
       await v1AddPromise;
 
       expect(removed).toBe(true);
@@ -687,7 +687,7 @@ describe('epoch-proving-job', () => {
       job.completeEpoch();
 
       expect(topTree.prove).not.toHaveBeenCalled();
-      const removed = await job.removeCheckpoint(checkpoints[checkpoints.length - 1].number);
+      const removed = job.removeCheckpoint(checkpoints[checkpoints.length - 1].number);
       expect(removed).toBe(true);
       expect(subTrees[checkpoints.length - 1].cancel).toHaveBeenCalled();
 
@@ -786,7 +786,7 @@ describe('epoch-proving-job', () => {
 
       // Now remove a tracked checkpoint. This used to be a no-op while finalization was
       // running; with the restart loop it cancels the in-flight top tree.
-      const removed = await job.removeCheckpoint(checkpoints.at(-1)!.number);
+      const removed = job.removeCheckpoint(checkpoints.at(-1)!.number);
       expect(removed).toBe(true);
       expect(firstTopTree.cancel).toHaveBeenCalledWith({ abortJobs: true });
 
@@ -819,7 +819,7 @@ describe('epoch-proving-job', () => {
       // Remove the middle checkpoint and verify the second prove sees a smaller count
       // and the surviving fromCheckpoint/toCheckpoint range.
       const removedCheckpointNumber = checkpoints[1].number;
-      const removed = await job.removeCheckpoint(removedCheckpointNumber);
+      const removed = job.removeCheckpoint(removedCheckpointNumber);
       expect(removed).toBe(true);
       expect(firstTopTree.cancel).toHaveBeenCalledWith({ abortJobs: true });
 
@@ -877,7 +877,7 @@ describe('epoch-proving-job', () => {
       // hang forever.
       for (let i = 0; i < checkpoints.length; i++) {
         await retryUntil(() => builtTopTrees.length > i, `wait for top tree ${i + 1}`, 5, 0.01);
-        await job.removeCheckpoint(checkpoints[i].number);
+        job.removeCheckpoint(checkpoints[i].number);
       }
 
       const finalState = await job.whenComplete();

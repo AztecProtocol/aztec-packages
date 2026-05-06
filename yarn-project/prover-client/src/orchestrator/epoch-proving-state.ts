@@ -8,7 +8,6 @@ import {
 } from '@aztec/constants';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
 import type { Tuple } from '@aztec/foundation/serialize';
 import {
   MerkleTreeCalculator,
@@ -70,9 +69,6 @@ export class EpochProvingState {
   /** Set after `finalizeEpochStructure` is called. */
   private _finalBlobBatchingChallenges: FinalBlobBatchingChallenges | undefined;
 
-  /** All callbacks waiting for checkpoints to be block-level ready. */
-  private checkpointsReadyCallbacks: Array<{ resolve: () => void; reject: (reason: string) => void }> = [];
-
   // Map from tx hash to chonk verifier proof promise. Used when kickstarting chonk verifier proofs before tx processing.
   public readonly cachedChonkVerifierProofs = new Map<
     string,
@@ -80,8 +76,6 @@ export class EpochProvingState {
       PublicInputsAndRecursiveProof<PublicChonkVerifierPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
     >
   >();
-
-  private log = createLogger('prover-client:epoch-proving-state');
 
   constructor(
     public readonly epochNumber: EpochNumber,
@@ -148,81 +142,6 @@ export class EpochProvingState {
         await this.onCheckpointBlobAccumulatorSet(checkpoint);
       }
     }
-  }
-
-  /**
-   * Removes the checkpoint at the given index from the epoch. Only valid before
-   * `finalizeEpochStructure` has been called. Returns the removed checkpoint, or
-   * undefined if there is no checkpoint at that index.
-   */
-  public removeCheckpoint(checkpointIndex: number): CheckpointProvingState | undefined {
-    if (this.isEpochStructureFinalized) {
-      throw new Error('Cannot remove checkpoints after epoch structure has been finalized.');
-    }
-
-    const removed = this.checkpoints[checkpointIndex];
-    if (!removed) {
-      return undefined;
-    }
-
-    this.checkpoints[checkpointIndex] = undefined;
-    // Mark the removed checkpoint so any in-flight proving jobs for it become silent no-ops
-    // when they fail (e.g. due to world state having been rolled back by the prune).
-    removed.markRemoved();
-    // Trim trailing undefined entries.
-    while (this.checkpoints.length > 0 && !this.checkpoints[this.checkpoints.length - 1]) {
-      this.checkpoints.pop();
-    }
-
-    // Re-evaluate: removing a checkpoint may mean all remaining are now ready.
-    this.notifyCheckpointBlockLevelComplete();
-
-    return removed;
-  }
-
-  /**
-   * Returns a promise that resolves when all current checkpoints have completed block-level proving.
-   * Block-level proving complete means the checkpoint's block merge tree is fully resolved.
-   */
-  public waitForAllCheckpointsReady(): Promise<void> {
-    if (!this.verifyState()) {
-      return Promise.reject(new Error('Epoch proving state is no longer valid'));
-    }
-    if (this.areAllCheckpointsBlockLevelReady()) {
-      this.log.debug(`All checkpoints already block-level ready`);
-      return Promise.resolve();
-    }
-    this.log.debug(`Waiting for all checkpoints to complete block-level proving`);
-    return new Promise<void>((resolve, reject) => {
-      this.checkpointsReadyCallbacks.push({ resolve, reject });
-    });
-  }
-
-  /** Called when a checkpoint completes block-level proving. Re-evaluates readiness and notifies waiters. */
-  public notifyCheckpointBlockLevelComplete() {
-    if (this.areAllCheckpointsBlockLevelReady()) {
-      this.log.debug(`All checkpoints block-level ready, notifying ${this.checkpointsReadyCallbacks.length} waiters`);
-      for (const { resolve } of this.checkpointsReadyCallbacks) {
-        resolve();
-      }
-      this.checkpointsReadyCallbacks = [];
-    }
-  }
-
-  /** Rejects all checkpoint-ready waiters. Called when the epoch is cancelled. */
-  private rejectCheckpointsReadyWaiters(reason: string) {
-    for (const { reject } of this.checkpointsReadyCallbacks) {
-      reject(reason);
-    }
-    this.checkpointsReadyCallbacks = [];
-  }
-
-  private areAllCheckpointsBlockLevelReady(): boolean {
-    const activeCheckpoints = this.checkpoints.filter(c => !!c);
-    if (activeCheckpoints.length === 0) {
-      return false;
-    }
-    return activeCheckpoints.every(c => c!.isBlockMergeTreeComplete());
   }
 
   // Adds a checkpoint to the proving state.
@@ -530,7 +449,6 @@ export class EpochProvingState {
       return;
     }
     this.provingStateLifecycle = PROVING_STATE_LIFECYCLE.PROVING_STATE_REJECTED;
-    this.rejectCheckpointsReadyWaiters(reason);
     this.rejectionCallback(reason);
   }
 
