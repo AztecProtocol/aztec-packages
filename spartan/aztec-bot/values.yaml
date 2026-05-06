@@ -93,7 +93,6 @@ bot:
 
     startCmd:
       - --bot
-      - --pxe
 
     hostNetwork: false
 
