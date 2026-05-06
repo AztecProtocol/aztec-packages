@@ -45,7 +45,7 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
     static_assert(LOG_RESULT_ROW < LOG_MINI_CIRCUIT_SIZE);
     static_assert(LOG_MINI_CIRCUIT_SIZE > LOG_MAX_RANDOM, "Mini circuit must be larger than max random region");
 
-    // The 10 selector evaluations (order matches PrecomputedEntities in translator_flavor.hpp,
+    // The 10 selector evaluations (order matches PRECOMPUTED_COLUMNS in translator_flavor.hpp,
     // skipping ordered_extra_range_constraints_numerator which cannot be efficiently computed)
     FF lagrange_first;
     FF lagrange_last;
@@ -220,7 +220,7 @@ template <typename FF, size_t LOG_MINI_CIRCUIT_SIZE> struct TranslatorSelectorEv
 
     /**
      * @brief Write all 10 computed evaluations into any entity struct with matching named fields.
-     * @details Works for AllValues, AllEntities<FF>, PrecomputedEntities<FF>, native or stdlib.
+     * @details Works for any native or stdlib entity container with matching named selector fields.
      */
     template <typename Entities> void populate(Entities& target) const
     {

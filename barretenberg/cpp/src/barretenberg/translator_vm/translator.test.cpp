@@ -352,18 +352,15 @@ TEST_F(TranslatorTests, FixedVK)
         auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
         TranslatorProver prover{ proving_key, prover_transcript };
         TranslatorFlavor::VerificationKey computed_vk = create_vk_from_proving_key(proving_key->proving_key);
-        auto labels = TranslatorFlavor::VerificationKey::get_labels();
 
-        size_t index = 0;
-        for (auto [vk_commitment, fixed_commitment] : zip_view(computed_vk.get_all(), fixed_vk.get_all())) {
-            if (vk_commitment != fixed_commitment) {
-                info("// ", labels[index]);
-                info("Commitment(uint256_t(\"0x", vk_commitment.x, "\"),");
-                info("           uint256_t(\"0x", vk_commitment.y, "\")),");
-            }
-            EXPECT_EQ(vk_commitment, fixed_commitment) << "Mismatch at label: " << labels[index];
-            ++index;
+        const auto& vk_commitment = computed_vk.ordered_extra_range_constraints_numerator;
+        const auto& fixed_commitment = fixed_vk.ordered_extra_range_constraints_numerator;
+        if (vk_commitment != fixed_commitment) {
+            info("// ordered_extra_range_constraints_numerator");
+            info("Commitment(uint256_t(\"0x", vk_commitment.x, "\"),");
+            info("           uint256_t(\"0x", vk_commitment.y, "\")),");
         }
+        EXPECT_EQ(vk_commitment, fixed_commitment) << "Mismatch at label: ordered_extra_range_constraints_numerator";
 
         EXPECT_EQ(computed_vk, fixed_vk);
     };
@@ -510,6 +507,29 @@ TEST_F(TranslatorTests, EvaluationPartition)
         }
     }
     EXPECT_EQ(remaining, 0UL);
+}
+
+TEST_F(TranslatorTests, OpQueueSplitWiresAreOpenedUnshiftedAndShifted)
+{
+    using Flavor = TranslatorFlavor;
+    using FF = Flavor::FF;
+
+    Flavor::AllEntities<FF> evals;
+
+    std::set<FF*> pcs_unshifted;
+    for (auto& entity : evals.get_pcs_unshifted()) {
+        pcs_unshifted.insert(&entity);
+    }
+
+    std::set<FF*> pcs_shift_sources;
+    for (auto& entity : evals.get_pcs_to_be_shifted()) {
+        pcs_shift_sources.insert(&entity);
+    }
+
+    for (auto* op_queue_split_wire : { &evals.x_lo_y_hi, &evals.x_hi_z_1, &evals.y_lo_z_2 }) {
+        EXPECT_TRUE(pcs_unshifted.contains(op_queue_split_wire));
+        EXPECT_TRUE(pcs_shift_sources.contains(op_queue_split_wire));
+    }
 }
 
 /**

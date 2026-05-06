@@ -243,8 +243,8 @@ typename BatchedHonkTranslatorVerifier_<Curve>::ReductionResult BatchedHonkTrans
     }();
 
     // Translator claim components (translator first: its masking poly must be at position 0 for Shplemini offset=2).
-    auto concat_shift_evals = TranslatorFlavor::reconstruct_concatenated_evaluations(
-        trans_evals.get_groups_to_be_concatenated_shifted(), std::span<const FF>(joint_challenge));
+    auto concat_shift_evals = TransFlavor::template reconstruct_concatenated_evaluations</*Shifted=*/true>(
+        trans_evals, std::span<const FF>(joint_challenge));
 
     RefVector<Commitment> joint_unshifted_comms = trans_commitments.get_pcs_unshifted();
     RefVector<FF> joint_unshifted_evals = trans_evals.get_pcs_unshifted();
