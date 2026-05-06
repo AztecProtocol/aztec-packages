@@ -1269,6 +1269,19 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_avm_getContractInstanceImmutablesHash(foreignAddress: ForeignCallSingle) {
+    const address = addressFromSingle(foreignAddress);
+
+    const instance = await this.handlerAsUtility().getContractInstance(address);
+
+    return toForeignCallResult([
+      toSingle(instance.immutablesHash),
+      // AVM requires an extra boolean indicating the instance was found
+      toSingle(new Fr(1)),
+    ]);
+  }
+
+  // eslint-disable-next-line camelcase
   async aztec_avm_sender() {
     const sender = await this.handlerAsAvm().sender();
 

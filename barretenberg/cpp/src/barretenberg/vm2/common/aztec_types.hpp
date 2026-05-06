@@ -77,7 +77,8 @@ enum class ContractInstanceMember : uint8_t {
     DEPLOYER = 0,
     CLASS_ID = 1,
     INIT_HASH = 2,
-    MAX = INIT_HASH,
+    IMMUTABLES_HASH = 3,
+    MAX = IMMUTABLES_HASH,
 };
 
 ////////////////////////////////////////////////////////////////////////////

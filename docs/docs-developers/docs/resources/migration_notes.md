@@ -33,6 +33,13 @@ salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [sal
   + publish_for_public_execution(salt, contract_class_id, initialization_hash, immutables_hash, public_keys, universal_deploy)
   ```
 
+- You call the `GetContractInstance` AVM opcode directly or use the per-member helpers in `aztec-nr`. A new enum value `ContractInstanceMember::IMMUTABLES_HASH = 3` selects `immutables_hash`. Use the wrapper helper from `aztec::oracle::get_contract_instance`:
+
+  ```rust
+  use aztec::oracle::get_contract_instance::get_contract_instance_immutables_hash_avm;
+  let immutables_hash: Option<Field> = get_contract_instance_immutables_hash_avm(address);
+  ```
+
 The `aztec.js` `publishInstance` helper handles this automatically.
 
 ### [Aztec.nr] `attempt_note_discovery` is no longer exposed; use `process_private_note_msg`
