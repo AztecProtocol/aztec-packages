@@ -11,7 +11,6 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { createLogger } from '@aztec/foundation/log';
 import type { CommitteeAttestationsAndSigners } from '@aztec/stdlib/block';
-import type { CreateCheckpointProposalLastBlockData } from '@aztec/stdlib/interfaces/server';
 import {
   BlockProposal,
   type BlockProposalOptions,
@@ -86,7 +85,7 @@ export class ValidationService {
    *
    * @param checkpointHeader - The checkpoint header containing aggregated data
    * @param archive - The archive of the checkpoint
-   * @param lastBlockInfo - Info about the last block (header, index, txs) or undefined
+   * @param lastBlockProposal - Signed block proposal for the last block in the checkpoint, or undefined
    * @param proposerAttesterAddress - The address of the proposer
    * @param options - Checkpoint proposal options
    *
@@ -96,13 +95,15 @@ export class ValidationService {
     checkpointHeader: CheckpointHeader,
     archive: Fr,
     feeAssetPriceModifier: bigint,
-    lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
+    lastBlockProposal: BlockProposal | undefined,
     proposerAttesterAddress: EthAddress | undefined,
     options: CheckpointProposalOptions,
   ): Promise<CheckpointProposal> {
-    // For testing: change the archive to trigger state_mismatch validation failure
+    // For testing: change the archive to trigger state_mismatch validation failure.
+    // If there's a last block proposal, use its (already invalid) archive to keep signatures consistent
+    // so P2P validation passes and the slasher can detect the offense.
     if (options.broadcastInvalidCheckpointProposal) {
-      archive = Fr.random();
+      archive = lastBlockProposal?.archiveRoot ?? Fr.random();
       this.log.warn(`Creating INVALID checkpoint proposal for slot ${checkpointHeader.slotNumber}`);
     }
 
@@ -112,19 +113,11 @@ export class ValidationService {
       return this.keyStore.signMessageWithAddress(address, payload, context);
     };
 
-    // Last block to include in the proposal
-    const lastBlock = lastBlockInfo && {
-      blockHeader: lastBlockInfo.blockHeader,
-      indexWithinCheckpoint: lastBlockInfo.indexWithinCheckpoint,
-      txHashes: lastBlockInfo.txs.map(tx => tx.getTxHash()),
-      txs: options.publishFullTxs ? lastBlockInfo.txs : undefined,
-    };
-
     return CheckpointProposal.createProposalFromSigner(
       checkpointHeader,
       archive,
       feeAssetPriceModifier,
-      lastBlock,
+      lastBlockProposal,
       payloadSigner,
     );
   }

@@ -18,6 +18,15 @@ import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import { isProtocolContract } from '@aztec/protocol-contracts';
+import {
+  type CircuitSimulator,
+  ExecutionError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  toACVMWitness,
+  witnessMapToFields,
+} from '@aztec/simulator/client';
+import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
@@ -55,6 +64,7 @@ import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
+import { Oracle } from './oracle.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -78,6 +88,7 @@ export type UtilityExecutionOracleArgs = {
   jobId: string;
   log?: ReturnType<typeof createLogger>;
   scopes: AztecAddress[];
+  simulator: CircuitSimulator;
 };
 
 /**
@@ -114,6 +125,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly jobId: string;
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AztecAddress[];
+  protected readonly simulator: CircuitSimulator;
 
   constructor(args: UtilityExecutionOracleArgs) {
     this.contractAddress = args.contractAddress;
@@ -135,6 +147,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.jobId = args.jobId;
     this.logger = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
+    this.simulator = args.simulator;
   }
 
   public assertCompatibleOracleVersion(major: number, minor: number): void {
@@ -969,6 +982,70 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public emitOffchainEffect(data: Fr[]): Promise<void> {
     this.offchainEffects.push({ data, contractAddress: this.contractAddress });
     return Promise.resolve();
+  }
+
+  /** Executes another utility function from within this one and returns its serialized return values. */
+  public async callUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]> {
+    // TODO(F-29): We want to support cross-contract utility calls, but doing so safely requires wallets to have
+    // a way to authorize which contracts can be called transitively, since those calls may expose private state.
+    // Until that is in place, restrict nested utility calls to the same contract only.
+    if (!targetContractAddress.equals(this.contractAddress)) {
+      throw new Error(
+        `Cross-contract utility calls are not yet supported: cannot call ${targetContractAddress} from utility function on ${this.contractAddress}.`,
+      );
+    }
+
+    this.logger.debug(
+      `Calling nested utility function ${targetContractAddress}:${functionSelector} from ${this.contractAddress}`,
+    );
+
+    const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
+      targetContractAddress,
+      functionSelector,
+    );
+
+    const nestedOracle = new UtilityExecutionOracle({
+      contractAddress: targetContractAddress,
+      authWitnesses: this.authWitnesses,
+      capsules: this.capsules,
+      anchorBlockHeader: this.anchorBlockHeader,
+      contractStore: this.contractStore,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.aztecNode,
+      recipientTaggingStore: this.recipientTaggingStore,
+      senderAddressBookStore: this.senderAddressBookStore,
+      capsuleService: this.capsuleService,
+      privateEventStore: this.privateEventStore,
+      messageContextService: this.messageContextService,
+      contractSyncService: this.contractSyncService,
+      l2TipsStore: this.l2TipsStore,
+      jobId: this.jobId,
+      scopes: this.scopes,
+      simulator: this.simulator,
+      log: this.logger,
+    });
+
+    const initialWitness = toACVMWitness(0, args);
+    const acvmCallback = new Oracle(nestedOracle);
+    const acirExecutionResult = await this.simulator
+      .executeUserCircuit(initialWitness, targetArtifact, acvmCallback.toACIRCallback())
+      .catch((err: Error) => {
+        err.message = resolveAssertionMessageFromError(err, targetArtifact);
+        throw new ExecutionError(
+          err.message,
+          { contractAddress: targetContractAddress, functionSelector },
+          extractCallStack(err, targetArtifact.debug),
+          { cause: err },
+        );
+      });
+
+    return witnessMapToFields(acirExecutionResult.returnWitness);
   }
 
   /** Returns offchain effects collected during execution. */

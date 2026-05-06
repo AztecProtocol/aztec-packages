@@ -57,6 +57,7 @@
     "sequencer-client",
     "simulator",
     "slasher",
+    "sqlite3mc-wasm",
     "stdlib",
     "telemetry-client",
     "txe",

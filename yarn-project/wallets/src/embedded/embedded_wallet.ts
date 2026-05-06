@@ -141,6 +141,7 @@ export class EmbeddedWallet extends BaseWallet {
       feeOptions,
       additionalScopes: opts.additionalScopes,
       skipTxValidation: true,
+      sendMessagesAs: opts.sendMessagesAs,
     });
 
     const offchainEffects = collectOffchainEffects(simulationResult.privateExecutionResult);
@@ -359,7 +360,8 @@ export class EmbeddedWallet extends BaseWallet {
     this.estimatedGasPadding = value ?? DEFAULT_ESTIMATED_GAS_PADDING;
   }
 
-  stop() {
-    return this.pxe.stop();
+  async stop(): Promise<void> {
+    await this.pxe.stop();
+    await this.walletDB.close();
   }
 }

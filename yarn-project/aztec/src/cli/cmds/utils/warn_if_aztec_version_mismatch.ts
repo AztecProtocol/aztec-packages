@@ -1,5 +1,5 @@
 import type { LogFn } from '@aztec/foundation/log';
-import { getPackageVersion } from '@aztec/stdlib/update-checker';
+import { DEV_VERSION, getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
@@ -28,8 +28,7 @@ function isAztecNrGitUrl(gitUrl: string): boolean {
 /** Warns if any aztec-nr git dependency in a crate's Nargo.toml has a tag that doesn't match the CLI version. */
 export async function warnIfAztecVersionMismatch(log: LogFn, cliVersion?: string): Promise<void> {
   const version = cliVersion ?? getPackageVersion();
-  if (!version) {
-    log(`WARNING: aztec CLI version not found. Skipping dependency compatibility check.`);
+  if (version === DEV_VERSION) {
     return;
   }
 

@@ -13,7 +13,7 @@ contract OffchainEffect {
         },
         note::note_viewer_options::NoteViewerOptions,
         oracle::offchain_effect::emit_offchain_effect,
-        protocol::{address::AztecAddress, traits::Serialize},
+        protocol::{address::AztecAddress, traits::{Deserialize, Serialize}},
         state_vars::{Owned, PrivateSet},
     };
     use uint_note::UintNote;
@@ -25,7 +25,7 @@ contract OffchainEffect {
         pub c: u64,
     }
 
-    #[derive(Serialize)]
+    #[derive(Deserialize, Serialize)]
     pub struct EffectPayload {
         pub data: [Field; 5],
         pub next_contract: AztecAddress,
@@ -46,9 +46,7 @@ contract OffchainEffect {
             unsafe { emit_offchain_effect(payload.data) };
 
             if effects.len() > 0 {
-                OffchainEffect::at(payload.next_contract).emit_offchain_effects(effects).call(
-                    self.context,
-                );
+                OffchainEffect::at(payload.next_contract).emit_offchain_effects(effects).call(self.context);
             }
         }
     }
@@ -62,30 +60,22 @@ contract OffchainEffect {
     fn emit_note_as_offchain_message(value: u128, owner: AztecAddress) {
         let note = UintNote { value };
 
-        self.storage.balances.at(owner).insert(note).deliver_to(
-            self.msg_sender(),
-            MessageDelivery.OFFCHAIN,
-        );
+        self.storage.balances.at(owner).insert(note).deliver_to(self.msg_sender(), MessageDelivery.OFFCHAIN);
     }
 
     /// Emits a single offchain message in a regular (non-static) private call. The matching
     /// view function below lets tests contrast the two call shapes.
     #[external("private")]
-    fn call_deliver_offchain_message(
-        ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN],
-        recipient: AztecAddress,
-    ) {
+    fn call_deliver_offchain_message(ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN], recipient: AztecAddress) {
         deliver_offchain_message(ciphertext, recipient);
     }
 
-    /// Static variant of `call_deliver_offchain_message`. Used to verify that TXE correctly captures and exposes the call context
+    /// Static variant of `call_deliver_offchain_message`. Used to verify that TXE correctly captures and exposes the
+    /// call context
     /// of offchain effects emitted during a static call.
     #[external("private")]
     #[view]
-    fn view_deliver_offchain_message(
-        ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN],
-        recipient: AztecAddress,
-    ) {
+    fn view_deliver_offchain_message(ciphertext: [Field; MESSAGE_CIPHERTEXT_LEN], recipient: AztecAddress) {
         deliver_offchain_message(ciphertext, recipient);
     }
 

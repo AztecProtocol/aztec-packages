@@ -8,10 +8,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract NoteHashAndNullifier {
     use aztec::{
-        messages::{
-            discovery::NoteHashAndNullifier as NoteHashAndNullifierResult,
-            logs::note::MAX_NOTE_PACKED_LEN,
-        },
+        messages::{discovery::NoteHashAndNullifier as NoteHashAndNullifierResult, logs::note::MAX_NOTE_PACKED_LEN},
         protocol::address::AztecAddress,
     };
 

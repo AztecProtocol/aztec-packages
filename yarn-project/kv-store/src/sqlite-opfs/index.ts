@@ -25,3 +25,13 @@ export async function createStore(
 export function openTmpStore(ephemeral: boolean = false): Promise<AztecSQLiteOPFSStore> {
   return AztecSQLiteOPFSStore.open(createLogger('kv-store:sqlite-opfs'), undefined, ephemeral);
 }
+
+/**
+ * Convenience helper for tests and consumers that want an encrypted sqlite-opfs
+ * store without dealing with the full `open()` parameter order. Key must be 32
+ * bytes. Creates a fresh persistent store (sqlite3mc does not support encryption
+ * on ephemeral `:memory:` databases) in an auto-generated OPFS directory.
+ */
+export function openEncryptedStore(encryptionKey: Uint8Array, name?: string, poolDirectory?: string) {
+  return AztecSQLiteOPFSStore.open(createLogger('kv-store:sqlite-opfs'), name, false, poolDirectory, encryptionKey);
+}

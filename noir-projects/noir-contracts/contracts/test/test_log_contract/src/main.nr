@@ -50,10 +50,7 @@ pub contract TestLog {
         // We duplicate the emission, but swapping the sender and recipient:
         self.emit(event0).deliver_to(other, MessageDelivery.ONCHAIN_CONSTRAINED);
 
-        let event1 = ExampleEvent1 {
-            value2: AztecAddress::from_field(preimages[2]),
-            value3: preimages[3] as u8,
-        };
+        let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
 
         self.emit(event1).deliver_to(self.msg_sender(), MessageDelivery.ONCHAIN_CONSTRAINED);
     }
@@ -62,12 +59,7 @@ pub contract TestLog {
     fn emit_unencrypted_events(preimages: [Field; 4]) {
         self.emit(ExampleEvent0 { value0: preimages[0], value1: preimages[1] });
 
-        self.emit(
-            ExampleEvent1 {
-                value2: AztecAddress::from_field(preimages[2]),
-                value3: preimages[3] as u8,
-            },
-        );
+        self.emit(ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 });
     }
 
     // Emits an event with a nested struct to test that decoding works correctly

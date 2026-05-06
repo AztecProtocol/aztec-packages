@@ -9,11 +9,7 @@ use aztec::macros::aztec;
 pub contract AbiTypes {
     use aztec::{
         macros::functions::external,
-        protocol::{
-            abis::function_selector::FunctionSelector,
-            address::EthAddress,
-            traits::{Deserialize, Serialize},
-        },
+        protocol::{abis::function_selector::FunctionSelector, address::EthAddress, traits::{Deserialize, Serialize}},
     };
 
     #[derive(Serialize, Deserialize, Eq)]

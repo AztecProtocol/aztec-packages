@@ -1,4 +1,8 @@
-use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::Serialize};
+use crate::protocol::{
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
+    traits::{Deserialize, Serialize},
+};
 use std::meta::derive;
 
 // @dev: If you change the following struct you have to update:
@@ -6,7 +10,7 @@ use std::meta::derive;
 // - default_multi_call_entrypoint.ts (specifically `getEntrypointAbi()`)
 // - function_call.ts
 // - encoding.ts
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct FunctionCall {
     // args_hash is calldata_hash if is_public is true
     pub args_hash: Field,

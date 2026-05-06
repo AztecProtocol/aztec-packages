@@ -512,6 +512,20 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_callUtilityFunction(
+    [contractAddress]: ACVMField[],
+    [functionSelector]: ACVMField[],
+    args: ACVMField[],
+  ): Promise<ACVMField[][]> {
+    const result = await this.handlerAsUtility().callUtilityFunction(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      FunctionSelector.fromField(Fr.fromString(functionSelector)),
+      args.map(Fr.fromString),
+    );
+    return [result.map(toACVMField)];
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_prv_notifyCreatedContractClassLog(
     [contractAddress]: ACVMField[],
     message: ACVMField[],

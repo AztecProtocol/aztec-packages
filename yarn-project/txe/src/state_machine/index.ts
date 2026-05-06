@@ -57,7 +57,7 @@ export class TXEStateMachine {
       CHAIN_ID,
       new TXEGlobalVariablesBuilder(),
       new MockEpochCache(),
-      getPackageVersion() ?? '',
+      getPackageVersion(),
       new TestCircuitVerifier(),
       undefined,
       log,

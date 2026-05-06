@@ -1,7 +1,8 @@
 /// A contract that manages public authentication witnesses (authwits) on the Aztec network.
 ///
 /// In Aztec, private authwits are verified by account contracts directly (via oracles on the user's device). Public
-/// authwits, however, require this onchain registry because local oracles cannot be used for global execution. Users pre-approve
+/// authwits, however, require this onchain registry because local oracles cannot be used for global execution. Users
+/// pre-approve
 /// actions by storing `message_hash -> true` mappings via `set_authorized`, and consumer contracts verify and
 /// atomically revoke these approvals via `consume`.
 ///
@@ -17,9 +18,7 @@
 /// constrain that value.
 pub contract AuthRegistry {
     use aztec::{
-        authwit::auth::{
-            assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
-        },
+        authwit::auth::{assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR},
         context::{PrivateContext, PublicContext, UtilityContext},
         hash::{hash_args, hash_calldata_array},
         oracle::{avm, execution_cache, version::assert_compatible_oracle_version},
@@ -144,8 +143,7 @@ pub contract AuthRegistry {
         // body or in the subsequent enqueued public function call, I have removed that check.
         assert_compatible_oracle_version();
 
-        let serialized_params: [Field; 3] =
-            [approver.to_field(), message_hash, authorize.to_field()];
+        let serialized_params: [Field; 3] = [approver.to_field(), message_hash, authorize.to_field()];
         let args_hash: Field = hash_args(serialized_params);
         let mut context: PrivateContext = PrivateContext::new(inputs, args_hash);
 
@@ -156,18 +154,12 @@ pub contract AuthRegistry {
 
         // Enqueue a public call to _set_authorized to write the approval into public storage.
         {
-            let enqueue_params: [Field; 3] =
-                [approver.to_field(), message_hash, authorize.to_field()];
+            let enqueue_params: [Field; 3] = [approver.to_field(), message_hash, authorize.to_field()];
             let selector: FunctionSelector = FunctionSelector::from_field(_SET_AUTHORIZED_SELECTOR);
             let calldata: [Field; 4] = [selector.to_field()].concat(enqueue_params);
             let calldata_hash: Field = hash_calldata_array(calldata);
             execution_cache::store(calldata, calldata_hash);
-            context.call_public_function_with_calldata_hash(
-                context.this_address(),
-                calldata_hash,
-                false,
-                false,
-            );
+            context.call_public_function_with_calldata_hash(context.this_address(), calldata_hash, false, false);
         }
 
         // MACRO CODE START
@@ -185,8 +177,7 @@ pub contract AuthRegistry {
             || -> Field {
                 let serialized_args: [Field; 3] = avm::calldata_copy(
                     1,
-                    (<AztecAddress as Serialize>::N + <Field as Serialize>::N)
-                        + <bool as Serialize>::N,
+                    (<AztecAddress as Serialize>::N + <Field as Serialize>::N) + <bool as Serialize>::N,
                 );
                 hash_args(serialized_args)
             },
@@ -209,8 +200,7 @@ pub contract AuthRegistry {
         // MACRO CODE START
         let context: PublicContext = PublicContext::new(
             || -> Field {
-                let serialized_args: [Field; 1] =
-                    avm::calldata_copy(1, <AztecAddress as Serialize>::N);
+                let serialized_args: [Field; 1] = avm::calldata_copy(1, <AztecAddress as Serialize>::N);
                 hash_args(serialized_args)
             },
         );
@@ -245,10 +235,7 @@ pub contract AuthRegistry {
 
     /// Utility version of `is_consumable`
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
-    unconstrained fn utility_is_consumable(
-        on_behalf_of: AztecAddress,
-        message_hash: Field,
-    ) -> pub bool {
+    unconstrained fn utility_is_consumable(on_behalf_of: AztecAddress, message_hash: Field) -> pub bool {
         // MACRO CODE START
         assert_compatible_oracle_version();
 
@@ -267,12 +254,10 @@ pub contract AuthRegistry {
     global SET_REJECT_ALL_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("set_reject_all(bool)").to_field() };
 
-    global CONSUME_SELECTOR: Field =
-        comptime { FunctionSelector::from_signature("consume((Field),Field)").to_field() };
+    global CONSUME_SELECTOR: Field = comptime { FunctionSelector::from_signature("consume((Field),Field)").to_field() };
 
-    global _SET_AUTHORIZED_SELECTOR: Field = comptime {
-        FunctionSelector::from_signature("_set_authorized((Field),Field,bool)").to_field()
-    };
+    global _SET_AUTHORIZED_SELECTOR: Field =
+        comptime { FunctionSelector::from_signature("_set_authorized((Field),Field,bool)").to_field() };
 
     global IS_REJECT_ALL_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("is_reject_all((Field))").to_field() };
@@ -283,8 +268,7 @@ pub contract AuthRegistry {
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     pub unconstrained fn public_dispatch(selector: Field) {
         if selector == SET_AUTHORIZED_SELECTOR {
-            let input_calldata: [Field; 2] =
-                avm::calldata_copy(1, <Field as Serialize>::N + <bool as Serialize>::N);
+            let input_calldata: [Field; 2] = avm::calldata_copy(1, <Field as Serialize>::N + <bool as Serialize>::N);
             let mut reader: Reader<2> = Reader::new(input_calldata);
             let arg0: Field = <Field as Deserialize>::stream_deserialize(&mut reader);
             let arg1: bool = <bool as Deserialize>::stream_deserialize(&mut reader);
@@ -332,8 +316,7 @@ pub contract AuthRegistry {
             let mut reader: Reader<2> = Reader::new(input_calldata);
             let arg0: AztecAddress = <AztecAddress as Deserialize>::stream_deserialize(&mut reader);
             let arg1: Field = <Field as Deserialize>::stream_deserialize(&mut reader);
-            let return_value: [Field; 1] =
-                <bool as Serialize>::serialize(is_consumable(arg0, arg1));
+            let return_value: [Field; 1] = <bool as Serialize>::serialize(is_consumable(arg0, arg1));
             avm::avm_return(return_value.as_vector());
         };
         panic(f"Unknown selector {selector}")
