@@ -311,8 +311,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Determine kernel type from queue contents
-    bool is_init_kernel =
-        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::OINK);
+    bool is_init_kernel = stdlib_verification_queue.front().type == QUEUE_TYPE::OINK;
 
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);
