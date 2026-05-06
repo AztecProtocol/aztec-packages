@@ -87,8 +87,7 @@ bool is_revertible(TransactionPhase phase)
  */
 bool is_note_hash_insert_phase(TransactionPhase phase)
 {
-    return get_tx_phase_spec_map().at(phase).non_revertible_append_note_hash ||
-           get_tx_phase_spec_map().at(phase).revertible_append_note_hash;
+    return get_tx_phase_spec_map().at(phase).append_note_hash;
 }
 
 /**
@@ -99,8 +98,7 @@ bool is_note_hash_insert_phase(TransactionPhase phase)
  */
 bool is_nullifier_insert_phase(TransactionPhase phase)
 {
-    return get_tx_phase_spec_map().at(phase).non_revertible_append_nullifier ||
-           get_tx_phase_spec_map().at(phase).revertible_append_nullifier;
+    return get_tx_phase_spec_map().at(phase).append_nullifier;
 }
 
 /**
@@ -249,12 +247,9 @@ std::vector<std::pair<C, FF>> handle_phase_spec(TransactionPhase phase)
         { C::tx_is_revertible, phase_spec.is_revertible ? 1 : 0 },
         { C::tx_read_pi_start_offset, phase_spec.read_pi_start_offset },
         { C::tx_read_pi_length_offset, phase_spec.read_pi_length_offset },
-        { C::tx_sel_non_revertible_append_note_hash, phase_spec.non_revertible_append_note_hash ? 1 : 0 },
-        { C::tx_sel_non_revertible_append_nullifier, phase_spec.non_revertible_append_nullifier ? 1 : 0 },
-        { C::tx_sel_non_revertible_append_l2_l1_msg, phase_spec.non_revertible_append_l2_l1_msg ? 1 : 0 },
-        { C::tx_sel_revertible_append_note_hash, phase_spec.revertible_append_note_hash ? 1 : 0 },
-        { C::tx_sel_revertible_append_nullifier, phase_spec.revertible_append_nullifier ? 1 : 0 },
-        { C::tx_sel_revertible_append_l2_l1_msg, phase_spec.revertible_append_l2_l1_msg ? 1 : 0 },
+        { C::tx_sel_append_note_hash, is_note_hash_insert_phase(phase) ? 1 : 0 },
+        { C::tx_sel_append_nullifier, is_nullifier_insert_phase(phase) ? 1 : 0 },
+        { C::tx_sel_append_l2_l1_msg, phase_spec.append_l2_l1_msg ? 1 : 0 },
         { C::tx_next_phase_on_revert, phase_spec.next_phase_on_revert },
 
         // Directly derived from the phase spec but not part of the phase spec struct.
