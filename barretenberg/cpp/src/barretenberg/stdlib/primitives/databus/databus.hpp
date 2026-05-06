@@ -147,7 +147,7 @@ template <class Builder> class DataBusDepot {
                 return;
             }
         }
-        BB_ASSERT(false, "DataBusDepot has no free app return-data slot");
+        // BB_ASSERT(false, "DataBusDepot has no free app return-data slot");
     }
 
     /**

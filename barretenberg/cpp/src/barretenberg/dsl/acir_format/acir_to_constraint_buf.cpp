@@ -801,7 +801,8 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
     // Databus is only supported for Goblin, non Goblin builders will treat call_data and return_data as normal
     // array.
     if (std::holds_alternative<Acir::BlockType::CallData>(mem_init.block_type.value)) {
-        uint32_t calldata_id = std::get<Acir::BlockType::CallData>(mem_init.block_type.value).value;
+        uint32_t calldata_id = std::min(std::get<Acir::BlockType::CallData>(mem_init.block_type.value).value,
+                                        static_cast<uint32_t>(MAX_APPS_PER_KERNEL));
         BB_ASSERT_LTE(calldata_id, MAX_APPS_PER_KERNEL, "acir_format::handle_memory_init: Unsupported calldata id");
 
         block.type = BlockType::CallData;

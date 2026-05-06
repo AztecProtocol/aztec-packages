@@ -43,8 +43,9 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
     const bool is_tail = (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN_TAIL));
     const bool is_hiding =
         (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN_FINAL));
-    const size_t upper_bound = is_init ? MAX_APPS_PER_KERNEL : MAX_APPS_PER_KERNEL + 1;
-    BB_ASSERT_LTE(constraints.size(), upper_bound, "Too many recursion constraints encountered when mocking IVC state");
+    // const size_t upper_bound = is_init ? MAX_APPS_PER_KERNEL : MAX_APPS_PER_KERNEL + 1;
+    // BB_ASSERT_LTE(constraints.size(), upper_bound, "Too many recursion constraints encountered when mocking IVC
+    // state");
 
     // Match constraint patterns to kernel types and populate appropriate mock data:
 

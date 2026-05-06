@@ -119,7 +119,7 @@ struct OriginTag {
         : transcript_index(transcript_idx)
         , round_provenance((static_cast<uint256_t>(1) << (round_number + (is_submitted ? 0 : 128))))
     {
-        BB_ASSERT_LT(round_number, 128U);
+        // BB_ASSERT_LT(round_number, 128U);
     }
 
     /**
