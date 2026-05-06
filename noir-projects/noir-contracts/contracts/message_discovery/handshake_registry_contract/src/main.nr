@@ -64,6 +64,8 @@ pub contract HandshakeRegistry {
 
         let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient);
 
+        // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs, so it
+        // is safe to set from a constrained context.
         unsafe { set_sender_for_tags(sender) };
         // Delivery is `ONCHAIN_UNCONSTRAINED`. The recipient is not involved in this note's delivery. They
         // discover the handshake via the recipient-keyed log emitted below, not via the sender's note.

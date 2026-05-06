@@ -122,10 +122,10 @@ unconstrained fn non_interactive_handshake_emits_recipient_discoverable_log() {
     assert(eph_pk_x != 0, "eph_pk.x should be non-zero");
 }
 
+// The handshake tag depends only on the recipient, so multiple senders posting to the same recipient
+// land under one key. Each emitted log carries its own ephemeral key.
 #[test]
 unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads() {
-    // The handshake tag depends only on the recipient, so multiple senders posting to the same recipient
-    // land under one key. Each emitted log carries its own ephemeral key.
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
@@ -150,11 +150,11 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
     assert(eph_pk_x_0 != eph_pk_x_1, "ephemeral keys should differ in handshakes from different senders");
 }
 
+// Two handshakes from the same sender to the same `(recipient, type)` are not deduplicated.
+// Each call generates a fresh ephemeral key, so the registry accumulates distinct notes and emits
+// distinct logs under the recipient's tag.
 #[test]
 unconstrained fn duplicate_handshake_accumulates_distinct_secrets_and_returns_latest() {
-    // Two handshakes from the same sender to the same `(recipient, type)` are not deduplicated.
-    // Each call generates a fresh ephemeral key, so the registry accumulates distinct notes and emits
-    // distinct logs under the recipient's tag.
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
