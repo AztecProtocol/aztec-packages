@@ -53,6 +53,7 @@ import type { TxMetaData } from '../../mem_pools/tx_pool_v2/tx_metadata.js';
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
 import { ArchiveCache } from './archive_cache.js';
 import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_validator.js';
+import { CachedTxValidator } from './cached_tx_validator.js';
 import { ContractInstanceTxValidator } from './contract_instance_validator.js';
 import { DataTxValidator } from './data_validator.js';
 import { DoubleSpendTxValidator, type NullifierSource } from './double_spend_validator.js';
@@ -64,6 +65,7 @@ import { SizeTxValidator } from './size_validator.js';
 import { TimestampTxValidator } from './timestamp_validator.js';
 import { TxPermittedValidator } from './tx_permitted_validator.js';
 import { TxProofValidator } from './tx_proof_validator.js';
+import { TxValidationCache } from './tx_validation_cache.js';
 
 /**
  * A validator paired with a peer penalty severity.
@@ -99,6 +101,7 @@ export function createFirstStageTxValidationsForGossipedTransactions(
   allowedInSetup: AllowedElement[] = [],
   bindings?: LoggerBindings,
   gasLimitOpts?: { rollupManaLimit?: number; maxBlockL2Gas?: number; maxBlockDAGas?: number },
+  cache?: TxValidationCache,
 ): Record<string, TransactionValidator> {
   const merkleTree = worldStateSynchronizer.getCommitted();
 
@@ -165,7 +168,7 @@ export function createFirstStageTxValidationsForGossipedTransactions(
       severity: PeerErrorSeverity.MidToleranceError,
     },
     dataValidator: {
-      validator: new DataTxValidator(bindings),
+      validator: CachedTxValidator.new(new DataTxValidator(bindings), cache),
       severity: PeerErrorSeverity.MidToleranceError,
     },
     contractInstanceValidator: {
@@ -185,10 +188,11 @@ export function createFirstStageTxValidationsForGossipedTransactions(
 export function createSecondStageTxValidationsForGossipedTransactions(
   proofVerifier: ClientProtocolCircuitVerifier,
   bindings?: LoggerBindings,
+  cache?: TxValidationCache,
 ): Record<string, TransactionValidator> {
   return {
     proofValidator: {
-      validator: new TxProofValidator(proofVerifier, bindings),
+      validator: CachedTxValidator.new(new TxProofValidator(proofVerifier, bindings), cache),
       severity: PeerErrorSeverity.LowToleranceError,
     },
   };
@@ -210,8 +214,9 @@ function createTxValidatorForMinimumTxIntegrityChecks(
     rollupVersion: number;
   },
   bindings?: LoggerBindings,
+  cache?: TxValidationCache,
 ): TxValidator {
-  return new AggregateTxValidator(
+  const aggregate = new AggregateTxValidator(
     new MetadataTxValidator(
       {
         l1ChainId: new Fr(l1ChainId),
@@ -222,10 +227,14 @@ function createTxValidatorForMinimumTxIntegrityChecks(
       bindings,
     ),
     new SizeTxValidator(bindings),
-    new DataTxValidator(bindings),
+    CachedTxValidator.new(new DataTxValidator(bindings), cache),
     new ContractInstanceTxValidator(bindings),
-    new TxProofValidator(verifier, bindings),
+    CachedTxValidator.new(new TxProofValidator(verifier, bindings), cache),
   );
+
+  // This validator is not state-dependent so we can cache it.
+  const identifier = Symbol('TxValidatorForMinimumTxIntegrityChecks');
+  return CachedTxValidator.newWithIdentifier(aggregate, identifier, cache);
 }
 
 /**
@@ -244,8 +253,9 @@ export function createTxValidatorForReqResponseReceivedTxs(
     rollupVersion: number;
   },
   bindings?: LoggerBindings,
+  cache?: TxValidationCache,
 ): TxValidator {
-  return createTxValidatorForMinimumTxIntegrityChecks(verifier, { l1ChainId, rollupVersion }, bindings);
+  return createTxValidatorForMinimumTxIntegrityChecks(verifier, { l1ChainId, rollupVersion }, bindings, cache);
 }
 
 /**
@@ -263,8 +273,9 @@ export function createTxValidatorForBlockProposalReceivedTxs(
     rollupVersion: number;
   },
   bindings?: LoggerBindings,
+  cache?: TxValidationCache,
 ): TxValidator {
-  return createTxValidatorForMinimumTxIntegrityChecks(verifier, { l1ChainId, rollupVersion }, bindings);
+  return createTxValidatorForMinimumTxIntegrityChecks(verifier, { l1ChainId, rollupVersion }, bindings, cache);
 }
 
 /**
@@ -303,6 +314,7 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     maxBlockDAGas?: number;
   },
   bindings?: LoggerBindings,
+  cache?: TxValidationCache,
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
     new TxPermittedValidator(txsPermitted, bindings),
@@ -326,7 +338,7 @@ export function createTxValidatorForAcceptingTxsOverRPC(
     new PhasesTxValidator(contractDataSource, setupAllowList, timestamp, bindings),
     new BlockHeaderTxValidator(new ArchiveCache(db), bindings),
     new DoubleSpendTxValidator(new NullifierCache(db), bindings),
-    new DataTxValidator(bindings),
+    CachedTxValidator.new(new DataTxValidator(bindings), cache),
     new ContractInstanceTxValidator(bindings),
   ];
 
@@ -341,7 +353,7 @@ export function createTxValidatorForAcceptingTxsOverRPC(
   }
 
   if (verifier) {
-    validators.push(new TxProofValidator(verifier, bindings));
+    validators.push(CachedTxValidator.new(new TxProofValidator(verifier, bindings), cache));
   }
 
   return new AggregateTxValidator(...validators);

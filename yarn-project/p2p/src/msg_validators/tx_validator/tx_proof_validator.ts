@@ -3,6 +3,8 @@ import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/ser
 import { TX_ERROR_INVALID_PROOF, Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 export class TxProofValidator implements TxValidator<Tx> {
+  public readonly identifier: symbol = Symbol('TxProofValidator');
+
   #log: Logger;
 
   constructor(
