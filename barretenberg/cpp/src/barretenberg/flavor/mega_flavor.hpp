@@ -392,15 +392,15 @@ class MegaFlavor {
             ecc_op_wire_2 = "ECC_OP_WIRE_2";
             ecc_op_wire_3 = "ECC_OP_WIRE_3";
             ecc_op_wire_4 = "ECC_OP_WIRE_4";
-            calldata = "CALLDATA";
-            calldata_read_counts = "CALLDATA_READ_COUNTS";
-            calldata_inverses = "CALLDATA_INVERSES";
-            secondary_calldata = "SECONDARY_CALLDATA";
-            secondary_calldata_read_counts = "SECONDARY_CALLDATA_READ_COUNTS";
-            secondary_calldata_inverses = "SECONDARY_CALLDATA_INVERSES";
-            return_data = "RETURN_DATA";
-            return_data_read_counts = "RETURN_DATA_READ_COUNTS";
-            return_data_inverses = "RETURN_DATA_INVERSES";
+            calldata = "KERNEL_CALLDATA";
+            calldata_read_counts = "KERNEL_CALLDATA_READ_COUNTS";
+            calldata_inverses = "KERNEL_CALLDATA_INVERSES";
+            secondary_calldata = "APP_CALLDATA";
+            secondary_calldata_read_counts = "APP_CALLDATA_READ_COUNTS";
+            secondary_calldata_inverses = "APP_CALLDATA_INVERSES";
+            return_data = "RETURNDATA";
+            return_data_read_counts = "RETURNDATA_READ_COUNTS";
+            return_data_inverses = "RETURNDATA_INVERSES";
 
             q_c = "Q_C";
             q_l = "Q_L";

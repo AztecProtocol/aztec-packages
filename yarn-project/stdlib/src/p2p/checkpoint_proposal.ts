@@ -4,8 +4,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import type { BaseBuffer32 } from '@aztec/foundation/buffer';
-import { keccak256 } from '@aztec/foundation/crypto/keccak';
+import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -21,6 +20,7 @@ import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/index.js';
 import type { Tx } from '../tx/tx.js';
 import { BlockProposal } from './block_proposal.js';
+import { ConsensusPayload } from './consensus_payload.js';
 import { Gossipable } from './gossipable.js';
 import {
   type CoordinationSignatureContext,
@@ -105,7 +105,7 @@ export class CheckpointProposal extends Gossipable implements Signable {
   }
 
   override generateP2PMessageIdentifier(): Promise<BaseBuffer32> {
-    return Promise.resolve(CheckpointProposalHash.fromBuffer(keccak256(this.signature.toBuffer())));
+    return Promise.resolve(new Buffer32(this.toConsensusPayload().getPayloadHash()));
   }
 
   get slotNumber(): SlotNumber {
@@ -162,6 +162,24 @@ export class CheckpointProposal extends Gossipable implements Signable {
    */
   getPayloadToSign(): Buffer {
     return serializeToBuffer([this.checkpointHeader, this.archive, serializeSignedBigInt(this.feeAssetPriceModifier)]);
+  }
+
+  /**
+   * Returns a content-addressed keccak256 hash of the consensus payload
+   * (header + archive + feeAssetPriceModifier + signatureContext).
+   *
+   * Used by the attestation pool to dedup distinct signed payloads at the same slot
+   * regardless of archive/header collisions on `feeAssetPriceModifier` variants.
+   * The hash deliberately excludes the signature so non-deterministic ECDSA
+   * re-signs of the same payload do not look like equivocation.
+   */
+  getPayloadHash(): CheckpointProposalHash {
+    return CheckpointProposalHash.fromBuffer(this.toConsensusPayload().getPayloadHash());
+  }
+
+  /** Returns the ConsensusPayload that an attester would sign for this proposal. */
+  toConsensusPayload(): ConsensusPayload {
+    return new ConsensusPayload(this.checkpointHeader, this.archive, this.feeAssetPriceModifier, this.signatureContext);
   }
 
   static async createProposalFromSigner(

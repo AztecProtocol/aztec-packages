@@ -104,10 +104,10 @@ describe('ValidatorClient Integration', () => {
       dataStoreMapSizeKb: 1024 * 1024,
     });
     await registerProtocolContracts(archiverStore);
-    const archiver = await createNoopL1Archiver(archiverStore, { ...l1Constants, genesisArchiveRoot });
-    await archiver.start();
 
-    // Create world state synchronizer
+    // Construct world-state first so we can pass its initial header to the archiver, mirroring
+    // production wiring (see aztec-node/server.ts). Both sides must agree on the genesis hash for
+    // L2BlockStream's `areBlockHashesEqualAt` check to succeed at block 0.
     const wsConfig = {
       l1Contracts: { rollupAddress },
       worldStateBlockCheckIntervalMS: 20,
@@ -116,6 +116,14 @@ describe('ValidatorClient Integration', () => {
       worldStateCheckpointHistory: 0,
     };
     const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, genesis);
+    const archiver = await createNoopL1Archiver(
+      archiverStore,
+      { ...l1Constants, genesisArchiveRoot },
+      undefined,
+      worldStateDb.getInitialHeader(),
+    );
+    await archiver.start();
+
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
     await synchronizer.start();
 
@@ -406,7 +414,7 @@ describe('ValidatorClient Integration', () => {
 
       // Verify blocks are in archiver and hashes match
       await attestor.archiver.syncImmediate();
-      const attestorBlocks = await attestor.archiver.getBlocks(BlockNumber(1), 3);
+      const attestorBlocks = await attestor.archiver.getBlocks({ from: BlockNumber(1), limit: 3 });
       expect(attestorBlocks.length).toBe(3);
 
       const attestorBlockHashes = await Promise.all(attestorBlocks.map(b => b.header.hash()));
@@ -441,7 +449,7 @@ describe('ValidatorClient Integration', () => {
 
       // Verify blocks are in archiver and hashes match
       await attestor.archiver.syncImmediate();
-      const attestorBlocks = await attestor.archiver.getBlocks(BlockNumber(1), 3);
+      const attestorBlocks = await attestor.archiver.getBlocks({ from: BlockNumber(1), limit: 3 });
       expect(attestorBlocks.length).toBe(3);
 
       const attestorBlockHashes = await Promise.all(attestorBlocks.map(b => b.header.hash()));
@@ -497,7 +505,7 @@ describe('ValidatorClient Integration', () => {
 
       // Verify all blocks are in archiver
       await attestor.archiver.syncImmediate();
-      const attestorBlocks = await attestor.archiver.getBlocks(BlockNumber(1), 4);
+      const attestorBlocks = await attestor.archiver.getBlocks({ from: BlockNumber(1), limit: 4 });
       expect(attestorBlocks.length).toBe(4);
 
       const attestorBlockHashes = await Promise.all(attestorBlocks.map(b => b.header.hash()));

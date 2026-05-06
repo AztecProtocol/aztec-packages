@@ -80,6 +80,9 @@ template <class base_uint> class uintx {
      */
     constexpr uintx slice(const uint64_t start, const uint64_t end) const
     {
+        // Plain assert is used here because BB_ASSERT_DEBUG defines a std::ostringstream, which is
+        // a non-literal type and therefore disallowed in the body of a constexpr function before C++23.
+        assert(start <= end);
         const uint64_t range = end - start;
         const uintx mask = (uintx(1) << range) - 1;
         return ((*this) >> start) & mask;

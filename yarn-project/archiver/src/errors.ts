@@ -29,6 +29,21 @@ export class InitialCheckpointNumberNotSequentialError extends Error {
   }
 }
 
+export class CheckpointNumberNotSequentialError extends Error {
+  constructor(
+    newCheckpointNumber: CheckpointNumber,
+    previous: CheckpointNumber | undefined,
+    source?: 'proposed' | 'confirmed',
+  ) {
+    const qualifier = source ? `${source} ` : '';
+    super(
+      `Cannot insert new checkpoint ${newCheckpointNumber} given previous ${qualifier}checkpoint number is ${previous ?? 'undefined'}`,
+    );
+    this.name = 'CheckpointNumberNotSequentialError';
+  }
+}
+
+/** Thrown when a proposed block carries a checkpoint number that does not follow the latest one. */
 export class BlockCheckpointNumberNotSequentialError extends Error {
   constructor(
     blockNumber: BlockNumber,
@@ -39,15 +54,6 @@ export class BlockCheckpointNumberNotSequentialError extends Error {
       `Cannot insert new block ${blockNumber} for checkpoint ${blockCheckpointNumber} given previous checkpoint number is ${previous ?? 'undefined'}`,
     );
     this.name = 'BlockCheckpointNumberNotSequentialError';
-  }
-}
-
-export class CheckpointNumberNotSequentialError extends Error {
-  constructor(newCheckpointNumber: CheckpointNumber, previous: CheckpointNumber | undefined) {
-    super(
-      `Cannot insert new checkpoint ${newCheckpointNumber} given previous checkpoint number is ${previous ?? 'undefined'}`,
-    );
-    this.name = 'CheckpointNumberNotSequentialError';
   }
 }
 
