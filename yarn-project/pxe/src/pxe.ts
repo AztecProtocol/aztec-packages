@@ -66,6 +66,7 @@ import { readCurrentClassId } from './contract_sync/helpers.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
+import { DEFAULT_EXECUTION_HOOKS, type ExecutionHooks } from './hooks/index.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
 import { MessageContextService } from './messages/message_context_service.js';
 import {
@@ -151,6 +152,8 @@ export type PXECreateArgs = {
   config: PXEConfig;
   /** Optional logger instance or string suffix for the logger name. */
   loggerOrSuffix?: string | Logger;
+  /** Optional hooks to observe and influence contract execution. */
+  hooks?: ExecutionHooks;
 };
 
 /**
@@ -183,6 +186,7 @@ export class PXE {
     private jobQueue: SerialQueue,
     private jobCoordinator: JobCoordinator,
     public debug: PXEDebugUtils,
+    private hooks: ExecutionHooks,
   ) {}
 
   /**
@@ -200,6 +204,7 @@ export class PXE {
     protocolContractsProvider,
     config,
     loggerOrSuffix,
+    hooks = DEFAULT_EXECUTION_HOOKS,
   }: PXECreateArgs) {
     // Extract bindings from the logger, or use empty bindings if a string suffix is provided.
     const bindings: LoggerBindings | undefined =
@@ -285,6 +290,7 @@ export class PXE {
       jobQueue,
       jobCoordinator,
       debugUtils,
+      hooks,
     );
 
     debugUtils.setPXEHelpers(
@@ -320,6 +326,7 @@ export class PXE {
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
       messageContextService: this.messageContextService,
+      hooks: this.hooks,
     });
   }
 

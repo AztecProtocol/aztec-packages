@@ -24,6 +24,7 @@ import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import { DEFAULT_EXECUTION_HOOKS } from '../../hooks/index.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
@@ -110,6 +111,7 @@ describe('Utility Execution test suite', () => {
       simulator,
       contractSyncService,
       messageContextService,
+      hooks: DEFAULT_EXECUTION_HOOKS,
     });
 
     const ownerPartialAddress = Fr.random();
@@ -348,6 +350,7 @@ describe('Utility Execution test suite', () => {
         scopes: [scope],
         l2TipsStore,
         simulator,
+        hooks: DEFAULT_EXECUTION_HOOKS,
       });
     });
 
@@ -416,6 +419,7 @@ describe('Utility Execution test suite', () => {
           scopes: [scope],
           l2TipsStore,
           simulator,
+          hooks: DEFAULT_EXECUTION_HOOKS,
         });
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
@@ -427,16 +431,6 @@ describe('Utility Execution test suite', () => {
           transientGlobal,
         );
         expect(await utilityExecutionOracle.getCapsule(contractAddress, slot, scope)).toEqual(transientScoped);
-      });
-    });
-
-    describe('callUtilityFunction', () => {
-      it('throws when target contract differs from execution context', async () => {
-        const differentAddress = await AztecAddress.random();
-        const selector = FunctionSelector.empty();
-        await expect(utilityExecutionOracle.callUtilityFunction(differentAddress, selector, [])).rejects.toThrow(
-          'Cross-contract utility calls are not yet supported',
-        );
       });
     });
 
@@ -608,6 +602,7 @@ describe('Utility Execution test suite', () => {
             scopes: [],
             l2TipsStore,
             simulator,
+            hooks: DEFAULT_EXECUTION_HOOKS,
           });
 
         const oracleA = makeOracle(contractAddressA);

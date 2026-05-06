@@ -14,6 +14,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import { DEFAULT_EXECUTION_HOOKS } from '../../hooks/index.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
@@ -111,6 +112,7 @@ describe('Oracle Version Check test suite', () => {
       simulator,
       contractSyncService,
       messageContextService,
+      hooks: DEFAULT_EXECUTION_HOOKS,
     });
   });
 
@@ -214,6 +216,7 @@ describe('Oracle Version Check test suite', () => {
         scopes: [],
         l2TipsStore,
         simulator,
+        hooks: DEFAULT_EXECUTION_HOOKS,
       });
     });
 

@@ -15,6 +15,7 @@ import {
   CapsuleService,
   CapsuleStore,
   type ContractStore,
+  DEFAULT_EXECUTION_HOOKS,
   NoteStore,
   ORACLE_VERSION_MAJOR,
   PrivateEventStore,
@@ -408,6 +409,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       // contract would perform, including setting senderForTags.
       senderForTags: from,
       simulator,
+      hooks: DEFAULT_EXECUTION_HOOKS,
       messageContextService: this.stateMachine.messageContextService,
       l2TipsStore: this.stateMachine.node,
     });
@@ -779,6 +781,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         jobId,
         scopes,
         simulator,
+        hooks: DEFAULT_EXECUTION_HOOKS,
       });
       const acirExecutionResult = await simulator
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
