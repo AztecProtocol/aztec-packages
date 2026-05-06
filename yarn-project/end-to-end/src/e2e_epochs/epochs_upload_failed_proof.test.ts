@@ -54,9 +54,7 @@ describe('e2e_epochs/epochs_upload_failed_proof', () => {
   });
 
   it('uploads failed proving job state and re-runs it on a fresh instance', async () => {
-    // Make initial prover node fail to prove. Patches the top-tree factory so each
-    // top-tree's `prove()` throws after a short delay, matching what the legacy
-    // `finalizeEpoch` patch did.
+    // Make initial prover node fail to prove.
     const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
     const proverManager = proverNode.getProver();
     const origCreateTopTree = proverManager.createTopTreeOrchestrator.bind(proverManager);

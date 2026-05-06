@@ -380,9 +380,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       logger.info('Job is blocked inside proving — firing reorg now');
 
       // Capture the in-flight job so we can poll its tracked-checkpoint count after
-      // the reorg lands. The prover-node uses the L2BlockStream's own polling cadence
-      // to detect prunes, so we need a deterministic signal that the prune has reached
-      // the job before we release the proving gate.
+      // the reorg lands.
       const inFlightJob = proverNode.epochJobs.get(currentEpoch);
       if (!inFlightJob) {
         throw new Error(`No in-flight job for epoch ${currentEpoch}`);
@@ -432,9 +430,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       // and a fresh top tree submits a valid proof for checkpoints 1..afterReorgCheckpoint.
       releaseProvingGate();
 
-      // The in-flight epoch should now be proven on L1 — no storage cheats needed.
-      // (Subsequent epochs would also prove naturally; we only assert the in-flight
-      // recovery here.)
+      // The in-flight epoch should now be proven on L1
       await test.waitUntilProvenCheckpointNumber(CheckpointNumber(afterReorgCheckpoint), 240);
       expect(await rollup.getProvenCheckpointNumber()).toBeGreaterThanOrEqual(afterReorgCheckpoint);
       logger.info(`In-flight epoch proven up to surviving checkpoint ${afterReorgCheckpoint}`);
