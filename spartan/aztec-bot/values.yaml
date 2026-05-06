@@ -7,22 +7,21 @@ global:
 bot:
   mnemonic: 'test test test test test test test test test test test junk'
   mnemonicStartIndex: 3000
-  txIntervalSeconds: 1
-  privateTransfersPerTx: 0
-  publicTransfersPerTx: 1
-  # Do not wait for transactions
-  followChain: 'NONE'
-  pxeSyncChainTip: 'checkpointed'
-  botNoStart: false
-  feePaymentMethod: 'fee_juice'
-  botMode: 'transfer'
-  maxErrors: 3
-  stopIfUnhealthy: true
-  nodeUrl: ''
-  testAccounts: false
   botPrivateKey: '0xcafe'
-  daGasLimit: ''
-  l2GasLimit: ''
+
+  env:
+    BOT_TX_INTERVAL_SECONDS: '1'
+    BOT_PRIVATE_TRANSFERS_PER_TX: '0'
+    BOT_PUBLIC_TRANSFERS_PER_TX: '1'
+    BOT_FOLLOW_CHAIN: 'NONE'
+    PXE_SYNC_CHAIN_TIP: 'checkpointed'
+    BOT_NO_START: 'false'
+    BOT_FEE_PAYMENT_METHOD: 'fee_juice'
+    BOT_MODE: 'transfer'
+    BOT_MAX_CONSECUTIVE_ERRORS: '3'
+    BOT_STOP_WHEN_UNHEALTHY: 'true'
+    AZTEC_NODE_URL: ''
+    TEST_ACCOUNTS: 'false'
 
   persistence:
     enabled: false

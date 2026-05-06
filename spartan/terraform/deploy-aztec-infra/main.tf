@@ -76,6 +76,18 @@ locals {
   l1_consensus_keys    = try(local.d.L1_CONSENSUS_HOST_API_KEYS, [])
   l1_consensus_headers = try(local.d.L1_CONSENSUS_HOST_API_KEY_HEADERS, [])
 
+  # Network YAMLs set bot tuning under env: (next-net, staging-public, …).
+  # Prefer var.env over var.deploy defaults — avoids env→deploy duplication in deploy_network.sh.
+  bot_transfers_tx_interval_seconds   = lookup(var.env, "BOT_TRANSFERS_TX_INTERVAL_SECONDS", try(local.d.BOT_TRANSFERS_TX_INTERVAL_SECONDS, ""))
+  bot_transfers_follow_chain          = lookup(var.env, "BOT_TRANSFERS_FOLLOW_CHAIN", try(local.d.BOT_TRANSFERS_FOLLOW_CHAIN, ""))
+  bot_transfers_pxe_sync_chain_tip    = lookup(var.env, "BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP", try(local.d.BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP, ""))
+  bot_swaps_tx_interval_seconds       = lookup(var.env, "BOT_SWAPS_TX_INTERVAL_SECONDS", try(local.d.BOT_SWAPS_TX_INTERVAL_SECONDS, ""))
+  bot_swaps_follow_chain              = lookup(var.env, "BOT_SWAPS_FOLLOW_CHAIN", try(local.d.BOT_SWAPS_FOLLOW_CHAIN, ""))
+  bot_swaps_pxe_sync_chain_tip        = lookup(var.env, "BOT_SWAPS_PXE_SYNC_CHAIN_TIP", try(local.d.BOT_SWAPS_PXE_SYNC_CHAIN_TIP, ""))
+  bot_cross_chain_tx_interval_seconds = lookup(var.env, "BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS", try(local.d.BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS, ""))
+  bot_cross_chain_follow_chain        = lookup(var.env, "BOT_CROSS_CHAIN_FOLLOW_CHAIN", try(local.d.BOT_CROSS_CHAIN_FOLLOW_CHAIN, ""))
+  bot_cross_chain_pxe_sync_chain_tip  = lookup(var.env, "BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP", try(local.d.BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP, ""))
+
   # ---------------------------------------------------------------------------
   # Per-release helm values from the YAML loader.
   #
@@ -665,18 +677,20 @@ locals {
         "bot-token-transfer.yaml",
         "bot-resources-${local.d.BOT_RESOURCE_PROFILE}.yaml",
       ]
-      custom_settings = {
-        "bot.replicaCount"       = local.bot_transfers_replicas
-        "bot.txIntervalSeconds"  = local.d.BOT_TRANSFERS_TX_INTERVAL_SECONDS
-        "bot.followChain"        = local.d.BOT_TRANSFERS_FOLLOW_CHAIN
-        "bot.pxeSyncChainTip"    = local.d.BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP
-        "bot.botPrivateKey"      = try(local.d.BOT_TRANSFERS_L2_PRIVATE_KEY, "0xcafe01")
-        "bot.nodeUrl"            = local.internal_rpc_url
-        "bot.mnemonic"           = local.d.BOT_MNEMONIC
-        "bot.mnemonicStartIndex" = local.d.BOT_TRANSFERS_MNEMONIC_START_INDEX
-        "bot.daGasLimit"         = try(local.d.BOT_DA_GAS_LIMIT, "")
-        "bot.l2GasLimit"         = try(local.d.BOT_L2_GAS_LIMIT, "")
-      }
+      custom_settings = merge(
+        {
+          "bot.replicaCount"                = local.bot_transfers_replicas
+          "bot.env.BOT_TX_INTERVAL_SECONDS" = local.bot_transfers_tx_interval_seconds
+          "bot.env.BOT_FOLLOW_CHAIN"        = local.bot_transfers_follow_chain
+          "bot.env.PXE_SYNC_CHAIN_TIP"      = local.bot_transfers_pxe_sync_chain_tip
+          "bot.env.AZTEC_NODE_URL"          = local.internal_rpc_url
+          "bot.botPrivateKey"               = try(local.d.BOT_TRANSFERS_L2_PRIVATE_KEY, "0xcafe01")
+          "bot.mnemonic"                    = local.d.BOT_MNEMONIC
+          "bot.mnemonicStartIndex"          = local.d.BOT_TRANSFERS_MNEMONIC_START_INDEX
+        },
+        try(local.d.BOT_DA_GAS_LIMIT, "") != "" ? { "bot.env.BOT_DA_GAS_LIMIT" = local.d.BOT_DA_GAS_LIMIT } : {},
+        try(local.d.BOT_L2_GAS_LIMIT, "") != "" ? { "bot.env.BOT_L2_GAS_LIMIT" = local.d.BOT_L2_GAS_LIMIT } : {},
+      )
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
       wait                 = false
@@ -691,18 +705,20 @@ locals {
         "bot-amm-swaps.yaml",
         "bot-resources-${local.d.BOT_RESOURCE_PROFILE}.yaml",
       ]
-      custom_settings = {
-        "bot.replicaCount"       = local.bot_swaps_replicas
-        "bot.txIntervalSeconds"  = local.d.BOT_SWAPS_TX_INTERVAL_SECONDS
-        "bot.followChain"        = local.d.BOT_SWAPS_FOLLOW_CHAIN
-        "bot.pxeSyncChainTip"    = local.d.BOT_SWAPS_PXE_SYNC_CHAIN_TIP
-        "bot.botPrivateKey"      = try(local.d.BOT_SWAPS_L2_PRIVATE_KEY, "0xcafe02")
-        "bot.nodeUrl"            = local.internal_rpc_url
-        "bot.mnemonic"           = local.d.BOT_MNEMONIC
-        "bot.mnemonicStartIndex" = local.d.BOT_SWAPS_MNEMONIC_START_INDEX
-        "bot.daGasLimit"         = try(local.d.BOT_DA_GAS_LIMIT, "")
-        "bot.l2GasLimit"         = try(local.d.BOT_L2_GAS_LIMIT, "")
-      }
+      custom_settings = merge(
+        {
+          "bot.replicaCount"                = local.bot_swaps_replicas
+          "bot.env.BOT_TX_INTERVAL_SECONDS" = local.bot_swaps_tx_interval_seconds
+          "bot.env.BOT_FOLLOW_CHAIN"        = local.bot_swaps_follow_chain
+          "bot.env.PXE_SYNC_CHAIN_TIP"      = local.bot_swaps_pxe_sync_chain_tip
+          "bot.env.AZTEC_NODE_URL"          = local.internal_rpc_url
+          "bot.botPrivateKey"               = try(local.d.BOT_SWAPS_L2_PRIVATE_KEY, "0xcafe02")
+          "bot.mnemonic"                    = local.d.BOT_MNEMONIC
+          "bot.mnemonicStartIndex"          = local.d.BOT_SWAPS_MNEMONIC_START_INDEX
+        },
+        try(local.d.BOT_DA_GAS_LIMIT, "") != "" ? { "bot.env.BOT_DA_GAS_LIMIT" = local.d.BOT_DA_GAS_LIMIT } : {},
+        try(local.d.BOT_L2_GAS_LIMIT, "") != "" ? { "bot.env.BOT_L2_GAS_LIMIT" = local.d.BOT_L2_GAS_LIMIT } : {},
+      )
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
       wait                 = false
@@ -717,18 +733,20 @@ locals {
         "bot-cross-chain.yaml",
         "bot-resources-${local.d.BOT_RESOURCE_PROFILE}.yaml",
       ]
-      custom_settings = {
-        "bot.replicaCount"       = local.bot_cross_chain_replicas
-        "bot.txIntervalSeconds"  = local.d.BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS
-        "bot.followChain"        = local.d.BOT_CROSS_CHAIN_FOLLOW_CHAIN
-        "bot.pxeSyncChainTip"    = local.d.BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP
-        "bot.botPrivateKey"      = try(local.d.BOT_CROSS_CHAIN_L2_PRIVATE_KEY, "0xcafe03")
-        "bot.nodeUrl"            = local.internal_rpc_url
-        "bot.mnemonic"           = local.d.BOT_MNEMONIC
-        "bot.mnemonicStartIndex" = local.d.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
-        "bot.daGasLimit"         = try(local.d.BOT_DA_GAS_LIMIT, "")
-        "bot.l2GasLimit"         = try(local.d.BOT_L2_GAS_LIMIT, "")
-      }
+      custom_settings = merge(
+        {
+          "bot.replicaCount"                = local.bot_cross_chain_replicas
+          "bot.env.BOT_TX_INTERVAL_SECONDS" = local.bot_cross_chain_tx_interval_seconds
+          "bot.env.BOT_FOLLOW_CHAIN"        = local.bot_cross_chain_follow_chain
+          "bot.env.PXE_SYNC_CHAIN_TIP"      = local.bot_cross_chain_pxe_sync_chain_tip
+          "bot.env.AZTEC_NODE_URL"          = local.internal_rpc_url
+          "bot.botPrivateKey"               = try(local.d.BOT_CROSS_CHAIN_L2_PRIVATE_KEY, "0xcafe03")
+          "bot.mnemonic"                    = local.d.BOT_MNEMONIC
+          "bot.mnemonicStartIndex"          = local.d.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
+        },
+        try(local.d.BOT_DA_GAS_LIMIT, "") != "" ? { "bot.env.BOT_DA_GAS_LIMIT" = local.d.BOT_DA_GAS_LIMIT } : {},
+        try(local.d.BOT_L2_GAS_LIMIT, "") != "" ? { "bot.env.BOT_L2_GAS_LIMIT" = local.d.BOT_L2_GAS_LIMIT } : {},
+      )
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
       wait                 = false

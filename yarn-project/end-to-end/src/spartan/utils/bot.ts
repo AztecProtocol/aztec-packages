@@ -67,13 +67,13 @@ export async function installTransferBot({
 
   const values: Record<string, string | number | boolean> = {
     'bot.replicaCount': replicas,
-    'bot.txIntervalSeconds': txIntervalSeconds,
-    'bot.followChain': followChain,
-    'bot.pxeSyncChainTip': pxeSyncChainTip,
+    'bot.env.BOT_TX_INTERVAL_SECONDS': txIntervalSeconds,
+    'bot.env.BOT_FOLLOW_CHAIN': followChain,
+    'bot.env.PXE_SYNC_CHAIN_TIP': pxeSyncChainTip,
     'bot.botPrivateKey': botPrivateKey,
-    'bot.nodeUrl': resolvedNodeUrl,
+    'bot.env.AZTEC_NODE_URL': resolvedNodeUrl,
     'bot.mnemonic': mnemonic,
-    'bot.feePaymentMethod': 'fee_juice',
+    'bot.env.BOT_FEE_PAYMENT_METHOD': 'fee_juice',
     'aztec.slotDuration': aztecSlotDuration,
     // Ensure bot can reach its own PXE started in-process (default rpc.port is 8080)
     // Note: since aztec-bot depends on aztec-node with alias `bot`, env vars go under `bot.node.env`.

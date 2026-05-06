@@ -1,12 +1,16 @@
 bot:
   replicaCount: 1
-  txIntervalSeconds: 10
-  botMode: "amm"
-  followChain: "PROPOSED"
-  feePaymentMethod: "fee_juice"
-  maxErrors: 3
-  stopIfUnhealthy: true
   botPrivateKey: "0xcafe02"
+
+  env:
+    BOT_MODE: "amm"
+    BOT_TX_INTERVAL_SECONDS: "10"
+    BOT_PRIVATE_TRANSFERS_PER_TX: "0"
+    BOT_PUBLIC_TRANSFERS_PER_TX: "1"
+    BOT_FOLLOW_CHAIN: "PROPOSED"
+    BOT_FEE_PAYMENT_METHOD: "fee_juice"
+    BOT_MAX_CONSECUTIVE_ERRORS: "3"
+    BOT_STOP_WHEN_UNHEALTHY: "true"
 
   persistence:
     enabled: true
