@@ -273,8 +273,8 @@ TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
     EXPECT_EQ(builder.blocks.nnf.size(), 0);
     EXPECT_EQ(builder.blocks.poseidon2_external.size(), 0);
     EXPECT_EQ(builder.blocks.poseidon2_internal.size(), 0);
-    EXPECT_EQ(builder.get_calldata().size(), 0);
-    EXPECT_EQ(builder.get_secondary_calldata().size(), 0);
+    EXPECT_EQ(builder.get_calldata(BusId::KERNEL_CALLDATA).size(), 0);
+    EXPECT_EQ(builder.get_calldata(BusId::APP_CALLDATA).size(), 0);
     EXPECT_EQ(builder.get_return_data().size(), 0);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -289,13 +289,13 @@ TEST(MegaCircuitBuilder, DatabusOutOfBoundsReadFails)
 
     // Add single entry to calldata
     auto val = builder.add_variable(fr(42));
-    builder.add_public_calldata(val);
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, val);
 
     // Try to read at index 1 (out of bounds - only index 0 exists)
     auto bad_idx = builder.add_variable(fr(1));
 
     // This should trigger an assertion in read_calldata
-    EXPECT_THROW(builder.read_calldata(bad_idx), std::runtime_error);
+    EXPECT_THROW(builder.read_calldata(BusId::KERNEL_CALLDATA, bad_idx), std::runtime_error);
 }
 
 } // namespace bb
