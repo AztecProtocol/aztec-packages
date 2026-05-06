@@ -888,4 +888,68 @@ TEST(TxExecutionConstrainingTest, NegativeNullifierStateIncrementIsUnconditional
     check_relation<tx>(trace, tx::SR_NULLIFIER_TREE_SIZE_INCREMENT, tx::SR_NULLIFIER_EMITTED_COUNT_INCREMENT);
 }
 
+// When the maximum number of nullifier writes has been reached (REMAINING_NULLIFIER_WRITES == 0),
+// the prover must set `reverted = 1`; setting `reverted = 0` is rejected.
+TEST(TxExecutionConstrainingTest, MaxNullifierWritesReachedForcesReverted)
+{
+    // #[MAX_NULLIFIER_WRITES_REACHED]:
+    //   sel_try_nullifier_append * (REMAINING_NULLIFIER_WRITES *
+    //       (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0
+    // With REMAINING_NULLIFIER_WRITES = MAX_NULLIFIERS_PER_TX - prev_num_nullifiers_emitted = 0,
+    // the constraint reduces to (reverted - 1) = 0, forcing reverted = 1.
+    TestTraceContainer trace({
+        {
+            // Row 0
+            { C::precomputed_first_row, 1 },
+        },
+        {
+            // Row 1: the nullifier write limit has been reached and the prover honestly reverts.
+            { C::tx_sel_try_nullifier_append, 1 },
+            { C::tx_prev_num_nullifiers_emitted, MAX_NULLIFIERS_PER_TX },
+            { C::tx_reverted, 1 },
+        },
+    });
+
+    // Honest trace satisfies the relation.
+    check_relation<tx>(trace, tx::SR_MAX_NULLIFIER_WRITES_REACHED);
+
+    // Mutate: prover tries to skip the revert despite being at the limit.
+    trace.set(C::tx_reverted, 1, 0);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_MAX_NULLIFIER_WRITES_REACHED),
+                              "MAX_NULLIFIER_WRITES_REACHED");
+}
+
+// A malicious prover cannot toggle `reverted = 1` when REMAINING_NULLIFIER_WRITES > 0:
+// no value of `remaining_side_effects_inv` can satisfy the constraint in that case.
+TEST(TxExecutionConstrainingTest, NegativeCannotRevertWhenNullifierWritesAvailable)
+{
+    // With REMAINING_NULLIFIER_WRITES > 0 and reverted = 1, the inner factor reduces to 1 (independently
+    // of remaining_side_effects_inv), so the constraint evaluates to REMAINING_NULLIFIER_WRITES != 0.
+    constexpr uint32_t prev_emitted = 3;
+    constexpr uint32_t remaining = MAX_NULLIFIERS_PER_TX - prev_emitted;
+    static_assert(remaining > 0);
+
+    TestTraceContainer trace({
+        {
+            // Row 0
+            { C::precomputed_first_row, 1 },
+        },
+        {
+            // Row 1: nullifier write slots are still available; honest prover does not revert.
+            { C::tx_sel_try_nullifier_append, 1 },
+            { C::tx_prev_num_nullifiers_emitted, prev_emitted },
+            { C::tx_reverted, 0 },
+            { C::tx_remaining_side_effects_inv, FF(remaining).invert() },
+        },
+    });
+
+    // Honest trace satisfies the relation.
+    check_relation<tx>(trace, tx::SR_MAX_NULLIFIER_WRITES_REACHED);
+
+    // Mutate: prover maliciously toggles reverted = 1 despite slots remaining.
+    trace.set(C::tx_reverted, 1, 1);
+    EXPECT_THROW_WITH_MESSAGE(check_relation<tx>(trace, tx::SR_MAX_NULLIFIER_WRITES_REACHED),
+                              "MAX_NULLIFIER_WRITES_REACHED");
+}
+
 } // namespace bb::avm2::constraining
