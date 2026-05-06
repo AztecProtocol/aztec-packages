@@ -3,6 +3,7 @@ import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
+
 import type { ExecutionHooks } from '../hooks/index.js';
 
 export type PXECreationOptions = {
