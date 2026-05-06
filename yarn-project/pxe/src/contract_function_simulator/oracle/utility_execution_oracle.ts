@@ -634,10 +634,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    *
    * This function is an auxiliary to support legacy (capsule backed) and new (ephemeral array backed) versions of the
    * `validateAndStoreEnqueuedNotesAndEvents` oracle.
-   *
-   * Tx effects are pre-fetched and de-duplicated here so that multiple notes/events from the same transaction share
-   * a single `getTxEffect` round-trip. The note service then performs a single batched `findLeavesIndexes` call across
-   * all the request nullifiers, instead of one per note.
    */
   async #processValidationRequests(
     noteValidationRequests: NoteValidationRequest[],
