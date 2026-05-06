@@ -218,7 +218,7 @@
         "targetTps": { "type": "number" },
         "inclusionTpsMean": {
           "type": ["number", "null"],
-          "description": "Exact block-log inclusion throughput over the observed inclusion window: totalTxsMined / (inclusionEndedAt - startedAt)."
+          "description": "Inclusion throughput over the observed inclusion window. Uses exact block-log throughput when block records are available, otherwise falls back to the Prometheus inclusionTps mean."
         },
         "inclusionTpsPeak": {
           "type": ["number", "null"],
@@ -231,8 +231,14 @@
         "blockBuildDurationP95Ms": { "type": ["number", "null"] },
         "publicProcessorTxDurationP50Ms": { "type": ["number", "null"] },
         "publicProcessorTxDurationP95Ms": { "type": ["number", "null"] },
-        "totalTxsMined": { "type": ["integer", "null"] },
-        "totalTxsFailed": { "type": ["integer", "null"] },
+        "totalTxsMined": {
+          "type": ["integer", "null"],
+          "description": "Exact sum from per-block logs. Null when block logs were unavailable and inclusionTpsMean came from Prometheus."
+        },
+        "totalTxsFailed": {
+          "type": ["integer", "null"],
+          "description": "Exact sum from per-block logs. Null when block logs were unavailable."
+        },
         "totalSilentSkipCount": {
           "type": ["integer", "null"],
           "description": "Sum of per-block silentlySkippedCount. > 0 means the post-process blob-field revert path fired during the run."
