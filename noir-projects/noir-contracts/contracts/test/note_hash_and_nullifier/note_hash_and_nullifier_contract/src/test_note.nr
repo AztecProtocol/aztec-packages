@@ -17,7 +17,6 @@ pub struct TestNote {
 pub global TEST_NOTE_NULLIFIER: Field = 2;
 
 impl NoteHash for TestNote {
-<<<<<<< HEAD
     fn compute_note_hash(
         self,
         _owner: AztecAddress,
@@ -26,10 +25,6 @@ impl NoteHash for TestNote {
     ) -> Field {
         let inputs = self.pack().concat([storage_slot, randomness]);
         poseidon2_hash_with_separator(inputs, DOM_SEP__NOTE_HASH)
-=======
-    fn compute_note_hash(self, _owner: AztecAddress, storage_slot: Field, randomness: Field) -> Field {
-        compute_note_hash(storage_slot, self.pack().concat([randomness]))
->>>>>>> 6a1a4a9525 (chore: add noirfmt.toml to noir-contracts and run nargo fmt (#22971))
     }
 
     fn compute_nullifier(

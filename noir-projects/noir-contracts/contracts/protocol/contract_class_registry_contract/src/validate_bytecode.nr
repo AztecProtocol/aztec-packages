@@ -1,4 +1,7 @@
-use aztec::{hash::compute_public_bytecode_commitment, protocol::constants::MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS};
+use aztec::{
+    hash::compute_public_bytecode_commitment,
+    protocol::constants::MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS,
+};
 
 pub(crate) fn validate_packed_public_bytecode(
     packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS],
@@ -6,19 +9,16 @@ pub(crate) fn validate_packed_public_bytecode(
 ) {
     validate_bytes_encoding(packed_public_bytecode);
 
-    assert_eq(compute_public_bytecode_commitment(packed_public_bytecode), public_bytecode_commitment);
+    assert_eq(
+        compute_public_bytecode_commitment(packed_public_bytecode),
+        public_bytecode_commitment,
+    );
 }
 
-<<<<<<< HEAD
 fn validate_bytes_encoding(
     packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS],
 ) {
     // Validate bit size of bytecode length
-=======
-fn validate_bytes_encoding(packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS]) {
-    // Field 0 stores the bytecode length (in bytes).
-    // It must fit within 32 bits.
->>>>>>> 6a1a4a9525 (chore: add noirfmt.toml to noir-contracts and run nargo fmt (#22971))
     packed_public_bytecode[0].assert_max_bit_size::<32>();
     // 31 bytes per field, the odd upper bits MUST be 0
     for i in 1..MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS {
@@ -29,13 +29,8 @@ fn validate_bytes_encoding(packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYT
     let bytecode_length_in_bytes = packed_public_bytecode[0] as u32;
     let not_aligned_bytes = bytecode_length_in_bytes % 31;
 
-<<<<<<< HEAD
     let bytecode_length_in_fields =
         (bytecode_length_in_bytes / 31) + (not_aligned_bytes != 0) as u32;
-=======
-    // Number of fields needed to store the bytecode payload (excluding field 0).
-    let bytecode_length_in_fields = (bytecode_length_in_bytes / 31) + (not_aligned_bytes != 0) as u32;
->>>>>>> 6a1a4a9525 (chore: add noirfmt.toml to noir-contracts and run nargo fmt (#22971))
 
     // We don't -1 because the first field is the bytes length
     let decomposition: [u8; 32] = packed_public_bytecode[bytecode_length_in_fields].to_be_bytes();
@@ -63,76 +58,15 @@ fn test_validate_bytes_encoding() {
     packed_public_bytecode[0] = 30;
     // Upper bits clean, no extra trailing bytes
     let bytes = [
-        0x0, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12,
-        0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x00,
+        0x0, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+        0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
+        0x1e, 0x00,
     ];
     packed_public_bytecode[1] = Field::from_be_bytes(bytes);
 
     validate_bytes_encoding(packed_public_bytecode);
 }
 
-<<<<<<< HEAD
-=======
-#[test]
-fn test_validate_bytes_encoding_one_field_aligned() {
-    let mut packed_public_bytecode = [0; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS];
-    packed_public_bytecode[0] = 31;
-
-    // A field with 31 bytes
-    let bytes = [
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12,
-        0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
-    ];
-    packed_public_bytecode[1] = Field::from_be_bytes(bytes);
-
-    validate_bytes_encoding(packed_public_bytecode);
-}
-
-#[test]
-fn test_validate_bytes_encoding_two_fields_not_aligned() {
-    let mut packed_public_bytecode = [0; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS];
-    packed_public_bytecode[0] = 32;
-
-    // First field: 31 bytes
-    let field_1_bytes = [
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12,
-        0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
-    ];
-    packed_public_bytecode[1] = Field::from_be_bytes(field_1_bytes);
-
-    // Second field: 1 byte, no extra trailing bytes
-    let mut field_2_bytes = [0; 31];
-    field_2_bytes[0] = 0x20;
-    packed_public_bytecode[2] = Field::from_be_bytes(field_2_bytes);
-
-    validate_bytes_encoding(packed_public_bytecode);
-}
-
-#[test]
-fn test_validate_bytes_encoding_two_fields_aligned() {
-    let mut packed_public_bytecode = [0; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS];
-    packed_public_bytecode[0] = 62;
-
-    // Both fields have 31 bytes
-    let bytes = [
-        0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12,
-        0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
-    ];
-    packed_public_bytecode[1] = Field::from_be_bytes(bytes);
-    packed_public_bytecode[2] = Field::from_be_bytes(bytes);
-
-    validate_bytes_encoding(packed_public_bytecode);
-}
-
-#[test]
-fn test_validate_bytes_encoding_all_zeros() {
-    let mut packed_public_bytecode = [0; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS];
-    // 63 bytes, all bytes are zero
-    packed_public_bytecode[0] = 63;
-    validate_bytes_encoding(packed_public_bytecode);
-}
-
->>>>>>> 6a1a4a9525 (chore: add noirfmt.toml to noir-contracts and run nargo fmt (#22971))
 #[test(should_fail_with = "assert_max_bit_size")]
 fn test_should_fail_too_large_bytecode_length() {
     let mut packed_public_bytecode = [0; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS];
@@ -146,8 +80,9 @@ fn test_should_fail_populated_upper_bits() {
     packed_public_bytecode[0] = 30;
     // one upper bit populated
     let bytes = [
-        0x01, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11,
-        0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x00,
+        0x01, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+        0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
+        0x1e, 0x00,
     ];
     packed_public_bytecode[1] = Field::from_be_bytes(bytes);
 
@@ -160,8 +95,9 @@ fn test_should_fail_extra_bytes_in_last_field() {
     packed_public_bytecode[0] = 30;
     // Last one should be zero
     let bytes = [
-        0x0, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12,
-        0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x01,
+        0x0, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+        0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
+        0x1e, 0x01,
     ];
     packed_public_bytecode[1] = Field::from_be_bytes(bytes);
 

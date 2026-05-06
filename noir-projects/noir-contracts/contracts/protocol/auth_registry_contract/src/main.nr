@@ -17,7 +17,6 @@
 /// constrain that value.
 pub contract AuthRegistry {
     use aztec::{
-<<<<<<< HEAD
         authwit::auth::{
             assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
         },
@@ -31,12 +30,6 @@ pub contract AuthRegistry {
             utils::reader::Reader,
         },
         state_vars::{Map, PublicMutable, StateVariable},
-=======
-        authwit::auth::{assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR},
-        macros::{functions::{external, only_self, view}, storage::storage},
-        protocol::address::AztecAddress,
-        state_vars::{Map, PublicMutable},
->>>>>>> 6a1a4a9525 (chore: add noirfmt.toml to noir-contracts and run nargo fmt (#22971))
     };
 
     struct Storage<Context> {
@@ -251,7 +244,6 @@ pub contract AuthRegistry {
     }
 
     /// Utility version of `is_consumable`
-<<<<<<< HEAD
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_utility]
     unconstrained fn utility_is_consumable(
         on_behalf_of: AztecAddress,
@@ -444,11 +436,5 @@ pub contract AuthRegistry {
     pub struct utility_is_consumable_abi {
         parameters: utility_is_consumable_parameters,
         return_type: bool,
-=======
-    #[external("utility")]
-    unconstrained fn utility_is_consumable(on_behalf_of: AztecAddress, message_hash: Field) -> bool {
-        !self.storage.reject_all.at(on_behalf_of).read()
-            & self.storage.approved_actions.at(on_behalf_of).at(message_hash).read()
->>>>>>> 6a1a4a9525 (chore: add noirfmt.toml to noir-contracts and run nargo fmt (#22971))
     }
 }
