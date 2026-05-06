@@ -43,7 +43,6 @@ namespace bb {
 template <typename FF_> class ECCVMMSMRelationImpl {
   public:
     using FF = FF_;
-
     // Named subrelation indices — matches SUBRELATION_PARTIAL_LENGTHS ordering.
     // Grouped by logical function within the Strauss MSM algorithm.
     enum SubrelationIndex : size_t {
@@ -122,12 +121,15 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         // Idle row: accumulator preserved when no phase selector is active
         IDLE_ROW_PRESERVES_ACC_X = 45,
         IDLE_ROW_PRESERVES_ACC_Y = 46,
+        // MSM-start anchor: msm_transition must be 1 at the first row of every MSM block
+        MSM_TRANSITION_AT_ACTIVE_START = 47,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 47> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+    static constexpr std::array<size_t, 48> SUBRELATION_PARTIAL_LENGTHS{
+        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+        8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8
+    };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
