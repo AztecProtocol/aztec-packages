@@ -1,11 +1,12 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ChainConfig } from '@aztec/stdlib/config';
+import { checkCompressedComponentVersion, compressComponentVersions } from '@aztec/stdlib/versioning';
 
 import type { SignableENR } from '@nethermindeth/enr';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { AZTEC_ENR_KEY } from './types/index.js';
-import { checkAztecEnrVersion, setAztecEnrKey } from './versioning.js';
+import { setAztecEnrKey } from './versioning.js';
 
 describe('versioning', () => {
   let enr: MockProxy<SignableENR>;
@@ -29,14 +30,16 @@ describe('versioning', () => {
     };
   });
 
-  it.each([true, false])('sets and compares versions with xxhash=%s', (useXxHash: boolean) => {
-    const versions = setAztecEnrKey(enr, chainConfig, useXxHash);
+  it('sets and compares compressed versions on ENR', () => {
+    const versions = setAztecEnrKey(enr, chainConfig);
     expect(versions.l1ChainId).toEqual(1);
     expect(versions.rollupVersion).toEqual(3);
     expect(versions.l1RollupAddress).toEqual(chainConfig.l1Contracts.rollupAddress);
-    expect(versionSet).toHaveLength(useXxHash ? 8 : 33);
+    expect(Buffer.from(versionSet!).toString()).toEqual(compressComponentVersions(versions));
 
-    checkAztecEnrVersion(versionSet, versions);
-    expect(() => checkAztecEnrVersion(versionSet, { ...versions, l1ChainId: 3 })).toThrow();
+    checkCompressedComponentVersion(Buffer.from(versionSet!).toString(), versions);
+    expect(() =>
+      checkCompressedComponentVersion(Buffer.from(versionSet!).toString(), { ...versions, l1ChainId: 3 }),
+    ).toThrow();
   });
 });
