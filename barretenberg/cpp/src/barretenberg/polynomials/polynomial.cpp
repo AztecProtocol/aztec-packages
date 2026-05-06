@@ -313,6 +313,12 @@ void add_scaled_batch(Polynomial<Fr>& dst,
             const Fr c = scalars[k];
             const size_t src_start = src.start_index;
             const size_t src_end = src.end_index();
+
+            auto first_idx = chunk_indices.front();
+            auto last_idx = chunk_indices.back();
+            if (last_idx < src_start || first_idx >= src_end) {
+                continue; // This chunk does not overlap with the source polynomial
+            }
             for (size_t i : chunk_indices) {
                 if (i >= src_start && i < src_end) {
                     dst.at(i) += c * src[i];
