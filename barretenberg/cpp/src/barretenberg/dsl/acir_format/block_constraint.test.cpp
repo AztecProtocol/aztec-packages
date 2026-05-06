@@ -514,7 +514,9 @@ using CallDataTestConfigs = testing::Types<CallDataTestParams<CallDataType::Kern
                                            CallDataTestParams<CallDataType::KernelCalldata, 10, 5, true>,
                                            CallDataTestParams<CallDataType::AppCalldata, 0, 0, false>,
                                            CallDataTestParams<CallDataType::AppCalldata, 10, 5, false>,
-                                           CallDataTestParams<CallDataType::AppCalldata, 10, 5, true>>;
+                                           CallDataTestParams<CallDataType::AppCalldata, 10, 5, true>,
+                                           CallDataTestParams<static_cast<CallDataType>(2), 10, 5, false>,
+                                           CallDataTestParams<static_cast<CallDataType>(3), 10, 5, false>>;
 
 template <typename Params>
 class CallDataTests : public ::testing::Test,

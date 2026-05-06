@@ -160,7 +160,7 @@ Beyond basic arithmetic, specialized gates provide efficient constraints for var
 | **Lookup** | `LogDerivLookupRelation` | Table-based lookups (plookup) |
 | **Memory** | `MemoryRelation` | ROM reads, RAM read/write consistency |
 | **Non-native field** | `NonNativeFieldRelation` | Arithmetic over non-native fields via limb decomposition |
-| **Databus** (Mega) | `DatabusLookupRelation` | Reads from calldata/returndata vectors |
+| **Databus** (Mega) | `DatabusLookupRelation` | Reads from kernel/app calldata and return data vectors |
 | **ECC Op Queue** (Mega) | `EccOpQueueRelation` | Deferred ECC operations for Goblin |
 
 ## Public Inputs
@@ -196,9 +196,9 @@ Mega is used in the context of client-side proving of Aztec transactions and for
 
 For large amounts of public data shared between multiple circuits (common in Aztec transactions), MegaCircuitBuilder provides the **DataBus**—a more efficient mechanism where prover cost scales with the number of *reads* rather than total data size.
 
-Mega supports lookup-style reads on three bus vectors:
-- `calldata`: Primary input data
-- `secondary_calldata`: Additional input data
+Mega supports lookup-style reads on five bus vectors:
+- `kernel_calldata`: Input from the previous kernel's return data
+- `app_calldata[0..2]`: Inputs from up to three app circuits' return data
 - `returndata`: Output data
 
 See `databus.hpp` in this directory for implementation details.

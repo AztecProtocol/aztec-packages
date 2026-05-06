@@ -113,7 +113,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
-inline constexpr size_t CHONK_RECURSION_GATES = 1474677;
+inline constexpr size_t CHONK_RECURSION_GATES = 1522572;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -123,24 +123,24 @@ inline constexpr size_t CHONK_RECURSION_GATES = 1474677;
 inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel gate counts (verifies OINK proof)
-inline constexpr size_t INIT_KERNEL_GATE_COUNT = 22228;
-inline constexpr size_t INIT_KERNEL_ECC_ROWS = 524 + MSM_ROWS_OFFSET;
-inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 60;
+inline constexpr size_t INIT_KERNEL_GATE_COUNT = 23373;
+inline constexpr size_t INIT_KERNEL_ECC_ROWS = 590 + MSM_ROWS_OFFSET;
+inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 66;
 
 // Inner kernel gate counts (verifies HN proof for previous kernel + HN for app)
-inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 54730;
-inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1114 + MSM_ROWS_OFFSET;
-inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 129;
+inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 57287;
+inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1246 + MSM_ROWS_OFFSET;
+inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 141;
 
 // Tail kernel gate counts (verifies HN_TAIL proof)
-inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 29552;
-inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 557 + MSM_ROWS_OFFSET;
-inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 62;
+inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 30972;
+inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 623 + MSM_ROWS_OFFSET;
+inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 68;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof and one batch merge proof)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 78356;
-inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5301 + MSM_ROWS_OFFSET;
-inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 356;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 76871;
+inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5103 + MSM_ROWS_OFFSET;
+inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 346;
 
 // ========================================
 // ECCVM Recursive Verifier Constants
