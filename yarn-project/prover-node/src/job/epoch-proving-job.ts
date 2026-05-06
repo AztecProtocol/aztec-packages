@@ -204,7 +204,7 @@ export class EpochProvingJob implements Traceable {
     });
     this.tracer = metrics.tracer;
     this.proverId = prover.getProverId();
-    this.epochContext = prover.createEpochProvingContext();
+    this.epochContext = prover.createEpochProvingContext(epochNumber);
 
     this.completionPromise = new Promise<EpochProvingJobState>(resolve => {
       this.resolveCompletion = resolve;
@@ -394,28 +394,6 @@ export class EpochProvingJob implements Traceable {
 
       const checkpointTimer = new Timer();
 
-      // Spin up a fresh sub-tree orchestrator for this checkpoint. The factory hands
-      // back an orchestrator wired to the prover-client's shared broker facade and the
-      // job's per-epoch chonk-verifier cache.
-      const subTree = this.prover.createCheckpointSubTreeOrchestrator(this.epochContext);
-      entry.subTree = subTree;
-      subTree.startNewEpoch(this.epochNumber);
-      // Capture the result promise immediately. The top tree awaits it lazily at finalize
-      // time so checkpoint-root rollups can pipeline against in-flight block proving.
-      entry.subTreeResult = subTree.getSubTreeResult();
-
-      // Start chonk verifier for public txs in this checkpoint.
-      const allTxs = checkpoint.blocks.flatMap(block =>
-        block.body.txEffects.map(txEffect => txs.get(txEffect.txHash.toString())!),
-      );
-      const publicTxs = allTxs.filter(tx => tx?.data.forPublic);
-      if (publicTxs.length > 0) {
-        await subTree.startChonkVerifierCircuits(publicTxs);
-        if (signal.aborted) {
-          return;
-        }
-      }
-
       const { chainId, version } = checkpoint.blocks[0].header.globalVariables;
       const checkpointConstants = CheckpointConstantData.from({
         chainId,
@@ -436,17 +414,36 @@ export class EpochProvingJob implements Traceable {
         uuid: this.uuid,
       });
 
-      // Each sub-tree drives a single-checkpoint epoch internally at index 0.
-      await subTree.startNewCheckpoint(
-        0,
+      // Spin up a fresh sub-tree orchestrator for this checkpoint, fully started — it
+      // is wired to the prover-client's shared broker facade and the job's per-epoch
+      // chonk-verifier cache, and has driven its single internal `startNewCheckpoint`
+      // already.
+      const subTree = await this.prover.createCheckpointSubTreeOrchestrator(
+        this.epochContext,
         checkpointConstants,
         l1ToL2Messages,
         checkpoint.blocks.length,
         previousBlockHeader,
       );
+      entry.subTree = subTree;
       subTreeStarted = true;
+      // Capture the result promise immediately. The top tree awaits it lazily at finalize
+      // time so checkpoint-root rollups can pipeline against in-flight block proving.
+      entry.subTreeResult = subTree.getSubTreeResult();
       if (signal.aborted) {
         return;
+      }
+
+      // Start chonk verifier for public txs in this checkpoint.
+      const allTxs = checkpoint.blocks.flatMap(block =>
+        block.body.txEffects.map(txEffect => txs.get(txEffect.txHash.toString())!),
+      );
+      const publicTxs = allTxs.filter(tx => tx?.data.forPublic);
+      if (publicTxs.length > 0) {
+        await subTree.startChonkVerifierCircuits(publicTxs);
+        if (signal.aborted) {
+          return;
+        }
       }
 
       // Process each block in the checkpoint.

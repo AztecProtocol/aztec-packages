@@ -5,6 +5,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 
 import { TestContext } from '../mocks/test_context.js';
 import { CheckpointSubTreeOrchestrator } from './checkpoint-sub-tree-orchestrator.js';
+import { EpochProvingContext } from './epoch-proving-context.js';
 import { type CheckpointTopTreeData, TopTreeCancelledError, TopTreeOrchestrator } from './top-tree-orchestrator.js';
 
 const logger = createLogger('prover-client:test:top-tree-orchestrator');
@@ -33,16 +34,20 @@ describe('prover/orchestrator/top-tree', () => {
   async function driveSubTree(numBlocks: number, numTxsPerBlock: number, numL1ToL2Messages = 0) {
     const fixture = await context.makeCheckpoint(numBlocks, { numTxsPerBlock, numL1ToL2Messages });
 
-    const subTree = new CheckpointSubTreeOrchestrator(context.worldState, context.prover, EthAddress.ZERO, false, 10);
-    subTree.startNewEpoch(EpochNumber(1));
-    const resultPromise = subTree.getSubTreeResult();
-    await subTree.startNewCheckpoint(
-      0,
+    const epochContext = new EpochProvingContext(context.prover, EpochNumber(1));
+    const subTree = await CheckpointSubTreeOrchestrator.start(
+      context.worldState,
+      context.prover,
+      EthAddress.ZERO,
+      epochContext,
+      false,
+      10,
       fixture.constants,
       fixture.l1ToL2Messages,
       numBlocks,
       fixture.previousBlockHeader,
     );
+    const resultPromise = subTree.getSubTreeResult();
 
     for (const block of fixture.blocks) {
       const { blockNumber, timestamp } = block.header.globalVariables;
@@ -55,6 +60,7 @@ describe('prover/orchestrator/top-tree', () => {
 
     const result = await resultPromise;
     await subTree.stop();
+    epochContext.stop();
 
     const topTreeData: CheckpointTopTreeData = {
       blockProofs: Promise.resolve(result.blockProofOutputs),

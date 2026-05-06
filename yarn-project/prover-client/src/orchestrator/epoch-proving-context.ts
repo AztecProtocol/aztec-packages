@@ -1,4 +1,5 @@
 import type { NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH } from '@aztec/constants';
+import type { EpochNumber } from '@aztec/foundation/branded-types';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { PublicInputsAndRecursiveProof, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import type { PublicChonkVerifierPrivateInputs, PublicChonkVerifierPublicInputs } from '@aztec/stdlib/rollup';
@@ -34,6 +35,7 @@ export class EpochProvingContext {
 
   constructor(
     private readonly prover: ServerCircuitProver,
+    public readonly epochNumber: EpochNumber,
     bindings?: LoggerBindings,
   ) {
     this.log = createLogger('prover-client:epoch-proving-context', bindings);
@@ -53,11 +55,7 @@ export class EpochProvingContext {
    * delivers the result; on rejection (including `stop()`), the cache entry is removed
    * so a subsequent caller can re-enqueue.
    */
-  public enqueue(
-    txHash: string,
-    inputs: PublicChonkVerifierPrivateInputs,
-    epochNumber: number,
-  ): Promise<ChonkVerifierProofResult> {
+  public enqueue(txHash: string, inputs: PublicChonkVerifierPrivateInputs): Promise<ChonkVerifierProofResult> {
     if (this.stopped) {
       return Promise.reject(new Error('EpochProvingContext is stopped'));
     }
@@ -69,10 +67,10 @@ export class EpochProvingContext {
 
     const controller = new AbortController();
     this.pending.set(txHash, controller);
-    this.log.debug(`Enqueueing chonk-verifier circuit`, { txHash, epochNumber });
+    this.log.debug(`Enqueueing chonk-verifier circuit`, { txHash, epochNumber: this.epochNumber });
 
     const promise = this.prover
-      .getPublicChonkVerifierProof(inputs, controller.signal, epochNumber)
+      .getPublicChonkVerifierProof(inputs, controller.signal, this.epochNumber)
       .finally(() => this.pending.delete(txHash));
 
     // Self-clean on rejection so a future caller can re-enqueue. Mark the rejection

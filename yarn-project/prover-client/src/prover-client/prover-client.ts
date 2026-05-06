@@ -1,5 +1,7 @@
 import { type ACVMConfig, type BBConfig, BBNativeRollupProver, TestCircuitProver } from '@aztec/bb-prover';
+import type { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
@@ -14,6 +16,8 @@ import {
   type ServerCircuitProver,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
+import type { CheckpointConstantData } from '@aztec/stdlib/rollup';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { ProverClientConfig } from '../config.js';
@@ -49,14 +53,23 @@ export interface EpochProverFactory {
    * it to every sub-tree it creates so the chonk proof for a tx that gets reorged out
    * and re-appears in a replacement checkpoint can be reused.
    */
-  createEpochProvingContext(): EpochProvingContext;
+  createEpochProvingContext(epochNumber: EpochNumber): EpochProvingContext;
   /**
-   * @param epochContext - Optional shared chonk-verifier cache. When supplied, every
-   *   sub-tree created with the same context shares its proof cache, so a tx whose
-   *   checkpoint is reorged out and re-appears in a replacement checkpoint reuses the
-   *   cached proof. The caller (`EpochProvingJob`) constructs one context per epoch.
+   * Constructs and starts a `CheckpointSubTreeOrchestrator` for a single checkpoint.
+   * The returned sub-tree has its internal `startNewCheckpoint(0, ...)` already driven;
+   * callers proceed straight to per-block work.
+   *
+   * Every sub-tree created with the same `epochContext` shares the per-epoch
+   * chonk-verifier proof cache, so a tx whose checkpoint is reorged out and re-appears
+   * in a replacement checkpoint reuses the cached proof.
    */
-  createCheckpointSubTreeOrchestrator(epochContext?: EpochProvingContext): CheckpointSubTreeOrchestrator;
+  createCheckpointSubTreeOrchestrator(
+    epochContext: EpochProvingContext,
+    checkpointConstants: CheckpointConstantData,
+    l1ToL2Messages: Fr[],
+    totalNumBlocks: number,
+    headerOfLastBlockInPreviousCheckpoint: BlockHeader,
+  ): Promise<CheckpointSubTreeOrchestrator>;
   createTopTreeOrchestrator(): TopTreeOrchestrator;
 }
 
@@ -89,20 +102,30 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     return this.facade;
   }
 
-  public createEpochProvingContext(): EpochProvingContext {
-    return new EpochProvingContext(this.getFacade(), this.log.getBindings());
+  public createEpochProvingContext(epochNumber: EpochNumber): EpochProvingContext {
+    return new EpochProvingContext(this.getFacade(), epochNumber, this.log.getBindings());
   }
 
-  public createCheckpointSubTreeOrchestrator(epochContext?: EpochProvingContext): CheckpointSubTreeOrchestrator {
-    return new CheckpointSubTreeOrchestrator(
+  public createCheckpointSubTreeOrchestrator(
+    epochContext: EpochProvingContext,
+    checkpointConstants: CheckpointConstantData,
+    l1ToL2Messages: Fr[],
+    totalNumBlocks: number,
+    headerOfLastBlockInPreviousCheckpoint: BlockHeader,
+  ): Promise<CheckpointSubTreeOrchestrator> {
+    return CheckpointSubTreeOrchestrator.start(
       this.worldState,
       this.getFacade(),
       this.config.proverId,
+      epochContext,
       this.config.cancelJobsOnStop,
       this.config.enqueueConcurrency,
+      checkpointConstants,
+      l1ToL2Messages,
+      totalNumBlocks,
+      headerOfLastBlockInPreviousCheckpoint,
       this.telemetry,
       this.log.getBindings(),
-      epochContext,
     );
   }
 

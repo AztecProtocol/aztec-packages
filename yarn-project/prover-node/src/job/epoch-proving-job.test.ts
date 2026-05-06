@@ -118,37 +118,46 @@ describe('epoch-proving-job', () => {
     subTrees.reduce((acc, st) => acc + (st[method] as any).mock.calls.length, 0);
 
   /**
+   * Builds a fresh sub-tree mock with sane defaults; pushes it onto `subTrees` and
+   * `subTreeResultResolvers` so tests can address it in registration order. Caller
+   * gets the mock and resolvers so they can override behaviour before returning it
+   * from a `mockImplementationOnce`.
+   */
+  const buildSubTreeMock = () => {
+    const subTree = mock<CheckpointSubTreeOrchestrator>();
+    subTree.startNewBlock.mockResolvedValue(undefined);
+    subTree.addTxs.mockResolvedValue(undefined);
+    subTree.setBlockCompleted.mockResolvedValue(BlockHeader.empty());
+    subTree.startChonkVerifierCircuits.mockResolvedValue(undefined);
+    subTree.getProverId.mockReturnValue(proverId);
+    subTree.cancel.mockReturnValue(undefined);
+    subTree.stop.mockResolvedValue(undefined);
+    subTree.getPreviousArchiveSiblingPath.mockReturnValue(makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO));
+
+    const resolvers = promiseWithResolvers<SubTreeResult>();
+    // Mark as handled so a cancel-on-stop rejection doesn't surface as unhandled.
+    resolvers.promise.catch(() => {});
+    subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
+
+    subTrees.push(subTree);
+    subTreeResultResolvers.push(resolvers);
+    return { subTree, resolvers };
+  };
+
+  /**
    * Default sub-tree factory. Builds a fresh mock with sane defaults; auto-resolves
    * `getSubTreeResult` so tests that don't care about pipelining behaviour can run
    * end-to-end.
    */
   const installSubTreeFactory = () => {
     prover.createCheckpointSubTreeOrchestrator.mockImplementation(() => {
-      const subTree = mock<CheckpointSubTreeOrchestrator>();
-      subTree.startNewEpoch.mockReturnValue(undefined);
-      subTree.startNewCheckpoint.mockResolvedValue(undefined);
-      subTree.startNewBlock.mockResolvedValue(undefined);
-      subTree.addTxs.mockResolvedValue(undefined);
-      subTree.setBlockCompleted.mockResolvedValue(BlockHeader.empty());
-      subTree.startChonkVerifierCircuits.mockResolvedValue(undefined);
-      subTree.getProverId.mockReturnValue(proverId);
-      subTree.cancel.mockReturnValue(undefined);
-      subTree.stop.mockResolvedValue(undefined);
-      subTree.getPreviousArchiveSiblingPath.mockReturnValue(makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO));
-
-      const resolvers = promiseWithResolvers<SubTreeResult>();
-      // Mark as handled so a cancel-on-stop rejection doesn't surface as unhandled.
-      resolvers.promise.catch(() => {});
-      subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
+      const { subTree, resolvers } = buildSubTreeMock();
       // Default: auto-resolve immediately so end-to-end tests don't have to drive it.
       resolvers.resolve({
         blockProofOutputs: [],
         previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
       });
-
-      subTrees.push(subTree);
-      subTreeResultResolvers.push(resolvers);
-      return subTree;
+      return Promise.resolve(subTree);
     });
   };
 
@@ -315,7 +324,7 @@ describe('epoch-proving-job', () => {
     }
 
     expect(subTrees).toHaveLength(NUM_CHECKPOINTS);
-    expect(sumCalls('startNewCheckpoint')).toEqual(NUM_CHECKPOINTS);
+    expect(prover.createCheckpointSubTreeOrchestrator).toHaveBeenCalledTimes(NUM_CHECKPOINTS);
     expect(sumCalls('startNewBlock')).toEqual(NUM_BLOCKS);
     expect(sumCalls('setBlockCompleted')).toEqual(NUM_BLOCKS);
   });
@@ -392,26 +401,12 @@ describe('epoch-proving-job', () => {
       let called = false;
       // Override the factory so the first sub-tree's startNewBlock blocks on the gate.
       prover.createCheckpointSubTreeOrchestrator.mockImplementationOnce(() => {
-        const subTree = mock<CheckpointSubTreeOrchestrator>();
-        subTree.startNewEpoch.mockReturnValue(undefined);
-        subTree.startNewCheckpoint.mockResolvedValue(undefined);
+        const { subTree } = buildSubTreeMock();
         subTree.startNewBlock.mockImplementation(() => {
           called = true;
           return startNewBlockGate;
         });
-        subTree.addTxs.mockResolvedValue(undefined);
-        subTree.setBlockCompleted.mockResolvedValue(BlockHeader.empty());
-        subTree.startChonkVerifierCircuits.mockResolvedValue(undefined);
-        subTree.getProverId.mockReturnValue(proverId);
-        subTree.cancel.mockReturnValue(undefined);
-        subTree.stop.mockResolvedValue(undefined);
-        subTree.getPreviousArchiveSiblingPath.mockReturnValue(makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO));
-        const resolvers = promiseWithResolvers<SubTreeResult>();
-        resolvers.promise.catch(() => {});
-        subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
-        subTrees.push(subTree);
-        subTreeResultResolvers.push(resolvers);
-        return subTree;
+        return Promise.resolve(subTree);
       });
 
       const job = createJob();
@@ -447,26 +442,12 @@ describe('epoch-proving-job', () => {
       });
       let called = false;
       prover.createCheckpointSubTreeOrchestrator.mockImplementationOnce(() => {
-        const subTree = mock<CheckpointSubTreeOrchestrator>();
-        subTree.startNewEpoch.mockReturnValue(undefined);
-        subTree.startNewCheckpoint.mockResolvedValue(undefined);
+        const { subTree } = buildSubTreeMock();
         subTree.startNewBlock.mockImplementation(() => {
           called = true;
           return v1BlockGate;
         });
-        subTree.addTxs.mockResolvedValue(undefined);
-        subTree.setBlockCompleted.mockResolvedValue(BlockHeader.empty());
-        subTree.startChonkVerifierCircuits.mockResolvedValue(undefined);
-        subTree.getProverId.mockReturnValue(proverId);
-        subTree.cancel.mockReturnValue(undefined);
-        subTree.stop.mockResolvedValue(undefined);
-        subTree.getPreviousArchiveSiblingPath.mockReturnValue(makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO));
-        const resolvers = promiseWithResolvers<SubTreeResult>();
-        resolvers.promise.catch(() => {});
-        subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
-        subTrees.push(subTree);
-        subTreeResultResolvers.push(resolvers);
-        return subTree;
+        return Promise.resolve(subTree);
       });
 
       const job = createJob();
@@ -488,8 +469,8 @@ describe('epoch-proving-job', () => {
       const v1AddPromise = job.addCheckpoint(v1, txsMap, [], initialHeader);
       await retryUntil(() => called, 'Wait for start block', 5, 0.01);
 
-      // v1's sub-tree should already have called startNewCheckpoint by now.
-      expect(subTrees[0].startNewCheckpoint).toHaveBeenCalledTimes(1);
+      // v1's sub-tree should already have been constructed (and started) by now.
+      expect(subTrees).toHaveLength(1);
 
       const removePromise = job.removeCheckpoint(v1.number);
       releaseV1Block!();
@@ -504,7 +485,7 @@ describe('epoch-proving-job', () => {
       await job.addCheckpoint(v2, v2TxsMap, [], initialHeader);
 
       expect(subTrees).toHaveLength(2);
-      expect(subTrees[1].startNewCheckpoint).toHaveBeenCalledTimes(1);
+      expect(prover.createCheckpointSubTreeOrchestrator).toHaveBeenCalledTimes(2);
       expect(job.getTrackedCheckpoints()).toHaveLength(1);
       expect(job.getTrackedCheckpoints()[0].checkpoint.hash().toString()).toEqual(v2.hash().toString());
     });
@@ -582,23 +563,11 @@ describe('epoch-proving-job', () => {
       });
       let called = false;
       prover.createCheckpointSubTreeOrchestrator.mockImplementationOnce(() => {
-        const subTree = mock<CheckpointSubTreeOrchestrator>();
-        subTree.startNewEpoch.mockReturnValue(undefined);
-        subTree.startNewCheckpoint.mockResolvedValue(undefined);
+        const { subTree, resolvers } = buildSubTreeMock();
         subTree.startNewBlock.mockImplementation(() => {
           called = true;
           return startNewBlockGate;
         });
-        subTree.addTxs.mockResolvedValue(undefined);
-        subTree.setBlockCompleted.mockResolvedValue(BlockHeader.empty());
-        subTree.startChonkVerifierCircuits.mockResolvedValue(undefined);
-        subTree.getProverId.mockReturnValue(proverId);
-        subTree.cancel.mockReturnValue(undefined);
-        subTree.stop.mockResolvedValue(undefined);
-        subTree.getPreviousArchiveSiblingPath.mockReturnValue(makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO));
-        const resolvers = promiseWithResolvers<SubTreeResult>();
-        resolvers.promise.catch(() => {});
-        subTree.getSubTreeResult.mockReturnValue(resolvers.promise);
         // When release fires we'll resolve the result so finalize can complete.
         void startNewBlockGate.then(() =>
           resolvers.resolve({
@@ -606,9 +575,7 @@ describe('epoch-proving-job', () => {
             previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
           }),
         );
-        subTrees.push(subTree);
-        subTreeResultResolvers.push(resolvers);
-        return subTree;
+        return Promise.resolve(subTree);
       });
 
       const job = createJob();
@@ -663,7 +630,7 @@ describe('epoch-proving-job', () => {
       // Each sub-tree is created in addCheckpoint order. The job's tracked-checkpoint
       // ordering is by checkpointIndex (checkpoint number), not by creation order.
       expect(subTrees).toHaveLength(3);
-      expect(sumCalls('startNewCheckpoint')).toEqual(3);
+      expect(prover.createCheckpointSubTreeOrchestrator).toHaveBeenCalledTimes(3);
 
       // getProvingData picks up the predecessor header of the lowest tracked checkpoint.
       const data = job.getProvingData();
