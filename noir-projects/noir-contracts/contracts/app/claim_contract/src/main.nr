@@ -65,19 +65,10 @@ pub contract Claim {
         // know the note is settled, and hence its note hash unique). This is not the same thing as nullifying the note
         // however, which can only be done from the contract that emitted the note. From the point of view of the
         // Crowdfunding contract, the note is still active.
-        let note_hash_for_nullification =
-            compute_confirmed_note_hash_for_nullification(confirmed_note);
-        self
-            .storage
-            .note_hash_claims
-            .at(note_hash_for_nullification)
-            .at(confirmed_note.owner)
-            .claim();
+        let note_hash_for_nullification = compute_confirmed_note_hash_for_nullification(confirmed_note);
+        self.storage.note_hash_claims.at(note_hash_for_nullification).at(confirmed_note.owner).claim();
 
         // 5) Finally we mint the reward token to the requested recipient
-        self.enqueue(Token::at(config.reward_token).mint_to_public(
-            recipient,
-            confirmed_note.note.value,
-        ));
+        self.enqueue(Token::at(config.reward_token).mint_to_public(recipient, confirmed_note.note.value));
     }
 }
