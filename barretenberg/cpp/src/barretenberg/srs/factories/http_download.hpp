@@ -1,6 +1,9 @@
 #pragma once
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include <chrono>
 #include <cstdint>
+#include <thread>
 
 #ifdef __clang__
 #pragma clang diagnostic push
@@ -35,6 +38,10 @@ namespace bb::srs {
  * @param start_byte Starting byte for range request (0 for no range)
  * @param end_byte Ending byte for range request (0 for no range)
  * @return Downloaded data as bytes
+ *
+ * Transient connection-level failures (DNS, connect, read timeout) are retried with
+ * exponential backoff. HTTP status errors (4xx/5xx) are NOT retried — they are
+ * deterministic responses from the server.
  */
 inline std::vector<uint8_t> http_download([[maybe_unused]] const std::string& url,
                                           [[maybe_unused]] size_t start_byte = 0,
@@ -70,8 +77,28 @@ inline std::vector<uint8_t> http_download([[maybe_unused]] const std::string& ur
         headers.emplace("Range", "bytes=" + std::to_string(start_byte) + "-" + std::to_string(end_byte));
     }
 
-    // Download
-    auto res = cli.Get(path.c_str(), headers);
+    // Retry transient connection-level failures with exponential backoff
+    // (1s, 2s, 4s). HTTP status errors are not retried.
+    constexpr int kMaxAttempts = 4;
+    httplib::Result res;
+    for (int attempt = 1; attempt <= kMaxAttempts; ++attempt) {
+        res = cli.Get(path.c_str(), headers);
+        if (res) {
+            break;
+        }
+        if (attempt < kMaxAttempts) {
+            vinfo("HTTP request failed for ",
+                  url,
+                  ": ",
+                  httplib::to_string(res.error()),
+                  " (attempt ",
+                  attempt,
+                  "/",
+                  kMaxAttempts,
+                  "), retrying...");
+            std::this_thread::sleep_for(std::chrono::seconds(1 << (attempt - 1)));
+        }
+    }
 
     if (!res) {
         throw_or_abort("HTTP request failed for " + url + ": " + httplib::to_string(res.error()));
