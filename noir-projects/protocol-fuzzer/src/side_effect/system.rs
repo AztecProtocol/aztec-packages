@@ -2,8 +2,8 @@ use super::machine::SideEffectCommand;
 use crate::wallet::{AccountId, Bridge, WalletCommand};
 
 pub struct SideEffectSystem<'a> {
-    side_effect_artifact: &'static str,
-    parent_artifact: &'static str,
+    side_effect_artifact: String,
+    parent_artifact: String,
     bridge: &'a Bridge,
 }
 
@@ -144,7 +144,7 @@ impl<'a> SideEffectSystem<'a> {
 
     pub(crate) fn deploy_side_effect_contract(&self, account: AccountId) -> anyhow::Result<String> {
         self.bridge.deploy(
-            self.side_effect_artifact,
+            &self.side_effect_artifact,
             &format!("accounts:test{account}"),
             "test0",
             Some("initialize"),
@@ -154,7 +154,7 @@ impl<'a> SideEffectSystem<'a> {
 
     pub(crate) fn deploy_parent_contract(&self, account: AccountId) -> anyhow::Result<String> {
         self.bridge.deploy(
-            self.parent_artifact,
+            &self.parent_artifact,
             &format!("accounts:test{account}"),
             "parent0",
             Some("initialize"),
@@ -162,10 +162,14 @@ impl<'a> SideEffectSystem<'a> {
         )
     }
 
-    pub(crate) fn new(bridge: &'a Bridge) -> Self {
+    pub(crate) fn new(bridge: &'a Bridge, artifacts_dir: &str) -> Self {
+        let dir = std::path::Path::new(artifacts_dir)
+            .canonicalize()
+            .unwrap_or_else(|e| panic!("cannot resolve artifacts dir {artifacts_dir:?}: {e}"));
+        let dir = dir.display();
         Self {
-            side_effect_artifact: "/tmp/side_effect_contract-SideEffect.json",
-            parent_artifact: "/tmp/parent_contract-Parent.json",
+            side_effect_artifact: format!("{dir}/side_effect_contract-SideEffect.json"),
+            parent_artifact: format!("{dir}/parent_contract-Parent.json"),
             bridge,
         }
     }
