@@ -178,6 +178,13 @@ const result = await contract.methods.read_balance(account).simulate({
 
 The same option flows through `wallet.simulateTx` and eventually to `simulatePublicCalls` RPC on `AztecNode`.
 
+Direct callers of the `SimulationOverrides` constructor must switch from a positional `contracts` argument to an options bag:
+
+```diff
+- new SimulationOverrides(contracts);
++ new SimulationOverrides({ contracts });
+```
+
 ### [PXE] `proveTx` takes an options bag
 
 `PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:
