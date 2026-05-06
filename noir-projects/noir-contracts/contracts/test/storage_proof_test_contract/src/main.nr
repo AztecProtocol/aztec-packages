@@ -32,37 +32,23 @@ contract StorageProofTest {
 
     #[external("public")]
     #[view]
-    fn account_proof(
-        account: Account,
-        root: [u64; 4],
-        nodes: [Node; MAX_ACCOUNT_PROOF_LENGTH],
-        node_length: u32,
-    ) {
+    fn account_proof(account: Account, root: [u64; 4], nodes: [Node; MAX_ACCOUNT_PROOF_LENGTH], node_length: u32) {
         let trie_key = KeccakHasher::hash_bytes(account.address, 20);
 
-        let (leaf_hash, new_index) =
-            verify_path_section(nodes, node_length, 0, root, to_nibbles(trie_key));
+        let (leaf_hash, new_index) = verify_path_section(nodes, node_length, 0, root, to_nibbles(trie_key));
 
         assert_eq(leaf_hash, compute_account_hash(account, new_index, trie_key));
     }
 
     #[external("private")]
-    fn storage_proof(
-        address: EthAddress,
-        slot_key: [u8; 32],
-        slot_contents: StorageSlot,
-        eth_storage_root: [u64; 4],
-    ) {
+    fn storage_proof(address: EthAddress, slot_key: [u8; 32], slot_contents: StorageSlot, eth_storage_root: [u64; 4]) {
         // Get the address preimage hint
         let address_capsule_key = compute_address_capsule_key(eth_storage_root, address);
         // Safety: We'll check that the address inside the hint matches.
         let hinted_account = unsafe {
-            Account::deserialize(capsules::load(
-                self.address,
-                address_capsule_key,
-                AztecAddress::zero(),
+            Account::deserialize(
+                capsules::load(self.address, address_capsule_key, AztecAddress::zero()).unwrap(),
             )
-                .unwrap())
         };
         assert_eq(hinted_account.address, address.to_field().to_be_bytes::<20>());
 
@@ -87,17 +73,18 @@ contract StorageProofTest {
         );
 
         // Now, let's do the storage proof verification privately.
-        let storage_proof_capsule_key =
-            compute_storage_proof_capsule_key(address_capsule_key, slot_key);
+        let storage_proof_capsule_key = compute_storage_proof_capsule_key(address_capsule_key, slot_key);
 
         // Safety: This is a hint for path verification.
         let hinted_storage_proof_length = unsafe {
-            u32::deserialize(capsules::load(
-                self.address,
-                storage_proof_capsule_key,
-                AztecAddress::zero(),
+            u32::deserialize(
+                capsules::load(
+                    self.address,
+                    storage_proof_capsule_key,
+                    AztecAddress::zero(),
+                )
+                    .unwrap(),
             )
-                .unwrap())
         };
         assert(hinted_storage_proof_length > 0, "Storage proof length must be greater than 0");
 
@@ -114,10 +101,7 @@ contract StorageProofTest {
         )
             .call(self.context);
 
-        assert_eq(
-            slot_leaf_hash,
-            compute_slot_hash(slot_contents, slot_nibble_index, storage_trie_key),
-        );
+        assert_eq(slot_leaf_hash, compute_slot_hash(slot_contents, slot_nibble_index, storage_trie_key));
     }
 
     #[only_self]
@@ -138,17 +122,13 @@ contract StorageProofTest {
             num_nodes_remaining
         };
         for i in 0..NUM_NODES_VERIFIED_PER_CALL {
-            let node_capsule_key =
-                compute_node_capsule_key(storage_proof_capsule_key, num_processed_nodes + i);
+            let node_capsule_key = compute_node_capsule_key(storage_proof_capsule_key, num_processed_nodes + i);
             if i < num_nodes_to_process {
                 // Safety: This is a hint for the path verification.
                 hinted_nodes[i] = unsafe {
-                    Node::deserialize(capsules::load(
-                        self.address,
-                        node_capsule_key,
-                        AztecAddress::zero(),
+                    Node::deserialize(
+                        capsules::load(self.address, node_capsule_key, AztecAddress::zero()).unwrap(),
                     )
-                        .unwrap())
                 };
             }
         }
@@ -218,14 +198,16 @@ contract StorageProofTest {
 
     #[contract_library_method]
     fn compute_storage_proof_capsule_key(address_capsule_key: Field, slot_key: [u8; 32]) -> Field {
-        poseidon2_hash((STORAGE_PROOF_CAPSULE_KEY_SEPARATOR, address_capsule_key, slot_key)
-            .serialize())
+        poseidon2_hash(
+            (STORAGE_PROOF_CAPSULE_KEY_SEPARATOR, address_capsule_key, slot_key).serialize(),
+        )
     }
 
     #[contract_library_method]
     fn compute_node_capsule_key(storage_proof_capsule_key: Field, index: u32) -> Field {
-        poseidon2_hash((STORAGE_PROOF_NODE_CAPSULE_KEY_SEPARATOR, storage_proof_capsule_key, index)
-            .serialize())
+        poseidon2_hash(
+            (STORAGE_PROOF_NODE_CAPSULE_KEY_SEPARATOR, storage_proof_capsule_key, index).serialize(),
+        )
     }
 
 }

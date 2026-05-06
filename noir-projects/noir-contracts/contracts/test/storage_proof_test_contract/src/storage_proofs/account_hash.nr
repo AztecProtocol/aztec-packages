@@ -8,12 +8,7 @@ use super::{
 global ACCOUNT_RLP_MAX_LENGTH: u32 = 147;
 
 #[inline_always]
-fn rlp_encode_to_sink<S: BytesSink>(
-    account: Account,
-    start_nibble_idx: u32,
-    trie_key: [u8; 32],
-    sink: &mut S,
-) {
+fn rlp_encode_to_sink<S: BytesSink>(account: Account, start_nibble_idx: u32, trie_key: [u8; 32], sink: &mut S) {
     let mut current_nibble_idx = start_nibble_idx;
 
     let first_key_byte = if current_nibble_idx % 2 == 0 {
@@ -135,19 +130,14 @@ unconstrained fn rlp_encode_unconstrained(
     writer.finish()
 }
 
-pub fn compute_account_hash(
-    account: Account,
-    start_nibble_idx: u32,
-    trie_key: [u8; 32],
-) -> [u64; 4] {
+pub fn compute_account_hash(account: Account, start_nibble_idx: u32, trie_key: [u8; 32]) -> [u64; 4] {
     if std::runtime::is_unconstrained() {
         let mut hasher: KeccakHasher = KeccakHasher::new();
         rlp_encode_to_sink(account, start_nibble_idx, trie_key, &mut hasher);
         hasher.finish_to_limbs()
     } else {
         // Safety: Constrained below
-        let (bytes, length) =
-            unsafe { rlp_encode_unconstrained(account, start_nibble_idx, trie_key) };
+        let (bytes, length) = unsafe { rlp_encode_unconstrained(account, start_nibble_idx, trie_key) };
 
         let mut checker = BytesChecker::new(bytes, length);
         rlp_encode_to_sink(account, start_nibble_idx, trie_key, &mut checker);

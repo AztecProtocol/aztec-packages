@@ -124,12 +124,7 @@ pub contract SimpleToken {
 
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
-    fn transfer_from_private_to_public(
-        from: AztecAddress,
-        to: AztecAddress,
-        amount: u128,
-        authwit_nonce: Field,
-    ) {
+    fn transfer_from_private_to_public(from: AztecAddress, to: AztecAddress, amount: u128, authwit_nonce: Field) {
         self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
         self.enqueue_self._increase_public_balance(to, amount);
     }
@@ -142,10 +137,7 @@ pub contract SimpleToken {
         self.storage.balances.at(from).add(change).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
         self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
-        self.emit(Transfer { from, to, amount }).deliver_to(
-            to,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
-        );
+        self.emit(Transfer { from, to, amount }).deliver_to(to, MessageDelivery.ONCHAIN_UNCONSTRAINED);
     }
 
     #[authorize_once("from", "authwit_nonce")]
@@ -192,22 +184,13 @@ pub contract SimpleToken {
     }
 
     #[internal("public")]
-    fn _finalize_transfer_to_private(
-        from_and_completer: AztecAddress,
-        amount: u128,
-        partial_note: PartialUintNote,
-    ) {
+    fn _finalize_transfer_to_private(from_and_completer: AztecAddress, amount: u128, partial_note: PartialUintNote) {
         let balance_storage = self.storage.public_balances.at(from_and_completer);
 
         let from_balance = balance_storage.read().sub(amount);
         balance_storage.write(from_balance);
 
-        partial_note.complete(
-            self.context,
-            from_and_completer,
-            self.storage.balances.get_storage_slot(),
-            amount,
-        );
+        partial_note.complete(self.context, from_and_completer, self.storage.balances.get_storage_slot(), amount);
     }
 
     #[external("private")]
@@ -232,20 +215,11 @@ pub contract SimpleToken {
     }
 
     #[internal("public")]
-    fn _finalize_mint_to_private(
-        completer: AztecAddress,
-        amount: u128,
-        partial_note: PartialUintNote,
-    ) {
+    fn _finalize_mint_to_private(completer: AztecAddress, amount: u128, partial_note: PartialUintNote) {
         let supply = self.storage.total_supply.read().add(amount);
         self.storage.total_supply.write(supply);
 
-        partial_note.complete(
-            self.context,
-            completer,
-            self.storage.balances.get_storage_slot(),
-            amount,
-        );
+        partial_note.complete(self.context, completer, self.storage.balances.get_storage_slot(), amount);
     }
 
     #[external("public")]
@@ -284,9 +258,7 @@ pub contract SimpleToken {
             subtracted - amount
         } else {
             let remaining = amount - subtracted;
-            compute_recurse_subtract_balance_call(*self.context, account, remaining).call(
-                self.context,
-            )
+            compute_recurse_subtract_balance_call(*self.context, account, remaining).call(self.context)
         }
     }
 

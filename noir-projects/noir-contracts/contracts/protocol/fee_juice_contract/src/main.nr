@@ -31,9 +31,8 @@ pub contract FeeJuice {
         balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
     }
 
-    global INCREASE_PUBLIC_BALANCE_SELECTOR: Field = comptime {
-        FunctionSelector::from_signature("_increase_public_balance((Field),u128)").to_field()
-    };
+    global INCREASE_PUBLIC_BALANCE_SELECTOR: Field =
+        comptime { FunctionSelector::from_signature("_increase_public_balance((Field),u128)").to_field() };
 
     global CHECK_BALANCE_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("check_balance(u128)").to_field() };
@@ -64,12 +63,7 @@ pub contract FeeJuice {
         let calldata: [Field; 1 + 2] = [INCREASE_PUBLIC_BALANCE_SELECTOR].concat(serialized_params);
         let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
         aztec::oracle::execution_cache::store(calldata, calldata_hash);
-        context.call_public_function_with_calldata_hash(
-            context.this_address(),
-            calldata_hash,
-            false,
-            false,
-        );
+        context.call_public_function_with_calldata_hash(context.this_address(), calldata_hash, false, false);
     }
 
     /// Claims Fee Juice by consuming an L1-to-L2 message from the FeeJuicePortal.
@@ -88,11 +82,9 @@ pub contract FeeJuice {
         // Note: The macros initially inserted a phase check here, but since there is no phase change in this function
         // nor in the claim helper function or the enqueued public function call, I have removed that check.
         aztec::oracle::version::assert_compatible_oracle_version();
-        let serialized_params: [Field; 4] =
-            [to.to_field(), amount.to_field(), secret, message_leaf_index];
+        let serialized_params: [Field; 4] = [to.to_field(), amount.to_field(), secret, message_leaf_index];
         let args_hash: Field = aztec::hash::hash_args(serialized_params);
-        let mut context: aztec::context::PrivateContext =
-            aztec::context::PrivateContext::new(inputs, args_hash);
+        let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
         // MACRO CODE END
 
         claim_helper(&mut context, to, amount, secret, message_leaf_index);
@@ -118,11 +110,9 @@ pub contract FeeJuice {
     ) -> return_data aztec::protocol::abis::private_circuit_public_inputs::PrivateCircuitPublicInputs {
         // MACRO CODE START
         aztec::oracle::version::assert_compatible_oracle_version();
-        let serialized_params: [Field; 4] =
-            [to.to_field(), amount.to_field(), secret, message_leaf_index];
+        let serialized_params: [Field; 4] = [to.to_field(), amount.to_field(), secret, message_leaf_index];
         let args_hash: Field = aztec::hash::hash_args(serialized_params);
-        let mut context: aztec::context::PrivateContext =
-            aztec::context::PrivateContext::new(inputs, args_hash);
+        let mut context: aztec::context::PrivateContext = aztec::context::PrivateContext::new(inputs, args_hash);
         // MACRO CODE END
 
         claim_helper(&mut context, to, amount, secret, message_leaf_index);
@@ -151,8 +141,7 @@ pub contract FeeJuice {
                 aztec::hash::hash_args(serialized_args)
             },
         );
-        let storage: Storage<aztec::context::PublicContext> =
-            Storage::<aztec::context::PublicContext>::init(context);
+        let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
 
         assert(
             context.maybe_msg_sender().unwrap() == context.this_address(),
@@ -172,23 +161,17 @@ pub contract FeeJuice {
         // MACRO CODE START
         let context: aztec::context::PublicContext = aztec::context::PublicContext::new(
             || -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(
-                    1,
-                    <u128 as aztec::protocol::traits::Serialize>::N,
-                );
+                let serialized_args: [Field; 1] =
+                    aztec::oracle::avm::calldata_copy(1, <u128 as aztec::protocol::traits::Serialize>::N);
                 aztec::hash::hash_args(serialized_args)
             },
         );
-        let storage: Storage<aztec::context::PublicContext> =
-            Storage::<aztec::context::PublicContext>::init(context);
+        let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
 
         assert(context.is_static_call(), "Function check_balance can only be called statically");
         // MACRO CODE END
 
-        assert(
-            storage.balances.at(context.maybe_msg_sender().unwrap()).read() >= fee_limit,
-            "Balance too low",
-        );
+        assert(storage.balances.at(context.maybe_msg_sender().unwrap()).read() >= fee_limit, "Balance too low");
     }
 
     /// Returns the Fee Juice balance of the given address.
@@ -198,20 +181,14 @@ pub contract FeeJuice {
         // MACRO CODE START
         let context: aztec::context::PublicContext = aztec::context::PublicContext::new(
             || -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(
-                    1,
-                    <AztecAddress as aztec::protocol::traits::Serialize>::N,
-                );
+                let serialized_args: [Field; 1] =
+                    aztec::oracle::avm::calldata_copy(1, <AztecAddress as aztec::protocol::traits::Serialize>::N);
                 aztec::hash::hash_args(serialized_args)
             },
         );
-        let storage: Storage<aztec::context::PublicContext> =
-            Storage::<aztec::context::PublicContext>::init(context);
+        let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
 
-        assert(
-            context.is_static_call(),
-            "Function balance_of_public can only be called statically",
-        );
+        assert(context.is_static_call(), "Function balance_of_public can only be called statically");
         // MACRO CODE END
 
         storage.balances.at(owner).read()
@@ -235,10 +212,8 @@ pub contract FeeJuice {
             aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == CHECK_BALANCE_SELECTOR {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(
-                1,
-                <u128 as aztec::protocol::traits::Serialize>::N,
-            );
+            let input_calldata: [Field; 1] =
+                aztec::oracle::avm::calldata_copy(1, <u128 as aztec::protocol::traits::Serialize>::N);
             let mut reader: aztec::protocol::utils::reader::Reader<1> =
                 aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
             let arg0: u128 = <u128 as Deserialize>::stream_deserialize(&mut reader);
@@ -246,10 +221,8 @@ pub contract FeeJuice {
             aztec::oracle::avm::avm_return([].as_vector());
         };
         if selector == BALANCE_OF_PUBLIC_SELECTOR {
-            let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(
-                1,
-                <AztecAddress as aztec::protocol::traits::Serialize>::N,
-            );
+            let input_calldata: [Field; 1] =
+                aztec::oracle::avm::calldata_copy(1, <AztecAddress as aztec::protocol::traits::Serialize>::N);
             let mut reader: aztec::protocol::utils::reader::Reader<1> =
                 aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
             let arg0: AztecAddress = <AztecAddress as Deserialize>::stream_deserialize(&mut reader);

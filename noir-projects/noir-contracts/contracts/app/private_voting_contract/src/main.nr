@@ -54,21 +54,24 @@ pub contract PrivateVoting {
     #[only_self]
     fn add_to_tally_public(election_id: ElectionId, candidate: Field) {
         assert(self.storage.active_at_block.at(election_id).read() <= self.context.block_number());
-        assert(self.storage.vote_ended.at(election_id).read() == false, "Vote has ended"); // assert that vote has not ended
+        assert(self.storage.vote_ended.at(election_id).read() == false, "Vote has ended"); // assert that vote has not
+        // ended
         let new_tally = self.storage.tally.at(election_id).at(candidate).read() + 1;
         self.storage.tally.at(election_id).at(candidate).write(new_tally);
     }
 
     #[external("public")]
     fn start_vote(election_id: ElectionId) {
-        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can start votes"); // assert that caller is admin
+        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can start votes"); // assert that caller is
+        // admin
         self.storage.vote_ended.at(election_id).write(false);
         self.storage.active_at_block.at(election_id).initialize(self.context.block_number());
     }
 
     #[external("public")]
     fn end_vote(election_id: ElectionId) {
-        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can end votes"); // assert that caller is admin
+        assert(self.storage.admin.read().eq(self.msg_sender()), "Only admin can end votes"); // assert that caller is
+        // admin
         self.storage.vote_ended.at(election_id).write(true);
     }
 
