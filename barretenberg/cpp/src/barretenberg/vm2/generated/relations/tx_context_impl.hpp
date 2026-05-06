@@ -40,18 +40,12 @@ void tx_contextImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
         FF(uint256_t{ 1521641569468562450UL, 665739211013355724UL, 15332520522532078145UL, 1150206617693738821UL });
     const auto constants_AVM_RETRIEVED_BYTECODES_TREE_INITIAL_SIZE = FF(1);
     const auto tx_NOT_LAST_ROW = in.get(C::tx_sel) * in.get(C::tx_sel_shift);
-    const auto tx_SEL_CAN_EMIT_NOTE_HASH = in.get(C::tx_is_public_call_request) +
-                                           in.get(C::tx_sel_non_revertible_append_note_hash) +
-                                           in.get(C::tx_sel_revertible_append_note_hash);
-    const auto tx_SEL_CAN_EMIT_NULLIFIER = in.get(C::tx_is_public_call_request) +
-                                           in.get(C::tx_sel_non_revertible_append_nullifier) +
-                                           in.get(C::tx_sel_revertible_append_nullifier);
+    const auto tx_SEL_CAN_EMIT_NOTE_HASH = in.get(C::tx_is_public_call_request) + in.get(C::tx_sel_append_note_hash);
+    const auto tx_SEL_CAN_EMIT_NULLIFIER = in.get(C::tx_is_public_call_request) + in.get(C::tx_sel_append_nullifier);
     const auto tx_SEL_CAN_WRITE_PUBLIC_DATA = in.get(C::tx_is_public_call_request) + in.get(C::tx_is_collect_fee);
     const auto tx_SEL_CAN_WRITE_WRITTEN_PUBLIC_DATA_SLOTS = in.get(C::tx_is_public_call_request);
     const auto tx_SEL_CAN_EMIT_PUBLIC_LOG = in.get(C::tx_is_public_call_request);
-    const auto tx_SEL_CAN_EMIT_L2_L1_MSG = in.get(C::tx_is_public_call_request) +
-                                           in.get(C::tx_sel_non_revertible_append_l2_l1_msg) +
-                                           in.get(C::tx_sel_revertible_append_l2_l1_msg);
+    const auto tx_SEL_CAN_EMIT_L2_L1_MSG = in.get(C::tx_is_public_call_request) + in.get(C::tx_sel_append_l2_l1_msg);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
