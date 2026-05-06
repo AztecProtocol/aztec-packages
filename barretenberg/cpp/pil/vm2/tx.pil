@@ -542,20 +542,15 @@ namespace tx;
     pol commit sel_try_nullifier_append; // @boolean (follows from definition)
     sel_try_nullifier_append = (sel - is_padded) * sel_append_nullifier;
 
-    pol commit nullifier_limit_error; // @boolean
-    nullifier_limit_error * (1 - nullifier_limit_error) = 0;
-
     // If we are at the maximum emitted nullifiers, we must disable the lookup
     pol REMAINING_NULLIFIER_WRITES = constants.MAX_NULLIFIERS_PER_TX - prev_num_nullifiers_emitted;
-    // Disable the lookup if remaining nullifiers is 0
+    // We revert iff remaining nullifiers is 0.
     #[MAX_NULLIFIER_WRITES_REACHED]
-    sel_try_nullifier_append * (REMAINING_NULLIFIER_WRITES * (nullifier_limit_error * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + nullifier_limit_error) = 0;
+    sel_try_nullifier_append * (REMAINING_NULLIFIER_WRITES * (reverted * (1 - remaining_side_effects_inv) + remaining_side_effects_inv) - 1 + reverted) = 0;
 
-    // If over the limit, reverted=1; else, reverted is constrained by the lookup.
-    sel_try_nullifier_append * nullifier_limit_error * (1 - reverted) = 0;
-
+    // We only activate the append operation if we did not revert.
     pol commit sel_nullifier_append; // @boolean (follows from definition)
-    sel_nullifier_append = sel_try_nullifier_append * (1 - nullifier_limit_error);
+    sel_nullifier_append = sel_try_nullifier_append * (1 - reverted);
 
     pol commit write_nullifier_pi_offset;
     sel_nullifier_append * (constants.AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX + prev_num_nullifiers_emitted - write_nullifier_pi_offset) = 0;
