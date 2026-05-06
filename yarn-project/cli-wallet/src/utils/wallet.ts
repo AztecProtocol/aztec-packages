@@ -17,7 +17,6 @@ import type { PXEConfig } from '@aztec/pxe/config';
 import type { PXE } from '@aztec/pxe/server';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractClassIdPreimage, ContractClassWithId } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { NoteDao } from '@aztec/stdlib/note';
 import type { SimulationOverrides, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
@@ -31,13 +30,9 @@ import { printGasEstimates } from './options/fees.js';
 
 export class CLIWallet extends BaseWallet {
   private accountCache = new Map<string, Account>();
-  /**
-   * Per-account-type cache of the stub class id and preimage. The Promise is stored (not the resolved
-   * value) so concurrent first-time callers dedupe on the same hashing + registration work. ECDSA
-   * variants all map to the same stub artifact but get their own cache slot, so we may hash + register
-   * the same artifact one extra time per variant on first miss; that cost is bounded and one-time.
-   */
-  #stubClasses = new Map<AccountType, Promise<ContractClassWithId & ContractClassIdPreimage>>();
+  // Stub class ids, populated on wallet startup
+  // to avoid redundant work per simulation
+  private stubClassIds = new Map<AccountType, Fr>();
 
   constructor(
     pxe: PXE,
@@ -57,7 +52,27 @@ export class CLIWallet extends BaseWallet {
   ): Promise<CLIWallet> {
     const pxeConfig = Object.assign(getPXEConfig(), overridePXEConfig);
     const pxe = await createPXE(node, pxeConfig);
-    return new CLIWallet(pxe, node, log, db);
+    const wallet = new CLIWallet(pxe, node, log, db);
+    await wallet.initStubClasses();
+    return wallet;
+  }
+
+  /**
+   * Hashes and registers the stub class for every supported account type with PXE, populating
+   * stubClassIds. Called on wallet initialization.
+   */
+  private async initStubClasses(): Promise<void> {
+    const { id: schnorrClassId } = await getContractClassFromArtifact(StubSchnorrAccountContractArtifact);
+    await this.pxe.registerContractClass(StubSchnorrAccountContractArtifact);
+
+    // ecdsa stubs share the same class id
+    const { id: ecdsaClassId } = await getContractClassFromArtifact(StubEcdsaAccountContractArtifact);
+    await this.pxe.registerContractClass(StubEcdsaAccountContractArtifact);
+
+    this.stubClassIds.set('schnorr', schnorrClassId);
+    this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
+    this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
+    this.stubClassIds.set('ecdsasecp256r1ssh', ecdsaClassId);
   }
 
   override async getAccounts(): Promise<Aliased<AztecAddress>[]> {
@@ -208,27 +223,14 @@ export class CLIWallet extends BaseWallet {
     const { type } = await this.db!.retrieveAccount(address);
     const stubAccount =
       type === 'schnorr' ? createStubSchnorrAccount(originalAddress) : createStubEcdsaAccount(originalAddress);
-    const { id: stubClassId } = await this.#getStubClass(type);
+    const stubClassId = this.stubClassIds.get(type);
+    if (!stubClassId) {
+      throw new Error(
+        `Stub class for account type '${type}' was not registered at wallet init. This is a bug — initStubClasses should cover every supported AccountType.`,
+      );
+    }
     const instance = { ...contractInstance, currentContractClassId: stubClassId };
     return { account: stubAccount, instance };
-  }
-
-  /**
-   * Lazily hashes and registers the stub class for the given account type, caching the result so
-   * subsequent simulations skip the artifact-hashing + registration round-trip.
-   */
-  #getStubClass(type: AccountType): Promise<ContractClassWithId & ContractClassIdPreimage> {
-    let cached = this.#stubClasses.get(type);
-    if (!cached) {
-      cached = (async () => {
-        const artifact = type === 'schnorr' ? StubSchnorrAccountContractArtifact : StubEcdsaAccountContractArtifact;
-        const stubClass = await getContractClassFromArtifact(artifact);
-        await this.pxe.registerContractClass(artifact);
-        return stubClass;
-      })();
-      this.#stubClasses.set(type, cached);
-    }
-    return cached;
   }
 
   override async simulateTx(

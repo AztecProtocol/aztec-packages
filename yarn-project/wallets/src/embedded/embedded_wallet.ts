@@ -11,11 +11,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type ContractClassIdPreimage,
-  type ContractClassWithId,
-  getContractClassFromArtifact,
-} from '@aztec/stdlib/contract';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -80,11 +76,9 @@ const DEFAULT_ESTIMATED_GAS_PADDING = 0.1;
 export class EmbeddedWallet extends BaseWallet {
   protected estimatedGasPadding = DEFAULT_ESTIMATED_GAS_PADDING;
 
-  /**
-   * Per-account-type cache of the stub class id and preimage. The Promise is stored (not the resolved
-   * value) so concurrent first-time callers dedupe on the same hashing + registration work.
-   */
-  #stubClasses = new Map<AccountType, Promise<ContractClassWithId & ContractClassIdPreimage>>();
+  // Stub class ids, populated on wallet startup
+  // to avoid redundant work per simulation
+  protected stubClassIds = new Map<AccountType, Fr>();
 
   constructor(
     pxe: PXE,
@@ -203,21 +197,22 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
-   * Lazily hashes and registers the stub class for the given account type, caching the result so
-   * subsequent simulations skip the artifact-hashing + registration round-trip.
+   * Hashes and registers the stub class for every supported account type with PXE, populating
+   * stubClassIds. Called on wallet initialization.
    */
-  #getStubClass(type: AccountType): Promise<ContractClassWithId & ContractClassIdPreimage> {
-    let cached = this.#stubClasses.get(type);
-    if (!cached) {
-      cached = (async () => {
-        const stubArtifact = await this.accountContracts.getStubAccountContractArtifact(type);
-        const stubClass = await getContractClassFromArtifact(stubArtifact);
-        await this.pxe.registerContractClass(stubArtifact);
-        return stubClass;
-      })();
-      this.#stubClasses.set(type, cached);
-    }
-    return cached;
+  async initStubClasses(): Promise<void> {
+    const schnorrArtifact = await this.accountContracts.getStubAccountContractArtifact('schnorr');
+    const { id: schnorrClassId } = await getContractClassFromArtifact(schnorrArtifact);
+    await this.pxe.registerContractClass(schnorrArtifact);
+
+    // ecdsa stubs share the same class id
+    const ecdsaArtifact = await this.accountContracts.getStubAccountContractArtifact('ecdsasecp256r1');
+    const { id: ecdsaClassId } = await getContractClassFromArtifact(ecdsaArtifact);
+    await this.pxe.registerContractClass(ecdsaArtifact);
+
+    this.stubClassIds.set('schnorr', schnorrClassId);
+    this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
+    this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
   }
 
   /**
@@ -233,7 +228,12 @@ export class EmbeddedWallet extends BaseWallet {
     for (const account of filtered) {
       const address = account.item;
       const { type } = await this.walletDB.retrieveAccount(address);
-      const { id: stubClassId } = await this.#getStubClass(type);
+      const stubClassId = this.stubClassIds.get(type);
+      if (!stubClassId) {
+        throw new Error(
+          `Stub class for account type '${type}' was not registered at wallet init. This is a bug — initStubClasses should cover every supported AccountType.`,
+        );
+      }
 
       const originalAccount = await this.getAccountFromAddress(address);
       const completeAddress = originalAccount.getCompleteAddress();
