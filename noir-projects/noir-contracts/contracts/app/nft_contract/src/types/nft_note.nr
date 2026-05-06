@@ -6,7 +6,11 @@ use aztec::{
         logs::partial_note::encode_partial_note_private_message,
         message_delivery::{do_private_message_delivery, MessageDelivery},
     },
+<<<<<<< HEAD
     note::{note_interface::{NoteHash, NoteType}, utils::compute_note_nullifier},
+=======
+    note::{note_interface::{NoteHash, NoteType}, utils::{compute_note_hash, compute_note_nullifier}},
+>>>>>>> 6a1a4a9525 (chore: add noirfmt.toml to noir-contracts and run nargo fmt (#22971))
     oracle::random::random,
     protocol::{
         address::AztecAddress,
@@ -34,12 +38,7 @@ pub struct NFTNote {
 }
 
 impl NoteHash for NFTNote {
-    fn compute_note_hash(
-        self,
-        owner: AztecAddress,
-        storage_slot: Field,
-        randomness: Field,
-    ) -> Field {
+    fn compute_note_hash(self, owner: AztecAddress, storage_slot: Field, randomness: Field) -> Field {
         // Partial notes can be implemented by having the note hash be either the result of multiscalar multiplication
         // (MSM), or two rounds of poseidon. MSM results in more constraints and is only required when multiple variants
         // of partial notes are supported. Because NFTNote has just one variant (where the token id is public), we use
@@ -50,8 +49,7 @@ impl NoteHash for NFTNote {
         // perform both steps of the partial note computation.
 
         // First we create the partial note from a commitment to the private content.
-        let partial_note =
-            PartialNFTNote { commitment: compute_partial_commitment(owner, randomness) };
+        let partial_note = PartialNFTNote { commitment: compute_partial_commitment(owner, randomness) };
 
         // Then compute the completion note hash. In a real partial note this step would be performed in public.
         partial_note.compute_complete_note_hash(storage_slot, self.token_id)
@@ -125,14 +123,7 @@ impl NFTNote {
 
         do_private_message_delivery(
             context,
-            || {
-                encode_partial_note_private_message(
-                    private_log_content,
-                    owner,
-                    randomness,
-                    commitment,
-                )
-            },
+            || encode_partial_note_private_message(private_log_content, owner, randomness, commitment),
             Option::none(),
             recipient,
             MessageDelivery.ONCHAIN_UNCONSTRAINED,
@@ -178,13 +169,7 @@ pub struct PartialNFTNote {
 
 impl PartialNFTNote {
     /// Completes the partial note, creating a new note that can be used like any other NFTNote.
-    pub fn complete(
-        self,
-        context: PublicContext,
-        completer: AztecAddress,
-        storage_slot: Field,
-        token_id: Field,
-    ) {
+    pub fn complete(self, context: PublicContext, completer: AztecAddress, storage_slot: Field, token_id: Field) {
         // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
         // because this will result in the completion log having its last field set to 0. Public logs currently do not
         // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its
@@ -238,10 +223,7 @@ impl PartialNFTNote {
 
 mod test {
     use super::{compute_partial_commitment, NFTNote, PartialNFTNote};
-    use aztec::{
-        note::note_interface::NoteHash,
-        protocol::{address::AztecAddress, traits::FromField},
-    };
+    use aztec::{note::note_interface::NoteHash, protocol::{address::AztecAddress, traits::FromField}};
 
     global token_id: Field = 17;
     global randomness: Field = 42;
@@ -257,10 +239,8 @@ mod test {
         let note = NFTNote { token_id };
         let note_hash = note.compute_note_hash(owner, storage_slot, randomness);
 
-        let partial_note =
-            PartialNFTNote { commitment: compute_partial_commitment(owner, randomness) };
-        let completed_partial_note_hash =
-            partial_note.compute_complete_note_hash(storage_slot, token_id);
+        let partial_note = PartialNFTNote { commitment: compute_partial_commitment(owner, randomness) };
+        let completed_partial_note_hash = partial_note.compute_complete_note_hash(storage_slot, token_id);
 
         assert_eq(note_hash, completed_partial_note_hash);
     }

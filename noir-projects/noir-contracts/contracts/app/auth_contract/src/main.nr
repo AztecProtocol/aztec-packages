@@ -1,6 +1,7 @@
 mod test;
 
-// Test contract showing basic public access control that can be used in private. It uses a DelayedPublicMutable state variable to
+// Test contract showing basic public access control that can be used in private. It uses a DelayedPublicMutable state
+// variable to
 // publicly store the address of an authorized account that can call private functions.
 use aztec::macros::aztec;
 

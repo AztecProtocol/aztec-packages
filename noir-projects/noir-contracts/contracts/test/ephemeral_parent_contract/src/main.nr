@@ -23,8 +23,7 @@ pub contract EphemeralParent {
         }
 
         // Call the child's private function, which pushes to the same slot in its own frame.
-        let child_selector =
-            comptime { FunctionSelector::from_signature("use_ephemeral_at_slot(Field)") };
+        let child_selector = comptime { FunctionSelector::from_signature("use_ephemeral_at_slot(Field)") };
         let _ = self.context.call_private_function(child_address, child_selector, [EPHEMERAL_SLOT]);
 
         // Safety: reading back from the parent's ephemeral array to verify isolation.
@@ -45,13 +44,10 @@ mod test {
         let caller = env.create_light_account();
 
         let parent_address = env.deploy("EphemeralParent").without_initializer();
-        let child_address =
-            env.deploy("@ephemeral_child_contract/EphemeralChild").without_initializer();
+        let child_address = env.deploy("@ephemeral_child_contract/EphemeralChild").without_initializer();
 
-        let result: [Field; 3] = env.call_private(
-            caller,
-            EphemeralParent::at(parent_address).test_isolation(child_address),
-        );
+        let result: [Field; 3] =
+            env.call_private(caller, EphemeralParent::at(parent_address).test_isolation(child_address));
 
         // The parent should still see its own data: length 2, values [100, 200].
         assert_eq(result[0], 2, "parent ephemeral array length should be 2");
