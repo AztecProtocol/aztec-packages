@@ -181,17 +181,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     try {
       await this.work();
     } catch (err) {
-      this.emit('checkpoint-error', { error: err as Error });
-      if (err instanceof SequencerTooSlowError) {
-        // Log as warn only if we had to abort halfway through the block proposal
-        const logLvl = [SequencerState.INITIALIZING_CHECKPOINT, SequencerState.PROPOSER_CHECK].includes(
-          err.proposedState,
-        )
-          ? ('debug' as const)
-          : ('warn' as const);
-        this.log[logLvl](err.message, { now: this.dateProvider.nowInSeconds() });
+      if (
+        err instanceof SequencerTooSlowError &&
+        [SequencerState.INITIALIZING_CHECKPOINT, SequencerState.PROPOSER_CHECK].includes(err.proposedState)
+      ) {
+        // No need to alert if we just didn't get to start in time
+        this.log.debug(err.message, { now: this.dateProvider.nowInSeconds() });
       } else {
         // Re-throw other errors
+        this.emit('checkpoint-error', { error: err as Error });
         throw err;
       }
     } finally {

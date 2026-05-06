@@ -497,6 +497,7 @@ export class EpochsTestContext {
   public watchSequencerEvents(
     sequencers: SequencerClient[],
     getMetadata: (i: number) => Record<string, any> = () => ({}),
+    additionalFailEventKeys: (keyof SequencerEvents)[] = [],
   ) {
     const stateChanges: TrackedSequencerEvent[] = [];
     const failEvents: TrackedSequencerEvent[] = [];
@@ -507,6 +508,10 @@ export class EpochsTestContext {
       'block-build-failed',
       'checkpoint-publish-failed',
       'proposer-rollup-check-failed',
+      'checkpoint-error',
+      'checkpoint-publish-failed',
+      'pipelined-checkpoint-discarded',
+      ...additionalFailEventKeys,
     ];
 
     const makeEvent = (
@@ -544,5 +549,12 @@ export class EpochsTestContext {
     });
 
     return { failEvents, stateChanges };
+  }
+
+  public assertNoFailuresFromSequencers(failEvents: TrackedSequencerEvent[]) {
+    if (failEvents.length > 0) {
+      this.logger.error(`Failed events from sequencers`, failEvents);
+    }
+    expect(failEvents).toEqual([]);
   }
 }
