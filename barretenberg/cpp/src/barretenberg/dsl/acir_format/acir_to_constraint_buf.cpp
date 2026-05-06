@@ -791,7 +791,7 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
         .init = {},
         .trace = {},
         .type = BlockType::ROM,
-        .calldata_id = CallDataType::KernelCalldata,
+        .calldata_id = CallDataType::None,
     };
 
     for (const auto& init : mem_init.init) {

@@ -484,7 +484,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockRomRead)
         .init = init,
         .trace = trace,
         .type = BlockType::ROM,
-        .calldata_id = CallDataType::KernelCalldata,
+        .calldata_id = CallDataType::None,
     };
 
     AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
@@ -520,7 +520,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamRead)
         .init = init,
         .trace = trace,
         .type = BlockType::RAM,
-        .calldata_id = CallDataType::KernelCalldata,
+        .calldata_id = CallDataType::None,
     };
 
     AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
@@ -556,7 +556,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockRamWrite)
         .init = init,
         .trace = trace,
         .type = BlockType::RAM,
-        .calldata_id = CallDataType::KernelCalldata,
+        .calldata_id = CallDataType::None,
     };
 
     AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
@@ -654,7 +654,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockReturnData)
         .init = init,
         .trace = {},
         .type = BlockType::ReturnData,
-        .calldata_id = CallDataType::KernelCalldata,
+        .calldata_id = CallDataType::None,
     };
 
     AcirFormat constraint_system = constraint_to_acir_format(block_constraint);

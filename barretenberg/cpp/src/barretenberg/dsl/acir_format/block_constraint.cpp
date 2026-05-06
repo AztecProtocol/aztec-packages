@@ -171,7 +171,7 @@ void process_call_data_operations(Builder& builder,
     if (calldata_id == static_cast<uint32_t>(CallDataType::KernelCalldata)) {
         process_calldata(databus.kernel_calldata);
     } else {
-        const size_t app_calldata_idx = calldata_id - static_cast<uint32_t>(CallDataType::AppCalldata);
+        const size_t app_calldata_idx = calldata_id - /*shift by kernel calldata*/ 1;
         BB_ASSERT_LT(app_calldata_idx, MAX_APPS_PER_KERNEL, "Databus app calldata index out of bounds");
         process_calldata(databus.app_calldata[app_calldata_idx]);
     }

@@ -41,7 +41,7 @@ class MockDatabusProducer {
 
   public:
     /**
-     * @brief Update the app return data and populate it in the app circuit
+     * @brief Update the next app return data and populate it in the app circuit. App slots are processed in order.
      */
     void populate_app_databus(ClientCircuit& circuit)
     {
@@ -80,12 +80,6 @@ class MockDatabusProducer {
             circuit.add_public_return_data(circuit.add_variable(val));
         }
     };
-
-    /**
-     * @brief Add an arbitrary value to the app return data. This leads to a descrepency between the values used by the
-     * app itself and the secondary_calldata values in the kernel that will be set based on these tampered values.
-     */
-    void tamper_with_app_return_data() { app_return_data[0].emplace_back(17); }
 };
 
 /**
@@ -283,11 +277,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
         auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings, check_circuit_sizes);
         ivc.accumulate(circuit, vk);
     }
-
-    /**
-     * @brief Tamper with databus data to facilitate failure testing
-     */
-    void tamper_with_databus() { mock_databus.tamper_with_app_return_data(); }
 };
 
 } // namespace
