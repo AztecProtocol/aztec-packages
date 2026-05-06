@@ -89,6 +89,26 @@ describe('epoch-proving-job', () => {
   /** Index of `checkpoint` in the test's `checkpoints` array, mirroring what the archiver would tell us. */
   const indexOf = (checkpoint: Checkpoint) => checkpoint.number - checkpoints[0].number;
 
+  /** Stand-in archive sibling path for register-time data; tests mock the orchestrators so the actual value is unused. */
+  const fakeArchiveSiblingPath = () => makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO);
+
+  const registerPending = (
+    job: EpochProvingJob,
+    checkpoint: Checkpoint,
+    checkpointIndex: number,
+    checkpointAttestations: CommitteeAttestation[],
+    messages: Fr[] = [],
+    previousBlockHeader: BlockHeader = initialHeader,
+  ) =>
+    job.registerCheckpoint(
+      checkpoint,
+      checkpointIndex,
+      checkpointAttestations,
+      previousBlockHeader,
+      messages,
+      fakeArchiveSiblingPath(),
+    );
+
   const addCheckpoint = async (
     job: EpochProvingJob,
     checkpoint: Checkpoint,
@@ -97,8 +117,8 @@ describe('epoch-proving-job', () => {
     previousBlockHeader: BlockHeader,
     checkpointAttestations: CommitteeAttestation[] = [],
   ) => {
-    job.registerPendingCheckpoint(checkpoint, indexOf(checkpoint), checkpointAttestations);
-    await job.addCheckpoint(checkpoint, txsMap, messages, previousBlockHeader);
+    registerPending(job, checkpoint, indexOf(checkpoint), checkpointAttestations, messages, previousBlockHeader);
+    await job.provideTxs(checkpoint, txsMap);
   };
 
   const runJob = async (job: EpochProvingJob) => {
@@ -338,16 +358,16 @@ describe('epoch-proving-job', () => {
   describe('removeCheckpoint', () => {
     it('aborts a pending checkpoint and clears the entry', async () => {
       const job = createJob();
-      const signal = job.registerPendingCheckpoint(checkpoints[0], indexOf(checkpoints[0]), []);
+      const signal = registerPending(job, checkpoints[0], indexOf(checkpoints[0]), []);
 
-      expect(job.getPendingCheckpointNumbers()).toEqual([checkpoints[0].number]);
+      expect(job.getCheckpointNumbers()).toEqual([checkpoints[0].number]);
       expect(signal.aborted).toBe(false);
 
       const removed = await job.removeCheckpoint(checkpoints[0].number);
 
       expect(removed).toBe(true);
       expect(signal.aborted).toBe(true);
-      expect(job.getPendingCheckpointNumbers()).toEqual([]);
+      expect(job.getCheckpointNumbers()).toEqual([]);
       // Sub-tree was never created (the entry never reached addCheckpoint).
       expect(subTrees).toHaveLength(0);
     });
@@ -357,12 +377,14 @@ describe('epoch-proving-job', () => {
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
       await addCheckpoint(job, checkpoints[0], txsMap, [], initialHeader);
 
-      const removed = await job.removeCheckpoint(checkpoints[0].number);
+      const removed = job.removeCheckpoint(checkpoints[0].number);
 
       expect(removed).toBe(true);
       expect(subTrees[0].cancel).toHaveBeenCalled();
+      // Teardown is fire-and-forget; wait for the sub-tree's stop to settle.
+      await retryUntil(() => subTrees[0].stop.mock.calls.length > 0, 'wait for sub-tree stop', 5, 0.01);
       expect(subTrees[0].stop).toHaveBeenCalled();
-      expect(job.getTrackedCheckpoints()).toHaveLength(0);
+      expect(job.getCheckpointCount()).toBe(0);
     });
 
     it('removes a tracked checkpoint from the middle of the list', async () => {
@@ -376,9 +398,7 @@ describe('epoch-proving-job', () => {
 
       expect(removed).toBe(true);
       expect(subTrees[1].cancel).toHaveBeenCalled();
-      const tracked = job.getTrackedCheckpoints();
-      expect(tracked).toHaveLength(2);
-      expect(tracked.map(tc => tc.checkpoint.number)).toEqual([checkpoints[0].number, checkpoints[2].number]);
+      expect(job.getCheckpointNumbers()).toEqual([checkpoints[0].number, checkpoints[2].number]);
     });
 
     it('returns false for an unknown checkpoint number', async () => {
@@ -411,14 +431,14 @@ describe('epoch-proving-job', () => {
 
       const job = createJob();
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
-      const signal = job.registerPendingCheckpoint(checkpoints[0], indexOf(checkpoints[0]), []);
+      const signal = registerPending(job, checkpoints[0], indexOf(checkpoints[0]), []);
 
-      const addPromise = job.addCheckpoint(checkpoints[0], txsMap, [], initialHeader);
+      const addPromise = job.provideTxs(checkpoints[0], txsMap);
 
       await retryUntil(() => called, 'Wait for start block', 5, 0.01);
 
       expect(job.hasCheckpoint(checkpoints[0].number)).toBe(true);
-      expect(job.getPendingCheckpointNumbers()).toEqual([checkpoints[0].number]);
+      expect(job.getCheckpointNumbers()).toEqual([checkpoints[0].number]);
 
       const removedPromise = job.removeCheckpoint(checkpoints[0].number);
       releaseStartNewBlock!();
@@ -429,13 +449,15 @@ describe('epoch-proving-job', () => {
       expect(job.hasCheckpoint(checkpoints[0].number)).toBe(false);
       // The sub-tree was created and torn down — its stop() must have been called.
       expect(subTrees[0].stop).toHaveBeenCalled();
-      expect(job.getTrackedCheckpoints()).toHaveLength(0);
+      expect(job.getCheckpointCount()).toBe(0);
 
       await addPromise;
     });
 
-    it('serialises a remove + re-register of the same checkpoint number under a reorg', async () => {
-      // v1 hangs on its first sub-tree's startNewBlock; reorg removes it; v2 is registered.
+    it('coexists a remove + re-register of the same checkpoint number via slot identity', async () => {
+      // v1 hangs on its first sub-tree's startNewBlock; reorg removes it; v2 (same number,
+      // different slot) is registered. The (number, slot) identity means v1's still-tearing-down
+      // teardown does not collide with v2's fresh registration.
       let releaseV1Block: () => void = () => {};
       const v1BlockGate = new Promise<void>(resolve => {
         releaseV1Block = resolve;
@@ -465,8 +487,8 @@ describe('epoch-proving-job', () => {
       );
       const v2TxsMap = new Map(v2Txs.map(tx => [tx.getTxHash().toString(), tx]));
 
-      job.registerPendingCheckpoint(v1, 0, []);
-      const v1AddPromise = job.addCheckpoint(v1, txsMap, [], initialHeader);
+      registerPending(job, v1, 0, []);
+      const v1AddPromise = job.provideTxs(v1, txsMap);
       await retryUntil(() => called, 'Wait for start block', 5, 0.01);
 
       // v1's sub-tree should already have been constructed (and started) by now.
@@ -481,40 +503,40 @@ describe('epoch-proving-job', () => {
       expect(subTrees[0].stop).toHaveBeenCalled();
 
       // v2 gets a fresh sub-tree from the default factory and runs cleanly.
-      job.registerPendingCheckpoint(v2, 0, []);
-      await job.addCheckpoint(v2, v2TxsMap, [], initialHeader);
+      registerPending(job, v2, 0, []);
+      await job.provideTxs(v2, v2TxsMap);
 
       expect(subTrees).toHaveLength(2);
       expect(prover.createCheckpointSubTreeOrchestrator).toHaveBeenCalledTimes(2);
-      expect(job.getTrackedCheckpoints()).toHaveLength(1);
-      expect(job.getTrackedCheckpoints()[0].checkpoint.hash().toString()).toEqual(v2.hash().toString());
+      expect(job.getCheckpointCount()).toBe(1);
+      expect(job.hasCheckpoint(v2.number)).toBe(true);
     });
   });
 
-  it('addCheckpoint without registerPendingCheckpoint throws', async () => {
+  it('provideTxs is a silent no-op for an unregistered checkpoint', async () => {
     const job = createJob();
     const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
-    await expect(job.addCheckpoint(checkpoints[0], txsMap, [], initialHeader)).rejects.toThrow(
-      /not registered as pending/,
-    );
+    await expect(job.provideTxs(checkpoints[0], txsMap)).resolves.toBeUndefined();
+    // No sub-tree was constructed.
+    expect(subTrees).toHaveLength(0);
   });
 
-  it('registerPendingCheckpoint twice for the same checkpoint throws', () => {
+  it('registerCheckpoint twice for the same (number, slot) throws', () => {
     const job = createJob();
-    job.registerPendingCheckpoint(checkpoints[0], 0, []);
-    expect(() => job.registerPendingCheckpoint(checkpoints[0], 0, [])).toThrow(/already registered/);
+    registerPending(job, checkpoints[0], 0, []);
+    expect(() => registerPending(job, checkpoints[0], 0, [])).toThrow(/already registered/);
   });
 
   it('stop aborts all pending checkpoint signals', async () => {
     const job = createJob();
-    const sig0 = job.registerPendingCheckpoint(checkpoints[0], 0, []);
-    const sig1 = job.registerPendingCheckpoint(checkpoints[1], 1, []);
+    const sig0 = registerPending(job, checkpoints[0], 0, []);
+    const sig1 = registerPending(job, checkpoints[1], 1, []);
 
     await job.cancel();
 
     expect(sig0.aborted).toBe(true);
     expect(sig1.aborted).toBe(true);
-    expect(job.getPendingCheckpointNumbers()).toEqual([]);
+    expect(job.getCheckpointNumbers()).toEqual([]);
   });
 
   describe('completeEpoch / whenComplete', () => {
@@ -555,8 +577,8 @@ describe('epoch-proving-job', () => {
       );
     });
 
-    it('waits for in-flight addCheckpoint before finalizing', async () => {
-      // First sub-tree's startNewBlock hangs.
+    it('starts the top tree as soon as completeEpoch fires, in parallel with in-flight addCheckpoint', async () => {
+      // First sub-tree's startNewBlock hangs — addCheckpoint stays in-flight.
       let releaseStartNewBlock: () => void = () => {};
       const startNewBlockGate = new Promise<void>(resolve => {
         releaseStartNewBlock = resolve;
@@ -568,7 +590,6 @@ describe('epoch-proving-job', () => {
           called = true;
           return startNewBlockGate;
         });
-        // When release fires we'll resolve the result so finalize can complete.
         void startNewBlockGate.then(() =>
           resolvers.resolve({
             blockProofOutputs: [],
@@ -580,23 +601,24 @@ describe('epoch-proving-job', () => {
 
       const job = createJob();
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
-      job.registerPendingCheckpoint(checkpoints[0], 0, attestations);
+      registerPending(job, checkpoints[0], 0, attestations);
 
-      const addPromise = job.addCheckpoint(checkpoints[0], txsMap, [], initialHeader);
-
+      const addPromise = job.provideTxs(checkpoints[0], txsMap);
       await retryUntil(() => called, 'Wait for start block', 5, 0.01);
 
       job.completeEpoch();
 
-      // Finalization must NOT have started — the pending entry's sub-tree is still hanging.
-      expect(topTree.prove).not.toHaveBeenCalled();
+      // The top tree fires immediately even though the sub-tree is still hanging on
+      // startNewBlock — that's the early-start invariant under test.
+      await retryUntil(() => (topTree.prove as any).mock.calls.length > 0, 'Wait for top tree prove', 5, 0.01);
+      expect(topTree.prove).toHaveBeenCalled();
 
+      // Release the gate so the in-flight provideTxs (and the cancel-driven teardown
+      // queued by the job's stop) can unwind. Then await whenComplete.
       releaseStartNewBlock();
       const finalState = await job.whenComplete();
-      await addPromise;
-
       expect(finalState).toEqual('completed');
-      expect(topTree.prove).toHaveBeenCalled();
+      await addPromise;
     });
 
     it('whenComplete resolves with stopped state when the job is cancelled before completeEpoch', async () => {
@@ -619,13 +641,13 @@ describe('epoch-proving-job', () => {
       const job = createJob();
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
 
-      job.registerPendingCheckpoint(checkpoints[2], 2, []);
-      job.registerPendingCheckpoint(checkpoints[0], 0, []);
-      job.registerPendingCheckpoint(checkpoints[1], 1, []);
+      registerPending(job, checkpoints[2], 2, [], [], checkpoints[1].blocks.at(-1)!.header);
+      registerPending(job, checkpoints[0], 0, [], [], initialHeader);
+      registerPending(job, checkpoints[1], 1, [], [], checkpoints[0].blocks.at(-1)!.header);
 
-      await job.addCheckpoint(checkpoints[1], txsMap, [], checkpoints[0].blocks.at(-1)!.header);
-      await job.addCheckpoint(checkpoints[2], txsMap, [], checkpoints[1].blocks.at(-1)!.header);
-      await job.addCheckpoint(checkpoints[0], txsMap, [], initialHeader);
+      await job.provideTxs(checkpoints[1], txsMap);
+      await job.provideTxs(checkpoints[2], txsMap);
+      await job.provideTxs(checkpoints[0], txsMap);
 
       // Each sub-tree is created in addCheckpoint order. The job's tracked-checkpoint
       // ordering is by checkpointIndex (checkpoint number), not by creation order.
@@ -674,7 +696,7 @@ describe('epoch-proving-job', () => {
       expect(topTree.prove).toHaveBeenCalledTimes(1);
     });
 
-    it('postpones finalization if a new pending checkpoint appears during the delay', async () => {
+    it('includes a checkpoint registered during the finalization delay in the proof', async () => {
       const job = createJob({ finalizationDelayMs: 100 });
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
       for (let i = 0; i < checkpoints.length; i++) {
@@ -689,10 +711,7 @@ describe('epoch-proving-job', () => {
         startBlockNumber: NUM_BLOCKS + 1,
         txsPerBlock: TXS_PER_BLOCK,
       });
-      job.registerPendingCheckpoint(lateCheckpoint, indexOf(lateCheckpoint), []);
-
-      await new Promise(resolve => setTimeout(resolve, 250));
-      expect(topTree.prove).not.toHaveBeenCalled();
+      registerPending(job, lateCheckpoint, indexOf(lateCheckpoint), []);
 
       const lateTxHashes = lateCheckpoint.blocks.flatMap(b => b.body.txEffects.map(tx => tx.txHash));
       const lateTxsMap = new Map<string, Tx>(
@@ -701,11 +720,14 @@ describe('epoch-proving-job', () => {
           { txHash, getTxHash: () => txHash, data: { forPublic: false } } as unknown as Tx,
         ]),
       );
-      await job.addCheckpoint(lateCheckpoint, lateTxsMap, [], checkpoints.at(-1)!.blocks.at(-1)!.header);
+      await job.provideTxs(lateCheckpoint, lateTxsMap);
 
       const finalState = await job.whenComplete();
       expect(finalState).toEqual('completed');
       expect(topTree.prove).toHaveBeenCalledTimes(1);
+      // The late checkpoint must be in the proven set.
+      const checkpointData = (topTree.prove as any).mock.calls[0][3];
+      expect(checkpointData).toHaveLength(checkpoints.length + 1);
     });
   });
 
@@ -815,23 +837,29 @@ describe('epoch-proving-job', () => {
     });
 
     it('fails the epoch if all checkpoints are removed mid-finalize', async () => {
-      const firstTopTree = mock<TopTreeOrchestrator>();
-      let firstReject: (err: Error) => void = () => {};
-      const firstProvePromise = new Promise<{
-        publicInputs: RootRollupPublicInputs;
-        proof: Proof;
-        batchedBlobInputs: BatchedBlob;
-      }>((_, reject) => {
-        firstReject = reject;
+      // Every top-tree the restart loop constructs hangs on `prove` until cancelled.
+      // The job's loop therefore stays inside the first attempt while the test removes
+      // every checkpoint; only after the final remove does the loop see zero survivors
+      // and throw.
+      const builtTopTrees: MockProxy<TopTreeOrchestrator>[] = [];
+      prover.createTopTreeOrchestrator.mockImplementation(() => {
+        const topTreeMock = mock<TopTreeOrchestrator>();
+        let rejectProve: (err: Error) => void = () => {};
+        const provePromise = new Promise<{
+          publicInputs: RootRollupPublicInputs;
+          proof: Proof;
+          batchedBlobInputs: BatchedBlob;
+        }>((_, reject) => {
+          rejectProve = reject;
+        });
+        provePromise.catch(() => {});
+        topTreeMock.prove.mockReturnValue(provePromise);
+        topTreeMock.cancel.mockImplementation(() => rejectProve(new TopTreeCancelledError()));
+        topTreeMock.stop.mockResolvedValue(undefined);
+        topTreeMock.getProverId.mockReturnValue(proverId);
+        builtTopTrees.push(topTreeMock);
+        return topTreeMock;
       });
-      firstProvePromise.catch(() => {});
-      firstTopTree.prove.mockReturnValue(firstProvePromise);
-      firstTopTree.cancel.mockImplementation(() => {
-        firstReject(new TopTreeCancelledError());
-      });
-      firstTopTree.stop.mockResolvedValue(undefined);
-      firstTopTree.getProverId.mockReturnValue(proverId);
-      prover.createTopTreeOrchestrator.mockReturnValueOnce(firstTopTree);
 
       const job = createJob();
       const txsMap = new Map<string, Tx>(txs.map(tx => [tx.getTxHash().toString(), tx]));
@@ -842,12 +870,14 @@ describe('epoch-proving-job', () => {
       }
 
       job.completeEpoch();
-      await retryUntil(() => firstTopTree.prove.mock.calls.length > 0, 'wait for first prove', 5, 0.01);
 
-      // Remove every checkpoint. The last one cancels the top tree; the loop tries to
-      // restart with no survivors and the job transitions to 'failed'.
-      for (const cp of checkpoints) {
-        await job.removeCheckpoint(cp.number);
+      // Remove every checkpoint, but wait for the next restart-loop attempt to install
+      // its top tree before each remove — otherwise the cancel call could land between
+      // attempts (when `this.topTree` is undefined) and the next attempt's `prove` would
+      // hang forever.
+      for (let i = 0; i < checkpoints.length; i++) {
+        await retryUntil(() => builtTopTrees.length > i, `wait for top tree ${i + 1}`, 5, 0.01);
+        await job.removeCheckpoint(checkpoints[i].number);
       }
 
       const finalState = await job.whenComplete();

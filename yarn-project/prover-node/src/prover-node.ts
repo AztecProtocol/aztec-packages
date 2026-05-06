@@ -8,6 +8,7 @@ import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { EpochProverFactory } from '@aztec/prover-client';
+import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   type L2BlockSource,
@@ -36,6 +37,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { Tx } from '@aztec/stdlib/tx';
 import {
   L1Metrics,
@@ -252,10 +254,33 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     // we cannot derive the index from local state.
     const checkpointIndex = await this.getCheckpointIndexInEpoch(checkpoint, epochNumber);
 
-    // Register the checkpoint as pending and spawn a detached task to gather data.
+    // Gather register-time data: predecessor header, L1-to-L2 messages, and the archive
+    // sibling path captured before any block in this checkpoint has landed. Doing this
+    // ahead of register lets the top tree start pipelined proving the moment every
+    // expected checkpoint is registered, even before any sub-tree has gathered its txs.
     let abortSignal: AbortSignal;
     try {
-      abortSignal = job.registerPendingCheckpoint(checkpoint, checkpointIndex, publishedCheckpoint.attestations);
+      const previousBlockNumber = BlockNumber(checkpoint.blocks[0].number - 1);
+      const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, previousBlockNumber);
+      const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpoint.number);
+      // Sync world state to the last block of this checkpoint so the historical snapshot
+      // at the predecessor block is available — the gather task would do this anyway
+      // before tx processing; lifting it here makes the sibling-path read deterministic.
+      const lastBlock = checkpoint.blocks.at(-1)!;
+      const lastBlockHash = await lastBlock.header.hash();
+      await this.worldState.syncImmediate(lastBlock.number, lastBlockHash);
+      const previousArchiveSiblingPath = await getLastSiblingPath(
+        MerkleTreeId.ARCHIVE,
+        this.worldState.getSnapshot(previousBlockNumber),
+      );
+      abortSignal = job.registerCheckpoint(
+        checkpoint,
+        checkpointIndex,
+        publishedCheckpoint.attestations,
+        previousBlockHeader,
+        l1ToL2Messages,
+        previousArchiveSiblingPath,
+      );
     } catch (err) {
       this.log.warn(`Could not register checkpoint ${checkpoint.number} for epoch ${epochNumber}`, err);
       return;
@@ -275,9 +300,10 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
   }
 
   /**
-   * Detached task: gathers transactions and other per-checkpoint data, then adds the
-   * checkpoint to the job and re-checks epoch completion. Bails out if the abort signal
-   * fires (e.g. via prune or job stop).
+   * Detached task: gathers transactions for the checkpoint and hands them to the job
+   * via `provideTxs`. Register-time data (predecessor header, L1-to-L2 messages,
+   * archive sibling path) was already supplied to `registerCheckpoint` by
+   * `handleCheckpointEvent`. Bails out if the abort signal fires.
    */
   private async gatherAndAddCheckpoint(
     job: EpochProvingJob,
@@ -290,24 +316,8 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
       if (abortSignal.aborted) {
         return;
       }
-      const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpoint.number);
-      if (abortSignal.aborted) {
-        return;
-      }
-      const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, checkpoint.blocks[0].number - 1);
-      if (abortSignal.aborted) {
-        return;
-      }
 
-      // Sync world state to the last block of this checkpoint.
-      const lastBlock = checkpoint.blocks.at(-1)!;
-      const lastBlockHash = await lastBlock.header.hash();
-      await this.worldState.syncImmediate(lastBlock.number, lastBlockHash);
-      if (abortSignal.aborted) {
-        return;
-      }
-
-      await job.addCheckpoint(checkpoint, txs, l1ToL2Messages, previousBlockHeader);
+      await job.provideTxs(checkpoint, txs);
 
       // Catch-up path: if the EpochMonitor hasn't yet flagged this epoch as complete,
       // ask the archiver directly. Needed during L2BlockStream catch-up where the
@@ -338,28 +348,14 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     this.log.warn(`Chain pruned to checkpoint ${prunedCheckpoint.number}`, { prunedCheckpoint });
 
     for (const [epochNum, job] of Array.from(this.epochJobs.entries())) {
-      const trackedToRemove = job
-        .getTrackedCheckpoints()
-        .filter(tc => tc.checkpoint.number > prunedCheckpoint.number)
-        .map(tc => tc.checkpoint.number);
-      const pendingToRemove = job.getPendingCheckpointNumbers().filter(n => n > prunedCheckpoint.number);
-
-      const toRemove = [...trackedToRemove, ...pendingToRemove];
-      if (toRemove.length === 0) {
+      const removed = job.removeCheckpointsAfter(prunedCheckpoint.number);
+      if (removed === 0) {
         continue;
-      }
-
-      let removed = 0;
-      for (const checkpointNumber of toRemove) {
-        if (await job.removeCheckpoint(checkpointNumber)) {
-          removed++;
-        }
       }
 
       this.log.info(`Removed ${removed} checkpoints from epoch ${epochNum} job due to prune`);
 
-      // If the job has no remaining checkpoints (pending or tracked), cancel it.
-      if (job.getTrackedCheckpoints().length === 0 && job.getPendingCheckpointNumbers().length === 0) {
+      if (job.getCheckpointCount() === 0) {
         this.log.info(`Cancelling epoch ${epochNum} job — all checkpoints pruned`);
         await this.cancelAndCleanupJob(epochNum, job);
       }
@@ -414,7 +410,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     }
 
     const archiverCheckpoints = await this.l2BlockSource.getCheckpointsForEpoch(epochNumber);
-    const known = job.getTrackedCheckpoints().length + job.getPendingCheckpointNumbers().length;
+    const known = job.getCheckpointCount();
     if (known < archiverCheckpoints.length) {
       this.log.debug(
         `Epoch ${epochNumber} complete on L1 but only ${known}/${archiverCheckpoints.length} checkpoints known to job`,
@@ -530,21 +526,31 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
       for (const checkpoint of checkpoints) {
         const checkpointIndex = checkpoint.number - firstCheckpointNumber;
         const attestations = publishedCheckpoints[checkpointIndex]?.attestations ?? [];
-        job.registerPendingCheckpoint(checkpoint, checkpointIndex, attestations);
-        const txs = await this.gatherTxsForCheckpoint(checkpoint);
+        const previousBlockNumber = BlockNumber(checkpoint.blocks[0].number - 1);
+        const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, previousBlockNumber);
         const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpoint.number);
-        const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, checkpoint.blocks[0].number - 1);
         const lastBlock = checkpoint.blocks.at(-1)!;
         await this.worldState.syncImmediate(lastBlock.number, await lastBlock.header.hash());
-        await job.addCheckpoint(checkpoint, txs, l1ToL2Messages, previousBlockHeader);
+        const previousArchiveSiblingPath = await getLastSiblingPath(
+          MerkleTreeId.ARCHIVE,
+          this.worldState.getSnapshot(previousBlockNumber),
+        );
+        job.registerCheckpoint(
+          checkpoint,
+          checkpointIndex,
+          attestations,
+          previousBlockHeader,
+          l1ToL2Messages,
+          previousArchiveSiblingPath,
+        );
+        const txs = await this.gatherTxsForCheckpoint(checkpoint);
+        await job.provideTxs(checkpoint, txs);
       }
     }
 
     // Cancel any pending checkpoints that haven't been added yet — once startProof has decided
     // what to finalize with, we don't want any in-flight gather tasks to extend the epoch.
-    for (const pendingNumber of job.getPendingCheckpointNumbers()) {
-      await job.removeCheckpoint(pendingNumber);
-    }
+    job.cancelPendingCheckpoints();
 
     // Hand the epoch off to the job for finalization. The job will run finalizeAndProve
     // immediately since pending=0 by this point.

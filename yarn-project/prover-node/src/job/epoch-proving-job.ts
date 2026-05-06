@@ -1,47 +1,39 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import type { ARCHIVE_HEIGHT } from '@aztec/constants';
+import { CheckpointNumber, type EpochNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EpochProverFactory } from '@aztec/prover-client';
-import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
-import {
-  type CheckpointSubTreeOrchestrator,
-  type CheckpointTopTreeData,
-  EpochProvingContext,
-  type SubTreeResult,
-  TopTreeCancelledError,
-  type TopTreeOrchestrator,
-} from '@aztec/prover-client/orchestrator';
-import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
-import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
-import type { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { type EpochProvingContext, TopTreeCancelledError } from '@aztec/prover-client/orchestrator';
+import type { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { CommitteeAttestation } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import {
   type EpochProvingJobState,
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
 } from '@aztec/stdlib/interfaces/server';
-import { CheckpointConstantData } from '@aztec/stdlib/rollup';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { BlockHeader, ProcessedTx, Tx } from '@aztec/stdlib/tx';
+import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import * as crypto from 'node:crypto';
 
 import type { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
+import { CheckpointJob, type CheckpointJobDeps } from './checkpoint-job.js';
 import type { EpochProvingJobData } from './epoch-proving-job-data.js';
+import { TopTreeJob, type TopTreeJobHooks, type TopTreeProof } from './top-tree-job.js';
+
+export type { EpochProvingJobState };
 
 /**
  * Hooks the test harness can install to observe or interpose around the top-tree prove
- * call without monkey-patching internal classes.
+ * call without monkey-patching internal classes. Forwarded to each `TopTreeJob` the
+ * finalize loop constructs.
  */
 export type EpochProvingJobHooks = {
   /** Called immediately before `topTree.prove(...)` is invoked. */
@@ -49,87 +41,40 @@ export type EpochProvingJobHooks = {
   /** Called after `topTree.prove(...)` returns successfully (not on failure). */
   afterTopTreeProve?: () => Promise<void> | void;
   /**
-   * If set, called instead of `topTree.prove(...)`. Receives a thunk that runs the real
-   * call. Lets tests substitute a synthetic proof or delay/throw without re-implementing
-   * the rest of the finalize flow.
+   * If set, called instead of `topTree.prove(...)`. Receives a thunk that runs the
+   * real call. Lets tests substitute a synthetic proof or delay/throw without
+   * re-implementing the rest of the finalize flow.
    */
-  topTreeProveOverride?: (
-    defaultProve: () => ReturnType<TopTreeOrchestrator['prove']>,
-  ) => ReturnType<TopTreeOrchestrator['prove']>;
+  topTreeProveOverride?: (defaultProve: () => Promise<TopTreeProof>) => Promise<TopTreeProof>;
 };
 
 export type EpochProvingJobOptions = {
   parallelBlockLimit?: number;
   skipSubmitProof?: boolean;
   /**
-   * If set, the job sleeps this many ms after `completeEpoch` (and any pending
-   * gathering settling) and before invoking `finalizeAndProve`. Lets late-arriving
-   * events (e.g. an L1 reorg's prune) be processed before the orchestrator
-   * structure is finalised.
+   * If set, the job sleeps this many ms after `completeEpoch` and before constructing
+   * the first `TopTreeJob`. Lets late-arriving events (e.g. an L1 reorg's prune) be
+   * processed before finalization runs.
    */
   finalizationDelayMs?: number;
 };
 
 /**
- * Status of a checkpoint registered with the job.
- *  - `pending`: the checkpoint has been registered. Its tx-gathering task may still be
- *    running, or `addCheckpoint` may be in progress. The entry is in `pending` until
- *    `addCheckpoint` has finished all of its orchestrator work.
- *  - `tracked`: `addCheckpoint` has completed and the checkpoint is fully added to the
- *    orchestrator.
- */
-type CheckpointStatus = 'pending' | 'tracked';
-
-/** Data tracked per checkpoint registered with the job, regardless of its status. */
-type CheckpointEntry = {
-  checkpoint: Checkpoint;
-  status: CheckpointStatus;
-  abortController: AbortController;
-  /** Index in the epoch's checkpoint list. Supplied by the caller at register time. */
-  checkpointIndex: number;
-  /** Committee attestations for this checkpoint. The job uses the highest-numbered tracked entry's at finalize time. */
-  attestations: CommitteeAttestation[];
-  /**
-   * Header of the block immediately before this checkpoint's first block. Set when
-   * `addCheckpoint` runs. Used by `getProvingData` for the lowest-numbered tracked entry
-   * (i.e. the predecessor of the epoch's first checkpoint).
-   */
-  previousBlockHeader?: BlockHeader;
-  /**
-   * Promise resolved when an in-flight `addCheckpoint` for this entry has fully unwound
-   * (success, error, or abort). Set at the start of `addCheckpoint`. `removeCheckpoint`
-   * awaits this so a subsequent re-registration of the same checkpoint number does not
-   * race with the previous `addCheckpoint`'s orchestrator work.
-   */
-  addCheckpointPromise?: Promise<void>;
-  /**
-   * The sub-tree orchestrator. Created lazily when `addCheckpoint` runs; left undefined
-   * for entries that never make it past `pending` (e.g. cancelled before their
-   * tx-gathering completes). All sub-trees share the job's single broker facade.
-   */
-  subTree?: CheckpointSubTreeOrchestrator;
-  /**
-   * Promise of the sub-tree's block-level proving result. Set when `addCheckpoint`
-   * starts driving the sub-tree, awaited by the top tree (lazily) at finalize time.
-   * The promise is intentionally not awaited inside the job before finalization — the
-   * top tree pipelines its checkpoint root rollups against this promise.
-   */
-  subTreeResult?: Promise<SubTreeResult>;
-};
-
-/** Public view of a tracked checkpoint. */
-type TrackedCheckpoint = {
-  checkpoint: Checkpoint;
-  checkpointIndex: number;
-};
-
-/**
- * Orchestrates the proving of an epoch incrementally, one checkpoint at a time.
+ * Orchestrates the proving of an epoch as a collection of self-contained jobs:
  *
- * Unlike the previous batch model, this job does not require all data upfront.
- * Checkpoints are added as they arrive from L1 via `addCheckpoint()`. When the
- * epoch is complete, `finalizeAndProve()` is called to finalize the epoch structure,
- * await the proof, and publish it to L1.
+ *   - One `CheckpointJob` per registered checkpoint, keyed by `(checkpoint number, slot)`
+ *     so that a stale orphan and its re-org replacement coexist briefly without colliding.
+ *   - One `TopTreeJob` per finalize attempt. A `removeCheckpoint` that lands while the
+ *     top tree is in flight cancels it; the loop builds a fresh `TopTreeJob` from the
+ *     surviving snapshot.
+ *
+ * The job's responsibility is to wire the registry and drive the finalize loop;
+ * everything sub-tree- or top-tree-specific lives on the respective job classes.
+ *
+ * Cancellation is fire-and-forget — `removeCheckpoint` returns synchronously after
+ * marking the matching jobs cancelled, kicking off background teardown. Each job's
+ * `whenDone()` promise is collected so the EpochProvingJob can await all in-flight
+ * work at `stop()`.
  */
 export class EpochProvingJob implements Traceable {
   private state: EpochProvingJobState = 'initialized';
@@ -139,57 +84,31 @@ export class EpochProvingJob implements Traceable {
   private runPromise: Promise<void> | undefined;
   private deadlineTimeoutHandler: NodeJS.Timeout | undefined;
 
-  /** All checkpoints registered with the job, keyed by checkpoint number. Pending and tracked alike. */
-  private checkpoints: Map<number, CheckpointEntry> = new Map();
+  /** Live checkpoint jobs, keyed by `${number}:${slot}`. */
+  private readonly checkpointJobs: Map<string, CheckpointJob> = new Map();
+  /** Cancelled jobs whose teardown is still in flight. Awaited at job stop. */
+  private readonly pendingCleanups: CheckpointJob[] = [];
+  /** The current top-tree attempt — replaced on every restart-loop iteration. */
+  private topTreeJob: TopTreeJob | undefined;
 
-  /** Accumulated data for failure upload — txs and l1ToL2Messages per checkpoint. */
-  private accumulatedTxs: Map<string, Tx> = new Map();
-  private accumulatedL1ToL2Messages: Record<number, Fr[]> = {};
-
-  /**
-   * Set true once `completeEpoch` is called, signalling that no more new checkpoints
-   * will be produced for this epoch on L1. Existing pending entries may still settle and
-   * existing tracked entries may still be removed by a re-org, but no new ones will be
-   * registered.
-   */
   private epochComplete = false;
-  /**
-   * Set once `runFinalization` has been scheduled. Prevents double-scheduling.
-   * Distinct from `finalizationStarted` because `runFinalization` may sleep for
-   * `config.finalizationDelayMs` before actually invoking `finalizeAndProve`, and
-   * during that delay `removeCheckpoint` is still allowed.
-   */
   private finalizationScheduled = false;
-  /**
-   * Set once `finalizeAndProve` has actually begun (after any configured delay).
-   * Prevents `removeCheckpoint` from mutating orchestrator state past the point
-   * where it can no longer be undone.
-   */
   private finalizationStarted = false;
-  /** Resolves when the job reaches a terminal state. Returned by `whenComplete`. */
+
   private readonly completionPromise: Promise<EpochProvingJobState>;
   private resolveCompletion!: (state: EpochProvingJobState) => void;
 
-  /** The top-tree orchestrator. Constructed inside `finalizeAndProve`. */
-  private topTree: TopTreeOrchestrator | undefined;
-
-  /**
-   * Per-epoch shared chonk-verifier proof cache. Hoisting this above the per-checkpoint
-   * sub-trees lets a tx whose original checkpoint is reorged out and re-appears in a
-   * replacement checkpoint reuse the cached proof rather than re-prove from scratch.
-   */
   private readonly epochContext: EpochProvingContext;
-
-  /** Cached prover id, captured at construction so we don't repeatedly call into the factory. */
   private readonly proverId: EthAddress;
+  private readonly checkpointJobDeps: CheckpointJobDeps;
 
   public readonly tracer: Tracer;
 
   constructor(
     private readonly epochNumber: EpochNumber,
-    private readonly dbProvider: Pick<ForkMerkleTreeOperations, 'fork'>,
+    dbProvider: Pick<ForkMerkleTreeOperations, 'fork'>,
     private readonly prover: EpochProverFactory,
-    private readonly publicProcessorFactory: PublicProcessorFactory,
+    publicProcessorFactory: PublicProcessorFactory,
     private readonly publisher: Pick<ProverNodePublisher, 'submitEpochProof' | 'analyzeEpochProofSubmission'>,
     private readonly metrics: ProverNodeJobMetrics,
     private readonly deadline: Date | undefined,
@@ -206,12 +125,22 @@ export class EpochProvingJob implements Traceable {
     this.proverId = prover.getProverId();
     this.epochContext = prover.createEpochProvingContext(epochNumber);
 
+    this.checkpointJobDeps = {
+      proverFactory: prover,
+      epochContext: this.epochContext,
+      publicProcessorFactory,
+      dbProvider,
+      proverId: this.proverId,
+      metrics,
+      deadline,
+      log: this.log,
+    };
+
     this.completionPromise = new Promise<EpochProvingJobState>(resolve => {
       this.resolveCompletion = resolve;
     });
 
     this.state = 'processing';
-
     this.scheduleDeadlineStop();
   }
 
@@ -231,379 +160,213 @@ export class EpochProvingJob implements Traceable {
     return this.deadline;
   }
 
-  /** Returns the tracked checkpoints for this job, in checkpoint-number (= index) order. */
-  public getTrackedCheckpoints(): TrackedCheckpoint[] {
-    return Array.from(this.checkpoints.values())
-      .filter(e => e.status === 'tracked')
-      .sort((a, b) => a.checkpoint.number - b.checkpoint.number)
-      .map(e => ({ checkpoint: e.checkpoint, checkpointIndex: e.checkpointIndex }));
+  /** Total number of registered (live, uncancelled) checkpoint jobs. */
+  public getCheckpointCount(): number {
+    return this.checkpointJobs.size;
   }
 
-  /** Returns the checkpoint numbers currently in pending status. */
-  public getPendingCheckpointNumbers(): CheckpointNumber[] {
-    const result: CheckpointNumber[] = [];
-    for (const entry of this.checkpoints.values()) {
-      if (entry.status === 'pending') {
-        result.push(CheckpointNumber(entry.checkpoint.number));
+  /** Sorted list of every live checkpoint number — for test/observability use. */
+  public getCheckpointNumbers(): CheckpointNumber[] {
+    return this.liveJobsSorted().map(j => CheckpointNumber(j.checkpoint.number));
+  }
+
+  /** True if the job has any live entry for this checkpoint number. */
+  public hasCheckpoint(checkpointNumber: CheckpointNumber): boolean {
+    for (const job of this.checkpointJobs.values()) {
+      if (job.checkpoint.number === checkpointNumber) {
+        return true;
       }
     }
-    return result;
+    return false;
   }
 
-  /** Returns true if the job knows about this checkpoint number (pending or tracked). */
-  public hasCheckpoint(checkpointNumber: CheckpointNumber): boolean {
-    return this.checkpoints.has(checkpointNumber);
-  }
-
-  /** Returns true if `completeEpoch` has been called for this job. */
   public isEpochComplete(): boolean {
     return this.epochComplete;
   }
 
   /**
    * Signals that the epoch is complete on L1 — no more new checkpoints will be produced.
-   * Existing pending entries may still settle (transition to tracked) and existing
-   * tracked entries may still be removed by a re-org, but no new registrations will be
-   * accepted.
-   *
-   * Idempotent. Once both `completeEpoch` has been called and there are no pending
-   * entries left, `finalizeAndProve` is run internally; await `whenComplete` to observe
-   * the result. The attestations used for finalization are taken from the
-   * highest-numbered tracked entry at finalize time.
+   * Existing jobs may still be cancelled by a re-org. Idempotent.
    */
   public completeEpoch(): void {
     this.epochComplete = true;
     this.checkStartFinalization();
   }
 
-  /**
-   * Returns a promise that resolves when the job reaches a terminal state — successful
-   * finalization, failure, timeout, or stop. The promise will not resolve until either
-   * `completeEpoch` triggers finalization or the job is stopped.
-   */
+  /** Resolves when the job reaches a terminal state (completed, failed, timed-out, stopped). */
   public whenComplete(): Promise<EpochProvingJobState> {
     return this.completionPromise;
   }
 
-  /**
-   * Registers a checkpoint with the job in `pending` status. The caller must supply:
-   *  - `checkpointIndex` — computed from the archiver as the source of truth, since
-   *    checkpoints can register and add out of order.
-   *  - `attestations` — the committee attestations for this checkpoint, as published.
-   *    The job uses the highest-numbered tracked entry's attestations at finalize time.
-   *
-   * Returns the AbortSignal that the caller should pass to its gathering task — if
-   * `removeCheckpoint` is called before the entry transitions to `tracked`, the signal
-   * is fired so the task can bail out early.
-   */
-  public registerPendingCheckpoint(
-    checkpoint: Checkpoint,
-    checkpointIndex: number,
-    attestations: CommitteeAttestation[],
-  ): AbortSignal {
-    this.checkState();
-    const key = checkpoint.number;
-    if (this.checkpoints.has(key)) {
-      throw new Error(`Checkpoint ${checkpoint.number} is already registered with the job`);
-    }
-    const abortController = new AbortController();
-    this.checkpoints.set(key, {
-      checkpoint,
-      status: 'pending',
-      abortController,
-      checkpointIndex,
-      attestations,
-    });
-    return abortController.signal;
-  }
-
   /** Returns the accumulated proving data for failure upload. */
   public getProvingData(): EpochProvingJobData {
-    // The previousBlockHeader belongs to the predecessor of the epoch's first checkpoint —
-    // i.e. the lowest-numbered tracked entry's stored header. Both the entry and its
-    // header are present whenever this is called (after at least one addCheckpoint has
-    // run on a tracked checkpoint).
-    const lowestTracked = Array.from(this.checkpoints.values())
-      .filter(e => e.status === 'tracked')
-      .sort((a, b) => a.checkpoint.number - b.checkpoint.number)[0];
+    const completedJobs = this.liveJobsSorted().filter(j => j.isCompleted());
+    const txs = new Map<string, Tx>();
+    const l1ToL2Messages: Record<number, Fr[]> = {};
+    for (const job of completedJobs) {
+      for (const [hash, tx] of job.txs) {
+        txs.set(hash, tx);
+      }
+      l1ToL2Messages[job.checkpoint.number] = job.l1ToL2Messages;
+    }
     return {
       epochNumber: this.epochNumber,
-      checkpoints: this.getTrackedCheckpoints().map(tc => tc.checkpoint),
-      txs: this.accumulatedTxs,
-      l1ToL2Messages: this.accumulatedL1ToL2Messages,
-      previousBlockHeader: lowestTracked!.previousBlockHeader!,
+      checkpoints: completedJobs.map(j => j.checkpoint),
+      txs,
+      l1ToL2Messages,
+      previousBlockHeader: completedJobs[0]!.previousBlockHeader,
       attestations: [],
     };
   }
 
   /**
-   * Adds a checkpoint to the epoch and processes its blocks immediately.
-   * Proving of block-level proofs starts as soon as blocks are processed.
-   * Can be called out of order — the orchestrator supports sparse checkpoint indices.
+   * Registers a new checkpoint job. The caller supplies all register-time data — the
+   * top tree can begin pipelined proving as soon as `completeEpoch` fires, regardless
+   * of whether the matching txs have been gathered yet.
    *
-   * The checkpoint must have been registered via `registerPendingCheckpoint` first.
-   * The entry stays in `pending` status throughout this call's async work — it only
-   * transitions to `tracked` once the orchestrator has fully accepted the checkpoint.
-   * If `removeCheckpoint` is called concurrently, the abort signal fires; this method
-   * stops doing further orchestrator work, rolls back any orchestrator state already
-   * created, and returns without throwing. `removeCheckpoint` awaits this rollback so
-   * the orchestrator slot is clean before any subsequent re-registration.
+   * Returns the abort signal owned by this job; the caller's tx-gathering task should
+   * watch it and bail out early on cancel.
    */
-  @trackSpan('EpochProvingJob.addCheckpoint', function (_cp: Checkpoint) {
+  public registerCheckpoint(
+    checkpoint: Checkpoint,
+    checkpointIndex: number,
+    attestations: CommitteeAttestation[],
+    previousBlockHeader: BlockHeader,
+    l1ToL2Messages: Fr[],
+    previousArchiveSiblingPath: Tuple<Fr, typeof ARCHIVE_HEIGHT>,
+  ): AbortSignal {
+    this.checkState();
+    const id = CheckpointJob.idFor(checkpoint);
+    if (this.checkpointJobs.has(id)) {
+      throw new Error(`Checkpoint ${id} is already registered with the job`);
+    }
+    const job = new CheckpointJob(
+      { checkpoint, checkpointIndex, attestations, previousBlockHeader, l1ToL2Messages, previousArchiveSiblingPath },
+      this.checkpointJobDeps,
+    );
+    this.checkpointJobs.set(id, job);
+    return job.getAbortSignal();
+  }
+
+  /**
+   * Hand transactions to the matching checkpoint job. No-op if the job was cancelled
+   * while txs were being gathered. The call returns once block-level enqueue is done;
+   * sub-tree proving continues asynchronously.
+   */
+  @trackSpan('EpochProvingJob.provideTxs', function (_cp: Checkpoint) {
     return { [Attributes.EPOCH_NUMBER]: this.epochNumber };
   })
-  public async addCheckpoint(
-    checkpoint: Checkpoint,
-    txs: Map<string, Tx>,
-    l1ToL2Messages: Fr[],
-    previousBlockHeader: BlockHeader,
-  ) {
+  public async provideTxs(checkpoint: Checkpoint, txs: Map<string, Tx>): Promise<void> {
     this.checkState();
-
-    const key = checkpoint.number;
-    const entry = this.checkpoints.get(key);
-    if (!entry || entry.status !== 'pending') {
-      throw new Error(
-        `Checkpoint ${checkpoint.number} is not registered as pending — was it removed before tx gathering completed?`,
-      );
+    const job = this.checkpointJobs.get(CheckpointJob.idFor(checkpoint));
+    if (!job || job.isCancelled()) {
+      // Job removed while txs were being gathered; the gather caller's signal already fired.
+      return;
     }
-    if (entry.addCheckpointPromise) {
-      throw new Error(`addCheckpoint already in flight for checkpoint ${checkpoint.number}`);
-    }
-
-    let resolveAddCheckpoint: () => void = () => {};
-    entry.addCheckpointPromise = new Promise<void>(resolve => {
-      resolveAddCheckpoint = resolve;
-    });
-
-    const signal = entry.abortController.signal;
-    let subTreeStarted = false;
-    // Index was supplied at register time by the caller (computed from the archiver).
-    const checkpointIndex = entry.checkpointIndex;
-
     try {
-      // Stash the predecessor header on the entry; getProvingData reads it from the
-      // lowest-numbered tracked entry at upload time.
-      entry.previousBlockHeader = previousBlockHeader;
-
-      // Accumulate data for potential failure upload.
-      for (const [hash, tx] of txs) {
-        this.accumulatedTxs.set(hash, tx);
-      }
-      this.accumulatedL1ToL2Messages[checkpoint.number] = l1ToL2Messages;
-
-      const checkpointTimer = new Timer();
-
-      const { chainId, version } = checkpoint.blocks[0].header.globalVariables;
-      const checkpointConstants = CheckpointConstantData.from({
-        chainId,
-        version,
-        vkTreeRoot: getVKTreeRoot(),
-        protocolContractsHash: protocolContractsHash,
-        proverId: this.proverId.toField(),
-        slotNumber: checkpoint.header.slotNumber,
-        coinbase: checkpoint.header.coinbase,
-        feeRecipient: checkpoint.header.feeRecipient,
-        gasFees: checkpoint.header.gasFees,
-      });
-
-      this.log.verbose(`Starting processing checkpoint ${checkpoint.number}`, {
-        number: checkpoint.number,
-        checkpointHash: checkpoint.hash().toString(),
-        checkpointIndex,
-        uuid: this.uuid,
-      });
-
-      // Spin up a fresh sub-tree orchestrator for this checkpoint, fully started — it
-      // is wired to the prover-client's shared broker facade and the job's per-epoch
-      // chonk-verifier cache, and has driven its single internal `startNewCheckpoint`
-      // already.
-      const subTree = await this.prover.createCheckpointSubTreeOrchestrator(
-        this.epochContext,
-        checkpointConstants,
-        l1ToL2Messages,
-        checkpoint.blocks.length,
-        previousBlockHeader,
-      );
-      entry.subTree = subTree;
-      subTreeStarted = true;
-      // Capture the result promise immediately. The top tree awaits it lazily at finalize
-      // time so checkpoint-root rollups can pipeline against in-flight block proving.
-      entry.subTreeResult = subTree.getSubTreeResult();
-      if (signal.aborted) {
-        return;
-      }
-
-      // Start chonk verifier for public txs in this checkpoint.
-      const allTxs = checkpoint.blocks.flatMap(block =>
-        block.body.txEffects.map(txEffect => txs.get(txEffect.txHash.toString())!),
-      );
-      const publicTxs = allTxs.filter(tx => tx?.data.forPublic);
-      if (publicTxs.length > 0) {
-        await subTree.startChonkVerifierCircuits(publicTxs);
-        if (signal.aborted) {
-          return;
-        }
-      }
-
-      // Process each block in the checkpoint.
-      for (let blockIndex = 0; blockIndex < checkpoint.blocks.length; blockIndex++) {
-        const blockTimer = new Timer();
-        const block = checkpoint.blocks[blockIndex];
-        const globalVariables = block.header.globalVariables;
-        const blockTxs = this.getTxsForBlock(block, txs);
-
-        this.log.verbose(`Starting processing block ${block.number}`, {
-          number: block.number,
-          blockHash: (await block.hash()).toString(),
-          numTxs: blockTxs.length,
-        });
-
-        await subTree.startNewBlock(block.number, globalVariables.timestamp, blockTxs.length);
-        if (signal.aborted) {
-          return;
-        }
-
-        // L1 to L2 messages are only inserted for the first block of a checkpoint.
-        const db = await this.createFork(BlockNumber(block.number - 1), blockIndex === 0 ? l1ToL2Messages : undefined);
-        try {
-          if (signal.aborted) {
-            return;
-          }
-          const config = PublicSimulatorConfig.from({
-            proverId: this.proverId.toField(),
-            skipFeeEnforcement: false,
-            collectDebugLogs: false,
-            collectHints: true,
-            collectPublicInputs: true,
-            collectStatistics: false,
-          });
-          const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
-          const processed = await this.processTxs(publicProcessor, blockTxs);
-          if (signal.aborted) {
-            return;
-          }
-          await subTree.addTxs(processed);
-        } finally {
-          await db.close();
-        }
-        if (signal.aborted) {
-          return;
-        }
-
-        this.log.verbose(`Processed all ${blockTxs.length} txs for block ${block.number}`, {
-          blockNumber: block.number,
-          uuid: this.uuid,
-        });
-
-        await subTree.setBlockCompleted(block.number, block.header);
-        this.metrics.recordBlockProcessing(blockTimer.ms());
-        if (signal.aborted) {
-          return;
-        }
-      }
-
-      entry.status = 'tracked';
-      this.metrics.recordCheckpointProcessing(checkpointTimer.ms());
+      await job.provideTxs(txs);
     } finally {
-      // If we did not transition to tracked, tear down the sub-tree we may have created.
-      // This covers abort, thrown errors, and the entry being deleted concurrently.
-      if (entry.status !== 'tracked' && (subTreeStarted || entry.subTree)) {
-        this.log.info(`Rolling back sub-tree for checkpoint ${checkpoint.number}`, {
-          checkpointNumber: checkpoint.number,
-          epochNumber: this.epochNumber,
-        });
-        await this.teardownSubTree(entry);
-      }
-      resolveAddCheckpoint();
-      // The pending count just dropped (the entry either transitioned to 'tracked' or
-      // its slot was removed). If the epoch has been marked complete, this may have been
-      // the last pending and finalization should kick off.
+      // A successful provideTxs may have been the last piece of work the finalize
+      // loop was waiting on (e.g. completeEpoch fired earlier).
       this.checkStartFinalization();
     }
   }
 
   /**
-   * Cancels the sub-tree (if started). Called when an entry is removed or rolled back.
-   * Idempotent. The shared broker facade is left running — `teardownAllOrchestrators`
-   * stops it once at job teardown.
+   * Removes every live job with the given checkpoint number. Idempotent — a second
+   * call with the same number is a no-op. Identity is `(number, slot)`, so a fresh
+   * registration at the same number after a remove gets a separate job that this
+   * call will not affect.
+   *
+   * Fire-and-forget: synchronously marks each matching job cancelled and queues their
+   * teardown for awaiting at `stop()`. If the in-flight `TopTreeJob` includes any of
+   * the removed jobs in its snapshot, it is cancelled too — the finalize loop catches
+   * `TopTreeCancelledError` and constructs a fresh `TopTreeJob` from the surviving set.
+   *
+   * Returns true if any live job was removed.
    */
-  private async teardownSubTree(entry: CheckpointEntry) {
-    const { subTree } = entry;
-    entry.subTree = undefined;
-    entry.subTreeResult = undefined;
-    if (subTree) {
-      try {
-        await subTree.stop();
-      } catch (err) {
-        this.log.error('Error stopping sub-tree', err);
-      }
-    }
-  }
-
-  /**
-   * Removes a specific checkpoint from the job. Used for L1 prune handling.
-   * Handles whatever status the checkpoint is in:
-   *  - `pending`: aborts the gathering task and any in-flight `addCheckpoint`. Awaits
-   *    the rollback of orchestrator state so the next call sees a clean slot — important
-   *    when a re-org delivers a replacement checkpoint with the same number.
-   *  - `tracked`: cancels its sub-tree and drops the entry. If the top tree is in flight,
-   *    cancels it too — `finalizeAndProve` catches the cancellation and rebuilds with the
-   *    surviving set. Bound only by `this.deadline`; no retry counter.
-   *  - Job is in a terminal state: no-op (caller should cancel the whole job).
-   * Returns true if the checkpoint was known to the job.
-   */
-  public async removeCheckpoint(checkpointNumber: CheckpointNumber): Promise<boolean> {
+  public removeCheckpoint(checkpointNumber: CheckpointNumber): boolean {
     if (EpochProvingJobTerminalState.includes(this.state)) {
       return false;
     }
-
-    const key = checkpointNumber;
-    const entry = this.checkpoints.get(key);
-    if (!entry) {
+    const removed: CheckpointJob[] = [];
+    for (const [id, job] of this.checkpointJobs) {
+      if (job.checkpoint.number === checkpointNumber) {
+        job.cancel();
+        this.pendingCleanups.push(job);
+        this.checkpointJobs.delete(id);
+        removed.push(job);
+      }
+    }
+    if (removed.length === 0) {
       return false;
     }
 
-    if (entry.status === 'pending') {
-      entry.abortController.abort();
-      // If `addCheckpoint` is mid-flight for this entry, wait for it to finish unwinding
-      // (its `finally` tears down the sub-tree). This guarantees that a subsequent
-      // re-registration of the same checkpoint number sees a clean slot.
-      if (entry.addCheckpointPromise) {
-        await entry.addCheckpointPromise;
+    this.log.info(`Removed checkpoint ${checkpointNumber} from epoch ${this.epochNumber}`, {
+      epochNumber: this.epochNumber,
+      checkpointNumber,
+      removedJobs: removed.length,
+    });
+
+    if (this.topTreeJob && !this.topTreeJob.isCancelled()) {
+      const topTreeUsesRemoved = this.topTreeJob.snapshot.some(j => j.checkpoint.number === checkpointNumber);
+      if (topTreeUsesRemoved) {
+        this.log.warn(`Cancelling top-tree mid-flight; finalize will restart with surviving checkpoints`, {
+          epochNumber: this.epochNumber,
+          removedCheckpoint: checkpointNumber,
+        });
+        this.topTreeJob.cancel();
       }
-      this.checkpoints.delete(key);
-      this.log.info(`Cancelled pending checkpoint ${checkpointNumber} from epoch ${this.epochNumber}`);
-      // Pending count just dropped — finalization may now be ready.
-      this.checkStartFinalization();
-      return true;
     }
 
-    // Tracked entry: cancel its sub-tree. Each sub-tree owns its own state, so removing
-    // one does not affect the others — the per-checkpoint coupling that today's monolithic
-    // orchestrator carried is gone in this design.
-    if (entry.subTree) {
-      entry.subTree.cancel();
-    }
-    await this.teardownSubTree(entry);
-    this.checkpoints.delete(key);
-    this.log.info(`Removed tracked checkpoint ${checkpointNumber} from epoch ${this.epochNumber}`);
-
-    // If the top tree is in flight, cancel it. The catch arm in `finalizeAndProve`
-    // detects the `TopTreeCancelledError` and restarts the loop with the surviving set.
-    if (this.topTree) {
-      this.log.warn(`Cancelling top-tree mid-flight; finalize will restart with surviving checkpoints`, {
-        epochNumber: this.epochNumber,
-        removedCheckpoint: checkpointNumber,
-      });
-      this.topTree.cancel({ abortJobs: true });
-    }
+    this.checkStartFinalization();
     return true;
   }
 
   /**
-   * Internal: starts finalization if all conditions are met (epoch marked complete, no
-   * pending entries, not already started, not in a terminal state). Idempotent.
+   * Removes every live job with `checkpoint.number > thresholdCheckpointNumber`. Used by
+   * the prune path to drop everything above the surviving prefix in one call. Returns
+   * the number of jobs removed.
+   */
+  public removeCheckpointsAfter(thresholdCheckpointNumber: CheckpointNumber): number {
+    if (EpochProvingJobTerminalState.includes(this.state)) {
+      return 0;
+    }
+    const numbersToRemove = new Set<CheckpointNumber>();
+    for (const job of this.checkpointJobs.values()) {
+      if (job.checkpoint.number > thresholdCheckpointNumber) {
+        numbersToRemove.add(CheckpointNumber(job.checkpoint.number));
+      }
+    }
+    let removed = 0;
+    for (const n of numbersToRemove) {
+      if (this.removeCheckpoint(n)) {
+        removed++;
+      }
+    }
+    return removed;
+  }
+
+  /**
+   * Cancels every live job that has not yet been provided txs. Used by `startProof` to
+   * drop in-flight gather tasks queued by a parallel L2BlockStream-driven path so that
+   * `completeEpoch` can finalize against the synchronously-loaded set instead.
+   */
+  public cancelPendingCheckpoints(): void {
+    const toCancel = new Set<CheckpointNumber>();
+    for (const job of this.checkpointJobs.values()) {
+      if (!job.isCompleted()) {
+        toCancel.add(CheckpointNumber(job.checkpoint.number));
+      }
+    }
+    for (const n of toCancel) {
+      this.removeCheckpoint(n);
+    }
+  }
+
+  /**
+   * Internal: starts finalization if the epoch is marked complete and at least one
+   * checkpoint is registered. Idempotent.
    */
   private checkStartFinalization() {
     if (!this.epochComplete || this.finalizationScheduled) {
@@ -612,59 +375,26 @@ export class EpochProvingJob implements Traceable {
     if (EpochProvingJobTerminalState.includes(this.state)) {
       return;
     }
-    if (this.checkpoints.size === 0) {
+    if (this.checkpointJobs.size === 0) {
       return;
-    }
-    for (const entry of this.checkpoints.values()) {
-      if (entry.status === 'pending') {
-        return;
-      }
     }
     this.finalizationScheduled = true;
     void this.runFinalization();
   }
 
-  /**
-   * Internal: drives the full finalization flow (finalizeAndProve) and resolves the
-   * completion promise with the final state. Errors are absorbed — `finalizeAndProve`
-   * already maps them to a `failed` state. Attestations are taken from the
-   * highest-numbered tracked entry, which is the one whose attestations the L1 contract
-   * verifies.
-   *
-   * If `config.finalizationDelayMs` is set, this sleeps for that duration before
-   * invoking `finalizeAndProve` — `removeCheckpoint` is still allowed during the delay,
-   * so a late-arriving prune can still mutate orchestrator state. After the delay we
-   * re-check that there are no pending entries; if a new one appeared we postpone and
-   * let the next `checkStartFinalization` call retry.
-   */
   private async runFinalization(): Promise<void> {
     const delayMs = this.config.finalizationDelayMs;
     if (delayMs && delayMs > 0) {
       this.log.warn(`Waiting ${delayMs}ms before finalising epoch ${this.epochNumber}`);
       await sleep(delayMs);
-      // After the delay, bail if the job was stopped or a new pending entry appeared
-      // (e.g. a re-org replacement registered while we were sleeping). Resetting the
-      // scheduled flag lets the next `checkStartFinalization` call retry once pending
-      // settles back to zero.
       if (EpochProvingJobTerminalState.includes(this.state)) {
         this.resolveCompletion(this.state);
         return;
       }
-      for (const entry of this.checkpoints.values()) {
-        if (entry.status === 'pending') {
-          this.log.info(`Pending checkpoint ${entry.checkpoint.number} appeared during finalisation delay; postponing`);
-          this.finalizationScheduled = false;
-          return;
-        }
-      }
     }
     this.finalizationStarted = true;
-    const tracked = this.getTrackedCheckpoints();
-    const highestTrackedNumber = tracked.at(-1)?.checkpoint.number;
-    const attestations =
-      highestTrackedNumber !== undefined ? (this.checkpoints.get(highestTrackedNumber)?.attestations ?? []) : [];
     try {
-      await this.finalizeAndProve(attestations);
+      await this.finalizeAndProve();
     } catch (err) {
       this.log.error(`Unexpected error during finalization`, err);
     } finally {
@@ -673,17 +403,18 @@ export class EpochProvingJob implements Traceable {
   }
 
   /**
-   * Finalizes the epoch structure, awaits the proof, and publishes it to L1.
-   * Called when the epoch is confirmed complete on L1.
+   * Finalize loop: build a `TopTreeJob` from the live snapshot, await its result.
+   * On `TopTreeCancelledError`, snapshot again and rebuild. On terminal failure
+   * (zero survivors, deadline, etc.), mark the epoch failed.
    */
   @trackSpan('EpochProvingJob.finalizeAndProve', function () {
     return { [Attributes.EPOCH_NUMBER]: this.epochNumber };
   })
-  public async finalizeAndProve(attestations: CommitteeAttestation[]) {
+  public async finalizeAndProve() {
     this.checkState();
     const timer = new Timer();
 
-    this.log.info(`Finalizing epoch ${this.epochNumber} with ${this.getTrackedCheckpoints().length} checkpoints`, {
+    this.log.info(`Finalizing epoch ${this.epochNumber} with ${this.checkpointJobs.size} checkpoints`, {
       epochNumber: this.epochNumber,
       uuid: this.uuid,
     });
@@ -692,21 +423,24 @@ export class EpochProvingJob implements Traceable {
     this.runPromise = promise;
 
     try {
-      // Restart loop: a `removeCheckpoint` that lands while the top tree is in flight
-      // cancels it (`TopTreeCancelledError`); the catch arm rebuilds with the surviving
-      // checkpoint set and tries again. Bound only by `this.deadline`.
       let attempt = 0;
       while (true) {
         attempt++;
         this.checkState();
 
-        const trackedCheckpoints = this.getTrackedCheckpoints();
-        const checkpointCount = trackedCheckpoints.length;
-        if (checkpointCount === 0) {
+        const snapshot = this.liveJobsSorted();
+        if (snapshot.length === 0) {
           throw new Error(`Cannot finalize epoch ${this.epochNumber}: no surviving checkpoints`);
         }
-        const fromCheckpoint = trackedCheckpoints[0].checkpoint.number;
-        const toCheckpoint = trackedCheckpoints.at(-1)!.checkpoint.number;
+
+        const topTreeJob = new TopTreeJob(this.epochNumber, snapshot, {
+          proverFactory: this.prover,
+          metrics: this.metrics,
+          log: this.log,
+          hooks: this.toTopTreeHooks(),
+        });
+        this.topTreeJob = topTreeJob;
+        const { fromCheckpoint, toCheckpoint, count } = topTreeJob.getRange();
 
         if (attempt > 1) {
           this.log.warn(`Restarting top-tree prove with surviving checkpoints`, {
@@ -714,133 +448,37 @@ export class EpochProvingJob implements Traceable {
             attempt,
             fromCheckpoint,
             toCheckpoint,
-            checkpointCount,
+            checkpointCount: count,
             uuid: this.uuid,
           });
         }
 
-        // Compute blob challenges from the surviving checkpoints. The challenges only need
-        // each checkpoint's blob fields — archiver-derivable — so this can run before any
-        // sub-tree's block-level proving completes. Recomputed every attempt because the
-        // surviving set may have changed since the previous attempt.
-        const blobTimer = new Timer();
-        const blobFieldsPerCheckpoint = trackedCheckpoints.map(tc => tc.checkpoint.toBlobFields());
-        const finalBlobBatchingChallenges = await buildFinalBlobChallenges(blobFieldsPerCheckpoint);
-        this.metrics.recordBlobProcessing(blobTimer.ms());
-
-        // Assemble per-checkpoint top-tree data. `blockProofs` is intentionally an unawaited
-        // promise: the top tree pre-computes its hint chain immediately and starts each
-        // checkpoint's root rollup the moment its specific sub-tree finishes block proving.
-        const checkpointData: CheckpointTopTreeData[] = trackedCheckpoints.map(tc => {
-          const entry = this.checkpoints.get(tc.checkpoint.number);
-          if (!entry || !entry.subTree || !entry.subTreeResult || !entry.previousBlockHeader) {
-            throw new Error(`Sub-tree state missing for tracked checkpoint ${tc.checkpoint.number}`);
-          }
-          return {
-            blockProofs: entry.subTreeResult.then(r => r.blockProofOutputs),
-            l2ToL1MsgsPerBlock: entry.checkpoint.blocks.map(b => b.body.txEffects.map(tx => tx.l2ToL1Msgs)),
-            blobFields: entry.checkpoint.toBlobFields(),
-            previousBlockHeader: entry.previousBlockHeader,
-            previousArchiveSiblingPath: entry.subTree.getPreviousArchiveSiblingPath(),
-          };
-        });
-
-        // Spin up the top tree wired to the prover-client's shared broker facade. The
-        // top-tree pipelines its checkpoint root rollups against the sub-tree promises.
-        const topTree = this.prover.createTopTreeOrchestrator();
-        this.topTree = topTree;
-
-        const executionTime = timer.ms();
-
-        // Await the final epoch proof. Hooks let tests interpose without monkey-patching.
         this.progressState('awaiting-prover');
-
-        const defaultProve = () =>
-          topTree.prove(this.epochNumber, checkpointCount, finalBlobBatchingChallenges, checkpointData);
-
-        let publicInputs;
-        let proof;
-        let batchedBlobInputs;
+        let proof: TopTreeProof;
         try {
-          await this.hooks?.beforeTopTreeProve?.();
-          ({ publicInputs, proof, batchedBlobInputs } = await (this.hooks?.topTreeProveOverride
-            ? this.hooks.topTreeProveOverride(defaultProve)
-            : defaultProve()));
-          await this.hooks?.afterTopTreeProve?.();
+          proof = await topTreeJob.start();
         } catch (err) {
           if (err instanceof TopTreeCancelledError) {
-            // A `removeCheckpoint` landed mid-prove. Drop the cancelled top tree and
-            // restart the loop with the surviving checkpoint set.
             this.log.info(`Top-tree cancelled by removeCheckpoint; will restart`, {
               epochNumber: this.epochNumber,
               uuid: this.uuid,
             });
-            this.topTree = undefined;
-            try {
-              await topTree.stop();
-            } catch (stopErr) {
-              this.log.error('Error stopping cancelled top tree', stopErr);
-            }
+            this.topTreeJob = undefined;
+            await topTreeJob.stop();
             continue;
           }
           throw err;
         }
-        this.topTree = undefined;
+        this.topTreeJob = undefined;
+
         this.log.info(`Finalized proof for epoch ${this.epochNumber}`, {
           epochNumber: this.epochNumber,
           uuid: this.uuid,
           duration: timer.ms(),
         });
 
-        // Publish the proof.
         this.progressState('publishing-proof');
-
-        const viemAttestations = attestations.map(a => a.toViem());
-        const epochSizeBlocks = trackedCheckpoints.reduce((acc, tc) => acc + tc.checkpoint.blocks.length, 0);
-        const epochSizeTxs = trackedCheckpoints.reduce(
-          (acc, tc) => acc + tc.checkpoint.blocks.reduce((bAcc, block) => bAcc + block.body.txEffects.length, 0),
-          0,
-        );
-
-        if (this.config.skipSubmitProof) {
-          this.log.info(`Proof publishing is disabled. Analyzing estimated L1 fees for epoch ${this.epochNumber}`);
-          try {
-            await this.publisher.analyzeEpochProofSubmission({
-              fromCheckpoint,
-              toCheckpoint,
-              epochNumber: this.epochNumber,
-              publicInputs,
-              proof,
-              batchedBlobInputs,
-              attestations: viemAttestations,
-            });
-          } catch (err) {
-            this.log.warn(`Failed to analyze estimated L1 fees for epoch ${this.epochNumber}`, err);
-          }
-          this.state = 'completed';
-          this.metrics.recordProvingJob(executionTime, timer.ms(), checkpointCount, epochSizeBlocks, epochSizeTxs);
-          return;
-        }
-
-        const success = await this.publisher.submitEpochProof({
-          fromCheckpoint,
-          toCheckpoint,
-          epochNumber: this.epochNumber,
-          publicInputs,
-          proof,
-          batchedBlobInputs,
-          attestations: viemAttestations,
-        });
-        if (!success) {
-          throw new Error('Failed to submit epoch proof to L1');
-        }
-
-        this.log.info(
-          `Submitted proof for epoch ${this.epochNumber} (checkpoints ${fromCheckpoint} to ${toCheckpoint})`,
-          { epochNumber: this.epochNumber, uuid: this.uuid },
-        );
-        this.state = 'completed';
-        this.metrics.recordProvingJob(executionTime, timer.ms(), checkpointCount, epochSizeBlocks, epochSizeTxs);
+        await this.publishProof(snapshot, proof, fromCheckpoint, toCheckpoint, count, timer);
         return;
       }
     } catch (err: any) {
@@ -866,84 +504,101 @@ export class EpochProvingJob implements Traceable {
     }
   }
 
+  private async publishProof(
+    snapshot: CheckpointJob[],
+    proof: TopTreeProof,
+    fromCheckpointNumber: number,
+    toCheckpointNumber: number,
+    checkpointCount: number,
+    timer: Timer,
+  ) {
+    const fromCheckpoint = CheckpointNumber(fromCheckpointNumber);
+    const toCheckpoint = CheckpointNumber(toCheckpointNumber);
+    // Attestations come from the highest-numbered registered job — that's the one
+    // whose attestations the L1 contract checks for the proven range.
+    const attestations = snapshot.at(-1)!.attestations.map(a => a.toViem());
+    const epochSizeBlocks = snapshot.reduce((acc, j) => acc + j.checkpoint.blocks.length, 0);
+    const epochSizeTxs = snapshot.reduce(
+      (acc, j) => acc + j.checkpoint.blocks.reduce((bAcc, block) => bAcc + block.body.txEffects.length, 0),
+      0,
+    );
+
+    if (this.config.skipSubmitProof) {
+      this.log.info(`Proof publishing is disabled. Analyzing estimated L1 fees for epoch ${this.epochNumber}`);
+      try {
+        await this.publisher.analyzeEpochProofSubmission({
+          fromCheckpoint,
+          toCheckpoint,
+          epochNumber: this.epochNumber,
+          publicInputs: proof.publicInputs,
+          proof: proof.proof,
+          batchedBlobInputs: proof.batchedBlobInputs,
+          attestations,
+        });
+      } catch (err) {
+        this.log.warn(`Failed to analyze estimated L1 fees for epoch ${this.epochNumber}`, err);
+      }
+      this.state = 'completed';
+      this.metrics.recordProvingJob(timer.ms(), timer.ms(), checkpointCount, epochSizeBlocks, epochSizeTxs);
+      return;
+    }
+
+    const success = await this.publisher.submitEpochProof({
+      fromCheckpoint,
+      toCheckpoint,
+      epochNumber: this.epochNumber,
+      publicInputs: proof.publicInputs,
+      proof: proof.proof,
+      batchedBlobInputs: proof.batchedBlobInputs,
+      attestations,
+    });
+    if (!success) {
+      throw new Error('Failed to submit epoch proof to L1');
+    }
+
+    this.log.info(`Submitted proof for epoch ${this.epochNumber} (checkpoints ${fromCheckpoint} to ${toCheckpoint})`, {
+      epochNumber: this.epochNumber,
+      uuid: this.uuid,
+    });
+    this.state = 'completed';
+    this.metrics.recordProvingJob(timer.ms(), timer.ms(), checkpointCount, epochSizeBlocks, epochSizeTxs);
+  }
+
   /**
-   * Stops every sub-tree, the top tree (if started), and the per-epoch chonk-verifier
-   * cache. The shared broker facade is owned by the prover-client and outlives every
-   * job, so it is not stopped here.
+   * Stops every checkpoint job, the top tree job (if started), and the per-epoch
+   * chonk-verifier cache. The shared broker facade is owned by the prover-client
+   * and outlives every job, so it is not stopped here.
    */
   private async teardownAllOrchestrators() {
-    for (const entry of this.checkpoints.values()) {
-      if (entry.subTree) {
-        await this.teardownSubTree(entry);
-      }
+    for (const job of this.checkpointJobs.values()) {
+      job.cancel();
+      this.pendingCleanups.push(job);
     }
-    if (this.topTree) {
+    this.checkpointJobs.clear();
+
+    if (this.topTreeJob) {
+      this.topTreeJob.cancel();
       try {
-        await this.topTree.stop();
+        await this.topTreeJob.stop();
       } catch (err) {
         this.log.error('Error stopping top tree', err);
       }
-      this.topTree = undefined;
+      this.topTreeJob = undefined;
     }
+
+    await Promise.allSettled(this.pendingCleanups.map(j => j.whenDone()));
+    this.pendingCleanups.length = 0;
+
     this.epochContext.stop();
   }
 
-  /**
-   * Create a new db fork for tx processing, optionally inserting L1 to L2 messages.
-   * L1 to L2 messages should only be inserted for the first block in a checkpoint,
-   * as subsequent blocks' synced state already includes them.
-   */
-  private async createFork(blockNumber: BlockNumber, l1ToL2Messages: Fr[] | undefined) {
-    this.log.verbose(`Creating fork at ${blockNumber}`, { blockNumber });
-    const db = await this.dbProvider.fork(blockNumber);
-
-    if (l1ToL2Messages !== undefined) {
-      this.log.verbose(`Inserting ${l1ToL2Messages.length} L1 to L2 messages in fork`, {
-        blockNumber,
-        l1ToL2Messages: l1ToL2Messages.map(m => m.toString()),
-      });
-      const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
-        l1ToL2Messages,
-        Fr.ZERO,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        'Too many L1 to L2 messages',
-      );
-      await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
-    }
-
-    return db;
-  }
-
-  private progressState(state: EpochProvingJobState) {
-    this.checkState();
+  public async stop(state: EpochProvingJobState = 'stopped') {
     this.state = state;
-  }
-
-  private checkState() {
-    if (this.state === 'timed-out' || this.state === 'stopped' || this.state === 'failed' || this.state === 'reorg') {
-      throw new HaltExecutionError(this.state);
-    }
-  }
-
-  public async stop(state: EpochProvingJobTerminalState = 'stopped') {
-    this.state = state;
-    for (const entry of this.checkpoints.values()) {
-      if (entry.status === 'pending') {
-        entry.abortController.abort();
-      }
-      // Cancel each sub-tree synchronously so its deferred queue drains; teardown awaits
-      // the actual stop in `teardownAllOrchestrators` below.
-      entry.subTree?.cancel();
-    }
-    this.topTree?.cancel({ abortJobs: false });
     await this.teardownAllOrchestrators();
-    this.checkpoints.clear();
     if (this.runPromise) {
       await this.runPromise;
     }
-    // Resolve the completion promise so any awaiter unblocks. The `finally` in
-    // runFinalization also resolves it, but resolving twice is safe (the first wins)
-    // and we need to handle the case where finalization never started.
+    // Resolve completion in case finalization never started.
     this.resolveCompletion(this.state);
   }
 
@@ -972,28 +627,35 @@ export class EpochProvingJob implements Traceable {
     }
   }
 
-  private getTxsForBlock(block: L2Block, txs: Map<string, Tx>): Tx[] {
-    return block.body.txEffects.map(txEffect => txs.get(txEffect.txHash.toString())!);
+  private progressState(state: EpochProvingJobState) {
+    this.checkState();
+    this.state = state;
   }
 
-  private async processTxs(publicProcessor: PublicProcessor, txs: Tx[]): Promise<ProcessedTx[]> {
-    const { deadline } = this;
-    const [processedTxs, failedTxs] = await publicProcessor.process(txs, { deadline });
-
-    if (failedTxs.length) {
-      const failedTxHashes = await Promise.all(failedTxs.map(({ tx }) => tx.getTxHash()));
-      throw new Error(
-        `Txs failed processing: ${failedTxs
-          .map(({ error }, index) => `${failedTxHashes[index]} (${error})`)
-          .join(', ')}`,
-      );
+  private checkState() {
+    if (this.state === 'timed-out' || this.state === 'stopped' || this.state === 'failed' || this.state === 'reorg') {
+      throw new HaltExecutionError(this.state);
     }
+  }
 
-    if (processedTxs.length !== txs.length) {
-      throw new Error(`Failed to process all txs: processed ${processedTxs.length} out of ${txs.length}`);
+  /** Snapshot of live (registered, uncancelled) jobs in checkpoint-number order. */
+  private liveJobsSorted(): CheckpointJob[] {
+    return Array.from(this.checkpointJobs.values()).sort((a, b) => a.checkpoint.number - b.checkpoint.number);
+  }
+
+  private toTopTreeHooks(): TopTreeJobHooks | undefined {
+    if (!this.hooks) {
+      return undefined;
     }
-
-    return processedTxs;
+    const { beforeTopTreeProve, afterTopTreeProve, topTreeProveOverride } = this.hooks;
+    if (!beforeTopTreeProve && !afterTopTreeProve && !topTreeProveOverride) {
+      return undefined;
+    }
+    return {
+      beforeProve: beforeTopTreeProve,
+      afterProve: afterTopTreeProve,
+      proveOverride: topTreeProveOverride,
+    };
   }
 }
 
@@ -1003,5 +665,3 @@ class HaltExecutionError extends Error {
     this.name = 'HaltExecutionError';
   }
 }
-
-export { type EpochProvingJobState };

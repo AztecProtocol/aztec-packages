@@ -385,7 +385,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       if (!inFlightJob) {
         throw new Error(`No in-flight job for epoch ${currentEpoch}`);
       }
-      const trackedBeforeReorg = inFlightJob.getTrackedCheckpoints().length;
+      const trackedBeforeReorg = inFlightJob.getCheckpointCount();
 
       // Stop block production so no replacement comes in.
       await context.aztecNodeAdmin!.setConfig({ skipPublishingCheckpointsPercent: 100 });
@@ -416,13 +416,13 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       // the surviving checkpoints. Without this wait we'd race the L2BlockStream
       // poll and risk top tree #1 starting its real prove before cancellation lands.
       await retryUntil(
-        () => Promise.resolve(inFlightJob.getTrackedCheckpoints().length < trackedBeforeReorg),
+        () => Promise.resolve(inFlightJob.getCheckpointCount() < trackedBeforeReorg),
         'prover-node sees the prune and trims the in-flight job',
         30,
         0.2,
       );
       logger.info(
-        `Prover-node trimmed in-flight job: ${trackedBeforeReorg} → ${inFlightJob.getTrackedCheckpoints().length} tracked checkpoints`,
+        `Prover-node trimmed in-flight job: ${trackedBeforeReorg} → ${inFlightJob.getCheckpointCount()} tracked checkpoints`,
       );
 
       // Release the gate. The cancelled top tree #1 short-circuits with

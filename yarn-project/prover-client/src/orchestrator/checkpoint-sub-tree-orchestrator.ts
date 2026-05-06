@@ -144,15 +144,14 @@ export class CheckpointSubTreeOrchestrator extends ProvingOrchestrator {
   }
 
   /**
-   * The epoch is started in the constructor; explicit re-entry is a programmer error.
+   * The epoch is started in the constructor.
    */
   public override startNewEpoch(_epochNumber: EpochNumber): void {
     throw new Error('CheckpointSubTreeOrchestrator starts its epoch in the constructor; do not call startNewEpoch.');
   }
 
   /**
-   * The sub-tree must never escalate to checkpoint root rollup. Calling
-   * `finalizeEpochStructure` is a programmer error — the boundary is `getSubTreeResult`.
+   * The sub-tree must never escalate to checkpoint root rollup.
    */
   public override finalizeEpochStructure(
     _totalNumCheckpoints: number,
@@ -164,8 +163,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingOrchestrator {
   }
 
   /**
-   * The single internal checkpoint is started by the `start` factory; explicit calls
-   * from outside are a programmer error.
+   * The single internal checkpoint is started by the `start` factory
    */
   public override startNewCheckpoint(
     _checkpointIndex: number,

@@ -38,30 +38,19 @@ import { ProvingAgent } from '../proving_broker/proving_agent.js';
  * every orchestrator (every sub-tree and every top-tree across every concurrent epoch
  * job). The broker delivers each completed-job notification exactly once (drained on
  * the first `getCompletedJobs` poll), so multiple facades polling the same broker
- * race and lose notifications until a 30s snapshot-sync catches up — which exceeds
- * the proof deadline for short epochs.
+ * race and lose notifications
  *
  * The facade's job map cleans up entries on resolve/reject, and the prover-node
- * keeps `ProverClient` alive for its whole lifetime, so the long-lived singleton is
- * safe and is the simplest design.
+ * keeps `ProverClient` alive for its whole lifetime
  */
 export interface EpochProverFactory {
   getProverId(): EthAddress;
   /**
-   * Constructs a per-epoch shared chonk-verifier cache wired to the prover-client's
-   * broker facade. The caller (`EpochProvingJob`) constructs one per epoch and passes
-   * it to every sub-tree it creates so the chonk proof for a tx that gets reorged out
-   * and re-appears in a replacement checkpoint can be reused.
+   * Constructs a per-epoch shared context for the caching of e.g. chonk verifier results
    */
   createEpochProvingContext(epochNumber: EpochNumber): EpochProvingContext;
   /**
    * Constructs and starts a `CheckpointSubTreeOrchestrator` for a single checkpoint.
-   * The returned sub-tree has its internal `startNewCheckpoint(0, ...)` already driven;
-   * callers proceed straight to per-block work.
-   *
-   * Every sub-tree created with the same `epochContext` shares the per-epoch
-   * chonk-verifier proof cache, so a tx whose checkpoint is reorged out and re-appears
-   * in a replacement checkpoint reuses the cached proof.
    */
   createCheckpointSubTreeOrchestrator(
     epochContext: EpochProvingContext,
