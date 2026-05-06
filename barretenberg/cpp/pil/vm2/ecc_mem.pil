@@ -4,6 +4,8 @@ include "gt.pil";
 include "memory.pil";
 include "precomputed.pil";
 
+// TODO(#AVM-266): documentation
+
 /**
  * This handles the memory writes when the ECADD opcode is executed by user code.
  * Given two points, P & Q, this trace constrains that both exist on the Grumpkin curve
