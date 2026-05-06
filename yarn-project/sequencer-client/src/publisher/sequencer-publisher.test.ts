@@ -654,9 +654,10 @@ describe('SequencerPublisher', () => {
     ).toEqual(false);
   });
 
-  it.each<GetCodeReturnType>([undefined])('does not signal for payload with empty code', async code => {
+  it('does not signal for payload with empty code', async () => {
     const { govPayload } = mockGovernancePayload();
-    l1TxUtils.getCode.mockReturnValue(Promise.resolve(code));
+    l1TxUtils.getCode.mockReturnValue(Promise.resolve(undefined));
+    ``;
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -670,7 +671,7 @@ describe('SequencerPublisher', () => {
 
   it('stops signalling when payload was previously proposed', async () => {
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(true);
+    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValue(true);
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -684,7 +685,7 @@ describe('SequencerPublisher', () => {
 
   it('continues signalling when payload was NOT proposed', async () => {
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(false);
+    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValue(false);
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -696,47 +697,13 @@ describe('SequencerPublisher', () => {
     ).toEqual(true);
   });
 
-  it('caches proposed result and prevents repeated L1 calls', async () => {
+  it('re-checks on every call without caching, so re-signaling resumes if a proposal becomes terminal', async () => {
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValue(true);
-
-    await publisher.enqueueGovernanceCastSignal(
-      govPayload,
-      SlotNumber(2),
-      EthAddress.fromString(testHarnessAttesterAccount.address),
-      msg => testHarnessAttesterAccount.signTypedData(msg),
-    );
-
-    await publisher.enqueueGovernanceCastSignal(
-      govPayload,
-      SlotNumber(3),
-      EthAddress.fromString(testHarnessAttesterAccount.address),
-      msg => testHarnessAttesterAccount.signTypedData(msg),
-    );
-
-    expect(governanceProposerContract.hasPayloadBeenProposed).toHaveBeenCalledTimes(1);
-  });
-
-  it('retries on transient RPC failure and succeeds', async () => {
-    const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed
-      .mockRejectedValueOnce(new Error('RPC error'))
-      .mockRejectedValueOnce(new Error('RPC error'))
-      .mockResolvedValueOnce(false);
-
-    expect(
-      await publisher.enqueueGovernanceCastSignal(
-        govPayload,
-        SlotNumber(2),
-        EthAddress.fromString(testHarnessAttesterAccount.address),
-        msg => testHarnessAttesterAccount.signTypedData(msg),
-      ),
-    ).toEqual(true);
-  });
-
-  it('fails closed on persistent RPC failure', async () => {
-    const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed.mockRejectedValue(new Error('RPC error'));
+    // Simulates a payload that has a live proposal in slot 2 but whose proposal becomes terminal
+    // (Dropped/Rejected/Expired/Executed) by slot 3. The contracts allow re-signaling the same
+    // payload in a later round once the previous proposal is dead, so the publisher must re-check
+    // each slot rather than cache the first `true` result indefinitely.
+    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
     expect(
       await publisher.enqueueGovernanceCastSignal(
@@ -746,13 +713,41 @@ describe('SequencerPublisher', () => {
         msg => testHarnessAttesterAccount.signTypedData(msg),
       ),
     ).toEqual(false);
+
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(3),
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+
+    expect(governanceProposerContract.hasActiveProposalWithPayload).toHaveBeenCalledTimes(2);
   });
 
-  it('does not cache false result and re-checks on subsequent calls', async () => {
+  it('fails open on persistent RPC failure and signals anyway', async () => {
+    // Failing closed (skipping the signal) on transient RPC errors would let a flaky L1 endpoint
+    // silence governance participation entirely. Failing open at worst produces a duplicate signal
+    // that the contract simply counts alongside others in the round.
     const { govPayload } = mockGovernancePayload();
-    governanceProposerContract.hasPayloadBeenProposed.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    governanceProposerContract.hasActiveProposalWithPayload.mockRejectedValue(new Error('RPC error'));
 
-    // First call: not proposed, signalling proceeds
+    expect(
+      await publisher.enqueueGovernanceCastSignal(
+        govPayload,
+        SlotNumber(2),
+        EthAddress.fromString(testHarnessAttesterAccount.address),
+        msg => testHarnessAttesterAccount.signTypedData(msg),
+      ),
+    ).toEqual(true);
+  });
+
+  it('re-checks each call (no caching of false results)', async () => {
+    const { govPayload } = mockGovernancePayload();
+    governanceProposerContract.hasActiveProposalWithPayload.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+
+    // First call: no live proposal, signalling proceeds
     expect(
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
@@ -762,7 +757,7 @@ describe('SequencerPublisher', () => {
       ),
     ).toEqual(true);
 
-    // Second call: now proposed, signalling stops
+    // Second call: live proposal now exists, signalling stops
     expect(
       await publisher.enqueueGovernanceCastSignal(
         govPayload,
@@ -772,6 +767,6 @@ describe('SequencerPublisher', () => {
       ),
     ).toEqual(false);
 
-    expect(governanceProposerContract.hasPayloadBeenProposed).toHaveBeenCalledTimes(2);
+    expect(governanceProposerContract.hasActiveProposalWithPayload).toHaveBeenCalledTimes(2);
   });
 });
