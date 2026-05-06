@@ -34,20 +34,26 @@ template <typename Curve> struct ClaimBatcher_ {
         Fr scalar = 0;
     };
 
-    std::optional<Batch> unshifted; // commitments and evaluations of unshifted polynomials
-    std::optional<Batch> shifted;   // commitments of to-be-shifted-by-1 polys, evals of their shifts
+    std::optional<Batch> unshifted;          // commitments and evaluations of unshifted polynomials
+    std::optional<Batch> shifted;            // commitments of to-be-shifted-by-1 polys, evals of their shifts
+    std::optional<Batch> right_shifted_by_k; // commitments of to-be-right-shifted-by-k polys, evals of their shifts
+
+    // Magnitude of the right-shift-by-k applied to `right_shifted_by_k` polys (assumed even).
+    size_t k_shift_magnitude = 0;
 
     Batch get_unshifted() { return (unshifted) ? *unshifted : Batch{}; }
     Batch get_shifted() { return (shifted) ? *shifted : Batch{}; }
+    Batch get_right_shifted_by_k() { return (right_shifted_by_k) ? *right_shifted_by_k : Batch{}; }
 
     Fr get_unshifted_batch_scalar() const { return unshifted ? unshifted->scalar : Fr{ 0 }; }
 
     /**
      * @brief Compute scalars used to batch each set of claims, excluding contribution from batching challenge \rho
-     * @details Computes scalars s_0, s_1 given by
+     * @details Computes scalars s_0, s_1, s_2 given by
      * \f[
      * - s_0 = \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right) \f],
      * - s_1 = \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
+     * - s_2 = r^{k} \times \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right)
      * \f]
      * where the scalars used to batch the claims are given by
      * \f[
@@ -81,6 +87,11 @@ template <typename Curve> struct ClaimBatcher_ {
             shifted->scalar =
                 r_challenge.invert() * (inverse_vanishing_eval_pos - nu_challenge * inverse_vanishing_eval_neg);
         }
+        if (right_shifted_by_k) {
+            // r^k ⋅ (1/(z−r) + ν/(z+r))
+            right_shifted_by_k->scalar = r_challenge.pow(static_cast<uint32_t>(k_shift_magnitude)) *
+                                         (inverse_vanishing_eval_pos + nu_challenge * inverse_vanishing_eval_neg);
+        }
     }
     /**
      * @brief Append the commitments and scalars from each batch of claims to the Shplemini vectors which subsequently
@@ -100,6 +111,7 @@ template <typename Curve> struct ClaimBatcher_ {
         size_t num_powers = 0;
         num_powers += unshifted.has_value() ? unshifted->commitments.size() : 0;
         num_powers += shifted.has_value() ? shifted->commitments.size() : 0;
+        num_powers += right_shifted_by_k.has_value() ? right_shifted_by_k->commitments.size() : 0;
 
         Fr rho_power = Fr(1);
         size_t power_idx = 0;
@@ -127,6 +139,11 @@ template <typename Curve> struct ClaimBatcher_ {
         if (shifted) {
             // i-th shifted commitments will be multiplied by ρ^{num_unshifted + i} and r⁻¹ ⋅ (1/(z−r) − ν/(z+r))
             aggregate_claim_data_and_update_batched_evaluation(*shifted);
+        }
+        if (right_shifted_by_k) {
+            // i-th right-shifted-by-k commitment will be multiplied by ρ^{num_unshifted + num_shifted + i} and
+            // r^k ⋅ (1/(z−r) + ν/(z+r))
+            aggregate_claim_data_and_update_batched_evaluation(*right_shifted_by_k);
         }
 
         BB_ASSERT_EQ(power_idx, num_powers);

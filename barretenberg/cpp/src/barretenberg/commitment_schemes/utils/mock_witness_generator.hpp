@@ -34,11 +34,15 @@ template <typename Curve> struct MockClaimGenerator {
 
     ClaimData unshifted;
     ClaimData to_be_shifted;
+    ClaimData to_be_right_shifted_by_k;
 
     std::vector<Fr> const_size_mle_opening_point;
 
     PolynomialBatcher polynomial_batcher;
     ClaimBatcher claim_batcher;
+
+    // Mock right-shift magnitude (must be even).
+    static constexpr size_t k_magnitude = 6;
 
     // Containers for mock Sumcheck data
     std::vector<bb::Polynomial<Fr>> round_univariates;
@@ -60,7 +64,8 @@ template <typename Curve> struct MockClaimGenerator {
                        const size_t num_polynomials,
                        const size_t num_to_be_shifted,
                        const std::vector<Fr>& mle_opening_point,
-                       const CommitmentKey& commitment_key)
+                       const CommitmentKey& commitment_key,
+                       const size_t num_to_be_right_shifted_by_k = 0)
 
         : ck(commitment_key) // Initialize the commitment key
         , polynomial_batcher(poly_size)
@@ -81,8 +86,9 @@ template <typename Curve> struct MockClaimGenerator {
             challenge = std::span<const Fr>(mle_opening_point);
         }
 
-        BB_ASSERT_GTE(num_polynomials, num_to_be_shifted);
-        const size_t num_not_to_be_shifted = num_polynomials - num_to_be_shifted;
+        const size_t total_num_to_be_shifted = num_to_be_shifted + num_to_be_right_shifted_by_k;
+        BB_ASSERT_GTE(num_polynomials, total_num_to_be_shifted);
+        const size_t num_not_to_be_shifted = num_polynomials - total_num_to_be_shifted;
 
         Fr ebz_factor = 1;
 
@@ -111,13 +117,36 @@ template <typename Curve> struct MockClaimGenerator {
             unshifted.polys.push_back(std::move(poly));
         }
 
+        // Construct claim data for polynomials that are to-be-right-shifted-by-k. The base poly's data range is
+        // [0, poly_size - k_magnitude); its right-shift-by-k therefore lives on [k_magnitude, poly_size).
+        for (size_t idx = 0; idx < num_to_be_right_shifted_by_k; idx++) {
+            Polynomial poly = Polynomial::random(poly_size - k_magnitude, poly_size, 0);
+            Commitment commitment = ck.commit(poly);
+            to_be_right_shifted_by_k.commitments.push_back(commitment);
+            to_be_right_shifted_by_k.evals.push_back(poly.right_shifted(k_magnitude).evaluate_mle(challenge) *
+                                                     ebz_factor);
+            to_be_right_shifted_by_k.polys.push_back(poly.share());
+            // Populate the unshifted counterpart in the unshifted claims
+            unshifted.commitments.push_back(commitment);
+            unshifted.evals.push_back(poly.evaluate_mle(challenge) * ebz_factor);
+            unshifted.polys.push_back(std::move(poly));
+        }
+
         polynomial_batcher.set_unshifted(RefVector(unshifted.polys));
         polynomial_batcher.set_to_be_shifted_by_one(RefVector(to_be_shifted.polys));
+        if (num_to_be_right_shifted_by_k > 0) {
+            polynomial_batcher.set_to_be_shifted_by_k(RefVector(to_be_right_shifted_by_k.polys), k_magnitude);
+        }
 
         claim_batcher =
             ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted.commitments), RefVector(unshifted.evals) },
                           .shifted =
                               ClaimBatch{ RefVector(to_be_shifted.commitments), RefVector(to_be_shifted.evals) } };
+        if (num_to_be_right_shifted_by_k > 0) {
+            claim_batcher.right_shifted_by_k = ClaimBatch{ RefVector(to_be_right_shifted_by_k.commitments),
+                                                           RefVector(to_be_right_shifted_by_k.evals) };
+            claim_batcher.k_shift_magnitude = k_magnitude;
+        }
     }
 
     // Generate zero polynomials to test edge cases in PCS
