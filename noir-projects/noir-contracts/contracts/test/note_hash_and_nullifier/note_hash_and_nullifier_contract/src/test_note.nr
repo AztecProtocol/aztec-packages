@@ -3,8 +3,7 @@ use aztec::{
     macros::notes::custom_note,
     note::note_interface::NoteHash,
     protocol::{
-        address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator,
-        traits::Packable,
+        address::AztecAddress, constants::DOM_SEP__NOTE_HASH, hash::poseidon2_hash_with_separator, traits::Packable,
     },
 };
 
@@ -17,12 +16,7 @@ pub struct TestNote {
 pub global TEST_NOTE_NULLIFIER: Field = 2;
 
 impl NoteHash for TestNote {
-    fn compute_note_hash(
-        self,
-        _owner: AztecAddress,
-        storage_slot: Field,
-        randomness: Field,
-    ) -> Field {
+    fn compute_note_hash(self, _owner: AztecAddress, storage_slot: Field, randomness: Field) -> Field {
         let inputs = self.pack().concat([storage_slot, randomness]);
         poseidon2_hash_with_separator(inputs, DOM_SEP__NOTE_HASH)
     }

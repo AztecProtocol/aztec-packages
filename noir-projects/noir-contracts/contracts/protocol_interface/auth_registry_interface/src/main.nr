@@ -43,10 +43,7 @@ pub contract AuthRegistry {
     }
 
     #[external("utility")]
-    unconstrained fn utility_is_consumable(
-        on_behalf_of: AztecAddress,
-        message_hash: Field,
-    ) -> bool {
+    unconstrained fn utility_is_consumable(on_behalf_of: AztecAddress, message_hash: Field) -> bool {
         false
     }
 }
