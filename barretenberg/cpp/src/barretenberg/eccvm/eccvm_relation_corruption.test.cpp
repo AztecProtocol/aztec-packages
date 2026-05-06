@@ -70,6 +70,7 @@ std::vector<Polynomial*> get_msm_polynomials(ProverPolynomials& polys)
         &polys.msm_round,
         &polys.msm_add1,
         &polys.msm_pc,
+        &polys.msm_round_minus_31_inv,
     };
 }
 
@@ -438,6 +439,99 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
         << "Sub-relation Z_PERM_INIT should catch the corruption";
     EXPECT_EQ(failures.at(ECCVMSetRelationImpl<FF>::Z_PERM_INIT), first_row)
         << "Failure should be at lagrange_first row";
+}
+
+/**
+ * @brief Verify that the DOUBLE_SHIFT_FORBIDS_ROUND_31 gate catches a missing round != 31 witness.
+ *
+ * @details Background: this gate guards against a soundness gap in the original ECCVM MSM relation,
+ * where the converse "round = 31 ==> q_skew_shift = 1" was not constrained. The fix is the new
+ * subrelation
+ *   q_double_shift * (1 - (round - 31) * round_minus_31_inv) = 0,
+ * which forces the prover to witness an inverse of (round - 31) at every row whose successor is a
+ * double, making round = 31 unreachable there. This test exercises the gate the simple way: at a
+ * valid `q_double_shift = 1` row, zero out the inverse witness and confirm only this gate fires.
+ *
+ * The original full PoC (kept as commentary so an attentive reader/LLM can reconstruct it):
+ *
+ *   Setup: a size-1 MSM with a 128-bit odd scalar `s`, e.g.
+ *     Fr s = Fr(uint256_t(0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0, 0));
+ *     op_queue.mul_accumulate(P, s); op_queue.eq_and_reset(); op_queue.merge();
+ *     // followed by `add_hiding_op_for_test(op_queue)` so the trace finalizes.
+ *   Such a scalar gives z2 = 0 (single-mul MSM) and odd LSB so wnaf_skew = false, hence
+ *   precompute_skew = 0 — the precondition for the round 31->32 phase swap.
+ *
+ *   Honest layout, with R = the unique row carrying msm_skew = 1, msm_round = 32:
+ *     row R-1: q_add = 1, round = 31 (last add of digit 31)
+ *     row R  : q_skew = 1, round = 32, (msm_x1, msm_y1) = T[0] = -15*P (lookup with slice1 = 0)
+ *     row R+1: synthetic final (msm_transition = 1, round = 0, all selectors = 0)
+ *     row R+2: padding (all zero)
+ *
+ *   Malicious patch: turn row R into a q_double, append a same-MSM q_add at row R+1 with
+ *   round = 32 and slice1 = 0 (so the lookup forces (x1, y1) = T[0] = -15*P), and shift the
+ *   synthetic final to row R+2:
+ *     row R: msm_skew = 0, msm_double = 1; witness lambdas l1..l4 of the four doublings
+ *            d1 = 2*acc_R, d2 = 2*d1, d3 = 2*d2, d4 = 2*d3 = 16*acc_R; clear msm_add1, msm_x1,
+ *            msm_y1, msm_collision_x1.
+ *     row R+1: msm_transition = 0, msm_add = 1, msm_round = 32, msm_count = 0,
+ *              msm_size_of_msm = 1, msm_pc = msm_pc[R], msm_add1 = 1, msm_slice1 = 0,
+ *              (msm_x1, msm_y1) = -15*P; lambda1 = (d4.y - (-15*P).y) / (d4.x - (-15*P).x),
+ *              collision_x1 = 1 / ((-15*P).x - d4.x); accumulator = d4.
+ *     row R+2: msm_transition = 1; (acc_x, acc_y) = malicious_acc, where
+ *              malicious_acc = d4 + (-15*P) = 16 * (2^124*OFFSET + s*P) - 15*P
+ *                            = 2^128 * OFFSET + (16s - 15) * P.
+ *
+ *   Transcript columns also need to be patched at the row t with transcript_msm_transition = 1:
+ *     transcript_msm_x/y = malicious_acc;
+ *     intermediate = malicious_acc - 2^124 * ECCVM_OFFSET_GENERATOR (do this via affine subtraction;
+ *       remember offset_affine.y is negated to subtract);
+ *     transcript_msm_intermediate_x/y = intermediate;
+ *     transcript_msm_x_inverse = 1 / (malicious_acc.x - (-offset).x);
+ *     transcript_base_x_inverse = 1 / intermediate.x;
+ *     transcript_base_y_inverse = 1 / intermediate.y;
+ *     at row t+1 (transcript accumulator after add): (transcript_accumulator_x/y, Px, Py) = intermediate
+ *       (the running accumulator was empty after eq_and_reset, so add returns lhs).
+ *
+ *   Lookup-inverse hygiene: row R is no longer active for the lookup relation after the q_skew ->
+ *   q_double swap, but compute_logderivative_inverse only overwrites active rows, so explicitly clear
+ *   polynomials.lookup_inverses.at(R) = 0 before re-running set_shifted().
+ *
+ *   With the fix, the new gate rejects the malicious trace at row R: msm_double[R+1] = 1 demands an
+ *   inverse witness for (msm_round[R] - 31), and msm_round[R] - 31 = 0 has none. Without the fix,
+ *   every relation (MSM, Bools, Transcript, Set, Lookup) accepted the patched trace.
+ */
+TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsMissingRoundMinus31Inverse)
+{
+    auto polynomials = build_valid_eccvm_msm_state();
+    RelationParameters<FF> params{};
+
+    auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    ASSERT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
+
+    // Find a row whose successor is an MSM double. The new gate constrains row k (carrying
+    // round[k] and round_minus_31_inv[k]) whenever q_double[k+1] = 1.
+    const size_t num_rows = polynomials.get_polynomial_size();
+    size_t target_row = 0;
+    for (size_t i = Flavor::TRACE_OFFSET; i + 1 < num_rows; ++i) {
+        if (polynomials.msm_double[i + 1] == FF(1)) {
+            target_row = i;
+            break;
+        }
+    }
+    ASSERT_NE(target_row, 0U) << "Should find a row preceding a doubling row";
+    ASSERT_NE(polynomials.msm_round[target_row], FF(31)) << "Honest predecessors of double rows have round != 31";
+    ASSERT_NE(polynomials.msm_round_minus_31_inv[target_row], FF(0))
+        << "Honest inverse witness should be non-zero where round != 31";
+
+    polynomials.msm_round_minus_31_inv.at(target_row) = FF(0);
+    polynomials.set_shifted();
+
+    auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    EXPECT_FALSE(failures.empty()) << "MSM relation should fail without the round != 31 witness";
+    EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::DOUBLE_SHIFT_FORBIDS_ROUND_31))
+        << "DOUBLE_SHIFT_FORBIDS_ROUND_31 should be the failing subrelation";
 }
 
 /**
