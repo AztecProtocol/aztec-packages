@@ -6,48 +6,48 @@ on:
   workflow_call:
     inputs:
       environment:
-        description: "Environment to fund (e.g., staging-public, next-net, staging-ignition, testnet)"
+        description: 'Environment to fund (e.g., staging-public, next-net, staging-ignition, testnet)'
         required: true
         type: string
       low_watermark:
-        description: "Minimum ETH balance (default: 0.5)"
+        description: 'Minimum ETH balance (default: 0.5)'
         required: false
         type: string
-        default: "0.5"
+        default: '0.5'
       high_watermark:
-        description: "Target ETH balance when funding (default: 1.0)"
+        description: 'Target ETH balance when funding (default: 1.0)'
         required: false
         type: string
-        default: "1.0"
+        default: '1.0'
       namespace:
-        description: "Kubernetes namespace override (e.g., v4-devnet-1). Sets NAMESPACE before sourcing env file."
+        description: 'Kubernetes namespace override (e.g., v4-devnet-1). Sets NAMESPACE before sourcing env file.'
         required: false
         type: string
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment to fund"
+        description: 'Environment to fund'
         required: true
         type: choice
         options:
-          - staging-public
-          - next-net
-          - staging-ignition
-          - testnet
-          - devnet
-          - tps-scenario
+        - staging-public
+        - next-net
+        - staging-ignition
+        - testnet
+        - devnet
+        - tps-scenario
       low_watermark:
-        description: "Minimum ETH balance"
+        description: 'Minimum ETH balance'
         required: false
         type: string
-        default: "0.5"
+        default: '0.5'
       high_watermark:
-        description: "Target ETH balance when funding"
+        description: 'Target ETH balance when funding'
         required: false
         type: string
-        default: "1.0"
+        default: '1.0'
       namespace:
-        description: "Kubernetes namespace override (e.g., v4-devnet-1)"
+        description: 'Kubernetes namespace override (e.g., v4-devnet-1)'
         required: false
         type: string
 

@@ -1,27 +1,28 @@
 global:
-  aztecRollupVersion: 'canonical'
-  aztecNetwork: ''
+  aztecRollupVersion: "canonical"
+  aztecNetwork: ""
   customAztecNetwork:
     enabled: false
 
 bot:
-  mnemonic: 'test test test test test test test test test test test junk'
+  mnemonic: "test test test test test test test test test test test junk"
   mnemonicStartIndex: 3000
-  botPrivateKey: '0xcafe'
+  botPrivateKey: "0xcafe"
 
   env:
-    BOT_TX_INTERVAL_SECONDS: '1'
-    BOT_PRIVATE_TRANSFERS_PER_TX: '0'
-    BOT_PUBLIC_TRANSFERS_PER_TX: '1'
-    BOT_FOLLOW_CHAIN: 'NONE'
-    PXE_SYNC_CHAIN_TIP: 'checkpointed'
-    BOT_NO_START: 'false'
-    BOT_FEE_PAYMENT_METHOD: 'fee_juice'
-    BOT_MODE: 'transfer'
-    BOT_MAX_CONSECUTIVE_ERRORS: '3'
-    BOT_STOP_WHEN_UNHEALTHY: 'true'
-    AZTEC_NODE_URL: ''
-    TEST_ACCOUNTS: 'false'
+    BOT_TX_INTERVAL_SECONDS: "1"
+    BOT_PRIVATE_TRANSFERS_PER_TX: "0"
+    BOT_PUBLIC_TRANSFERS_PER_TX: "1"
+    BOT_FOLLOW_CHAIN: "NONE"
+    PXE_SYNC_CHAIN_TIP: "checkpointed"
+    BOT_NO_START: "false"
+    BOT_FEE_PAYMENT_METHOD: "fee_juice"
+    BOT_MODE: "transfer"
+    BOT_MAX_CONSECUTIVE_ERRORS: "3"
+    BOT_STOP_WHEN_UNHEALTHY: "true"
+    AZTEC_NODE_URL: ""
+    TEST_ACCOUNTS: "false"
+    P2P_ENABLED: "false"
 
   persistence:
     enabled: false
@@ -73,7 +74,7 @@ bot:
           exit 0
       envFrom:
         - configMapRef:
-            name: '{{ .Release.Name }}-env'
+            name: "{{ .Release.Name }}-env"
 
   node:
     configMap:
@@ -94,9 +95,6 @@ bot:
       - --bot
 
     hostNetwork: false
-
-  env:
-    P2P_ENABLED: 'false'
 
   service:
     p2p:
