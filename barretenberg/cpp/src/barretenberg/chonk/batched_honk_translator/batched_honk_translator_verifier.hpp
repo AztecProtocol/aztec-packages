@@ -63,15 +63,15 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     //   Unshifted: [Trans_rest(TU-1) | MZK_precomputed(P) | MZK_witness(W)]
     //   Shifted:   [MZK_shifted(S) | Trans_shifted(TS)]
     //
-    // Range 1 (Translator merged): ordered(5)+z_perm(1)+concat(5) in unshifted ↔ same in shifted
+    // Range 1 (Translator): translator PCS shift sources repeated between the unshifted and shifted sections.
     // Range 2 (MegaZK): witness[0..S-1] ↔ mega_zk_shifted[0..S-1]
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = [] {
         constexpr size_t TU = TranslatorFlavor::NUM_PCS_UNSHIFTED; // includes masking(1)
         constexpr size_t P = MegaZKFlavorT::NUM_PRECOMPUTED_ENTITIES;
         constexpr size_t W = MegaZKFlavorT::NUM_WITNESS_ENTITIES;
         constexpr size_t S = MegaZKFlavorT::NUM_SHIFTED_ENTITIES;
-        // Translator repeated: ordered(5)+z_perm(1)+concat(5) in Trans_rest ↔ Trans_shifted
-        // Trans_rest starts at virtual 0; repeated starts at ordered_extra(1)+op(1)=2
+        // Translator repeated range: PCS shift sources in Trans_rest ↔ Trans_shifted.
+        // Trans_rest starts at virtual 0; repeated starts after ordered_extra and op.
         constexpr size_t TRANS_REPEAT_START = TranslatorFlavor::REPEATED_COMMITMENTS.first.original_start;
         constexpr size_t TRANS_REPEAT_COUNT =
             TranslatorFlavor::REPEATED_COMMITMENTS.first.count + TranslatorFlavor::REPEATED_COMMITMENTS.second.count;
