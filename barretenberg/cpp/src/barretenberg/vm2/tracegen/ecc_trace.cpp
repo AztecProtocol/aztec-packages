@@ -282,8 +282,8 @@ void EccTraceBuilder::process_add_with_memory(
         uint64_t dst_addr = static_cast<uint64_t>(event.dst_address);
 
         // Error handling, check if the destination address is out of range.
-        // The max write address is dst_addr + 2, since we write 3 values for R (x, y, is_inf).
-        bool dst_out_of_range_err = dst_addr + 2 > AVM_HIGHEST_MEM_ADDRESS;
+        // The max write address is dst_addr + 1, since we write 2 values for R (x, y).
+        bool dst_out_of_range_err = dst_addr + 1 > AVM_HIGHEST_MEM_ADDRESS;
 
         // Error handling, check if the points are on the curve.
         // We do not use batch inversions as we do not need to invert in the happy path.

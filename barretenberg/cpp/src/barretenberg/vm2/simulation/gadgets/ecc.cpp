@@ -127,10 +127,9 @@ void Ecc::add(MemoryInterface& memory,
         // Emits EccAddEvent, see #[INPUT_OUTPUT_ECC_ADD] in ecc_mem.pil.
         EmbeddedCurvePoint result = add(p, q); // Cannot throw since we have checked on_curve().
 
-        // Emits MemoryEvents, see #[WRITE_MEM_i] for i = 0, 1, 2,  in ecc_mem.pil.
+        // Emits MemoryEvents, see #[WRITE_MEM_i] for i = 0, 1 in ecc_mem.pil.
         memory.set(dst_address, MemoryValue::from<FF>(result.x()));
         memory.set(dst_address + 1, MemoryValue::from<FF>(result.y()));
-        memory.set(dst_address + 2, MemoryValue::from<uint1_t>(result.is_infinity() ? 1 : 0));
 
         add_memory_events.emit({ .execution_clk = execution_clk,
                                  .space_id = space_id,
