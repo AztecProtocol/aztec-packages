@@ -332,17 +332,6 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     return result;
 }
 
-template <typename Fr> Polynomial<Fr> Polynomial<Fr>::right_shifted(const size_t magnitude) const
-{
-    // The last `magnitude` virtual coefficients must be zero so the shift fits within `virtual_size()`.
-    BB_ASSERT_LTE(coefficients_.end_ + magnitude, virtual_size());
-    Polynomial result;
-    result.coefficients_ = coefficients_;
-    result.coefficients_.start_ += magnitude;
-    result.coefficients_.end_ += magnitude;
-    return result;
-}
-
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::reverse() const
 {
     const size_t end_index = this->end_index();

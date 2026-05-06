@@ -196,12 +196,6 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
-     * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
-     * @note Resulting Polynomial shares the memory of that used to generate it.
-     */
-    Polynomial right_shifted(size_t magnitude) const;
-
-    /**
      * @brief Returns the polynomial equal to the reverse of self
      *
      * @details If the coefficients of self are \f$(a_0, \dots, a_n)\f$, we return the polynomial with coefficients
