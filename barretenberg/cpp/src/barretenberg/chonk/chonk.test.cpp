@@ -1,3 +1,4 @@
+#include <functional>
 #include <ranges>
 #include <sys/resource.h>
 
@@ -22,7 +23,22 @@
 
 using namespace bb;
 
-static constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
+namespace {
+
+constexpr size_t SMALL_LOG_2_NUM_GATES = 5;
+
+/**
+ * @brief Enum for specifying which KernelIO field to tamper with in tests.
+ */
+enum class KernelIOField : uint8_t {
+    PAIRING_INPUTS,
+    ACCUMULATOR_HASH,
+    KERNEL_RETURN_DATA,
+    APP_RETURN_DATA,
+    ECC_OP_HASH
+};
+
+} // namespace
 
 class ChonkTests : public ::testing::Test {
   protected:
@@ -41,6 +57,11 @@ class ChonkTests : public ::testing::Test {
 
   public:
     /**
+     * @brief Hook fired after each accumulate() inside run_ivc.
+     */
+    using AccumulateHook = std::function<void(Chonk&, size_t)>;
+
+    /**
      * @brief Tamper with a proof
      * @details The first value in the proof after the public inputs is the commitment to the wire w.l (see
      * OinkProver). We modify the commitment by adding Commitment::one().
@@ -58,17 +79,30 @@ class ChonkTests : public ::testing::Test {
         }
     }
 
+    static std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> run_ivc(
+        size_t num_app_circuits,
+        TestSettings settings = {},
+        const AccumulateHook& post_hook = nullptr,
+        bool check_circuit_sizes = false)
+    {
+        CircuitProducer circuit_producer(num_app_circuits);
+        return run_ivc_impl(circuit_producer, settings, post_hook, check_circuit_sizes);
+    };
+
+    static std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> run_ivc(
+        std::vector<bool> leading_is_kernel_flags,
+        TestSettings settings = {},
+        const AccumulateHook& post_hook = nullptr,
+        bool check_circuit_sizes = false)
+    {
+        CircuitProducer circuit_producer(std::move(leading_is_kernel_flags), /*large_first_app=*/false);
+        return run_ivc_impl(circuit_producer, settings, post_hook, check_circuit_sizes);
+    };
+
     static std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_prove_ivc(
         size_t num_app_circuits, TestSettings settings = {}, bool check_circuit_sizes = false)
     {
-        CircuitProducer circuit_producer(num_app_circuits);
-        const size_t num_circuits = circuit_producer.total_num_circuits;
-        Chonk ivc{ num_circuits };
-
-        for (size_t j = 0; j < num_circuits; ++j) {
-            circuit_producer.construct_and_accumulate_next_circuit(ivc, settings, check_circuit_sizes);
-        }
-        return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
+        return run_ivc(num_app_circuits, settings, /*post_hook=*/nullptr, check_circuit_sizes);
     };
 
     static bool verify_chonk(const ChonkProof& proof, const std::shared_ptr<MegaZKFlavor::VKAndHash>& vk_and_hash)
@@ -76,11 +110,6 @@ class ChonkTests : public ::testing::Test {
         ChonkVerifier verifier(vk_and_hash);
         return verifier.verify(proof);
     }
-
-    /**
-     * @brief Enum for specifying which KernelIO field to tamper with in tests
-     */
-    enum class KernelIOField { PAIRING_INPUTS, ACCUMULATOR_HASH, KERNEL_RETURN_DATA, APP_RETURN_DATA, ECC_OP_HASH };
 
     /**
      * @brief Helper function to test tampering with AppIO pairing inputs
@@ -91,17 +120,8 @@ class ChonkTests : public ::testing::Test {
     {
         BB_DISABLE_ASSERTS();
 
-        const size_t NUM_APP_CIRCUITS = 2;
-        CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-        const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
-            ivc.accumulate(circuit, vk);
-
-            // After accumulating 3 circuits (app, kernel, app), we have 2 proofs in the queue
+        auto [proof, vk] = run_ivc(/*num_app_circuits=*/2, settings, [](Chonk& ivc, size_t idx) {
             if (idx == 2) {
                 EXPECT_EQ(ivc.verification_queue.size(), 2);
 
@@ -120,10 +140,8 @@ class ChonkTests : public ::testing::Test {
 
                 app_io.to_proof(app_entry.proof, num_public_inputs);
             }
-        }
-
-        auto proof = ivc.prove();
-        EXPECT_FALSE(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()));
+        });
+        EXPECT_FALSE(verify_chonk(proof, vk));
     }
 
     /**
@@ -135,17 +153,8 @@ class ChonkTests : public ::testing::Test {
     {
         BB_DISABLE_ASSERTS();
 
-        const size_t NUM_APP_CIRCUITS = 2;
-        CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-        const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
-            ivc.accumulate(circuit, vk);
-
-            // After accumulating 3 circuits (app, kernel, app), we have 2 proofs in the queue
+        auto [proof, vk] = run_ivc(/*num_app_circuits=*/2, settings, [field_to_tamper](Chonk& ivc, size_t idx) {
             if (idx == 2) {
                 EXPECT_EQ(ivc.verification_queue.size(), 2);
 
@@ -159,9 +168,12 @@ class ChonkTests : public ::testing::Test {
                 // Tamper with the specified field
                 switch (field_to_tamper) {
                 case KernelIOField::PAIRING_INPUTS: {
-                    // Replace with a different valid pairing: P0 = G1, P1 = -G1 satisfies e(G1,[1])·e(-G1,[x]) != 1
-                    // so instead use P0 + random offset to break binding without breaking the pairing trivially
-                    kernel_io.pairing_inputs.P0() = kernel_io.pairing_inputs.P0() + Commitment::one();
+                    // Set P0 to [x]₁ (the first SRS point after [1]) and P1 to [1]₁
+                    kernel_io.pairing_inputs.P0() =
+                        srs::get_crs_factory<curve::BN254>()->get_crs(2)->get_monomial_points()[1];
+                    kernel_io.pairing_inputs.P1() = -Commitment::one();
+
+                    EXPECT_TRUE(kernel_io.pairing_inputs.check());
                     break;
                 }
                 case KernelIOField::ACCUMULATOR_HASH:
@@ -171,7 +183,7 @@ class ChonkTests : public ::testing::Test {
                     kernel_io.kernel_return_data = kernel_io.kernel_return_data + Commitment::one();
                     break;
                 case KernelIOField::APP_RETURN_DATA:
-                    kernel_io.app_return_data = kernel_io.app_return_data + Commitment::one();
+                    kernel_io.app_return_data[0] = kernel_io.app_return_data[0] + Commitment::one();
                     break;
                 case KernelIOField::ECC_OP_HASH:
                     kernel_io.ecc_op_hash += FF(1);
@@ -180,10 +192,8 @@ class ChonkTests : public ::testing::Test {
 
                 kernel_io.to_proof(kernel_entry.proof, num_public_inputs);
             }
-        }
-
-        auto proof = ivc.prove();
-        EXPECT_FALSE(verify_chonk(proof, ivc.get_hiding_kernel_vk_and_hash()));
+        });
+        EXPECT_FALSE(verify_chonk(proof, vk));
     }
 
     /**
@@ -202,33 +212,27 @@ class ChonkTests : public ::testing::Test {
         using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
 
         const size_t NUM_APP_CIRCUITS = 2;
-        CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
-        const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
+        const size_t NUM_TOTAL_CIRCUITS = NUM_APP_CIRCUITS * 2 + /*num_trailing_kernels*/ 3;
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
-        // Extract tail kernel IO before the last accumulation consumes the verification queue.
-        // The tail kernel (HN_FINAL) uses KernelIO format; the hiding kernel uses HidingKernelIO.
+        // Extract tail kernel IO before the hiding kernel consumes the verification queue.
         KernelIOSerde tail_io;
-        for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
-            if (idx == NUM_CIRCUITS - 1) {
-                for (auto& it : std::ranges::reverse_view(ivc.verification_queue)) {
-                    if (it.is_kernel) {
-                        size_t num_public_inputs = it.honk_vk->num_public_inputs;
-                        ASSERT_EQ(num_public_inputs, KernelIOSerde::PUBLIC_INPUTS_SIZE)
-                            << "Tail kernel should use KernelIO format";
-                        ASSERT_GT(it.proof.size(), num_public_inputs) << "Tail kernel proof too small";
-                        tail_io = KernelIOSerde::from_proof(it.proof, num_public_inputs);
-                        break;
+        auto [proof, vk_and_hash] =
+            run_ivc(/*num_app_circuits=*/NUM_APP_CIRCUITS, settings, [&tail_io](Chonk& ivc, size_t idx) {
+                // With 2 apps the layout is [app, kernel, app, kernel, reset, tail, hiding].
+                if (idx == NUM_TOTAL_CIRCUITS - 2) {
+                    for (auto& it : std::ranges::reverse_view(ivc.verification_queue)) {
+                        if (it.is_kernel) {
+                            size_t num_public_inputs = it.honk_vk->num_public_inputs;
+                            ASSERT_EQ(num_public_inputs, KernelIOSerde::PUBLIC_INPUTS_SIZE)
+                                << "Tail kernel should use KernelIO format";
+                            ASSERT_GT(it.proof.size(), num_public_inputs) << "Tail kernel proof too small";
+                            tail_io = KernelIOSerde::from_proof(it.proof, num_public_inputs);
+                            break;
+                        }
                     }
                 }
-            }
-            auto [circuit, vk] = circuit_producer.create_next_circuit_and_vk(ivc, settings);
-            ivc.accumulate(circuit, vk);
-        }
-
-        auto proof = ivc.prove();
-        auto vk_and_hash = ivc.get_hiding_kernel_vk_and_hash();
+            });
 
         size_t hiding_kernel_pub_inputs = vk_and_hash->vk->num_public_inputs;
         ASSERT_EQ(hiding_kernel_pub_inputs, HidingKernelIOSerde::PUBLIC_INPUTS_SIZE)
@@ -239,6 +243,25 @@ class ChonkTests : public ::testing::Test {
         EXPECT_EQ(tail_io.kernel_return_data, hiding_io.kernel_return_data)
             << "kernel_return_data mismatch: Tail has " << tail_io.kernel_return_data << " but HidingKernel has "
             << hiding_io.kernel_return_data;
+    }
+
+  private:
+    static std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> run_ivc_impl(
+        CircuitProducer& circuit_producer,
+        TestSettings settings,
+        const AccumulateHook& post_hook,
+        bool check_circuit_sizes)
+    {
+        const size_t num_circuits = circuit_producer.total_num_circuits;
+        Chonk ivc{ num_circuits };
+
+        for (size_t idx = 0; idx < num_circuits; ++idx) {
+            circuit_producer.construct_and_accumulate_next_circuit(ivc, settings, check_circuit_sizes);
+            if (post_hook) {
+                post_hook(ivc, idx);
+            }
+        }
+        return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
     }
 };
 
@@ -455,15 +478,7 @@ TEST_F(ChonkTests, MsgpackProofFromFileOrBuffer)
     }
 };
 
-/**
- * @brief Test that tampering with kernel pairing inputs causes verification to fail
- * @details Pairing points (P0, P1) accumulate across the IVC chain through aggregation.
- * Even if we replace them with pairing points satisfying pairing check, the public input binding should must catch it.
- */
-TEST_F(ChonkTests, KernelPairingInputsTamperingFailure)
-{
-    ChonkTests::test_kernel_io_tampering(KernelIOField::PAIRING_INPUTS);
-}
+class KernelIOTamperingTests : public ChonkTests, public testing::WithParamInterface<KernelIOField> {};
 
 /**
  * @brief Test that tampering with app pairing inputs causes verification to fail
@@ -475,45 +490,33 @@ TEST_F(ChonkTests, AppPairingInputsTamperingFailure)
     ChonkTests::test_app_io_tampering();
 }
 
-/**
- * @brief Verify that tampering with the accumulator hash in public inputs causes IVC verification failure
- * @details Each kernel outputs `output_hn_accum_hash` as a public input. The next kernel computes the hash of its
- * input accumulator and compares it with the hash from the previous kernel's public inputs via assert_equal.
- * This test tampers with the hash to verify the binding.
- */
-TEST_F(ChonkTests, AccumulatorHashTamperingFailure)
+TEST_P(KernelIOTamperingTests, CausesVerificationFailure)
 {
-    ChonkTests::test_kernel_io_tampering(KernelIOField::ACCUMULATOR_HASH);
+    test_kernel_io_tampering(GetParam());
 }
 
-/**
- * @brief Test that tampering with kernel_return_data causes verification to fail
- * @details kernel_return_data is the commitment to the kernel's return data which must match
- * the calldata commitment of the next circuit. Tampering should cause databus consistency check to fail.
- */
-TEST_F(ChonkTests, KernelReturnDataTamperingFailure)
-{
-    ChonkTests::test_kernel_io_tampering(KernelIOField::KERNEL_RETURN_DATA);
-}
-
-/**
- * @brief Test that tampering with app_return_data causes verification to fail
- * @details app_return_data is the commitment to the app's return data which must match
- * the secondary_calldata commitment of the next circuit.
- */
-TEST_F(ChonkTests, AppReturnDataTamperingFailure)
-{
-    ChonkTests::test_kernel_io_tampering(KernelIOField::APP_RETURN_DATA);
-}
-
-/**
- * @brief Test that tampering with ecc_op_hash causes verification to fail
- * @details ecc_op_hash commits to the folded ECC operation subtable commitments for batch merge verification.
- */
-TEST_F(ChonkTests, EccOpHashTamperingFailure)
-{
-    ChonkTests::test_kernel_io_tampering(KernelIOField::ECC_OP_HASH);
-}
+INSTANTIATE_TEST_SUITE_P(All,
+                         KernelIOTamperingTests,
+                         testing::Values(KernelIOField::PAIRING_INPUTS,
+                                         KernelIOField::ACCUMULATOR_HASH,
+                                         KernelIOField::KERNEL_RETURN_DATA,
+                                         KernelIOField::APP_RETURN_DATA,
+                                         KernelIOField::ECC_OP_HASH),
+                         [](const testing::TestParamInfo<KernelIOField>& info) {
+                             switch (info.param) {
+                             case KernelIOField::PAIRING_INPUTS:
+                                 return "PairingInputs";
+                             case KernelIOField::ACCUMULATOR_HASH:
+                                 return "AccumulatorHash";
+                             case KernelIOField::KERNEL_RETURN_DATA:
+                                 return "KernelReturnData";
+                             case KernelIOField::APP_RETURN_DATA:
+                                 return "AppReturnData";
+                             case KernelIOField::ECC_OP_HASH:
+                                 return "EccOpHash";
+                             }
+                             return "Unknown";
+                         });
 
 /**
  * @brief Test that kernel_return_data is consistently propagated from Tail kernel to HidingKernel proof

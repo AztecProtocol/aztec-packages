@@ -140,12 +140,12 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
             m.add_entry(round, "ECC_OP_WIRE_" + std::to_string(i), G);
         }
         // DataBus entities:
-        for (const auto& label : { "CALLDATA",
-                                   "CALLDATA_READ_COUNTS",
-                                   "SECONDARY_CALLDATA",
-                                   "SECONDARY_CALLDATA_READ_COUNTS",
-                                   "RETURN_DATA",
-                                   "RETURN_DATA_READ_COUNTS" }) {
+        for (const auto& label : { "KERNEL_CALLDATA",
+                                   "KERNEL_CALLDATA_READ_COUNTS",
+                                   "APP_CALLDATA",
+                                   "APP_CALLDATA_READ_COUNTS",
+                                   "RETURNDATA",
+                                   "RETURNDATA_READ_COUNTS" }) {
             m.add_entry(round, label, G);
         }
         m.add_challenge(round, "eta");
@@ -160,9 +160,9 @@ class BatchedHonkTranslatorTests : public ::testing::Test {
 
         // ── Round 2: MegaZK logderiv inverses + Z_PERM + translator Oink ─────────
         m.add_entry(round, "LOOKUP_INVERSES", G);
-        m.add_entry(round, "CALLDATA_INVERSES", G);
-        m.add_entry(round, "SECONDARY_CALLDATA_INVERSES", G);
-        m.add_entry(round, "RETURN_DATA_INVERSES", G);
+        m.add_entry(round, "KERNEL_CALLDATA_INVERSES", G);
+        m.add_entry(round, "APP_CALLDATA_INVERSES", G);
+        m.add_entry(round, "RETURNDATA_INVERSES", G);
         m.add_entry(round, "Z_PERM", G);
         // Translator Oink: vk_hash, masking commitment, 10 wire commitments
         m.add_entry(round, "vk_hash", Fr);

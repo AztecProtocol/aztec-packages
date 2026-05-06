@@ -41,7 +41,7 @@ TEST(Databus, CallDataAndReturnData)
     for (auto& value : raw_calldata_values) {
         calldata_values.emplace_back(witness_ct(&builder, value));
     }
-    databus.calldata.set_values(calldata_values);
+    databus.kernel_calldata.set_values(calldata_values);
 
     // Populate the return data in the databus
     std::vector<field_ct> return_data_values;
@@ -53,14 +53,14 @@ TEST(Databus, CallDataAndReturnData)
     // Establish that the first two outputs are simply copied over from the inputs. Each 'copy' requires two read gates.
     field_ct idx_0(witness_ct(&builder, 0));
     field_ct idx_1(witness_ct(&builder, 1));
-    databus.calldata[idx_0].assert_equal(databus.return_data[idx_0]);
-    databus.calldata[idx_1].assert_equal(databus.return_data[idx_1]);
+    databus.kernel_calldata[idx_0].assert_equal(databus.return_data[idx_0]);
+    databus.kernel_calldata[idx_1].assert_equal(databus.return_data[idx_1]);
 
     // Get the last two entries in calldata and compute their sum
     field_ct idx_2(witness_ct(&builder, 2));
     field_ct idx_3(witness_ct(&builder, 3));
     // This line creates an arithmetic gate and two calldata read gates (via operator[]).
-    field_ct sum = databus.calldata[idx_2] + databus.calldata[idx_3];
+    field_ct sum = databus.kernel_calldata[idx_2] + databus.kernel_calldata[idx_3];
 
     // Read the last index of the return data. (Creates a return data read gate via operator[]).
     field_ct idx(witness_ct(&builder, 2));
@@ -124,14 +124,14 @@ TEST(Databus, UnnormalizedEntryAccess)
         // add the value to itself to make it unnormalized (the multiplicative constant will be 2)
         returndata_entries.emplace_back(entry_witness + entry_witness);
     }
-    databus.calldata.set_values(calldata_entries);
+    databus.kernel_calldata.set_values(calldata_entries);
     databus.return_data.set_values(returndata_entries);
     field_ct idx_0 = witness_ct(&builder, 0);
     field_ct idx_1 = witness_ct(&builder, 1);
     field_ct idx_2 = witness_ct(&builder, 2);
-    databus.return_data[idx_0].assert_equal(databus.calldata[idx_0] + databus.calldata[idx_0]);
-    databus.return_data[idx_1].assert_equal(databus.calldata[idx_1] + databus.calldata[idx_1]);
-    databus.return_data[idx_2].assert_equal(databus.calldata[idx_2] + databus.calldata[idx_2]);
+    databus.return_data[idx_0].assert_equal(databus.kernel_calldata[idx_0] + databus.kernel_calldata[idx_0]);
+    databus.return_data[idx_1].assert_equal(databus.kernel_calldata[idx_1] + databus.kernel_calldata[idx_1]);
+    databus.return_data[idx_2].assert_equal(databus.kernel_calldata[idx_2] + databus.kernel_calldata[idx_2]);
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -150,7 +150,7 @@ TEST(Databus, ConstantAndUnnormalizedIndices)
     for (auto& value : raw_calldata_values) {
         calldata_values.emplace_back(witness_ct(&builder, value));
     }
-    databus.calldata.set_values(calldata_values);
+    databus.kernel_calldata.set_values(calldata_values);
 
     // Populate the return data in the databus
     std::vector<field_ct> returndata_values;
@@ -164,10 +164,10 @@ TEST(Databus, ConstantAndUnnormalizedIndices)
     field_ct idx_1(witness_ct(&builder, 1));
     // un-normalized index (with multiplicative constant 2)
     field_ct idx_2 = idx_1 + idx_1;
-    field_ct sum = databus.calldata[idx_0] + databus.calldata[idx_1] + databus.calldata[idx_2];
+    field_ct sum = databus.kernel_calldata[idx_0] + databus.kernel_calldata[idx_1] + databus.kernel_calldata[idx_2];
 
-    databus.return_data[idx_0].assert_equal(databus.calldata[idx_0]);
-    databus.return_data[idx_1].assert_equal(databus.calldata[idx_1]);
+    databus.return_data[idx_0].assert_equal(databus.kernel_calldata[idx_0]);
+    databus.return_data[idx_1].assert_equal(databus.kernel_calldata[idx_1]);
     databus.return_data[idx_2].assert_equal(sum);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -218,7 +218,7 @@ TEST(Databus, BadCopyFailure)
 
     // Populate calldata with a single input
     fr input = 13;
-    databus.calldata.set_values({ witness_ct(&builder, input) });
+    databus.kernel_calldata.set_values({ witness_ct(&builder, input) });
 
     // Populate return data with an output different from the input
     fr output = input - 1;
@@ -227,7 +227,7 @@ TEST(Databus, BadCopyFailure)
     // Attempt to attest that the calldata has been copied into the return data
     size_t raw_idx = 0; // read at 0th index
     field_ct idx(witness_ct(&builder, raw_idx));
-    databus.calldata[idx].assert_equal(databus.return_data[idx]);
+    databus.kernel_calldata[idx].assert_equal(databus.return_data[idx]);
 
     // Since the output data is not a copy of the input, the checker should fail
     EXPECT_FALSE(CircuitChecker::check(builder));
@@ -251,7 +251,7 @@ TEST(Databus, DuplicateRead)
     for (auto& value : raw_calldata_values) {
         calldata_values.emplace_back(witness_ct(&builder, value));
     }
-    databus.calldata.set_values(calldata_values);
+    databus.kernel_calldata.set_values(calldata_values);
 
     // Populate the return data in the databus
     std::vector<field_ct> return_data_values;
@@ -264,10 +264,10 @@ TEST(Databus, DuplicateRead)
     field_ct idx_1(witness_ct(&builder, 1));
     field_ct idx_2(witness_ct(&builder, 2));
 
-    databus.calldata[idx_1];
-    databus.calldata[idx_1];
-    databus.calldata[idx_1];
-    databus.calldata[idx_2];
+    databus.kernel_calldata[idx_1];
+    databus.kernel_calldata[idx_1];
+    databus.kernel_calldata[idx_1];
+    databus.kernel_calldata[idx_2];
 
     databus.return_data[idx_2];
     databus.return_data[idx_2];
