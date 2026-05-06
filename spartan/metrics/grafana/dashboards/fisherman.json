@@ -3161,7 +3161,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "max by(service_name, aztec_status) (label_replace(aztec_archiver_block_height{service_namespace=\"$namespace\"}, \"aztec_status\", \"pending\", \"aztec_status\", \"^$\"))",
+          "expr": "max by(service_name, aztec_status) (aztec_archiver_block_height{service_namespace=\"$namespace\", aztec_status=~\"proposed|proven\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
