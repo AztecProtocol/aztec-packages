@@ -9,12 +9,9 @@ import {
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { AbortError } from '@aztec/foundation/error';
-import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import type { LoggerBindings } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { SerialQueue } from '@aztec/foundation/queue';
 import { assertLength } from '@aztec/foundation/serialize';
-import { sleep } from '@aztec/foundation/sleep';
 import { pushTestData } from '@aztec/foundation/testing';
 import { elapsed } from '@aztec/foundation/timer';
 import type { TreeNodeLocation } from '@aztec/foundation/trees';
@@ -70,6 +67,7 @@ import type { BlockProvingState } from './block-proving-state.js';
 import type { CheckpointProvingState } from './checkpoint-proving-state.js';
 import { EpochProvingState, type ProvingResult, type TreeSnapshots } from './epoch-proving-state.js';
 import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
+import { ProvingScheduler } from './proving-scheduler.js';
 import { TxProvingState } from './tx-proving-state.js';
 
 /**
@@ -91,29 +89,25 @@ import { TxProvingState } from './tx-proving-state.js';
  * (which extends it) and as a single-class end-to-end driver used by the
  * `orchestrator_*.test.ts` integration tests.
  */
-export class ProvingOrchestrator {
+export class ProvingOrchestrator extends ProvingScheduler {
   protected provingState: EpochProvingState | undefined = undefined;
-  protected pendingProvingJobs: AbortController[] = [];
 
   protected provingPromise: Promise<ProvingResult> | undefined = undefined;
   private metrics: ProvingOrchestratorMetrics;
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   private dbs: Map<BlockNumber, MerkleTreeWriteOperations> = new Map();
-  protected logger: Logger;
-  private deferredJobQueue = new SerialQueue();
 
   constructor(
     private dbProvider: ReadonlyWorldStateAccess & ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
     private readonly proverId: EthAddress,
     private readonly cancelJobsOnStop: boolean = false,
-    private readonly enqueueConcurrency: number,
+    enqueueConcurrency: number,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
   ) {
-    this.logger = createLogger('prover-client:orchestrator', bindings);
+    super(enqueueConcurrency, 'prover-client:orchestrator', bindings);
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
-    this.deferredJobQueue.start(this.enqueueConcurrency);
   }
 
   get tracer(): Tracer {
@@ -128,16 +122,8 @@ export class ProvingOrchestrator {
     return this.dbs.size;
   }
 
-  /** Returns the number of proving jobs that are still in-flight. */
-  public getNumPendingProvingJobs() {
-    return this.pendingProvingJobs.length;
-  }
-
-  public async stop(): Promise<void> {
-    // Grab the old queue before cancel() replaces it, so we can await its draining.
-    const oldQueue = this.deferredJobQueue;
+  protected override cancelInternal(): void {
     this.cancel();
-    await oldQueue.cancel();
   }
 
   public startNewEpoch(epochNumber: EpochNumber) {
@@ -599,16 +585,7 @@ export class ProvingOrchestrator {
    * If cancelJobsOnStop is false (default), jobs remain in the broker queue and can be reused on restart/reorg.
    */
   public cancel() {
-    void this.deferredJobQueue.cancel();
-    // Recreate the queue so it can accept jobs for subsequent epochs.
-    this.deferredJobQueue = new SerialQueue();
-    this.deferredJobQueue.start(this.enqueueConcurrency);
-
-    if (this.cancelJobsOnStop) {
-      for (const controller of this.pendingProvingJobs) {
-        controller.abort();
-      }
-    }
+    this.resetSchedulerState(this.cancelJobsOnStop);
 
     this.provingState?.cancel();
 
@@ -653,78 +630,6 @@ export class ProvingOrchestrator {
     });
 
     return epochProofResult;
-  }
-
-  /**
-   * Enqueue a job to be scheduled
-   * @param provingState - The proving state object being operated on
-   * @param jobType - The type of job to be queued
-   * @param job - The actual job, returns a promise notifying of the job's completion
-   */
-  private deferredProving<T>(
-    provingState: EpochProvingState | CheckpointProvingState | BlockProvingState,
-    request: (signal: AbortSignal) => Promise<T>,
-    callback: (result: T) => void | Promise<void>,
-  ) {
-    if (!provingState.verifyState()) {
-      this.logger.debug(`Not enqueuing job, state no longer valid`);
-      return;
-    }
-
-    const controller = new AbortController();
-    this.pendingProvingJobs.push(controller);
-
-    // We use a 'safeJob'. We don't want promise rejections in the proving pool, we want to capture the error here
-    // and reject the proving job whilst keeping the event loop free of rejections
-    const safeJob = async () => {
-      try {
-        // there's a delay between enqueueing this job and it actually running
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        const result = await request(controller.signal);
-        if (!provingState.verifyState()) {
-          this.logger.debug(`State no longer valid, discarding result`);
-          return;
-        }
-
-        // we could have been cancelled whilst waiting for the result
-        // and the prover ignored the signal. Drop the result in that case
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        await callback(result);
-      } catch (err) {
-        if (err instanceof AbortError) {
-          // operation was cancelled, probably because the block was cancelled
-          // drop this result
-          return;
-        }
-
-        // If the proving state has been invalidated (e.g. the checkpoint was removed by an
-        // L1 reorg), the job error is obsolete — drop it rather than taint the parent epoch.
-        if (!provingState.verifyState()) {
-          this.logger.debug(`State no longer valid, discarding error from proving job`, err);
-          return;
-        }
-
-        this.logger.error(`Error thrown when proving job`, err);
-        provingState!.reject(`${err}`);
-      } finally {
-        const index = this.pendingProvingJobs.indexOf(controller);
-        if (index > -1) {
-          this.pendingProvingJobs.splice(index, 1);
-        }
-      }
-    };
-
-    void this.deferredJobQueue.put(async () => {
-      void safeJob();
-      // we yield here to the macro task queue such to give Nodejs a chance to run other operatoins in between enqueues
-      await sleep(0);
-    });
   }
 
   private async updateL1ToL2MessageTree(l1ToL2Messages: Fr[], db: MerkleTreeWriteOperations) {
