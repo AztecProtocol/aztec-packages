@@ -1,5 +1,5 @@
 A state-machine fuzzer for Aztec contract interactions. It talks to a running
-sandbox via a persistent Node.js HTTP bridge (`bridge.mjs`), compares the
+sandbox via a persistent Node.js HTTP bridge (`wallet-bridge.mjs`), compares the
 sandbox's behavior to an in-memory model, and asserts on any divergence.
 
 Two machines are available:
@@ -19,16 +19,22 @@ it uses the standard `Token` contract that ships with the wallet CLI:
 cargo run -- token --max-steps 100
 ```
 
-The **side-effect** machine requires the **nightly** sandbox because it deploys custom
-contracts compiled against the nightly's aztec-nr. Use `setup-nightly-sandbox.sh` to
-automate the full setup (defaults to the last tested nightly tag; pass `--latest` to
-try the newest one). See `SANDBOX_INSTRUCTIONS.md` for manual steps.
+The **side-effect** machine requires custom contracts. There are two ways to set it up:
 
+**Local setup** (no Docker, uses your repo build):
+```
+bash setup-local.sh              # compiles contracts, starts anvil + node + bridge
+cargo run -- side-effect --artifacts-dir contracts/target --max-steps 100
+```
+
+**Nightly Docker setup** (defaults to the last tested nightly tag; pass `--latest` for newest):
 ```
 bash setup-nightly-sandbox.sh
-
 cargo run -- side-effect --max-steps 100
 ```
+The nightly script places artifacts at `/tmp/` inside the container (the default `--artifacts-dir`).
+
+See `SANDBOX_INSTRUCTIONS.md` for manual nightly steps and troubleshooting.
 
 To replay a specific failure seed:
 
@@ -44,7 +50,14 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 --seed 0xHEX          Replay a specific seed
 --max-steps N         Max fuzzing steps (default: 400)
 --max-batch-size N    Max parallel sends per batch (default: 8)
+--artifacts-dir DIR   Contract artifact directory (side-effect only, default: /tmp)
 ```
+
+> **Note:** `--artifacts-dir` is resolved on the host and sent as-is to the bridge.
+> For **local** setup the bridge runs on the host, so use the real path (e.g.
+> `contracts/target`). For **nightly Docker** the bridge runs inside the container,
+> so the path must be valid inside it — the default `/tmp` works because the nightly
+> script places artifacts at `/tmp/*.json` inside the container.
 
 ### Parallel batching
 
@@ -64,11 +77,15 @@ Conflict rules (conservative -- false positives only reduce batch size):
 To verify that the sandbox is running correctly, run the integration smoke tests:
 
 ```
-cargo test -- --ignored --nocapture
+ARTIFACTS_DIR=contracts/target cargo test -- --ignored --nocapture
 ```
 
 These are `#[ignore]`d by default because they require a running sandbox. With
 bridge + fast slots, a full suite run takes ~1-2 minutes (~5-13s per transaction).
+
+Environment variables for tests:
+- `ARTIFACTS_DIR` -- contract artifact directory (default: `/tmp`)
+- `BRIDGE_URL` -- bridge server URL (default: `http://localhost:8089`)
 
 ## Contracts
 
@@ -82,9 +99,9 @@ with oracle calls (like `utilityLog`) that the nightly PXE doesn't support.
 - **Parent** (`contracts/parent_contract/`) -- forwards calls to SideEffect for
   cross-contract call testing
 
-Artifacts are built by `setup-nightly-sandbox.sh` inside the nightly container and
-placed in `contracts/target/` (not checked into git).
+Artifacts are built by `setup-local.sh` or `setup-nightly-sandbox.sh` and placed in
+`contracts/target/`. Pre-built artifacts are checked into git for convenience.
 
-The setup script auto-detects the nightly commit by matching the container's nargo
-hash against `origin/next`. See `SANDBOX_INSTRUCTIONS.md` for the full build pipeline,
-version matrix, and troubleshooting.
+The nightly setup script auto-detects the nightly commit by matching the container's
+nargo hash against `origin/next`. See `SANDBOX_INSTRUCTIONS.md` for the full build
+pipeline, version matrix, and troubleshooting.
