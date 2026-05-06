@@ -7,15 +7,9 @@
 
 namespace bb {
 
-/**
- * @brief Perform a specified number of circuit accumulation rounds
- *
- * @param NUM_CIRCUITS Number of circuits to accumulate (apps + kernels)
- */
 std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_prove_with_precomputed_vks(
-    size_t num_app_circuits, auto& precomputed_vks, const bool large_first_app = true)
+    PrivateFunctionExecutionMockCircuitProducer& circuit_producer, auto& precomputed_vks)
 {
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     Chonk ivc{ NUM_CIRCUITS };
 
@@ -33,11 +27,28 @@ std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_p
     return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
 }
 
-std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vks(const size_t num_app_circuits,
-                                                                                  const bool large_first_app = true)
+/**
+ * @brief Perform a specified number of circuit accumulation rounds
+ *
+ * @param num_app_circuits Number of app circuits to accumulate
+ */
+std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_prove_with_precomputed_vks(
+    size_t num_app_circuits, auto& precomputed_vks, const bool large_first_app = true)
 {
-    using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
-    CircuitProducer circuit_producer(num_app_circuits, large_first_app);
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
+    return accumulate_and_prove_with_precomputed_vks(circuit_producer, precomputed_vks);
+}
+
+std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> accumulate_and_prove_with_precomputed_vks(
+    std::vector<bool> leading_is_kernel_flags, auto& precomputed_vks, const bool large_first_app = false)
+{
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer(std::move(leading_is_kernel_flags), large_first_app);
+    return accumulate_and_prove_with_precomputed_vks(circuit_producer, precomputed_vks);
+}
+
+std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vks(
+    PrivateFunctionExecutionMockCircuitProducer& circuit_producer)
+{
     const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
     Chonk ivc{ NUM_CIRCUITS };
 
@@ -46,12 +57,26 @@ std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vk
 
         auto circuit = circuit_producer.create_next_circuit(ivc);
         const bool is_hiding_kernel = (j == NUM_CIRCUITS - 1);
-        auto vk = CircuitProducer::get_verification_key(circuit, is_hiding_kernel);
+        auto vk = PrivateFunctionExecutionMockCircuitProducer::get_verification_key(circuit, is_hiding_kernel);
         vkeys.push_back(vk);
         ivc.accumulate(circuit, vk);
     }
 
     return vkeys;
+}
+
+std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vks(const size_t num_app_circuits,
+                                                                                  const bool large_first_app = true)
+{
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer(num_app_circuits, large_first_app);
+    return precompute_vks(circuit_producer);
+}
+
+std::vector<std::shared_ptr<typename MegaFlavor::VerificationKey>> precompute_vks(
+    std::vector<bool> leading_is_kernel_flags, const bool large_first_app = false)
+{
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer(std::move(leading_is_kernel_flags), large_first_app);
+    return precompute_vks(circuit_producer);
 }
 
 } // namespace bb

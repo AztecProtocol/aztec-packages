@@ -58,6 +58,28 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     auto blocks_array = builder.blocks.get();
     const size_t num_blocks = blocks_array.size();
 
+    // Pre-pass: count copy-cycle sizes per real-variable index so each copy_cycles[i] can be
+    // reserve()d once before the serial concat in phase 1.5, avoiding repeated reallocations.
+    {
+        BB_BENCH_NAME("counting copy_cycles");
+        std::vector<uint32_t> cycle_counts(builder.real_variable_index.size(), 0);
+        for (auto& block : blocks_array) {
+            const uint32_t block_size = static_cast<uint32_t>(block.size());
+            for (uint32_t block_row_idx = 0; block_row_idx < block_size; ++block_row_idx) {
+                for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
+                    uint32_t var_idx = block.wires[wire_idx][block_row_idx];
+                    // var_idx may be untrusted (e.g. from ACIR) so use .at() to catch OOB. This validates real_var_idx
+                    // as an in-range index for both cycle_counts and copy_cycles (same size), which is why phase 1.5
+                    // below can index copy_cycles[real_var_idx] without .at().
+                    ++cycle_counts.at(builder.real_variable_index.at(var_idx));
+                }
+            }
+        }
+        for (size_t i = 0; i < copy_cycles.size(); ++i) {
+            copy_cycles[i].reserve(cycle_counts[i]);
+        }
+    }
+
     // Phase 1: per-block parallel pass over wires and emit copy-cycle nodes.
     std::vector<std::vector<std::pair<uint32_t, cycle_node>>> per_block_nodes(num_blocks);
     {
@@ -89,7 +111,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         BB_BENCH_NAME("fill_copy_cycles");
         for (const auto& block_nodes : per_block_nodes) {
             for (const auto& [real_var_idx, node] : block_nodes) {
-                copy_cycles.at(real_var_idx).emplace_back(node);
+                copy_cycles[real_var_idx].emplace_back(node);
             }
         }
     }

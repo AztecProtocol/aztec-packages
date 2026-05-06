@@ -126,6 +126,15 @@ template <typename Fr> class Polynomial {
         }
         return p;
     }
+    /**
+     * @brief Overload of `shiftable` that leaves the backing memory uninitialized.
+     * @details Use only when the caller writes every cell in [NUM_ZERO_ROWS, NUM_ZERO_ROWS + size)
+     *          before any read.
+     */
+    static Polynomial shiftable(size_t size, size_t virtual_size, DontZeroMemory flag)
+    {
+        return Polynomial(/*actual size*/ size - NUM_ZERO_ROWS, virtual_size, /*shiftable offset*/ NUM_ZERO_ROWS, flag);
+    }
     // Allow polynomials to be entirely reset/dormant
     Polynomial() = default;
 
