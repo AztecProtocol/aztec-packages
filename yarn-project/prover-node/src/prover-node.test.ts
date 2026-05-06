@@ -163,6 +163,7 @@ describe('prover-node', () => {
 
     l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
     l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
+    l2BlockSource.getGenesisBlockHash.mockReturnValue(GENESIS_BLOCK_HEADER_HASH);
     l2BlockSource.getCheckpoints.mockResolvedValue(publishedCheckpoints);
     const latestBlockNumber = BlockNumber.fromCheckpointNumber(checkpoints.at(-1)!.number);
     const latestHash = checkpoints.at(-1)!.hash().toString();
@@ -183,13 +184,17 @@ describe('prover-node', () => {
       proven: genesisTipId,
       finalized: genesisTipId,
     });
-    l2BlockSource.getBlockData.mockImplementation(query =>
-      Promise.resolve(
-        'number' in query && query.number === checkpoints[0].blocks[0].number - 1
-          ? ({ header: previousBlockHeader } as any)
-          : undefined,
-      ),
-    );
+    // Return a header for any block number requested (needed for checkpoint-driven flow).
+    l2BlockSource.getBlockData.mockImplementation((query: any) => {
+      if (!('number' in query)) {
+        return Promise.resolve(undefined);
+      }
+      const num = Number(query.number);
+      if (num === checkpoints[0].blocks[0].number - 1) {
+        return Promise.resolve({ header: previousBlockHeader } as any);
+      }
+      return Promise.resolve({ header: BlockHeader.random({ blockNumber: BlockNumber(num) }) } as any);
+    });
 
     // L1 to L2 message source returns no messages
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
@@ -511,8 +516,17 @@ describe('prover-node', () => {
       // (arrival of a later checkpoint) to drive things.
       l2BlockSource.isEpochComplete.mockResolvedValue(false);
       // Each epoch has exactly one checkpoint (the one matching the epoch number).
-      l2BlockSource.getCheckpointsForEpoch.mockImplementation((epoch: any) =>
-        Promise.resolve([Number(epoch) === 0 ? cp0 : cp1]),
+      l2BlockSource.getCheckpoints.mockImplementation((query: any) =>
+        Promise.resolve(
+          'epoch' in query
+            ? [
+                {
+                  checkpoint: Number(query.epoch) === 0 ? cp0 : cp1,
+                  attestations: [],
+                } as unknown as PublishedCheckpoint,
+              ]
+            : [],
+        ),
       );
 
       // Deliver checkpoint for epoch 0.
@@ -576,14 +590,15 @@ describe('prover-node', () => {
         epochDuration: 32,
       });
       l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(10));
-      l2BlockSource.getBlockHeader.mockImplementation((n: BlockNumber | 'latest') => {
-        if (n === 'latest') {
-          return Promise.resolve(BlockHeader.random({ blockNumber: BlockNumber(20), slotNumber: SlotNumber(20) }));
+      l2BlockSource.getBlockData.mockImplementation((query: any) => {
+        if (!('number' in query)) {
+          return Promise.resolve(undefined);
         }
         // Block N sits at slot N — both ≤ 31, so still in epoch 0.
-        return Promise.resolve(
-          BlockHeader.random({ blockNumber: BlockNumber(Number(n)), slotNumber: SlotNumber(Number(n)) }),
-        );
+        const num = Number(query.number);
+        return Promise.resolve({
+          header: BlockHeader.random({ blockNumber: BlockNumber(num), slotNumber: SlotNumber(num) }),
+        } as any);
       });
 
       // Deliver an early checkpoint at slot 5 (block 5) — in the same partially-proven
@@ -593,7 +608,9 @@ describe('prover-node', () => {
         startBlockNumber: 5,
         slotNumber: SlotNumber(5),
       });
-      l2BlockSource.getCheckpointsForEpoch.mockResolvedValue([earlyCheckpoint]);
+      l2BlockSource.getCheckpoints.mockResolvedValue([
+        { checkpoint: earlyCheckpoint, attestations: [] } as unknown as PublishedCheckpoint,
+      ]);
 
       await deliverCheckpoint(earlyCheckpoint);
 
@@ -630,17 +647,18 @@ describe('prover-node', () => {
   describe('computeStartingBlock', () => {
     const setupBlock = (blockNumber: number, slot: number) => {
       const header = BlockHeader.random({ blockNumber: BlockNumber(blockNumber), slotNumber: SlotNumber(slot) });
-      l2BlockSource.getBlockHeader.mockImplementation((n: BlockNumber | 'latest') => {
-        if (n === 'latest') {
-          return Promise.resolve(header);
+      l2BlockSource.getBlockData.mockImplementation((query: any) => {
+        if (!('number' in query)) {
+          return Promise.resolve(undefined);
         }
-        // For blocks at or before the requested one, return a header with the appropriate slot.
-        const num = Number(n);
+        const num = Number(query.number);
         if (num === blockNumber) {
-          return Promise.resolve(header);
+          return Promise.resolve({ header } as any);
         }
         // For surrounding blocks, return a header with a slot computed assuming 1 block per slot.
-        return Promise.resolve(BlockHeader.random({ blockNumber: BlockNumber(num), slotNumber: SlotNumber(num) }));
+        return Promise.resolve({
+          header: BlockHeader.random({ blockNumber: BlockNumber(num), slotNumber: SlotNumber(num) }),
+        } as any);
       });
     };
 
@@ -672,12 +690,15 @@ describe('prover-node', () => {
       });
       l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(5));
       // Block 5 -> slot 5 (epoch 1), block 4 -> slot 4 (epoch 1), block 3 -> slot 3 (epoch 0).
-      l2BlockSource.getBlockHeader.mockImplementation((n: BlockNumber | 'latest') =>
-        n === 'latest'
-          ? Promise.resolve(BlockHeader.random({ blockNumber: BlockNumber(5), slotNumber: SlotNumber(5) }))
-          : Promise.resolve(
-              BlockHeader.random({ blockNumber: BlockNumber(Number(n)), slotNumber: SlotNumber(Number(n)) }),
-            ),
+      l2BlockSource.getBlockData.mockImplementation((query: any) =>
+        'number' in query
+          ? Promise.resolve({
+              header: BlockHeader.random({
+                blockNumber: BlockNumber(Number(query.number)),
+                slotNumber: SlotNumber(Number(query.number)),
+              }),
+            } as any)
+          : Promise.resolve(undefined),
       );
       const start = await proverNode.publicComputeStartingBlock();
       expect(start).toEqual(4); // First block of epoch 1.
@@ -692,12 +713,20 @@ describe('prover-node', () => {
         epochDuration: 4,
       });
       l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(5));
-      l2BlockSource.getBlockHeader.mockImplementation((n: BlockNumber | 'latest') => {
-        if (n === 'latest' || Number(n) === 5) {
-          return Promise.resolve(BlockHeader.random({ blockNumber: BlockNumber(5), slotNumber: SlotNumber(5) }));
+      l2BlockSource.getBlockData.mockImplementation((query: any) => {
+        if (!('number' in query)) {
+          return Promise.resolve(undefined);
         }
-        if (Number(n) === 4) {
-          return Promise.resolve(BlockHeader.random({ blockNumber: BlockNumber(4), slotNumber: SlotNumber(4) }));
+        const num = Number(query.number);
+        if (num === 5) {
+          return Promise.resolve({
+            header: BlockHeader.random({ blockNumber: BlockNumber(5), slotNumber: SlotNumber(5) }),
+          } as any);
+        }
+        if (num === 4) {
+          return Promise.resolve({
+            header: BlockHeader.random({ blockNumber: BlockNumber(4), slotNumber: SlotNumber(4) }),
+          } as any);
         }
         // Block 6 (and beyond) doesn't exist yet.
         return Promise.resolve(undefined);
@@ -717,16 +746,26 @@ describe('prover-node', () => {
         epochDuration: 4,
       });
       l2BlockSource.getProvenBlockNumber.mockResolvedValue(BlockNumber(5));
-      l2BlockSource.getBlockHeader.mockImplementation((n: BlockNumber | 'latest') => {
-        if (n === 'latest' || Number(n) === 5) {
-          return Promise.resolve(BlockHeader.random({ blockNumber: BlockNumber(5), slotNumber: SlotNumber(5) }));
+      l2BlockSource.getBlockData.mockImplementation((query: any) => {
+        if (!('number' in query)) {
+          return Promise.resolve(undefined);
         }
-        if (Number(n) === 4) {
-          return Promise.resolve(BlockHeader.random({ blockNumber: BlockNumber(4), slotNumber: SlotNumber(4) }));
+        const num = Number(query.number);
+        if (num === 5) {
+          return Promise.resolve({
+            header: BlockHeader.random({ blockNumber: BlockNumber(5), slotNumber: SlotNumber(5) }),
+          } as any);
         }
-        if (Number(n) === 3) {
+        if (num === 4) {
+          return Promise.resolve({
+            header: BlockHeader.random({ blockNumber: BlockNumber(4), slotNumber: SlotNumber(4) }),
+          } as any);
+        }
+        if (num === 3) {
           // Block 3 sits in epoch 0 — boundary marker for the rewind loop.
-          return Promise.resolve(BlockHeader.random({ blockNumber: BlockNumber(3), slotNumber: SlotNumber(3) }));
+          return Promise.resolve({
+            header: BlockHeader.random({ blockNumber: BlockNumber(3), slotNumber: SlotNumber(3) }),
+          } as any);
         }
         return Promise.resolve(undefined);
       });

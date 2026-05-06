@@ -79,7 +79,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
   private rewardsMetrics: ProverNodeRewardsMetrics;
 
   /** In-memory store for the L2BlockStream's local data provider. */
-  private tipsStore = new L2TipsMemoryStore();
+  private tipsStore: L2TipsMemoryStore;
   /** Block stream for checkpoint and reorg detection. */
   private blockStream: L2BlockStream | undefined;
   /** In-flight detached gathering tasks (one per pending checkpoint), keyed by an incrementing id. */
@@ -126,6 +126,8 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     this.jobMetrics = new ProverNodeJobMetrics(meter, telemetryClient.getTracer('EpochProvingJob'));
 
     this.rewardsMetrics = new ProverNodeRewardsMetrics(meter, this.prover.getProverId(), rollupContract);
+
+    this.tipsStore = new L2TipsMemoryStore(this.l2BlockSource.getGenesisBlockHash());
   }
 
   public getProverId() {
@@ -408,7 +410,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
       return;
     }
 
-    const archiverCheckpoints = await this.l2BlockSource.getCheckpointsForEpoch(epochNumber);
+    const archiverCheckpoints = await this.l2BlockSource.getCheckpoints({ epoch: epochNumber });
     const known = job.getCheckpointCount();
     if (known < archiverCheckpoints.length) {
       this.log.debug(
@@ -509,8 +511,8 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
    * through the checkpoint-driven flow, then immediately finalizes.
    */
   public async startProof(epochNumber: EpochNumber) {
-    const checkpoints = await this.l2BlockSource.getCheckpointsForEpoch(epochNumber);
-    if (checkpoints.length === 0) {
+    const publishedCheckpoints = await this.l2BlockSource.getCheckpoints({ epoch: epochNumber });
+    if (publishedCheckpoints.length === 0) {
       throw new EmptyEpochError(epochNumber);
     }
 
@@ -519,12 +521,11 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     let job = this.epochJobs.get(Number(epochNumber));
     if (!job) {
       job = await this.createEpochJob(epochNumber);
-      const firstCheckpointNumber = checkpoints[0].number;
-      // Fetch attestations alongside the checkpoint set so the job has them per-entry.
-      const publishedCheckpoints = await this.l2BlockSource.getCheckpoints(firstCheckpointNumber, checkpoints.length);
-      for (const checkpoint of checkpoints) {
+      const firstCheckpointNumber = publishedCheckpoints[0].checkpoint.number;
+      for (const published of publishedCheckpoints) {
+        const checkpoint = published.checkpoint;
         const checkpointIndex = checkpoint.number - firstCheckpointNumber;
-        const attestations = publishedCheckpoints[checkpointIndex]?.attestations ?? [];
+        const attestations = published.attestations;
         const previousBlockNumber = BlockNumber(checkpoint.blocks[0].number - 1);
         const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, previousBlockNumber);
         const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpoint.number);
@@ -626,7 +627,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     if (!provenBlockNumber || provenBlockNumber <= 0) {
       return false;
     }
-    const provenHeader = await this.l2BlockSource.getBlockHeader(BlockNumber(provenBlockNumber));
+    const provenHeader = (await this.l2BlockSource.getBlockData({ number: BlockNumber(provenBlockNumber) }))?.header;
     if (!provenHeader) {
       return false;
     }
@@ -640,7 +641,7 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     // Same epoch as the proven block: fully proven iff the proven block is the last
     // of its epoch (next block in a later epoch, or no next block and the epoch is
     // over on L1).
-    const nextHeader = await this.l2BlockSource.getBlockHeader(BlockNumber(provenBlockNumber + 1));
+    const nextHeader = (await this.l2BlockSource.getBlockData({ number: BlockNumber(provenBlockNumber + 1) }))?.header;
     if (nextHeader) {
       return getEpochAtSlot(nextHeader.getSlot(), l1Constants) > provenEpoch;
     }
@@ -669,14 +670,14 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     }
 
     const l1Constants = await this.getL1Constants();
-    const provenHeader = await this.l2BlockSource.getBlockHeader(BlockNumber(provenBlockNumber));
+    const provenHeader = (await this.l2BlockSource.getBlockData({ number: BlockNumber(provenBlockNumber) }))?.header;
     if (!provenHeader) {
       return BlockNumber(provenBlockNumber + 1);
     }
     const provenEpoch = getEpochAtSlot(provenHeader.getSlot(), l1Constants);
 
     // Decide whether the proven block is the last block of its epoch.
-    const nextHeader = await this.l2BlockSource.getBlockHeader(BlockNumber(provenBlockNumber + 1));
+    const nextHeader = (await this.l2BlockSource.getBlockData({ number: BlockNumber(provenBlockNumber + 1) }))?.header;
     let provenEpochFullyProven: boolean;
     if (nextHeader) {
       const nextEpoch = getEpochAtSlot(nextHeader.getSlot(), l1Constants);
@@ -694,7 +695,8 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
     // Otherwise the proven block sits mid-epoch; rewind to the first block of this epoch.
     let firstBlockOfEpoch = provenBlockNumber;
     while (firstBlockOfEpoch > 1) {
-      const prevHeader = await this.l2BlockSource.getBlockHeader(BlockNumber(firstBlockOfEpoch - 1));
+      const prevHeader = (await this.l2BlockSource.getBlockData({ number: BlockNumber(firstBlockOfEpoch - 1) }))
+        ?.header;
       if (!prevHeader) {
         break;
       }
@@ -717,11 +719,11 @@ export class ProverNode implements EpochMonitorHandler, L2BlockStreamEventHandle
    * shouldn't happen in practice since the L2BlockStream reads from the same archiver).
    */
   private async getCheckpointIndexInEpoch(checkpoint: Checkpoint, epochNumber: EpochNumber): Promise<number> {
-    const archiverCheckpoints = await this.l2BlockSource.getCheckpointsForEpoch(epochNumber);
+    const archiverCheckpoints = await this.l2BlockSource.getCheckpoints({ epoch: epochNumber });
     if (archiverCheckpoints.length === 0) {
       return 0;
     }
-    return checkpoint.number - archiverCheckpoints[0].number;
+    return checkpoint.number - archiverCheckpoints[0].checkpoint.number;
   }
 
   private async gatherTxsForCheckpoint(checkpoint: Checkpoint): Promise<Map<string, Tx>> {
