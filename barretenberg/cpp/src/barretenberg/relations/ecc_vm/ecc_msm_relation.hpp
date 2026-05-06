@@ -9,6 +9,11 @@
 
 namespace bb {
 
+// Index of the final addition round in the Straus algorithm (rounds 0..LAST_ADDITION_ROUND are
+// addition rounds; round LAST_ADDITION_ROUND + 1 is the skew round). Used both by the MSM
+// relation (e.g. the round_minus_31_inv witness gate) and by the flavor's witness population.
+inline constexpr size_t LAST_ADDITION_ROUND = 31;
+
 /**
  * @brief MSM relations that evaluate the Strauss multiscalar multiplication algorithm.
  *

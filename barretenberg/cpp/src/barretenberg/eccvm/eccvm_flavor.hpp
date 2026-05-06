@@ -686,11 +686,13 @@ class ECCVMFlavor {
             lagrange_last.at(dyadic_num_rows - 1) = 1;
 
             static const auto MSM_ROUND_MINUS_31_INV_BY_ROUND = []() {
-                std::array<FF, 33> table{};
+                std::array<FF, LAST_ADDITION_ROUND + 2> table{};
                 for (size_t round = 0; round < table.size(); ++round) {
-                    // IMPORTANT: when round == 31, the entry is exactly 0 because (round - 31)^-1 is undefined.
-                    // Every other slot stores the canonical inverse (round - 31)^-1.
-                    table[round] = (round == 31) ? FF(0) : (FF(static_cast<uint32_t>(round)) - FF(31)).invert();
+                    // IMPORTANT: when round == LAST_ADDITION_ROUND, the entry is exactly 0 because
+                    // (round - LAST_ADDITION_ROUND)^-1 is undefined. Every other slot stores the canonical inverse.
+                    table[round] = (round == LAST_ADDITION_ROUND)
+                                       ? FF(0)
+                                       : (FF(static_cast<uint32_t>(round)) - FF(LAST_ADDITION_ROUND)).invert();
                 }
                 return table;
             }();
