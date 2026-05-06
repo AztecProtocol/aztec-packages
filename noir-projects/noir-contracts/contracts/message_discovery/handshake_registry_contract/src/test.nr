@@ -41,12 +41,13 @@ unconstrained fn non_interactive_handshake_stores_recipient_bound_note_at_sender
 
     env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    let note = env
-        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
-        .expect(f"handshake note should be present");
+    let note = env.execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE)).expect(
+        f"handshake note should be present",
+    );
     assert_eq(note.handshake_type, NON_INTERACTIVE_HANDSHAKE);
     assert_eq(note.recipient, recipient);
-    // TODO: `secret_hash` is the hash of the raw ECDH point components. Without an storing the raw point in an oracle we
+    // TODO: `secret_hash` is the hash of the raw ECDH point components. Without an storing the raw point in an oracle
+    // we
     // can't reconstruct it from the recipient's side here, so we just check that something non-zero was stored.
     assert(note.secret_hash != 0, "secret_hash should be set");
 }
@@ -58,21 +59,15 @@ unconstrained fn handshakes_are_isolated_per_sender() {
 
     env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     assert(
-        env
-            .execute_utility(registry.get_handshake(
-                other_sender,
-                recipient,
-                NON_INTERACTIVE_HANDSHAKE,
-            ))
-            .is_none(),
+        env.execute_utility(registry.get_handshake(other_sender, recipient, NON_INTERACTIVE_HANDSHAKE)).is_none(),
         "other sender should not see primary sender's handshake",
     );
 
     env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
 
-    let sender_note = env
-        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
-        .expect(f"primary sender should see its handshake");
+    let sender_note = env.execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE)).expect(
+        f"primary sender should see its handshake",
+    );
     let other_sender_note = env
         .execute_utility(registry.get_handshake(other_sender, recipient, NON_INTERACTIVE_HANDSHAKE))
         .expect(f"other sender should see its handshake");
@@ -152,10 +147,7 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
 
     let eph_pk_x_0 = logs_first.get(1).get(1);
     let eph_pk_x_1 = logs_second.get(1).get(1);
-    assert(
-        eph_pk_x_0 != eph_pk_x_1,
-        "ephemeral keys should differ in handshakes from different senders",
-    );
+    assert(eph_pk_x_0 != eph_pk_x_1, "ephemeral keys should differ in handshakes from different senders");
 }
 
 #[test]
@@ -169,16 +161,16 @@ unconstrained fn duplicate_handshake_accumulates_distinct_secrets_and_returns_la
     env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let logs_first = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_first.len(), 2);
-    let first = env
-        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
-        .expect(f"first handshake note should be present");
+    let first = env.execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE)).expect(
+        f"first handshake note should be present",
+    );
 
     env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let logs_second = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_second.len(), 2);
-    let latest = env
-        .execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE))
-        .expect(f"second handshake note should be present");
+    let latest = env.execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE)).expect(
+        f"second handshake note should be present",
+    );
 
     let raw_tag = compute_log_tag(
         recipient.to_field(),
@@ -193,10 +185,7 @@ unconstrained fn duplicate_handshake_accumulates_distinct_secrets_and_returns_la
         "ephemeral keys should differ across repeated handshakes",
     );
 
-    assert(
-        first.secret_hash != latest.secret_hash,
-        "should return the most recent note, not the first",
-    );
+    assert(first.secret_hash != latest.secret_hash, "should return the most recent note, not the first");
 }
 
 #[test]
@@ -232,9 +221,7 @@ unconstrained fn get_handshake_returns_none_for_wrong_sender() {
 
     env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    assert(env
-        .execute_utility(registry.get_handshake(other_sender, recipient, NON_INTERACTIVE_HANDSHAKE))
-        .is_none());
+    assert(env.execute_utility(registry.get_handshake(other_sender, recipient, NON_INTERACTIVE_HANDSHAKE)).is_none());
 }
 
 #[test]
@@ -244,9 +231,7 @@ unconstrained fn get_handshake_returns_none_for_wrong_recipient() {
 
     env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
 
-    assert(env
-        .execute_utility(registry.get_handshake(sender, recipient_b, NON_INTERACTIVE_HANDSHAKE))
-        .is_none());
+    assert(env.execute_utility(registry.get_handshake(sender, recipient_b, NON_INTERACTIVE_HANDSHAKE)).is_none());
 }
 
 #[test]
@@ -258,7 +243,5 @@ unconstrained fn get_handshake_returns_none_for_wrong_handshake_type() {
 
     // Claim it was something other than the only currently-defined handshake type.
     let unknown_handshake_type: u8 = NON_INTERACTIVE_HANDSHAKE + 1;
-    assert(env
-        .execute_utility(registry.get_handshake(sender, recipient, unknown_handshake_type))
-        .is_none());
+    assert(env.execute_utility(registry.get_handshake(sender, recipient, unknown_handshake_type)).is_none());
 }

@@ -10,8 +10,10 @@ pub(crate) global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 ///
 /// The registry's job is to establish a master shared secret between a sender and a recipient, and to store a
 /// per-sender note recording that the handshake happened. A contract that later wants to use this
-/// handshake retrieves the note via the [`HandshakeRegistry::get_handshake`] utility, asserts it exists in the registry,
-/// and uses the kernel key-validation mechanism to derive its own app-siloed shared secret from the master hash stored in the note.
+/// handshake retrieves the note via the [`HandshakeRegistry::get_handshake`] utility, asserts it exists in the
+/// registry,
+/// and uses the kernel key-validation mechanism to derive its own app-siloed shared secret from the master hash stored
+/// in the note.
 ///
 /// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
 #[aztec]
@@ -19,24 +21,22 @@ pub contract HandshakeRegistry {
     use crate::handshake_note::HandshakeNote;
     use crate::NON_INTERACTIVE_HANDSHAKE;
     use aztec::{
-        keys::{
-            ecdh_shared_secret::derive_ecdh_shared_secret,
-            ephemeral::generate_positive_ephemeral_key_pair,
-        },
+        keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
         oracle::notes::set_sender_for_tags,
         protocol::{
-            address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
-            hash::compute_log_tag, traits::ToField,
+            address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
+            traits::ToField,
         },
         state_vars::{Owned, PrivateSet},
     };
 
     #[storage]
     struct Storage<Context> {
-        /// Per-sender set of [`HandshakeNote`]s. The sender is chosen by the caller and is unconstrained throughout the constrained-delivery protocol.
+        /// Per-sender set of [`HandshakeNote`]s. The sender is chosen by the caller and is unconstrained throughout the
+        /// constrained-delivery protocol.
         handshakes: Owned<PrivateSet<HandshakeNote, Context>, Context>,
     }
 
@@ -57,8 +57,7 @@ pub contract HandshakeRegistry {
     /// polluting registry state.
     #[external("private")]
     fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress) {
-        let recipient_point =
-            recipient.to_address_point().expect(f"recipient address is not on the curve");
+        let recipient_point = recipient.to_address_point().expect(f"recipient address is not on the curve");
 
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
         let s_raw = derive_ecdh_shared_secret(eph_sk, recipient_point.inner);
@@ -70,9 +69,7 @@ pub contract HandshakeRegistry {
         // discover the handshake via the recipient-keyed log emitted below, not via the sender's note.
         // We use onchain unconstrained delivery rather than `OFFCHAIN` so the note is
         // discoverable via normal PXE sync.
-        self.storage.handshakes.at(sender).insert(note).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
-        );
+        self.storage.handshakes.at(sender).insert(note).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
         let log_tag = compute_log_tag(
             recipient.to_field(),
