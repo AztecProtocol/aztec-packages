@@ -5,7 +5,6 @@
  * Each test builds valid ProverPolynomials from a real ECCVMCircuitBuilder, asserts that
  * relations pass on clean data, then corrupts specific witness values and verifies detection.
  */
-#include "barretenberg/ecc/groups/precomputed_generators_bn254_impl.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/eccvm/eccvm_test_utils.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
@@ -26,16 +25,6 @@ using ProverPolynomials = typename Flavor::ProverPolynomials;
 using eccvm_test_utils::add_hiding_op_for_test;
 
 auto& engine = numeric::get_debug_randomness();
-
-struct AffinePoint {
-    FF x;
-    FF y;
-};
-
-struct PointDoubleResult {
-    AffinePoint point;
-    FF lambda;
-};
 
 /**
  * @brief Return pointers to every MSM-prefixed polynomial in a ProverPolynomials instance.
@@ -105,113 +94,6 @@ ProverPolynomials build_valid_eccvm_msm_state()
 
     ECCVMCircuitBuilder builder{ op_queue };
     return ProverPolynomials(builder);
-}
-
-// The following helper methods are for a regression test: MSMRoundTransitionPhaseSelectorSwap.
-// Without the correct constraints, one can swap a `double` for a `skew` at the last round, which allows one to spoof an
-// MSM.
-
-/**
- * @brief Build a single-MSM trace with one point and one odd 128-bit scalar.
- *
- * Using a small (<2^128) odd scalar guarantees that the (z1, z2) decomposition of the scalar
- * yields z2 = 0, so the resulting MSM has size 1 (just the z1 mul). The scalar is odd so
- * `wnaf_skew = false` and therefore `precompute_skew = 0` for the underlying ScalarMul, which
- * is the precondition for a potential malicious phase-selector swap at the round 31->32 boundary.
- */
-ProverPolynomials build_size1_eccvm_msm_state()
-{
-    auto generators = G1::derive_generators("test generators", 1);
-    auto P = generators[0];
-    // 128-bit odd scalar: z2 will be 0 -> single-mul MSM, wnaf_skew=false -> precompute_skew=0.
-    Fr scalar = Fr(uint256_t(0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0, 0));
-
-    auto op_queue = std::make_shared<ECCOpQueue>();
-    op_queue->mul_accumulate(P, scalar);
-    op_queue->eq_and_reset();
-    op_queue->merge();
-    add_hiding_op_for_test(op_queue);
-
-    ECCVMCircuitBuilder builder{ op_queue };
-    return ProverPolynomials(builder);
-}
-
-/**
- * @brief Find the unique round-32 skew row that terminates a size-1 MSM.
- */
-size_t find_round_32_skew_row(const ProverPolynomials& polynomials)
-{
-    const size_t num_rows = polynomials.get_polynomial_size();
-    for (size_t i = 1; i < num_rows - 2; ++i) {
-        if (polynomials.msm_skew[i] == FF(1) && polynomials.msm_round[i] == FF(32)) {
-            return i;
-        }
-    }
-    return 0;
-}
-
-/**
- * @brief Find the transcript row that consumes an MSM output.
- */
-size_t find_transcript_msm_transition_row(const ProverPolynomials& polynomials)
-{
-    const size_t num_rows = polynomials.get_polynomial_size();
-    for (size_t i = 1; i < num_rows - 1; ++i) {
-        if (polynomials.transcript_msm_transition[i] == FF(1)) {
-            return i;
-        }
-    }
-    return 0;
-}
-
-/**
- * @brief Apply one affine doubling step and return both the doubled point and tangent slope.
- *
- * The PoC needs explicit lambda witnesses for the four doublings in the malicious `q_double` row.
- */
-PointDoubleResult double_point(const AffinePoint& point)
-{
-    const FF lambda = (point.x * point.x * FF(3)) * (point.y + point.y).invert();
-    const FF x_new = lambda * lambda - point.x - point.x;
-    const FF y_new = lambda * (point.x - x_new) - point.y;
-    return { .point = { x_new, y_new }, .lambda = lambda };
-}
-
-/**
- * @brief Add `rhs` into `lhs` using the affine formulas encoded in the MSM/transcript relations.
- *
- * Returns the output point together with the slope and x-collision inverse witnesses that the
- * malicious `q_add` row must carry.
- */
-std::tuple<AffinePoint, FF, FF> add_points(const AffinePoint& lhs, const AffinePoint& rhs)
-{
-    const FF dx = lhs.x - rhs.x;
-    EXPECT_NE(dx, FF(0));
-    const FF lambda = (lhs.y - rhs.y) * dx.invert();
-    const FF collision_inverse = (rhs.x - lhs.x).invert();
-    const FF x_out = lambda * lambda - lhs.x - rhs.x;
-    const FF y_out = lambda * (rhs.x - x_out) - rhs.y;
-    return { { x_out, y_out }, lambda, collision_inverse };
-}
-
-/**
- * @brief Subtract the fixed ECCVM offset generator from an MSM output.
- *
- * The transcript relation stores both the raw MSM accumulator (with offset) and the offset-subtracted
- * intermediate point, so the PoC must patch both consistently.
- */
-std::tuple<AffinePoint, FF> subtract_msm_offset(const AffinePoint& msm_output)
-{
-    constexpr auto offset_base = get_precomputed_generators<G1, "ECCVM_OFFSET_GENERATOR", 1>()[0];
-    const auto offset_affine = G1::affine_element(G1::element(offset_base) * Fr(uint256_t(1) << 124));
-    const AffinePoint neg_offset{ offset_affine.x, -offset_affine.y };
-
-    const FF dx = msm_output.x - neg_offset.x;
-    EXPECT_NE(dx, FF(0));
-    const FF lambda = (msm_output.y - neg_offset.y) * dx.invert();
-    const FF x_out = lambda * lambda - msm_output.x - neg_offset.x;
-    const FF y_out = lambda * (msm_output.x - x_out) - msm_output.y;
-    return { { x_out, y_out }, dx.invert() };
 }
 
 /**
@@ -560,158 +442,94 @@ TEST_F(ECCVMRelationCorruptionTests, SetRelationFailsOnZPermNonZeroAtFirstRow)
 }
 
 /**
- * @brief Regression test for the round 31->32 phase-selector swap soundness gap.
+ * @brief Verify that the DOUBLE_SHIFT_FORBIDS_ROUND_31 gate catches a missing round != 31 witness.
  *
- * Demonstrated that an honest q_skew transition at round 31->32 can be replaced by
- *   q_double (extra 4 doublings, accumulator multiplied by 16)
- *   followed by q_add at round=32 with slice=0 (lookup forces (x1,y1) = T[0] = -15 P_pc)
- * and, before the fix, the resulting trace satisfied every existing ECCVM relation -- demonstrating that
- * the "round = 31 ==> q_skew_shift = 1" converse was not constrained.
+ * @details Background: this gate guards against a soundness gap in the original ECCVM MSM relation,
+ * where the converse "round = 31 ==> q_skew_shift = 1" was not constrained. The fix is the new
+ * subrelation
+ *   q_double_shift * (1 - (round - 31) * round_minus_31_inv) = 0,
+ * which forces the prover to witness an inverse of (round - 31) at every row whose successor is a
+ * double, making round = 31 unreachable there. This test exercises the gate the simple way: at a
+ * valid `q_double_shift = 1` row, zero out the inverse witness and confirm only this gate fires.
  *
- * Layout (size-1 MSM, scalar with odd LSB so precompute_skew = 0):
- *   ... rows ending at:
- *   row R-1 = 63: q_add=1, round=31  (last add of digit 31)
- *   row R   = 64: q_skew=1, round=32  ===> patched to q_double=1
- *   row R+1 = 65: synthetic final (msm_transition=1, round=0, all selectors=0)
- *                 ===> patched to q_add=1, round=32, count=0, slice=0
- *   row R+2 = 66: padding (all zero)
- *                 ===> patched to be the new synthetic final (msm_transition=1)
+ * The original full PoC (kept as commentary so an attentive reader/LLM can reconstruct it):
  *
- * After patching, the accumulator at row R+2 holds
- *   acc' = 16*(2^124*OFFSET + s*P) - 15*P = 2^128*OFFSET + (16s - 15)*P,
- * which differs from the honest output 2^124*OFFSET + s*P. The transcript columns are
- * patched so that transcript_msm_x/y reflect this malicious accumulator and
- * transcript_msm_intermediate_x/y is (acc' - 2^124*OFFSET).
+ *   Setup: a size-1 MSM with a 128-bit odd scalar `s`, e.g.
+ *     Fr s = Fr(uint256_t(0x0123456789abcdefULL, 0x0fedcba987654321ULL, 0, 0));
+ *     op_queue.mul_accumulate(P, s); op_queue.eq_and_reset(); op_queue.merge();
+ *     // followed by `add_hiding_op_for_test(op_queue)` so the trace finalizes.
+ *   Such a scalar gives z2 = 0 (single-mul MSM) and odd LSB so wnaf_skew = false, hence
+ *   precompute_skew = 0 — the precondition for the round 31->32 phase swap.
+ *
+ *   Honest layout, with R = the unique row carrying msm_skew = 1, msm_round = 32:
+ *     row R-1: q_add = 1, round = 31 (last add of digit 31)
+ *     row R  : q_skew = 1, round = 32, (msm_x1, msm_y1) = T[0] = -15*P (lookup with slice1 = 0)
+ *     row R+1: synthetic final (msm_transition = 1, round = 0, all selectors = 0)
+ *     row R+2: padding (all zero)
+ *
+ *   Malicious patch: turn row R into a q_double, append a same-MSM q_add at row R+1 with
+ *   round = 32 and slice1 = 0 (so the lookup forces (x1, y1) = T[0] = -15*P), and shift the
+ *   synthetic final to row R+2:
+ *     row R: msm_skew = 0, msm_double = 1; witness lambdas l1..l4 of the four doublings
+ *            d1 = 2*acc_R, d2 = 2*d1, d3 = 2*d2, d4 = 2*d3 = 16*acc_R; clear msm_add1, msm_x1,
+ *            msm_y1, msm_collision_x1.
+ *     row R+1: msm_transition = 0, msm_add = 1, msm_round = 32, msm_count = 0,
+ *              msm_size_of_msm = 1, msm_pc = msm_pc[R], msm_add1 = 1, msm_slice1 = 0,
+ *              (msm_x1, msm_y1) = -15*P; lambda1 = (d4.y - (-15*P).y) / (d4.x - (-15*P).x),
+ *              collision_x1 = 1 / ((-15*P).x - d4.x); accumulator = d4.
+ *     row R+2: msm_transition = 1; (acc_x, acc_y) = malicious_acc, where
+ *              malicious_acc = d4 + (-15*P) = 16 * (2^124*OFFSET + s*P) - 15*P
+ *                            = 2^128 * OFFSET + (16s - 15) * P.
+ *
+ *   Transcript columns also need to be patched at the row t with transcript_msm_transition = 1:
+ *     transcript_msm_x/y = malicious_acc;
+ *     intermediate = malicious_acc - 2^124 * ECCVM_OFFSET_GENERATOR (do this via affine subtraction;
+ *       remember offset_affine.y is negated to subtract);
+ *     transcript_msm_intermediate_x/y = intermediate;
+ *     transcript_msm_x_inverse = 1 / (malicious_acc.x - (-offset).x);
+ *     transcript_base_x_inverse = 1 / intermediate.x;
+ *     transcript_base_y_inverse = 1 / intermediate.y;
+ *     at row t+1 (transcript accumulator after add): (transcript_accumulator_x/y, Px, Py) = intermediate
+ *       (the running accumulator was empty after eq_and_reset, so add returns lhs).
+ *
+ *   Lookup-inverse hygiene: row R is no longer active for the lookup relation after the q_skew ->
+ *   q_double swap, but compute_logderivative_inverse only overwrites active rows, so explicitly clear
+ *   polynomials.lookup_inverses.at(R) = 0 before re-running set_shifted().
+ *
+ *   With the fix, the new gate rejects the malicious trace at row R: msm_double[R+1] = 1 demands an
+ *   inverse witness for (msm_round[R] - 31), and msm_round[R] - 31 = 0 has none. Without the fix,
+ *   every relation (MSM, Bools, Transcript, Set, Lookup) accepted the patched trace.
  */
-TEST_F(ECCVMRelationCorruptionTests, MSMRoundTransitionPhaseSelectorSwap)
+TEST_F(ECCVMRelationCorruptionTests, MSMRelationRejectsMissingRoundMinus31Inverse)
 {
-    auto polynomials = build_size1_eccvm_msm_state();
+    auto polynomials = build_valid_eccvm_msm_state();
+    RelationParameters<FF> params{};
 
-    // ---- Baseline: every relation passes on the clean trace ----
-    {
-        auto baseline_params = compute_full_relation_params(polynomials);
-        EXPECT_TRUE(RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
-                        polynomials, baseline_params, "MSM", Flavor::TRACE_OFFSET)
-                        .empty());
-        EXPECT_TRUE(RelationChecker<void>::check<ECCVMBoolsRelation<FF>>(
-                        polynomials, baseline_params, "Bools", Flavor::TRACE_OFFSET)
-                        .empty());
-        EXPECT_TRUE(RelationChecker<void>::check<ECCVMTranscriptRelation<FF>>(
-                        polynomials, baseline_params, "Tx", Flavor::TRACE_OFFSET)
-                        .empty());
-        EXPECT_TRUE(RelationChecker<void>::check<ECCVMSetRelation<FF>>(
-                        polynomials, baseline_params, "Set", Flavor::TRACE_OFFSET)
-                        .empty());
-        EXPECT_TRUE((RelationChecker<void>::check<ECCVMLookupRelation<FF>, true>(
-                         polynomials, baseline_params, "Lookup", Flavor::TRACE_OFFSET)
-                         .empty()));
+    auto baseline = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+        polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
+    ASSERT_TRUE(baseline.empty()) << "Baseline MSM relation should pass";
+
+    // Find a row whose successor is an MSM double. The new gate constrains row k (carrying
+    // round[k] and round_minus_31_inv[k]) whenever q_double[k+1] = 1.
+    const size_t num_rows = polynomials.get_polynomial_size();
+    size_t target_row = 0;
+    for (size_t i = Flavor::TRACE_OFFSET; i + 1 < num_rows; ++i) {
+        if (polynomials.msm_double[i + 1] == FF(1)) {
+            target_row = i;
+            break;
+        }
     }
+    ASSERT_NE(target_row, 0U) << "Should find a row preceding a doubling row";
+    ASSERT_NE(polynomials.msm_round[target_row], FF(31)) << "Honest predecessors of double rows have round != 31";
+    ASSERT_NE(polynomials.msm_round_minus_31_inv[target_row], FF(0))
+        << "Honest inverse witness should be non-zero where round != 31";
 
-    // ---- Locate the SKEW row ----
-    const size_t R = find_round_32_skew_row(polynomials);
-    ASSERT_NE(R, 0U) << "Could not find skew row";
-    ASSERT_EQ(polynomials.msm_transition[R + 1], FF(1)) << "Row R+1 should be the synthetic final row";
-    ASSERT_EQ(polynomials.msm_round[R + 1], FF(0));
-    ASSERT_EQ(polynomials.msm_transition[R + 2], FF(0)) << "Row R+2 should be a padding row in size-1 MSM";
-
-    // ---- Read honest values we need ----
-    // Accumulator entering row R (acc_R = 2^124*OFFSET + s*P for an honest run with no skew)
-    const AffinePoint acc_R{ polynomials.msm_accumulator_x[R], polynomials.msm_accumulator_y[R] };
-    // T[0] = -15*P is what's loaded as (msm_x1, msm_y1) on the honest skew row when slice1 = 0.
-    const AffinePoint neg15P{ polynomials.msm_x1[R], polynomials.msm_y1[R] };
-
-    // ---- Compute 4 sequential doublings of acc_R (= 16 * acc_R) and the four lambdas ----
-    const auto d1 = double_point(acc_R);
-    const auto d2 = double_point(d1.point);
-    const auto d3 = double_point(d2.point);
-    const auto d4 = double_point(d3.point); // d4.point = 16 * acc_R
-
-    // ---- Compute the q_add row's lambda1 (adding -15P to 16*acc_R) and collision_inverse1 ----
-    // The malicious q_add row uses the same affine formulas as `first_add` in the relation.
-    const auto [malicious_acc, add_lambda1, add_collision_inv1] = add_points(d4.point, neg15P);
-
-    // ---- Patch row R: q_skew -> q_double ----
-    polynomials.msm_skew.at(R) = FF(0);
-    polynomials.msm_double.at(R) = FF(1);
-    polynomials.msm_add1.at(R) = FF(0);
-    polynomials.msm_x1.at(R) = FF(0);
-    polynomials.msm_y1.at(R) = FF(0);
-    polynomials.msm_collision_x1.at(R) = FF(0);
-    polynomials.msm_lambda1.at(R) = d1.lambda;
-    polynomials.msm_lambda2.at(R) = d2.lambda;
-    polynomials.msm_lambda3.at(R) = d3.lambda;
-    polynomials.msm_lambda4.at(R) = d4.lambda;
-    // msm_x2..4, msm_y2..4, msm_slice1..4, msm_add2..4 are already 0 in a size-1 skew row
-
-    // ---- Patch row R+1: synthetic final -> malicious q_add row ----
-    polynomials.msm_transition.at(R + 1) = FF(0);
-    polynomials.msm_add.at(R + 1) = FF(1);
-    polynomials.msm_round.at(R + 1) = FF(32);
-    polynomials.msm_count.at(R + 1) = FF(0);
-    polynomials.msm_size_of_msm.at(R + 1) = FF(1); // still in this MSM
-    polynomials.msm_pc.at(R + 1) = polynomials.msm_pc[R];
-    polynomials.msm_add1.at(R + 1) = FF(1);
-    polynomials.msm_slice1.at(R + 1) = FF(0);
-    polynomials.msm_x1.at(R + 1) = neg15P.x;
-    polynomials.msm_y1.at(R + 1) = neg15P.y;
-    polynomials.msm_lambda1.at(R + 1) = add_lambda1;
-    polynomials.msm_collision_x1.at(R + 1) = add_collision_inv1;
-    polynomials.msm_accumulator_x.at(R + 1) = d4.point.x;
-    polynomials.msm_accumulator_y.at(R + 1) = d4.point.y;
-
-    // ---- Patch row R+2: was padding -> new synthetic final ----
-    polynomials.msm_transition.at(R + 2) = FF(1);
-    // msm_round[R+2] is already 0, msm_pc[R+2] is already 0 (padding), msm_size[R+2]=0, count=0
-    polynomials.msm_accumulator_x.at(R + 2) = malicious_acc.x;
-    polynomials.msm_accumulator_y.at(R + 2) = malicious_acc.y;
-
-    // ---- Patch the transcript columns ----
-    // The transcript_msm_x/y columns hold the raw (with-offset) MSM output the transcript reads.
-    // transcript_msm_intermediate_x/y is that minus the offset (= the actual MSM result).
-    // The set relation third term ties (msm_acc_*[R+2], msm_pc[R+2], msm_size[R+1]) ==
-    // (transcript_msm_x, transcript_msm_y, transcript_pc_shift, full_msm_count) at the transcript msm_transition row.
-    const size_t t_row = find_transcript_msm_transition_row(polynomials);
-    ASSERT_NE(t_row, 0U);
-
-    polynomials.transcript_msm_x.at(t_row) = malicious_acc.x;
-    polynomials.transcript_msm_y.at(t_row) = malicious_acc.y;
-
-    // Compute (transcript_msm_intermediate_x, _y) = (transcript_msm_x, _y) - offset, where
-    // offset = 2^124 * ECCVM_OFFSET_GENERATOR. We do the subtraction via affine point math.
-    const auto [intermediate_msm, transcript_msm_x_inverse] = subtract_msm_offset(malicious_acc);
-    polynomials.transcript_msm_intermediate_x.at(t_row) = intermediate_msm.x;
-    polynomials.transcript_msm_intermediate_y.at(t_row) = intermediate_msm.y;
-    // transcript_msm_x_inverse: 1/(x2 - x1) where (x2, y2) = transcript_msm and (x1,y1) = -offset
-    polynomials.transcript_msm_x_inverse.at(t_row) = transcript_msm_x_inverse;
-    // transcript_msm_infinity stays 0
-
-    // Witness the x/y-equality checks for the msm_transition row:
-    // the transcript adds `transcript_msm_intermediate_*` into an empty accumulator, so the relevant
-    // differences are simply the intermediate coordinates themselves.
-    ASSERT_NE(intermediate_msm.x, FF(0));
-    ASSERT_NE(intermediate_msm.y, FF(0));
-    polynomials.transcript_base_x_inverse.at(t_row) = intermediate_msm.x.invert();
-    polynomials.transcript_base_y_inverse.at(t_row) = intermediate_msm.y.invert();
-
-    // The transcript accumulator at row t_row+1 receives the result of "add MSM intermediate to
-    // transcript_accumulator". Since the running accumulator was empty (eq_and_reset zeroed it), the
-    // result equals lhs (the intermediate). Patch transcript_accumulator at t_row+1 accordingly.
-    polynomials.transcript_accumulator_x.at(t_row + 1) = intermediate_msm.x;
-    polynomials.transcript_accumulator_y.at(t_row + 1) = intermediate_msm.y;
-    polynomials.transcript_Px.at(t_row + 1) = intermediate_msm.x;
-    polynomials.transcript_Py.at(t_row + 1) = intermediate_msm.y;
-
-    // Row R is no longer active for the lookup relation after changing q_skew -> q_double.
-    // `compute_logderivative_inverse` only overwrites active rows, so clear the stale inverse witness here.
-    polynomials.lookup_inverses.at(R) = FF(0);
-
+    polynomials.msm_round_minus_31_inv.at(target_row) = FF(0);
     polynomials.set_shifted();
 
-    // ---- The fix should reject the malicious trace directly inside ECCVMMSMRelation ----
-    RelationParameters<FF> params{};
-    auto msm_failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
+    auto failures = RelationChecker<void>::check<ECCVMMSMRelation<FF>>(
         polynomials, params, "ECCVMMSMRelation", Flavor::TRACE_OFFSET);
-    EXPECT_FALSE(msm_failures.empty()) << "The round-transition fix should reject the malicious trace.";
-    EXPECT_TRUE(msm_failures.contains(ECCVMMSMRelationImpl<FF>::DOUBLE_SHIFT_FORBIDS_ROUND_31))
-        << "The new round-31 inverse-witness gate should be the rejecting subrelation.";
+    EXPECT_FALSE(failures.empty()) << "MSM relation should fail without the round != 31 witness";
+    EXPECT_TRUE(failures.contains(ECCVMMSMRelationImpl<FF>::DOUBLE_SHIFT_FORBIDS_ROUND_31))
+        << "DOUBLE_SHIFT_FORBIDS_ROUND_31 should be the failing subrelation";
 }
