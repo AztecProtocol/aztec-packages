@@ -116,6 +116,27 @@ Key constants to watch:
 
 If C++ static_asserts fail after your changes, update both the assert values AND the corresponding Noir constants, then run `yarn remake-constants`.
 
+## Prover.toml Fixtures
+
+Proof-length-affecting changes (e.g. `CHONK_PROOF_LENGTH` bumps from MegaFlavor entity additions) make the committed `Prover.toml` fixtures stale. `nargo execute --program-dir <crate>` then fails with `Type Array { length: N, typ: Field } is expected to have length N but value Vec(...)`.
+
+Regenerate via the e2e prover full test with fake proofs:
+
+```bash
+cd yarn-project
+AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test full.test
+```
+
+`FAKE_PROOFS=1` skips real proving — runs in ~2 min (orchestrator + witness generation only). Writes 12 `Prover.toml` files under `noir-projects/noir-protocol-circuits/crates/<circuit>/Prover.toml`.
+
+For circuits not exercised by `full.test.ts` (`rollup-tx-merge`, `rollup-block-root`, `rollup-block-root-single-tx`, `rollup-block-merge`, `rollup-checkpoint-root`, `rollup-block-root-first-empty-tx`), additionally run:
+
+```bash
+AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test orchestrator_single_checkpoint
+```
+
+Verify with `nargo execute --program-dir noir-projects/noir-protocol-circuits/crates/<crate>` for any previously-failing crate; should print `Circuit witness successfully solved`.
+
 ## Verification Keys
 
 **IMPORTANT**: When making barretenberg changes that could affect verification keys, you must verify that VKs haven't changed unexpectedly, or
