@@ -31,7 +31,7 @@ using namespace bb;
  */
 std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
-    auto ivc = std::make_shared<Chonk>(std::max(constraints.size(), static_cast<size_t>(4)));
+    auto ivc = std::make_shared<Chonk>(std::max(constraints.size(), static_cast<size_t>(MAX_APPS_PER_KERNEL + 1)));
     // Check constraint proof type. Throws if proof_type is not a valid HyperNova type
     auto constraint_has_type = [](const RecursionConstraint& c, Chonk::QUEUE_TYPE expected) {
         return proof_type_to_chonk_queue_type(c.proof_type) == expected;
@@ -43,9 +43,8 @@ std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<Recu
     const bool is_tail = (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN_TAIL));
     const bool is_hiding =
         (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN_FINAL));
-    // const size_t upper_bound = is_init ? MAX_APPS_PER_KERNEL : MAX_APPS_PER_KERNEL + 1;
-    // BB_ASSERT_LTE(constraints.size(), upper_bound, "Too many recursion constraints encountered when mocking IVC
-    // state");
+    const size_t upper_bound = is_init ? MAX_APPS_PER_KERNEL : MAX_APPS_PER_KERNEL + 1;
+    BB_ASSERT_LTE(constraints.size(), upper_bound, "Too many recursion constraints encountered when mocking IVC state");
 
     // Match constraint patterns to kernel types and populate appropriate mock data:
 
