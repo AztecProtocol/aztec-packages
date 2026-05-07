@@ -45,12 +45,7 @@ export async function deploy(
 
   // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
-  const contractDeployer = new ContractDeployer(
-    contractArtifact,
-    wallet,
-    publicKeys ?? PublicKeys.default(),
-    initializer,
-  );
+  const contractDeployer = new ContractDeployer(contractArtifact, wallet, initializer);
 
   let args = [];
   if (rawArgs.length > 0) {
@@ -62,7 +57,7 @@ export async function deploy(
     debugLogger.debug(`Encoded arguments: ${args.join(', ')}`);
   }
 
-  const deployInteraction = contractDeployer.deploy({ salt }, ...args);
+  const deployInteraction = contractDeployer.deploy(args, { salt, publicKeys: publicKeys ?? PublicKeys.default() });
   const { paymentMethod, gasSettings } = await feeOpts.toUserFeeOptions(node, wallet, deployer);
   const deployOpts: DeployOptions = {
     fee: { gasSettings, paymentMethod },
