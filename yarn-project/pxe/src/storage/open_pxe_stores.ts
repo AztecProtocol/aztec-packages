@@ -1,6 +1,7 @@
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
+import type { BlockHash } from '@aztec/stdlib/block';
 
 import { AddressStore } from './address_store/address_store.js';
 import { AnchorBlockStore } from './anchor_block_store/anchor_block_store.js';
@@ -28,9 +29,10 @@ export type PxeStores = {
 };
 
 /**
- * Opens every PXE sub-store against the given backing store.
+ * Opens every PXE sub-store against the given backing store. The `initialBlockHash` seeds the
+ * `L2TipsKVStore` so it agrees with the node's archiver on the dynamic genesis header hash.
  */
-export function openPxeStores(store: AztecAsyncKVStore): PxeStores {
+export function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: BlockHash): PxeStores {
   return {
     addressStore: new AddressStore(store),
     privateEventStore: new PrivateEventStore(store),
@@ -42,6 +44,6 @@ export function openPxeStores(store: AztecAsyncKVStore): PxeStores {
     recipientTaggingStore: new RecipientTaggingStore(store),
     capsuleStore: new CapsuleStore(store),
     keyStore: new KeyStore(store),
-    l2TipsStore: new L2TipsKVStore(store, 'pxe'),
+    l2TipsStore: new L2TipsKVStore(store, 'pxe', initialBlockHash),
   };
 }

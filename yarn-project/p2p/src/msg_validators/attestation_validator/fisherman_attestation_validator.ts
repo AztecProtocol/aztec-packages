@@ -64,8 +64,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
       return { result: 'accept' };
     }
 
-    const proposalId = message.archive.toString();
-    const proposal = await this.attestationPool.getCheckpointProposal(proposalId);
+    const proposal = await this.attestationPool.getCheckpointProposal(message.payload.header.slotNumber);
 
     if (proposal) {
       // Compare the attestation payload with the proposal payload
@@ -94,9 +93,7 @@ export class FishermanAttestationValidator extends CheckpointAttestationValidato
       }
     } else {
       // We might receive attestations before proposals in some cases
-      this.logger.debug(
-        `Received attestation for slot ${slotNumberBigInt} but proposal not found yet. ` + `Proposal ID: ${proposalId}`,
-      );
+      this.logger.debug(`Received attestation for slot ${slotNumberBigInt} but proposal not found yet.`);
     }
 
     return { result: 'accept' };

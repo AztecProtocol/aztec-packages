@@ -10,6 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -57,7 +58,9 @@ describe('Archiver misc', () => {
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
     const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'), { logsMaxPageSize: 1000 });
     const events = new EventEmitter() as ArchiverEmitter;
-    const l2TipsCache = new L2TipsCache(archiverStore.blocks);
+    const initialHeader = BlockHeader.empty();
+    const initialBlockHash = await initialHeader.hash();
+    const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);
 
     archiver = new Archiver(
       publicClient,
@@ -77,6 +80,8 @@ describe('Archiver misc', () => {
       l1Constants,
       synchronizer,
       events,
+      initialHeader,
+      initialBlockHash,
       l2TipsCache,
     );
   });

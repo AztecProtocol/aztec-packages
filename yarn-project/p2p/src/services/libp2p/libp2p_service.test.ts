@@ -9,11 +9,12 @@ import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
-import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { BlockProposal, type CheckpointAttestation, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
   makeBlockProposal,
+  makeCheckpointAttestation,
   makeCheckpointHeader,
   makeCheckpointProposal,
   mockTx,
@@ -327,10 +328,10 @@ describe('LibP2PService', () => {
 
     /** Sets up the mempools with a mock attestation pool that returns a proposal with given tx hashes. */
     function setProposalTxHashes(svc: TestLibP2PService, txHashes: string[]): void {
-      // Create a partial mock of the attestation pool that only implements getBlockProposal.
+      // Create a partial mock of the attestation pool that only implements getBlockProposalByArchive.
       // The validation code only accesses `txHashes` from the returned proposal.
       const mockAttestationPool: MockAttestationPoolForTests = {
-        getBlockProposal: (_: string) =>
+        getBlockProposalByArchive: (_: string) =>
           Promise.resolve({
             txHashes: txHashes.map(s => ({ toString: () => s })),
           }),
@@ -491,7 +492,7 @@ describe('LibP2PService', () => {
 
       // No proposal available - mock attestationPool to return undefined
       const mockAttestationPool: MockAttestationPoolForTests = {
-        getBlockProposal: (_: string) => Promise.resolve(undefined),
+        getBlockProposalByArchive: (_: string) => Promise.resolve(undefined),
       };
       service.setAttestationPool(mockAttestationPool);
 
@@ -557,7 +558,7 @@ describe('LibP2PService', () => {
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Accept);
 
       // Verify block was stored in attestation pool
-      const stored = await attestationPool.getBlockProposal(proposal.archive.toString());
+      const stored = await attestationPool.getBlockProposalByArchive(proposal.archive.toString());
       expect(stored).toBeDefined();
     });
 
@@ -732,6 +733,46 @@ describe('LibP2PService', () => {
       // Verify message was rejected
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
     });
+
+    // Regression for A-1013: payloads sharing (slot, position, archive) but differing on another
+    // signed field (e.g. inHash) used to dedup by archive only and silently drop the second one.
+    // The pool now dedups by signed-payload hash, so the equivocation surfaces.
+    it('same archive but different signed payload triggers slash callback', async () => {
+      const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
+      const indexWithinCheckpoint = IndexWithinCheckpoint(0);
+      const sharedArchive = Fr.random();
+
+      const proposal1 = await makeBlockProposal({
+        signer,
+        blockHeader,
+        indexWithinCheckpoint,
+        inHash: Fr.fromString('0x1'),
+        archiveRoot: sharedArchive,
+      });
+      await service.processBlockFromPeer(proposal1.toBuffer(), 'msg-1', mockPeerId);
+      expect(duplicateProposalCallback).not.toHaveBeenCalled();
+
+      const proposal2 = await makeBlockProposal({
+        signer,
+        blockHeader,
+        indexWithinCheckpoint,
+        inHash: Fr.fromString('0x2'),
+        archiveRoot: sharedArchive,
+      });
+      expect(proposal2.archive.toString()).toBe(proposal1.archive.toString());
+      expect(proposal2.getPayloadHash()).not.toEqual(proposal1.getPayloadHash());
+
+      await service.processBlockFromPeer(proposal2.toBuffer(), 'msg-2', mockPeerId);
+
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Accept);
+      expect(blockReceivedCallback).toHaveBeenCalledTimes(1); // only the first one
+      expect(duplicateProposalCallback).toHaveBeenCalledTimes(1);
+      expect(duplicateProposalCallback).toHaveBeenCalledWith({
+        slot: targetSlot,
+        proposer: signer.address,
+        type: 'block',
+      });
+    });
   });
 
   describe('handleGossipedCheckpointProposal', () => {
@@ -796,7 +837,7 @@ describe('LibP2PService', () => {
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Accept);
 
       // Verify checkpoint was stored in attestation pool
-      const stored = await attestationPool.getCheckpointProposal(proposal.archive.toString());
+      const stored = await attestationPool.getCheckpointProposal(proposal.slotNumber);
       expect(stored).toBeDefined();
     });
 
@@ -861,10 +902,12 @@ describe('LibP2PService', () => {
       expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
 
       // Verify both were stored in attestation pool
-      const storedCheckpoint = await attestationPool.getCheckpointProposal(proposal.archive.toString());
+      const storedCheckpoint = await attestationPool.getCheckpointProposal(proposal.slotNumber);
       expect(storedCheckpoint).toBeDefined();
 
-      const storedBlock = await attestationPool.getBlockProposal(proposal.getBlockProposal()!.archive.toString());
+      const storedBlock = await attestationPool.getBlockProposalByArchive(
+        proposal.getBlockProposal()!.archive.toString(),
+      );
       expect(storedBlock).toBeDefined();
     });
 
@@ -921,7 +964,9 @@ describe('LibP2PService', () => {
       expect(receivedBlock.archive.toString()).toBe(extraProposal.getBlockProposal()!.archive.toString());
 
       // The lastBlock is stored in the attestation pool
-      const storedBlock = await attestationPool.getBlockProposal(extraProposal.getBlockProposal()!.archive.toString());
+      const storedBlock = await attestationPool.getBlockProposalByArchive(
+        extraProposal.getBlockProposal()!.archive.toString(),
+      );
       expect(storedBlock).toBeDefined();
 
       // Txs were marked as non-evictable since the block was processed
@@ -991,6 +1036,147 @@ describe('LibP2PService', () => {
       expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
       expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledWith(expect.any(Object), expect.anything());
     });
+
+    // Regression for A-1013: payloads sharing (slot, archive) but differing on feeAssetPriceModifier
+    // used to dedup by archive only and silently drop the second one. The pool now dedups by
+    // signed-payload hash, so the equivocation surfaces.
+    it('same archive but different feeAssetPriceModifier triggers slash callback', async () => {
+      const sharedHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const sharedArchive = Fr.random();
+
+      const checkpoint1 = await makeCheckpointProposal({
+        signer,
+        checkpointHeader: sharedHeader,
+        archiveRoot: sharedArchive,
+        feeAssetPriceModifier: 50n,
+      });
+      await service.handleGossipedCheckpointProposal(checkpoint1.toBuffer(), 'msg-1', mockPeerId);
+      expect(duplicateProposalCallback).not.toHaveBeenCalled();
+
+      const checkpoint2 = await makeCheckpointProposal({
+        signer,
+        checkpointHeader: sharedHeader,
+        archiveRoot: sharedArchive,
+        feeAssetPriceModifier: -50n,
+      });
+      expect(checkpoint2.archive.toString()).toBe(checkpoint1.archive.toString());
+      expect(checkpoint2.getPayloadHash()).not.toEqual(checkpoint1.getPayloadHash());
+
+      await service.handleGossipedCheckpointProposal(checkpoint2.toBuffer(), 'msg-2', mockPeerId);
+
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Accept);
+      expect(allNodesCheckpointReceivedCallback).toHaveBeenCalledTimes(1); // only the first one
+      expect(validatorCheckpointReceivedCallback).toHaveBeenCalledTimes(1);
+      expect(duplicateProposalCallback).toHaveBeenCalledTimes(1);
+      expect(duplicateProposalCallback).toHaveBeenCalledWith({
+        slot: targetSlot,
+        proposer: signer.address,
+        type: 'checkpoint',
+      });
+    });
+  });
+
+  // Regression for A-1013
+  describe('validateAndStoreCheckpointAttestation', () => {
+    let attestationPool: AttestationPool;
+    let mockEpochCache: MockProxy<EpochCacheInterface>;
+    let proposerSigner: Secp256k1Signer;
+    let duplicateAttestationCallback: jest.Mock;
+
+    const targetSlot = SlotNumber(100);
+    const nextSlot = SlotNumber(101);
+
+    beforeEach(() => {
+      proposerSigner = Secp256k1Signer.random();
+      attestationPool = new AttestationPool(openTmpStore(true));
+      const mockTxPool = mock<TxPoolV2>();
+      mockTxPool.protectTxs.mockResolvedValue([]);
+
+      mockEpochCache = mock<EpochCacheInterface>();
+      mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(proposerSigner.address);
+      mockEpochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot, nextSlot });
+      mockEpochCache.getTargetSlot.mockReturnValue(targetSlot);
+      mockEpochCache.isInCommittee.mockResolvedValue(true);
+
+      mockPeerManager = mock<PeerManagerInterface>();
+      reportMessageValidationResultSpy = jest.fn();
+
+      service = createTestLibP2PServiceWithPools(
+        mockPeerManager,
+        reportMessageValidationResultSpy,
+        attestationPool,
+        mockTxPool,
+        mockEpochCache,
+      );
+
+      duplicateAttestationCallback = jest.fn();
+      service.registerDuplicateAttestationCallback(duplicateAttestationCallback);
+    });
+
+    // Regression for A-1013: attestations sharing (slot, signer, archive) but differing on
+    // feeAssetPriceModifier used to dedup by archive only. The pool now dedups by signed-payload
+    // hash, so the equivocation surfaces.
+    it('same signer + same archive + different feeAssetPriceModifier triggers slash callback', async () => {
+      const attesterSigner = Secp256k1Signer.random();
+      const sharedHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const sharedArchive = Fr.random();
+
+      const attestation1 = makeCheckpointAttestation({
+        header: sharedHeader,
+        archive: sharedArchive,
+        feeAssetPriceModifier: 50n,
+        attesterSigner,
+        proposerSigner,
+      });
+      await service.validateAndStoreCheckpointAttestation(mockPeerId, attestation1);
+      expect(duplicateAttestationCallback).not.toHaveBeenCalled();
+
+      const attestation2 = makeCheckpointAttestation({
+        header: sharedHeader,
+        archive: sharedArchive,
+        feeAssetPriceModifier: -50n,
+        attesterSigner,
+        proposerSigner,
+      });
+      expect(attestation2.archive.toString()).toBe(attestation1.archive.toString());
+      expect(attestation2.getPayloadHash()).not.toEqual(attestation1.getPayloadHash());
+
+      await service.validateAndStoreCheckpointAttestation(mockPeerId, attestation2);
+
+      expect(duplicateAttestationCallback).toHaveBeenCalledTimes(1);
+      expect(duplicateAttestationCallback).toHaveBeenCalledWith({
+        slot: targetSlot,
+        attester: attesterSigner.address,
+      });
+    });
+
+    it('different signers are not equivocations and do not trigger slash callback', async () => {
+      const attesterA = Secp256k1Signer.random();
+      const attesterB = Secp256k1Signer.random();
+      const sharedHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
+      const sharedArchive = Fr.random();
+
+      const attestationA = makeCheckpointAttestation({
+        header: sharedHeader,
+        archive: sharedArchive,
+        feeAssetPriceModifier: 50n,
+        attesterSigner: attesterA,
+        proposerSigner,
+      });
+      await service.validateAndStoreCheckpointAttestation(mockPeerId, attestationA);
+
+      const attestationB = makeCheckpointAttestation({
+        header: sharedHeader,
+        archive: sharedArchive,
+        feeAssetPriceModifier: -50n,
+        attesterSigner: attesterB,
+        proposerSigner,
+      });
+      await service.validateAndStoreCheckpointAttestation(mockPeerId, attestationB);
+
+      // Two distinct signers are not an equivocation; the pool tracks per-(slot, signer).
+      expect(duplicateAttestationCallback).not.toHaveBeenCalled();
+    });
   });
 });
 
@@ -1000,11 +1186,11 @@ interface MockTx {
 }
 
 /**
- * Minimal attestation pool interface for tests that only need getBlockProposal.
+ * Minimal attestation pool interface for tests that only need getBlockProposalByArchive.
  * This allows creating partial mocks without implementing the full AttestationPool interface.
  */
 interface MockAttestationPoolForTests {
-  getBlockProposal(id: string): Promise<{ txHashes: { toString(): string }[] } | undefined>;
+  getBlockProposalByArchive(id: string): Promise<{ txHashes: { toString(): string }[] } | undefined>;
 }
 
 /** Options for creating a test LibP2PService instance. */
@@ -1148,6 +1334,11 @@ class TestLibP2PService extends LibP2PService {
   /** Exposes the protected handleGossipedCheckpointProposal for testing. */
   public override handleGossipedCheckpointProposal(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
     return super.handleGossipedCheckpointProposal(payloadData, msgId, source);
+  }
+
+  /** Exposes the protected validateAndStoreCheckpointAttestation for testing. */
+  public override validateAndStoreCheckpointAttestation(peerId: PeerId, attestation: CheckpointAttestation) {
+    return super.validateAndStoreCheckpointAttestation(peerId, attestation);
   }
 
   /** Override to use the mock. */

@@ -442,15 +442,15 @@ describe('e2e_epochs/epochs_mbps', () => {
         if (tips.proposed.number <= tips.checkpointed.block.number) {
           return false;
         }
-        const header = await nonValidatorArchiver.getBlockHeader(tips.proposed.number);
-        if (!header) {
+        const blockData = await nonValidatorArchiver.getBlockData({ number: tips.proposed.number });
+        if (!blockData) {
           return false;
         }
-        const blocksInSlot = await nonValidatorArchiver.getBlocksForSlot(header.globalVariables.slotNumber);
+        const blocksInSlot = await nonValidatorArchiver.getBlocksForSlot(blockData.header.globalVariables.slotNumber);
         if (blocksInSlot.length < 2) {
           return false;
         }
-        multiBlockSlotNumber = header.globalVariables.slotNumber;
+        multiBlockSlotNumber = blockData.header.globalVariables.slotNumber;
         checkpointedBlockNumber = tips.checkpointed.block.number;
         return true;
       },

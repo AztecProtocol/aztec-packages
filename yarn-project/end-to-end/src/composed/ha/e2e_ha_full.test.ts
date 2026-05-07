@@ -349,8 +349,8 @@ describe('HA Full Setup', () => {
     }
 
     // Verify txs were included in the block (tests full signing path)
-    expect(block.block.body.txEffects.length).toBeGreaterThan(0);
-    logger.info(`Block contains ${block.block.body.txEffects.length} transaction(s)`);
+    expect(block.body!.txEffects.length).toBeGreaterThan(0);
+    logger.info(`Block contains ${block.body!.txEffects.length} transaction(s)`);
 
     // get attestations from checkpoint
     const [checkpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1, { includeAttestations: true });
@@ -371,7 +371,7 @@ describe('HA Full Setup', () => {
     logger.info(`Verified ${attestations.length} signatures from Web3Signer`);
 
     // Query database to verify HA coordination
-    const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
+    const slotNumber = BigInt(block.header.globalVariables.slotNumber);
     logger.info(`Querying duties for slot ${slotNumber} (block ${receipt.blockNumber})`);
     const allDuties = await getValidatorDuties(mainPool, slotNumber);
     expect(allDuties.length).toBeGreaterThan(0);
@@ -459,7 +459,7 @@ describe('HA Full Setup', () => {
     if (!block) {
       throw new Error(`Block ${receipt.blockNumber} not found`);
     }
-    const blockSlot = block.block.header.globalVariables.slotNumber;
+    const blockSlot = block.header.globalVariables.slotNumber;
     logger.info(`Block was built in slot ${blockSlot}`);
 
     // Compute round for governance voting from the block slot
@@ -664,7 +664,7 @@ describe('HA Full Setup', () => {
       if (!block) {
         throw new Error(`Block ${receipt.blockNumber} not found`);
       }
-      const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
+      const slotNumber = BigInt(block.header.globalVariables.slotNumber);
       const duties = await getValidatorDuties(mainPool, slotNumber);
       const blockProposalDuty = duties.find(d => d.dutyType === 'BLOCK_PROPOSAL');
 
@@ -727,7 +727,7 @@ describe('HA Full Setup', () => {
       if (!block) {
         throw new Error(`Block ${receipt.blockNumber} not found`);
       }
-      const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
+      const slotNumber = BigInt(block.header.globalVariables.slotNumber);
 
       // PRIMARY CHECK: Database records show all attestation duties attempted/completed
       const duties = await getValidatorDuties(mainPool, slotNumber);

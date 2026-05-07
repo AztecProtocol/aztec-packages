@@ -283,11 +283,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     const firstUncheckpointedBlockNumber = BlockNumber(lastCheckpointedBlockNumber + 1);
 
     // What's the slot of the first uncheckpointed block?
-    const [firstUncheckpointedBlockHeader] = await this.stores.blocks.getBlockHeaders(
-      firstUncheckpointedBlockNumber,
-      1,
-    );
-    const firstUncheckpointedBlockSlot = firstUncheckpointedBlockHeader?.getSlot();
+    const firstUncheckpointedBlockData = await this.stores.blocks.getBlockData({
+      number: firstUncheckpointedBlockNumber,
+    });
+    const firstUncheckpointedBlockSlot = firstUncheckpointedBlockData?.header.getSlot();
 
     if (firstUncheckpointedBlockSlot === undefined || firstUncheckpointedBlockSlot >= slotAtNextL1Block) {
       return;
@@ -297,7 +296,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     // This also clears any proposed checkpoint whose blocks are being pruned.
     this.log.warn(
       `Pruning blocks after block ${lastCheckpointedBlockNumber} due to slot ${firstUncheckpointedBlockSlot} not being checkpointed`,
-      { firstUncheckpointedBlockHeader: firstUncheckpointedBlockHeader.toInspect(), slotAtNextL1Block },
+      { firstUncheckpointedBlockHeader: firstUncheckpointedBlockData?.header.toInspect(), slotAtNextL1Block },
     );
 
     const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
@@ -1086,7 +1085,10 @@ export class ArchiverL1Synchronizer implements Traceable {
       { proposedHeader: proposed.header.toInspect(), proposedArchiveRoot: proposed.archive.root.toString() },
     );
 
-    const blocks = await this.stores.blocks.getBlocks(BlockNumber(proposed.startBlock), proposed.blockCount);
+    const blocks = await this.stores.blocks.getBlocks({
+      from: BlockNumber(proposed.startBlock),
+      limit: proposed.blockCount,
+    });
     if (blocks.length !== proposed.blockCount) {
       this.log.warn(
         `Local proposed checkpoint ${proposed.checkpointNumber} has wrong block count (expected ${proposed.blockCount} blocks starting at ${proposed.startBlock} but got ${blocks.length})`,
