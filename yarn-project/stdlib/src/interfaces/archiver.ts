@@ -133,6 +133,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
+  isPruneDueAtSlot: z.function().args(schemas.SlotNumber).returns(z.boolean()),
   getGenesisValues: z
     .function()
     .args()

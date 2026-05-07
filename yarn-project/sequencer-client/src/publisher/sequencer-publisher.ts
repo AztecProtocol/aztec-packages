@@ -120,6 +120,13 @@ export type InvalidateCheckpointRequest = {
 type EnqueueProposeCheckpointOpts = {
   txTimeoutAt?: Date;
   simulationOverridesPlan?: SimulationOverridesPlan;
+  /**
+   * Overrides to apply to the preCheck simulation right before L1 submission.
+   * Intentionally separate from `simulationOverridesPlan`: enqueue-time validation
+   * may need pipelined-parent / pretend-proof-landed overrides, but preCheck must
+   * reflect real L1 state to catch state drift between build and submission.
+   */
+  preCheckSimulationOverridesPlan?: SimulationOverridesPlan;
 };
 
 interface RequestWithExpiry {
@@ -1157,6 +1164,10 @@ export class SequencerPublisher {
       .withoutBlobCheck()
       .build();
 
+    const preCheckSimulationOverridesPlan = SimulationOverridesBuilder.from(opts.preCheckSimulationOverridesPlan)
+      .withoutBlobCheck()
+      .build();
+
     try {
       // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
       //        This means that we can avoid the simulation issues in later checks.
@@ -1188,7 +1199,7 @@ export class SequencerPublisher {
           checkpoint,
           attestationsAndSigners,
           attestationsAndSignersSignature,
-          simulationOverridesPlan,
+          preCheckSimulationOverridesPlan,
         );
       };
     }

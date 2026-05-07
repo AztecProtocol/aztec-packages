@@ -286,6 +286,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
+    // Test-only: skip proposing for explicitly paused slots. Attestation paths run in the validator
+    // client and are not gated by this hook, so paused proposers still attest to others' proposals.
+    if (this.config.pauseProposingForSlots?.some(s => s === targetSlot)) {
+      this.log.warn(`Skipping proposal for paused slot ${targetSlot} (test-only pauseProposingForSlots hook)`, {
+        targetSlot,
+      });
+      return undefined;
+    }
+
     // Check all components are synced to latest as seen by the archiver (queries all subsystems)
     const syncedTo = await this.checkSync({ ts, slot });
     if (!syncedTo) {
@@ -383,11 +392,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       // Parent checkpoint hasn't landed on L1 yet. Override both the proposed checkpoint number
       // and the archive at that checkpoint so L1 simulation sees the correct chain tip.
       const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
-      l1SimulationOverridesBuilder.forPendingCheckpoint(parentCheckpointNumber).withPendingArchive(syncedTo.archive);
+      l1SimulationOverridesBuilder
+        .withChainTips({ pending: parentCheckpointNumber })
+        .withPendingArchive(syncedTo.archive);
       this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
 
       this.log.verbose(
-        `Building on top of proposed checkpoint (pending=${syncedTo.proposedCheckpointData?.checkpointNumber})`,
+        `Building on top of proposed checkpoint (pending=${syncedTo.proposedCheckpointData?.checkpointNumber}) for target slot ${targetSlot}`,
+        { targetSlot, parentCheckpointNumber },
       );
       // Clear the invalidation - the proposed checkpoint should handle it.
       invalidateCheckpoint = undefined;
@@ -395,13 +407,37 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       // After invalidation, L1 will roll back to checkpoint N-1. The archive at N-1 already
       // exists on L1, so we just pass the matching archive (the lastArchive of the invalid checkpoint).
       archiveForCheck = invalidateCheckpoint.lastArchive;
-      l1SimulationOverridesBuilder.forPendingCheckpoint(invalidateCheckpoint.forcePendingCheckpointNumber);
+      l1SimulationOverridesBuilder.withChainTips({ pending: invalidateCheckpoint.forcePendingCheckpointNumber });
       this.metrics.recordPipelineDepth(0);
     } else {
       this.metrics.recordPipelineDepth(0);
     }
 
+    let provenOverride: CheckpointNumber | undefined;
+    if (await this.l2BlockSource.isPruneDueAtSlot(targetSlot)) {
+      // Force `proven == pending` in the simulation so `STFLib.canPruneAtTime` short-circuits
+      // to false. Use the simulated pending if the caller already overrode it, otherwise the
+      // real L1 pending tip.
+      const overriddenPending = l1SimulationOverridesBuilder.build()?.chainTipsOverride?.pending;
+      const realPending = (await this.l2BlockSource.getL2Tips()).checkpointed.checkpoint.number;
+      provenOverride = overriddenPending ?? realPending;
+      l1SimulationOverridesBuilder.withChainTips({ proven: provenOverride });
+      this.log.warn(
+        `applying-proven-override-for-boundary: assuming proof for epoch ending at checkpoint ${provenOverride} lands by target slot ${targetSlot}`,
+        { checkpointNumber, slot, targetSlot, provenOverride, overriddenPending },
+      );
+    }
+
     const simulationOverridesPlan = l1SimulationOverridesBuilder.build();
+
+    this.emit('preparing-checkpoint', {
+      targetSlot,
+      checkpointNumber,
+      hadProposedParent: this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint,
+      provenOverride,
+      simulatedPending: simulationOverridesPlan?.chainTipsOverride?.pending,
+    });
+
     const canProposeCheck = await publisher.canProposeAt(
       archiveForCheck,
       proposer ?? EthAddress.ZERO,
@@ -462,6 +498,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       attestorAddress,
       invalidateCheckpoint,
       syncedTo.proposedCheckpointData,
+      provenOverride !== undefined ? { provenOverride } : undefined,
     );
   }
 
@@ -476,6 +513,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     attestorAddress: EthAddress,
     invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
     proposedCheckpointData?: ProposedCheckpointData,
+    prunePending?: { provenOverride: CheckpointNumber },
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
       slot,
@@ -509,6 +547,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.tracer,
       this.log.getBindings(),
       proposedCheckpointData,
+      prunePending,
     );
   }
 

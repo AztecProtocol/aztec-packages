@@ -492,6 +492,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(EmptyL1RollupConstants);
   }
 
+  isPruneDueAtSlot(_slot: SlotNumber): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
     return Promise.resolve({ genesisArchiveRoot: this.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT) });
   }

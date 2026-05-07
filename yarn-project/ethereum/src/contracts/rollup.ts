@@ -844,20 +844,32 @@ export class RollupContract {
   }
 
   /**
-   * Returns a state override that sets the pending checkpoint number to the specified value. Useful for simulations.
-   * Requires querying the current state of the contract to get the current proven checkpoint number, as they are both
-   * stored in the same slot. If the argument is undefined, it returns an empty override.
+   * Returns a state override that sets the pending and/or proven checkpoint numbers. Useful for simulations.
+   * Both values share a single storage slot (pending in the upper 128 bits, proven in the lower 128 bits), so
+   * a single combined override is emitted to avoid the second state-diff clobbering the first. The current live
+   * value is read once to preserve any half not being overridden. Returns an empty override if neither is set.
+   *
+   * Throws if the resulting `proven > pending`, which would crash the simulation: `STFLib.canPruneAtTime` calls
+   * `getEpochForCheckpoint(proven + 1)` whenever `pending != proven`, and that asserts `_n <= tips.pending`.
    */
-  public async makePendingCheckpointNumberOverride(
-    forcePendingCheckpointNumber: CheckpointNumber | undefined,
-  ): Promise<StateOverride> {
-    if (forcePendingCheckpointNumber === undefined) {
+  public async makeChainTipsOverride(override: {
+    pending?: CheckpointNumber;
+    proven?: CheckpointNumber;
+  }): Promise<StateOverride> {
+    if (override.pending === undefined && override.proven === undefined) {
       return [];
     }
     const slot = RollupContract.stfStorageSlot;
     const currentValue = await this.client.getStorageAt({ address: this.address, slot });
-    const currentProvenCheckpointNumber = currentValue ? hexToBigInt(currentValue) & ((1n << 128n) - 1n) : 0n;
-    const newValue = (BigInt(forcePendingCheckpointNumber) << 128n) | currentProvenCheckpointNumber;
+    const currentRaw = currentValue ? hexToBigInt(currentValue) : 0n;
+    const currentPending = currentRaw >> 128n;
+    const currentProven = currentRaw & ((1n << 128n) - 1n);
+    const newPending = override.pending !== undefined ? BigInt(override.pending) : currentPending;
+    const newProven = override.proven !== undefined ? BigInt(override.proven) : currentProven;
+    if (newProven > newPending) {
+      throw new Error(`Invalid chain tips override: proven (${newProven}) > pending (${newPending})`);
+    }
+    const newValue = (newPending << 128n) | newProven;
     return [
       {
         address: this.address,
