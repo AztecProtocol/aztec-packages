@@ -9,6 +9,26 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] TXE `call_public_incognito` no longer takes a `from` parameter
+
+`TestEnvironment::call_public_incognito` previously accepted a `from` address that was silently ignored (the function always uses a null `msg_sender`). The `from` parameter has been removed.
+
+```diff
+- env.call_public_incognito(sender, SampleContract::at(addr).some_function());
++ env.call_public_incognito(SampleContract::at(addr).some_function());
+```
+
+If you need to call a public function *with* a sender, use `call_public` instead.
+
+### [Aztec.nr] TXE `view_public_incognito` is deprecated
+
+`TestEnvironment::view_public_incognito` is now deprecated in favor of `view_public`, which has the same behavior (null `msg_sender`, static call).
+
+```diff
+- env.view_public_incognito(SampleContract::at(addr).some_view());
++ env.view_public(SampleContract::at(addr).some_view());
+```
+
 ### [Aztec.js] `DeployMethod` address-affecting parameters move to construction time
 
 Salt, deployer, and public keys are now passed when the `DeployMethod` is constructed, not on every call to `send` / `simulate` / `request` / `getInstance`. This locks the contract address once it is determined and prevents the silent salt-cache poisoning bug where the address could change between calls.
