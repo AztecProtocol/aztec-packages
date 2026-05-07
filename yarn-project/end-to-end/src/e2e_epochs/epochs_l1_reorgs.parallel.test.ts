@@ -60,9 +60,6 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
   };
 
   beforeEach(async () => {
-    // Note: pipelining is NOT enabled for this test because it manipulates L1 state directly
-    // (reorgs, tx cancellation) with cancelTxOnTimeout: false and maxSpeedUpAttempts: 0,
-    // which conflicts with pipelining's assumption that previous checkpoints land on L1 promptly.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 1,
       maxSpeedUpAttempts: 0, // Do not speed up l1 txs, we dont want them to land
@@ -78,6 +75,10 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       aztecProofSubmissionEpochs: 1,
       // Use 32 slots/epoch (matching real Ethereum mainnet)
       anvilSlotsInAnEpoch: 32,
+      // Pipelining + multi-blocks-per-slot: 8s blocks fit ~4 blocks per 36s slot, and TX_COUNT=8
+      // ensures multiple checkpoints have multiple blocks
+      enableProposerPipelining: true,
+      inboxLag: 2,
     });
     ({ proverDelayer, sequencerDelayer, context, logger, monitor, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_S } = test);
     node = context.aztecNode;
@@ -220,12 +221,12 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       const targetProvenCheckpoint = CheckpointNumber(initialProvenCheckpoint + 1);
 
       // Wait until we have proven something and the nodes have caught up
-      // Use a longer timeout since we need to wait for the epoch to complete (~288s) plus proving time
+      // Use a longer timeout since we need to wait for the epoch to complete (~288s) plus proving time.
       const epochDurationSeconds = test.constants.epochDuration * test.constants.slotDuration;
       logger.warn(`Waiting for initial proof to land`);
       const provenCheckpoint = await test.waitUntilProvenCheckpointNumber(
         targetProvenCheckpoint,
-        epochDurationSeconds * 2,
+        epochDurationSeconds * 4,
       );
       await retryUntil(() => getProvenCheckpointNumber(node).then(cp => cp >= provenCheckpoint), 'node sync', 10, 0.1);
 
@@ -270,11 +271,16 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       proverDelayer.cancelNextTx();
 
       // Expect pending chain to advance, so there's something to be pruned
-      await retryUntil(() => getCheckpointNumber(node).then(cp => cp > initialCheckpoint), 'node sync', 60, 0.1);
+      await retryUntil(
+        () => getCheckpointNumber(node).then(cp => cp > initialCheckpoint),
+        'node sync',
+        L2_SLOT_DURATION_IN_S * 4,
+        0.1,
+      );
 
       // Wait until the end of the proof submission window for the first unproven epoch
       const firstUnprovenCheckpoint = CheckpointNumber(initialProvenCheckpoint + 1);
-      await test.waitUntilCheckpointNumber(firstUnprovenCheckpoint, 60);
+      await test.waitUntilCheckpointNumber(firstUnprovenCheckpoint, L2_SLOT_DURATION_IN_S * 4);
       const epochToWaitFor = await test.rollup.getEpochNumberForCheckpoint(firstUnprovenCheckpoint);
       await test.waitUntilLastSlotOfProofSubmissionWindow(epochToWaitFor);
       await monitor.run(true);
@@ -339,17 +345,20 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // Wait until CHECKPOINT_NUMBER is mined and node synced, and stop the sequencer
       const CHECKPOINT_NUMBER = CheckpointNumber(initialCheckpoint + 3);
-      await test.waitUntilCheckpointNumber(CHECKPOINT_NUMBER, L2_SLOT_DURATION_IN_S * 7);
+      await test.waitUntilCheckpointNumber(CHECKPOINT_NUMBER, L2_SLOT_DURATION_IN_S * 10);
       expect(monitor.checkpointNumber).toEqual(CHECKPOINT_NUMBER);
+      // Stop the sequencer immediately so any in-flight pipelined publish for CHECKPOINT_NUMBER+1
+      // doesn't extend l1BlockNumber before we capture it. setConfig alone is not enough under
+      // pipelining because already-constructed jobs snapshot the old config.
+      await context.sequencer!.stop();
+      logger.warn(`Sequencer stopped`);
       const l1BlockNumber = monitor.l1BlockNumber;
       // Wait for node to sync to the checkpoint.
       await retryUntil(() => getCheckpointNumber(node).then(b => b === CHECKPOINT_NUMBER), 'node sync', 10, 0.1);
+      logger.warn(`Reached checkpoint ${CHECKPOINT_NUMBER}`);
 
       // Verify multi-block checkpoints were built before we do the reorg
       await test.assertMultipleBlocksPerSlot(2);
-
-      logger.warn(`Reached checkpoint ${CHECKPOINT_NUMBER}. Stopping block production.`);
-      await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 100 });
 
       // Remove the L2 block from L1
       const l1BlocksToReorg = monitor.l1BlockNumber - l1BlockNumber + 1;
@@ -374,7 +383,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       // Wait until the checkpoint *before* CHECKPOINT_NUMBER is mined and node synced
       const CHECKPOINT_NUMBER = CheckpointNumber(initialCheckpoint + 3);
       const prevCheckpointNumber = CheckpointNumber(CHECKPOINT_NUMBER - 1);
-      await test.waitUntilCheckpointNumber(prevCheckpointNumber, L2_SLOT_DURATION_IN_S * 7);
+      await test.waitUntilCheckpointNumber(prevCheckpointNumber, L2_SLOT_DURATION_IN_S * 10);
       expect(monitor.checkpointNumber).toEqual(prevCheckpointNumber);
       // Wait for node to sync to the checkpoint
       await retryUntil(() => getCheckpointNumber(node).then(b => b === prevCheckpointNumber), 'node sync', 5, 0.1);
@@ -382,11 +391,14 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       // Verify multi-block checkpoints were built before we do the reorg
       await test.assertMultipleBlocksPerSlot(2);
 
-      // Cancel the next tx to be mined and pause the sequencer
+      // Cancel the next tx to be mined (the proposal for CHECKPOINT_NUMBER) and pause the sequencer.
+      // Under pipelining we then stop the sequencer entirely so an in-flight pipelined job for
+      // CHECKPOINT_NUMBER+1 cannot escape and publish onto L1 before our reorg captures the gap.
       sequencerDelayer.cancelNextTx();
       await retryUntil(() => sequencerDelayer.getCancelledTxs().length, 'next block', L2_SLOT_DURATION_IN_S * 2, 0.1);
       const [l2BlockTx] = sequencerDelayer.getCancelledTxs();
-      await context.aztecNodeAdmin.setConfig({ minTxsPerBlock: 100 });
+      await context.sequencer!.stop();
+      logger.warn(`Sequencer stopped`);
 
       // Save the L1 block number when the L2 block would have been mined
       const l1BlockNumber = monitor.l1BlockNumber;
@@ -447,7 +459,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     it('updates L1 to L2 messages changed due to an L1 reorg', async () => {
       // Send L2 txs to trigger multi-block checkpoints and wait for them to land in a checkpoint
       await sendTransactions(TX_COUNT, 100);
-      await test.waitUntilCheckpointNumber(CheckpointNumber(2), L2_SLOT_DURATION_IN_S * 4);
+      await test.waitUntilCheckpointNumber(CheckpointNumber(2), L2_SLOT_DURATION_IN_S * 6);
 
       // Send 3 messages and wait for archiver sync
       logger.warn(`Sending 3 cross chain messages`);
@@ -484,7 +496,7 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     it('handles missed message inserted by an L1 reorg', async () => {
       // Send L2 txs to trigger multi-block checkpoints and wait for them to land in a checkpoint
       await sendTransactions(TX_COUNT, 200);
-      await test.waitUntilCheckpointNumber(CheckpointNumber(2), L2_SLOT_DURATION_IN_S * 4);
+      await test.waitUntilCheckpointNumber(CheckpointNumber(2), L2_SLOT_DURATION_IN_S * 6);
 
       // Send a message and wait for node to sync it
       logger.warn(`Sending first cross chain message`);
