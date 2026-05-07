@@ -30,10 +30,5 @@ pub contract AuthWitTest {
     /// (from:1 + data:3 + amount:1 + nonce:1), not ::<4> (parameter count).
     #[authorize_once("from", "authwit_nonce")]
     #[external("private")]
-    fn auth_with_struct(
-        from: AztecAddress,
-        _data: MultiFieldStruct,
-        _amount: Field,
-        authwit_nonce: Field,
-    ) {}
+    fn auth_with_struct(from: AztecAddress, _data: MultiFieldStruct, _amount: Field, authwit_nonce: Field) {}
 }

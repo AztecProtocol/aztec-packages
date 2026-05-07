@@ -139,8 +139,19 @@ export class ContentScriptConnectionHandler {
       case InternalMessageType.SESSION_DISCONNECTED:
         this.handleSessionDisconnected(sessionId);
         break;
+      case InternalMessageType.PONG:
+        this.handlePong(sessionId);
+        break;
     }
   };
+
+  private handlePong(sessionId: string): void {
+    const connection = this.ports.get(sessionId);
+    if (!connection) {
+      return;
+    }
+    connection.port.postMessage({ type: WalletMessageType.PONG });
+  }
 
   private handleDiscoveryRequest(request: DiscoveryRequest): void {
     this.transport.sendToBackground({
@@ -176,6 +187,13 @@ export class ContentScriptConnectionHandler {
             type: InternalMessageType.DISCONNECT_REQUEST,
             sessionId,
             content: data,
+          });
+          break;
+        case WalletMessageType.PING:
+          this.transport.sendToBackground({
+            origin: MessageOrigin.CONTENT_SCRIPT,
+            type: InternalMessageType.PING,
+            sessionId,
           });
           break;
         default:

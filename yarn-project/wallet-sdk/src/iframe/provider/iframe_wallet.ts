@@ -14,7 +14,17 @@ import { schemaHasMethod } from '@aztec/foundation/schemas';
 import type { FunctionsOf } from '@aztec/foundation/types';
 
 import { type EncryptedPayload, decrypt, encrypt } from '../../crypto.js';
-import { type DisconnectCallback, type WalletMessage, WalletMessageType, type WalletResponse } from '../../types.js';
+import {
+  DEFAULT_HEARTBEAT_DEAD_AFTER_MS,
+  DEFAULT_HEARTBEAT_INTERVAL_MS,
+  type DisconnectCallback,
+  type HeartbeatOptions,
+  NOOP_LOGGER,
+  type WalletMessage,
+  WalletMessageType,
+  type WalletResponse,
+  type WalletSdkLogger,
+} from '../../types.js';
 
 /**
  * Internal type representing a wallet method call before encryption.
@@ -46,6 +56,11 @@ export class IframeWallet {
   private disconnected = false;
   private disconnectCallbacks: DisconnectCallback[] = [];
   private messageListener: ((e: MessageEvent) => void) | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private lastInboundAt = 0;
+  private log: WalletSdkLogger;
+  private heartbeatIntervalMs: number;
+  private heartbeatDeadAfterMs: number;
 
   private constructor(
     private chainInfo: ChainInfo,
@@ -55,7 +70,13 @@ export class IframeWallet {
     private iframeWindow: Window,
     private walletOrigin: string,
     private sharedKey: CryptoKey,
-  ) {}
+    logger?: WalletSdkLogger,
+    heartbeatOptions?: HeartbeatOptions,
+  ) {
+    this.log = logger ?? NOOP_LOGGER;
+    this.heartbeatIntervalMs = heartbeatOptions?.intervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
+    this.heartbeatDeadAfterMs = heartbeatOptions?.deadAfterMs ?? DEFAULT_HEARTBEAT_DEAD_AFTER_MS;
+  }
 
   /**
    * Creates a proxied IframeWallet that implements the {@link Wallet} interface.
@@ -71,6 +92,8 @@ export class IframeWallet {
    * @param sharedKey - AES-256-GCM key derived from ECDH key exchange
    * @param chainInfo - Network information (chainId and version)
    * @param appId - Application identifier for the requesting dApp
+   * @param logger - Optional logger; defaults to a no-op logger to keep extension/page bundles small
+   * @param heartbeatOptions - Optional override for heartbeat tuning (mostly useful for tests)
    * @returns A proxied IframeWallet — call `.asWallet()` to get the typed `Wallet`
    */
   static create(
@@ -81,8 +104,20 @@ export class IframeWallet {
     sharedKey: CryptoKey,
     chainInfo: ChainInfo,
     appId: string,
+    logger?: WalletSdkLogger,
+    heartbeatOptions?: HeartbeatOptions,
   ): IframeWallet {
-    const wallet = new IframeWallet(chainInfo, appId, walletId, sessionId, iframeWindow, walletOrigin, sharedKey);
+    const wallet = new IframeWallet(
+      chainInfo,
+      appId,
+      walletId,
+      sessionId,
+      iframeWindow,
+      walletOrigin,
+      sharedKey,
+      logger,
+      heartbeatOptions,
+    );
 
     wallet.messageListener = (event: MessageEvent) => {
       if (event.origin !== walletOrigin) {
@@ -93,9 +128,16 @@ export class IframeWallet {
         return;
       }
 
-      if (msg.type === WalletMessageType.SECURE_RESPONSE && msg.sessionId === sessionId) {
+      if (msg.sessionId !== sessionId) {
+        return;
+      }
+
+      // Any inbound traffic on our session counts as proof of liveness.
+      wallet.lastInboundAt = Date.now();
+
+      if (msg.type === WalletMessageType.SECURE_RESPONSE) {
         void wallet.handleEncryptedResponse(msg.encrypted as EncryptedPayload);
-      } else if (msg.type === WalletMessageType.SESSION_DISCONNECTED && msg.sessionId === sessionId) {
+      } else if (msg.type === WalletMessageType.SESSION_DISCONNECTED) {
         wallet.handleDisconnect();
       }
     };
@@ -148,8 +190,9 @@ export class IframeWallet {
         pending.resolve(result);
       }
       this.inFlight.delete(messageId);
-    } catch {
-      // Decryption errors are silently ignored (message not for us or corrupted)
+      this.maybeStopHeartbeat();
+    } catch (err) {
+      this.log.warn('Failed to decrypt wallet response', { err });
     }
   }
 
@@ -176,7 +219,53 @@ export class IframeWallet {
 
     const { promise, resolve, reject } = promiseWithResolvers<unknown>();
     this.inFlight.set(messageId, { promise, resolve, reject });
+    this.startHeartbeat();
     return promise;
+  }
+
+  /**
+   * Start liveness probing while at least one request is in flight. PINGs are
+   * unencrypted control messages — older wallet handlers that don't understand
+   * them simply drop them, but any inbound traffic (PONG, encrypted response,
+   * disconnect notice) resets the idle timer, so a slow-but-alive legacy wallet
+   * never trips a false disconnect.
+   */
+  private startHeartbeat(): void {
+    if (this.heartbeatTimer !== null || this.disconnected) {
+      return;
+    }
+    this.lastInboundAt = Date.now();
+    this.heartbeatTimer = setInterval(() => this.heartbeatTick(), this.heartbeatIntervalMs);
+  }
+
+  private maybeStopHeartbeat(): void {
+    if (this.inFlight.size === 0 && this.heartbeatTimer !== null) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private heartbeatTick(): void {
+    if (this.disconnected || this.inFlight.size === 0) {
+      this.maybeStopHeartbeat();
+      return;
+    }
+
+    const idleMs = Date.now() - this.lastInboundAt;
+    if (idleMs >= this.heartbeatDeadAfterMs) {
+      this.log.warn('Iframe wallet channel unresponsive — declaring disconnect', {
+        idleMs,
+        inFlight: this.inFlight.size,
+      });
+      this.handleDisconnect();
+      return;
+    }
+
+    try {
+      this.iframeWindow.postMessage({ type: WalletMessageType.PING, sessionId: this.sessionId }, this.walletOrigin);
+    } catch (err) {
+      this.log.warn('Failed to send heartbeat PING', { err });
+    }
   }
 
   private handleDisconnect(): void {
@@ -184,6 +273,11 @@ export class IframeWallet {
       return;
     }
     this.disconnected = true;
+
+    if (this.heartbeatTimer !== null) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
 
     if (this.messageListener) {
       window.removeEventListener('message', this.messageListener);

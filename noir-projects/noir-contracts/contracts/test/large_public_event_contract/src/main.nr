@@ -4,10 +4,7 @@ use aztec::macros::aztec;
 /// The private emission size limit does not apply to public logs.
 #[aztec]
 contract LargePublicEvent {
-    use aztec::{
-        macros::{events::event, functions::external},
-        messages::logs::event::MAX_EVENT_SERIALIZED_LEN,
-    };
+    use aztec::{macros::{events::event, functions::external}, messages::logs::event::MAX_EVENT_SERIALIZED_LEN};
 
     #[event]
     pub struct LargeEvent {
