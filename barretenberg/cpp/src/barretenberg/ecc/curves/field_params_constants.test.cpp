@@ -233,21 +233,6 @@ TYPED_TEST_P(FieldConstantsTest, WasmModulusConsistency)
     EXPECT_EQ(wasm_modulus.hi, uint256_t(0));
 }
 
-// Verify R_wasm^2 mod p, where R_wasm = 2^261 = 2^(29*9).
-TYPED_TEST_P(FieldConstantsTest, WasmRSquared)
-{
-    using Params = typename TypeParam::Params;
-    uint256_t mod{ Params::modulus_0, Params::modulus_1, Params::modulus_2, Params::modulus_3 };
-    uint512_t R_wasm = uint512_t(1) << 261;
-    uint512_t R_wasm_mod = R_wasm % mod;
-    uint512_t expected = (R_wasm_mod * R_wasm_mod) % mod;
-    uint256_t actual{
-        Params::r_squared_wasm_0, Params::r_squared_wasm_1, Params::r_squared_wasm_2, Params::r_squared_wasm_3
-    };
-    EXPECT_EQ(expected.lo, actual);
-    EXPECT_EQ(expected.hi, uint256_t(0));
-}
-
 // Verify r_inv_wasm_{0-8} = 2^{-29} mod p, stored as 9 x 29-bit limbs.
 // Also verify each limb fits in 29 bits, and that it is smaller than the modulus
 TYPED_TEST_P(FieldConstantsTest, WasmPowMinus29)
@@ -269,65 +254,6 @@ TYPED_TEST_P(FieldConstantsTest, WasmPowMinus29)
     EXPECT_LT(r_inv_wasm, uint512_t(mod));
 }
 
-// Verify cube_root_wasm is the same field element as cube_root_native but in WASM Montgomery form.
-// Since R_wasm = 2^261 and R_native = 2^256, converting native -> WASM multiplies by 2^5 = 32.
-TYPED_TEST_P(FieldConstantsTest, WasmCubeRootConsistency)
-{
-    if constexpr (!TypeParam::has_cube_root) {
-        GTEST_SKIP() << "Cube root is not used for this field";
-    } else {
-        using Params = typename TypeParam::Params;
-        uint256_t mod{ Params::modulus_0, Params::modulus_1, Params::modulus_2, Params::modulus_3 };
-        uint256_t cube_root_native{
-            Params::cube_root_0, Params::cube_root_1, Params::cube_root_2, Params::cube_root_3
-        };
-        uint256_t cube_root_wasm{
-            Params::cube_root_wasm_0, Params::cube_root_wasm_1, Params::cube_root_wasm_2, Params::cube_root_wasm_3
-        };
-        // R_wasm / R_native = 2^261 / 2^256 = 2^5 = 32
-        uint512_t expected = (uint512_t(cube_root_native) * 32) % mod;
-        EXPECT_EQ(expected.lo, cube_root_wasm);
-    }
-}
-
-// Verify primitive_root_wasm is the same field element as primitive_root_native in WASM Montgomery form.
-TYPED_TEST_P(FieldConstantsTest, WasmPrimitiveRootConsistency)
-{
-    if constexpr (!TypeParam::has_primitive_root) {
-        GTEST_SKIP() << "Primitive root is not used for this field";
-    } else {
-        using Params = typename TypeParam::Params;
-        uint256_t mod{ Params::modulus_0, Params::modulus_1, Params::modulus_2, Params::modulus_3 };
-        uint256_t primitive_root_native{
-            Params::primitive_root_0, Params::primitive_root_1, Params::primitive_root_2, Params::primitive_root_3
-        };
-        uint256_t primitive_root_wasm{ Params::primitive_root_wasm_0,
-                                       Params::primitive_root_wasm_1,
-                                       Params::primitive_root_wasm_2,
-                                       Params::primitive_root_wasm_3 };
-        // R_wasm / R_native = 2^261 / 2^256 = 2^5 = 32
-        uint512_t expected = (uint512_t(primitive_root_native) * 32) % mod;
-        EXPECT_EQ(expected.lo, primitive_root_wasm);
-    }
-}
-
-// Verify coset_generator_wasm is the same field element as coset_generator_native in WASM Montgomery form.
-TYPED_TEST_P(FieldConstantsTest, CosetGeneratorConsistency)
-{
-    using Params = typename TypeParam::Params;
-    uint256_t mod{ Params::modulus_0, Params::modulus_1, Params::modulus_2, Params::modulus_3 };
-    uint256_t coset_generator_native{
-        Params::coset_generator_0, Params::coset_generator_1, Params::coset_generator_2, Params::coset_generator_3
-    };
-    uint256_t coset_generator_wasm{ Params::coset_generator_wasm_0,
-                                    Params::coset_generator_wasm_1,
-                                    Params::coset_generator_wasm_2,
-                                    Params::coset_generator_wasm_3 };
-    // R_wasm / R_native = 2^261 / 2^256 = 2^5 = 32
-    uint512_t expected = (static_cast<uint512_t>(coset_generator_native) * 32) % mod;
-    EXPECT_EQ(expected, static_cast<uint512_t>(coset_generator_wasm));
-}
-
 REGISTER_TYPED_TEST_SUITE_P(FieldConstantsTest,
                             Modulus,
                             RSquared,
@@ -337,11 +263,7 @@ REGISTER_TYPED_TEST_SUITE_P(FieldConstantsTest,
                             PrimitiveRootOfUnity,
                             CosetGenerator,
                             WasmModulusConsistency,
-                            WasmRSquared,
-                            WasmPowMinus29,
-                            WasmCubeRootConsistency,
-                            WasmPrimitiveRootConsistency,
-                            CosetGeneratorConsistency);
+                            WasmPowMinus29);
 
 using FieldTestTypes = ::testing::Types<Bn254FqTestConfig,
                                         Bn254FrTestConfig,

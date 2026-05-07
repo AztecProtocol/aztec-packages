@@ -106,15 +106,7 @@ def parse_field_params(s):
     # WASM parameters
     parameter_dictionary['modulus_wasm']=recover_element_from_parts('modulus_wasm',29)
 
-    parameter_dictionary['r_squared_wasm']=recover_element_from_parts('r_squared_wasm',64)
-
     parameter_dictionary['r_inv_wasm']=recover_element_from_parts('r_inv_wasm',29)
-
-    parameter_dictionary['cube_root_wasm']=recover_element_from_parts('cube_root_wasm',64)
-
-    parameter_dictionary['primitive_root_wasm']=recover_element_from_parts('primitive_root_wasm',64)
-
-    parameter_dictionary['coset_generator_wasm']=recover_element_from_parts('coset_generator_wasm',64)
 
     # Endomorphism parameters
     parameter_dictionary['endo_g1_lo']=recover_single_value_if_present('endo_g1_lo')
@@ -129,21 +121,11 @@ def parse_field_params(s):
 
     assert(parameter_dictionary['modulus']==parameter_dictionary['modulus_wasm']) # Check modulus representations are equivalent
     modulus=parameter_dictionary['modulus']
-    r_wasm_divided_by_r_regular=2**(261-256)
     assert(parameter_dictionary['r_squared']==pow(2,512,modulus)) # Check r_squared
-    assert(parameter_dictionary['r_squared_wasm']==pow(2,9*29*2,modulus)) # Check r_squared_wasm
-    assert(parameter_dictionary['cube_root']*r_wasm_divided_by_r_regular%modulus==parameter_dictionary['cube_root_wasm'] or
-            parameter_dictionary['cube_root']==0)
     assert(pow(parameter_dictionary['cube_root']*pow(2,-256,modulus),3,modulus)==1 or
             parameter_dictionary['cube_root']==0) # Check cubic root
-    assert(pow(parameter_dictionary['cube_root_wasm']*pow(2,-29*9,modulus),3,modulus)==1 or
-            parameter_dictionary['cube_root_wasm']==0) # Check cubic root for wasm
-    assert(parameter_dictionary['primitive_root']*r_wasm_divided_by_r_regular%modulus==parameter_dictionary['primitive_root_wasm']) # Check pritimitve roots are equivalent
     assert(parameter_dictionary['r_inv_x64']*(1<<64)%parameter_dictionary['modulus']==1)
     assert(parameter_dictionary['r_inv_wasm']*(1<<29)%parameter_dictionary['modulus']==1)
-    regular_coset_generator=parameter_dictionary['coset_generator']
-    wasm_coset_generator=parameter_dictionary['coset_generator_wasm']
-    assert(regular_coset_generator*r_wasm_divided_by_r_regular%modulus == wasm_coset_generator)
 
     return parameter_dictionary
 

@@ -169,15 +169,28 @@ template <class Fr, size_t domain_end> class Univariate {
     }
     Univariate& operator*=(const Univariate& other)
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i] *= other.evaluations[i];
+        // Pair-stride: paired_mul is faster than two singles; tail elides at compile time for even LENGTH.
+        for (size_t i = 0; i + 1 < LENGTH; i += 2) {
+            const auto [r0, r1] =
+                Fr::paired_mul(evaluations[i], other.evaluations[i], evaluations[i + 1], other.evaluations[i + 1]);
+            evaluations[i] = r0;
+            evaluations[i + 1] = r1;
+        }
+        if constexpr (LENGTH % 2 == 1) {
+            evaluations[LENGTH - 1] *= other.evaluations[LENGTH - 1];
         }
         return *this;
     }
     Univariate& self_sqr()
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i].self_sqr();
+        // Pair-stride: paired_sqr is faster than two singles; tail elides at compile time for even LENGTH.
+        for (size_t i = 0; i + 1 < LENGTH; i += 2) {
+            const auto [r0, r1] = Fr::paired_sqr(evaluations[i], evaluations[i + 1]);
+            evaluations[i] = r0;
+            evaluations[i + 1] = r1;
+        }
+        if constexpr (LENGTH % 2 == 1) {
+            evaluations[LENGTH - 1].self_sqr();
         }
         return *this;
     }
@@ -281,8 +294,15 @@ template <class Fr, size_t domain_end> class Univariate {
 
     Univariate& operator*=(const UnivariateView<Fr, domain_end>& view)
     {
-        for (size_t i = 0; i < LENGTH; ++i) {
-            evaluations[i] *= view.evaluations[i];
+        // Pair-stride: paired_mul is faster than two singles; tail elides at compile time for even LENGTH.
+        for (size_t i = 0; i + 1 < LENGTH; i += 2) {
+            const auto [r0, r1] =
+                Fr::paired_mul(evaluations[i], view.evaluations[i], evaluations[i + 1], view.evaluations[i + 1]);
+            evaluations[i] = r0;
+            evaluations[i + 1] = r1;
+        }
+        if constexpr (LENGTH % 2 == 1) {
+            evaluations[LENGTH - 1] *= view.evaluations[LENGTH - 1];
         }
         return *this;
     }

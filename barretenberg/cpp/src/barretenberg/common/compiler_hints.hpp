@@ -25,6 +25,16 @@
 #define BB_UNLIKELY(x) x
 #endif
 
+// Force the compiler to fully unroll the immediately following loop. Used for short, fixed-bound
+// loops in tight arithmetic kernels where unrolling exposes ILP.
+#ifdef __clang__
+#define BB_FORCE_UNROLL _Pragma("clang loop unroll(full)")
+#elif defined(__GNUC__)
+#define BB_FORCE_UNROLL _Pragma("GCC unroll 16")
+#else
+#define BB_FORCE_UNROLL
+#endif
+
 // Opinionated feature: functionally equivalent to [[maybe_unused]] but clearly
 // marks things DEFINITELY unused. Aims to be more readable, at the tradeoff of being a custom thingy.
 #define BB_UNUSED [[maybe_unused]]
