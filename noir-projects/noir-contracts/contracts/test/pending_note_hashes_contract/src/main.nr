@@ -38,11 +38,7 @@ pub contract PendingNoteHashes {
     // getting / reading that note all in the same contract function
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     #[external("private")]
-    fn test_insert_then_get_then_nullify_flat(
-        amount: Field,
-        owner: AztecAddress,
-        sender: AztecAddress,
-    ) -> Field {
+    fn test_insert_then_get_then_nullify_flat(amount: Field, owner: AztecAddress, sender: AztecAddress) -> Field {
         let owner_balance = self.storage.balances.at(owner);
 
         let note = FieldNote { value: amount };
@@ -192,16 +188,10 @@ pub contract PendingNoteHashes {
         let getNullifyArgs = [amount, owner.to_field()];
 
         // nested call to create/insert note
-        let _callStackItem1 = self.context.call_private_function(
-            inputs.call_context.contract_address,
-            insert_fn_selector,
-            insertArgs,
-        );
-        let _callStackItem2 = self.context.call_private_function(
-            inputs.call_context.contract_address,
-            insert_fn_selector,
-            insertArgs,
-        );
+        let _callStackItem1 =
+            self.context.call_private_function(inputs.call_context.contract_address, insert_fn_selector, insertArgs);
+        let _callStackItem2 =
+            self.context.call_private_function(inputs.call_context.contract_address, insert_fn_selector, insertArgs);
         // nested call to read and nullify that note
         let _callStackItem3 = self.context.call_private_function(
             inputs.call_context.contract_address,
@@ -215,7 +205,8 @@ pub contract PendingNoteHashes {
         );
         // nested call to confirm that balance is zero
         // TODO(dbanks12): once > 4 nested calls is supported, can confirm 0 balance:
-        //let _callStackItem5 = self.context.call_private_function(inputs.call_context.contract_address, get_note_zero_fn_selector, [owner]);
+        //let _callStackItem5 = self.context.call_private_function(inputs.call_context.contract_address,
+        // get_note_zero_fn_selector, [owner]);
     }
 
     // same test as above, but insert 2, get 1, nullify 1
@@ -232,16 +223,10 @@ pub contract PendingNoteHashes {
         let getNullifyArgs = [amount, owner.to_field()];
 
         // nested call to create/insert note
-        let _callStackItem1 = self.context.call_private_function(
-            inputs.call_context.contract_address,
-            insert_fn_selector,
-            insertArgs,
-        );
-        let _callStackItem2 = self.context.call_private_function(
-            inputs.call_context.contract_address,
-            insert_fn_selector,
-            insertArgs,
-        );
+        let _callStackItem1 =
+            self.context.call_private_function(inputs.call_context.contract_address, insert_fn_selector, insertArgs);
+        let _callStackItem2 =
+            self.context.call_private_function(inputs.call_context.contract_address, insert_fn_selector, insertArgs);
         // nested call to read and nullify that note
         let _callStackItem3 = self.context.call_private_function(
             inputs.call_context.contract_address,
@@ -266,11 +251,8 @@ pub contract PendingNoteHashes {
         let getNullifyArgs = [amount, owner.to_field()];
 
         // nested call to create/insert note
-        let _callStackItem1 = self.context.call_private_function(
-            inputs.call_context.contract_address,
-            insert_fn_selector,
-            insertArgs,
-        );
+        let _callStackItem1 =
+            self.context.call_private_function(inputs.call_context.contract_address, insert_fn_selector, insertArgs);
         // nested call to read and nullify that note
         let _callStackItem2 = self.context.call_private_function(
             inputs.call_context.contract_address,
@@ -304,19 +286,11 @@ pub contract PendingNoteHashes {
         self.internal.create_max_notes(recipients, initial_offset);
 
         let max_notes = self.internal.max_notes_per_call() as u64;
-        self.call_self.recursively_destroy_and_create_notes(
-            recipients,
-            how_many_recursions,
-            max_notes,
-        );
+        self.call_self.recursively_destroy_and_create_notes(recipients, how_many_recursions, max_notes);
     }
 
     #[external("private")]
-    fn recursively_destroy_and_create_notes(
-        recipients: [AztecAddress; 10],
-        executions_left: u64,
-        current_offset: u64,
-    ) {
+    fn recursively_destroy_and_create_notes(recipients: [AztecAddress; 10], executions_left: u64, current_offset: u64) {
         assert(executions_left > 0);
 
         self.internal.destroy_max_notes(recipients);
@@ -326,11 +300,7 @@ pub contract PendingNoteHashes {
 
         if executions_left > 0 {
             let max_notes = self.internal.max_notes_per_call() as u64;
-            self.call_self.recursively_destroy_and_create_notes(
-                recipients,
-                executions_left,
-                current_offset + max_notes,
-            );
+            self.call_self.recursively_destroy_and_create_notes(recipients, executions_left, current_offset + max_notes);
         }
     }
 
