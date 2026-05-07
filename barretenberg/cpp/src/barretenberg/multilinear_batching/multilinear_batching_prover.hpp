@@ -51,18 +51,6 @@ class MultilinearBatchingProver {
                               std::shared_ptr<Transcript> transcript);
 
     /**
-     * @brief Send accumulator commitments to the verifier.
-     * @details Instance commitments are assumed known to verifier from VK.
-     */
-    BB_PROFILE void execute_commitments_round();
-
-    /**
-     * @brief Send accumulator challenge point and evaluations to the verifier.
-     * @details Used by verifier to construct eq polynomials and verify target sum.
-     */
-    BB_PROFILE void execute_challenges_and_evaluations_round();
-
-    /**
      * @brief Execute sumcheck to reduce two evaluation claims to one at a random point u.
      */
     BB_PROFILE void execute_relation_check_rounds();

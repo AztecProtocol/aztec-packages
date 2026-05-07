@@ -61,7 +61,14 @@ void setup_fuzzer_state(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
             // Find the instance for this derived address and also add it by canonical address
             auto maybe_instance = contract_db.get_contract_instance(derived_address);
             if (maybe_instance.has_value()) {
-                contract_db.add_contract_instance(canonical_address, maybe_instance.value());
+                // Protocol contracts are not upgradeable, so the canonical-address copy must have
+                // current == original. The derived-address instance may have been upgraded by
+                // mutate_bytecode before the protocol-contracts mutation promoted it; that upgrade
+                // is irrelevant for the canonical (protocol) view. Enforces the
+                // PROTOCOL_CONTRACT_CLASS_ID_IS_ORIGINAL relation in contract_instance_retrieval.pil.
+                ContractInstance protocol_instance = maybe_instance.value();
+                protocol_instance.current_contract_class_id = protocol_instance.original_contract_class_id;
+                contract_db.add_contract_instance(canonical_address, protocol_instance);
             }
         }
     }
