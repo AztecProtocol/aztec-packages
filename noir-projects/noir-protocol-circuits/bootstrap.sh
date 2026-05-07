@@ -56,7 +56,13 @@ function compile {
   # echo_stderr $program_hash_cmd
   local program_hash=$(dump_fail "$program_hash_cmd")
   echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
-  local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash "^noir-projects/noir-protocol-circuits/bootstrap.sh"))
+  # types/src/constants.nr defines proof / VK length globals that propagate into ABI array sizes
+  # (e.g. CHONK_PROOF_LENGTH, MEGA_VK_LENGTH_IN_FIELDS). Including it in the cache hash guarantees
+  # that bumping these constants busts cached `circuit-*.tar.gz` artifacts even on the rare occasion
+  # that nargo's program_hash is insufficiently sensitive to the change.
+  local hash=$(hash_str "$NOIR_HASH-$program_hash" $(cache_content_hash \
+    "^noir-projects/noir-protocol-circuits/bootstrap.sh" \
+    "^noir-projects/noir-protocol-circuits/crates/types/src/constants.nr"))
   # Note: an edge case: If you change the name of a circuit public input, but don't change any of the
   # circuit's bytecode, then this bootstrap script will not re-compile the circuits. You can force a
   # re-compilation by temporarily replacing $NOIR_HASH on the above two lines with:
