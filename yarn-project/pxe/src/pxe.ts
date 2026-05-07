@@ -83,6 +83,7 @@ import { PrivateEventStore } from './storage/private_event_store/private_event_s
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
 import { SenderAddressBookStore } from './storage/tagging_store/sender_address_book_store.js';
 import { SenderTaggingStore } from './storage/tagging_store/sender_tagging_store.js';
+import { persistSenderTaggingIndexRangesForTx } from './tagging/index.js';
 
 export type PackedPrivateEvent = InTx & {
   packedEvent: Fr[];
@@ -819,23 +820,15 @@ export class PXE {
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
 
-        // While not strictly necessary to store tagging cache contents in the DB since we sync tagging indexes from
-        // chain before sending new logs, the sync can only see logs already included in blocks. If we send another
-        // transaction before this one is included in a block from this PXE, and that transaction contains a log with
-        // a tag derived from the same secret, we would reuse the tag and the transactions would be linked. Hence
-        // storing the tags here prevents linkage of txs sent from the same PXE.
-        const taggingIndexRangesUsedInTheTx = privateExecutionResult.entrypoint.taggingIndexRanges;
-        if (taggingIndexRangesUsedInTheTx.length > 0) {
+        await persistSenderTaggingIndexRangesForTx(
+          this.senderTaggingStore,
+          privateExecutionResult.entrypoint.taggingIndexRanges,
+          publicInputs,
           // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
-          const txHash = (await txProvingResult.toTx()).txHash;
-
-          await this.senderTaggingStore.storePendingIndexes(taggingIndexRangesUsedInTheTx, txHash, jobId);
-          this.log.debug(`Stored used tagging index ranges as sender for the tx`, {
-            taggingIndexRangesUsedInTheTx,
-          });
-        } else {
-          this.log.debug(`No tagging index ranges used in the tx`);
-        }
+          async () => (await txProvingResult.toTx()).txHash,
+          jobId,
+          this.log,
+        );
 
         return txProvingResult;
       } catch (err: any) {
