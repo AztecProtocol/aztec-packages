@@ -1013,9 +1013,20 @@ export class PXE {
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
 
         if (hasOverriddenContracts) {
-          // Overridden contracts don't have a sync function, so calling sync on them would fail.
-          // We exclude them so the sync service skips them entirely.
-          this.contractSyncService.setExcludedFromSync(jobId, overriddenContracts);
+          // Skip sync for overrides whose class isn't published on chain (typically local-only stubs
+          // such as account stubs registered via pxe.registerContractClass). Their artifacts may be
+          // partial and break sync's nested utility execution. Overrides whose class is published
+          // on chain (e.g. fastForwardContractUpdate) have full artifacts and need sync to load
+          // pre-existing notes for the contract.
+          const stubAddresses = new Set<string>();
+          for (const [addrStr, override] of Object.entries(overrides!.contracts!)) {
+            if (!(await this.node.getContractClass(override.instance.currentContractClassId))) {
+              stubAddresses.add(addrStr);
+            }
+          }
+          if (stubAddresses.size > 0) {
+            this.contractSyncService.setExcludedFromSync(jobId, stubAddresses);
+          }
         }
 
         // Execution of private functions only; no proving, and no kernel logic.
