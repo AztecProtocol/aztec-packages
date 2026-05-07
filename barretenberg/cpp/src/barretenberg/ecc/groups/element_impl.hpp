@@ -858,6 +858,10 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
     detail::EndomorphismWnaf<element, NUM_ROUNDS> wnaf{ endo_scalars };
 
     std::vector<affine_element> work_elements(num_points);
+    // lookup_table[j] holds (2j+1) * P_i for j = 0..LOOKUP_SIZE-1. The GLV endo image (beta*x, y)
+    // for k2 wnaf windows is realized lazily inside batch_affine_add_transformed_impl rather than
+    // by a parallel endo_lookup_table — the per-iteration `lhs.x * beta` gets free pipelining and
+    // saves the LOOKUP_SIZE * n affine-element allocation + zero-fill.
     std::array<std::vector<affine_element>, LOOKUP_SIZE> lookup_table;
     for (auto& table : lookup_table) {
         table.resize(num_points);
@@ -886,7 +890,7 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
                 lookup_table[0][i] = points[i];
             }
         }
-        // Costruct lookup table
+        // Construct lookup table
         double_chunked(&temp_point_vector[0]);
         for (size_t j = 1; j < LOOKUP_SIZE; ++j) {
             for (size_t i = start; i < end; ++i) {
@@ -940,20 +944,23 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomo
             }
             add_chunked(&temp_point_vector[0], &work_elements[0]);
         }
-        // Apply skew for the first endo scalar
-        // Use affine_element::operator+ (via Jacobian) to handle edge cases related to the point at infinity.
+        // Apply skew for the first endo scalar (k1 was even). Stage -lookup_table[0] into temp,
+        // then a single batched affine add — one inversion per chunk instead of one per point.
+        // Safe vs the x1==x2 abort in batch_affine_add_impl: that would require work_elements[i] = ±points[i],
+        // i.e. scalar = ±1 mod r; both cases are handled by the early-out branches above.
         if (wnaf.skew) {
             for (size_t i = start; i < end; ++i) {
-                work_elements[i] = work_elements[i] + (-lookup_table[0][i]);
+                temp_point_vector[i] = -lookup_table[0][i];
             }
+            add_chunked(&temp_point_vector[0], &work_elements[0]);
         }
-        // Apply skew for the second endo scalar
+        // Apply skew for the second endo scalar (k2 was even).
         if (wnaf.endo_skew) {
             for (size_t i = start; i < end; ++i) {
-                affine_element endo_point = lookup_table[0][i];
-                endo_point.x *= beta;
-                work_elements[i] = work_elements[i] + endo_point;
+                temp_point_vector[i] = lookup_table[0][i];
+                temp_point_vector[i].x *= beta;
             }
+            add_chunked(&temp_point_vector[0], &work_elements[0]);
         }
         // Handle points at infinity explicitly
         for (size_t i = start; i < end; ++i) {
