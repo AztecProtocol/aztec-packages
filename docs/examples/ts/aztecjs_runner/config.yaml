@@ -3,13 +3,3 @@
 
 # No custom contracts needed - using pre-built contracts from @aztec/noir-contracts.js
 contracts: []
-
-# Dependencies - union of all aztecjs example dependencies
-dependencies:
-  - "@aztec/aztec.js"
-  - "@aztec/accounts"
-  - "@aztec/wallets"
-  - "@aztec/noir-contracts.js"
-  - "@aztec/ethereum"
-  - "@aztec/stdlib"
-  - "@aztec/foundation"

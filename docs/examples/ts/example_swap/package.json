@@ -1,0 +1,21 @@
+{
+  "name": "@aztec-docs/example-swap",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "yarn@4.13.0",
+  "dependencies": {
+    "@aztec/accounts": "link:../../../../yarn-project/accounts",
+    "@aztec/aztec.js": "link:../../../../yarn-project/aztec.js",
+    "@aztec/ethereum": "link:../../../../yarn-project/ethereum",
+    "@aztec/foundation": "link:../../../../yarn-project/foundation",
+    "@aztec/noir-contracts.js": "link:../../../../yarn-project/noir-contracts.js",
+    "@aztec/stdlib": "link:../../../../yarn-project/stdlib",
+    "@aztec/viem": "2.38.2",
+    "@aztec/wallets": "link:../../../../yarn-project/wallets"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "^5.3.3"
+  }
+}

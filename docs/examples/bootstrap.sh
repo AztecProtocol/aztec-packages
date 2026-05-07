@@ -9,11 +9,6 @@ export NARGO=${NARGO:-"$REPO_ROOT/noir/noir-repo/target/release/nargo"}
 export BB_HASH=${BB_HASH:-$("$REPO_ROOT/barretenberg/cpp/bootstrap.sh" hash)}
 export NOIR_HASH=${NOIR_HASH:-$("$REPO_ROOT/noir/bootstrap.sh" hash)}
 
-# Safety net: ensure all TS example yarn.lock files are empty on exit.
-# Both validate-ts and execute-examples (via Docker volume mount) can populate
-# these files, and their per-project cleanup may not run if processes are killed.
-trap 'for lf in "$REPO_ROOT"/docs/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
-
 hash=$(hash_str \
   $BB_HASH \
   $NOIR_HASH \
@@ -202,13 +197,15 @@ function validate-webapp-tutorial {
     cp "$artifact" src/artifacts/
     node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o src/artifacts
 
-    # Type check (build mode follows project references in tsconfig.json)
+    # Type check (build mode follows project references in tsconfig.json).
+    # yarn invokes the locally-installed binary; npx would fall back to a
+    # registry install if missing, bypassing the lockfile.
     echo_stderr "Type checking webapp-tutorial..."
-    npx tsc -b --noEmit
+    yarn tsc -b --noEmit
 
     # Vite production build
     echo_stderr "Running vite build..."
-    npx vite build
+    yarn vite build
 
     echo_stderr "webapp-tutorial validated successfully"
   )
@@ -249,9 +246,38 @@ function refresh-webapp-tutorial-lockfile {
       fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
     "
 
-    yarn install
+    # yarn 4 enables --immutable by default in CI-like environments; force a
+    # mutating install so the lockfile actually gets regenerated.
+    YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
     echo_stderr "yarn.lock updated. Commit the change."
   )
+}
+
+# Regenerate the committed yarn.lock for every docs/examples/ts/* example.
+# Run this when validate-ts fails with "lockfile would have been modified" —
+# typically after a third-party dep range bump or a new dep added to a
+# committed package.json. Each example's package.json is the source of truth;
+# this just refreshes the lockfile to match it.
+function refresh-ts-lockfiles {
+  echo_header "Refreshing docs/examples/ts/* yarn.lock files"
+  local TS_DIR="$REPO_ROOT/docs/examples/ts"
+
+  for d in "$TS_DIR"/*/; do
+    local name
+    name=$(basename "$d")
+    if [ ! -f "$d/package.json" ] || [ ! -f "$d/index.ts" ]; then
+      continue
+    fi
+    echo_stderr "Refreshing $name..."
+    (
+      cd "$d"
+      rm -rf node_modules
+      # yarn 4 enables --immutable by default in CI-like environments; force a
+      # mutating install so the lockfile actually gets regenerated.
+      YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+    )
+  done
+  echo_stderr "All docs/examples/ts/<example>/yarn.lock files updated. Commit the changes."
 }
 
 function test_cmds {
@@ -437,6 +463,9 @@ case "$cmd" in
     ;;
   refresh-webapp-tutorial-lockfile)
     refresh-webapp-tutorial-lockfile
+    ;;
+  refresh-ts-lockfiles)
+    refresh-ts-lockfiles
     ;;
   *)
     default_cmd_handler "$@"

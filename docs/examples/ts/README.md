@@ -6,17 +6,20 @@ This directory contains TypeScript examples used in the Aztec documentation. Eac
 
 Each example directory contains:
 - `index.ts` - The example code with `docs:start:` and `docs:end:` markers for inclusion in documentation
-- `config.yaml` - Specifies dependencies and any custom contract artifacts needed
-- `yarn.lock` - Empty file to prevent yarn from using parent monorepo's yarn.lock
+- `config.yaml` - Lists any custom contract artifacts the example needs from `docs/target/`
+- `package.json` - Declares dependencies (committed; uses relative `link:` paths for `@aztec/*` packages so the resolved descriptors hash the same on every machine)
+- `yarn.lock` - Committed lockfile pinning third-party transitive deps; CI installs with `--immutable`
+- `.yarnrc.yml` - Yarn configuration mirroring `yarn-project/.yarnrc.yml` policy (`nodeLinker: node-modules`, `npmMinimalAgeGate: 7d`)
 
 ## Validation: Type Checking
 
 The `bootstrap.sh` script validates all examples by:
 
-1. Reading `config.yaml` to determine dependencies and custom contracts
-2. Running codegen for any custom contracts specified (from `docs/target/`)
-3. Installing linked `@aztec/*` dependencies from `yarn-project/`
-4. Running `tsc --noEmit` to type-check the example
+1. Reading `config.yaml` to determine custom contracts (if any)
+2. Running codegen for those contracts (from `docs/target/`)
+3. Running `yarn install --immutable` (committed `yarn.lock` must match `package.json`)
+4. Verifying every `link:` target exists and has built `.d.ts` output
+5. Running `yarn tsc --noEmit` to type-check the example
 
 Run validation for all examples:
 ```bash
@@ -27,6 +30,15 @@ Run validation for specific example(s):
 ```bash
 ./bootstrap.sh aztecjs_connection aztecjs_advanced
 ```
+
+If validation fails with `yarn install --immutable` complaining that the lockfile would be modified, regenerate the committed lockfiles:
+
+```bash
+docs/examples/bootstrap.sh refresh-ts-lockfiles
+git add docs/examples/ts/*/yarn.lock
+```
+
+This typically happens after a `yarn-project` package adds, removes, or version-bumps a transitive dep.
 
 ## Execution: Test Runner
 
@@ -103,32 +115,49 @@ These examples require additional infrastructure or custom contracts with verifi
 
 ## Adding New Examples
 
-1. Create a new directory with your example name
-2. Add `index.ts` with your example code
-3. Add `config.yaml` specifying dependencies:
+1. Create a new directory with your example name (e.g. `my_example/`)
+2. Add `index.ts` with your example code (use `docs:start:` / `docs:end:` markers for documentation includes)
+3. Add `config.yaml`. If the example needs custom contracts, list them; otherwise use an empty list:
 
-```yaml
-# For examples using pre-built contracts from @aztec/noir-contracts.js
-contracts: []
+   ```yaml
+   contracts: []
+   ```
 
-dependencies:
-  - "@aztec/aztec.js"
-  - "@aztec/accounts"
-  - "@aztec/wallets"
-  - "@aztec/noir-contracts.js"
-```
+4. Add `package.json`. Use relative `link:` paths for `@aztec/*` deps so the resolved descriptors are stable across machines:
 
-4. Create empty `yarn.lock` file
-5. Run `./bootstrap.sh your_example_name` to validate
-6. If the example can run against a live network, add it to `aztecjs_runner/run.sh`
+   ```json
+   {
+     "name": "@aztec-docs/my-example",
+     "private": true,
+     "version": "0.0.0",
+     "type": "module",
+     "packageManager": "yarn@4.13.0",
+     "dependencies": {
+       "@aztec/aztec.js": "link:../../../../yarn-project/aztec.js",
+       "@aztec/accounts": "link:../../../../yarn-project/accounts",
+       "@aztec/wallets": "link:../../../../yarn-project/wallets"
+     },
+     "devDependencies": {
+       "tsx": "^4.20.0",
+       "typescript": "^5.3.3"
+     }
+   }
+   ```
+
+   The `tsx` and `typescript` versions must match across all examples (`bootstrap.sh` lints this).
+5. Copy `.yarnrc.yml` from a sibling example.
+6. Generate the lockfile: `cd docs/examples/ts/my_example && yarn install`
+7. Commit `package.json`, `yarn.lock`, and `.yarnrc.yml`
+8. Run `cd docs/examples/ts && ./bootstrap.sh my_example` to validate
+9. If the example can run against a live network, add it to `aztecjs_runner/run.sh`
 
 ## File Management
 
-The validation and runner scripts generate temporary files during execution. These are cleaned up automatically, but if you need to manually clean:
+Validation generates `node_modules/`, `tsconfig.json`, `artifacts/`, and `codegenCache.json` per example. These are gitignored and cleaned up automatically; if you need to clean manually:
 
 ```bash
 # In each example directory
-rm -rf node_modules .yarn artifacts package.json tsconfig.json .yarnrc.yml
-rm -f .editorconfig .gitattributes .gitignore README.md codegenCache.json
-> yarn.lock  # Keep empty
+rm -rf node_modules tsconfig.json artifacts codegenCache.json
 ```
+
+Do **not** delete or empty the committed `package.json`, `yarn.lock`, or `.yarnrc.yml` — they are the source of truth for the validation graph.

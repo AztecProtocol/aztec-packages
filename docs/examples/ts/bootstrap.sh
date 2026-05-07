@@ -2,7 +2,6 @@
 set -euo pipefail
 
 source "$(git rev-parse --show-toplevel)/ci3/source_bootstrap"
-source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 export REPO_ROOT=$(git rev-parse --show-toplevel)
 export ARTIFACTS_DIR="$REPO_ROOT/docs/target"
@@ -10,10 +9,6 @@ export BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
 
 # Set parallel flags for concurrent validation
 export PARALLEL_FLAGS="-j${PARALLELISM:-4} --halt now,fail=1"
-
-# Ensure all yarn.lock files are empty on exit. The per-project cleanup trap
-# handles the normal case, but parallel's --halt can kill jobs before their trap runs.
-trap 'for lf in */yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
 
 # Validate config.yaml structure before processing
 validate_config() {
@@ -38,14 +33,6 @@ validate_config() {
     local contract_count
     contract_count="$(yq eval '.contracts | length' "$config_file")"
 
-    # Check dependencies section exists and is an array (!!seq in YAML)
-    local deps_type
-    deps_type="$(yq eval '.dependencies | type' "$config_file" 2>/dev/null)"
-    if [ "$deps_type" != "!!seq" ]; then
-        echo_stderr "ERROR: Missing or invalid 'dependencies' array in '${config_file}' (got: ${deps_type})"
-        return 1
-    fi
-
     # Validate all contract artifacts exist (if any contracts specified)
     if [ "$contract_count" -gt 0 ]; then
         local contract_name
@@ -61,7 +48,6 @@ validate_config() {
     return 0
 }
 export -f validate_config
-export -f parse_dependencies
 
 # Function to validate a single TS project
 # Must be exported for parallel execution
@@ -86,6 +72,16 @@ validate_project() {
         return 1
     fi
 
+    if [ ! -f "$project_name/package.json" ]; then
+        echo_stderr "ERROR: No package.json found in '${project_name}'"
+        return 1
+    fi
+
+    if [ ! -f "$project_name/yarn.lock" ] || [ ! -s "$project_name/yarn.lock" ]; then
+        echo_stderr "ERROR: yarn.lock missing or empty in '${project_name}'. Run docs/examples/bootstrap.sh refresh-ts-lockfiles."
+        return 1
+    fi
+
     # Validate config early before doing any work
     if ! validate_config "$project_name/config.yaml" "$project_name"; then
         return 1
@@ -97,19 +93,11 @@ validate_project() {
         set -euo pipefail
         cd "$project_name"
 
-        # Cleanup function - always runs on exit (success or failure)
+        # Cleanup removes only generated artifacts. The committed package.json,
+        # yarn.lock, and .yarnrc.yml stay in place.
         cleanup() {
             local exit_code=$?
-            if [ "$exit_code" -ne 0 ]; then
-                echo_stderr "Validation failed for '${project_name}', cleaning up..."
-            else
-                echo_stderr "Cleaning up temporary files for '${project_name}'..."
-            fi
-            rm -rf .git .gitignore .editorconfig .gitattributes README.md \
-                   node_modules .yarn .yarnrc.yml codegenCache.json \
-                   package.json tsconfig.json artifacts 2>/dev/null || true
-            # Keep yarn.lock empty to prevent yarn from using parent monorepo's yarn.lock
-            > yarn.lock
+            rm -rf node_modules tsconfig.json artifacts codegenCache.json 2>/dev/null || true
             return $exit_code
         }
         trap cleanup EXIT
@@ -120,123 +108,63 @@ validate_project() {
 
         if [ "$contract_count" -gt 0 ]; then
             echo_stderr "Running codegen for '${project_name}'..."
-
-            # Process each contract
             local contract_name
             while IFS= read -r contract_name; do
                 local artifact="$ARTIFACTS_DIR/${contract_name}.json"
                 echo_stderr "  - ${contract_name}..."
                 node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o artifacts
             done < <(yq eval '.contracts[]' config.yaml)
-        else
-            echo_stderr "No custom contracts for '${project_name}', skipping codegen..."
         fi
 
-        # Setup yarn
-        echo_stderr "Setting up yarn for '${project_name}'..."
-        yarn init -y >/dev/null 2>&1
-        yarn config set nodeLinker node-modules >/dev/null 2>&1
-
-        # Set package type to module for ESM support
-        node -e "const pkg = require('./package.json'); pkg.type = 'module'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
-
-        # Read dependencies from config.yaml
-        echo_stderr "Installing dependencies for '${project_name}'..."
-
-        parse_dependencies config.yaml "$REPO_ROOT"
-
-        local aztec_deps=("${AZTEC_DEPS[@]}")
-        local explicit_link_deps=("${EXPLICIT_LINK_DEPS[@]}")
-        local npm_deps=("${NPM_DEPS[@]}")
-
-        if [ "$PARSED_DEPS_FOUND" = true ]; then
-            # Install linked @aztec dependencies from yarn-project/
-            if [ ${#aztec_deps[@]} -gt 0 ]; then
-                echo_stderr "Adding aztec deps: ${aztec_deps[*]}"
-                yarn add "${aztec_deps[@]}"
+        # Verify every link: target in package.json exists and has built .d.ts
+        # output. Yarn's --immutable check pins versions but doesn't validate
+        # that link targets resolve, so we check explicitly.
+        echo_stderr "Verifying linked packages for '${project_name}'..."
+        local link_errors=0
+        while IFS=$'\t' read -r pkg_name link_path; do
+            [ -z "$pkg_name" ] && continue
+            local link_target
+            link_target="$(cd "$(dirname package.json)" && cd "$link_path" 2>/dev/null && pwd)" || link_target=""
+            if [ -z "$link_target" ] || [ ! -d "$link_target" ]; then
+                echo_stderr "  ✗ $pkg_name: link target missing ($link_path)"
+                link_errors=$((link_errors + 1))
+                continue
             fi
-
-            # Install explicit link dependencies (packages outside yarn-project/)
-            if [ ${#explicit_link_deps[@]} -gt 0 ]; then
-                echo_stderr "Adding explicit link deps: ${explicit_link_deps[*]}"
-                yarn add "${explicit_link_deps[@]}"
-            fi
-
-            # Install external npm dependencies
-            if [ ${#npm_deps[@]} -gt 0 ]; then
-                echo_stderr "Adding npm deps: ${npm_deps[*]}"
-                yarn add "${npm_deps[@]}"
-            fi
-        else
-            # Fallback to default dependencies if none specified
-            echo_stderr "No dependencies in config.yaml, using defaults..."
-            yarn add \
-                @aztec/aztec.js@link:$REPO_ROOT/yarn-project/aztec.js \
-                @aztec/accounts@link:$REPO_ROOT/yarn-project/accounts \
-                @aztec/wallets@link:$REPO_ROOT/yarn-project/wallets \
-                @aztec/kv-store@link:$REPO_ROOT/yarn-project/kv-store
-        fi
-
-        # Verify linked packages exist and have built artifacts
-        echo_stderr "Verifying linked packages..."
-        for dep in "${aztec_deps[@]}"; do
-            # Extract package name from @aztec/foo@link:... format
-            local pkg_full=$(echo "$dep" | cut -d'@' -f2)  # aztec/foo
-            local pkg_name=${pkg_full#aztec/}  # foo
-            local link_target="$REPO_ROOT/yarn-project/$pkg_name"
-
-            if [ ! -d "$link_target" ]; then
-                echo_stderr "ERROR: Link target does not exist: $link_target"
-                return 1
-            fi
-
-            if [ ! -d "$link_target/dest" ]; then
-                echo_stderr "ERROR: Package not built (no dest/): $link_target"
-                ls -la "$link_target" || true
-                return 1
-            fi
-
-            # Check for .d.ts files (type declarations)
-            local dts_count=$(find "$link_target/dest" -name "*.d.ts" 2>/dev/null | wc -l)
-            if [ "$dts_count" -eq 0 ]; then
-                echo_stderr "ERROR: No .d.ts files found in $link_target/dest"
-                ls -la "$link_target/dest" | head -20 || true
-                return 1
-            fi
-
-            echo_stderr "  ✓ @aztec/$pkg_name: $dts_count .d.ts files"
-        done
-
-        # Verify explicit link packages
-        for dep in "${explicit_link_deps[@]}"; do
-            # Extract path from @aztec/pkg@link:$REPO_ROOT/path format
-            local link_target="${dep#*@link:}"
-            local pkg_name="${dep%%@link:*}"
-
-            if [ ! -d "$link_target" ]; then
-                echo_stderr "ERROR: Link target does not exist: $link_target"
-                return 1
-            fi
-
-            # Check for .d.ts files in common output dirs
             local dts_count=0
+            local check_dir
             for check_dir in dest lib nodejs web; do
                 if [ -d "$link_target/$check_dir" ]; then
                     dts_count=$(find "$link_target/$check_dir" -name "*.d.ts" 2>/dev/null | wc -l)
                     [ "$dts_count" -gt 0 ] && break
                 fi
             done
-
             if [ "$dts_count" -eq 0 ]; then
-                echo_stderr "ERROR: No .d.ts files found in $link_target (checked dest/, lib/, nodejs/, web/)"
-                ls -la "$link_target" | head -20 || true
-                return 1
+                echo_stderr "  ✗ $pkg_name: no .d.ts files under $link_target/{dest,lib,nodejs,web}"
+                link_errors=$((link_errors + 1))
+                continue
             fi
-
             echo_stderr "  ✓ $pkg_name: $dts_count .d.ts files"
-        done
+        done < <(node -e '
+            const pkg = require("./package.json");
+            for (const [n, v] of Object.entries(pkg.dependencies || {})) {
+                if (typeof v === "string" && v.startsWith("link:")) {
+                    process.stdout.write(n + "\t" + v.slice(5) + "\n");
+                }
+            }
+        ')
+        if [ "$link_errors" -gt 0 ]; then
+            return 1
+        fi
 
-        yarn add -D "typescript@^5.3.3" >/dev/null 2>&1
+        # Install with --immutable. The committed yarn.lock pins all third-party
+        # transitive deps; if a regen is needed the message points to the
+        # refresh subcommand.
+        echo_stderr "Installing dependencies for '${project_name}'..."
+        if ! yarn install --immutable; then
+            echo_stderr "ERROR: yarn install --immutable failed for '${project_name}'."
+            echo_stderr "       If this is due to a dep change, run: docs/examples/bootstrap.sh refresh-ts-lockfiles"
+            return 1
+        fi
 
         # Create tsconfig.json from template
         if [ ! -f "$REPO_ROOT/docs/examples/ts/tsconfig.template.json" ]; then
@@ -245,9 +173,11 @@ validate_project() {
         fi
         cp "$REPO_ROOT/docs/examples/ts/tsconfig.template.json" tsconfig.json
 
-        # Type check
+        # Type check. yarn tsc only invokes the locally-installed binary;
+        # npx tsc would fall back to a registry install if missing, which
+        # bypasses the lockfile.
         echo_stderr "Type checking '${project_name}'..."
-        if ! npx tsc --noEmit; then
+        if ! yarn tsc --noEmit; then
             echo_stderr "ERROR: Type checking failed for '${project_name}'"
             return 1
         fi
@@ -269,27 +199,57 @@ get_all_projects() {
     done
 }
 
-# In CI, validate all yarn.lock files are committed empty (they must exist but contain no content).
-# We check git state (not filesystem) because a previous interrupted validation run may have
-# populated lockfiles on disk via yarn add before cleanup could run.
-# Locally, the pre-commit hook handles this; here we catch it in case hooks were bypassed.
-if [ "${CI:-0}" != "0" ]; then
-    for lockfile in */yarn.lock; do
-        [ -f "$lockfile" ] || continue
-        if [ -n "$(git show HEAD:"docs/examples/ts/$lockfile" 2>/dev/null)" ]; then
-            echo_stderr "ERROR: $lockfile is not empty in git. These files must be committed empty."
-            echo_stderr "       Run: > $lockfile && git add $lockfile"
-            exit 1
-        fi
-        # Ensure clean filesystem state (may be dirty from a previous interrupted run)
-        > "$lockfile"
-    done
-fi
+# Lint: every example must declare typescript and tsx as devDeps, with the
+# same range across all examples. Hand-edited package.jsons across eleven
+# examples are otherwise prone to drift and silent omissions; presence-check
+# guards against an example that "passes" by missing the binary entirely
+# (which would let npm-fallback resolution kick in via shell).
+lint_shared_devdep_versions() {
+    node -e '
+        const { readdirSync, readFileSync, existsSync } = require("fs");
+        const SHARED = ["typescript", "tsx"];
+        const seen = Object.fromEntries(SHARED.map((k) => [k, new Map()]));
+        const missing = [];
+        for (const d of readdirSync(".", { withFileTypes: true })) {
+            if (!d.isDirectory()) continue;
+            const path = `${d.name}/package.json`;
+            if (!existsSync(path)) continue;
+            const pkg = JSON.parse(readFileSync(path, "utf8"));
+            for (const k of SHARED) {
+                const v = (pkg.devDependencies || {})[k];
+                if (v === undefined) {
+                    missing.push(`${d.name} (missing ${k})`);
+                    continue;
+                }
+                if (!seen[k].has(v)) seen[k].set(v, []);
+                seen[k].get(v).push(d.name);
+            }
+        }
+        let bad = false;
+        for (const k of SHARED) {
+            if (seen[k].size > 1) {
+                bad = true;
+                console.error(`ERROR: ${k} version drift across docs/examples/ts/*:`);
+                for (const [v, dirs] of seen[k]) console.error(`  ${v}: ${dirs.join(", ")}`);
+            }
+        }
+        if (missing.length) {
+            bad = true;
+            console.error(`ERROR: required devDependency missing in docs/examples/ts/*:`);
+            for (const m of missing) console.error(`  ${m}`);
+        }
+        if (bad) process.exit(1);
+    '
+}
 
 case "$cmd" in
     "")
         # Validate all projects in parallel
         echo_header "Validating TypeScript examples"
+
+        if ! lint_shared_devdep_versions; then
+            exit 1
+        fi
 
         projects=$(get_all_projects)
 

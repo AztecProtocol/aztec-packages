@@ -1,0 +1,17 @@
+{
+  "name": "@aztec-docs/aztecjs-authwit",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "yarn@4.13.0",
+  "dependencies": {
+    "@aztec/accounts": "link:../../../../yarn-project/accounts",
+    "@aztec/aztec.js": "link:../../../../yarn-project/aztec.js",
+    "@aztec/noir-contracts.js": "link:../../../../yarn-project/noir-contracts.js",
+    "@aztec/wallets": "link:../../../../yarn-project/wallets"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "^5.3.3"
+  }
+}
