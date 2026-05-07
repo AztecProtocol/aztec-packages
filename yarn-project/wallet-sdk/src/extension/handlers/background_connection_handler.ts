@@ -17,6 +17,7 @@ import {
   type WalletMessage,
   WalletMessageType,
   type WalletResponse,
+  type WalletSdkLogger,
 } from '../../types.js';
 import {
   type BackgroundMessage,
@@ -131,6 +132,8 @@ export interface BackgroundConnectionConfig {
   walletVersion: string;
   /** Optional wallet icon URL. */
   walletIcon?: string;
+  /** Logger used for diagnostics. */
+  logger: WalletSdkLogger;
 }
 
 /**
@@ -149,6 +152,7 @@ export interface BackgroundConnectionConfig {
  *     walletId: 'my-wallet',
  *     walletName: 'My Wallet',
  *     walletVersion: '1.0.0',
+ *     logger: console,
  *   },
  *   {
  *     sendToTab: (tabId, message) => browser.tabs.sendMessage(tabId, message),
@@ -167,12 +171,15 @@ export interface BackgroundConnectionConfig {
 export class BackgroundConnectionHandler {
   private pendingDiscoveries = new Map<string, PendingDiscovery>();
   private activeSessions = new Map<string, ActiveSession>();
+  private log: WalletSdkLogger;
 
   constructor(
     private config: BackgroundConnectionConfig,
     private transport: BackgroundTransport,
     private callbacks: BackgroundConnectionCallbacks = {},
-  ) {}
+  ) {
+    this.log = config.logger;
+  }
 
   initialize(): void {
     this.transport.addContentListener(this.handleMessage);
@@ -198,8 +205,8 @@ export class BackgroundConnectionHandler {
         break;
       case InternalMessageType.KEY_EXCHANGE_REQUEST:
         if (sessionId) {
-          this.handleKeyExchangeRequest(sessionId, content as KeyExchangeRequest).catch(() => {
-            // Key exchange failed - session won't be established
+          this.handleKeyExchangeRequest(sessionId, content as KeyExchangeRequest).catch(err => {
+            this.log.warn('Key exchange failed — session will not be established', { sessionId, err });
           });
         }
         break;
@@ -213,8 +220,30 @@ export class BackgroundConnectionHandler {
           void this.handleEncryptedMessage(sessionId, content as EncryptedPayload);
         }
         break;
+      case InternalMessageType.PING:
+        if (sessionId) {
+          this.handlePing(sessionId);
+        }
+        break;
     }
   };
+
+  /**
+   * Reply to a dApp PING with a PONG. Used as a liveness probe so the dApp can
+   * tell the difference between a slow request and a dead extension.
+   * @param sessionId - The session that sent the PING.
+   */
+  private handlePing(sessionId: string): void {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) {
+      return;
+    }
+    this.transport.sendToTab(session.tabId, {
+      origin: MessageOrigin.BACKGROUND,
+      type: InternalMessageType.PONG,
+      sessionId,
+    });
+  }
 
   getWalletInfo(): WalletInfo {
     return {
@@ -315,8 +344,8 @@ export class BackgroundConnectionHandler {
       });
 
       this.callbacks.onSessionEstablished?.(session);
-    } catch {
-      // Key exchange failed silently - session won't be established
+    } catch (err) {
+      this.log.warn('Key exchange failed — session will not be established', { sessionId, err });
     }
   }
 
@@ -329,8 +358,8 @@ export class BackgroundConnectionHandler {
     try {
       const message = await decrypt<WalletMessage>(session.sharedKey, encrypted);
       this.callbacks.onWalletMessage?.(session, message);
-    } catch {
-      // Decryption failed - ignore malformed message
+    } catch (err) {
+      this.log.warn('Failed to decrypt incoming wallet message', { sessionId, err });
     }
   }
 
@@ -348,8 +377,12 @@ export class BackgroundConnectionHandler {
         sessionId,
         content: encrypted,
       });
-    } catch {
-      // Encryption failed - response won't be sent
+    } catch (err) {
+      this.log.error('Failed to encrypt wallet response — response will not be sent', {
+        sessionId,
+        messageId: response.messageId,
+        err,
+      });
     }
   }
 

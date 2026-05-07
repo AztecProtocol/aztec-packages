@@ -64,10 +64,10 @@ export { DefaultWaitOpts, type WaitOpts } from '../contract/wait_opts.js';
 export { ContractBase, type ContractMethod, type ContractStorageLayout } from '../contract/contract_base.js';
 export { BatchCall } from '../contract/batch_call.js';
 export {
+  type DeployInstantiationOptions,
   type DeployOptions,
   type DeployResultMined,
   type DeployReturn,
-  type DeployInteractionWaitOptions,
   DeployMethod,
   type RequestDeployOptions,
   type SimulateDeployOptions,

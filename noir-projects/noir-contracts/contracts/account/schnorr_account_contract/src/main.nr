@@ -14,15 +14,11 @@ pub contract SchnorrAccount {
         },
         context::PrivateContext,
         hash::compute_siloed_nullifier,
-        macros::{
-            functions::{allow_phase_change, external, initializer, noinitcheck, view},
-            storage::storage,
-        },
+        macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::{
             auth_witness::get_auth_witness_as_bytes,
-            get_nullifier_membership_witness::get_low_nullifier_membership_witness,
-            notes::set_sender_for_tags,
+            get_nullifier_membership_witness::get_low_nullifier_membership_witness, notes::set_sender_for_tags,
         },
         protocol::address::AztecAddress,
         state_vars::SinglePrivateImmutable,
@@ -49,12 +45,11 @@ pub contract SchnorrAccount {
         unsafe { set_sender_for_tags(self.address) };
         // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
         // contract.
-        self.storage.signing_public_key.initialize(pub_key_note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
-    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file (specifically `getEntrypointAbi()`).
+    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
+    // (specifically `getEntrypointAbi()`).
     // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
     #[external("private")]
     #[noinitcheck]
@@ -83,19 +78,16 @@ pub contract SchnorrAccount {
         // Hence it's safe.
         let signature: [u8; 64] = unsafe { get_auth_witness_as_bytes(outer_hash) };
 
-        let pub_key =
-            std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
+        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
         // Verify signature of the payload bytes
         schnorr::verify_signature(pub_key, signature, outer_hash.to_be_bytes::<32>())
         // docs:end:is_valid_impl
     }
 
-    /**
-    * @notice Helper function to check validity of private authwitnesses
-    * @param consumer The address of the consumer of the message
-    * @param message_hash The message hash of the message to check the validity
-    * @return True if the message_hash can be consumed, false otherwise
-    */
+    /// @notice Helper function to check validity of private authwitnesses
+    /// @param consumer The address of the consumer of the message
+    /// @param message_hash The message hash of the message to check the validity
+    /// @return True if the message_hash can be consumed, false otherwise
     #[external("utility")]
     unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> bool {
         let public_key = self.storage.signing_public_key.view_note();
@@ -108,10 +100,8 @@ pub contract SchnorrAccount {
         );
 
         let signature: [u8; 64] = get_auth_witness_as_bytes(message_hash);
-        let pub_key =
-            std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
-        let valid_in_private =
-            schnorr::verify_signature(pub_key, signature, message_hash.to_be_bytes::<32>());
+        let pub_key = std::embedded_curve_ops::EmbeddedCurvePoint { x: public_key.x, y: public_key.y };
+        let valid_in_private = schnorr::verify_signature(pub_key, signature, message_hash.to_be_bytes::<32>());
 
         // Compute the nullifier and check if it is spent
         // This will BLINDLY TRUST the oracle, but the oracle is us, and

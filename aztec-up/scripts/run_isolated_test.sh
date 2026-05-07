@@ -98,9 +98,9 @@ EOF
   echo "Version information:"
 
   bash -i -c -e '
-    forge --version
+    aztec-forge --version
     echo
-    nargo --version
+    aztec-nargo --version
     echo
     echo -n "aztec version: "
     aztec --version
