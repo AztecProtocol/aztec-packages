@@ -1,6 +1,5 @@
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { PublicKeys } from '@aztec/stdlib/keys';
 
 import { Contract } from '../contract/contract.js';
 import { type DeployInstantiationOptions, DeployMethod } from '../contract/deploy_method.js';
@@ -14,7 +13,6 @@ export class ContractDeployer {
   constructor(
     private artifact: ContractArtifact,
     private wallet: Wallet,
-    private publicKeys?: PublicKeys,
     private constructorName?: string,
   ) {}
 
@@ -30,12 +28,9 @@ export class ContractDeployer {
    * @param args - The constructor arguments for the contract being deployed.
    * @returns A DeployMethod instance configured with the ABI, PXE, and constructor arguments.
    */
-  public deploy(instantiation: Omit<DeployInstantiationOptions, 'publicKeys'>, ...args: any[]) {
+  public deploy(args: any[], instantiation: DeployInstantiationOptions) {
     const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
       Contract.at(instance.address, this.artifact, wallet);
-    return new DeployMethod(this.wallet, this.artifact, postDeployCtor, args, this.constructorName, {
-      ...instantiation,
-      publicKeys: this.publicKeys,
-    });
+    return new DeployMethod(this.wallet, this.artifact, postDeployCtor, args, this.constructorName, instantiation);
   }
 }

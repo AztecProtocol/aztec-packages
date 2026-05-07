@@ -114,7 +114,7 @@ describe('e2e_multi_validator_node', () => {
 
     logger.info(`Deploying contract from ${ownerAddress}`);
     const { receipt: tx } = await deployer
-      .deploy({ salt: new Fr(BigInt(1)) }, ownerAddress, 1)
+      .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
       .send({ from: ownerAddress });
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
@@ -175,7 +175,7 @@ describe('e2e_multi_validator_node', () => {
     logger.info(`Deploying contract from ${ownerAddress}`);
     const deployer = new ContractDeployer(artifact, wallet);
     const { receipt: tx } = await deployer
-      .deploy({ salt: new Fr(BigInt(1)) }, ownerAddress, 1)
+      .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
       .send({ from: ownerAddress });
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,

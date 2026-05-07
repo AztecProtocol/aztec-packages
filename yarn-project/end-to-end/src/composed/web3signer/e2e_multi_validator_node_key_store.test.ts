@@ -326,7 +326,7 @@ describe('e2e_multi_validator_node', () => {
 
   const sendTx = (salt: Fr) => {
     const deployer = new ContractDeployer(artifact, wallet);
-    return deployer.deploy({ salt }, ownerAddress, 1).send({
+    return deployer.deploy([ownerAddress, 1], { salt }).send({
       from: ownerAddress,
       skipClassPublication: true,
       wait: NO_WAIT,

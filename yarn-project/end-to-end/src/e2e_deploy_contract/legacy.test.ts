@@ -37,7 +37,7 @@ describe('e2e_deploy_contract legacy', () => {
     });
     const contractDeployer = new ContractDeployer(TestContractArtifact, wallet);
     const { contract } = await contractDeployer
-      .deploy({ salt, deployer: defaultAccountAddress })
+      .deploy([], { salt, deployer: defaultAccountAddress })
       .send({ from: defaultAccountAddress });
     expect(contract.address).toEqual(deploymentData.address);
     const { instance, isContractPublished } = await wallet.getContractMetadata(deploymentData.address);
@@ -53,7 +53,7 @@ describe('e2e_deploy_contract legacy', () => {
 
     for (let index = 0; index < 2; index++) {
       logger.info(`Deploying contract ${index + 1}...`);
-      await contractDeployer.deploy({ salt: Fr.random() }).send({ from: defaultAccountAddress });
+      await contractDeployer.deploy([], { salt: Fr.random() }).send({ from: defaultAccountAddress });
     }
   });
 
@@ -66,7 +66,7 @@ describe('e2e_deploy_contract legacy', () => {
     for (let index = 0; index < 2; index++) {
       logger.info(`Deploying contract ${index + 1}...`);
       const { contract: deployed } = await contractDeployer
-        .deploy({ salt: Fr.random() })
+        .deploy([], { salt: Fr.random() })
         .send({ from: defaultAccountAddress });
       logger.info(`Sending TX to contract ${index + 1}...`);
       await deployed.methods
@@ -83,8 +83,8 @@ describe('e2e_deploy_contract legacy', () => {
     const salt = Fr.random();
     const contractDeployer = new ContractDeployer(TestContractArtifact, wallet);
 
-    await contractDeployer.deploy({ salt }).send({ from: defaultAccountAddress });
-    await expect(contractDeployer.deploy({ salt }).send({ from: defaultAccountAddress })).rejects.toThrow(
+    await contractDeployer.deploy([], { salt }).send({ from: defaultAccountAddress });
+    await expect(contractDeployer.deploy([], { salt }).send({ from: defaultAccountAddress })).rejects.toThrow(
       TX_ERROR_EXISTING_NULLIFIER,
     );
   });
@@ -92,9 +92,9 @@ describe('e2e_deploy_contract legacy', () => {
   it('should not deploy a contract which failed the public part of the execution', async () => {
     // This test requires at least another good transaction to go through in the same block as the bad one.
     const artifact = TokenContractArtifact;
-    const initArgs = ['TokenName', 'TKN', 18] as const;
+    const initArgs = ['TokenName', 'TKN', 18];
     const goodDeploy = StatefulTestContract.deploy(wallet, defaultAccountAddress, 42);
-    const badDeploy = new ContractDeployer(artifact, wallet).deploy({}, AztecAddress.ZERO, ...initArgs);
+    const badDeploy = new ContractDeployer(artifact, wallet).deploy(initArgs, { deployer: AztecAddress.ZERO });
 
     const firstOpts: DeployOptions = {
       from: defaultAccountAddress,

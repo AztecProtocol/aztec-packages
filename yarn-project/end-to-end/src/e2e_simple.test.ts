@@ -70,7 +70,7 @@ describe('e2e_simple', () => {
       const deployer = new ContractDeployer(artifact, wallet);
 
       const { receipt: txReceipt } = await deployer
-        .deploy({ salt: new Fr(BigInt(1)) }, ownerAddress, 1)
+        .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
         .send({ from: ownerAddress });
       await waitForProven(aztecNode, txReceipt, {
         provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
