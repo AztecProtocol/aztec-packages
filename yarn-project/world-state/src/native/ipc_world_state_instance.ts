@@ -243,15 +243,6 @@ export class IpcWorldState implements NativeWorldStateInstance {
     return this.wsdbBackend.getSocketPath();
   }
 
-  /**
-   * Required by `NativeWorldStateInstance` for compatibility with the in-process
-   * NAPI path. The IPC backend does not expose an in-process pointer; callers that
-   * need to reach the WSDB process must use {@link getSocketPath} instead.
-   */
-  getHandle(): any {
-    throw new Error('IpcWorldState has no in-process handle; use getSocketPath() instead');
-  }
-
   async call<T extends WorldStateMessageType>(
     messageType: T,
     body: WorldStateRequest[T] & WorldStateRequestCategories,

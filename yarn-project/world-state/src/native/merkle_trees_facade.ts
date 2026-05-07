@@ -22,7 +22,7 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
 import { type BlockHeader, PartialStateReference, StateReference } from '@aztec/stdlib/tx';
-import { type WorldStateRevision, WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
+import type { WorldStateRevision } from '@aztec/stdlib/world-state';
 
 import assert from 'assert';
 
@@ -46,8 +46,12 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     return this.initialHeader;
   }
 
-  getRevision(): WorldStateRevisionWithHandle {
-    return WorldStateRevisionWithHandle.fromWorldStateRevision(this.revision, this.instance.getHandle());
+  getRevision(): WorldStateRevision {
+    return this.revision;
+  }
+
+  getSocketPath(): string {
+    return this.instance.getSocketPath();
   }
 
   findLeafIndices(treeId: MerkleTreeId, values: MerkleTreeLeafType<MerkleTreeId>[]): Promise<(bigint | undefined)[]> {

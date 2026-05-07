@@ -37,7 +37,9 @@ class AvmSimulationHelper {
     // An extra entry point that is not used in production.
     TxSimulationResult simulate_fast_with_hinted_dbs(const ExecutionHints& hints, const PublicSimulatorConfig& config);
 
-  protected:
+    // Fast simulation against any LowLevelMerkleDBInterface implementation (in-process, IPC, or hinted).
+    // Used by the standalone aztec-avm and the NAPI AVM after the WSDB cutover, both of which
+    // construct a WSDB-IPC-backed merkle DB rather than using an in-process WorldState reference.
     TxSimulationResult simulate_fast_internal(simulation::ContractDBInterface& raw_contract_db,
                                               simulation::LowLevelMerkleDBInterface& raw_merkle_db,
                                               const PublicSimulatorConfig& config,
@@ -46,6 +48,7 @@ class AvmSimulationHelper {
                                               const ProtocolContracts& protocol_contracts,
                                               simulation::CancellationTokenPtr cancellation_token = nullptr);
 
+  protected:
     template <template <typename> class DefaultEventEmitter, template <typename> class DefaultDeduplicatingEventEmitter>
     std::tuple<simulation::EventsContainer, TxSimulationResult> simulate_for_witgen_internal(
         simulation::ContractDBInterface& raw_contract_db,
