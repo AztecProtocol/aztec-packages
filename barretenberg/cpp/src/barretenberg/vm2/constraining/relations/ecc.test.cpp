@@ -1286,8 +1286,6 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
     check_relation<mem_aware_ecc>(trace);
 }
 
-// TODO(#AVM-266): Rework test when is_infinity flag is removed from point representations.
-// We now derive is_inf from coordinates, whereas previously we remapped coordinates /from/ is_inf.
 TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
 {
     EccTraceBuilder builder;
