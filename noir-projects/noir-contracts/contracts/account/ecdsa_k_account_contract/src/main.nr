@@ -7,10 +7,7 @@ pub contract EcdsaKAccount {
     use aztec::{
         authwit::{account::AccountActions, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::{
-            functions::{allow_phase_change, external, initializer, noinitcheck, view},
-            storage::storage,
-        },
+        macros::{functions::{allow_phase_change, external, initializer, noinitcheck, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::{auth_witness::get_auth_witness_as_bytes, notes::set_sender_for_tags},
         state_vars::SinglePrivateImmutable,
@@ -37,12 +34,11 @@ pub contract EcdsaKAccount {
         unsafe { set_sender_for_tags(self.address) };
         // The note message gets delivered to the note owner which is set by the SinglePrivateImmutable to be this
         // contract.
-        self.storage.signing_public_key.initialize(pub_key_note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
-    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file (specifically `getEntrypointAbi()`)
+    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
+    // (specifically `getEntrypointAbi()`)
     // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
     #[external("private")]
     #[noinitcheck]
@@ -75,12 +71,7 @@ pub contract EcdsaKAccount {
         // Note that noir expects the hash of the message/challenge as input to the ECDSA verification.
         let outer_hash_bytes: [u8; 32] = outer_hash.to_be_bytes();
         let hashed_message: [u8; 32] = sha256::digest(outer_hash_bytes);
-        std::ecdsa_secp256k1::verify_signature(
-            public_key.x,
-            public_key.y,
-            signature,
-            hashed_message,
-        )
+        std::ecdsa_secp256k1::verify_signature(public_key.x, public_key.y, signature, hashed_message)
     }
     // docs:end:is_valid_impl
 }

@@ -47,7 +47,7 @@ async function main() {
   await enrichEnvironmentWithNetworkConfig(networkName);
   enrichEnvironmentWithChainName(networkName);
 
-  const cliVersion = getPackageVersion() ?? 'unknown';
+  const cliVersion = getPackageVersion();
   let program = new Command('aztec');
   program.description('Aztec command line interface').version(cliVersion).enablePositionalOptions();
   program = injectAztecCommands(program, userLog, debugLogger);

@@ -311,7 +311,7 @@ export async function setupVersionChecker(
   const checks: Array<VersionCheck> = [];
   checks.push({
     name: 'node',
-    currentVersion: getPackageVersion() ?? 'unknown',
+    currentVersion: getPackageVersion(),
     getLatestVersion: async () => {
       const cfg = await getNetworkConfig(network, cacheDir);
       return cfg?.nodeVersion;

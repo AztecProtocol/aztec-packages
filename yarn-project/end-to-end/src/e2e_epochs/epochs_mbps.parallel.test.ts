@@ -507,7 +507,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     const highPriority = new GasFees(100, 100);
     const lowPriority = new GasFees(1, 1);
 
-    const deployMethod = TestContract.deploy(wallet);
+    const deployMethod = TestContract.deploy(wallet, { deployer: from });
     const deployInstance = await deployMethod.getInstance();
     logger.warn(`Will deploy TestContract at ${deployInstance.address}`);
 

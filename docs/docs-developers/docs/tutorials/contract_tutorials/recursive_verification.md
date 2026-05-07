@@ -51,7 +51,7 @@ This pattern transforms arbitrarily large computations into fixed-size proof ver
 The recursive verification pattern follows this data flow:
 
 1. **Circuit Definition**: Write a Noir circuit that defines the computation you want to prove
-2. **Compilation**: Compile the circuit with `nargo compile` to produce bytecode
+2. **Compilation**: Compile the circuit with `aztec-nargo compile` (or your own `nargo compile` install) to produce bytecode
 3. **Proof Generation**: Execute the circuit offchain and generate an UltraHonk proof using [Barretenberg](https://github.com/AztecProtocol/barretenberg)
 4. **Onchain Verification**: Submit the proof to an Aztec contract that verifies it using the stored [verification key](../../resources/glossary.md#verification-key) hash
 
@@ -106,10 +106,10 @@ Start by writing a simple circuit that proves two field values are not equal. Th
 
 ### Create the Circuit Project
 
-Use `nargo new` to generate the project structure:
+Use `aztec-nargo new` to generate the project structure (the Aztec installer ships `nargo` as `aztec-nargo`; substitute your own `nargo` if its version matches `aztec-nargo --version`):
 
 ```bash
-nargo new circuit
+aztec-nargo new circuit
 ```
 
 This creates the following structure:
@@ -163,7 +163,7 @@ Update `circuit/Nargo.toml` (see [Noir crates and packages](https://noir-lang.or
 
 ```bash
 cd circuit
-nargo compile
+aztec-nargo compile
 ```
 
 This generates `target/hello_circuit.json` containing:
@@ -176,7 +176,7 @@ The TypeScript code uses the ABI to correctly format inputs during witness gener
 ### Test the Circuit
 
 ```bash
-nargo test
+aztec-nargo test
 ```
 
 Expected output:
@@ -669,7 +669,7 @@ If you want to run all commands at once, or if you're starting fresh, here's the
 yarn install
 
 # Compile the Noir circuit
-cd circuit && nargo compile && cd ..
+cd circuit && aztec-nargo compile && cd ..
 
 # Compile the Aztec contract and generate TypeScript bindings
 yarn ccc

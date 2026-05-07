@@ -15,15 +15,9 @@ pub contract SenderForTagsTest {
     #[external("private")]
     fn parent(default_sender_for_tags: AztecAddress) {
         let before = self.internal.current_sender();
-        assert(
-            before == default_sender_for_tags,
-            "parent did not receive the expected sender_for_tags from PXE",
-        );
+        assert(before == default_sender_for_tags, "parent did not receive the expected sender_for_tags from PXE");
         self.call_self.middle(default_sender_for_tags);
-        assert(
-            self.internal.current_sender() == before,
-            "parent sender_for_tags changed after middle returned",
-        );
+        assert(self.internal.current_sender() == before, "parent sender_for_tags changed after middle returned");
     }
 
     #[external("private")]
@@ -36,15 +30,9 @@ pub contract SenderForTagsTest {
         // Safety: we set a value we chose and immediately assert it took effect, so we are not trusting the oracle
         // blindly.
         unsafe { set_sender_for_tags(override_addr) };
-        assert(
-            self.internal.current_sender() == override_addr,
-            "middle set_sender_for_tags did not take effect",
-        );
+        assert(self.internal.current_sender() == override_addr, "middle set_sender_for_tags did not take effect");
         self.call_self.leaf(default_sender_for_tags);
-        assert(
-            self.internal.current_sender() == override_addr,
-            "middle sender_for_tags was mutated by leaf",
-        );
+        assert(self.internal.current_sender() == override_addr, "middle sender_for_tags was mutated by leaf");
     }
 
     #[external("private")]

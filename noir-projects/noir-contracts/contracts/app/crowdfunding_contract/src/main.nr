@@ -41,7 +41,8 @@ pub contract Crowdfunding {
     fn donate(amount: u128) {
         let config = self.storage.config.read();
 
-        // 1) Check that the deadline has not passed --> we do that via the public checks contract to conceal which contract
+        // 1) Check that the deadline has not passed --> we do that via the public checks contract to conceal which
+        // contract
         // is performing the check.
         // docs:start:call-check-deadline
         privately_check_timestamp(Comparator.LT, config.deadline, self.context);
@@ -49,9 +50,7 @@ pub contract Crowdfunding {
 
         // 2) Transfer the donation tokens from donor to this contract
         let donor = self.msg_sender();
-        Token::at(config.donation_token).transfer_in_private(donor, self.address, amount, 0).call(
-            self.context,
-        );
+        Token::at(config.donation_token).transfer_in_private(donor, self.address, amount, 0).call(self.context);
 
         // 3) Create a value note for the donor so that he can later on claim a rewards token in the Claim
         // contract by proving that the hash of this note exists in the note hash tree.
@@ -59,9 +58,7 @@ pub contract Crowdfunding {
 
         // We don't constrain encryption because the donor is sending the note to himself. And hence by performing
         // encryption incorrectly would harm himself only.
-        self.storage.donation_receipts.at(donor).insert(note).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
-        );
+        self.storage.donation_receipts.at(donor).insert(note).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
     }
 
     // Withdraws balance to the operator. Requires that msg_sender() is the operator.

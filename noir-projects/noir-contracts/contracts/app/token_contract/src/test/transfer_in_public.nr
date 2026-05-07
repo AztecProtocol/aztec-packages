@@ -9,10 +9,7 @@ unconstrained fn public_transfer() {
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / (10 as u128);
-    env.call_public(
-        owner,
-        Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 0),
-    );
+    env.call_public(owner, Token::at(token_contract_address).transfer_in_public(owner, recipient, transfer_amount, 0));
 
     // Check balances
     utils::check_public_balance(
@@ -31,10 +28,7 @@ unconstrained fn public_transfer_to_self() {
         utils::setup_and_mint_to_public(/* with_account_contracts */ false);
     // Transfer tokens
     let transfer_amount = mint_amount / (10 as u128);
-    env.call_public(
-        owner,
-        Token::at(token_contract_address).transfer_in_public(owner, owner, transfer_amount, 0),
-    );
+    env.call_public(owner, Token::at(token_contract_address).transfer_in_public(owner, owner, transfer_amount, 0));
     // Check balances
     utils::check_public_balance(env, token_contract_address, owner, mint_amount);
 }
