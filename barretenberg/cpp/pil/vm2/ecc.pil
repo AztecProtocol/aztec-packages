@@ -2,15 +2,10 @@
 /**
  * This subtrace supports point addition over the Grumpkin curve.
  * Given two points, P & Q, this trace computes R = P + Q.
- * PRECONDITIONS: The only assumption here is that the inputs P & Q are points on the Grumpkin curve (note that the Point at Infinity = (0, 0) is considered on the curve):
- * Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17.
+ * PRECONDITIONS: This trace assumes that the inputs P & Q are points on the Grumpkin curve and infinity points are correctly
+ * flagged with p_is_inf and/or q_is_inf (note that the Point at Infinity = (0, 0) is considered on the curve):
+ *      Grumpkin Curve Eqn in SW form:  Y^2 = X^3 − 17.
  * Note: Grumpkin forms a 2-cycle with BN254, i.e the base field of one is the scalar field of the other and vice-versa.
- *
- *
- * MW NOTE: USING APPROACH 1 BELOW:
- * Note that once TODO(#AVM-266) is complete, is_inf will no longer be part of our point representation and we must either:
- *  - continue to rely on the 'calling' trace to inject a constrained is_inf, or
- *  - derive is_inf (<==> (X, Y) == (INFINITY_X, INFINITY_Y)) within this trace.
  *
  * USAGE: This is a non-memory aware subtrace used to constrain point addition as defined above. Each point can be looked up
  *        by coordinates (lookup as defined in ecc_mem.pil):
@@ -29,8 +24,9 @@
  *          ecc.r_x, ecc.r_y // Point R
  *        };
  *
- * MW NOTE: For now, the calling trace MUST constrain that p_is_inf, q_is_inf above are correct. This is so if we have a calling
- *          trace in which we know inf would never be an input we can simply use precomputed.zero and avoid wasting gates on deriving is_inf.
+ * NOTE: For now, the calling trace MUST constrain that p_is_inf, q_is_inf above are correct. This is so if we have a calling
+ *       trace in which we know inf would never be an input we can simply use precomputed.zero and avoid wasting gates on deriving is_inf.
+ *       This follows the same logic for points being on the curve.
  *
  * TRACE SHAPE: 1 single row per computation (P + Q = R).
  *

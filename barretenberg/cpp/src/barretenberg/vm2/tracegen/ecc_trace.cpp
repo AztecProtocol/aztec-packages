@@ -149,7 +149,7 @@ void EccTraceBuilder::process_add(const simulation::EventEmitterInterface<simula
 
                       // Witness for add operation
                       { C::ecc_add_op, add_predicate },
-                      // This is a witness for the result(r) being the point at infinity.
+                      // This is a witness for the result (r) being the point at infinity.
                       { C::ecc_result_infinity, result_is_infinity },
                       // The computed 'slope' between points P and Q.
                       { C::ecc_lambda, lambda },
@@ -252,8 +252,6 @@ void EccTraceBuilder::process_scalar_mul(
  * @brief Process the ECC add memory events and populate the relevant columns in the trace.
  *  Corresponds to the memory aware subtrace ecc_mem.pil.
  *
- * TODO(#AVM-266): Remove is_infinity flag from point representation.
- *
  * @param events The container of ECC add memory events to process.
  * @param trace The trace container.
  */
@@ -273,9 +271,9 @@ void EccTraceBuilder::process_add_with_memory(
     // If there is no error, the trace constrains the correctness of the add result R with the ecc subtrace (see
     // process_add) via separate add events and the memory reads of the input points with the execution trace's
     // #[DISPATCH_TO_ECC_ADD]. The writes are handled in the trace with a permutation to memory (see #[WRITE_MEM_i]
-    // and interactions perm_ecc_mem_write_mem_i for i = 0, 1, 2).
+    // and interactions perm_ecc_mem_write_mem_i for i = 0, 1).
 
-    // If there is an error, the event has an empty result point (0, 0, false), the add/write lookups/permutations are
+    // If there is an error, the event has an empty result point (0, 0), the add/write lookups/permutations are
     // skipped, and the error flag is set to 1. This flag is checked against sel_opcode_error in #[DISPATCH_TO_ECC_ADD].
     for (const auto& event : events) {
         // Address cast to uint64_t to capture possible overflow.
@@ -297,43 +295,41 @@ void EccTraceBuilder::process_add_with_memory(
 
         bool error = dst_out_of_range_err || !p_is_on_curve || !q_is_on_curve;
 
-        trace.set(
-            row,
-            { {
-                { C::ecc_add_mem_sel, 1 },
-                { C::ecc_add_mem_execution_clk, event.execution_clk },
-                { C::ecc_add_mem_space_id, event.space_id },
-                // Error handling - dst out of range
-                { C::ecc_add_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
-                { C::ecc_add_mem_sel_dst_out_of_range_err, dst_out_of_range_err ? 1 : 0 },
-                // Error handling - p is not on curve
-                { C::ecc_add_mem_sel_p_not_on_curve_err, !p_is_on_curve ? 1 : 0 },
-                { C::ecc_add_mem_p_is_on_curve_eqn, p_is_on_curve_eqn },
-                { C::ecc_add_mem_p_is_on_curve_eqn_inv, p_is_on_curve_eqn_inv },
-                // Error handling - q is not on curve
-                { C::ecc_add_mem_sel_q_not_on_curve_err, !q_is_on_curve ? 1 : 0 },
-                { C::ecc_add_mem_q_is_on_curve_eqn, q_is_on_curve_eqn },
-                { C::ecc_add_mem_q_is_on_curve_eqn_inv, q_is_on_curve_eqn_inv },
-                // Consolidated error
-                { C::ecc_add_mem_err, error ? 1 : 0 },
-                // Memory Writes
-                { C::ecc_add_mem_dst_addr_0_, dst_addr },
-                { C::ecc_add_mem_dst_addr_1_, dst_addr + 1 },
-                // Input - Point P
-                { C::ecc_add_mem_p_x, event.p.x() },
-                { C::ecc_add_mem_p_y, event.p.y() },
-                { C::ecc_add_mem_p_is_inf,
-                  event.p.is_infinity() ? 1 : 0 }, // TODO(#AVM-266): If committed, Will be p.x() == 0 && p.y() == 0
-                // Input - Point Q
-                { C::ecc_add_mem_q_x, event.q.x() },
-                { C::ecc_add_mem_q_y, event.q.y() },
-                { C::ecc_add_mem_q_is_inf,
-                  event.q.is_infinity() ? 1 : 0 }, // TODO(#AVM-266): If committed, Will be q.x() == 0 && q.y() == 0
-                // Output
-                { C::ecc_add_mem_sel_should_exec, error ? 0 : 1 },
-                { C::ecc_add_mem_res_x, event.result.x() },
-                { C::ecc_add_mem_res_y, event.result.y() },
-            } });
+        trace.set(row,
+                  { {
+                      { C::ecc_add_mem_sel, 1 },
+                      { C::ecc_add_mem_execution_clk, event.execution_clk },
+                      { C::ecc_add_mem_space_id, event.space_id },
+                      // Error handling - dst out of range
+                      { C::ecc_add_mem_max_mem_addr, AVM_HIGHEST_MEM_ADDRESS },
+                      { C::ecc_add_mem_sel_dst_out_of_range_err, dst_out_of_range_err ? 1 : 0 },
+                      // Error handling - p is not on curve
+                      { C::ecc_add_mem_sel_p_not_on_curve_err, !p_is_on_curve ? 1 : 0 },
+                      { C::ecc_add_mem_p_is_on_curve_eqn, p_is_on_curve_eqn },
+                      { C::ecc_add_mem_p_is_on_curve_eqn_inv, p_is_on_curve_eqn_inv },
+                      // Error handling - q is not on curve
+                      { C::ecc_add_mem_sel_q_not_on_curve_err, !q_is_on_curve ? 1 : 0 },
+                      { C::ecc_add_mem_q_is_on_curve_eqn, q_is_on_curve_eqn },
+                      { C::ecc_add_mem_q_is_on_curve_eqn_inv, q_is_on_curve_eqn_inv },
+                      // Consolidated error
+                      { C::ecc_add_mem_err, error ? 1 : 0 },
+                      // Memory Writes
+                      { C::ecc_add_mem_dst_addr_0_, dst_addr },
+                      { C::ecc_add_mem_dst_addr_1_, dst_addr + 1 },
+                      // Input - Point P
+                      { C::ecc_add_mem_p_x, event.p.x() },
+                      { C::ecc_add_mem_p_y, event.p.y() },
+                      // Input - Point Q
+                      { C::ecc_add_mem_q_x, event.q.x() },
+                      { C::ecc_add_mem_q_y, event.q.y() },
+                      // Input - Infinity flags required for ECC trace
+                      { C::ecc_add_mem_p_is_inf, event.p.is_infinity() ? 1 : 0 },
+                      { C::ecc_add_mem_q_is_inf, event.q.is_infinity() ? 1 : 0 },
+                      // Output
+                      { C::ecc_add_mem_sel_should_exec, error ? 0 : 1 },
+                      { C::ecc_add_mem_res_x, event.result.x() },
+                      { C::ecc_add_mem_res_y, event.result.y() },
+                  } });
 
         row++;
     }

@@ -4,23 +4,20 @@ include "gt.pil";
 include "memory.pil";
 include "precomputed.pil";
 
-// TODO(#AVM-266): documentation
-
 /**
  * This handles the memory writes when the ECADD opcode is executed by user code.
  * Given two points, P & Q, this trace constrains that both exist on the Grumpkin curve
  * and the claimed result point, R = P + Q, is written to memory addresses within range.
  * A point exists on the curve if it satisfies the curve equation (SW form: Y^2 = X^3 − 17)
- * or is the point at infinity, represented by (X, Y) = (0, 0).
+ * or is the point at infinity, represented by (X, Y) = (INFINITY_X, INFINITY_Y) = (0, 0).
  * The reads of P and Q are handled by the registers in the execution trace. The correctness
  * of point addition is handled by the ECC subtrace.
  *
  * This trace writes the resulting embedded curve point to the addresses {dst,
- * dst + 1, and dst + 2 }. Embedded curve points consist of the tuple of types
- * {x: FF, y: FF, is_inf: U1 }.
+ * dst + 1 }. Embedded curve points consist of the tuple of types {x: FF, y: FF }.
  *
- * PRECONDITIONS: Input point coordinates have tag checked FF coordinates and U1 is_inf
- * flag (see Memory I/O below for details).
+ * PRECONDITIONS: Input point coordinates have tag checked FF coordinates (see Memory I/O
+ * below for details).
  *
  * USAGE: Dispatching lookup defined in execution.pil:
  *        #[DISPATCH_TO_ECC_ADD]
@@ -85,17 +82,13 @@ include "precomputed.pil";
  *
  * This subtrace is connected to the ECC subtrace via a lookup. ECC is used by other subtraces internally
  * (e.g. address derivation). Now that the is_inf flag has been removed from noir (noir-lang/noir/#11926/) we consider
- * a point to be infinity iff its coordinates are (0, 0); the noir standard representation.
+ * a point to be infinity iff its coordinates are (0, 0); the noir standard representation (see relations #[P/Q_INF_X/Y_CHECK]).
  *
  * Note that the point at infinity, O, does not have valid coordinates (a property of SW curves like Grumpkin). We represent it
  * as (0, 0) but any (ecc.INFINITY_X, ecc.INFINITY_Y) not satisfying the curve equation will be correctly handled in this trace.
  *
- * For now, we simply ignore any is_inf flags coming from memory (assigning and not reading the placeholder is_inf_), but
- * will eventually remove it from the operands TODO(#AVM-266).
- *
- * MW NOTE: Still using p_is_inf, q_is_inf just as flags to tell ecc.pil how to treat the points.
- * Until #AVM-266, the ECC subtrace still requires a correctly constrained is_inf flag for each point. We derive it within
- * this circuit by enforcing (0, 0) <==> is_inf for input points P and Q:
+ * The ECC subtrace requires a correctly constrained is_inf flag for each point. We derive it within this circuit by enforcing
+ * (0, 0) <==> is_inf for input points P and Q:
  *  - (0, 0) ==> is_inf by #[P/Q_ON_CURVE_CHECK] (zero coordinates will fail this relation unless is_inf is set correctly).
  *  - is_inf ==> (0, 0) by #[P/Q_INF_X/Y_CHECK].
  * Resulting infinity points are guaranteed to be (0, 0) by the ECC subtrace (see #[OUTPUT_X_COORD] and #[OUTPUT_Y_COORD]).
@@ -185,9 +178,7 @@ namespace ecc_add_mem;
     pol commit sel_should_exec; // @boolean (by definition)
     sel_should_exec = sel * (1 - err);
 
-    // TODO(#AVM-266): For now, we ensure that the flag being set means that the coordinates are set to our infinity
-    // representation: (INFINITY_X, INFINITY_Y) = (0, 0). The reverse ((INFINITY_X, INFINITY_Y) ==> is_inf)
-    // is constrained by #[P/Q_ON_CURVE_CHECK]. Output infinities are already constrained to be (0, 0) in the subtrace.
+    // Constrains that the infinity flags required for the ecc trace have been set correctly:
     #[P_INF_X_CHECK]
     sel * p_is_inf * (p_x - ecc.INFINITY_X) = 0;
     #[P_INF_Y_CHECK]
