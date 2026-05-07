@@ -3,6 +3,7 @@ import type {
   HidingKernelToRollupPrivateInputs,
   PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
+  PrivateKernelInit3CircuitPrivateInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelResetCircuitPrivateInputs,
@@ -35,6 +36,27 @@ export interface PrivateKernelProver {
    */
   simulateInit(
     privateKernelInputsInit: PrivateKernelInitCircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Creates a proof output for a batched first iteration that processes three app calls in a single
+   * private kernel circuit. Used when `PXE_USE_INIT_3` is enabled and at least three app calls remain.
+   *
+   * @param privateKernelInputsInit3 - The batched private data structure for the initial iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
+   */
+  generateInit3Output(
+    privateKernelInputsInit3: PrivateKernelInit3CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes the batched first kernel iteration (three app calls) without generating a proof.
+   *
+   * @param privateKernelInputsInit3 - The batched private data structure for the initial iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and an empty kernel proof.
+   */
+  simulateInit3(
+    privateKernelInputsInit3: PrivateKernelInit3CircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
   /**

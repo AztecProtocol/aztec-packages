@@ -7,6 +7,7 @@ export * from './private_call_data.js';
 export * from './private_kernel_circuit_public_inputs.js';
 export * from './private_kernel_data.js';
 export * from './private_kernel_init_circuit_private_inputs.js';
+export * from './private_kernel_init_3_circuit_private_inputs.js';
 export * from './private_kernel_inner_circuit_private_inputs.js';
 export * from './private_kernel_reset_circuit_private_inputs.js';
 export * from './private_kernel_reset_dimensions.js';
