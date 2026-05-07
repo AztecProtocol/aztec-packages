@@ -331,7 +331,14 @@ export async function captureProfile(
   const result = await interaction.profile({ ...opts, profileMode: 'full', skipProofGeneration: false });
   const logs = ProxyLogger.getInstance().getLogs();
   if (expectedSteps !== undefined && result.executionSteps.length !== expectedSteps) {
-    throw new Error(`Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`);
+    const msg = `Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`;
+    // Step counts shift when the orchestrator batches kernels (e.g. PXE_USE_INIT_3 collapses
+    // init+inner+inner into a single init_3). Allow opting out of the strict check for those runs.
+    if (process.env.SKIP_STEP_COUNT_CHECK === '1') {
+      logger.warn(msg);
+    } else {
+      throw new Error(msg);
+    }
   }
   const benchmark = generateBenchmark(label, logs, result.stats, result.executionSteps, 'wasm', undefined);
 
