@@ -180,7 +180,7 @@ void AvmProver::execute_relation_check_rounds()
 /**
  * @brief Run the PCS to prove that the claimed evaluations are correct.
  *
- * @details To optimize the usage of the ECCVM, we batch the polynomials using short scalars before executing Shplemini.
+ * @details To optimize performance time, we batch the polynomials using short scalars before executing Shplemini.
  * The batching proceeds in two phases (note that the unshifted polynomials contain copies of the shifted polynomials
  * that have not been shifted yet; this allows us to save some work by batching the shifted polynomials in their
  * to_be_shifted form and later shift them):
@@ -196,7 +196,7 @@ void AvmProver::execute_pcs_rounds()
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
     using Challenges = Flavor::AllEntities<FF>;
 
-    // Batch polynomials using short scalars to reduce ECCVM circuit size
+    // Batch polynomials using short scalars
     auto unshifted_polys = prover_polynomials.get_unshifted();
     auto shifted_polys = prover_polynomials.get_to_be_shifted();
 
