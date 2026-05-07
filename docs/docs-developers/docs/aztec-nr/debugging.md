@@ -99,6 +99,33 @@ LOG_LEVEL="silent;debug:simulator"
 | `No public key registered for address`                   | Call `wallet.registerSender(...)`                                                                                                                               |
 | `Direct invocation of ... functions is not supported`    | Use `self.call()`, `self.view()`, or `self.enqueue()` to [call contract functions](framework-description/calling_contracts.md) |
 | `Failed to solve brillig function`                       | Check function parameters and note validity                                                                                                                     |
+| `Cross-contract utility call denied`                     | Configure an `authorizeUtilityCall` [execution hook](#cross-contract-utility-call-denied) on your PXE                                                           |
+
+#### Cross-contract utility call denied
+
+When a contract executes a utility function that calls into a different contract, PXE asks an **execution hook** whether the call should be allowed. If no hook is configured, or the hook denies the request, you will see:
+
+```
+Cross-contract utility call denied: <reason>. <caller> attempted to call <target>:<selector> (<name>).
+```
+
+To fix this, pass an `authorizeUtilityCall` hook when creating your PXE:
+
+```typescript
+import { PXE } from "@aztec/pxe/server";
+
+const pxe = await PXE.create({
+  // ...other options
+  hooks: {
+    authorizeUtilityCall: async (request) => {
+      // Inspect request.caller, request.target, request.functionSelector, etc.
+      return { authorized: true };
+    },
+  },
+});
+```
+
+The hook receives a `UtilityCallAuthorizationRequest` with the caller address, target address, function selector, function name, arguments, and caller context (`'private'` or `'utility'`). Return `{ authorized: true }` to allow or `{ authorized: false, reason: '...' }` to deny with a message.
 
 ### Circuit Errors
 
