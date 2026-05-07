@@ -138,9 +138,9 @@ inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 590 + MSM_ROWS_OFFSET;
 inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 65;
 
 // Hiding kernel gate counts (verifies HN_FINAL proof and one batch merge proof)
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 78029;
-inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5334 + MSM_ROWS_OFFSET;
-inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 359;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 76653;
+inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5202 + MSM_ROWS_OFFSET;
+inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 351;
 
 // ========================================
 // ECCVM Recursive Verifier Constants
