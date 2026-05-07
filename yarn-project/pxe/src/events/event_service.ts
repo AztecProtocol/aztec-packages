@@ -1,11 +1,10 @@
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePrivateEventCommitment, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, IndexedTxEffect } from '@aztec/stdlib/tx';
 
+import type { EventValidationRequest } from '../contract_function_simulator/noir-structs/event_validation_request.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 
 export class EventService {
@@ -17,15 +16,43 @@ export class EventService {
     private readonly log = createLogger('pxe:event_service'),
   ) {}
 
-  public async validateAndStoreEvent(
-    contractAddress: AztecAddress,
-    selector: EventSelector,
-    randomness: Fr,
-    content: Fr[],
-    eventCommitment: Fr,
-    txHash: TxHash,
+  /**
+   * Validates and stores a batch of private events against pre-fetched tx effects.
+   *
+   * @param requests - The events to validate and store.
+   * @param scope - The scope under which the events are being stored.
+   * @param txEffects - Pre-fetched tx effects keyed by `TxHash.toString()`. Must contain entries for every request's
+   *                   txHash; missing entries are treated as a node bug and cause an error.
+   */
+  public async validateAndStoreEvents(
+    requests: EventValidationRequest[],
     scope: AztecAddress,
+    txEffects: Map<string, IndexedTxEffect>,
   ): Promise<void> {
+    if (requests.length === 0) {
+      return;
+    }
+
+    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
+
+    await Promise.all(requests.map(req => this.#validateAndStoreEvent(req, scope, txEffects, anchorBlockNumber)));
+  }
+
+  async #validateAndStoreEvent(
+    request: EventValidationRequest,
+    scope: AztecAddress,
+    txEffects: Map<string, IndexedTxEffect>,
+    anchorBlockNumber: number,
+  ): Promise<void> {
+    const {
+      contractAddress,
+      eventTypeId: selector,
+      randomness,
+      serializedEvent: content,
+      eventCommitment,
+      txHash,
+    } = request;
+
     // Defense-in-depth: the built-in private-event path derives this commitment from content before enqueueing, but
     // unconstrained PXE-side code (e.g. a custom message handler) can reach this oracle with arbitrary
     // (content, commitment) pairs. Without this check it could bind arbitrary content to a legitimate tx nullifier,
@@ -42,13 +69,9 @@ export class EventService {
     // (and thus we're less concerned about being ahead of the synced block), we use the synced block number to
     // maintain consistent behavior in the PXE. Additionally, events should never be ahead of the synced block here
     // since `fetchTaggedLogs` only processes logs up to the synced block.
-    const [siloedEventCommitment, txEffect] = await Promise.all([
-      siloNullifier(contractAddress, eventCommitment),
-      this.aztecNode.getTxEffect(txHash),
-    ]);
+    const siloedEventCommitment = await siloNullifier(contractAddress, eventCommitment);
 
-    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
-
+    const txEffect = txEffects.get(txHash.toString());
     if (!txEffect) {
       // We error out instead of just logging a warning and skipping the event because this would indicate a bug. This
       // is because the node has already served info about this tx either when obtaining the log (TxScopedL2Log contain

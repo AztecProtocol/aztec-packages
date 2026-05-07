@@ -15,12 +15,23 @@ import {
   type BackgroundTransport,
   type BackgroundConnectionCallbacks,
   type ActiveSession,
-} from '@aztec/wallet-sdk/extension/handlers';
+} from "@aztec/wallet-sdk/extension/handlers";
 
-import { WALLET_CONFIG, MessageTarget, MessageTypes, AUTO_LOCK_MINUTES, log } from './config';
-import { getErrorMessage } from './utils';
-import { STORAGE_KEYS } from './wallet/storage';
-import type { PendingTransaction, PendingSessionVerification, PendingCapabilities, BackgroundTask } from './shared-types';
+import {
+  WALLET_CONFIG,
+  MessageTarget,
+  MessageTypes,
+  AUTO_LOCK_MINUTES,
+  log,
+} from "./config";
+import { getErrorMessage } from "./utils";
+import { STORAGE_KEYS } from "./wallet/storage";
+import type {
+  PendingTransaction,
+  PendingSessionVerification,
+  PendingCapabilities,
+  BackgroundTask,
+} from "./shared-types";
 
 // docs:start:offscreen-management
 let offscreenCreating: Promise<void> | null = null;
@@ -43,18 +54,18 @@ async function ensureOffscreenDocument(): Promise<void> {
     return;
   }
 
-  const offscreenUrl = chrome.runtime.getURL('dist/offscreen.html');
-  log.debug('[background] Creating offscreen document:', offscreenUrl);
+  const offscreenUrl = chrome.runtime.getURL("dist/offscreen.html");
+  log.debug("[background] Creating offscreen document:", offscreenUrl);
 
   offscreenCreating = chrome.offscreen.createDocument({
     url: offscreenUrl,
     reasons: [chrome.offscreen.Reason.WORKERS],
-    justification: 'Aztec PXE requires long-running WASM operations',
+    justification: "Aztec PXE requires long-running WASM operations",
   });
 
   await offscreenCreating;
   offscreenCreating = null;
-  log.debug('[background] Offscreen document created');
+  log.debug("[background] Offscreen document created");
 }
 // docs:end:offscreen-management
 
@@ -67,26 +78,29 @@ async function ensureOffscreenDocument(): Promise<void> {
  * - No `return true`/`false` landmine for async responses
  */
 let offscreenPort: chrome.runtime.Port | null = null;
-const pendingOffscreenCalls = new Map<string, {
-  resolve: (value: any) => void;
-  reject: (error: Error) => void;
-  timer: ReturnType<typeof setTimeout>;
-}>();
+const pendingOffscreenCalls = new Map<
+  string,
+  {
+    resolve: (value: any) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }
+>();
 let offscreenMessageId = 0;
 
 const OFFSCREEN_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 function connectOffscreenPort() {
-  const port = chrome.runtime.connect({ name: 'offscreen' });
+  const port = chrome.runtime.connect({ name: "offscreen" });
   offscreenPort = port;
 
   port.onMessage.addListener((message: any) => {
     // Progress updates — relay to popup
-    if (message.type === 'task-progress') {
-      const runningTask = backgroundTasks.find((t) => t.status === 'running');
+    if (message.type === "task-progress") {
+      const runningTask = backgroundTasks.find((t) => t.status === "running");
       if (runningTask) {
         runningTask.progress = message.stage;
-        notifyPopup({ type: 'task-update', task: { ...runningTask } });
+        notifyPopup({ type: "task-update", task: { ...runningTask } });
       }
       return;
     }
@@ -100,17 +114,17 @@ function connectOffscreenPort() {
     if (message.success) {
       pending.resolve(message.result);
     } else {
-      pending.reject(new Error(message.error || 'Unknown error'));
+      pending.reject(new Error(message.error || "Unknown error"));
     }
   });
 
   port.onDisconnect.addListener(() => {
-    log.debug('[background] Offscreen port disconnected');
+    log.debug("[background] Offscreen port disconnected");
     offscreenPort = null;
     // Reject all pending calls — sendToOffscreen will retry
     for (const [id, pending] of pendingOffscreenCalls) {
       clearTimeout(pending.timer);
-      pending.reject(new Error('Offscreen port disconnected'));
+      pending.reject(new Error("Offscreen port disconnected"));
       pendingOffscreenCalls.delete(id);
     }
   });
@@ -140,7 +154,7 @@ async function sendToOffscreen(message: any, _retried = false): Promise<any> {
 
     try {
       if (!offscreenPort) {
-        throw new Error('Offscreen port not connected');
+        throw new Error("Offscreen port not connected");
       }
       offscreenPort.postMessage({ ...message, messageId });
     } catch (err: unknown) {
@@ -149,7 +163,7 @@ async function sendToOffscreen(message: any, _retried = false): Promise<any> {
 
       // Port may have disconnected — retry once
       if (!_retried) {
-        log.warn('[background] Offscreen port send failed, retrying...');
+        log.warn("[background] Offscreen port send failed, retrying...");
         offscreenPort = null;
         offscreenCreating = null;
         sendToOffscreen(message, true).then(resolve, reject);
@@ -176,7 +190,8 @@ const capabilitiesApprovedSessions = new Set<string>();
  * The extension must confirm the session before any wallet method calls are processed.
  * This prevents the dApp from bypassing verification by sending messages immediately.
  */
-const queuedMessages: Map<string, { session: ActiveSession; message: any }[]> = new Map();
+const queuedMessages: Map<string, { session: ActiveSession; message: any }[]> =
+  new Map();
 
 /**
  * Trusted origins persistence for auto-reconnect. (#30)
@@ -187,7 +202,7 @@ const queuedMessages: Map<string, { session: ActiveSession; message: any }[]> = 
  * exchange still happens every time for security). Disconnecting a site
  * removes it from the trusted list.
  */
-const TRUSTED_ORIGINS_KEY = 'aztec_trusted_origins';
+const TRUSTED_ORIGINS_KEY = "aztec_trusted_origins";
 
 interface TrustedOrigin {
   origin: string;
@@ -203,26 +218,37 @@ async function getTrustedOrigins(): Promise<TrustedOrigin[]> {
 
 async function addTrustedOrigin(origin: string, appId: string): Promise<void> {
   const trusted = await getTrustedOrigins();
-  if (!trusted.some(t => t.origin === origin && t.appId === appId)) {
+  if (!trusted.some((t) => t.origin === origin && t.appId === appId)) {
     trusted.push({ origin, appId, trustedAt: Date.now() });
     await chrome.storage.local.set({ [TRUSTED_ORIGINS_KEY]: trusted });
   }
 }
 
-async function removeTrustedOrigin(origin: string, appId: string): Promise<void> {
+async function removeTrustedOrigin(
+  origin: string,
+  appId: string,
+): Promise<void> {
   const trusted = await getTrustedOrigins();
-  const filtered = trusted.filter(t => !(t.origin === origin && t.appId === appId));
+  const filtered = trusted.filter(
+    (t) => !(t.origin === origin && t.appId === appId),
+  );
   await chrome.storage.local.set({ [TRUSTED_ORIGINS_KEY]: filtered });
 }
 
-async function isTrustedOrigin(origin: string, appId: string): Promise<boolean> {
+async function isTrustedOrigin(
+  origin: string,
+  appId: string,
+): Promise<boolean> {
   const trusted = await getTrustedOrigins();
-  return trusted.some(t => t.origin === origin && t.appId === appId);
+  return trusted.some((t) => t.origin === origin && t.appId === appId);
 }
 
-async function getStoredCapabilities(origin: string, appId: string): Promise<Array<{ type: string; [key: string]: any }> | null> {
+async function getStoredCapabilities(
+  origin: string,
+  appId: string,
+): Promise<Array<{ type: string; [key: string]: any }> | null> {
   const trusted = await getTrustedOrigins();
-  const entry = trusted.find(t => t.origin === origin && t.appId === appId);
+  const entry = trusted.find((t) => t.origin === origin && t.appId === appId);
   return entry?.grantedCapabilities ?? null;
 }
 
@@ -245,19 +271,24 @@ async function persistState(): Promise<void> {
       sw_pendingTransactions: pendingTransactions,
     });
   } catch (err) {
-    log.warn('[background] Failed to persist state:', err);
+    log.warn("[background] Failed to persist state:", err);
   }
 }
 
 async function restoreState(): Promise<void> {
   try {
     const data = await chrome.storage.session.get([
-      'sw_walletUnlocked',
-      'sw_pendingTransactions',
+      "sw_walletUnlocked",
+      "sw_pendingTransactions",
     ]);
     walletUnlocked = data.sw_walletUnlocked ?? false;
     pendingTransactions = data.sw_pendingTransactions ?? [];
-    log.debug('[background] Restored state: unlocked =', walletUnlocked, ', pendingTx =', pendingTransactions.length);
+    log.debug(
+      "[background] Restored state: unlocked =",
+      walletUnlocked,
+      ", pendingTx =",
+      pendingTransactions.length,
+    );
 
     // Validate: if the offscreen document was torn down, the cached master key is gone.
     // Probe offscreen to confirm — if it fails, the wallet needs re-unlock.
@@ -265,13 +296,15 @@ async function restoreState(): Promise<void> {
       try {
         await sendToOffscreen({ type: MessageTypes.GET_ACCOUNTS });
       } catch {
-        log.warn('[background] Offscreen unreachable after restore — marking wallet as locked');
+        log.warn(
+          "[background] Offscreen unreachable after restore — marking wallet as locked",
+        );
         walletUnlocked = false;
         await persistState();
       }
     }
   } catch (err) {
-    log.warn('[background] Failed to restore state:', err);
+    log.warn("[background] Failed to restore state:", err);
   }
 }
 
@@ -284,22 +317,27 @@ let backgroundTasks: BackgroundTask[] = [];
 
 function startBackgroundTask(type: string, promise: Promise<any>): string {
   const id = `${type}-${Date.now()}`;
-  const task: BackgroundTask = { id, type, status: 'running', startedAt: Date.now() };
+  const task: BackgroundTask = {
+    id,
+    type,
+    status: "running",
+    startedAt: Date.now(),
+  };
   backgroundTasks.push(task);
 
   promise
     .then((result) => {
-      task.status = 'success';
+      task.status = "success";
       task.result = result;
-      notifyPopup({ type: 'task-update', task: { ...task } });
+      notifyPopup({ type: "task-update", task: { ...task } });
     })
     .catch((error) => {
-      task.status = 'error';
+      task.status = "error";
       task.error = getErrorMessage(error);
-      notifyPopup({ type: 'task-update', task: { ...task } });
+      notifyPopup({ type: "task-update", task: { ...task } });
     });
 
-  notifyPopup({ type: 'task-update', task: { ...task } });
+  notifyPopup({ type: "task-update", task: { ...task } });
   return id;
 }
 
@@ -311,7 +349,7 @@ function cleanupTasks() {
   const FIVE_MINUTES = 5 * 60 * 1000;
   const cutoff = Date.now() - FIVE_MINUTES;
   backgroundTasks = backgroundTasks.filter(
-    (t) => t.status === 'running' || t.startedAt > cutoff
+    (t) => t.status === "running" || t.startedAt > cutoff,
   );
 }
 
@@ -323,13 +361,13 @@ function cleanupTasks() {
 let popupPort: chrome.runtime.Port | null = null;
 
 chrome.runtime.onConnect.addListener((port) => {
-  if (port.name !== 'popup') return;
+  if (port.name !== "popup") return;
 
-  log.debug('[background] Popup connected');
+  log.debug("[background] Popup connected");
   popupPort = port;
 
   port.onDisconnect.addListener(() => {
-    log.debug('[background] Popup disconnected');
+    log.debug("[background] Popup disconnected");
     popupPort = null;
   });
 
@@ -348,7 +386,7 @@ function notifyPopup(message: any) {
 }
 
 function pushStateToPopup() {
-  notifyPopup({ type: 'state', data: getFullState() });
+  notifyPopup({ type: "state", data: getFullState() });
 }
 
 /**
@@ -361,15 +399,17 @@ function openPopupWindow() {
     pushStateToPopup();
     return;
   }
-  chrome.windows.create({
-    url: chrome.runtime.getURL('popup/popup.html'),
-    type: 'popup',
-    width: 400,
-    height: 600,
-    focused: true,
-  }).catch((err) => {
-    log.error('[background] Failed to create popup window:', err);
-  });
+  chrome.windows
+    .create({
+      url: chrome.runtime.getURL("popup/popup.html"),
+      type: "popup",
+      width: 400,
+      height: 600,
+      focused: true,
+    })
+    .catch((err) => {
+      log.error("[background] Failed to create popup window:", err);
+    });
 }
 
 /**
@@ -384,8 +424,8 @@ function openPopupWithFallback() {
   }
   chrome.action.openPopup().catch(() => {
     chrome.windows.create({
-      url: chrome.runtime.getURL('popup/popup.html'),
-      type: 'popup',
+      url: chrome.runtime.getURL("popup/popup.html"),
+      type: "popup",
       width: 400,
       height: 600,
       focused: true,
@@ -416,17 +456,19 @@ function getFullState() {
  * Auto-lock via chrome.alarms. (#28)
  * Resets the timer on every popup interaction.
  */
-const AUTO_LOCK_ALARM = 'aztec-auto-lock';
+const AUTO_LOCK_ALARM = "aztec-auto-lock";
 
 function resetAutoLockTimer() {
   if (walletUnlocked) {
-    chrome.alarms.create(AUTO_LOCK_ALARM, { delayInMinutes: AUTO_LOCK_MINUTES });
+    chrome.alarms.create(AUTO_LOCK_ALARM, {
+      delayInMinutes: AUTO_LOCK_MINUTES,
+    });
   }
 }
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === AUTO_LOCK_ALARM) {
-    log.debug('[background] Auto-lock triggered');
+    log.debug("[background] Auto-lock triggered");
     walletUnlocked = false;
     await persistState();
     // Tell offscreen to clear the cached CryptoKey
@@ -443,9 +485,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
  * Updates the extension badge to show pending items count.
  */
 function updateBadge() {
-  const count = pendingTransactions.length + handler.getPendingDiscoveryCount() + pendingSessionVerifications.length + pendingCapabilities.length;
-  chrome.action.setBadgeText({ text: count > 0 ? count.toString() : '' });
-  chrome.action.setBadgeBackgroundColor({ color: '#FF6B00' });
+  const count =
+    pendingTransactions.length +
+    handler.getPendingDiscoveryCount() +
+    pendingSessionVerifications.length +
+    pendingCapabilities.length;
+  chrome.action.setBadgeText({ text: count > 0 ? count.toString() : "" });
+  chrome.action.setBadgeBackgroundColor({ color: "#FF6B00" });
   pushStateToPopup();
   persistState();
 }
@@ -453,18 +499,32 @@ function updateBadge() {
 // docs:start:transport
 const transport: BackgroundTransport = {
   sendToTab: (tabId, message) => {
-    log.debug('[background] sendToTab:', tabId, message.type, message.sessionId);
+    log.debug(
+      "[background] sendToTab:",
+      tabId,
+      message.type,
+      message.sessionId,
+    );
     chrome.tabs.sendMessage(tabId, message);
   },
   addContentListener: (handler) => {
     chrome.runtime.onMessage.addListener((message, sender) => {
       // Skip targeted messages (popup, offscreen), storage proxy, and progress updates
       if (message.target) return;
-      if (message.type === 'storage-get' || message.type === 'storage-set') return;
+      if (message.type === "storage-get" || message.type === "storage-set")
+        return;
 
-      log.debug('[background] Content message received:', message.origin, message.type, 'from tab:', sender.tab?.id);
+      log.debug(
+        "[background] Content message received:",
+        message.origin,
+        message.type,
+        "from tab:",
+        sender.tab?.id,
+      );
       handler(message, {
-        tab: sender.tab ? { id: sender.tab.id, url: sender.tab.url } : undefined,
+        tab: sender.tab
+          ? { id: sender.tab.id, url: sender.tab.url }
+          : undefined,
       });
     });
   },
@@ -476,18 +536,24 @@ const transport: BackgroundTransport = {
  * or the first account as fallback. Used by both processWalletMessage (for
  * getAccounts/getRegisteredAccounts filtering) and APPROVE_CAPABILITIES.
  */
-async function getGrantableAccounts(): Promise<Array<{ alias: string; item: string }>> {
+async function getGrantableAccounts(): Promise<
+  Array<{ alias: string; item: string }>
+> {
   const [accountsData, activeData] = await Promise.all([
     chrome.storage.local.get(STORAGE_KEYS.ACCOUNTS),
     chrome.storage.local.get(STORAGE_KEYS.ACTIVE_ACCOUNT),
   ]);
   const allAccounts = accountsData[STORAGE_KEYS.ACCOUNTS] || [];
   const activeAddress = activeData[STORAGE_KEYS.ACTIVE_ACCOUNT];
-  const activeAccount = allAccounts.find((a: any) => a.address === activeAddress);
+  const activeAccount = allAccounts.find(
+    (a: any) => a.address === activeAddress,
+  );
   if (activeAccount) {
     return [{ alias: activeAccount.alias, item: activeAccount.address }];
   }
-  return allAccounts.slice(0, 1).map((a: any) => ({ alias: a.alias, item: a.address }));
+  return allAccounts
+    .slice(0, 1)
+    .map((a: any) => ({ alias: a.alias, item: a.address }));
 }
 
 /**
@@ -497,11 +563,17 @@ async function getGrantableAccounts(): Promise<Array<{ alias: string; item: stri
 async function processWalletMessage(session: ActiveSession, message: any) {
   // Allow requestCapabilities to pass through (it's the mechanism for getting approved).
   // Block all other wallet methods until capabilities have been approved for this session.
-  if (message.type !== 'requestCapabilities' && !capabilitiesApprovedSessions.has(session.sessionId)) {
-    log.warn('[background] Rejecting wallet method before capabilities approved:', message.type);
+  if (
+    message.type !== "requestCapabilities" &&
+    !capabilitiesApprovedSessions.has(session.sessionId)
+  ) {
+    log.warn(
+      "[background] Rejecting wallet method before capabilities approved:",
+      message.type,
+    );
     await handler.sendResponse(session.sessionId, {
       messageId: message.messageId,
-      error: 'Capabilities not yet approved. Call requestCapabilities() first.',
+      error: "Capabilities not yet approved. Call requestCapabilities() first.",
       walletId: WALLET_CONFIG.walletId,
     });
     return;
@@ -512,21 +584,23 @@ async function processWalletMessage(session: ActiveSession, message: any) {
   // batch requires approval only if it contains a sendTx (e.g. BatchCall.send()).
   // Read-only batches (simulateTx, executeUtility, etc.) auto-execute.
   const needsApproval =
-    message.type === 'sendTx' ||
-    (message.type === 'batch' &&
+    message.type === "sendTx" ||
+    (message.type === "batch" &&
       Array.isArray(message.args?.[0]) &&
-      message.args[0].some((m: any) => m.name === 'sendTx'));
+      message.args[0].some((m: any) => m.name === "sendTx"));
 
   if (needsApproval) {
     // Extract `from` address from the method args:
     // - sendTx args: [executionPayload, sendOptions] → from is in sendOptions
     // - batch args: [methodsArray] → find the sendTx entry and get from from its opts
-    let from = '';
-    if (message.type === 'sendTx') {
-      from = message.args?.[1]?.from?.toString?.() || '';
-    } else if (message.type === 'batch') {
-      const sendTxMethod = message.args[0].find((m: any) => m.name === 'sendTx');
-      from = sendTxMethod?.args?.[1]?.from?.toString?.() || '';
+    let from = "";
+    if (message.type === "sendTx") {
+      from = message.args?.[1]?.from?.toString?.() || "";
+    } else if (message.type === "batch") {
+      const sendTxMethod = message.args[0].find(
+        (m: any) => m.name === "sendTx",
+      );
+      from = sendTxMethod?.args?.[1]?.from?.toString?.() || "";
     }
 
     const pending: PendingTransaction = {
@@ -541,7 +615,7 @@ async function processWalletMessage(session: ActiveSession, message: any) {
 
     pendingTransactions.push(pending);
     updateBadge();
-    log.debug('[background] Transaction pending approval:', pending.method);
+    log.debug("[background] Transaction pending approval:", pending.method);
 
     openPopupWithFallback();
     return;
@@ -549,23 +623,27 @@ async function processWalletMessage(session: ActiveSession, message: any) {
   // docs:end:approval-check
 
   // Capability requests require user approval — push to pending state.
-  if (message.type === 'requestCapabilities') {
+  if (message.type === "requestCapabilities") {
     // Auto-approve for trusted origins if the requested capabilities match what was previously granted
     const requestedManifest = message.args?.[0];
     const requestedCaps: any[] = requestedManifest?.capabilities || [];
     if (await isTrustedOrigin(session.origin, session.appId)) {
-      const savedCaps = await getStoredCapabilities(session.origin, session.appId);
+      const savedCaps = await getStoredCapabilities(
+        session.origin,
+        session.appId,
+      );
       if (savedCaps) {
         // Verify the requested capability types match the previously approved set
         const requestedTypes = requestedCaps.map((c: any) => c.type).sort();
         const savedTypes = savedCaps.map((c: any) => c.type).sort();
-        const capsMatch = requestedTypes.length === savedTypes.length &&
+        const capsMatch =
+          requestedTypes.length === savedTypes.length &&
           requestedTypes.every((t: string, i: number) => t === savedTypes[i]);
 
         if (capsMatch) {
           const grantedAccounts = await getGrantableAccounts();
           const granted = savedCaps.map((cap: any) => {
-            if (cap.type === 'accounts') {
+            if (cap.type === "accounts") {
               return { ...cap, accounts: grantedAccounts };
             }
             return { ...cap };
@@ -574,17 +652,25 @@ async function processWalletMessage(session: ActiveSession, message: any) {
           await handler.sendResponse(session.sessionId, {
             messageId: message.messageId,
             result: {
-              version: '1.0',
+              version: "1.0",
               granted,
-              wallet: { name: WALLET_CONFIG.walletName, version: WALLET_CONFIG.walletVersion },
+              wallet: {
+                name: WALLET_CONFIG.walletName,
+                version: WALLET_CONFIG.walletVersion,
+              },
             },
             walletId: WALLET_CONFIG.walletId,
           });
           capabilitiesApprovedSessions.add(session.sessionId);
-          log.debug('[background] Auto-approved capabilities for trusted origin:', session.origin);
+          log.debug(
+            "[background] Auto-approved capabilities for trusted origin:",
+            session.origin,
+          );
           return;
         }
-        log.debug('[background] Requested capabilities differ from saved — requiring approval');
+        log.debug(
+          "[background] Requested capabilities differ from saved — requiring approval",
+        );
       }
     }
 
@@ -594,7 +680,10 @@ async function processWalletMessage(session: ActiveSession, message: any) {
       sessionId: session.sessionId,
       messageId: message.messageId,
       origin: session.origin,
-      appMetadata: manifest?.metadata || { name: 'Unknown App', version: '0.0.0' },
+      appMetadata: manifest?.metadata || {
+        name: "Unknown App",
+        version: "0.0.0",
+      },
       capabilities: requestedCaps,
       timestamp: Date.now(),
     };
@@ -615,12 +704,19 @@ async function processWalletMessage(session: ActiveSession, message: any) {
     });
 
     // MetaMask-like behavior: return only the active account for getAccounts
-    if (message.type === 'getAccounts' || message.type === 'getRegisteredAccounts') {
-      const activeData = await chrome.storage.local.get(STORAGE_KEYS.ACTIVE_ACCOUNT);
+    if (
+      message.type === "getAccounts" ||
+      message.type === "getRegisteredAccounts"
+    ) {
+      const activeData = await chrome.storage.local.get(
+        STORAGE_KEYS.ACTIVE_ACCOUNT,
+      );
       const activeAddress = activeData[STORAGE_KEYS.ACTIVE_ACCOUNT];
       if (activeAddress && Array.isArray(result)) {
-        const activeAccount = result.find((acc: any) =>
-          acc.item === activeAddress || acc.item?.toString() === activeAddress
+        const activeAccount = result.find(
+          (acc: any) =>
+            acc.item === activeAddress ||
+            acc.item?.toString() === activeAddress,
         );
         result = activeAccount ? [activeAccount] : result;
       }
@@ -632,7 +728,11 @@ async function processWalletMessage(session: ActiveSession, message: any) {
       walletId: WALLET_CONFIG.walletId,
     });
   })().catch(async (error: any) => {
-    log.error('[background] Error handling wallet message:', message.type, error);
+    log.error(
+      "[background] Error handling wallet message:",
+      message.type,
+      error,
+    );
     await handler.sendResponse(session.sessionId, {
       messageId: message.messageId,
       error: error.message,
@@ -644,13 +744,22 @@ async function processWalletMessage(session: ActiveSession, message: any) {
 // docs:start:callbacks
 const callbacks: BackgroundConnectionCallbacks = {
   onPendingDiscovery: async (discovery) => {
-    log.debug('[background] Pending discovery:', discovery.requestId, 'from', discovery.origin);
+    log.debug(
+      "[background] Pending discovery:",
+      discovery.requestId,
+      "from",
+      discovery.origin,
+    );
 
     // Clean up stale sessions from this tab (e.g. page refresh creates a new
     // discovery while the old session is still in activeSessions).
     for (const session of handler.getActiveSessions()) {
       if (session.tabId === discovery.tabId) {
-        log.debug('[background] Terminating stale session for tab:', discovery.tabId, session.sessionId);
+        log.debug(
+          "[background] Terminating stale session for tab:",
+          discovery.tabId,
+          session.sessionId,
+        );
         capabilitiesApprovedSessions.delete(session.sessionId);
         queuedMessages.delete(session.sessionId);
         handler.terminateSession(session.sessionId);
@@ -658,16 +767,22 @@ const callbacks: BackgroundConnectionCallbacks = {
     }
 
     // Deduplicate: reject any existing discovery from the same tab
-    const existing = handler.getPendingDiscoveries().find(
-      (d) => d.tabId === discovery.tabId && d.requestId !== discovery.requestId
-    );
+    const existing = handler
+      .getPendingDiscoveries()
+      .find(
+        (d) =>
+          d.tabId === discovery.tabId && d.requestId !== discovery.requestId,
+      );
     if (existing) {
       handler.rejectDiscovery(existing.requestId);
     }
 
     // Auto-approve if origin is already trusted (reconnection after page refresh)
     if (await isTrustedOrigin(discovery.origin, discovery.appId)) {
-      log.debug('[background] Auto-approving trusted origin:', discovery.origin);
+      log.debug(
+        "[background] Auto-approving trusted origin:",
+        discovery.origin,
+      );
       handler.approveDiscovery(discovery.requestId);
       return;
     }
@@ -678,14 +793,20 @@ const callbacks: BackgroundConnectionCallbacks = {
   },
 
   onSessionEstablished: async (session: ActiveSession) => {
-    log.debug('[background] Session established:', session.sessionId);
+    log.debug("[background] Session established:", session.sessionId);
 
     // Auto-confirm if origin is already trusted (skip emoji verification)
     if (await isTrustedOrigin(session.origin, session.appId)) {
-      log.debug('[background] Auto-confirming trusted session:', session.sessionId);
+      log.debug(
+        "[background] Auto-confirming trusted session:",
+        session.sessionId,
+      );
 
       // Pre-approve capabilities if previously granted (enables seamless reconnect)
-      const savedCaps = await getStoredCapabilities(session.origin, session.appId);
+      const savedCaps = await getStoredCapabilities(
+        session.origin,
+        session.appId,
+      );
       if (savedCaps) {
         capabilitiesApprovedSessions.add(session.sessionId);
       }
@@ -701,7 +822,10 @@ const callbacks: BackgroundConnectionCallbacks = {
     }
 
     // New origin — require emoji verification
-    log.debug('[background] Awaiting emoji verification for:', session.sessionId);
+    log.debug(
+      "[background] Awaiting emoji verification for:",
+      session.sessionId,
+    );
     // SDK automatically removes the discovery when key exchange completes.
     // Show emojis in approvals so user can compare with the webapp
     pendingSessionVerifications.push({
@@ -730,15 +854,23 @@ const callbacks: BackgroundConnectionCallbacks = {
    * user must confirm before any dApp calls are processed.
    */
   onWalletMessage: async (session: ActiveSession, message: any) => {
-    log.debug('[background] Wallet message:', message.type, 'from session:', session.sessionId);
+    log.debug(
+      "[background] Wallet message:",
+      message.type,
+      "from session:",
+      session.sessionId,
+    );
 
     // Block wallet messages until the user confirms emoji verification in the extension.
     // The dApp's calls (e.g. getAccounts) will wait until the extension user approves.
     const awaitingVerification = pendingSessionVerifications.some(
-      (v) => v.sessionId === session.sessionId
+      (v) => v.sessionId === session.sessionId,
     );
     if (awaitingVerification) {
-      log.debug('[background] Session awaiting verification, queuing message:', message.type);
+      log.debug(
+        "[background] Session awaiting verification, queuing message:",
+        message.type,
+      );
       const queue = queuedMessages.get(session.sessionId) ?? [];
       queue.push({ session, message });
       queuedMessages.set(session.sessionId, queue);
@@ -751,7 +883,11 @@ const callbacks: BackgroundConnectionCallbacks = {
 };
 // docs:end:callbacks
 
-const handler = new BackgroundConnectionHandler(WALLET_CONFIG, transport, callbacks);
+const handler = new BackgroundConnectionHandler(
+  { ...WALLET_CONFIG, logger: log },
+  transport,
+  callbacks,
+);
 handler.initialize();
 
 // Clean up sessions when a tab is closed
@@ -774,27 +910,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
    * Storage proxy for the offscreen document. (#7)
    * Validates that the request comes from the extension itself (not content scripts or external).
    */
-  if (message.type === 'storage-get' || message.type === 'storage-set') {
+  if (message.type === "storage-get" || message.type === "storage-set") {
     // Security: only allow storage proxy from extension pages (offscreen, popup) (#7)
     // Content scripts have sender.tab set; extension pages (offscreen, popup) do not.
     if (sender.tab) {
-      log.warn('[background] Rejected storage proxy from content script, tab:', sender.tab.id);
-      sendResponse({ success: false, error: 'Storage proxy not allowed from content scripts' });
+      log.warn(
+        "[background] Rejected storage proxy from content script, tab:",
+        sender.tab.id,
+      );
+      sendResponse({
+        success: false,
+        error: "Storage proxy not allowed from content scripts",
+      });
       return false;
     }
 
-    if (message.type === 'storage-get') {
-      chrome.storage.local.get(message.key).then((result) => {
-        sendResponse({ success: true, result: result[message.key] });
-      }).catch((err) => {
-        sendResponse({ success: false, error: err.message });
-      });
+    if (message.type === "storage-get") {
+      chrome.storage.local
+        .get(message.key)
+        .then((result) => {
+          sendResponse({ success: true, result: result[message.key] });
+        })
+        .catch((err) => {
+          sendResponse({ success: false, error: err.message });
+        });
     } else {
-      chrome.storage.local.set(message.data).then(() => {
-        sendResponse({ success: true });
-      }).catch((err) => {
-        sendResponse({ success: false, error: err.message });
-      });
+      chrome.storage.local
+        .set(message.data)
+        .then(() => {
+          sendResponse({ success: true });
+        })
+        .catch((err) => {
+          sendResponse({ success: false, error: err.message });
+        });
     }
     return true; // async response (#23)
   }
@@ -803,7 +951,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  log.debug('[background] Popup message:', message.type);
+  log.debug("[background] Popup message:", message.type);
 
   // Reset auto-lock on any popup interaction (#28)
   resetAutoLockTimer();
@@ -825,37 +973,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case MessageTypes.APPROVE_TRANSACTION: {
       const pending = pendingTransactions.find(
-        (t) => t.messageId === message.messageId
+        (t) => t.messageId === message.messageId,
       );
       if (pending) {
         pendingTransactions = pendingTransactions.filter(
-          (t) => t.messageId !== message.messageId
+          (t) => t.messageId !== message.messageId,
         );
         updateBadge();
 
-        const taskId = startBackgroundTask(`tx:${pending.method}`,
-          handleTransactionApproval(pending)
+        const taskId = startBackgroundTask(
+          `tx:${pending.method}`,
+          handleTransactionApproval(pending),
         );
         sendResponse({ success: true, result: { taskId } });
       } else {
-        sendResponse({ success: false, error: 'Transaction not found' });
+        sendResponse({ success: false, error: "Transaction not found" });
       }
       return false;
     }
 
     case MessageTypes.REJECT_TRANSACTION: {
       const pending = pendingTransactions.find(
-        (t) => t.messageId === message.messageId
+        (t) => t.messageId === message.messageId,
       );
       if (pending) {
         handler.sendResponse(pending.sessionId, {
           messageId: pending.messageId,
-          error: 'Transaction rejected by user',
+          error: "Transaction rejected by user",
           walletId: WALLET_CONFIG.walletId,
         });
 
         pendingTransactions = pendingTransactions.filter(
-          (t) => t.messageId !== message.messageId
+          (t) => t.messageId !== message.messageId,
         );
         updateBadge();
       }
@@ -865,56 +1014,67 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case MessageTypes.APPROVE_CAPABILITIES: {
       const pending = pendingCapabilities.find(
-        (c) => c.messageId === message.messageId
+        (c) => c.messageId === message.messageId,
       );
       if (pending) {
         pendingCapabilities = pendingCapabilities.filter(
-          (c) => c.messageId !== message.messageId
+          (c) => c.messageId !== message.messageId,
         );
 
         // Build granted capabilities using the shared active-account helper
-        getGrantableAccounts().then((grantedAccounts) => {
-          const granted = pending.capabilities.map((cap: any) => {
-            if (cap.type === 'accounts') {
-              return { ...cap, accounts: grantedAccounts };
-            }
-            return { ...cap };
-          });
+        getGrantableAccounts()
+          .then((grantedAccounts) => {
+            const granted = pending.capabilities.map((cap: any) => {
+              if (cap.type === "accounts") {
+                return { ...cap, accounts: grantedAccounts };
+              }
+              return { ...cap };
+            });
 
-          return handler.sendResponse(pending.sessionId, {
-            messageId: pending.messageId,
-            result: {
-              version: '1.0',
-              granted,
-              wallet: {
-                name: WALLET_CONFIG.walletName,
-                version: WALLET_CONFIG.walletVersion,
+            return handler.sendResponse(pending.sessionId, {
+              messageId: pending.messageId,
+              result: {
+                version: "1.0",
+                granted,
+                wallet: {
+                  name: WALLET_CONFIG.walletName,
+                  version: WALLET_CONFIG.walletVersion,
+                },
               },
-            },
-            walletId: WALLET_CONFIG.walletId,
-          });
-        }).then(async () => {
-          capabilitiesApprovedSessions.add(pending.sessionId);
+              walletId: WALLET_CONFIG.walletId,
+            });
+          })
+          .then(async () => {
+            capabilitiesApprovedSessions.add(pending.sessionId);
 
-          // Persist granted capabilities for auto-reconnect
-          const approvedSession = handler.getSession(pending.sessionId);
-          if (approvedSession) {
-            const trusted = await getTrustedOrigins();
-            const entry = trusted.find(t => t.origin === approvedSession.origin && t.appId === approvedSession.appId);
-            if (entry) {
-              entry.grantedCapabilities = pending.capabilities.map((cap: any) => ({ ...cap }));
-              await chrome.storage.local.set({ [TRUSTED_ORIGINS_KEY]: trusted });
+            // Persist granted capabilities for auto-reconnect
+            const approvedSession = handler.getSession(pending.sessionId);
+            if (approvedSession) {
+              const trusted = await getTrustedOrigins();
+              const entry = trusted.find(
+                (t) =>
+                  t.origin === approvedSession.origin &&
+                  t.appId === approvedSession.appId,
+              );
+              if (entry) {
+                entry.grantedCapabilities = pending.capabilities.map(
+                  (cap: any) => ({ ...cap }),
+                );
+                await chrome.storage.local.set({
+                  [TRUSTED_ORIGINS_KEY]: trusted,
+                });
+              }
             }
-          }
 
-          updateBadge();
-          sendResponse({ success: true });
-        }).catch((err) => {
-          log.error('[background] Failed to approve capabilities:', err);
-          sendResponse({ success: false, error: getErrorMessage(err) });
-        });
+            updateBadge();
+            sendResponse({ success: true });
+          })
+          .catch((err) => {
+            log.error("[background] Failed to approve capabilities:", err);
+            sendResponse({ success: false, error: getErrorMessage(err) });
+          });
       } else {
-        sendResponse({ success: false, error: 'Capability request not found' });
+        sendResponse({ success: false, error: "Capability request not found" });
         return false;
       }
       return true;
@@ -922,17 +1082,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case MessageTypes.REJECT_CAPABILITIES: {
       const pending = pendingCapabilities.find(
-        (c) => c.messageId === message.messageId
+        (c) => c.messageId === message.messageId,
       );
       if (pending) {
         pendingCapabilities = pendingCapabilities.filter(
-          (c) => c.messageId !== message.messageId
+          (c) => c.messageId !== message.messageId,
         );
 
         handler.sendResponse(pending.sessionId, {
           messageId: pending.messageId,
           result: {
-            version: '1.0',
+            version: "1.0",
             granted: [],
             wallet: {
               name: WALLET_CONFIG.walletName,
@@ -952,12 +1112,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // User confirmed emojis match — session is now fully active.
       // Flush any wallet messages that were queued while awaiting verification.
       pendingSessionVerifications = pendingSessionVerifications.filter(
-        (v) => v.sessionId !== message.sessionId
+        (v) => v.sessionId !== message.sessionId,
       );
       const queued = queuedMessages.get(message.sessionId) ?? [];
       queuedMessages.delete(message.sessionId);
       for (const { session, message: msg } of queued) {
-        log.debug('[background] Flushing queued message:', msg.type);
+        log.debug("[background] Flushing queued message:", msg.type);
         processWalletMessage(session, msg);
       }
 
@@ -975,14 +1135,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case MessageTypes.REJECT_SESSION: {
       // User rejected emoji verification — reject queued messages and terminate the session.
       pendingSessionVerifications = pendingSessionVerifications.filter(
-        (v) => v.sessionId !== message.sessionId
+        (v) => v.sessionId !== message.sessionId,
       );
       const rejected = queuedMessages.get(message.sessionId) ?? [];
       queuedMessages.delete(message.sessionId);
       for (const { session, message: msg } of rejected) {
         handler.sendResponse(session.sessionId, {
           messageId: msg.messageId,
-          error: 'Session verification rejected by user',
+          error: "Session verification rejected by user",
           walletId: WALLET_CONFIG.walletId,
         });
       }
@@ -997,7 +1157,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Remove from trusted origins so next connection requires full approval (#30)
       const disconnectedSession = handler.getSession(message.sessionId);
       if (disconnectedSession) {
-        removeTrustedOrigin(disconnectedSession.origin, disconnectedSession.appId);
+        removeTrustedOrigin(
+          disconnectedSession.origin,
+          disconnectedSession.appId,
+        );
       }
       capabilitiesApprovedSessions.delete(message.sessionId);
       handler.terminateSession(message.sessionId);
@@ -1006,7 +1169,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
 
-    case 'getPendingItems': {
+    case "getPendingItems": {
       sendResponse({
         success: true,
         result: getFullState(),
@@ -1015,37 +1178,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case MessageTypes.GET_ACCOUNTS: {
-      chrome.storage.local.get(STORAGE_KEYS.ACCOUNTS)
+      chrome.storage.local
+        .get(STORAGE_KEYS.ACCOUNTS)
         .then((data) => {
-          const accounts = (data[STORAGE_KEYS.ACCOUNTS] || []).map((acc: any) => ({
-            address: acc.address,
-            alias: acc.alias,
-            isDeployed: acc.isDeployed,
-          }));
+          const accounts = (data[STORAGE_KEYS.ACCOUNTS] || []).map(
+            (acc: any) => ({
+              address: acc.address,
+              alias: acc.alias,
+              isDeployed: acc.isDeployed,
+            }),
+          );
           sendResponse({ success: true, result: accounts });
         })
-        .catch((error) => sendResponse({ success: false, error: error.message }));
+        .catch((error) =>
+          sendResponse({ success: false, error: error.message }),
+        );
       return true; // async (#23)
     }
 
     case MessageTypes.GET_ACTIVE_ACCOUNT: {
-      chrome.storage.local.get(STORAGE_KEYS.ACTIVE_ACCOUNT)
+      chrome.storage.local
+        .get(STORAGE_KEYS.ACTIVE_ACCOUNT)
         .then((data) => {
-          sendResponse({ success: true, result: data[STORAGE_KEYS.ACTIVE_ACCOUNT] || null });
+          sendResponse({
+            success: true,
+            result: data[STORAGE_KEYS.ACTIVE_ACCOUNT] || null,
+          });
         })
-        .catch((error) => sendResponse({ success: false, error: error.message }));
+        .catch((error) =>
+          sendResponse({ success: false, error: error.message }),
+        );
       return true;
     }
 
     case MessageTypes.SET_ACTIVE_ACCOUNT: {
-      chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_ACCOUNT]: message.address })
+      chrome.storage.local
+        .set({ [STORAGE_KEYS.ACTIVE_ACCOUNT]: message.address })
         .then(() => sendResponse({ success: true }))
-        .catch((error) => sendResponse({ success: false, error: error.message }));
+        .catch((error) =>
+          sendResponse({ success: false, error: error.message }),
+        );
       return true;
     }
 
     case MessageTypes.UNLOCK_WALLET: {
-      const taskId = startBackgroundTask('unlock',
+      const taskId = startBackgroundTask(
+        "unlock",
         sendToOffscreen({
           type: MessageTypes.UNLOCK_WALLET,
           password: message.password,
@@ -1054,14 +1232,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           persistState();
           resetAutoLockTimer();
           return result;
-        })
+        }),
       );
       sendResponse({ success: true, result: { taskId } });
       return false;
     }
 
     case MessageTypes.GET_WALLET_STATUS: {
-      chrome.storage.local.get(STORAGE_KEYS.PASSWORD_DATA)
+      chrome.storage.local
+        .get(STORAGE_KEYS.PASSWORD_DATA)
         .then((data) => {
           sendResponse({
             success: true,
@@ -1071,12 +1250,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             },
           });
         })
-        .catch((error) => sendResponse({ success: false, error: error.message }));
+        .catch((error) =>
+          sendResponse({ success: false, error: error.message }),
+        );
       return true;
     }
 
     case MessageTypes.SETUP_PASSWORD: {
-      const taskId = startBackgroundTask('setup-password',
+      const taskId = startBackgroundTask(
+        "setup-password",
         sendToOffscreen({
           type: MessageTypes.SETUP_PASSWORD,
           password: message.password,
@@ -1085,52 +1267,62 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           persistState();
           resetAutoLockTimer();
           return result;
-        })
+        }),
       );
       sendResponse({ success: true, result: { taskId } });
       return false;
     }
 
     case MessageTypes.MARK_DEPLOYED: {
-      chrome.storage.local.get(STORAGE_KEYS.ACCOUNTS)
+      chrome.storage.local
+        .get(STORAGE_KEYS.ACCOUNTS)
         .then((data) => {
           const accounts = data[STORAGE_KEYS.ACCOUNTS] || [];
-          const account = accounts.find((a: any) => a.address === message.address);
+          const account = accounts.find(
+            (a: any) => a.address === message.address,
+          );
           if (account) {
             account.isDeployed = true;
-            return chrome.storage.local.set({ [STORAGE_KEYS.ACCOUNTS]: accounts });
+            return chrome.storage.local.set({
+              [STORAGE_KEYS.ACCOUNTS]: accounts,
+            });
           }
         })
         .then(() => sendResponse({ success: true, result: { success: true } }))
-        .catch((error) => sendResponse({ success: false, error: error.message }));
+        .catch((error) =>
+          sendResponse({ success: false, error: error.message }),
+        );
       return true;
     }
 
     case MessageTypes.CREATE_ACCOUNT: {
-      const taskId = startBackgroundTask('create-account',
+      const taskId = startBackgroundTask(
+        "create-account",
         sendToOffscreen({
           type: MessageTypes.CREATE_ACCOUNT,
           alias: message.alias,
-        })
+        }),
       );
       sendResponse({ success: true, result: { taskId } });
       return false;
     }
 
     case MessageTypes.DEPLOY_ACCOUNT: {
-      const taskId = startBackgroundTask('deploy-account',
+      const taskId = startBackgroundTask(
+        "deploy-account",
         sendToOffscreen({
           type: MessageTypes.DEPLOY_ACCOUNT,
           address: message.address,
-        })
+        }),
       );
       sendResponse({ success: true, result: { taskId } });
       return false;
     }
 
     case MessageTypes.EXPORT_WALLET: {
-      const taskId = startBackgroundTask('export-wallet',
-        sendToOffscreen({ type: MessageTypes.EXPORT_WALLET })
+      const taskId = startBackgroundTask(
+        "export-wallet",
+        sendToOffscreen({ type: MessageTypes.EXPORT_WALLET }),
       );
       sendResponse({ success: true, result: { taskId } });
       return false;
@@ -1138,7 +1330,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case MessageTypes.IMPORT_WALLET: {
       // Wipe wallet data from chrome.storage.local and lock the wallet
-      chrome.storage.local.remove([STORAGE_KEYS.ACCOUNTS, STORAGE_KEYS.PASSWORD_DATA, STORAGE_KEYS.ACTIVE_ACCOUNT]);
+      chrome.storage.local.remove([
+        STORAGE_KEYS.ACCOUNTS,
+        STORAGE_KEYS.PASSWORD_DATA,
+        STORAGE_KEYS.ACTIVE_ACCOUNT,
+      ]);
       walletUnlocked = false;
       persistState();
       // Tell offscreen to clear cached key
@@ -1148,7 +1344,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case MessageTypes.IMPORT_WALLET_ACCOUNTS: {
-      const taskId = startBackgroundTask('import-wallet-accounts',
+      const taskId = startBackgroundTask(
+        "import-wallet-accounts",
         sendToOffscreen({
           type: MessageTypes.IMPORT_WALLET_ACCOUNTS,
           accounts: message.accounts,
@@ -1158,21 +1355,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           persistState();
           resetAutoLockTimer();
           return result;
-        })
+        }),
       );
       sendResponse({ success: true, result: { taskId } });
       return false;
     }
 
     default: {
-      log.warn('[background] Unknown message type:', message.type);
+      log.warn("[background] Unknown message type:", message.type);
       return false;
     }
   }
 });
 
 async function handleTransactionApproval(
-  pending: PendingTransaction
+  pending: PendingTransaction,
 ): Promise<any> {
   try {
     const result = await sendToOffscreen({
@@ -1189,7 +1386,11 @@ async function handleTransactionApproval(
 
     return result;
   } catch (error: any) {
-    log.error('[background] Transaction approval failed:', pending.method, error);
+    log.error(
+      "[background] Transaction approval failed:",
+      pending.method,
+      error,
+    );
     await handler.sendResponse(pending.sessionId, {
       messageId: pending.messageId,
       error: error.message,
@@ -1204,7 +1405,7 @@ async function handleTransactionApproval(
  * Extension lifecycle handlers. (#17)
  */
 chrome.runtime.onInstalled.addListener((details) => {
-  log.debug('[background] Extension installed/updated:', details.reason);
+  log.debug("[background] Extension installed/updated:", details.reason);
 
   // Clear stale pending state — sessions don't survive extension reload
   pendingTransactions = [];
@@ -1214,23 +1415,28 @@ chrome.runtime.onInstalled.addListener((details) => {
   capabilitiesApprovedSessions.clear();
   persistState();
 
-  if (details.reason === 'install') {
+  if (details.reason === "install") {
     // First install — nothing to migrate
-    log.debug('[background] First install, no migration needed');
-  } else if (details.reason === 'update') {
+    log.debug("[background] First install, no migration needed");
+  } else if (details.reason === "update") {
     // Version update — could add migration logic here
-    log.debug('[background] Updated from', details.previousVersion);
+    log.debug("[background] Updated from", details.previousVersion);
   }
 });
 
 // Restore state on service worker startup (#8)
 restoreState().then(() => {
-  log.debug('[background] Service worker initialized');
+  log.debug("[background] Service worker initialized");
 });
 
 // Eagerly preload the offscreen document so WASM and PXE deps are warm
-ensureOffscreenDocument().then(() => {
-  log.debug('[background] Offscreen document preloaded');
-}).catch((err) => {
-  log.error('[background] Offscreen preload failed (will retry on demand):', err);
-});
+ensureOffscreenDocument()
+  .then(() => {
+    log.debug("[background] Offscreen document preloaded");
+  })
+  .catch((err) => {
+    log.error(
+      "[background] Offscreen preload failed (will retry on demand):",
+      err,
+    );
+  });

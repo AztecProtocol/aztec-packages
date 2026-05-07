@@ -43,8 +43,7 @@ const account = await wallet.createSchnorrAccount(
 console.log(`Account: ${account.address.toString()}\n`);
 
 const nodeInfo = await node.getNodeInfo();
-const registryAddress =
-  nodeInfo.l1ContractAddresses.registryAddress.toString();
+const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 const inboxAddress = nodeInfo.l1ContractAddresses.inboxAddress.toString();
 // docs:end:setup
 
@@ -302,11 +301,9 @@ async function mine2Blocks(
 ) {
   await TokenContract.deploy(wallet, accountAddress, "T", "T", 18).send({
     from: accountAddress,
-    contractAddressSalt: Fr.random(),
   });
   await TokenContract.deploy(wallet, accountAddress, "T", "T", 18).send({
     from: accountAddress,
-    contractAddressSalt: Fr.random(),
   });
 }
 // docs:end:mine_blocks
@@ -325,7 +322,9 @@ const { result: wethBalanceBefore } = await l2Weth.methods
   .simulate({ from: account.address });
 console.log(`L2 WETH balance after claim: ${wethBalanceBefore}\n`);
 if (wethBalanceBefore !== SWAP_AMOUNT) {
-  throw new Error(`Expected WETH balance ${SWAP_AMOUNT}, got ${wethBalanceBefore}`);
+  throw new Error(
+    `Expected WETH balance ${SWAP_AMOUNT}, got ${wethBalanceBefore}`,
+  );
 }
 console.log("✓ WETH claimed successfully on L2\n");
 // docs:end:claim_on_l2
@@ -384,13 +383,13 @@ console.log("✓ WETH transferred to bridge for swap\n");
 // docs:start:wait_for_proof
 console.log("Waiting for block to be proven...\n");
 
-let provenBlockNumber = await node.getBlockNumber('proven');
+let provenBlockNumber = await node.getBlockNumber("proven");
 while (provenBlockNumber < swapReceipt.blockNumber!) {
   console.log(
     `   Waiting... (proven: ${provenBlockNumber}, needed: ${swapReceipt.blockNumber})`,
   );
   await new Promise((resolve) => setTimeout(resolve, 10000));
-  provenBlockNumber = await node.getBlockNumber('proven');
+  provenBlockNumber = await node.getBlockNumber("proven");
 }
 
 console.log("Block proven!\n");
@@ -488,7 +487,9 @@ const swapContentEncoded = encodeFunctionData({
   ],
 });
 
-const swapContentHash = sha256ToField([Buffer.from(swapContentEncoded.slice(2), "hex")]);
+const swapContentHash = sha256ToField([
+  Buffer.from(swapContentEncoded.slice(2), "hex"),
+]);
 
 const swapMsgLeaf = computeL2ToL1MessageHash({
   l2Sender: l2Uniswap.address,

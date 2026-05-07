@@ -10,7 +10,7 @@ describe('WalletDB', () => {
 
   beforeEach(async () => {
     const store = await openTmpStore('wallet-db-test');
-    db = WalletDB.init(store, () => {});
+    db = new WalletDB(store, () => {});
   });
 
   function makeAccountData(type: AccountType = 'schnorr', alias?: string) {
