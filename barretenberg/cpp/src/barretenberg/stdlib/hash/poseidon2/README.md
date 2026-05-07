@@ -234,6 +234,8 @@ $$
 
 Mega uses a K=4 layout: each compressed row commits four consecutive `state[0]` values instead of the full state at every internal round. This is sound because only `state[0]` passes through the internal-round S-box. Once the four S-box outputs are fixed, the update of `state[1..3]` is linear and can be checked through an invertible 3 by 3 linear encoding.
 
+For a self-contained linear-algebra statement of the underlying soundness theorem — abstracted away from Poseidon2-specific notation, with a proof and a discussion of which other matrices the same construction would work for — see [QUAD_THEOREM.md](QUAD_THEOREM.md).
+
 For a quad row that starts at internal round `4i`:
 
 | Wire | Meaning |
@@ -283,8 +285,7 @@ final external rounds
 
 ## Compressed Block Subrelations
 
-Every subrelation in the compressed block enforces the Poseidon2 internal-round recurrence in
-the encoding appropriate for its boundary:
+Every subrelation in the compressed block enforces the Poseidon2 internal-round recurrence in the encoding appropriate for its boundary:
 
 | Boundary | What's known | What the subrelations enforce |
 |---|---|---|
