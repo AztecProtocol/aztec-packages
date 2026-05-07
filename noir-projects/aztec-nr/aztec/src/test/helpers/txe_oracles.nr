@@ -8,7 +8,7 @@ use crate::protocol::{
     address::AztecAddress,
     constants::{
         CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
+        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     contract_instance::ContractInstance,
     traits::{Deserialize, ToField},

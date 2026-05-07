@@ -11,7 +11,7 @@ import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { type ContractArtifact, EventSelector, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { BlockHash, Body, L2Block } from '@aztec/stdlib/block';
+import { BlockHash, Body, GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { CompleteAddress, SerializableContractInstance } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -223,7 +223,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   {
     name: 'L2TipsKVStore',
     writeToStore: async kvStore => {
-      const l2TipsStore = new L2TipsKVStore(kvStore, 'pxe');
+      const l2TipsStore = new L2TipsKVStore(kvStore, 'pxe', GENESIS_BLOCK_HEADER_HASH);
 
       const block = buildL2Block();
       const publishedCheckpoint = new PublishedCheckpoint(

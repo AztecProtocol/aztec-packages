@@ -5,7 +5,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
-import type { BaseBuffer32 } from '@aztec/foundation/buffer';
+import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
 import { keccak256 } from '@aztec/foundation/crypto/keccak';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -92,7 +92,7 @@ export class BlockProposal extends Gossipable implements Signable {
   }
 
   override generateP2PMessageIdentifier(): Promise<BaseBuffer32> {
-    return Promise.resolve(BlockProposalHash.fromBuffer(keccak256(this.signature.toBuffer())));
+    return Promise.resolve(new Buffer32(this.getPayloadHashBuffer()));
   }
 
   get archive(): Fr {
@@ -135,6 +135,21 @@ export class BlockProposal extends Gossipable implements Signable {
       this.txHashes.length,
       this.txHashes,
     ]);
+  }
+
+  private getPayloadHashBuffer(): Buffer {
+    return keccak256(this.getPayloadToSign());
+  }
+
+  /**
+   * Returns a keccak256 hash of the signed payload.
+   * Used by the attestation pool to dedup distinct signed payloads at the same
+   * (slot, indexWithinCheckpoint) regardless of archive collisions.
+   * The hash deliberately excludes the signature so non-deterministic ECDSA
+   * re-signs of the same payload do not look like equivocation.
+   */
+  getPayloadHash(): BlockProposalHash {
+    return BlockProposalHash.fromBuffer(this.getPayloadHashBuffer());
   }
 
   static async createProposalFromSigner(

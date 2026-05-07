@@ -17,7 +17,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2TipsProvider } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -212,6 +212,14 @@ export class PXE {
 
     const info = await node.getNodeInfo();
 
+    // Source the genesis block hash from the node so PXE's L2BlockStream agrees with the node's
+    // archiver on the dynamic initial header hash. Without this the tip store would fall back to
+    // the static `GENESIS_BLOCK_HEADER_HASH` constant, which only matches deployments with the
+    // default empty genesis (timestamp 0, no prefilled public data) and diverges otherwise — the
+    // sync at block 0 would then get stuck in `areBlockHashesEqualAt` and abort. If the node does
+    // not return a genesis block (older node or test fixture) we fall back to the static constant.
+    const initialBlockHash = (await node.getBlock(BlockNumber.ZERO))?.hash ?? GENESIS_BLOCK_HEADER_HASH;
+
     const proverEnabled = config.proverEnabled !== undefined ? config.proverEnabled : info.realProofs;
     const {
       addressStore,
@@ -225,7 +233,7 @@ export class PXE {
       capsuleStore,
       keyStore,
       l2TipsStore,
-    } = openPxeStores(store);
+    } = openPxeStores(store, initialBlockHash);
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,

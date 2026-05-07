@@ -1,8 +1,7 @@
 use crate::test::utils;
 use crate::Token;
 use aztec::{
-    oracle::random::random, protocol::traits::Deserialize,
-    test::helpers::authwit::add_private_authwit_from_call,
+    oracle::random::random, protocol::traits::Deserialize, test::helpers::authwit::add_private_authwit_from_call,
 };
 use generic_proxy_contract::GenericProxy;
 use uint_note::PartialUintNote;
@@ -21,13 +20,12 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
         utils::setup_and_mint_to_private_with_proxy();
 
     let deposit_amount: u128 = mint_amount / (10 as u128);
-    let transfer_call = Token::at(token_contract_address)
-        .transfer_to_public_and_prepare_private_balance_increase(
-            liquidity_provider,
-            proxy,
-            deposit_amount,
-            1,
-        );
+    let transfer_call = Token::at(token_contract_address).transfer_to_public_and_prepare_private_balance_increase(
+        liquidity_provider,
+        proxy,
+        deposit_amount,
+        1,
+    );
 
     // Add authwit such that the proxy can transfer the deposit amount of the liquidity provider to the public balance
     // of itself.
@@ -57,10 +55,7 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_and_fin
     // --> this should send the `change_amount` from proxy's public balance to liquidity provider's private balance
     let change_amount = deposit_amount / (2 as u128);
 
-    env.call_public(
-        proxy,
-        Token::at(token_contract_address).finalize_transfer_to_private(change_amount, partial_note),
-    );
+    env.call_public(proxy, Token::at(token_contract_address).finalize_transfer_to_private(change_amount, partial_note));
 
     // Check balances after the partial note is finalized
     utils::check_private_balance(
@@ -121,13 +116,12 @@ unconstrained fn transfer_to_public_and_prepare_private_balance_increase_failure
     let transfer_amount = mint_amount / (10 as u128);
 
     // Try executing transfer without approval
-    let transfer_call = Token::at(token_contract_address)
-        .transfer_to_public_and_prepare_private_balance_increase(
-            sender,
-            recipient,
-            transfer_amount,
-            1,
-        );
+    let transfer_call = Token::at(token_contract_address).transfer_to_public_and_prepare_private_balance_increase(
+        sender,
+        recipient,
+        transfer_amount,
+        1,
+    );
     env.call_private(
         sender,
         GenericProxy::at(proxy).forward_private_4(

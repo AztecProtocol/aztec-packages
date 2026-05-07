@@ -33,13 +33,8 @@ pub contract GenericProxy {
     }
 
     #[external("private")]
-    fn forward_private_4_and_return(
-        target: AztecAddress,
-        selector: FunctionSelector,
-        args: [Field; 4],
-    ) -> Field {
-        let returns: Field =
-            self.context.call_private_function(target, selector, args).get_preimage();
+    fn forward_private_4_and_return(target: AztecAddress, selector: FunctionSelector, args: [Field; 4]) -> Field {
+        let returns: Field = self.context.call_private_function(target, selector, args).get_preimage();
         returns
     }
 

@@ -1,7 +1,7 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
-import { GENESIS_BLOCK_HEADER_HASH } from '../block_hash.js';
+import type { BlockHash } from '../block_hash.js';
 import type { L2Block } from '../l2_block.js';
 import {
   type CheckpointId,
@@ -17,6 +17,7 @@ import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalD
  * while delegating storage operations to subclasses.
  */
 export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
+  constructor(protected readonly initialBlockHash: BlockHash) {}
   // Abstract storage primitives - subclasses implement these based on their backing store
 
   /** Gets the block number for a given tag. */
@@ -60,7 +61,10 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
 
   // Public interface implementation
 
-  public getL2BlockHash(number: BlockNumber): Promise<string | undefined> {
+  public async getL2BlockHash(number: BlockNumber): Promise<string | undefined> {
+    if (number === 0) {
+      return (await this.getStoredBlockHash(number)) ?? this.initialBlockHash.toString();
+    }
     return this.getStoredBlockHash(number);
   }
 
@@ -123,7 +127,7 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
   private async getBlockId(tag: L2BlockTag): Promise<L2BlockId> {
     const blockNumber = await this.getTip(tag);
     if (blockNumber === undefined || blockNumber === 0) {
-      return { number: BlockNumber.ZERO, hash: GENESIS_BLOCK_HEADER_HASH.toString() };
+      return { number: BlockNumber.ZERO, hash: this.initialBlockHash.toString() };
     }
     const blockHash = await this.getStoredBlockHash(blockNumber);
     if (!blockHash) {
@@ -139,7 +143,6 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
     }
     const checkpointNumber = await this.getCheckpointNumberForBlock(blockNumber);
     if (checkpointNumber === undefined) {
-      // No checkpoint associated with this block yet
       return { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() };
     }
     const checkpoint = await this.getCheckpoint(checkpointNumber);

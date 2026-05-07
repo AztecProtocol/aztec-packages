@@ -52,19 +52,16 @@ describe(`deploys and transfers a private only token`, () => {
     const tokenSecretKey = Fr.random();
     const tokenPublicKeys = (await deriveKeys(tokenSecretKey)).publicKeys;
 
-    const tokenDeployment = PrivateTokenContract.deployWithPublicKeys(
-      tokenPublicKeys,
-      wallet,
-      initialBalance,
-      deployerAddress,
-    );
+    const tokenDeployment = PrivateTokenContract.deploy(wallet, initialBalance, deployerAddress, {
+      universalDeploy: true,
+      publicKeys: tokenPublicKeys,
+    });
     const tokenInstance = await tokenDeployment.getInstance();
     await wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
     const { contract: token } = await tokenDeployment.send({
       from: deployerAddress,
       // The contract constructor initializes private storage vars that need the contract's own nullifier key.
       additionalScopes: [tokenInstance.address],
-      universalDeploy: true,
       skipInstancePublication: true,
       skipClassPublication: true,
       skipInitialization: false,

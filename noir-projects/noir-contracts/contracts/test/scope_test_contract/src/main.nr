@@ -83,10 +83,8 @@ pub contract ScopeTest {
             let deployer = env.create_light_account();
 
             // Deploy the contract
-            let contract_address = env.deploy("ScopeTest").with_private_initializer(
-                deployer,
-                ScopeTest::interface().constructor(),
-            );
+            let contract_address =
+                env.deploy("ScopeTest").with_private_initializer(deployer, ScopeTest::interface().constructor());
 
             (env, contract_address)
         }
@@ -102,8 +100,7 @@ pub contract ScopeTest {
             env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
 
             // Alice can read her own note
-            let read_value =
-                env.call_private(alice, ScopeTest::at(contract_address).read_note(alice));
+            let read_value = env.call_private(alice, ScopeTest::at(contract_address).read_note(alice));
             assert_eq(read_value, value);
         }
 
@@ -127,8 +124,7 @@ pub contract ScopeTest {
 
             env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
 
-            let _read_value =
-                env.call_private(bob, ScopeTest::at(contract_address).read_note(alice));
+            let _read_value = env.call_private(bob, ScopeTest::at(contract_address).read_note(alice));
         }
 
         #[test]
@@ -159,8 +155,7 @@ pub contract ScopeTest {
 
             env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
 
-            let read_value =
-                env.view_private(alice, ScopeTest::at(contract_address).view_note(alice));
+            let read_value = env.view_private(alice, ScopeTest::at(contract_address).view_note(alice));
             assert_eq(read_value, value);
         }
 
@@ -174,8 +169,7 @@ pub contract ScopeTest {
 
             env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
 
-            let _read_value =
-                env.view_private(bob, ScopeTest::at(contract_address).view_note(alice));
+            let _read_value = env.view_private(bob, ScopeTest::at(contract_address).view_note(alice));
         }
 
         #[test]
