@@ -11,8 +11,7 @@
 //!
 //! ## Declaration
 //!
-//! All of a contract's state variables, both public and private, are declared in a single place: as members of a
-//! struct
+//! All of a contract's state variables, both public and private, are declared in a single place: as members of a struct
 //! to which the [`#[storage]`](crate::macros::storage::storage) macro is applied.
 //!
 //! ```noir
@@ -35,32 +34,22 @@
 //! Public state variables typically store their contents in the public storage tree, and can therefore only be written
 //! to by public contract functions.
 //!
-//! | State Variable                                                    | Mutable?            | Readable in Private? |
-//! Writable in Private? | Example Use Case                                                                   |
-//! | ----------------------------------------------------------------- | ------------------- | -------------------- |
-//! -------------------- | ---------------------------------------------------------------------------------- |
-//! | [`PublicMutable`](crate::state_vars::PublicMutable)               | yes                 | no                   |
-//! no                   | Configuration of admins, global state (e.g. token total supply, total votes)       |
-//! | [`PublicImmutable`](crate::state_vars::PublicImmutable)           | no                  | yes                  |
-//! no                   | Fixed configuration, one-way actions (e.g. initialization settings for a proposal) |
-//! | [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable) | yes (after a delay) | yes                  |
-//! no                   | Non time sensitive system configuration                                            |
+//! | State Variable                                                    | Mutable?            | Readable in Private? | Writable in Private? | Example Use Case                                                                   |
+//! | ----------------------------------------------------------------- | ------------------- | -------------------- | -------------------- | ---------------------------------------------------------------------------------- |
+//! | [`PublicMutable`](crate::state_vars::PublicMutable)               | yes                 | no                   | no                   | Configuration of admins, global state (e.g. token total supply, total votes)       |
+//! | [`PublicImmutable`](crate::state_vars::PublicImmutable)           | no                  | yes                  | no                   | Fixed configuration, one-way actions (e.g. initialization settings for a proposal) |
+//! | [`DelayedPublicMutable`](crate::state_vars::DelayedPublicMutable) | yes (after a delay) | yes                  | no                   | Non time sensitive system configuration                                            |
 //!
 //! ### Private State Variables
 //!
 //! Private state variables typically store their contents in the note and nullifier trees, and are therefore mainly
 //! interacted with from private contract functions.
 //!
-//! | State Variable                                            | Mutable? | Cost to Read? | Writable by Third Parties?
-//! | Example Use Case                                                                                               |
-//! | --------------------------------------------------------- | -------- | ------------- | --------------------------
-//! | -------------------------------------------------------------------------------------------------------------- |
-//! | [`PrivateMutable`](crate::state_vars::PrivateMutable)     | yes      | yes           | no
-//! | Mutable user state only accessible by them (e.g. user settings or keys)                                        |
-//! | [`PrivateImmutable`](crate::state_vars::PrivateImmutable) | no       | no            | no
-//! | Fixed configuration, one-way actions (e.g. initialization settings for a proposal)                             |
-//! | [`PrivateSet`](crate::state_vars::PrivateSet)             | yes      | yes           | yes
-//! | Aggregated state others can add to, e.g. token balance (set of amount notes), NFT collections (set of NFT ids) |
+//! | State Variable                                            | Mutable? | Cost to Read? | Writable by Third Parties? | Example Use Case                                                                                               |
+//! | --------------------------------------------------------- | -------- | ------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+//! | [`PrivateMutable`](crate::state_vars::PrivateMutable)     | yes      | yes           | no                         | Mutable user state only accessible by them (e.g. user settings or keys)                                        |
+//! | [`PrivateImmutable`](crate::state_vars::PrivateImmutable) | no       | no            | no                         | Fixed configuration, one-way actions (e.g. initialization settings for a proposal)                             |
+//! | [`PrivateSet`](crate::state_vars::PrivateSet)             | yes      | yes           | yes                        | Aggregated state others can add to, e.g. token balance (set of amount notes), NFT collections (set of NFT ids) |
 //!
 //! ## Storage Slots
 //!
