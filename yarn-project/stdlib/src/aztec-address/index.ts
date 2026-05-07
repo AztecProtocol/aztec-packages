@@ -1,8 +1,5 @@
-<<<<<<< HEAD
 /* eslint-disable @typescript-eslint/no-unsafe-declaration-merging */
-=======
 import { NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
->>>>>>> 45f7a03ebe (feat: allow setting additional scopes in nr tests (#22968))
 import { Fr, fromBuffer } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { type ZodFor, bufferSchemaFor, hexSchemaFor } from '@aztec/foundation/schemas';

@@ -7,13 +7,8 @@ use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::{
-<<<<<<< HEAD
-        CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_PRIVATE_LOGS_PER_TX, NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
-=======
         CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
         PRIVATE_LOG_SIZE_IN_FIELDS,
->>>>>>> 45f7a03ebe (feat: allow setting additional scopes in nr tests (#22968))
     },
     contract_instance::ContractInstance,
     traits::{Deserialize, ToField},
