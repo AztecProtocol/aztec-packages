@@ -457,8 +457,8 @@ TEST(polynomials, ParseSizeStringOverflowAsserts)
     ASSERT_THROW_OR_ABORT(parse_size_string("18014398509481984k"), ".*");
 }
 
-#ifndef NDEBUG
-// compute_efficient_interpolation asserts (debug-only) when evaluation points are not all distinct.
+// compute_efficient_interpolation asserts (always-on, not _DEBUG) when evaluation points are not all distinct,
+// because batch_invert silently skips zero entries and would otherwise produce wrong output.
 TEST(polynomials, ComputeEfficientInterpolationDuplicatePointsAsserts)
 {
     GTEST_FLAG_SET(death_test_style, "threadsafe");
@@ -470,7 +470,6 @@ TEST(polynomials, ComputeEfficientInterpolationDuplicatePointsAsserts)
     ASSERT_THROW_OR_ABORT(
         polynomial_arithmetic::compute_efficient_interpolation<FF>(src.data(), dest.data(), points.data(), n), ".*");
 }
-#endif
 
 // fft_inner_parallel asserts when called in-place (coeffs == target).
 TEST(polynomials, FftInnerParallelInPlaceAsserts)
