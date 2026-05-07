@@ -209,12 +209,9 @@ namespace tx;
         is_revertible,
         read_pi_start_offset,
         read_pi_length_offset,
-        sel_non_revertible_append_note_hash,
-        sel_non_revertible_append_nullifier,
-        sel_non_revertible_append_l2_l1_msg,
-        sel_revertible_append_note_hash,
-        sel_revertible_append_nullifier,
-        sel_revertible_append_l2_l1_msg,
+        sel_append_note_hash,
+        sel_append_nullifier,
+        sel_append_l2_l1_msg,
         next_phase_on_revert
     }
     in
@@ -228,12 +225,9 @@ namespace tx;
         precomputed.is_revertible,
         precomputed.read_pi_start_offset,
         precomputed.read_pi_length_offset,
-        precomputed.sel_non_revertible_append_note_hash,
-        precomputed.sel_non_revertible_append_nullifier,
-        precomputed.sel_non_revertible_append_l2_l1_msg,
-        precomputed.sel_revertible_append_note_hash,
-        precomputed.sel_revertible_append_nullifier,
-        precomputed.sel_revertible_append_l2_l1_msg,
+        precomputed.sel_append_note_hash,
+        precomputed.sel_append_nullifier,
+        precomputed.sel_append_l2_l1_msg,
         precomputed.next_phase_on_revert
     };
 
@@ -465,18 +459,16 @@ namespace tx;
    /***************************************************************************
     * Private Side Effect Insertions
     **************************************************************************/
-    pol commit sel_revertible_append_note_hash; // @boolean
-    pol commit sel_non_revertible_append_note_hash; // @boolean
-    pol commit sel_revertible_append_nullifier; // @boolean
-    pol commit sel_non_revertible_append_nullifier; // @boolean
-    pol commit sel_revertible_append_l2_l1_msg; // @boolean
-    pol commit sel_non_revertible_append_l2_l1_msg; // @boolean
-    // The 6 above selectors are booleans thanks to #[READ_PHASE_SPEC] on active rows.
+    pol commit sel_append_note_hash; // @boolean
+    pol commit sel_append_nullifier; // @boolean
+    pol commit sel_append_l2_l1_msg; // @boolean
+    // The 3 above selectors are booleans thanks to #[READ_PHASE_SPEC] on active rows.
     // Furthermore, phase spec guarantees that they are mutually exclusive.
+    // Whether such an append is revertible or not is determined by `is_revertible`.
 
     // A tree selector means we need to get the tree value
-    pol commit is_tree_insert_phase; // @boolean on active rows (follows from mutual exclusivity of the 6 above selectors)
-    is_tree_insert_phase = sel_revertible_append_note_hash + sel_non_revertible_append_note_hash + sel_revertible_append_nullifier + sel_non_revertible_append_nullifier;
+    pol commit is_tree_insert_phase; // @boolean on active rows (follows from mutual exclusivity of the above selectors)
+    is_tree_insert_phase = sel_append_note_hash + sel_append_nullifier;
     pol commit leaf_value;
     // Shared column to track the inverse of the remaining side effects for note hashes, nullifiers, and L2 to L1 messages
     pol commit remaining_side_effects_inv;
@@ -491,7 +483,7 @@ namespace tx;
 
     // ===== NOTE HASHES =====
     pol commit sel_try_note_hash_append; // @boolean (follows from definition)
-    sel_try_note_hash_append = (sel - is_padded) * (sel_revertible_append_note_hash + sel_non_revertible_append_note_hash);
+    sel_try_note_hash_append = (sel - is_padded) * sel_append_note_hash;
 
     // If we are at the maximum emitted note hashes, we must revert
     pol REMAINING_NOTE_HASH_WRITES = constants.MAX_NOTE_HASHES_PER_TX - prev_num_note_hashes_emitted;
@@ -509,7 +501,9 @@ namespace tx;
         prev_note_hash_tree_size,
         prev_note_hash_tree_root,
         precomputed.zero, // Already siloed. (No need to pass address.)
-        sel_revertible_append_note_hash, // Not unique for revertible note hashes.
+        is_revertible, // Used as `sel_unique`: revertible note hashes need to be made unique with a nonce.
+                       // On rows where sel_note_hash_append == 1 (NR_NOTE_INSERTION or R_NOTE_INSERTION),
+                       // is_revertible is exactly the discriminator we want.
         prev_num_note_hashes_emitted,
         discard, // from tx_discard.pil virtual trace
         next_note_hash_tree_root
@@ -532,7 +526,7 @@ namespace tx;
 
     // ===== NULLIFIERS =====
     pol commit sel_try_nullifier_append; // @boolean (follows from definition)
-    sel_try_nullifier_append = (sel - is_padded) * (sel_revertible_append_nullifier + sel_non_revertible_append_nullifier);
+    sel_try_nullifier_append = (sel - is_padded) * sel_append_nullifier;
 
     pol commit nullifier_limit_error; // @boolean
     nullifier_limit_error * (1 - nullifier_limit_error) = 0;
@@ -594,7 +588,7 @@ namespace tx;
 
     // ===== L2 - L1 Messages =====
     pol commit sel_try_l2_l1_msg_append; // @boolean (follows from definition)
-    sel_try_l2_l1_msg_append = (sel - is_padded) * (sel_revertible_append_l2_l1_msg + sel_non_revertible_append_l2_l1_msg);
+    sel_try_l2_l1_msg_append = (sel - is_padded) * sel_append_l2_l1_msg;
 
     pol commit l2_l1_msg_contract_address;
     pol commit l2_l1_msg_recipient;

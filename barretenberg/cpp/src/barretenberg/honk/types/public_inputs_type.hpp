@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/constants.hpp"
 #include <cstdint>
 
 namespace bb {
@@ -53,12 +54,15 @@ static constexpr std::size_t INVALID_PUBLIC_INPUTS_SIZE = 0;
 static constexpr std::size_t MEGA_EXECUTION_TRACE_NUM_WIRES = 4;
 
 // Number of bb::fr elements used to represent the public inputs of an INIT/INNER/RESET/TAIL kernel
-static constexpr std::size_t KERNEL_PUBLIC_INPUTS_SIZE =
-    /*pairing_inputs*/ PAIRING_POINTS_SIZE +
-    /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
-    /*app_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
-    /*ecc_op_hash*/ FR_PUBLIC_INPUTS_SIZE +
-    /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
+// verifying num_apps application circuits in its accumulation group.
+constexpr std::size_t kernel_public_inputs_size(std::size_t num_apps)
+{
+    return /*pairing_inputs*/ PAIRING_POINTS_SIZE +
+           /*kernel_return_data*/ GOBLIN_GROUP_PUBLIC_INPUTS_SIZE +
+           /*app_return_data[num_apps]*/ (num_apps * GOBLIN_GROUP_PUBLIC_INPUTS_SIZE) +
+           /*ecc_op_hash*/ FR_PUBLIC_INPUTS_SIZE +
+           /*output_hn_accum_hash*/ FR_PUBLIC_INPUTS_SIZE;
+}
 
 // Number of bb::fr elements used to represent the default public inputs, i.e., the pairing points
 static constexpr std::size_t DEFAULT_PUBLIC_INPUTS_SIZE = PAIRING_POINTS_SIZE;
