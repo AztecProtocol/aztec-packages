@@ -43,6 +43,6 @@ export class Contract extends ContractBase {
   ) {
     const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
       Contract.at(instance.address, artifact, wallet);
-    return new DeployMethod(wallet, artifact, postDeployCtor, args, constructorName, instantiation);
+    return DeployMethod.create(wallet, artifact, postDeployCtor, args, constructorName, instantiation);
   }
 }

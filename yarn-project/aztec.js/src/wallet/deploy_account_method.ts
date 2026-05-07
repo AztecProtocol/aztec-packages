@@ -11,11 +11,11 @@ import type { Account } from '../account/account.js';
 import type { Contract } from '../contract/contract.js';
 import type { ContractBase } from '../contract/contract_base.js';
 import {
-  DeployMethod,
   type DeployOptions,
   type DeployOptionsWithoutWait,
   type RequestDeployOptions,
   type SimulateDeployOptions,
+  UniversalDeployMethod,
 } from '../contract/deploy_method.js';
 import {
   type FeePaymentMethodOption,
@@ -78,7 +78,7 @@ type DeployAccountInteractionOptions = Pick<
  * Modified version of the DeployMethod used to deploy account contracts. Supports deploying
  * contracts that can pay for their own fee, plus some preconfigured options to avoid errors.
  */
-export class DeployAccountMethod<TContract extends ContractBase = Contract> extends DeployMethod<TContract> {
+export class DeployAccountMethod<TContract extends ContractBase = Contract> extends UniversalDeployMethod<TContract> {
   constructor(
     publicKeys: PublicKeys,
     wallet: Wallet,
