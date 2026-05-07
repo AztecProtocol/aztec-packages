@@ -1,4 +1,4 @@
-import { DomainSeparator, NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { poseidon2Hash, poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -110,7 +110,7 @@ export async function computeSiloedPublicInitializationNullifier(contract: Aztec
  * @dev Must match the implementation in noir-protocol-circuits/crates/types/src/hash.nr > compute_protocol_nullifier
  */
 export function computeProtocolNullifier(txRequestHash: Fr): Promise<Fr> {
-  return siloNullifier(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS), txRequestHash);
+  return siloNullifier(AztecAddress.NULL_MSG_SENDER, txRequestHash);
 }
 
 /** Domain-separates a raw log tag with the given domain separator. */
