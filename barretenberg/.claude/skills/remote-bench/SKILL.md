@@ -1,7 +1,7 @@
 ---
 name: remote-bench
 description: Run benchmarks on the dedicated remote EC2 benchmarking machine for noise-free, single-run results. Handles env var validation, lock management, binary transfer, and result collection. Use with /benchmark-chonk or any BB benchmark target.
-argument-hint: <target> e.g. "bb", "chonk_bench", "ultra_honk_bench", "wasm bb"
+argument-hint: <target> e.g. "bb", "ultra_honk_bench", "wasm bb"
 ---
 
 # Remote Bench
@@ -95,7 +95,7 @@ The standard flow used by `scripts/benchmark_remote.sh`:
 ```bash
 cd barretenberg/cpp
 
-BENCHMARK="bb"                    # or chonk_bench, ultra_honk_bench, etc.
+BENCHMARK="bb"                    # or ultra_honk_bench, etc. (Chonk: use bb with --scheme chonk on real example flows — there is no synthetic chonk benchmark)
 PRESET="clang20-no-avm"          # or clang20
 BUILD_DIR="build-no-avm"         # matches preset
 
@@ -204,13 +204,13 @@ Compare current branch vs baseline (builds and runs both on remote):
 
 ```bash
 # Native
-./scripts/compare_chonk_bench.sh                # ChonkBench/Full/6
 ./scripts/compare_branch_vs_baseline_remote.sh <target> '<filter>'
 
 # WASM
-./scripts/compare_chonk_bench_wasm.sh           # ChonkBench/Full/6
 ./scripts/compare_branch_vs_baseline_remote_wasm.sh <target> '<filter>'
 ```
+
+For Chonk A/B, do not use a synthetic benchmark — measure `bb prove --scheme chonk` against pinned `ivc-inputs.msgpack` for both branches and compare manually.
 
 These use Google Benchmark's `compare.py` for statistical analysis. Note: comparison scripts check out the baseline branch locally, so your working tree must be clean.
 
@@ -220,10 +220,7 @@ These use Google Benchmark's `compare.py` for statistical analysis. Note: compar
 |--------|---------|
 | `scripts/benchmark_remote.sh` | Generic: build locally, scp, run remotely |
 | `scripts/benchmark_wasm_remote.sh` | Same for WASM (wasmtime on remote) |
-| `scripts/benchmark_example_ivc_flow_remote.sh` | Chonk with pinned inputs on remote |
-| `scripts/benchmark_chonk.sh` | Synthetic chonk_bench on remote |
-| `scripts/compare_chonk_bench.sh` | A/B native comparison |
-| `scripts/compare_chonk_bench_wasm.sh` | A/B WASM comparison |
+| `scripts/benchmark_example_ivc_flow_remote.sh` | Chonk with pinned inputs on remote (the only realistic Chonk bench) |
 | `scripts/compare_branch_vs_baseline_remote.sh` | Generic A/B native |
 | `scripts/compare_branch_vs_baseline_remote_wasm.sh` | Generic A/B WASM |
 | `scripts/_benchmark_remote_lock.sh` | Lock mechanism (source it, don't run it) |
