@@ -14,7 +14,6 @@ import {
   AddressStore,
   CapsuleService,
   CapsuleStore,
-  composeHooks,
   type ContractStore,
   type ExecutionHooks,
   NoteStore,
@@ -23,6 +22,7 @@ import {
   RecipientTaggingStore,
   SenderAddressBookStore,
   SenderTaggingStore,
+  composeHooks,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
 import {
