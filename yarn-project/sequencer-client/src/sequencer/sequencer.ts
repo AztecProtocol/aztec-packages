@@ -408,10 +408,22 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       simulationOverridesPlan,
     );
 
+    const proposeContext = {
+      hasProposedCheckpoint: syncedTo.hasProposedCheckpoint,
+      proposedCheckpointNumber: syncedTo.proposedCheckpointData?.checkpointNumber,
+      checkpointedCheckpointNumber: syncedTo.checkpointedCheckpointNumber,
+      isInvalidating: !!invalidateCheckpoint,
+      invalidatingCheckpointNumber: invalidateCheckpoint?.checkpointNumber,
+      archiveForCheck: archiveForCheck.toString(),
+      overridePendingCheckpointNumber: simulationOverridesPlan?.pendingCheckpointNumber,
+      overrideArchive: simulationOverridesPlan?.pendingCheckpointState?.archive,
+      overrideFeeHeader: simulationOverridesPlan?.pendingCheckpointState?.feeHeader,
+    };
+
     if (canProposeCheck === undefined) {
       this.log.warn(
         `Cannot propose checkpoint ${checkpointNumber} at slot ${slot} due to failed rollup contract check`,
-        logCtx,
+        { ...logCtx, ...proposeContext },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Rollup contract check failed', slot });
       this.metrics.recordCheckpointPrecheckFailed('rollup_contract_check_failed');
@@ -421,7 +433,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     if (canProposeCheck.slot !== targetSlot) {
       this.log.warn(
         `Cannot propose block due to slot mismatch with rollup contract (this can be caused by a clock out of sync). Expected slot ${targetSlot} but got ${canProposeCheck.slot}.`,
-        { ...logCtx, rollup: canProposeCheck, expectedSlot: targetSlot },
+        { ...logCtx, ...proposeContext, rollup: canProposeCheck, expectedSlot: targetSlot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Slot mismatch', slot });
       this.metrics.recordCheckpointPrecheckFailed('slot_mismatch');
@@ -431,7 +443,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     if (canProposeCheck.checkpointNumber !== checkpointNumber) {
       this.log.warn(
         `Cannot propose due to block mismatch with rollup contract (this can be caused by a pending archiver sync). Expected checkpoint ${checkpointNumber} but got ${canProposeCheck.checkpointNumber}.`,
-        { ...logCtx, rollup: canProposeCheck, expectedSlot: slot },
+        { ...logCtx, ...proposeContext, rollup: canProposeCheck, expectedSlot: slot },
       );
       this.emit('proposer-rollup-check-failed', { reason: 'Block mismatch', slot });
       this.metrics.recordCheckpointPrecheckFailed('block_number_mismatch');
@@ -445,6 +457,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       `Preparing checkpoint proposal ${checkpointNumber} for target slot ${targetSlot} during wall-clock slot ${slot}`,
       {
         ...logCtx,
+        ...proposeContext,
         proposer,
         pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
       },
