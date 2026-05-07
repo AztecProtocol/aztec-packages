@@ -16,6 +16,7 @@
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 #include "sumcheck_round.hpp"
+#include <memory>
 
 namespace bb {
 
@@ -874,7 +875,11 @@ template <typename Flavor> class SumcheckVerifier {
         // For other flavors, we perform the sumcheck univariate consistency check
 
         bool verified = true;
-        ClaimedEvaluations purported_evaluations;
+        // Heap-allocate ClaimedEvaluations (AllValues) to keep the sumcheck-verify stack frame small.
+        // For recursive flavors with many columns (e.g. AVM), holding this inline on the stack can exceed the 8 MB
+        // stack limit once nested inside the inner-Mega AVM recursive verifier chain
+        auto purported_evaluations_storage = std::make_unique<ClaimedEvaluations>();
+        ClaimedEvaluations& purported_evaluations = *purported_evaluations_storage;
         for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
             round.process_round(transcript, multivariate_challenge, gate_separators, round_idx);
             verified = verified && !round.round_failed;
@@ -895,15 +900,16 @@ template <typename Flavor> class SumcheckVerifier {
         if constexpr (IsTranslatorFlavor<Flavor>) {
             // Translator path: receive full-circuit evaluations, set them, and complete
             // (computable precomputed selectors + L_0 scaling of minicircuit wires already placed above)
-            auto get_full_circuit_evaluations =
+            auto get_full_circuit_evaluations = std::make_unique<std::array<FF, Flavor::NUM_FULL_CIRCUIT_EVALUATIONS>>(
                 transcript->template receive_from_prover<std::array<FF, Flavor::NUM_FULL_CIRCUIT_EVALUATIONS>>(
-                    "Sumcheck:evaluations");
+                    "Sumcheck:evaluations"));
             Flavor::complete_full_circuit_evaluations(
-                purported_evaluations, get_full_circuit_evaluations, std::span<const FF>(multivariate_challenge));
+                purported_evaluations, *get_full_circuit_evaluations, std::span<const FF>(multivariate_challenge));
         } else {
-            auto transcript_evaluations =
-                transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
-            for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
+            // Heap-allocate transcript_evaluations for the same reason as purported_evaluations above.
+            auto transcript_evaluations = std::make_unique<std::array<FF, NUM_POLYNOMIALS>>(
+                transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations"));
+            for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), *transcript_evaluations)) {
                 eval = transcript_eval;
             }
         }
@@ -932,7 +938,7 @@ template <typename Flavor> class SumcheckVerifier {
 
         // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
-                                       .claimed_evaluations = purported_evaluations,
+                                       .claimed_evaluations = std::move(purported_evaluations),
                                        .verified = verified,
                                        .claimed_libra_evaluation = zk_correction_handler.get_libra_evaluation(),
                                        .round_univariate_commitments = round.get_round_univariate_commitments(),
