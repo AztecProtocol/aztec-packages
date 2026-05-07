@@ -7,7 +7,6 @@
 #include "barretenberg/transcript/origin_tag.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include <cstring>
 #include <string>
 
 namespace bb {
@@ -24,29 +23,13 @@ inline int highest_set_bit_256(uint256_t value)
     if (value == 0) {
         return -1;
     }
-    // Check high bits first, then go down
-    for (int idx = 0; idx < 3; idx++) {
-        auto chunk = static_cast<uint64_t>(value >> 64 * (3 - idx));
+    for (int idx = 0; idx < 4; idx++) {
+        auto chunk = static_cast<uint64_t>(value >> (64 * (3 - idx)));
         if (chunk != 0) {
             return 255 - (idx * 64) - __builtin_clzll(chunk);
         }
     }
-
-    // Lowest bits
-    auto chunk = static_cast<uint64_t>(value);
-    return 63 - __builtin_clzll(chunk);
-}
-
-/**
- * @brief Safely extract uint256_t from uint512_t data array using memcpy to avoid strict aliasing issues
- */
-inline uint256_t extract_uint256(const uint256_t& data)
-{
-    uint256_t result = 0;
-    for (size_t idx = 0; idx < 4; ++idx) {
-        std::memcpy(&result.data[idx], &data.data[idx], sizeof(uint64_t));
-    }
-    return result;
+    return -1;
 }
 } // namespace
 
@@ -68,8 +51,8 @@ inline uint256_t extract_uint256(const uint256_t& data)
 void check_round_provenance(const uint512_t& provenance_a, const uint512_t& provenance_b)
 {
     // Lower 256 bits = submitted rounds, Upper 256 bits = challenge rounds
-    const auto submitted_a = extract_uint256(provenance_a.lo);
-    const auto submitted_b = extract_uint256(provenance_b.lo);
+    const uint256_t& submitted_a = provenance_a.lo;
+    const uint256_t& submitted_b = provenance_b.lo;
 
     // Nothing to check if either has no submitted data or both are from the same round(s)
     if (submitted_a == 0 || submitted_b == 0 || submitted_a == submitted_b) {
@@ -77,9 +60,7 @@ void check_round_provenance(const uint512_t& provenance_a, const uint512_t& prov
     }
 
     // Ensure that values from different rounds are not mixing without max challenge round >= max submitted round
-    const auto challenges_a = extract_uint256(provenance_a.hi);
-    const auto challenges_b = extract_uint256(provenance_b.hi);
-    const int max_challenge_round = highest_set_bit_256(challenges_a | challenges_b);
+    const int max_challenge_round = highest_set_bit_256(provenance_a.hi | provenance_b.hi);
     const int max_submitted_round = highest_set_bit_256(submitted_a | submitted_b);
 
     if (max_challenge_round < max_submitted_round) {

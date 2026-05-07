@@ -166,7 +166,7 @@ struct OriginTag {
     void set_free_witness()
     {
         transcript_index = FREE_WITNESS;
-        round_provenance = 0;
+        round_provenance = numeric::uint512_t(0);
     }
     void unset_free_witness()
     {
