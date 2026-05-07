@@ -325,7 +325,7 @@ describe('Private Execution test suite', () => {
     // on the input.
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
 
-    // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
+    // Mock getL2Tips and getBlockHeader for syncTaggedPrivateLogs
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
 
     // TODO: refactor. Maybe it's worth stubbing a key store
