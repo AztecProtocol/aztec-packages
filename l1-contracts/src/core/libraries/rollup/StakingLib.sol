@@ -79,6 +79,8 @@ struct StakingStorage {
   IERC20 stakingAsset;
   address slasher;
   uint96 localEjectionThreshold;
+  address pendingSlasher;
+  CompressedTimestamp pendingSlasherReadyAt;
   GSE gse;
   CompressedTimestamp exitDelay;
   mapping(address attester => Exit) exits;
@@ -103,6 +105,9 @@ library StakingLib {
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
+  /// @notice Delay between queuing a slasher replacement and being able to finalize it.
+  uint256 internal constant SLASHER_EXECUTION_DELAY = 60 days;
+
   function initialize(
     IERC20 _stakingAsset,
     GSE _gse,
@@ -121,22 +126,42 @@ library StakingLib {
     store.localEjectionThreshold = _localEjectionThreshold.toUint96();
   }
 
-  function setSlasher(address _slasher) internal {
+  function queueSetSlasher(address _slasher) internal {
     StakingStorage storage store = getStorage();
 
-    address oldSlasher = store.slasher;
-    store.slasher = _slasher;
+    Timestamp readyAt = Timestamp.wrap(block.timestamp + SLASHER_EXECUTION_DELAY);
+    store.pendingSlasher = _slasher;
+    store.pendingSlasherReadyAt = readyAt.compress();
 
-    emit IStakingCore.SlasherUpdated(oldSlasher, _slasher);
+    emit IStakingCore.PendingSlasherQueued(_slasher, Timestamp.unwrap(readyAt));
   }
 
-  function setLocalEjectionThreshold(uint256 _localEjectionThreshold) internal {
+  function cancelSetSlasher() internal {
     StakingStorage storage store = getStorage();
 
-    uint256 oldLocalEjectionThreshold = store.localEjectionThreshold;
-    store.localEjectionThreshold = _localEjectionThreshold.toUint96();
+    require(CompressedTimestamp.unwrap(store.pendingSlasherReadyAt) != 0, Errors.Staking__NoPendingSlasher());
 
-    emit IStakingCore.LocalEjectionThresholdUpdated(oldLocalEjectionThreshold, _localEjectionThreshold);
+    address cancelled = store.pendingSlasher;
+    store.pendingSlasher = address(0);
+    store.pendingSlasherReadyAt = CompressedTimestamp.wrap(0);
+
+    emit IStakingCore.PendingSlasherCancelled(cancelled);
+  }
+
+  function finalizeSetSlasher() internal {
+    StakingStorage storage store = getStorage();
+
+    require(CompressedTimestamp.unwrap(store.pendingSlasherReadyAt) != 0, Errors.Staking__NoPendingSlasher());
+    Timestamp readyAt = store.pendingSlasherReadyAt.decompress();
+    require(Timestamp.wrap(block.timestamp) >= readyAt, Errors.Staking__SlasherNotReady(readyAt));
+
+    address oldSlasher = store.slasher;
+    address newSlasher = store.pendingSlasher;
+    store.slasher = newSlasher;
+    store.pendingSlasher = address(0);
+    store.pendingSlasherReadyAt = CompressedTimestamp.wrap(0);
+
+    emit IStakingCore.SlasherUpdated(oldSlasher, newSlasher);
   }
 
   /**
@@ -465,6 +490,7 @@ library StakingLib {
   }
 
   function updateStakingQueueConfig(StakingQueueConfig memory _config) internal {
+    assertValidQueueConfig(_config);
     getStorage().queueConfig = _config.compress();
     emit IStakingCore.StakingQueueConfigUpdated(_config);
   }
@@ -601,6 +627,14 @@ library StakingLib {
 
   function getCachedAvailableValidatorFlushes() internal view returns (uint256) {
     return getStorage().availableValidatorFlushes;
+  }
+
+  /// @notice Enforces invariants on a {StakingQueueConfig}. Both fields must stay non-zero
+  ///         because {getEntryQueueFlushSize} divides by `normalFlushSizeQuotient` and because
+  ///         a zero `normalFlushSizeMin` can close the queue on a running rollup.
+  function assertValidQueueConfig(StakingQueueConfig memory _config) internal pure {
+    require(_config.normalFlushSizeMin > 0, Errors.Staking__InvalidStakingQueueConfig());
+    require(_config.normalFlushSizeQuotient > 0, Errors.Staking__InvalidNormalFlushSizeQuotient());
   }
 
   function getStorage() internal pure returns (StakingStorage storage storageStruct) {

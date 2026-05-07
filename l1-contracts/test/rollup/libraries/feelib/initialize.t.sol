@@ -31,6 +31,22 @@ contract InitializeTest is TestBase {
     feeLibWrapper.initialize(0, TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
   }
 
+  function test_WhenProvingCostBelowFloor(uint256 _provingCost) external {
+    // it reverts with {FeeLib__ProvingCostBelowFloor}
+    // Without enforcement here, a deploy with provingCost < 2 would permanently freeze the
+    // rate limiter (the step-cap algebra in updateProvingCostPerMana requires current >= 2).
+    uint256 provingCost = bound(_provingCost, 0, 1);
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__ProvingCostBelowFloor.selector, provingCost, 2));
+    feeLibWrapper.initialize(1, EthValue.wrap(provingCost), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
+  }
+
+  function test_WhenProvingCostAtFloor() external {
+    // it initializes successfully at the floor
+    feeLibWrapper.initialize(1, EthValue.wrap(2), TestConstants.AZTEC_INITIAL_ETH_PER_FEE_ASSET);
+    assertEq(EthValue.unwrap(feeLibWrapper.getConfig().provingCostPerMana), 2);
+  }
+
   function test_WhenManaLimitGTUint32(uint256 _manaTarget) external {
     // it reverts with {FeeLib__InvalidManaLimit}
 

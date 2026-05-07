@@ -15,7 +15,7 @@ import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib
 import {ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardConfig, MutableRewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {RewardBoostConfig} from "@aztec/core/reward-boost/RewardBooster.sol";
 import {IHaveVersion} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
@@ -111,7 +111,7 @@ interface IRollupCore {
   );
   event L2ProofVerified(uint256 indexed checkpointNumber, address indexed proverId);
   event CheckpointInvalidated(uint256 indexed checkpointNumber);
-  event RewardConfigUpdated(RewardConfig rewardConfig);
+  event RewardConfigUpdated(MutableRewardConfig rewardConfig);
   event ManaTargetUpdated(uint256 indexed manaTarget);
   event PrunedPending(uint256 provenCheckpointNumber, uint256 pendingCheckpointNumber);
 
@@ -146,7 +146,7 @@ interface IRollupCore {
     address[] memory _committee
   ) external;
 
-  function setRewardConfig(RewardConfig memory _config) external;
+  function setRewardConfig(MutableRewardConfig memory _config) external;
   function updateManaTarget(uint256 _manaTarget) external;
 
   // solhint-disable-next-line func-name-mixedcase

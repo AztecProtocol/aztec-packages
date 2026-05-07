@@ -131,6 +131,8 @@ library Errors {
   error ValidatorSelection__ProposerIndexTooLarge(uint256 index);
   error ValidatorSelection__EpochNotStable(uint256 queriedEpoch, uint32 currentTimestamp);
   error ValidatorSelection__InvalidLagInEpochs(uint256 lagInEpochsForValidatorSet, uint256 lagInEpochsForRandao);
+  error ValidatorSelection__EscapeHatchAlreadySet();
+  error ValidatorSelection__EscapeHatchCannotBeZero();
 
   // Staking
   error Staking__AlreadyQueued(address _attester);
@@ -167,6 +169,8 @@ library Errors {
   error Staking__InsufficientBootstrapValidators(uint256 queueSize, uint256 bootstrapFlushSize);
   error Staking__InvalidStakingQueueConfig();
   error Staking__InvalidNormalFlushSizeQuotient();
+  error Staking__NoPendingSlasher();
+  error Staking__SlasherNotReady(Timestamp readyAt);
 
   // Fee Juice Portal
   error FeeJuicePortal__AlreadyInitialized(); // 0xc7a172fe
@@ -184,6 +188,9 @@ library Errors {
   error FeeLib__InvalidManaTarget(uint256 minimum, uint256 provided);
   error FeeLib__InvalidManaLimit(uint256 maximum, uint256 provided);
   error FeeLib__InvalidInitialEthPerFeeAsset(uint256 provided, uint256 minimum, uint256 maximum);
+  error FeeLib__ProvingCostBelowFloor(uint256 provided, uint256 minimum);
+  error FeeLib__ProvingCostCooldown(uint256 nextAllowed);
+  error FeeLib__ProvingCostStepExceeded(uint256 current, uint256 requested);
 
   // SignatureLib (duplicated)
   error SignatureLib__InvalidSignature(address, address); // 0xd9cbae6c

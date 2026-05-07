@@ -65,6 +65,9 @@ library Errors {
   error Registry__NoRollupsRegistered();
 
   error RewardDistributor__InvalidCaller(address caller, address canonical); // 0xb95e39f6
+  error RewardDistributor__InsufficientAvailable(uint256 requested, uint256 available);
+  error RewardDistributor__ZeroRollup();
+  error RewardDistributor__WrongRecoverMechanism();
 
   error GSE__NotRollup(address);
   error GSE__GovernanceAlreadySet();

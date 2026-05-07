@@ -10,7 +10,7 @@ import {
   EthValue
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-import {RewardLib, RewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
+import {RewardLib, RewardConfig, MutableRewardConfig} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Epoch, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {
@@ -22,8 +22,12 @@ import {
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 
 library RewardExtLib {
-  function setConfig(RewardConfig memory _config) external {
-    RewardLib.setConfig(_config);
+  function initializeConfig(RewardConfig memory _config) external {
+    RewardLib.initializeConfig(_config);
+  }
+
+  function updateConfig(MutableRewardConfig memory _config) external {
+    RewardLib.updateConfig(_config);
   }
 
   function claimSequencerRewards(address _sequencer) external returns (uint256) {

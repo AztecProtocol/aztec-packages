@@ -41,6 +41,14 @@ struct RewardConfig {
   uint96 checkpointReward;
 }
 
+/// @notice The post-deployment-mutable subset of {RewardConfig}.
+/// @dev `rewardDistributor` and `booster` are deliberately *not* in this struct: they are
+///      set once at construction and immutable thereafter.
+struct MutableRewardConfig {
+  Bps sequencerBps;
+  uint96 checkpointReward;
+}
+
 struct RewardStorage {
   mapping(address => uint256) sequencerRewards;
   mapping(Epoch => EpochRewards) epochRewards;
@@ -76,10 +84,25 @@ library RewardLib {
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
 
-  function setConfig(RewardConfig memory _config) internal {
+  /// @notice One-shot writer used during rollup construction. Writes every field of
+  ///         {RewardConfig}, including the immutable `rewardDistributor` and `booster`.
+  /// @dev Must only be reachable from the constructor path. Post-deployment updates go through
+  ///      {updateConfig}, which preserves the immutable fields.
+  function initializeConfig(RewardConfig memory _config) internal {
     require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
     RewardStorage storage rewardStorage = getStorage();
     rewardStorage.config = _config;
+  }
+
+  /// @notice Owner-gated post-deployment writer. Only updates the mutable subset
+  ///         (`sequencerBps`, `checkpointReward`). The `rewardDistributor` and `booster`
+  ///         addresses MUST NOT be reachable from this path -- they remain whatever was
+  ///         written by {initializeConfig}.
+  function updateConfig(MutableRewardConfig memory _config) internal {
+    require(Bps.unwrap(_config.sequencerBps) <= 10_000, Errors.RewardLib__InvalidSequencerBps());
+    RewardStorage storage rewardStorage = getStorage();
+    rewardStorage.config.sequencerBps = _config.sequencerBps;
+    rewardStorage.config.checkpointReward = _config.checkpointReward;
   }
 
   function claimSequencerRewards(address _sequencer) internal returns (uint256) {
@@ -132,8 +155,6 @@ library RewardLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     RewardStorage storage rewardStorage = getStorage();
 
-    // Determine if this rollup is canonical according to its RewardDistributor.
-
     uint256 length = _args.end - _args.start + 1;
     EpochRewards storage $er = rewardStorage.epochRewards[_endEpoch];
 
@@ -160,19 +181,15 @@ library RewardLib {
         uint256 checkpointRewardsDesired = added * getCheckpointReward();
         uint256 checkpointRewardsAvailable = 0;
 
-        // Only if we require checkpoint rewards and are canonical will we claim.
         if (checkpointRewardsDesired > 0) {
           // Cache the reward distributor contract
           IRewardDistributor distributor = rewardStorage.config.rewardDistributor;
 
-          if (address(this) == distributor.canonicalRollup()) {
-            uint256 amountToClaim =
-              Math.min(checkpointRewardsDesired, rollupStore.config.feeAsset.balanceOf(address(distributor)));
+          uint256 amountToClaim = Math.min(checkpointRewardsDesired, distributor.availableTo(address(this)));
 
-            if (amountToClaim > 0) {
-              distributor.claim(address(this), amountToClaim);
-              checkpointRewardsAvailable = amountToClaim;
-            }
+          if (amountToClaim > 0) {
+            distributor.claim(address(this), amountToClaim);
+            checkpointRewardsAvailable = amountToClaim;
           }
         }
 

@@ -136,6 +136,10 @@ describe('e2e_fees fee settings', () => {
     });
 
     it('reproduces the stale fee snapshot race deterministically', async () => {
+      // The previous test bumped the proving cost, setting FeeLib's provingCostLastUpdate.
+      // Clear the 30-day cooldown so bumpL2Fees below can land.
+      await cheatCodes.rollup.clearProvingCostCooldown();
+
       const lowerMinFees = await getCurrentMinFeesAfterCheckpoint(testContractDeployBlock);
       const higherMinFees = lowerMinFees.mul(2);
 

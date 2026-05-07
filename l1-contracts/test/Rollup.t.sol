@@ -84,7 +84,8 @@ contract RollupTest is RollupBase {
       vm.warp(initialTime);
     }
 
-    RollupBuilder builder = new RollupBuilder(address(this)).setTargetCommitteeSize(0);
+    RollupBuilder builder =
+      new RollupBuilder(address(this)).setTargetCommitteeSize(0).setProvingCostPerMana(EthValue.wrap(1000));
     builder.deploy();
 
     testERC20 = builder.getConfig().testERC20;
@@ -366,20 +367,20 @@ contract RollupTest is RollupBase {
     // We need to mint some fee asset to the portal to cover the 2M mana spent.
     deal(address(testERC20), address(feeJuicePortal), 2e6 * 1e18);
 
-    vm.prank(Ownable(address(rollup)).owner());
-    rollup.setProvingCostPerMana(EthValue.wrap(1000));
+    // Checkpoint 1 uses the initial provingCostPerMana = 1000.
     _proposeCheckpoint("mixed_checkpoint_1", 1, 1e6);
 
+    // First post-init update bypasses the cooldown; 1500 is exactly 3/2 * 1000.
     vm.prank(Ownable(address(rollup)).owner());
-    rollup.setProvingCostPerMana(EthValue.wrap(2000));
+    rollup.setProvingCostPerMana(EthValue.wrap(1500));
     _proposeCheckpoint("mixed_checkpoint_2", 2, 1e6);
 
     // At this point in time, we have had different proving costs for the two checkpoints. When we prove them
     // in the same epoch, we want to see that the correct fee is taken for each checkpoint.
     _proveCheckpoints("mixed_checkpoint_", 1, 2, address(this));
 
-    // 1e6 mana at 1000 and 2000 cost per manage multiplied by 10 for the price conversion to fee asset.
-    uint256 proverFees = 1e6 * (1000 + 2000);
+    // 1e6 mana at 1000 and 1500 cost per manage multiplied by 10 for the price conversion to fee asset.
+    uint256 proverFees = 1e6 * (1000 + 1500);
     // Then we also need the component that is for covering the gas
     proverFees += (Math.mulDiv(
         Math.mulDiv(

@@ -122,7 +122,7 @@ contract SlashingProposerEscapeHatchTest is TestBase {
     // Point rollup/validator selection to the escape hatch
     address rollupOwner = rollup.owner();
     vm.prank(rollupOwner);
-    rollup.updateEscapeHatch(address(escapeHatch));
+    rollup.setEscapeHatch(address(escapeHatch));
   }
 
   function test_tallyEscapeHatch_open() public {

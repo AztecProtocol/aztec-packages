@@ -45,7 +45,7 @@ contract FlushEntryQueueTest is StakingBase {
     StakingQueueConfig memory stakingQueueConfig = StakingQueueConfig({
       bootstrapValidatorSetSize: bound(_bootstrapValidatorSetSize, 0, type(uint32).max),
       bootstrapFlushSize: bound(_bootstrapFlushSize, 0, type(uint32).max),
-      normalFlushSizeMin: bound(_normalFlushSizeMin, 0, type(uint32).max),
+      normalFlushSizeMin: bound(_normalFlushSizeMin, 1, type(uint32).max),
       normalFlushSizeQuotient: bound(_normalFlushSizeQuotient, 1, type(uint32).max),
       maxQueueFlushSize: MAX_QUEUE_FLUSH_SIZE
     });
