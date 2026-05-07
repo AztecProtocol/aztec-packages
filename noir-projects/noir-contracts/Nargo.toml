@@ -26,6 +26,7 @@ members = [
     "contracts/app/simple_token_contract",
     "contracts/fees/fpc_contract",
     "contracts/fees/sponsored_fpc_contract",
+    "contracts/message_discovery/handshake_registry_contract",
     "contracts/protocol/auth_registry_contract",
     "contracts/protocol/contract_class_registry_contract",
     "contracts/protocol/contract_instance_registry_contract",

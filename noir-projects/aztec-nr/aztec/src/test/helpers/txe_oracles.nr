@@ -7,8 +7,8 @@ use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
     constants::{
-        CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
-        MAX_PRIVATE_LOGS_PER_TX, NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
+        CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
+        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     contract_instance::ContractInstance,
     traits::{Deserialize, ToField},
@@ -109,8 +109,7 @@ pub struct TxEffects {
 
 /// Returns the effects of the last transaction included by the TXE.
 pub unconstrained fn get_last_tx_effects() -> TxEffects {
-    let (tx_hash, note_hashes, nullifiers, raw_log_storage, log_lengths, log_count) =
-        get_last_tx_effects_oracle();
+    let (tx_hash, note_hashes, nullifiers, raw_log_storage, log_lengths, log_count) = get_last_tx_effects_oracle();
 
     let mut private_logs = BoundedVec::new();
     for i in 0..log_count {
@@ -121,14 +120,7 @@ pub unconstrained fn get_last_tx_effects() -> TxEffects {
 }
 
 #[oracle(aztec_txe_getLastTxEffects)]
-unconstrained fn get_last_tx_effects_oracle() -> (
-    Field,
-    TxNoteHashes,
-    TxNullifiers,
-    [[Field; PRIVATE_LOG_SIZE_IN_FIELDS]; MAX_PRIVATE_LOGS_PER_TX],
-    [u32; MAX_PRIVATE_LOGS_PER_TX],
-    u32,
-) {}
+unconstrained fn get_last_tx_effects_oracle() -> (Field, TxNoteHashes, TxNullifiers, [[Field; PRIVATE_LOG_SIZE_IN_FIELDS]; MAX_PRIVATE_LOGS_PER_TX], [u32; MAX_PRIVATE_LOGS_PER_TX], u32) {}
 
 /// Returns the raw offchain effect payloads emitted by the last top-level call into TXE.
 /// Each effect is a variable-length field array (e.g. offchain messages have a different size

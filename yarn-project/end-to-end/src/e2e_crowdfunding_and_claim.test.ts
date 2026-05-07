@@ -85,12 +85,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     crowdfundingSecretKey = Fr.random();
     crowdfundingPublicKeys = (await deriveKeys(crowdfundingSecretKey)).publicKeys;
 
-    const crowdfundingDeployment = CrowdfundingContract.deployWithPublicKeys(
-      crowdfundingPublicKeys,
+    const crowdfundingDeployment = CrowdfundingContract.deploy(
       wallet,
       donationToken.address,
       operatorAddress,
       deadline,
+      { publicKeys: crowdfundingPublicKeys, deployer: operatorAddress },
     );
     const crowdfundingInstance = await crowdfundingDeployment.getInstance();
     await wallet.registerContract(crowdfundingInstance, CrowdfundingContract.artifact, crowdfundingSecretKey);
@@ -226,12 +226,12 @@ describe('e2e_crowdfunding_and_claim', () => {
     // 1) Deploy another instance of the crowdfunding contract
     let otherCrowdfundingContract: CrowdfundingContract;
     {
-      const otherCrowdfundingDeployment = CrowdfundingContract.deployWithPublicKeys(
-        crowdfundingPublicKeys,
+      const otherCrowdfundingDeployment = CrowdfundingContract.deploy(
         wallet,
         donationToken.address,
         operatorAddress,
         deadline,
+        { publicKeys: crowdfundingPublicKeys, deployer: operatorAddress },
       );
 
       const otherCrowdfundingInstance = await otherCrowdfundingDeployment.getInstance();

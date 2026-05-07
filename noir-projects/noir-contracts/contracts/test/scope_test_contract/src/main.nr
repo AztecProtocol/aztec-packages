@@ -73,19 +73,15 @@ pub contract ScopeTest {
 
     mod test {
         use crate::ScopeTest;
-        use aztec::{
-            protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
-        };
+        use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
 
         unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
             let mut env = TestEnvironment::new();
             let deployer = env.create_light_account();
 
             // Deploy the contract
-            let contract_address = env.deploy("ScopeTest").with_private_initializer(
-                deployer,
-                ScopeTest::interface().constructor(),
-            );
+            let contract_address =
+                env.deploy("ScopeTest").with_private_initializer(deployer, ScopeTest::interface().constructor());
 
             (env, contract_address)
         }
@@ -102,8 +98,7 @@ pub contract ScopeTest {
             env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
 
             // Alice can read her own note
-            let read_value =
-                env.call_private(alice, ScopeTest::at(contract_address).read_note(alice));
+            let read_value = env.call_private(alice, ScopeTest::at(contract_address).read_note(alice));
             assert_eq(read_value, value);
         }
 
@@ -131,8 +126,7 @@ pub contract ScopeTest {
 
             env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
 
-            let _read_value =
-                env.call_private(bob, ScopeTest::at(contract_address).read_note(alice));
+            let _read_value = env.call_private(bob, ScopeTest::at(contract_address).read_note(alice));
         }
 
         /// Owner can view their own notes using view_private
@@ -145,8 +139,7 @@ pub contract ScopeTest {
 
             env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
 
-            let read_value =
-                env.view_private(alice, ScopeTest::at(contract_address).view_note(alice));
+            let read_value = env.view_private(alice, ScopeTest::at(contract_address).view_note(alice));
             assert_eq(read_value, value);
         }
 
@@ -161,8 +154,7 @@ pub contract ScopeTest {
 
             env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
 
-            let _read_value =
-                env.view_private(bob, ScopeTest::at(contract_address).view_note(alice));
+            let _read_value = env.view_private(bob, ScopeTest::at(contract_address).view_note(alice));
         }
     }
 }
