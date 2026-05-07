@@ -16,6 +16,7 @@ import {
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
   type PrivateKernelExecutionProofOutput,
+  PrivateKernelInit3CircuitPrivateInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelSimulateOutput,
@@ -28,6 +29,7 @@ import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   TxRequest,
+  collectNested,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
@@ -100,6 +102,14 @@ export class PrivateKernelExecutionProver {
     const executionStack = [executionResult.entrypoint];
     let firstIteration = true;
 
+    // When PXE_USE_INIT_3 is set and the tx has at least three private app calls, the first
+    // kernel iteration verifies three app calls in a single batched private_kernel_init_3
+    // circuit instead of one private_kernel_init followed by inners. Saves N-1 prev-kernel HN
+    // verifications across the kernel chain. Falls back to the standard init for txs with
+    // fewer than three calls so the flag can be left on permanently.
+    const totalAppCalls = collectNested([executionResult.entrypoint], call => [call]).length;
+    const useInit3 = process.env.PXE_USE_INIT_3 === '1' && totalAppCalls >= 3;
+
     let output = NULL_SIMULATE_OUTPUT;
 
     const executionSteps: PrivateExecutionStep[] = [];
@@ -141,59 +151,83 @@ export class PrivateKernelExecutionProver {
         }
       }
 
-      const currentExecution = executionStack.pop()!;
-
-      executionStack.push(...[...currentExecution.nestedExecutionResults].reverse());
-
-      const functionName = await this.oracle.getDebugFunctionName(
-        currentExecution.publicInputs.callContext.contractAddress,
-        currentExecution.publicInputs.callContext.functionSelector,
-      );
-
-      executionSteps.push({
-        functionName: functionName!,
-        bytecode: currentExecution.acir,
-        witness: currentExecution.partialWitness,
-        vk: currentExecution.vk,
-        timings: {
-          witgen: currentExecution.profileResult?.timings.witgen ?? 0,
-          oracles: currentExecution.profileResult?.timings.oracles,
-        },
-      });
-
-      const privateCallData = await this.createPrivateCallData(currentExecution);
+      const privateCallData = await this.consumeNextApp(executionStack, executionSteps);
 
       if (firstIteration) {
         const witgenTimer = new Timer();
 
-        const proofInput = new PrivateKernelInitCircuitPrivateInputs(
-          txRequest,
-          getVKTreeRoot(),
-          ProtocolContractsList,
-          privateCallData,
-          isPrivateOnlyTx,
-          executionResult.firstNullifier,
-          minRevertibleSideEffectCounter,
-        );
-        this.log.debug(
-          `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
-        );
+        if (useInit3) {
+          // Consume two more apps so the kernel verifies three in one shot. The total-app-count
+          // gate above guarantees the stack has at least two more apps available.
+          const additionalApps: PrivateCallData[] = [];
+          for (let i = 0; i < 2; i++) {
+            additionalApps.push(await this.consumeNextApp(executionStack, executionSteps));
+          }
 
-        pushTestData('private-kernel-inputs-init', proofInput);
+          const proofInput = new PrivateKernelInit3CircuitPrivateInputs(
+            txRequest,
+            getVKTreeRoot(),
+            ProtocolContractsList,
+            privateCallData,
+            additionalApps[0],
+            additionalApps[1],
+            isPrivateOnlyTx,
+            executionResult.firstNullifier,
+            minRevertibleSideEffectCounter,
+          );
+          this.log.debug(
+            `Calling private kernel init_3 with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
+          );
 
-        output = generateWitnesses
-          ? await this.proofCreator.generateInitOutput(proofInput)
-          : await this.proofCreator.simulateInit(proofInput);
+          pushTestData('private-kernel-inputs-init-3', proofInput);
 
-        executionSteps.push({
-          functionName: 'private_kernel_init',
-          bytecode: output.bytecode,
-          witness: output.outputWitness,
-          vk: output.verificationKey.keyAsBytes,
-          timings: {
-            witgen: witgenTimer.ms(),
-          },
-        });
+          output = generateWitnesses
+            ? await this.proofCreator.generateInit3Output(proofInput)
+            : await this.proofCreator.simulateInit3(proofInput);
+
+          executionSteps.push({
+            functionName: 'private_kernel_init_3',
+            bytecode: output.bytecode,
+            witness: output.outputWitness,
+            vk: output.verificationKey.keyAsBytes,
+            timings: {
+              witgen: witgenTimer.ms(),
+            },
+          });
+
+          // WORKTODO(luke): if executionStack.length === 0 here, init_3 consumed every app and
+          // the chain can skip directly to reset+tail. The protocol-circuit allowed_previous lists
+          // already accept init_3, so this is purely an orchestrator change for later.
+        } else {
+          const proofInput = new PrivateKernelInitCircuitPrivateInputs(
+            txRequest,
+            getVKTreeRoot(),
+            ProtocolContractsList,
+            privateCallData,
+            isPrivateOnlyTx,
+            executionResult.firstNullifier,
+            minRevertibleSideEffectCounter,
+          );
+          this.log.debug(
+            `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
+          );
+
+          pushTestData('private-kernel-inputs-init', proofInput);
+
+          output = generateWitnesses
+            ? await this.proofCreator.generateInitOutput(proofInput)
+            : await this.proofCreator.simulateInit(proofInput);
+
+          executionSteps.push({
+            functionName: 'private_kernel_init',
+            bytecode: output.bytecode,
+            witness: output.outputWitness,
+            vk: output.verificationKey.keyAsBytes,
+            timings: {
+              witgen: witgenTimer.ms(),
+            },
+          });
+        }
       } else {
         const witgenTimer = new Timer();
         const vkData = await this.getVkData(output.verificationKey);
@@ -399,6 +433,37 @@ export class PrivateKernelExecutionProver {
       Number(previousVkMembershipWitness.leafIndex),
       previousVkMembershipWitness.siblingPath,
     );
+  }
+
+  /**
+   * Pops the next app off the execution stack, pushes its nested calls back on (preserving DFS
+   * order), records the app's execution step, and returns its constructed `PrivateCallData`.
+   * Caller is responsible for ensuring the stack is non-empty.
+   */
+  private async consumeNextApp(
+    executionStack: PrivateCallExecutionResult[],
+    executionSteps: PrivateExecutionStep[],
+  ): Promise<PrivateCallData> {
+    const next = executionStack.pop()!;
+    executionStack.push(...[...next.nestedExecutionResults].reverse());
+
+    const functionName = await this.oracle.getDebugFunctionName(
+      next.publicInputs.callContext.contractAddress,
+      next.publicInputs.callContext.functionSelector,
+    );
+
+    executionSteps.push({
+      functionName: functionName!,
+      bytecode: next.acir,
+      witness: next.partialWitness,
+      vk: next.vk,
+      timings: {
+        witgen: next.profileResult?.timings.witgen ?? 0,
+        oracles: next.profileResult?.timings.oracles,
+      },
+    });
+
+    return await this.createPrivateCallData(next);
   }
 
   private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult) {
