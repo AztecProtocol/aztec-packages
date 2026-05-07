@@ -512,11 +512,11 @@ class CallDataTestingFunctions {
 using CallDataTestConfigs = testing::Types<CallDataTestParams<CallDataType::KernelCalldata, 0, 0, false>,
                                            CallDataTestParams<CallDataType::KernelCalldata, 10, 5, false>,
                                            CallDataTestParams<CallDataType::KernelCalldata, 10, 5, true>,
-                                           CallDataTestParams<CallDataType::AppCalldata, 0, 0, false>,
-                                           CallDataTestParams<CallDataType::AppCalldata, 10, 5, false>,
-                                           CallDataTestParams<CallDataType::AppCalldata, 10, 5, true>,
-                                           CallDataTestParams<static_cast<CallDataType>(2), 10, 5, false>,
-                                           CallDataTestParams<static_cast<CallDataType>(3), 10, 5, false>>;
+                                           CallDataTestParams<CallDataType::FirstAppCalldata, 0, 0, false>,
+                                           CallDataTestParams<CallDataType::FirstAppCalldata, 10, 5, false>,
+                                           CallDataTestParams<CallDataType::FirstAppCalldata, 10, 5, true>,
+                                           CallDataTestParams<CallDataType::SecondAppCalldata, 10, 5, false>,
+                                           CallDataTestParams<CallDataType::ThirdAppCalldata, 10, 5, false>>;
 
 template <typename Params>
 class CallDataTests : public ::testing::Test,

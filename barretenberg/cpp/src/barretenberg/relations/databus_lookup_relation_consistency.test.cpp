@@ -231,8 +231,12 @@ TEST_F(DatabusLookupRelationConsistency, InactiveGates)
     in.q_l = FF(0);
     in.q_r = FF(0);
     in.q_o = FF(0);
+    in.q_4 = FF(0);
+    in.q_m = FF(0);
     in.kernel_calldata_read_counts = FF(0);
     in.first_app_calldata_read_counts = FF(0);
+    in.second_app_calldata_read_counts = FF(0);
+    in.third_app_calldata_read_counts = FF(0);
     in.return_data_read_counts = FF(0);
 
     // Set other values non-zero to ensure they don't affect inactive gates
@@ -241,6 +245,14 @@ TEST_F(DatabusLookupRelationConsistency, InactiveGates)
     in.databus_id = FF(5);
     in.kernel_calldata = FF(42);
     in.kernel_calldata_inverses = FF(0); // inverse should be 0 when inactive
+    in.first_app_calldata = FF(100);
+    in.first_app_calldata_inverses = FF(0);
+    in.second_app_calldata = FF(200);
+    in.second_app_calldata_inverses = FF(0);
+    in.third_app_calldata = FF(300);
+    in.third_app_calldata_inverses = FF(0);
+    in.return_data = FF(400);
+    in.return_data_inverses = FF(0);
 
     std::array<FF, NUM_SUBRELATIONS> accumulator{};
     Relation::accumulate(accumulator, in, parameters, FF(1));
@@ -288,6 +300,10 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
     // Other columns inactive
     in.first_app_calldata_read_counts = FF(0);
     in.first_app_calldata_inverses = FF(0);
+    in.second_app_calldata_read_counts = FF(0);
+    in.second_app_calldata_inverses = FF(0);
+    in.third_app_calldata_read_counts = FF(0);
+    in.third_app_calldata_inverses = FF(0);
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
@@ -344,6 +360,10 @@ TEST_F(DatabusLookupRelationConsistency, MismatchedReadWriteTerms)
     in.kernel_calldata_read_counts = FF(1);
     in.first_app_calldata_read_counts = FF(0);
     in.first_app_calldata_inverses = FF(0);
+    in.second_app_calldata_read_counts = FF(0);
+    in.second_app_calldata_inverses = FF(0);
+    in.third_app_calldata_read_counts = FF(0);
+    in.third_app_calldata_inverses = FF(0);
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
@@ -379,12 +399,16 @@ TEST_F(DatabusLookupRelationConsistency, InverseUnconstrainedAtInactiveRows)
     in.q_o = FF(0);
     in.kernel_calldata_read_counts = FF(0);
     in.first_app_calldata_read_counts = FF(0);
+    in.second_app_calldata_read_counts = FF(0);
+    in.third_app_calldata_read_counts = FF(0);
     in.return_data_read_counts = FF(0);
 
     // Set inverses to arbitrary nonzero values — should not matter
     in.kernel_calldata_inverses = FF(999);
     in.first_app_calldata_inverses = FF(777);
-    in.return_data_inverses = FF(555);
+    in.second_app_calldata_inverses = FF(555);
+    in.third_app_calldata_inverses = FF(333);
+    in.return_data_inverses = FF(111);
 
     in.w_l = FF(42);
     in.w_r = FF(5);
@@ -438,6 +462,10 @@ TEST_F(DatabusLookupRelationConsistency, WrongInverseOnReadRowFails)
     in.kernel_calldata_read_counts = FF(0); // pure read row, no write
     in.first_app_calldata_read_counts = FF(0);
     in.first_app_calldata_inverses = FF(0);
+    in.second_app_calldata_read_counts = FF(0);
+    in.second_app_calldata_inverses = FF(0);
+    in.third_app_calldata_read_counts = FF(0);
+    in.third_app_calldata_inverses = FF(0);
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
@@ -486,6 +514,10 @@ TEST_F(DatabusLookupRelationConsistency, WrongInverseOnWriteRowFails)
 
     in.first_app_calldata_read_counts = FF(0);
     in.first_app_calldata_inverses = FF(0);
+    in.second_app_calldata_read_counts = FF(0);
+    in.second_app_calldata_inverses = FF(0);
+    in.third_app_calldata_read_counts = FF(0);
+    in.third_app_calldata_inverses = FF(0);
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
@@ -537,6 +569,10 @@ TEST_F(DatabusLookupRelationConsistency, CorrectInverseOnWriteRow)
 
     in.first_app_calldata_read_counts = FF(0);
     in.first_app_calldata_inverses = FF(0);
+    in.second_app_calldata_read_counts = FF(0);
+    in.second_app_calldata_inverses = FF(0);
+    in.third_app_calldata_read_counts = FF(0);
+    in.third_app_calldata_inverses = FF(0);
     in.return_data_read_counts = FF(0);
     in.return_data_inverses = FF(0);
 
