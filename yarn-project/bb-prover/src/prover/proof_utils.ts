@@ -16,7 +16,7 @@ import assert from 'assert';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 
-import { PROOF_FILENAME, PUBLIC_INPUTS_FILENAME } from '../bb/execute.js';
+import { PROOF_FILENAME, PUBLIC_INPUTS_FILENAME } from '../bb/file_names.js';
 
 /**
  * Create a ChonkProof proof file.
@@ -112,4 +112,44 @@ export async function readProofsFromOutputDirectory<PROOF_LENGTH extends number>
     true,
     proofLength,
   );
+}
+
+/**
+ * Construct a RecursiveProof from in-memory proof and public input field arrays
+ * returned by the bb.js circuitProve API, without reading from files.
+ *
+ * @param proofFields - Proof fields as 32-byte Uint8Arrays from circuitProve.
+ * @param publicInputFields - Public input fields as 32-byte Uint8Arrays from circuitProve.
+ * @param vkData - Verification key data for the circuit.
+ * @param proofLength - Expected proof field count.
+ */
+export function constructRecursiveProofFromBuffers<PROOF_LENGTH extends number>(
+  proofFields: Uint8Array[],
+  publicInputFields: Uint8Array[],
+  vkData: VerificationKeyData,
+  proofLength: PROOF_LENGTH,
+): RecursiveProof<PROOF_LENGTH> {
+  assert(
+    proofLength == NESTED_RECURSIVE_PROOF_LENGTH ||
+      proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH ||
+      proofLength == ULTRA_KECCAK_PROOF_LENGTH,
+    `Proof length must be one of the expected proof lengths, received ${proofLength}`,
+  );
+
+  // Convert Uint8Array fields to Fr instances
+  const proofFieldsFr = proofFields.map(f => Fr.fromBuffer(Buffer.from(f)));
+
+  assert(
+    proofFieldsFr.length == proofLength,
+    `Proof fields length mismatch: ${proofFieldsFr.length} != ${proofLength}`,
+  );
+
+  // Reconstruct the binary proof with public inputs prepended (same format as file-based path)
+  const binaryPublicInputs = Buffer.concat(publicInputFields.map(f => Buffer.from(f)));
+  const binaryProof = Buffer.concat(proofFields.map(f => Buffer.from(f)));
+  const binaryProofWithPublicInputs = Buffer.concat([binaryPublicInputs, binaryProof]);
+
+  const numPublicInputs = getNumCustomPublicInputs(proofLength, vkData);
+
+  return new RecursiveProof(proofFieldsFr, new Proof(binaryProofWithPublicInputs, numPublicInputs), true, proofLength);
 }

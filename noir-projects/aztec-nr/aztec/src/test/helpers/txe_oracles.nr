@@ -8,7 +8,7 @@ use crate::protocol::{
     address::AztecAddress,
     constants::{
         CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
+        PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     contract_instance::ContractInstance,
     traits::{Deserialize, ToField},
@@ -36,13 +36,14 @@ pub unconstrained fn deploy<let M: u32, let N: u32, let P: u32>(
     ContractInstance::deserialize(instance_fields)
 }
 
-pub unconstrained fn private_call_new_flow<let M: u32, let N: u32>(
-    from: AztecAddress,
+pub unconstrained fn private_call_new_flow<let M: u32, let N: u32, let S: u32>(
+    from: Option<AztecAddress>,
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field; M],
     args_hash: Field,
     is_static_call: bool,
+    additional_scopes: [AztecAddress; S],
 ) -> [Field; N] {
     private_call_new_flow_oracle(
         from,
@@ -51,6 +52,7 @@ pub unconstrained fn private_call_new_flow<let M: u32, let N: u32>(
         args,
         args_hash,
         is_static_call,
+        additional_scopes,
     )
 }
 
@@ -62,8 +64,6 @@ pub unconstrained fn public_call_new_flow<let M: u32, let N: u32>(
     is_static_call: bool,
 ) -> [Field; N] {
     let calldata = [function_selector.to_field()].concat(args);
-
-    let from = from.unwrap_or(NULL_MSG_SENDER_CONTRACT_ADDRESS);
 
     public_call_new_flow_oracle(from, contract_address, calldata, is_static_call)
 }
@@ -209,18 +209,19 @@ pub unconstrained fn add_account(secret: Field) -> TestAccount {}
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {}
 
 #[oracle(aztec_txe_privateCallNewFlow)]
-unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32>(
-    _from: AztecAddress,
+unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32, let S: u32>(
+    _from: Option<AztecAddress>,
     _contract_address: AztecAddress,
     _function_selector: FunctionSelector,
     _args: [Field; M],
     _args_hash: Field,
     _is_static_call: bool,
+    _additional_scopes: [AztecAddress; S],
 ) -> [Field; N] {}
 
 #[oracle(aztec_txe_publicCallNewFlow)]
 unconstrained fn public_call_new_flow_oracle<let M: u32, let N: u32>(
-    from: AztecAddress,
+    from: Option<AztecAddress>,
     contract_address: AztecAddress,
     calldata: [Field; M],
     is_static_call: bool,
