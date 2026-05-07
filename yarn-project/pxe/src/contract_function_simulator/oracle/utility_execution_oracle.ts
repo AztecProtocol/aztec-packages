@@ -1,15 +1,4 @@
-import {
-  type ARCHIVE_HEIGHT,
-  CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-  MAX_CONTRACT_CLASS_LOGS_PER_TX,
-  MAX_L2_TO_L1_MSGS_PER_TX,
-  MAX_NOTE_HASHES_PER_TX,
-  MAX_NULLIFIERS_PER_TX,
-  MAX_PRIVATE_LOGS_PER_TX,
-  MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  type NOTE_HASH_TREE_HEIGHT,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-} from '@aztec/constants';
+import type { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -35,11 +24,11 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { type PublicKeys, computeAddressSecret } from '@aztec/stdlib/keys';
-import { FlatPublicLogs, MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
+import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import { type BlockHeader, type Capsule, type OffchainEffect, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule, OffchainEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
@@ -810,69 +799,20 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Fetches the effects of a transaction by its hash.
-   *
-   * Returns the tx effect data serialized as a flat Fr[] matching the Noir TxEffect struct layout, or null if the tx
-   * is not found or is beyond the anchor block.
+   * Fetches the effects of a transaction by its hash. Returns null if the tx is not found or is beyond the anchor
+   * block.
    */
-  public async getTxEffect(txHash: Fr): Promise<Fr[] | null> {
-    if (txHash.isZero()) {
-      return null;
+  public async getTxEffect(txHash: TxHash): Promise<TxEffect | null> {
+    if (txHash.hash.isZero()) {
+      throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
     }
 
-    const txEffect = await this.aztecNode.getTxEffect(TxHash.fromField(txHash));
+    const txEffect = await this.aztecNode.getTxEffect(txHash);
     if (!txEffect || txEffect.l2BlockNumber > this.anchorBlockHeader.getBlockNumber()) {
       return null;
     }
 
-    const data = txEffect.data;
-    const fields: Fr[] = [];
-
-    // tx_hash, revert_code, transaction_fee
-    fields.push(data.txHash.hash, data.revertCode.toField(), data.transactionFee);
-
-    // note_hashes: [Field; MAX_NOTE_HASHES_PER_TX]
-    fields.push(...padArray(data.noteHashes, MAX_NOTE_HASHES_PER_TX));
-
-    // nullifiers: [Field; MAX_NULLIFIERS_PER_TX]
-    fields.push(...padArray(data.nullifiers, MAX_NULLIFIERS_PER_TX));
-
-    // l2_to_l1_msgs: [Field; MAX_L2_TO_L1_MSGS_PER_TX]
-    fields.push(...padArray(data.l2ToL1Msgs, MAX_L2_TO_L1_MSGS_PER_TX));
-
-    // public_data_writes: [PublicDataWrite; MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX]
-    for (const write of data.publicDataWrites) {
-      fields.push(write.leafSlot, write.value);
-    }
-    for (let i = data.publicDataWrites.length; i < MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
-      fields.push(Fr.ZERO, Fr.ZERO);
-    }
-
-    // private_logs: [PrivateLog; MAX_PRIVATE_LOGS_PER_TX] — each is Log<16> = { fields: [Field; 16], length: u32 }
-    for (const log of data.privateLogs) {
-      fields.push(...log.fields);
-      fields.push(new Fr(log.emittedLength));
-    }
-    for (let i = data.privateLogs.length; i < MAX_PRIVATE_LOGS_PER_TX; i++) {
-      fields.push(...Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(Fr.ZERO), Fr.ZERO);
-    }
-
-    // public_logs: PublicLogs = { length: u32, payload: [Field; FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH] }
-    const flatPublicLogs = FlatPublicLogs.fromLogs(data.publicLogs);
-    fields.push(...flatPublicLogs.toFields());
-
-    // contract_class_logs: [ContractClassLog; MAX_CONTRACT_CLASS_LOGS_PER_TX]
-    // Noir layout: { log: Log<N> { fields: [Field; N], length: u32 }, contract_address: AztecAddress }
-    for (const ccLog of data.contractClassLogs) {
-      fields.push(...padArray(ccLog.fields.toFields(), CONTRACT_CLASS_LOG_SIZE_IN_FIELDS));
-      fields.push(new Fr(ccLog.emittedLength));
-      fields.push(ccLog.contractAddress.toField());
-    }
-    for (let i = data.contractClassLogs.length; i < MAX_CONTRACT_CLASS_LOGS_PER_TX; i++) {
-      fields.push(...Array(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS + 1 + 1).fill(Fr.ZERO));
-    }
-
-    return fields;
+    return txEffect.data;
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
@@ -1072,9 +1012,4 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     ]);
     return response;
   }
-}
-
-/** Pads a variable-length Fr array to a fixed length with zeros. */
-function padArray(values: Fr[], maxLen: number): Fr[] {
-  return values.concat(Array(maxLen - values.length).fill(Fr.ZERO));
 }

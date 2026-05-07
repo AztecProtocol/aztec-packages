@@ -1,16 +1,13 @@
 import {
-  CONTRACT_CLASS_LOG_LENGTH,
-  FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  PRIVATE_LOG_LENGTH,
-  PUBLIC_DATA_WRITE_LENGTH,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import {
@@ -23,9 +20,11 @@ import {
   toACVMField,
 } from '@aztec/simulator/client';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import { ContractClassLog, ContractClassLogFields } from '@aztec/stdlib/logs';
+import { ContractClassLog, ContractClassLogFields, FlatPublicLogs, PrivateLog } from '@aztec/stdlib/logs';
+import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
@@ -707,22 +706,32 @@ export class Oracle {
 
   // eslint-disable-next-line camelcase
   async aztec_utl_getTxEffect([txHash]: ACVMField[]): Promise<(ACVMField | ACVMField[])[]> {
-    const fields = await this.handlerAsUtility().getTxEffect(Fr.fromString(txHash));
-    const serializedLen =
-      3 + // tx_hash + revert_code + transaction_fee
-      MAX_NOTE_HASHES_PER_TX +
-      MAX_NULLIFIERS_PER_TX +
-      MAX_L2_TO_L1_MSGS_PER_TX +
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH +
-      MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_LENGTH +
-      1 +
-      FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH + // PublicLogs
-      MAX_CONTRACT_CLASS_LOGS_PER_TX * CONTRACT_CLASS_LOG_LENGTH;
-    if (fields === null) {
-      return [toACVMField(0), Array(serializedLen).fill(toACVMField(0))];
-    } else {
-      return [toACVMField(1), fields.map(toACVMField)];
-    }
+    const txEffect = await this.handlerAsUtility().getTxEffect(TxHash.fromField(Fr.fromString(txHash)));
+    // The Noir oracle returns `Option<TxEffect>`. ACVM expands this into 12 destination slots: the Option discriminant
+    // followed by the 11 leaf slots of `TxEffect` (each scalar is one slot, each top-level array is one slot, and
+    // the nested `PublicLogs { length, payload }` splits into two slots).
+    const effect = txEffect ?? TxEffect.empty();
+    const flatPublicLogs = FlatPublicLogs.fromLogs(effect.publicLogs);
+    return [
+      toACVMField(txEffect === null ? 0 : 1),
+      toACVMField(effect.revertCode.toField()),
+      toACVMField(effect.txHash.hash),
+      toACVMField(effect.transactionFee),
+      padArrayEnd(effect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX).map(toACVMField),
+      padArrayEnd(effect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(toACVMField),
+      padArrayEnd(effect.l2ToL1Msgs, Fr.ZERO, MAX_L2_TO_L1_MSGS_PER_TX).map(toACVMField),
+      padArrayEnd(effect.publicDataWrites, PublicDataWrite.empty(), MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX)
+        .flatMap(w => w.toFields())
+        .map(toACVMField),
+      padArrayEnd(effect.privateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX)
+        .flatMap(l => l.toFields())
+        .map(toACVMField),
+      toACVMField(flatPublicLogs.length),
+      flatPublicLogs.payload.map(toACVMField),
+      padArrayEnd(effect.contractClassLogs, ContractClassLog.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX)
+        .flatMap(l => [...l.fields.toFields(), new Fr(l.emittedLength), l.contractAddress.toField()])
+        .map(toACVMField),
+    ];
   }
 
   // eslint-disable-next-line camelcase
