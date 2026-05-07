@@ -740,8 +740,6 @@ export class UniversalDeployMethod<TContract extends ContractBase = ContractBase
     capsules: Capsule[] = [],
     extraHashedArgs: HashedValues[] = [],
   ) {
-    // `UniversalInstantiationOptions` forbids `deployer` and requires `universalDeploy: true` at
-    // the type level — no runtime check is needed.
     super(
       wallet,
       artifact,
@@ -866,8 +864,7 @@ export class PendingDeployMethod<TContract extends ContractBase = ContractBase> 
   #promoteFrom(
     from: SendInteractionOptionsWithoutWait['from'] | undefined,
   ): OwnedDeployMethod<TContract> | UniversalDeployMethod<TContract> {
-    const { wallet, artifact, postDeployCtor, args, salt, publicKeys, authWitnesses, capsules, extraHashedArgs } =
-      this;
+    const { wallet, artifact, postDeployCtor, args, salt, publicKeys, authWitnesses, capsules, extraHashedArgs } = this;
     const constructorName = this.constructorArtifact?.name;
     if (from === undefined || from === NO_FROM) {
       return new UniversalDeployMethod<TContract>(
