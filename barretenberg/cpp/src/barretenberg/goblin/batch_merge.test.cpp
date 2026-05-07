@@ -238,8 +238,22 @@ class TweakableBatchMergeProver : public BatchMergeProver {
         }
 
         // Step 6: degree-check poly
+        bool is_too_many_subtables = flattened_cols.size() > num_degree_check_challenges;
+        if (is_too_many_subtables) {
+            // This is the case in which we test that if the prover sends more columns than the max number of tables
+            // then the verifier rejects
+            degree_check_challenges.push_back(degree_check_challenges.back() * degree_check_challenge);
+        }
+
         Polynomial degree_check_poly =
             compute_degree_check_polynomial(flattened_cols, degree_check_challenges, max_shift_size);
+
+        if (is_too_many_subtables) {
+            // Remove the extra challenge added above to keep the degree check poly consistent with the rest of the
+            // proof
+            degree_check_challenges.pop_back();
+        }
+
         if (fault_mode == FaultMode::BAD_DEGREE_CHECK_POLY && !degree_check_poly.is_empty()) {
             degree_check_poly.at(0) += FF(1);
         }

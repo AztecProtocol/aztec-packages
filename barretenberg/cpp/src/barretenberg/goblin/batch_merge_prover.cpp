@@ -33,17 +33,11 @@ typename BatchMergeProver::Polynomial BatchMergeProver::compute_degree_check_pol
         reversed_columns.emplace_back(poly.reverse());
     }
 
-    // The two inputs only mismatch when the prover is invoked in a misuse path that the
-    // BB_ASSERT_LTE(N, M, ...) check in construct_proof would normally catch — e.g. the
-    // TooManySubtablesFails test bypasses asserts to exercise verifier rejection. In that case
-    // flattened_columns is sized for N (= num_subtables) but degree_check_challenges is sized for
-    // M (= max_subtables) < N, and we must clamp to avoid an out-of-bounds read on the challenges.
-    const size_t num_terms = std::min(flattened_columns.size(), degree_check_challenges.size());
     std::vector<PolynomialSpan<const FF>> reversed_column_spans;
     std::vector<FF> scalars;
-    reversed_column_spans.reserve(num_terms);
-    scalars.reserve(num_terms);
-    for (size_t idx = 0; idx < num_terms; ++idx) {
+    reversed_column_spans.reserve(flattened_columns.size());
+    scalars.reserve(flattened_columns.size());
+    for (size_t idx = 0; idx < flattened_columns.size(); ++idx) {
         reversed_column_spans.emplace_back(reversed_columns[idx]);
         scalars.push_back(degree_check_challenges[idx]);
     }
