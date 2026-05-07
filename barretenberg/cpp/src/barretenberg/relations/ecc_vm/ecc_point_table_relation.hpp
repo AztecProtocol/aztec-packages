@@ -39,7 +39,7 @@ template <typename FF_> class ECCVMPointTableRelationImpl {
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{ 6, 6, 6, 6, 6, 6 };
+    static constexpr std::array<size_t, 6> SUBRELATION_PARTIAL_LENGTHS{ 6, 5, 4, 4, 6, 5 };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>

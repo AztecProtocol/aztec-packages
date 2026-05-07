@@ -109,6 +109,36 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
     };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
+    /**
+     * @brief Skip the transcript relation on rows outside the transcript region.
+     *
+     *        Sufficient conditions for every transcript subrelation to evaluate to zero on a row pair:
+     *          - `transcript_op == 0` (forces q_add/q_mul/q_eq/q_reset_accumulator to 0 by booleanity)
+     *          - `transcript_msm_transition == 0` (gates LAMBDA / OFFSET_GENERATOR / MSM_INFINITY_* / ACC_X/Y_UPDATE)
+     *          - `transcript_msm_count == 0` and `transcript_msm_count_shift == 0` (MSM_COUNT_* subrelations)
+     *          - `transcript_pc == 0` and `transcript_pc_shift == 0` (PC_UPDATE)
+     *          - `lagrange_first/second/third/last == 0` (boundary + hiding-row subrelations)
+     *          - `transcript_accumulator_not_empty == 0` and `..._shift == 0`
+     *            (so is_accumulator_empty == 1, collapsing ACCUMULATOR_EMPTY_UPDATE and INFINITY_ACC_*)
+     *
+     *        In a well-formed ECCVM trace these columns are identically zero on every row in the
+     *        MSM-accumulation and point-table-precompute regions, so the predicate fires for the
+     *        entire non-transcript portion of the trace.
+     *
+     *        Inputs are linear extensions of two evaluation points, so checking value_at(0) and
+     *        value_at(1) is equivalent to checking all extended evaluations but ~10x cheaper.
+     */
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        auto is_lin_zero = [](const auto& u) { return u.value_at(0).is_zero() && u.value_at(1).is_zero(); };
+        return is_lin_zero(in.transcript_op) && is_lin_zero(in.transcript_msm_transition) &&
+               is_lin_zero(in.transcript_msm_count) && is_lin_zero(in.transcript_msm_count_shift) &&
+               is_lin_zero(in.transcript_pc) && is_lin_zero(in.transcript_pc_shift) && is_lin_zero(in.lagrange_first) &&
+               is_lin_zero(in.lagrange_second) && is_lin_zero(in.lagrange_third) && is_lin_zero(in.lagrange_last) &&
+               is_lin_zero(in.transcript_accumulator_not_empty) &&
+               is_lin_zero(in.transcript_accumulator_not_empty_shift);
+    }
+
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>
     static void accumulate(ContainerOverSubrelations& accumulator,
                            const AllEntities& in,

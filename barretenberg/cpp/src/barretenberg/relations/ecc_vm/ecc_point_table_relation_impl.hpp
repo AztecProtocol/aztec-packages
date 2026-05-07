@@ -46,6 +46,15 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     const auto& precompute_point_transition = View(in.precompute_point_transition);
     const auto& lagrange_first = View(in.lagrange_first);
 
+    auto add_to_subrelation = [&]<size_t subrelation_idx>(const auto& contribution) {
+        using Target = std::tuple_element_t<subrelation_idx, ContainerOverSubrelations>;
+        if constexpr (requires { typename Target::View; }) {
+            std::get<subrelation_idx>(accumulator) += typename Target::View(contribution);
+        } else {
+            std::get<subrelation_idx>(accumulator) += contribution;
+        }
+    };
+
     /**
      * @brief Row structure
      *
@@ -140,17 +149,17 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto x_double_check = (Dx + two_x) * four_yy - nine_xxxx;
     auto y_double_check = (Ty + Dy) * two_y + three_xx * (Dx - Tx);
     std::get<DOUBLE_X>(accumulator) += precompute_point_transition * x_double_check * scaling_factor;
-    std::get<DOUBLE_Y>(accumulator) += precompute_point_transition * y_double_check * scaling_factor;
+    add_to_subrelation.template operator()<DOUBLE_Y>(precompute_point_transition * y_double_check * scaling_factor);
 
     /**
      * @brief If precompute_round_transition = 0, (Dx_shift, Dy_shift) = (Dx, Dy)
      *
      * 1st row is empty => don't apply if lagrange_first == 1
      */
-    std::get<D_PROPAGATE_X>(accumulator) +=
-        (-lagrange_first + 1) * (-precompute_point_transition + 1) * (Dx - Dx_shift) * scaling_factor;
-    std::get<D_PROPAGATE_Y>(accumulator) +=
-        (-lagrange_first + 1) * (-precompute_point_transition + 1) * (Dy - Dy_shift) * scaling_factor;
+    add_to_subrelation.template operator()<D_PROPAGATE_X>((-lagrange_first + 1) * (-precompute_point_transition + 1) *
+                                                          (Dx - Dx_shift) * scaling_factor);
+    add_to_subrelation.template operator()<D_PROPAGATE_Y>((-lagrange_first + 1) * (-precompute_point_transition + 1) *
+                                                          (Dy - Dy_shift) * scaling_factor);
 
     /**
      * @brief Valdiate (Tx, Ty) is correctly computed from (Tx_shift, Ty_shift), (Dx, Dy).
@@ -182,8 +191,8 @@ void ECCVMPointTableRelationImpl<FF>::accumulate(ContainerOverSubrelations& accu
     auto y_add_check = (y3 + y1) * lambda_denominator + (x3 - x1) * lambda_numerator;
     std::get<ADD_X>(accumulator) +=
         (-lagrange_first + 1) * (-precompute_point_transition + 1) * x_add_check * scaling_factor;
-    std::get<ADD_Y>(accumulator) +=
-        (-lagrange_first + 1) * (-precompute_point_transition + 1) * y_add_check * scaling_factor;
+    add_to_subrelation.template operator()<ADD_Y>((-lagrange_first + 1) * (-precompute_point_transition + 1) *
+                                                  y_add_check * scaling_factor);
 }
 
 } // namespace bb
