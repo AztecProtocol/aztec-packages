@@ -216,27 +216,49 @@ void AvmProver::execute_pcs_rounds()
         return static_cast<size_t>(std::distance(polys.begin(), it));
     };
 
+    auto add_scaled_batched =
+        [](Polynomial& dst, const std::span<Polynomial>& sources, const std::span<FF>& scalars, const size_t skip_idx) {
+            const size_t num_slots = bb::get_num_cpus();
+            std::vector<Polynomial> batched_polys(num_slots);
+            for (auto& poly : batched_polys) {
+                poly = Polynomial(dst.size(), dst.virtual_size(), dst.start_index());
+            }
+
+            // Chunks are consumed dynamically via an atomic counter: faster threads naturally pick up
+            // more chunks while the slot they write to stays fixed for the life of their outer task.
+            std::atomic<size_t> next_poly(0);
+
+            // Accumulate polynomials: each thread picks up the next available polynomial
+            parallel_for(num_slots, [&](size_t slot_id) {
+                while (true) {
+                    const size_t poly_id = next_poly.fetch_add(1, std::memory_order_relaxed);
+                    if (poly_id >= sources.size()) {
+                        break;
+                    }
+                    if (poly_id == skip_idx) {
+                        continue;
+                    }
+
+                    const size_t start_idx = sources[poly_id].start_index();
+                    const size_t end_idx = sources[poly_id].end_index();
+                    for (size_t idx = start_idx; idx < end_idx; idx++) {
+                        batched_polys[slot_id].at(idx) += scalars[poly_id] * sources[poly_id][idx];
+                    }
+                }
+            });
+
+            for (const auto& poly : batched_polys) {
+                dst += poly;
+            }
+        };
+
     // Batch to be shifted polys in their to_be_shifted form
     // Search for poly with largest end index to avoid allocating a zero polynomial of circuit size
     size_t max_idx = index_of_max_end_index(shifted_polys);
 
     Polynomial batched_shifted = std::move(shifted_polys[max_idx]);
     batched_shifted *= shifted_challenges[max_idx];
-    {
-        // Fuse the remaining add_scaled dispatches into a single parallel_for to amortise startup cost.
-        std::vector<PolynomialSpan<const FF>> sources;
-        std::vector<FF> scalars;
-        sources.reserve(shifted_polys.size());
-        scalars.reserve(shifted_polys.size());
-        for (size_t idx = 0; idx < shifted_polys.size(); ++idx) {
-            if (idx != max_idx) {
-                sources.emplace_back(shifted_polys[idx]);
-                scalars.push_back(shifted_challenges[idx]);
-            }
-        }
-        add_scaled_batch(
-            batched_shifted, std::span<const PolynomialSpan<const FF>>(sources), std::span<const FF>(scalars));
-    }
+    add_scaled_batched(batched_shifted, shifted_polys, shifted_challenges, max_idx);
 
     // Batch unshifted polys (to avoid allocating a zero polynomial of circuit size, we initialize the batched
     // polynomial with the polynomial of the largest size)
@@ -245,25 +267,15 @@ void AvmProver::execute_pcs_rounds()
     Polynomial batched_unshifted = std::move(unshifted_polys[max_idx]);
     batched_unshifted *= unshifted_challenges[max_idx];
     batched_unshifted += batched_shifted;
-    {
-        // Only operate in the range of not to be shifted polys, as the contribution for those has already been added.
-        std::vector<PolynomialSpan<const FF>> sources;
-        std::vector<FF> scalars;
-        sources.reserve(unshifted_polys.size());
-        scalars.reserve(unshifted_polys.size());
-        for (size_t idx = 0; idx < unshifted_polys.size(); ++idx) {
-            if (idx >= WIRES_TO_BE_SHIFTED_START_IDX && idx < WIRES_TO_BE_SHIFTED_END_IDX) {
-                continue;
-            }
-            if (idx == max_idx) {
-                continue;
-            }
-            sources.emplace_back(unshifted_polys[idx]);
-            scalars.push_back(unshifted_challenges[idx]);
-        }
-        add_scaled_batch(
-            batched_unshifted, std::span<const PolynomialSpan<const FF>>(sources), std::span<const FF>(scalars));
-    }
+    add_scaled_batched(batched_unshifted,
+                       unshifted_polys.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),
+                       unshifted_challenges.subspan(0, WIRES_TO_BE_SHIFTED_START_IDX),
+                       max_idx);
+    add_scaled_batched(batched_unshifted,
+                       unshifted_polys.subspan(WIRES_TO_BE_SHIFTED_END_IDX),
+                       unshifted_challenges.subspan(WIRES_TO_BE_SHIFTED_END_IDX),
+                       max_idx > WIRES_TO_BE_SHIFTED_END_IDX ? max_idx - WIRES_TO_BE_SHIFTED_END_IDX
+                                                             : unshifted_polys.size());
 
     const size_t circuit_dyadic_size = numeric::round_up_power_2(batched_unshifted.end_index());
 
@@ -308,5 +320,4 @@ HonkProof AvmProver::construct_proof()
 
     return export_proof();
 }
-
 } // namespace bb::avm2

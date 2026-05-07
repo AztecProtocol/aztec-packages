@@ -308,15 +308,23 @@ void add_scaled_batch(Polynomial<Fr>& dst,
     parallel_for([&](const ThreadChunk& chunk) {
         BB_BENCH_TRACY_NAME("add_scaled_batch/chunk");
         auto chunk_indices = chunk.range(union_size, min_start);
+        if (chunk_indices.empty()) {
+            return;
+        }
+        auto chunk_start = chunk_indices.front();
+        auto chunk_end = chunk_indices.back();
+
         for (size_t k = 0; k < sources.size(); ++k) {
             const auto& src = sources[k];
-            const Fr c = scalars[k];
+            const Fr& c = scalars[k];
             const size_t src_start = src.start_index;
             const size_t src_end = src.end_index();
-            for (size_t i : chunk_indices) {
-                if (i >= src_start && i < src_end) {
-                    dst.at(i) += c * src[i];
-                }
+
+            const size_t idx_start = std::max(chunk_start, src_start);
+            const size_t idx_end = std::min(chunk_end + 1, src_end);
+
+            for (size_t i = idx_start; i < idx_end; ++i) {
+                dst.at(i) += c * src[i];
             }
         }
     });
