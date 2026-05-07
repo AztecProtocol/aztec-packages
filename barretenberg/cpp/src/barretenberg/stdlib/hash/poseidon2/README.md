@@ -216,20 +216,7 @@ $$
 then applies the external matrix:
 
 $$
-\begin{bmatrix}
-v_1 \\
-v_2 \\
-v_3 \\
-v_4
-\end{bmatrix}
-=
-M_E
-\begin{bmatrix}
-u_1 \\
-u_2 \\
-u_3 \\
-u_4
-\end{bmatrix}.
+\begin{bmatrix} v_1 \\ v_2 \\ v_3 \\ v_4 \end{bmatrix} = M_E \begin{bmatrix} u_1 \\ u_2 \\ u_3 \\ u_4 \end{bmatrix}.
 $$
 
 The four external subrelations constrain the result against the shifted row:
@@ -245,10 +232,7 @@ $$
 
 ## Mega Internal Compression
 
-Mega uses a K=4 layout: each compressed row commits four consecutive `state[0]` values instead of the full state at
-every internal round. This is sound because only `state[0]` passes through the internal-round
-S-box. Once the four S-box outputs are fixed, the update of `state[1..3]` is linear and can be
-checked through an invertible 3 by 3 linear encoding.
+Mega uses a K=4 layout: each compressed row commits four consecutive `state[0]` values instead of the full state at every internal round. This is sound because only `state[0]` passes through the internal-round S-box. Once the four S-box outputs are fixed, the update of `state[1..3]` is linear and can be checked through an invertible 3 by 3 linear encoding.
 
 For a quad row that starts at internal round `4i`:
 
@@ -331,22 +315,7 @@ $(s_1^{(0)}, s_2^{(0)}, s_3^{(0)})$. For this reconstruction, use Vandermonde no
 $\lambda_1 = D_2$, $\lambda_2 = D_3$, and $\lambda_3 = D_4$:
 
 $$
-\begin{bmatrix}
-1 & 1 & 1 \\
-\lambda_1 & \lambda_2 & \lambda_3 \\
-\lambda_1^2 & \lambda_2^2 & \lambda_3^2
-\end{bmatrix}
-\begin{bmatrix}
-s_1^{(0)} \\
-s_2^{(0)} \\
-s_3^{(0)}
-\end{bmatrix}
-=
-\begin{bmatrix}
-b_1 \\
-b_2 \\
-b_3
-\end{bmatrix}.
+\begin{bmatrix} 1 & 1 & 1 \\ \lambda_1 & \lambda_2 & \lambda_3 \\ \lambda_1^2 & \lambda_2^2 & \lambda_3^2 \end{bmatrix} \begin{bmatrix} s_1^{(0)} \\ s_2^{(0)} \\ s_3^{(0)} \end{bmatrix} = \begin{bmatrix} b_1 \\ b_2 \\ b_3 \end{bmatrix}.
 $$
 
 Solving the internal-round recurrence gives the right-hand sides:
