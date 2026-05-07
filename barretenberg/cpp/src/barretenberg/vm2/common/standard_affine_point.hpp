@@ -6,18 +6,15 @@
 namespace bb::avm2 {
 
 /**
- * AVM bytecode expects the representation of points to be triplets, the two coordinates and an is_infinity boolean.
- * Furthermore, its representation of infinity is inherited from noir's and is expected to be 0,0,true.
- * BB, however, uses only the two coordinates to represent points. Infinity in barretenberg is represented as (P+1)/2,0.
- * This class is a wrapper of the BB representation, needed to operate with points, that allows us to extract the
- * standard representation that AVM bytecode expects.
+ * The AVM's representation of infinity is inherited from noir's and is expected to be 0,0.
+ * BB, however, uses only the two coordinates to represent points. Infinity in barretenberg is represented as
+ * (P+1)/2,0,true. This class is a wrapper of the BB representation, needed to operate with points, that allows us to
+ * extract the standard representation that AVM bytecode expects.
  *
  * NOTE: When constructing infinity from BB's two element representation, we keep the original AffinePoint so operations
  * can use it in the background, but set extractable coordinates to be our represention of (0,0).
- * NOTE: When constructing infinity via BaseFields, input coordinates are overwritten to our representation of (0,0)
- * if the input is_infinity is true, so will mismatch the underlying AffinePoint's coordinates.
- *
- * TODO(#AVM-266): Remove is_infinity flag from point representation.
+ * NOTE: When constructing infinity via BaseFields (equiv. inputting (0, 0), the underlying AffinePoint is set to BB's
+ * representation so operations can use it in the background.
  */
 template <typename AffinePoint> class StandardAffinePoint {
   public:

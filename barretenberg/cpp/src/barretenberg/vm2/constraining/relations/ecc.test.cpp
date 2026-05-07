@@ -782,48 +782,14 @@ TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinity)
                                scalar_mul_event_emitter,
                                ecc_add_memory_event_emitter);
 
-    EmbeddedCurvePoint result = ecc_simulator.scalar_mul(EmbeddedCurvePoint::infinity(), FF(10));
-    ASSERT_TRUE(result.is_infinity());
-
-    TestTraceContainer trace({
-        { { C::precomputed_first_row, 1 } },
-    });
-
-    builder.process_scalar_mul(scalar_mul_event_emitter.dump_events(), trace);
-    builder.process_add(ecc_add_event_emitter.dump_events(), trace);
-
-    check_interaction<EccTraceBuilder, lookup_scalar_mul_double_settings, lookup_scalar_mul_add_settings>(trace);
-
-    check_relation<scalar_mul>(trace);
-    check_relation<ecc>(trace);
-}
-// TODO(#AVM-266): Rework test when is_infinity flag is removed from point representations.
-// We now derive is_inf from coordinates, whereas previously we remapped coordinates /from/ is_inf.
-// EmbeddedCurvePoint preserves raw coordinates (see StandardAffinePointTest)
-TEST(ScalarMulConstrainingTest, MulAddInteractionsInfinityRep)
-{
-    EccTraceBuilder builder;
-
-    EventEmitter<EccAddEvent> ecc_add_event_emitter;
-    EventEmitter<ScalarMulEvent> scalar_mul_event_emitter;
-    NoopEventEmitter<EccAddMemoryEvent> ecc_add_memory_event_emitter;
-
-    StrictMock<MockExecutionIdManager> execution_id_manager;
-    StrictMock<MockGreaterThan> gt;
-    PureToRadix to_radix_simulator = PureToRadix();
-    EccSimulator ecc_simulator(execution_id_manager,
-                               gt,
-                               to_radix_simulator,
-                               ecc_add_event_emitter,
-                               scalar_mul_event_emitter,
-                               ecc_add_memory_event_emitter);
-
     EmbeddedCurvePoint inf = EmbeddedCurvePoint::infinity();
 
     EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
 
     EmbeddedCurvePoint result = ecc_simulator.scalar_mul(inf_bb, FF(10));
     ASSERT_TRUE(result.is_infinity());
+    EXPECT_EQ(result.x(), inf.x());
+    EXPECT_EQ(result.y(), inf.y());
 
     TestTraceContainer trace({
         { { C::precomputed_first_row, 1 } },
@@ -1344,8 +1310,6 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryPointError)
     check_relation<mem_aware_ecc>(trace);
 }
 
-// TODO(#AVM-266): Rework test when is_infinity flag is removed from point representations.
-// We now derive is_inf from coordinates, whereas previously we remapped coordinates /from/ is_inf.
 TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
 {
     EccTraceBuilder builder;
@@ -1373,8 +1337,7 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
     // EmbeddedCurvePoint always sets extractable coordinates as (0,0) and the underlying point as
     // AffinePoint::infinity() for input infinity points.
     EmbeddedCurvePoint inf_bb = EmbeddedCurvePoint(avm2::AffinePoint::infinity());
-    // EmbeddedCurvePoint inf_alt = EmbeddedCurvePoint(0, 7, true);
-    // EXPECT_EQ(inf_bb, inf_alt);
+    EXPECT_EQ(inf_bb, inf);
     TestTraceContainer trace;
 
     // The circuit correctly assigns double_op = true when doubling inf:
@@ -1415,25 +1378,6 @@ TEST(EccAddMemoryConstrainingTest, InfinityRepresentations)
     trace.set(C::ecc_add_mem_q_y, 0, 2);
     EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_X_CHECK), "Q_INF_X_CHECK");
     EXPECT_THROW_WITH_MESSAGE(check_relation<mem_aware_ecc>(trace, mem_aware_ecc::SR_Q_INF_Y_CHECK), "Q_INF_Y_CHECK");
-
-    // TODO(#AVM-266): Rework test when is_infinity flag is removed from point representations.
-    // We now derive is_inf from coordinates, whereas previously we remapped coordinates /from/ is_inf.
-    // The below test no longer makes sense since it checks we store non-(0,0) coordinates for an inf
-    // point, which we do not allow.
-
-    // builder.process_add_with_memory(ecc_add_memory_event_emitter.dump_events(), trace);
-
-    // // The original coordinates are stored in memory for the read...
-    // EXPECT_EQ(trace.get(C::ecc_add_mem_q_x, 1), inf_bb.x());
-    // EXPECT_EQ(trace.get(C::ecc_add_mem_q_y, 1), inf_bb.y());
-    // // ...but normalised coordinates are sent to the ecc subtrace:
-    // EXPECT_EQ(trace.get(C::ecc_add_mem_q_x_n, 1), 0);
-    // EXPECT_EQ(trace.get(C::ecc_add_mem_q_y_n, 1), 0);
-    // check_relation<mem_aware_ecc>(trace);
-    // check_relation<ecc>(trace);
-    // check_all_interactions<EccTraceBuilder>(trace);
-    // check_interaction<tracegen::ExecutionTraceBuilder,
-    // bb::avm2::perm_execution_dispatch_to_ecc_add_settings>(trace);
 }
 
 } // namespace

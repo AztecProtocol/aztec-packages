@@ -10,25 +10,18 @@ using EmbeddedCurvePoint = StandardAffinePoint<grumpkin::g1::affine_element>;
 using Fr = grumpkin::fr;
 using Fq = grumpkin::fq;
 
-// TEST(StandardAffinePointTest, InfinityDiscardsRawCoordinates)
-// {
-//     // NOTE: As of #AVM-248, we moved from preserving raw coordinates in
-//     // infinity points to our (0,0) representation when using x() and y().
-//     // The underlying AffinePoint is set to AffinePoint::infinity() for
-//     // bb operations.
-
-//     // When constructing an infinity point with non-zero coordinates,
-//     // x() and y() should return our standard representation.
-//     Fq raw_x = 1;
-//     Fq raw_y = 2;
-
-//     // Note that raw x and y are silently discarded.
-//     EmbeddedCurvePoint point(raw_x, raw_y);
-
-//     EXPECT_TRUE(point.is_infinity());
-//     EXPECT_TRUE(point.x().is_zero());
-//     EXPECT_TRUE(point.y().is_zero());
-// }
+TEST(StandardAffinePointTest, ConstructingInfinityNormalized)
+{
+    // Constructing a point with (0,0) coordinates should result in infinity
+    EmbeddedCurvePoint inf(0, 0);
+    EXPECT_TRUE(inf.is_infinity());
+    // Constructing a point with BB's inf should result in infinity with (0,0) coordinates
+    EmbeddedCurvePoint inf_bb(grumpkin::g1::affine_element::infinity());
+    EXPECT_TRUE(inf_bb.is_infinity());
+    EXPECT_TRUE(inf_bb.x().is_zero());
+    EXPECT_TRUE(inf_bb.y().is_zero());
+    EXPECT_EQ(inf, inf_bb);
+}
 
 TEST(StandardAffinePointTest, NormalPointCoordinates)
 {
@@ -78,7 +71,7 @@ TEST(StandardAffinePointTest, ScalarMultiplicationResultingInInfinityNormalized)
 
 TEST(StandardAffinePointTest, StaticInfinityHasZeroCoordinates)
 {
-    // The static infinity() method should return (0,0,true)
+    // The static infinity() method should return (0,0)
     auto& inf = EmbeddedCurvePoint::infinity();
 
     EXPECT_TRUE(inf.is_infinity());
@@ -89,9 +82,7 @@ TEST(StandardAffinePointTest, StaticInfinityHasZeroCoordinates)
 TEST(StandardAffinePointTest, NegatingInfinity)
 {
     // Negating an infinity point should return (0,0)
-    EmbeddedCurvePoint inf(0, 0);
-
-    auto neg_inf = -inf;
+    auto neg_inf = -EmbeddedCurvePoint::infinity();
 
     EXPECT_TRUE(neg_inf.is_infinity());
     EXPECT_TRUE(neg_inf.x().is_zero());
