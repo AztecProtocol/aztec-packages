@@ -9,7 +9,6 @@ import {
   CapsuleService,
   CapsuleStore,
   ContractStore,
-  DEFAULT_EXECUTION_HOOKS,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -480,7 +479,6 @@ export class TXESession implements TXESessionStateHandler {
       scopes: await this.keyStore.getAccounts(),
       messageContextService: this.stateMachine.messageContextService,
       simulator: new WASMSimulator(),
-      hooks: DEFAULT_EXECUTION_HOOKS,
     });
 
     // We store the note and tagging index caches fed into the PrivateExecutionOracle (along with some other auxiliary
@@ -564,7 +562,6 @@ export class TXESession implements TXESessionStateHandler {
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
       simulator: new WASMSimulator(),
-      hooks: DEFAULT_EXECUTION_HOOKS,
     });
 
     this.state = { name: 'UTILITY' };
@@ -664,7 +661,6 @@ export class TXESession implements TXESessionStateHandler {
           jobId: this.currentJobId,
           scopes,
           simulator,
-          hooks: DEFAULT_EXECUTION_HOOKS,
         });
         await simulator
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

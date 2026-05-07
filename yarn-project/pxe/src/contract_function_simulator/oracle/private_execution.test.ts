@@ -54,7 +54,6 @@ import { toFunctionSelector } from 'viem';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { syncState } from '../../contract_sync/helpers.js';
-import { DEFAULT_EXECUTION_HOOKS } from '../../hooks/index.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -470,7 +469,6 @@ describe('Private Execution test suite', () => {
       simulator,
       contractSyncService,
       messageContextService,
-      hooks: DEFAULT_EXECUTION_HOOKS,
     });
   });
 

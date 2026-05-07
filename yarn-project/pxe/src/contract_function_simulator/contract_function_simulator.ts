@@ -144,7 +144,7 @@ export type ContractFunctionSimulatorArgs = {
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
   messageContextService: MessageContextService;
-  hooks: ExecutionHooks;
+  hooks?: ExecutionHooks;
 };
 
 /**
@@ -166,7 +166,7 @@ export class ContractFunctionSimulator {
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
   private readonly messageContextService: MessageContextService;
-  private readonly hooks: ExecutionHooks;
+  private readonly hooks: ExecutionHooks | undefined;
 
   constructor(args: ContractFunctionSimulatorArgs) {
     this.contractStore = args.contractStore;

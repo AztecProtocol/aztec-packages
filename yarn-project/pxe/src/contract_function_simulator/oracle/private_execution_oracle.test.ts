@@ -12,7 +12,6 @@ import { type BlockHeader, CallContext, type Capsule, TxContext } from '@aztec/s
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import { DEFAULT_EXECUTION_HOOKS } from '../../hooks/index.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
@@ -110,7 +109,6 @@ describe('PrivateExecutionOracle', () => {
       jobId: 'test',
       scopes: [],
       simulator: new WASMSimulator(),
-      hooks: DEFAULT_EXECUTION_HOOKS,
       ...overrides,
     });
   };

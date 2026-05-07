@@ -79,7 +79,7 @@ export type UtilityExecutionOracleArgs = {
   log?: ReturnType<typeof createLogger>;
   scopes: AztecAddress[];
   simulator: CircuitSimulator;
-  hooks: ExecutionHooks;
+  hooks?: ExecutionHooks;
 };
 
 /**
@@ -117,7 +117,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AztecAddress[];
   protected readonly simulator: CircuitSimulator;
-  protected readonly hooks: ExecutionHooks;
+  protected readonly hooks: ExecutionHooks | undefined;
 
   constructor(args: UtilityExecutionOracleArgs) {
     this.contractAddress = args.contractAddress;
@@ -923,19 +923,25 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     if (!targetContractAddress.equals(this.contractAddress)) {
-      const authorized = await this.hooks.authorizeUtilityCall({
+      const request = {
         caller: this.contractAddress,
         target: targetContractAddress,
         functionSelector,
         functionName: targetArtifact.name,
         args,
-        callerContext: 'isPrivate' in this ? 'private' : 'utility',
-      });
+        callerContext: ('isPrivate' in this ? 'private' : 'utility') as 'private' | 'utility',
+      };
 
-      if (!authorized) {
+      const response = this.hooks
+        ? await this.hooks.authorizeUtilityCall(request)
+        : { authorized: false, reason: 'No execution hooks configured' };
+
+      if (!response.authorized) {
+        const reason = response.reason ? `: ${response.reason}` : '';
         throw new Error(
-          `Cross-contract utility call denied: ${this.contractAddress} attempted to call ` +
-            `${targetContractAddress}:${functionSelector} (${targetArtifact.name}).`,
+          `Cross-contract utility call denied${reason}. ${this.contractAddress} attempted to call ` +
+            `${targetContractAddress}:${functionSelector} (${targetArtifact.name}). ` +
+            `See https://docs.aztec.network/errors/11`,
         );
       }
     }

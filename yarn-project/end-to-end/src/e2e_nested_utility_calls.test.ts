@@ -81,7 +81,7 @@ describe('authorizeUtilityCall hook', () => {
         hooks: {
           authorizeUtilityCall: (req: UtilityCallAuthorizationRequest) => {
             lastRequest = req;
-            return Promise.resolve(hookAllows);
+            return Promise.resolve({ authorized: hookAllows });
           },
         },
       },

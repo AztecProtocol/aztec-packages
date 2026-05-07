@@ -18,8 +18,23 @@ export type UtilityCallAuthorizationRequest = {
   callerContext: 'private' | 'utility';
 };
 
-/** Hook called when a utility function attempts a cross-contract call. Returns true to allow, false to deny. */
-export type AuthorizeUtilityCall = (request: UtilityCallAuthorizationRequest) => Promise<boolean>;
+/** Authorization was granted. */
+type Authorized = { authorized: true };
 
-/** Default authorization hook that denies all cross-contract utility calls. */
-export const DEFAULT_AUTHORIZE_UTILITY_CALL: AuthorizeUtilityCall = () => Promise.resolve(false);
+/** Authorization was denied. */
+type Denied = {
+  authorized: false;
+  /** Reason for denial, included in the error message. */
+  reason?: string;
+};
+
+/** Result of an authorization hook evaluation. */
+export type UtilityCallAuthorizationResponse = Authorized | Denied;
+
+/**
+ * Hook called when a utility function attempts a cross-contract call.
+ * Returns a response indicating whether the call is authorized and an optional denial reason.
+ */
+export type AuthorizeUtilityCall = (
+  request: UtilityCallAuthorizationRequest,
+) => Promise<UtilityCallAuthorizationResponse>;
