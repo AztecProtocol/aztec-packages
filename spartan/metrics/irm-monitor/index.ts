@@ -13,10 +13,10 @@ if (!ROLLUP_CONTRACT_ADDRESS || !ETHEREUM_HOST || !NETWORK) {
     "ROLLUP_CONTRACT_ADDRESS, ETHEREUM_HOST and NETWORK are required. Provided: ",
     ROLLUP_CONTRACT_ADDRESS,
     ETHEREUM_HOST,
-    NETWORK
+    NETWORK,
   );
   throw new Error(
-    "ROLLUP_CONTRACT_ADDRESS, ETHEREUM_HOST and NETWORK are required"
+    "ROLLUP_CONTRACT_ADDRESS, ETHEREUM_HOST and NETWORK are required",
   );
 }
 
@@ -74,23 +74,47 @@ const pendingCheckpointNumberGauge = new client.Gauge({
   labelNames: ["network"],
 });
 
+const POLL_INTERVAL_MS = 36_000;
+
+let lastStartedUpdateId = 0;
+
 async function updateCheckpointNumbers(): Promise<void> {
+  const thisUpdateId = ++lastStartedUpdateId;
+  const startedAt = Date.now();
   try {
     const provenCheckpointNumber = await publicClient.readContract({
       address: ROLLUP_CONTRACT_ADDRESS as `0x${string}`,
       abi: ROLLUP_ABI,
       functionName: "getProvenCheckpointNumber",
     });
-    provenCheckpointNumberGauge.set(Number(provenCheckpointNumber));
 
     const pendingCheckpointNumber = await publicClient.readContract({
       address: ROLLUP_CONTRACT_ADDRESS as `0x${string}`,
       abi: ROLLUP_ABI,
       functionName: "getPendingCheckpointNumber",
     });
-    pendingCheckpointNumberGauge.set(Number(pendingCheckpointNumber));
+
+    if (thisUpdateId !== lastStartedUpdateId) {
+      console.log("skipped stale checkpoint read", {
+        updateId: thisUpdateId,
+        latestUpdateId: lastStartedUpdateId,
+        elapsedMs: Date.now() - startedAt,
+      });
+      return;
+    }
+
+    const proven = Number(provenCheckpointNumber);
+    const pending = Number(pendingCheckpointNumber);
+    provenCheckpointNumberGauge.set(proven);
+    pendingCheckpointNumberGauge.set(pending);
+    console.log("checkpoints updated", {
+      updateId: thisUpdateId,
+      proven,
+      pending,
+      elapsedMs: Date.now() - startedAt,
+    });
   } catch (error) {
-    console.error("Error updating checkpoint numbers:", error);
+    console.error(`checkpoint update failed (updateId=${thisUpdateId})`, error);
   }
 }
 
@@ -102,10 +126,16 @@ app.get("/metrics", async (_req: Request, res: Response) => {
 
 const port = process.env.PORT ? Number(process.env.PORT) : 8080;
 app.listen(port, () => {
-  console.log(`Metrics server listening on port ${port}`);
+  console.log("metrics server listening", {
+    port,
+    network: NETWORK,
+    rollup: ROLLUP_CONTRACT_ADDRESS,
+    ethereumHost: ETHEREUM_HOST,
+    pollIntervalMs: POLL_INTERVAL_MS,
+  });
 });
 
-setInterval(updateCheckpointNumbers, 36000);
+setInterval(updateCheckpointNumbers, POLL_INTERVAL_MS);
 updateCheckpointNumbers();
 
 // Expose default process metrics, including process_start_time_seconds
