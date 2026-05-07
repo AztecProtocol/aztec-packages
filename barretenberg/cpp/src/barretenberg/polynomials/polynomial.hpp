@@ -455,6 +455,7 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     const size_t n = evaluation_points.size();
     // A 0-variable MLE is the constant polynomial; return the single coefficient directly.
     if (n == 0) {
+        BB_ASSERT_EQ(coefficients.virtual_size(), 1UL);
         return coefficients.get(0);
     }
     const size_t dim = numeric::get_msb(coefficients.end_ - 1) + 1; // Round up to next power of 2
