@@ -15,8 +15,10 @@
 //     ties the compressed chain's computed state at round `p_end` to the selector-unconstrained
 //     standard bridge row consumed by the final external rounds via shared witness indices.
 //
-// These tests verify representative malicious prover edits at the entry boundary, interior
-// compressed chain, and exit boundary.
+// CircuitChecker iterates row-major-then-relation-major and short-circuits on the first
+// failing relation. This means a corruption that would in principle break multiple relations
+// is reported as breaking the first one the checker reaches; the tests below note the
+// expected first-detector where it matters.
 
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
@@ -156,6 +158,27 @@ TEST_F(Poseidon2QuadInternalSoundnessTests, InteriorRelationRejectsTamperedWire)
     const size_t interior_row = quad_first_interior_row + 5;
     const uint32_t w_o_idx = quad.w_o()[interior_row];
     builder->set_variable(w_o_idx, builder->get_variable(w_o_idx) + FF(1));
+
+    EXPECT_FALSE(CircuitChecker::check(*builder));
+}
+
+// Cross-row encoding test: the interior subrelations A_1, A_2, A_3 compare row i's predicted
+// (out_1, out_2, out_3) against row i+1's reconstructed Vandermonde encoding (b_1', b_2',
+// b_3'), where b_k' is built from row i+1's lane-0 chain. Tampering an interior row's wire
+// perturbs that reconstruction at the *previous* row without touching the previous row's
+// own committed wires — exercising the bijectivity-of-V mechanism that lets the relation
+// compare uncommitted hidden lanes. The tampered wire is also row i+1's own committed wire,
+// so the tamper would also break row i+1's own relation; CircuitChecker may report either
+// site, but both are exercising the same Vandermonde-encoding equality.
+TEST_F(Poseidon2QuadInternalSoundnessTests, CrossRowVandermondeEncodingMismatchRejected)
+{
+    auto builder = build_honest_permutation(FF(uint256_t(0xCAFE1234ULL)));
+    ASSERT_TRUE(CircuitChecker::check(*builder));
+
+    auto& quad = builder->blocks.poseidon2_quad_internal;
+    const size_t row_i_plus_1 = quad_first_interior_row + 6;
+    const uint32_t idx = quad.w_o()[row_i_plus_1];
+    builder->set_variable(idx, builder->get_variable(idx) + FF(1));
 
     EXPECT_FALSE(CircuitChecker::check(*builder));
 }

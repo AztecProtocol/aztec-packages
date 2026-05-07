@@ -446,6 +446,14 @@ uniquely determined.
 The interior row's successor is another compressed row that commits only $s_0$ at four rounds.
 The next row's `state[1..3]` values are not committed. Instead, the relation compares their
 Vandermonde encoding against the encoding reconstructed from the next row's `state[0]` chain.
+
+Note that the predicted outputs $(\operatorname{out}_0, \ldots, \operatorname{out}_3)$ are
+themselves **not committed** as wires — they are symbolic linear combinations of the current
+row's committed wires and S-box outputs, expanded inline by the relation. Only $w_l'$ on the
+next row is a fresh witness; the equalities below relate that wire (and the next row's other
+committed lane-0 wires, through the Vandermonde encoding) to a polynomial in the current row's
+wires.
+
 This enforces:
 
 - **$A_0$:** $\operatorname{out}_0 = w_l'$ — first $s_0$ value of the next row matches the
