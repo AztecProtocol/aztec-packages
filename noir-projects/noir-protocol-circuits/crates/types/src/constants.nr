@@ -765,7 +765,7 @@ pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
 /// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
 
-/// Domain separator for the secret hash stored in handshake notes produced by the handshake registry contract. 
+/// Domain separator for the secret hash stored in handshake notes produced by the handshake registry contract.
 /// Kept distinct from [`DOM_SEP__SECRET_HASH`] (which is specifically for L1 to L2 messages).
 pub global DOM_SEP__HANDSHAKE_SECRET_HASH: u32 = 3596796143;
 

@@ -171,10 +171,7 @@ fn hashed_values_match_derived() {
         DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         "non_interactive_handshake_log_tag",
     );
-    tester.assert_dom_sep_matches_derived(
-        DOM_SEP__HANDSHAKE_SECRET_HASH,
-        "handshake_secret_hash",
-    );
+    tester.assert_dom_sep_matches_derived(DOM_SEP__HANDSHAKE_SECRET_HASH, "handshake_secret_hash");
     tester.assert_dom_sep_matches_derived(DOM_SEP__MESSAGE_NULLIFIER, "message_nullifier");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PRIVATE_FUNCTION_LEAF, "private_function_leaf");
     tester.assert_dom_sep_matches_derived(DOM_SEP__PUBLIC_BYTECODE, "public_bytecode");
