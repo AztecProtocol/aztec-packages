@@ -2,13 +2,13 @@
   "index_name": "aztec-docs",
   "start_urls": [
     {
-      "url": "https://docs.aztec.network/",
-      "page_rank": 10
-    },
-    {
       "url": "https://docs.aztec.network/aztec-nr-api/mainnet/",
       "selectors_key": "api-nr",
       "page_rank": 2
+    },
+    {
+      "url": "https://docs.aztec.network/",
+      "page_rank": 10
     }
   ],
   "stop_urls": [
