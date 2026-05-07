@@ -6655,16 +6655,3 @@ Now, just remove the `src` folder,:
 ```rust
 easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
 ```
-outside of the `src` folder, so you need to update your imports.
-
-Before:
-
-```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.16.9", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
-```
-
-Now, just remove the `src` folder,:
-
-```rust
-easy_private_token_contract = {git = "https://github.com/AztecProtocol/aztec-packages/", tag ="v0.17.0", directory = "noir-projects/noir-contracts/contracts/easy_private_token_contract"}
-```
