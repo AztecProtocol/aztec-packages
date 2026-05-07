@@ -1,20 +1,15 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { waitForTx } from '@aztec/aztec.js/node';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { times, timesAsync } from '@aztec/foundation/collection';
+import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
-import { executeTimeout } from '@aztec/foundation/timer';
-import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerClient, SequencerEvents } from '@aztec/sequencer-client';
 import { getEpochAtSlot, getEpochNumberAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
@@ -22,7 +17,6 @@ import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { proveInteraction } from '../test-wallet/utils.js';
 import { EpochsTestContext, type EpochsTestOpts } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -39,8 +33,6 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
   let test: EpochsTestContext;
   let validators: (Operator & { privateKey: `0x${string}` })[];
   let nodes: AztecNodeService[];
-  let contract: TestContract;
-  let from: AztecAddress;
   let proverNode: AztecNodeService;
 
   const setupTest = async (
@@ -71,9 +63,6 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     });
 
     ({ context, logger } = test);
-    from = context.accounts[0];
-
-    contract = await test.registerTestContract(context.wallet);
 
     const minTxsPerBlock = validatorOverrides.minTxsPerBlock ?? 0;
     const maxTxsPerBlock = validatorOverrides.maxTxsPerBlock ?? 1;
