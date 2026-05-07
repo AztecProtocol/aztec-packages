@@ -9,8 +9,12 @@ unconstrained fn transfer_in_private_with_offchain_delivery_updates_both_balance
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
 
     let transfer_amount = 1000 as u128;
-    let transfer_call = Token::at(token_contract_address)
-        .transfer_in_private_with_offchain_delivery(owner, recipient, transfer_amount, 0);
+    let transfer_call = Token::at(token_contract_address).transfer_in_private_with_offchain_delivery(
+        owner,
+        recipient,
+        transfer_amount,
+        0,
+    );
 
     // Transfer tokens. The offchain-delivered notes (change note for the sender, balance note for the recipient,
     // Transfer event) end up in TXE's offchain effect buffer.
@@ -20,8 +24,7 @@ unconstrained fn transfer_in_private_with_offchain_delivery_updates_both_balance
     // most `MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL` (16). This test only produces a handful of messages, so a single
     // batch suffices.
     let messages = env.offchain_messages();
-    let mut batch
-        : BoundedVec<_, aztec::messages::processing::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> =
+    let mut batch: BoundedVec<_, aztec::messages::processing::offchain::MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL> =
         BoundedVec::new();
     for i in 0..messages.len() {
         batch.push(messages.get(i));
@@ -42,8 +45,12 @@ unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of
     let (env, token_contract_address, owner, recipient, _) =
         utils::setup_and_mint_to_private(/* with_account_contracts */ false);
     let transfer_amount = 1000 as u128;
-    let transfer_call = Token::at(token_contract_address)
-        .transfer_in_private_with_offchain_delivery(owner, recipient, transfer_amount, 1);
+    let transfer_call = Token::at(token_contract_address).transfer_in_private_with_offchain_delivery(
+        owner,
+        recipient,
+        transfer_amount,
+        1,
+    );
     add_private_authwit_from_call(env, owner, recipient, transfer_call);
     env.call_private(owner, transfer_call);
 }
@@ -53,8 +60,12 @@ unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of
     let (env, token_contract_address, owner, recipient, mint_amount, proxy) =
         utils::setup_and_mint_to_private_with_proxy();
     let transfer_amount = mint_amount + (1 as u128);
-    let transfer_call = Token::at(token_contract_address)
-        .transfer_in_private_with_offchain_delivery(owner, recipient, transfer_amount, 1);
+    let transfer_call = Token::at(token_contract_address).transfer_in_private_with_offchain_delivery(
+        owner,
+        recipient,
+        transfer_amount,
+        1,
+    );
     add_private_authwit_from_call(env, owner, proxy, transfer_call);
     env.call_private(
         owner,
@@ -68,11 +79,14 @@ unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of_other_without_approval() {
-    let (env, token_contract_address, owner, recipient, _, proxy) =
-        utils::setup_and_mint_to_private_with_proxy();
+    let (env, token_contract_address, owner, recipient, _, proxy) = utils::setup_and_mint_to_private_with_proxy();
     let transfer_amount = 1000 as u128;
-    let transfer_call = Token::at(token_contract_address)
-        .transfer_in_private_with_offchain_delivery(owner, recipient, transfer_amount, 1);
+    let transfer_call = Token::at(token_contract_address).transfer_in_private_with_offchain_delivery(
+        owner,
+        recipient,
+        transfer_amount,
+        1,
+    );
     env.call_private(
         owner,
         GenericProxy::at(proxy).forward_private_4(
@@ -85,11 +99,14 @@ unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of_other_wrong_caller() {
-    let (env, token_contract_address, owner, recipient, _, proxy) =
-        utils::setup_and_mint_to_private_with_proxy();
+    let (env, token_contract_address, owner, recipient, _, proxy) = utils::setup_and_mint_to_private_with_proxy();
     let transfer_amount = 1000 as u128;
-    let transfer_call = Token::at(token_contract_address)
-        .transfer_in_private_with_offchain_delivery(owner, recipient, transfer_amount, 1);
+    let transfer_call = Token::at(token_contract_address).transfer_in_private_with_offchain_delivery(
+        owner,
+        recipient,
+        transfer_amount,
+        1,
+    );
     add_private_authwit_from_call(env, owner, owner, transfer_call);
     env.call_private(
         owner,

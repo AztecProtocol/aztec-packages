@@ -18,12 +18,7 @@ pub struct TransparentNote {
 }
 
 impl NoteHash for TransparentNote {
-    fn compute_note_hash(
-        self,
-        _owner: AztecAddress,
-        storage_slot: Field,
-        randomness: Field,
-    ) -> Field {
+    fn compute_note_hash(self, _owner: AztecAddress, storage_slot: Field, randomness: Field) -> Field {
         let data = self.pack().concat([randomness]);
         compute_note_hash(storage_slot, data)
     }

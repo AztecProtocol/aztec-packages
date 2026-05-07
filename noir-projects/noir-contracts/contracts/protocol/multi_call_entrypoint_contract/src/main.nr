@@ -12,10 +12,7 @@ use aztec::macros::aztec;
 
 #[aztec]
 pub contract MultiCallEntrypoint {
-    use aztec::{
-        authwit::entrypoint::app::AppPayload,
-        macros::functions::{allow_phase_change, external},
-    };
+    use aztec::{authwit::entrypoint::app::AppPayload, macros::functions::{allow_phase_change, external}};
 
     #[external("private")]
     #[allow_phase_change]
