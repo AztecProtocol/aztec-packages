@@ -275,7 +275,7 @@ export class CLIWallet extends BaseWallet {
     } else {
       const { account, instance } = await this.getFakeAccountDataFor(from);
       overrides = {
-        contracts: { [from.toString()]: { instance } },
+        contracts: { [from.toString()]: { instance, skipSync: true } },
       };
       const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),

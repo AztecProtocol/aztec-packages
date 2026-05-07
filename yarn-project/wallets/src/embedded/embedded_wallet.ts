@@ -246,6 +246,7 @@ export class EmbeddedWallet extends BaseWallet {
 
       contracts[address.toString()] = {
         instance: { ...contractInstance, currentContractClassId: stubClassId },
+        skipSync: true,
       };
     }
 

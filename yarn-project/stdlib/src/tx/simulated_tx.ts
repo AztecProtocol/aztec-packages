@@ -29,8 +29,17 @@ import { Tx } from './tx.js';
  * overriding your own account contract so that valid signatures don't have to be provided while
  * simulating. The override's `currentContractClassId` resolves through PXE's locally registered
  * classes, so pre-register the target artifact via `pxe.registerContractClass(...)`.
+ *
+ * `skipSync` declares that PXE should not run contract sync (note discovery + nullifier sync) for
+ * this address while the override is in effect. Set this for mock/stub overrides whose artifact
+ * doesn't model the address's real notes (e.g. account stubs that mock auth without holding the
+ * real signing key storage). Leave unset (default false) for overrides that target full, on-chain
+ * classes where pre-existing notes still need to be discoverable (e.g. upgrade simulations).
  */
-export type ContractOverrides = Record<string /* AztecAddress as string */, { instance: ContractInstanceWithAddress }>;
+export type ContractOverrides = Record<
+  string /* AztecAddress as string */,
+  { instance: ContractInstanceWithAddress; skipSync?: boolean }
+>;
 
 /*
  * Optional values that can be overridden during simulation. `publicStorage` writes to the public-data
@@ -51,7 +60,12 @@ export class SimulationOverrides {
     return z
       .object({
         publicStorage: optional(z.array(PublicStorageOverrideSchema)),
-        contracts: optional(z.record(z.string(), z.object({ instance: ContractInstanceWithAddressSchema }))),
+        contracts: optional(
+          z.record(
+            z.string(),
+            z.object({ instance: ContractInstanceWithAddressSchema, skipSync: optional(z.boolean()) }),
+          ),
+        ),
       })
       .transform(args => new SimulationOverrides(args));
   }
