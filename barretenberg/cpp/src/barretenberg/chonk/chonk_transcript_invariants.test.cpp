@@ -62,22 +62,29 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  *
  * Per-circuit transcript breakdown (from complete_kernel_circuit_logic):
  * - App circuits (0, 2): 0 transcripts - use native HN folding prover
- * - Non-hiding kernels (1, 3, 4, 5): 3 transcripts each:
- *     1. accumulation_recursive_transcript - shared across HN/Merge recursive verification
+ * - Init kernel (1): 2 transcripts:
+ *     1. accumulation_recursive_transcript
+ *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
+ * - Intermediate kernel (3): 3 transcripts:
+ *     1. accumulation_recursive_transcript - shared across recursive verification
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Hiding kernel (6): 2 transcripts (no hash_transcript since it doesn't propagate an accumulator):
+ * - Reset and tail kernels (4, 5): 2 transcripts each:
  *     1. accumulation_recursive_transcript
- *     2. PairingPoints::aggregate_multiple
+ *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
+ * - Hiding kernel (6): 3 transcripts:
+ *     1. accumulation_recursive_transcript
+ *     2. batch_merge_transcript - for final batch merge verification
+ *     3. PairingPoints::aggregate_multiple
  *
- * Total: 0 + 3 + 0 + 3 + 3 + 3 + 2 = 14 transcripts
+ * Total: 0 + 2 + 0 + 3 + 2 + 2 + 3 = 12 transcripts
  */
 TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 {
     // Pinned expected transcript count for 2 app circuits
-    constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 14;
+    constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 12;
     constexpr size_t EXPECTED_NUM_CIRCUITS = 7;
-    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 3, 0, 3, 3, 3, 2 };
+    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 2, 0, 3, 2, 2, 3 };
 
     // Record transcript index before IVC
     size_t index_before_ivc = bb::unique_transcript_index.load();

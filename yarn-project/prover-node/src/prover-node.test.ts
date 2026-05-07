@@ -172,8 +172,12 @@ describe('prover-node', () => {
       proven: genesisTipId,
       finalized: genesisTipId,
     });
-    l2BlockSource.getBlockHeader.mockImplementation(number =>
-      Promise.resolve(number === checkpoints[0].blocks[0].number - 1 ? previousBlockHeader : undefined),
+    l2BlockSource.getBlockData.mockImplementation(query =>
+      Promise.resolve(
+        'number' in query && query.number === checkpoints[0].blocks[0].number - 1
+          ? ({ header: previousBlockHeader } as any)
+          : undefined,
+      ),
     );
 
     // L1 to L2 message source returns no messages

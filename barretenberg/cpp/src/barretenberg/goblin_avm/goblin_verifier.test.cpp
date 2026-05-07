@@ -96,7 +96,7 @@ class GoblinAvmRecursiveVerifierTests : public testing::Test {
 
         // Commit to op_queue columns.
         TableCommitments table_commitments;
-        auto ultra_ops_table_columns = goblin.op_queue->construct_ultra_ops_table_columns();
+        auto ultra_ops_table_columns = goblin.op_queue->construct_ultra_ops_table_columns(/*include_zk_ops*/ false);
         CommitmentKey<curve::BN254> pcs_commitment_key(goblin.op_queue->get_ultra_ops_table_num_rows());
         for (size_t idx = 0; idx < MegaFlavor::NUM_WIRES; idx++) {
             table_commitments[idx] = pcs_commitment_key.commit(ultra_ops_table_columns[idx]);

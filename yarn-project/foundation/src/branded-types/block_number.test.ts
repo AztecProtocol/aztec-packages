@@ -91,6 +91,25 @@ describe('BlockNumber', () => {
     it('rejects non-integer values', () => {
       expect(() => BlockNumberSchema.parse(1.5)).toThrow();
     });
+
+    it('rejects hex strings (must not be coerced as a number)', () => {
+      expect(BlockNumberSchema.safeParse('0x1234').success).toBe(false);
+      expect(
+        BlockNumberSchema.safeParse('0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff').success,
+      ).toBe(false);
+    });
+
+    it('rejects scientific-notation strings', () => {
+      expect(BlockNumberSchema.safeParse('1e5').success).toBe(false);
+    });
+
+    it('rejects values above MAX_SAFE_INTEGER', () => {
+      expect(BlockNumberSchema.safeParse(Number.MAX_SAFE_INTEGER + 1).success).toBe(false);
+    });
+
+    it('rejects bigints above MAX_SAFE_INTEGER', () => {
+      expect(BlockNumberSchema.safeParse(BigInt(Number.MAX_SAFE_INTEGER) + 1n).success).toBe(false);
+    });
   });
 
   describe('type safety', () => {

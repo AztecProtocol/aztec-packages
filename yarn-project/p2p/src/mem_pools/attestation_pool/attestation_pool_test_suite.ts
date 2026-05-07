@@ -28,9 +28,16 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     signers = Array.from({ length: NUMBER_OF_SIGNERS_PER_TEST }, () => Secp256k1Signer.random());
   });
 
+  /**
+   * Build attestations from each signer over the *same* signed payload (same header,
+   * archive, feeAssetPriceModifier). Required by the new pool, which deduplicates by
+   * payload hash and treats attestations from different signers as distinct entries
+   * only when the payload itself matches.
+   */
   const createCheckpointAttestationsForSlot = (slotNumber: number, archive?: Fr) => {
     const archiveToUse = archive ?? Fr.random();
-    return signers.map(signer => mockCheckpointAttestation(signer, slotNumber, archiveToUse));
+    const sharedHeader = CheckpointHeader.random({ slotNumber: SlotNumber(slotNumber) });
+    return signers.map(signer => mockCheckpointAttestation(signer, slotNumber, archiveToUse, sharedHeader));
   };
 
   const mockBlockProposalForPool = (
@@ -59,13 +66,17 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     it('should add attestations to pool', async () => {
       const slotNumber = 420;
       const archive = Fr.random();
-      const attestations = signers.slice(0, -1).map(signer => mockCheckpointAttestation(signer, slotNumber, archive));
+      const sharedHeader = CheckpointHeader.random({ slotNumber: SlotNumber(slotNumber) });
+      const attestations = signers
+        .slice(0, -1)
+        .map(signer => mockCheckpointAttestation(signer, slotNumber, archive, sharedHeader));
+      const payloadHash = attestations[0].getPayloadHash();
 
       await ap.addOwnCheckpointAttestations(attestations);
 
       const retrievedAttestations = await ap.getCheckpointAttestationsForSlotAndProposal(
         SlotNumber(slotNumber),
-        archive.toString(),
+        payloadHash,
       );
       expect(retrievedAttestations.length).toBe(attestations.length);
       compareCheckpointAttestations(retrievedAttestations, attestations);
@@ -75,11 +86,16 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       compareCheckpointAttestations(retrievedAttestationsForSlot, attestations);
 
       // Add another one
-      const newAttestation = mockCheckpointAttestation(signers[NUMBER_OF_SIGNERS_PER_TEST - 1], slotNumber, archive);
+      const newAttestation = mockCheckpointAttestation(
+        signers[NUMBER_OF_SIGNERS_PER_TEST - 1],
+        slotNumber,
+        archive,
+        sharedHeader,
+      );
       await ap.addOwnCheckpointAttestations([newAttestation]);
       const retrievedAttestationsAfterAdd = await ap.getCheckpointAttestationsForSlotAndProposal(
         SlotNumber(slotNumber),
-        archive.toString(),
+        payloadHash,
       );
       expect(retrievedAttestationsAfterAdd.length).toBe(attestations.length + 1);
       compareCheckpointAttestations(retrievedAttestationsAfterAdd, [...attestations, newAttestation]);
@@ -92,7 +108,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       const retreivedAttestationsAfterDelete = await ap.getCheckpointAttestationsForSlotAndProposal(
         SlotNumber(slotNumber),
-        archive.toString(),
+        payloadHash,
       );
       expect(retreivedAttestationsAfterDelete.length).toBe(0);
     });
@@ -108,13 +124,14 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       for (let i = 0; i < NUMBER_OF_SIGNERS_PER_TEST; i++) {
         attestations.push(mockCheckpointAttestation(signer, slotNumber, archive, header));
       }
+      const payloadHash = attestations[0].getPayloadHash();
 
       // Add them to store and check we end up with only one
       await ap.addOwnCheckpointAttestations(attestations);
 
       const retreivedAttestations = await ap.getCheckpointAttestationsForSlotAndProposal(
         SlotNumber(slotNumber),
-        archive.toString(),
+        payloadHash,
       );
       expect(retreivedAttestations.length).toBe(1);
       expect(retreivedAttestations[0].toBuffer()).toEqual(attestations[0].toBuffer());
@@ -122,9 +139,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       // Try adding them on another operation and check they are still not duplicated
       await ap.addOwnCheckpointAttestations([attestations[0]]);
-      expect(
-        await ap.getCheckpointAttestationsForSlotAndProposal(SlotNumber(slotNumber), archive.toString()),
-      ).toHaveLength(1);
+      expect(await ap.getCheckpointAttestationsForSlotAndProposal(SlotNumber(slotNumber), payloadHash)).toHaveLength(1);
     });
 
     it('should store attestations by differing slot', async () => {
@@ -135,9 +150,9 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       for (const attestation of attestations) {
         const slot = attestation.payload.header.slotNumber;
-        const archive = attestation.archive.toString();
+        const payloadHash = attestation.getPayloadHash();
 
-        const retreivedAttestations = await ap.getCheckpointAttestationsForSlotAndProposal(slot, archive);
+        const retreivedAttestations = await ap.getCheckpointAttestationsForSlotAndProposal(slot, payloadHash);
         expect(retreivedAttestations.length).toBe(1);
         expect(retreivedAttestations[0].toBuffer()).toEqual(attestation.toBuffer());
         expect(retreivedAttestations[0].payload.header.slotNumber).toEqual(slot);
@@ -153,9 +168,9 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       for (const attestation of attestations) {
         const slot = attestation.payload.header.slotNumber;
-        const proposalId = attestation.archive.toString();
+        const payloadHash = attestation.getPayloadHash();
 
-        const retreivedAttestations = await ap.getCheckpointAttestationsForSlotAndProposal(slot, proposalId);
+        const retreivedAttestations = await ap.getCheckpointAttestationsForSlotAndProposal(slot, payloadHash);
         expect(retreivedAttestations.length).toBe(1);
         expect(retreivedAttestations[0].toBuffer()).toEqual(attestation.toBuffer());
         expect(retreivedAttestations[0].payload.header.slotNumber).toEqual(slot);
@@ -164,21 +179,25 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     it('should delete attestations older than a given slot', async () => {
       const slotNumbers = [1, 2, 3, 69, 72, 74, 88, 420];
-      const attestations = (
-        await Promise.all(slotNumbers.map(slotNumber => createCheckpointAttestationsForSlot(slotNumber)))
-      ).flat();
-      const proposalId = attestations[0].archive.toString();
+      const attestationsPerSlot = await Promise.all(
+        slotNumbers.map(slotNumber => createCheckpointAttestationsForSlot(slotNumber)),
+      );
+      const attestations = attestationsPerSlot.flat();
+      const payloadHashForSlot1 = attestationsPerSlot[0][0].getPayloadHash();
 
       await ap.addOwnCheckpointAttestations(attestations);
 
-      const attestationsForSlot1 = await ap.getCheckpointAttestationsForSlotAndProposal(SlotNumber(1), proposalId);
+      const attestationsForSlot1 = await ap.getCheckpointAttestationsForSlotAndProposal(
+        SlotNumber(1),
+        payloadHashForSlot1,
+      );
       expect(attestationsForSlot1.length).toBe(signers.length);
 
       await ap.deleteOlderThan(SlotNumber(73));
 
       const attestationsForSlot1AfterDelete = await ap.getCheckpointAttestationsForSlotAndProposal(
         SlotNumber(1),
-        proposalId,
+        payloadHashForSlot1,
       );
       expect(attestationsForSlot1AfterDelete.length).toBe(0);
     });
@@ -189,7 +208,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       const slotNumber = 420;
       const archive = Fr.random();
       const proposal = await mockBlockProposalForPool(signers[0], slotNumber, archive);
-      const proposalId = proposal.archive.toString();
 
       const result = await ap.tryAddBlockProposal(proposal);
 
@@ -197,7 +215,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       expect(result.alreadyExists).toBe(false);
       expect(result.count).toBe(1);
 
-      const retrievedProposal = await ap.getBlockProposal(proposalId);
+      const retrievedProposal = await ap.getBlockProposalByArchive(proposal.archive.toString());
 
       expect(retrievedProposal).toBeDefined();
       expect(retrievedProposal!).toEqual(proposal);
@@ -205,31 +223,27 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
     it('should return undefined for non-existent block proposal', async () => {
       const nonExistentId = Fr.random().toString();
-      const retrievedProposal = await ap.getBlockProposal(nonExistentId);
+      const retrievedProposal = await ap.getBlockProposalByArchive(nonExistentId);
       expect(retrievedProposal).toBeUndefined();
     });
 
-    it('should return alreadyExists when adding proposal with same id', async () => {
+    it('should return alreadyExists when re-adding the same signed payload', async () => {
       const slotNumber = 420;
       const archive = Fr.random();
-      const proposal1 = await mockBlockProposalForPool(signers[0], slotNumber, archive);
-      const proposalId = proposal1.archive.toString();
+      const proposal = await mockBlockProposalForPool(signers[0], slotNumber, archive);
 
-      const result1 = await ap.tryAddBlockProposal(proposal1);
+      const result1 = await ap.tryAddBlockProposal(proposal);
       expect(result1.added).toBe(true);
       expect(result1.alreadyExists).toBe(false);
 
-      // Create a new proposal with same archive but different signer
-      const proposal2 = await mockBlockProposalForPool(signers[1], slotNumber, archive);
-
-      const result2 = await ap.tryAddBlockProposal(proposal2);
+      // Re-broadcasting the exact same proposal yields alreadyExists.
+      const result2 = await ap.tryAddBlockProposal(proposal);
       expect(result2.added).toBe(false);
       expect(result2.alreadyExists).toBe(true);
 
-      // Should still have the first proposal
-      const retrievedProposal = await ap.getBlockProposal(proposalId);
+      const retrievedProposal = await ap.getBlockProposalByArchive(proposal.archive.toString());
       expect(retrievedProposal).toBeDefined();
-      expect(retrievedProposal!.toBuffer()).toEqual(proposal1.toBuffer());
+      expect(retrievedProposal!.toBuffer()).toEqual(proposal.toBuffer());
       expect(retrievedProposal!.getSender()?.toString()).toBe(signers[0].address.toString());
     });
   });
@@ -239,12 +253,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       signer: Secp256k1Signer,
       slotNumber: number,
       archive: Fr = Fr.random(),
+      checkpointHeader?: CheckpointHeader,
     ): Promise<CheckpointProposalCore> => {
-      const checkpointHeader = makeCheckpointHeader(1, { slotNumber: SlotNumber(slotNumber) });
+      const headerToUse = checkpointHeader ?? makeCheckpointHeader(1, { slotNumber: SlotNumber(slotNumber) });
       const blockHeader = makeBlockHeader(1);
       const proposal = await makeCheckpointProposal({
         signer,
-        checkpointHeader,
+        checkpointHeader: headerToUse,
         archiveRoot: archive,
         lastBlock: { blockHeader },
       });
@@ -256,7 +271,6 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       const slotNumber = 420;
       const archive = Fr.random();
       const proposal = await mockCheckpointProposalForPool(signers[0], slotNumber, archive);
-      const proposalId = proposal.archive.toString();
 
       const result = await ap.tryAddCheckpointProposal(proposal);
 
@@ -264,7 +278,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
       expect(result.alreadyExists).toBe(false);
       expect(result.count).toBe(1);
 
-      const retrievedProposal = await ap.getCheckpointProposal(proposalId);
+      const retrievedProposal = await ap.getCheckpointProposal(SlotNumber(slotNumber));
 
       expect(retrievedProposal).toBeDefined();
       expect(retrievedProposal!.toBuffer()).toEqual(proposal.toBuffer());
@@ -281,54 +295,100 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         archiveRoot: archive,
         // No lastBlock
       });
-      const proposalId = proposal.archive.toString();
 
       // Add the checkpoint core - block extraction is now caller responsibility
       await ap.tryAddCheckpointProposal(proposal.toCore());
 
       // The checkpoint proposal should be stored
-      const retrievedCheckpointProposal = await ap.getCheckpointProposal(proposalId);
+      const retrievedCheckpointProposal = await ap.getCheckpointProposal(SlotNumber(slotNumber));
       expect(retrievedCheckpointProposal).toBeDefined();
 
       // No block proposal was extracted (it had none anyway)
-      const retrievedBlockProposal = await ap.getBlockProposal(proposalId);
+      const retrievedBlockProposal = await ap.getBlockProposalByArchive(proposal.archive.toString());
       expect(retrievedBlockProposal).toBeUndefined();
     });
 
     it('should return undefined for non-existent checkpoint proposal', async () => {
-      const nonExistentId = Fr.random().toString();
-      const retrievedProposal = await ap.getCheckpointProposal(nonExistentId);
+      const retrievedProposal = await ap.getCheckpointProposal(SlotNumber(99999));
       expect(retrievedProposal).toBeUndefined();
     });
 
-    it('should return alreadyExists when adding proposal with same id', async () => {
+    it('should return alreadyExists when re-adding the same signed payload', async () => {
       const slotNumber = 420;
       const archive = Fr.random();
-      const proposal1 = await mockCheckpointProposalForPool(signers[0], slotNumber, archive);
-      const proposalId = proposal1.archive.toString();
+      const proposal = await mockCheckpointProposalForPool(signers[0], slotNumber, archive);
 
-      const result1 = await ap.tryAddCheckpointProposal(proposal1);
+      const result1 = await ap.tryAddCheckpointProposal(proposal);
       expect(result1.added).toBe(true);
       expect(result1.alreadyExists).toBe(false);
 
-      // Create a new proposal with same archive but different signer
-      const proposal2 = await mockCheckpointProposalForPool(signers[1], slotNumber, archive);
-
-      const result2 = await ap.tryAddCheckpointProposal(proposal2);
+      // Re-broadcasting the exact same signed payload yields alreadyExists.
+      const result2 = await ap.tryAddCheckpointProposal(proposal);
       expect(result2.added).toBe(false);
       expect(result2.alreadyExists).toBe(true);
 
-      // Should still have the first proposal
-      const retrievedProposal = await ap.getCheckpointProposal(proposalId);
+      // Should still have the first proposal stored at the slot
+      const retrievedProposal = await ap.getCheckpointProposal(SlotNumber(slotNumber));
       expect(retrievedProposal).toBeDefined();
-      expect(retrievedProposal!.toBuffer()).toEqual(proposal1.toBuffer());
+      expect(retrievedProposal!.toBuffer()).toEqual(proposal.toBuffer());
       expect(retrievedProposal!.getSender()?.toString()).toBe(signers[0].address.toString());
+    });
+
+    it('should treat distinct payloads at the same slot as equivocations (count = 2)', async () => {
+      const slotNumber = 420;
+      // Two proposals at the same slot but with different headers (distinct payloads).
+      const proposal1 = await mockCheckpointProposalForPool(signers[0], slotNumber, Fr.random());
+      const proposal2 = await mockCheckpointProposalForPool(signers[0], slotNumber, Fr.random());
+
+      const result1 = await ap.tryAddCheckpointProposal(proposal1);
+      expect(result1.added).toBe(true);
+      expect(result1.count).toBe(1);
+
+      const result2 = await ap.tryAddCheckpointProposal(proposal2);
+      // The second distinct payload is tracked as an equivocation, count goes to 2,
+      // but its bytes are not retained — the first proposal stays in the main store.
+      expect(result2.added).toBe(true);
+      expect(result2.alreadyExists).toBe(false);
+      expect(result2.count).toBe(2);
+
+      const retrievedProposal = await ap.getCheckpointProposal(SlotNumber(slotNumber));
+      expect(retrievedProposal!.toBuffer()).toEqual(proposal1.toBuffer());
+    });
+
+    it('should detect equivocation when only feeAssetPriceModifier differs', async () => {
+      const slotNumber = 420;
+      const archive = Fr.random();
+      // Same checkpoint header + archive, but two different feeAssetPriceModifier values.
+      // This is the audit-finding scenario: archive collides but the signed payload differs.
+      const sharedHeader = makeCheckpointHeader(1, { slotNumber: SlotNumber(slotNumber) });
+      const proposalA = await makeCheckpointProposal({
+        signer: signers[0],
+        checkpointHeader: sharedHeader,
+        archiveRoot: archive,
+        feeAssetPriceModifier: 50n,
+      });
+      const proposalB = await makeCheckpointProposal({
+        signer: signers[0],
+        checkpointHeader: sharedHeader,
+        archiveRoot: archive,
+        feeAssetPriceModifier: -50n,
+      });
+
+      const result1 = await ap.tryAddCheckpointProposal(proposalA.toCore());
+      expect(result1.count).toBe(1);
+
+      const result2 = await ap.tryAddCheckpointProposal(proposalB.toCore());
+      // The fix: archive collision no longer hides the equivocation; payload-hash dedup
+      // sees the distinct feeMod and bumps `count` to 2 so libp2p can fire the slash callback.
+      expect(result2.added).toBe(true);
+      expect(result2.alreadyExists).toBe(false);
+      expect(result2.count).toBe(2);
     });
 
     it('should return added=false when exceeding capacity', async () => {
       const slotNumber = 420;
 
-      // Add MAX_CHECKPOINT_PROPOSALS_PER_SLOT proposals
+      // Add MAX_CHECKPOINT_PROPOSALS_PER_SLOT distinct proposals.
       for (let i = 0; i < MAX_CHECKPOINT_PROPOSALS_PER_SLOT; i++) {
         const proposal = await mockCheckpointProposalForPool(signers[i % NUMBER_OF_SIGNERS_PER_TEST], slotNumber);
         const result = await ap.tryAddCheckpointProposal(proposal);
@@ -336,7 +396,7 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         expect(result.count).toBe(i + 1);
       }
 
-      // The next proposal should not be added
+      // The next proposal should not be added.
       const extraProposal = await mockCheckpointProposalForPool(signers[0], slotNumber);
       const result = await ap.tryAddCheckpointProposal(extraProposal);
       expect(result.added).toBe(false);
@@ -571,17 +631,17 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         await ap.tryAddBlockProposal(newProposal);
 
         // Verify both proposals exist
-        expect(await ap.getBlockProposal(oldProposal.archive.toString())).toBeDefined();
-        expect(await ap.getBlockProposal(newProposal.archive.toString())).toBeDefined();
+        expect(await ap.getBlockProposalByArchive(oldProposal.archive.toString())).toBeDefined();
+        expect(await ap.getBlockProposalByArchive(newProposal.archive.toString())).toBeDefined();
 
         // Delete slots older than newSlot (should delete oldSlot)
         await ap.deleteOlderThan(SlotNumber(newSlot));
 
         // Old proposal should be deleted from storage
-        expect(await ap.getBlockProposal(oldProposal.archive.toString())).toBeUndefined();
+        expect(await ap.getBlockProposalByArchive(oldProposal.archive.toString())).toBeUndefined();
 
         // New proposal should still exist
-        expect(await ap.getBlockProposal(newProposal.archive.toString())).toBeDefined();
+        expect(await ap.getBlockProposalByArchive(newProposal.archive.toString())).toBeDefined();
       });
     });
 
@@ -590,12 +650,13 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
         signer: Secp256k1Signer,
         slotNumber: number,
         archive: Fr = Fr.random(),
+        checkpointHeader?: CheckpointHeader,
       ): Promise<CheckpointProposalCore> => {
-        const checkpointHeader = makeCheckpointHeader(1, { slotNumber: SlotNumber(slotNumber) });
+        const headerToUse = checkpointHeader ?? makeCheckpointHeader(1, { slotNumber: SlotNumber(slotNumber) });
         const blockHeader = makeBlockHeader(1);
         const proposal = await makeCheckpointProposal({
           signer,
-          checkpointHeader,
+          checkpointHeader: headerToUse,
           archiveRoot: archive,
           lastBlock: { blockHeader },
         });

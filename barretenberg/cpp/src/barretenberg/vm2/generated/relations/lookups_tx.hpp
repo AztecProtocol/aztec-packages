@@ -16,27 +16,18 @@ namespace bb::avm2 {
 struct lookup_tx_read_phase_spec_settings_ {
     static constexpr std::string_view NAME = "LOOKUP_TX_READ_PHASE_SPEC";
     static constexpr std::string_view RELATION_NAME = "tx";
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 16;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 13;
     static constexpr Column SRC_SELECTOR = Column::tx_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_phase;
     static constexpr Column COUNTS = Column::lookup_tx_read_phase_spec_counts;
     static constexpr Column INVERSES = Column::lookup_tx_read_phase_spec_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::tx_phase_value,
-        ColumnAndShifts::tx_is_public_call_request,
-        ColumnAndShifts::tx_is_teardown,
-        ColumnAndShifts::tx_is_collect_fee,
-        ColumnAndShifts::tx_is_tree_padding,
-        ColumnAndShifts::tx_is_cleanup,
-        ColumnAndShifts::tx_is_revertible,
-        ColumnAndShifts::tx_read_pi_start_offset,
-        ColumnAndShifts::tx_read_pi_length_offset,
-        ColumnAndShifts::tx_sel_non_revertible_append_note_hash,
-        ColumnAndShifts::tx_sel_non_revertible_append_nullifier,
-        ColumnAndShifts::tx_sel_non_revertible_append_l2_l1_msg,
-        ColumnAndShifts::tx_sel_revertible_append_note_hash,
-        ColumnAndShifts::tx_sel_revertible_append_nullifier,
-        ColumnAndShifts::tx_sel_revertible_append_l2_l1_msg,
+        ColumnAndShifts::tx_phase_value,           ColumnAndShifts::tx_is_public_call_request,
+        ColumnAndShifts::tx_is_teardown,           ColumnAndShifts::tx_is_collect_fee,
+        ColumnAndShifts::tx_is_tree_padding,       ColumnAndShifts::tx_is_cleanup,
+        ColumnAndShifts::tx_is_revertible,         ColumnAndShifts::tx_read_pi_start_offset,
+        ColumnAndShifts::tx_read_pi_length_offset, ColumnAndShifts::tx_sel_append_note_hash,
+        ColumnAndShifts::tx_sel_append_nullifier,  ColumnAndShifts::tx_sel_append_l2_l1_msg,
         ColumnAndShifts::tx_next_phase_on_revert
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -49,12 +40,9 @@ struct lookup_tx_read_phase_spec_settings_ {
         ColumnAndShifts::precomputed_is_revertible,
         ColumnAndShifts::precomputed_read_pi_start_offset,
         ColumnAndShifts::precomputed_read_pi_length_offset,
-        ColumnAndShifts::precomputed_sel_non_revertible_append_note_hash,
-        ColumnAndShifts::precomputed_sel_non_revertible_append_nullifier,
-        ColumnAndShifts::precomputed_sel_non_revertible_append_l2_l1_msg,
-        ColumnAndShifts::precomputed_sel_revertible_append_note_hash,
-        ColumnAndShifts::precomputed_sel_revertible_append_nullifier,
-        ColumnAndShifts::precomputed_sel_revertible_append_l2_l1_msg,
+        ColumnAndShifts::precomputed_sel_append_note_hash,
+        ColumnAndShifts::precomputed_sel_append_nullifier,
+        ColumnAndShifts::precomputed_sel_append_l2_l1_msg,
         ColumnAndShifts::precomputed_next_phase_on_revert
     };
 };
@@ -151,7 +139,7 @@ struct lookup_tx_note_hash_append_settings_ {
         ColumnAndShifts::tx_prev_note_hash_tree_size,
         ColumnAndShifts::tx_prev_note_hash_tree_root,
         ColumnAndShifts::precomputed_zero,
-        ColumnAndShifts::tx_sel_revertible_append_note_hash,
+        ColumnAndShifts::tx_is_revertible,
         ColumnAndShifts::tx_prev_num_note_hashes_emitted,
         ColumnAndShifts::tx_discard,
         ColumnAndShifts::tx_next_note_hash_tree_root

@@ -6,7 +6,9 @@
 
 #include "engine.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include <array>
+#include <cerrno>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -82,6 +84,9 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
         }
         size_t bytes_left = RANDOM_BUFFER_SIZE;
         uint8_t* current_offset = random_buffer_wrapper.buffer.get();
+        // Bound EINTR retries so a pathological signal storm cannot mask a genuine fault.
+        constexpr int MAX_EINTR_RETRIES = 16;
+        int eintr_retries = 0;
         // Sample until we fill the buffer
         while (bytes_left != 0) {
 #if defined(__wasm__) || defined(__APPLE__)
@@ -106,11 +111,20 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
             // Sample from urandom on native
             auto read_bytes = getrandom(current_offset, bytes_left, 0);
 #endif
-            // If we read something, update the leftover
-            if (read_bytes != -1) {
+            if (read_bytes > 0) {
                 current_offset += read_bytes;
                 bytes_left -= static_cast<size_t>(read_bytes);
+                continue;
             }
+            // read_bytes <= 0: failure or EOF. On platforms that report EINTR via errno, retry a
+            // bounded number of times; any other failure (including read_bytes == 0, e.g. a
+            // sealed/stubbed urandom returning EOF) is fatal.
+#if !defined(_WIN32)
+            if (read_bytes == -1 && errno == EINTR && eintr_retries++ < MAX_EINTR_RETRIES) {
+                continue;
+            }
+#endif
+            throw_or_abort("CSPRNG read failed: cannot retrieve entropy from system source");
         }
         random_buffer_wrapper.offset = 0;
     }

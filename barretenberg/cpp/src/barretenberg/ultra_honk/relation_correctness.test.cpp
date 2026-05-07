@@ -180,10 +180,10 @@ void create_some_databus_gates(auto& builder)
 {
     using FF = typename Flavor::FF;
     auto val = builder.add_variable(FF::random_element());
-    builder.add_public_calldata(val);
-    builder.read_calldata(builder.add_variable(FF(0)));
-    builder.add_public_secondary_calldata(val);
-    builder.read_secondary_calldata(builder.add_variable(FF(0)));
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, val);
+    builder.read_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(0)));
+    builder.add_public_calldata(BusId::APP_CALLDATA, val);
+    builder.read_calldata(BusId::APP_CALLDATA, builder.add_variable(FF(0)));
     builder.add_public_return_data(val);
     builder.read_return_data(builder.add_variable(FF(0)));
 }

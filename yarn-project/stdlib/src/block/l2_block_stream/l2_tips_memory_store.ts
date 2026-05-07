@@ -1,6 +1,7 @@
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
+import type { BlockHash } from '../block_hash.js';
 import type { L2BlockTag } from '../l2_block_source.js';
 import { L2TipsStoreBase } from './l2_tips_store_base.js';
 
@@ -9,6 +10,10 @@ import { L2TipsStoreBase } from './l2_tips_store_base.js';
  * @dev Tests in kv-store/src/stores/l2_tips_memory_store.test.ts
  */
 export class L2TipsMemoryStore extends L2TipsStoreBase {
+  constructor(initialBlockHash: BlockHash) {
+    super(initialBlockHash);
+  }
+
   private readonly tips = new Map<L2BlockTag, BlockNumber>();
   private readonly blockHashes = new Map<number, string>();
   private readonly blockToCheckpoint = new Map<number, CheckpointNumber>();

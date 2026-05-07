@@ -190,7 +190,7 @@ describe('ArchiverDataStoreUpdater', () => {
       await updater.addCheckpoints([makePublishedCheckpoint(makeCheckpoint([checkpointBlock]), 10)]);
 
       // Verify checkpoint block is stored
-      const storedBlock = await store.blocks.getBlock(BlockNumber(1));
+      const storedBlock = await store.blocks.getBlock({ number: BlockNumber(1) });
       expect(storedBlock?.archive.root.equals(checkpointBlock.archive.root)).toBe(true);
       const publicLogsAfter = await store.logs.getPublicLogs({});
       expect(publicLogsAfter.logs.map(l => l.log)).toEqual(checkpointBlock.body.txEffects.flatMap(tx => tx.publicLogs));
