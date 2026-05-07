@@ -2,8 +2,8 @@
 set -euo pipefail
 
 echo
-echo "nargo version: $(nargo --version | head -1 | cut -d' ' -f4)"
-echo "bb version: $(bb --version)"
+echo "nargo version: $(aztec-nargo --version | head -1 | cut -d' ' -f4)"
+echo "bb version: $(aztec-bb --version)"
 echo "aztec version: $(aztec --version)"
 echo "aztec-wallet version: $(aztec-wallet --version)"
 echo

@@ -27,28 +27,19 @@ pub contract PrivateToken {
     }
     // docs:end_single_private_mutable
 
-    /**
-     * initialize the contract's initial state variables.
-     */
     #[external("private")]
     #[initializer]
     fn constructor(initial_admin_balance: u128, admin: AztecAddress) {
         // Admin itself is the owner of the underlying note because we want admin to be able to transfer the admin
         // privileges to someone else which requires being able to nullify the note. We use constrained onchain message
         // delivery because we don't know if the party deploying this contract is incentivized to deliver the note.
-        self.storage.admin.initialize(AddressNote { address: admin }, admin).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        self.storage.admin.initialize(AddressNote { address: admin }, admin).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 
         // Mint the initial admin balance to the admin.
-        self.storage.balances.at(admin).add(initial_admin_balance).deliver(
+        self.storage.balances.at(admin).add(initial_admin_balance).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
+        self.storage.total_supply.initialize(UintNote { value: initial_admin_balance }, admin).deliver(
             MessageDelivery.ONCHAIN_CONSTRAINED,
         );
-        self
-            .storage
-            .total_supply
-            .initialize(UintNote { value: initial_admin_balance }, admin)
-            .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     // Mints `amount` of tokens to `owner`.
@@ -64,11 +55,9 @@ pub contract PrivateToken {
         replacement_note_message.deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
         // We increase the total supply and once again use unconstrained delivery, since the admin is motivated to
         // deliver the message (he's the owner of the new note as well).
-        self
-            .storage
-            .total_supply
-            .replace(|current| UintNote { value: current.value + amount }, admin)
-            .deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.total_supply.replace(|current| UintNote { value: current.value + amount }, admin).deliver(
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+        );
 
         // At last we mint the tokens to the recipient.
         self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
@@ -84,10 +73,7 @@ pub contract PrivateToken {
             .admin
             .replace(
                 |old| {
-                    assert(
-                        old.address == self.msg_sender(),
-                        "Only admin can transfer admin privileges",
-                    );
+                    assert(old.address == self.msg_sender(), "Only admin can transfer admin privileges");
                     AddressNote { address: new_admin }
                 },
                 new_admin,

@@ -5,8 +5,7 @@ use aztec::protocol::traits::ToField;
 #[test]
 unconstrained fn access_control() {
     // Setup without account contracts. We are not using authwits here, so dummy accounts are enough
-    let (env, token_contract_address, owner, new_admin) =
-        utils::setup(/* with_account_contracts */ false);
+    let (env, token_contract_address, owner, new_admin) = utils::setup(/* with_account_contracts */ false);
 
     let token = Token::at(token_contract_address);
 
