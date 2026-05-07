@@ -69,6 +69,8 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
         slashAmountMedium: slashingUnit * 2n,
         slashAmountLarge: slashingUnit * 3n,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
+        enableProposerPipelining: true,
+        inboxLag: 2,
       },
     });
 
@@ -160,6 +162,16 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
     // Remove initial node (it's a lightweight archiver with no P2P/validator/sequencer, but clean up anyway)
     t.logger.warn(`Removing initial node`);
     await t.removeInitialNode();
+
+    // Under proposer pipelining, slashing votes are EIP-712 signed against the pipelined target
+    // slot. The CheckpointProposalJob only delays the multicall to that slot when there is a
+    // checkpoint to broadcast; with minTxsPerBlock=1 and no further live txs, the job submits at
+    // wall-clock time and the EIP-712 signature is bound to the wrong slot, so VoteCast is never
+    // emitted. Drop minTxsPerBlock to 0 on the running validators so they always build (empty)
+    // checkpoints during the slashing voting window.
+    for (const node of nodes) {
+      await node.setConfig({ minTxsPerBlock: 0 });
+    }
 
     // Wait for epoch to be pruned and the offense to be detected
     const offenses = await awaitOffenseDetected({

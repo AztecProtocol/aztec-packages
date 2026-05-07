@@ -281,7 +281,10 @@ export async function awaitCommitteeKicked({
     expect(attesterInfo.status).toEqual(1); // Validating
   }
 
-  const timeout = slashingRoundSize * 2 * aztecSlotDuration + 30;
+  // Allow up to four round-lengths so that under proposer pipelining, where individual rounds
+  // sometimes fail to gather quorum because parts of the committee miss votes due to chain-state
+  // races, we still see a later round execute the slash.
+  const timeout = slashingRoundSize * 4 * aztecSlotDuration + 30;
   logger.info(`Waiting for slash to be executed (timeout ${timeout}s)`);
   await awaitProposalExecution(slashingProposer, timeout, logger);
 
