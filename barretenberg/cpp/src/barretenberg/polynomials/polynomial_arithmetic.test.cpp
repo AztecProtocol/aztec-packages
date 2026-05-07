@@ -149,6 +149,35 @@ TYPED_TEST(PolynomialTests, EvaluationDomainMoveSelfAssign)
     EXPECT_EQ(domain.get_round_roots().size(), round_roots_before);
 }
 
+// EvaluationDomain::operator=(EvaluationDomain&&) leaves the moved-from object in the empty
+// default-constructed state (size == 0, round-root tables empty), restoring the invariant
+// `size > 0 implies roots tables populated`. Without this, a moved-from domain would report
+// size > 0 with empty round-roots, which is the partial-validity pattern flagged by audit.
+TYPED_TEST(PolynomialTests, EvaluationDomainMoveAssignClearsSource)
+{
+    using FF = TypeParam;
+    constexpr size_t n = 256;
+    auto src = EvaluationDomain<FF>(n);
+    src.compute_lookup_table();
+    EXPECT_GT(src.get_round_roots().size(), 0UL);
+
+    EvaluationDomain<FF> dst;
+    dst = std::move(src);
+
+    EXPECT_EQ(dst.size, n);
+    EXPECT_GT(dst.get_round_roots().size(), 0UL);
+
+    EXPECT_EQ(src.size, 0UL);
+    EXPECT_EQ(src.num_threads, 0UL);
+    EXPECT_EQ(src.thread_size, 0UL);
+    EXPECT_EQ(src.log2_size, 0UL);
+    EXPECT_EQ(src.log2_thread_size, 0UL);
+    EXPECT_EQ(src.log2_num_threads, 0UL);
+    EXPECT_EQ(src.generator_size, 0UL);
+    EXPECT_EQ(src.get_round_roots().size(), 0UL);
+    EXPECT_EQ(src.get_inverse_round_roots().size(), 0UL);
+}
+
 TYPED_TEST(PolynomialTests, domain_roots)
 {
     using FF = TypeParam;
