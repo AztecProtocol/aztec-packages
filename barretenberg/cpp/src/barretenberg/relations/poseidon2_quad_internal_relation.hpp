@@ -22,6 +22,39 @@ namespace bb {
  *     A_3: D_2^2 out_1 + D_3^2 out_2 + D_4^2 out_3 = b_3_next
  * where b_k_next are the Vandermonde right-hand sides reconstructed from the shifted row.
  *
+ * High-level picture. The relation never recovers any hidden-lane vector — at runtime there is
+ * no matrix inversion and no committed s_1, s_2, s_3 anywhere. Instead, both sides of the
+ * cross-row hidden-lane equation are computed as linear combinations of committed wires, and
+ * only those linear combinations are compared. The trick is:
+ *
+ *   1. Predicted output (from current row): the full state vector at internal round 4(i+1) —
+ *      i.e. one round past the four rounds covered by this quad — is denoted
+ *        (out_0, out_1, out_2, out_3).
+ *      Each component is a fixed linear combination of the current row's committed lane-0 chain
+ *      and S-box outputs (u_0..u_3), precomputed as the closed-form matrix C in
+ *      `Poseidon2QuadBn254Params::tables.closed_form`. Then apply V to the predicted hidden
+ *      lanes (out_1, out_2, out_3) — that's also a fixed linear combination of the same wires,
+ *      precomputed as `forward_vandermonde_lhs`. Call the result LHS_k for k = 1, 2, 3.
+ *   2. Encoded next-row input (from next row): the next row's start-of-row hidden lanes
+ *      (s_1', s_2', s_3') are NOT committed. But Theorem (1) of QUAD_THEOREM.md says
+ *        V · (s_1', s_2', s_3')^T  =  (b_1', b_2', b_3')
+ *      where the b'-formulas express b_k' as an explicit linear combination of the next row's
+ *      committed lane-0 chain and S-box outputs (using the next quad's first three round
+ *      constants, carried on this row in q_m, q_c, q_5 because Mega lacks shifted selectors).
+ *      So V · (next row's hidden input) is computable without ever committing the hidden input
+ *      — call this RHS_k.
+ *   3. Set them equal:
+ *        - lane 0: out_0 = w_l_shift directly (subrelation A_0).
+ *        - lanes 1..3: LHS_k = RHS_k for k = 1, 2, 3 (subrelations A_1, A_2, A_3).
+ *      Both sides are polynomials in committed wires; the verifier evaluates them and checks
+ *      equality. No hidden lanes are ever materialized; no V^{-1} is ever applied at runtime.
+ *
+ * Why equality of encodings suffices. We're really enforcing
+ *      V · (out_1, out_2, out_3)^T  =  V · (s_1', s_2', s_3')^T.
+ * Because V is invertible (D_2, D_3, D_4 pairwise distinct, statically asserted in
+ * `poseidon2_quad_params.hpp`), this is mathematically equivalent to the desired
+ *      (out_1, out_2, out_3)  =  (s_1', s_2', s_3').
+ *
  * Degree: each subrelation has degree 5 in any single sumcheck variable (all S-boxes land on
  * distinct wires). Plus selector + gate separator = 7.
  */
@@ -60,23 +93,27 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
         using CoeffAcc = typename Accumulator::CoefficientAccumulator;
 
-        // Wire values.
-        const auto w_l = CoeffAcc(in.w_l);
-        const auto w_r = CoeffAcc(in.w_r);
-        const auto w_o = CoeffAcc(in.w_o);
-        const auto w_4 = CoeffAcc(in.w_4);
+        // Wire values: current row's committed lane-0 chain (state[0] at the four rounds covered
+        // by this quad).
+        const auto w_l = CoeffAcc(in.w_l); // s_0^(0): row's lane-0 at round 4i
+        const auto w_r = CoeffAcc(in.w_r); // s_0^(1): row's lane-0 at round 4i+1
+        const auto w_o = CoeffAcc(in.w_o); // s_0^(2): row's lane-0 at round 4i+2
+        const auto w_4 = CoeffAcc(in.w_4); // s_0^(3): row's lane-0 at round 4i+3
 
-        const auto w_l_shift = CoeffAcc(in.w_l_shift);
-        const auto w_r_shift = CoeffAcc(in.w_r_shift);
-        const auto w_o_shift = CoeffAcc(in.w_o_shift);
-        const auto w_4_shift = CoeffAcc(in.w_4_shift);
+        // Next row's committed lane-0 chain.
+        const auto w_l_shift = CoeffAcc(in.w_l_shift); // next row's s_0^(0) (= state[0] at round 4(i+1))
+        const auto w_r_shift = CoeffAcc(in.w_r_shift); // next row's s_0^(1)
+        const auto w_o_shift = CoeffAcc(in.w_o_shift); // next row's s_0^(2)
+        const auto w_4_shift = CoeffAcc(in.w_4_shift); // next row's s_0^(3)
 
-        // Round constants (current row)
+        // Round constants (current row), used to compute u_0..u_3.
         const auto q_l = CoeffAcc(in.q_l); // c_{4i}
         const auto q_r = CoeffAcc(in.q_r); // c_{4i+1}
         const auto q_o = CoeffAcc(in.q_o); // c_{4i+2}
         const auto q_4 = CoeffAcc(in.q_4); // c_{4i+3}
-        // Next-quad round constants (for forward-Vandermonde shift-side check)
+        // Next quad's first three round constants. Needed to compute u_0', u_1', u_2', which
+        // appear in the b'-formulas (RHS of the cross-row encoding equation). Carried on the
+        // current row in q_m, q_c, q_5 because Mega has no shifted selectors.
         const auto q_m = CoeffAcc(in.q_m); // c_{4(i+1)}
         const auto q_c = CoeffAcc(in.q_c); // c_{4(i+1)+1}
         const auto q_5 = CoeffAcc(in.q_5); // c_{4(i+1)+2}
@@ -90,25 +127,39 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
             return quart * x;
         };
 
-        // ── Current row: u_k = (s_0^{(k)} + c_k)^5 ──
-        auto u_0 = pow5(Accumulator(w_l + q_l));
-        auto u_1 = pow5(Accumulator(w_r + q_r));
-        auto u_2 = pow5(Accumulator(w_o + q_o));
-        auto u_3 = pow5(Accumulator(w_4 + q_4));
+        // ── Current row: u_k = (s_0^{(k)} + c_k)^5. The four S-box outputs feed the closed-form
+        //                   prediction of the row-end state. ──
+        auto u_0 = pow5(Accumulator(w_l + q_l)); // u_0 = (s_0^(0) + c_{4i})^5
+        auto u_1 = pow5(Accumulator(w_r + q_r)); // u_1 = (s_0^(1) + c_{4i+1})^5
+        auto u_2 = pow5(Accumulator(w_o + q_o)); // u_2 = (s_0^(2) + c_{4i+2})^5
+        auto u_3 = pow5(Accumulator(w_4 + q_4)); // u_3 = (s_0^(3) + c_{4i+3})^5
 
-        // Shift-side S-boxes for the next row's Vandermonde RHS.
-        auto u_0_next = pow5(Accumulator(w_l_shift + q_m));
-        auto u_1_next = pow5(Accumulator(w_r_shift + q_c));
-        auto u_2_next = pow5(Accumulator(w_o_shift + q_5));
-        auto u_0_next_D1 = u_0_next * D1;
+        // ── Next row's S-box outputs. Together with the next row's lane-0 wires they let us
+        //    forward-compute V · (next row's hidden lanes) via the b'-formulas, without ever
+        //    materializing the hidden lanes themselves. Only three (not four) because the
+        //    b'-formulas only depend on u_0', u_1', u_2'. ──
+        auto u_0_next = pow5(Accumulator(w_l_shift + q_m)); // u_0' = (next_s_0^(0) + c_{4(i+1)})^5
+        auto u_1_next = pow5(Accumulator(w_r_shift + q_c)); // u_1' = (next_s_0^(1) + c_{4(i+1)+1})^5
+        auto u_2_next = pow5(Accumulator(w_o_shift + q_5)); // u_2' = (next_s_0^(2) + c_{4(i+1)+2})^5
+        auto u_0_next_D1 = u_0_next * D1;                   // CSE: D_1 · u_0' is reused in A_1 and A_2
 
-        // Closed-form rows for out_0 and the three forward-Vandermonde combinations.
-        const auto& cf0 = QuadParams::tables.closed_form[0];
-        const auto& l0 = QuadParams::tables.forward_vandermonde_lhs[0];
-        const auto& l1 = QuadParams::tables.forward_vandermonde_lhs[1];
-        const auto& l2 = QuadParams::tables.forward_vandermonde_lhs[2];
+        // Precomputed coefficient vectors. Each is indexed [W_R, W_O, W_4, U_0, U_1, U_2, U_3].
+        const auto& cf0 = QuadParams::tables.closed_form[0];            // out_0 (row-end lane 0)
+        const auto& l0 = QuadParams::tables.forward_vandermonde_lhs[0]; // out_1 + out_2 + out_3
+        const auto& l1 = QuadParams::tables.forward_vandermonde_lhs[1]; // D_2 out_1 + D_3 out_2 + D_4 out_3
+        const auto& l2 = QuadParams::tables.forward_vandermonde_lhs[2]; // D_2² out_1 + D_3² out_2 + D_4² out_3
 
-        // Wire parts of the four subrelations, including shifted-row terms.
+        // Wire-only parts of the four subrelations. Each subrelation A_K has the form
+        //   A_K  =  (LHS_K computed from current row)  -  (RHS_K computed from next row).
+        // wpK_full collects all the wire-only terms (no u_*) from BOTH sides at once; the u_*
+        // terms are folded in below in aK_body.
+        //   A_0:  LHS = out_0,                              RHS = w_l_shift.
+        //   A_1:  LHS = out_1 + out_2 + out_3,              RHS = b_1' = w_r' - D_1 u_0'.
+        //   A_2:  LHS = D_2 out_1 + D_3 out_2 + D_4 out_3,  RHS = b_2' = w_o' - 2 w_r' + (2 D_1 - 3) u_0' - D_1 u_1'.
+        //   A_3:  LHS = D_2² out_1 + D_3² out_2 + D_4² out_3, RHS = b_3' = w_4' - w_o' - (Σ+2) w_r' + ...
+        // The LHS wire contributions come from cf0 / l0 / l1 / l2 (forward V applied to predicted
+        // output); the RHS wire contributions are the shifted lane-0 wires multiplied by the
+        // coefficients with which they appear in the b'-formulas above.
         auto wp0_full = w_r * cf0[0] + w_o * cf0[1] + w_4 * cf0[2] - w_l_shift;
         auto wp1_full = w_r * l0[0] + w_o * l0[1] + w_4 * l0[2] - w_r_shift;
         auto wp2_full = w_r * l1[0] + w_o * l1[1] + w_4 * l1[2] - w_o_shift + w_r_shift + w_r_shift;
