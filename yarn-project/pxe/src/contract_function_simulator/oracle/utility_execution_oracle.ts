@@ -870,13 +870,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.handshakeSecretStore.setHandshakeSecret(masterSharedSecret, this.jobId);
   }
 
-  /**
-   * Retrieves the master shared secret previously persisted under `secretHash`, or `undefined` if none is known.
-   */
-  public getHandshakeSecret(secretHash: Fr): Promise<Point | undefined> {
-    return this.handshakeSecretStore.getHandshakeSecret(secretHash, this.jobId);
-  }
-
   public pushEphemeral(slot: Fr, elements: Fr[]): number {
     return this.ephemeralArrayService.push(slot, elements);
   }

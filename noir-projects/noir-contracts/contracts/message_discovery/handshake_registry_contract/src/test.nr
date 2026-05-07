@@ -1,11 +1,10 @@
 use crate::{HandshakeRegistry, NON_INTERACTIVE_HANDSHAKE};
 
 use aztec::{
-    oracle::handshake_secret::get_handshake_secret,
     protocol::{
         address::AztecAddress,
-        constants::{DOM_SEP__HANDSHAKE_SECRET_HASH, DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG},
-        hash::{compute_log_tag, compute_siloed_private_log_first_field, poseidon2_hash_with_separator},
+        constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
+        hash::{compute_log_tag, compute_siloed_private_log_first_field},
         traits::{FromField, ToField},
     },
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
@@ -48,18 +47,10 @@ unconstrained fn non_interactive_handshake_stores_recipient_bound_note_at_sender
     assert_eq(note.handshake_type, NON_INTERACTIVE_HANDSHAKE);
     assert_eq(note.recipient, recipient);
     assert(note.secret_hash != 0, "secret_hash should be set");
-
-    // PXE persisted the master shared secret keyed by `secret_hash`, so we can recover `S` and confirm its hash
-    // matches the value the contract committed to in the note. `get_handshake_secret` is a utility-context oracle,
-    // so we read it from inside `env.utility_context`.
-    let stored = env.utility_context(|_| get_handshake_secret(note.secret_hash)).expect(
-        f"master shared secret should be persisted under the note's secret_hash",
-    );
-    let recomputed_hash = poseidon2_hash_with_separator(
-        [stored.x, stored.y],
-        DOM_SEP__HANDSHAKE_SECRET_HASH,
-    );
-    assert_eq(recomputed_hash, note.secret_hash);
+    // The master shared secret was persisted to PXE under `note.secret_hash` via `store_handshake_secret`. There is no
+    // contract-callable read path (see the TODO on `store_handshake_secret` in
+    // `aztec-nr/aztec/src/oracle/handshake_secret.nr`).
+    // The persistence is exercised by PXE store TS unit tests instead.
 }
 
 #[test]
