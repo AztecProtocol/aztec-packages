@@ -63,7 +63,10 @@ console.log(`NFTPortal: ${portalAddress}\n`);
 // docs:start:deploy_l2_contracts
 console.log("Deploying L2 contracts...\n");
 
-const { contract: l2Nft } = await NFTPunkContract.deploy(aztecWallet, account.address).send({
+const { contract: l2Nft } = await NFTPunkContract.deploy(
+  aztecWallet,
+  account.address,
+).send({
   from: account.address,
 });
 
@@ -201,11 +204,9 @@ async function mine2Blocks(
 ) {
   await NFTPunkContract.deploy(aztecWallet, accountAddress).send({
     from: accountAddress,
-    contractAddressSalt: Fr.random(),
   });
   await NFTPunkContract.deploy(aztecWallet, accountAddress).send({
     from: accountAddress,
-    contractAddressSalt: Fr.random(),
   });
 }
 // docs:end:mine_blocks
@@ -289,7 +290,11 @@ const msgLeaf = computeL2ToL1MessageHash({
 console.log("Waiting for block to be proven...");
 console.log(`   Exit block number: ${exitReceipt.blockNumber}`);
 
+<<<<<<< HEAD
 let provenBlockNumber = await node.getProvenBlockNumber();
+=======
+let provenBlockNumber = await node.getBlockNumber("proven");
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
 console.log(`   Current proven block: ${provenBlockNumber}`);
 
 while (provenBlockNumber < exitReceipt.blockNumber!) {
@@ -297,13 +302,21 @@ while (provenBlockNumber < exitReceipt.blockNumber!) {
     `   Waiting... (proven: ${provenBlockNumber}, needed: ${exitReceipt.blockNumber})`,
   );
   await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10 seconds
+<<<<<<< HEAD
   provenBlockNumber = await node.getProvenBlockNumber();
+=======
+  provenBlockNumber = await node.getBlockNumber("proven");
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
 }
 
 console.log("Block proven!\n");
 
 // Compute the membership witness using the message hash and the L2 tx hash
-const witness = await computeL2ToL1MembershipWitness(node, msgLeaf, exitReceipt.txHash);
+const witness = await computeL2ToL1MembershipWitness(
+  node,
+  msgLeaf,
+  exitReceipt.txHash,
+);
 const epoch = witness!.epochNumber;
 console.log(`   Epoch for block ${exitReceipt.blockNumber}: ${epoch}`);
 

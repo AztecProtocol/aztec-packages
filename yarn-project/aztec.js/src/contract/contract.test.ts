@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   CompleteAddress,
@@ -8,11 +7,11 @@ import {
 } from '@aztec/stdlib/contract';
 import type { TxExecutionRequest, TxReceipt, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
-import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { Account } from '../account/account.js';
+import { testContractArtifact } from '../test/fixtures.js';
 import type { TxSimulationResultWithAppOffset } from '../wallet/tx_simulation_result_with_app_offset.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { Contract } from './contract.js';
@@ -36,6 +35,7 @@ describe('Contract Class', () => {
     anchorBlockTimestamp: 0n,
   } as any as UtilityExecutionResult;
 
+<<<<<<< HEAD
   const defaultArtifact: ContractArtifact = {
     name: 'FooContract',
     aztecVersion: DEV_VERSION,
@@ -191,12 +191,14 @@ describe('Contract Class', () => {
     storageLayout: {},
   };
 
+=======
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
   beforeEach(async () => {
     contractAddress = await AztecAddress.random();
     account = mock<Account>();
     accountAddress = await CompleteAddress.random();
     account.getCompleteAddress.mockReturnValue(accountAddress);
-    const contractClass = await getContractClassFromArtifact(defaultArtifact);
+    const contractClass = await getContractClassFromArtifact(testContractArtifact);
     contractInstance = {
       address: contractAddress,
       currentContractClassId: contractClass.id,
@@ -212,7 +214,7 @@ describe('Contract Class', () => {
   });
 
   it('should create and send a contract method tx', async () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
     const param0 = 12;
     const param1 = 345n;
     const { receipt } = await fooContract.methods.bar(param0, param1).send({ from: account.getAddress() });
@@ -222,7 +224,7 @@ describe('Contract Class', () => {
   });
 
   it('should call view on a utility function', async () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
     const { result } = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
     expect(wallet.executeUtility).toHaveBeenCalledTimes(1);
     expect(wallet.executeUtility).toHaveBeenCalledWith(
@@ -255,7 +257,7 @@ describe('Contract Class', () => {
 
     wallet.simulateTx.mockResolvedValue(txSimResult);
 
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
     const result = await fooContract.methods.bar(1, 2).simulate({ from: account.getAddress() });
 
     expect(result.offchainMessages).toHaveLength(1);
@@ -289,7 +291,7 @@ describe('Contract Class', () => {
       anchorBlockTimestamp,
     } as any);
 
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
     const result = await fooContract.methods.qux(123n).simulate({ from: account.getAddress() });
 
     expect(result.offchainMessages).toHaveLength(1);
@@ -304,14 +306,14 @@ describe('Contract Class', () => {
   });
 
   it('allows nullish values for Option parameters', () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
 
     expect(() => fooContract.methods.optionEcho(undefined)).not.toThrow();
     expect(() => fooContract.methods.optionEcho(null)).not.toThrow();
   });
 
   it('still rejects nullish values for non-Option parameters', () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
 
     expect(() => fooContract.methods.bar(undefined, 123n)).toThrow(
       'Null or undefined arguments are only allowed for Option<T> parameters in bar(value: Field, value: Field). Received: (undefined, 123n).',
@@ -322,7 +324,7 @@ describe('Contract Class', () => {
   });
 
   it('rejects nullish non-Option param even when Option param is valid', () => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
 
     expect(() => fooContract.methods.mixedParams({ w: 1n }, undefined)).toThrow(
       'Null or undefined arguments are only allowed for Option<T> parameters in mixedParams(optValue: Option<Field>, aField: Field). Received: ({ w: 1n }, undefined).',
@@ -341,7 +343,7 @@ describe('Contract Class', () => {
     ['object', { a: 1n, b: 'x' }, '{ a: 1n, b: x }'],
     ['array', [1n, 2n], '[1n, 2n]'],
   ])('formats %s argument in error message', (_label, value, expectedFormatted) => {
-    const fooContract = Contract.at(contractAddress, defaultArtifact, wallet);
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
 
     // pass the test value first and undefined second to trigger the error whose message we want to test for
     expect(() => fooContract.methods.bar(value, undefined)).toThrow(`Received: (${expectedFormatted}, undefined).`);

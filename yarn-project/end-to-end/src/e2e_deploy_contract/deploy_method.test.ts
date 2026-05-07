@@ -119,7 +119,11 @@ describe('e2e_deploy_contract deploy method', () => {
   // because the public initializer hasn't emitted the private initialization nullifier yet.
   it('refuses to call a private init-checked function in same tx as public initialization', async () => {
     const owner = defaultAccountAddress;
-    const deployMethod = StatefulTestContract.deployWithOpts({ wallet, method: 'public_constructor' }, owner, 42);
+    const deployMethod = StatefulTestContract.deployWithOpts(
+      { wallet, method: 'public_constructor', instantiation: { deployer: defaultAccountAddress } },
+      owner,
+      42,
+    );
     const contract = await deployMethod.register();
     const batch = new BatchCall(wallet, [deployMethod, contract.methods.create_note(owner, 10)]);
     await expect(batch.send({ from: defaultAccountAddress })).rejects.toThrow(/Cannot find the leaf for nullifier/);
@@ -161,7 +165,7 @@ describe('e2e_deploy_contract deploy method', () => {
     const owner = defaultAccountAddress;
     // docs:start:deploy_batch
     // Create a contract instance and make the PXE aware of it
-    const deployMethod = StatefulTestContract.deploy(wallet, owner, 42);
+    const deployMethod = StatefulTestContract.deploy(wallet, owner, 42, { deployer: defaultAccountAddress });
     const contract = await deployMethod.register();
 
     // Batch deployment and a public call into the same transaction
@@ -172,40 +176,42 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
     await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
+    try {
+      const owner = defaultAccountAddress;
+      logger.debug('Initializing deploy method');
+      const deployMethod = StatefulTestContract.deploy(wallet, owner, 42, { deployer: defaultAccountAddress });
+      logger.debug('Creating request/calls to register and deploy contract');
+      const deployTx = new BatchCall(wallet, [deployMethod]);
+      logger.debug('Registering the not-yet-deployed contract to batch calls to');
+      const contract = await deployMethod.register();
 
-    const owner = defaultAccountAddress;
-    logger.debug('Initializing deploy method');
-    const deployMethod = StatefulTestContract.deploy(wallet, owner, 42);
-    logger.debug('Creating request/calls to register and deploy contract');
-    const deployTx = new BatchCall(wallet, [deployMethod]);
-    logger.debug('Registering the not-yet-deployed contract to batch calls to');
-    const contract = await deployMethod.register();
+      logger.debug('Creating public call to run in same block as deployment');
+      const publicCall = contract.methods.increment_public_value(owner, 84);
 
-    logger.debug('Creating public call to run in same block as deployment');
-    const publicCall = contract.methods.increment_public_value(owner, 84);
+      // First send the deploy transaction
+      // Pay priority fee to ensure the deployment transaction gets processed first.
+      // Use L2 gas priority (not DA) because DA gas fees can be zero, and priority fees
+      // are capped by maxFeesPerGas, so a DA priority of 1 gets capped to min(0, 1) = 0.
+      const maxPriorityFeesPerGas = new GasFees(0n, 1n);
+      const deployTxPromise = deployTx.send({
+        from: defaultAccountAddress,
+        fee: { gasSettings: { maxPriorityFeesPerGas } },
+        wait: { timeout: 600 },
+      });
 
-    // First send the deploy transaction
-    // Pay priority fee to ensure the deployment transaction gets processed first.
-    // Use L2 gas priority (not DA) because DA gas fees can be zero, and priority fees
-    // are capped by maxFeesPerGas, so a DA priority of 1 gets capped to min(0, 1) = 0.
-    const maxPriorityFeesPerGas = new GasFees(0n, 1n);
-    const deployTxPromise = deployTx.send({
-      from: defaultAccountAddress,
-      fee: { gasSettings: { maxPriorityFeesPerGas } },
-      wait: { timeout: 600 },
-    });
+      // Then send the public call transaction
+      const publicCallTxPromise = publicCall.send({ from: defaultAccountAddress, wait: { timeout: 600 } });
 
-    // Then send the public call transaction
-    const publicCallTxPromise = publicCall.send({ from: defaultAccountAddress, wait: { timeout: 600 } });
-
-    logger.debug('Deploying a contract and calling a public function in the same block');
-    const [{ receipt: deployTxReceipt }, { receipt: publicCallTxReceipt }] = await Promise.all([
-      deployTxPromise,
-      publicCallTxPromise,
-    ]);
-    expect(deployTxReceipt.blockNumber).toEqual(publicCallTxReceipt.blockNumber);
-
-    await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+      logger.debug('Deploying a contract and calling a public function in the same block');
+      const [{ receipt: deployTxReceipt }, { receipt: publicCallTxReceipt }] = await Promise.all([
+        deployTxPromise,
+        publicCallTxPromise,
+      ]);
+      expect(deployTxReceipt.blockNumber).toEqual(publicCallTxReceipt.blockNumber);
+    } finally {
+      // Restore minTxsPerBlock so subsequent tests aren't blocked waiting for a second tx.
+      await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 });
+    }
   }, 300_000);
 
   it('reports YES for initialization status via public nullifier when instance is not registered', async () => {

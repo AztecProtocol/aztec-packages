@@ -11,7 +11,6 @@ import type { Account } from '../account/account.js';
 import type { Contract } from '../contract/contract.js';
 import type { ContractBase } from '../contract/contract_base.js';
 import {
-  type DeployInteractionWaitOptions,
   DeployMethod,
   type DeployOptions,
   type DeployOptionsWithoutWait,
@@ -22,6 +21,7 @@ import {
   type FeePaymentMethodOption,
   type InteractionWaitOptions,
   NO_FROM,
+  type NoFrom,
   type ProfileInteractionOptions,
   type SendInteractionOptionsWithoutWait,
 } from '../contract/interaction_options.js';
@@ -39,27 +39,22 @@ export type DeployAccountFeePaymentMethodOption = FeePaymentMethodOption & {
 };
 
 /**
- * The configuration options for the request method. Omits the contractAddressSalt, since
- * for account contracts that is fixed in the constructor
+ * The configuration options for the request method.
  */
-export type RequestDeployAccountOptions = Omit<RequestDeployOptions, 'contractAddressSalt' | 'fee'> & {
+export type RequestDeployAccountOptions = Omit<RequestDeployOptions, 'fee'> & {
   /** Fee options specific to account deployment */
   fee?: DeployAccountFeePaymentMethodOption;
+  /**
+   * Sender of the request. When NO_FROM, the to-be-deployed account pays for its own
+   * deployment (self-paid deploy) and the payload is wrapped through the multicall entrypoint.
+   */
+  from?: AztecAddress | NoFrom;
 };
 
 /**
- * Base configuration options for the send/prove methods without wait parameter. Omits:
- * - The contractAddressSalt, since for account contracts that is fixed in the constructor.
- * - UniversalDeployment flag, since account contracts are always deployed with it set to true
+ * The configuration options for the send/prove methods.
  */
-export type DeployAccountOptionsWithoutWait = Omit<DeployOptionsWithoutWait, 'contractAddressSalt' | 'universalDeploy'>;
-
-/**
- * The configuration options for the send/prove methods. Omits:
- * - The contractAddressSalt, since for account contracts that is fixed in the constructor.
- * - UniversalDeployment flag, since account contracts are always deployed with it set to true
- */
-export type DeployAccountOptions<W extends InteractionWaitOptions = undefined> = DeployAccountOptionsWithoutWait & {
+export type DeployAccountOptions<W extends InteractionWaitOptions = undefined> = DeployOptionsWithoutWait & {
   /**
    * Whether to wait for the transaction to be mined.
    * - undefined (default): wait with default options and return TxReceipt
@@ -70,10 +65,9 @@ export type DeployAccountOptions<W extends InteractionWaitOptions = undefined> =
 };
 
 /**
- * The configuration options for the simulate method. Omits the contractAddressSalt, since
- * for account contracts that is fixed in the constructor
+ * The configuration options for the simulate method.
  */
-export type SimulateDeployAccountOptions = Omit<SimulateDeployOptions, 'contractAddressSalt'>;
+export type SimulateDeployAccountOptions = SimulateDeployOptions;
 
 /** Fields from any interaction option shape that `DeployAccountMethod.prepareDeployOptions` reads or sets. */
 type DeployAccountInteractionOptions = Pick<
@@ -91,7 +85,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     wallet: Wallet,
     artifact: ContractArtifact,
     postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
-    private salt: Fr,
+    salt: Fr,
     private account: Account,
     args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
@@ -100,12 +94,13 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     extraHashedArgs: HashedValues[] = [],
   ) {
     super(
-      publicKeys,
       wallet,
       artifact,
       postDeployCtor,
       args,
       constructorNameOrArtifact,
+      // Account contracts are always deployed universally.
+      { salt, universalDeploy: true, publicKeys },
       authWitnesses,
       capsules,
       extraHashedArgs,
@@ -124,9 +119,6 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
    * @returns A FeePaymentMethod that routes the original one through the account's entrypoint (AccountEntrypointMetaPaymentMethod)
    */
   private async getSelfFeePaymentMethod(originalPaymentMethod?: FeePaymentMethod, feeEntrypointOptions?: any) {
-    if (!this.address) {
-      throw new Error('Instance is not yet constructed. This is a bug!');
-    }
     const chainInfo = await this.wallet.getChainInfo();
     return new AccountEntrypointMetaPaymentMethod(this.account, chainInfo, originalPaymentMethod, feeEntrypointOptions);
   }
@@ -141,10 +133,6 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
   public override async request(opts?: RequestDeployAccountOptions): Promise<ExecutionPayload> {
     const optionsWithDefaults: RequestDeployOptions = {
       ...opts,
-      // Regardless of whom sends the transaction, account contracts
-      // are always deployed as universalDeployment: true
-      deployer: undefined,
-      contractAddressSalt: new Fr(this.salt),
       skipClassPublication: opts?.skipClassPublication ?? true,
       skipInstancePublication: opts?.skipInstancePublication ?? true,
       skipInitialization: opts?.skipInitialization ?? false,
@@ -152,8 +140,9 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     // Override the fee to undefined, since we'll replace it
     const deploymentExecutionPayload = await super.request({ ...optionsWithDefaults, fee: undefined });
     const executionPayloads = [deploymentExecutionPayload];
-    // If this is a self-deployment, manage the fee accordingly
-    if (opts?.deployer?.equals(AztecAddress.ZERO)) {
+    // If this is a self-paid deployment (the to-be-deployed account pays for its own deploy),
+    // wrap the payload through the multicall entrypoint after attaching the fee.
+    if (opts?.from === NO_FROM) {
       const feePaymentMethod = await this.getSelfFeePaymentMethod(
         opts?.fee?.paymentMethod,
         opts?.fee?.feeEntrypointOptions,
@@ -178,18 +167,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     }
   }
 
-  override convertDeployOptionsToRequestOptions(options: DeployAccountOptionsWithoutWait): RequestDeployAccountOptions {
-    return {
-      ...options,
-      // Deployer is handled in the request method and forcibly set to undefined,
-      // since our account contracts are created with universalDeployment: true
-      // We need to forward it though, because depending on the deployer we have to assemble
-      // The fee payment method one way or another
-      deployer: options.from === NO_FROM ? AztecAddress.ZERO : options.from,
-    };
-  }
-
-  protected override convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
+  protected override convertDeployOptionsToSendOptions<W extends InteractionWaitOptions>(
     options: DeployOptions<W>,
     // eslint-disable-next-line jsdoc/require-jsdoc
   ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
@@ -213,15 +191,18 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
    * - When `from === NO_FROM` (self-paid deploy), supplies the to-be-deployed address as `sendMessagesAs`. Without
    *   this, fee-payment calls would have no sender for message tagging, and any private log they emit would fail
    *   the "Sender for tags is not set" assertion.
+   *
+   * Note: this reads the cached instance synchronously via `getCachedInstance()`. Because every code path that
+   * calls `prepareDeployOptions` (send/simulate/profile) flows through `request()` first, which calls
+   * `getInstance()`, the cache is always populated by the time we get here.
+   *
    * @param options - The deploy options to augment.
    */
   private prepareDeployOptions<T extends DeployAccountInteractionOptions>(options: T): T {
-    if (!this.address) {
-      throw new Error('Instance not yet constructed. This is a bug!');
-    }
+    const { address } = this.getCachedInstanceOrThrow();
     const existing = options.additionalScopes ?? [];
-    const sendMessagesAs = options.sendMessagesAs ?? (options.from === NO_FROM ? this.address : undefined);
-    return { ...options, additionalScopes: [...existing, this.address], sendMessagesAs };
+    const sendMessagesAs = options.sendMessagesAs ?? (options.from === NO_FROM ? address : undefined);
+    return { ...options, additionalScopes: [...existing, address], sendMessagesAs };
   }
 
   /**

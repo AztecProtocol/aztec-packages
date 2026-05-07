@@ -9,7 +9,102 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+<<<<<<< HEAD
 ### [Aztec.nr] TXE `call_public_incognito` no longer takes a `from` parameter
+=======
+### [Aztec.js] `DeployMethod` address-affecting parameters move to construction time
+
+Salt, deployer, and public keys are now passed when the `DeployMethod` is constructed, not on every call to `send` / `simulate` / `request` / `getInstance`. This locks the contract address once it is determined and prevents the silent salt-cache poisoning bug where the address could change between calls.
+
+`contractAddressSalt`, `deployer`, and `universalDeploy` have been removed from `DeployOptions`, `RequestDeployOptions`, and `SimulateDeployOptions`. They now live on a new `DeployInstantiationOptions` argument passed at construction. `deployer` and `universalDeploy` are mutually exclusive; passing both throws. `Contract.deployWithPublicKeys` and the generated `MyContract.deployWithPublicKeys(...)` factories have been removed; pass `publicKeys` via the `instantiation` argument of `deploy(...)` instead. The buggy synchronous `address` and `partialAddress` getters have been removed and replaced with `getAddress()` and `getPartialAddress()` (both `async`).
+
+The compact form keeps working: `MyContract.deploy(wallet, ...args).send({ from: alice })` deploys with `deployer = alice` and `salt = random()`, exactly as before. The deployer is locked the first time `send` / `simulate` / `profile` is called (from `options.from`, with `NO_FROM` or undefined → universal) and cannot change after that:
+
+- Subsequent `send` / `simulate` / `profile` calls with a `from` that would imply a different deployer throw, instead of silently producing a different address.
+- A lock to universal (`AztecAddress.ZERO`) is the only one compatible with any sender, since the universal address does not depend on `from`.
+- A lock to a concrete address only accepts that exact `from` on subsequent calls.
+
+**Migration:**
+
+Universal deployment with a fixed salt:
+
+```diff
+- const deploy = MyContract.deploy(wallet, ...args);
+- await deploy.send({
+-   from: alice,
+-   contractAddressSalt: salt,
+-   universalDeploy: true,
+- });
++ const deploy = MyContract.deploy(wallet, ...args, { salt, universalDeploy: true });
++ await deploy.send({ from: alice });
+```
+
+Non-universal deploy where `from` doubles as the deployer:
+
+```diff
+- const deploy = MyContract.deploy(wallet, ...args);
+- await deploy.send({ from: alice, contractAddressSalt: salt });
++ const deploy = MyContract.deploy(wallet, ...args, { salt });
++ await deploy.send({ from: alice });
+```
+
+If you need to read the address before sending, lock the deployer at construction:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { salt, deployer: alice });
+const address = await deploy.getAddress(); // resolves; deployer was locked at construction
+await deploy.send({ from: alice }); // deploys at the address `getAddress` returned
+```
+
+Universal deploys can be sent by any account, since the universal address does not depend on `from`:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { universalDeploy: true });
+await deploy.send({ from: bob }); // OK, universal accepts any sender
+```
+
+A lock to a concrete deployer rejects sending from a different account, instead of silently deploying at a different address:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { deployer: alice });
+await deploy.send({ from: bob }); // throws: deployer is locked to alice
+```
+
+`deployWithPublicKeys` is gone; pass `publicKeys` in the instantiation options instead:
+
+```diff
+- const deploy = MyContract.deployWithPublicKeys(publicKeys, wallet, ...args);
++ const deploy = MyContract.deploy(wallet, ...args, { publicKeys });
+```
+
+`ContractDeployer.deploy(...)` now takes the instantiation argument as its first parameter (pass `{}` to use defaults and rely on lazy locking from `from`):
+
+```diff
+- const cd = new ContractDeployer(artifact, wallet);
+- await cd.deploy(...ctorArgs).send({ from: alice, contractAddressSalt: salt });
++ const cd = new ContractDeployer(artifact, wallet);
++ await cd.deploy(ctorArgs, { salt }).send({ from: alice });
+```
+
+The synchronous `address` / `partialAddress` getters are gone:
+
+```diff
+- const address = deploy.address;                       // sync, possibly undefined
+- const partial = await deploy.partialAddress;          // sync getter wrapping async value
++ const address = await deploy.getAddress();            // requires the deployer to be locked
++ const partial = await deploy.getPartialAddress();     // requires the deployer to be locked
+```
+
+`getInstance()` no longer takes options; use the construction-time instantiation instead:
+
+```diff
+- const instance = await deploy.getInstance({ contractAddressSalt: salt });
++ const deploy = MyContract.deploy(wallet, ...args, { salt, deployer: alice });
++ const instance = await deploy.getInstance();
+```
+
+### [aztec-up] Bundled binaries are no longer exposed under bare names on `PATH`
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
 
 `TestEnvironment::call_public_incognito` previously accepted a `from` address that was silently ignored (the function always uses a null `msg_sender`). The `from` parameter has been removed.
 
@@ -18,7 +113,24 @@ Aztec is in active development. Each version may introduce breaking changes that
 + env.call_public_incognito(SampleContract::at(addr).some_function());
 ```
 
+<<<<<<< HEAD
 If you need to call a public function *with* a sender, use `call_public` instead.
+=======
+| Was on `PATH`      | Now                      |
+| ------------------ | ------------------------ |
+| `forge`            | `aztec-forge`            |
+| `cast`             | `aztec-cast`             |
+| `anvil`            | `aztec-anvil`            |
+| `chisel`           | `aztec-chisel`           |
+| `nargo`            | `aztec-nargo`            |
+| `noir-profiler`    | `aztec-noir-profiler`    |
+| `bb`               | `aztec-bb`               |
+| `bb-cli`           | `aztec-bb-cli`           |
+| `pxe`              | `aztec-pxe`              |
+| `txe`              | `aztec-txe`              |
+| `validator-client` | `aztec-validator-client` |
+| `blob-client`      | `aztec-blob-client`      |
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
 
 ### [Aztec.nr] TXE `view_public_incognito` is deprecated
 
@@ -56,6 +168,61 @@ The wallet SDK now supplies the default sender-for-tags from the transaction's `
 
 The save/restore idiom previously used in account-contract constructors (`get` → `set(self.address)` → work → `set(prev)`) is also no longer needed and has been removed: the override never leaks out of the constructor, so there is nothing to restore.
 
+<<<<<<< HEAD
+=======
+### [Aztec Node] Unified `getBlock` / `getCheckpoint` RPC API
+
+The Aztec Node JSON-RPC surface for fetching blocks and checkpoints has been consolidated. The unified `getBlock` and `getCheckpoint` methods return uniform `BlockResponse` / `CheckpointResponse` shapes. The extra fields a caller cares about (tx bodies, L1 publish info, committee attestations, nested blocks) are now controlled by an `options` argument rather than by picking the right method. `getBlocks` and `getCheckpoints` retain their names but now return the new response shapes.
+
+**Removed methods:**
+
+| Removed                            | Replacement                                  |
+| ---------------------------------- | -------------------------------------------- |
+| `getBlockByHash(hash)`             | `getBlock(hash)` or `getBlock({ hash })`     |
+| `getBlockByArchive(archive)`       | `getBlock({ archive })`                      |
+| `getBlockHeaderByArchive(archive)` | `getBlock({ archive }).then(r => r?.header)` |
+| `getProvenBlockNumber()`           | `getBlockNumber('proven')`                   |
+| `getCheckpointedBlockNumber()`     | `getBlockNumber('checkpointed')`             |
+
+**Deprecated but still present** (scheduled for removal once internal consumers of the archiver shape are rewired): `getL2Tips` (use `getChainTips`), `getBlockHeader` (use `getBlock(param).then(r => r?.header)`), `getCheckpointedBlocks` (use `getBlocks(from, limit, { includeL1PublishInfo: true, includeAttestations: true })`), `getCheckpointsDataForEpoch` (use `getCheckpoints(from, limit)` over the epoch's checkpoint range). Do not adopt these in new code.
+
+**New response shapes:** `BlockResponse` always carries `header`, `archive`, `hash`, `number`, `checkpointNumber`, and `indexWithinCheckpoint`. `body`, `l1` (an `L1PublishInfo` discriminated union), and `attestations` are present only when the matching include option is set. `CheckpointResponse` mirrors this for checkpoints, with `blocks` gated on `includeBlocks`, and always carries `feeAssetPriceModifier` as a base field. The response types are generic over the options object, so passing a literal `{ includeTransactions: true }` narrows the return type and `response.body` becomes non-optional.
+
+**Nested blocks on `getCheckpoint`:** only `includeTransactions` is forwarded to the blocks embedded by `includeBlocks: true`. `includeL1PublishInfo` and `includeAttestations` on a checkpoint request attach L1 / attestation data to the checkpoint itself, not to its nested blocks.
+
+**Return type changes for `getBlocks` / `getCheckpoints`:** the return type is now `BlockResponse[]` / `CheckpointResponse[]` instead of `L2Block[]` / `PublishedCheckpoint[]`. Callers that previously consumed fields of `L2Block` (e.g. `.body`) must now opt in via `{ includeTransactions: true }`; callers that consumed `PublishedCheckpoint.checkpoint.blocks` must opt in via `{ includeBlocks: true }`.
+
+**Migration for wallet/SDK consumers (`@aztec/aztec.js`, `@aztec/wallet-sdk`):**
+
+```diff
+- const block = await node.getBlockByHash(hash);
++ const block = await node.getBlock(hash, { includeTransactions: true });
+
+- const archiveBlock = await node.getBlockByArchive(archive);
++ const archiveBlock = await node.getBlock({ archive }, { includeTransactions: true });
+
+- const provenNumber = await node.getProvenBlockNumber();
++ const provenNumber = await node.getBlockNumber('proven');
+
+- const checkpointedNumber = await node.getCheckpointedBlockNumber();
++ const checkpointedNumber = await node.getBlockNumber('checkpointed');
+
+- const tips = await node.getL2Tips();
++ const tips = await node.getChainTips();
+```
+
+`getBlockHeader`, `getCheckpointedBlocks`, `getCheckpointsDataForEpoch`, and `getL2Tips` continue to work in this release but are deprecated; migrate to the replacements above.
+
+**Chain-tip selectors:** `getBlockNumber` and `getCheckpointNumber` now accept an optional `ChainTip` argument (`'proposed' | 'checkpointed' | 'proven' | 'finalized'`). Note the semantic difference: on the block side `'proposed'` means the latest proposed block (chain head), whereas on the checkpoint side `'proposed'` resolves to the latest L1-confirmed checkpoint. Pre-L1-confirmation checkpoints are not exposed over RPC.
+
+**Block parameter variants:** `BlockParameter` now also accepts a block hash, an archive root, and chain-tip names. The existing `number | 'latest'` forms continue to work — `'latest'` is an alias for `'proposed'`.
+
+**Impact**: Source changes are required anywhere the removed methods are called. Type changes are required anywhere `L2Block` / `BlockHeader` / `CheckpointedL2Block` were consumed from the RPC — those call sites now receive `BlockResponse` / `CheckpointResponse` and must request the fields they need via `options`. Production nodes will reject JSON-RPC calls to the removed method names.
+
+### [Aztec Node] `feeAssetPriceModifier` now correctly populated on confirmed checkpoints
+
+Confirmed checkpoints previously reported `feeAssetPriceModifier = 0n` regardless of the value observed on L1, because the archiver dropped the field on checkpoint confirmation. The field is now persisted and returned correctly on `CheckpointResponse`. Any wallet or indexer logic that special-cased `0n` as a sentinel for "no modifier" will need to be updated; it is now a valid value in its own right.
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
 
 ### [CLI] `aztec-up` no longer exposes transitive npm bins on PATH
 
@@ -75,6 +242,47 @@ echo $PATH
 
 `$HOME/.aztec/current/node_modules/.bin` should no longer appear in the output. You'll also see your own `jest`, `tsc`, etc. again instead of the ones bundled with the Aztec toolchain.
 
+<<<<<<< HEAD
+=======
+### [Protocol] Domain separators introduced for merkle-node, block-headers, and blob hashes
+
+Several protocol hashes that previously used bare `poseidon2_hash` are now domain-separated via `poseidon2_hash_with_separator`. This is a security hardening change — it prevents a value produced by one hash context from being reinterpreted in another (e.g. a sibling path from one tree being transported to another).
+
+**New domain separators:**
+
+- `DOM_SEP__MERKLE_HASH` — sibling-pair hash for append-only trees (note-hash, L1→L2, archive, VK tree, and the balanced/unbalanced tree hash helpers in `@aztec/foundation/trees`).
+- `DOM_SEP__NULLIFIER_MERKLE`, `DOM_SEP__PUBLIC_DATA_MERKLE`, `DOM_SEP__WRITTEN_SLOTS_MERKLE`, `DOM_SEP__RETRIEVED_BYTECODES_MERKLE` — per-tree sibling-pair hash for each indexed tree. Each tree uses its own separator so sibling paths are non-transportable across trees.
+- `DOM_SEP__BLOCK_HEADERS_HASH` — used when accumulating block headers into `blockHeadersHash`.
+- `DOM_SEP__BLOB_HASHED_Y_LIMBS`, `DOM_SEP__BLOB_CHALLENGE_Z`, `DOM_SEP__BLOB_Z_ACC`, `DOM_SEP__BLOB_GAMMA_ACC`, `DOM_SEP__BLOB_GAMMA_FINAL` — blob accumulator and challenge derivations.
+
+**:warning: Hard-coded test constants will no longer match.** Every value derived from any of the hashes above is new in this release. This includes (non-exhaustively):
+
+- **All merkle tree roots** — note-hash, nullifier, public-data, L1→L2 message, archive, VK, and the AVM-internal written-slots and retrieved-bytecodes (class-ids) trees.
+- **Genesis constants** — `GENESIS_BLOCK_HEADER_HASH`, `GENESIS_ARCHIVE_ROOT`, `AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT`, `AVM_RETRIEVED_BYTECODES_TREE_INITIAL_ROOT`.
+- **Every block hash and archive root** — they commit to tree roots and the new block-headers-hash.
+- **Protocol contract addresses** — their derivation depends on the private-function tree root.
+- **Blob commitments / challenges** — any test that pins `z`, `gamma`, or the accumulator outputs.
+
+Regenerate these values from a fresh build of this release — do not copy them from previous release fixtures.
+
+**If you re-implement any of these hashes off-circuit** (e.g. a wallet that computes nullifier low-leaf membership, or an indexer that derives block hashes / tree roots), update the call sites:
+
+```diff
+  // Merkle sibling-pair hash (append-only trees)
+- poseidon2Hash([left, right])
++ poseidon2HashWithSeparator([left, right], DomainSeparator.MERKLE_HASH)
+
+  // Indexed-tree sibling-pair hash — pick the matching tree separator
+- poseidon2Hash([left, right])
++ poseidon2HashWithSeparator([left, right], DomainSeparator.NULLIFIER_MERKLE)
++ // or PUBLIC_DATA_MERKLE, WRITTEN_SLOTS_MERKLE, RETRIEVED_BYTECODES_MERKLE
+```
+
+`poseidon2HashWithSeparator` is exported from `@aztec/foundation/crypto/poseidon`; the `DomainSeparator` enum and the matching `DOM_SEP__*` constants are defined in `@aztec/constants`. The new entries listed above are additions — existing separator names are unchanged.
+
+For TypeScript consumers, `@aztec/stdlib/hash` exports ready-made helpers that wrap the right separator: `computeMerkleHash` (append-only), `computeNullifierMerkleHash`, and `computePublicDataMerkleHash`. Prefer these over calling `poseidon2HashWithSeparator` directly so the separator choice stays colocated with the tree.
+
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
 ### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
 
 `emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.
@@ -128,7 +336,49 @@ This has been done because this is the format expected by the functionality in p
 
 The old `DEFAULT_GAS_LIMIT` and `DEFAULT_TEARDOWN_GAS_LIMIT` constants have been removed. Gas limits are now derived from protocol-level maximums (`MAX_PROCESSABLE_L2_GAS`, `MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT`) rather than arbitrary fixed values.
 
+<<<<<<< HEAD
 A new `GasSettings.forEstimation()` method provides intentionally high gas limits for use during simulation. These limits exceed protocol maximums so the simulation doesn't hit gas caps — you must pass `skipTxValidation: true` when simulating with them, then use the results to set accurate gas limits on the actual transaction. `EmbeddedWallet` does this by default.
+=======
+**L1 contract changes:**
+
+- `SlasherFlavor` enum removed from `ISlasher.sol`
+- `RollupConfigInput.slasherFlavor` (enum) replaced with `slasherEnabled` (bool)
+- `TallySlashingProposer` contract renamed to `SlashingProposer`
+- `TallySlasherDeploymentExtLib` library renamed to `SlasherDeploymentExtLib`
+- `SlashFactory` periphery contract removed
+- `SLASHING_PROPOSER_TYPE` constant removed from `SlashingProposer`
+- All `TallySlashingProposer__` error prefixes renamed to `SlashingProposer__`
+
+**Environment variable changes:**
+
+```diff
+- AZTEC_SLASHER_FLAVOR=tally    # was: "tally" | "empire" | "none"
++ AZTEC_SLASHER_ENABLED=true    # now a boolean
+```
+
+**Removed environment variables:** `SLASH_MIN_PENALTY_PERCENTAGE`, `SLASH_MAX_PENALTY_PERCENTAGE`
+
+**Removed from deploy outputs:** `slashFactoryAddress`
+
+**Node admin API:** `getSlashPayloads()` method removed.
+
+**TypeScript config changes:**
+
+```diff
+- slasherFlavor: 'tally' | 'none'
++ slasherEnabled: boolean
+```
+
+`slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
+
+## Unreleased (v5)
+
+### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
+
+The `returnReceipt` option in deploy wait options has been removed. `DeployMethod.send()` now always returns an object with `contract`, `receipt`, and `instance` at the top level, provided the user waits for the transaction to be included.
+
+The `DeployTxReceipt` and `DeployWaitOptions` types have been removed.
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
 
 **Migration:**
 

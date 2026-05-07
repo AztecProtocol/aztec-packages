@@ -278,10 +278,13 @@ describe('HA Full Setup', () => {
     // Deploy a contract to trigger block building
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
     logger.info(`Deploying contract from ${ownerAddress}`);
-    const { receipt } = await deployer.deploy(ownerAddress, 1).send({
+    const { receipt } = await deployer.deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) }).send({
       from: ownerAddress,
+<<<<<<< HEAD
       contractAddressSalt: new Fr(BigInt(1)),
       wait: { returnReceipt: true },
+=======
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
     });
 
     await waitForProven(aztecNode, receipt, {
@@ -397,10 +400,13 @@ describe('HA Full Setup', () => {
     // Send a transaction to trigger block building which will also trigger voting
     logger.info('Sending transaction to trigger block building...');
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const { receipt } = await deployer.deploy(ownerAddress, 42).send({
+    const { receipt } = await deployer.deploy([ownerAddress, 42], { salt: Fr.random() }).send({
       from: ownerAddress,
+<<<<<<< HEAD
       contractAddressSalt: Fr.random(),
       wait: { returnReceipt: true },
+=======
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
     });
     expect(receipt.blockNumber).toBeDefined();
     logger.info(`Transaction mined in block ${receipt.blockNumber}`);
@@ -490,6 +496,83 @@ describe('HA Full Setup', () => {
     logger.info('Governance voting with HA coordination and L1 verification complete');
   });
 
+<<<<<<< HEAD
+=======
+  it('should reload keystore via admin API and keep building blocks after swapping attesters', async () => {
+    logger.info('Testing reloadKeystore: swap all attesters across HA nodes');
+
+    const groupA = attesterAddresses.slice(0, 2);
+    const groupB = attesterAddresses.slice(2, 4);
+
+    const writeKeystoreForNode = async (nodeIdx: number, attesters: string[]) => {
+      const ks = {
+        schemaVersion: 1,
+        validators: [
+          {
+            attester: attesters,
+            feeRecipient: AztecAddress.ZERO.toString(),
+            coinbase: EthAddress.fromString(attesters[0]).toChecksumString(),
+            remoteSigner: web3SignerUrl,
+            publisher: [publisherAddresses[nodeIdx]],
+          },
+        ],
+      };
+      await writeFile(join(haKeystoreDirs[nodeIdx], 'keystore.json'), JSON.stringify(ks, null, 2));
+    };
+
+    const verifyNodeAttesters = (nodeIdx: number, expectedAttesters: string[], label: string) => {
+      const vc: ValidatorClient = (haNodeServices[nodeIdx] as any).validatorClient;
+      const addrs = vc.getValidatorAddresses();
+      expect(addrs).toHaveLength(expectedAttesters.length);
+      for (const expected of expectedAttesters) {
+        expect(addrs.some(a => a.equals(EthAddress.fromString(expected)))).toBe(true);
+      }
+      logger.info(`Node ${nodeIdx}: ${addrs.length} attesters (${label})`);
+    };
+
+    const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
+
+    try {
+      // Phase 1: Nodes 0,1,2 get attesters [A0,A1], nodes 3,4 get [A2,A3]
+      logger.info('Phase 1: Initial attester split');
+      for (let i = 0; i < NODE_COUNT; i++) {
+        await writeKeystoreForNode(i, i < 3 ? groupA : groupB);
+        await haNodeServices[i].reloadKeystore();
+      }
+      for (let i = 0; i < NODE_COUNT; i++) {
+        verifyNodeAttesters(i, i < 3 ? groupA : groupB, i < 3 ? 'group A' : 'group B');
+      }
+
+      // Phase 2: Swap — nodes 0,1,2 get [A2,A3], nodes 3,4 get [A0,A1]
+      logger.info('Phase 2: Swapping all attesters');
+      for (let i = 0; i < NODE_COUNT; i++) {
+        await writeKeystoreForNode(i, i < 3 ? groupB : groupA);
+        await haNodeServices[i].reloadKeystore();
+      }
+      for (let i = 0; i < NODE_COUNT; i++) {
+        verifyNodeAttesters(i, i < 3 ? groupB : groupA, i < 3 ? 'group B (swapped)' : 'group A (swapped)');
+      }
+
+      const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
+      const receipt = await deployer.deploy([ownerAddress, 201], { salt: new Fr(201) }).send({
+        from: ownerAddress,
+      });
+      expect(receipt.receipt.blockNumber).toBeDefined();
+      const [block] = await aztecNode.getCheckpointedBlocks(receipt.receipt.blockNumber!, 1);
+      const [cp] = await aztecNode.getCheckpoints(block!.checkpointNumber, 1, { includeAttestations: true });
+      const att = (cp.attestations ?? []).filter(a => !a.signature.isEmpty());
+      expect(att.length).toBeGreaterThanOrEqual(quorum);
+      logger.info(`Phase 2: block ${receipt.receipt.blockNumber}, ${att.length} attestations (quorum ${quorum})`);
+    } finally {
+      // Restore each node's saved initial keystore so subsequent tests see original state
+      for (let i = 0; i < NODE_COUNT; i++) {
+        await writeFile(join(haKeystoreDirs[i], 'keystore.json'), initialKeystoreJsons[i]);
+        await haNodeServices[i].reloadKeystore();
+      }
+    }
+  });
+
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
   // NOTE: this test needs to run last
   it('should distribute work across multiple HA nodes', async () => {
     logger.info('Testing HA resilience by killing nodes after they produce blocks');
@@ -513,10 +596,13 @@ describe('HA Full Setup', () => {
       logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
 
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const { receipt } = await deployer.deploy(ownerAddress, i + 100).send({
+      const { receipt } = await deployer.deploy([ownerAddress, i + 100], { salt: new Fr(BigInt(i + 100)) }).send({
         from: ownerAddress,
+<<<<<<< HEAD
         contractAddressSalt: new Fr(BigInt(i + 100)),
         wait: { returnReceipt: true },
+=======
+>>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
       });
 
       expect(receipt.blockNumber).toBeDefined();
