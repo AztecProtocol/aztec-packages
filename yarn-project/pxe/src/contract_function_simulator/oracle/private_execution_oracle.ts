@@ -582,6 +582,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       scopes: this.scopes,
       senderForTags: this.defaultSenderForTags,
       simulator: this.simulator,
+      hooks: this.hooks,
       l2TipsStore: this.l2TipsStore,
     });
 
