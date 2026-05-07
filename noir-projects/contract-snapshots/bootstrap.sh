@@ -6,7 +6,7 @@ export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 
 # Build the snapshot test binaries (compiles build.rs codegen too) and run Rust lints.
 function build {
-    echo_header "noir-contract-snapshots build"
+    echo_header "contract-snapshots build"
     denoise "cargo build --tests"
     denoise "cargo fmt --check"
     denoise "cargo clippy --all-targets"
@@ -15,7 +15,7 @@ function build {
 # Run the snapshot tests. CI rejects INSTA_UPDATE so any drift between
 # committed snapshots and reality must be resolved intentionally by a developer.
 function test {
-    echo_header "noir-contract-snapshots test"
+    echo_header "contract-snapshots test"
     if [ "${CI:-0}" = "1" ] && [ -n "${INSTA_UPDATE:-}" ] && [ "${INSTA_UPDATE}" != "no" ]; then
         echo "INSTA_UPDATE is not permitted in CI. Run 'cargo insta accept' locally and commit." >&2
         exit 1
@@ -30,12 +30,12 @@ function test_cmds {
       hash=$(hash_str \
         $(../../noir/bootstrap.sh hash) \
         $(cache_content_hash \
-            ^noir-projects/noir-contract-snapshots \
+            ^noir-projects/contract-snapshots \
             ^noir-projects/noir-contracts/contracts/app \
             ^noir-projects/noir-contracts/contracts/test \
             ^noir-projects/aztec-nr))
     fi
-    echo "$hash ./noir-projects/noir-contract-snapshots/bootstrap.sh test"
+    echo "$hash ./noir-projects/contract-snapshots/bootstrap.sh test"
 }
 
 case "$cmd" in
