@@ -6,9 +6,47 @@ use crate::macros::{
     },
 };
 
+/// Emits a per-contract helper that builds the `self` value used by every public external function.
+///
+/// Each public external function calls this helper instead of inlining the construction, so the same preamble does not
+/// appear duplicated in every public function body. We let Noir's inliner decide whether to inline the helper at each
+/// call site rather than forcing it via macro expansion.
+///
+/// The helper is parameterized over the calldata length `N` so that the args closure passed to `PublicContext::new`
+/// is monomorphized per arity. All public functions with the same arity share a single monomorphization.
+pub(crate) comptime fn generate_public_self_creator(m: Module) -> Quoted {
+    let (storage_type, storage_init) = if module_has_storage(m) {
+        (
+            quote { Storage<aztec::context::PublicContext> },
+            quote { let storage = Storage::init(context); },
+        )
+    } else {
+        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelfPublic requires
+        // a storage struct in its constructor. Using an Option type would lead to worse developer experience and
+        // higher constraint counts so we use the unit type `()` instead.
+        (quote { () }, quote { let storage = (); })
+    };
+
+    quote {
+        #[contract_library_method]
+        unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::ContractSelfPublic<$storage_type, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+            let context = aztec::context::PublicContext::new(|| {
+                // We start from 1 because we skip the selector for the dispatch function.
+                let serialized_args : [Field; N] = aztec::oracle::avm::calldata_copy(1, N);
+                aztec::hash::hash_args(serialized_args)
+            });
+            $storage_init
+            let self_address = context.this_address();
+            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf { address: self_address, context };
+            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic { address: self_address, context };
+            let internal: CallInternal<aztec::context::PublicContext> = CallInternal { context };
+            aztec::contract_self::ContractSelfPublic::new(context, storage, call_self, call_self_static, internal)
+        }
+    }
+}
+
 pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted {
     let module_has_initializer = module_has_initializer(f.module());
-    let module_has_storage = module_has_storage(f.module());
 
     // Public functions undergo a lot of transformations from their Aztec.nr form.
     let original_params = f.parameters();
@@ -28,35 +66,11 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
             .join(quote {+})
     };
 
-    let storage_init = if module_has_storage {
-        quote {
-            let storage = Storage::init(context);
-        }
-    } else {
-        // Contract does not have Storage defined, so we set storage to the unit type `()`. ContractSelfPublic requires
-        // a storage struct in its constructor. Using an Option type would lead to worse developer experience and
-        // higher constraint counts so we use the unit type `()` instead.
-        quote {
-            let storage = ();
-        }
-    };
-
-    // Unlike in the private case, in public the `context` does not need to receive the hash of the original params.
+    // Construct `self` via the per-contract `__aztec_nr_internals__create_public_self` helper rather than inlining the
+    // preamble in every public function. See `generate_public_self_creator` for the helper definition.
     let contract_self_creation = quote {
         #[allow(unused_variables)]
-        let mut self = {
-            let context = aztec::context::PublicContext::new(|| {
-            // We start from 1 because we skip the selector for the dispatch function.
-            let serialized_args : [Field; $args_len_quote] = aztec::oracle::avm::calldata_copy(1, $args_len_quote);
-            aztec::hash::hash_args(serialized_args)
-            });
-            $storage_init
-            let self_address = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf { address: self_address, context };
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic { address: self_address, context };
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal { context };
-            aztec::contract_self::ContractSelfPublic::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self = __aztec_nr_internals__create_public_self::<$args_len_quote>();
     };
 
     let original_function_name = f.name();
