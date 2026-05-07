@@ -89,8 +89,11 @@ namespace merkle_check;
     pol commit read_root;
 
     // Write specific inputs/outputs - These are only looked up when we want to update the root
-    pol commit write; // This should be a boolean passed by the caller. For a read usage, it is under-constrained but read
-                      // relevant values are constrained. For write, the caller must pass 1.
+    // Unconditionally boolean — required as a lookup source selector.
+    // For read usage, it is under-constrained but read-relevant values are constrained.
+    // For write, the caller must pass 1.
+    pol commit write; // @boolean
+    write * (1 - write) = 0;
     pol commit write_node;
     pol commit write_root;
 
