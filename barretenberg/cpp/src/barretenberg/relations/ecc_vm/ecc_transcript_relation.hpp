@@ -130,7 +130,16 @@ template <typename FF_> class ECCVMTranscriptRelationImpl {
      */
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        auto is_lin_zero = [](const auto& u) { return u.value_at(0).is_zero() && u.value_at(1).is_zero(); };
+        auto is_lin_zero = [](const auto& u) {
+            if constexpr (requires { u.value_at(0); }) {
+                // Univariate input from sumcheck: linear extension, so checking the two endpoints is
+                // equivalent to checking all evaluations (and an order of magnitude cheaper).
+                return u.value_at(0).is_zero() && u.value_at(1).is_zero();
+            } else {
+                // Field input from the trace checker.
+                return u.is_zero();
+            }
+        };
         return is_lin_zero(in.transcript_op) && is_lin_zero(in.transcript_msm_transition) &&
                is_lin_zero(in.transcript_msm_count) && is_lin_zero(in.transcript_msm_count_shift) &&
                is_lin_zero(in.transcript_pc) && is_lin_zero(in.transcript_pc_shift) && is_lin_zero(in.lagrange_first) &&
