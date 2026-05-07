@@ -804,7 +804,7 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
         uint32_t calldata_id = std::get<Acir::BlockType::CallData>(mem_init.block_type.value).value;
         BB_ASSERT_LTE(calldata_id,
                       MAX_APPS_PER_KERNEL,
-                      "acir_format::handle_memory_init: Calldata id exceeds kernel + MAX_APPS_PER_KERNEL");
+                      "acir_format::handle_memory_init: calldata id exceeds kernel + MAX_APPS_PER_KERNEL app columns");
 
         block.type = BlockType::CallData;
         block.calldata_id = static_cast<CallDataType>(calldata_id);

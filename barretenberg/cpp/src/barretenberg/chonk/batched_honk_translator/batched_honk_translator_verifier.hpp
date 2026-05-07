@@ -99,7 +99,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
      */
     struct OinkResult {
         std::vector<FF> public_inputs;
-        Commitment calldata_commitment;
+        Commitment kernel_calldata_commitment;
         std::array<Commitment, MegaZKFlavorT::NUM_WIRES> ecc_op_wires;
     };
 
@@ -114,7 +114,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     /**
      * @brief Phase 1: Verify the MegaZK Oink phase on the shared transcript.
      * @details Loads mega_zk_proof into the transcript, runs OinkVerifier, stores verifier instance.
-     * @return OinkResult with public inputs, calldata commitment, and ECC op wires.
+     * @return OinkResult with public inputs, kernel calldata commitment, and ECC op wires.
      */
     OinkResult verify_mega_zk_oink(const Proof& mega_zk_proof);
 

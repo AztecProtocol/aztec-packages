@@ -620,7 +620,7 @@ TYPED_TEST(OpcodeGateCountTests, BlockCallData)
             .init = init,
             .trace = trace,
             .type = BlockType::CallData,
-            .calldata_id = CallDataType::AppCalldata,
+            .calldata_id = CallDataType::FirstAppCalldata,
         };
 
         AcirFormat constraint_system = constraint_to_acir_format(block_constraint);
