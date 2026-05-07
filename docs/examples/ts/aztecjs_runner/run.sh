@@ -21,12 +21,6 @@ EXAMPLES_DIR="$(dirname "$SCRIPT_DIR")"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 export AZTEC_NODE_URL="${AZTEC_NODE_URL:-http://localhost:8080}"
 
-# link: creates symlinks into yarn-project/*; --preserve-symlinks tells Node's
-# ESM loader to resolve transitive deps through the symlink target's
-# node_modules. Without it, tsx fails to resolve @aztec/* imports inside
-# example index.ts files.
-export NODE_OPTIONS="${NODE_OPTIONS:-} --preserve-symlinks --preserve-symlinks-main"
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
