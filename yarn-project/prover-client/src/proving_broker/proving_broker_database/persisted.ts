@@ -87,6 +87,8 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
 
   public readonly tracer: Tracer;
 
+  private deletedEpochs = new Set<number>();
+
   private constructor(
     private epochs: Map<number, SingleEpochDatabase>,
     private config: ProverBrokerConfig,
@@ -113,6 +115,10 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
 
   // exposed for testing
   public async commitWrites(items: Array<ProvingJob | [ProvingJobId, ProvingJobSettledResult]>, epochNumber: number) {
+    if (this.deletedEpochs.has(epochNumber)) {
+      return;
+    }
+
     const jobsToAdd = items.filter((item): item is ProvingJob => 'id' in item);
     const resultsToAdd = items.filter((item): item is [ProvingJobId, ProvingJobSettledResult] => Array.isArray(item));
 
@@ -181,14 +187,21 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
   }))
   async deleteAllProvingJobsOlderThanEpoch(epochNumber: EpochNumber): Promise<void> {
     const oldEpochs = Array.from(this.epochs.keys()).filter(e => e < Number(epochNumber));
+    if (oldEpochs.length === 0) {
+      return;
+    }
+    for (const old of oldEpochs) {
+      this.deletedEpochs.add(old);
+    }
+    await this.batchQueue.drain();
     for (const old of oldEpochs) {
       const db = this.epochs.get(old);
       if (!db) {
         continue;
       }
       this.logger.verbose(`Deleting broker database for epoch ${old}`);
-      await db.delete();
       this.epochs.delete(old);
+      await db.delete();
     }
   }
 

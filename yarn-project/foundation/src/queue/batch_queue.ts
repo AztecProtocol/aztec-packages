@@ -28,6 +28,7 @@ export class BatchQueue<T, K extends string | number> {
   private container = new FifoMemoryQueue<Batch<T, K>>();
   private currentBatch?: Batch<T, K>;
   private runningPromise?: Promise<void>;
+  private latestBatchPromise: Promise<void> = Promise.resolve();
 
   constructor(
     private processBatch: (items: Array<T>, key: K) => void | Promise<void>,
@@ -67,6 +68,7 @@ export class BatchQueue<T, K extends string | number> {
       this.flushCurrentBatch();
     }
 
+    this.latestBatchPromise = currentBatch.deferred.promise;
     return currentBatch.deferred.promise;
   }
 
@@ -91,6 +93,16 @@ export class BatchQueue<T, K extends string | number> {
     }
 
     this.runningPromise = this.container.process(this.execProcessor);
+  }
+
+  /**
+   * Flushes the current batch and waits for all queued items (including the flushed batch) to be processed.
+   * New items may be added while draining. Returns a promise that resolves once all items enqueued before
+   * the call to `drain()` have been committed.
+   */
+  public async drain(): Promise<void> {
+    this.flushCurrentBatch();
+    await this.latestBatchPromise.catch(() => {});
   }
 
   /**
