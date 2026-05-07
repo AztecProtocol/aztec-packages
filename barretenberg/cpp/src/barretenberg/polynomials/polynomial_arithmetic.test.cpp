@@ -395,14 +395,21 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
     // construct a new poly from the original via the move constructor
     Polynomial<FF> polynomial_b(std::move(polynomial_a));
 
-    // verifiy that source poly is appropriately destroyed
+    // The moved-from polynomial must report itself as empty in every accessor: size() == 0,
+    // virtual_size() == 0, is_empty() == true, data() == nullptr. Failure modes here are the
+    // inconsistent moved-from state flagged by audit (size > 0 with data == nullptr).
     EXPECT_EQ(polynomial_a.data(), nullptr);
+    EXPECT_EQ(polynomial_a.size(), 0UL);
+    EXPECT_EQ(polynomial_a.virtual_size(), 0UL);
+    EXPECT_TRUE(polynomial_a.is_empty());
 
     // construct another poly; this will also use the move constructor!
     auto polynomial_c = std::move(polynomial_b);
 
-    // verifiy that source poly is appropriately destroyed
     EXPECT_EQ(polynomial_b.data(), nullptr);
+    EXPECT_EQ(polynomial_b.size(), 0UL);
+    EXPECT_EQ(polynomial_b.virtual_size(), 0UL);
+    EXPECT_TRUE(polynomial_b.is_empty());
 
     // define a poly with some arbitrary coefficients
     Polynomial<FF> polynomial_d(num_coeffs);
@@ -413,8 +420,10 @@ TYPED_TEST(PolynomialTests, move_construct_and_assign)
     // reset its data using move assignment
     polynomial_d = std::move(polynomial_c);
 
-    // verifiy that source poly is appropriately destroyed
     EXPECT_EQ(polynomial_c.data(), nullptr);
+    EXPECT_EQ(polynomial_c.size(), 0UL);
+    EXPECT_EQ(polynomial_c.virtual_size(), 0UL);
+    EXPECT_TRUE(polynomial_c.is_empty());
 }
 
 TYPED_TEST(PolynomialTests, default_construct_then_assign)
