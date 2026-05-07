@@ -40,6 +40,7 @@ import { AddressStore } from '../address_store/address_store.js';
 import { AnchorBlockStore } from '../anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
+import { HandshakeSecretStore } from '../handshake_secret_store/handshake_secret_store.js';
 import { NoteStore } from '../note_store/note_store.js';
 import { PrivateEventStore } from '../private_event_store/private_event_store.js';
 import { RecipientTaggingStore, SenderAddressBookStore, SenderTaggingStore } from '../tagging_store/index.js';
@@ -137,6 +138,23 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     },
     snapshotStore: async kvStore => ({
       capsules: await snapshotMap(kvStore.openMap<string, Buffer>('capsules')),
+    }),
+  },
+
+  {
+    name: 'HandshakeSecretStore',
+    writeToStore: async kvStore => {
+      const handshakeSecretStore = new HandshakeSecretStore(kvStore);
+
+      const jobId = 'fixture-job';
+      // Hand-rolled non-curve points are fine here — the store does not validate curve membership when serializing.
+      // We pick fixed coordinates so the on-disk hash keys are stable across runs.
+      await handshakeSecretStore.setHandshakeSecret(new Point(new Fr(2n), new Fr(3n), false), jobId);
+      await handshakeSecretStore.setHandshakeSecret(new Point(new Fr(5n), new Fr(7n), false), jobId);
+      await kvStore.transactionAsync(() => handshakeSecretStore.commit(jobId));
+    },
+    snapshotStore: async kvStore => ({
+      handshake_secrets: await snapshotMap(kvStore.openMap<string, Buffer>('handshake_secrets')),
     }),
   },
 

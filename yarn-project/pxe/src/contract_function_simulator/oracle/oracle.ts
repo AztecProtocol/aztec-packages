@@ -841,6 +841,28 @@ export class Oracle {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_storeHandshakeSecret(
+    [secretField0]: ACVMField[],
+    [secretField1]: ACVMField[],
+    [secretField2]: ACVMField[],
+  ): Promise<ACVMField[]> {
+    await this.handlerAsUtility().storeHandshakeSecret(
+      Point.fromFields([secretField0, secretField1, secretField2].map(Fr.fromString)),
+    );
+    return [];
+  }
+
+  // Returns a Noir `Option<Point>` flattened as `[is_some, x, y, is_infinite]`.
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getHandshakeSecret([secretHash]: ACVMField[]): Promise<ACVMField[]> {
+    const secret = await this.handlerAsUtility().getHandshakeSecret(Fr.fromString(secretHash));
+    if (secret === undefined) {
+      return Array(4).fill(toACVMField(0));
+    }
+    return [toACVMField(1), ...secret.toFields().map(toACVMField)];
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_setContractSyncCacheInvalid(
     [contractAddress]: ACVMField[],
     scopes: ACVMField[],

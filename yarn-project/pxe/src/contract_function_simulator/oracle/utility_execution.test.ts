@@ -29,6 +29,7 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { HandshakeSecretStore } from '../../storage/handshake_secret_store/handshake_secret_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -49,6 +50,7 @@ describe('Utility Execution test suite', () => {
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
   let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
+  let handshakeSecretStore: ReturnType<typeof mock<HandshakeSecretStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
@@ -73,6 +75,7 @@ describe('Utility Execution test suite', () => {
     recipientTaggingStore = mock<RecipientTaggingStore>();
     senderAddressBookStore = mock<SenderAddressBookStore>();
     capsuleStore = mock<CapsuleStore>();
+    handshakeSecretStore = mock<HandshakeSecretStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
@@ -106,6 +109,7 @@ describe('Utility Execution test suite', () => {
       recipientTaggingStore,
       senderAddressBookStore,
       capsuleStore,
+      handshakeSecretStore,
       privateEventStore,
       simulator,
       contractSyncService,
@@ -341,6 +345,7 @@ describe('Utility Execution test suite', () => {
         recipientTaggingStore,
         senderAddressBookStore,
         capsuleService: new CapsuleService(capsuleStore, [scope]),
+        handshakeSecretStore,
         privateEventStore,
         messageContextService,
         contractSyncService,
@@ -409,6 +414,7 @@ describe('Utility Execution test suite', () => {
           recipientTaggingStore,
           senderAddressBookStore,
           capsuleService: new CapsuleService(capsuleStore, [scope]),
+          handshakeSecretStore,
           privateEventStore,
           messageContextService,
           contractSyncService,
@@ -601,6 +607,7 @@ describe('Utility Execution test suite', () => {
             recipientTaggingStore,
             senderAddressBookStore,
             capsuleService: new CapsuleService(capsuleStore, []),
+            handshakeSecretStore,
             privateEventStore,
             messageContextService,
             contractSyncService,

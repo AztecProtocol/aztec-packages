@@ -38,6 +38,10 @@
       "kind": "multimap"
     },
     {
+      "name": "handshake_secrets",
+      "kind": "map"
+    },
+    {
       "name": "header",
       "kind": "singleton"
     },

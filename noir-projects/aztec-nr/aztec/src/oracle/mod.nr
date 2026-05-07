@@ -18,6 +18,7 @@ pub mod get_l1_to_l2_membership_witness;
 pub mod get_nullifier_membership_witness;
 pub mod get_public_data_witness;
 pub mod get_membership_witness;
+pub mod handshake_secret;
 pub mod keys;
 pub mod key_validation_request;
 pub mod logs;

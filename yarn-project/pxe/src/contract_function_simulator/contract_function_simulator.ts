@@ -95,6 +95,7 @@ import type { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import type { HandshakeSecretStore } from '../storage/handshake_secret_store/handshake_secret_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
@@ -139,6 +140,7 @@ export type ContractFunctionSimulatorArgs = {
   recipientTaggingStore: RecipientTaggingStore;
   senderAddressBookStore: SenderAddressBookStore;
   capsuleStore: CapsuleStore;
+  handshakeSecretStore: HandshakeSecretStore;
   privateEventStore: PrivateEventStore;
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
@@ -160,6 +162,7 @@ export class ContractFunctionSimulator {
   private readonly recipientTaggingStore: RecipientTaggingStore;
   private readonly senderAddressBookStore: SenderAddressBookStore;
   private readonly capsuleStore: CapsuleStore;
+  private readonly handshakeSecretStore: HandshakeSecretStore;
   private readonly privateEventStore: PrivateEventStore;
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
@@ -176,6 +179,7 @@ export class ContractFunctionSimulator {
     this.recipientTaggingStore = args.recipientTaggingStore;
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleStore = args.capsuleStore;
+    this.handshakeSecretStore = args.handshakeSecretStore;
     this.privateEventStore = args.privateEventStore;
     this.simulator = args.simulator;
     this.contractSyncService = args.contractSyncService;
@@ -249,6 +253,7 @@ export class ContractFunctionSimulator {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
+      handshakeSecretStore: this.handshakeSecretStore,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,
@@ -344,6 +349,7 @@ export class ContractFunctionSimulator {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
+      handshakeSecretStore: this.handshakeSecretStore,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,

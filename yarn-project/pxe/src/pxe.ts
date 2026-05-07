@@ -77,6 +77,7 @@ import { AddressStore } from './storage/address_store/address_store.js';
 import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
+import { HandshakeSecretStore } from './storage/handshake_secret_store/handshake_secret_store.js';
 import { NoteStore } from './storage/note_store/note_store.js';
 import { openPxeStores } from './storage/open_pxe_stores.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
@@ -166,6 +167,7 @@ export class PXE {
     private contractStore: ContractStore,
     private noteStore: NoteStore,
     private capsuleStore: CapsuleStore,
+    private handshakeSecretStore: HandshakeSecretStore,
     private anchorBlockStore: AnchorBlockStore,
     private senderTaggingStore: SenderTaggingStore,
     private senderAddressBookStore: SenderAddressBookStore,
@@ -231,6 +233,7 @@ export class PXE {
       senderAddressBookStore,
       recipientTaggingStore,
       capsuleStore,
+      handshakeSecretStore,
       keyStore,
       l2TipsStore,
     } = openPxeStores(store, initialBlockHash);
@@ -257,6 +260,7 @@ export class PXE {
     const jobCoordinator = new JobCoordinator(store, bindings);
     jobCoordinator.registerStores([
       capsuleStore,
+      handshakeSecretStore,
       senderTaggingStore,
       recipientTaggingStore,
       privateEventStore,
@@ -276,6 +280,7 @@ export class PXE {
       contractStore,
       noteStore,
       capsuleStore,
+      handshakeSecretStore,
       anchorBlockStore,
       senderTaggingStore,
       senderAddressBookStore,
@@ -324,6 +329,7 @@ export class PXE {
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleStore: this.capsuleStore,
+      handshakeSecretStore: this.handshakeSecretStore,
       privateEventStore: this.privateEventStore,
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,

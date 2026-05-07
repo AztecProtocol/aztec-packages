@@ -41,6 +41,7 @@ import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { HandshakeSecretStore } from '../../storage/handshake_secret_store/handshake_secret_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -71,6 +72,7 @@ export type UtilityExecutionOracleArgs = {
   recipientTaggingStore: RecipientTaggingStore;
   senderAddressBookStore: SenderAddressBookStore;
   capsuleService: CapsuleService;
+  handshakeSecretStore: HandshakeSecretStore;
   privateEventStore: PrivateEventStore;
   messageContextService: MessageContextService;
   contractSyncService: ContractSyncService;
@@ -108,6 +110,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly recipientTaggingStore: RecipientTaggingStore;
   protected readonly senderAddressBookStore: SenderAddressBookStore;
   protected readonly capsuleService: CapsuleService;
+  protected readonly handshakeSecretStore: HandshakeSecretStore;
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly messageContextService: MessageContextService;
   protected readonly contractSyncService: ContractSyncService;
@@ -130,6 +133,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.recipientTaggingStore = args.recipientTaggingStore;
     this.senderAddressBookStore = args.senderAddressBookStore;
     this.capsuleService = args.capsuleService;
+    this.handshakeSecretStore = args.handshakeSecretStore;
     this.privateEventStore = args.privateEventStore;
     this.messageContextService = args.messageContextService;
     this.contractSyncService = args.contractSyncService;
@@ -857,6 +861,22 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress);
   }
 
+  /**
+   * Persists a master shared secret produced by a handshake. Keyed by `secret_hash` matching the construction in
+   * `HandshakeNote::new`, so a downstream contract proving note existence can pair the note with the master secret
+   * that produced it. The master itself is never returned to a calling circuit; only the kernel reads it as a hint.
+   */
+  public storeHandshakeSecret(masterSharedSecret: Point): Promise<void> {
+    return this.handshakeSecretStore.setHandshakeSecret(masterSharedSecret, this.jobId);
+  }
+
+  /**
+   * Retrieves the master shared secret previously persisted under `secretHash`, or `undefined` if none is known.
+   */
+  public getHandshakeSecret(secretHash: Fr): Promise<Point | undefined> {
+    return this.handshakeSecretStore.getHandshakeSecret(secretHash, this.jobId);
+  }
+
   public pushEphemeral(slot: Fr, elements: Fr[]): number {
     return this.ephemeralArrayService.push(slot, elements);
   }
@@ -927,6 +947,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
       capsuleService: this.capsuleService,
+      handshakeSecretStore: this.handshakeSecretStore,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,
       contractSyncService: this.contractSyncService,

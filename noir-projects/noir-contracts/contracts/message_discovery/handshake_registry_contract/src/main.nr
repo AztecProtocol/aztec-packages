@@ -25,7 +25,7 @@ pub contract HandshakeRegistry {
         macros::{functions::external, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
-        oracle::notes::set_sender_for_tags,
+        oracle::{handshake_secret::store_handshake_secret, notes::set_sender_for_tags},
         protocol::{
             address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
             traits::ToField,
@@ -63,6 +63,11 @@ pub contract HandshakeRegistry {
         let s_raw = derive_ecdh_shared_secret(eph_sk, recipient_point.inner);
 
         let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient);
+
+        // Safety: PXE persistence of the master shared secret is unconstrained PXE-local state. The kernel will later
+        // re-derive `secret_hash` from the persisted point when processing a handshake-secret validation request, so
+        // a tampered or omitted store would only fail downstream lookups rather than affect this call's effects.
+        unsafe { store_handshake_secret(s_raw) };
 
         // Safety: The sender for tags is only used to compute unconstrained shared secrets for emitting logs, so it
         // is safe to set from a constrained context.

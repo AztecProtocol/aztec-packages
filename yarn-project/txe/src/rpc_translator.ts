@@ -1126,6 +1126,32 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  async aztec_utl_storeHandshakeSecret(
+    foreignSecretField0: ForeignCallSingle,
+    foreignSecretField1: ForeignCallSingle,
+    foreignSecretField2: ForeignCallSingle,
+  ) {
+    const masterSharedSecret = Point.fromFields([
+      fromSingle(foreignSecretField0),
+      fromSingle(foreignSecretField1),
+      fromSingle(foreignSecretField2),
+    ]);
+    await this.handlerAsUtility().storeHandshakeSecret(masterSharedSecret);
+    return toForeignCallResult([]);
+  }
+
+  // Returns a Noir `Option<Point>` flattened as `[is_some, x, y, is_infinite]` across four foreign-call slots.
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getHandshakeSecret(foreignSecretHash: ForeignCallSingle) {
+    const secret = await this.handlerAsUtility().getHandshakeSecret(fromSingle(foreignSecretHash));
+    if (secret === undefined) {
+      return toForeignCallResult([toSingle(new Fr(0)), toSingle(new Fr(0)), toSingle(new Fr(0)), toSingle(new Fr(0))]);
+    }
+    const [x, y, isInfinite] = secret.toFields();
+    return toForeignCallResult([toSingle(new Fr(1)), toSingle(x), toSingle(y), toSingle(isInfinite)]);
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_setContractSyncCacheInvalid(
     foreignContractAddress: ForeignCallSingle,
     foreignScopes: ForeignCallArray,

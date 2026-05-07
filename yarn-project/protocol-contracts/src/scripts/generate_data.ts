@@ -273,5 +273,6 @@ try {
   await main();
 } catch (err: unknown) {
   log(`Error copying protocol contract artifacts: ${err}`);
+  console.error(err);
   process.exit(1);
 }

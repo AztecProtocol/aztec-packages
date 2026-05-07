@@ -162,6 +162,8 @@ export interface IUtilityExecutionOracle {
   ): Promise<void>;
   decryptAes128(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer>;
   getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr>;
+  storeHandshakeSecret(masterSharedSecret: Point): Promise<void>;
+  getHandshakeSecret(secretHash: Fr): Promise<Point | undefined>;
   setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
   callUtilityFunction(
