@@ -63,6 +63,11 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     description: 'Thread count for the peer batch verifier parallel reduce. 0 = auto.',
     ...numberConfigHelper(6),
   },
+  bbDebugOutputDir: {
+    env: 'BB_DEBUG_OUTPUT_DIR',
+    description:
+      'When set, bb.js operations write input/output files and log equivalent CLI commands to this directory',
+  },
 };
 
 export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = {
