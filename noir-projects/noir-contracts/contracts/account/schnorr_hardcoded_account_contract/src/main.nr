@@ -16,7 +16,8 @@ pub contract SchnorrHardcodedAccount {
         y: 0x208d44b36eb6e73b254921134d002da1a90b41131024e3b1d721259182106205,
     };
 
-    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts (specifically `getEntrypointAbi()`)
+    // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts (specifically
+    // `getEntrypointAbi()`)
     #[external("private")]
     #[allow_phase_change]
     fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {

@@ -17,10 +17,7 @@ impl Packable for Order {
     let N: u32 = 2;
 
     fn pack(self) -> [Field; Self::N] {
-        [
-            (self.bid_amount as Field) * 2.pow_32(1) + (self.bid_token_is_zero as Field),
-            self.ask_amount as Field,
-        ]
+        [(self.bid_amount as Field) * 2.pow_32(1) + (self.bid_token_is_zero as Field), self.ask_amount as Field]
     }
 
     fn unpack(packed: [Field; Self::N]) -> Self {
@@ -42,8 +39,7 @@ impl Order {
         assert(bid_amount > 0 as u128, "ZERO_BID_AMOUNT");
         assert(ask_amount > 0 as u128, "ZERO_ASK_AMOUNT");
 
-        let bid_token_is_zero =
-            config.validate_input_tokens_and_get_direction(bid_token, ask_token);
+        let bid_token_is_zero = config.validate_input_tokens_and_get_direction(bid_token, ask_token);
 
         Self { bid_amount, ask_amount, bid_token_is_zero }
     }
@@ -114,8 +110,7 @@ mod test {
 
     #[test]
     fn test_pack_unpack_order_false() {
-        let order =
-            Order { bid_amount: 123456789, ask_amount: 987654321, bid_token_is_zero: false };
+        let order = Order { bid_amount: 123456789, ask_amount: 987654321, bid_token_is_zero: false };
         let unpacked = Order::unpack(order.pack());
         assert_eq(unpacked.bid_amount, order.bid_amount);
         assert_eq(unpacked.ask_amount, order.ask_amount);

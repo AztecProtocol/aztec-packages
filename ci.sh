@@ -265,7 +265,15 @@ case "$cmd" in
     export CI_DASHBOARD="releases"
     export JOB_ID="x-compat-e2e"
     export AWS_SHUTDOWN_TIME=300
-    bootstrap_ec2 "./bootstrap.sh ci-compat-e2e"
+    rc=0
+    bootstrap_ec2 "./bootstrap.sh ci-compat-e2e" || rc=$?
+    # On nightly tags compat-e2e is non-blocking (continue-on-error in ci3.yml), so
+    # failures otherwise go unnoticed. Notify #team-fairies so they get picked up.
+    if [ "$rc" -ne 0 ] && [[ "${REF_NAME:-}" == *-nightly.* ]]; then
+      run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${GITHUB_RUN_ID:-unknown}"
+      "$ci3/slack_notify" "Backwards compatibility e2e tests FAILED on nightly tag <${run_url}|${REF_NAME}>" "#team-fairies"
+    fi
+    exit "$rc"
     ;;
 
   ############
