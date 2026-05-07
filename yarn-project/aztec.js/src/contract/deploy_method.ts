@@ -70,6 +70,52 @@ export type DeployInstantiationOptions = {
 };
 
 /**
+ * Address-derivation inputs shared by all flavors. {@link OwnedInstantiationOptions},
+ * {@link UniversalInstantiationOptions}, and {@link PendingInstantiationOptions} narrow this
+ * shape to forbid the fields that don't apply to a given flavor at the type level.
+ */
+type SharedInstantiationOptions = {
+  /** Salt used to derive the contract address. Defaults to a random Fr. */
+  salt?: Fr;
+  /** Public keys mixed into the address. Defaults to `PublicKeys.default()`. */
+  publicKeys?: PublicKeys;
+};
+
+/**
+ * Narrowed `DeployInstantiationOptions` accepted by {@link OwnedDeployMethod}: requires a
+ * concrete `deployer` and forbids `universalDeploy`. The runtime check that `deployer` is
+ * non-zero stays as defense in depth (it's a value-level invariant the type system can't model).
+ */
+export type OwnedInstantiationOptions = SharedInstantiationOptions & {
+  /** Concrete deployer mixed into the address preimage. Required, must be non-zero. */
+  deployer: AztecAddress;
+  /** Forbidden on `OwnedDeployMethod`; use `UniversalDeployMethod` for universal deploys. */
+  universalDeploy?: never;
+};
+
+/**
+ * Narrowed `DeployInstantiationOptions` accepted by {@link UniversalDeployMethod}: forbids
+ * `deployer` and requires `universalDeploy: true` (so the call site reads as a universal deploy).
+ */
+export type UniversalInstantiationOptions = SharedInstantiationOptions & {
+  /** Forbidden on `UniversalDeployMethod`; use `OwnedDeployMethod` if you need a concrete deployer. */
+  deployer?: never;
+  /** Marks this as a universal deploy. Required for clarity at the call site. */
+  universalDeploy: true;
+};
+
+/**
+ * Narrowed `DeployInstantiationOptions` accepted by {@link PendingDeployMethod}: forbids both
+ * `deployer` and `universalDeploy`. The deploy is locked from the first send-time `from` instead.
+ */
+export type PendingInstantiationOptions = SharedInstantiationOptions & {
+  /** Forbidden on `PendingDeployMethod`; use `OwnedDeployMethod` for a concrete deployer. */
+  deployer?: never;
+  /** Forbidden on `PendingDeployMethod`; use `UniversalDeployMethod` for a universal deploy. */
+  universalDeploy?: never;
+};
+
+/**
  * Options for deploying a contract on the Aztec network.
  * Controls publication and registration policy for this deployment. Address-affecting parameters
  * (salt, deployer, publicKeys, constructor and args) are passed at construction time.
@@ -258,24 +304,44 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
     if (instantiation.deployer !== undefined && instantiation.universalDeploy) {
       throw new Error('DeployInstantiationOptions: `deployer` and `universalDeploy` are mutually exclusive.');
     }
-    const ctorArgs = [
+    const { salt, publicKeys, deployer, universalDeploy } = instantiation;
+    if (universalDeploy) {
+      return new UniversalDeployMethod<TContract>(
+        wallet,
+        artifact,
+        postDeployCtor,
+        args,
+        constructorNameOrArtifact,
+        { salt, publicKeys, universalDeploy: true },
+        authWitnesses,
+        capsules,
+        extraHashedArgs,
+      );
+    }
+    if (deployer !== undefined) {
+      return new OwnedDeployMethod<TContract>(
+        wallet,
+        artifact,
+        postDeployCtor,
+        args,
+        constructorNameOrArtifact,
+        { salt, publicKeys, deployer },
+        authWitnesses,
+        capsules,
+        extraHashedArgs,
+      );
+    }
+    return new PendingDeployMethod<TContract>(
       wallet,
       artifact,
       postDeployCtor,
       args,
       constructorNameOrArtifact,
-      instantiation,
+      { salt, publicKeys },
       authWitnesses,
       capsules,
       extraHashedArgs,
-    ] as const;
-    if (instantiation.universalDeploy) {
-      return new UniversalDeployMethod<TContract>(...ctorArgs);
-    }
-    if (instantiation.deployer !== undefined) {
-      return new OwnedDeployMethod<TContract>(...ctorArgs);
-    }
-    return new PendingDeployMethod<TContract>(...ctorArgs);
+    );
   }
 
   /**
@@ -602,16 +668,15 @@ export class OwnedDeployMethod<TContract extends ContractBase = ContractBase> ex
     wallet: Wallet,
     artifact: ContractArtifact,
     postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
-    args: any[] = [],
-    constructorNameOrArtifact?: string | FunctionArtifact,
-    instantiation: DeployInstantiationOptions = {},
+    args: any[],
+    constructorNameOrArtifact: string | FunctionArtifact | undefined,
+    instantiation: OwnedInstantiationOptions,
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
     extraHashedArgs: HashedValues[] = [],
   ) {
-    if (instantiation.deployer === undefined) {
-      throw new Error('OwnedDeployMethod requires `deployer` in instantiation options.');
-    }
+    // `OwnedInstantiationOptions` requires a `deployer` and forbids `universalDeploy` at the type
+    // level. We still reject `AztecAddress.ZERO` here because the type system can't model it.
     if (instantiation.deployer.equals(AztecAddress.ZERO)) {
       throw new Error(
         'OwnedDeployMethod requires a non-zero `deployer`; use `UniversalDeployMethod` (`{ universalDeploy: true }`) for universal deploys.',
@@ -668,16 +733,15 @@ export class UniversalDeployMethod<TContract extends ContractBase = ContractBase
     wallet: Wallet,
     artifact: ContractArtifact,
     postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
-    args: any[] = [],
-    constructorNameOrArtifact?: string | FunctionArtifact,
-    instantiation: DeployInstantiationOptions = {},
+    args: any[],
+    constructorNameOrArtifact: string | FunctionArtifact | undefined,
+    instantiation: UniversalInstantiationOptions,
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
     extraHashedArgs: HashedValues[] = [],
   ) {
-    if (instantiation.deployer !== undefined) {
-      throw new Error('UniversalDeployMethod cannot accept a `deployer`; use `OwnedDeployMethod` instead.');
-    }
+    // `UniversalInstantiationOptions` forbids `deployer` and requires `universalDeploy: true` at
+    // the type level — no runtime check is needed.
     super(
       wallet,
       artifact,
@@ -733,18 +797,15 @@ export class PendingDeployMethod<TContract extends ContractBase = ContractBase> 
     wallet: Wallet,
     artifact: ContractArtifact,
     postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
-    args: any[] = [],
-    constructorNameOrArtifact?: string | FunctionArtifact,
-    instantiation: DeployInstantiationOptions = {},
+    args: any[],
+    constructorNameOrArtifact: string | FunctionArtifact | undefined,
+    instantiation: PendingInstantiationOptions = {},
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
     extraHashedArgs: HashedValues[] = [],
   ) {
-    if (instantiation.deployer !== undefined || instantiation.universalDeploy) {
-      throw new Error(
-        'PendingDeployMethod cannot accept `deployer` or `universalDeploy: true`; use `OwnedDeployMethod` or `UniversalDeployMethod` instead.',
-      );
-    }
+    // `PendingInstantiationOptions` forbids both `deployer` and `universalDeploy` at the type
+    // level — no runtime check is needed.
     super(
       wallet,
       artifact,
@@ -805,25 +866,32 @@ export class PendingDeployMethod<TContract extends ContractBase = ContractBase> 
   #promoteFrom(
     from: SendInteractionOptionsWithoutWait['from'] | undefined,
   ): OwnedDeployMethod<TContract> | UniversalDeployMethod<TContract> {
-    const ctorArgs = [
-      this.wallet,
-      this.artifact,
-      this.postDeployCtor,
-      this.args,
-      this.constructorArtifact?.name,
-    ] as const;
-    const tail = [this.authWitnesses, this.capsules, this.extraHashedArgs] as const;
+    const { wallet, artifact, postDeployCtor, args, salt, publicKeys, authWitnesses, capsules, extraHashedArgs } =
+      this;
+    const constructorName = this.constructorArtifact?.name;
     if (from === undefined || from === NO_FROM) {
       return new UniversalDeployMethod<TContract>(
-        ...ctorArgs,
-        { salt: this.salt, publicKeys: this.publicKeys, universalDeploy: true },
-        ...tail,
+        wallet,
+        artifact,
+        postDeployCtor,
+        args,
+        constructorName,
+        { salt, publicKeys, universalDeploy: true },
+        authWitnesses,
+        capsules,
+        extraHashedArgs,
       );
     }
     return new OwnedDeployMethod<TContract>(
-      ...ctorArgs,
-      { salt: this.salt, publicKeys: this.publicKeys, deployer: from },
-      ...tail,
+      wallet,
+      artifact,
+      postDeployCtor,
+      args,
+      constructorName,
+      { salt, publicKeys, deployer: from },
+      authWitnesses,
+      capsules,
+      extraHashedArgs,
     );
   }
 }
