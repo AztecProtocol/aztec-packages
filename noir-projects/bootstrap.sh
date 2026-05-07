@@ -26,7 +26,7 @@ function build {
 }
 
 function test_cmds {
-  parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts aztec-nr noir-contracts-comp-failures
+  parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts aztec-nr noir-contract-snapshots
 }
 
 function test {

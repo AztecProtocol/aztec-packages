@@ -1,0 +1,43 @@
+[1mdiff --git a/cspell.json b/cspell.json[m
+[1mindex 9766afc1ea..f792d7920a 100644[m
+[1m--- a/cspell.json[m
+[1m+++ b/cspell.json[m
+[36m@@ -71,6 +71,7 @@[m
+     "cimg",[m
+     "ciphertext",[m
+     "ciphertexts",[m
+[32m+[m[32m    "clippy",[m
+     "clonedeep",[m
+     "clonedeepwith",[m
+     "cmd",[m
+[36m@@ -171,6 +172,7 @@[m
+     "includable",[m
+     "incrementation",[m
+     "indexeddb",[m
+[32m+[m[32m    "INSTA",[m
+     "interruptible",[m
+     "IPFS",[m
+     "isequal",[m
+[36m@@ -367,8 +369,8 @@[m
+     "unfinalized",[m
+     "uniquified",[m
+     "uniquify",[m
+[31m-    "unlinkability",[m
+     "unkonstrained",[m
+[32m+[m[32m    "unlinkability",[m
+     "unnullify",[m
+     "unpadded",[m
+     "unprefixed",[m
+[1mdiff --git a/noir-projects/bootstrap.sh b/noir-projects/bootstrap.sh[m
+[1mindex 9bd80aeea5..cadced1662 100755[m
+[1m--- a/noir-projects/bootstrap.sh[m
+[1m+++ b/noir-projects/bootstrap.sh[m
+[36m@@ -26,7 +26,7 @@[m [mfunction build {[m
+ }[m
+ [m
+ function test_cmds {[m
+[31m-  parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts aztec-nr noir-contracts-comp-failures[m
+[32m+[m[32m  parallel -k ./{}/bootstrap.sh test_cmds ::: noir-protocol-circuits noir-contracts aztec-nr noir-contract-snapshots[m
+ }[m
+ [m
+ function test {[m
