@@ -5,6 +5,8 @@ import { serializeWitness } from '@aztec/noir-noirc_abi';
 import {
   convertHidingKernelPublicInputsToWitnessMapWithAbi,
   convertHidingKernelToRollupInputsToWitnessMapWithAbi,
+  convertPrivateKernelInit3InputsToWitnessMapWithAbi,
+  convertPrivateKernelInit3OutputsFromWitnessMapWithAbi,
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
   convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
   convertPrivateKernelInnerInputsToWitnessMapWithAbi,
@@ -32,6 +34,7 @@ import type {
   HidingKernelToRollupPrivateInputs,
   PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
+  PrivateKernelInit3CircuitPrivateInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelResetCircuitPrivateInputs,
@@ -76,6 +79,28 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       'PrivateKernelInitArtifact',
       convertPrivateKernelInitInputsToWitnessMapWithAbi,
       convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateInit3Output(
+    inputs: PrivateKernelInit3CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'PrivateKernelInit3Artifact',
+      convertPrivateKernelInit3InputsToWitnessMapWithAbi,
+      convertPrivateKernelInit3OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async simulateInit3(
+    inputs: PrivateKernelInit3CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInit3Artifact',
+      convertPrivateKernelInit3InputsToWitnessMapWithAbi,
+      convertPrivateKernelInit3OutputsFromWitnessMapWithAbi,
     );
   }
 
