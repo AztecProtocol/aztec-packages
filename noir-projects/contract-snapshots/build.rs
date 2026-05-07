@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 /// macro-induced diffs and benchmark deltas show up on the same review.
 ///
 /// To add a case: append an entry here and run
-/// `cargo insta test --accept -p noir-contract-snapshots`.
+/// `cargo insta test --accept -p contract-snapshots`.
 const EXPAND_CASES: &[(&str, &str)] = &[
     (
         "token_contract",

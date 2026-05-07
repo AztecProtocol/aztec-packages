@@ -5,7 +5,7 @@ fn manifest_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-/// `noir-projects/noir-contract-snapshots/` → repo root.
+/// `noir-projects/contract-snapshots/` -> repo root.
 fn repo_root() -> PathBuf {
     manifest_dir()
         .parent()
