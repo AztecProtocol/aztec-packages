@@ -15,6 +15,12 @@ import { type ExtendedDirectionalAppTaggingSecret, SiloedTag, type TaggingIndexR
  * resulting inefficiency rather than complicate the tagging model with one in which transactions may use interleaved
  * indices.
  *
+ * Trimming tailing indices (e.g. `highestIndex`) is highly useful as it lets us reuse those indices in future
+ * transactions. Trimming indices at the front (e.g. `lowestIndex`) is not as impactful since we will not ever use a
+ * tagging index if a larger one exists (same as with gaps), but it does help in both making the consistency check
+ * between database and transaction effects cheaper (as there's fewer logs to test) and making the database more
+ * accurately reflect reality.
+ *
  * Ranges with no surviving indexes are dropped from the output entirely.
  *
  * @param ranges - The tagging index ranges as recorded during private execution (pre-squash).
