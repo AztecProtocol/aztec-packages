@@ -15,6 +15,12 @@ contract FeeLibWrapper {
     FeeLib.initialize(_manaTarget, EthValue.wrap(100), _initialEthPerFeeAsset);
   }
 
+  function initialize(uint256 _manaTarget, EthValue _provingCostPerMana, EthPerFeeAssetE12 _initialEthPerFeeAsset)
+    external
+  {
+    FeeLib.initialize(_manaTarget, _provingCostPerMana, _initialEthPerFeeAsset);
+  }
+
   function updateManaTarget(uint256 _manaTarget) external {
     FeeLib.updateManaTarget(_manaTarget);
   }

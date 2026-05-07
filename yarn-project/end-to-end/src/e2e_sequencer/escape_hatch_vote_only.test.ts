@@ -140,7 +140,7 @@ describe('e2e_escape_hatch_vote_only', () => {
 
     // Wire escape hatch into the rollup (owner-only).
     await cheatCodes.rollup.asOwner(async (owner, rollupAsOwner) => {
-      const hash = await rollupAsOwner.write.updateEscapeHatch([escapeHatchAddress.toString()], { account: owner });
+      const hash = await rollupAsOwner.write.setEscapeHatch([escapeHatchAddress.toString()], { account: owner });
       await l1Client.waitForTransactionReceipt({ hash });
     });
   });

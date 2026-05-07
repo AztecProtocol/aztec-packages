@@ -90,7 +90,14 @@ contract FakeCanonical is IRewardDistributor {
 
   function updateRegistry(IRegistry _registry) external {}
 
-  function recover(address _asset, address _to, uint256 _amount) external {}
+  function recoverFrom(address _from, address _to, uint256 _amount) external {}
+  function recoverWrongAsset(address _asset, address _to, uint256 _amount) external {}
+
+  function availableTo(address) external pure returns (uint256) {
+    return type(uint256).max;
+  }
+
+  function subsidizeAddress(address, uint256) external {}
 }
 
 /**
