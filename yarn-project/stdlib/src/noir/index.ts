@@ -64,6 +64,8 @@ interface NoirFunctionEntry {
 export interface NoirCompiledContract {
   /** The name of the contract. */
   name: string;
+  /** The version of the Aztec stack that compiled this contract. */
+  aztec_version: string;
   /** Is the contract's public bytecode transpiled? */
   transpiled?: boolean;
   /** The functions of the contract. */

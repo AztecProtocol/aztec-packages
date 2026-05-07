@@ -23,22 +23,16 @@ unconstrained fn burn_private_on_behalf_of_self() {
 
 #[test]
 unconstrained fn burn_private_on_behalf_of_other() {
-    let (env, token_contract_address, owner, _, mint_amount, proxy) =
-        utils::setup_and_mint_to_private_with_proxy();
+    let (env, token_contract_address, owner, _, mint_amount, proxy) = utils::setup_and_mint_to_private_with_proxy();
     let burn_amount = mint_amount / (10 as u128);
 
     // Burn on behalf of other
-    let burn_call =
-        Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
+    let burn_call = Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
     add_private_authwit_from_call(env, owner, proxy, burn_call);
     // Burn tokens
     env.call_private(
         owner,
-        GenericProxy::at(proxy).forward_private_3(
-            burn_call.target_contract,
-            burn_call.selector,
-            burn_call.args,
-        ),
+        GenericProxy::at(proxy).forward_private_3(burn_call.target_contract, burn_call.selector, burn_call.args),
     );
     utils::check_private_balance(
         env,
@@ -69,65 +63,47 @@ unconstrained fn burn_private_failure_on_behalf_of_self_non_zero_nonce() {
 
 #[test(should_fail_with = "Balance too low")]
 unconstrained fn burn_private_failure_on_behalf_of_other_more_than_balance() {
-    let (env, token_contract_address, owner, _, mint_amount, proxy) =
-        utils::setup_and_mint_to_public_with_proxy();
+    let (env, token_contract_address, owner, _, mint_amount, proxy) = utils::setup_and_mint_to_public_with_proxy();
 
     // Burn more than balance
     let burn_amount = mint_amount * (10 as u128);
     // Burn on behalf of other
-    let burn_call =
-        Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
+    let burn_call = Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
     add_private_authwit_from_call(env, owner, proxy, burn_call);
 
     env.call_private(
         owner,
-        GenericProxy::at(proxy).forward_private_3(
-            burn_call.target_contract,
-            burn_call.selector,
-            burn_call.args,
-        ),
+        GenericProxy::at(proxy).forward_private_3(burn_call.target_contract, burn_call.selector, burn_call.args),
     );
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn burn_private_failure_on_behalf_of_other_without_approval() {
-    let (env, token_contract_address, owner, _, mint_amount, proxy) =
-        utils::setup_and_mint_to_public_with_proxy();
+    let (env, token_contract_address, owner, _, mint_amount, proxy) = utils::setup_and_mint_to_public_with_proxy();
 
     // Burn more than balance
     let burn_amount = mint_amount / (10 as u128);
     // Burn on behalf of other
-    let burn_call =
-        Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
+    let burn_call = Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
 
     env.call_private(
         owner,
-        GenericProxy::at(proxy).forward_private_3(
-            burn_call.target_contract,
-            burn_call.selector,
-            burn_call.args,
-        ),
+        GenericProxy::at(proxy).forward_private_3(burn_call.target_contract, burn_call.selector, burn_call.args),
     );
 }
 
 #[test(should_fail_with = "Unknown auth witness for message hash")]
 unconstrained fn burn_private_failure_on_behalf_of_other_wrong_designated_caller() {
-    let (env, token_contract_address, owner, _, mint_amount, proxy) =
-        utils::setup_and_mint_to_public_with_proxy();
+    let (env, token_contract_address, owner, _, mint_amount, proxy) = utils::setup_and_mint_to_public_with_proxy();
 
     // Burn more than balance
     let burn_amount = mint_amount / (10 as u128);
     // Burn on behalf of other
-    let burn_call =
-        Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
+    let burn_call = Token::at(token_contract_address).burn_private(owner, burn_amount, AUTHWIT_NONCE);
     add_private_authwit_from_call(env, owner, owner, burn_call);
 
     env.call_private(
         owner,
-        GenericProxy::at(proxy).forward_private_3(
-            burn_call.target_contract,
-            burn_call.selector,
-            burn_call.args,
-        ),
+        GenericProxy::at(proxy).forward_private_3(burn_call.target_contract, burn_call.selector, burn_call.args),
     );
 }

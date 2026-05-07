@@ -498,7 +498,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   ): Promise<AztecNodeService> {
     const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
     const log = deps.logger ?? createLogger('node');
-    const packageVersion = getPackageVersion() ?? '';
+    const packageVersion = getPackageVersion();
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);

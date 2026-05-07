@@ -28,11 +28,14 @@ pub contract SimulatedEcdsaAccount {
         // used for any security purpose.
         let seed = unsafe { random() };
 
-        // Emit the initialization nullifier for the signing_public_key SinglePrivateImmutable.
+        // Emit the initialization nullifier for the contract itself.
         self.context.push_nullifier(seed);
 
+        // Emit the initialization nullifier for the signing_public_key SinglePrivateImmutable.
+        self.context.push_nullifier(seed + 1);
+
         // Emit the note hash for the signing key note.
-        self.context.push_note_hash(seed + 1);
+        self.context.push_note_hash(seed + 2);
 
         // Emit a private log tied to the note hash, matching the length of a real note delivery
         // log (MESSAGE_CIPHERTEXT_LEN fields). The signing key note is a SinglePrivateImmutable
@@ -67,9 +70,6 @@ pub contract SimulatedEcdsaAccount {
 
     #[external("utility")]
     unconstrained fn sync_state() {
-        assert(
-            false,
-            "BUG ALERT: sync_state on a simulated account contract should never be triggered.",
-        );
+        assert(false, "BUG ALERT: sync_state on a simulated account contract should never be triggered.");
     }
 }

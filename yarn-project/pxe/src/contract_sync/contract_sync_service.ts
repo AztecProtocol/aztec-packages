@@ -27,6 +27,10 @@ export class ContractSyncService implements StagedStore {
   // The value is a promise that resolves when the contract is synced.
   private syncedContracts: Map<string, Promise<void>> = new Map();
 
+  // Tracks class ID verification per contract. Keyed by contract address only (no scope), since
+  // class ID verification is scope-independent. Cleared on wipe/discard.
+  private verifiedClassIds: Map<string, Promise<void>> = new Map();
+
   // Per-job excluded contract addresses - these contracts should not be synced.
   private excludedFromSync: Map<string, Set<string>> = new Map();
 
@@ -101,6 +105,7 @@ export class ContractSyncService implements StagedStore {
   wipe(): void {
     this.log.debug(`Wiping contract sync cache (${this.syncedContracts.size} entries)`);
     this.syncedContracts.clear();
+    this.verifiedClassIds.clear();
   }
 
   commit(jobId: string): Promise<void> {
@@ -113,6 +118,7 @@ export class ContractSyncService implements StagedStore {
     // We clear the synced contracts cache here because, when the job is discarded, any associated database writes from
     // the sync are also undone.
     this.syncedContracts.clear();
+    this.verifiedClassIds.clear();
     this.excludedFromSync.delete(jobId);
     return Promise.resolve();
   }
@@ -138,7 +144,7 @@ export class ContractSyncService implements StagedStore {
     }
 
     this.log.debug(`Syncing contract ${contractAddress} for ${scopesToSync.length} scope(s)`);
-    const verifyPromise = verifyFn();
+    const verifyPromise = this.#getOrStartVerification(contractAddress, verifyFn);
 
     for (const scope of scopesToSync) {
       const key = toKey(contractAddress, scope);
@@ -150,6 +156,21 @@ export class ContractSyncService implements StagedStore {
         });
       this.syncedContracts.set(key, promise);
     }
+  }
+
+  /** Returns the cached verification promise for a contract, starting a new one if needed. Evicts from cache on failure so retries re-verify. */
+  #getOrStartVerification(contractAddress: AztecAddress, verifyFn: () => Promise<void>): Promise<void> {
+    const contractKey = contractAddress.toString();
+    const cached = this.verifiedClassIds.get(contractKey);
+    if (cached) {
+      return cached;
+    }
+    const promise = verifyFn().catch(err => {
+      this.verifiedClassIds.delete(contractKey);
+      throw err;
+    });
+    this.verifiedClassIds.set(contractKey, promise);
+    return promise;
   }
 
   /** Runs fn while holding a slot in #syncSlot, bounding total concurrent scope syncs. */
