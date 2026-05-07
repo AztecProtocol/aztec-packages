@@ -146,9 +146,12 @@ validate_project() {
             echo_stderr "  ✓ $pkg_name: $dts_count .d.ts files"
         done < <(node -e '
             const pkg = require("./package.json");
-            for (const [n, v] of Object.entries(pkg.dependencies || {})) {
-                if (typeof v === "string" && v.startsWith("link:")) {
-                    process.stdout.write(n + "\t" + v.slice(5) + "\n");
+            const sections = ["dependencies", "devDependencies", "peerDependencies", "optionalDependencies"];
+            for (const section of sections) {
+                for (const [n, v] of Object.entries(pkg[section] || {})) {
+                    if (typeof v === "string" && v.startsWith("link:")) {
+                        process.stdout.write(n + "\t" + v.slice(5) + "\n");
+                    }
                 }
             }
         ')

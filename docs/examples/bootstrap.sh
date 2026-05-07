@@ -246,9 +246,7 @@ function refresh-webapp-tutorial-lockfile {
       fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
     "
 
-    # yarn 4 enables --immutable by default in CI-like environments; force a
-    # mutating install so the lockfile actually gets regenerated.
-    YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+    yarn install
     echo_stderr "yarn.lock updated. Commit the change."
   )
 }
@@ -272,9 +270,7 @@ function refresh-ts-lockfiles {
     (
       cd "$d"
       rm -rf node_modules
-      # yarn 4 enables --immutable by default in CI-like environments; force a
-      # mutating install so the lockfile actually gets regenerated.
-      YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
+      yarn install
     )
   done
   echo_stderr "All docs/examples/ts/<example>/yarn.lock files updated. Commit the changes."
