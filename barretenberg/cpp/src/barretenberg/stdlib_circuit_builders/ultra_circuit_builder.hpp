@@ -298,8 +298,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     void create_bool_gate(const uint32_t a);
     void create_arithmetic_gate(const arithmetic_triple_<FF>& in);
-    void create_ecc_add_gate(const ecc_add_gate_& in);
-    void create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
+    size_t create_ecc_add_gate(const ecc_add_gate_& in);
+    size_t create_fused_ecc_add_gate(size_t prev_gate_idx, const ecc_add_gate_& in);
+    size_t create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in);
+    size_t create_fused_ecc_dbl_gate(size_t prev_gate_idx, const ecc_dbl_gate_<FF>& in);
 
     void fix_witness(const uint32_t witness_index, const FF& witness_value);
 

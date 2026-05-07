@@ -1,5 +1,6 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/crypto/pedersen_commitment/pedersen.hpp"
+#include "barretenberg/stdlib/primitives/group/cycle_group.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 
 #include <gtest/gtest.h>
@@ -173,35 +174,8 @@ TEST_F(UltraCircuitBuilderElliptic, MultipleOperationsUnchained)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
-// Verifies that chaining two operations by reusing intermediate results reduces the gate count.
-TEST_F(UltraCircuitBuilderElliptic, ChainedOperations)
-{
-    UltraCircuitBuilder builder;
-
-    // First addition: p1 + p2 = temp
-    auto first_add = create_add_points(1, 2, true);
-
-    // Second addition: temp + p3 = result
-    affine_element p3 = crypto::pedersen_commitment::commit_native({ bb::fr(3) }, 0);
-    affine_element result(element(first_add.result) + element(p3));
-
-    // Add variables for first operation
-    auto [x1, y1, x2, y2, x_temp, y_temp] = add_add_gate_variables(builder, first_add);
-
-    // Add variables for second operation
-    uint32_t x3 = builder.add_variable(p3.x);
-    uint32_t y3 = builder.add_variable(p3.y);
-    uint32_t x_result = builder.add_variable(result.x);
-    uint32_t y_result = builder.add_variable(result.y);
-
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp, y_temp, /*is_addition=*/true });
-    builder.create_ecc_add_gate({ x_temp, y_temp, x3, y3, x_result, y_result, /*is_addition=*/true });
-
-    EXPECT_EQ(builder.blocks.elliptic.size(), 3UL); // 2 chained operations = 2 + (2 - 1) gates
-    EXPECT_TRUE(CircuitChecker::check(builder));
-}
-
-// Verifies that a chain of three operations (add-double-add) correctly reuses intermediate results.
+// Verifies that a chain of three operations (add-double-add) can be made to reuse intermediate results via
+// create_fused_ecc_*_gate.
 TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
 {
     UltraCircuitBuilder builder;
@@ -230,11 +204,12 @@ TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsWithDouble)
     uint32_t x_result = builder.add_variable(result.x);
     uint32_t y_result = builder.add_variable(result.y);
 
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*is_addition=*/true });
-    builder.create_ecc_dbl_gate({ x_temp1, y_temp1, x_temp2, y_temp2 });
-    builder.create_ecc_add_gate({ x_temp2, y_temp2, x3, y3, x_result, y_result, /*is_addition=*/true });
+    // First op: non-fused. Subsequent ops: explicitly fused via prev_gate_idx.
+    size_t prev = builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*is_addition=*/true });
+    prev = builder.create_fused_ecc_dbl_gate(prev, { x_temp1, y_temp1, x_temp2, y_temp2 });
+    builder.create_fused_ecc_add_gate(prev, { x_temp2, y_temp2, x3, y3, x_result, y_result, /*is_addition=*/true });
 
-    EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 3 chained operations, 2 + (2 - 1) + (2 - 1) gates
+    EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 3 chained operations: 2 + 1 + 1 gates (fusion saves 2)
     EXPECT_TRUE(CircuitChecker::check(builder));
 }
 
@@ -268,11 +243,12 @@ TEST_F(UltraCircuitBuilderElliptic, ChainedOperationsDoubleFailure)
     uint32_t x_result = builder.add_variable(result.x);
     uint32_t y_result = builder.add_variable(result.y);
 
-    builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*is_addition=*/true });
-    builder.create_ecc_dbl_gate({ x_temp1, y_temp1, x_temp2, y_temp2 });
-    builder.create_ecc_add_gate({ x_temp2, y_temp2, x3, y3, x_result, y_result, /*is_addition=*/true });
+    // Use explicit fusion to chain the operations
+    size_t prev = builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*is_addition=*/true });
+    prev = builder.create_fused_ecc_dbl_gate(prev, { x_temp1, y_temp1, x_temp2, y_temp2 });
+    builder.create_fused_ecc_add_gate(prev, { x_temp2, y_temp2, x3, y3, x_result, y_result, /*is_addition=*/true });
 
-    EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 3 chained operations, 2 + (2 - 1) + (2 - 1) gates
+    EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 3 chained operations: 2 + 1 + 1 gates (fusion saves 2)
     // Should fail because the middle operation (doubling) has an invalid result
     EXPECT_FALSE(CircuitChecker::check(builder));
 }
@@ -302,4 +278,94 @@ TEST_F(UltraCircuitBuilderElliptic, DoubleOffCurveOriginUnconstrainedOutput)
     // The circuit checker passes because the relation is trivially satisfied for (0,0) input.
     // This is NOT a bug — production code never lets (0,0) reach a doubling gate.
     EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+// Verifies that create_fused_ecc_add_gate falls back to a non-fused gate pair when prev_gate_idx is not at the block
+// tail. The fusion decision is based on structural adjacency (is the previous gate still the last in the block?). This
+// ensures that the gate structure of an ACIR opcode involving cycle_group is independent of its witness values.
+TEST_F(UltraCircuitBuilderElliptic, FuseEccAddGateFallsBackWhenNotAtBlockTail)
+{
+    UltraCircuitBuilder builder;
+
+    // First operation: p1 + p2 = temp1
+    auto first_add = create_add_points(1, 2, true);
+    auto [x1, y1, x2, y2, x_temp1, y_temp1] = add_add_gate_variables(builder, first_add);
+    size_t first_output_idx = builder.create_ecc_add_gate({ x1, y1, x2, y2, x_temp1, y_temp1, /*is_addition=*/true });
+
+    // Independent operation: an unrelated addition appends gates, moving the block tail past first_output_idx
+    auto unrelated = create_add_points(4, 5, true);
+    auto [ux1, uy1, ux2, uy2, ux3, uy3] = add_add_gate_variables(builder, unrelated);
+    builder.create_ecc_add_gate({ ux1, uy1, ux2, uy2, ux3, uy3, /*is_addition=*/true });
+
+    EXPECT_EQ(builder.blocks.elliptic.size(), 4UL); // 2 non-fused ops = 4 gates
+
+    // Attempt to fuse into first_output_idx, which is no longer at the block tail.
+    // The adjacency check fails, so create_fused_ecc_add_gate deterministically falls back to create_ecc_add_gate.
+    affine_element p3 = crypto::pedersen_commitment::commit_native({ bb::fr(3) }, 0);
+    affine_element result(element(first_add.result) + element(p3));
+    uint32_t x3 = builder.add_variable(p3.x);
+    uint32_t y3 = builder.add_variable(p3.y);
+    uint32_t x_result = builder.add_variable(result.x);
+    uint32_t y_result = builder.add_variable(result.y);
+    builder.create_fused_ecc_add_gate(first_output_idx,
+                                      { x_temp1, y_temp1, x3, y3, x_result, y_result, /*is_addition=*/true });
+
+    EXPECT_EQ(builder.blocks.elliptic.size(), 6UL); // fell back to non-fused: 4 + 2 = 6 (not 4 + 1 = 5)
+    EXPECT_TRUE(CircuitChecker::check(builder));
+}
+
+// The gate structure of an ACIR opcode must be independent of witness values. ECC gate fusion is an optimization
+// that reduces gate count within a single opcode's implementation (e.g., the Straus MSM loop), but must not cause
+// the gate count to vary between independent opcodes based on whether their wire indices happen to match.
+//
+// Fusion is controlled by _ecc_gate_idx on cycle_group: it is set when an ECC gate is created and consumed by the
+// next ECC operation on the same object. At ACIR opcode boundaries, cycle_groups are reconstructed from witness
+// indices, which resets _ecc_gate_idx to nullopt, deterministically preventing cross-opcode fusion.
+//
+// Scenario A: two adds chained within a single logical operation — fusion occurs (3 gates).
+// Scenario B: same two adds, but the intermediate result is reconstructed from witness indices as ACIR does at
+//             opcode boundaries — fusion does not occur (4 gates).
+TEST_F(UltraCircuitBuilderElliptic, FusionBreaksAcrossAcirOpcodeBoundary)
+{
+    using cycle_group = stdlib::cycle_group<UltraCircuitBuilder>;
+    using field_t = stdlib::field_t<UltraCircuitBuilder>;
+
+    affine_element p1 = crypto::pedersen_commitment::commit_native({ bb::fr(1) }, 0);
+    affine_element p2 = crypto::pedersen_commitment::commit_native({ bb::fr(2) }, 0);
+    affine_element p3 = crypto::pedersen_commitment::commit_native({ bb::fr(3) }, 0);
+
+    // --- Scenario A: chained within a single opcode (fusion expected) ---
+    {
+        UltraCircuitBuilder builder;
+        auto P1 = cycle_group::from_witness(&builder, p1);
+        auto P2 = cycle_group::from_witness(&builder, p2);
+        auto P3 = cycle_group::from_witness(&builder, p3);
+
+        auto mid = P1.unconditional_add(P2);     // non-fused: 2 gates
+        auto result = mid.unconditional_add(P3); // fused into mid's output: 1 gate
+        (void)result;
+
+        EXPECT_EQ(builder.blocks.elliptic.size(), 3UL);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
+
+    // --- Scenario B: reconstructed at opcode boundary (no fusion) ---
+    {
+        UltraCircuitBuilder builder;
+        auto P1 = cycle_group::from_witness(&builder, p1);
+        auto P2 = cycle_group::from_witness(&builder, p2);
+        auto P3 = cycle_group::from_witness(&builder, p3);
+
+        auto mid = P1.unconditional_add(P2); // non-fused: 2 gates
+
+        // Reconstruct from witness indices, as ACIR does when one opcode's output becomes another's input.
+        // The fresh cycle_group has no _ecc_gate_idx, so the next operation cannot fuse.
+        auto mid_fresh = cycle_group(field_t::from_witness_index(&builder, mid.x().get_witness_index()),
+                                     field_t::from_witness_index(&builder, mid.y().get_witness_index()));
+        auto result = mid_fresh.unconditional_add(P3); // non-fused: 2 gates
+        (void)result;
+
+        EXPECT_EQ(builder.blocks.elliptic.size(), 4UL);
+        EXPECT_TRUE(CircuitChecker::check(builder));
+    }
 }

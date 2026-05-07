@@ -204,23 +204,22 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_arithmetic_gate(const arithmet
 }
 
 /**
- * @brief Create an elliptic curve addition gate
- * @details Adds either one or two gates. In general, this method creates two gates with the following structure:
+ * @brief Create an elliptic curve addition gate (non-fused)
+ * @details Creates two gates with the following structure:
  *
  *      | q_ecc | w1  | w2  | w3  | w4  |
  *      |-------|-----|-----|-----|-----|
  *      |    1  |  -  | x1  | y1  |  -  | --> constrained
  *      |    0  | x2  | x3  | y3  | y2  | --> "unconstrained" (utilized by previous gate via shifts)
  *
- * However, if the "output" of the previous gate is equal to the "input" of the current gate, i.e. (x3, y3)_{i-1} ==
- * (x1, y1)_i, we can fuse them together by simply setting the selector values of the previous gate {i-1} to q_ecc = 1
- * and q_sign = ±1 based on is_addition. We take advantage of this frequently when performing chained additions or
- * doubling operations.
+ * For chained operations (e.g. Straus MSM), use create_fused_ecc_add_gate to avoid the extra setup gate.
  *
  * @param in Elliptic curve point addition gate parameters
+ * @return Index (within the elliptic block) of the output gate, usable as prev_gate_idx for
+ * create_fused_ecc_add/dbl_gate
  */
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gate_& in)
+size_t UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gate_& in)
 {
     this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
 
@@ -230,79 +229,128 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
     // The elliptic curve relation assumes q_sign² = 1 (see elliptic_relation.hpp)
     const FF q_sign = in.is_addition ? FF(1) : FF(-1);
 
-    // Determine whether we can fuse this addition operation into the previous gate in the block
-    bool can_fuse_into_previous_gate =
-        block.size() > 0 &&                       /* a previous gate exists in the block */
-        block.w_r()[block.size() - 1] == in.x1 && /* output x coord of previous gate is input of this one */
-        block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
+    block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
+    block.q_3().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.q_1().emplace_back(q_sign);
 
-    if (can_fuse_into_previous_gate) {
-        block.q_1().set(block.size() - 1, q_sign);   // set q_sign of previous gate
-        block.q_elliptic().set(block.size() - 1, 1); // set q_ecc of previous gate to 1
-    } else {
-        block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_1().emplace_back(q_sign);
+    block.q_2().emplace_back(0);
+    block.q_m().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.set_gate_selector(1);
+    check_selector_length_consistency();
+    this->increment_num_gates();
 
-        block.q_2().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.set_gate_selector(1);
-        check_selector_length_consistency();
-        this->increment_num_gates();
-    }
-    // Create the unconstrained gate with the output of the doubling to be read into by the previous gate via shifts
+    // Create the unconstrained gate with the output to be read into by the previous gate via shifts
     create_unconstrained_gate(block, in.x2, in.x3, in.y3, in.y2);
+    return block.size() - 1;
 }
 
 /**
- * @brief Create an elliptic curve doubling gate
- * @details Adds either one or two gates. In general, this method creates two gates with the following structure:
+ * @brief Attempt to fuse an elliptic curve point addition into a previously created ECC gate
+ * @details If the previous gate (at prev_gate_idx) is still the last in the block and its output wires match this
+ * gate's inputs, fuses by setting selectors on that gate and appending only the output row. Otherwise falls back to
+ * create_ecc_add_gate (a full non-fused gate pair).
+ *
+ * @param prev_gate_idx Block-relative index of the previous ECC output gate to try to fuse into
+ * @param in Elliptic curve point addition gate parameters
+ * @return Index (within the elliptic block) of the output gate
+ */
+template <typename ExecutionTrace>
+size_t UltraCircuitBuilder_<ExecutionTrace>::create_fused_ecc_add_gate(size_t prev_gate_idx, const ecc_add_gate_& in)
+{
+    this->assert_valid_variables({ in.x1, in.x2, in.x3, in.y1, in.y2, in.y3 });
+
+    auto& block = blocks.elliptic;
+
+    // Fusion requires (1) adjacency: the previous gate must be the last in the block so that the new unconstrained
+    // output gate is on the next row (the relation reads it via shifts), and (2) wire compatibility: the previous
+    // gate's output coordinates must match this gate's input coordinates. If either condition fails, fall back to a
+    // non-fused gate pair. These checks are structural (adjacency) and identity-based (wire indices), not
+    // value-based, ensuring the gate structure is determined by control flow, not by witness values.
+    bool can_fuse = prev_gate_idx == block.size() - 1 &&   // adjacency
+                    block.w_r()[prev_gate_idx] == in.x1 && // output x matches input x
+                    block.w_o()[prev_gate_idx] == in.y1;   // output y matches input y
+    if (!can_fuse) {
+        return create_ecc_add_gate(in);
+    }
+
+    const FF q_sign = in.is_addition ? FF(1) : FF(-1);
+    block.q_1().set(prev_gate_idx, q_sign);
+    block.q_elliptic().set(prev_gate_idx, 1);
+
+    create_unconstrained_gate(block, in.x2, in.x3, in.y3, in.y2);
+    return block.size() - 1;
+}
+
+/**
+ * @brief Create an elliptic curve doubling gate (non-fused)
+ * @details Creates two gates with the following structure:
  *
  *      | q_ecc | w1  | w2  | w3  | w4  |
  *      |-------|-----|-----|-----|-----|
  *      |    1  |  -  | x1  | y1  |  -  | --> constrained
  *      |    0  |  -  | x3  | y3  |  -  | --> "unconstrained" (utilized by previous gate via shifts)
  *
- * However, if the "output" of the previous gate is equal to the "input" of the current gate, i.e. (x3, y3)_{i-1} ==
- * (x1, y1)_i, we can fuse them together by simply setting the selector values of the previous gate {i-1} to q_ecc = 1
- * and q_m = 1 (which in the relation translates to q_is_double = 1). We take advantage of this frequently when
- * performing chained additions or doubling operations.
+ * For chained operations (e.g. Straus MSM), use create_fused_ecc_dbl_gate to avoid the extra setup gate.
  *
  * @param in Elliptic curve point doubling gate parameters
+ * @return Index (within the elliptic block) of the output gate, usable as prev_gate_idx for
+ * create_fused_ecc_add/dbl_gate
  */
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
+size_t UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gate_<FF>& in)
 {
     this->assert_valid_variables({ in.x1, in.x3, in.y1, in.y3 });
 
     auto& block = blocks.elliptic;
 
-    // Determine whether we can fuse this doubling operation into the previous gate in the block
-    bool can_fuse_into_previous_gate =
-        block.size() > 0 &&                       /* a previous gate exists in the block */
-        block.w_r()[block.size() - 1] == in.x1 && /* output x coord of previous gate is input of this one */
-        block.w_o()[block.size() - 1] == in.y1;   /* output y coord of previous gate is input of this one */
+    block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
+    block.q_m().emplace_back(1);
+    block.q_1().emplace_back(0);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.set_gate_selector(1);
+    check_selector_length_consistency();
+    this->increment_num_gates();
 
-    // If possible, update the previous gate to be the first gate in the pair, otherwise create a new gate
-    if (can_fuse_into_previous_gate) {
-        block.q_elliptic().set(block.size() - 1, 1); // set q_ecc of previous gate to 1
-        block.q_m().set(block.size() - 1, 1);        // set q_m (q_is_double) of previous gate to 1
-    } else {
-        block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
-        block.q_m().emplace_back(1);
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.set_gate_selector(1);
-        check_selector_length_consistency();
-        this->increment_num_gates();
-    }
     // Create the unconstrained gate with the output of the doubling to be read into by the previous gate via shifts
     create_unconstrained_gate(block, this->zero_idx(), in.x3, in.y3, this->zero_idx());
+    return block.size() - 1;
+}
+
+/**
+ * @brief Attempt to fuse an elliptic curve point doubling into a previously created ECC gate
+ * @details If the previous gate (at prev_gate_idx) is still the last in the block and its output wires match this
+ * gate's inputs, fuses by setting selectors on that gate and appending only the output row. Otherwise falls back to
+ * create_ecc_dbl_gate (a full non-fused gate pair). See create_fused_ecc_add_gate for detailed rationale.
+ *
+ * @param prev_gate_idx Block-relative index of the previous ECC output gate to try to fuse into
+ * @param in Elliptic curve point doubling gate parameters
+ * @return Index (within the elliptic block) of the output gate
+ */
+template <typename ExecutionTrace>
+size_t UltraCircuitBuilder_<ExecutionTrace>::create_fused_ecc_dbl_gate(size_t prev_gate_idx,
+                                                                       const ecc_dbl_gate_<FF>& in)
+{
+    this->assert_valid_variables({ in.x1, in.x3, in.y1, in.y3 });
+
+    auto& block = blocks.elliptic;
+
+    // Fusion requires adjacency and wire compatibility (see create_fused_ecc_add_gate for detailed rationale).
+    bool can_fuse =
+        prev_gate_idx == block.size() - 1 && block.w_r()[prev_gate_idx] == in.x1 && block.w_o()[prev_gate_idx] == in.y1;
+    if (!can_fuse) {
+        return create_ecc_dbl_gate(in);
+    }
+
+    block.q_elliptic().set(prev_gate_idx, 1);
+    block.q_m().set(prev_gate_idx, 1);
+
+    create_unconstrained_gate(block, this->zero_idx(), in.x3, in.y3, this->zero_idx());
+    return block.size() - 1;
 }
 
 /**

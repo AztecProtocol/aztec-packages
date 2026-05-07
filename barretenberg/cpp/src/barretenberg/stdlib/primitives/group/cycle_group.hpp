@@ -236,6 +236,13 @@ template <typename Builder> class cycle_group {
     bool_t _is_infinity;
     Builder* context;
 
+    // Index in the elliptic block of the most recent elliptic gate creation involving this point.
+    // When explicitly set, the next elliptic gate involving this element will attempt to fuse into the previous one,
+    // saving one gate per chained operation. If not set (e.g. default initialized), no fusion will occur regardless of
+    // whether the witness values would technically allow it. This means that structurally fusion will occur WITHIN a
+    // single cycle group operation (e.g. on the adds/dbls in a batch mul) but not BETWEEN two independent operations.
+    std::optional<size_t> _ecc_gate_idx;
+
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
                                                                        std::span<cycle_group> base_points,
                                                                        std::span<AffineElement const> offset_generators,

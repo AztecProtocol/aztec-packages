@@ -338,12 +338,18 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         result = cycle_group(
             witness_t(context, x3), witness_t(context, y3), is_point_at_infinity(), /*assert_on_curve=*/false);
 
-        context->create_ecc_dbl_gate(bb::ecc_dbl_gate_<bb::fr>{
+        bb::ecc_dbl_gate_<bb::fr> gate_data{
             .x1 = _x.get_witness_index(),
             .y1 = modified_y.get_witness_index(),
             .x3 = result._x.get_witness_index(),
             .y3 = result._y.get_witness_index(),
-        });
+        };
+        // Fuse into the previous ECC gate if this point was produced by one; otherwise create a standalone gate pair.
+        if (_ecc_gate_idx.has_value()) {
+            result._ecc_gate_idx = context->create_fused_ecc_dbl_gate(_ecc_gate_idx.value(), gate_data);
+        } else {
+            result._ecc_gate_idx = context->create_ecc_dbl_gate(gate_data);
+        }
 
         // Merge the x and y origin tags since the output depends on both
         result._x.set_origin_tag(OriginTag(_x.get_origin_tag(), _y.get_origin_tag()));
@@ -420,7 +426,7 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
         result = cycle_group(
             witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*assert_on_curve=*/false);
 
-        context->create_ecc_add_gate(bb::ecc_add_gate_{
+        bb::ecc_add_gate_ gate_data{
             .x1 = _x.get_witness_index(),
             .y1 = _y.get_witness_index(),
             .x2 = other._x.get_witness_index(),
@@ -428,7 +434,13 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
             .x3 = result._x.get_witness_index(),
             .y3 = result._y.get_witness_index(),
             .is_addition = is_addition,
-        });
+        };
+        // Fuse into the previous ECC gate if this point was produced by one; otherwise create a standalone gate pair.
+        if (_ecc_gate_idx.has_value()) {
+            result._ecc_gate_idx = context->create_fused_ecc_add_gate(_ecc_gate_idx.value(), gate_data);
+        } else {
+            result._ecc_gate_idx = context->create_ecc_add_gate(gate_data);
+        }
     }
 
     // Merge the origin tags from both inputs
