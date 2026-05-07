@@ -6,6 +6,7 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
 import {
@@ -78,7 +79,6 @@ import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_stor
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
 import { NoteStore } from './storage/note_store/note_store.js';
-import { openPxeStores } from './storage/open_pxe_stores.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
 import { SenderAddressBookStore } from './storage/tagging_store/sender_address_book_store.js';
@@ -221,19 +221,17 @@ export class PXE {
     const initialBlockHash = (await node.getBlock(BlockNumber.ZERO))?.hash ?? GENESIS_BLOCK_HEADER_HASH;
 
     const proverEnabled = config.proverEnabled !== undefined ? config.proverEnabled : info.realProofs;
-    const {
-      addressStore,
-      privateEventStore,
-      contractStore,
-      noteStore,
-      anchorBlockStore,
-      senderTaggingStore,
-      senderAddressBookStore,
-      recipientTaggingStore,
-      capsuleStore,
-      keyStore,
-      l2TipsStore,
-    } = openPxeStores(store, initialBlockHash);
+    const addressStore = new AddressStore(store);
+    const privateEventStore = new PrivateEventStore(store);
+    const contractStore = new ContractStore(store);
+    const noteStore = new NoteStore(store);
+    const anchorBlockStore = new AnchorBlockStore(store);
+    const senderTaggingStore = new SenderTaggingStore(store);
+    const senderAddressBookStore = new SenderAddressBookStore(store);
+    const recipientTaggingStore = new RecipientTaggingStore(store);
+    const capsuleStore = new CapsuleStore(store);
+    const keyStore = new KeyStore(store);
+    const tipsStore = new L2TipsKVStore(store, 'pxe', initialBlockHash);
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,
@@ -248,7 +246,7 @@ export class PXE {
       anchorBlockStore,
       noteStore,
       privateEventStore,
-      l2TipsStore,
+      tipsStore,
       contractSyncService,
       config,
       bindings,
@@ -284,7 +282,7 @@ export class PXE {
       privateEventStore,
       contractSyncService,
       messageContextService,
-      l2TipsStore,
+      tipsStore,
       simulator,
       proverEnabled,
       proofCreator,
