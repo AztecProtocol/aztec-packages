@@ -16,7 +16,7 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include <atomic>
+#include "barretenberg/numeric/uintx/uintx.hpp"
 #include <cstddef>
 #include <iterator>
 #include <ostream>
@@ -65,14 +65,9 @@ template <typename T> constexpr bool is_iterable_v = is_iterable<T>::value;
 
 namespace bb {
 
-void check_round_provenance(const uint256_t& provenance_a, const uint256_t& provenance_b);
+void check_round_provenance(const uint512_t& provenance_a, const uint512_t& provenance_b);
 #ifndef AZTEC_NO_ORIGIN_TAGS
 struct OriginTag {
-
-    // Unique per-object ID for debugging: when a tag merge fails, the error message includes
-    // the IDs of both tags so you can trace which specific field elements were involved.
-    static inline std::atomic<uint64_t> next_tag_id{ 0 };
-    uint64_t tag_id = next_tag_id.fetch_add(1, std::memory_order_relaxed);
 
     static constexpr size_t CONSTANT = static_cast<size_t>(-1);
     static constexpr size_t FREE_WITNESS = static_cast<size_t>(-2);
@@ -87,10 +82,10 @@ struct OriginTag {
     size_t transcript_index = FREE_WITNESS;
 
     // round_provenance specifies which submitted values and challenges have been used to generate this element
-    // The lower 128 bits represent using a submitted value from a corresponding round (the shift represents the
-    // round) The higher 128 bits represent using a challenge value from an corresponding round (the shift
+    // The lower 256 bits represent using a submitted value from a corresponding round (the shift represents the
+    // round) The higher 256 bits represent using a challenge value from an corresponding round (the shift
     // represents the round)
-    numeric::uint256_t round_provenance = numeric::uint256_t(0);
+    numeric::uint512_t round_provenance = numeric::uint512_t(0);
 
     // Instant death is used for poisoning values we should never use in arithmetic
     bool instant_death = false;
@@ -102,7 +97,7 @@ struct OriginTag {
     OriginTag& operator=(const OriginTag& other) = default;
     OriginTag& operator=(OriginTag&& other) noexcept
     {
-        tag_id = other.tag_id;
+
         transcript_index = other.transcript_index;
         round_provenance = other.round_provenance;
         instant_death = other.instant_death;
@@ -117,9 +112,9 @@ struct OriginTag {
      */
     OriginTag(size_t transcript_idx, size_t round_number, bool is_submitted = true)
         : transcript_index(transcript_idx)
-        , round_provenance((static_cast<uint256_t>(1) << (round_number + (is_submitted ? 0 : 128))))
+        , round_provenance((static_cast<uint512_t>(1) << (round_number + (is_submitted ? 0 : 256))))
     {
-        // BB_ASSERT_LT(round_number, 128U);
+        BB_ASSERT_LT(round_number, 256U);
     }
 
     /**
@@ -171,14 +166,14 @@ struct OriginTag {
     void unset_free_witness()
     {
         transcript_index = CONSTANT;
-        round_provenance = numeric::uint256_t(0);
+        round_provenance = numeric::uint512_t(0);
     }
 
     bool is_constant() const { return transcript_index == CONSTANT && !instant_death; }
     void set_constant()
     {
         transcript_index = CONSTANT;
-        round_provenance = numeric::uint256_t(0);
+        round_provenance = numeric::uint512_t(0);
     }
 
     // Static factory methods for cleaner syntax
@@ -206,12 +201,12 @@ struct OriginTag {
     /**
      * @brief Clear the round_provenance to address round provenance false positives.
      */
-    void clear_round_provenance() { round_provenance = numeric::uint256_t(0); }
+    void clear_round_provenance() { round_provenance = numeric::uint512_t(0); }
 };
 inline std::ostream& operator<<(std::ostream& os, OriginTag const& v)
 {
-    return os << "{ id: " << v.tag_id << ", transcript_idx: " << v.transcript_index
-              << ", round_prov: " << v.round_provenance << ", instadeath: " << v.instant_death << " }";
+    return os << "{ transcript_idx: " << v.transcript_index << ", round_prov: " << v.round_provenance
+              << ", instadeath: " << v.instant_death << " }";
 }
 
 #else
