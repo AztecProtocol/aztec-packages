@@ -11,6 +11,7 @@ const circuits = [
   'parity_base',
   'parity_root',
   'private_kernel_init',
+  'private_kernel_init_3',
   'private_kernel_inner',
   'private_kernel_reset',
   'private_kernel_tail',
