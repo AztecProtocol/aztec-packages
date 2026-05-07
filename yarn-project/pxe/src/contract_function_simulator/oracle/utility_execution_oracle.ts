@@ -1,5 +1,6 @@
 import type { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
@@ -28,7 +29,7 @@ import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs'
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule, OffchainEffect } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule, IndexedTxEffect, OffchainEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
@@ -639,36 +640,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     eventValidationRequests: EventValidationRequest[],
     scope: AztecAddress,
   ) {
+    const txEffects = await this.#fetchTxEffects([
+      ...noteValidationRequests.map(r => r.txHash),
+      ...eventValidationRequests.map(r => r.txHash),
+    ]);
+
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
-    const noteStorePromises = noteValidationRequests.map(request =>
-      noteService.validateAndStoreNote(
-        request.contractAddress,
-        request.owner,
-        request.storageSlot,
-        request.randomness,
-        request.noteNonce,
-        request.content,
-        request.noteHash,
-        request.nullifier,
-        request.txHash,
-        scope,
-      ),
-    );
-
     const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
-    const eventStorePromises = eventValidationRequests.map(request =>
-      eventService.validateAndStoreEvent(
-        request.contractAddress,
-        request.eventTypeId,
-        request.randomness,
-        request.serializedEvent,
-        request.eventCommitment,
-        request.txHash,
-        scope,
-      ),
-    );
 
-    await Promise.all([...noteStorePromises, ...eventStorePromises]);
+    await Promise.all([
+      noteService.validateAndStoreNotes(noteValidationRequests, scope, txEffects),
+      eventService.validateAndStoreEvents(eventValidationRequests, scope, txEffects),
+    ]);
   }
 
   public async getLogsByTag(
@@ -974,6 +957,20 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   /** Returns offchain effects collected during execution. */
   public getOffchainEffects(): OffchainEffect[] {
     return this.offchainEffects;
+  }
+
+  /**
+   * Fetches tx effects for the given hashes in parallel, deduplicating repeated hashes so each tx is only requested
+   * once. Returns a map keyed by `TxHash.toString()`; hashes for which the node has no tx effect are omitted.
+   */
+  async #fetchTxEffects(txHashes: TxHash[]): Promise<Map<string, IndexedTxEffect>> {
+    const uniqueTxHashes = uniqueBy(txHashes, h => h.toString());
+    const fetched = await Promise.all(uniqueTxHashes.map(h => this.aztecNode.getTxEffect(h)));
+    return new Map(
+      uniqueTxHashes
+        .map((h, i): [string, IndexedTxEffect | undefined] => [h.toString(), fetched[i]])
+        .filter((entry): entry is [string, IndexedTxEffect] => entry[1] !== undefined),
+    );
   }
 
   /** Runs a query concurrently with a validation that the block hash is not ahead of the anchor block. */
