@@ -94,7 +94,9 @@ describe('e2e_deploy_contract legacy', () => {
     const artifact = TokenContractArtifact;
     const initArgs = ['TokenName', 'TKN', 18];
     const goodDeploy = StatefulTestContract.deploy(wallet, defaultAccountAddress, 42);
-    const badDeploy = new ContractDeployer(artifact, wallet).deploy(initArgs);
+    // The Token constructor is (admin, name, symbol, decimals); using AztecAddress.ZERO as the admin
+    // is a deliberately broken setup that fails in the public part of execution.
+    const badDeploy = new ContractDeployer(artifact, wallet).deploy([AztecAddress.ZERO, ...initArgs]);
 
     const firstOpts: DeployOptions = {
       from: defaultAccountAddress,
