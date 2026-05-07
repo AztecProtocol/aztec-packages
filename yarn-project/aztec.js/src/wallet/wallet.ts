@@ -324,6 +324,7 @@ export const SendOptionsSchema = z.object({
   fee: optional(GasSettingsOptionSchema),
   wait: optional(z.union([z.literal(NO_WAIT), WaitOptsSchema])),
   additionalScopes: optional(z.array(schemas.AztecAddress)),
+  sendMessagesAs: optional(schemas.AztecAddress),
 });
 
 export const SimulateOptionsSchema = z.object({
@@ -335,6 +336,7 @@ export const SimulateOptionsSchema = z.object({
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
   additionalScopes: optional(z.array(schemas.AztecAddress)),
+  sendMessagesAs: optional(schemas.AztecAddress),
 });
 
 export const ProfileOptionsSchema = SimulateOptionsSchema.extend({
