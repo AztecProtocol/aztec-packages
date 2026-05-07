@@ -361,3 +361,11 @@ tests:
     error_regex: "timeout: sending signal"
     owners:
       - *charlie
+
+  # http://ci.aztec-labs.com/cba1d9af62fe3838
+  # AVM↔TS callback for contract instance lookup intermittently times out under TXE load,
+  # surfacing as a wrong-message failure on tests that should fail with a Noir assert.
+  - regex: "noir-projects/scripts/run_test.sh noir-contracts"
+    error_regex: "Timeout waiting for TypeScript callback"
+    owners:
+      - *david
