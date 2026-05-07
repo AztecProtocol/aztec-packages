@@ -5,6 +5,7 @@ set -eu
 export WASMTIME_BACKTRACE_DETAILS=1
 exec wasmtime run \
   -Wthreads=y \
+  -Wshared-memory=y \
   -Sthreads=y \
   ${HARDWARE_CONCURRENCY:+--env HARDWARE_CONCURRENCY} \
   --env HOME \

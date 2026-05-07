@@ -112,7 +112,7 @@ HARDWARE_CONCURRENCY=8 BB_BENCH=1 \
 ```
 
 The wasmtime wrapper sets:
-- `-Wthreads=y -Sthreads=y` — enable WASM threads and shared memory
+- `-Wthreads=y -Wshared-memory=y -Sthreads=y` — enable WASM threads and shared memory (wasmtime ≥43 requires `-Wshared-memory=y` separately)
 - `--env HARDWARE_CONCURRENCY` — thread count
 - `--env BB_BENCH` — enable operation counting (`ENABLE_WASM_BENCH=ON` is set by the `wasm-threads` preset)
 - `--dir=$HOME/.bb-crs --dir=.` — filesystem access for CRS and working directory

@@ -184,7 +184,7 @@ ssh $BB_SSH_KEY $BB_SSH_INSTANCE \
   "cd $BB_SSH_CPP_PATH/build-wasm-threads && \
    HARDWARE_CONCURRENCY=16 \
    /home/ubuntu/.wasmtime/bin/wasmtime run \
-     -Wthreads=y -Sthreads=y \
+     -Wthreads=y -Wshared-memory=y -Sthreads=y \
      --env HARDWARE_CONCURRENCY \
      --env HOME \
      --env BB_BENCH=1 \
@@ -238,6 +238,7 @@ These use Google Benchmark's `compare.py` for statistical analysis. Note: compar
 | Native build dir | `$BB_SSH_CPP_PATH/build` |
 | WASM build dir | `$BB_SSH_CPP_PATH/build-wasm-threads` |
 | Default `HARDWARE_CONCURRENCY` | `16` |
+| wasmtime version | 43.x (needs explicit `-Wshared-memory=y` in addition to `-Wthreads=y`) |
 
 ## Tips
 
