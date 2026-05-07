@@ -1,0 +1,10 @@
+diff a/yarn-project/end-to-end/src/fixtures/setup.ts b/yarn-project/end-to-end/src/fixtures/setup.ts	(rejected hunks)
+@@ -213,6 +213,8 @@ export type SetupOptions = {
+   /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
+    *  Use for tests that create their own validator nodes and don't need the initial sequencer. */
+   skipInitialSequencer?: boolean;
++  /** Options forwarded to PXE creation (e.g. execution hooks). */
++  pxeCreationOptions?: PXECreationOptions;
+ } & Partial<AztecNodeConfig>;
+ 
+ /** Context for an end-to-end test as returned by the `setup` function */
