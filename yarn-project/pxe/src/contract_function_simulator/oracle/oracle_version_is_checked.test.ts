@@ -214,7 +214,7 @@ describe('Oracle Version Check test suite', () => {
         scopes: [],
         l2TipsStore,
         simulator,
-        });
+      });
     });
 
     it('suggests upgrading PXE when contract major oracle version is newer', () => {

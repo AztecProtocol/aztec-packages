@@ -348,7 +348,7 @@ describe('Utility Execution test suite', () => {
         scopes: [scope],
         l2TipsStore,
         simulator,
-        });
+      });
     });
 
     describe('Respects synced block number', () => {
@@ -416,7 +416,7 @@ describe('Utility Execution test suite', () => {
           scopes: [scope],
           l2TipsStore,
           simulator,
-            });
+        });
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
 
@@ -598,7 +598,7 @@ describe('Utility Execution test suite', () => {
             scopes: [],
             l2TipsStore,
             simulator,
-                });
+          });
 
         const oracleA = makeOracle(contractAddressA);
         const oracleB = makeOracle(contractAddressB);
