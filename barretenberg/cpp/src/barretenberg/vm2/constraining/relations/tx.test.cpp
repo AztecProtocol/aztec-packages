@@ -95,7 +95,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NULLIFIER_INSERTION) },
                 { C::tx_is_padded, 1 },
                 { C::tx_is_tree_insert_phase, 1 },
-                { C::tx_sel_non_revertible_append_nullifier, 1 },
+                { C::tx_sel_append_nullifier, 1 },
 
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
@@ -114,7 +114,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                       { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_NOTE_INSERTION) },
                       { C::tx_is_padded, 1 },
                       { C::tx_is_tree_insert_phase, 1 },
-                      { C::tx_sel_non_revertible_append_note_hash, 1 },
+                      { C::tx_sel_append_note_hash, 1 },
                       { C::tx_read_pi_start_offset,
                         AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
                       { C::tx_read_pi_offset,
@@ -132,7 +132,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel, 1 },
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::NR_L2_TO_L1_MESSAGE) },
                 { C::tx_is_padded, 1 },
-                { C::tx_sel_non_revertible_append_l2_l1_msg, 1 },
+                { C::tx_sel_append_l2_l1_msg, 1 },
 
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
@@ -187,7 +187,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NULLIFIER_INSERTION) },
                 { C::tx_is_padded, 1 },
                 { C::tx_is_tree_insert_phase, 1 },
-                { C::tx_sel_revertible_append_nullifier, 1 },
+                { C::tx_sel_append_nullifier, 1 },
                 { C::tx_is_revertible, 1 },
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NULLIFIERS_ROW_IDX },
@@ -206,7 +206,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_NOTE_INSERTION) },
                 { C::tx_is_padded, 1 },
                 { C::tx_is_tree_insert_phase, 1 },
-                { C::tx_sel_revertible_append_note_hash, 1 },
+                { C::tx_sel_append_note_hash, 1 },
                 { C::tx_is_revertible, 1 },
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_NOTE_HASHES_ROW_IDX },
@@ -224,7 +224,7 @@ class TxExecutionConstrainingTestHelper : public ::testing::Test {
                 { C::tx_sel, 1 },
                 { C::tx_phase_value, static_cast<uint8_t>(TransactionPhase::R_L2_TO_L1_MESSAGE) },
                 { C::tx_is_padded, 1 },
-                { C::tx_sel_revertible_append_l2_l1_msg, 1 },
+                { C::tx_sel_append_l2_l1_msg, 1 },
                 { C::tx_is_revertible, 1 },
                 { C::tx_read_pi_start_offset,
                   AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
@@ -423,7 +423,7 @@ TEST_F(TxExecutionConstrainingTestHelper, JumpOnRevert)
     trace.set(7,
               { {
                   { C::tx_is_padded, 0 },
-                  { C::tx_sel_revertible_append_l2_l1_msg, 0 }, // switch off for testing
+                  { C::tx_sel_append_l2_l1_msg, 0 }, // switch off for testing
                   { C::tx_remaining_phase_counter, 1 },
                   { C::tx_remaining_phase_inv, 1 },
                   { C::tx_is_revertible, 1 },
@@ -488,7 +488,7 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_NON_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
           { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
 
-          { C::tx_sel_non_revertible_append_l2_l1_msg, 1 },
+          { C::tx_sel_append_l2_l1_msg, 1 },
           { C::tx_l2_l1_msg_content,
             test_public_inputs.previous_non_revertible_accumulated_data.l2_to_l1_msgs[0].message.content },
           { C::tx_l2_l1_msg_recipient,
@@ -546,7 +546,7 @@ TEST(TxExecutionConstrainingTest, WriteTreeValue)
           { C::tx_read_pi_offset, AVM_PUBLIC_INPUTS_PREVIOUS_REVERTIBLE_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX },
           { C::tx_write_pi_offset, AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_L2_TO_L1_MSGS_ROW_IDX + 1 },
 
-          { C::tx_sel_revertible_append_l2_l1_msg, 1 },
+          { C::tx_sel_append_l2_l1_msg, 1 },
           { C::tx_l2_l1_msg_content,
             test_public_inputs.previous_revertible_accumulated_data.l2_to_l1_msgs[0].message.content },
           { C::tx_l2_l1_msg_recipient,

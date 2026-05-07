@@ -1535,7 +1535,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       }
 
       // Given proposal (should have locally), ensure returned txs are valid subset and match request indices
-      const proposal = await this.mempools.attestationPool.getBlockProposal(request.archiveRoot.toString());
+      const proposal = await this.mempools.attestationPool.getBlockProposalByArchive(request.archiveRoot.toString());
       if (proposal) {
         // Build intersected indices
         const intersectIdx = request.txIndices.getTrueIndices().filter(i => response.txIndices.isSet(i));

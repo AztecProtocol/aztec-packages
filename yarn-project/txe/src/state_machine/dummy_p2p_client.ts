@@ -1,4 +1,4 @@
-import type { SlotNumber } from '@aztec/foundation/branded-types';
+import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/branded-types';
 import type {
   AuthRequest,
   ENR,
@@ -147,7 +147,10 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getTxsByHash"');
   }
 
-  public getCheckpointAttestationsForSlot(_slot: SlotNumber, _proposalId?: string): Promise<CheckpointAttestation[]> {
+  public getCheckpointAttestationsForSlot(
+    _slot: SlotNumber,
+    _proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]> {
     throw new Error('DummyP2P does not implement "getCheckpointAttestationsForSlot"');
   }
 

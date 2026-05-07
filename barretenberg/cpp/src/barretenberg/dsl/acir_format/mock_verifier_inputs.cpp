@@ -307,6 +307,39 @@ Goblin::MergeProof create_mock_merge_proof()
     return proof;
 }
 
+HonkProof create_mock_batch_merge_proof()
+{
+    HonkProof proof;
+
+    constexpr size_t NUM_WIRES = Goblin::BatchMergeRecursiveVerifier::NUM_WIRES;
+    constexpr size_t MAX_MERGE_SIZE = Goblin::BatchMergeRecursiveVerifier::MAX_MERGE_SIZE;
+
+    // Commitments to the fixed-width list of subtables.
+    populate_field_elements_for_mock_commitments(proof, MAX_MERGE_SIZE * NUM_WIRES);
+
+    // Commitments to the ZK masking table.
+    populate_field_elements_for_mock_commitments(proof, NUM_WIRES);
+
+    // Number of real subtables. Keep it in [1, MAX_MERGE_SIZE] so recursive range checks can be constructed.
+    populate_field_elements<fr>(proof, 1, /*value=*/fr{ 1 });
+
+    // Shift sizes.
+    populate_field_elements<fr>(proof, 1, /*value=*/fr{ 2 });
+    populate_field_elements<fr>(proof, MAX_MERGE_SIZE - 1, /*value=*/fr{ 0 });
+
+    // Merged table commitments and degree-check polynomial commitment.
+    populate_field_elements_for_mock_commitments(proof, NUM_WIRES + 1);
+
+    // Evaluations: C_i(kappa), optional ZK C_i(kappa), T(kappa), and G(kappa^{-1}).
+    const size_t num_evaluations = (MAX_MERGE_SIZE * NUM_WIRES) + NUM_WIRES + NUM_WIRES + 1;
+    populate_field_elements(proof, num_evaluations);
+
+    // Shplonk quotient commitment and KZG opening commitment.
+    populate_field_elements_for_mock_commitments(proof, 2);
+
+    return proof;
+}
+
 /**
  * @brief Create a mock pre-ipa proof which has the correct structure but is not necessarily valid
  *

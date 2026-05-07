@@ -1,14 +1,20 @@
 #!/usr/bin/env node
-// bridge.mjs -- Persistent HTTP bridge for the Aztec protocol fuzzer.
+// wallet-bridge.mjs -- Persistent HTTP bridge for the Aztec protocol fuzzer.
 //
-// Runs inside the nightly sandbox container. Reuses CLIWallet to avoid
-// the ~1.5s cold-start of spawning a new Node process per call.
+// Works both inside the nightly sandbox container and on the host against a
+// locally-built yarn-project. The CLI path is auto-detected: if the container
+// path exists we use it, otherwise we resolve relative to the repo root.
+// For @aztec/* imports to resolve, either run from yarn-project/ (Docker path)
+// or have a node_modules symlink alongside this file pointing to
+// yarn-project/node_modules (local setup -- see setup-local.sh).
 // All addresses arrive as raw 0x hex strings (resolved by the Rust fuzzer).
 
 import { createServer } from 'node:http';
-import { join } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { format } from 'node:util';
+import { fileURLToPath } from 'node:url';
 
 const PORT = parseInt(process.env.BRIDGE_PORT || '8089', 10);
 const NODE_URL = process.env.AZTEC_NODE_URL || 'http://localhost:8080';
@@ -17,7 +23,16 @@ const DATA_DIR = process.env.WALLET_DATA_DIRECTORY || join(homedir(), '.aztec/wa
 const { createAztecNodeClient } = await import('@aztec/aztec.js/node');
 const { AztecAddress } = await import('@aztec/aztec.js/addresses');
 const { openStoreAt } = await import('@aztec/kv-store/lmdb-v2');
-const CLI = '/usr/src/yarn-project/cli-wallet/dest';
+
+// Auto-detect CLI path: try container path, then common local locations.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const candidates = [
+  '/usr/src/yarn-project/cli-wallet/dest',                  // nightly container
+  resolve(__dirname, 'cli-wallet/dest'),                     // symlinked into yarn-project/
+  resolve(__dirname, '../../yarn-project/cli-wallet/dest'),  // original location in protocol-fuzzer/
+];
+const CLI = candidates.find(p => existsSync(p));
+if (!CLI) throw new Error('Cannot find cli-wallet/dest in any known location');
 const { CLIWallet } = await import(`${CLI}/utils/wallet.js`);
 const { WalletDB } = await import(`${CLI}/storage/wallet_db.js`);
 const { importTestAccounts } = await import(`${CLI}/cmds/import_test_accounts.js`);
@@ -80,7 +95,9 @@ const handlers = {
         false,                                  /* skipClassPublication */
         false,                                  /* skipInitialization */
         true,                                   /* wait */
-        feeOpts, false, 120,                    /* fee, verbose, timeout */
+        feeOpts,                                  /* fee */
+        'mined',                                /* waitForStatus */
+        false, 120,                             /* verbose, timeout */
         { debug: noop, error: noop }, log,      /* debugLogger, log */
       ),
     );
@@ -94,7 +111,7 @@ const handlers = {
     const callArgs = args || [];
     const { stdout } = await capturing(log =>
       verb === 'send'
-        ? send(w, node, sender, method, callArgs, artifact, target, true, false, feeOpts, [], false, log)
+        ? send(w, node, sender, method, callArgs, artifact, target, true, false, feeOpts, [], 'mined', false, log)
         : simulate(w, node, sender, method, callArgs, artifact, target, feeOpts, [], false, log),
     );
     return { ok: true, stdout };

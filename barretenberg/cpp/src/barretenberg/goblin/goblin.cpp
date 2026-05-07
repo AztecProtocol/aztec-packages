@@ -25,11 +25,11 @@ Goblin::Goblin(const std::shared_ptr<Transcript>& transcript)
     : transcript(transcript)
 {}
 
-void Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript, const MergeSettings merge_settings)
+Goblin::MergeProof Goblin::prove_merge(const std::shared_ptr<Transcript>& transcript) const
 {
     BB_BENCH_NAME("Goblin::prove_merge");
-    MergeProver merge_prover{ op_queue, transcript, merge_settings };
-    merge_verification_queue.push_back(merge_prover.construct_proof());
+    MergeProver merge_prover{ op_queue, transcript };
+    return merge_prover.construct_proof();
 }
 
 void Goblin::prove_eccvm()
@@ -70,13 +70,8 @@ GoblinProof Goblin::prove()
 {
     BB_BENCH_NAME("Goblin::prove");
 
-    prove_merge(transcript, MergeSettings::APPEND); // Use shared transcript for merge proving
+    goblin_proof.merge_proof = prove_merge(transcript); // Use shared transcript for merge proving
     info("Goblin: num ultra ops = ", op_queue->get_ultra_ops_count());
-
-    BB_ASSERT_EQ(merge_verification_queue.size(),
-                 1U,
-                 "Goblin::prove: merge_verification_queue should contain only a single proof at this stage.");
-    goblin_proof.merge_proof = merge_verification_queue.back();
 
     vinfo("prove eccvm...");
     prove_eccvm();
@@ -88,29 +83,45 @@ GoblinProof Goblin::prove()
 }
 
 /**
- * @brief Recursively verify the next merge proof in the queue.
- * @details Merge proofs are verified in FIFO order to match the circuit accumulation order.
- * Each kernel verifies the merge proof from its corresponding app circuit. Since circuits
- * are accumulated in sequence (e.g., App₀ → Kernel₀ → App₁ → Kernel₁ → ..., though
- * in practice there can be repeated kernels such as inner → reset), the merge proofs must be
- * verified in the same order to maintain consistency of the op queue commitments.
+ * @brief Generate proof of the batch merge
+ *
+ * @details During Chonk, we accumulate all the ecc ops into subtables. After having accumulated the tail circuit, we
+ * generate a proof of the batch merge: we take the tables T_1, .., T_N (where T_N is the table of ecc ops coming from
+ * the tail circuit) and we generate a proof that T_zk || T_1 || .. || T_N = T, where T_zk is a table generated on the
+ * fly by the prover to make the merged table T zero-knowledge. The consistency between the commitments sent by the
+ * prover in the batch merge and the ones generated during Chonk accumulation is enforced via a hash check: each kernel
+ * updates a running hash using the commitments to the ecc op tables of the circuits it folds. The final hash is passed
+ * to the batch merge verifier, which uses it to enforce the consistency between the data sent by the prover and the one
+ * used during accumulation.
+ *
  */
-std::pair<Goblin::PairingPoints, Goblin::RecursiveTableCommitments> Goblin::recursively_verify_merge(
-    MegaBuilder& builder,
-    const RecursiveMergeCommitments& merge_commitments,
-    const std::shared_ptr<RecursiveTranscript>& transcript,
-    const MergeSettings merge_settings)
+void Goblin::prove_batch_merge()
 {
-    BB_ASSERT(!merge_verification_queue.empty());
-    const MergeProof& merge_proof = merge_verification_queue.front();
-    const stdlib::Proof<MegaBuilder> stdlib_merge_proof(builder, merge_proof);
+    BB_BENCH_NAME("Goblin::prove_batch_merge");
+    BatchMergeProver prover{ op_queue, CHONK_MAX_NUM_CIRCUITS };
+    batch_merge_proof = prover.construct_proof();
+}
 
-    MergeRecursiveVerifier merge_verifier{ merge_settings, transcript };
-    auto merge_result = merge_verifier.reduce_to_pairing_check(stdlib_merge_proof, merge_commitments);
+/**
+ * @brief Recursively verify the batch merge proof
+ *
+ * @param builder
+ * @param hash Hash computed by the kernels during Chonk accumulation
+ *
+ * @details The hash commits to the data used during accumulation and is used by the batch merge verifier to enforce
+ * consistency between the data sent by the prover and the one used during accumulation.
+ * @return std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments>
+ */
+std::pair<Goblin::PairingPoints, Goblin::BatchRecursiveTableCommitments> Goblin::recursively_verify_batch_merge(
+    MegaBuilder& builder, const BatchMergeRecursiveVerifier::FF& hash) const
+{
+    BB_ASSERT(!batch_merge_proof.empty(), "Goblin::recursively_verify_batch_merge: no batch merge proof available");
+    const stdlib::Proof<MegaBuilder> stdlib_proof(builder, batch_merge_proof);
 
-    merge_verification_queue.pop_front(); // remove the processed proof from the queue
+    BatchMergeRecursiveVerifier verifier;
+    auto result = verifier.reduce_to_pairing_check(stdlib_proof, hash);
 
-    return { merge_result.pairing_points, merge_result.merged_commitments };
+    return { result.pairing_points, result.merged_commitments };
 }
 
 } // namespace bb

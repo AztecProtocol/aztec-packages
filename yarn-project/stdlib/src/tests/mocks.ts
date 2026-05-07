@@ -26,10 +26,9 @@ import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { RevertCode } from '../avm/revert_code.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { CheckpointedL2Block, CommitteeAttestation, L2Block } from '../block/index.js';
+import { L2Block } from '../block/index.js';
 import type { CommitteeAttestationsAndSigners } from '../block/proposal/attestations_and_signers.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
-import { L1PublishedData } from '../checkpoint/published_checkpoint.js';
 import { computeContractAddressFromInstance } from '../contract/contract_address.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { SerializableContractInstance } from '../contract/contract_instance.js';
@@ -746,32 +745,3 @@ export const makeCheckpointAttestationFromBlock = (
 
   return makeCheckpointAttestation({ header, archive, attesterSigner, proposerSigner });
 };
-
-export async function randomPublishedL2Block(
-  l2BlockNumber: number,
-  opts: { signers?: Secp256k1Signer[] } = {},
-): Promise<CheckpointedL2Block> {
-  const block = await L2Block.random(BlockNumber(l2BlockNumber));
-  const l1 = L1PublishedData.fromFields({
-    blockNumber: BigInt(block.number),
-    timestamp: block.header.globalVariables.timestamp,
-    blockHash: Buffer32.random().toString(),
-  });
-
-  const signers = opts.signers ?? times(3, () => Secp256k1Signer.random());
-  const checkpoint = await Checkpoint.random(CheckpointNumber.fromBlockNumber(BlockNumber(l2BlockNumber)), {
-    numBlocks: 0,
-  });
-  checkpoint.blocks = [block];
-  const atts = signers.map(signer =>
-    makeCheckpointAttestation({
-      signer,
-      archive: block.archive.root,
-      header: checkpoint.header,
-    }),
-  );
-  const attestations = atts.map(
-    (attestation, i) => new CommitteeAttestation(signers[i].address, attestation.signature),
-  );
-  return new CheckpointedL2Block(CheckpointNumber.fromBlockNumber(BlockNumber(l2BlockNumber)), block, l1, attestations);
-}
