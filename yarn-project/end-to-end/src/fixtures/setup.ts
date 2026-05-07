@@ -203,6 +203,8 @@ export type SetupOptions = {
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
   /** Wallet minimum fee padding multiplier (defaults to 0.5, which is 50% padding). */
   walletMinFeePadding?: number;
+  /** Options forwarded to PXE creation (e.g. execution hooks). */
+  pxeCreationOptions?: PXECreationOptions;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */

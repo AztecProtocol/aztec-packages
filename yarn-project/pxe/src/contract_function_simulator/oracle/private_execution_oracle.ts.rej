@@ -1,9 +1,0 @@
-diff a/yarn-project/pxe/src/contract_function_simulator/oracle/private_execution_oracle.ts b/yarn-project/pxe/src/contract_function_simulator/oracle/private_execution_oracle.ts	(rejected hunks)
-@@ -581,6 +581,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
-       scopes: this.scopes,
-       senderForTags: this.defaultSenderForTags,
-       simulator: this.simulator,
-+      hooks: this.hooks,
-       l2TipsStore: this.l2TipsStore,
-     });
- 
