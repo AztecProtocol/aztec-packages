@@ -28,7 +28,7 @@ export class ContractDeployer {
    * @param args - The constructor arguments for the contract being deployed.
    * @returns A DeployMethod instance configured with the ABI, PXE, and constructor arguments.
    */
-  public deploy(args: any[], instantiation: DeployInstantiationOptions) {
+  public deploy(args?: any[], instantiation?: DeployInstantiationOptions) {
     const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
       Contract.at(instance.address, this.artifact, wallet);
     return new DeployMethod(this.wallet, this.artifact, postDeployCtor, args, this.constructorName, instantiation);

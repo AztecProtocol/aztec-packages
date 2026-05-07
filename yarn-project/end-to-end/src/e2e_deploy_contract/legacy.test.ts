@@ -94,7 +94,7 @@ describe('e2e_deploy_contract legacy', () => {
     const artifact = TokenContractArtifact;
     const initArgs = ['TokenName', 'TKN', 18];
     const goodDeploy = StatefulTestContract.deploy(wallet, defaultAccountAddress, 42);
-    const badDeploy = new ContractDeployer(artifact, wallet).deploy(initArgs, { deployer: AztecAddress.ZERO });
+    const badDeploy = new ContractDeployer(artifact, wallet).deploy(initArgs);
 
     const firstOpts: DeployOptions = {
       from: defaultAccountAddress,
