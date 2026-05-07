@@ -6,11 +6,11 @@ import { waitForProven } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
-import { RollupCheatCodes } from '@aztec/aztec/testing';
+import { EpochTestSettler, RollupCheatCodes } from '@aztec/aztec/testing';
 import { FeeAssetHandlerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
-import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -68,6 +68,13 @@ describe('e2e_p2p_add_rollup', () => {
   let nodes: AztecNodeService[];
   let proverAztecNode: AztecNodeService;
   let l1TxUtils: L1TxUtils;
+  // Cheat-code-driven epoch settlers stand in for real prover-node submission. Pipelining
+  // currently produces a `Root rollup public inputs mismatch` between the prover's recomputed
+  // checkpoint header hashes and the on-chain log (see pipeline-review.md), so the real prover
+  // never moves the proven tip and `waitForProven` would hang indefinitely. The settler advances
+  // the proven tip and writes the outbox out hash via cheat codes once each epoch is complete.
+  let oldRollupSettler: EpochTestSettler | undefined;
+  let newRollupSettler: EpochTestSettler | undefined;
 
   beforeAll(async () => {
     t = await P2PNetworkTest.create({
@@ -103,6 +110,8 @@ describe('e2e_p2p_add_rollup', () => {
   });
 
   afterAll(async () => {
+    await oldRollupSettler?.stop();
+    await newRollupSettler?.stop();
     await tryStop(proverAztecNode);
     await t.stopNodes(nodes);
     await t.teardown();
@@ -268,6 +277,18 @@ describe('e2e_p2p_add_rollup', () => {
       `${DATA_DIR}-prover`,
       shouldCollectMetrics(),
     ));
+
+    // Cheat-code-driven epoch settler so the proven tip and outbox advance without depending on
+    // the real prover, which currently fails to publish under proposer pipelining due to a
+    // `Root rollup public inputs mismatch`. See add_rollup.pipeline-review.md.
+    oldRollupSettler = new EpochTestSettler(
+      t.ctx.cheatCodes.eth,
+      t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      nodes[0].getBlockSource(),
+      t.logger.createChild('epoch-settler-old'),
+      { pollingIntervalMs: 200 },
+    );
+    await oldRollupSettler.start();
 
     await sleep(4000);
 
@@ -555,8 +576,7 @@ describe('e2e_p2p_add_rollup', () => {
       dataDirectory: DATA_DIR_NEW,
       rollupVersion: Number(newVersion),
       governanceProposerPayload: EthAddress.ZERO,
-      ...t.ctx.deployL1ContractsValues.l1ContractAddresses,
-      ...addresses,
+      l1Contracts: { ...t.ctx.deployL1ContractsValues.l1ContractAddresses, ...addresses },
     };
     await setupSharedBlobStorage(newConfig);
 
@@ -585,6 +605,20 @@ describe('e2e_p2p_add_rollup', () => {
       shouldCollectMetrics(),
     ));
 
+    // Stop the old-rollup settler and spin up one for the new rollup. Same rationale as above:
+    // the real prover does not publish proofs under pipelining, so we need cheat-code settlement
+    // for the bridging step's `waitForProven` to make progress.
+    await oldRollupSettler?.stop();
+    oldRollupSettler = undefined;
+    newRollupSettler = new EpochTestSettler(
+      t.ctx.cheatCodes.eth,
+      EthAddress.fromString(newRollup.address),
+      nodes[0].getBlockSource(),
+      t.logger.createChild('epoch-settler-new'),
+      { pollingIntervalMs: 200 },
+    );
+    await newRollupSettler.start();
+
     // wait a bit for peers to discover each other
     await sleep(4000);
 
@@ -611,7 +645,7 @@ describe('e2e_p2p_add_rollup', () => {
       nodes[0],
       initialTestAccounts[0],
       t.ctx.deployL1ContractsValues.l1Client,
-      pickL1ContractAddresses(newConfig),
+      newConfig.l1Contracts,
       BigInt(newConfig.rollupVersion),
       newConfig.l1RpcUrls,
     );

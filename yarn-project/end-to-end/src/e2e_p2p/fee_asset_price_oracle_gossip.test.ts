@@ -207,11 +207,23 @@ describe('e2e_p2p_network', () => {
       expect(validatorAddresses).toContain(signer);
     }
 
+    // Allow a tolerance up to the per-checkpoint modifier cap (±100 bps): under proposer pipelining,
+    // the modifier for checkpoint N is computed in slot N-1 from the price visible at prep time, but
+    // the on-chain new price is the parent fee header (one checkpoint ahead) modified by that value.
+    // This stale-read effect causes the price to oscillate around the oracle target with up to ~1%
+    // amplitude rather than land exactly on it. The test still verifies that the price tracks the
+    // oracle within the cap.
+    const TOLERANCE_BPS = 100n;
+    const absDiffBps = (a: bigint, b: bigint) => {
+      const d = diffInBps(a, b);
+      return d < 0n ? -d : d;
+    };
+
     await retryUntil(
       async () => {
         const currentPrice = await rollup.getEthPerFeeAsset();
         t.logger.info(`Current on-chain price: ${currentPrice}, waiting for: ${targetOraclePrice}`);
-        return diffInBps(currentPrice, targetOraclePrice) == 0n;
+        return absDiffBps(currentPrice, targetOraclePrice) <= TOLERANCE_BPS;
       },
       'price convergence toward oracle',
       120, // timeout in seconds
@@ -227,7 +239,7 @@ describe('e2e_p2p_network', () => {
       async () => {
         const currentPrice = await rollup.getEthPerFeeAsset();
         t.logger.info(`Current on-chain price: ${currentPrice}, waiting for: ${targetOraclePrice2}`);
-        return diffInBps(currentPrice, targetOraclePrice2) == 0n;
+        return absDiffBps(currentPrice, targetOraclePrice2) <= TOLERANCE_BPS;
       },
       'price convergence toward oracle',
       120, // timeout in seconds
@@ -239,6 +251,6 @@ describe('e2e_p2p_network', () => {
 
     // Verify the price moved toward the oracle price
     expect(finalPrice).toBeGreaterThan(initialOnChainPrice);
-    expect(diffInBps(finalPrice, targetOraclePrice2)).toBe(0n);
+    expect(absDiffBps(finalPrice, targetOraclePrice2)).toBeLessThanOrEqual(TOLERANCE_BPS);
   });
 });
