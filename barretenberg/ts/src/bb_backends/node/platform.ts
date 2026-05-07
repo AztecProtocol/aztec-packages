@@ -120,6 +120,43 @@ export function findBbBinary(customPath?: string): string | null {
   return null;
 }
 
+/**
+ * Find the aztec-wsdb binary used by the standalone world state IPC server.
+ *
+ * @param customPath Optional custom path to aztec-wsdb binary (overrides automatic detection)
+ * @returns Absolute path to aztec-wsdb binary, or null if not found
+ */
+export function findWsdbBinary(customPath?: string): string | null {
+  // Check env var first (used in Docker images)
+  const envPath = customPath ?? process.env.WSDB_BINARY_PATH;
+  if (envPath) {
+    if (fs.existsSync(envPath)) {
+      return path.resolve(envPath);
+    }
+    return null;
+  }
+
+  const platform = detectPlatform();
+  if (!platform) {
+    return null;
+  }
+
+  const buildDir = PLATFORM_TO_BUILD_DIR[platform];
+  const packageRoot = findPackageRoot();
+
+  if (!packageRoot) {
+    return null;
+  }
+
+  const wsdbPath = path.join(packageRoot, 'build', buildDir, 'aztec-wsdb');
+
+  if (fs.existsSync(wsdbPath)) {
+    return wsdbPath;
+  }
+
+  return null;
+}
+
 export function findNapiBinary(customPath?: string): string | null {
   // Check custom path first if provided
   if (customPath) {

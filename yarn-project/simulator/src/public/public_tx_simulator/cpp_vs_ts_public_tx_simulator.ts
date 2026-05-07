@@ -11,7 +11,6 @@ import {
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import type { GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
-import { WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
 
 import { strict as assert } from 'assert';
 
@@ -81,14 +80,8 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
 
     this.log.debug(`Running C++ simulation for tx ${txHash}`);
 
-    // Using the "as WorldStateRevisionWithHandle" is a bit of a "trust me bro", hence the assert.
-    let wsRevision = this.merkleTree.getRevision();
-    assert(
-      wsRevision instanceof WorldStateRevisionWithHandle,
-      'CppPublicTxSimulator a real NativeWorldStateInstance with a handle to the C++ WorldState object',
-    );
-    const wsCppHandle = (wsRevision as WorldStateRevisionWithHandle).handle;
-    wsRevision = wsRevision.toWorldStateRevision(); // for msgpack serialization, we don't include the handle in the type
+    const wsRevision = this.merkleTree.getRevision();
+    const wsdbSocketPath = this.merkleTree.getSocketPath();
 
     this.log.debug(`Running C++ simulation with world state revision ${JSON.stringify(wsRevision)}`);
 
@@ -113,7 +106,7 @@ export class CppVsTsPublicTxSimulator extends PublicTxSimulator implements Publi
     let resultBuffer: Buffer;
     try {
       this.log.debug(`Calling C++ simulator for tx ${txHash}`);
-      resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsCppHandle, logLevel);
+      resultBuffer = await avmSimulate(inputBuffer, contractProvider, wsdbSocketPath, logLevel);
     } catch (error: any) {
       throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
     }
