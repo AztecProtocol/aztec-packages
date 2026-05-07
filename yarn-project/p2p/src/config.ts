@@ -216,6 +216,9 @@ export interface P2PConfig
   /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
   minTxPoolAgeMs: number;
 
+  /** Deadline in ms used when collecting missing txs for unproven mined blocks. */
+  p2pMissingTxCollectionDeadlineMs: number;
+
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
 
@@ -531,6 +534,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'P2P_MIN_TX_POOL_AGE_MS',
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
+  },
+  p2pMissingTxCollectionDeadlineMs: {
+    env: 'P2P_MISSING_TX_COLLECTION_DEADLINE_MS',
+    description: 'Deadline in ms used when collecting missing txs for unproven mined blocks.',
+    ...numberConfigHelper(72_000),
   },
   priceBumpPercentage: {
     env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',

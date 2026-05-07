@@ -625,13 +625,13 @@ export class P2PClient extends WithTracer implements P2P {
 
     await this.handleMinedBlocks(blocks);
     await this.maybeCallPrepareForSlot();
-    await this.startCollectingMissingTxs(blocks);
+    await this.collectingMissingTxs(blocks);
     const lastBlock = blocks.at(-1)!;
     await this.synchedLatestSlot.set(BigInt(lastBlock.header.getSlot()));
   }
 
-  /** Request txs for unproven blocks so the prover node has more chances to get them. */
-  private async startCollectingMissingTxs(blocks: L2Block[]): Promise<void> {
+  /** Request txs for unproven blocks so the prover node can prove. */
+  private async collectingMissingTxs(blocks: L2Block[]): Promise<void> {
     try {
       // TODO(#15435): If the archiver has lagged behind L1, the reported proven block number may
       // be much lower than the actual one, and it does not update until the pending chain is
@@ -651,7 +651,8 @@ export class P2PClient extends WithTracer implements P2P {
             `Starting collection of ${missingTxHashes.length} missing txs for unproven mined block ${block.number}`,
             { missingTxHashes, blockNumber: block.number, blockHash: await block.hash().then(h => h.toString()) },
           );
-          this.txCollection.startCollecting(block, missingTxHashes);
+          const deadline = new Date(this._dateProvider.now() + this.config.p2pMissingTxCollectionDeadlineMs);
+          await this.txCollection.collectFastForBlock(block, missingTxHashes, { deadline });
         }
       }
     } catch (err) {

@@ -21,7 +21,6 @@ import { ReqRespStatus } from '../reqresp/status.js';
 import { type TxCollectionConfig, txCollectionConfigMappings } from './config.js';
 import { FastTxCollection } from './fast_tx_collection.js';
 import type { FileStoreTxSource } from './file_store_tx_source.js';
-import type { SlowTxCollection } from './slow_tx_collection.js';
 import { type FastCollectionRequest, TxCollection } from './tx_collection.js';
 import type { TxSource } from './tx_source.js';
 
@@ -141,7 +140,6 @@ describe('TxCollection', () => {
       txCollectionFastMaxParallelRequestsPerNode: 2,
       txCollectionFastNodeIntervalMs: 100,
       txCollectionMissingTxsCollectorType: 'old',
-      txCollectionFileStoreSlowDelayMs: 100,
       txCollectionFileStoreFastDelayMs: 100,
     };
 
@@ -156,235 +154,6 @@ describe('TxCollection', () => {
 
   afterEach(async () => {
     await txCollection.stop();
-  });
-
-  describe('slow collection', () => {
-    it('collects missing txs from node', async () => {
-      txCollection.startCollecting(block, txHashes);
-
-      setNodeTxs(nodes[0], txs);
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expectTxsMinedInPool(txs);
-
-      jest.clearAllMocks();
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).not.toHaveBeenCalled();
-      expect(nodes[1].getTxsByHash).not.toHaveBeenCalled();
-    });
-
-    it('collects missing txs from multiple nodes', async () => {
-      txCollection.startCollecting(block, txHashes);
-
-      setNodeTxs(nodes[0], [txs[0]]);
-      setNodeTxs(nodes[1], [txs[1]]);
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expectTxsMinedInPool([txs[0]]);
-      expectTxsMinedInPool([txs[1]]);
-
-      jest.clearAllMocks();
-      setNodeTxs(nodes[0], [txs[0], txs[2]]);
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
-      expect(nodes[1].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
-      expectTxsMinedInPool([txs[2]]);
-
-      jest.clearAllMocks();
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).not.toHaveBeenCalled();
-      expect(nodes[1].getTxsByHash).not.toHaveBeenCalled();
-    });
-
-    it('collects tx from nodes in batches', async () => {
-      txs = await Promise.all(times(8, () => makeTx()));
-      txHashes = txs.map(tx => tx.txHash);
-      txCollection.startCollecting(block, txHashes);
-
-      setNodeTxs(nodes[0], txs);
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes.slice(0, 5));
-      expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes.slice(5, 10));
-      expectTxsMinedInPool(txs.slice(0, 5));
-      expectTxsMinedInPool(txs.slice(5, 10));
-
-      jest.clearAllMocks();
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).not.toHaveBeenCalled();
-      expect(nodes[1].getTxsByHash).not.toHaveBeenCalled();
-    });
-
-    it('collects missing txs via reqresp after having been requested once from nodes', async () => {
-      txCollection.startCollecting(block, txHashes);
-
-      setNodeTxs(nodes[0], [txs[0]]);
-      setNodeTxs(nodes[1], [txs[1]]);
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expect(reqResp.sendBatchRequest).not.toHaveBeenCalled();
-      expectTxsMinedInPool([txs[0]]);
-      expectTxsMinedInPool([txs[1]]);
-
-      jest.clearAllMocks();
-      setReqRespTxs([txs[2]]);
-      await txCollection.trigger();
-      expectReqRespToHaveBeenCalledWith([txHashes[2]]);
-      expectTxsMinedInPool([txs[2]]);
-
-      jest.clearAllMocks();
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).not.toHaveBeenCalled();
-      expect(nodes[1].getTxsByHash).not.toHaveBeenCalled();
-    });
-
-    it('collects missing txs directly via reqresp if there are no nodes configured', async () => {
-      txCollection = new TestTxCollection(mockP2PService, [], constants, txPool, config, [], dateProvider);
-      txCollection.startCollecting(block, txHashes);
-
-      setReqRespTxs([txs[0]]);
-      await txCollection.trigger();
-      expectReqRespToHaveBeenCalledWith(txHashes);
-      expectTxsMinedInPool([txs[0]]);
-
-      jest.clearAllMocks();
-      setReqRespTxs([txs[1]]);
-      await txCollection.trigger();
-      expectReqRespToHaveBeenCalledWith([txHashes[1], txHashes[2]]);
-      expectTxsMinedInPool([txs[1]]);
-    });
-
-    it('rejects expired txs', async () => {
-      const block1 = await makeL2Block(1, 1);
-      const block2 = await makeL2Block(100, 100);
-
-      txCollection.startCollecting(block1, [txHashes[0]]);
-      txCollection.startCollecting(block2, [txHashes[1]]);
-      const newTime = (Number(constants.l1GenesisTime) + constants.epochDuration * constants.slotDuration * 2) * 1000;
-      dateProvider.setTime(newTime);
-
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1]]);
-    });
-
-    it('does not request missing txs being collected via fast collection', async () => {
-      config = { ...config, txCollectionDisableSlowDuringFastRequests: false };
-      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
-
-      const innerCollectFastPromise = promiseWithResolvers<void>();
-      jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation(async request => {
-        txCollection.fastCollection.requests.add(request);
-        await innerCollectFastPromise.promise;
-        txCollection.fastCollection.requests.delete(request);
-      });
-
-      txCollection.startCollecting(block, txHashes);
-      void txCollection.collectFastForBlock(block, [txHashes[0]], { deadline });
-
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1], txHashes[2]]);
-
-      innerCollectFastPromise.resolve();
-    });
-
-    it('pauses slow collection if fast collection is ongoing', async () => {
-      config = { ...config, txCollectionDisableSlowDuringFastRequests: true };
-      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
-
-      const innerCollectFastPromise = promiseWithResolvers<void>();
-      jest.spyOn(txCollection.fastCollection, 'collectFast').mockImplementation(async request => {
-        txCollection.fastCollection.requests.add(request);
-        await innerCollectFastPromise.promise;
-        txCollection.fastCollection.requests.delete(request);
-      });
-
-      txCollection.startCollecting(block, txHashes);
-      void txCollection.collectFastForBlock(block, [txHashes[0]], { deadline });
-
-      jest.clearAllMocks();
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).not.toHaveBeenCalled();
-
-      innerCollectFastPromise.resolve();
-    });
-
-    it('stops collecting a tx when found via fast collection', async () => {
-      config = { ...config, txCollectionDisableSlowDuringFastRequests: true };
-      txCollection = new TestTxCollection(mockP2PService, nodes, constants, txPool, config, [], dateProvider);
-
-      setNodeTxs(nodes[0], txs);
-      txCollection.startCollecting(block, txHashes);
-
-      await txCollection.collectFastForBlock(block, [txHashes[0]], { deadline });
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[0]]);
-      expectTxsMinedInPool([txs[0]]);
-
-      jest.clearAllMocks();
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1], txHashes[2]]);
-      expectTxsMinedInPool([txs[1], txs[2]]);
-    });
-
-    it('stops collecting a tx when reported as found from the pool', async () => {
-      txCollection.startCollecting(block, txHashes);
-
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
-
-      txCollection.handleTxsAddedToPool({ txs: [txs[0]], source: 'test' });
-
-      jest.clearAllMocks();
-      setNodeTxs(nodes[0], [txs[1]]);
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1], txHashes[2]]);
-      expectTxsMinedInPool([txs[1]]);
-    });
-
-    it('stops collecting txs based on block number', async () => {
-      const blocks = await Promise.all(times(3, i => makeL2Block(i + 1)));
-      txCollection.startCollecting(blocks[0], [txHashes[0]]);
-      txCollection.startCollecting(blocks[1], [txHashes[1]]);
-      txCollection.startCollecting(blocks[2], [txHashes[2]]);
-
-      await txCollection.trigger();
-      // Each block's txs are requested separately since they're grouped by block
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[0]]);
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1]]);
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
-
-      jest.clearAllMocks();
-      txCollection.stopCollectingForBlocksUpTo(BlockNumber(1));
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1]]);
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
-
-      jest.clearAllMocks();
-      txCollection.stopCollectingForBlocksAfter(BlockNumber(2));
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[1]]);
-    });
-
-    it('reconciles found transactions with the tx pool if not advertised via events', async () => {
-      txCollection.startCollecting(block, txHashes);
-
-      setNodeTxs(nodes[0], [txs[0]]);
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expect(nodes[1].getTxsByHash).toHaveBeenCalledWith(txHashes);
-      expectTxsMinedInPool([txs[0]]);
-
-      jest.clearAllMocks();
-      txPool.getTxsByHash.mockResolvedValue([txs[1]]);
-      await txCollection.trigger();
-
-      jest.clearAllMocks();
-      await txCollection.trigger();
-      expect(nodes[0].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
-      expect(nodes[1].getTxsByHash).toHaveBeenCalledWith([txHashes[2]]);
-    });
   });
 
   describe('fast collection', () => {
@@ -753,19 +522,21 @@ describe('TxCollection', () => {
       );
     });
 
-    it('collects txs from file store after slow delay', async () => {
+    it('collects txs from file store after configured delay', async () => {
       setFileStoreTxs(fileStoreSources[0], txs);
 
       await txCollection.start();
-      txCollection.startCollecting(block, txHashes);
+      deadline = new Date(dateProvider.now() + 500);
+      const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 
       // File store should not have been called yet (delay hasn't elapsed)
       expect(fileStoreSources[0].getTxsByHash).not.toHaveBeenCalled();
 
-      // Advance time past the 4s slow delay
+      // Advance time past the configured file store delay
       dateProvider.setTime(dateProvider.now() + 200);
       // Allow the async sleep resolution and worker processing to complete
-      await sleep(100);
+      await sleep(200);
+      await collectionPromise;
 
       // File store should now have been called for each tx
       expect(fileStoreSources[0].getTxsByHash).toHaveBeenCalled();
@@ -775,7 +546,8 @@ describe('TxCollection', () => {
       setFileStoreTxs(fileStoreSources[0], txs);
 
       await txCollection.start();
-      txCollection.startCollecting(block, txHashes);
+      deadline = new Date(dateProvider.now() + 500);
+      const collectionPromise = txCollection.collectFastForBlock(block, txHashes, { deadline });
 
       // Simulate all txs found via P2P before delay expires
       txCollection.handleTxsAddedToPool({ txs, source: 'test' });
@@ -783,6 +555,7 @@ describe('TxCollection', () => {
       // Now advance time past the delay
       dateProvider.setTime(dateProvider.now() + 200);
       await sleep(100);
+      await collectionPromise;
 
       // File store should not have downloaded any txs because they were all found
       const allCalls = fileStoreSources.flatMap(s => s.getTxsByHash.mock.calls);
@@ -798,9 +571,7 @@ class TestFastTxCollection extends FastTxCollection {
 }
 
 class TestTxCollection extends TxCollection {
-  declare slowCollection: SlowTxCollection;
   declare fastCollection: TestFastTxCollection;
-  declare fileStoreSlowCollection: TxCollection['fileStoreSlowCollection'];
   declare fileStoreFastCollection: TxCollection['fileStoreFastCollection'];
   declare handleTxsAddedToPool: TxPoolV2Events['txs-added'];
 }
