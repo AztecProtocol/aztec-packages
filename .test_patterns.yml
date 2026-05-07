@@ -188,6 +188,14 @@ tests:
       - *phil
       - *palla
 
+  # http://ci.aztec-labs.com/64a972aafaa40dd0
+  # ProvingBroker › Retries › does not retry if job is stale — kv-store closes
+  # before the broker's final reportProvingJobError write lands.
+  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
+    error_regex: "does not retry if job is stale|Store is closed"
+    owners:
+      - *alex
+
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
     owners:
