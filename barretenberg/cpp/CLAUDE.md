@@ -6,6 +6,20 @@ Bootstrap modes:
 - `./bootstrap.sh build` => standard build
 - `AVM=0 ./bootstrap.sh build_native` => quick build without slow bb-avm target. Good for verifying compilation works. Needed to build ts/
 
+## `bb` vs `bb-avm`: which binary do downstream scripts pick?
+
+`barretenberg/cpp/scripts/find-bb` returns `bb-avm` by default (when `AVM` is unset or `AVM=1`) and `bb` only when `AVM=0`. `noir-projects/noir-protocol-circuits/bootstrap.sh` and most other downstream tooling go through `find-bb`, so when those scripts run "the bb binary", they are running `bb-avm`.
+
+Consequence: when changing C++ that affects VK derivation, proving, or anything else exercised by downstream bootstrap scripts, `cmake --build build --target bb` is **not enough** — `bb` is non-AVM and will not be picked up. You must rebuild the AVM-enabled binary:
+
+```bash
+cd barretenberg/cpp
+cmake --preset default -DAVM=ON
+cmake --build build --target bb-avm
+```
+
+Or just run `./bootstrap.sh` (full build), which produces both. Symptom of forgetting: downstream scripts keep failing with the *same* error after your "fix" because they are still running the stale `bb-avm`.
+
 Development commands (from barretenberg/cpp):
 ```bash
 cmake --preset default    # Configure (AVM disabled by default)
