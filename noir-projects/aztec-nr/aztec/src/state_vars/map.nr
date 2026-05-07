@@ -15,8 +15,7 @@ use crate::state_vars::StateVariable;
 ///
 /// Note that some private state variables, such as [`PrivateMutable`](crate::state_vars::PrivateMutable) and
 /// [`PrivateSet`](crate::state_vars::PrivateSet) cannot be wrapped in a `Map`. These types implement the
-/// [`OwnedStateVariable`](crate::state_vars::OwnedStateVariable) trait, and as such should instead be wrapped using
-/// the
+/// [`OwnedStateVariable`](crate::state_vars::OwnedStateVariable) trait, and as such should instead be wrapped using the
 /// [`Owned`](crate::state_vars::Owned) container, which can be thought of as a specialization of `Map` for private
 /// state 'owned' by a single account.
 ///
@@ -50,12 +49,10 @@ use crate::state_vars::StateVariable;
 ///
 /// ## Requirements
 ///
-/// The value type `V` must implement the [`StateVariable`] trait. The key type `K` must implement the [`ToField`]
-/// trait
+/// The value type `V` must implement the [`StateVariable`] trait. The key type `K` must implement the [`ToField`] trait
 /// in such a way that the `Field` representation is unique for each key.
 ///
-/// For key types that cannot be converted into a `Field`, consider wrapping them in a type that implements `ToField`
-/// as
+/// For key types that cannot be converted into a `Field`, consider wrapping them in a type that implements `ToField` as
 /// the hash of the key.
 ///
 /// ```noir

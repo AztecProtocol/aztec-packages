@@ -106,8 +106,7 @@
 //! manually implemented - see the [`Packable`](crate::protocol::traits::Packable)'s docs on how to do this.
 //!
 //! ```noir
-//! // Inefficient reads and writes - each bool is assigned a distinct storage slot, so reading or writing both
-//! requires
+//! // Inefficient reads and writes - each bool is assigned a distinct storage slot, so reading or writing both requires
 //! // executing `SLOAD` or `SSTORE` twice.
 //! #[storage]
 //! struct Storage<C> {
@@ -115,8 +114,7 @@
 //!     b: PublicMutable<bool, C>,
 //! }
 //!
-//! // By storing the booleans in a single struct and implementing the Packable trait with tight packing, we can
-//! instead
+//! // By storing the booleans in a single struct and implementing the Packable trait with tight packing, we can instead
 //! // read and write both values in a single `SLOAD` or `SSTORE` opcode.
 //! struct TwoBooleans {
 //!     a: bool,

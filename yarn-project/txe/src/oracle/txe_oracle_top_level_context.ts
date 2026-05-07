@@ -2,7 +2,6 @@ import {
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
   MAX_PROCESSABLE_L2_GAS,
-  NULL_MSG_SENDER_CONTRACT_ADDRESS,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
@@ -359,7 +358,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const blockNumber = await this.getNextBlockNumber();
 
-    const msgSender = from ?? AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS);
+    const msgSender = from ?? AztecAddress.NULL_MSG_SENDER;
     const callContext = new CallContext(msgSender, targetContractAddress, functionSelector, isStaticCall);
 
     const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
@@ -622,7 +621,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     // may require producing reverts.
     const revertibleAccumulatedData = PrivateToPublicAccumulatedData.empty();
     revertibleAccumulatedData.publicCallRequests[0] = new PublicCallRequest(
-      from ?? AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS),
+      from ?? AztecAddress.NULL_MSG_SENDER,
       targetContractAddress,
       isStaticCall,
       calldataHash,
