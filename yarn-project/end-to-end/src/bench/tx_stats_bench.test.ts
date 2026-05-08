@@ -248,7 +248,12 @@ describe('transaction benchmarks', () => {
     TIMEOUT,
   );
 
-  it(
+  // TODO(#23083): Skipped while a flake under heavy bb-prover concurrency is investigated.
+  // Under 8x parallel IVC verifications (each spawning a bb subprocess via the bb.js
+  // NativeUnixSocket backend) at least one verification intermittently returns valid:false on
+  // the bench host. The serial sub-tests above pass cleanly. Re-enable once the underlying
+  // verifier-under-load interaction is fixed.
+  it.skip(
     'verifies transactions at 10 TPS',
     async () => {
       const seconds = 60;
