@@ -11,7 +11,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract PublicFnsWithEmitRepro {
     use aztec::macros::events::event;
-    use aztec::macros::functions::{external, initializer};
+    use aztec::macros::functions::external;
     use aztec::macros::storage::storage;
     use aztec::state_vars::PublicMutable;
 
@@ -23,12 +23,6 @@ pub contract PublicFnsWithEmitRepro {
     #[storage]
     struct Storage<Context> {
         value: PublicMutable<u64, Context>,
-    }
-
-    #[external("public")]
-    #[initializer]
-    fn constructor() {
-        self.storage.value.write(0);
     }
 
     #[external("public")]

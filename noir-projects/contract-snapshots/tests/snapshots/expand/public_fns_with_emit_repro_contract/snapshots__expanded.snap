@@ -2,6 +2,7 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
+
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -10,14 +11,12 @@ use aztec::macros::aztec;
 /// 15 `#[external("public")]` functions, each doing one storage read, one storage write,
 /// and one `self.emit(Updated { .. })`. Pinned here so that:
 ///   - `nargo expand` is snapshotted in `noir-projects/contract-snapshots`, making any
-///     change to the `self.emit(event)` -> `emit_event_in_public(...)` macro rewrite
-///     visible across all 15 call sites in a single review.
+///     change to the macro boilerplate visible across all 15 call sites in a single review.
 ///   - `bytecodeSizeBytes/PublicFnsWithEmitRepro` lands on the bench dashboard, so any
 ///     improvement (or regression) in the per-public-fn emit shape is tracked over time.
 pub contract PublicFnsWithEmitRepro {
     use aztec::macros::events::event;
     use aztec::macros::functions::external;
-    use aztec::macros::functions::initializer;
     use aztec::macros::storage::storage;
     use aztec::state_vars::PublicMutable;
 
@@ -56,10 +55,6 @@ pub contract PublicFnsWithEmitRepro {
             Self { value: <PublicMutable<u64, Context> as aztec::state_vars::StateVariable<1, Context>>::new(context, 1_Field)}
         }
     }
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call constructor. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn constructor();
 
     #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call fn_01. See https://docs.aztec.network/errors/6")]
     #[contract_library_method]
@@ -117,6 +112,10 @@ pub contract PublicFnsWithEmitRepro {
     #[contract_library_method]
     fn fn_14(v: u64);
 
+    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call fn_15. See https://docs.aztec.network/errors/6")]
+    #[contract_library_method]
+    fn fn_15(v: u64);
+
     #[abi(storage)]
     pub global STORAGE_LAYOUT_PublicFnsWithEmitRepro: StorageLayout<22> = StorageLayout::<22> {
         contract_name: "PublicFnsWithEmitRepro",
@@ -126,10 +125,6 @@ pub contract PublicFnsWithEmitRepro {
             },
         },
     };
-
-    #[deprecated(deny, "Direct invocation of public functions is not supported. You attempted to call fn_15. See https://docs.aztec.network/errors/6")]
-    #[contract_library_method]
-    fn fn_15(v: u64);
 
     /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash (non-siloed) and inner nullifier (non-siloed) assuming the note has been inserted into the note hash tree with `note_nonce`.
     /// 
@@ -206,12 +201,6 @@ pub contract PublicFnsWithEmitRepro {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1096580269_Field);
             aztec::context::calls::PublicCall::<5, 1, ()>::new(self.target_contract, selector, "fn_14", serialized_params)
-        }
-
-        pub fn constructor(self) -> aztec::context::calls::PublicCall<11, 0, ()> {
-            let serialized_params: [Field; 0] = [];
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(401680520_Field);
-            aztec::context::calls::PublicCall::<11, 0, ()>::new(self.target_contract, selector, "constructor", serialized_params)
         }
 
         pub fn fn_06(self, v: u64) -> aztec::context::calls::PublicCall<5, 1, ()> {
@@ -364,15 +353,6 @@ pub contract PublicFnsWithEmitRepro {
             }
         }
 
-        pub fn constructor(self) {
-            let serialized_params: [Field; 0] = [];
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(401680520_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<11, 0, ()>::new(self.address, selector, "constructor", serialized_params).call(self.context)
-            }
-        }
-
         pub fn fn_06(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4182861060_Field);
@@ -520,15 +500,6 @@ pub contract PublicFnsWithEmitRepro {
             self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
         }
 
-        pub fn constructor(self) {
-            let serialized_params: [Field; 0] = [];
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(401680520_Field);
-            let calldata: [Field; 1 + 0] = [<aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::ToField>::to_field(selector)].concat(serialized_params);
-            let calldata_hash: Field = aztec::hash::hash_calldata_array(calldata);
-            aztec::oracle::execution_cache::store(calldata, calldata_hash);
-            self.context.call_public_function_with_calldata_hash(self.address, calldata_hash, false, false);
-        }
-
         pub fn fn_06(self, v: u64) {
             let serialized_params: [Field; 1] = <u64 as aztec::protocol::traits::Serialize>::serialize(v);
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(4182861060_Field);
@@ -652,10 +623,6 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     pub unconstrained fn public_dispatch(selector: Field) {
-        if selector == 401680520_Field {
-            __aztec_nr_internals__constructor();
-            aztec::oracle::avm::avm_return([].as_slice());
-        };
         if selector == 1472103964_Field {
             let input_calldata: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
             let mut reader: aztec::protocol::utils::reader::Reader<1> = aztec::protocol::utils::reader::Reader::<1>::new(input_calldata);
@@ -764,9 +731,6 @@ pub contract PublicFnsWithEmitRepro {
         panic(f"Unknown selector {selector}")
     }
 
-    pub struct constructor_parameters {
-    }
-
     pub struct fn_01_parameters {
         pub v: u64,
     }
@@ -825,11 +789,6 @@ pub contract PublicFnsWithEmitRepro {
 
     pub struct fn_15_parameters {
         pub v: u64,
-    }
-
-    #[abi(functions)]
-    pub struct constructor_abi {
-        parameters: constructor_parameters,
     }
 
     #[abi(functions)]
@@ -907,26 +866,6 @@ pub contract PublicFnsWithEmitRepro {
         parameters: fn_15_parameters,
     }
 
-    unconstrained fn __aztec_nr_internals__constructor() {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 0] = aztec::oracle::avm::calldata_copy(1_u32, 0_u32);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
-        aztec::macros::functions::initialization_utils::assert_initialization_matches_address_preimage_public(self.context);
-        {
-            self.storage.value.write(0_u64);
-        };
-        aztec::macros::functions::initialization_utils::mark_as_initialized_from_public_initializer(self.context);
-    }
-
     unconstrained fn __aztec_nr_internals__fn_01(v: u64) {
         let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
             let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
@@ -940,7 +879,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 1_u64);
@@ -961,7 +899,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 2_u64);
@@ -982,7 +919,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 3_u64);
@@ -1003,7 +939,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 4_u64);
@@ -1024,7 +959,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 5_u64);
@@ -1045,7 +979,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 6_u64);
@@ -1066,7 +999,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 7_u64);
@@ -1087,7 +1019,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 8_u64);
@@ -1108,7 +1039,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 9_u64);
@@ -1129,7 +1059,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 10_u64);
@@ -1150,7 +1079,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 11_u64);
@@ -1171,7 +1099,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 12_u64);
@@ -1192,7 +1119,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 13_u64);
@@ -1213,7 +1139,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 14_u64);
@@ -1234,7 +1159,6 @@ pub contract PublicFnsWithEmitRepro {
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
             aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
         };
-        aztec::macros::functions::initialization_utils::assert_is_initialized_public(self.context);
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 15_u64);
