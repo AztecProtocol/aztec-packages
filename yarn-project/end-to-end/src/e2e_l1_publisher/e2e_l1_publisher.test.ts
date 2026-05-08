@@ -785,7 +785,7 @@ describe('L1Publisher integration', () => {
       const forcePendingCheckpointNumber = invalidateRequest?.forcePendingCheckpointNumber;
       expect(forcePendingCheckpointNumber).toEqual(0);
       const invalidationSimulationOverridesPlan = new SimulationOverridesBuilder()
-        .forPendingCheckpoint(forcePendingCheckpointNumber ?? CheckpointNumber.ZERO)
+        .withChainTips({ pending: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO })
         .build();
 
       // We cannot propose directly, we need to assume the previous checkpoint is invalidated

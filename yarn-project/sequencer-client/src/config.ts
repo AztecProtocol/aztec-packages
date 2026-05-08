@@ -235,6 +235,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only)',
     ...booleanConfigHelper(false),
   },
+  pauseProposingForSlots: {
+    description:
+      'List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected.',
+  },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
 };
 

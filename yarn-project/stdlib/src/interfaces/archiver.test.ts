@@ -313,6 +313,11 @@ describe('ArchiverApiSchema', () => {
     const result = await context.client.getBlocksData({ from: BlockNumber(1), limit: 1 });
     expect(result).toEqual([]);
   });
+
+  it('isPruneDueAtSlot', async () => {
+    const result = await context.client.isPruneDueAtSlot(SlotNumber(1));
+    expect(result).toBe(false);
+  });
 });
 
 describe('BlockQuerySchema', () => {
@@ -578,5 +583,8 @@ class MockArchiver implements ArchiverApi {
   }
   getL1Timestamp(): Promise<bigint> {
     return Promise.resolve(1n);
+  }
+  isPruneDueAtSlot(_slot: SlotNumber): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }

@@ -69,7 +69,10 @@ import {
   mockTxIterator,
   setupTxsAndBlock,
 } from '../test/utils.js';
-import { computePipelinedParentFeeHeader } from './chain_state_overrides.js';
+import {
+  buildPipelinedParentSimulationOverridesPlan,
+  computePipelinedParentFeeHeader,
+} from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
@@ -765,6 +768,59 @@ describe('CheckpointProposalJob', () => {
         log: createLogger('test'),
       });
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('buildPipelinedParentSimulationOverridesPlan', () => {
+    const checkpointNumberUnderTest = CheckpointNumber(2);
+
+    it('sets pending override for the parent checkpoint when pipelining is enabled', async () => {
+      const plan = await buildPipelinedParentSimulationOverridesPlan({
+        checkpointNumber: checkpointNumberUnderTest,
+        proposedCheckpointData: undefined,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+        pipeliningEnabled: true,
+      });
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
+      expect(plan?.chainTipsOverride?.proven).toBeUndefined();
+    });
+
+    it('returns undefined when pipelining off and no prunePending', async () => {
+      const plan = await buildPipelinedParentSimulationOverridesPlan({
+        checkpointNumber: checkpointNumberUnderTest,
+        proposedCheckpointData: undefined,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+        pipeliningEnabled: false,
+      });
+      expect(plan).toBeUndefined();
+    });
+
+    it('returns plan with proven-only override when pipelining off and prunePending is set', async () => {
+      const plan = await buildPipelinedParentSimulationOverridesPlan({
+        checkpointNumber: checkpointNumberUnderTest,
+        proposedCheckpointData: undefined,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+        pipeliningEnabled: false,
+        prunePending: { provenOverride: CheckpointNumber(0) },
+      });
+      expect(plan?.chainTipsOverride?.pending).toBeUndefined();
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(0));
+    });
+
+    it('attaches both parent and proven overrides when pipelining on and prunePending is set', async () => {
+      const plan = await buildPipelinedParentSimulationOverridesPlan({
+        checkpointNumber: checkpointNumberUnderTest,
+        proposedCheckpointData: undefined,
+        rollup: publisher.rollupContract,
+        log: createLogger('test'),
+        pipeliningEnabled: true,
+        prunePending: { provenOverride: CheckpointNumber(0) },
+      });
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(0));
     });
   });
 

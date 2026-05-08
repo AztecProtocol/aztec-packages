@@ -197,6 +197,13 @@ export interface L2BlockSource {
    */
   getL1Constants(): Promise<L1RollupConstants>;
 
+  /**
+   * Returns true iff `canPruneAtTime` would be true at the latest L1 timestamp inside
+   * the L2 slot's window. Computed entirely from local archiver state (no L1 RPC).
+   * @param slot - The L2 slot to check.
+   */
+  isPruneDueAtSlot(slot: SlotNumber): Promise<boolean>;
+
   /** Returns values for the genesis block */
   getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }>;
 
