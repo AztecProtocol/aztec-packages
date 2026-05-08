@@ -1,6 +1,7 @@
 import { type AvmStat, type BackendOptions, BackendType, Barretenberg, type ChonkProof } from '@aztec/bb.js';
 import { IPA_PROOF_LENGTH } from '@aztec/constants';
 import type { LogFn, Logger } from '@aztec/foundation/log';
+import { FifoMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 
 import type { UltraHonkFlavor } from '../honk.js';
@@ -239,10 +240,15 @@ export class BBJsInstance implements BBJsApi {
 
 /**
  * Factory for managing BBJsInstance lifecycle.
- * Provides fresh instances for proving (each spawns a new bb process)
- * and can pool instances for verification.
+ * Provides fresh instances for proving (each spawns a new bb process) and a
+ * fixed-size pool of long-lived instances for verification.
  */
 export class BBJsProverFactory {
+  /** Available pooled verifier instances; callers acquire via `get()` and return via `put()`. */
+  private verifierPool?: FifoMemoryQueue<BBJsApi>;
+  /** All pooled instances (whether currently in or out of the pool), tracked for shutdown. */
+  private verifierPoolItems: BBJsApi[] = [];
+
   constructor(
     private bbPath: string,
     private logger?: Logger,
@@ -251,14 +257,56 @@ export class BBJsProverFactory {
   ) {}
 
   /**
+   * Pre-spawn `size` long-lived bb instances reused across `withVerifierInstance` calls.
+   * Without this, `withVerifierInstance` falls back to spawning a fresh bb per call.
+   * Must be paired with `stopVerifierPool` for clean shutdown.
+   */
+  async startVerifierPool(size: number): Promise<void> {
+    if (this.verifierPool) {
+      throw new Error('Verifier pool already started');
+    }
+    if (size <= 0) {
+      return;
+    }
+    const items = await Promise.all(Array.from({ length: size }, () => this.createInstance()));
+    const pool = new FifoMemoryQueue<BBJsApi>();
+    for (const item of items) {
+      pool.put(item);
+    }
+    this.verifierPool = pool;
+    this.verifierPoolItems = items;
+  }
+
+  /**
+   * Tear down idle pooled verifier instances and reject future acquires. Idempotent.
+   * Instances currently held by an in-flight `withVerifierInstance` call are destroyed by that
+   * call's finally block once it returns.
+   */
+  async stopVerifierPool(): Promise<void> {
+    const pool = this.verifierPool;
+    if (!pool) {
+      return;
+    }
+    this.verifierPool = undefined;
+    this.verifierPoolItems = [];
+    const idle: BBJsApi[] = [];
+    while (pool.length() > 0) {
+      const item = pool.getImmediate();
+      if (item) {
+        idle.push(item);
+      }
+    }
+    pool.cancel();
+    await Promise.all(idle.map(item => item.destroy()));
+  }
+
+  /**
    * Run an operation with a fresh Barretenberg instance.
    * The instance is created before the operation and destroyed after.
    * Suitable for proving where process startup is negligible relative to proof time.
    */
   async withFreshInstance<T>(fn: (instance: BBJsApi) => Promise<T>): Promise<T> {
-    const logFn = this.logger ? (msg: string) => this.logger!.verbose(`bb.js - ${msg}`) : undefined;
-    const raw = await BBJsInstance.create(this.bbPath, logFn, this.threads);
-    const instance = await this.maybeWrapDebug(raw);
+    const instance = await this.createInstance();
     try {
       return await fn(instance);
     } finally {
@@ -267,12 +315,35 @@ export class BBJsProverFactory {
   }
 
   /**
-   * Run a verification operation.
-   * Currently creates a fresh instance per call (matches current behavior of spawning bb per verification).
-   * Can be extended to use a pool if needed.
+   * Run a verification operation, reusing a pooled instance if `startVerifierPool` was called.
+   * Falls back to a fresh-spawn per call when no pool is configured.
    */
-  withVerifierInstance<T>(fn: (instance: BBJsApi) => Promise<T>): Promise<T> {
-    return this.withFreshInstance(fn);
+  async withVerifierInstance<T>(fn: (instance: BBJsApi) => Promise<T>): Promise<T> {
+    const pool = this.verifierPool;
+    if (!pool) {
+      return this.withFreshInstance(fn);
+    }
+    const instance = await pool.get();
+    if (!instance) {
+      // Pool was cancelled (stopVerifierPool ran) while we were waiting.
+      throw new Error('Verifier pool stopped while waiting for an instance');
+    }
+    try {
+      return await fn(instance);
+    } finally {
+      if (this.verifierPool === pool) {
+        pool.put(instance);
+      } else {
+        // Pool was stopped while we held this instance; destroy it ourselves.
+        await instance.destroy().catch(() => {});
+      }
+    }
+  }
+
+  private async createInstance(): Promise<BBJsApi> {
+    const logFn = this.logger ? (msg: string) => this.logger!.verbose(`bb.js - ${msg}`) : undefined;
+    const raw = await BBJsInstance.create(this.bbPath, logFn, this.threads);
+    return this.maybeWrapDebug(raw);
   }
 
   /** Wrap the instance in a debug wrapper if debugDir is configured. */

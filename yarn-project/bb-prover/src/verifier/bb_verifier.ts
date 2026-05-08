@@ -30,7 +30,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   }
 
   public stop(): Promise<void> {
-    return Promise.resolve();
+    return this.bbJsFactory.stopVerifierPool();
   }
 
   public static async new(config: BBConfig, logger = createLogger('bb-prover:verifier')) {
@@ -38,7 +38,13 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       throw new Error(`Barretenberg working directory (BB_WORKING_DIRECTORY) is not set`);
     }
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
-    return new BBCircuitVerifier(config, logger);
+    const verifier = new BBCircuitVerifier(config, logger);
+    // Reuse a fixed set of bb processes across verifications instead of spawning per-call,
+    // so BB_NUM_IVC_VERIFIERS bounds the number of bb processes (not just concurrency).
+    if (config.numConcurrentIVCVerifiers > 0) {
+      await verifier.bbJsFactory.startVerifierPool(config.numConcurrentIVCVerifiers);
+    }
+    return verifier;
   }
 
   public getVerificationKeyData(circuit: ProtocolArtifact): VerificationKeyData {
