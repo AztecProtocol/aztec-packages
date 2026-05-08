@@ -2,7 +2,6 @@ import {
   DomainSeparator,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
-  NULL_MSG_SENDER_CONTRACT_ADDRESS,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -186,7 +185,7 @@ describe('Private Execution test suite', () => {
     anchorBlockHeader,
     args = [],
     /** Notice that we're defaulting to the "null" msg_sender, which many public functions will fail to unwrap, and will revert. */
-    msgSender = AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS),
+    msgSender = AztecAddress.NULL_MSG_SENDER,
     contractAddress = undefined,
     txContext = {},
   }: {

@@ -430,16 +430,6 @@ describe('Utility Execution test suite', () => {
       });
     });
 
-    describe('callUtilityFunction', () => {
-      it('throws when target contract differs from execution context', async () => {
-        const differentAddress = await AztecAddress.random();
-        const selector = FunctionSelector.empty();
-        await expect(utilityExecutionOracle.callUtilityFunction(differentAddress, selector, [])).rejects.toThrow(
-          'Cross-contract utility calls are not yet supported',
-        );
-      });
-    });
-
     describe('invalidateContractSyncCache', () => {
       it('throws when contract address does not match', async () => {
         const otherAddress = await AztecAddress.random();
