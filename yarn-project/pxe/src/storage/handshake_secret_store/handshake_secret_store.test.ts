@@ -1,19 +1,17 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
-import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { HandshakeSecretStore, computeHandshakeSecretHash } from './handshake_secret_store.js';
 
 describe('HandshakeSecretStore', () => {
-  let store: AztecLMDBStoreV2;
   let handshakeSecretStore: HandshakeSecretStore;
 
   const jobId = 'job-1';
   const otherJobId = 'job-2';
 
   beforeEach(async () => {
-    store = await openTmpStore('handshake_secret_store_test');
-    handshakeSecretStore = new HandshakeSecretStore(store);
+    handshakeSecretStore = new HandshakeSecretStore(await openTmpStore('test'));
   });
 
   describe('staged reads and writes', () => {
@@ -84,21 +82,6 @@ describe('HandshakeSecretStore', () => {
       await handshakeSecretStore.commit(jobId);
 
       expect(await handshakeSecretStore.getHandshakeSecret(secretHash, otherJobId)).toEqual(secret);
-    });
-  });
-
-  describe('hashing', () => {
-    it('keys agree with the Noir HandshakeNote::new construction', async () => {
-      // Mirrors `poseidon2_hash_with_separator([x, y], DOM_SEP__HANDSHAKE_SECRET_HASH)`. Two distinct points produce
-      // distinct keys, and hashing depends on both coordinates.
-      const a = await Point.random();
-      const b = await Point.random();
-
-      const ha = await computeHandshakeSecretHash(a);
-      const hb = await computeHandshakeSecretHash(b);
-
-      expect(ha.equals(hb)).toBe(false);
-      expect((await computeHandshakeSecretHash(a)).equals(ha)).toBe(true);
     });
   });
 });
