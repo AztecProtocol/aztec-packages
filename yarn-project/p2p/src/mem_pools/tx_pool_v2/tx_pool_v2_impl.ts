@@ -647,14 +647,11 @@ export class TxPoolV2Impl {
     // Step 1: Find mined txs at or before finalized block
     const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(blockNumber);
 
-    // Step 2: Process in chunks. Hydrating an entire epoch's worth of mined txs at once would
-    // OOM under load (~23k txs/epoch at 10 TPS). Each chunk is hydrated, archived, and deleted
-    // before moving on so peak memory is bounded.
-    const archiveEnabled = this.#archive.isEnabled();
-    for (let i = 0; i < minedTxsToFinalize.length; i += FINALIZE_BLOCK_CHUNK_SIZE) {
-      const chunk = minedTxsToFinalize.slice(i, i + FINALIZE_BLOCK_CHUNK_SIZE);
-
-      if (archiveEnabled) {
+    // Step 2: Archive in chunks if archiving is enabled. Hydrating an entire epoch's worth of
+    // mined txs at once would OOM under load. When archiving is disabled there is no need to hydrate the txs at all.
+    if (this.#archive.isEnabled()) {
+      for (let i = 0; i < minedTxsToFinalize.length; i += FINALIZE_BLOCK_CHUNK_SIZE) {
+        const chunk = minedTxsToFinalize.slice(i, i + FINALIZE_BLOCK_CHUNK_SIZE);
         const txsToArchive: Tx[] = [];
         for (const txHashStr of chunk) {
           const buffer = await this.#txsDB.getAsync(txHashStr);
@@ -666,12 +663,14 @@ export class TxPoolV2Impl {
           await this.#archive.archiveTxs(txsToArchive);
         }
       }
-
-      await this.#store.transactionAsync(() => this.#deleteTxsBatch(chunk));
     }
 
-    // Step 3: Finalize soft-deleted txs once all mined txs are gone.
-    await this.#store.transactionAsync(() => this.#deletedPool.finalizeBlock(blockNumber));
+    // Step 3: Delete mined txs from the active pool and finalize soft-deleted txs in one
+    // transaction. Only tx hashes are touched here, so memory is bounded and atomicity is preserved.
+    await this.#store.transactionAsync(async () => {
+      await this.#deleteTxsBatch(minedTxsToFinalize);
+      await this.#deletedPool.finalizeBlock(blockNumber);
+    });
 
     if (minedTxsToFinalize.length > 0) {
       this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`, {
