@@ -1183,7 +1183,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
 
     StrictMock<MockExecutionIdManager> execution_id_manager;
     EXPECT_CALL(execution_id_manager, get_execution_id)
-        .WillRepeatedly(Return(0)); // Use a fixed execution IDfor the test
+        .WillRepeatedly(Return(0)); // Use a fixed execution ID for the test
     PureGreaterThan gt;
     PureToRadix to_radix_simulator = PureToRadix();
 
@@ -1194,7 +1194,7 @@ TEST(EccAddMemoryConstrainingTest, EccAddMemoryInvalidDstRange)
                                scalar_mul_event_emitter,
                                ecc_add_memory_event_emitter);
 
-    uint32_t dst_address = AVM_HIGHEST_MEM_ADDRESS - 1; // Invalid address, will result in out of range error
+    uint32_t dst_address = AVM_HIGHEST_MEM_ADDRESS; // Invalid address, will result in out of range error
     // Set the execution and gt traces
     TestTraceContainer trace = TestTraceContainer({
         // Row 0

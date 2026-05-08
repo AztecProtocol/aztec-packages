@@ -148,7 +148,7 @@ TEST(AvmSimulationEccTest, AddWithMemory)
     MemoryStore memory;
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
-    EXPECT_CALL(gt, gt(0x1000 + 2, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
+    EXPECT_CALL(gt, gt(0x1000 + 1, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
     Ecc ecc(
         execution_id_manager, gt, to_radix, ecc_event_emitter, scalar_mul_event_emitter, ecc_add_memory_event_emitter);
@@ -184,7 +184,7 @@ TEST(AvmSimulationEccTest, AddNotOnCurve)
     MemoryStore memory;
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
-    EXPECT_CALL(gt, gt(0x1000 + 2, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
+    EXPECT_CALL(gt, gt(0x1000 + 1, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
     Ecc ecc(
         execution_id_manager, gt, to_radix, ecc_event_emitter, scalar_mul_event_emitter, ecc_add_memory_event_emitter);
@@ -215,7 +215,7 @@ TEST(AvmSimulationEccTest, InfinityOnCurve)
     MemoryStore memory;
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
-    EXPECT_CALL(gt, gt(0x1000 + 2, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
+    EXPECT_CALL(gt, gt(0x1000 + 1, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
     Ecc ecc(
         execution_id_manager, gt, to_radix, ecc_event_emitter, scalar_mul_event_emitter, ecc_add_memory_event_emitter);
@@ -248,7 +248,7 @@ TEST(AvmSimulationEccTest, AddsUpToInfinity)
     MemoryStore memory;
 
     EXPECT_CALL(execution_id_manager, get_execution_id()).WillOnce(Return(0));
-    EXPECT_CALL(gt, gt(0x1000 + 2, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
+    EXPECT_CALL(gt, gt(0x1000 + 1, AVM_HIGHEST_MEM_ADDRESS)).WillOnce(Return(false));
 
     Ecc ecc(
         execution_id_manager, gt, to_radix, ecc_event_emitter, scalar_mul_event_emitter, ecc_add_memory_event_emitter);
