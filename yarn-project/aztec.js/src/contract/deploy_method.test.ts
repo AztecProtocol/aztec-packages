@@ -19,7 +19,9 @@ describe('DeployMethod', () => {
     wallet.registerContract.mockResolvedValue({} as ContractInstanceWithAddress);
     wallet.getContractClassMetadata.mockResolvedValue({ isContractClassPubliclyRegistered: true } as any);
     wallet.getContractMetadata.mockResolvedValue({ isContractPubliclyDeployed: true } as any);
-  }); /** Builds a `TxSimulationResultWithAppOffset` mock that satisfies what `DeployMethod.simulate` reads. */
+  });
+
+  /** Builds a `TxSimulationResultWithAppOffset` mock that satisfies what `DeployMethod.simulate` reads. */
   const makeSimulateResult = (offchainEffects: OffchainEffect[] = [], anchorBlockTimestamp = 0n) => {
     const txSimResult = mock<TxSimulationResultWithAppOffset>();
     Object.defineProperty(txSimResult, 'offchainEffects', { value: offchainEffects });
@@ -30,6 +32,7 @@ describe('DeployMethod', () => {
     Object.defineProperty(txSimResult, 'gasUsed', { value: { totalGas: Gas.empty(), teardownGas: Gas.empty() } });
     return txSimResult;
   };
+
   it('should extract offchain messages with anchor block timestamp on simulate', async () => {
     const recipient = await AztecAddress.random();
     const contractAddress = await AztecAddress.random();
@@ -50,10 +53,12 @@ describe('DeployMethod', () => {
     });
     expect(result.offchainEffects).toEqual([]);
   });
+
   describe('deployer locking and address stability', () => {
     let alice: AztecAddress;
     let bob: AztecAddress;
     const salt = new Fr(0x1234n);
+
     beforeEach(async () => {
       alice = await AztecAddress.random();
       bob = await AztecAddress.random();
@@ -64,11 +69,13 @@ describe('DeployMethod', () => {
         receipt: { txHash: { hash: 'tx-hash' } },
       } as any);
     });
+
     /**
      * Computes the expected address for our test artifact under the given deployer/salt, using
      * the same protocol-level helper that `DeployMethod` calls internally. Tests assert against
      * this value to confirm `DeployMethod` produces the canonical address.
-     */ const expectedAddress = async (deployer: AztecAddress) =>
+     */
+    const expectedAddress = async (deployer: AztecAddress) =>
       (
         await getContractInstanceFromInstantiationParams(testContractArtifact, {
           constructorArgs: [],
@@ -78,16 +85,19 @@ describe('DeployMethod', () => {
           constructorArtifact: undefined,
         })
       ).address;
+
     it('matches the standalone instantiation helper when locked at construction with deployer', async () => {
       const deploy = Contract.deploy(wallet, testContractArtifact, [], undefined, { salt, deployer: alice });
       const expected = await expectedAddress(alice);
       expect(await deploy.getAddress()).toEqual(expected);
     });
+
     it('matches the standalone instantiation helper when locked at construction with universalDeploy', async () => {
       const deploy = Contract.deploy(wallet, testContractArtifact, [], undefined, { salt, universalDeploy: true });
       const expected = await expectedAddress(AztecAddress.ZERO);
       expect(await deploy.getAddress()).toEqual(expected);
     });
+
     it('keeps the address stable across simulate then send when lazy-locking from `from`', async () => {
       const deploy = Contract.deploy(wallet, testContractArtifact, [], undefined, { salt });
       const expected = await expectedAddress(alice);
@@ -98,6 +108,7 @@ describe('DeployMethod', () => {
       expect(afterSimulate).toEqual(afterSend);
       expect(afterSimulate).toEqual(expected);
     });
+
     it('throws on getInstance / getAddress / getPartialAddress before any send-side call when nothing is locked', async () => {
       const deploy = Contract.deploy(wallet, testContractArtifact, [], undefined, { salt });
       // `getInstance` throws synchronously; `getAddress` / `getPartialAddress` are async and reject.
@@ -105,15 +116,18 @@ describe('DeployMethod', () => {
       await expect(deploy.getAddress()).rejects.toThrow(/deployer is not yet locked/);
       await expect(deploy.getPartialAddress()).rejects.toThrow(/deployer is not yet locked/);
     });
+
     it('rejects mutually exclusive `deployer` and `universalDeploy` at construction', () => {
       expect(() =>
         Contract.deploy(wallet, testContractArtifact, [], undefined, { salt, deployer: alice, universalDeploy: true }),
       ).toThrow(/mutually exclusive/);
     });
+
     it('throws when send-time `from` would imply a different deployer than the one locked at construction', async () => {
       const deploy = Contract.deploy(wallet, testContractArtifact, [], undefined, { salt, deployer: alice });
       await expect(deploy.send({ from: bob })).rejects.toThrow(/Deployer for this DeployMethod is locked/);
     });
+
     it('allows any sender when locked to universal at construction, and the address is stable', async () => {
       const deploy = Contract.deploy(wallet, testContractArtifact, [], undefined, { salt, universalDeploy: true });
       const expected = await expectedAddress(AztecAddress.ZERO);
@@ -122,11 +136,13 @@ describe('DeployMethod', () => {
       await expect(deploy.send({ from: bob })).resolves.toBeDefined();
       expect(await deploy.getAddress()).toEqual(expected);
     });
+
     it('throws on a second lock `from` after lazy-locking from the first', async () => {
       const deploy = Contract.deploy(wallet, testContractArtifact, [], undefined, { salt });
       await deploy.simulate({ from: alice });
       await expect(deploy.send({ from: bob })).rejects.toThrow(/Deployer for this DeployMethod is locked/);
     });
+
     it('locks to universal when `from` is NO_FROM', async () => {
       const deploy = Contract.deploy(wallet, testContractArtifact, [], undefined, { salt });
       await deploy.send({ from: NO_FROM });
