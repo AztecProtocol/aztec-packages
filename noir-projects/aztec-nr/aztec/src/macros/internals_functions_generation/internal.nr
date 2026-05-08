@@ -58,6 +58,7 @@ pub(crate) comptime fn generate_private_internal(f: FunctionDefinition) -> Quote
 ///
 /// The `self` value is constructed by delegating to the per-contract
 ///
+///
 /// [`__aztec_nr_internals__build_public_self_from_context`](super::external::public::generate_public_self_builder_from_context)
 /// helper rather than inlining the preamble in every internal body.
 pub(crate) comptime fn generate_public_internal(f: FunctionDefinition) -> Quoted {
