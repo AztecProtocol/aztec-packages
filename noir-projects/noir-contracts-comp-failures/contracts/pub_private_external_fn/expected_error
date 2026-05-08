@@ -1,1 +1,0 @@
-A function marked as #[external("private")] or #[internal("private")] must not have public Noir visibility - foo's visibility is 'pub'

@@ -1,0 +1,16 @@
+[package]
+name = "contract-snapshots"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[[test]]
+name = "snapshots"
+path = "tests/snapshots.rs"
+harness = true
+
+[dev-dependencies]
+insta = "1"
