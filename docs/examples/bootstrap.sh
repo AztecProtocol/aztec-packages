@@ -96,20 +96,31 @@ function compile-solidity {
 
   mkdir -p "$OUTPUT_DIR"
 
-  # Compile using the local foundry.toml with proper remappings
+  # Propagate forge build failures so run_step's retry can recover from
+  # transient solc download errors. Without this, the loop swallows individual
+  # failures and validate-ts later fails with a confusing "Cannot find module"
+  # for the missing artifact.
+  local rc=0
   (
     cd "$SOLIDITY_DIR"
     for subdir in */; do
       if [ -d "$subdir" ] && ls "$subdir"/*.sol >/dev/null 2>&1; then
         local subdir_name=$(basename "$subdir")
         echo_stderr "Compiling $subdir_name..."
-        forge build \
+        if ! forge build \
           --contracts "$subdir" \
           --out "$OUTPUT_DIR/$subdir_name" \
-          --no-cache
+          --no-cache; then
+          echo_stderr "ERROR: forge build failed for $subdir_name"
+          exit 1
+        fi
       fi
     done
-  )
+  ) || rc=$?
+
+  if [ "$rc" -ne 0 ]; then
+    return "$rc"
+  fi
 
   echo_stderr "Solidity artifacts written to $OUTPUT_DIR"
 }
