@@ -21,12 +21,14 @@ self-identify its release type, ask the user to confirm.
 
 **This skill does NOT:**
 
-- Generate API docs (aztec-nr or TypeScript)
+- Generate developer API docs (aztec-nr or TypeScript)
 - Generate CLI reference docs
 - Update developer version config or cut developer versioned docs
 - Update migration notes
-- Require aztec CLI or nargo (yarn-project build is only needed for node API
-  reference regeneration in Step 5b, which can be skipped)
+- Require aztec CLI, nargo, or yarn-project build
+
+**This skill DOES** regenerate the Node JSON-RPC API reference for the
+versioned docs (see Step 5a).
 
 ## Usage
 
@@ -82,18 +84,6 @@ git tag -l "v<nodeVersion>"
 - If the tag exists but is not checked out: `git checkout v<nodeVersion>`
 - **Abort if the tag doesn't exist** — the release hasn't been tagged yet.
 
-#### Pre-release workflow
-
-If the user provides a target version that differs from the `nodeVersion`
-returned by the RPC (e.g. the network is still running `4.1.3` but the user
-wants to prepare docs for `4.2.0`), this is a **pre-release** docs preparation.
-Ask the user to confirm the target version, then use that version instead of
-`nodeVersion` throughout the remaining steps. The git tag for the target version
-must still exist. Contract addresses from the RPC reflect the *current* network
-state (the old version); they are still valid if the upgrade reuses the same
-contracts, but ask the user to confirm whether any addresses will change at
-upgrade time.
-
 ### Step 3: Identify and Resolve Missing Contract Addresses
 
 The `networks.md` L1 table includes contracts that are **not** returned by
@@ -105,12 +95,8 @@ The Rollup and Registry addresses are already known from the RPC response. Use
 them to query additional addresses on L1. Determine the L1 RPC from the chain
 ID: `1` → Ethereum mainnet, `11155111` → Sepolia.
 
-First check whether the RPC response already includes `gseAddress` in
-`l1ContractAddresses` — newer node versions return it directly. If present,
-use it and skip the on-chain query for GSE.
-
 ```bash
-# GSE (Governance Staking Escrow) — from Rollup (skip if already in RPC response)
+# GSE (Governance Staking Escrow) — from Rollup
 cast call <ROLLUP_ADDRESS> "getGSE()(address)" --rpc-url <L1_RPC>
 
 # Slasher — from Rollup
@@ -182,27 +168,29 @@ Ask the user if any content changes are needed in `docs/docs-operate/`:
 - Operator changelog updates (if not handled by `/updating-changelog`)
 
 If the user has content changes, apply them to the source files in
-`docs/docs-operate/`. If no content changes are needed, skip to Step 5b.
+`docs/docs-operate/`. If no content changes are needed, skip to Step 5a.
 
-### Step 5b: Regenerate Node API Reference Docs
+### Step 5a: Regenerate Node API Reference
 
-Regenerate the Node JSON-RPC API reference documentation. This script parses the
-TypeScript interface definitions and Zod schemas in `yarn-project/stdlib/src/interfaces/`
-to produce a complete markdown reference for the `node_` and `nodeAdmin_` RPC methods.
-
-**Prerequisite:** `yarn-project` must be built (`cd yarn-project && yarn && yarn build`).
-This is the only heavy build dependency for this skill and is only needed for this
-step. If the node API has not changed since the last release, you can skip this step.
+The Node JSON-RPC API reference is auto-generated from TypeScript source. It
+must be regenerated from the release tag's source files to ensure the versioned
+docs reflect the actual API at that release.
 
 ```bash
 cd docs
 yarn generate:node-api-reference
 ```
 
-This updates `docs/docs-operate/operators/reference/node-api-reference.md`.
+This writes to `docs/docs-operate/operators/reference/node-api-reference.md`
+using the source files from the currently checked-out tag. The generator parses
+`yarn-project/stdlib/src/interfaces/aztec-node.ts` and
+`yarn-project/stdlib/src/interfaces/aztec-node-admin.ts` directly (no
+yarn-project build needed, but `yarn-project/node_modules/` must be installed
+so `npx tsx` can resolve `typescript` — run `yarn install` from `yarn-project`
+if needed).
 
-The file is auto-generated — do not hand-edit it. When cutting network versioned
-docs (Step 7), the generated content is included in the snapshot automatically.
+Verify the output lists the expected number of methods and has no ungrouped
+methods warnings.
 
 ### Step 6: Build and Validate
 
@@ -318,11 +306,13 @@ Check for stash conflicts. Then report to the user:
 - **Some addresses are not in the RPC**: Contracts like Staking Registry,
   Reward Booster, Tally Slashing Proposer, and others must be queried on-chain,
   obtained from deployment output, or confirmed unchanged by the user.
-- **Mostly lightweight**: This skill does not require aztec CLI or nargo. The
-  only heavy dependency is `yarn-project` build, needed only for regenerating
-  the node API reference (Step 5b) — skip that step if the node API hasn't
-  changed. Otherwise only `yarn` (for the docs build), `curl`/`jq` (for the
-  RPC query), and `cast` (for on-chain address queries) are needed.
+- **No heavy prerequisites**: This skill does not require aztec CLI, nargo, or
+  a yarn-project build. Only `yarn` (for the docs build), `curl`/`jq` (for
+  the RPC query), and `cast` (for on-chain address queries) are needed.
+- **Node API reference is auto-generated**: Run `yarn generate:node-api-reference`
+  (Step 5a) before building. The generator parses TypeScript source directly, so
+  no yarn-project build is required — but `yarn-project/node_modules/` must exist
+  (run `yarn install` from `yarn-project` if missing).
 - **Build must pass**: Do not cut versioned docs until `yarn build` succeeds.
 - **COMMIT_TAG needs `v` prefix**: The preprocessor uses COMMIT_TAG for GitHub
   URLs and git tag references. Omitting the `v` will break links in versioned

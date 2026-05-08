@@ -157,6 +157,19 @@ describe('WalletSchema', () => {
     });
   });
 
+  it('registerContractClass', async () => {
+    const mockArtifact: ContractArtifact = {
+      name: 'TestContract',
+      aztecVersion: DEV_VERSION,
+      functions: [],
+      nonDispatchPublicFunctions: [],
+      outputs: { structs: {}, globals: {} },
+      fileMap: {},
+      storageLayout: {},
+    };
+    await context.client.registerContractClass(mockArtifact);
+  });
+
   it('simulateTx', async () => {
     const exec: ExecutionPayload = {
       calls: [],
@@ -467,6 +480,8 @@ class MockWallet implements Wallet {
       salt: Fr.random(),
     };
   }
+
+  async registerContractClass(_artifact: any): Promise<void> {}
 
   async simulateTx(_exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset> {
     this.lastSimulateOpts = opts;

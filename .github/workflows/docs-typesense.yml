@@ -27,11 +27,58 @@ jobs:
           fetch-depth: 0
 
       - name: Reindex with Typesense docsearch-scraper
+        env:
+          # Fail the run if the scraper indexes fewer than this many records.
+          # The docsearch-scraper container exits 0 even when its config is broken
+          # and the index ends up nearly empty, so this guard turns a silent
+          # regression (which happened with #22861 dropping the index from
+          # ~12k to 48 records) into a loud CI failure.
+          MIN_HITS: "5000"
         run: |
+          set -euo pipefail
+
+          # Derive the version-specific docusaurus_tag values from the docs version
+          # configs and append them to the api-nr start_url's docusaurus_tag array.
+          # Each plugin instance produces a tag of the form `docs-${pluginId}-${versionName}`.
+          # The unversioned tags (participate, root, default) are already in the static
+          # config; this step adds entries for `developer` and `network` which bump on
+          # release. Without this, the api-nr records would lose contextual search
+          # visibility every time mainnet/testnet versions change.
+          extra_tags=$(jq -nc \
+            --slurpfile dev docs/developer_version_config.json \
+            --slurpfile net docs/network_version_config.json \
+            '[
+              ("docs-developer-" + ($dev[0].mainnet // "")),
+              ("docs-developer-" + ($dev[0].testnet // "")),
+              ("docs-network-"   + ($net[0].mainnet // "")),
+              ("docs-network-"   + ($net[0].testnet // ""))
+             ] | map(select(. != "docs-developer-" and . != "docs-network-")) | unique')
+          echo "Derived docusaurus_tag values: $extra_tags"
+
+          config_json=$(jq -c --argjson extra "$extra_tags" '
+            .start_urls |= map(
+              if .selectors_key == "api-nr"
+              then .extra_attributes.docusaurus_tag = ((.extra_attributes.docusaurus_tag // []) + $extra | unique)
+              else .
+              end
+            )
+          ' docs/typesense.config.json)
+
           docker run \
             -e "TYPESENSE_API_KEY=${{ secrets.TYPESENSE_API_KEY }}" \
             -e "TYPESENSE_HOST=${{ secrets.TYPESENSE_HOST }}" \
             -e "TYPESENSE_PORT=443" \
             -e "TYPESENSE_PROTOCOL=https" \
-            -e "CONFIG=$(cat docs/typesense.config.json | jq -r tostring)" \
-            typesense/docsearch-scraper:0.11.0
+            -e "CONFIG=$config_json" \
+            typesense/docsearch-scraper:0.11.0 2>&1 | tee scraper.log
+
+          nb_hits=$(grep -oE 'Nb hits: *[0-9]+' scraper.log | tail -1 | grep -oE '[0-9]+' || true)
+          if [ -z "$nb_hits" ]; then
+            echo "::error::Could not parse 'Nb hits' from scraper output — assuming index is broken."
+            exit 1
+          fi
+          echo "Indexed $nb_hits records (threshold: $MIN_HITS)"
+          if [ "$nb_hits" -lt "$MIN_HITS" ]; then
+            echo "::error::Indexed only $nb_hits records (expected at least $MIN_HITS). Search index is likely broken."
+            exit 1
+          fi

@@ -66,6 +66,7 @@ import { readCurrentClassId } from './contract_sync/helpers.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
+import type { ExecutionHooks } from './hooks/index.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
 import { MessageContextService } from './messages/message_context_service.js';
 import {
@@ -119,7 +120,11 @@ export type SimulateTxOpts = {
   skipFeeEnforcement?: boolean;
   /** If true, kernel logic is emulated in TS for simulation */
   skipKernels?: boolean;
-  /** State overrides for the simulation, such as contract instances and artifacts. Requires skipKernels: true */
+  /**
+   * Pre-simulation overrides applied to the ephemeral fork and contract DB. Bundles publicStorage
+   * writes (no skipKernels required) and per-address (instance, artifact?) overrides used by both
+   * AVM-side public dispatch and PXE-side ACIR private dispatch (requires skipKernels: true).
+   */
   overrides?: SimulationOverrides;
   /** Addresses whose private state and keys are accessible during private execution */
   scopes: AztecAddress[];
@@ -151,6 +156,8 @@ export type PXECreateArgs = {
   config: PXEConfig;
   /** Optional logger instance or string suffix for the logger name. */
   loggerOrSuffix?: string | Logger;
+  /** Optional hooks to observe and influence contract execution. */
+  hooks?: ExecutionHooks;
 };
 
 /**
@@ -183,6 +190,7 @@ export class PXE {
     private jobQueue: SerialQueue,
     private jobCoordinator: JobCoordinator,
     public debug: PXEDebugUtils,
+    private hooks: ExecutionHooks | undefined,
   ) {}
 
   /**
@@ -200,6 +208,7 @@ export class PXE {
     protocolContractsProvider,
     config,
     loggerOrSuffix,
+    hooks,
   }: PXECreateArgs) {
     // Extract bindings from the logger, or use empty bindings if a string suffix is provided.
     const bindings: LoggerBindings | undefined =
@@ -293,6 +302,7 @@ export class PXE {
       jobQueue,
       jobCoordinator,
       debugUtils,
+      hooks,
     );
 
     debugUtils.setPXEHelpers(
@@ -328,6 +338,7 @@ export class PXE {
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
       messageContextService: this.messageContextService,
+      hooks: this.hooks,
     });
   }
 
@@ -477,11 +488,11 @@ export class PXE {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicCalls(tx: Tx, skipFeeEnforcement: boolean) {
+  async #simulatePublicCalls(tx: Tx, skipFeeEnforcement: boolean, overrides?: SimulationOverrides) {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement);
+      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement, overrides);
       if (result.revertReason) {
         throw result.revertReason;
       }
@@ -1047,7 +1058,7 @@ export class PXE {
         let publicOutput: PublicSimulationOutput | undefined;
         if (simulatePublic && publicInputs.forPublic) {
           const publicSimulationTimer = new Timer();
-          publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
+          publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement, overrides);
           publicSimulationTime = publicSimulationTimer.ms();
           if (publicOutput?.debugLogs?.length) {
             await displayDebugLogs(publicOutput.debugLogs, addr => this.contractStore.getDebugContractName(addr));
