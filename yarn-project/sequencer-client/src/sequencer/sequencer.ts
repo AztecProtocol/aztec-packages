@@ -692,8 +692,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const blockNumber = worldState.number;
     const blockData = await this.l2BlockSource.getBlockData({ number: blockNumber });
     if (!blockData) {
-      // this shouldn't really happen because a moment ago we checked that all components were in sync
-      this.log.error(`Failed to get L2 block data ${blockNumber} from the archiver with all components in sync`);
+      this.log.warn(`Sequencer sync check failed: failed to get L2 block data ${blockNumber} from the archiver`, {
+        blockNumber,
+        l2Tips,
+        syncedL2Slot,
+        ...args,
+      });
       return undefined;
     }
 
@@ -709,10 +713,24 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       (!proposedCheckpointData ||
         proposedCheckpointData.checkpointNumber !== l2Tips.proposedCheckpoint.checkpoint.number)
     ) {
-      this.log.debug(`Sequencer sync check failed: inconsistent proposed-checkpoint state`, {
+      this.log.warn(`Sequencer sync check failed: inconsistent proposed-checkpoint state`, {
         proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
         checkpointedTipNumber: l2Tips.checkpointed.checkpoint.number,
         proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+        syncedL2Slot,
+        ...args,
+      });
+      return undefined;
+    }
+
+    // Check that the proposed checkpoint is indeed the parent of the checkpoint we'll be building
+    // The checkpoint number to build is derived as blockData.checkpointNumber + 1
+    if (proposedCheckpointData && proposedCheckpointData.checkpointNumber !== blockData.checkpointNumber) {
+      this.log.warn(`Sequencer sync check failed: proposed checkpoint number mismatch`, {
+        proposedCheckpointNumber: proposedCheckpointData.checkpointNumber,
+        blockCheckpointNumber: blockData.checkpointNumber,
+        syncedL2Slot,
+        ...args,
       });
       return undefined;
     }
