@@ -13,8 +13,7 @@ import type { BlockStore } from './block_store.js';
 /**
  * In-memory cache for L2 chain tips (proposed, checkpointed, proven, finalized).
  * Populated from the BlockStore on first access, then kept up-to-date by the ArchiverDataStoreUpdater.
- * Refresh calls should happen *after* the store transaction that mutates block data has committed,
- * so the cache loads from committed state and is never replaced if the writer aborts.
+ * Refresh calls should happen within the store transaction that mutates block data to ensure consistency.
  */
 export class L2TipsCache {
   #tipsPromise: Promise<L2Tips> | undefined;
@@ -35,7 +34,7 @@ export class L2TipsCache {
     return (this.#tipsPromise ??= this.loadFromStore());
   }
 
-  /** Reloads the L2 tips from the block store. Should be called after the writer transaction has committed. */
+  /** Reloads the L2 tips from the block store. Should be called within the store transaction that mutates data. */
   public async refresh(): Promise<void> {
     this.#tipsPromise = this.loadFromStore();
     await this.#tipsPromise;
