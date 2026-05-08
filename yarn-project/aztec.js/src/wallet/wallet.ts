@@ -19,6 +19,7 @@ import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
 import {
   Capsule,
   HashedValues,
+  SimulationOverrides,
   TxHash,
   TxProfileResult,
   TxReceipt,
@@ -271,6 +272,12 @@ export type Wallet = {
     artifact?: ContractArtifact,
     secretKey?: Fr,
   ): Promise<ContractInstanceWithAddress>;
+  /**
+   * Registers a contract class artifact in the local PXE without binding it to any instance.
+   * Useful for simulation flows that need the artifact available locally before any on-chain
+   * upgrade has taken effect. No chain check.
+   */
+  registerContractClass(artifact: ContractArtifact): Promise<void>;
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset>;
   executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions): Promise<UtilityExecutionResult>;
   profileTx(exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult>;
@@ -335,6 +342,7 @@ export const SimulateOptionsSchema = z.object({
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
   additionalScopes: optional(z.array(schemas.AztecAddress)),
+  overrides: optional(SimulationOverrides.schema),
 });
 
 export const ProfileOptionsSchema = SimulateOptionsSchema.extend({
@@ -427,6 +435,7 @@ export const GrantedContractsCapabilitySchema = ContractsCapabilitySchema;
 export const ContractClassesCapabilitySchema = z.object({
   type: z.literal('contractClasses'),
   classes: z.union([z.literal('*'), z.array(schemas.Fr)]),
+  canRegister: optional(z.boolean()),
   canGetMetadata: z.boolean(),
 });
 
@@ -557,6 +566,7 @@ const WalletMethodSchemas = {
     .function()
     .args(ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr))
     .returns(ContractInstanceWithAddressSchema),
+  registerContractClass: z.function().args(ContractArtifactSchema).returns(z.void()),
   simulateTx: z
     .function()
     .args(ExecutionPayloadSchema, SimulateOptionsSchema)

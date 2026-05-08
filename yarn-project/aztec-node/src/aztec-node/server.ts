@@ -107,6 +107,7 @@ import {
   type GlobalVariableBuilder as GlobalVariableBuilderInterface,
   type IndexedTxEffect,
   PublicSimulationOutput,
+  type SimulationOverrides,
   Tx,
   type TxHash,
   TxReceipt,
@@ -148,6 +149,7 @@ import {
 } from './block_response_helpers.js';
 import { type AztecNodeConfig, createKeyStoreForValidator } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
+import { applyPublicDataOverrides } from './public_data_overrides.js';
 
 /**
  * The aztec node.
@@ -1465,11 +1467,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   /**
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
+   * @param skipFeeEnforcement - If true, fee enforcement is skipped.
+   * @param overrides - Optional pre-simulation overrides applied to the ephemeral fork and contract DB.
    **/
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  public async simulatePublicCalls(tx: Tx, skipFeeEnforcement = false): Promise<PublicSimulationOutput> {
+  public async simulatePublicCalls(
+    tx: Tx,
+    skipFeeEnforcement = false,
+    overrides?: SimulationOverrides,
+  ): Promise<PublicSimulationOutput> {
     // Check total gas limit for simulation
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const txGasLimit = gasSettings.gasLimits.l2Gas;
@@ -1514,6 +1522,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
     const merkleTreeFork = await this.worldStateSynchronizer.fork();
     try {
+      await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
       const config = PublicSimulatorConfig.from({
         skipFeeEnforcement,
         collectDebugLogs: true,

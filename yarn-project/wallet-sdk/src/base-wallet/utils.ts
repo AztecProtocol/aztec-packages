@@ -25,6 +25,7 @@ import {
   PrivateCallExecutionResult,
   PrivateExecutionResult,
   PublicSimulationOutput,
+  type SimulationOverrides,
   Tx,
   TxContext,
   TxSimulationResult,
@@ -65,6 +66,8 @@ export function extractOptimizablePublicStaticCalls(payload: ExecutionPayload): 
  * @param gasSettings - Gas settings for the transaction.
  * @param blockHeader - Block header to use as anchor.
  * @param skipFeeEnforcement - Whether to skip fee enforcement during simulation.
+ * @param getContractName - Resolver for contract names (used for debug log display).
+ * @param overrides - Optional pre-simulation overrides applied to the ephemeral fork and contract DB.
  * @returns TxSimulationResult with public return values.
  */
 async function simulateBatchViaNode(
@@ -76,6 +79,7 @@ async function simulateBatchViaNode(
   blockHeader: BlockHeader,
   skipFeeEnforcement: boolean,
   getContractName: ContractNameResolver,
+  overrides?: SimulationOverrides,
 ): Promise<TxSimulationResult> {
   const txContext = new TxContext(chainInfo.chainId, chainInfo.version, gasSettings);
 
@@ -143,7 +147,7 @@ async function simulateBatchViaNode(
     publicFunctionCalldata: publicFunctionCalldata,
   });
 
-  const publicOutput = await node.simulatePublicCalls(tx, skipFeeEnforcement);
+  const publicOutput = await node.simulatePublicCalls(tx, skipFeeEnforcement, overrides);
 
   if (publicOutput.revertReason) {
     throw publicOutput.revertReason;
@@ -166,6 +170,8 @@ async function simulateBatchViaNode(
  * @param gasSettings - Gas settings for the transaction.
  * @param blockHeader - Block header to use as anchor.
  * @param skipFeeEnforcement - Whether to skip fee enforcement during simulation.
+ * @param getContractName - Resolver for contract names (used for debug log display).
+ * @param overrides - Optional pre-simulation overrides applied to the ephemeral fork and contract DB.
  * @returns Array of TxSimulationResult, one per batch.
  */
 export async function simulateViaNode(
@@ -177,6 +183,7 @@ export async function simulateViaNode(
   blockHeader: BlockHeader,
   skipFeeEnforcement: boolean = true,
   getContractName: ContractNameResolver,
+  overrides?: SimulationOverrides,
 ): Promise<TxSimulationResult[]> {
   const batches: FunctionCall[][] = [];
 
@@ -196,6 +203,7 @@ export async function simulateViaNode(
       blockHeader,
       skipFeeEnforcement,
       getContractName,
+      overrides,
     );
     results.push(result);
   }
