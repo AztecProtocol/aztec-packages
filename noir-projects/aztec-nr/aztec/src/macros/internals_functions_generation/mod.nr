@@ -13,11 +13,8 @@ pub(crate) mod internal;
 use abi_export::create_fn_abi_export;
 use external::{
     private::generate_private_external,
-    public::{
-        generate_public_external, generate_public_self_builder_from_context,
-        generate_public_self_creator,
-    },
-    utility::generate_utility_external,
+    public::{generate_public_external, generate_public_self_builder_from_context, generate_public_self_creator},
+    utility::{generate_utility_external, generate_utility_self_creator},
 };
 use internal::{generate_private_internal, generate_public_internal};
 
@@ -72,6 +69,15 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
         quote {}
     };
 
+    // Same idea for utility functions: emit a per-contract helper that builds the `self` value, so the construction is
+    // not duplicated into every utility body. UtilityContext takes no calldata, so a single helper is enough; there is
+    // no internal/external split to share with.
+    let utility_self_creator = if utility_functions.len() > 0 {
+        generate_utility_self_creator(m)
+    } else {
+        quote {}
+    };
+
     // Now that we have generated quotes of the new functions based on the original function definitions, we replace
     // the original functions' bodies with `static_assert(false, ...)` to prevent them from being called directly from
     // within the contract. We also need to set the return type to `()` to avoid compilation errors.
@@ -107,6 +113,7 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
     quote {
         $public_self_builder_from_context
         $public_self_creator
+        $utility_self_creator
         $transformed_private_functions
         $transformed_public_functions
         $transformed_utility_functions

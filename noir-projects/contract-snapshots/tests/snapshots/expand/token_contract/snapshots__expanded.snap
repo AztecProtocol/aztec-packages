@@ -3986,15 +3986,18 @@ pub contract Token {
         }
     }
 
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__create_utility_self() -> aztec::contract_self::contract_self_utility::ContractSelfUtility<Storage<aztec::context::UtilityContext>, CallSelfUtility> {
+        let context: aztec::context::UtilityContext = aztec::context::UtilityContext::new();
+        let storage: Storage<aztec::context::UtilityContext> = Storage::<aztec::context::UtilityContext>::init(context);
+        let self_address: AztecAddress = context.this_address();
+        let call_self: CallSelfUtility = CallSelfUtility { address: self_address};
+        aztec::contract_self::contract_self_utility::ContractSelfUtility::<Storage<aztec::context::UtilityContext>, CallSelfUtility>::new(context, storage, call_self)
+    }
+
     unconstrained fn __aztec_nr_internals__balance_of_private(owner: AztecAddress) -> pub u128 {
         aztec::oracle::version::assert_compatible_oracle_version();
-        let mut self: aztec::contract_self::contract_self_utility::ContractSelfUtility<Storage<aztec::context::UtilityContext>, CallSelfUtility> = {
-            let context: aztec::context::UtilityContext = aztec::context::UtilityContext::new();
-            let storage: Storage<aztec::context::UtilityContext> = Storage::<aztec::context::UtilityContext>::init(context);
-            let self_address: AztecAddress = context.this_address();
-            let call_self: CallSelfUtility = CallSelfUtility { address: self_address};
-            aztec::contract_self::contract_self_utility::ContractSelfUtility::<Storage<aztec::context::UtilityContext>, CallSelfUtility>::new(context, storage, call_self)
-        };
+        let mut self: aztec::contract_self::contract_self_utility::ContractSelfUtility<Storage<aztec::context::UtilityContext>, CallSelfUtility> = __aztec_nr_internals__create_utility_self();
         aztec::macros::functions::initialization_utils::assert_is_initialized_utility(self.context);
         {
             self.storage.balances.at(owner).balance_of()
