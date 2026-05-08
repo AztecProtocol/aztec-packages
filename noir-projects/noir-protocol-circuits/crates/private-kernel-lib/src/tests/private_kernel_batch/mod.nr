@@ -642,6 +642,84 @@ fn assert_inner_n_with_previous_side_effects_matches_sequential_kernels<let N: u
 }
 
 #[test]
+fn batch_2_accumulates_side_effects_across_slots() {
+    assert_batch_n_accumulates_side_effects_across_slots::<2>();
+}
+
+#[test]
+fn batch_2_linear_chain_consumes_all_calls() {
+    assert_batch_n_linear_chain_consumes_all_calls::<2>();
+}
+
+#[test]
+fn batch_2_linear_chain_matches_sequential_kernels() {
+    assert_batch_n_linear_chain_matches_sequential_kernels::<2>();
+}
+
+#[test]
+fn batch_2_depth_first_child_keeps_sibling_on_stack() {
+    assert_batch_n_depth_first_child_keeps_sibling_on_stack::<2>();
+}
+
+#[test]
+fn batch_2_depth_first_with_sibling_matches_sequential_kernels() {
+    assert_batch_n_depth_first_with_sibling_matches_sequential_kernels::<2>();
+}
+
+#[test]
+fn batch_2_with_everything_non_empty_matches_sequential_kernels() {
+    assert_batch_n_with_everything_non_empty_matches_sequential_kernels::<2>();
+}
+
+#[test(should_fail_with = "args_hash does not match call request")]
+fn batch_2_second_call_must_match_first_call_stack_fails() {
+    assert_batch_n_second_call_must_match_first_call_stack_fails::<2>();
+}
+
+#[test(should_fail_with = "note_hash_read_requests length out of bounds")]
+fn batch_2_second_call_claimed_lengths_are_validated() {
+    assert_batch_n_second_call_claimed_lengths_are_validated::<2>();
+}
+
+#[test(should_fail_with = "Counter must be greater than previous counter")]
+fn batch_2_second_call_side_effect_counters_are_validated() {
+    assert_batch_n_last_call_side_effect_counters_are_validated::<2>();
+}
+
+#[test(should_fail_with = "anchor block header mismatch")]
+fn batch_2_second_call_must_match_previous_kernel_header() {
+    assert_batch_n_second_call_must_match_previous_kernel_header::<2>();
+}
+
+#[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
+fn batch_2_fee_payer_conflict_fails() {
+    assert_batch_n_fee_payer_conflict_fails::<2>();
+}
+
+#[test(should_fail_with = "Public teardown call request already set")]
+fn batch_2_public_teardown_conflict_fails() {
+    assert_batch_n_public_teardown_conflict_fails::<2>();
+}
+
+#[test(should_fail_with = "cannot overwrite non-zero min_revertible_side_effect_counter")]
+fn batch_2_min_revertible_side_effect_counter_conflict_fails() {
+    assert_batch_n_min_revertible_side_effect_counter_conflict_fails::<2>();
+}
+
+// batch_2_static_call_requires_static_nested_private_call_fails: omitted.
+// The N>=3 version sets call[1] as static and relies on the harness inserting a
+// nested private_call_request from call[1] to call[2] -- that child is non-static,
+// so the "nested private call of a static call must be static" assertion fires.
+// At N=2 call[1] is the last call and the harness's intermediate-child loop
+// (`for i in 1..N-1`) is empty, so call[1] has no children and the rule has
+// nothing to check.
+
+#[test(should_fail_with = "note_hashes must be empty for static calls")]
+fn batch_2_static_call_restrictions_apply_to_next_slot_fails() {
+    assert_batch_n_static_call_restrictions_apply_to_next_slot_fails::<2>();
+}
+
+#[test]
 fn batch_3_accumulates_side_effects_across_slots() {
     assert_batch_n_accumulates_side_effects_across_slots::<3>();
 }
