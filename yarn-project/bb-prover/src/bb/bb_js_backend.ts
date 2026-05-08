@@ -1,5 +1,4 @@
-import { type AvmStat, type BackendOptions, BackendType, Barretenberg, type ChonkProof } from '@aztec/bb.js';
-import { IPA_PROOF_LENGTH } from '@aztec/constants';
+import { type AvmStat, type BackendOptions, BackendType, Barretenberg } from '@aztec/bb.js';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { FifoMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
@@ -193,8 +192,9 @@ export class BBJsInstance implements BBJsApi {
   }
 
   /**
-   * Verify a Chonk (IVC) proof by splitting flat fields into the structured ChonkProof format.
-   * Mirrors C++ ChonkProof::from_field_elements() logic.
+   * Verify a Chonk (IVC) proof passed as flat field elements (with public inputs prepended).
+   * The split into structured sub-proofs happens server-side in `ChonkProof::from_field_elements`,
+   * so this layer doesn't need to know per-component sub-proof sizes.
    * @param fieldsWithPublicInputs - Flat proof fields as 32-byte Uint8Arrays (public inputs prepended).
    * @param verificationKey - The VK bytes.
    */
@@ -203,8 +203,7 @@ export class BBJsInstance implements BBJsApi {
     verificationKey: Uint8Array,
   ): Promise<{ verified: boolean; durationMs: number }> {
     const timer = new Timer();
-    const proof = splitChonkProofToStructured(fieldsWithPublicInputs);
-    const result = await this.api.chonkVerify({ proof, vk: verificationKey });
+    const result = await this.api.chonkVerifyFromFields({ proof: fieldsWithPublicInputs, vk: verificationKey });
     return { verified: result.valid, durationMs: timer.ms() };
   }
 
@@ -413,38 +412,4 @@ export class BBJsFactory {
       },
     });
   }
-}
-
-/**
- * Split a flat Chonk proof field array into the structured ChonkProof format expected by bb.js chonkVerify.
- * Mirrors C++ ChonkProof::from_field_elements() in barretenberg/cpp/src/barretenberg/chonk/chonk_proof.cpp,
- * which derives the hiding_oink_proof size as the remainder after subtracting the 4 fixed-size sub-proofs.
- * This makes the split automatically adapt to any number of public inputs prepended to the oink portion.
- *
- * The 4 fixed sub-proof sizes below must match C++. If the Chonk proof layout changes in C++, expect
- * verification to start failing with cryptic verifier errors; update the constants here to match.
- */
-function splitChonkProofToStructured(fields: Uint8Array[]): ChonkProof {
-  // Fixed sub-proof sizes — must match C++ ChonkProof layout.
-  const MERGE_PROOF_SIZE = 42; // bb::MERGE_PROOF_SIZE
-  const ECCVM_PROOF_LENGTH = 608; // bb::ECCVMFlavor::PROOF_LENGTH
-  const JOINT_PROOF_LENGTH = 489; // bb::ChonkProof::JOINT_PROOF_LENGTH
-
-  const fixedTailSize = MERGE_PROOF_SIZE + ECCVM_PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
-  if (fields.length < fixedTailSize) {
-    throw new Error(
-      `splitChonkProofToStructured: proof too short (got ${fields.length} fields, need at least ${fixedTailSize})`,
-    );
-  }
-
-  // hiding_oink_proof absorbs the leading portion (public inputs + oink payload); size is derived.
-  const oinkSize = fields.length - fixedTailSize;
-  let offset = 0;
-  const hidingOinkProof = fields.slice(offset, (offset += oinkSize));
-  const mergeProof = fields.slice(offset, (offset += MERGE_PROOF_SIZE));
-  const eccvmProof = fields.slice(offset, (offset += ECCVM_PROOF_LENGTH));
-  const ipaProof = fields.slice(offset, (offset += IPA_PROOF_LENGTH));
-  const jointProof = fields.slice(offset, (offset += JOINT_PROOF_LENGTH));
-
-  return { hidingOinkProof, mergeProof, eccvmProof, ipaProof, jointProof };
 }
