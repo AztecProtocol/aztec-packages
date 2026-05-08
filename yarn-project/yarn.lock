@@ -1989,6 +1989,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/simulator@workspace:simulator"
   dependencies:
+    "@aztec/bb.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
@@ -2015,6 +2016,7 @@ __metadata:
     jest-mock-extended: "npm:^4.0.0"
     lodash.clonedeep: "npm:^4.5.0"
     lodash.merge: "npm:^4.6.2"
+    msgpackr: "npm:^1.11.2"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"

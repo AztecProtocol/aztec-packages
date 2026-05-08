@@ -15,6 +15,9 @@
     "./aztec-wsdb": {
       "default": "./dest/node/aztec-wsdb/index.js"
     },
+    "./aztec-avm": {
+      "default": "./dest/node/aztec-avm/index.js"
+    },
     "./platform": {
       "default": "./dest/node/bb_backends/node/platform.js"
     }
@@ -29,14 +32,14 @@
     "README.md"
   ],
   "scripts": {
-    "clean": "rm -rf ./dest .tsbuildinfo .tsbuildinfo.cjs ./src/cbind/generated ./src/aztec-wsdb/generated",
+    "clean": "rm -rf ./dest .tsbuildinfo .tsbuildinfo.cjs ./src/cbind/generated ./src/aztec-wsdb/generated ./src/aztec-avm/generated ./src/aztec-cdb/generated",
     "build": "yarn clean && yarn generate && yarn build:wasm && yarn build:native && yarn build:esm && yarn build:cjs && yarn build:browser",
     "build:wasm": "./scripts/copy_wasm.sh",
     "build:native": "./scripts/copy_native.sh",
     "build:esm": "tsgo -b tsconfig.esm.json && chmod +x ./dest/node/bin/index.js",
     "build:cjs": "tsgo -b tsconfig.cjs.json && ./scripts/cjs_postprocess.sh",
     "build:browser": "tsgo -b tsconfig.browser.json && ./scripts/browser_postprocess.sh",
-    "generate": "./scripts/generate.sh",
+    "generate": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 ts-node src/cbind/generate.ts && npx tsx src/aztec-wsdb/generate.ts && npx tsx src/aztec-cdb/generate.ts && npx tsx src/aztec-avm/generate.ts",
     "formatting": "prettier --check ./src && eslint --max-warnings 0 ./src",
     "formatting:fix": "prettier -w ./src",
     "test": "NODE_OPTIONS='--loader ts-node/esm' NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --passWithNoTests",
