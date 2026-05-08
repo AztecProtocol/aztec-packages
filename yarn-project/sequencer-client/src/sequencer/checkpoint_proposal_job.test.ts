@@ -180,6 +180,7 @@ describe('CheckpointProposalJob', () => {
       epoch: EpochNumber(1),
       isEscapeHatchOpen: false,
     });
+    epochCache.getL1Constants.mockImplementation(() => l1Constants);
 
     publisher = mockDeep<SequencerPublisher>();
     publisher.epochCache = epochCache;
@@ -553,6 +554,134 @@ describe('CheckpointProposalJob', () => {
 
       // Verify getCheckpointsData was called with targetEpoch (1), not the wall-clock epoch (0)
       expect(l2BlockSource.getCheckpointsData).toHaveBeenCalledWith({ epoch: targetEpoch });
+    });
+
+    it('splices the parent checkpointOutHash from proposedCheckpointData when pipelining and parent not yet on L1', async () => {
+      // Build checkpoint 2, where the parent (checkpoint 1) is in the same epoch but not yet checkpointed on L1.
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+      checkpointNumber = CheckpointNumber(2);
+
+      // L1 archiver knows nothing yet — checkpoint 1's L1 tx is still in flight.
+      l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+
+      const parentCheckpointOutHash = Fr.random();
+      const parentHeader = CheckpointHeader.empty();
+      parentHeader.slotNumber = SlotNumber(newSlotNumber); // same epoch as targetEpoch (epoch 0)
+      const proposedCheckpointData: ProposedCheckpointData = {
+        checkpointNumber: CheckpointNumber(1),
+        header: parentHeader,
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: parentCheckpointOutHash,
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 5000n,
+        feeAssetPriceModifier: 100n,
+      };
+
+      job = createCheckpointProposalJob({
+        targetSlot: SlotNumber(newSlotNumber + 1),
+        proposedCheckpointData,
+      });
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          enforce: config.enforceTimeTable,
+        }),
+      );
+
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      await job.executeAndAwait();
+
+      expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
+      const call = checkpointsBuilder.startCheckpointCalls[0];
+      expect(call.previousCheckpointOutHashes).toEqual([parentCheckpointOutHash]);
+    });
+
+    it('does not splice the parent outHash when pipelining is disabled', async () => {
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(false);
+      checkpointNumber = CheckpointNumber(2);
+
+      l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+
+      const proposedCheckpointData: ProposedCheckpointData = {
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.random(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 5000n,
+        feeAssetPriceModifier: 100n,
+      };
+
+      job = createCheckpointProposalJob({ proposedCheckpointData });
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          enforce: config.enforceTimeTable,
+        }),
+      );
+
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      await job.executeAndAwait();
+
+      expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
+      expect(checkpointsBuilder.startCheckpointCalls[0].previousCheckpointOutHashes).toEqual([]);
+    });
+
+    it('does not splice the parent outHash when the parent is in a different epoch', async () => {
+      // Parent checkpoint sits at the last slot of the previous epoch; we are building the first
+      // checkpoint of the new epoch, so the parent's outHash must NOT contribute to our epochOutHash.
+      epochCache.isProposerPipeliningEnabled.mockReturnValue(true);
+      const targetEpoch = EpochNumber(1);
+      const targetSlot = SlotNumber(l1Constants.epochDuration);
+      const slotNow = SlotNumber(l1Constants.epochDuration - 1);
+
+      checkpointNumber = CheckpointNumber(2);
+
+      l2BlockSource.getCheckpointsData.mockResolvedValue([]);
+
+      const parentHeader = CheckpointHeader.empty();
+      parentHeader.slotNumber = slotNow; // last slot of previous epoch
+      const proposedCheckpointData: ProposedCheckpointData = {
+        checkpointNumber: CheckpointNumber(1),
+        header: parentHeader,
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.random(),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 5000n,
+        feeAssetPriceModifier: 100n,
+      };
+
+      job = createCheckpointProposalJob({ slotNow, targetSlot, targetEpoch, proposedCheckpointData });
+      job.setTimetable(
+        new SequencerTimetable({
+          ethereumSlotDuration,
+          aztecSlotDuration: slotDuration,
+          l1PublishingTime: ethereumSlotDuration,
+          enforce: config.enforceTimeTable,
+        }),
+      );
+
+      const { txs, block } = await setupTxsAndBlock(p2p, globalVariables, 1, chainId);
+      checkpointBuilder.seedBlocks([block], [txs]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(block));
+
+      await job.execute();
+
+      expect(checkpointsBuilder.startCheckpointCalls).toHaveLength(1);
+      expect(checkpointsBuilder.startCheckpointCalls[0].previousCheckpointOutHashes).toEqual([]);
     });
   });
 
