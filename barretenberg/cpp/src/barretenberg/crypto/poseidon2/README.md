@@ -8,7 +8,7 @@ Poseidon2 hash function for BN254 scalar field. Reference: https://eprint.iacr.o
 Fast hashing outside circuits: Merkle trees, protocol operations, witness generation.
 
 ### Circuit (`stdlib/hash/poseidon2/`)
-The circuit implementation uses **native Poseidon2 to compute witness values**, then records them into custom gates. The round function is not re-implemented with arithmetic gates—instead, custom gate relations (`Poseidon2ExternalRelation`, `Poseidon2InternalRelation`) verify the witnesses satisfy Poseidon2 equations.
+The circuit implementation uses **native Poseidon2 to compute witness values**, then records them into custom gates. The round function is not re-implemented with arithmetic gates. The canonical circuit documentation, including the Mega K=4 quad-internal layout and soundness argument, lives in `stdlib/hash/poseidon2/README.md`.
 
 ### TypeScript (`yarn-project/foundation/src/crypto/poseidon/`)
 Client-side hashing in Node.js and browser via WASM. The TypeScript wrapper (`poseidon2Hash`, `poseidon2Permutation`) calls `c_bind.cpp` exports through `bb.js`. Used by sequencer, PXE, and wallet for computing hashes that must match on-chain verification.

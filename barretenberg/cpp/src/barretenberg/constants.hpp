@@ -24,7 +24,7 @@ static constexpr uint32_t CONST_PROOF_SIZE_LOG_N = 25;
 // circuits being folded.
 static constexpr uint32_t CONST_FOLDING_LOG_N = 24;
 // Hiding kernel is a constant circuit that is being proven with MegaZKFlavor as a part Chonk
-static constexpr uint32_t HIDING_KERNEL_LOG_N = 17;
+static constexpr uint32_t HIDING_KERNEL_LOG_N = 16;
 // The size of the AVMRecursiveVerifier circuit arithmetized with Mega.
 static constexpr uint32_t MEGA_AVM_LOG_N = 21;
 
@@ -62,10 +62,10 @@ static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
 // The number of leading zero rows in the execution trace. Used to enable shifted polynomials.
 static constexpr size_t NUM_ZERO_ROWS = 1;
 
-// The maximum number of app circuits a single kernel can recursively verify
-static constexpr uint8_t MAX_APPS_PER_KERNEL = 1;
+// The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
+static constexpr uint8_t MAX_APPS_PER_KERNEL = 3;
 
-static constexpr size_t CHONK_MAX_NUM_CIRCUITS = 56 + /*trailing kernels*/ 3;
+static constexpr size_t CHONK_MAX_NUM_CIRCUITS = 48 + /*trailing kernels*/ 3;
 
 static constexpr size_t BATCH_MERGE_PROOF_SIZE =
     /*num subtables*/ 1 +

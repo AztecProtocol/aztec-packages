@@ -1,5 +1,10 @@
 import { type AvmStat, type BackendOptions, BackendType, Barretenberg, type ChonkProof } from '@aztec/bb.js';
-import { IPA_PROOF_LENGTH } from '@aztec/constants';
+import {
+  CHONK_ECCVM_PROOF_LENGTH,
+  CHONK_JOINT_PROOF_LENGTH,
+  CHONK_MERGE_PROOF_SIZE,
+  IPA_PROOF_LENGTH,
+} from '@aztec/constants';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 
@@ -290,17 +295,9 @@ export class BBJsProverFactory {
  * Mirrors C++ ChonkProof::from_field_elements() in barretenberg/cpp/src/barretenberg/chonk/chonk_proof.cpp,
  * which derives the hiding_oink_proof size as the remainder after subtracting the 4 fixed-size sub-proofs.
  * This makes the split automatically adapt to any number of public inputs prepended to the oink portion.
- *
- * The 4 fixed sub-proof sizes below must match C++. If the Chonk proof layout changes in C++, expect
- * verification to start failing with cryptic verifier errors; update the constants here to match.
  */
 function splitChonkProofToStructured(fields: Uint8Array[]): ChonkProof {
-  // Fixed sub-proof sizes — must match C++ ChonkProof layout.
-  const MERGE_PROOF_SIZE = 42; // bb::MERGE_PROOF_SIZE
-  const ECCVM_PROOF_LENGTH = 608; // bb::ECCVMFlavor::PROOF_LENGTH
-  const JOINT_PROOF_LENGTH = 489; // bb::ChonkProof::JOINT_PROOF_LENGTH
-
-  const fixedTailSize = MERGE_PROOF_SIZE + ECCVM_PROOF_LENGTH + IPA_PROOF_LENGTH + JOINT_PROOF_LENGTH;
+  const fixedTailSize = CHONK_MERGE_PROOF_SIZE + CHONK_ECCVM_PROOF_LENGTH + IPA_PROOF_LENGTH + CHONK_JOINT_PROOF_LENGTH;
   if (fields.length < fixedTailSize) {
     throw new Error(
       `splitChonkProofToStructured: proof too short (got ${fields.length} fields, need at least ${fixedTailSize})`,
@@ -311,10 +308,10 @@ function splitChonkProofToStructured(fields: Uint8Array[]): ChonkProof {
   const oinkSize = fields.length - fixedTailSize;
   let offset = 0;
   const hidingOinkProof = fields.slice(offset, (offset += oinkSize));
-  const mergeProof = fields.slice(offset, (offset += MERGE_PROOF_SIZE));
-  const eccvmProof = fields.slice(offset, (offset += ECCVM_PROOF_LENGTH));
+  const mergeProof = fields.slice(offset, (offset += CHONK_MERGE_PROOF_SIZE));
+  const eccvmProof = fields.slice(offset, (offset += CHONK_ECCVM_PROOF_LENGTH));
   const ipaProof = fields.slice(offset, (offset += IPA_PROOF_LENGTH));
-  const jointProof = fields.slice(offset, (offset += JOINT_PROOF_LENGTH));
+  const jointProof = fields.slice(offset, (offset += CHONK_JOINT_PROOF_LENGTH));
 
   return { hidingOinkProof, mergeProof, eccvmProof, ipaProof, jointProof };
 }
