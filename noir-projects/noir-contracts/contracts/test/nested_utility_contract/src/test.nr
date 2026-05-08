@@ -24,8 +24,7 @@ unconstrained fn same_contract_utility_call_from_utility_succeeds() {
 unconstrained fn same_contract_utility_call_from_private_succeeds() {
     let (env, account, addr_a, _) = setup();
 
-    let result: Field =
-        env.call_private(account, NestedUtility::at(addr_a).pow_private(2, 10));
+    let result: Field = env.call_private(account, NestedUtility::at(addr_a).pow_private(2, 10));
     assert_eq(result, 1024);
 }
 
@@ -33,19 +32,14 @@ unconstrained fn same_contract_utility_call_from_private_succeeds() {
 unconstrained fn cross_contract_utility_call_from_utility_denied_by_default() {
     let (env, _, addr_a, addr_b) = setup();
 
-    let _: Field = env.execute_utility(
-        NestedUtility::at(addr_a).delegate_pow_utility(addr_b, 2, 3),
-    );
+    let _: Field = env.execute_utility(NestedUtility::at(addr_a).delegate_pow_utility(addr_b, 2, 3));
 }
 
 #[test(should_fail_with = "Cross-contract utility call denied")]
 unconstrained fn cross_contract_utility_call_from_private_denied_by_default() {
     let (env, account, addr_a, addr_b) = setup();
 
-    let _: Field = env.call_private(
-        account,
-        NestedUtility::at(addr_a).delegate_pow_private(addr_b, 2, 3),
-    );
+    let _: Field = env.call_private(account, NestedUtility::at(addr_a).delegate_pow_private(addr_b, 2, 3));
 }
 
 #[test]
