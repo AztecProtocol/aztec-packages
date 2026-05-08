@@ -14,12 +14,7 @@ pub struct TestNote {
 pub global TEST_NOTE_NULLIFIER: Field = 2;
 
 impl NoteHash for TestNote {
-    fn compute_note_hash(
-        self,
-        _owner: AztecAddress,
-        storage_slot: Field,
-        randomness: Field,
-    ) -> Field {
+    fn compute_note_hash(self, _owner: AztecAddress, storage_slot: Field, randomness: Field) -> Field {
         compute_note_hash(storage_slot, self.pack().concat([randomness]))
     }
 

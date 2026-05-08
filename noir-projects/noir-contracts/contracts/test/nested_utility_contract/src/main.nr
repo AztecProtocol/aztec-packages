@@ -6,14 +6,20 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract NestedUtility {
     use aztec::macros::functions::external;
+    use aztec::protocol::address::AztecAddress;
 
     #[external("utility")]
     unconstrained fn pow_utility(x: Field, n: u32) -> Field {
         if n == 0 {
             1
         } else {
-            x * self.call(NestedUtility::at(self.address).pow_utility(x, n - 1))
+            x * self.call_self.pow_utility(x, n - 1)
         }
+    }
+
+    #[external("utility")]
+    unconstrained fn delegate_pow_utility(target: AztecAddress, x: Field, n: u32) -> Field {
+        self.call(NestedUtility::at(target).pow_utility(x, n))
     }
 
     #[external("private")]
@@ -21,7 +27,16 @@ pub contract NestedUtility {
         // Safety: this is a test contract; the unconstrained result is returned directly
         // and never used as input to a constrained assertion
         unsafe {
-            self.utility.call(NestedUtility::at(self.address).pow_utility(x, n))
+            self.utility.call_self.pow_utility(x, n)
+        }
+    }
+
+    #[external("private")]
+    fn delegate_pow_private(target: AztecAddress, x: Field, n: u32) -> Field {
+        // Safety: this is a test contract; the unconstrained result is returned directly
+        // and never used as input to a constrained assertion
+        unsafe {
+            self.utility.call(NestedUtility::at(target).pow_utility(x, n))
         }
     }
 }

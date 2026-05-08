@@ -21,6 +21,9 @@ pub struct SideEffectMachine<'a> {
     /// Required for `new_system()` (deploy + import). `None` is fine for
     /// model-only tests that never call `new_system`.
     pub bridge: Option<&'a Bridge>,
+    /// Directory containing compiled contract JSON artifacts (resolved to
+    /// an absolute path in `SideEffectSystem::new`).
+    pub artifacts_dir: String,
 }
 
 #[derive(Debug, Clone)]
@@ -466,7 +469,7 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
         bridge
             .import_test_accounts()
             .expect("could not import test accounts");
-        let system = SideEffectSystem::new(bridge);
+        let system = SideEffectSystem::new(bridge, &self.artifacts_dir);
         system
             .deploy_side_effect_contract(0)
             .expect("side-effect contract could not be deployed");
@@ -804,6 +807,7 @@ mod tests {
         SideEffectMachine {
             storage_slots: 5,
             bridge: None,
+            artifacts_dir: "/tmp".into(),
         }
     }
 

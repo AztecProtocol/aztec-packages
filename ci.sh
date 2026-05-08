@@ -35,6 +35,7 @@ function print_usage {
   echo_cmd "network-teardown"      "Spin up an EC2 instance to teardown a network deployment."
   echo_cmd "network-tests-kind"    "Spin up an EC2 instance to run a KIND-based spartan test."
   echo_cmd "deploy-rollup-upgrade" "Spin up an EC2 instance to deploy a rollup upgrade."
+  echo_cmd "compat-e2e"            "Spin up an EC2 instance and run backwards compat e2e tests."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
@@ -302,15 +303,49 @@ case "$cmd" in
     bootstrap_ec2 "./bootstrap.sh ci-deploy-rollup-upgrade $*"
     ;;
 
+  ##############################
+  # BACKWARDS COMPATIBILITY   #
+  ##############################
+  compat-e2e)
+    # Spin up an EC2 instance and run backwards compatibility e2e tests
+    # against contract artifacts from prior stable releases.
+    export CI_DASHBOARD="releases"
+    export JOB_ID="x-compat-e2e"
+    export AWS_SHUTDOWN_TIME=300
+    rc=0
+    bootstrap_ec2 "./bootstrap.sh ci-compat-e2e" || rc=$?
+    # On nightly tags compat-e2e is non-blocking (continue-on-error in ci3.yml), so
+    # failures otherwise go unnoticed. Notify #team-fairies so they get picked up.
+    if [ "$rc" -ne 0 ] && [[ "${REF_NAME:-}" == *-nightly.* ]]; then
+      run_url="https://github.com/${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}/actions/runs/${GITHUB_RUN_ID:-unknown}"
+      "$ci3/slack_notify" "Backwards compatibility e2e tests FAILED on nightly tag <${run_url}|${REF_NAME}>" "#team-fairies"
+    fi
+    exit "$rc"
+    ;;
+
   ############
   # RELEASES #
   ############
   release)
-    # Spin up ec2 instance and run the release flow.
+    # Spin up ec2 instance and run the release-tag verification build (no publish).
     export CI_DASHBOARD="releases"
     multi_job_run \
       'x-release amd64 ci-release' \
       'a-release arm64 ci-release'
+    ;;
+  release-publish)
+    # Spin up ec2 instance and run the actual publish flow. Gated in ci3.yml on ci + ci-compat-e2e.
+    export CI_DASHBOARD="releases"
+    export DENOISE=1
+    export DENOISE_WIDTH=32
+    run() {
+      PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh ci-release-publish'"
+    }
+    export -f run
+
+    parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
+      'run x-release-publish amd64' \
+      'run a-release-publish arm64' | DUP=1 cache_log "Release Publish CI run" $RUN_ID
     ;;
 
   ##################

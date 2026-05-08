@@ -12,11 +12,11 @@ import { ChainTipSchema } from './chain_tips.js';
  * means the most recent confirmed checkpoint).
  */
 export const CheckpointParameterSchema = z.union([
-  CheckpointNumberSchema,
+  z.object({ number: CheckpointNumberSchema }).strict(),
+  z.object({ slot: SlotNumberSchema }).strict(),
   ChainTipSchema,
   z.literal('latest'),
-  z.object({ number: CheckpointNumberSchema }),
-  z.object({ slot: SlotNumberSchema }),
+  CheckpointNumberSchema,
 ]);
 
 export type CheckpointParameter = z.infer<typeof CheckpointParameterSchema>;

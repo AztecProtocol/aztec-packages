@@ -9,9 +9,14 @@ import omit from 'lodash.omit';
 import type { ContractArtifact } from '../abi/abi.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { CheckpointedL2Block } from '../block/checkpointed_l2_block.js';
 import { type BlockData, BlockHash, CommitteeAttestation, L2Block } from '../block/index.js';
-import type { L2Tips } from '../block/l2_block_source.js';
+import {
+  type BlockQuery,
+  BlockQuerySchema,
+  type BlocksQuery,
+  BlocksQuerySchema,
+  type L2Tips,
+} from '../block/l2_block_source.js';
 import type { ValidateCheckpointResult } from '../block/validate_block_result.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
 import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
@@ -34,7 +39,6 @@ import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 import { randomTxScopedPrivateL2Log } from '../tests/factories.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -103,98 +107,12 @@ describe('ArchiverApiSchema', () => {
     expect(result).toEqual(BlockNumber(0));
   });
 
-  it('getBlock', async () => {
-    const result = await context.client.getBlock(BlockNumber(1));
-    expect(result).toBeInstanceOf(L2Block);
-  });
-
-  it('getBlockHeader', async () => {
-    const result = await context.client.getBlockHeader(BlockNumber(1));
-    expect(result).toBeInstanceOf(BlockHeader);
-  });
-
-  it('getBlockHeaderByArchive', async () => {
-    const result = await context.client.getBlockHeaderByArchive(Fr.random());
-    expect(result).toBeInstanceOf(BlockHeader);
-  });
-
-  it('getBlockData', async () => {
-    const result = await context.client.getBlockData(BlockNumber(1));
-    expect(result).toBeUndefined();
-  });
-
-  it('getBlockDataByArchive', async () => {
-    const result = await context.client.getBlockDataByArchive(Fr.random());
-    expect(result).toBeUndefined();
-  });
-
-  it('getBlockDataWithCheckpointContext', async () => {
-    const result = await context.client.getBlockDataWithCheckpointContext(BlockNumber(1));
-    expect(result).toBeUndefined();
-  });
-
-  it('getCheckpointData', async () => {
-    const result = await context.client.getCheckpointData(CheckpointNumber(1));
-    expect(result).toBeUndefined();
-  });
-
-  it('getCheckpointDataRange', async () => {
-    const result = await context.client.getCheckpointDataRange(CheckpointNumber(1), 1);
-    expect(result).toEqual([]);
-  });
-
-  it('getCheckpointNumberBySlot', async () => {
-    const result = await context.client.getCheckpointNumberBySlot(SlotNumber(1));
-    expect(result).toBeUndefined();
-  });
-
-  it('getBlockHeaderByHash', async () => {
-    const result = await context.client.getBlockHeaderByHash(BlockHash.random());
-    expect(result).toBeInstanceOf(BlockHeader);
-  });
-
-  it('getL2Block', async () => {
-    const result = await context.client.getL2Block(BlockNumber(1));
-    expect(result).toBeInstanceOf(L2Block);
-  });
-
-  it('getL2BlockByHash', async () => {
-    const result = await context.client.getL2BlockByHash(BlockHash.random());
-    expect(result).toBeInstanceOf(L2Block);
-  });
-
-  it('getL2BlockByArchive', async () => {
-    const result = await context.client.getL2BlockByArchive(Fr.random());
-    expect(result).toBeInstanceOf(L2Block);
-  });
-
-  it('getBlocks', async () => {
-    const result = await context.client.getBlocks(BlockNumber(1), BlockNumber(1));
-    expect(result).toEqual([expect.any(L2Block)]);
-  });
-
   it('getCheckpoints', async () => {
     const response = await context.client.getCheckpoints(CheckpointNumber(1), BlockNumber(1));
     expect(response).toHaveLength(1);
     expect(response[0].checkpoint.constructor.name).toEqual('Checkpoint');
     expect(response[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
     expect(response[0].l1).toBeDefined();
-  });
-
-  it('getCheckpointedBlockByArchive', async () => {
-    const result = await context.client.getCheckpointedBlockByArchive(Fr.random());
-    expect(result).toBeDefined();
-    expect(result!.block.constructor.name).toEqual('L2Block');
-    expect(result!.attestations[0]).toBeInstanceOf(CommitteeAttestation);
-    expect(result!.l1).toBeDefined();
-  });
-
-  it('getCheckpointedBlockByHash', async () => {
-    const result = await context.client.getCheckpointedBlockByHash(BlockHash.random());
-    expect(result).toBeDefined();
-    expect(result!.block.constructor.name).toEqual('L2Block');
-    expect(result!.attestations[0]).toBeInstanceOf(CommitteeAttestation);
-    expect(result!.l1).toBeDefined();
   });
 
   it('getTxEffect', async () => {
@@ -230,36 +148,9 @@ describe('ArchiverApiSchema', () => {
     expect(result[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
   });
 
-  it('getCheckpointedBlock', async () => {
-    const result = await context.client.getCheckpointedBlock(BlockNumber(1));
-    expect(result).toBeDefined();
-    expect(result!.block.constructor.name).toEqual('L2Block');
-    expect(result!.attestations[0]).toBeInstanceOf(CommitteeAttestation);
-    expect(result!.l1).toBeDefined();
-  });
-
-  it('getCheckpointedBlocks', async () => {
-    const result = await context.client.getCheckpointedBlocks(BlockNumber(1), 10);
-    expect(result).toHaveLength(1);
-    expect(result[0].block.constructor.name).toEqual('L2Block');
-    expect(result[0].attestations[0]).toBeInstanceOf(CommitteeAttestation);
-    expect(result[0].l1).toBeDefined();
-  });
-
-  it('getCheckpointedBlocksForEpoch', async () => {
-    const result = await context.client.getCheckpointedBlocksForEpoch(EpochNumber(1));
-    expect(result).toHaveLength(1);
-    expect(result[0]).toBeInstanceOf(CheckpointedL2Block);
-  });
-
   it('getBlocksForSlot', async () => {
     const result = await context.client.getBlocksForSlot(SlotNumber(1));
     expect(result).toEqual([expect.any(L2Block)]);
-  });
-
-  it('getCheckpointedBlockHeadersForEpoch', async () => {
-    const result = await context.client.getCheckpointedBlockHeadersForEpoch(EpochNumber(1));
-    expect(result).toEqual([expect.any(BlockHeader)]);
   });
 
   it('isEpochComplete', async () => {
@@ -416,14 +307,94 @@ describe('ArchiverApiSchema', () => {
     expect(result).toBe(false);
   });
 
+  it('getCheckpointData', async () => {
+    const result = await context.client.getCheckpointData(CheckpointNumber(1));
+    expect(result).toBeUndefined();
+  });
+
+  it('getCheckpointDataRange', async () => {
+    const result = await context.client.getCheckpointDataRange(CheckpointNumber(1), 10);
+    expect(result).toEqual([]);
+  });
+
+  it('getCheckpointNumberBySlot', async () => {
+    const result = await context.client.getCheckpointNumberBySlot(SlotNumber(1));
+    expect(result).toBeUndefined();
+  });
+
   it('getGenesisValues', async () => {
     const result = await context.client.getGenesisValues();
     expect(result).toEqual({ genesisArchiveRoot: expect.any(Fr) });
   });
 
-  it('getL2Block', async () => {
-    const result = await context.client.getL2Block(BlockNumber(1));
-    expect(result).toEqual(expect.any(L2Block));
+  it('getBlock', async () => {
+    const result = await context.client.getBlock({ number: BlockNumber(1) });
+    expect(result).toBeInstanceOf(L2Block);
+  });
+
+  it('getBlocks', async () => {
+    const result = await context.client.getBlocks({ from: BlockNumber(1), limit: 1 });
+    expect(result).toEqual([expect.any(L2Block)]);
+  });
+
+  it('getBlockData', async () => {
+    const result = await context.client.getBlockData({ number: BlockNumber(1) });
+    expect(result).toBeUndefined();
+  });
+
+  it('getBlocksData', async () => {
+    const result = await context.client.getBlocksData({ from: BlockNumber(1), limit: 1 });
+    expect(result).toEqual([]);
+  });
+});
+
+describe('BlockQuerySchema', () => {
+  it.each<[string, BlockQuery]>([
+    ['{ number }', { number: BlockNumber(1) }],
+    ['{ hash }', { hash: BlockHash.fromBuffer(Buffer.alloc(32, 1)) }],
+    ['{ archive }', { archive: new Fr(123) }],
+    ['{ tag: proposed }', { tag: 'proposed' }],
+    ['{ tag: checkpointed }', { tag: 'checkpointed' }],
+    ['{ tag: proven }', { tag: 'proven' }],
+    ['{ tag: finalized }', { tag: 'finalized' }],
+  ])('roundtrips %s', (_, query) => {
+    const json = JSON.parse(JSON.stringify(query));
+    const parsed = BlockQuerySchema.parse(json);
+    expect(parsed).toEqual(query);
+  });
+
+  it('rejects mixed-key inputs', () => {
+    expect(BlockQuerySchema.safeParse({ number: 1, tag: 'proven' }).success).toBe(false);
+    expect(BlockQuerySchema.safeParse({ hash: '0x1', archive: '0x2' }).success).toBe(false);
+  });
+
+  it('rejects extra keys (onlyCheckpointed is plural-only)', () => {
+    expect(BlockQuerySchema.safeParse({ number: 1, onlyCheckpointed: true }).success).toBe(false);
+    expect(BlockQuerySchema.safeParse({ tag: 'checkpointed', onlyCheckpointed: true }).success).toBe(false);
+  });
+});
+
+describe('BlocksQuerySchema', () => {
+  it.each<[string, BlocksQuery]>([
+    ['{ from, limit }', { from: BlockNumber(1), limit: 10 }],
+    ['{ from, limit, onlyCheckpointed }', { from: BlockNumber(1), limit: 10, onlyCheckpointed: true }],
+    ['{ epoch, onlyCheckpointed: true }', { epoch: EpochNumber(5), onlyCheckpointed: true }],
+  ])('roundtrips %s', (_, query) => {
+    const json = JSON.parse(JSON.stringify(query));
+    const parsed = BlocksQuerySchema.parse(json);
+    expect(parsed).toEqual(query);
+  });
+
+  it('rejects mixed-key inputs', () => {
+    expect(BlocksQuerySchema.safeParse({ from: 0, limit: 10, epoch: 5 }).success).toBe(false);
+  });
+
+  it('rejects epoch query without onlyCheckpointed', () => {
+    expect(BlocksQuerySchema.safeParse({ epoch: 1 }).success).toBe(false);
+  });
+
+  it('rejects epoch query with onlyCheckpointed: false', () => {
+    expect(BlocksQuerySchema.safeParse({ epoch: 1, onlyCheckpointed: false }).success).toBe(false);
   });
 });
 
@@ -463,7 +434,9 @@ class MockArchiver implements ArchiverApi {
   getRegistryAddress(): Promise<EthAddress> {
     return Promise.resolve(EthAddress.random());
   }
-  getBlockNumber(): Promise<BlockNumber> {
+  getBlockNumber(): Promise<BlockNumber>;
+  getBlockNumber(query: BlockQuery): Promise<BlockNumber | undefined>;
+  getBlockNumber(_query?: BlockQuery): Promise<BlockNumber | undefined> {
     return Promise.resolve(BlockNumber(1));
   }
   getProvenBlockNumber(): Promise<BlockNumber> {
@@ -478,34 +451,17 @@ class MockArchiver implements ArchiverApi {
   getFinalizedL2BlockNumber(): Promise<BlockNumber> {
     return Promise.resolve(BlockNumber(0));
   }
-  getBlock(number: BlockNumber): Promise<L2Block | undefined> {
-    return L2Block.random(number);
+  getBlock(_query: BlockQuery): Promise<L2Block | undefined> {
+    return L2Block.random(BlockNumber(1));
   }
-  getBlockHeader(_number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
-    return Promise.resolve(BlockHeader.empty());
+  async getBlocks(_query: BlocksQuery): Promise<L2Block[]> {
+    return [await L2Block.random(BlockNumber(1))];
   }
-  async getCheckpointedBlock(number: BlockNumber): Promise<CheckpointedL2Block | undefined> {
-    return Promise.resolve(
-      CheckpointedL2Block.fromFields({
-        checkpointNumber: CheckpointNumber(1),
-        block: await L2Block.random(number),
-        attestations: [CommitteeAttestation.random()],
-        l1: new L1PublishedData(1n, 0n, `0x`),
-      }),
-    );
+  getBlockData(_query: BlockQuery): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
   }
-  async getCheckpointedBlocks(from: BlockNumber, _limit: number): Promise<CheckpointedL2Block[]> {
-    return [
-      CheckpointedL2Block.fromFields({
-        checkpointNumber: CheckpointNumber(1),
-        block: await L2Block.random(from),
-        attestations: [CommitteeAttestation.random()],
-        l1: new L1PublishedData(1n, 0n, `0x`),
-      }),
-    ];
-  }
-  async getBlocks(from: BlockNumber, _limit: number): Promise<L2Block[]> {
-    return [await L2Block.random(from)];
+  getBlocksData(_query: BlocksQuery): Promise<BlockData[]> {
+    return Promise.resolve([]);
   }
   async getCheckpoints(from: CheckpointNumber, _limit: number): Promise<PublishedCheckpoint[]> {
     return [
@@ -515,47 +471,6 @@ class MockArchiver implements ArchiverApi {
         l1: new L1PublishedData(1n, 0n, `0x`),
       }),
     ];
-  }
-  getCheckpointByArchive(_archive: Fr): Promise<Checkpoint | undefined> {
-    return Promise.resolve(Checkpoint.random());
-  }
-
-  async getCheckpointedBlockByHash(_blockHash: BlockHash): Promise<CheckpointedL2Block | undefined> {
-    return CheckpointedL2Block.fromFields({
-      checkpointNumber: CheckpointNumber(1),
-      block: await L2Block.random(BlockNumber(1)),
-      attestations: [CommitteeAttestation.random()],
-      l1: new L1PublishedData(1n, 0n, `0x`),
-    });
-  }
-  async getCheckpointedBlockByArchive(_archive: Fr): Promise<CheckpointedL2Block | undefined> {
-    return CheckpointedL2Block.fromFields({
-      checkpointNumber: CheckpointNumber(1),
-      block: await L2Block.random(BlockNumber(1)),
-      attestations: [CommitteeAttestation.random()],
-      l1: new L1PublishedData(1n, 0n, `0x`),
-    });
-  }
-  getBlockHeaderByHash(_blockHash: BlockHash): Promise<BlockHeader | undefined> {
-    return Promise.resolve(BlockHeader.empty());
-  }
-  getBlockHeaderByArchive(_archive: Fr): Promise<BlockHeader | undefined> {
-    return Promise.resolve(BlockHeader.empty());
-  }
-  getBlockData(_number: BlockNumber): Promise<BlockData | undefined> {
-    return Promise.resolve(undefined);
-  }
-  getBlockDataByArchive(_archive: Fr): Promise<BlockData | undefined> {
-    return Promise.resolve(undefined);
-  }
-  getL2Block(number: BlockNumber): Promise<L2Block | undefined> {
-    return L2Block.random(number);
-  }
-  getL2BlockByHash(_blockHash: BlockHash): Promise<L2Block | undefined> {
-    return L2Block.random(BlockNumber(1));
-  }
-  getL2BlockByArchive(_archive: Fr): Promise<L2Block | undefined> {
-    return L2Block.random(BlockNumber(1));
   }
   async getTxEffect(_txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
@@ -606,29 +521,9 @@ class MockArchiver implements ArchiverApi {
   getCheckpointNumberBySlot(_slot: SlotNumber): Promise<CheckpointNumber | undefined> {
     return Promise.resolve(undefined);
   }
-  getBlockDataWithCheckpointContext(_n: BlockNumber) {
-    return Promise.resolve(undefined);
-  }
-  async getCheckpointedBlocksForEpoch(epochNumber: EpochNumber): Promise<CheckpointedL2Block[]> {
-    expect(epochNumber).toEqual(EpochNumber(1));
-    const block = await L2Block.random(BlockNumber(Number(epochNumber)));
-    return [
-      CheckpointedL2Block.fromFields({
-        checkpointNumber: CheckpointNumber(1),
-        block,
-        l1: new L1PublishedData(1n, 1n, `0x01`),
-        attestations: [CommitteeAttestation.random()],
-      }),
-    ];
-  }
   async getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]> {
     expect(slotNumber).toEqual(SlotNumber(1));
     return [await L2Block.random(BlockNumber(Number(slotNumber)))];
-  }
-  async getCheckpointedBlockHeadersForEpoch(epochNumber: EpochNumber): Promise<BlockHeader[]> {
-    expect(epochNumber).toEqual(EpochNumber(1));
-    const block = await L2Block.random(BlockNumber(Number(epochNumber)));
-    return [block.header];
   }
   isEpochComplete(epochNumber: EpochNumber): Promise<boolean> {
     expect(epochNumber).toEqual(EpochNumber(1));

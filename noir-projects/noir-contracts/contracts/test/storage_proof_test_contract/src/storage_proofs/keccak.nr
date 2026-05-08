@@ -16,12 +16,7 @@ pub struct KeccakHasher {
 
 impl KeccakHasher {
     pub fn new() -> Self {
-        Self {
-            state: [0; NUM_KECCAK_LANES],
-            limb_index_to_write: 0,
-            current_limb: 0,
-            current_limb_shift: 0,
-        }
+        Self { state: [0; NUM_KECCAK_LANES], limb_index_to_write: 0, current_limb: 0, current_limb_shift: 0 }
     }
 
     pub fn hash_bytes<let N: u32>(bytes: [u8; N], length: u32) -> [u8; 32] {
@@ -69,8 +64,7 @@ impl KeccakHasher {
 
     #[inline_always]
     fn finish_limb(&mut self) {
-        self.state[self.limb_index_to_write] =
-            self.state[self.limb_index_to_write] ^ self.current_limb;
+        self.state[self.limb_index_to_write] = self.state[self.limb_index_to_write] ^ self.current_limb;
         self.current_limb_shift = 0;
         self.current_limb = 0;
         if self.limb_index_to_write == (LIMBS_PER_BLOCK - 1) {
@@ -88,8 +82,8 @@ impl KeccakHasher {
 
     #[inline_always]
     fn apply_padding(&mut self) {
-        self.state[self.limb_index_to_write] = self.state[self.limb_index_to_write]
-            ^ (self.current_limb + (0x01 << self.current_limb_shift));
+        self.state[self.limb_index_to_write] =
+            self.state[self.limb_index_to_write] ^ (self.current_limb + (0x01 << self.current_limb_shift));
         self.state[LIMBS_PER_BLOCK - 1] = self.state[LIMBS_PER_BLOCK - 1] ^ (0x80 << 56);
     }
 

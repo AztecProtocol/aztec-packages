@@ -70,6 +70,12 @@ variable "SLACK_WEBHOOK_MAINNET_SECRET_NAME" {
   default     = "slack-webhook-mainnet-url"
 }
 
+variable "SLACK_ALERT_MENTION_USER_IDS" {
+  description = "Optional Slack user IDs to mention on Grafana alert notifications."
+  type        = list(string)
+  default     = ["U0AHB6VR8N5"]
+}
+
 variable "project" {
   default = "testnet-440309"
   type    = string

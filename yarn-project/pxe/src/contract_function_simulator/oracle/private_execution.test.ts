@@ -1,4 +1,4 @@
-import { DomainSeparator, NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
@@ -173,7 +173,7 @@ describe('Private Execution test suite', () => {
     anchorBlockHeader,
     args = [],
     /** Notice that we're defaulting to the "null" msg_sender, which many public functions will fail to unwrap, and will revert. */
-    msgSender = AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS),
+    msgSender = AztecAddress.NULL_MSG_SENDER,
     contractAddress = undefined,
     txContext = {},
   }: {

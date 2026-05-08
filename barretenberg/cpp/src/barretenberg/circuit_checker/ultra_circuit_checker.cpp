@@ -262,7 +262,9 @@ template <typename Builder> bool UltraCircuitChecker::check_databus_read(auto& v
         auto value = values.w_l;
 
         // Map bus_idx → wire-linear selector on the values struct (mirrors BusData<i>::selector in the relation).
-        const std::array<const FF*, NUM_BUS_COLUMNS> bus_selectors{ &values.q_l, &values.q_r, &values.q_o };
+        const std::array<const FF*, NUM_BUS_COLUMNS> bus_selectors{
+            &values.q_l, &values.q_r, &values.q_o, &values.q_4, &values.q_m
+        };
 
         // Locate the bus column being read (exactly one selector should be active on a busread row) and look up the
         // expected value from the builder's bus vector.

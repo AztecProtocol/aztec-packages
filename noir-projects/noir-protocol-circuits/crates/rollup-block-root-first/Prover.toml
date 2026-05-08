@@ -1130,7 +1130,7 @@ new_archive_sibling_path = [
 
           [inputs.previous_rollups.public_inputs.constants.global_variables.gas_fees]
           fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
-          fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000078b64a540"
+          fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000078c3bcb60"
 
 [inputs.previous_rollups.public_inputs.start_tree_snapshots.note_hash_tree]
 root = "0x2f4943930ba28423f07776aac53735526f00d43a81de7b2b63136bfb77289869"
@@ -1842,7 +1842,7 @@ next_available_leaf_index = "0x0000000000000000000000000000000000000000000000000
 
           [inputs.previous_rollups.public_inputs.constants.global_variables.gas_fees]
           fee_per_da_gas = "0x0000000000000000000000000000000000000000000000000000000000000000"
-          fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000078b64a540"
+          fee_per_l2_gas = "0x000000000000000000000000000000000000000000000000000000078c3bcb60"
 
 [inputs.previous_rollups.public_inputs.start_tree_snapshots.note_hash_tree]
 root = "0x1334e80a275228afe2a406ea3ef2c90e152484573b86b772fe75c537ca0b030f"

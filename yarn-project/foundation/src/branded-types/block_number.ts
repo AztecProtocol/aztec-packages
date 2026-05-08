@@ -98,9 +98,27 @@ BlockNumber.add = function (bn: BlockNumber, increment: number): BlockNumber {
 BlockNumber.ZERO = BlockNumber(0);
 
 function makeBlockNumberSchema(minValue: number) {
+  const max = Number.MAX_SAFE_INTEGER;
   return z
-    .union([z.number(), z.bigint(), z.string()])
-    .pipe(z.coerce.number().int().min(minValue))
+    .union([
+      z.number().int().min(minValue).max(max),
+      z
+        .bigint()
+        .min(BigInt(minValue))
+        .max(BigInt(max))
+        .transform(v => Number(v)),
+      z
+        .string()
+        .regex(/^\d+$/, 'BlockNumber string must be a non-negative decimal integer')
+        .transform((v, ctx) => {
+          const parsed = Number(v);
+          if (!Number.isInteger(parsed) || parsed > max || parsed < minValue) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: `BlockNumber out of range: ${v}` });
+            return z.NEVER;
+          }
+          return parsed;
+        }),
+    ])
     .transform(value => BlockNumber(value));
 }
 

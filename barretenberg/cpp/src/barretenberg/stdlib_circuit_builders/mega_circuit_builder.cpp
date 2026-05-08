@@ -245,9 +245,9 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
     block.q_1().emplace_back(idx == 0 ? 1 : 0);
     block.q_2().emplace_back(idx == 1 ? 1 : 0);
     block.q_3().emplace_back(idx == 2 ? 1 : 0);
-    block.q_4().emplace_back(0);
+    block.q_4().emplace_back(idx == 3 ? 1 : 0);
     block.q_5().emplace_back(0);
-    block.q_m().emplace_back(0);
+    block.q_m().emplace_back(idx == 4 ? 1 : 0);
     block.q_c().emplace_back(0);
     block.set_gate_selector(1);
 }

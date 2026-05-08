@@ -53,9 +53,11 @@ diff="$({
 # Check for uncommitted files/changes.
 # Only use this check if AZTEC_CACHE_COMMIT is the default, otherwise the user is being explicit about using git history.
 if [ -n "$diff" ] && [ "$AZTEC_CACHE_COMMIT" == "HEAD" ]; then
-  # Fail. We shouldn't be changing files during the CI run.
+  # In CI we shouldn't be changing files during the run, so a 'disabled-cache' content hash here
+  # means something is wrong — fail loudly instead of silently disabling the cache.
   if [ "$CI" -eq 1 ]; then
-    echo_stderr "WARNING: Noticed changes to rebuild patterns: $diff"
+    echo_stderr "ERROR: Noticed changes to rebuild patterns during CI run: $diff"
+    exit 1
   fi
   # Signal to cache_upload and cache_download to not touch this file.
   echo "disabled-cache"

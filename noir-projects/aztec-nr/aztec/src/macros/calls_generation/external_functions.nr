@@ -2,8 +2,8 @@ use crate::macros::{
     calls_generation::external_functions_stubs::{
         create_private_self_call_stub, create_private_static_stub, create_private_stub,
         create_public_self_call_static_stub, create_public_self_call_stub, create_public_self_enqueue_static_stub,
-        create_public_self_enqueue_stub, create_public_static_stub, create_public_stub, create_utility_stub,
-        create_utility_stub_from_parts,
+        create_public_self_enqueue_stub, create_public_static_stub, create_public_stub, create_utility_self_call_stub,
+        create_utility_stub, create_utility_stub_from_parts,
     },
     internals_functions_generation::external_functions_registry,
     offchain_receive::{
@@ -77,6 +77,7 @@ comptime fn create_offchain_receive_stub() -> Quoted {
 pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) -> Quoted {
     let private_functions = external_functions_registry::get_private_functions(m);
     let public_functions = external_functions_registry::get_public_functions(m);
+    let utility_functions = external_functions_registry::get_utility_functions(m);
 
     let call_self_private_methods = private_functions
         .map(|function| {
@@ -138,6 +139,9 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
         })
         .join(quote {});
 
+    let call_self_utility_methods =
+        utility_functions.map(|function| create_utility_self_call_stub(function)).join(quote {});
+
     quote {
         pub struct CallSelf<Context> {
             pub address: aztec::protocol::address::AztecAddress,
@@ -181,6 +185,14 @@ pub(crate) comptime fn generate_external_function_self_calls_structs(m: Module) 
 
         impl EnqueueSelfStatic<&mut aztec::context::PrivateContext> {
             $enqueue_self_static_methods
+        }
+
+        pub struct CallSelfUtility {
+            pub address: aztec::protocol::address::AztecAddress,
+        }
+
+        impl CallSelfUtility {
+            $call_self_utility_methods
         }
     }
 }
