@@ -29,6 +29,7 @@ PKG_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 
 LOCAL_DMTS="$PKG_ROOT/vendor/jswasm/sqlite3-bundler-friendly.d.mts"
 LOCAL_GITIGNORE="$PKG_ROOT/vendor/jswasm/.gitignore"
+LOCAL_NPMIGNORE="$PKG_ROOT/vendor/jswasm/.npmignore"
 SHA256SUMS="$PKG_ROOT/vendor/jswasm/SHA256SUMS"
 PIN_FILE="$SCRIPT_DIR/vendor.pin"
 
@@ -100,6 +101,7 @@ fi
 # Preserve files that aren't part of the upstream release across re-vendoring:
 #   - sqlite3-bundler-friendly.d.mts: locally-authored TypeScript declaration
 #   - .gitignore: allowlist that keeps upstream artifacts untracked
+#   - .npmignore: shadows .gitignore so npm publish keeps the artifacts
 DMTS_BACKUP=""
 if [[ -f "$LOCAL_DMTS" ]]; then
   DMTS_BACKUP=$(mktemp)
@@ -109,6 +111,11 @@ GITIGNORE_BACKUP=""
 if [[ -f "$LOCAL_GITIGNORE" ]]; then
   GITIGNORE_BACKUP=$(mktemp)
   cp "$LOCAL_GITIGNORE" "$GITIGNORE_BACKUP"
+fi
+NPMIGNORE_BACKUP=""
+if [[ -f "$LOCAL_NPMIGNORE" ]]; then
+  NPMIGNORE_BACKUP=$(mktemp)
+  cp "$LOCAL_NPMIGNORE" "$NPMIGNORE_BACKUP"
 fi
 
 echo "==> Replacing vendor/jswasm/ with pristine upstream files"
@@ -126,6 +133,11 @@ if [[ -n "$GITIGNORE_BACKUP" ]]; then
   cp "$GITIGNORE_BACKUP" "$LOCAL_GITIGNORE"
   rm "$GITIGNORE_BACKUP"
   echo "==> Restored .gitignore"
+fi
+if [[ -n "$NPMIGNORE_BACKUP" ]]; then
+  cp "$NPMIGNORE_BACKUP" "$LOCAL_NPMIGNORE"
+  rm "$NPMIGNORE_BACKUP"
+  echo "==> Restored .npmignore"
 fi
 
 echo "==> Generating vendor/jswasm/SHA256SUMS"
