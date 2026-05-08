@@ -18,14 +18,15 @@ export { getPackageInfo } from './package_info.js';
 export type MaxBatchSize = 1 | 2 | 3;
 
 /**
- * Reads `PXE_KERNEL_BATCH_SIZE` and returns a valid `MaxBatchSize`. Defaults to 1 (current
- * single-app-per-kernel behaviour) when unset. Throws on values outside {1, 2, 3} so a
- * misconfigured environment fails fast.
+ * Reads `PXE_KERNEL_BATCH_SIZE` and returns a valid `MaxBatchSize`. Defaults to 3 (greedy
+ * batching up to three apps per kernel) when unset. Set to 1 to fall back to the legacy
+ * single-app-per-kernel behaviour. Throws on values outside {1, 2, 3} so a misconfigured
+ * environment fails fast.
  */
 export function parseKernelBatchSize(): MaxBatchSize {
   const raw = process.env.PXE_KERNEL_BATCH_SIZE;
   if (raw === undefined || raw === '') {
-    return 1;
+    return 3;
   }
   const parsed = Number(raw);
   if (parsed !== 1 && parsed !== 2 && parsed !== 3) {
