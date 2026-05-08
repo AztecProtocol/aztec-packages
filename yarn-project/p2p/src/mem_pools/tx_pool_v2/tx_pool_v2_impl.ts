@@ -141,9 +141,6 @@ export class TxPoolV2Impl {
     await this.#deletedPool.hydrateFromDatabase();
 
     // Step 1: Stream txs from DB, building metadata and mined status one at a time.
-    // We never hold more than a single full Tx in memory at once (Tx objects can be MBs
-    // with proof data; at 10 TPS the DB may contain 20k+ entries which would OOM the node
-    // if accumulated into a `loaded[]` array up front).
     const minedMetas: TxMetaData[] = [];
     const pendingMetas: TxMetaData[] = [];
     const deserializationErrors: string[] = [];
@@ -155,27 +152,34 @@ export class TxPoolV2Impl {
       }
 
       let meta: TxMetaData;
+      let txEffect: Awaited<ReturnType<L2BlockSource['getTxEffect']>>;
       try {
         const tx = Tx.fromBuffer(buffer);
-        const allowedSetupCalls = await this.#checkAllowedSetupCalls(tx);
+        // Resolve allowed-setup-calls and the tx effect concurrently — both are I/O against
+        // independent sources, so overlapping them roughly halves per-tx hydration latency.
+        // getTxEffect failures are non-fatal (we just treat the tx as not-yet-mined), so
+        // its rejection is swallowed before the Promise.all so it can't fail-fast the batch.
+        const txEffectPromise = this.#l2BlockSource.getTxEffect(tx.getTxHash()).catch(err => {
+          this.#log.warn(`Failed to check mined status for tx ${txHashStr}`, { err });
+          return undefined;
+        });
+        const [allowedSetupCalls, fetchedTxEffect] = await Promise.all([
+          this.#checkAllowedSetupCalls(tx),
+          txEffectPromise,
+        ]);
         meta = await buildTxMetaData(tx, allowedSetupCalls);
+        txEffect = fetchedTxEffect;
       } catch (err) {
         this.#log.warn(`Failed to deserialize tx ${txHashStr}, deleting`, { err });
         deserializationErrors.push(txHashStr);
         continue;
       }
 
-      // Check mined status while we still have the tx in scope
-      try {
-        const txEffect = await this.#l2BlockSource.getTxEffect(TxHash.fromString(meta.txHash));
-        if (txEffect) {
-          meta.minedL2BlockId = {
-            number: txEffect.l2BlockNumber,
-            hash: txEffect.l2BlockHash.toString(),
-          };
-        }
-      } catch (err) {
-        this.#log.warn(`Failed to check mined status for tx ${meta.txHash}`, { err });
+      if (txEffect) {
+        meta.minedL2BlockId = {
+          number: txEffect.l2BlockNumber,
+          hash: txEffect.l2BlockHash.toString(),
+        };
       }
 
       if (meta.minedL2BlockId !== undefined) {
