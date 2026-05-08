@@ -133,43 +133,6 @@ function compile {
 }
 export -f compile
 
-# Recompute auth_registry_contract source content hash and compare against the value stamped into
-# noir-projects/aztec-nr/auth_registry_address/lib.lock.json. Mismatch means the address+classId
-# emitted into auth_registry_address are stale relative to the source — every consumer would then
-# compile against the wrong constants. We exit 1 with the exact remediation; we never silently
-# proceed.
-function auth_registry_freshness_check {
-  local lock=../../noir-projects/aztec-nr/auth_registry_address/lib.lock.json
-  local src_dir=../../noir-projects/noir-contracts/contracts/protocol/auth_registry_contract/src
-  if [ ! -f "$lock" ]; then
-    return 0
-  fi
-  local stamped=$(jq -r '.srcContentHash // empty' "$lock")
-  if [ -z "$stamped" ] || [ "$stamped" = "0x0" ]; then
-    return 0
-  fi
-  local current="0x$(find "$src_dir" -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | awk '{print $1}')"
-  if [ "$stamped" != "$current" ]; then
-    echo_stderr "auth_registry source has changed since the address was last regenerated."
-    echo_stderr "  expected srcContentHash: $stamped"
-    echo_stderr "  observed srcContentHash: $current"
-    echo_stderr "Run \`./bootstrap.sh regen-auth-registry-address\` from noir-projects/, then retry."
-    exit 1
-  fi
-}
-export -f auth_registry_freshness_check
-
-# Recompile auth_registry_contract (phase 1) and run the stamp script that regenerates
-# noir-projects/aztec-nr/auth_registry_address/{src/lib.nr,lib.lock.json} plus its TypeScript twin.
-# Idempotent: byte-identical inputs produce byte-identical outputs.
-function regen_auth_registry_address {
-  local folder_name=${1:-contracts}
-  echo_stderr "Phase 1: compiling auth_registry_contract..."
-  parallel $PARALLEL_FLAGS --joblog joblog-auth-registry.txt -v --line-buffer --tag compile {} $folder_name ::: protocol/auth_registry_contract
-  echo_stderr "Stamp: deriving auth_registry address from artifact..."
-  (cd $root/yarn-project/protocol-contracts && yarn generate:auth-registry-address)
-}
-
 # If given an argument, it's the contract to compile.
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
@@ -183,15 +146,8 @@ function build {
 
   if [ "$#" -eq 0 ]; then
     rm -rf target
-    local all_contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
-    if [ "$folder_name" = "contracts" ]; then
-      regen_auth_registry_address "$folder_name"
-      local contracts=$(echo "$all_contracts" | grep -vE '(^|/)auth_registry_contract$')
-    else
-      local contracts="$all_contracts"
-    fi
+    local contracts=$(grep -oP "(?<=$folder_name/)[^\"]+" Nargo.toml)
   else
-    auth_registry_freshness_check
     local contracts="$@"
   fi
   set +e
@@ -276,13 +232,6 @@ case "$cmd" in
     ;;
   "compile")
     VERBOSE=${VERBOSE:-1} build "$@"
-    ;;
-  "regen-auth-registry-address")
-    folder_name="contracts"
-    if [ -n "${DOCS_WORKING_DIR:-}" ]; then
-      folder_name="examples"
-    fi
-    regen_auth_registry_address "$folder_name"
     ;;
   *)
     default_cmd_handler "$@"

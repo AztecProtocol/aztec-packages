@@ -1,6 +1,6 @@
 {
-  "_comment": "GENERATED FILE - DO NOT EDIT. Written by noir-projects/scripts/derive_auth_registry.ts. Re-run noir-projects/bootstrap.sh after editing auth_registry_contract source.",
-  "address": "0x0",
+  "_comment": "Address used by the auth_registry_address crate. While auth_registry remains a protocol contract this is the magic slot-1 address; once it is demoted, yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts overwrites this file with the artifact-derived values.",
+  "address": "0x0000000000000000000000000000000000000000000000000000000000000001",
   "classId": "0x0",
   "artifactHash": "0x0",
   "srcContentHash": "0x0"
