@@ -121,7 +121,7 @@ jobs:
           if [ -n "${SLACK_BOT_TOKEN}" ]; then
             read -r -d '' data <<EOF || true
             {
-              "channel": "#team-alpha",
+              "channel": "#backports",
               "text": "CI3 failed on backport PR: <${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }} - ${{ github.event.pull_request.title }}>\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>"
             }
           EOF
