@@ -242,8 +242,10 @@ class PrivateFunctionExecutionMockCircuitProducer {
                                       "Trailing kernel circuit size has exceeded expected bound (should be <= 2^16).");
                         vinfo("Log number of gates in a trailing kernel circuit is: ", log2_dyadic_size);
                     } else {
+                        const bool is_init_kernel = circuit_counter == 2;
+                        const size_t expected_log2_dyadic_size = is_init_kernel ? 17UL : 18UL;
                         BB_ASSERT_EQ(log2_dyadic_size,
-                                     18UL,
+                                     expected_log2_dyadic_size,
                                      "There has been a change in the number of gates of a mock kernel circuit.");
                     }
                 } else {

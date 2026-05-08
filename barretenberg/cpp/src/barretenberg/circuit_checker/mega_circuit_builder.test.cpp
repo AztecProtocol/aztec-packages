@@ -165,8 +165,8 @@ TEST(MegaCircuitBuilder, GoblinEccOpQueueUltraOps)
 
 /**
  * @brief Check that the selector partitioning is correct for the mega circuit builder
- * @details We check that for the arithmetic, delta_range, elliptic, memory, nnf, lookup, busread, poseidon2_external,
- * poseidon2_internal blocks, and the other selectors are zero on that block.
+ * @details We check that for the arithmetic, delta_range, elliptic, memory, nnf, lookup, busread, poseidon2_external
+ * blocks, and the other selectors are zero on that block.
  */
 TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
 {
@@ -203,8 +203,12 @@ TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
             if (&block != &builder.blocks.poseidon2_external) {
                 EXPECT_EQ(block.q_poseidon2_external()[i], 0);
             }
-            if (&block != &builder.blocks.poseidon2_internal) {
-                EXPECT_EQ(block.q_poseidon2_internal()[i], 0);
+            // The Mega compressed Poseidon2 relations are selected only inside `poseidon2_quad_internal`;
+            // all three selectors must be zero on every other block.
+            if (&block != &builder.blocks.poseidon2_quad_internal) {
+                EXPECT_EQ(block.q_poseidon2_quad_internal()[i], 0);
+                EXPECT_EQ(block.q_poseidon2_quad_internal_terminal()[i], 0);
+                EXPECT_EQ(block.q_poseidon2_transition_entry()[i], 0);
             }
         }
     }
@@ -272,7 +276,6 @@ TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
     EXPECT_EQ(builder.blocks.memory.size(), 0);
     EXPECT_EQ(builder.blocks.nnf.size(), 0);
     EXPECT_EQ(builder.blocks.poseidon2_external.size(), 0);
-    EXPECT_EQ(builder.blocks.poseidon2_internal.size(), 0);
     EXPECT_EQ(builder.get_calldata(BusId::KERNEL_CALLDATA).size(), 0);
     EXPECT_EQ(builder.get_calldata(BusId::APP_CALLDATA).size(), 0);
     EXPECT_EQ(builder.get_return_data().size(), 0);
