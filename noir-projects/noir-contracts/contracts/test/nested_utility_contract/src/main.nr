@@ -3,6 +3,8 @@
 
 use aztec::macros::aztec;
 
+mod test;
+
 #[aztec]
 pub contract NestedUtility {
     use aztec::macros::functions::external;
@@ -40,5 +42,3 @@ pub contract NestedUtility {
         }
     }
 }
-
-mod test;
