@@ -40,7 +40,6 @@ import {
 import type { WaitOpts } from './wait_opts.js';
 
 /**
-<<<<<<< HEAD
  * Wait options specific to deployment transactions.
  * Extends WaitOpts with a flag to return the full receipt instead of just the contract.
  */
@@ -56,7 +55,8 @@ export type DeployWaitOptions = WaitOpts & {
  * - undefined: Wait with default options
  */
 export type DeployInteractionWaitOptions = NoWait | DeployWaitOptions | undefined;
-=======
+
+/**
  * Inputs that determine the contract's deployment address.
  *
  * `salt` and `publicKeys` are optional and default to a random Fr and `PublicKeys.default()` respectively.
@@ -86,7 +86,6 @@ export type DeployInstantiationOptions = {
   /** Public keys mixed into the address. Defaults to PublicKeys.default(). */
   publicKeys?: PublicKeys;
 };
->>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
 
 /**
  * Options for deploying a contract on the Aztec network.
@@ -441,13 +440,8 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * Send a contract deployment transaction (initialize and/or publish) using the provided options.
    * By default, waits for the transaction to be mined and returns the deployed contract instance.
    *
-<<<<<<< HEAD
-   * @param options - An object containing various deployment options such as contractAddressSalt and from.
-   * @returns TxHash (if wait is NO_WAIT), TContract (if wait is undefined or doesn't have returnReceipt), or DeployTxReceipt (if wait.returnReceipt is true)
-=======
    * @param options - An object containing various deployment options such as `from` and `fee`.
-   * @returns TxHash (if wait is NO_WAIT), or DeployResultMined with contract, receipt, and instance (otherwise)
->>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
+   * @returns TxHash (if wait is NO_WAIT), TContract (if wait is undefined or doesn't have returnReceipt), or DeployTxReceipt (if wait.returnReceipt is true)
    */
   // Overload for when wait is not specified at all - returns the contract
   public override send(options: DeployOptionsWithoutWait): Promise<DeployResultMined<TContract>>;

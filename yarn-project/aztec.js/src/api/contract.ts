@@ -75,12 +75,9 @@ export {
   type DeployOptions,
   type DeployResultMined,
   type DeployReturn,
-<<<<<<< HEAD
   type DeployTxReceipt,
   type DeployWaitOptions,
   type DeployInteractionWaitOptions,
-=======
->>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
   DeployMethod,
   type RequestDeployOptions,
   type SimulateDeployOptions,

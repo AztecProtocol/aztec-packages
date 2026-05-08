@@ -35,19 +35,11 @@ describe('e2e_deploy_contract legacy', () => {
       salt,
       deployer: defaultAccountAddress,
     });
-<<<<<<< HEAD
-    const deployer = new ContractDeployer(TestContractArtifact, wallet);
-    const { receipt } = await deployer
-      .deploy()
-      .send({ from: defaultAccountAddress, contractAddressSalt: salt, wait: { returnReceipt: true } });
-    expect(receipt.contract.address).toEqual(deploymentData.address);
-=======
     const contractDeployer = new ContractDeployer(TestContractArtifact, wallet);
     const { contract } = await contractDeployer
       .deploy([], { salt, deployer: defaultAccountAddress })
       .send({ from: defaultAccountAddress });
     expect(contract.address).toEqual(deploymentData.address);
->>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
     const { instance, isContractPublished } = await wallet.getContractMetadata(deploymentData.address);
     expect(instance).toBeDefined();
     expect(isContractPublished).toBe(true);
@@ -73,17 +65,11 @@ describe('e2e_deploy_contract legacy', () => {
 
     for (let index = 0; index < 2; index++) {
       logger.info(`Deploying contract ${index + 1}...`);
-<<<<<<< HEAD
-      const { receipt } = await deployer
-        .deploy()
-        .send({ from: defaultAccountAddress, contractAddressSalt: Fr.random(), wait: { returnReceipt: true } });
-=======
       const { contract: deployed } = await contractDeployer
         .deploy([], { salt: Fr.random() })
         .send({ from: defaultAccountAddress });
->>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
       logger.info(`Sending TX to contract ${index + 1}...`);
-      await receipt.contract.methods
+      await deployed.methods
         .get_master_incoming_viewing_public_key(defaultAccountAddress)
         .send({ from: defaultAccountAddress });
     }

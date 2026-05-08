@@ -113,17 +113,9 @@ describe('e2e_multi_validator_node', () => {
     const deployer = new ContractDeployer(artifact, wallet);
 
     logger.info(`Deploying contract from ${ownerAddress}`);
-<<<<<<< HEAD
-    const { receipt: tx } = await deployer.deploy(ownerAddress, 1).send({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
-      wait: { returnReceipt: true },
-    });
-=======
     const { receipt: tx } = await deployer
       .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
-      .send({ from: ownerAddress });
->>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
+      .send({ from: ownerAddress, wait: { returnReceipt: true } });
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
@@ -178,17 +170,9 @@ describe('e2e_multi_validator_node', () => {
     // new aztec transaction
     logger.info(`Deploying contract from ${ownerAddress}`);
     const deployer = new ContractDeployer(artifact, wallet);
-<<<<<<< HEAD
-    const { receipt: tx } = await deployer.deploy(ownerAddress, 1).send({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
-      wait: { returnReceipt: true },
-    });
-=======
     const { receipt: tx } = await deployer
       .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
-      .send({ from: ownerAddress });
->>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
+      .send({ from: ownerAddress, wait: { returnReceipt: true } });
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });

@@ -193,11 +193,7 @@ describe('e2e_fees account_init', () => {
         skipClassPublication: true,
         skipInstancePublication: true,
         skipInitialization: false,
-<<<<<<< HEAD
-        universalDeploy: true,
         wait: { returnReceipt: true },
-=======
->>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
       });
 
       // alice paid in Fee Juice

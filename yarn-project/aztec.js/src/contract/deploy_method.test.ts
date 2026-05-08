@@ -15,45 +15,6 @@ import { NO_FROM } from './interaction_options.js';
 describe('DeployMethod', () => {
   let wallet: MockProxy<Wallet>;
 
-<<<<<<< HEAD
-  const artifact: ContractArtifact = {
-    name: 'TestContract',
-    aztecVersion: DEV_VERSION,
-    functions: [
-      {
-        name: 'constructor',
-        isInitializer: true,
-        functionType: FunctionType.PRIVATE,
-        isOnlySelf: false,
-        isStatic: false,
-        debugSymbols: '',
-        parameters: [],
-        returnTypes: [],
-        errorTypes: {},
-        bytecode: Buffer.alloc(8, 0xfa),
-        verificationKey: Buffer.alloc(4064).toString('base64'),
-      },
-      {
-        name: 'public_dispatch',
-        isInitializer: false,
-        isStatic: false,
-        functionType: FunctionType.PUBLIC,
-        isOnlySelf: false,
-        parameters: [{ name: 'selector', type: { kind: 'field' }, visibility: 'public' }],
-        returnTypes: [],
-        errorTypes: {},
-        bytecode: Buffer.alloc(8, 0xfb),
-        debugSymbols: '',
-      },
-    ],
-    nonDispatchPublicFunctions: [],
-    outputs: { structs: {}, globals: {} },
-    fileMap: {},
-    storageLayout: {},
-  };
-
-=======
->>>>>>> 01a6f5411b (fix: better DeployMethod (#22985))
   beforeEach(() => {
     wallet = mock<Wallet>();
     wallet.registerContract.mockResolvedValue({} as ContractInstanceWithAddress);
