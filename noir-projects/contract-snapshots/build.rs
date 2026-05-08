@@ -30,6 +30,10 @@ const EXPAND_CASES: &[(&str, &str)] = &[
         "avm_gadgets_test_contract",
         "../noir-contracts/contracts/test/avm_gadgets_test_contract",
     ),
+    (
+        "public_fns_with_emit_repro_contract",
+        "../noir-contracts/contracts/test/public_fns_with_emit_repro_contract",
+    ),
 ];
 
 fn main() {

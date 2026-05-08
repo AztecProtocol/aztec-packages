@@ -35,3 +35,14 @@ export interface ExecutionHooks {
   /** Called when a contract attempts a cross-contract utility call. */
   authorizeUtilityCall: AuthorizeUtilityCall;
 }
+
+/**
+ * Builds an {@link ExecutionHooks} from individually-constructed hook callbacks. Returns `undefined`
+ * when every field is absent, so callers can unconditionally pass the result as `hooks`.
+ */
+export function composeHooks(partial: Partial<ExecutionHooks>): ExecutionHooks | undefined {
+  if (Object.values(partial).every(v => v === undefined)) {
+    return undefined;
+  }
+  return partial as ExecutionHooks;
+}

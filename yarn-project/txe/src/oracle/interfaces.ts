@@ -71,12 +71,14 @@ export interface ITxeExecutionOracle {
     isStaticCall: boolean,
     additionalScopes: AztecAddress[],
     jobId: string,
+    authorizedUtilityCallTargets: AztecAddress[],
   ): Promise<{ returnValues: Fr[]; offchainEffects: Fr[][] }>;
   executeUtilityFunction(
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
     jobId: string,
+    authorizedUtilityCallTargets: AztecAddress[],
   ): Promise<Fr[]>;
   publicCallNewFlow(
     from: AztecAddress | undefined,
