@@ -11,11 +11,7 @@ import type { Account } from '../account/account.js';
 import type { Contract } from '../contract/contract.js';
 import type { ContractBase } from '../contract/contract_base.js';
 import {
-<<<<<<< HEAD
   type DeployInteractionWaitOptions,
-  DeployMethod,
-=======
->>>>>>> 63cc7e6e46 (feat: deploy method refactor 2 (#23033))
   type DeployOptions,
   type DeployOptionsWithoutWait,
   type RequestDeployOptions,

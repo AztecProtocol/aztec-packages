@@ -543,13 +543,8 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
     options: DeployOptions<W>,
   ): Promise<DeployReturn<TContract, W>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
-<<<<<<< HEAD
   public override async send(options: DeployOptions<DeployInteractionWaitOptions>): Promise<any> {
-    this.lockDeployerFromSendOptions(options.from);
-=======
-  public override async send(options: DeployOptions<InteractionWaitOptions>): Promise<any> {
     this.lockDeployer(options.from);
->>>>>>> 63cc7e6e46 (feat: deploy method refactor 2 (#23033))
     const executionPayload = await this.request(options);
     const sendOptions = this.convertDeployOptionsToSendOptions(options);
 
@@ -684,15 +679,10 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
     authWitnesses?: AuthWitness[];
     /** The capsules to add to the deployment */
     capsules?: Capsule[];
-<<<<<<< HEAD
-  }): DeployMethod {
-    return new DeployMethod(
-=======
     /** The extra hashed args to add to the deployment */
     extraHashedArgs?: HashedValues[];
   }): DeployMethod<TContract> {
     return DeployMethod.create(
->>>>>>> 63cc7e6e46 (feat: deploy method refactor 2 (#23033))
       this.wallet,
       {
         artifact: this.artifact,
@@ -701,16 +691,11 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
         constructorNameOrArtifact: this.constructorArtifact?.name,
       },
       this.cloneInstantiation(),
-<<<<<<< HEAD
-      this.authWitnesses.concat(authWitnesses),
-      this.capsules.concat(capsules),
-=======
       {
         authWitnesses: this.authWitnesses.concat(authWitnesses),
         capsules: this.capsules.concat(capsules),
         extraHashedArgs: this.extraHashedArgs.concat(extraHashedArgs),
       },
->>>>>>> 63cc7e6e46 (feat: deploy method refactor 2 (#23033))
     );
   }
 }
