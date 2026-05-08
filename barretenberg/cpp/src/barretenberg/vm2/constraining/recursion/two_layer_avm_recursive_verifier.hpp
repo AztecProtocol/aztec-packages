@@ -229,9 +229,8 @@ class TwoLayerAvmRecursiveVerifier {
         AvmRecursiveVerifier recursive_verifier{ inner_builder };
         MegaPairingPoints points_accumulator = recursive_verifier.verify_proof(inner_stdlib_proof, inner_public_inputs);
 
-        // Append to the transcript the padding values of the proof (if any) and generate a challenge to record the
-        // final state of the transcript of the AVM recursive verifier
-        const MegaFF transcript_hash = recursive_verifier.hash_avm_transcript(inner_stdlib_proof);
+        // Generate a challenge to record the final state of the transcript of the AVM recursive verifier
+        const MegaFF transcript_hash = recursive_verifier.hash_avm_transcript();
 
         // Public inputs
         IO inputs;

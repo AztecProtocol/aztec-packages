@@ -46,7 +46,7 @@ HonkRecursionConstraintOutput<UltraCircuitBuilder> create_avm2_recursion_constra
 
     // Populate the proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (builder.is_write_vk_mode()) {
-        populate_fields(builder, proof_fields, create_mock_avm_proof_without_pub_inputs(/*add_padding=*/true));
+        populate_fields(builder, proof_fields, create_mock_avm_proof_without_pub_inputs());
     }
 
     // Execute the TwoLayerAvmRecursiveVerifier recursive verifier
