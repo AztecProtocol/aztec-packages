@@ -339,14 +339,33 @@ export class BBJsFactory {
       }
     }
     pool.cancel();
-    await Promise.all(idle.map(item => item.destroy().catch(() => {})));
+    // Aggregate teardown failures so a single bb child that fails to shut down doesn't mask others.
+    const results = await Promise.allSettled(idle.map(item => item.destroy()));
+    const errors = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected').map(r => r.reason);
+    if (errors.length > 0) {
+      throw new AggregateError(errors, `BBJsFactory.destroy: ${errors.length} bb instance(s) failed to shut down`);
+    }
   }
 
   private async initPool(): Promise<void> {
-    const items = await Promise.all(Array.from({ length: this.poolSize! }, () => this.createInstance()));
-    if (this.destroyed) {
-      // destroy() raced ahead of us; clean up the instances we just spawned.
-      await Promise.all(items.map(item => item.destroy().catch(() => {})));
+    // Use allSettled so that if any createInstance() rejects we can destroy the rest instead of
+    // leaking bb child processes whose creation succeeded.
+    const results = await Promise.allSettled(Array.from({ length: this.poolSize! }, () => this.createInstance()));
+    const items: BBJsApi[] = [];
+    const errors: unknown[] = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        items.push(result.value);
+      } else {
+        errors.push(result.reason);
+      }
+    }
+    if (errors.length > 0 || this.destroyed) {
+      // Either creation failed or destroy() raced ahead — clean up everything we successfully spawned.
+      await Promise.all(items.map(item => item.destroy()));
+      if (errors.length > 0) {
+        throw errors[0];
+      }
       return;
     }
     const pool = new FifoMemoryQueue<BBJsApi>();
@@ -373,15 +392,16 @@ export class BBJsFactory {
 
   /**
    * Wrap a fresh instance with an `AsyncDisposable` that destroys it on dispose. Used when no
-   * pool is configured.
+   * pool is configured. Destroy errors are propagated so that a teardown failure (e.g. a bb child
+   * that didn't shut down cleanly) surfaces instead of being silently swallowed.
    */
   private makeOwned(instance: BBJsApi): BBJsApi & AsyncDisposable {
-    return this.makeDisposable(instance, () => instance.destroy().catch(() => {}));
+    return this.makeDisposable(instance, () => instance.destroy());
   }
 
   /**
    * Wrap a pooled instance with an `AsyncDisposable` that returns it to the pool (or destroys it
-   * if the factory was destroyed in the meantime).
+   * if the factory was destroyed in the meantime). Destroy errors are propagated.
    */
   private makeBorrowed(instance: BBJsApi): BBJsApi & AsyncDisposable {
     return this.makeDisposable(instance, async () => {
@@ -389,7 +409,7 @@ export class BBJsFactory {
       if (pool && !this.destroyed) {
         pool.put(instance);
       } else {
-        await instance.destroy().catch(() => {});
+        await instance.destroy();
       }
     });
   }
