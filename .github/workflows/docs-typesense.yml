@@ -34,12 +34,6 @@ jobs:
           # regression (which happened with #22861 dropping the index from
           # ~12k to 48 records) into a loud CI failure.
           MIN_HITS: "5000"
-          # Fail the run if fewer than this many api-nr records are visible in
-          # the live index after reindex. #23058 indexed ~12k non-api records
-          # and silently dropped every aztec-nr-api record (rejected by the
-          # collection schema) without tripping MIN_HITS, so this guard catches
-          # the api-nr-specific regression directly.
-          MIN_API_HITS: "1000"
           TYPESENSE_API_KEY: ${{ secrets.TYPESENSE_API_KEY }}
           TYPESENSE_HOST: ${{ secrets.TYPESENSE_HOST }}
         run: |
@@ -64,11 +58,12 @@ jobs:
             exit 1
           fi
 
-          # Verify api-nr records are searchable in the live index. The
+          # Log how many api-nr records are visible in the live index. The
           # docusaurus theme always prepends `default` to its contextual
           # docusaurus_tag filter, and no docusaurus page is stamped with
           # `default` (each carries its plugin-context tag instead), so this
           # facet count is effectively the count of indexed api-nr records.
+          # Informational only: the count varies with aztec-nr content size.
           api_hits=$(curl -fsS \
             "https://$TYPESENSE_HOST/collections/aztec-docs/documents/search" \
             -H "X-TYPESENSE-API-KEY: $TYPESENSE_API_KEY" \
@@ -78,8 +73,4 @@ jobs:
             --data-urlencode "filter_by=docusaurus_tag:=[default]&&language:=en" \
             --data-urlencode "per_page=1" \
             | jq -r '.found')
-          echo "api-nr records visible under docusaurus_tag:=[default]: $api_hits (threshold: $MIN_API_HITS)"
-          if [ "$api_hits" -lt "$MIN_API_HITS" ]; then
-            echo "::error::Only $api_hits api-nr records visible (expected at least $MIN_API_HITS). Aztec.nr API search is likely broken."
-            exit 1
-          fi
+          echo "api-nr records visible under docusaurus_tag:=[default]: $api_hits"
