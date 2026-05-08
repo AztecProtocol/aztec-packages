@@ -11,9 +11,16 @@ use crate::{
 
 /// Processes a private note message, attempting to discover and enqueue any notes it contains.
 ///
-/// Messages that fail to decode are silently ignored (a debug log is emitted). This is not treated as an error since
-/// messages may originate from arbitrary, potentially malicious senders and we don't want them to have the power to
-/// brick the message processing flow.
+/// For each note recovered from the message whose computed note hash matches a unique note hash in the transaction,
+/// a [`NoteValidationRequest`](crate::messages::processing::NoteValidationRequest) is pushed onto the ephemeral array
+/// at `NOTE_VALIDATION_REQUESTS_ARRAY_BASE_SLOT` via
+/// [`enqueue_note_for_validation`](crate::messages::processing::enqueue_note_for_validation). PXE later drains this
+/// array during `validate_and_store_enqueued_notes_and_events`, after which the notes are retrievable via `get_notes`.
+///
+/// Messages that fail to decode, or whose computed note hash matches nothing in the transaction, are discarded
+/// (with a debug or warning log respectively) and produce no validation requests. Decode failures are not treated
+/// as errors since messages may originate from malicious senders and we don't want them to be able to brick message
+/// processing.
 ///
 /// ## Use Cases
 ///
