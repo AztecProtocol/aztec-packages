@@ -11,6 +11,7 @@ export * from './private_kernel_init_2_circuit_private_inputs.js';
 export * from './private_kernel_init_3_circuit_private_inputs.js';
 export * from './private_kernel_inner_circuit_private_inputs.js';
 export * from './private_kernel_inner_2_circuit_private_inputs.js';
+export * from './private_kernel_inner_3_circuit_private_inputs.js';
 export * from './private_kernel_reset_circuit_private_inputs.js';
 export * from './private_kernel_reset_dimensions.js';
 export * from './private_kernel_tail_circuit_private_inputs.js';

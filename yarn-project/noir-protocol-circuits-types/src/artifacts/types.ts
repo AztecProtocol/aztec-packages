@@ -10,6 +10,7 @@ export type ClientProtocolArtifact =
   | 'PrivateKernelInit3Artifact'
   | 'PrivateKernelInnerArtifact'
   | 'PrivateKernelInner2Artifact'
+  | 'PrivateKernelInner3Artifact'
   | 'PrivateKernelTailArtifact'
   | 'PrivateKernelTailToPublicArtifact'
   | 'HidingKernelToRollup'
@@ -94,6 +95,8 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'private-kernel-inner';
     case 'PrivateKernelInner2Artifact':
       return 'private-kernel-inner-2';
+    case 'PrivateKernelInner3Artifact':
+      return 'private-kernel-inner-3';
     case 'PrivateKernelTailArtifact':
       return 'private-kernel-tail';
     case 'PrivateKernelTailToPublicArtifact':

@@ -7,6 +7,8 @@ export {
   convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
   convertPrivateKernelInner2InputsToWitnessMapWithAbi,
   convertPrivateKernelInner2OutputsFromWitnessMapWithAbi,
+  convertPrivateKernelInner3InputsToWitnessMapWithAbi,
+  convertPrivateKernelInner3OutputsFromWitnessMapWithAbi,
   convertPrivateKernelInnerInputsToWitnessMapWithAbi,
   convertPrivateKernelInnerOutputsFromWitnessMapWithAbi,
   convertPrivateKernelResetInputsToWitnessMapWithAbi,

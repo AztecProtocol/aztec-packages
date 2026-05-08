@@ -9,6 +9,7 @@ import PrivateKernelInit3Json from '../../../artifacts/private_kernel_init_3.jso
 import PrivateKernelInitSimulatedJson from '../../../artifacts/private_kernel_init_simulated.json' with { type: 'json' };
 import PrivateKernelInnerJson from '../../../artifacts/private_kernel_inner.json' with { type: 'json' };
 import PrivateKernelInner2Json from '../../../artifacts/private_kernel_inner_2.json' with { type: 'json' };
+import PrivateKernelInner3Json from '../../../artifacts/private_kernel_inner_3.json' with { type: 'json' };
 import PrivateKernelInnerSimulatedJson from '../../../artifacts/private_kernel_inner_simulated.json' with { type: 'json' };
 import PrivateKernelTailJson from '../../../artifacts/private_kernel_tail.json' with { type: 'json' };
 import PrivateKernelTailSimulatedJson from '../../../artifacts/private_kernel_tail_simulated.json' with { type: 'json' };
@@ -24,6 +25,7 @@ export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiled
   PrivateKernelInit3Artifact: PrivateKernelInit3Json as NoirCompiledCircuit,
   PrivateKernelInnerArtifact: PrivateKernelInnerJson as NoirCompiledCircuit,
   PrivateKernelInner2Artifact: PrivateKernelInner2Json as NoirCompiledCircuit,
+  PrivateKernelInner3Artifact: PrivateKernelInner3Json as NoirCompiledCircuit,
   PrivateKernelTailArtifact: PrivateKernelTailJson as NoirCompiledCircuit,
   PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicJson as NoirCompiledCircuit,
   HidingKernelToRollup: HidingKernelToRollupJson as NoirCompiledCircuit,
@@ -40,6 +42,8 @@ export const SimulatedClientCircuitArtifacts: Record<ClientProtocolArtifact, Noi
   PrivateKernelInnerArtifact: PrivateKernelInnerSimulatedJson as NoirCompiledCircuit,
   // No private_kernel_inner_2_simulated crate exists; reuse the constrained artifact for simulation.
   PrivateKernelInner2Artifact: PrivateKernelInner2Json as NoirCompiledCircuit,
+  // No private_kernel_inner_3_simulated crate exists; reuse the constrained artifact for simulation.
+  PrivateKernelInner3Artifact: PrivateKernelInner3Json as NoirCompiledCircuit,
   PrivateKernelTailArtifact: PrivateKernelTailSimulatedJson as NoirCompiledCircuit,
   PrivateKernelTailToPublicArtifact: PrivateKernelTailToPublicSimulatedJson as NoirCompiledCircuit,
   HidingKernelToRollup: HidingKernelToRollupJson as NoirCompiledCircuit,

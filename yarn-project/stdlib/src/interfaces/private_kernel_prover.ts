@@ -7,6 +7,7 @@ import type {
   PrivateKernelInit3CircuitPrivateInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInner2CircuitPrivateInputs,
+  PrivateKernelInner3CircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelResetCircuitPrivateInputs,
   PrivateKernelSimulateOutput,
@@ -121,6 +122,27 @@ export interface PrivateKernelProver {
    */
   simulateInner2(
     privateKernelInputsInner2: PrivateKernelInner2CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Creates a proof output for a batched inner iteration that processes three app calls in a single
+   * private kernel circuit.
+   *
+   * @param privateKernelInputsInner3 - The batched private data structure for the inner iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
+   */
+  generateInner3Output(
+    privateKernelInputsInner3: PrivateKernelInner3CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes the batched inner kernel iteration (three app calls) without generating a proof.
+   *
+   * @param privateKernelInputsInner3 - The batched private data structure for the inner iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and an empty kernel proof.
+   */
+  simulateInner3(
+    privateKernelInputsInner3: PrivateKernelInner3CircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
   /**

@@ -131,6 +131,7 @@ pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
 pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 65;
 pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 66;
 pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 67;
+pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 68;
 
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
