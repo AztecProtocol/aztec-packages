@@ -677,11 +677,11 @@ describe('CheckpointProposalJob', () => {
     const pipelinedCheckpointNumber = CheckpointNumber(3);
 
     const pendingData: ProposedCheckpointData = {
-      checkpointNumber: CheckpointNumber(1),
+      checkpointNumber: CheckpointNumber(2),
       header: CheckpointHeader.empty(),
       archive: AppendOnlyTreeSnapshot.empty(),
       checkpointOutHash: Fr.ZERO,
-      startBlock: BlockNumber(1),
+      startBlock: BlockNumber(2),
       blockCount: 1,
       totalManaUsed: 5000n,
       feeAssetPriceModifier: 100n,
