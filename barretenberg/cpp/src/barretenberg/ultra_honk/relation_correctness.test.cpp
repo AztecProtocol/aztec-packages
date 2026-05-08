@@ -182,8 +182,11 @@ void create_some_databus_gates(auto& builder)
     auto val = builder.add_variable(FF::random_element());
     builder.add_public_calldata(BusId::KERNEL_CALLDATA, val);
     builder.read_calldata(BusId::KERNEL_CALLDATA, builder.add_variable(FF(0)));
-    builder.add_public_calldata(BusId::APP_CALLDATA, val);
-    builder.read_calldata(BusId::APP_CALLDATA, builder.add_variable(FF(0)));
+    for (size_t app_idx = 0; app_idx < MAX_APPS_PER_KERNEL; ++app_idx) {
+        auto bus_id = static_cast<BusId>(static_cast<size_t>(BusId::APP_CALLDATA) + app_idx);
+        builder.add_public_calldata(bus_id, val);
+        builder.read_calldata(bus_id, builder.add_variable(FF(0)));
+    }
     builder.add_public_return_data(val);
     builder.read_return_data(builder.add_variable(FF(0)));
 }
