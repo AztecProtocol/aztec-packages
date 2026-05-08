@@ -19,6 +19,7 @@ import type { ExecutionPayload, InTx } from '@aztec/stdlib/tx';
 import {
   Capsule,
   HashedValues,
+  SimulationOverrides,
   TxHash,
   TxProfileResult,
   TxReceipt,
@@ -335,6 +336,7 @@ export const SimulateOptionsSchema = z.object({
   skipFeeEnforcement: optional(z.boolean()),
   includeMetadata: optional(z.boolean()),
   additionalScopes: optional(z.array(schemas.AztecAddress)),
+  overrides: optional(SimulationOverrides.schema),
 });
 
 export const ProfileOptionsSchema = SimulateOptionsSchema.extend({

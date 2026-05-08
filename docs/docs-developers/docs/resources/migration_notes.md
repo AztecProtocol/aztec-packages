@@ -164,6 +164,27 @@ If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/cur
 + overrides = { contracts: { [addr.toString()]: { instance: { ...instance, currentContractClassId: stubClassId } } } };
 ```
 
+### [Aztec.js] `simulate` accepts `overrides` for testing "what if storage value was X?"
+
+`Contract.methods.foo(...).simulate(...)` now accepts an `overrides` option that injects values into the simulator's (ephemeral) world-state fork and contract DB before the call runs. The supported field is `publicStorage`, which writes a `(contract, slot, value)` into the public-data tree as if a previous tx had set it. Overrides are thrown away after simulation completes.
+
+```typescript
+const result = await contract.methods.read_balance(account).simulate({
+  overrides: {
+    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+  },
+});
+```
+
+The same option flows through `wallet.simulateTx` and eventually to `simulatePublicCalls` RPC on `AztecNode`.
+
+Direct callers of the `SimulationOverrides` constructor must switch from a positional `contracts` argument to an options bag:
+
+```diff
+- new SimulationOverrides(contracts);
++ new SimulationOverrides({ contracts });
+```
+
 ### [PXE] `proveTx` takes an options bag
 
 `PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:

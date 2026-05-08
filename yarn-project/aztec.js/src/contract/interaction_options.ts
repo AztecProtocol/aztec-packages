@@ -7,6 +7,7 @@ import {
   type Capsule,
   OFFCHAIN_MESSAGE_IDENTIFIER,
   type OffchainEffect,
+  type SimulationOverrides,
   type SimulationStats,
   type TxHash,
   type TxReceipt,
@@ -157,6 +158,8 @@ export type SimulateInteractionOptions = Omit<SendInteractionOptions, 'fee'> & {
   /** Whether to include metadata such as performance statistics (e.g. timing information of the different circuits and oracles) and gas estimation
    * in the simulation result, in addition to the return value and offchain effects */
   includeMetadata?: boolean;
+  /** Pre-simulation overrides applied to the ephemeral fork and contract DB (publicStorage writes, contract instance overrides). */
+  overrides?: SimulationOverrides;
 };
 
 /**
