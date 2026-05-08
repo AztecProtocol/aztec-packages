@@ -155,8 +155,7 @@ export class TxPoolV2Impl {
       let txEffect: Awaited<ReturnType<L2BlockSource['getTxEffect']>>;
       try {
         const tx = Tx.fromBuffer(buffer);
-        // Resolve allowed-setup-calls and the tx effect concurrently — both are I/O against
-        // independent sources, so overlapping them roughly halves per-tx hydration latency.
+        // Resolve allowed-setup-calls and the tx effect concurrently
         // getTxEffect failures are non-fatal (we just treat the tx as not-yet-mined), so
         // its rejection is swallowed before the Promise.all so it can't fail-fast the batch.
         const txEffectPromise = this.#l2BlockSource.getTxEffect(tx.getTxHash()).catch(err => {
