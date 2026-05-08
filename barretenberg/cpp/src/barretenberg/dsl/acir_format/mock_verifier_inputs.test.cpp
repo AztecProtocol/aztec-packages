@@ -1,5 +1,6 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
+#include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 
 #include <gtest/gtest.h>
@@ -33,6 +34,10 @@ static_assert(
         UltraFlavor::VIRTUAL_LOG_N) == 410,
     "RECURSIVE_PROOF_LENGTH changed - update constants.nr");
 static_assert(ChonkProof::PROOF_LENGTH == 1349, "CHONK_PROOF_LENGTH changed - update constants.nr");
+static_assert(MegaFlavor::VerificationKey::calc_num_data_types() == 143,
+              "MEGA_VK_LENGTH_IN_FIELDS changed - update constants.nr");
+static_assert(MegaZKFlavor::VerificationKey::calc_num_data_types() == 143,
+              "MegaZK VK size changed - update constants.nr");
 static_assert(ProofLength::MultilinearBatching<MultilinearBatchingFlavor>::LENGTH == 136,
               "MultilinearBatching proof size changed - update constants.nr");
 
