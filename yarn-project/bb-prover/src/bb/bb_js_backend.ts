@@ -238,57 +238,100 @@ export class BBJsInstance implements BBJsApi {
   }
 }
 
+/** Options for {@link BBJsFactory}. */
+export interface BBJsFactoryOptions {
+  /**
+   * Number of long-lived bb processes to keep in the pool.
+   * If omitted, every `getInstance()` call spawns a fresh bb that is destroyed on dispose.
+   */
+  poolSize?: number;
+  logger?: Logger;
+  threads?: number;
+  debugDir?: string;
+}
+
 /**
- * Factory for managing BBJsInstance lifecycle.
- * Provides fresh instances for proving (each spawns a new bb process) and a
- * fixed-size pool of long-lived instances for verification.
+ * Manages bb.js instance lifecycle. By default every `getInstance()` call spawns a fresh
+ * bb process that is destroyed when the borrow is disposed. Pass `poolSize` to keep a fixed
+ * set of long-lived bb processes that are reused across calls — useful when the per-call
+ * bb startup cost dominates the workload (e.g. high-rate IVC verification).
+ *
+ * Idiomatic usage:
+ * ```
+ * await using inst = await factory.getInstance();
+ * await inst.someMethod(...);
+ * // disposed automatically when `inst` goes out of scope
+ * ```
  */
-export class BBJsProverFactory {
-  /** Available pooled verifier instances; callers acquire via `get()` and return via `put()`. */
-  private verifierPool?: FifoMemoryQueue<BBJsApi>;
-  /** All pooled instances (whether currently in or out of the pool), tracked for shutdown. */
-  private verifierPoolItems: BBJsApi[] = [];
+export class BBJsFactory {
+  private readonly poolSize?: number;
+  private readonly logger?: Logger;
+  private readonly threads?: number;
+  private readonly debugDir?: string;
+
+  /** Available pooled instances when poolSize is set; otherwise undefined. */
+  private pool?: FifoMemoryQueue<BBJsApi>;
+  /** Lazily-resolved on first `getInstance()` call to prevent racing pool initialization. */
+  private initPromise?: Promise<void>;
+  private destroyed = false;
 
   constructor(
     private bbPath: string,
-    private logger?: Logger,
-    private threads?: number,
-    private debugDir?: string,
-  ) {}
-
-  /**
-   * Pre-spawn `size` long-lived bb instances reused across `withVerifierInstance` calls.
-   * Without this, `withVerifierInstance` falls back to spawning a fresh bb per call.
-   * Must be paired with `stopVerifierPool` for clean shutdown.
-   */
-  async startVerifierPool(size: number): Promise<void> {
-    if (this.verifierPool) {
-      throw new Error('Verifier pool already started');
+    options: BBJsFactoryOptions = {},
+  ) {
+    this.poolSize = options.poolSize;
+    this.logger = options.logger;
+    this.threads = options.threads;
+    this.debugDir = options.debugDir;
+    if (this.poolSize !== undefined && this.poolSize < 1) {
+      throw new Error(`BBJsFactory poolSize must be >= 1, got ${this.poolSize}`);
     }
-    if (size <= 0) {
-      return;
-    }
-    const items = await Promise.all(Array.from({ length: size }, () => this.createInstance()));
-    const pool = new FifoMemoryQueue<BBJsApi>();
-    for (const item of items) {
-      pool.put(item);
-    }
-    this.verifierPool = pool;
-    this.verifierPoolItems = items;
   }
 
   /**
-   * Tear down idle pooled verifier instances and reject future acquires. Idempotent.
-   * Instances currently held by an in-flight `withVerifierInstance` call are destroyed by that
-   * call's finally block once it returns.
+   * Acquire a bb instance. The returned object implements `BBJsApi` and `AsyncDisposable`.
+   * With no pool: spawns a fresh bb that is destroyed on dispose. With a pool: borrows from
+   * the pool and returns to it on dispose.
    */
-  async stopVerifierPool(): Promise<void> {
-    const pool = this.verifierPool;
+  async getInstance(): Promise<BBJsApi & AsyncDisposable> {
+    if (this.destroyed) {
+      throw new Error('BBJsFactory has been destroyed');
+    }
+    if (this.poolSize === undefined) {
+      // No pool: fresh-per-call, dispose destroys.
+      const instance = await this.createInstance();
+      return this.makeOwned(instance);
+    }
+    if (!this.initPromise) {
+      this.initPromise = this.initPool();
+    }
+    await this.initPromise;
+    const pool = this.pool;
+    if (!pool) {
+      throw new Error('BBJsFactory has been destroyed');
+    }
+    const instance = await pool.get();
+    if (!instance) {
+      throw new Error('BBJsFactory was destroyed while waiting for an instance');
+    }
+    return this.makeBorrowed(instance);
+  }
+
+  /**
+   * Tear down all pooled instances. Idempotent. No-op when no pool is configured (fresh-per-call
+   * instances are destroyed by their own dispose callbacks). Instances currently held by an
+   * in-flight pooled borrow are destroyed by their dispose callback when released.
+   */
+  async destroy(): Promise<void> {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
+    const pool = this.pool;
+    this.pool = undefined;
     if (!pool) {
       return;
     }
-    this.verifierPool = undefined;
-    this.verifierPoolItems = [];
     const idle: BBJsApi[] = [];
     while (pool.length() > 0) {
       const item = pool.getImmediate();
@@ -297,47 +340,21 @@ export class BBJsProverFactory {
       }
     }
     pool.cancel();
-    await Promise.all(idle.map(item => item.destroy()));
+    await Promise.all(idle.map(item => item.destroy().catch(() => {})));
   }
 
-  /**
-   * Run an operation with a fresh Barretenberg instance.
-   * The instance is created before the operation and destroyed after.
-   * Suitable for proving where process startup is negligible relative to proof time.
-   */
-  async withFreshInstance<T>(fn: (instance: BBJsApi) => Promise<T>): Promise<T> {
-    const instance = await this.createInstance();
-    try {
-      return await fn(instance);
-    } finally {
-      await instance.destroy();
+  private async initPool(): Promise<void> {
+    const items = await Promise.all(Array.from({ length: this.poolSize! }, () => this.createInstance()));
+    if (this.destroyed) {
+      // destroy() raced ahead of us; clean up the instances we just spawned.
+      await Promise.all(items.map(item => item.destroy().catch(() => {})));
+      return;
     }
-  }
-
-  /**
-   * Run a verification operation, reusing a pooled instance if `startVerifierPool` was called.
-   * Falls back to a fresh-spawn per call when no pool is configured.
-   */
-  async withVerifierInstance<T>(fn: (instance: BBJsApi) => Promise<T>): Promise<T> {
-    const pool = this.verifierPool;
-    if (!pool) {
-      return this.withFreshInstance(fn);
+    const pool = new FifoMemoryQueue<BBJsApi>();
+    for (const item of items) {
+      pool.put(item);
     }
-    const instance = await pool.get();
-    if (!instance) {
-      // Pool was cancelled (stopVerifierPool ran) while we were waiting.
-      throw new Error('Verifier pool stopped while waiting for an instance');
-    }
-    try {
-      return await fn(instance);
-    } finally {
-      if (this.verifierPool === pool) {
-        pool.put(instance);
-      } else {
-        // Pool was stopped while we held this instance; destroy it ourselves.
-        await instance.destroy().catch(() => {});
-      }
-    }
+    this.pool = pool;
   }
 
   private async createInstance(): Promise<BBJsApi> {
@@ -353,6 +370,48 @@ export class BBJsProverFactory {
       return new DebugBBJsInstance(instance, this.debugDir, this.bbPath, this.logger);
     }
     return instance;
+  }
+
+  /**
+   * Wrap a fresh instance with an `AsyncDisposable` that destroys it on dispose. Used when no
+   * pool is configured.
+   */
+  private makeOwned(instance: BBJsApi): BBJsApi & AsyncDisposable {
+    return this.makeDisposable(instance, () => instance.destroy().catch(() => {}));
+  }
+
+  /**
+   * Wrap a pooled instance with an `AsyncDisposable` that returns it to the pool (or destroys it
+   * if the factory was destroyed in the meantime).
+   */
+  private makeBorrowed(instance: BBJsApi): BBJsApi & AsyncDisposable {
+    return this.makeDisposable(instance, async () => {
+      const pool = this.pool;
+      if (pool && !this.destroyed) {
+        pool.put(instance);
+      } else {
+        await instance.destroy().catch(() => {});
+      }
+    });
+  }
+
+  private makeDisposable(instance: BBJsApi, onDispose: () => void | Promise<void>): BBJsApi & AsyncDisposable {
+    let disposed = false;
+    const dispose = async (): Promise<void> => {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      await onDispose();
+    };
+    return new Proxy(instance as BBJsApi & AsyncDisposable, {
+      get(target, prop, receiver) {
+        if (prop === Symbol.asyncDispose) {
+          return dispose;
+        }
+        return Reflect.get(target, prop, receiver);
+      },
+    });
   }
 }
 
