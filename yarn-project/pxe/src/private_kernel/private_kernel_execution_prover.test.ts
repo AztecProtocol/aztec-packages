@@ -42,8 +42,21 @@ describe('Private Kernel Sequencer', () => {
   const blockTimestamp = 12345n;
   const expirationTimestamp = blockTimestamp + BigInt(MAX_TX_LIFETIME);
 
+  // The orchestrator dispatch tests below assert single-app `simulateInit` / `simulateInner` call
+  // counts. Pin the batch size to 1 so the multi-app dispatch (which would route through
+  // `simulateInit2` / `simulateInit3` / `simulateInner2` / `simulateInner3`) doesn't engage.
+  // Multi-app behaviour is integration-tested via the bench capture flows.
+  const originalBatchSize = process.env.PXE_KERNEL_BATCH_SIZE;
   beforeAll(async () => {
+    process.env.PXE_KERNEL_BATCH_SIZE = '1';
     await BarretenbergSync.initSingleton({ backend: BackendType.NativeSharedMemory, logger: logger.debug });
+  });
+  afterAll(() => {
+    if (originalBatchSize === undefined) {
+      delete process.env.PXE_KERNEL_BATCH_SIZE;
+    } else {
+      process.env.PXE_KERNEL_BATCH_SIZE = originalBatchSize;
+    }
   });
 
   const createExecutionResult = (fnName: string): PrivateExecutionResult => {
