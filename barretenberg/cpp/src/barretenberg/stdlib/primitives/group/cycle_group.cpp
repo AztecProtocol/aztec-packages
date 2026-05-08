@@ -370,11 +370,12 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
                                                                           bool is_addition,
                                                                           const std::optional<AffineElement> hint) const
 {
-    // This method should not be called on known points at infinity
-    BB_ASSERT(!this->is_constant_point_at_infinity(),
-              "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
-    BB_ASSERT(!other.is_constant_point_at_infinity(),
-              "cycle_group::_unconditional_add_or_subtract called on constant point at infinity");
+    // Reject point-at-infinity operands: the incomplete ecc_add_gate is degenerate at (0, 0) (the
+    // canonical witness representation of infinity) and admits forged outputs there.
+    this->is_point_at_infinity().assert_equal(
+        false, "cycle_group::_unconditional_add_or_subtract called on point at infinity");
+    other.is_point_at_infinity().assert_equal(
+        false, "cycle_group::_unconditional_add_or_subtract called on point at infinity");
 
     auto context = get_context(other);
 
