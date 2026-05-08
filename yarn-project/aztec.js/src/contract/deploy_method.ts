@@ -674,6 +674,7 @@ export abstract class DeployMethod<TContract extends ContractBase = ContractBase
   public with({
     authWitnesses = [],
     capsules = [],
+    extraHashedArgs = [],
   }: {
     /** The authWitnesses to add to the deployment */
     authWitnesses?: AuthWitness[];
