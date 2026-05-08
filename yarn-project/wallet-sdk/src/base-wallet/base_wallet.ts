@@ -348,6 +348,10 @@ export abstract class BaseWallet implements Wallet {
     return instance;
   }
 
+  registerContractClass(artifact: ContractArtifact): Promise<void> {
+    return this.pxe.registerContractClass(artifact);
+  }
+
   /**
    * Simulates calls through the standard PXE path (account entrypoint).
    * @param executionPayload - The execution payload to simulate.
