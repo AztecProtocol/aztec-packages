@@ -90,6 +90,7 @@ import {
 } from '@aztec/stdlib/tx';
 
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
+import type { ExecutionHooks } from '../hooks/index.js';
 import type { MessageContextService } from '../messages/message_context_service.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
@@ -145,6 +146,7 @@ export type ContractFunctionSimulatorArgs = {
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
   messageContextService: MessageContextService;
+  hooks?: ExecutionHooks;
 };
 
 /**
@@ -167,6 +169,7 @@ export class ContractFunctionSimulator {
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
   private readonly messageContextService: MessageContextService;
+  private readonly hooks: ExecutionHooks | undefined;
 
   constructor(args: ContractFunctionSimulatorArgs) {
     this.contractStore = args.contractStore;
@@ -184,6 +187,7 @@ export class ContractFunctionSimulator {
     this.simulator = args.simulator;
     this.contractSyncService = args.contractSyncService;
     this.messageContextService = args.messageContextService;
+    this.hooks = args.hooks;
     this.log = createLogger('simulator');
   }
 
@@ -264,6 +268,7 @@ export class ContractFunctionSimulator {
       senderForTags,
       simulator: this.simulator,
       l2TipsStore: this.l2TipsStore,
+      hooks: this.hooks,
     });
 
     const setupTime = simulatorSetupTimer.ms();
@@ -357,6 +362,7 @@ export class ContractFunctionSimulator {
       jobId,
       scopes,
       simulator: this.simulator,
+      hooks: this.hooks,
     });
 
     try {

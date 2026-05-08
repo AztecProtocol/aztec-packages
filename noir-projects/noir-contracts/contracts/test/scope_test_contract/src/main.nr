@@ -73,7 +73,10 @@ pub contract ScopeTest {
 
     mod test {
         use crate::ScopeTest;
-        use aztec::{protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment};
+        use aztec::{
+            protocol::address::AztecAddress,
+            test::helpers::test_environment::{CallPrivateOptions, TestEnvironment, ViewPrivateOptions},
+        };
 
         unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
             let mut env = TestEnvironment::new();
@@ -86,7 +89,6 @@ pub contract ScopeTest {
             (env, contract_address)
         }
 
-        /// Test that the owner can read their own notes
         #[test]
         unconstrained fn owner_can_read_own_notes() {
             let (mut env, contract_address) = setup();
@@ -102,7 +104,6 @@ pub contract ScopeTest {
             assert_eq(read_value, value);
         }
 
-        /// Bob cannot access Alice's nullifier hiding key because scope isolation is enforced.
         #[test(should_fail_with = "Key validation request denied")]
         unconstrained fn bob_cannot_access_alice_nullifier_hiding_key() {
             let (mut env, contract_address) = setup();
@@ -113,9 +114,6 @@ pub contract ScopeTest {
             let _ = env.call_private(bob, ScopeTest::at(contract_address).get_nhk(alice));
         }
 
-        /// Bob cannot read Alice's notes because scope isolation is enforced.
-        /// When Bob calls read_note(alice), he can only access notes where he is in scope.
-        /// Alice's notes are not visible to Bob's execution context.
         #[test(should_fail_with = "Failed to get a note")]
         unconstrained fn bob_cannot_read_alice_notes() {
             let (mut env, contract_address) = setup();
@@ -129,7 +127,25 @@ pub contract ScopeTest {
             let _read_value = env.call_private(bob, ScopeTest::at(contract_address).read_note(alice));
         }
 
-        /// Owner can view their own notes using view_private
+        #[test]
+        unconstrained fn bob_can_read_alice_notes_with_additional_scopes() {
+            let (mut env, contract_address) = setup();
+
+            let alice = env.create_light_account();
+            let bob = env.create_light_account();
+            let value: Field = 42;
+
+            env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
+
+            let read_value = env.call_private_opts(
+                bob,
+                CallPrivateOptions::new().with_additional_scopes([alice]),
+                ScopeTest::at(contract_address).read_note(alice),
+            );
+            assert_eq(read_value, value);
+        }
+
+
         #[test]
         unconstrained fn owner_can_view_own_notes() {
             let (mut env, contract_address) = setup();
@@ -143,7 +159,6 @@ pub contract ScopeTest {
             assert_eq(read_value, value);
         }
 
-        /// Bob cannot view Alice's notes using view_private because scope isolation is enforced.
         #[test(should_fail_with = "Failed to get a note")]
         unconstrained fn bob_cannot_view_alice_notes() {
             let (mut env, contract_address) = setup();
@@ -155,6 +170,24 @@ pub contract ScopeTest {
             env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
 
             let _read_value = env.view_private(bob, ScopeTest::at(contract_address).view_note(alice));
+        }
+
+        #[test]
+        unconstrained fn bob_can_view_alice_notes_with_additional_scopes() {
+            let (mut env, contract_address) = setup();
+
+            let alice = env.create_light_account();
+            let bob = env.create_light_account();
+            let value: Field = 42;
+
+            env.call_private(alice, ScopeTest::at(contract_address).create_note(alice, value));
+
+            let read_value = env.view_private_opts(
+                bob,
+                ViewPrivateOptions::new().with_additional_scopes([alice]),
+                ScopeTest::at(contract_address).view_note(alice),
+            );
+            assert_eq(read_value, value);
         }
     }
 }
