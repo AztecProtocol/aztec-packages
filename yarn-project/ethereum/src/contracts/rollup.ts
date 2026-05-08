@@ -141,10 +141,10 @@ export enum TempCheckpointLogField {
 }
 
 /**
- * Field-level override input for `tempCheckpointLogs[checkpointNumber]`. All locally-derivable fields
- * are required; only the two we never patch from the sequencer (`blobCommitmentsHash`, `attestationsHash`)
- * are optional. Hash-typed fields (`payloadDigest`, `attestationsHash`) carry arbitrary `bytes32` values,
- * hence `Buffer32` rather than `Fr`. `slotNumber` carries the uint32 portion of the on-chain `CompressedSlot`.
+ * Field-level override input for `tempCheckpointLogs[checkpointNumber]`. Covers the fields the
+ * `propose()` path actually reads back. `payloadDigest` is `Buffer32` because it carries an
+ * arbitrary `bytes32` value rather than a BN254 scalar. `slotNumber` carries the uint32 portion
+ * of the on-chain `CompressedSlot`.
  */
 export type TempCheckpointLogOverrideFields = {
   headerHash: Fr;
@@ -152,8 +152,6 @@ export type TempCheckpointLogOverrideFields = {
   payloadDigest: Buffer32;
   slotNumber: SlotNumber;
   feeHeader: FeeHeader;
-  blobCommitmentsHash?: Fr;
-  attestationsHash?: Buffer32;
 };
 
 /** Components of the minimum fee per mana, as returned by the L1 rollup contract. */
@@ -899,9 +897,8 @@ export class RollupContract {
    * the L1 contract reads during `propose()` for the checkpoint that builds on top of it (proposer
    * pipelining simulation). Mirrors the writes done by `ProposeLib.addTempCheckpointLog`.
    *
-   * `blobCommitmentsHash` and `attestationsHash` are not asserted against during the propose path, so
-   * they are optional. Every other field is required to keep the simulator's view byte-faithful with
-   * what L1 will see once the parent checkpoint actually lands.
+   * `blobCommitmentsHash` and `attestationsHash` are intentionally not exposed here — the propose path
+   * never asserts against them, so leaving them at storage zero is harmless.
    */
   public makeTempCheckpointLogOverride(
     checkpointNumber: CheckpointNumber,
@@ -936,20 +933,8 @@ export class RollupContract {
     if (fields.headerHash) {
       stateDiff.push({ slot: await slotAt(TempCheckpointLogField.HeaderHash), value: fields.headerHash.toString() });
     }
-    if (fields.blobCommitmentsHash) {
-      stateDiff.push({
-        slot: await slotAt(TempCheckpointLogField.BlobCommitmentsHash),
-        value: fields.blobCommitmentsHash.toString(),
-      });
-    }
     if (fields.outHash) {
       stateDiff.push({ slot: await slotAt(TempCheckpointLogField.OutHash), value: fields.outHash.toString() });
-    }
-    if (fields.attestationsHash) {
-      stateDiff.push({
-        slot: await slotAt(TempCheckpointLogField.AttestationsHash),
-        value: fields.attestationsHash.toString() as `0x${string}`,
-      });
     }
     if (fields.payloadDigest) {
       stateDiff.push({

@@ -55,19 +55,17 @@ export async function buildPipelinedParentSimulationOverridesPlan(
         );
       } else {
         const { header, archive, checkpointOutHash, feeAssetPriceModifier } = input.proposedCheckpointData;
-        builder
-          .withPendingArchive(archive.root)
-          .withPendingHeaderHash(header.hash())
-          .withPendingOutHash(checkpointOutHash)
-          .withPendingSlotNumber(header.slotNumber)
-          .withPendingPayloadDigest(
-            computeCheckpointPayloadDigest({
-              header,
-              archiveRoot: archive.root,
-              feeAssetPriceModifier,
-              signatureContext: input.signatureContext,
-            }),
-          );
+        builder.withPendingArchive(archive.root).withPendingTempCheckpointLogFields({
+          headerHash: header.hash(),
+          outHash: checkpointOutHash,
+          slotNumber: header.slotNumber,
+          payloadDigest: computeCheckpointPayloadDigest({
+            header,
+            archiveRoot: archive.root,
+            feeAssetPriceModifier,
+            signatureContext: input.signatureContext,
+          }),
+        });
       }
     }
 

@@ -66,19 +66,27 @@ describe('SimulationOverridesBuilder', () => {
     expect(plan?.chainTipsOverride).toEqual({ pending: CheckpointNumber(7), proven: CheckpointNumber(3) });
   });
 
-  it('accumulates per-checkpoint state across the new withPending* helpers', () => {
+  it('attaches temp checkpoint log fields under the configured pending checkpoint', () => {
     const headerHash = Fr.random();
     const outHash = Fr.random();
     const payloadDigest = Buffer32.random();
     const slotNumber = SlotNumber(42);
     const plan = new SimulationOverridesBuilder()
       .withChainTips({ pending: CheckpointNumber(7) })
-      .withPendingHeaderHash(headerHash)
-      .withPendingOutHash(outHash)
-      .withPendingPayloadDigest(payloadDigest)
-      .withPendingSlotNumber(slotNumber)
+      .withPendingTempCheckpointLogFields({ headerHash, outHash, payloadDigest, slotNumber })
       .build();
 
     expect(plan?.pendingCheckpointState).toEqual({ headerHash, outHash, payloadDigest, slotNumber });
+  });
+
+  it('throws when withPendingTempCheckpointLogFields is called without a pending chain-tip override', () => {
+    expect(() =>
+      new SimulationOverridesBuilder().withPendingTempCheckpointLogFields({
+        headerHash: Fr.random(),
+        outHash: Fr.random(),
+        payloadDigest: Buffer32.random(),
+        slotNumber: SlotNumber(42),
+      }),
+    ).toThrow(/withChainTips\(\{ pending \}\) must be called/);
   });
 });

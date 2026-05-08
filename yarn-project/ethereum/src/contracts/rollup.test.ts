@@ -453,26 +453,6 @@ describe('Rollup', () => {
       );
     });
 
-    it('also emits the optional blob/attestations diffs when supplied', async () => {
-      const checkpointNumber = CheckpointNumber(11);
-      const blobCommitmentsHash = Fr.random();
-      const attestationsHash = Buffer32.random();
-      const override = await rollup.makeTempCheckpointLogOverride(checkpointNumber, {
-        ...fields,
-        blobCommitmentsHash,
-        attestationsHash,
-      });
-      const { map, slotFor } = getDiffMap(checkpointNumber, override);
-
-      expect(override[0].stateDiff).toHaveLength(7);
-      expect(map.get(await slotFor(TempCheckpointLogField.BlobCommitmentsHash))).toBe(
-        blobCommitmentsHash.toString().toLowerCase(),
-      );
-      expect(map.get(await slotFor(TempCheckpointLogField.AttestationsHash))).toBe(
-        attestationsHash.toString().toLowerCase(),
-      );
-    });
-
     it('partial override emits only the supplied fields', async () => {
       const checkpointNumber = CheckpointNumber(13);
       const override = await rollup.makeTempCheckpointLogPartialOverride(checkpointNumber, {

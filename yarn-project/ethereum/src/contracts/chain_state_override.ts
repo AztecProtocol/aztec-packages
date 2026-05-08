@@ -86,31 +86,19 @@ export class SimulationOverridesBuilder {
     return this;
   }
 
-  /** Overrides the header hash stored for the configured pending checkpoint. */
-  public withPendingHeaderHash(headerHash: Fr): this {
+  /**
+   * Overrides the locally-derivable `tempCheckpointLogs` cell fields for the configured pending
+   * checkpoint. Callers populate these together because they all come from the same proposed
+   * checkpoint payload — there is no use case for setting them independently.
+   */
+  public withPendingTempCheckpointLogFields(fields: {
+    headerHash: Fr;
+    outHash: Fr;
+    payloadDigest: Buffer32;
+    slotNumber: SlotNumber;
+  }): this {
     this.assertPendingCheckpointNumber();
-    this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), headerHash };
-    return this;
-  }
-
-  /** Overrides the out hash stored for the configured pending checkpoint. */
-  public withPendingOutHash(outHash: Fr): this {
-    this.assertPendingCheckpointNumber();
-    this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), outHash };
-    return this;
-  }
-
-  /** Overrides the payload digest stored for the configured pending checkpoint. */
-  public withPendingPayloadDigest(payloadDigest: Buffer32): this {
-    this.assertPendingCheckpointNumber();
-    this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), payloadDigest };
-    return this;
-  }
-
-  /** Overrides the slot number stored for the configured pending checkpoint. */
-  public withPendingSlotNumber(slotNumber: SlotNumber): this {
-    this.assertPendingCheckpointNumber();
-    this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), slotNumber };
+    this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), ...fields };
     return this;
   }
 
