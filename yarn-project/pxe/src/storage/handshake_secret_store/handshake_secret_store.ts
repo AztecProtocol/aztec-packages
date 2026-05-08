@@ -13,10 +13,11 @@ import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
  * `secret_hash = poseidon2_hash_with_separator([S.x, S.y], DOM_SEP__HANDSHAKE_SECRET_HASH)`. The construction matches
  * `HandshakeNote::new` so consumers can look up the master `S` from the `secret_hash` stored in the corresponding note.
  *
- * The hash is computed by this store rather than provided by the contract, so the keying is bound to the protocol
- * domain separator and consumers need only know the secret to derive the lookup key. Master secrets never leave the
- * kernel during downstream validation: they are surfaced as hints into the kernel which then enforces the binding
- * between `secret_hash` and an app-siloed derived value.
+ * The oracle interface accepts only the raw `S` and recomputes the hash here, so the keying is bound to the protocol
+ * domain separator and the contract cannot influence it. The same construction is used by `HandshakeNote::new`, so the
+ * note's `secret_hash` field naturally matches this store's key. Consuming contracts read `secret_hash` from the note
+ * rather than recomputing it. Master secrets never leave the kernel during downstream validation: they are surfaced as
+ * hints into the kernel which then enforces the binding between `secret_hash` and an app-siloed derived value.
  *
  * Writes are buffered per `jobId` and only persisted on `commit`, mirroring the staging contract used by the rest of
  * PXE's stores. A handshake performed in a reverted simulation therefore leaves no trace.
