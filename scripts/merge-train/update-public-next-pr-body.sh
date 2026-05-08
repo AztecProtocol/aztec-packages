@@ -70,7 +70,6 @@ payload_file=""
 trap 'rm -f "$body_file" "$payload_file"' EXIT
 
 {
-  echo "BEGIN_COMMIT_OVERRIDE"
   echo "## Private PRs in \`${BASE_BRANCH}..${HEAD_BRANCH}\`"
   echo
   echo "_${base_sha:0:10}..${head_sha:0:10}_"
@@ -103,8 +102,6 @@ done < <(
 if [[ "${#seen_prs[@]}" -eq 0 ]]; then
   echo "*No merged private PRs found in the compare range.*" >>"$body_file"
 fi
-
-echo "END_COMMIT_OVERRIDE" >>"$body_file"
 
 payload_file=$(mktemp)
 jq -n --rawfile body "$body_file" '{ body: $body }' >"$payload_file"
