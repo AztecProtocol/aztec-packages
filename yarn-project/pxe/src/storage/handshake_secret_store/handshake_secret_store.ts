@@ -62,7 +62,7 @@ export class HandshakeSecretStore implements StagedStore {
    * Reads pick up writes staged on the same `jobId` even before commit, so reads are coherent with prior writes from
    * the same simulation.
    */
-  async getHandshakeSecret(secretHash: Fr, jobId: string): Promise<Point | undefined> {
+  getHandshakeSecret(secretHash: Fr, jobId: string): Promise<Point | undefined> {
     const secretHashKey = secretHash.toString();
 
     return this.#store.transactionAsync(async () => {
