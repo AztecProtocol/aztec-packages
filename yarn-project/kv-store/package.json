@@ -15,6 +15,10 @@
     "#msgpackr": {
       "browser": "msgpackr/index-no-eval",
       "default": "msgpackr"
+    },
+    "#ordered-binary": {
+      "browser": "./dest/sqlite-opfs/internal/ordered-binary-browser.js",
+      "default": "ordered-binary"
     }
   },
   "scripts": {
