@@ -151,6 +151,19 @@ If you relied on a bundled bare-name binary for general use:
 
 If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/current/bin/nargo`, change it to `$HOME/.aztec/current/bin/aztec-nargo` (the symlink is a drop-in for `nargo`). See the [Noir VSCode Extension guide](../aztec-nr/installation.md) for details.
 
+### [Stdlib] `SimulationOverrides.contracts` entries no longer carry an artifact
+
+`ContractOverrides` entries are now `{ instance }` only. To override a contract's artifact, pre-register the target class via `pxe.registerContractClass(artifact)` and set the override instance's `currentContractClassId` to that class id:
+
+```diff
+- const instance = await getContractInstanceFromInstantiationParams(stubArtifact, { salt: Fr.random() });
++ const instance = await pxe.getContractInstance(addr);
++ await pxe.registerContractClass(stubArtifact);
++ const stubClassId = (await getContractClassFromArtifact(stubArtifact)).id;
+- overrides = { contracts: { [addr.toString()]: { instance, artifact: stubArtifact } } };
++ overrides = { contracts: { [addr.toString()]: { instance: { ...instance, currentContractClassId: stubClassId } } } };
+```
+
 ### [PXE] `proveTx` takes an options bag
 
 `PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:

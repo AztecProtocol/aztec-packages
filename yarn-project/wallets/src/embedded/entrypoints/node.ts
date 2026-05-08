@@ -76,7 +76,9 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
           ));
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
-    return new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
+    const wallet = new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
+    await wallet.initStubClasses();
+    return wallet;
   }
 }
 
