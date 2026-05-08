@@ -223,9 +223,13 @@ describe('e2e_p2p_duplicate_proposal_slash', () => {
     t.logger.warn('Starting all sequencers');
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
 
-    // Now warp to the target epoch — sequencers are already running
-    t.logger.warn(`Advancing to target epoch ${targetEpoch}`);
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch);
+    // Now warp to one slot before the target epoch — sequencers are already running.
+    // Under proposer pipelining, the malicious proposers begin building for the first
+    // slot of the target epoch one slot earlier; warping to the start of the epoch
+    // would force both AVM-heavy duplicate proposals to serialize past the slot
+    // boundary, after which honest receivers reject them as late.
+    t.logger.warn(`Advancing to one slot before target epoch ${targetEpoch}`);
+    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch, { offset: -AZTEC_SLOT_DURATION });
 
     // Wait for offense to be detected. Under proposer pipelining, checkpoint proposals are broadcast
     // at the slot boundary while the receivers' wall clocks may have already advanced past the build
