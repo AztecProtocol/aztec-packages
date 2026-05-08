@@ -1,3 +1,0 @@
-Type PrivateImmutable<Field, Context> implements OwnedStateVariable and hence cannot be placed in Storage struct without being wrapped in Owned. Wrap the type in Owned<..., Context>.
-Could not resolve 'init' in path
-Type annotation needed
