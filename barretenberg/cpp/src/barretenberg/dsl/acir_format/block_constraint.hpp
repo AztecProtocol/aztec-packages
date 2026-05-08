@@ -20,7 +20,9 @@ enum AccessType : std::uint8_t {
 
 enum CallDataType : std::uint32_t {
     KernelCalldata = 0,
-    AppCalldata = 1,
+    FirstAppCalldata = 1,
+    SecondAppCalldata = 2,
+    ThirdAppCalldata = 3,
     None = bb::MAX_APPS_PER_KERNEL + 1, // Used for non-calldata blocks
 };
 
