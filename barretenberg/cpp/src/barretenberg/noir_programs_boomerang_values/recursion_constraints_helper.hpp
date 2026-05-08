@@ -34,6 +34,41 @@ static constexpr size_t EXPECTED_NNF_GATES_PER_COMMITMENT = 16;
 static constexpr size_t COMPUTE_PADDING_INDICATOR_ARRAY_NUM_GATES = 58;
 static constexpr size_t COMPUTE_PADDING_INDICATOR_ARRAY_SELECTORS_HASH = 0xbfbd88904266e6d5;
 
+// Compute selector hash over an arithmetic block range, skipping fix_witness gates for
+// constants (those produce spurious entries that vary with witness layout).
+template <typename CircuitBuilder>
+size_t calculate_hash_arithmetic_block(CircuitBuilder& builder, size_t start, size_t finish)
+{
+    auto& arith = builder.blocks.arithmetic;
+    size_t hash = 0;
+
+    for (size_t index = start; index < finish; ++index) {
+        bool is_fix_witness_pattern = (arith.q_arith()[index] == bb::fr::one()) &&
+                                      (arith.q_1()[index] == bb::fr::one()) && arith.q_2()[index].is_zero() &&
+                                      arith.q_4()[index].is_zero() && !arith.q_c()[index].is_zero();
+
+        if (is_fix_witness_pattern) {
+            uint32_t w_l_var = arith.w_l()[index];
+            uint32_t real_w_l = builder.real_variable_index[w_l_var];
+
+            bool is_constant = false;
+            for (const auto& pair : builder.constant_variable_indices) {
+                if (pair.second == real_w_l) {
+                    is_constant = true;
+                    break;
+                }
+            }
+            if (is_constant) {
+                continue;
+            }
+        }
+
+        sha256_helpers::update_selector_hash(hash, arith, index);
+    }
+
+    return hash;
+}
+
 template <typename FF, typename CircuitBuilder>
 uint32_t find_sqr_of(uint32_t w_real, CircuitBuilder& builder, cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
 {
@@ -2670,33 +2705,542 @@ static constexpr recursion_helpers::FunctionFingerprint BATCH_MUL_NNF = {
     180686, 0xff2ca3c0bde9b337ULL, 0x83d2f8a03cd96b83ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
 };
 
-
-template <typename TraceBlock> struct KZGFunctionBlockFingerprints {
-    FunctionBlockFingerPrint<TraceBlock> transcript_receive_kzg_w_arithmetic;
-    FunctionBlockFingerPrint<TraceBlock> transcript_receive_kzg_w_nnf;
-
-    FunctionBlockFingerPrint<TraceBlock> masking_challenge_arithmetic;
-    FunctionBlockFingerPrint<TraceBlock> masking_challenge_poseidon2_ext;
-    FunctionBlockFingerPrint<TraceBlock> masking_challenge_poseidon2_int;
-
-    FunctionBlockFingerPrint<TraceBlock> batch_mul_arithmetic;
-    FunctionBlockFingerPrint<TraceBlock> batch_mul_memory;
-    FunctionBlockFingerPrint<TraceBlock> batch_mul_nnf;
+/**
+ * @brief Validation result for the `KZG:W_receive` stage.
+ *
+ * `arithmetic_gate_start_idx` points to the arithmetic receive range. `nnf_gate_start_idx` points
+ * to the linked NNF receive range, which is immediately followed by the batch_mul NNF range.
+ */
+struct TranscriptReceiveValidationResult {
+    bool is_valid = false;
+    size_t arithmetic_gate_start_idx = SIZE_MAX;
+    size_t nnf_gate_start_idx = SIZE_MAX;
 };
 
-template <typename TraceBlock, typename TraceBlocks>
-KZGFunctionBlockFingerprints<TraceBlock> create_kzg_function_block_fingerprints(TraceBlocks& blocks)
+/**
+ * @brief Validation result for the `KZG:masking_challenge` stage.
+ *
+ * The arithmetic start is derived from the validated transcript receive stage. The Poseidon2 starts
+ * are discovered by following witness links from arithmetic to external, then external to internal.
+ */
+struct MaskingChallengeValidationResult {
+    bool is_valid = false;
+    size_t arithmetic_gate_start_idx = SIZE_MAX;
+    size_t poseidon2_external_gate_start_idx = SIZE_MAX;
+    size_t poseidon2_internal_gate_start_idx = SIZE_MAX;
+};
+
+/**
+ * @brief Validation result for the `KZG:batch_mul` stage.
+ *
+ * Arithmetic and NNF starts are derived from prior KZG stages. The memory start is discovered from
+ * witness links out of the arithmetic batch_mul range.
+ */
+struct BatchMulValidationResult {
+    bool is_valid = false;
+    size_t arithmetic_gate_start_idx = SIZE_MAX;
+    size_t nnf_gate_start_idx = SIZE_MAX;
+    size_t memory_gate_start_idx = SIZE_MAX;
+};
+
+/**
+ * @brief Find the index of a trace block inside `builder.blocks.get()`.
+ *
+ * Block identity is checked by address, matching how block indices are resolved elsewhere in the
+ * graph description code. The index is later used to compare StaticAnalyzer block references.
+ *
+ * @tparam CircuitBuilder Circuit builder type containing trace blocks.
+ * @tparam Block Concrete trace block type.
+ * @param builder Builder that owns the trace blocks.
+ * @param block Block reference to locate.
+ * @return Block index when the block belongs to the builder, otherwise `std::nullopt`.
+ */
+template <typename CircuitBuilder, typename Block>
+std::optional<size_t> find_block_index(CircuitBuilder& builder, const Block& block)
 {
-    return {
-        { blocks.arithmetic, TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC },
-        { blocks.nnf, TRANSCRIPT_RECEIVE_KZG_W_NNF },
-        { blocks.arithmetic, MASKING_CHALLENGE_ARITHMETIC },
-        { blocks.poseidon2_external, MASKING_CHALLENGE_POSEIDON2_EXT },
-        { blocks.poseidon2_internal, MASKING_CHALLENGE_POSEIDON2_INT },
-        { blocks.arithmetic, BATCH_MUL_ARITHMETIC },
-        { blocks.memory, BATCH_MUL_MEMORY },
-        { blocks.nnf, BATCH_MUL_NNF },
-    };
+    const auto& blocks_data = builder.blocks.get();
+    for (size_t i = 0; i < blocks_data.size(); i++) {
+        if (std::addressof(blocks_data[i]) == std::addressof(block)) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief Check whether a function fingerprint matches a block range at `start`.
+ *
+ * Arithmetic blocks use `calculate_hash_arithmetic_block` so constant `fix_witness` gates are
+ * handled consistently with the arithmetic scanner. Other blocks use selector hashing directly.
+ * Both the prefix hash and full hash must match.
+ *
+ * @tparam CircuitBuilder Circuit builder type.
+ * @tparam Block Trace block type to hash.
+ * @param builder Builder owning the block.
+ * @param block Block whose selector range is checked.
+ * @param start Candidate function start gate in `block`.
+ * @param fp Expected function fingerprint.
+ * @return `true` when prefix and full hashes match at `start`.
+ */
+template <typename CircuitBuilder, typename Block>
+bool matches_fingerprint_at(CircuitBuilder& builder,
+                            Block& block,
+                            size_t start,
+                            const recursion_helpers::FunctionFingerprint& fp)
+{
+    if (start + fp.gate_count > block.size() || start + fp.fingerprint_size > block.size()) {
+        return false;
+    }
+
+    auto& arith = builder.blocks.arithmetic;
+    const auto block_idx = find_block_index(builder, block);
+    const bool is_arithmetic_block = block_idx.has_value() && &builder.blocks.get()[*block_idx] == &arith;
+    const size_t prefix_hash =
+        is_arithmetic_block
+            ? recursion_helpers::calculate_hash_arithmetic_block(builder, start, start + fp.fingerprint_size)
+            : sha256_helpers::compute_selector_hash(0, block, start, start + fp.fingerprint_size - 1);
+    if (prefix_hash != fp.prefix_hash) {
+        return false;
+    }
+
+    const size_t full_hash =
+        is_arithmetic_block ? recursion_helpers::calculate_hash_arithmetic_block(builder, start, start + fp.gate_count)
+                            : sha256_helpers::compute_selector_hash(0, block, start, start + fp.gate_count - 1);
+    return full_hash == fp.full_hash;
+}
+
+/**
+ * @brief Find a fingerprint range that contains an anchor gate.
+ *
+ * The search enumerates every valid `start` satisfying
+ * `start <= anchor_gate_idx < start + fp.gate_count`, then validates each candidate by hash.
+ *
+ * @tparam CircuitBuilder Circuit builder type.
+ * @tparam Block Trace block type.
+ * @param builder Builder owning the block.
+ * @param block Block to scan.
+ * @param anchor_gate_idx Gate that must be inside the matched range.
+ * @param fp Expected function fingerprint.
+ * @return Start gate for the first matching range, otherwise `std::nullopt`.
+ */
+template <typename CircuitBuilder, typename Block>
+std::optional<size_t> find_fingerprint_range_containing_gate(CircuitBuilder& builder,
+                                                             Block& block,
+                                                             size_t anchor_gate_idx,
+                                                             const recursion_helpers::FunctionFingerprint& fp)
+{
+    if (fp.gate_count > block.size()) {
+        return std::nullopt;
+    }
+    const size_t first_start_that_contains_anchor =
+        anchor_gate_idx >= fp.gate_count - 1 ? anchor_gate_idx - (fp.gate_count - 1) : 0;
+    const size_t last_start_that_contains_anchor = anchor_gate_idx;
+    const size_t last_start_that_fits_block = block.size() - fp.gate_count;
+    const size_t last_candidate_start = std::min(last_start_that_contains_anchor, last_start_that_fits_block);
+
+    for (size_t start = first_start_that_contains_anchor; start <= last_candidate_start; ++start) {
+        if (matches_fingerprint_at(builder, block, start, fp)) {
+            return start;
+        }
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief Find a fingerprint range containing any gate from a set of anchors.
+ *
+ * This is used when witness links identify gates in another block but not necessarily the start of
+ * the function in that block.
+ *
+ * @tparam CircuitBuilder Circuit builder type.
+ * @tparam Block Trace block type.
+ * @param builder Builder owning the block.
+ * @param block Block to scan.
+ * @param anchor_gate_indices Candidate gates that may sit inside the target range.
+ * @param fp Expected function fingerprint.
+ * @return Start gate for the first matching range, otherwise `std::nullopt`.
+ */
+template <typename CircuitBuilder, typename Block>
+std::optional<size_t> find_fingerprint_range_containing_any_gate(CircuitBuilder& builder,
+                                                                 Block& block,
+                                                                 const std::set<size_t>& anchor_gate_indices,
+                                                                 const recursion_helpers::FunctionFingerprint& fp)
+{
+    for (size_t anchor_gate_idx : anchor_gate_indices) {
+        if (auto start = find_fingerprint_range_containing_gate(builder, block, anchor_gate_idx, fp);
+            start.has_value()) {
+            return start;
+        }
+    }
+    return std::nullopt;
+}
+
+/**
+ * @brief Find a fingerprint range that starts at or shortly after one of the anchor gates.
+ *
+ * This directional search is useful for Poseidon2 ranges where witness links can point near the
+ * range boundary and we want to avoid matching unrelated earlier ranges.
+ *
+ * @tparam CircuitBuilder Circuit builder type.
+ * @tparam Block Trace block type.
+ * @param builder Builder owning the block.
+ * @param block Block to scan.
+ * @param anchor_gate_indices Candidate gates used as lower bounds for the search.
+ * @param fp Expected function fingerprint.
+ * @return Start gate for the first matching range, otherwise `std::nullopt`.
+ */
+template <typename CircuitBuilder, typename Block>
+std::optional<size_t> find_fingerprint_range_at_or_after_any_gate(CircuitBuilder& builder,
+                                                                  Block& block,
+                                                                  const std::set<size_t>& anchor_gate_indices,
+                                                                  const recursion_helpers::FunctionFingerprint& fp)
+{
+    if (fp.gate_count > block.size()) {
+        return std::nullopt;
+    }
+
+    for (size_t anchor_gate_idx : anchor_gate_indices) {
+        const size_t max_start = std::min(block.size() - fp.gate_count, anchor_gate_idx + fp.gate_count);
+        for (size_t start = anchor_gate_idx; start <= max_start; ++start) {
+            if (matches_fingerprint_at(builder, block, start, fp)) {
+                return start;
+            }
+        }
+    }
+
+    return std::nullopt;
+}
+
+/**
+ * @brief Collect gates in a target block that share witnesses with a source block range.
+ *
+ * For each source gate wire, this resolves the real witness index and asks the StaticAnalyzer for
+ * all gates using that witness. Gates belonging to `target_block` are returned as anchors.
+ *
+ * @tparam FF Field type used by the StaticAnalyzer.
+ * @tparam CircuitBuilder Circuit builder type.
+ * @tparam SourceBlock Source trace block type.
+ * @tparam TargetBlock Target trace block type.
+ * @param builder Builder owning both blocks.
+ * @param analyzer Static analyzer built for `builder`.
+ * @param source_block Block whose witness wires are scanned.
+ * @param source_start Inclusive source range start.
+ * @param source_end Exclusive source range end.
+ * @param target_block Block whose linked gates should be collected.
+ * @return Set of target-block gate indices linked by shared real witnesses.
+ */
+template <typename FF, typename CircuitBuilder, typename SourceBlock, typename TargetBlock>
+std::set<size_t> collect_linked_gates(CircuitBuilder& builder,
+                                      cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                      SourceBlock& source_block,
+                                      size_t source_start,
+                                      size_t source_end,
+                                      TargetBlock& target_block)
+{
+    std::set<size_t> linked_gates;
+    const auto target_block_idx = find_block_index(builder, target_block);
+    if (!target_block_idx.has_value()) {
+        return linked_gates;
+    }
+
+    std::set<uint32_t> visited_real_indices;
+    for (size_t gate_idx = source_start; gate_idx < source_end; ++gate_idx) {
+        std::array<uint32_t, 4> wires = { source_block.w_l()[gate_idx],
+                                          source_block.w_r()[gate_idx],
+                                          source_block.w_o()[gate_idx],
+                                          source_block.w_4()[gate_idx] };
+        for (uint32_t witness_idx : wires) {
+            const uint32_t real_idx = builder.real_variable_index[witness_idx];
+            if (!visited_real_indices.insert(real_idx).second) {
+                continue;
+            }
+            for (const auto& [block_idx, linked_gate_idx] : analyzer.get_variable_gates(real_idx)) {
+                if (block_idx == *target_block_idx) {
+                    linked_gates.insert(linked_gate_idx);
+                }
+            }
+        }
+    }
+
+    return linked_gates;
+}
+
+/**
+ * @brief Validate the `KZG:W_receive` stage from the masking-challenge anchor.
+ *
+ * The supplied `masking_challenge_gate_idx` is treated as an anchor inside
+ * `MASKING_CHALLENGE_ARITHMETIC`, not as a function start. The function first finds the masking
+ * arithmetic range, derives the preceding `KZG:W_receive` arithmetic range, validates both hashes,
+ * then follows receive witnesses into the NNF block. The NNF validation requires a contiguous
+ * `TRANSCRIPT_RECEIVE_KZG_W_NNF -> BATCH_MUL_NNF` sequence containing at least one linked NNF gate.
+ *
+ * @tparam FF Field type used by the StaticAnalyzer.
+ * @tparam CircuitBuilder Circuit builder type.
+ * @param builder Builder containing the generated KZG circuit.
+ * @param analyzer Static analyzer built for `builder`.
+ * @param masking_challenge_gate_idx Anchor gate inside the masking-challenge arithmetic range.
+ * @return Starts of the validated arithmetic and NNF ranges, with `is_valid` set on success.
+ */
+template <typename FF, typename CircuitBuilder>
+TranscriptReceiveValidationResult validate_transcript_receive(CircuitBuilder& builder,
+                                                              cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                              size_t masking_challenge_gate_idx)
+{
+    TranscriptReceiveValidationResult result;
+    auto& arith = builder.blocks.arithmetic;
+    auto& nnf = builder.blocks.nnf;
+
+    auto masking_challenge_start = find_fingerprint_range_containing_gate(
+        builder, arith, masking_challenge_gate_idx, MASKING_CHALLENGE_ARITHMETIC);
+    if (!masking_challenge_start.has_value() ||
+        *masking_challenge_start < TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC.gate_count) {
+        return result;
+    }
+
+    result.arithmetic_gate_start_idx = *masking_challenge_start - TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC.gate_count;
+    if (!matches_fingerprint_at(
+            builder, arith, result.arithmetic_gate_start_idx, TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC)) {
+        return result;
+    }
+    if (!matches_fingerprint_at(builder, arith, *masking_challenge_start, MASKING_CHALLENGE_ARITHMETIC)) {
+        return result;
+    }
+
+    if (TRANSCRIPT_RECEIVE_KZG_W_NNF.gate_count > nnf.size()) {
+        return result;
+    }
+
+    const size_t arithmetic_end = *masking_challenge_start;
+    std::set<size_t> linked_nnf_gates =
+        collect_linked_gates(builder, analyzer, arith, result.arithmetic_gate_start_idx, arithmetic_end, nnf);
+
+    if (linked_nnf_gates.empty()) {
+        info("KZG transcript receive validation failed: no KZG:W_receive arithmetic witness links to NNF");
+        return result;
+    }
+
+    const size_t receive_and_batch_mul_nnf_gate_count =
+        TRANSCRIPT_RECEIVE_KZG_W_NNF.gate_count + BATCH_MUL_NNF.gate_count;
+    if (receive_and_batch_mul_nnf_gate_count > nnf.size()) {
+        return result;
+    }
+
+    for (size_t nnf_start = 0; nnf_start + receive_and_batch_mul_nnf_gate_count <= nnf.size(); ++nnf_start) {
+        if (!matches_fingerprint_at(builder, nnf, nnf_start, TRANSCRIPT_RECEIVE_KZG_W_NNF)) {
+            continue;
+        }
+
+        const size_t batch_mul_nnf_start = nnf_start + TRANSCRIPT_RECEIVE_KZG_W_NNF.gate_count;
+        if (!matches_fingerprint_at(builder, nnf, batch_mul_nnf_start, BATCH_MUL_NNF)) {
+            continue;
+        }
+
+        const size_t batch_mul_nnf_end = batch_mul_nnf_start + BATCH_MUL_NNF.gate_count;
+        for (size_t linked_nnf_gate : linked_nnf_gates) {
+            if (nnf_start <= linked_nnf_gate && linked_nnf_gate < batch_mul_nnf_end) {
+                result.nnf_gate_start_idx = nnf_start;
+                result.is_valid = true;
+                return result;
+            }
+        }
+    }
+
+    info("KZG transcript receive validation failed: no linked NNF gate belongs to a KZG:W_receive -> KZG:batch_mul "
+         "NNF sequence");
+    return result;
+}
+
+/**
+ * @brief Validate the `KZG:masking_challenge` stage using a validated transcript receive result.
+ *
+ * The arithmetic masking range is derived from `transcript_receive`, and the supplied
+ * `masking_challenge_gate_idx` must lie inside that range. After validating the arithmetic hash, the
+ * function follows witness links to a Poseidon2 external range and then to a Poseidon2 internal
+ * range, validating each range by fingerprint.
+ *
+ * @tparam FF Field type used by the StaticAnalyzer.
+ * @tparam CircuitBuilder Circuit builder type.
+ * @param builder Builder containing the generated KZG circuit.
+ * @param analyzer Static analyzer built for `builder`.
+ * @param masking_challenge_gate_idx Anchor gate inside the masking-challenge arithmetic range.
+ * @param transcript_receive Previously validated `KZG:W_receive` result for the same chain.
+ * @return Starts of the validated arithmetic, Poseidon2 external, and Poseidon2 internal ranges.
+ */
+template <typename FF, typename CircuitBuilder>
+MaskingChallengeValidationResult validate_masking_challenge_generation(
+    CircuitBuilder& builder,
+    cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+    size_t masking_challenge_gate_idx,
+    const TranscriptReceiveValidationResult& transcript_receive)
+{
+    MaskingChallengeValidationResult result;
+    if (!transcript_receive.is_valid || transcript_receive.arithmetic_gate_start_idx == SIZE_MAX) {
+        return result;
+    }
+
+    auto& arith = builder.blocks.arithmetic;
+    auto& poseidon2_external = builder.blocks.poseidon2_external;
+    auto& poseidon2_internal = builder.blocks.poseidon2_internal;
+
+    const size_t masking_challenge_start =
+        transcript_receive.arithmetic_gate_start_idx + TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC.gate_count;
+    if (masking_challenge_start + MASKING_CHALLENGE_ARITHMETIC.gate_count > arith.size()) {
+        return result;
+    }
+    if (masking_challenge_gate_idx < masking_challenge_start ||
+        masking_challenge_gate_idx >= masking_challenge_start + MASKING_CHALLENGE_ARITHMETIC.gate_count) {
+        return result;
+    }
+    if (!matches_fingerprint_at(builder, arith, masking_challenge_start, MASKING_CHALLENGE_ARITHMETIC)) {
+        return result;
+    }
+    result.arithmetic_gate_start_idx = masking_challenge_start;
+
+    const size_t masking_challenge_end = masking_challenge_start + MASKING_CHALLENGE_ARITHMETIC.gate_count;
+    const std::set<size_t> linked_external_gates = collect_linked_gates(
+        builder, analyzer, arith, masking_challenge_start, masking_challenge_end, poseidon2_external);
+    auto external_start = find_fingerprint_range_at_or_after_any_gate(
+        builder, poseidon2_external, linked_external_gates, MASKING_CHALLENGE_POSEIDON2_EXT);
+    if (!external_start.has_value()) {
+        info(
+            "KZG masking challenge validation failed: no arithmetic witness links to a valid poseidon2_external range");
+        return result;
+    }
+
+    const size_t external_end = *external_start + MASKING_CHALLENGE_POSEIDON2_EXT.gate_count;
+    const std::set<size_t> linked_internal_gates =
+        collect_linked_gates(builder, analyzer, poseidon2_external, *external_start, external_end, poseidon2_internal);
+    auto internal_start = find_fingerprint_range_at_or_after_any_gate(
+        builder, poseidon2_internal, linked_internal_gates, MASKING_CHALLENGE_POSEIDON2_INT);
+    if (!internal_start.has_value()) {
+        info("KZG masking challenge validation failed: no poseidon2_external witness links to a valid "
+             "poseidon2_internal range");
+        return result;
+    }
+
+    result.poseidon2_external_gate_start_idx = *external_start;
+    result.poseidon2_internal_gate_start_idx = *internal_start;
+    result.is_valid = true;
+    return result;
+}
+
+/**
+ * @brief Validate the `KZG:batch_mul` stage using prior KZG stage validation results.
+ *
+ * The arithmetic batch_mul range is derived from the masking-challenge arithmetic range. The NNF
+ * batch_mul range is derived from the transcript receive NNF range. The memory range is discovered
+ * by following witnesses from the arithmetic batch_mul range into the memory block and treating
+ * those linked memory gates as anchors for `BATCH_MUL_MEMORY`.
+ *
+ * @tparam FF Field type used by the StaticAnalyzer.
+ * @tparam CircuitBuilder Circuit builder type.
+ * @param builder Builder containing the generated KZG circuit.
+ * @param analyzer Static analyzer built for `builder`.
+ * @param masking_challenge_gate_idx Anchor gate tying the prior validation results to one KZG chain.
+ * @param transcript_receive Previously validated `KZG:W_receive` result.
+ * @param masking_challenge Previously validated `KZG:masking_challenge` result.
+ * @return Starts of the validated arithmetic, NNF, and memory ranges.
+ */
+template <typename FF, typename CircuitBuilder>
+BatchMulValidationResult validate_batch_mul(CircuitBuilder& builder,
+                                            cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                            size_t masking_challenge_gate_idx,
+                                            const TranscriptReceiveValidationResult& transcript_receive,
+                                            const MaskingChallengeValidationResult& masking_challenge)
+{
+    BatchMulValidationResult result;
+    if (!transcript_receive.is_valid || !masking_challenge.is_valid ||
+        transcript_receive.arithmetic_gate_start_idx == SIZE_MAX || transcript_receive.nnf_gate_start_idx == SIZE_MAX ||
+        masking_challenge.arithmetic_gate_start_idx == SIZE_MAX) {
+        return result;
+    }
+
+    auto& arith = builder.blocks.arithmetic;
+    auto& nnf = builder.blocks.nnf;
+    auto& memory = builder.blocks.memory;
+
+    const size_t masking_challenge_start =
+        transcript_receive.arithmetic_gate_start_idx + TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC.gate_count;
+    if (masking_challenge.arithmetic_gate_start_idx != masking_challenge_start) {
+        return result;
+    }
+    if (masking_challenge_gate_idx < masking_challenge_start ||
+        masking_challenge_gate_idx >= masking_challenge_start + MASKING_CHALLENGE_ARITHMETIC.gate_count) {
+        return result;
+    }
+
+    result.arithmetic_gate_start_idx = masking_challenge_start + MASKING_CHALLENGE_ARITHMETIC.gate_count;
+    if (!matches_fingerprint_at(builder, arith, result.arithmetic_gate_start_idx, BATCH_MUL_ARITHMETIC)) {
+        return result;
+    }
+
+    result.nnf_gate_start_idx = transcript_receive.nnf_gate_start_idx + TRANSCRIPT_RECEIVE_KZG_W_NNF.gate_count;
+    if (!matches_fingerprint_at(builder, nnf, result.nnf_gate_start_idx, BATCH_MUL_NNF)) {
+        return result;
+    }
+
+    const size_t batch_mul_arithmetic_end = result.arithmetic_gate_start_idx + BATCH_MUL_ARITHMETIC.gate_count;
+    const std::set<size_t> linked_memory_gates = collect_linked_gates(
+        builder, analyzer, arith, result.arithmetic_gate_start_idx, batch_mul_arithmetic_end, memory);
+    auto memory_start =
+        find_fingerprint_range_containing_any_gate(builder, memory, linked_memory_gates, BATCH_MUL_MEMORY);
+    if (!memory_start.has_value()) {
+        info("KZG batch_mul validation failed: no arithmetic witness links to a valid memory range");
+        return result;
+    }
+
+    result.memory_gate_start_idx = *memory_start;
+    result.is_valid = true;
+    return result;
+}
+
+/**
+ * @brief Validate the KZG verifier subchain generated in the recursive circuit.
+ *
+ * The top-level validator finds the masking challenge squeeze gate and uses it as the common anchor
+ * for all KZG subvalidators. Each stage performs its own fingerprint, adjacency, and witness-link
+ * checks, so this function only composes the stage validators in circuit-generation order:
+ * `KZG:W_receive`, `KZG:masking_challenge`, then `KZG:batch_mul`.
+ *
+ * @tparam CircuitBuilder Circuit builder type.
+ * @param builder Builder containing the generated recursive verifier circuit.
+ * @param all_squeezes All transcript squeeze gates discovered in the builder.
+ * @param consumed Squeeze gates consumed before the KZG stage.
+ * @return `true` when all KZG subvalidators accept the same anchored chain.
+ */
+template <typename CircuitBuilder>
+bool validate_kzg(CircuitBuilder& builder, const std::vector<size_t>& all_squeezes, const std::set<size_t>& consumed)
+{
+    auto masking_challenge = recursion_helpers::kzg_masking_challenge(builder, all_squeezes, consumed);
+    if (!masking_challenge.valid) {
+        return false;
+    }
+
+    cdg::StaticAnalyzer_<bb::fr, CircuitBuilder> analyzer(builder, false);
+    auto transcript_receive = validate_transcript_receive(builder, analyzer, masking_challenge.squeeze_gate);
+    if (!transcript_receive.is_valid) {
+        return false;
+    }
+
+    auto masking_challenge_generation =
+        validate_masking_challenge_generation(builder, analyzer, masking_challenge.squeeze_gate, transcript_receive);
+    if (!masking_challenge_generation.is_valid) {
+        return false;
+    }
+
+    auto batch_mul = validate_batch_mul(
+        builder, analyzer, masking_challenge.squeeze_gate, transcript_receive, masking_challenge_generation);
+    if (!batch_mul.is_valid) {
+        return false;
+    }
+
+    info("KZG validator found chain: KZG:W_receive starts at ",
+         transcript_receive.arithmetic_gate_start_idx,
+         ", KZG:masking_challenge starts at ",
+         masking_challenge_generation.arithmetic_gate_start_idx,
+         ", KZG:batch_mul starts at ",
+         batch_mul.arithmetic_gate_start_idx);
+    return true;
 }
 
 } // namespace KZGVerification
