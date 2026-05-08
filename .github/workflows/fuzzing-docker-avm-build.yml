@@ -1,9 +1,6 @@
 name: Build Fuzzing AVM Container
 
 on:
-  push:
-    branches:
-      - next
   workflow_dispatch:
     inputs:
       commit:

@@ -1,16 +1,7 @@
 name: Alpha Team Canary
 
 on:
-  push:
-    branches:
-      - next
-    paths:
-      # Match any file named bootstrap.sh
-      - '**/bootstrap.sh'
-      # Anything in ci3 folder
-      - 'ci3/**'
-      # Anything in yarn-project
-      - 'yarn-project/**'
+  workflow_dispatch:
 
 env:
   CANARY_BRANCH: ad/chore/ci-release-pr-canary

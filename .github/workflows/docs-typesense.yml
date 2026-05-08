@@ -5,11 +5,6 @@ on:
   schedule:
     # Run the workflow every night at 5:00 AM UTC, after nightly release and docs update
     - cron: "0 5 * * *"
-  push:
-    branches:
-      - next
-    paths:
-      - docs/**
 
 jobs:
   docs-scraper:

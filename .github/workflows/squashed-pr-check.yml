@@ -1,9 +1,7 @@
 name: Squashed PR Check
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
-  merge_group:
+  workflow_dispatch:
 
 jobs:
   check-squashed:
