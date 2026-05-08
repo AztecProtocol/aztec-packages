@@ -1,10 +1,12 @@
 import { toArray } from '@aztec/foundation/iterable';
 
+import { vi } from 'vitest';
+
 import { type Batch, CURSOR_PAGE_SIZE, Database, type LMDBMessageChannel, LMDBMessageType } from './message.js';
 import { WriteTransaction } from './write_transaction.js';
 
 describe('WriteTransaction', () => {
-  let channel: { sendMessage: ReturnType<typeof vi.fn> } & LMDBMessageChannel;
+  let channel: { sendMessage: ReturnType<typeof vi.fn<(...args: any[]) => any>> } & LMDBMessageChannel;
   let tx: WriteTransaction;
 
   beforeEach(() => {

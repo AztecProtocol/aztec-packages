@@ -4,6 +4,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { vi } from 'vitest';
 
 import { openStoreAt, openTmpStore } from './factory.js';
 import type { ReadTransaction } from './read_transaction.js';
@@ -200,7 +201,7 @@ describe('AztecLMDBStoreV2', () => {
       const dataDir = await mkdtemp(join(tmpdir(), 'lmdb-map-size-test-'));
       try {
         await AztecLMDBStoreV2.new(dataDir, 0);
-        expect.fail('Expected an error for zero map size');
+        throw new Error('Expected an error for zero map size');
       } catch (e: any) {
         expect(e.message).toContain('Map size must be a positive number');
       }
@@ -210,7 +211,7 @@ describe('AztecLMDBStoreV2', () => {
       const dataDir = await mkdtemp(join(tmpdir(), 'lmdb-map-size-test-'));
       try {
         await AztecLMDBStoreV2.new(dataDir, -1);
-        expect.fail('Expected an error for negative map size');
+        throw new Error('Expected an error for negative map size');
       } catch (e: any) {
         expect(e.message).toContain('Map size must be a positive number');
       }

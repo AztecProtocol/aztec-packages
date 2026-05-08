@@ -1,6 +1,8 @@
 import { toArray } from '@aztec/foundation/iterable';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 
+import { vi } from 'vitest';
+
 import {
   CURSOR_PAGE_SIZE,
   Database,
@@ -11,7 +13,7 @@ import {
 import { ReadTransaction } from './read_transaction.js';
 
 describe('ReadTransaction', () => {
-  let channel: { sendMessage: ReturnType<typeof vi.fn> } & LMDBMessageChannel;
+  let channel: { sendMessage: ReturnType<typeof vi.fn<(...args: any[]) => any>> } & LMDBMessageChannel;
   let tx: ReadTransaction;
 
   beforeEach(() => {

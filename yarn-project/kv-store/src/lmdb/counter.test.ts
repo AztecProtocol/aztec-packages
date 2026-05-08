@@ -87,7 +87,7 @@ describe('LmdbAztecCounter', () => {
     });
   });
 
-  it.each([
+  it.each<[Array<[string | number | [number, string], number]>, Array<[string | number | [number, string], number]>]>([
     [
       [
         ['c', 2342],
@@ -128,7 +128,7 @@ describe('LmdbAztecCounter', () => {
         [[11, 'b'], 1],
       ],
     ],
-  ])('iterates in key order', async (insertOrder: [string, number][], expectedOrder) => {
+  ])('iterates in key order', async (insertOrder, expectedOrder) => {
     const counter = new LmdbAztecCounter(db, 'test');
     await Promise.all(insertOrder.map(([key, value]) => counter.update(key, value as number)));
     expect(await toArray(counter.entries())).toEqual(expectedOrder);
