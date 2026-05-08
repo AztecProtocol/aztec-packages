@@ -66,6 +66,7 @@ members = [
     "contracts/test/parent_contract",
     "contracts/test/pending_note_hashes_contract",
     "contracts/test/private_init_test_contract",
+    "contracts/test/public_fns_with_emit_repro_contract",
     "contracts/test/public_immutable_contract",
     "contracts/test/returning_tuple_contract",
     "contracts/test/scope_test_contract",
