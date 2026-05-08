@@ -9,3 +9,4 @@ export * from './l1_publish_info.js';
 export * from './private_kernel_prover.js';
 export * from './get_logs_response.js';
 export * from './api_limit.js';
+export * from './public_storage_override.js';
