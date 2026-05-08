@@ -2,6 +2,7 @@
 members = [
   "address-note",
   "aztec",
+  "auth_registry_address",
   "balance-set",
   "compressed-string",
   "field-note",

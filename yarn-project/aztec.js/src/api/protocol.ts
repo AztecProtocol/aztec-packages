@@ -1,7 +1,7 @@
 export { ProtocolContractAddress } from '@aztec/protocol-contracts';
+export { AuthRegistryArtifact, getAuthRegistryAddress, getAuthRegistryClassId } from '@aztec/protocol-contracts/auth-registry';
 export { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 
-export { AuthRegistryContract } from '../contract/protocol_contracts/auth-registry.js';
 export { ContractClassRegistryContract } from '../contract/protocol_contracts/contract-class-registry.js';
 export { ContractInstanceRegistryContract } from '../contract/protocol_contracts/contract-instance-registry.js';
 export { FeeJuiceContract } from '../contract/protocol_contracts/fee-juice.js';

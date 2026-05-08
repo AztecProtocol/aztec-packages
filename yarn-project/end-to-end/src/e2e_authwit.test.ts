@@ -4,7 +4,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
 import { AuthWitTestContract } from '@aztec/noir-test-contracts.js/AuthWitTest';
 import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { getAuthRegistryAddress } from '@aztec/protocol-contracts/auth-registry';
 
 import { jest } from '@jest/globals';
 
@@ -110,7 +110,7 @@ describe('e2e_authwit_tests', () => {
           isValidInPublic: true,
         });
 
-        const registry = AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
+        const registry = AuthRegistryContract.at(getAuthRegistryAddress(), wallet);
         await registry.methods.consume(account1Address, innerHash).send({ from: account2Address });
 
         expect(await wallet.lookupValidity(account1Address, intent, witness)).toEqual({
@@ -147,7 +147,7 @@ describe('e2e_authwit_tests', () => {
             isValidInPublic: false,
           });
 
-          const registry = AuthRegistryContract.at(ProtocolContractAddress.AuthRegistry, wallet);
+          const registry = AuthRegistryContract.at(getAuthRegistryAddress(), wallet);
           await expect(
             registry.methods.consume(account1Address, innerHash).simulate({ from: account2Address }),
           ).rejects.toThrow(/unauthorized/);
