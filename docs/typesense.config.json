@@ -4,7 +4,11 @@
     {
       "url": "https://docs.aztec.network/aztec-nr-api/mainnet/",
       "selectors_key": "api-nr",
-      "page_rank": 2
+      "page_rank": 2,
+      "extra_attributes": {
+        "language": "en",
+        "docusaurus_tag": "default"
+      }
     },
     {
       "url": "https://docs.aztec.network/",
