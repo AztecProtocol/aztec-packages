@@ -140,6 +140,22 @@ export enum TempCheckpointLogField {
   FeeHeader = 6,
 }
 
+/**
+ * Field-level override input for `tempCheckpointLogs[checkpointNumber]`. All locally-derivable fields
+ * are required; only the two we never patch from the sequencer (`blobCommitmentsHash`, `attestationsHash`)
+ * are optional. Hash-typed fields (`payloadDigest`, `attestationsHash`) carry arbitrary `bytes32` values,
+ * hence `Buffer32` rather than `Fr`. `slotNumber` carries the uint32 portion of the on-chain `CompressedSlot`.
+ */
+export type TempCheckpointLogOverrideFields = {
+  headerHash: Fr;
+  outHash: Fr;
+  payloadDigest: Buffer32;
+  slotNumber: SlotNumber;
+  feeHeader: FeeHeader;
+  blobCommitmentsHash?: Fr;
+  attestationsHash?: Buffer32;
+};
+
 /** Components of the minimum fee per mana, as returned by the L1 rollup contract. */
 export type ManaMinFeeComponents = {
   sequencerCost: bigint;
@@ -879,39 +895,88 @@ export class RollupContract {
   }
 
   /**
-   * Returns a state override that sets tempCheckpointLogs[checkpointNumber].feeHeader to the compressed fee header.
-   * Used when simulating a propose call where the parent checkpoint hasn't landed on L1 yet (pipelining).
+   * Returns a state override that patches `tempCheckpointLogs[checkpointNumber]` with every field that
+   * the L1 contract reads during `propose()` for the checkpoint that builds on top of it (proposer
+   * pipelining simulation). Mirrors the writes done by `ProposeLib.addTempCheckpointLog`.
+   *
+   * `blobCommitmentsHash` and `attestationsHash` are not asserted against during the propose path, so
+   * they are optional. Every other field is required to keep the simulator's view byte-faithful with
+   * what L1 will see once the parent checkpoint actually lands.
    */
-  public async makeFeeHeaderOverride(checkpointNumber: CheckpointNumber, feeHeader: FeeHeader): Promise<StateOverride> {
-    const { epochDuration, proofSubmissionEpochs } = await this.getRollupConstants();
-    const roundaboutSize = BigInt(epochDuration * (proofSubmissionEpochs + 1) + 1);
-    const circularIndex = BigInt(checkpointNumber) % roundaboutSize;
+  public makeTempCheckpointLogOverride(
+    checkpointNumber: CheckpointNumber,
+    fields: TempCheckpointLogOverrideFields,
+  ): Promise<StateOverride> {
+    return this.makeTempCheckpointLogOverrideForFields(checkpointNumber, fields);
+  }
 
-    // tempCheckpointLogs is at offset 2 in RollupStore
-    const tempCheckpointLogsMappingBase = hexToBigInt(RollupContract.stfStorageSlot) + 2n;
+  /**
+   * Same as `makeTempCheckpointLogOverride` but every field is optional. Used when the caller only has
+   * a subset of the fields available (e.g. `feeHeader` derivation requires a grandparent L1 read which
+   * may fail). Emitting `slotNumber` alone is materially better than emitting nothing — leaving that
+   * cell at storage zero is exactly the failure mode this whole machinery was added to fix.
+   */
+  public makeTempCheckpointLogPartialOverride(
+    checkpointNumber: CheckpointNumber,
+    fields: Partial<TempCheckpointLogOverrideFields>,
+  ): Promise<StateOverride> {
+    return this.makeTempCheckpointLogOverrideForFields(checkpointNumber, fields);
+  }
 
-    // Solidity mapping slot: keccak256(abi.encode(key, baseSlot))
-    const structBaseSlot = hexToBigInt(
-      keccak256(
-        encodeAbiParameters([{ type: 'uint256' }, { type: 'uint256' }], [circularIndex, tempCheckpointLogsMappingBase]),
-      ),
-    );
+  private async makeTempCheckpointLogOverrideForFields(
+    checkpointNumber: CheckpointNumber,
+    fields: Partial<TempCheckpointLogOverrideFields>,
+  ): Promise<StateOverride> {
+    const slotAt = async (field: TempCheckpointLogField) =>
+      `0x${(await this.getTempCheckpointLogStorageSlot(checkpointNumber, field)).toString(16).padStart(64, '0')}` as const;
+    const word = (v: bigint) => `0x${v.toString(16).padStart(64, '0')}` as const;
 
-    // feeHeader is the 7th field (offset 6) in CompressedTempCheckpointLog
-    const feeHeaderSlot = structBaseSlot + 6n;
-    const compressed = RollupContract.compressFeeHeader(feeHeader);
+    const stateDiff: { slot: `0x${string}`; value: `0x${string}` }[] = [];
 
-    return [
-      {
-        address: this.address,
-        stateDiff: [
-          {
-            slot: `0x${feeHeaderSlot.toString(16).padStart(64, '0')}`,
-            value: `0x${compressed.toString(16).padStart(64, '0')}`,
-          },
-        ],
-      },
-    ];
+    if (fields.headerHash) {
+      stateDiff.push({ slot: await slotAt(TempCheckpointLogField.HeaderHash), value: fields.headerHash.toString() });
+    }
+    if (fields.blobCommitmentsHash) {
+      stateDiff.push({
+        slot: await slotAt(TempCheckpointLogField.BlobCommitmentsHash),
+        value: fields.blobCommitmentsHash.toString(),
+      });
+    }
+    if (fields.outHash) {
+      stateDiff.push({ slot: await slotAt(TempCheckpointLogField.OutHash), value: fields.outHash.toString() });
+    }
+    if (fields.attestationsHash) {
+      stateDiff.push({
+        slot: await slotAt(TempCheckpointLogField.AttestationsHash),
+        value: fields.attestationsHash.toString() as `0x${string}`,
+      });
+    }
+    if (fields.payloadDigest) {
+      stateDiff.push({
+        slot: await slotAt(TempCheckpointLogField.PayloadDigest),
+        value: fields.payloadDigest.toString() as `0x${string}`,
+      });
+    }
+    if (fields.slotNumber !== undefined) {
+      // CompressedSlot is uint32 on L1 (SafeCast.toUint32 reverts on overflow). Match that behavior here
+      // so a malformed override surfaces immediately rather than silently truncating into a wrong slot.
+      const slotNumber = BigInt(fields.slotNumber);
+      if (slotNumber < 0n || slotNumber > 0xffffffffn) {
+        throw new Error(`slotNumber ${slotNumber} does not fit in uint32`);
+      }
+      stateDiff.push({ slot: await slotAt(TempCheckpointLogField.SlotNumber), value: word(slotNumber) });
+    }
+    if (fields.feeHeader) {
+      stateDiff.push({
+        slot: await slotAt(TempCheckpointLogField.FeeHeader),
+        value: word(RollupContract.compressFeeHeader(fields.feeHeader)),
+      });
+    }
+
+    if (stateDiff.length === 0) {
+      return [];
+    }
+    return [{ address: this.address, stateDiff }];
   }
 
   /**

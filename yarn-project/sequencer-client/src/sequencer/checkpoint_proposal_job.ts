@@ -566,6 +566,7 @@ export class CheckpointProposalJob implements Traceable {
         checkpointNumber: this.checkpointNumber,
         proposedCheckpointData: this.proposedCheckpointData,
         rollup: this.publisher.rollupContract,
+        signatureContext: this.signatureContext,
         log: this.log,
         pipeliningEnabled: isPipelining,
         prunePending: this.prunePending,

@@ -33,6 +33,7 @@ import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import { buildPipelinedParentSimulationOverridesPlan } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointProposalJobMetrics } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
@@ -389,12 +390,28 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const l1SimulationOverridesBuilder = new SimulationOverridesBuilder();
 
     if (this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint) {
-      // Parent checkpoint hasn't landed on L1 yet. Override both the proposed checkpoint number
-      // and the archive at that checkpoint so L1 simulation sees the correct chain tip.
+      // Parent checkpoint hasn't landed on L1 yet. Build a byte-faithful override of the parent's
+      // tempCheckpointLog cell — slotNumber is the load-bearing field that, if left at storage zero,
+      // makes canPruneAtTime spuriously declare the proof window expired and triggers a
+      // Rollup__InvalidArchive revert during the canProposeAt simulation.
       const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
-      l1SimulationOverridesBuilder
-        .withChainTips({ pending: parentCheckpointNumber })
-        .withPendingArchive(syncedTo.archive);
+      const parentPlan = await buildPipelinedParentSimulationOverridesPlan({
+        checkpointNumber,
+        proposedCheckpointData: syncedTo.proposedCheckpointData,
+        rollup: this.rollupContract,
+        signatureContext: this.signatureContext,
+        log: this.log,
+        pipeliningEnabled: true,
+      });
+      l1SimulationOverridesBuilder.merge(parentPlan);
+      // checkSync() fetches tips and proposed-checkpoint data independently, so there's a window where
+      // hasProposedCheckpoint is true but proposedCheckpointData hasn't been populated yet. In that case
+      // the helper above has only set tips.pending; force-attach the archive override too so we don't
+      // regress to the bug class the inline-builder used to handle (canProposeAt comparing against the
+      // stale on-chain archives[K-1]).
+      if (!syncedTo.proposedCheckpointData) {
+        l1SimulationOverridesBuilder.withPendingArchive(syncedTo.archive);
+      }
       this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
 
       this.log.verbose(

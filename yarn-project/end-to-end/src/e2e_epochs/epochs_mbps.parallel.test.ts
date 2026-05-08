@@ -30,7 +30,7 @@ import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { type EndToEndContext, getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import { EpochsTestContext, type TrackedSequencerEvent } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -61,6 +61,7 @@ describe('e2e_epochs/epochs_mbps', () => {
   let crossChainContract: TestContract | undefined;
   let wallet: TestWallet;
   let from: AztecAddress;
+  let failEvents: TrackedSequencerEvent[];
 
   /**
    * Creates validators and sets up the test context with MBPS configuration.
@@ -81,30 +82,28 @@ describe('e2e_epochs/epochs_mbps', () => {
     });
 
     // Setup context with the given set of validators and MBPS configuration.
-    // Timing calculation for 3 blocks per checkpoint with 8s sub-slots:
-    // - initializationOffset ≈ 0.5s (test mode with ethereumSlotDuration < 8)
-    // - 3 blocks × 8s = 24s
-    // - checkpointFinalization = 0.5s (assemble) + 0 (p2p in test) + 2s (L1 publish) = 2.5s
-    // - finalBlockDuration = 8s
-    // - Total: 0.5 + 24 + 8 + 2.5 = 35s → use 36s for margin
+    // Pipelining is enabled, so we adopt the wider timing used by the dedicated
+    // epochs_mbps.pipeline.parallel test (72s L2 slots, 12s L1 slots, 5500ms blocks).
+    // The tighter 36s/4s timing produces CheckpointNumberNotSequentialError on non-proposer
+    // nodes when the pipelined proposer races ahead of L1 confirmation (see A-914).
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
+      enableProposerPipelining: true,
       mockGossipSubNetwork: true,
       disableAnvilTestWatcher: true,
       startProverNode: true,
+      // Mirrors the pipeline-MBPS sibling: more blocks per slot needs a larger per-block gas
+      // allocation multiplier so each block can fit non-trivial txs.
+      perBlockAllocationMultiplier: 8,
       aztecEpochDuration: 4,
       enforceTimeTable: true,
-      // L1 slot duration - using < 8 to enable test mode optimizations
-      ethereumSlotDuration: 4,
-      // L2 slot duration - should fit 3 blocks (8s each) + overhead
-      aztecSlotDuration: 36,
-      // Block duration of 8s as specified
-      blockDurationMs: 8000,
-      // L1 publishing time
-      l1PublishingTime: 2,
-      // Reduce attestation propagation time for tests
-      attestationPropagationTime: 0.5,
+      // L1 slot duration - mirrors the pipeline-MBPS test for headroom on the parent's L1 tx
+      ethereumSlotDuration: 12,
+      // L2 slot duration - should fit several blocks (5.5s each) with pipelining overhead
+      aztecSlotDuration: 72,
+      // Block duration of 5.5s, matches the pipeline sibling
+      blockDurationMs: 5500,
       // Committee size of 3
       aztecTargetCommitteeSize: 3,
       // Additional options (minTxsPerBlock, maxTxsPerBlock, etc.)
@@ -125,6 +124,10 @@ describe('e2e_epochs/epochs_mbps', () => {
       test.createValidatorNode([privateKey], { dontStartSequencer: true }),
     );
     logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
+    ({ failEvents } = test.watchSequencerEvents(
+      nodes.map(n => n.getSequencer()!),
+      i => ({ validator: validators[i].attester }),
+    ));
 
     // Point the wallet at a validator node. The initial node-0 has all validator keys in its config,
     // so it rejects block proposals from validators thinking they come from itself. By redirecting
@@ -185,6 +188,11 @@ describe('e2e_epochs/epochs_mbps', () => {
 
   /** Waits until a specific multi-block checkpoint is proven, verifying that proving succeeds with MBPS blocks. */
   async function waitForProvenCheckpoint(targetCheckpoint: CheckpointNumber) {
+    test.assertNoFailuresFromSequencers(failEvents);
+
+    logger.warn(`Stopping validator sequencers before waiting for checkpoint ${targetCheckpoint} to be proven`);
+    await Promise.all(nodes.map(n => n.getSequencer()?.stop()));
+
     const provenTimeout = test.L2_SLOT_DURATION_IN_S * test.epochDuration * 4;
     logger.warn(`Waiting for checkpoint ${targetCheckpoint} to be proven (timeout=${provenTimeout}s)`);
     await test.waitUntilProvenCheckpointNumber(targetCheckpoint, provenTimeout);

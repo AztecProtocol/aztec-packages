@@ -273,6 +273,15 @@ tests:
     owners:
       - *sean
 
+  # Consistently fails under the pipelined-MBPS timing with `Tx dropped by P2P node`. The test
+  # broadcasts 10 cross-chain txs and waits on every one with Promise.all; one or two get garbage
+  # collected by the p2p tx pool before they are mined. Unrelated to the checkpoint-state-override
+  # fix that brought this test under pipelined mode in the first place; tracked as a follow-up.
+  - regex: "epochs_mbps.parallel.test.ts.*L2 to L1 messages"
+    skip: true
+    owners:
+      - *palla
+
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context

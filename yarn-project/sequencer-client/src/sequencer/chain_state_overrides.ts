@@ -2,12 +2,15 @@ import { RollupContract, SimulationOverridesBuilder, type SimulationOverridesPla
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
+import { computeCheckpointPayloadDigest } from '@aztec/stdlib/checkpoint';
 import type { ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 
 type PipelinedParentSimulationOverridesPlanInput = {
   checkpointNumber: CheckpointNumber;
   proposedCheckpointData?: ProposedCheckpointData;
   rollup: RollupContract;
+  signatureContext: CoordinationSignatureContext;
   log: Logger;
   /**
    * Whether proposer pipelining is enabled. Controls only the parent pending/fee-header
@@ -41,6 +44,33 @@ export async function buildPipelinedParentSimulationOverridesPlan(
   if (input.pipeliningEnabled) {
     const parentCheckpointNumber = CheckpointNumber(input.checkpointNumber - 1);
     builder.withChainTips({ pending: parentCheckpointNumber });
+
+    if (input.proposedCheckpointData) {
+      // Guard against a racy proposedCheckpointData entry from a previous round (the archiver returns
+      // whatever proposed entry it currently has, which may not yet have caught up with the new sync
+      // tip). Writing the wrong cell would be coherent but wrong, and harder to diagnose than skipping.
+      if (input.proposedCheckpointData.checkpointNumber !== parentCheckpointNumber) {
+        input.log.warn(
+          `Skipping pipelined parent override: proposedCheckpointData is for checkpoint ${input.proposedCheckpointData.checkpointNumber} but parent is ${parentCheckpointNumber}`,
+        );
+      } else {
+        const { header, archive, checkpointOutHash, feeAssetPriceModifier } = input.proposedCheckpointData;
+        builder
+          .withPendingArchive(archive.root)
+          .withPendingHeaderHash(header.hash())
+          .withPendingOutHash(checkpointOutHash)
+          .withPendingSlotNumber(header.slotNumber)
+          .withPendingPayloadDigest(
+            computeCheckpointPayloadDigest({
+              header,
+              archiveRoot: archive.root,
+              feeAssetPriceModifier,
+              signatureContext: input.signatureContext,
+            }),
+          );
+      }
+    }
+
     const pendingFeeHeader = await computePipelinedParentFeeHeader(input);
     if (pendingFeeHeader) {
       builder.withPendingFeeHeader(pendingFeeHeader);
@@ -83,6 +113,13 @@ type PipelinedParentFeeHeaderInput = {
 /** Derives the pending parent fee header used during pipelined proposal simulation. */
 export async function computePipelinedParentFeeHeader(input: PipelinedParentFeeHeaderInput) {
   if (!input.proposedCheckpointData || input.checkpointNumber < 2) {
+    return undefined;
+  }
+
+  // Same staleness guard as the parent-state population path above: refuse to derive a fee header from
+  // a proposedCheckpointData entry that is not actually our parent checkpoint.
+  const parentCheckpointNumber = CheckpointNumber(input.checkpointNumber - 1);
+  if (input.proposedCheckpointData.checkpointNumber !== parentCheckpointNumber) {
     return undefined;
   }
 
