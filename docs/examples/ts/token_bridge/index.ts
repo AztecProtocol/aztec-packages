@@ -63,7 +63,10 @@ console.log(`NFTPortal: ${portalAddress}\n`);
 // docs:start:deploy_l2_contracts
 console.log("Deploying L2 contracts...\n");
 
-const { contract: l2Nft } = await NFTPunkContract.deploy(aztecWallet, account.address).send({
+const { contract: l2Nft } = await NFTPunkContract.deploy(
+  aztecWallet,
+  account.address,
+).send({
   from: account.address,
 });
 
@@ -201,11 +204,9 @@ async function mine2Blocks(
 ) {
   await NFTPunkContract.deploy(aztecWallet, accountAddress).send({
     from: accountAddress,
-    contractAddressSalt: Fr.random(),
   });
   await NFTPunkContract.deploy(aztecWallet, accountAddress).send({
     from: accountAddress,
-    contractAddressSalt: Fr.random(),
   });
 }
 // docs:end:mine_blocks
@@ -303,7 +304,11 @@ while (provenBlockNumber < exitReceipt.blockNumber!) {
 console.log("Block proven!\n");
 
 // Compute the membership witness using the message hash and the L2 tx hash
-const witness = await computeL2ToL1MembershipWitness(node, msgLeaf, exitReceipt.txHash);
+const witness = await computeL2ToL1MembershipWitness(
+  node,
+  msgLeaf,
+  exitReceipt.txHash,
+);
 const epoch = witness!.epochNumber;
 console.log(`   Epoch for block ${exitReceipt.blockNumber}: ${epoch}`);
 
