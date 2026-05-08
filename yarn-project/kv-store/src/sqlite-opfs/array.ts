@@ -1,4 +1,4 @@
-import { Encoder } from 'msgpackr';
+import { Encoder } from '#msgpackr';
 import { hash } from 'ohash';
 import { toBufferKey } from 'ordered-binary';
 
