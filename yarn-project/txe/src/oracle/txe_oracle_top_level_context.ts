@@ -15,12 +15,14 @@ import {
   CapsuleService,
   CapsuleStore,
   type ContractStore,
+  type ExecutionHooks,
   NoteStore,
   ORACLE_VERSION_MAJOR,
   PrivateEventStore,
   RecipientTaggingStore,
   SenderAddressBookStore,
   SenderTaggingStore,
+  composeHooks,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
 import {
@@ -326,6 +328,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     isStaticCall: boolean = false,
     additionalScopes: AztecAddress[] = [],
     jobId: string,
+    authorizedUtilityCallTargets: AztecAddress[],
   ) {
     this.logger.verbose(
       `Executing external function ${await this.contractStore.getDebugFunctionName(targetContractAddress, functionSelector)}@${targetContractAddress} isStaticCall=${isStaticCall}`,
@@ -410,6 +413,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       simulator,
       messageContextService: this.stateMachine.messageContextService,
       l2TipsStore: this.stateMachine.node,
+      hooks: composeHooks({
+        authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('private', authorizedUtilityCallTargets),
+      }),
     });
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
@@ -712,6 +718,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     functionSelector: FunctionSelector,
     args: Fr[],
     jobId: string,
+    authorizedUtilityCallTargets: AztecAddress[],
   ) {
     const artifact = await this.contractStore.getFunctionArtifact(targetContractAddress, functionSelector);
     if (!artifact) {
@@ -742,10 +749,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       returnTypes: [],
     });
 
-    return this.executeUtilityCall(call, await this.keyStore.getAccounts(), jobId);
+    return this.executeUtilityCall(call, await this.keyStore.getAccounts(), jobId, authorizedUtilityCallTargets);
   }
 
-  private async executeUtilityCall(call: FunctionCall, scopes: AztecAddress[], jobId: string): Promise<Fr[]> {
+  private async executeUtilityCall(
+    call: FunctionCall,
+    scopes: AztecAddress[],
+    jobId: string,
+    authorizedUtilityCallTargets: AztecAddress[] = [],
+  ): Promise<Fr[]> {
     const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -779,6 +791,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         jobId,
         scopes,
         simulator,
+        hooks: composeHooks({
+          authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('utility', authorizedUtilityCallTargets),
+        }),
       });
       const acirExecutionResult = await simulator
         .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())
@@ -810,5 +825,18 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   private async getLastBlockNumber(): Promise<BlockNumber> {
     const header = await this.stateMachine.node.getBlockHeader('latest');
     return header ? header.globalVariables.blockNumber : BlockNumber.ZERO;
+  }
+
+  private buildAuthorizeUtilityCallHook(
+    callerContext: 'private' | 'utility',
+    authorizedTargets: AztecAddress[],
+  ): ExecutionHooks['authorizeUtilityCall'] | undefined {
+    if (authorizedTargets.length === 0) {
+      return undefined;
+    }
+    return req =>
+      Promise.resolve({
+        authorized: req.callerContext === callerContext && authorizedTargets.some(t => t.equals(req.target)),
+      });
   }
 }

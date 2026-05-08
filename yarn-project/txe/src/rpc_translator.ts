@@ -1352,6 +1352,7 @@ export class RPCTranslator {
     foreignArgsHash: ForeignCallSingle,
     foreignIsStaticCall: ForeignCallSingle,
     foreignAdditionalScopes: ForeignCallArray,
+    foreignAuthorizedUtilityCallTargets: ForeignCallArray,
   ) {
     const from = fromSingle(foreignFromIsSome).toBool() ? addressFromSingle(foreignFromValue) : undefined;
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
@@ -1360,6 +1361,9 @@ export class RPCTranslator {
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
     const additionalScopes = fromArray(foreignAdditionalScopes).map(field => AztecAddress.fromField(field));
+    const authorizedUtilityCallTargets = fromArray(foreignAuthorizedUtilityCallTargets).map(field =>
+      AztecAddress.fromField(field),
+    );
 
     const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
@@ -1371,6 +1375,7 @@ export class RPCTranslator {
         isStaticCall,
         additionalScopes,
         this.stateHandler.getCurrentJob(),
+        authorizedUtilityCallTargets,
       );
 
       // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than
@@ -1402,10 +1407,14 @@ export class RPCTranslator {
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
+    foreignAuthorizedUtilityCallTargets: ForeignCallArray,
   ) {
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
+    const authorizedUtilityCallTargets = fromArray(foreignAuthorizedUtilityCallTargets).map(field =>
+      AztecAddress.fromField(field),
+    );
 
     const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const returnValues = await this.handlerAsTxe().executeUtilityFunction(
@@ -1413,6 +1422,7 @@ export class RPCTranslator {
         functionSelector,
         args,
         this.stateHandler.getCurrentJob(),
+        authorizedUtilityCallTargets,
       );
 
       // TODO(F-335): Avoid doing the following call here.
