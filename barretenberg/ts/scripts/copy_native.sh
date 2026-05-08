@@ -9,11 +9,13 @@ cd $(dirname $0)/..
 target="$(arch)-$(os)"
 
 if [ "${BUILD_CPP:-0}" -eq 1 ]; then
-  ../cpp/bootstrap.sh build_preset clang20 --target bb --target nodejs_module --target aztec-wsdb
+  ../cpp/bootstrap.sh build_preset clang20 --target bb --target nodejs_module --target aztec-wsdb --target aztec-cdb --target aztec-avm
 fi
 
 mkdir -p ./build/$target
 
 cp ../cpp/build/bin/bb ./build/$target
 cp ../cpp/build/bin/aztec-wsdb ./build/$target
+cp ../cpp/build/bin/aztec-cdb ./build/$target
+cp ../cpp/build/bin/aztec-avm ./build/$target
 cp ../cpp/build/lib/nodejs_module.node ./build/$target
