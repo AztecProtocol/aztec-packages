@@ -41,6 +41,13 @@ import { type TxMetaData, type TxState, buildTxMetaData, checkNullifierConflict 
 import { TxPoolIndices } from './tx_pool_indices.js';
 
 /**
+ * Maximum number of full transactions to load into memory at once when finalizing a block.
+ * Bounds peak memory while archiving and hard-deleting mined txs (~23k txs/epoch at 10 TPS would
+ * otherwise OOM the node).
+ */
+const FINALIZE_BLOCK_CHUNK_SIZE = 100;
+
+/**
  * Callbacks for the implementation to notify the outer class about events and metrics.
  */
 export interface TxPoolV2Callbacks {
@@ -640,29 +647,31 @@ export class TxPoolV2Impl {
     // Step 1: Find mined txs at or before finalized block
     const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(blockNumber);
 
-    await this.#store.transactionAsync(async () => {
-      // Step 2: Collect mined txs for archiving (before deletion)
-      const txsToArchive: Tx[] = [];
-      if (this.#archive.isEnabled()) {
-        for (const txHashStr of minedTxsToFinalize) {
+    // Step 2: Process in chunks. Hydrating an entire epoch's worth of mined txs at once would
+    // OOM under load (~23k txs/epoch at 10 TPS). Each chunk is hydrated, archived, and deleted
+    // before moving on so peak memory is bounded.
+    const archiveEnabled = this.#archive.isEnabled();
+    for (let i = 0; i < minedTxsToFinalize.length; i += FINALIZE_BLOCK_CHUNK_SIZE) {
+      const chunk = minedTxsToFinalize.slice(i, i + FINALIZE_BLOCK_CHUNK_SIZE);
+
+      if (archiveEnabled) {
+        const txsToArchive: Tx[] = [];
+        for (const txHashStr of chunk) {
           const buffer = await this.#txsDB.getAsync(txHashStr);
           if (buffer) {
             txsToArchive.push(Tx.fromBuffer(buffer));
           }
         }
+        if (txsToArchive.length > 0) {
+          await this.#archive.archiveTxs(txsToArchive);
+        }
       }
 
-      // Step 3: Delete mined txs from active pool
-      await this.#deleteTxsBatch(minedTxsToFinalize);
+      await this.#store.transactionAsync(() => this.#deleteTxsBatch(chunk));
+    }
 
-      // Step 4: Finalize soft-deleted txs
-      await this.#deletedPool.finalizeBlock(blockNumber);
-
-      // Step 5: Archive mined txs
-      if (txsToArchive.length > 0) {
-        await this.#archive.archiveTxs(txsToArchive);
-      }
-    });
+    // Step 3: Finalize soft-deleted txs once all mined txs are gone.
+    await this.#store.transactionAsync(() => this.#deletedPool.finalizeBlock(blockNumber));
 
     if (minedTxsToFinalize.length > 0) {
       this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`, {
