@@ -4,11 +4,7 @@
 name: CI3 (External)
 
 on:
-  # This check is skipped in merge queue, but we need it to run (even skipped) for status checks.
-  merge_group:
-  # Run with pull_request_target for external devs. This forces them to use this workflow as-is.
-  pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, labeled]
+  workflow_dispatch:
 
 concurrency:
   # Only allow one run per <forked-repo>/<branch> and full concurrency on merge queue.
