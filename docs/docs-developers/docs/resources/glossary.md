@@ -68,6 +68,8 @@ Merkle trees in Aztec are used to store cryptographic commitments. They are used
 
 With `nargo`, you can start new projects, compile, execute, and test your Noir programs.
 
+The Aztec installer ships its own pinned `nargo` and exposes it as the `aztec-nargo` wrapper on `PATH` (bare `nargo` is intentionally not provided so it does not shadow your own install). For Aztec contract work, prefer `aztec compile` and `aztec test`; for plain Noir commands, use `aztec-nargo` (or your own `nargo` install).
+
 You can find more information in the nargo installation docs [here](https://noir-lang.org/docs/getting_started/quick_start#installation) and the nargo command reference [here](https://noir-lang.org/docs/reference/nargo_commands).
 
 ### Noir
