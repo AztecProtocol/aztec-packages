@@ -14,7 +14,7 @@ import type { SlasherClientInterface } from '@aztec/slasher';
 import type { BlockData, L2BlockSink, L2BlockSource, ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import {
   type ResolvedSequencerConfig,
   type SequencerConfig,
@@ -785,7 +785,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.log.info(`Voting in slot ${slot} despite sync failure`, { slot });
-    await publisher.sendRequests();
+    // Under proposer pipelining, votes are EIP-712-signed for `targetSlot` (the pipelined slot
+    // in which the multicall is expected to mine). Submitting immediately would let the
+    // multicall mine in the wall-clock slot, causing signature verification to fail silently
+    // inside Multicall3. Delay submission to the start of `targetSlot` so the tx mines in the
+    // slot the votes were signed for. We fire-and-forget so we don't block the sequencer's
+    // work loop while waiting for the target slot to start.
+    if (this.epochCache.isProposerPipeliningEnabled()) {
+      const submitAfter = new Date(Number(getTimestampForSlot(targetSlot, this.l1Constants)) * 1000);
+      void publisher.sendRequestsAt(submitAfter).catch(err => {
+        this.log.error(`Failed to publish votes despite sync failure for slot ${slot}`, err, { slot });
+      });
+    } else {
+      await publisher.sendRequests();
+    }
   }
 
   /**

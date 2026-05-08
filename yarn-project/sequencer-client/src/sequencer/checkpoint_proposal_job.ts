@@ -198,9 +198,18 @@ export class CheckpointProposalJob implements Traceable {
 
     if (!broadcast) {
       await Promise.all(votesPromises);
-      // Still submit votes even without a checkpoint
+      // Still submit votes even without a checkpoint.
+      // Under proposer pipelining, vote-offenses signatures are EIP-712-bound to `targetSlot`
+      // (the pipelined slot in which the multicall is expected to mine). Submitting at the
+      // wall-clock time would let the multicall mine in a different L2 slot, causing
+      // signature verification to fail silently inside Multicall3. Delay submission to the
+      // start of `targetSlot` so the tx mines in the slot the vote was signed for.
       if (!this.config.fishermanMode) {
-        this.pendingL1Submission = this.publisher.sendRequestsAt(this.dateProvider.nowAsDate()).then(() => {});
+        const isPipelining = this.epochCache.isProposerPipeliningEnabled();
+        const submitAfter = isPipelining
+          ? new Date(Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) * 1000)
+          : this.dateProvider.nowAsDate();
+        this.pendingL1Submission = this.publisher.sendRequestsAt(submitAfter).then(() => {});
       }
       return undefined;
     }
