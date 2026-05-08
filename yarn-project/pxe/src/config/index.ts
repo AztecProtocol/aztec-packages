@@ -12,6 +12,29 @@ import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store
 export { getPackageInfo } from './package_info.js';
 
 /**
+ * Maximum number of apps that can be batched into a single private kernel iteration.
+ * Aligned with the available `init_K` / `inner_K` variants.
+ */
+export type MaxBatchSize = 1 | 2 | 3;
+
+/**
+ * Reads `PXE_KERNEL_BATCH_SIZE` and returns a valid `MaxBatchSize`. Defaults to 1 (current
+ * single-app-per-kernel behaviour) when unset. Throws on values outside {1, 2, 3} so a
+ * misconfigured environment fails fast.
+ */
+export function parseKernelBatchSize(): MaxBatchSize {
+  const raw = process.env.PXE_KERNEL_BATCH_SIZE;
+  if (raw === undefined || raw === '') {
+    return 1;
+  }
+  const parsed = Number(raw);
+  if (parsed !== 1 && parsed !== 2 && parsed !== 3) {
+    throw new Error(`PXE_KERNEL_BATCH_SIZE must be 1, 2, or 3 (got: ${raw}).`);
+  }
+  return parsed;
+}
+
+/**
  * Configuration settings for the prover factory
  */
 export interface KernelProverConfig {

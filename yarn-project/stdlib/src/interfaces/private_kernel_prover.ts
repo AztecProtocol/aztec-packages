@@ -64,7 +64,7 @@ export interface PrivateKernelProver {
 
   /**
    * Creates a proof output for a batched first iteration that processes three app calls in a single
-   * private kernel circuit. Used when `PXE_USE_INIT_3` is enabled and at least three app calls remain.
+   * private kernel circuit.
    *
    * @param privateKernelInputsInit3 - The batched private data structure for the initial iteration.
    * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.

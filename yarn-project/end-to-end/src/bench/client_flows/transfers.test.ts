@@ -10,7 +10,7 @@ import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { captureProfile } from './benchmark.js';
+import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(1_600_000);
@@ -139,14 +139,12 @@ describe('Transfer benchmark', () => {
               `${accountType}+transfer_${recursions}_recursions+${benchmarkingPaymentMethod}`,
               transferInteraction,
               options,
-              1 + // Account entrypoint
-                1 + // Kernel init
-                paymentMethod.circuits + // Payment method circuits
-                2 + // CandyBarCoin transfer + kernel inner
-                recursions * 2 + // (CandyBarCoin _recurse_subtract_balance + kernel inner) * recursions
-                1 + // Kernel reset
-                1 + // Kernel tail
-                1, // Kernel hiding
+              expectedExecutionSteps(
+                1 + // Account entrypoint
+                  paymentMethod.apps + // Payment method apps
+                  1 + // CandyBarCoin transfer
+                  recursions, // CandyBarCoin _recurse_subtract_balance per recursion
+              ),
             );
 
             if (process.env.SANITY_CHECKS) {

@@ -6,6 +6,7 @@ import {
 } from '@aztec/aztec.js/contracts';
 import type { Logger } from '@aztec/aztec.js/log';
 import { createLogger } from '@aztec/foundation/log';
+import { parseKernelBatchSize } from '@aztec/pxe/config';
 import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
 import type {
   ProvingStats,
@@ -320,6 +321,26 @@ export function convertProfileToGHBenchmark(benchmark: ClientFlowBenchmark): Git
   return benches;
 }
 
+/**
+ * Computes the expected number of `PrivateExecutionStep` entries the orchestrator will produce
+ * for a tx with `apps` private function calls.
+ *
+ * Step layout: `apps` app circuits + kernel iterations + 1 final reset + 1 tail + 1 hiding kernel.
+ * The kernel-iteration count depends on `PXE_KERNEL_BATCH_SIZE`: with batch size N the orchestrator
+ * collapses N consecutive apps into one `init_K` / `inner_K` kernel, so the count drops from
+ * `apps` (N=1) to `ceil(apps / N)` (N>=2).
+ *
+ * Caveat: this assumes no mid-flow reset is triggered, which would split a batch into two kernels
+ * separated by a reset. For the flows currently exercised in this benchmark suite that holds, but
+ * a future flow that grows large enough to overflow per-tx limits before consuming all apps will
+ * not match this formula.
+ */
+export function expectedExecutionSteps(apps: number): number {
+  const batchSize = parseKernelBatchSize();
+  const kernels = Math.ceil(apps / batchSize);
+  return apps + kernels + 1 /* final reset */ + 1 /* tail */ + 1 /* hiding */;
+}
+
 export async function captureProfile(
   label: string,
   interaction: ContractFunctionInteraction | DeployMethod,
@@ -331,14 +352,7 @@ export async function captureProfile(
   const result = await interaction.profile({ ...opts, profileMode: 'full', skipProofGeneration: false });
   const logs = ProxyLogger.getInstance().getLogs();
   if (expectedSteps !== undefined && result.executionSteps.length !== expectedSteps) {
-    const msg = `Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`;
-    // Step counts shift when the orchestrator batches kernels (e.g. PXE_USE_INIT_3 collapses
-    // init+inner+inner into a single init_3). Allow opting out of the strict check for those runs.
-    if (process.env.SKIP_STEP_COUNT_CHECK === '1') {
-      logger.warn(msg);
-    } else {
-      throw new Error(msg);
-    }
+    throw new Error(`Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`);
   }
   const benchmark = generateBenchmark(label, logs, result.stats, result.executionSteps, 'wasm', undefined);
 

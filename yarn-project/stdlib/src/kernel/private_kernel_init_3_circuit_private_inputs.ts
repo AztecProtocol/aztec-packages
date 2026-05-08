@@ -7,7 +7,7 @@ import { PrivateCallData } from './private_call_data.js';
 
 /**
  * Input to the batched private kernel init circuit, which processes the first three app calls of a
- * transaction in a single iteration. Used when `PXE_USE_INIT_3` is enabled.
+ * transaction in a single iteration.
  */
 export class PrivateKernelInit3CircuitPrivateInputs {
   constructor(

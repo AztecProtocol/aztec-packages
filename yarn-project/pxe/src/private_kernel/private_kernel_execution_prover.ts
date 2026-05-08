@@ -16,8 +16,11 @@ import {
   PrivateKernelCircuitPublicInputs,
   PrivateKernelData,
   type PrivateKernelExecutionProofOutput,
+  PrivateKernelInit2CircuitPrivateInputs,
   PrivateKernelInit3CircuitPrivateInputs,
   PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInner2CircuitPrivateInputs,
+  PrivateKernelInner3CircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   type PrivateKernelSimulateOutput,
   PrivateKernelTailCircuitPrivateInputs,
@@ -29,12 +32,13 @@ import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   TxRequest,
-  collectNested,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
+import { parseKernelBatchSize } from '../config/index.js';
+import { BatchPlanner } from './batch_planner.js';
 import { computeTxExpirationTimestamp } from './hints/compute_tx_expiration_timestamp.js';
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/private_kernel_reset_private_inputs_builder.js';
 import type { PrivateKernelOracle } from './private_kernel_oracle.js';
@@ -102,14 +106,6 @@ export class PrivateKernelExecutionProver {
     const executionStack = [executionResult.entrypoint];
     let firstIteration = true;
 
-    // When PXE_USE_INIT_3 is set and the tx has at least three private app calls, the first
-    // kernel iteration verifies three app calls in a single batched private_kernel_init_3
-    // circuit instead of one private_kernel_init followed by inners. Saves N-1 prev-kernel HN
-    // verifications across the kernel chain. Falls back to the standard init for txs with
-    // fewer than three calls so the flag can be left on permanently.
-    const totalAppCalls = collectNested([executionResult.entrypoint], call => [call]).length;
-    const useInit3 = process.env.PXE_USE_INIT_3 === '1' && totalAppCalls >= 3;
-
     let output = NULL_SIMULATE_OUTPUT;
 
     const executionSteps: PrivateExecutionStep[] = [];
@@ -117,6 +113,12 @@ export class PrivateKernelExecutionProver {
     const noteHashNullifierCounterMap = collectNoteHashNullifierCounterMap(executionResult);
     const minRevertibleSideEffectCounter = getFinalMinRevertibleSideEffectCounter(executionResult);
     const splitCounter = isPrivateOnlyTx ? 0 : minRevertibleSideEffectCounter;
+
+    // Each kernel iteration absorbs up to `maxBatchSize` apps. The planner walks the upcoming
+    // apps and decides where the next reset must fall by using an accumulator and
+    // reusing the existing single-app `needsReset()` check.
+    const maxBatchSize = parseKernelBatchSize();
+    const planner = new BatchPlanner(noteHashNullifierCounterMap, splitCounter, maxBatchSize);
 
     while (executionStack.length) {
       if (!firstIteration) {
@@ -151,104 +153,24 @@ export class PrivateKernelExecutionProver {
         }
       }
 
-      const privateCallData = await this.consumeNextApp(executionStack, executionSteps);
-
-      if (firstIteration) {
-        const witgenTimer = new Timer();
-
-        if (useInit3) {
-          // Consume two more apps so the kernel verifies three in one shot. The total-app-count
-          // gate above guarantees the stack has at least two more apps available.
-          const additionalApps: PrivateCallData[] = [];
-          for (let i = 0; i < 2; i++) {
-            additionalApps.push(await this.consumeNextApp(executionStack, executionSteps));
-          }
-
-          const proofInput = new PrivateKernelInit3CircuitPrivateInputs(
-            txRequest,
-            getVKTreeRoot(),
-            ProtocolContractsList,
-            privateCallData,
-            additionalApps[0],
-            additionalApps[1],
-            isPrivateOnlyTx,
-            executionResult.firstNullifier,
-            minRevertibleSideEffectCounter,
-          );
-          this.log.debug(
-            `Calling private kernel init_3 with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
-          );
-
-          pushTestData('private-kernel-inputs-init-3', proofInput);
-
-          output = generateWitnesses
-            ? await this.proofCreator.generateInit3Output(proofInput)
-            : await this.proofCreator.simulateInit3(proofInput);
-
-          executionSteps.push({
-            functionName: 'private_kernel_init_3',
-            bytecode: output.bytecode,
-            witness: output.outputWitness,
-            vk: output.verificationKey.keyAsBytes,
-            timings: {
-              witgen: witgenTimer.ms(),
-            },
-          });
-
-          // WORKTODO(luke): if executionStack.length === 0 here, init_3 consumed every app and
-          // the chain can skip directly to reset+tail. The protocol-circuit allowed_previous lists
-          // already accept init_3, so this is purely an orchestrator change for later.
-        } else {
-          const proofInput = new PrivateKernelInitCircuitPrivateInputs(
-            txRequest,
-            getVKTreeRoot(),
-            ProtocolContractsList,
-            privateCallData,
-            isPrivateOnlyTx,
-            executionResult.firstNullifier,
-            minRevertibleSideEffectCounter,
-          );
-          this.log.debug(
-            `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
-          );
-
-          pushTestData('private-kernel-inputs-init', proofInput);
-
-          output = generateWitnesses
-            ? await this.proofCreator.generateInitOutput(proofInput)
-            : await this.proofCreator.simulateInit(proofInput);
-
-          executionSteps.push({
-            functionName: 'private_kernel_init',
-            bytecode: output.bytecode,
-            witness: output.outputWitness,
-            vk: output.verificationKey.keyAsBytes,
-            timings: {
-              witgen: witgenTimer.ms(),
-            },
-          });
-        }
-      } else {
-        const witgenTimer = new Timer();
-        const vkData = await this.getVkData(output.verificationKey);
-        const previousKernelData = new PrivateKernelData(output.publicInputs, vkData);
-        const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, privateCallData);
-
-        pushTestData('private-kernel-inputs-inner', proofInput);
-        output = generateWitnesses
-          ? await this.proofCreator.generateInnerOutput(proofInput)
-          : await this.proofCreator.simulateInner(proofInput);
-
-        executionSteps.push({
-          functionName: 'private_kernel_inner',
-          bytecode: output.bytecode,
-          witness: output.outputWitness,
-          vk: output.verificationKey.keyAsBytes,
-          timings: {
-            witgen: witgenTimer.ms(),
-          },
-        });
+      const batchSize = planner.decideBatchSize(output.publicInputs, executionStack);
+      const apps: PrivateCallData[] = [];
+      for (let i = 0; i < batchSize; i++) {
+        apps.push(await this.consumeNextApp(executionStack, executionSteps));
       }
+
+      output = await this.runBatchedKernel({
+        apps,
+        firstIteration,
+        previousOutput: output,
+        txRequest,
+        isPrivateOnlyTx,
+        firstNullifierHint: executionResult.firstNullifier,
+        minRevertibleSideEffectCounter,
+        executionSteps,
+        generateWitnesses,
+      });
+
       firstIteration = false;
     }
 
@@ -496,5 +418,154 @@ export class PrivateKernelExecutionProver {
         updatedClassIdHints,
       }),
     });
+  }
+
+  /**
+   * Runs one batched kernel iteration. Picks the right circuit variant based on whether this is
+   * the first iteration or a later one and the size of the batch.
+   */
+  private async runBatchedKernel(args: {
+    apps: PrivateCallData[];
+    firstIteration: boolean;
+    previousOutput: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>;
+    txRequest: TxRequest;
+    isPrivateOnlyTx: boolean;
+    firstNullifierHint: Fr;
+    minRevertibleSideEffectCounter: number;
+    executionSteps: PrivateExecutionStep[];
+    generateWitnesses: boolean;
+  }): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    const {
+      apps,
+      firstIteration,
+      previousOutput,
+      txRequest,
+      isPrivateOnlyTx,
+      firstNullifierHint,
+      minRevertibleSideEffectCounter,
+      executionSteps,
+      generateWitnesses,
+    } = args;
+
+    const witgenTimer = new Timer();
+    let output: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>;
+    let functionName: string;
+
+    if (firstIteration) {
+      const vkTreeRoot = getVKTreeRoot();
+      switch (apps.length) {
+        case 1: {
+          const proofInput = new PrivateKernelInitCircuitPrivateInputs(
+            txRequest,
+            vkTreeRoot,
+            ProtocolContractsList,
+            apps[0],
+            isPrivateOnlyTx,
+            firstNullifierHint,
+            minRevertibleSideEffectCounter,
+          );
+          this.log.debug(
+            `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
+          );
+          pushTestData('private-kernel-inputs-init', proofInput);
+          output = generateWitnesses
+            ? await this.proofCreator.generateInitOutput(proofInput)
+            : await this.proofCreator.simulateInit(proofInput);
+          functionName = 'private_kernel_init';
+          break;
+        }
+        case 2: {
+          const proofInput = new PrivateKernelInit2CircuitPrivateInputs(
+            txRequest,
+            vkTreeRoot,
+            ProtocolContractsList,
+            apps[0],
+            apps[1],
+            isPrivateOnlyTx,
+            firstNullifierHint,
+            minRevertibleSideEffectCounter,
+          );
+          this.log.debug(
+            `Calling private kernel init_2 with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
+          );
+          pushTestData('private-kernel-inputs-init-2', proofInput);
+          output = generateWitnesses
+            ? await this.proofCreator.generateInit2Output(proofInput)
+            : await this.proofCreator.simulateInit2(proofInput);
+          functionName = 'private_kernel_init_2';
+          break;
+        }
+        case 3: {
+          const proofInput = new PrivateKernelInit3CircuitPrivateInputs(
+            txRequest,
+            vkTreeRoot,
+            ProtocolContractsList,
+            apps[0],
+            apps[1],
+            apps[2],
+            isPrivateOnlyTx,
+            firstNullifierHint,
+            minRevertibleSideEffectCounter,
+          );
+          this.log.debug(
+            `Calling private kernel init_3 with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
+          );
+          pushTestData('private-kernel-inputs-init-3', proofInput);
+          output = generateWitnesses
+            ? await this.proofCreator.generateInit3Output(proofInput)
+            : await this.proofCreator.simulateInit3(proofInput);
+          functionName = 'private_kernel_init_3';
+          break;
+        }
+        default:
+          throw new Error(`Unsupported init kernel batch size: ${apps.length}`);
+      }
+    } else {
+      const vkData = await this.getVkData(previousOutput.verificationKey);
+      const previousKernelData = new PrivateKernelData(previousOutput.publicInputs, vkData);
+      switch (apps.length) {
+        case 1: {
+          const proofInput = new PrivateKernelInnerCircuitPrivateInputs(previousKernelData, apps[0]);
+          pushTestData('private-kernel-inputs-inner', proofInput);
+          output = generateWitnesses
+            ? await this.proofCreator.generateInnerOutput(proofInput)
+            : await this.proofCreator.simulateInner(proofInput);
+          functionName = 'private_kernel_inner';
+          break;
+        }
+        case 2: {
+          const proofInput = new PrivateKernelInner2CircuitPrivateInputs(previousKernelData, apps[0], apps[1]);
+          pushTestData('private-kernel-inputs-inner-2', proofInput);
+          output = generateWitnesses
+            ? await this.proofCreator.generateInner2Output(proofInput)
+            : await this.proofCreator.simulateInner2(proofInput);
+          functionName = 'private_kernel_inner_2';
+          break;
+        }
+        case 3: {
+          const proofInput = new PrivateKernelInner3CircuitPrivateInputs(previousKernelData, apps[0], apps[1], apps[2]);
+          pushTestData('private-kernel-inputs-inner-3', proofInput);
+          output = generateWitnesses
+            ? await this.proofCreator.generateInner3Output(proofInput)
+            : await this.proofCreator.simulateInner3(proofInput);
+          functionName = 'private_kernel_inner_3';
+          break;
+        }
+        default:
+          throw new Error(`Unsupported inner kernel batch size: ${apps.length}`);
+      }
+    }
+
+    executionSteps.push({
+      functionName,
+      bytecode: output.bytecode,
+      witness: output.outputWitness,
+      vk: output.verificationKey.keyAsBytes,
+      timings: {
+        witgen: witgenTimer.ms(),
+      },
+    });
+
+    return output;
   }
 }
