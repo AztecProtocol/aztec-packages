@@ -120,29 +120,23 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     {
         BB_BENCH_NAME("populate_selectors");
         std::vector<std::pair<size_t, size_t>> selector_tasks;
-        {
-            BB_BENCH_NAME("build_selector_tasks");
-            for (size_t block_idx = 0; block_idx < num_blocks; ++block_idx) {
-                const size_t num_selectors = blocks_array[block_idx].get_selectors().size();
-                for (size_t selector_idx = 0; selector_idx < num_selectors; ++selector_idx) {
-                    selector_tasks.emplace_back(block_idx, selector_idx);
-                }
+        for (size_t block_idx = 0; block_idx < num_blocks; ++block_idx) {
+            const size_t num_selectors = blocks_array[block_idx].get_selectors().size();
+            for (size_t selector_idx = 0; selector_idx < num_selectors; ++selector_idx) {
+                selector_tasks.emplace_back(block_idx, selector_idx);
             }
         }
-        {
-            BB_BENCH_NAME("copy_selector_values");
-            parallel_for(selector_tasks.size(), [&](size_t task_idx) {
-                const auto [block_idx, selector_idx] = selector_tasks[task_idx];
-                auto& block = blocks_array[block_idx];
-                const size_t offset = block.trace_offset();
-                const size_t block_size = block.size();
-                RefVector<Selector<FF>> block_selectors = block.get_selectors();
-                auto& selector = block_selectors[selector_idx];
-                for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                    selectors[selector_idx].set_if_valid_index(row_idx + offset, selector[row_idx]);
-                }
-            });
-        }
+        parallel_for(selector_tasks.size(), [&](size_t task_idx) {
+            const auto [block_idx, selector_idx] = selector_tasks[task_idx];
+            auto& block = blocks_array[block_idx];
+            const size_t offset = block.trace_offset();
+            const size_t block_size = block.size();
+            RefVector<Selector<FF>> block_selectors = block.get_selectors();
+            auto& selector = block_selectors[selector_idx];
+            for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
+                selectors[selector_idx].set_if_valid_index(row_idx + offset, selector[row_idx]);
+            }
+        });
     }
 
     return copy_cycles;
