@@ -138,23 +138,25 @@ export interface ContractsCapability {
 export interface GrantedContractsCapability extends ContractsCapability {}
 
 /**
- * Contract class capability - for querying contract class metadata.
+ * Contract class capability - for querying contract class meatadata and registering contract classes.
  *
  * Maps to wallet methods:
- * - getContractClassMetadata
+ * - getContractClassMetadata (when canGetMetadata: true)
+ * - registerContractClass (when canRegister: true)
  *
  * Contract classes are identified by their class ID (Fr), not by contract address.
  * Multiple contract instances can share the same class. This capability grants
- * permission to query metadata for specific contract classes.
+ * permission to query metadata for, and register, specific contract classes.
  *
  * Apps typically acquire this permission automatically when registering a contract
  * with an artifact (the wallet auto-grants permission for that contract's class ID).
  *
  * @example
- * // Query specific contract classes
+ * // Register and query a specific contract class
  * \{
  *   type: 'contractClasses',
- *   classes: [classId1, classId2],
+ *   classes: [classId1],
+ *   canRegister: true,
  *   canGetMetadata: true
  * \}
  *
@@ -176,6 +178,9 @@ export interface ContractClassesCapability {
    * - Fr[]: Specific contract class IDs
    */
   classes: '*' | Fr[];
+
+  /** Can register a contract class artifact in the local PXE. Maps to: registerContractClass */
+  canRegister?: boolean;
 
   /** Can query contract class metadata. Maps to: getContractClassMetadata */
   canGetMetadata: boolean;
