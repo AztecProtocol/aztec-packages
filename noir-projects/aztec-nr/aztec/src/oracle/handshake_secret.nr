@@ -7,8 +7,7 @@ unconstrained fn store_handshake_secret_oracle(_master_shared_secret: Point) {}
 ///
 /// Storage is keyed by `secret_hash = poseidon2_hash_with_separator([S.x, S.y], DOM_SEP__HANDSHAKE_SECRET_HASH)`,
 /// matching the construction in [`HandshakeNote`](crate::protocol::constants::DOM_SEP__HANDSHAKE_SECRET_HASH). PXE
-/// computes the hash itself, so callers only need to supply the raw secret. Storing the same secret twice is
-/// idempotent.
+/// computes the hash itself, so callers only need to supply the raw secret.
 ///
 /// The master `S` is never returned to a calling circuit. There is intentionally no contract-callable readback
 /// path today: see the TODO below.

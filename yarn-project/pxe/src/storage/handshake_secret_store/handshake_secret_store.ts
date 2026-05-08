@@ -27,10 +27,10 @@ export class HandshakeSecretStore implements StagedStore {
 
   #store: AztecAsyncKVStore;
 
-  /** secret_hash (hex string) -> serialized Point (3 fields: x, y, is_infinite). */
+  /** secret_hash -> serialized Point (3 fields: x, y, is_infinite). */
   #secrets: AztecAsyncMap<string, Buffer>;
 
-  /** jobId -> secret_hash (hex string) -> serialized Point. */
+  /** jobId -> secret_hash -> serialized Point. */
   #stagedSecrets: Map<string, Map<string, Buffer>>;
 
   logger: Logger;
@@ -43,7 +43,7 @@ export class HandshakeSecretStore implements StagedStore {
   }
 
   /**
-   * Persists `masterSharedSecret` keyed by its `secret_hash`. Idempotent: storing the same secret again is a no-op.
+   * Persists `masterSharedSecret` keyed by its `secret_hash`.
    *
    * The write is staged on `jobId` and only persisted on commit.
    */
@@ -67,8 +67,8 @@ export class HandshakeSecretStore implements StagedStore {
     const secretHashKey = secretHash.toString();
 
     return this.#store.transactionAsync(async () => {
-      // Always issue the DB read to keep the IndexedDB transaction alive (it auto-commits when a new micro-task
-      // starts and there are no pending read requests). The staged value still takes precedence if it exists.
+      // Always issue the DB read to keep the transaction alive.
+      // The staged value still takes precedence if it exists.
       const dbValue = await this.#secrets.getAsync(secretHashKey);
       const stagedValue = this.#getJobStaged(jobId).get(secretHashKey);
       const buffer = stagedValue ?? dbValue;
