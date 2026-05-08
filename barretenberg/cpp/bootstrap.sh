@@ -87,6 +87,15 @@ function preset_cache_paths {
       find $build_dir/bin $build_dir/lib \
         -maxdepth 1 \( -name "$t" -o -name "$t.exe" -o -name "$t.node" -o -name "lib${t}.a" \) \
         2>/dev/null
+      # Emscripten emits a .js loader and a .worker.mjs pthread worker as
+      # side-outputs of any .wasm executable target; cache them next to the
+      # .wasm so consumers like bb.js see a complete artifact set on cache hit.
+      if [[ "$t" == *.wasm ]]; then
+        local stem="${t%.wasm}"
+        find $build_dir/bin -maxdepth 1 \
+          \( -name "$stem.js" -o -name "$stem.worker.mjs" \) \
+          2>/dev/null
+      fi
     done
   fi
 }
