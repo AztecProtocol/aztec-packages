@@ -151,6 +151,7 @@ describe('WalletSchema', () => {
       currentContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
+      immutablesHash: expect.any(Fr),
       originalContractClassId: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
       salt: expect.any(Fr),

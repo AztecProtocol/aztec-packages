@@ -193,6 +193,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
           currentContractClassId: new Fr(83n),
           originalContractClassId: new Fr(89n),
           initializationHash: new Fr(97n),
+          immutablesHash: new Fr(103n),
           publicKeys: new PublicKeys(
             new Point(new Fr(41n), new Fr(43n), false),
             new Point(new Fr(47n), new Fr(53n), false),

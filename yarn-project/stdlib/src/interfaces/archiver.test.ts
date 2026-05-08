@@ -240,6 +240,7 @@ describe('ArchiverApiSchema', () => {
       originalContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
+      immutablesHash: expect.any(Fr),
       publicKeys: expect.any(PublicKeys),
       salt: expect.any(Fr),
       version: 2,
