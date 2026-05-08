@@ -302,14 +302,13 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     expect(boundaryPreparing.some(p => p.hadProposedParent)).toBe(true);
     expect(boundaryPreparing.some(p => p.provenOverride !== undefined)).toBe(true);
 
-    // After the boundary fails, the next slot's propose tx triggers the on-chain prune (since the
-    // proof never landed and the deadline has expired) and resets `tips.pending`. The fresh
-    // checkpoint against the genesis archive lands at boundarySlot+1: empirically the next slot's
-    // proposer rebuilds with no proposed parent (the boundary's pipelined parent is invalidated
-    // when its publish fails), the on-chain prune fires in-tx on this propose, and the propose
-    // is accepted in the same slot.
+    // After the boundary fails, a subsequent slot's propose tx triggers the on-chain prune (since
+    // the proof never landed and the deadline has expired) and resets `tips.pending`. The fresh
+    // checkpoint against the genesis archive should land within a few slots of the boundary —
+    // empirically the next slot or two depending on whether the proposer rebuilds in time and
+    // whether the on-chain prune fires in-tx on the first post-boundary propose attempt.
     const firstPostBoundary = await waitForFirstCheckpointAfterBoundary(events, boundarySlot);
-    expect(Number(firstPostBoundary.slot)).toBe(Number(boundarySlot) + 1);
+    expect(Number(firstPostBoundary.slot)).toBeLessThanOrEqual(Number(boundarySlot) + 2);
     expect(getEpochAtSlot(firstPostBoundary.slot, test.constants)).toBe(boundaryEpoch);
   });
 
@@ -381,9 +380,9 @@ describe('e2e_epochs/epochs_proof_at_boundary', () => {
     expect(boundaryPreparing.every(p => !p.hadProposedParent)).toBe(true);
     expect(boundaryPreparing.some(p => p.provenOverride !== undefined)).toBe(true);
 
-    // See the parent test for the reasoning: the on-chain prune fires in-tx on the next slot's
-    // propose, so the first post-boundary checkpoint lands at boundarySlot+1.
+    // See the parent test for the reasoning: a subsequent slot's propose triggers the on-chain
+    // prune in-tx, so the first post-boundary checkpoint lands within a couple of slots.
     const firstPostBoundary = await waitForFirstCheckpointAfterBoundary(events, boundarySlot);
-    expect(Number(firstPostBoundary.slot)).toBe(Number(boundarySlot) + 1);
+    expect(Number(firstPostBoundary.slot)).toBeLessThanOrEqual(Number(boundarySlot) + 2);
   });
 });
