@@ -128,6 +128,8 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/vm2)
     add_subdirectory(barretenberg/wsdb)
     add_subdirectory(barretenberg/vm2_wsdb)
+    add_subdirectory(barretenberg/cdb)
+    add_subdirectory(barretenberg/avm)
     add_subdirectory(barretenberg/nodejs_module)
 endif()
 

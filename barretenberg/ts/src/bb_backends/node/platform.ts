@@ -157,6 +157,42 @@ export function findWsdbBinary(customPath?: string): string | null {
   return null;
 }
 
+/**
+ * Find the aztec-avm binary used by the standalone AVM simulator IPC server.
+ *
+ * @param customPath Optional custom path to aztec-avm binary (overrides automatic detection)
+ * @returns Absolute path to aztec-avm binary, or null if not found
+ */
+export function findAvmBinary(customPath?: string): string | null {
+  const envPath = customPath ?? process.env.AVM_BINARY_PATH;
+  if (envPath) {
+    if (fs.existsSync(envPath)) {
+      return path.resolve(envPath);
+    }
+    return null;
+  }
+
+  const platform = detectPlatform();
+  if (!platform) {
+    return null;
+  }
+
+  const buildDir = PLATFORM_TO_BUILD_DIR[platform];
+  const packageRoot = findPackageRoot();
+
+  if (!packageRoot) {
+    return null;
+  }
+
+  const avmPath = path.join(packageRoot, 'build', buildDir, 'aztec-avm');
+
+  if (fs.existsSync(avmPath)) {
+    return avmPath;
+  }
+
+  return null;
+}
+
 export function findNapiBinary(customPath?: string): string | null {
   // Check custom path first if provided
   if (customPath) {
