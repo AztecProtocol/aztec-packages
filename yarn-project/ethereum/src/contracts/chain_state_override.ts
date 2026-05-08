@@ -158,7 +158,7 @@ export async function buildSimulationOverridesStateOverride(
   if (plan.pendingCheckpointState) {
     rollupStateDiff.push(
       ...extractRollupStateDiff(
-        await rollup.makeTempCheckpointLogPartialOverride(plan.chainTipsOverride!.pending!, {
+        await rollup.makeTempCheckpointLogOverride(plan.chainTipsOverride!.pending!, {
           headerHash: plan.pendingCheckpointState.headerHash,
           outHash: plan.pendingCheckpointState.outHash,
           payloadDigest: plan.pendingCheckpointState.payloadDigest,

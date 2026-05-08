@@ -147,11 +147,11 @@ export enum TempCheckpointLogField {
  * of the on-chain `CompressedSlot`.
  */
 export type TempCheckpointLogOverrideFields = {
-  headerHash: Fr;
-  outHash: Fr;
-  payloadDigest: Buffer32;
-  slotNumber: SlotNumber;
-  feeHeader: FeeHeader;
+  headerHash?: Fr;
+  outHash?: Fr;
+  payloadDigest?: Buffer32;
+  slotNumber?: SlotNumber;
+  feeHeader?: FeeHeader;
 };
 
 /** Components of the minimum fee per mana, as returned by the L1 rollup contract. */
@@ -900,45 +900,26 @@ export class RollupContract {
    * `blobCommitmentsHash` and `attestationsHash` are intentionally not exposed here — the propose path
    * never asserts against them, so leaving them at storage zero is harmless.
    */
-  public makeTempCheckpointLogOverride(
+  public async makeTempCheckpointLogOverride(
     checkpointNumber: CheckpointNumber,
     fields: TempCheckpointLogOverrideFields,
   ): Promise<StateOverride> {
-    return this.makeTempCheckpointLogOverrideForFields(checkpointNumber, fields);
-  }
-
-  /**
-   * Same as `makeTempCheckpointLogOverride` but every field is optional. Used when the caller only has
-   * a subset of the fields available (e.g. `feeHeader` derivation requires a grandparent L1 read which
-   * may fail). Emitting `slotNumber` alone is materially better than emitting nothing — leaving that
-   * cell at storage zero is exactly the failure mode this whole machinery was added to fix.
-   */
-  public makeTempCheckpointLogPartialOverride(
-    checkpointNumber: CheckpointNumber,
-    fields: Partial<TempCheckpointLogOverrideFields>,
-  ): Promise<StateOverride> {
-    return this.makeTempCheckpointLogOverrideForFields(checkpointNumber, fields);
-  }
-
-  private async makeTempCheckpointLogOverrideForFields(
-    checkpointNumber: CheckpointNumber,
-    fields: Partial<TempCheckpointLogOverrideFields>,
-  ): Promise<StateOverride> {
-    const slotAt = async (field: TempCheckpointLogField) =>
-      `0x${(await this.getTempCheckpointLogStorageSlot(checkpointNumber, field)).toString(16).padStart(64, '0')}` as const;
+    const constants = await this.getRollupConstants();
+    const slotAt = (field: TempCheckpointLogField) =>
+      `0x${this.computeTempCheckpointLogStorageSlot(checkpointNumber, field, constants).toString(16).padStart(64, '0')}` as const;
     const word = (v: bigint) => `0x${v.toString(16).padStart(64, '0')}` as const;
 
     const stateDiff: { slot: `0x${string}`; value: `0x${string}` }[] = [];
 
     if (fields.headerHash) {
-      stateDiff.push({ slot: await slotAt(TempCheckpointLogField.HeaderHash), value: fields.headerHash.toString() });
+      stateDiff.push({ slot: slotAt(TempCheckpointLogField.HeaderHash), value: fields.headerHash.toString() });
     }
     if (fields.outHash) {
-      stateDiff.push({ slot: await slotAt(TempCheckpointLogField.OutHash), value: fields.outHash.toString() });
+      stateDiff.push({ slot: slotAt(TempCheckpointLogField.OutHash), value: fields.outHash.toString() });
     }
     if (fields.payloadDigest) {
       stateDiff.push({
-        slot: await slotAt(TempCheckpointLogField.PayloadDigest),
+        slot: slotAt(TempCheckpointLogField.PayloadDigest),
         value: fields.payloadDigest.toString() as `0x${string}`,
       });
     }
@@ -949,11 +930,11 @@ export class RollupContract {
       if (slotNumber < 0n || slotNumber > 0xffffffffn) {
         throw new Error(`slotNumber ${slotNumber} does not fit in uint32`);
       }
-      stateDiff.push({ slot: await slotAt(TempCheckpointLogField.SlotNumber), value: word(slotNumber) });
+      stateDiff.push({ slot: slotAt(TempCheckpointLogField.SlotNumber), value: word(slotNumber) });
     }
     if (fields.feeHeader) {
       stateDiff.push({
-        slot: await slotAt(TempCheckpointLogField.FeeHeader),
+        slot: slotAt(TempCheckpointLogField.FeeHeader),
         value: word(RollupContract.compressFeeHeader(fields.feeHeader)),
       });
     }
@@ -1392,11 +1373,20 @@ export class RollupContract {
     checkpointNumber: CheckpointNumber,
     field: TempCheckpointLogField,
   ): Promise<bigint> {
-    const fieldOffset = BigInt(field);
     const [epochDuration, proofSubmissionEpochs] = await Promise.all([
       this.getEpochDuration(),
       this.getProofSubmissionEpochs(),
     ]);
+    return this.computeTempCheckpointLogStorageSlot(checkpointNumber, field, { epochDuration, proofSubmissionEpochs });
+  }
+
+  private computeTempCheckpointLogStorageSlot(
+    checkpointNumber: CheckpointNumber,
+    field: TempCheckpointLogField,
+    constants: { epochDuration: number; proofSubmissionEpochs: number },
+  ): bigint {
+    const fieldOffset = BigInt(field);
+    const { epochDuration, proofSubmissionEpochs } = constants;
     const roundaboutSize = BigInt(epochDuration) * (BigInt(proofSubmissionEpochs) + 1n) + 1n;
     const tempCheckpointLogsBase = BigInt(RollupContract.stfStorageSlot) + 2n;
     const circularIndex = BigInt(checkpointNumber) % roundaboutSize;

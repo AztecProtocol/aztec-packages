@@ -1011,29 +1011,6 @@ describe('CheckpointProposalJob', () => {
       expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
       expect(plan?.pendingCheckpointState).toBeUndefined();
     });
-
-    it('skips per-checkpoint state when proposedCheckpointData is for a different checkpoint number', async () => {
-      const staleData: ProposedCheckpointData = {
-        checkpointNumber: CheckpointNumber(99),
-        header: CheckpointHeader.empty({ slotNumber: SlotNumber(1) }),
-        archive: AppendOnlyTreeSnapshot.empty(),
-        checkpointOutHash: Fr.ZERO,
-        startBlock: BlockNumber(99),
-        blockCount: 1,
-        totalManaUsed: 0n,
-        feeAssetPriceModifier: 0n,
-      };
-      const plan = await buildPipelinedParentSimulationOverridesPlan({
-        checkpointNumber: CheckpointNumber(2),
-        proposedCheckpointData: staleData,
-        rollup: publisher.rollupContract,
-        signatureContext,
-        log: createLogger('test'),
-        pipeliningEnabled: true,
-      });
-      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
-      expect(plan?.pendingCheckpointState).toBeUndefined();
-    });
   });
 
   describe('pipelining parent checkpoint validation', () => {

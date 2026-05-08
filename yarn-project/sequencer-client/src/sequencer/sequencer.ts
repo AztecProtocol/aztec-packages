@@ -404,14 +404,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         pipeliningEnabled: true,
       });
       l1SimulationOverridesBuilder.merge(parentPlan);
-      // checkSync() fetches tips and proposed-checkpoint data independently, so there's a window where
-      // hasProposedCheckpoint is true but proposedCheckpointData hasn't been populated yet. In that case
-      // the helper above has only set tips.pending; force-attach the archive override too so we don't
-      // regress to the bug class the inline-builder used to handle (canProposeAt comparing against the
-      // stale on-chain archives[K-1]).
-      if (!syncedTo.proposedCheckpointData) {
-        l1SimulationOverridesBuilder.withPendingArchive(syncedTo.archive);
-      }
       this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
 
       this.log.verbose(
@@ -706,6 +698,24 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
+
+    // The l2Tips and proposedCheckpointData reads above come from independent archiver snapshots
+    // (a JS-side tips cache vs. a direct store read on `#proposedCheckpoints`). A concurrent archiver
+    // write that mutates both can be observed split, leaving us with `hasProposedCheckpoint=true` but
+    // no proposedCheckpointData (or one whose number doesn't match the tip). Refuse to proceed in that
+    // window — the next checkSync tick will see a coherent snapshot.
+    if (
+      hasProposedCheckpoint &&
+      (!proposedCheckpointData ||
+        proposedCheckpointData.checkpointNumber !== l2Tips.proposedCheckpoint.checkpoint.number)
+    ) {
+      this.log.debug(`Sequencer sync check failed: inconsistent proposed-checkpoint state`, {
+        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
+        checkpointedTipNumber: l2Tips.checkpointed.checkpoint.number,
+        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+      });
+      return undefined;
+    }
 
     return {
       blockData,

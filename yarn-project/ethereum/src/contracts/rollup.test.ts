@@ -455,7 +455,7 @@ describe('Rollup', () => {
 
     it('partial override emits only the supplied fields', async () => {
       const checkpointNumber = CheckpointNumber(13);
-      const override = await rollup.makeTempCheckpointLogPartialOverride(checkpointNumber, {
+      const override = await rollup.makeTempCheckpointLogOverride(checkpointNumber, {
         slotNumber: SlotNumber(7),
       });
       const { map, slotFor } = getDiffMap(checkpointNumber, override);
@@ -466,7 +466,7 @@ describe('Rollup', () => {
     });
 
     it('partial override returns an empty array when no fields are supplied', async () => {
-      const override = await rollup.makeTempCheckpointLogPartialOverride(CheckpointNumber(13), {});
+      const override = await rollup.makeTempCheckpointLogOverride(CheckpointNumber(13), {});
       expect(override).toEqual([]);
     });
 
