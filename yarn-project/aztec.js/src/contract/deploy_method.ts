@@ -70,7 +70,7 @@ export type DeployInstantiationOptions = {
 };
 
 /**
- * Address-derivation inputs shared by all flavors. {@link BoundInstantiationOptions},
+ * Address-derivation inputs shared by all deploy methods. {@link BoundInstantiationOptions},
  * {@link UniversalInstantiationOptions}, and {@link PendingInstantiationOptions} narrow this
  * shape to forbid the fields that don't apply to a given flavor at the type level.
  */
@@ -770,7 +770,7 @@ export class PendingDeployMethod<TContract extends ContractBase = ContractBase> 
   }
 
   /**
-   * Returns the locked deployer once promotion has happened. Throws while still pending — the
+   * Returns the locked deployer once it has happened. Throws while still pending — the
    * address would otherwise differ from what `send()` ends up deploying.
    */
   public getDeployerAddress(): AztecAddress {
