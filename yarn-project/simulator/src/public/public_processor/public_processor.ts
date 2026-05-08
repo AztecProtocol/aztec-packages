@@ -76,17 +76,15 @@ export class PublicProcessorFactory {
   /**
    * Creates a new instance of a PublicProcessor.
    * @param globalVariables - The global variables for the block being processed.
-   * @param skipFeeEnforcement - Allows disabling balance checks for fee estimations.
+   * @param contractsDB - Optional pre-populated contracts DB; a fresh one is constructed if omitted.
    * @returns A new instance of a PublicProcessor.
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
     globalVariables: GlobalVariables,
     config: PublicSimulatorConfig,
+    contractsDB: PublicContractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings()),
   ): PublicProcessor {
-    const bindings = this.log.getBindings();
-    const contractsDB = new PublicContractsDB(this.contractDataSource, bindings);
-
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
     const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
 
@@ -97,7 +95,7 @@ export class PublicProcessorFactory {
       publicTxSimulator,
       this.dateProvider,
       this.telemetryClient,
-      createLogger('simulator:public-processor', bindings),
+      createLogger('simulator:public-processor', this.log.getBindings()),
     );
   }
 
