@@ -14,6 +14,7 @@ const circuits = [
   'private_kernel_init_2',
   'private_kernel_init_3',
   'private_kernel_inner',
+  'private_kernel_inner_2',
   'private_kernel_reset',
   'private_kernel_tail',
   'private_kernel_tail_to_public',

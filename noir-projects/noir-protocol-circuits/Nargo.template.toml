@@ -16,6 +16,7 @@ members = [
     "crates/private-kernel-init-3",
     "crates/private-kernel-init-simulated",
     "crates/private-kernel-inner",
+    "crates/private-kernel-inner-2",
     "crates/private-kernel-inner-3",
     "crates/private-kernel-inner-simulated",
     "crates/private-kernel-reset",

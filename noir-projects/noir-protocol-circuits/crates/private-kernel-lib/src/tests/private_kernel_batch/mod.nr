@@ -800,6 +800,26 @@ fn batch_3_static_call_restrictions_apply_to_next_slot_fails() {
 }
 
 #[test]
+fn inner_2_accumulates_side_effects_after_previous_kernel() {
+    assert_inner_n_accumulates_side_effects_after_previous_kernel::<2>();
+}
+
+#[test]
+fn inner_2_with_previous_side_effects_matches_sequential_kernels() {
+    assert_inner_n_with_previous_side_effects_matches_sequential_kernels::<2>();
+}
+
+#[test]
+fn inner_2_linear_chain_consumes_all_calls() {
+    assert_inner_n_linear_chain_consumes_all_calls::<2>();
+}
+
+#[test]
+fn inner_2_linear_chain_matches_sequential_kernels() {
+    assert_inner_n_linear_chain_matches_sequential_kernels::<2>();
+}
+
+#[test]
 fn inner_3_accumulates_side_effects_after_previous_kernel() {
     assert_inner_n_accumulates_side_effects_after_previous_kernel::<3>();
 }

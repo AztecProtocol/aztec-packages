@@ -14,6 +14,7 @@ const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
   PrivateKernelInit2Artifact: 'private_kernel_init_2',
   PrivateKernelInit3Artifact: 'private_kernel_init_3',
   PrivateKernelInnerArtifact: 'private_kernel_inner',
+  PrivateKernelInner2Artifact: 'private_kernel_inner_2',
   PrivateKernelTailArtifact: 'private_kernel_tail',
   PrivateKernelTailToPublicArtifact: 'private_kernel_tail_to_public',
   HidingKernelToRollup: 'hiding_kernel_to_rollup',
@@ -26,6 +27,7 @@ const artifactsWithoutSimulatedVersions = [
   'hiding_kernel_to_public',
   'private_kernel_init_2',
   'private_kernel_init_3',
+  'private_kernel_inner_2',
 ];
 
 function generateImports() {

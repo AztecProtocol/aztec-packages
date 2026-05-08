@@ -10,17 +10,19 @@ use types::{
     },
     constants::{
         PRIVATE_KERNEL_INIT_2_VK_INDEX, PRIVATE_KERNEL_INIT_3_VK_INDEX,
-        PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX,
+        PRIVATE_KERNEL_INIT_VK_INDEX, PRIVATE_KERNEL_INNER_2_VK_INDEX,
+        PRIVATE_KERNEL_INNER_VK_INDEX, PRIVATE_KERNEL_RESET_VK_INDEX,
     },
 };
 
 /// The set of circuits that can precede an Inner circuit in the kernel chain.
 /// Inner can follow Init (first call), another Inner (subsequent calls), or Reset (after processing validation requests).
-pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 5] = [
+pub global ALLOWED_PREVIOUS_CIRCUITS: [u32; 6] = [
     PRIVATE_KERNEL_INIT_VK_INDEX,
     PRIVATE_KERNEL_INIT_2_VK_INDEX,
     PRIVATE_KERNEL_INIT_3_VK_INDEX,
     PRIVATE_KERNEL_INNER_VK_INDEX,
+    PRIVATE_KERNEL_INNER_2_VK_INDEX,
     PRIVATE_KERNEL_RESET_VK_INDEX,
 ];
 
