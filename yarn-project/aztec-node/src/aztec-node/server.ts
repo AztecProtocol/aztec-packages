@@ -50,6 +50,7 @@ import {
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type BlockData,
   BlockHash,
   type BlockParameter,
   BlockTag,
@@ -77,6 +78,7 @@ import type {
   AztecNodeDebug,
   BlockIncludeOptions,
   BlockResponse,
+  BlocksIncludeOptions,
   ChainTip,
   ChainTips,
   CheckpointIncludeOptions,
@@ -102,7 +104,6 @@ import type { Offense } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
-  type BlockHeader,
   type FeeProvider,
   type GlobalVariableBuilder as GlobalVariableBuilderInterface,
   type IndexedTxEffect,
@@ -219,47 +220,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return { proposed, checkpointed, proven, finalized };
   }
 
-  public getL2Tips() {
-    return this.blockSource.getL2Tips();
-  }
-
-  public async getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
-    if (number === 'latest') {
-      return (await this.blockSource.getBlockData({ tag: 'proposed' }))?.header;
-    }
-    return (await this.blockSource.getBlockData({ number }))?.header;
-  }
-
-  public async getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<BlockResponse[]> {
-    const blocks = await this.blockSource.getBlocks({ from, limit, onlyCheckpointed: true });
-    const ctxByCheckpoint = await this.#getCheckpointContextsForBlocks(blocks);
-    return Promise.all(
-      blocks.map(block =>
-        blockResponseFromL2Block(
-          block,
-          { includeTransactions: true, includeL1PublishInfo: true, includeAttestations: true },
-          ctxByCheckpoint.get(block.checkpointNumber),
-        ),
-      ),
-    );
-  }
-
   public getCheckpointsData(query: CheckpointsQuery) {
     return this.blockSource.getCheckpointsData(query);
   }
 
-  public getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
-    switch (tip) {
-      case undefined:
-      case 'proposed':
-        return this.blockSource.getBlockNumber();
-      case 'checkpointed':
-        return this.blockSource.getCheckpointedL2BlockNumber();
-      case 'proven':
-        return this.blockSource.getProvenBlockNumber();
-      case 'finalized':
-        return this.blockSource.getFinalizedL2BlockNumber();
+  public async getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
+    if (tip === undefined || tip === 'proposed') {
+      return this.blockSource.getBlockNumber();
     }
+    return (await this.blockSource.getBlockNumber({ tag: tip })) ?? BlockNumber.ZERO;
   }
 
   public async getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber> {
@@ -396,21 +365,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return blockResponseFromBlockData(data, options, ctx) as BlockResponse<Opts>;
   }
 
-  public async getBlocks<Opts extends BlockIncludeOptions = {}>(
+  public getBlockData(param: BlockParameter): Promise<BlockData | undefined> {
+    const query = this.normalizeBlockParameter(param);
+    return this.blockSource.getBlockData(query);
+  }
+
+  public async getBlocks<Opts extends BlocksIncludeOptions = {}>(
     from: BlockNumber,
     limit: number,
     options: Opts = {} as Opts,
   ): Promise<BlockResponse<Opts>[]> {
     const wantTxs = !!options.includeTransactions;
     const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
+    const onlyCheckpointed = !!options.onlyCheckpointed;
     if (wantTxs) {
-      const blocks = await this.blockSource.getBlocks({ from, limit });
+      const blocks = await this.blockSource.getBlocks({ from, limit, onlyCheckpointed });
       const ctxByCheckpoint = await this.#getCheckpointContextsForBlocks(wantContext ? blocks : []);
       return (await Promise.all(
         blocks.map(block => blockResponseFromL2Block(block, options, ctxByCheckpoint.get(block.checkpointNumber))),
       )) as BlockResponse<Opts>[];
     }
-    const dataItems = await this.blockSource.getBlocksData({ from, limit });
+    const dataItems = await this.blockSource.getBlocksData({ from, limit, onlyCheckpointed });
     const ctxByCheckpoint = await this.#getCheckpointContextsForBlocks(wantContext ? dataItems : []);
     return (await Promise.all(
       dataItems.map(data => blockResponseFromBlockData(data, options, ctxByCheckpoint.get(data.checkpointNumber))),
@@ -421,7 +396,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   async #getCheckpointContextsForBlocks(
     blocks: { checkpointNumber: CheckpointNumber }[],
     // TODO(palla): CheckpointNumber should be accepted by this lint rule
-    // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   ): Promise<Map<CheckpointNumber, { l1?: L1PublishedData; attestations?: CommitteeAttestation[] } | undefined>> {
     const unique = Array.from(new Set(blocks.map(b => b.checkpointNumber)));
     const entries = await Promise.all(unique.map(async n => [n, await this.#getCheckpointContext(n)] as const));
@@ -1368,17 +1342,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
   public async getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
-  }
-
-  /**
-   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
-   * @param l1ToL2Message - The L1 to L2 message to check.
-   * @returns Whether the message is synced and ready to be included in a block.
-   */
-  public async isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex !== undefined;
+    return messageIndex !== undefined ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
   }
 
   /**

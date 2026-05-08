@@ -36,6 +36,7 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -97,6 +98,7 @@ describe('aztec node', () => {
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let l2BlockSource: MockProxy<L2BlockSource>;
+  let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let lastBlockNumber: BlockNumber;
   let node: TestAztecNodeService;
   let feePayer: AztecAddress;
@@ -181,7 +183,7 @@ describe('aztec node', () => {
 
     const l2LogsSource = mock<L2LogsSource>();
 
-    const l1ToL2MessageSource = mock<L1ToL2MessageSource>();
+    l1ToL2MessageSource = mock<L1ToL2MessageSource>();
 
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
@@ -361,52 +363,6 @@ describe('aztec node', () => {
       it('returns the correct node version', async () => {
         const nodeInfo = await node.getNodeInfo();
         expect(nodeInfo.nodeVersion).toBe(getPackageVersion());
-      });
-    });
-
-    describe('getBlockHeader', () => {
-      let initialHeader: BlockHeader;
-      let header1: BlockHeader;
-      let header2: BlockHeader;
-
-      beforeEach(() => {
-        initialHeader = BlockHeader.empty({
-          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber.ZERO }),
-        });
-        header1 = BlockHeader.empty({
-          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }),
-        });
-        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(2) }) });
-
-        // Archiver returns the genesis block data for block 0 queries (including {tag:'proposed'} at genesis).
-        l2BlockSource.getBlockData.mockResolvedValue({ header: initialHeader } as any);
-        l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber(2));
-      });
-
-      it('returns requested block number', async () => {
-        l2BlockSource.getBlockData.mockResolvedValue({ header: header1 } as any);
-        expect(await node.getBlockHeader(BlockNumber(1))).toEqual(header1);
-      });
-
-      it('returns latest', async () => {
-        l2BlockSource.getBlockData.mockResolvedValue({ header: header2 } as any);
-        expect(await node.getBlockHeader('latest')).toEqual(header2);
-      });
-
-      it('returns initial header on zero', async () => {
-        // Archiver returns synthetic genesis block data when queried with block 0.
-        expect(await node.getBlockHeader(BlockNumber.ZERO)).toEqual(initialHeader);
-      });
-
-      it('returns initial header if no blocks mined', async () => {
-        // When no blocks have been mined, {tag:'proposed'} resolves to the genesis block.
-        l2BlockSource.getBlockNumber.mockResolvedValue(BlockNumber.ZERO);
-        expect(await node.getBlockHeader('latest')).toEqual(initialHeader);
-      });
-
-      it('returns undefined for non-existent block', async () => {
-        l2BlockSource.getBlockData.mockResolvedValue(undefined);
-        expect(await node.getBlockHeader(BlockNumber(3))).toEqual(undefined);
       });
     });
 
@@ -1369,6 +1325,25 @@ describe('aztec node', () => {
 
       const result = await node.getCheckpointNumber('proposed');
       expect(result).toEqual(CheckpointNumber(5));
+    });
+  });
+
+  describe('getL1ToL2MessageCheckpoint', () => {
+    it('returns the checkpoint for a message at index 0n', async () => {
+      const msg = Fr.random();
+      l1ToL2MessageSource.getL1ToL2MessageIndex.mockResolvedValue(0n);
+
+      const result = await node.getL1ToL2MessageCheckpoint(msg);
+      expect(result).toEqual(InboxLeaf.checkpointNumberFromIndex(0n));
+      expect(result).not.toBeUndefined();
+    });
+
+    it('returns undefined when the message is not found', async () => {
+      const msg = Fr.random();
+      l1ToL2MessageSource.getL1ToL2MessageIndex.mockResolvedValue(undefined);
+
+      const result = await node.getL1ToL2MessageCheckpoint(msg);
+      expect(result).toBeUndefined();
     });
   });
 });

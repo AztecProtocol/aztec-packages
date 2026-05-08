@@ -260,18 +260,6 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return block ? block.header.globalVariables.blockNumber : undefined;
   }
 
-  public getProvenBlockNumber() {
-    return Promise.resolve(BlockNumber(this.provenBlockNumber));
-  }
-
-  public getCheckpointedL2BlockNumber() {
-    return Promise.resolve(BlockNumber(this.checkpointedBlockNumber));
-  }
-
-  public getFinalizedL2BlockNumber() {
-    return Promise.resolve(BlockNumber(this.finalizedBlockNumber));
-  }
-
   public getProposedCheckpointL2BlockNumber() {
     return Promise.resolve(BlockNumber(this.proposedCheckpointBlockNumber));
   }
@@ -412,7 +400,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   async getL2Tips(): Promise<L2Tips> {
     const [latest, proven, finalized, checkpointed, proposedCheckpoint] = [
       await this.getBlockNumber(),
-      await this.getProvenBlockNumber(),
+      this.provenBlockNumber,
       this.finalizedBlockNumber,
       this.checkpointedBlockNumber,
       await this.getProposedCheckpointL2BlockNumber(),
