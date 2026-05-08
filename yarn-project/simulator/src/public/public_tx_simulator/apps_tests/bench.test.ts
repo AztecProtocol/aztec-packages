@@ -138,11 +138,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       });
 
       it('PublicFnsWithEmitRepro contract test', async () => {
-        // Tracks bytecode size of a contract shaped like the public-dispatch repro from
-        // https://github.com/AztecProtocol/aztec-nr/issues/35: 15 public fns, each doing
-        // one storage read, one storage write, and one event emit. None of the other
-        // bench targets exercise this shape, so improvements/regressions in the macro
-        // emit-in-public rewrite would otherwise be invisible on the dashboard.
+        // See comments on the contract source for motivation as to including this contract in our benchmarks.
         tester.setMetricsPrefix(`${metricsPrefixPrefix}PublicFnsWithEmitRepro contract tests`);
         const deployer = AztecAddress.fromNumber(42);
 

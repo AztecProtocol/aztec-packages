@@ -5,8 +5,7 @@ use aztec::macros::aztec;
 /// 15 `#[external("public")]` functions, each doing one storage read, one storage write,
 /// and one `self.emit(Updated { .. })`. Pinned here so that:
 ///   - `nargo expand` is snapshotted in `noir-projects/contract-snapshots`, making any
-///     change to the `self.emit(event)` -> `emit_event_in_public(...)` macro rewrite
-///     visible across all 15 call sites in a single review.
+///     change to the macro boilerplate visible across all 15 call sites in a single review.
 ///   - `bytecodeSizeBytes/PublicFnsWithEmitRepro` lands on the bench dashboard, so any
 ///     improvement (or regression) in the per-public-fn emit shape is tracked over time.
 #[aztec]
