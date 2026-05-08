@@ -401,7 +401,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     // However, things work as expected because later calls to getters on the hintingContractsDB
     // will pick up the new contracts and will generate the necessary hints.
     // So, a consumer of the hints will always see the new contracts.
-    this.contractsDB.addContracts(context.nonRevertibleContractDeploymentData);
+    this.contractsDB.addContractsFromLogs(context.nonRevertibleContractDeploymentData);
   }
 
   /**
@@ -490,7 +490,7 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
     // However, things work as expected because later calls to getters on the hintingContractsDB
     // will pick up the new contracts and will generate the necessary hints.
     // So, a consumer of the hints will always see the new contracts.
-    this.contractsDB.addContracts(context.revertibleContractDeploymentData);
+    this.contractsDB.addContractsFromLogs(context.revertibleContractDeploymentData);
   }
 
   private async payFee(context: PublicTxContext) {
