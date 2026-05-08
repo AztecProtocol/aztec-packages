@@ -11,12 +11,16 @@ import type { Account } from '../account/account.js';
 import type { Contract } from '../contract/contract.js';
 import type { ContractBase } from '../contract/contract_base.js';
 import {
+<<<<<<< HEAD
   type DeployInteractionWaitOptions,
   DeployMethod,
+=======
+>>>>>>> 63cc7e6e46 (feat: deploy method refactor 2 (#23033))
   type DeployOptions,
   type DeployOptionsWithoutWait,
   type RequestDeployOptions,
   type SimulateDeployOptions,
+  UniversalDeployMethod,
 } from '../contract/deploy_method.js';
 import {
   type FeePaymentMethodOption,
@@ -79,7 +83,7 @@ type DeployAccountInteractionOptions = Pick<
  * Modified version of the DeployMethod used to deploy account contracts. Supports deploying
  * contracts that can pay for their own fee, plus some preconfigured options to avoid errors.
  */
-export class DeployAccountMethod<TContract extends ContractBase = Contract> extends DeployMethod<TContract> {
+export class DeployAccountMethod<TContract extends ContractBase = Contract> extends UniversalDeployMethod<TContract> {
   constructor(
     publicKeys: PublicKeys,
     wallet: Wallet,
@@ -95,15 +99,10 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
   ) {
     super(
       wallet,
-      artifact,
-      postDeployCtor,
-      args,
-      constructorNameOrArtifact,
+      { artifact, postDeployCtor, args, constructorNameOrArtifact },
       // Account contracts are always deployed universally.
       { salt, universalDeploy: true, publicKeys },
-      authWitnesses,
-      capsules,
-      extraHashedArgs,
+      { authWitnesses, capsules, extraHashedArgs },
     );
   }
 
