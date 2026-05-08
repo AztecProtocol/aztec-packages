@@ -513,6 +513,9 @@ final external input
 
 For each interior quad-row-to-quad-row transition:
 
+Steps 1 and 2 are the row-local content of [QUAD_THEOREM.md](QUAD_THEOREM.md); this section
+composes that theorem with the entry, interior, terminal, and shared-witness boundary checks.
+
 1. The row's four `state[0]` values uniquely determine the hidden starting `state[1..3]` values
    by the Vandermonde reconstruction.
 2. The fixed linear map `C` computes the unique four-round output `out`.

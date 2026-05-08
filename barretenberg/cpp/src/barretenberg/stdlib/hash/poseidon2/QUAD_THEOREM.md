@@ -131,10 +131,11 @@ Two consequences of this design choice:
 * **The recurrence is checked, not assumed.** What forces the prover to use
   the *correct* $s_1, s_2, s_3$ (i.e. the values that the honest dynamics
   would produce) is precisely the four subrelations $A_0, A_1, A_2, A_3$
-  that constrain consistency between the committed $s_k$ and the unique
-  $\vec{v}_0$ recovered from them. If the prover commits $(s_0, s_1, s_2, s_3)$
-  not on the honest orbit, no $\vec{v}_0$ exists making the system consistent and
-  the relation rejects.
+  that constrain consistency between the committed $s_k$, the unique
+  $\vec{v}_0$ recovered from them, and the adjacent row. Row-locally, every
+  committed lane-0 chain recovers a unique hidden state; globally, a dishonest
+  chain is rejected when its resulting output fails to match the successor row
+  constraints.
 
 With this understanding in place, "the map $\vec{v}_0 \mapsto (s_1, s_2, s_3)$"
 in the theorem below means **the linear-in-$\vec{v}_0$ component of the system
@@ -192,6 +193,12 @@ constants. Part (2) says the row's output state is a fixed linear function of
 seven quantities, four of which are already committed wires and three of
 which are S-box outputs of committed wires; this is exactly what the four
 interior subrelations check.
+
+In the circuit, the theorem is used in the forward direction: the current
+compressed row determines a unique full four-round output. For an interior
+transition, the relation checks that the successor compressed row starts from
+that output state: its first lane-0 wire equals the output's lane 0, and its
+reconstructed hidden start lanes equal the output's hidden lanes.
 
 The same Vandermonde inversion is also used at the row-to-row boundary: when
 both adjacent rows hide their $\vec{v}$'s, comparing $\vec{v}$'s directly is impossible,
