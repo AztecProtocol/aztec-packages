@@ -830,6 +830,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
 
     // Execute Straus algorithm in-circuit using the precomputed hints.
     // If unconditional_add == false, accumulate x-coordinate differences to batch-validate no collisions.
+    // If unconditional_add == true (constant inputs), no per-slice check is added; soundness relies on the
+    // offset-generator domain separator keeping per-slice operands distinct.
     field_t coordinate_check_product = 1;
     for (size_t i = 0; i < num_rounds; ++i) {
         // Double the accumulator ROM_TABLE_BITS times (except in first round)
@@ -1081,8 +1083,8 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         for (size_t j = 0; j < num_points; ++j) {
             const field_t scalar_slice = scalar_slices[j][num_rounds - i - 1];
             const cycle_group point = point_tables[j].read(scalar_slice);
-            // Safe to use unconditional_add: all base points are constants hence linearly independent of offset
-            // generators
+            // No per-slice x-collision check; soundness relies on the offset-generator domain separator
+            // keeping `accumulator` distinct from any plookup table entry across the loop.
             accumulator = accumulator.unconditional_add(point, *hint_ptr);
             hint_ptr++;
         }
@@ -1171,8 +1173,8 @@ cycle_group<Builder> cycle_group<Builder>::fixed_batch_mul(const std::vector<cyc
         _fixed_base_plookup_batch_mul_internal(plookup_scalars, plookup_points, offset_generators, table_bits);
     offset_accumulator += offset_generator_delta;
 
-    // Subtract offset. Since all points are constants and linearly independent of offset generators,
-    // we can safely use unconditional_add when constant_acc is non-trivial.
+    // Note: No collision check on the offset subtraction; soundness relies on the offset-generator domain
+    // separator keeping aggregate `offset_accumulator` distinct from `accumulator`.
     cycle_group result;
     if (!constant_acc.is_point_at_infinity()) {
         result = accumulator.unconditional_add(AffineElement(-offset_accumulator));
