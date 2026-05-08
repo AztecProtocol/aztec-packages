@@ -13,6 +13,13 @@ describe('Circuit Recorder', () => {
     // Set recording directory env var - this will activate the circuit recorder
     process.env.CIRCUIT_RECORD_DIR = RECORD_DIR;
 
+    // The assertions below look for a `PrivateKernelInit_main` recording (the single-app init
+    // kernel). With the default batch size of 3 the orchestrator picks `private_kernel_init_3`
+    // instead. This test is about the recorder mechanism, not kernel batching, so pin the batch
+    // size to 1 for the duration of the test.
+    const originalBatchSize = process.env.PXE_KERNEL_BATCH_SIZE;
+    process.env.PXE_KERNEL_BATCH_SIZE = '1';
+
     // Run setup which deploys an account contract and runs kernels
     const { teardown } = await setup(1);
 
@@ -64,6 +71,11 @@ describe('Circuit Recorder', () => {
     // Cleanup
     await fs.rm(RECORD_DIR, { recursive: true, force: true });
     delete process.env.CIRCUIT_RECORD_DIR;
+    if (originalBatchSize === undefined) {
+      delete process.env.PXE_KERNEL_BATCH_SIZE;
+    } else {
+      process.env.PXE_KERNEL_BATCH_SIZE = originalBatchSize;
+    }
     await teardown();
   }, 60_000);
 });
