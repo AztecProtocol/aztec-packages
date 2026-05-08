@@ -451,7 +451,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       isInvalidating: !!invalidateCheckpoint,
       invalidatingCheckpointNumber: invalidateCheckpoint?.checkpointNumber,
       archiveForCheck: archiveForCheck.toString(),
-      overridePendingCheckpointNumber: simulationOverridesPlan?.pendingCheckpointNumber,
+      overridePendingCheckpointNumber: simulationOverridesPlan?.chainTipsOverride?.pending,
       overrideArchive: simulationOverridesPlan?.pendingCheckpointState?.archive,
       overrideFeeHeader: simulationOverridesPlan?.pendingCheckpointState?.feeHeader,
     };
