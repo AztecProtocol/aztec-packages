@@ -11,6 +11,7 @@ const outputFilename = './src/client_artifacts_helper.ts';
 
 const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
   PrivateKernelInitArtifact: 'private_kernel_init',
+  PrivateKernelInit2Artifact: 'private_kernel_init_2',
   PrivateKernelInit3Artifact: 'private_kernel_init_3',
   PrivateKernelInnerArtifact: 'private_kernel_inner',
   PrivateKernelTailArtifact: 'private_kernel_tail',
@@ -23,6 +24,7 @@ const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
 const artifactsWithoutSimulatedVersions = [
   'hiding_kernel_to_rollup',
   'hiding_kernel_to_public',
+  'private_kernel_init_2',
   'private_kernel_init_3',
 ];
 

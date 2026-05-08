@@ -1,4 +1,6 @@
 export {
+  convertPrivateKernelInit2InputsToWitnessMapWithAbi,
+  convertPrivateKernelInit2OutputsFromWitnessMapWithAbi,
   convertPrivateKernelInit3InputsToWitnessMapWithAbi,
   convertPrivateKernelInit3OutputsFromWitnessMapWithAbi,
   convertPrivateKernelInitInputsToWitnessMapWithAbi,

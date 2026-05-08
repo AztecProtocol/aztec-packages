@@ -13,6 +13,7 @@ import {
   HIDING_KERNEL_TO_ROLLUP_VK_INDEX,
   PARITY_BASE_VK_INDEX,
   PARITY_ROOT_VK_INDEX,
+  PRIVATE_KERNEL_INIT_2_VK_INDEX,
   PRIVATE_KERNEL_INIT_3_VK_INDEX,
   PRIVATE_KERNEL_INIT_VK_INDEX,
   PRIVATE_KERNEL_INNER_VK_INDEX,
@@ -69,6 +70,7 @@ export const ServerCircuitVks: Record<ServerProtocolCircuitName, VerificationKey
 
 export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
   PrivateKernelInitArtifact: PRIVATE_KERNEL_INIT_VK_INDEX,
+  PrivateKernelInit2Artifact: PRIVATE_KERNEL_INIT_2_VK_INDEX,
   PrivateKernelInit3Artifact: PRIVATE_KERNEL_INIT_3_VK_INDEX,
   PrivateKernelInnerArtifact: PRIVATE_KERNEL_INNER_VK_INDEX,
   PrivateKernelTailArtifact: PRIVATE_KERNEL_TAIL_VK_INDEX,

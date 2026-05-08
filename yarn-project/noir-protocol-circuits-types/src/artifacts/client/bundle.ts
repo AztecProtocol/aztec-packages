@@ -4,6 +4,7 @@ import type { VerificationKeyData } from '@aztec/stdlib/vks';
 import HidingKernelToPublicJson from '../../../artifacts/hiding_kernel_to_public.json' with { type: 'json' };
 import HidingKernelToRollupJson from '../../../artifacts/hiding_kernel_to_rollup.json' with { type: 'json' };
 import PrivateKernelInitJson from '../../../artifacts/private_kernel_init.json' with { type: 'json' };
+import PrivateKernelInit2Json from '../../../artifacts/private_kernel_init_2.json' with { type: 'json' };
 import PrivateKernelInit3Json from '../../../artifacts/private_kernel_init_3.json' with { type: 'json' };
 import PrivateKernelInitSimulatedJson from '../../../artifacts/private_kernel_init_simulated.json' with { type: 'json' };
 import PrivateKernelInnerJson from '../../../artifacts/private_kernel_inner.json' with { type: 'json' };
@@ -18,6 +19,7 @@ import { ClientCircuitVks } from '../vks/client.js';
 
 export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiledCircuit> = {
   PrivateKernelInitArtifact: PrivateKernelInitJson as NoirCompiledCircuit,
+  PrivateKernelInit2Artifact: PrivateKernelInit2Json as NoirCompiledCircuit,
   PrivateKernelInit3Artifact: PrivateKernelInit3Json as NoirCompiledCircuit,
   PrivateKernelInnerArtifact: PrivateKernelInnerJson as NoirCompiledCircuit,
   PrivateKernelTailArtifact: PrivateKernelTailJson as NoirCompiledCircuit,
@@ -29,6 +31,8 @@ export const ClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiled
 
 export const SimulatedClientCircuitArtifacts: Record<ClientProtocolArtifact, NoirCompiledCircuit> = {
   PrivateKernelInitArtifact: PrivateKernelInitSimulatedJson as NoirCompiledCircuit,
+  // No private_kernel_init_2_simulated crate exists; reuse the constrained artifact for simulation.
+  PrivateKernelInit2Artifact: PrivateKernelInit2Json as NoirCompiledCircuit,
   // No private_kernel_init_3_simulated crate exists; reuse the constrained artifact for simulation.
   PrivateKernelInit3Artifact: PrivateKernelInit3Json as NoirCompiledCircuit,
   PrivateKernelInnerArtifact: PrivateKernelInnerSimulatedJson as NoirCompiledCircuit,
