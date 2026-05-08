@@ -793,17 +793,22 @@ contract StorageProofTest {
     }
 
     #[contract_library_method]
-    unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::contract_self_public::ContractSelfPublic<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
-        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-            let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
-            aztec::hash::hash_args(serialized_args)
-        });
+    unconstrained fn __aztec_nr_internals__build_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
         let storage: () = ();
         let self_address: AztecAddress = context.this_address();
         let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
         let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
         let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
         aztec::contract_self::contract_self_public::ContractSelfPublic::<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
+    }
+
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::contract_self_public::ContractSelfPublic<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
+            let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
+            aztec::hash::hash_args(serialized_args)
+        });
+        __aztec_nr_internals__build_public_self_from_context(context)
     }
 
     unconstrained fn __aztec_nr_internals__account_proof(account: Account, root: [u64; 4], nodes: [Node; 15], node_length: u32) {

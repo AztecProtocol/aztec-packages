@@ -6,15 +6,17 @@ use crate::macros::{
     },
 };
 
-/// Emits a per-contract helper that builds the `self` value used by every public external function.
+/// Emits a per-contract helper that builds the `self` value from a `PublicContext` already in scope.
 ///
-/// Each public external function calls this helper instead of inlining the construction, so the same preamble does not
-/// appear duplicated in every public function body. We let Noir's inliner decide whether to inline the helper at each
-/// call site rather than forcing it via macro expansion.
+/// This is the building block used by both:
+/// - public external functions, via [`generate_public_self_creator`], which constructs a fresh `PublicContext` from
+///   `calldata_copy` and then delegates to this helper; and
+/// - public internal functions and `#[contract_library_method]` bodies, which already receive `context` as a
+///   parameter and call this helper directly to skip the `calldata_copy` step.
 ///
-/// The helper is parameterized over the calldata length `N` so that the args closure passed to `PublicContext::new`
-/// is monomorphized per arity. All public functions with the same arity share a single monomorphization.
-pub(crate) comptime fn generate_public_self_creator(m: Module) -> Quoted {
+/// Extracting the storage/`call_self`/`call_self_static`/`internal`/`ContractSelfPublic::new` chain into a single
+/// helper keeps that AVM-bytecode-heavy preamble from being duplicated into every public function body.
+pub(crate) comptime fn generate_public_self_builder_from_context(m: Module) -> Quoted {
     let (storage_type, storage_init) = if module_has_storage(m) {
         (
             quote { Storage<aztec::context::PublicContext> },
@@ -29,18 +31,44 @@ pub(crate) comptime fn generate_public_self_creator(m: Module) -> Quoted {
 
     quote {
         #[contract_library_method]
-        unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::ContractSelfPublic<$storage_type, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
-            let context = aztec::context::PublicContext::new(|| {
-                // We start from 1 because we skip the selector for the dispatch function.
-                let serialized_args : [Field; N] = aztec::oracle::avm::calldata_copy(1, N);
-                aztec::hash::hash_args(serialized_args)
-            });
+        unconstrained fn __aztec_nr_internals__build_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::ContractSelfPublic<$storage_type, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
             $storage_init
             let self_address = context.this_address();
             let call_self: CallSelf<aztec::context::PublicContext> = CallSelf { address: self_address, context };
             let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic { address: self_address, context };
             let internal: CallInternal<aztec::context::PublicContext> = CallInternal { context };
             aztec::contract_self::ContractSelfPublic::new(context, storage, call_self, call_self_static, internal)
+        }
+    }
+}
+
+/// Emits a per-contract helper that builds the `self` value used by every public external function.
+///
+/// Each public external function calls this helper instead of inlining the construction, so the same preamble does not
+/// appear duplicated in every public function body. We let Noir's inliner decide whether to inline the helper at each
+/// call site rather than forcing it via macro expansion.
+///
+/// The helper is parameterized over the calldata length `N` so that the args closure passed to `PublicContext::new`
+/// is monomorphized per arity. All public functions with the same arity share a single monomorphization. Once the
+/// `PublicContext` exists, construction is delegated to
+/// [`__aztec_nr_internals__build_public_self_from_context`](generate_public_self_builder_from_context) so that public
+/// internal methods and contract library methods share the same body.
+pub(crate) comptime fn generate_public_self_creator(m: Module) -> Quoted {
+    let storage_type = if module_has_storage(m) {
+        quote { Storage<aztec::context::PublicContext> }
+    } else {
+        quote { () }
+    };
+
+    quote {
+        #[contract_library_method]
+        unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::ContractSelfPublic<$storage_type, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+            let context = aztec::context::PublicContext::new(|| {
+                // We start from 1 because we skip the selector for the dispatch function.
+                let serialized_args : [Field; N] = aztec::oracle::avm::calldata_copy(1, N);
+                aztec::hash::hash_args(serialized_args)
+            });
+            __aztec_nr_internals__build_public_self_from_context(context)
         }
     }
 }
