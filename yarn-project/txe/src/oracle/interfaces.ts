@@ -63,12 +63,13 @@ export interface ITxeExecutionOracle {
   }>;
   getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
   privateCallNewFlow(
-    from: AztecAddress,
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
     argsHash: Fr,
     isStaticCall: boolean,
+    additionalScopes: AztecAddress[],
     jobId: string,
   ): Promise<{ returnValues: Fr[]; offchainEffects: Fr[][] }>;
   executeUtilityFunction(
@@ -78,7 +79,7 @@ export interface ITxeExecutionOracle {
     jobId: string,
   ): Promise<Fr[]>;
   publicCallNewFlow(
-    from: AztecAddress,
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,

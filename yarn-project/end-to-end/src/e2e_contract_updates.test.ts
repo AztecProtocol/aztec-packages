@@ -103,9 +103,8 @@ describe('e2e_contract_updates', () => {
 
     ({
       receipt: { contract, instance },
-    } = await UpdatableContract.deploy(wallet, constructorArgs[0]).send({
+    } = await UpdatableContract.deploy(wallet, constructorArgs[0], { salt }).send({
       from: defaultAccountAddress,
-      contractAddressSalt: salt,
       wait: { returnReceipt: true },
     }));
 

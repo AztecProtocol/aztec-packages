@@ -8,7 +8,7 @@ import {
   getContractClassFromArtifact,
   getContractInstanceFromInstantiationParams,
 } from '@aztec/stdlib/contract';
-import type { PublicKeys } from '@aztec/stdlib/keys';
+import { PublicKeys } from '@aztec/stdlib/keys';
 import { type Capsule, HashedValues, type TxProfileResult, type TxReceipt } from '@aztec/stdlib/tx';
 import { ExecutionPayload, mergeExecutionPayloads } from '@aztec/stdlib/tx';
 
@@ -56,18 +56,42 @@ export type DeployWaitOptions = WaitOpts & {
 export type DeployInteractionWaitOptions = NoWait | DeployWaitOptions | undefined;
 
 /**
- * Options for deploying a contract on the Aztec network.
- * Allows specifying a contract address salt and different options to tweak contract publication
- * and initialization
+ * Inputs that determine the contract's deployment address.
+ *
+ * `salt` and `publicKeys` are optional and default to a random Fr and `PublicKeys.default()` respectively.
+ *
+ * `deployer` and `universalDeploy` are mutually exclusive and both optional:
+ * - If neither is supplied, the deployer is locked lazily on the first `send` / `simulate` /
+ *   `profile` call from `options.from` (NO_FROM/undefined → universal). This preserves the
+ *   ergonomics of `MyContract.deploy(wallet, ...args).send({ from: alice })`.
+ * - If `deployer` or `universalDeploy: true` is supplied, the deployer is locked at construction.
+ *
+ * Once locked, the deployer cannot change. Subsequent calls with a `from` that would imply a different
+ * deployer throw — except when locked to `AztecAddress.ZERO` (universal), which is compatible with any
+ * sender.
  */
-export type RequestDeployOptions = RequestInteractionOptions & {
-  /** An optional salt value used to deterministically calculate the contract address. */
-  contractAddressSalt?: Fr;
+export type DeployInstantiationOptions = {
+  /** Salt used to derive the contract address. Defaults to a random Fr. */
+  salt?: Fr;
   /**
-   * Deployer address that will be used for the deployed contract's address computation.
-   * If set to 0, the sender's address won't be mixed in
+   * Deployer address mixed into the address preimage. Mutually exclusive with `universalDeploy`.
    */
   deployer?: AztecAddress;
+  /**
+   * If true, the contract is deployed universally (deployer = AztecAddress.ZERO in the address preimage).
+   * Mutually exclusive with `deployer`.
+   */
+  universalDeploy?: boolean;
+  /** Public keys mixed into the address. Defaults to PublicKeys.default(). */
+  publicKeys?: PublicKeys;
+};
+
+/**
+ * Options for deploying a contract on the Aztec network.
+ * Controls publication and registration policy for this deployment. Address-affecting parameters
+ * (salt, deployer, publicKeys, constructor and args) are passed at construction time.
+ */
+export type RequestDeployOptions = RequestInteractionOptions & {
   /** Skip contract class publication. */
   skipClassPublication?: boolean;
   /** Skip publication, instead just privately initialize the contract. */
@@ -81,13 +105,8 @@ export type RequestDeployOptions = RequestInteractionOptions & {
 /**
  * Base deployment options without wait parameter.
  */
-export type DeployOptionsWithoutWait = Omit<RequestDeployOptions, 'deployer'> & {
-  /**
-   * Set to true to *not* include the sender in the address computation. This option
-   * is mutually exclusive with "deployer"
-   */
-  universalDeploy?: boolean;
-} & Pick<SendInteractionOptionsWithoutWait, 'from' | 'fee' | 'additionalScopes'>;
+export type DeployOptionsWithoutWait = RequestDeployOptions &
+  Pick<SendInteractionOptionsWithoutWait, 'from' | 'fee' | 'additionalScopes'>;
 
 /**
  * Extends the deployment options with the required parameters to send the transaction.
@@ -159,6 +178,18 @@ export type DeployReturn<TContract extends ContractBase, W extends DeployInterac
  * Contract interaction for deployment.
  * Handles class publication, instance publication, and initialization of the contract.
  *
+ * The deployer (and therefore the deployed address) is locked once and never changes. Locking
+ * happens either at construction (via `deployer` or `universalDeploy: true` in the instantiation
+ * options) or lazily on the first `send` / `simulate` / `profile` call, which lock from
+ * `options.from`. Once locked:
+ *
+ * - The address is stable for the lifetime of this object.
+ * - Subsequent `send` / `simulate` / `profile` calls with a `from` that would imply a different
+ *   deployer throw, to prevent silently deploying at a different address than `getAddress()`
+ *   reported.
+ * - A locked universal deployer (`AztecAddress.ZERO`) is compatible with any `from`, since the
+ *   address does not depend on the sender.
+ *
  * Note that for some contracts, a tx is not required as part of its "creation":
  * If there are no public functions, and if there are no initialization functions,
  * then technically the contract has already been "created", and all of the contract's
@@ -166,37 +197,104 @@ export type DeployReturn<TContract extends ContractBase, W extends DeployInterac
  * "deployment tx".
  */
 export class DeployMethod<TContract extends ContractBase = ContractBase> extends BaseContractInteraction {
-  /** The contract instance to be deployed. */
-  private instance?: ContractInstanceWithAddress = undefined;
+  /** Salt used in the address preimage. */
+  protected readonly salt: Fr;
+  /**
+   * Deployer mixed into the address preimage. `undefined` until locked, either by `deployer` /
+   * `universalDeploy: true` at construction, or by the first call to `request` / `send` /
+   * `simulate` / `profile` which locks it from `options.from` (NO_FROM/undefined → ZERO,
+   * AztecAddress → that address). `AztecAddress.ZERO` indicates a universal deployment. Once
+   * locked, never changes; subsequent calls with an incompatible `from` throw.
+   */
+  protected deployer: AztecAddress | undefined;
+  /** Public keys mixed into the address preimage. */
+  protected readonly publicKeys: PublicKeys;
+
+  /** Cached instance promise; resolved once after the deployer is locked. */
+  private instancePromise?: Promise<ContractInstanceWithAddress>;
+  /** Resolved value of `instancePromise`, populated synchronously once the promise settles. */
+  private resolvedInstance?: ContractInstanceWithAddress;
 
   /** Constructor function to call. */
   protected constructorArtifact: FunctionAbi | undefined;
 
   constructor(
-    protected publicKeys: PublicKeys,
     wallet: Wallet,
     protected artifact: ContractArtifact,
     protected postDeployCtor: (instance: ContractInstanceWithAddress, wallet: Wallet) => TContract,
     protected args: any[] = [],
     constructorNameOrArtifact?: string | FunctionArtifact,
+    instantiation: DeployInstantiationOptions = {},
     authWitnesses: AuthWitness[] = [],
     capsules: Capsule[] = [],
     protected extraHashedArgs: HashedValues[] = [],
   ) {
     super(wallet, authWitnesses, capsules);
     this.constructorArtifact = getInitializer(artifact, constructorNameOrArtifact);
+    this.salt = instantiation.salt ?? Fr.random();
+    this.publicKeys = instantiation.publicKeys ?? PublicKeys.default();
+    if (instantiation.deployer !== undefined && instantiation.universalDeploy) {
+      throw new Error('DeployInstantiationOptions: `deployer` and `universalDeploy` are mutually exclusive.');
+    }
+    if (instantiation.universalDeploy) {
+      this.deployer = AztecAddress.ZERO;
+    } else if (instantiation.deployer !== undefined) {
+      this.deployer = instantiation.deployer;
+    }
+  }
+
+  /**
+   * Locks the deployer from a send-time `from` value. If the deployer is already locked, this
+   * verifies that `from` is compatible with the locked value and throws otherwise. A locked
+   * universal deployer (`AztecAddress.ZERO`) is compatible with any `from`, since "universal"
+   * means the address does not depend on the sender.
+   *
+   * @param from - The send-time `from` value (AztecAddress, NO_FROM, or undefined).
+   */
+  protected lockDeployerFromSendOptions(from: SendInteractionOptionsWithoutWait['from'] | undefined): void {
+    const fromAsDeployer: AztecAddress = from === undefined || from === NO_FROM ? AztecAddress.ZERO : from;
+    if (this.deployer === undefined) {
+      this.deployer = fromAsDeployer;
+      return;
+    }
+    if (this.deployer.equals(AztecAddress.ZERO)) {
+      return;
+    }
+    if (!this.deployer.equals(fromAsDeployer)) {
+      throw new Error(
+        `Deployer for this DeployMethod is locked to ${this.deployer.toString()}; cannot send from ${fromAsDeployer.toString()} ` +
+          `because that would imply a different deployer than the one used to derive the address. ` +
+          `Pass \`deployer: ${this.deployer.toString()}\` at construction if you need a different sender.`,
+      );
+    }
   }
 
   /**
    * Returns the execution payload that allows this operation to happen on chain.
+   *
+   * Requires the deployer to be locked already (either at construction via `deployer` /
+   * `universalDeploy: true`, or as a side effect of a prior `send` / `simulate` / `profile` call,
+   * which lock from `options.from`). Throws otherwise — `request` is purely about payload
+   * construction and does not look at sender information.
+   *
    * @param options - Configuration options.
    * @returns The execution payload for this operation
    */
   public async request(options: RequestDeployOptions = {}): Promise<ExecutionPayload> {
+    if (this.deployer === undefined) {
+      throw new Error(
+        'Cannot build deploy execution payload: deployer is not yet locked. Pass `deployer: <address>` ' +
+          'or `universalDeploy: true` as the instantiation option when constructing the deploy ' +
+          '(e.g. `MyContract.deploy(wallet, ...args, { deployer: alice })`), or call `.send` / ' +
+          '`.simulate` / `.profile` first to lock the deployer from the sender. When wrapping a ' +
+          'DeployMethod inside a BatchCall, lock the deployer at construction since BatchCall ' +
+          'invokes `request()` directly.',
+      );
+    }
     const publication = await this.getPublicationExecutionPayload(options);
 
     if (!options?.skipRegistration) {
-      await this.wallet.registerContract(await this.getInstance(options), this.artifact);
+      await this.wallet.registerContract(await this.getInstance(), this.artifact);
     }
     const { authWitnesses, capsules } = options;
 
@@ -220,17 +318,6 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     }
 
     return finalExecutionPayload;
-  }
-
-  convertDeployOptionsToRequestOptions(options: DeployOptionsWithoutWait): RequestDeployOptions {
-    const { from } = options;
-    let deployer: AztecAddress | undefined;
-    if (options?.universalDeploy) {
-      deployer = undefined;
-    } else {
-      deployer = from === NO_FROM ? AztecAddress.ZERO : from;
-    }
-    return { ...options, deployer };
   }
 
   /**
@@ -270,10 +357,9 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
 
   /**
    * Adds this contract to the wallet and returns the Contract object.
-   * @param options - Deployment options.
    */
-  public async register(options?: RequestDeployOptions): Promise<TContract> {
-    const instance = await this.getInstance(options);
+  public async register(): Promise<TContract> {
+    const instance = await this.getInstance();
     await this.wallet.registerContract(instance, this.artifact);
     return this.postDeployCtor(instance, this.wallet);
   }
@@ -290,7 +376,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     const calls: ExecutionPayload[] = [];
 
     // Set contract instance object so it's available for populating the DeploySendTx object
-    const instance = await this.getInstance(options);
+    const instance = await this.getInstance();
 
     // Obtain contract class from artifact and check it matches the reported one by the instance.
     // TODO(@spalladino): We're unnecessarily calculating the contract class multiple times here.
@@ -337,7 +423,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   protected async getInitializationExecutionPayload(options?: RequestDeployOptions): Promise<ExecutionPayload> {
     const executionsPayloads: ExecutionPayload[] = [];
     if (this.constructorArtifact && !options?.skipInitialization) {
-      const { address } = await this.getInstance(options);
+      const { address } = await this.getInstance();
       const constructorCall = new ContractFunctionInteraction(
         this.wallet,
         address,
@@ -353,7 +439,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * Send a contract deployment transaction (initialize and/or publish) using the provided options.
    * By default, waits for the transaction to be mined and returns the deployed contract instance.
    *
-   * @param options - An object containing various deployment options such as contractAddressSalt and from.
+   * @param options - An object containing various deployment options such as `from` and `fee`.
    * @returns TxHash (if wait is NO_WAIT), TContract (if wait is undefined or doesn't have returnReceipt), or DeployTxReceipt (if wait.returnReceipt is true)
    */
   // Overload for when wait is not specified at all - returns the contract
@@ -364,7 +450,8 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   ): Promise<DeployReturn<TContract, W>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
   public override async send(options: DeployOptions<DeployInteractionWaitOptions>): Promise<any> {
-    const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
+    this.lockDeployerFromSendOptions(options.from);
+    const executionPayload = await this.request(options);
     const sendOptions = this.convertDeployOptionsToSendOptions(options);
 
     if (options.wait === NO_WAIT) {
@@ -380,7 +467,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     this.log.debug(`Deployed ${this.artifact.name} contract in tx ${receipt.txHash}`);
 
     // Attach contract instance
-    const instance = await this.getInstance(options);
+    const instance = await this.getInstance();
     const contract = this.postDeployCtor(instance, this.wallet) as TContract;
 
     // Return full receipt if requested, otherwise just the contract
@@ -392,22 +479,40 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   }
 
   /**
-   * Builds the contract instance and returns it.
+   * Builds the contract instance and returns it. The instance is computed once and cached for
+   * the lifetime of this DeployMethod; subsequent calls return the same instance.
    *
-   * @param options - An object containing various initialization and publication options.
+   * Requires the deployer to have been locked. The deployer is locked either by passing
+   * `deployer` / `universalDeploy: true` at construction, or by a prior call to
+   * `request` / `send` / `simulate` / `profile` (which lock from `options.from`). Calling
+   * `getInstance()` before the deployer is locked throws, because the address is otherwise
+   * ambiguous and would silently change once the user finally invokes a send.
+   *
    * @returns An instance object.
    */
-  public async getInstance(options?: RequestDeployOptions): Promise<ContractInstanceWithAddress> {
-    if (!this.instance) {
-      this.instance = await getContractInstanceFromInstantiationParams(this.artifact, {
+  public getInstance(): Promise<ContractInstanceWithAddress> {
+    if (this.deployer === undefined) {
+      throw new Error(
+        'Cannot resolve contract instance: deployer is not yet locked. Pass `deployer: <address>` ' +
+          'or `universalDeploy: true` as the instantiation option when constructing the deploy ' +
+          '(e.g. `MyContract.deploy(wallet, ...args, { deployer: alice })`), or call `.send` / ' +
+          '`.simulate` / `.profile` first to lock the deployer from the sender.',
+      );
+    }
+    const deployer = this.deployer;
+    if (!this.instancePromise) {
+      this.instancePromise = getContractInstanceFromInstantiationParams(this.artifact, {
         constructorArgs: this.args,
-        salt: options?.contractAddressSalt ?? Fr.random(),
+        salt: this.salt,
         publicKeys: this.publicKeys,
         constructorArtifact: this.constructorArtifact,
-        deployer: options?.deployer ? options.deployer : AztecAddress.ZERO,
+        deployer,
+      }).then(instance => {
+        this.resolvedInstance = instance;
+        return instance;
       });
     }
-    return this.instance;
+    return this.instancePromise;
   }
 
   /**
@@ -418,7 +523,8 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * estimations (if requested via options), execution statistics and emitted offchain effects
    */
   public async simulate(options: SimulateDeployOptions): Promise<SimulationResult> {
-    const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
+    this.lockDeployerFromSendOptions(options.from);
+    const executionPayload = await this.request(options);
     const simulatedTx = await this.wallet.simulateTx(
       executionPayload,
       this.convertDeployOptionsToSimulateOptions(options),
@@ -446,18 +552,31 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @returns An object containing the function return value and profile result.
    */
   public async profile(options: DeployOptionsWithoutWait & ProfileInteractionOptions): Promise<TxProfileResult> {
-    const executionPayload = await this.request(this.convertDeployOptionsToRequestOptions(options));
+    this.lockDeployerFromSendOptions(options.from);
+    const executionPayload = await this.request(options);
     return await this.wallet.profileTx(executionPayload, this.convertDeployOptionsToProfileOptions(options));
   }
 
-  /** Return this deployment address. */
-  public get address() {
-    return this.instance?.address;
+  /** Returns the deployed contract address. */
+  public async getAddress(): Promise<AztecAddress> {
+    return (await this.getInstance()).address;
   }
 
   /** Returns the partial address for this deployment. */
-  public get partialAddress() {
-    return this.instance && computePartialAddress(this.instance);
+  public async getPartialAddress(): Promise<Fr> {
+    return computePartialAddress(await this.getInstance());
+  }
+
+  /**
+   * Returns the cached resolved instance synchronously, or throws if no instance has been computed yet.
+   * Intended for subclasses that run inside a code path where `getInstance()` is guaranteed to have already
+   * been awaited (e.g. `request()` invoked it). Not part of the public API.
+   */
+  protected getCachedInstanceOrThrow(): ContractInstanceWithAddress {
+    if (!this.resolvedInstance) {
+      throw new Error('Contract instance has not been computed yet. Call getInstance() first.');
+    }
+    return this.resolvedInstance;
   }
 
   /**
@@ -475,14 +594,30 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
     capsules?: Capsule[];
   }): DeployMethod {
     return new DeployMethod(
-      this.publicKeys,
       this.wallet,
       this.artifact,
       this.postDeployCtor,
       this.args,
       this.constructorArtifact?.name,
+      this.cloneInstantiation(),
       this.authWitnesses.concat(authWitnesses),
       this.capsules.concat(capsules),
     );
+  }
+
+  /**
+   * Returns the instantiation options to pass to a freshly-constructed copy of this DeployMethod
+   * (e.g. via `with(...)`). Encodes the current locked-deployer state: a locked AztecAddress.ZERO
+   * deployer becomes `universalDeploy: true`; an undefined deployer stays unset so the new copy can
+   * still infer it from the first send.
+   */
+  protected cloneInstantiation(): DeployInstantiationOptions {
+    if (this.deployer === undefined) {
+      return { salt: this.salt, publicKeys: this.publicKeys };
+    }
+    if (this.deployer.equals(AztecAddress.ZERO)) {
+      return { salt: this.salt, publicKeys: this.publicKeys, universalDeploy: true };
+    }
+    return { salt: this.salt, publicKeys: this.publicKeys, deployer: this.deployer };
   }
 }

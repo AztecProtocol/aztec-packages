@@ -2,7 +2,6 @@ import {
   DomainSeparator,
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
-  NULL_MSG_SENDER_CONTRACT_ADDRESS,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
@@ -186,7 +185,7 @@ describe('Private Execution test suite', () => {
     anchorBlockHeader,
     args = [],
     /** Notice that we're defaulting to the "null" msg_sender, which many public functions will fail to unwrap, and will revert. */
-    msgSender = AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS),
+    msgSender = AztecAddress.NULL_MSG_SENDER,
     contractAddress = undefined,
     txContext = {},
   }: {
@@ -359,7 +358,7 @@ describe('Private Execution test suite', () => {
     // on the input.
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
 
-    // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
+    // Mock getL2Tips and getBlockHeader for syncTaggedPrivateLogs
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
 
     // TODO: refactor. Maybe it's worth stubbing a key store

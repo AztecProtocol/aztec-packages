@@ -181,20 +181,18 @@ describe('e2e_fees account_init', () => {
       await t.mintPrivateBananas(mintedBananas, bobsAddress);
 
       const [aliceBalanceBefore] = await t.getGasBalanceFn(aliceAddress);
-      const { receipt: tx } = await SchnorrAccountContractInterface.deployWithPublicKeys(
-        bobsPublicKeys,
+      const { receipt: tx } = await SchnorrAccountContractInterface.deploy(
         wallet,
         bobsSigningPubKey.x,
         bobsSigningPubKey.y,
+        { salt: bobsInstance.salt, universalDeploy: true, publicKeys: bobsPublicKeys },
       ).send({
         from: aliceAddress,
         // The account constructor initializes storage vars that need the contract's own nullifier key, so we need to add it to scopes.
         additionalScopes: [bobsAddress],
-        contractAddressSalt: bobsInstance.salt,
         skipClassPublication: true,
         skipInstancePublication: true,
         skipInitialization: false,
-        universalDeploy: true,
         wait: { returnReceipt: true },
       });
 

@@ -255,9 +255,8 @@ describe('End-to-end tests for devnet', () => {
   async function advanceChainWithEmptyBlocks(wallet: TestWallet) {
     const [fundedAccountAddress] = await registerInitialLocalNetworkAccountsInWallet(wallet);
 
-    const { contract: test } = await TestContract.deploy(wallet).send({
+    const { contract: test } = await TestContract.deploy(wallet, { universalDeploy: true }).send({
       from: fundedAccountAddress,
-      universalDeploy: true,
       skipClassPublication: true,
     });
 

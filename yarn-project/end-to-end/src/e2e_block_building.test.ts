@@ -133,15 +133,17 @@ describe('e2e_block_building', () => {
       // Need to have value > 0, so adding + 1
       // We need to do so, because noir currently will fail if the multiscalarmul is in an `if`
       // that we DO NOT enter. This should be fixed by https://github.com/noir-lang/noir/issues/5045.
-      const methods = times(TX_COUNT, i => StatefulTestContract.deploy(wallet, ownerAddress, i + 1));
+      const methods = times(TX_COUNT, i =>
+        StatefulTestContract.deploy(wallet, ownerAddress, i + 1, {
+          salt: new Fr(BigInt(i + 1)),
+          deployer: ownerAddress,
+        }),
+      );
       const provenTxs = [];
       const addresses = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        const options: DeployOptions = {
-          from: ownerAddress,
-          contractAddressSalt: new Fr(BigInt(i + 1)),
-        };
-        const instance = await methods[i].getInstance(options);
+        const options: DeployOptions = { from: ownerAddress };
+        const instance = await methods[i].getInstance();
         addresses.push(instance.address);
         provenTxs.push(await proveInteraction(wallet, methods[i], options));
       }
@@ -232,7 +234,9 @@ describe('e2e_block_building', () => {
 
       // Deploy a contract in the first transaction
       // In the same block, call a public method on the contract
-      const deployMethod = TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18);
+      const deployMethod = TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18, {
+        deployer: ownerAddress,
+      });
 
       // We can't use `TokenContract.at` to call a function because it checks the contract is deployed
       // but we are in the same block as the deployment transaction
