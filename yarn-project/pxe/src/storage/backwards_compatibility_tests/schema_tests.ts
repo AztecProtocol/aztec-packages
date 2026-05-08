@@ -147,7 +147,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const handshakeSecretStore = new HandshakeSecretStore(kvStore);
 
       const jobId = 'fixture-job';
-      // Hand-rolled non-curve points are fine here — the store does not validate curve membership when serializing.
+      // Hand-rolled non-curve points are fine here. The store does not validate curve membership when serializing.
       // We pick fixed coordinates so the on-disk hash keys are stable across runs.
       await handshakeSecretStore.setHandshakeSecret(new Point(new Fr(2n), new Fr(3n), false), jobId);
       await handshakeSecretStore.setHandshakeSecret(new Point(new Fr(5n), new Fr(7n), false), jobId);
