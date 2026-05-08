@@ -107,7 +107,15 @@ function generateDeploy(input: ContractArtifact) {
    *                       Salt defaults to a random value; the deployer is locked lazily from the first send-time \`from\`.
    */
   public static deploy(wallet: Wallet, ${args ? `${args}, ` : ''}instantiation?: DeployInstantiationOptions) {
-    return DeployMethod.create<${contractName}>(wallet, ${artifactName}, (instance, wallet) => ${contractName}.at(instance.address, wallet), ${argsForwarding}, undefined, instantiation);
+    return DeployMethod.create<${contractName}>(
+      wallet,
+      {
+        artifact: ${artifactName},
+        postDeployCtor: (instance, wallet) => ${contractName}.at(instance.address, wallet),
+        args: ${argsForwarding},
+      },
+      instantiation,
+    );
   }
 
   /**
@@ -119,10 +127,12 @@ function generateDeploy(input: ContractArtifact) {
   ) {
     return DeployMethod.create<${contractName}>(
       opts.wallet,
-      ${artifactName},
-      (instance, wallet) => ${contractName}.at(instance.address, wallet),
-      args,
-      opts.method ?? 'constructor',
+      {
+        artifact: ${artifactName},
+        postDeployCtor: (instance, wallet) => ${contractName}.at(instance.address, wallet),
+        args,
+        constructorNameOrArtifact: opts.method ?? 'constructor',
+      },
       opts.instantiation,
     );
   }

@@ -115,11 +115,16 @@ export function CreateContractDialog({
       if (publiclyDeploy) {
         const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
           Contract.at(instance.address, contractArtifact, wallet);
-        deployMethod = DeployMethod.create(wallet, contractArtifact, postDeployCtor, parameters, initializer?.name, {
-          publicKeys: contract.publicKeys,
-          salt: contract.salt,
-          deployer: from,
-        });
+        deployMethod = DeployMethod.create(
+          wallet,
+          {
+            artifact: contractArtifact,
+            postDeployCtor,
+            args: parameters,
+            constructorNameOrArtifact: initializer?.name,
+          },
+          { publicKeys: contract.publicKeys, salt: contract.salt, deployer: from },
+        );
         opts = {
           from,
           fee: { paymentMethod: feePaymentMethod },

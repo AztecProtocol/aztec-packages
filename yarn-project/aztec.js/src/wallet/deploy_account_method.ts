@@ -94,15 +94,10 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
   ) {
     super(
       wallet,
-      artifact,
-      postDeployCtor,
-      args,
-      constructorNameOrArtifact,
+      { artifact, postDeployCtor, args, constructorNameOrArtifact },
       // Account contracts are always deployed universally.
       { salt, universalDeploy: true, publicKeys },
-      authWitnesses,
-      capsules,
-      extraHashedArgs,
+      { authWitnesses, capsules, extraHashedArgs },
     );
   }
 
