@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/honk/execution_trace/execution_trace_block.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -12,6 +13,9 @@
 #include <vector>
 
 namespace bb::gate_patterns {
+
+using bb::GateKind;
+using bb::read_gate_selector;
 
 enum class Wire : uint8_t {
     W_L,
@@ -415,11 +419,10 @@ inline const GatePattern DATABUS = { .name = "databus",
 // Helper functions
 // ============================================================================
 
-template <typename Block, typename GateSelectorColumn>
-Selectors read_selectors(Block& block, size_t gate_index, const GateSelectorColumn& gate_selector_column)
+template <typename Block> Selectors read_selectors(Block& block, size_t gate_index, GateKind kind)
 {
     return Selectors{
-        .gate_selector = static_cast<int64_t>(static_cast<uint64_t>(gate_selector_column[gate_index])),
+        .gate_selector = static_cast<int64_t>(static_cast<uint64_t>(read_gate_selector(block, kind, gate_index))),
         .q_m_nz = !block.q_m()[gate_index].is_zero(),
         .q_1_nz = !block.q_1()[gate_index].is_zero(),
         .q_2_nz = !block.q_2()[gate_index].is_zero(),
