@@ -9,6 +9,18 @@ use crate::{
     protocol::{address::AztecAddress, constants::MAX_NOTE_HASHES_PER_TX, traits::ToField},
 };
 
+/// Processes a private note message, attempting to discover and enqueue any notes it contains.
+///
+/// Messages that fail to decode are silently ignored (a debug log is emitted). This is not treated as an error since
+/// messages may originate from arbitrary, potentially malicious senders and we don't want them to have the power to
+/// brick the message processing flow.
+///
+/// ## Use Cases
+///
+/// This function is invoked automatically by aztec-nr when handling messages with the built-in private note type id,
+/// so contracts do not normally need to call it directly. It is exposed for use by custom message handlers (see
+/// [`CustomMessageHandler`](crate::messages::discovery::CustomMessageHandler)) that might want to use the standard
+/// note message processing pipeline while extending it with custom logic.
 pub unconstrained fn process_private_note_msg(
     contract_address: AztecAddress,
     tx_hash: Field,
@@ -48,7 +60,7 @@ pub unconstrained fn process_private_note_msg(
 
 /// Attempts discovery of a note given information about its contents and the transaction in which it is suspected the
 /// note was created.
-pub unconstrained fn attempt_note_discovery(
+unconstrained fn attempt_note_discovery(
     contract_address: AztecAddress,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
