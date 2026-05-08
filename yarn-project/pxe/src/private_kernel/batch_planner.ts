@@ -7,7 +7,7 @@ import {
   ScopedKeyValidationRequestAndSeparator,
   ScopedPrivateLogData,
 } from '@aztec/stdlib/kernel';
-import { type PrivateCallExecutionResult } from '@aztec/stdlib/tx';
+import type { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import type { MaxBatchSize } from '../config/index.js';

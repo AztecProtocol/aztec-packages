@@ -43,18 +43,18 @@ import {
 import type {
   HidingKernelToPublicInputType,
   HidingKernelToRollupInputType,
+  PrivateKernelInit2InputType,
+  PrivateKernelInit2ReturnType,
+  PrivateKernelInit3InputType,
+  PrivateKernelInit3ReturnType,
   PrivateKernelInitInputType,
   PrivateKernelInitReturnType,
-  PrivateKernelInit_2InputType,
-  PrivateKernelInit_2ReturnType,
-  PrivateKernelInit_3InputType,
-  PrivateKernelInit_3ReturnType,
+  PrivateKernelInner2InputType,
+  PrivateKernelInner2ReturnType,
+  PrivateKernelInner3InputType,
+  PrivateKernelInner3ReturnType,
   PrivateKernelInnerInputType,
   PrivateKernelInnerReturnType,
-  PrivateKernelInner_2InputType,
-  PrivateKernelInner_2ReturnType,
-  PrivateKernelInner_3InputType,
-  PrivateKernelInner_3ReturnType,
   PrivateKernelResetReturnType,
   PrivateKernelTailInputType,
   PrivateKernelTailReturnType,
@@ -100,7 +100,7 @@ export function convertPrivateKernelInit2InputsToWitnessMapWithAbi(
   inputs: PrivateKernelInit2CircuitPrivateInputs,
   privateKernelInit2Abi: Abi,
 ): WitnessMap {
-  const mapped: PrivateKernelInit_2InputType = {
+  const mapped: PrivateKernelInit2InputType = {
     tx_request: mapTxRequestToNoir(inputs.txRequest),
     vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
     protocol_contracts: mapProtocolContractsToNoir(inputs.protocolContracts),
@@ -125,7 +125,7 @@ export function convertPrivateKernelInit3InputsToWitnessMapWithAbi(
   inputs: PrivateKernelInit3CircuitPrivateInputs,
   privateKernelInit3Abi: Abi,
 ): WitnessMap {
-  const mapped: PrivateKernelInit_3InputType = {
+  const mapped: PrivateKernelInit3InputType = {
     tx_request: mapTxRequestToNoir(inputs.txRequest),
     vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
     protocol_contracts: mapProtocolContractsToNoir(inputs.protocolContracts),
@@ -176,7 +176,7 @@ export function convertPrivateKernelInner2InputsToWitnessMapWithAbi(
   inputs: PrivateKernelInner2CircuitPrivateInputs,
   privateKernelInner2Abi: Abi,
 ): WitnessMap {
-  const mapped: PrivateKernelInner_2InputType = {
+  const mapped: PrivateKernelInner2InputType = {
     previous_kernel: mapPrivateKernelDataToNoir(inputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(inputs.previousKernel.publicInputs),
     private_call_0: mapPrivateCallDataToNoir(inputs.privateCall0),
@@ -197,7 +197,7 @@ export function convertPrivateKernelInner3InputsToWitnessMapWithAbi(
   inputs: PrivateKernelInner3CircuitPrivateInputs,
   privateKernelInner3Abi: Abi,
 ): WitnessMap {
-  const mapped: PrivateKernelInner_3InputType = {
+  const mapped: PrivateKernelInner3InputType = {
     previous_kernel: mapPrivateKernelDataToNoir(inputs.previousKernel),
     previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(inputs.previousKernel.publicInputs),
     private_call_0: mapPrivateCallDataToNoir(inputs.privateCall0),
@@ -343,7 +343,7 @@ export function convertPrivateKernelInit2OutputsFromWitnessMapWithAbi(
   privateKernelInit2Abi: Abi,
 ): PrivateKernelCircuitPublicInputs {
   const decodedInputs: DecodedInputs = abiDecode(privateKernelInit2Abi, outputs);
-  const returnType = decodedInputs.return_value as PrivateKernelInit_2ReturnType;
+  const returnType = decodedInputs.return_value as PrivateKernelInit2ReturnType;
   return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
 }
 
@@ -357,7 +357,7 @@ export function convertPrivateKernelInit3OutputsFromWitnessMapWithAbi(
   privateKernelInit3Abi: Abi,
 ): PrivateKernelCircuitPublicInputs {
   const decodedInputs: DecodedInputs = abiDecode(privateKernelInit3Abi, outputs);
-  const returnType = decodedInputs.return_value as PrivateKernelInit_3ReturnType;
+  const returnType = decodedInputs.return_value as PrivateKernelInit3ReturnType;
   return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
 }
 
@@ -389,7 +389,7 @@ export function convertPrivateKernelInner2OutputsFromWitnessMapWithAbi(
   privateKernelInner2Abi: Abi,
 ): PrivateKernelCircuitPublicInputs {
   const decodedInputs: DecodedInputs = abiDecode(privateKernelInner2Abi, outputs);
-  const returnType = decodedInputs.return_value as PrivateKernelInner_2ReturnType;
+  const returnType = decodedInputs.return_value as PrivateKernelInner2ReturnType;
   return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
 }
 
@@ -403,7 +403,7 @@ export function convertPrivateKernelInner3OutputsFromWitnessMapWithAbi(
   privateKernelInner3Abi: Abi,
 ): PrivateKernelCircuitPublicInputs {
   const decodedInputs: DecodedInputs = abiDecode(privateKernelInner3Abi, outputs);
-  const returnType = decodedInputs.return_value as PrivateKernelInner_3ReturnType;
+  const returnType = decodedInputs.return_value as PrivateKernelInner3ReturnType;
   return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
 }
 
