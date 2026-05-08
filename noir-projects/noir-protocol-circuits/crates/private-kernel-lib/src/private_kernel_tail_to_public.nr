@@ -17,6 +17,8 @@ use types::{
     },
 };
 
+// WORKTODO(luke): BTW I'm a bit confused by some of these allowed VKs. I was under the impression we always needed
+// a reset in which case an init cant precede a tail. Maybe if the apps do absolutely nothing this can happen?
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 4] = [
     PRIVATE_KERNEL_INIT_VK_INDEX,
     PRIVATE_KERNEL_INIT_3_VK_INDEX,
