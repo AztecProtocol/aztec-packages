@@ -11,6 +11,7 @@ import type { Account } from '../account/account.js';
 import type { Contract } from '../contract/contract.js';
 import type { ContractBase } from '../contract/contract_base.js';
 import {
+  type DeployInteractionWaitOptions,
   DeployMethod,
   type DeployOptions,
   type DeployOptionsWithoutWait,
@@ -19,7 +20,6 @@ import {
 } from '../contract/deploy_method.js';
 import {
   type FeePaymentMethodOption,
-  type InteractionWaitOptions,
   NO_FROM,
   type NoFrom,
   type ProfileInteractionOptions,
@@ -54,7 +54,7 @@ export type RequestDeployAccountOptions = Omit<RequestDeployOptions, 'fee'> & {
 /**
  * The configuration options for the send/prove methods.
  */
-export type DeployAccountOptions<W extends InteractionWaitOptions = undefined> = DeployOptionsWithoutWait & {
+export type DeployAccountOptions<W extends DeployInteractionWaitOptions = undefined> = DeployOptionsWithoutWait & {
   /**
    * Whether to wait for the transaction to be mined.
    * - undefined (default): wait with default options and return TxReceipt
@@ -167,7 +167,7 @@ export class DeployAccountMethod<TContract extends ContractBase = Contract> exte
     }
   }
 
-  protected override convertDeployOptionsToSendOptions<W extends InteractionWaitOptions>(
+  protected override convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
     // eslint-disable-next-line jsdoc/require-jsdoc
   ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {

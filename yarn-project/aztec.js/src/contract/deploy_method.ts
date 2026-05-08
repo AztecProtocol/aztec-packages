@@ -20,7 +20,6 @@ import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { getGasLimits } from './get_gas_limits.js';
 import {
-  type InteractionWaitOptions,
   NO_FROM,
   NO_WAIT,
   type NoWait,
@@ -112,7 +111,7 @@ export type DeployOptionsWithoutWait = RequestDeployOptions &
 /**
  * Extends the deployment options with the required parameters to send the transaction.
  */
-export type DeployOptions<W extends InteractionWaitOptions = undefined> = DeployOptionsWithoutWait & {
+export type DeployOptions<W extends DeployInteractionWaitOptions = undefined> = DeployOptionsWithoutWait & {
   /**
    * Options for waiting for the transaction to be mined.
    * - undefined (default): wait with default options and return the contract instance
@@ -169,7 +168,7 @@ export type DeployResultMined<TContract extends ContractBase> = {
 } & OffchainOutput;
 
 /** Conditional return type for deploy based on wait options. */
-export type DeployReturn<TContract extends ContractBase, W extends InteractionWaitOptions> = W extends NoWait
+export type DeployReturn<TContract extends ContractBase, W extends DeployInteractionWaitOptions> = W extends NoWait
   ? TxSendResultImmediate
   : W extends WaitWithReturnReceipt
     ? TxSendResultMined<DeployTxReceipt<TContract>>
@@ -326,7 +325,7 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
    * @param options - Deploy options with wait parameter
    * @returns Send options with wait parameter
    */
-  protected convertDeployOptionsToSendOptions<W extends InteractionWaitOptions>(
+  protected convertDeployOptionsToSendOptions<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
     // eslint-disable-next-line jsdoc/require-jsdoc
   ): SendOptions<W extends { returnReceipt: true } ? WaitOpts : W> {
@@ -446,11 +445,11 @@ export class DeployMethod<TContract extends ContractBase = ContractBase> extends
   // Overload for when wait is not specified at all - returns the contract
   public override send(options: DeployOptionsWithoutWait): Promise<DeployResultMined<TContract>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
-  public override send<W extends InteractionWaitOptions>(
+  public override send<W extends DeployInteractionWaitOptions>(
     options: DeployOptions<W>,
   ): Promise<DeployReturn<TContract, W>>;
   // eslint-disable-next-line jsdoc/require-jsdoc
-  public override async send(options: DeployOptions<InteractionWaitOptions>): Promise<any> {
+  public override async send(options: DeployOptions<DeployInteractionWaitOptions>): Promise<any> {
     this.lockDeployerFromSendOptions(options.from);
     const executionPayload = await this.request(options);
     const sendOptions = this.convertDeployOptionsToSendOptions(options);

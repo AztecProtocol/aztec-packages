@@ -7,8 +7,8 @@ import {
   BatchCall,
   type ContractFunctionInteraction,
   type ContractMethod,
+  type DeployInteractionWaitOptions,
   type DeployOptions,
-  type InteractionWaitOptions,
   getContractClassFromArtifact,
   waitForProven,
 } from '@aztec/aztec.js/contracts';
@@ -867,7 +867,7 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
  * Returns deployed account data that can be used by tests.
  */
 export const deployAccounts =
-  (numberOfAccounts: number, logger: Logger, deployOptions?: Partial<DeployOptions<InteractionWaitOptions>>) =>
+  (numberOfAccounts: number, logger: Logger, deployOptions?: Partial<DeployOptions<DeployInteractionWaitOptions>>) =>
   async ({ wallet, initialFundedAccounts }: { wallet: TestWallet; initialFundedAccounts: InitialAccountData[] }) => {
     if (initialFundedAccounts.length < numberOfAccounts) {
       throw new Error(`Cannot deploy more than ${initialFundedAccounts.length} initial accounts.`);
@@ -886,6 +886,7 @@ export const deployAccounts =
       await deployMethod.send({
         from: NO_FROM,
         skipClassPublication: i !== 0, // Publish the contract class at most once.
+        ...deployOptions,
       });
     }
 
