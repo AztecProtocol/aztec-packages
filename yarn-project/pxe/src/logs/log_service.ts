@@ -14,7 +14,7 @@ import type { SenderAddressBookStore } from '../storage/tagging_store/sender_add
 import {
   getAllPrivateLogsByTags,
   getAllPublicLogsByTagsFromContract,
-  loadPrivateLogsForSenderRecipientPair,
+  syncTaggedPrivateLogs,
 } from '../tagging/index.js';
 
 export class LogService {
@@ -116,37 +116,23 @@ export class LogService {
   public async fetchTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<PendingTaggedLog[]> {
     this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
-    // We only load logs from block up to and including the anchor block number
-    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
-    const anchorBlockHash = await this.anchorBlockHeader.hash();
-
     const l2Tips = await this.l2TipsStore.getL2Tips();
-    const currentTimestamp = this.anchorBlockHeader.globalVariables.timestamp;
     // Get all secrets for this recipient (one per sender)
     const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
 
-    // Load logs for all sender-recipient pairs in parallel
-    const logArrays = await Promise.all(
-      secrets.map(secret =>
-        loadPrivateLogsForSenderRecipientPair(
-          secret,
-          this.aztecNode,
-          this.recipientTaggingStore,
-          anchorBlockNumber,
-          anchorBlockHash,
-          currentTimestamp,
-          l2Tips.finalized.block.number,
-          this.jobId,
-        ),
-      ),
+    const logs = await syncTaggedPrivateLogs(
+      secrets,
+      this.aztecNode,
+      this.recipientTaggingStore,
+      this.anchorBlockHeader,
+      l2Tips.finalized.block.number,
+      this.jobId,
     );
 
-    return logArrays
-      .flat()
-      .map(
-        scopedLog =>
-          new PendingTaggedLog(scopedLog.logData, scopedLog.txHash, scopedLog.noteHashes, scopedLog.firstNullifier),
-      );
+    return logs.map(
+      scopedLog =>
+        new PendingTaggedLog(scopedLog.logData, scopedLog.txHash, scopedLog.noteHashes, scopedLog.firstNullifier),
+    );
   }
 
   async #getSecretsForSenders(
