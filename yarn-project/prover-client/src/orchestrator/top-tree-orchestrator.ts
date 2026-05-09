@@ -11,12 +11,9 @@ import type { EpochNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { BLS12Point } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { AbortError } from '@aztec/foundation/error';
-import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import type { LoggerBindings } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { SerialQueue } from '@aztec/foundation/queue';
 import type { Tuple } from '@aztec/foundation/serialize';
-import { sleep } from '@aztec/foundation/sleep';
 import { MerkleTreeCalculator, type TreeNodeLocation, shaMerkleHash } from '@aztec/foundation/trees';
 import type { EthAddress } from '@aztec/stdlib/block';
 import type { PublicInputsAndRecursiveProof, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
@@ -34,6 +31,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlobHints, toProofData } from './block-building-helpers.js';
+import { ProvingScheduler } from './proving-scheduler.js';
 import { TopTreeProvingState } from './top-tree-proving-state.js';
 
 /** Per-checkpoint data fed into the top tree. */
@@ -88,30 +86,22 @@ type OutHashHint = {
  * and each checkpoint's root rollup fires the moment its sub-tree's `blockProofs`
  * promise resolves. Later checkpoints can still be block-level proving in parallel.
  */
-export class TopTreeOrchestrator {
-  private logger: Logger;
-  private pendingProvingJobs: AbortController[] = [];
-  private deferredJobQueue = new SerialQueue();
+export class TopTreeOrchestrator extends ProvingScheduler {
   private state: TopTreeProvingState | undefined;
   private cancelled = false;
 
   constructor(
     private readonly prover: ServerCircuitProver,
     private readonly proverId: EthAddress,
-    private readonly enqueueConcurrency: number,
+    enqueueConcurrency: number,
     _telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
   ) {
-    this.logger = createLogger('prover-client:top-tree-orchestrator', bindings);
-    this.deferredJobQueue.start(this.enqueueConcurrency);
+    super(enqueueConcurrency, 'prover-client:top-tree-orchestrator', bindings);
   }
 
   public getProverId(): EthAddress {
     return this.proverId;
-  }
-
-  public getNumPendingProvingJobs() {
-    return this.pendingProvingJobs.length;
   }
 
   /**
@@ -219,21 +209,13 @@ export class TopTreeOrchestrator {
    */
   public cancel({ abortJobs }: { abortJobs: boolean }) {
     this.cancelled = true;
-    void this.deferredJobQueue.cancel();
-    this.deferredJobQueue = new SerialQueue();
-    this.deferredJobQueue.start(this.enqueueConcurrency);
-    if (abortJobs) {
-      for (const controller of this.pendingProvingJobs) {
-        controller.abort();
-      }
-    }
+    this.resetSchedulerState(abortJobs);
     this.state?.cancel();
   }
 
-  public async stop(): Promise<void> {
-    const oldQueue = this.deferredJobQueue;
+  /** Standard shutdown — preserve the broker queue (`abortJobs: false`). */
+  protected override cancelInternal(): void {
     this.cancel({ abortJobs: false });
-    await oldQueue.cancel();
   }
 
   // --- internal: per-checkpoint enqueue path ---
@@ -363,50 +345,6 @@ export class TopTreeOrchestrator {
       return;
     }
     this.enqueueRootRollup(state);
-  }
-
-  // --- proving infrastructure ---
-
-  private deferredProving<T>(
-    state: TopTreeProvingState,
-    request: (signal: AbortSignal) => Promise<T>,
-    callback: (result: T) => void | Promise<void>,
-  ) {
-    if (!state.verifyState()) {
-      return;
-    }
-
-    const controller = new AbortController();
-    this.pendingProvingJobs.push(controller);
-
-    const safeJob = async () => {
-      try {
-        if (controller.signal.aborted) {
-          return;
-        }
-        const result = await request(controller.signal);
-        if (!state.verifyState() || controller.signal.aborted) {
-          return;
-        }
-        await callback(result);
-      } catch (err) {
-        if (err instanceof AbortError || this.cancelled) {
-          return;
-        }
-        this.logger.error('Error thrown when proving job', err);
-        state.reject(`${err}`);
-      } finally {
-        const idx = this.pendingProvingJobs.indexOf(controller);
-        if (idx > -1) {
-          this.pendingProvingJobs.splice(idx, 1);
-        }
-      }
-    };
-
-    void this.deferredJobQueue.put(async () => {
-      void safeJob();
-      await sleep(0);
-    });
   }
 
   private async computeOutHashHints(checkpointData: CheckpointTopTreeData[]): Promise<OutHashHint[]> {

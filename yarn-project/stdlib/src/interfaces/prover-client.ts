@@ -124,10 +124,6 @@ function parseProverId(str: string) {
  * The interface to the prover client.
  * Provides the ability to generate proofs and build rollups.
  *
- * The split-orchestrator factories (`createCheckpointSubTreeOrchestrator`,
- * `createTopTreeOrchestrator`) live as concrete methods on the implementation in
- * `@aztec/prover-client` rather than this interface, because their types come from
- * `prover-client` itself. Consumers (e.g. `EpochProvingJob`) import the concrete class.
  */
 export interface EpochProverManager {
   start(): Promise<void>;

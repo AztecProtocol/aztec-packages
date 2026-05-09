@@ -5,20 +5,21 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { TestContext } from '../mocks/test_context.js';
 import { CheckpointSubTreeOrchestrator } from './checkpoint-sub-tree-orchestrator.js';
+import { EpochProvingContext } from './epoch-proving-context.js';
 
 const logger = createLogger('prover-client:test:checkpoint-sub-tree-orchestrator');
 
 describe('prover/orchestrator/checkpoint-sub-tree', () => {
   let context: TestContext;
-  let subTree: CheckpointSubTreeOrchestrator;
+  let epochContext: EpochProvingContext;
 
   beforeEach(async () => {
     context = await TestContext.new(logger);
-    subTree = new CheckpointSubTreeOrchestrator(context.worldState, context.prover, EthAddress.ZERO, false, 10);
+    epochContext = new EpochProvingContext(context.prover, EpochNumber(1));
   });
 
   afterEach(async () => {
-    await subTree.stop();
+    epochContext.stop();
     await context.cleanup();
   });
 
@@ -29,24 +30,37 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       numTxsPerBlock,
     });
 
-    subTree.startNewEpoch(EpochNumber(1));
-    const resultPromise = subTree.getSubTreeResult();
+    const subTree = await CheckpointSubTreeOrchestrator.start(
+      context.worldState,
+      context.prover,
+      EthAddress.ZERO,
+      epochContext,
+      false,
+      10,
+      constants,
+      l1ToL2Messages,
+      numBlocks,
+      previousBlockHeader,
+    );
+    try {
+      const resultPromise = subTree.getSubTreeResult();
 
-    await subTree.startNewCheckpoint(0, constants, l1ToL2Messages, numBlocks, previousBlockHeader);
-
-    for (const block of blocks) {
-      const { blockNumber, timestamp } = block.header.globalVariables;
-      await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
-      if (block.txs.length > 0) {
-        await subTree.addTxs(block.txs);
+      for (const block of blocks) {
+        const { blockNumber, timestamp } = block.header.globalVariables;
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
+        if (block.txs.length > 0) {
+          await subTree.addTxs(block.txs);
+        }
+        await subTree.setBlockCompleted(blockNumber, block.header);
       }
-      await subTree.setBlockCompleted(blockNumber, block.header);
-    }
 
-    const result = await resultPromise;
-    expect(result.blockProofOutputs).toHaveLength(1);
-    expect(result.blockProofOutputs[0].proof).toBeDefined();
-    expect(result.previousArchiveSiblingPath).toBeDefined();
+      const result = await resultPromise;
+      expect(result.blockProofOutputs).toHaveLength(1);
+      expect(result.blockProofOutputs[0].proof).toBeDefined();
+      expect(result.previousArchiveSiblingPath).toBeDefined();
+    } finally {
+      await subTree.stop();
+    }
   });
 
   it('resolves with two block proofs for a two-block checkpoint', async () => {
@@ -56,39 +70,101 @@ describe('prover/orchestrator/checkpoint-sub-tree', () => {
       numTxsPerBlock,
     });
 
-    subTree.startNewEpoch(EpochNumber(1));
-    const resultPromise = subTree.getSubTreeResult();
-    await subTree.startNewCheckpoint(0, constants, l1ToL2Messages, numBlocks, previousBlockHeader);
+    const subTree = await CheckpointSubTreeOrchestrator.start(
+      context.worldState,
+      context.prover,
+      EthAddress.ZERO,
+      epochContext,
+      false,
+      10,
+      constants,
+      l1ToL2Messages,
+      numBlocks,
+      previousBlockHeader,
+    );
+    try {
+      const resultPromise = subTree.getSubTreeResult();
 
-    for (const block of blocks) {
-      const { blockNumber, timestamp } = block.header.globalVariables;
-      await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
-      if (block.txs.length > 0) {
-        await subTree.addTxs(block.txs);
+      for (const block of blocks) {
+        const { blockNumber, timestamp } = block.header.globalVariables;
+        await subTree.startNewBlock(blockNumber, timestamp, block.txs.length);
+        if (block.txs.length > 0) {
+          await subTree.addTxs(block.txs);
+        }
+        await subTree.setBlockCompleted(blockNumber, block.header);
       }
-      await subTree.setBlockCompleted(blockNumber, block.header);
-    }
 
-    const result = await resultPromise;
-    expect(result.blockProofOutputs).toHaveLength(2);
+      const result = await resultPromise;
+      expect(result.blockProofOutputs).toHaveLength(2);
+    } finally {
+      await subTree.stop();
+    }
   });
 
   it('throws when finalizeEpochStructure is called', async () => {
-    subTree.startNewEpoch(EpochNumber(1));
-    await expect(subTree.finalizeEpochStructure(1, FinalBlobBatchingChallenges.empty())).rejects.toThrow(
-      /does not support finalizeEpochStructure/,
-    );
-  });
-
-  it('throws when startNewCheckpoint is called with non-zero index', async () => {
     const { constants, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
-    subTree.startNewEpoch(EpochNumber(1));
-    await expect(subTree.startNewCheckpoint(1, constants, l1ToL2Messages, 1, previousBlockHeader)).rejects.toThrow(
-      /only supports a single checkpoint at index 0/,
+    const subTree = await CheckpointSubTreeOrchestrator.start(
+      context.worldState,
+      context.prover,
+      EthAddress.ZERO,
+      epochContext,
+      false,
+      10,
+      constants,
+      l1ToL2Messages,
+      1,
+      previousBlockHeader,
     );
+    try {
+      await expect(subTree.finalizeEpochStructure(1, FinalBlobBatchingChallenges.empty())).rejects.toThrow(
+        /does not support finalizeEpochStructure/,
+      );
+    } finally {
+      await subTree.stop();
+    }
   });
 
-  it('throws when getSubTreeResult is called before startNewEpoch', () => {
-    expect(() => subTree.getSubTreeResult()).toThrow(/Sub-tree result requested before startNewEpoch/);
+  it('throws when startNewEpoch is called explicitly', async () => {
+    const { constants, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
+    const subTree = await CheckpointSubTreeOrchestrator.start(
+      context.worldState,
+      context.prover,
+      EthAddress.ZERO,
+      epochContext,
+      false,
+      10,
+      constants,
+      l1ToL2Messages,
+      1,
+      previousBlockHeader,
+    );
+    try {
+      expect(() => subTree.startNewEpoch(EpochNumber(2))).toThrow(/starts its epoch in the constructor/);
+    } finally {
+      await subTree.stop();
+    }
+  });
+
+  it('throws when startNewCheckpoint is called explicitly', async () => {
+    const { constants, l1ToL2Messages, previousBlockHeader } = await context.makeCheckpoint(1, { numTxsPerBlock: 0 });
+    const subTree = await CheckpointSubTreeOrchestrator.start(
+      context.worldState,
+      context.prover,
+      EthAddress.ZERO,
+      epochContext,
+      false,
+      10,
+      constants,
+      l1ToL2Messages,
+      1,
+      previousBlockHeader,
+    );
+    try {
+      await expect(subTree.startNewCheckpoint(0, constants, l1ToL2Messages, 1, previousBlockHeader)).rejects.toThrow(
+        /drives its single checkpoint in `start`/,
+      );
+    } finally {
+      await subTree.stop();
+    }
   });
 });

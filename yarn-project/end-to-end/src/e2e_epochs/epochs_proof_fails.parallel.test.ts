@@ -119,8 +119,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
 
     // Inject a delay in prover node proving equal to the length of an epoch, to make sure deadline will be hit.
     // Patches `createTopTreeOrchestrator` so each top tree's `prove()` is replaced with a delayed
-    // synthetic proof — the same patch surface the legacy tests used on `finalizeEpoch`, just relocated
-    // to the new orchestrator boundary.
+    // synthetic proof
     const epochProverManager = testProverNode.prover;
     const originalCreateTopTree = epochProverManager.createTopTreeOrchestrator.bind(epochProverManager);
     const finalizeEpochPromise = promiseWithResolvers<void>();

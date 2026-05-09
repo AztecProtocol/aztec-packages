@@ -1,10 +1,13 @@
 import { createArchiverStore } from '@aztec/archiver';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
+import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldState } from '@aztec/world-state';
@@ -73,8 +76,19 @@ export async function rerunEpochProvingJob(
         ? jobData.previousBlockHeader
         : jobData.checkpoints[checkpointIndex - 1].blocks.at(-1)!.header;
     const attestations = checkpoint.number === lastCheckpointNumber ? jobData.attestations : [];
-    provingJob.registerPendingCheckpoint(checkpoint, checkpointIndex, attestations);
-    await provingJob.addCheckpoint(checkpoint, jobData.txs, l1ToL2Messages, previousBlockHeader);
+    const previousArchiveSiblingPath = await getLastSiblingPath(
+      MerkleTreeId.ARCHIVE,
+      worldState.getSnapshot(BlockNumber(checkpoint.blocks[0].number - 1)),
+    );
+    provingJob.registerCheckpoint(
+      checkpoint,
+      checkpointIndex,
+      attestations,
+      previousBlockHeader,
+      l1ToL2Messages,
+      previousArchiveSiblingPath,
+    );
+    await provingJob.provideTxs(checkpoint, jobData.txs);
   }
 
   // Hand the epoch off to the job for finalization. Since all checkpoints have already

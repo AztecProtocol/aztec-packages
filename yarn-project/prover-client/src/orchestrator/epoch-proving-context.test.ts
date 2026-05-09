@@ -1,3 +1,4 @@
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import { PublicChonkVerifierPrivateInputs } from '@aztec/stdlib/rollup';
@@ -17,14 +18,14 @@ describe('EpochProvingContext', () => {
 
   beforeEach(() => {
     prover = mock<ServerCircuitProver>();
-    context = new EpochProvingContext(prover);
+    context = new EpochProvingContext(prover, EpochNumber(1));
   });
 
   it('caches and dedupes concurrent enqueue calls for the same tx', async () => {
     prover.getPublicChonkVerifierProof.mockResolvedValue(fakeProof);
 
-    const a = context.enqueue('tx1', fakeInputs, 1);
-    const b = context.enqueue('tx1', fakeInputs, 1);
+    const a = context.enqueue('tx1', fakeInputs);
+    const b = context.enqueue('tx1', fakeInputs);
 
     expect(a).toBe(b);
     expect(prover.getPublicChonkVerifierProof).toHaveBeenCalledTimes(1);
@@ -35,7 +36,7 @@ describe('EpochProvingContext', () => {
   it('returns the cached promise from getCached after enqueue', () => {
     prover.getPublicChonkVerifierProof.mockResolvedValue(fakeProof);
 
-    const promise = context.enqueue('tx1', fakeInputs, 1);
+    const promise = context.enqueue('tx1', fakeInputs);
     expect(context.getCached('tx1')).toBe(promise);
     expect(context.getCached('tx-other')).toBeUndefined();
   });
@@ -47,14 +48,14 @@ describe('EpochProvingContext', () => {
     prover.getPublicChonkVerifierProof.mockReturnValueOnce(failResolvers.promise);
     prover.getPublicChonkVerifierProof.mockResolvedValueOnce(fakeProof);
 
-    const first = context.enqueue('tx1', fakeInputs, 1);
+    const first = context.enqueue('tx1', fakeInputs);
     failResolvers.reject(new Error('boom'));
     await expect(first).rejects.toThrow(/boom/);
 
     // Cache should now be empty for tx1.
     expect(context.getCached('tx1')).toBeUndefined();
 
-    const second = context.enqueue('tx1', fakeInputs, 1);
+    const second = context.enqueue('tx1', fakeInputs);
     expect(prover.getPublicChonkVerifierProof).toHaveBeenCalledTimes(2);
     await expect(second).resolves.toBe(fakeProof);
   });
@@ -66,7 +67,7 @@ describe('EpochProvingContext', () => {
       return new Promise<ChonkVerifierProofResult>(() => {});
     });
 
-    const promise = context.enqueue('tx1', fakeInputs, 1);
+    const promise = context.enqueue('tx1', fakeInputs);
     promise.catch(() => {});
 
     expect(capturedSignal?.aborted).toBe(false);
@@ -76,7 +77,7 @@ describe('EpochProvingContext', () => {
 
   it('rejects new enqueues after stop', async () => {
     context.stop();
-    const promise = context.enqueue('tx1', fakeInputs, 1);
+    const promise = context.enqueue('tx1', fakeInputs);
     promise.catch(() => {});
     await expect(promise).rejects.toThrow(/stopped/);
   });
