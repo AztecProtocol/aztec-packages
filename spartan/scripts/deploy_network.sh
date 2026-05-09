@@ -464,6 +464,7 @@ NETWORK = $(tf_str "${NETWORK:-}")
 JOB_NAME = "deploy-rollup-contracts"
 JOB_BACKOFF_LIMIT = 3
 JOB_TTL_SECONDS_AFTER_FINISHED = 3600
+JOB_TIMEOUT = "${ROLLUP_CONTRACTS_JOB_TIMEOUT:-20m}"
 EOF
 
 # Check terraform state for existing contract addresses

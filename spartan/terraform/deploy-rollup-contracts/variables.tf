@@ -242,6 +242,12 @@ variable "JOB_TTL_SECONDS_AFTER_FINISHED" {
   default     = 3600
 }
 
+variable "JOB_TIMEOUT" {
+  description = "Terraform timeout for waiting on the deployment job to complete"
+  type        = string
+  default     = "20m"
+}
+
 variable "NETWORK" {
   description = "One of the existing network names to use default config for"
   type        = string

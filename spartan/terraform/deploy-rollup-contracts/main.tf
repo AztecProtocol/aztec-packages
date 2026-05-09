@@ -161,8 +161,8 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
   wait_for_completion = true
 
   timeouts {
-    create = "10m"
-    update = "10m"
+    create = var.JOB_TIMEOUT
+    update = var.JOB_TIMEOUT
   }
 }
 
