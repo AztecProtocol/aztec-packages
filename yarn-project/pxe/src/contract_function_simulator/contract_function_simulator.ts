@@ -53,7 +53,6 @@ import {
   siloNullifier,
 } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   ClaimedLengthArray,
   PartialPrivateTailPublicInputsForPublic,
@@ -77,6 +76,7 @@ import {
 import { PrivateLog } from '@aztec/stdlib/logs';
 import { ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   CallContext,
