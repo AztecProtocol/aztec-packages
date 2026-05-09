@@ -1,6 +1,5 @@
 import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 
-import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { CompositeServerCircuitProver } from './composite_circuit_prover.js';
