@@ -10,7 +10,7 @@ import type {
   ProvingJobId,
   ProvingJobProducer,
 } from '@aztec/stdlib/interfaces/server';
-import { BlockHeader, type Tx, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, StateReference, type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
@@ -35,7 +35,9 @@ describe('BlockExecutionHandler', () => {
   let txFetcher: jest.MockedFunction<TxFetcher>;
   let proofStore: jest.Mocked<ProofStore>;
   let broker: jest.Mocked<Pick<ProvingJobProducer, 'enqueueProvingJob'>>;
-  let fork: jest.Mocked<Pick<MerkleTreeWriteOperations, 'close' | 'appendLeaves' | 'getTreeInfo'>>;
+  let fork: jest.Mocked<
+    Pick<MerkleTreeWriteOperations, 'close' | 'appendLeaves' | 'getTreeInfo' | 'getStateReference'>
+  >;
 
   let handler: BlockExecutionHandler;
   let header: BlockHeader;
@@ -52,6 +54,7 @@ describe('BlockExecutionHandler', () => {
       close: jest.fn(() => Promise.resolve()),
       appendLeaves: jest.fn(() => Promise.resolve()),
       getTreeInfo: jest.fn(() => Promise.resolve({ root: Buffer.alloc(32), size: 0n, treeId: 0, depth: 0 })),
+      getStateReference: jest.fn(() => Promise.resolve(StateReference.empty())),
     };
     dbProvider = { fork: jest.fn(() => Promise.resolve(fork as unknown as MerkleTreeWriteOperations)) };
 
