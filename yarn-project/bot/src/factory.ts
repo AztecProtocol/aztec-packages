@@ -178,12 +178,8 @@ export class BotFactory {
   }
 
   private async setupTestContract(deployer: AztecAddress): Promise<TestContract> {
-    const deployOpts: DeployOptions = {
-      from: deployer,
-      contractAddressSalt: this.config.tokenSalt,
-      universalDeploy: true,
-    };
-    const deploy = TestContract.deploy(this.wallet);
+    const deployOpts: DeployOptions = { from: deployer };
+    const deploy = TestContract.deploy(this.wallet, { salt: this.config.tokenSalt, universalDeploy: true });
     const instance = await this.registerOrDeployContract('TestContract', deploy, deployOpts);
     return TestContract.at(instance.address, this.wallet);
   }
@@ -259,37 +255,38 @@ export class BotFactory {
    */
   private async setupToken(sender: AztecAddress): Promise<TokenContract | PrivateTokenContract> {
     let deploy: DeployMethod<TokenContract | PrivateTokenContract>;
-    let tokenInstance: ContractInstanceWithAddress | undefined;
-    const deployOpts: DeployOptions = {
-      from: sender,
-      contractAddressSalt: this.config.tokenSalt,
-      universalDeploy: true,
-    };
+    const salt = this.config.tokenSalt;
+    const deployOpts: DeployOptions = { from: sender };
     let token: TokenContract | PrivateTokenContract;
+    let instance: ContractInstanceWithAddress;
     if (this.config.contract === SupportedTokenContracts.TokenContract) {
-      deploy = TokenContract.deploy(this.wallet, sender, 'BotToken', 'BOT', 18);
-      tokenInstance = await deploy.getInstance(deployOpts);
-      token = TokenContract.at(tokenInstance.address, this.wallet);
+      deploy = TokenContract.deploy(this.wallet, sender, 'BotToken', 'BOT', 18, { salt, universalDeploy: true });
+      instance = await deploy.getInstance();
+      token = TokenContract.at(instance.address, this.wallet);
     } else if (this.config.contract === SupportedTokenContracts.PrivateTokenContract) {
       // Generate keys for the contract since PrivateToken uses SinglePrivateMutable which requires keys
       const tokenSecretKey = Fr.random();
       const tokenPublicKeys = (await deriveKeys(tokenSecretKey)).publicKeys;
-      deploy = PrivateTokenContract.deployWithPublicKeys(tokenPublicKeys, this.wallet, MINT_BALANCE, sender);
+      deploy = PrivateTokenContract.deploy(this.wallet, MINT_BALANCE, sender, {
+        salt,
+        universalDeploy: true,
+        publicKeys: tokenPublicKeys,
+      });
       deployOpts.skipInstancePublication = true;
       deployOpts.skipClassPublication = true;
       deployOpts.skipInitialization = false;
 
       // Register the contract with the secret key before deployment
-      tokenInstance = await deploy.getInstance(deployOpts);
-      token = PrivateTokenContract.at(tokenInstance.address, this.wallet);
-      await this.wallet.registerContract(tokenInstance, PrivateTokenContract.artifact, tokenSecretKey);
+      instance = await deploy.getInstance();
+      token = PrivateTokenContract.at(instance.address, this.wallet);
+      await this.wallet.registerContract(instance, PrivateTokenContract.artifact, tokenSecretKey);
       // The contract constructor initializes private storage vars that need the contract's own nullifier key.
-      deployOpts.additionalScopes = [tokenInstance.address];
+      deployOpts.additionalScopes = [instance.address];
     } else {
       throw new Error(`Unsupported token contract type: ${this.config.contract}`);
     }
 
-    const address = tokenInstance?.address ?? (await deploy.getInstance(deployOpts)).address;
+    const address = instance.address;
     const metadata = await this.wallet.getContractMetadata(address);
     if (metadata.isContractPublished) {
       this.log.info(`Token at ${address.toString()} already deployed`);
@@ -313,26 +310,29 @@ export class BotFactory {
    */
   private async setupTokenContract(
     deployer: AztecAddress,
-    contractAddressSalt: Fr,
+    salt: Fr,
     name: string,
     ticker: string,
     decimals = 18,
   ): Promise<TokenContract> {
-    const deployOpts: DeployOptions = { from: deployer, contractAddressSalt, universalDeploy: true };
-    const deploy = TokenContract.deploy(this.wallet, deployer, name, ticker, decimals);
+    const deployOpts: DeployOptions = { from: deployer };
+    const deploy = TokenContract.deploy(this.wallet, deployer, name, ticker, decimals, { salt, universalDeploy: true });
     const instance = await this.registerOrDeployContract('Token - ' + name, deploy, deployOpts);
     return TokenContract.at(instance.address, this.wallet);
   }
 
   private async setupAmmContract(
     deployer: AztecAddress,
-    contractAddressSalt: Fr,
+    salt: Fr,
     token0: TokenContract,
     token1: TokenContract,
     lpToken: TokenContract,
   ): Promise<AMMContract> {
-    const deployOpts: DeployOptions = { from: deployer, contractAddressSalt, universalDeploy: true };
-    const deploy = AMMContract.deploy(this.wallet, token0.address, token1.address, lpToken.address);
+    const deployOpts: DeployOptions = { from: deployer };
+    const deploy = AMMContract.deploy(this.wallet, token0.address, token1.address, lpToken.address, {
+      salt,
+      universalDeploy: true,
+    });
     const instance = await this.registerOrDeployContract('AMM', deploy, deployOpts);
     const amm = AMMContract.at(instance.address, this.wallet);
 
@@ -437,7 +437,7 @@ export class BotFactory {
     deploy: DeployMethod<T>,
     deployOpts: DeployOptions,
   ): Promise<ContractInstanceWithAddress> {
-    const instance = await deploy.getInstance(deployOpts);
+    const instance = await deploy.getInstance();
     const address = instance.address;
     const metadata = await this.wallet.getContractMetadata(address);
     if (metadata.isContractPublished) {

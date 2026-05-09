@@ -1,1 +1,0 @@
-#[external("private")] or #[internal("private")] functions must not be unconstrained - unconstrained_private_function is

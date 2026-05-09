@@ -28,7 +28,7 @@ This is an Aztec smart contract project. Always use the `aztec` CLI wrapper inst
 
 - **Compile**: `aztec compile` (NOT `nargo compile`). Using `nargo compile` alone produces incomplete artifacts.
 - **Test**: `aztec test` (NOT `nargo test`).
-- **Other nargo commands** like `nargo fmt` and `nargo doc` are fine to use directly.
+- **Other nargo commands** like `aztec-nargo fmt` and `aztec-nargo doc` are fine to use directly. The Aztec installer exposes the bundled `nargo` as `aztec-nargo`; bare `nargo` resolves to your own install (if any), not the bundled one.
 
 ## Error Handling
 
