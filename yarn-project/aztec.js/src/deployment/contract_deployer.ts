@@ -31,6 +31,10 @@ export class ContractDeployer {
   public deploy(args?: any[], instantiation?: DeployInstantiationOptions) {
     const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
       Contract.at(instance.address, this.artifact, wallet);
-    return new DeployMethod(this.wallet, this.artifact, postDeployCtor, args, this.constructorName, instantiation);
+    return DeployMethod.create(
+      this.wallet,
+      { artifact: this.artifact, postDeployCtor, args, constructorNameOrArtifact: this.constructorName },
+      instantiation,
+    );
   }
 }

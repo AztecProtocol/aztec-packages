@@ -62,8 +62,8 @@ export class ContractProviderForCpp implements ContractProvider {
     const contractDeploymentData = ContractDeploymentData.fromPlainObject(rawData);
 
     // Add contracts to the contracts DB
-    this.log.trace(`Calling contractsDB.addContracts`);
-    this.contractsDB.addContracts(contractDeploymentData);
+    this.log.trace(`Calling contractsDB.addContractsFromLogs`);
+    this.contractsDB.addContractsFromLogs(contractDeploymentData);
   };
 
   public getBytecodeCommitment = async (classId: string): Promise<Buffer | undefined> => {

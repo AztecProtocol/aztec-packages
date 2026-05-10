@@ -76,6 +76,17 @@ describe('Contract Class', () => {
     expect(result).toBe(42n);
   });
 
+  it('throws when overrides are passed to a utility function simulation', async () => {
+    const fooContract = Contract.at(contractAddress, testContractArtifact, wallet);
+    await expect(
+      fooContract.methods.qux(123n).simulate({
+        from: account.getAddress(),
+        overrides: { publicStorage: [{ contract: contractAddress, slot: new Fr(1), value: new Fr(42) }] },
+      }),
+    ).rejects.toThrow(/not supported for utility/);
+    expect(wallet.executeUtility).not.toHaveBeenCalled();
+  });
+
   it('should extract offchain messages with anchor block timestamp on simulate', async () => {
     const recipient = await AztecAddress.random();
     const msgPayload = [Fr.random(), Fr.random()];

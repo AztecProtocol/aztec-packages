@@ -107,6 +107,16 @@ Do not explain *what* the code does — well-named identifiers cover that. Comme
 Do not reference the current task, PR, caller, or author (`// used by X`, `// fix for issue #123`, `// AI-generated`), and do not add banner-style section comments (`// ===== HELPERS =====`). Both rot the moment the surrounding code is moved.
 </writing_comments>
 
+<jargon>
+Avoid recurring AI-isms in chat replies, PR descriptions, commit messages, code comments, and docs. Substitutes:
+
+- **"load bearing"** → *important*, *critical*, *required*, or describe the actual dependency (e.g. "the scheduler relies on this invariant").
+- **"seam"** (for an interaction point or boundary) → *interface*, *boundary*, *call site*, *integration point*.
+- **"north star"** → *goal*, *main goal*, *objective*.
+- **"sharpening"** (for adding detail or refining wording) → *clarifying*, *adding detail*, *tightening*, *refining*.
+- **"You're absolutely right"** and effusive agreement openers (*"Great catch!"*, *"Excellent point!"*) → never lead a reply with these. A short acknowledgement (*"Right — …"*, *"Agreed."*) is fine, and a closing *"you're right"* at the end of a long reply is acceptable when warranted. Lead with substance, not validation.
+</jargon>
+
 <attribution>
 Attribute work to the git author, not to Claude. Do not add `Co-Authored-By: Claude` trailers or `Generated with Claude Code` in PR descriptions. The git author (from `git config user.name`) is the author of record.
 </attribution>

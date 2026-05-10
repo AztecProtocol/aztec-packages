@@ -39,6 +39,10 @@ async function getAllPagesInBatches<Tag, T>(
   tags: Tag[],
   fetchAllPagesForBatch: (batch: Tag[]) => Promise<T[][]>,
 ): Promise<T[][]> {
+  if (tags.length === 0) {
+    return [];
+  }
+
   if (tags.length <= MAX_RPC_LEN) {
     return fetchAllPagesForBatch(tags);
   }

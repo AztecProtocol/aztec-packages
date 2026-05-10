@@ -1002,21 +1002,12 @@ export class PXE {
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
-        const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
-        const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
-
-        if (hasOverriddenContracts && !skipKernels) {
+        if (overrides?.contracts && Object.keys(overrides.contracts).length > 0 && !skipKernels) {
           throw new Error(
             'Simulating with overridden contracts is not compatible with kernel execution. Please set skipKernels to true when simulating with overridden contracts.',
           );
         }
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-
-        if (hasOverriddenContracts) {
-          // Overridden contracts don't have a sync function, so calling sync on them would fail.
-          // We exclude them so the sync service skips them entirely.
-          this.contractSyncService.setExcludedFromSync(jobId, overriddenContracts);
-        }
 
         // Execution of private functions only; no proving, and no kernel logic.
         const privateExecutionResult = await this.#executePrivate({

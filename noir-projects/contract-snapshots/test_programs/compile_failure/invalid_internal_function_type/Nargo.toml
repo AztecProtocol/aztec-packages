@@ -1,0 +1,7 @@
+[package]
+name = "invalid_internal_function_type"
+type = "contract"
+authors = [""]
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
