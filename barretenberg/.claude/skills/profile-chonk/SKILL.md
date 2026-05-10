@@ -29,6 +29,25 @@ ssh $BB_SSH_KEY $BB_SSH_INSTANCE "echo ok" || { echo "ERROR: Cannot connect."; e
 
 Ask a crypto eng team member for the SSH key and hostname.
 
+## Remote bencher contract
+
+The bencher is a runner, not a Git workspace or toolchain bootstrap host.
+
+For private branches and private repos, the canonical workflow is:
+
+1. Build the native or WASM `bb` binary locally in the session workspace.
+2. Copy only the built binary plus the pinned input files to the bencher.
+3. Run that copied binary on the bencher and copy trace outputs back.
+
+Do not send git bundles to the bencher. Do not create remote worktrees. Do not
+fetch private branches from GitHub on the bencher. Do not install per-session
+toolchains such as WASI SDK on the shared bencher to make a build work there.
+
+If the local session cannot build because `emcc`, WASI SDK, or another build
+tool is missing, stop and report it as a local devbox/copy-base bootstrap issue.
+The fix is to make the local build environment complete enough to produce the
+binary, not to mutate the shared bencher.
+
 ## Available flows
 
 ```
