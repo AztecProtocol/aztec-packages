@@ -1,4 +1,4 @@
-# Merge upstream 'next' from AztecProtocol/aztec-packages into our next.
+# Sync public-next to upstream next while preserving private automation.
 #
 # Uses AZTEC_BOT_GITHUB_TOKEN (PAT) because GITHUB_TOKEN cannot push
 # commits that modify .github/workflows/ files.
@@ -11,38 +11,24 @@ on:
 
 jobs:
   sync:
-    name: Merge upstream next
+    name: Sync public-next
     runs-on: ubuntu-latest
+    concurrency:
+      group: sync-public-next
+      cancel-in-progress: false
     steps:
-      - name: Checkout next
+      - name: Checkout public-next
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          ref: next
+          ref: public-next
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           persist-credentials: true
 
-      - name: Merge upstream
+      - name: Configure Git
         run: |
-          set -euo pipefail
-
           git config user.name "AztecBot"
           git config user.email "tech@aztecprotocol.com"
 
-          UPSTREAM_REPO="https://github.com/AztecProtocol/aztec-packages.git"
-
-          git remote add upstream "${UPSTREAM_REPO}" || true
-          git fetch upstream next --no-tags
-
-          UPSTREAM_SHA=$(git rev-parse upstream/next)
-          LOCAL_SHA=$(git rev-parse HEAD)
-
-          if git merge-base --is-ancestor "${UPSTREAM_SHA}" HEAD; then
-            echo "Already up to date with upstream (${UPSTREAM_SHA})."
-            exit 0
-          fi
-
-          echo "Merging upstream next (${UPSTREAM_SHA}) into local next (${LOCAL_SHA})..."
-          git merge upstream/next --no-edit -m "chore: merge upstream next ($(date -u +%Y-%m-%d))"
-          git push origin next
-          echo "Done."
+      - name: Sync public-next with upstream
+        run: ./scripts/merge-train/sync-public-next.sh
