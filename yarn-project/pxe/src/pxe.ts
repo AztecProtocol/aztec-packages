@@ -693,7 +693,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractStore.getContractArtifact(instance.currentContractClassId);
@@ -740,7 +742,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
 
       currentInstance.currentContractClassId = contractClass.id;
       await Promise.all([
