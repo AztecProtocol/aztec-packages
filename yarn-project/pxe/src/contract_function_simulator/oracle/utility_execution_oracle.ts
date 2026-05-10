@@ -307,6 +307,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
     }
 
+    // Most contracts query state at the "current" block, which is the anchor. Skip the RPC when we can.
+    if (blockNumber === anchorBlockNumber) {
+      return this.anchorBlockHeader;
+    }
+
     const block = await this.aztecNode.getBlock(blockNumber);
     return block?.header;
   }
@@ -995,6 +1000,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
   /** Runs a query concurrently with a validation that the block hash is not ahead of the anchor block. */
   async #queryWithBlockHashNotAfterAnchor<T>(blockHash: BlockHash, query: () => Promise<T>): Promise<T> {
+    // Most contracts query state at the "current" block, which is the anchor. Skip the validation when we can.
+    const anchorHash = await this.anchorBlockHeader.hash();
+    if (blockHash.equals(anchorHash)) {
+      return query();
+    }
+
     const [response] = await Promise.all([
       query(),
       (async () => {
@@ -1006,7 +1017,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
         if (header.getBlockNumber() > this.anchorBlockHeader.getBlockNumber()) {
           throw new Error(
-            `Made a node query with a reference block hash ${blockHash} with block number ${header.getBlockNumber()}, which is ahead of the anchor block number ${this.anchorBlockHeader.getBlockNumber()} (from anchor block hash ${await this.anchorBlockHeader.hash()}).`,
+            `Made a node query with a reference block hash ${blockHash} with block number ${header.getBlockNumber()}, which is ahead of the anchor block number ${this.anchorBlockHeader.getBlockNumber()} (from anchor block hash ${anchorHash}).`,
           );
         }
       })(),
