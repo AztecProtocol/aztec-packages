@@ -87,7 +87,6 @@ EXCLUDED_SUBDIRS=(
   "srs"
   "ultra_vanilla_chonk"
   "vm2"
-  "wasi"
   "world_state"
 )
 

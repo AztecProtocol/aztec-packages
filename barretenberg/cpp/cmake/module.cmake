@@ -203,8 +203,24 @@ function(barretenberg_module_with_sources MODULE_NAME)
             add_dependencies(${MODULE_NAME}_tests lmdb_repo)
         endif()
         if(NOT WASM)
-            # Currently haven't found a way to easily wrap the calls in wasmtime when run from ctest.
+            # gtest_discover_tests can't wrap test invocations in wasm-run from ctest, so for
+            # the wasm preset we expose a `run_<module>_tests` custom target instead and let
+            # CI / developers invoke it directly.
             gtest_discover_tests(${MODULE_NAME}_tests WORKING_DIRECTORY ${CMAKE_BINARY_DIR} TEST_FILTER -*_SKIP_CI* DISCOVERY_TIMEOUT 30)
+        else()
+            # Under Emscripten the test binary lands as bin/<module>_tests.js with sibling
+            # bin/<module>_tests.wasm. wasm-run resolves the .js automatically.
+            add_custom_target(
+                run_${MODULE_NAME}_tests
+                COMMAND ${CMAKE_SOURCE_DIR}/scripts/wasm-run
+                        --dir=$ENV{HOME}/.bb-crs
+                        --dir=${CMAKE_BINARY_DIR}
+                        ${CMAKE_BINARY_DIR}/bin/${MODULE_NAME}_tests
+                DEPENDS ${MODULE_NAME}_tests
+                WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+                COMMENT "Running ${MODULE_NAME}_tests under wasm-run"
+                USES_TERMINAL
+            )
         endif()
     endif()
 
@@ -294,6 +310,24 @@ function(barretenberg_module_with_sources MODULE_NAME)
                 ${TRACY_LIBS}
                 ${TBB_IMPORTED_TARGETS}
             )
+            if(WASM)
+                # Benchmarks need real filesystem access to read the CRS.
+                # NODERAWFS=1 is a link-time setting (the env var of the
+                # same name set by wasm-run is a no-op without it) that
+                # routes Emscripten file ops to Node's native fs. Pair it
+                # with PROXY_TO_PTHREAD=0 because NODERAWFS only services
+                # the Node main thread; under PROXY_TO_PTHREAD wasm `main`
+                # runs on a worker and every file op silently returns zero
+                # (see Emscripten #19330). parallel_for can still spawn its
+                # own workers for multithreaded proving.
+                target_link_options(
+                    ${BENCHMARK_NAME}_bench
+                    PRIVATE
+                    "SHELL:-sNODERAWFS=1"
+                    "SHELL:-sPROXY_TO_PTHREAD=0"
+                    "SHELL:-sALLOW_BLOCKING_ON_MAIN_THREAD=1"
+                )
+            endif()
             if(ENABLE_STACKTRACES)
                 target_link_libraries(
                     ${BENCHMARK_NAME}_bench_objects

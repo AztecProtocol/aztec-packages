@@ -87,6 +87,15 @@ function preset_cache_paths {
       find $build_dir/bin $build_dir/lib \
         -maxdepth 1 \( -name "$t" -o -name "$t.exe" -o -name "$t.node" -o -name "lib${t}.a" \) \
         2>/dev/null
+      # Emscripten emits a .js loader and a .worker.mjs pthread worker as
+      # side-outputs of any .wasm executable target; cache them next to the
+      # .wasm so consumers like bb.js see a complete artifact set on cache hit.
+      if [[ "$t" == *.wasm ]]; then
+        local stem="${t%.wasm}"
+        find $build_dir/bin -maxdepth 1 \
+          \( -name "$stem.js" -o -name "$stem.worker.mjs" \) \
+          2>/dev/null
+      fi
     done
   fi
 }
@@ -273,8 +282,13 @@ function test_cmds_native {
 }
 
 function test_cmds_wasm_threads {
-  # We only want to sanity check that we haven't broken wasm ecc in merge queue.
-  echo "$hash barretenberg/cpp/scripts/wasmtime.sh barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+  # Sanity-check the canonical wasm path didn't regress.
+  echo "$hash barretenberg/cpp/scripts/wasm-run barretenberg/cpp/build-wasm-threads/bin/ecc_tests"
+  # Run the regression suite added by the Emscripten migration: pthread pool
+  # exhaustion + memory.grow under threads. Without this line, a developer
+  # invoking `./bootstrap.sh test wasm_threads` would not exercise the new
+  # tests and the bug class is only caught in the dedicated CI workflow.
+  echo "$hash barretenberg/cpp/scripts/wasm-run barretenberg/cpp/build-wasm-threads/bin/wasm_threads_tests_tests"
 }
 
 function test_cmds_asan {

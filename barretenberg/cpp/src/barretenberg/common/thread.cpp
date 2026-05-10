@@ -68,8 +68,8 @@ size_t get_num_cpus()
  *   Although, if we want to get rid of OMP altogether, "atomic_pool" is a simple solution that seems to compare.
  * - The simplest "spawning" is probably best used everywhere else, and frees us from needing OMP to build the lib.
  *
- * UPDATE!: So although spawning is simple and fast, due to unstable pthreads in wasi-sdk that causes hangs when
- * joining threads, we use "atomic_pool" by default. We may just wish to revert to spawning once it stablises.
+ * UPDATE!: Spawning under the wasm pthreads runtime caused hangs when joining threads, so we use "atomic_pool"
+ * by default. Revisit "spawning" once the wasm runtime is known to handle thread joins cleanly under load.
  *
  * UPDATE!: Interestingly "atomic_pool" performs worse than "mutex_pool" for some e.g. proving key construction.
  * Haven't done deeper analysis. Defaulting to mutex_pool.

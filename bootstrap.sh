@@ -12,10 +12,15 @@
 # Expected toolchain versions.
 export expected_min_clang_version=20.0.0
 export expected_min_cmake_version=3.24
-export expected_min_node_version=24.12.0
+# Node 22 is the floor for the wasm test harness (Node >= 22 ships
+# --experimental-wasm-threads on by default and supports the worker_threads
+# semantics Emscripten relies on).
+export expected_min_node_version=22.0.0
 export expected_min_zig_version=0.15.1
 export expected_abs_rust_version=1.89.0
-export expected_abs_wasi_version=27.0
+# Pinned emsdk version. The single source of truth lives in /.emsdk-version
+# at the repo root so CI images and developer installs stay in sync.
+export expected_abs_emsdk_version=$(cat "$(git rev-parse --show-toplevel)/.emsdk-version" 2>/dev/null || echo "4.0.7")
 export expected_abs_foundry_version=1.4.1
 export expected_abs_yarn_version=4.13.0
 
@@ -23,19 +28,22 @@ function ensure {
   command -v $1 &>/dev/null
 }
 
-function install_wasi_sdk {
-  if cat /opt/wasi-sdk/VERSION 2> /dev/null | grep $expected_abs_wasi_version > /dev/null; then
+function install_emsdk {
+  local target_dir=${EMSDK:-/opt/emsdk}
+  # If we already have the right version active, nothing to do.
+  if [ -d "$target_dir" ] && \
+       grep -F "$expected_abs_emsdk_version" "$target_dir/.emscripten" >/dev/null 2>&1; then
     return
   fi
-  local arch=$(uname -m)
-  local os=$(os)
-  local triple=$expected_abs_wasi_version-$arch-$os
-  curl -LOs https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${expected_abs_wasi_version%%.*}/wasi-sdk-$triple.tar.gz
-  tar xzf wasi-sdk-$triple.tar.gz
-  rm wasi-sdk-$triple.tar.gz
-  echo "Installing wasi sdk at /opt/wasi-sdk..."
-  sudo rm -rf /opt/wasi-sdk
-  sudo mv wasi-sdk-$triple /opt/wasi-sdk
+  if [ ! -d "$target_dir/.git" ]; then
+    sudo rm -rf "$target_dir"
+    sudo git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$target_dir"
+    sudo chown -R "${USER:-$(id -un)}" "$target_dir"
+  fi
+  echo "Installing emsdk $expected_abs_emsdk_version at $target_dir..."
+  ( cd "$target_dir" && \
+      ./emsdk install "$expected_abs_emsdk_version" && \
+      ./emsdk activate "$expected_abs_emsdk_version" )
 }
 
 function install_foundry {
@@ -92,7 +100,7 @@ function install_ldid {
     -o $AZTEC_DEV_BIN/ldid && chmod +x $AZTEC_DEV_BIN/ldid
 }
 
-export -f install_wasi_sdk install_foundry install_zig install_rustup install_node install_node_utils install_llvm \
+export -f install_emsdk install_foundry install_zig install_rustup install_node install_node_utils install_llvm \
           install_yq install_ldid ensure
 
 function install_linux_deps {
@@ -106,7 +114,7 @@ function install_linux_deps {
   spinner "Installing yq..." install_yq
   spinner "Installing ldid..." install_ldid
   spinner "Installing rustup..." install_rustup
-  spinner "Installing wasi-sdk..." install_wasi_sdk
+  spinner "Installing emsdk..." install_emsdk
   spinner "Installing foundry..." install_foundry
   spinner "Installing zig..." install_zig
   spinner "Installing node..." install_node
@@ -130,7 +138,7 @@ function install_macos_deps {
   ln -sf "$llvm_bin/clang++" "$AZTEC_DEV_BIN/clang++-20"
   ln -sf "$llvm_bin/clang-format" "$AZTEC_DEV_BIN/clang-format-20"
 
-  spinner "Installing wasi-sdk..." install_wasi_sdk
+  spinner "Installing emsdk..." install_emsdk
   spinner "Installing foundry..." install_foundry
   spinner "Installing rustup..." install_rustup
   spinner "Installing zig..." install_zig
@@ -270,9 +278,34 @@ function check_toolchains {
     # Cargo will download necessary version of rust at runtime but warn to update the build-image.
     echo -e "${bold}${yellow}WARN: Rust ${expected_abs_rust_version} is not installed. Update build-image.${reset}"
   fi
-  # Check wasi-sdk version.
-  if ! cat /opt/wasi-sdk/VERSION 2> /dev/null | grep $expected_abs_wasi_version > /dev/null; then
-    toolchain_incompatible
+  # Check emsdk: must be activated and pinned to the expected version.
+  # On Linux (incl. CI runners whose build-image predates the Emscripten
+  # migration), auto-install if the directory is missing or the pinned
+  # version isn't active. macOS still expects a manual install.
+  local emsdk_dir=${EMSDK:-/opt/emsdk}
+  if [ ! -x "$emsdk_dir/upstream/emscripten/emcc" ] && [ ! -x "$emsdk_dir/emcc" ]; then
+    if [ "$(uname)" = "Linux" ] && command -v sudo >/dev/null 2>&1; then
+      echo "emsdk not found at \$EMSDK ($emsdk_dir); installing..."
+      install_emsdk
+    else
+      echo "emsdk not found at \$EMSDK ($emsdk_dir). Source emsdk_env.sh from your install."
+      toolchain_incompatible
+    fi
+  fi
+  if ! grep -F "$expected_abs_emsdk_version" "$emsdk_dir/.emscripten" >/dev/null 2>&1; then
+    if [ "$(uname)" = "Linux" ] && command -v sudo >/dev/null 2>&1; then
+      echo "emsdk version $expected_abs_emsdk_version not active; reinstalling..."
+      install_emsdk
+    else
+      echo "emsdk version $expected_abs_emsdk_version not active (see .emsdk-version)."
+      toolchain_incompatible
+    fi
+  fi
+  # Source emsdk_env.sh so emcc/em++ are on PATH for downstream build steps;
+  # bootstrap.sh runs as a non-login shell and won't pick up /etc/profile.d.
+  if [ -f "$emsdk_dir/emsdk_env.sh" ]; then
+    # shellcheck disable=SC1091
+    . "$emsdk_dir/emsdk_env.sh" >/dev/null 2>&1 || true
   fi
   # Check foundry version.
   for tool in forge anvil; do
@@ -467,7 +500,7 @@ function bench {
 
 ### RELEASING ##########################################################################################################
 function versions {
-  local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
+  local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version emsdk_version
   noir_version=$(git -C noir/noir-repo describe --tags --always HEAD)
   anvil_version=$(anvil --version | head -n1 | sed -E 's/anvil Version: ([0-9.]+).*/\1/')
   node_version=$(node --version | cut -d 'v' -f 2)
@@ -475,7 +508,7 @@ function versions {
   clang_version=$(clang++-20 --version | head -n1 | cut -d' ' -f4)
   zig_version=$(zig version)
   rustc_version=$(rustc --version | cut -d' ' -f2)
-  wasi_sdk_version=$(cat /opt/wasi-sdk/VERSION 2> /dev/null | head -n1)
+  emsdk_version=$(cat "$(git rev-parse --show-toplevel)/.emsdk-version" 2>/dev/null || echo unknown)
   echo "noir: $noir_version"
   echo "foundry: $anvil_version"
   echo "node: $node_version"
@@ -483,7 +516,7 @@ function versions {
   echo "clang: $clang_version"
   echo "zig: $zig_version"
   echo "rustc: $rustc_version"
-  echo "wasi-sdk: $wasi_sdk_version"
+  echo "emsdk: $emsdk_version"
 }
 
 function release_bb_github {

@@ -16,9 +16,6 @@ export type BackendOptions = {
   /** @description Number of threads to run the backend worker on */
   threads?: number;
 
-  /** @description Initial and Maximum memory to be alloted to the backend worker */
-  memory?: { initial?: number; maximum?: number };
-
   /** @description Path to download CRS files */
   crsPath?: string;
 

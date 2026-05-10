@@ -3,8 +3,10 @@ if(MULTITHREADING)
     add_compile_options(-pthread)
     add_link_options(-pthread)
     if(WASM)
-        add_compile_options(--target=wasm32-wasi-threads)
-        add_link_options(--target=wasm32-wasi-threads -Wl,--shared-memory)
+        # Emscripten + pthreads. SHARED_MEMORY is implied by -pthread, but
+        # passing it explicitly makes the target memory shape obvious to
+        # readers of CMakeCache.txt.
+        add_link_options("SHELL:-sSHARED_MEMORY=1")
         # Prevent indirect call type mismatch errors in thread_local destructors
         # (without this the benchmark flow fails at destruction point for WASM)
         add_compile_options(-fno-c++-static-destructors)
@@ -15,6 +17,13 @@ else()
     message(STATUS "Multithreading is disabled.")
     add_definitions(-DNO_MULTITHREADING)
     set(OMP_MULTITHREADING OFF)
+    if(WASM)
+        # Single-threaded wasm: bake out the pthread pool entirely. The
+        # toolchain enables -pthread by default; we override here.
+        add_compile_options(-pthread)
+        add_link_options(-pthread)
+        add_link_options("SHELL:-sPTHREAD_POOL_SIZE=0")
+    endif()
 endif()
 
 if(OMP_MULTITHREADING)

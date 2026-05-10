@@ -298,7 +298,7 @@ This approach is faster but requires trusting the published image. The official 
 
 To build without Docker, install all build dependencies locally and run `./bootstrap.sh` directly:
 
-- Install all toolchains from the build image (Node.js 24, Rust 1.85.0, Clang 20, CMake, wasi-sdk)
+- Install all toolchains from the build image (Node.js 24, Rust 1.85.0, Clang 20, CMake, emsdk)
 - Run `bootstrap.sh check` to verify your environment
 - See `build-images/README.md` for details
 

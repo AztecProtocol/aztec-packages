@@ -14,5 +14,5 @@ cmake --build --preset wasm-threads --target $BENCHMARK
 
 cd build-wasm-threads
 # Consistency with _wasm.sh targets / shorter $COMMAND.
-cp ./bin/$BENCHMARK .
-wasmtime run --env HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY -Wthreads=y -Sthreads=y --dir=.. $COMMAND
+cp ./bin/$BENCHMARK ./bin/$BENCHMARK.js ./bin/$BENCHMARK.wasm . 2>/dev/null || cp ./bin/$BENCHMARK.js ./bin/$BENCHMARK.wasm .
+HARDWARE_CONCURRENCY=$HARDWARE_CONCURRENCY ../scripts/wasm-run --dir=.. $COMMAND

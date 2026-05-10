@@ -1,165 +1,194 @@
-import { type Worker } from 'worker_threads';
-import { Remote } from 'comlink';
-import { getNumCpu, getRemoteBarretenbergWasm, getSharedMemoryAvailable } from '../helpers/index.js';
-import { createThreadWorker } from '../barretenberg_wasm_thread/factory/node/index.js';
-import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/index.js';
-import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
+/**
+ * Thin Emscripten loader for barretenberg's wasm artifacts.
+ *
+ * Emscripten emits a JS glue (`barretenberg.js`) plus a sibling
+ * `barretenberg.wasm` and, when pthreads are enabled, a
+ * `barretenberg.worker.mjs`. The glue handles:
+ *   - WebAssembly.Module compilation + instantiation
+ *   - pthread worker spawning (PTHREAD_POOL_SIZE / Module.pthreadPoolSize)
+ *   - memory growth + thread-safe heap views
+ *
+ * The class below exposes the same surface bb.js consumed under the previous
+ * hand-rolled worker harness: `init`, `call`, `cbindCall`, `writeMemory`,
+ * `getMemorySlice`, `getMemory`, `destroy`. `Barretenberg.new({ threads: N })`
+ * forwards `N` to Emscripten's `Module({ pthreadPoolSize: N })`.
+ */
+
+import type { Remote } from 'comlink';
 import { HeapAllocator } from './heap_allocator.js';
 
-/**
- * This is the "main thread" implementation of BarretenbergWasm.
- * It spawns a bunch of "child thread" implementations.
- * In a browser context, this still runs on a worker, as it will block waiting on child threads.
- */
-export class BarretenbergWasmMain extends BarretenbergWasmBase {
+type EmscriptenModule = {
+  HEAPU8: Uint8Array;
+  _bbmalloc: (size: number) => number;
+  _bbfree: (ptr: number) => void;
+  ccall(ident: string, returnType: string | null, argTypes: string[], args: any[]): any;
+  cwrap(ident: string, returnType: string | null, argTypes: string[]): (...args: any[]) => any;
+  // Emscripten exposes WASM_EXPORT functions as Module._<name>.
+  [k: string]: any;
+};
+
+type EmscriptenFactory = (init?: Record<string, any>) => Promise<EmscriptenModule>;
+
+async function loadEmscriptenFactory(wasmPath?: string): Promise<EmscriptenFactory> {
+  // The packaged glue lives next to the wasm artifact at
+  // `<dest>/<flavor>/barretenberg_wasm/barretenberg.js`. In Node we resolve
+  // via import.meta.url; tests can override via `wasmPath` (which points at
+  // the .wasm gzip; the glue lives next to it).
+  let glueUrl: string;
+  if (wasmPath) {
+    const dir = wasmPath.split('/').slice(0, -1).join('/') || '.';
+    glueUrl = `${dir}/barretenberg.js`;
+  } else {
+    // The build output places this file alongside the glue.
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - ESM-only `import.meta.url`.
+    const here = new URL('.', import.meta.url);
+    glueUrl = new URL('./barretenberg.js', here).href;
+  }
+  const mod = (await import(/* webpackIgnore: true */ glueUrl)) as { default: EmscriptenFactory };
+  return mod.default;
+}
+
+export class BarretenbergWasmMain {
   static MAX_THREADS = 32;
-  private workers: Worker[] = [];
-  private remoteWasms: BarretenbergWasmThreadWorker[] = [];
-  private nextWorker = 0;
-  private nextThreadId = 1;
-  private useCustomLogger = false;
+
+  protected module!: EmscriptenModule;
+  protected logger: (msg: string) => void = () => {};
+  private threads = 1;
+  private destroyed = false;
 
   // Pre-allocated scratch buffers for msgpack I/O to avoid malloc/free overhead
-  private msgpackInputScratch: number = 0; // 8MB input buffer
-  private msgpackOutputScratch: number = 0; // 8MB output buffer
-  private readonly MSGPACK_SCRATCH_SIZE = 1024 * 1024 * 8; // 8MB
+  private msgpackInputScratch = 0;
+  private msgpackOutputScratch = 0;
+  private readonly MSGPACK_SCRATCH_SIZE = 1024 * 1024 * 8; // 8 MiB
 
-  public getNumThreads() {
-    return this.workers.length + 1;
+  public getNumThreads(): number {
+    return this.threads;
   }
 
   /**
-   * Init as main thread. Spawn child threads.
+   * Initialise the wasm module.
+   *
+   * Signature is preserved from the previous custom worker harness so
+   * `Barretenberg.new({ threads: N })` keeps working without changes to the
+   * higher-level backend code.
+   *
+   * - `module`: ignored. Emscripten's glue compiles its own bundled wasm.
+   *   Kept in the signature so the existing call sites in `wasm.ts` and
+   *   `index.test.ts` link without further churn.
+   * - `threads`: forwarded to Emscripten as `pthreadPoolSize`.
+   * - `logger`: forwarded as `Module.print` / `Module.printErr`.
+   * - `unref`: ignored under Emscripten (pthread workers are unref'd by the
+   *   runtime when the module is `.destroy()`-ed).
+   *
+   * INITIAL_MEMORY / MAXIMUM_MEMORY are NOT runtime overrides under
+   * Emscripten with MODULARIZE=1 -- they are link-time settings baked into
+   * the wasm binary's memory section. The factory's `init` argument silently
+   * ignores them. To change INITIAL_MEMORY, edit the toolchain
+   * (cmake/toolchains/wasm-emscripten.cmake) and rebuild. We deliberately
+   * do not accept these as parameters here so callers cannot mistakenly
+   * believe they are wired through.
    */
   public async init(
-    module: WebAssembly.Module,
-    threads = Math.min(getNumCpu(), BarretenbergWasmMain.MAX_THREADS),
+    _module: unknown,
+    threads: number = Math.min(BarretenbergWasmMain.MAX_THREADS, 32),
     logger?: (msg: string) => void,
-    initial = 35,
-    maximum = this.getDefaultMaximumMemoryPages(),
-    unref = false,
-  ) {
-    // Track whether a custom logger was provided so workers know whether to postMessage logs
-    this.useCustomLogger = logger !== undefined;
+    _unref = false,
+    wasmPath?: string,
+  ): Promise<void> {
     this.logger = logger ?? (() => {});
+    this.threads = Math.max(1, Math.min(threads, BarretenbergWasmMain.MAX_THREADS));
 
-    const initialMb = (initial * 2 ** 16) / (1024 * 1024);
-    const maxMb = (maximum * 2 ** 16) / (1024 * 1024);
-    const shared = getSharedMemoryAvailable();
+    const factory = await loadEmscriptenFactory(wasmPath);
+    // Emscripten 4.x runtime overrides on the Module object are camelCase
+    // (matches `Module['pthreadPoolSize']` in upstream `library_pthread.js`
+    // and `src/preamble.js`). Pinning the key name wrong silently falls
+    // back to the link-time default (16 workers) -- which would make
+    // `threads: 4` mean "16 workers" and warp the perf gate.
+    this.module = await factory({
+      pthreadPoolSize: this.threads,
+      print: this.logger,
+      printErr: this.logger,
+      noExitRuntime: false,
+    });
 
-    this.logger(
-      `Initializing bb wasm: initial memory ${initial} pages ${initialMb}MiB; ` +
-        `max memory: ${maximum} pages, ${maxMb}MiB; ` +
-        `threads: ${threads}; shared memory: ${shared}`,
-    );
-
-    this.memory = new WebAssembly.Memory({ initial, maximum, shared });
-
-    const instance = await WebAssembly.instantiate(module, this.getImportObj(this.memory));
-
-    this.instance = instance;
-
-    // Init all global/static data.
-    this.call('_initialize');
-
-    // Allocate dedicated msgpack scratch buffers (never freed, reused for all msgpack calls)
-    this.msgpackInputScratch = this.call('bbmalloc', this.MSGPACK_SCRATCH_SIZE);
-    this.msgpackOutputScratch = this.call('bbmalloc', this.MSGPACK_SCRATCH_SIZE);
+    this.msgpackInputScratch = this.module._bbmalloc(this.MSGPACK_SCRATCH_SIZE);
+    this.msgpackOutputScratch = this.module._bbmalloc(this.MSGPACK_SCRATCH_SIZE);
     this.logger(
       `Allocated msgpack scratch buffers: ` +
-        `input @ ${this.msgpackInputScratch}, output @ ${this.msgpackOutputScratch} (${this.MSGPACK_SCRATCH_SIZE} bytes each)`,
+        `input @ ${this.msgpackInputScratch}, output @ ${this.msgpackOutputScratch} ` +
+        `(${this.MSGPACK_SCRATCH_SIZE} bytes each)`,
     );
+  }
 
-    // Create worker threads. Create 1 less than requested, as main thread counts as a thread.
-    if (threads > 1) {
-      this.logger(`Creating ${threads} worker threads`);
-      this.workers = await Promise.all(Array.from({ length: threads - 1 }).map(createThreadWorker));
+  public exports(): EmscriptenModule {
+    return this.module;
+  }
 
-      // Set up log message forwarding from workers to our logger (only if custom logger provided)
-      if (this.useCustomLogger) {
-        this.workers.forEach(worker => this.setupWorkerLogForwarding(worker));
+  public call(name: string, ...args: any[]): number {
+    if (this.destroyed) {
+      throw new Error(`WASM call '${name}' after destroy()`);
+    }
+    const fn = (this.module as any)[`_${name}`];
+    if (!fn) {
+      throw new Error(`WASM function ${name} not found.`);
+    }
+    try {
+      return (fn(...args) as number) >>> 0;
+    } catch (err: any) {
+      const message = `WASM function ${name} aborted, error: ${err}`;
+      this.logger(message);
+      if (err && err.stack) {
+        this.logger(err.stack);
       }
-
-      this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
-      await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory, this.useCustomLogger)));
-
-      if (unref) {
-        for (const worker of this.workers) {
-          worker.unref();
-        }
-      }
+      throw err;
     }
   }
 
-  private getDefaultMaximumMemoryPages(): number {
-    // iOS browser is very aggressive with memory. Check if running in browser and on iOS.
-    // We at any rate expect the mobile iOS browser to kill us >=1GB, so we don't set a maximum higher than that.
-    // Use `self` instead of `window` so this check also works inside Web Workers.
-    if (typeof self !== 'undefined' && typeof self.navigator !== 'undefined' && /iPad|iPhone/.test(self.navigator.userAgent)) {
-      return 2 ** 14;
-    }
-    return 2 ** 16;
+  public memSize(): number {
+    return this.module.HEAPU8.length;
+  }
+
+  public getMemorySlice(start: number, end: number): Uint8Array {
+    return this.module.HEAPU8.subarray(start, end).slice();
+  }
+
+  public writeMemory(offset: number, arr: Uint8Array): void {
+    this.module.HEAPU8.set(arr, offset);
+  }
+
+  public getMemory(): Uint8Array {
+    return this.module.HEAPU8;
   }
 
   /**
-   * Set up forwarding of log messages from worker threads to our logger.
-   * Workers post messages with { type: 'log', msg: string } which we intercept here.
+   * Tear the module down. Frees scratch buffers, terminates Emscripten's
+   * pthread pool, and lets Node exit when there are no other handles.
    */
-  private setupWorkerLogForwarding(worker: Worker) {
-    const handler = (data: unknown) => {
-      if (data && typeof data === 'object' && 'type' in data && data.type === 'log' && 'msg' in data) {
-        this.logger(data.msg as string);
-      }
-    };
-
-    // Node Workers use 'on' method, browser Workers use 'addEventListener'
-    // The 'worker' variable is typed as Node's Worker, but at runtime in browser
-    // it will be a browser Worker (due to browser_postprocess.sh import rewriting)
-    if ('on' in worker && typeof worker.on === 'function') {
-      // Node.js worker_threads Worker
-      worker.on('message', handler);
-    } else if ('addEventListener' in worker) {
-      // Browser Web Worker
-      (worker as unknown as globalThis.Worker).addEventListener('message', (event: MessageEvent) => {
-        handler(event.data);
-      });
+  public async destroy(): Promise<void> {
+    if (this.destroyed) {
+      return;
     }
-  }
-
-  /**
-   * Called on main thread. Signals child threads to gracefully exit.
-   */
-  public async destroy() {
-    await Promise.all(this.workers.map(w => w.terminate()));
-  }
-
-  protected getImportObj(memory: WebAssembly.Memory) {
-    const baseImports = super.getImportObj(memory);
-
-    /* eslint-disable camelcase */
-    return {
-      ...baseImports,
-      wasi: {
-        'thread-spawn': (arg: number) => {
-          arg = arg >>> 0;
-          const id = this.nextThreadId++;
-          const worker = this.nextWorker++ % this.remoteWasms.length;
-          // this.logger(`spawning thread ${id} on worker ${worker} with arg ${arg >>> 0}`);
-          this.remoteWasms[worker].call('wasi_thread_start', id, arg).catch(this.logger);
-          // this.remoteWasms[worker].postMessage({ msg: 'thread', data: { id, arg } });
-          return id;
-        },
-      },
-      env: {
-        ...baseImports.env,
-        env_hardware_concurrency: () => {
-          // If there are no workers (we're already running as a worker, or the main thread requested no workers)
-          // then we return 1, which should cause any algos using threading to just not create a thread.
-          return this.remoteWasms.length + 1;
-        },
-      },
-    };
-    /* eslint-enable camelcase */
+    this.destroyed = true;
+    try {
+      if (this.msgpackInputScratch) {
+        this.module._bbfree(this.msgpackInputScratch);
+      }
+      if (this.msgpackOutputScratch) {
+        this.module._bbfree(this.msgpackOutputScratch);
+      }
+    } catch {
+      /* swallow: tearing down anyway */
+    }
+    // Emscripten exposes `PThread.terminateAllThreads()` for pthread pool cleanup.
+    const pthread = (this.module as any).PThread;
+    if (pthread && typeof pthread.terminateAllThreads === 'function') {
+      try {
+        pthread.terminateAllThreads();
+      } catch {
+        /* ditto */
+      }
+    }
   }
 
   callWasmExport(funcName: string, inArgs: (Uint8Array | number)[], outLens: (number | undefined)[]) {
@@ -172,7 +201,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     return outArgs;
   }
 
-  private getOutputArgs(outLens: (number | undefined)[], outPtrs: number[], alloc: HeapAllocator) {
+  private getOutputArgs(outLens: (number | undefined)[], outPtrs: number[], alloc: HeapAllocator): Uint8Array[] {
     return outLens.map((len, i) => {
       if (len) {
         return this.getMemorySlice(outPtrs[i], outPtrs[i] + len);
@@ -183,7 +212,7 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
       // Add our heap buffer to the dealloc list.
       alloc.addOutputPtr(ptr);
 
-      // The length will be found in the first 4 bytes of the buffer, big endian. See to_heap_buffer.
+      // The length will be found in the first 4 bytes of the buffer, big endian.
       const lslice = this.getMemorySlice(ptr, ptr + 4);
       const length = new DataView(lslice.buffer, lslice.byteOffset, lslice.byteLength).getUint32(0, false);
 
@@ -191,60 +220,47 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     });
   }
 
-  cbindCall(cbind: string, inputBuffer: Uint8Array): any {
+  cbindCall(cbind: string, inputBuffer: Uint8Array): Uint8Array {
     const needsCustomInputBuffer = inputBuffer.length > this.MSGPACK_SCRATCH_SIZE;
     let inputPtr: number;
 
     if (needsCustomInputBuffer) {
-      // Allocate temporary buffer for oversized input
       inputPtr = this.call('bbmalloc', inputBuffer.length);
     } else {
-      // Use pre-allocated scratch buffer
       inputPtr = this.msgpackInputScratch;
     }
 
-    // Write input to buffer
     this.writeMemory(inputPtr, inputBuffer);
 
-    // Setup output scratch buffer with IN-OUT parameter pattern:
-    // Reserve 8 bytes for metadata (pointer + size), rest is scratch data space
     const METADATA_SIZE = 8;
     const outputPtrLocation = this.msgpackOutputScratch;
     const outputSizeLocation = this.msgpackOutputScratch + 4;
     const scratchDataPtr = this.msgpackOutputScratch + METADATA_SIZE;
     const scratchDataSize = this.MSGPACK_SCRATCH_SIZE - METADATA_SIZE;
 
-    // Get memory and create DataView for writing IN values
     let mem = this.getMemory();
     let view = new DataView(mem.buffer);
 
-    // Write IN values: provide scratch buffer pointer and size to C++
     view.setUint32(outputPtrLocation, scratchDataPtr, true);
     view.setUint32(outputSizeLocation, scratchDataSize, true);
 
-    // Call WASM
     this.call(cbind, inputPtr, inputBuffer.length, outputPtrLocation, outputSizeLocation);
 
-    // Free custom input buffer if allocated
     if (needsCustomInputBuffer) {
       this.call('bbfree', inputPtr);
     }
 
-    // Re-fetch memory after WASM call, as the buffer may have been detached if memory grew
+    // Re-fetch memory after WASM call -- the buffer can be detached after a memory.grow.
     mem = this.getMemory();
     view = new DataView(mem.buffer);
 
-    // Read OUT values: C++ returns actual buffer pointer and size
     const outputDataPtr = view.getUint32(outputPtrLocation, true);
     const outputSize = view.getUint32(outputSizeLocation, true);
 
-    // Check if C++ used scratch (pointer unchanged) or allocated (pointer changed)
     const usedScratch = outputDataPtr === scratchDataPtr;
 
-    // Copy output data from WASM memory
     const encodedResult = this.getMemorySlice(outputDataPtr, outputDataPtr + outputSize);
 
-    // Only free if C++ allocated beyond scratch
     if (!usedScratch) {
       this.call('bbfree', outputDataPtr);
     }
@@ -254,6 +270,10 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
 }
 
 /**
- * The comlink type that asyncifies the BarretenbergWasmMain api.
+ * The comlink type that asyncifies the BarretenbergWasmMain api. Retained for
+ * source compatibility with `wasm.ts` and downstream consumers; under the
+ * Emscripten loader the same class can be used directly without comlink, but
+ * `BarretenbergWasmAsyncBackend` still wraps it via comlink when running
+ * inside a Node worker_threads worker for the `useWorker: true` path.
  */
 export type BarretenbergWasmMainWorker = Remote<BarretenbergWasmMain>;

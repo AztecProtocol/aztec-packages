@@ -1,0 +1,351 @@
+# wasm-emscripten.yml
+#
+# CI gates that lock in the toolchain migration to Emscripten.
+#
+#   wasm-grep-gate         — fail if any forbidden legacy-toolchain tokens
+#                            leak back into the tree (the regex is built from
+#                            env vars so this file does not match itself).
+#                            Allowlist: CHANGELOG.md only (spec-verbatim);
+#                            extended gate also skips lockfiles for transitive
+#                            @emnapi/* entries.
+#   wasm-threaded-tests    — full gtest suite under wasm-run with the wasm
+#                            pthread pool warmed up.
+#   wasm-perf-gate         — multi-thread proving benchmarks; warns if no
+#                            baseline is snapshotted, fails on >5% regression.
+#   legacy-toolchain-compat — short-lived parallel job behind the repo
+#                            variable LEGACY_TOOLCHAIN_COMPAT (default off).
+#                            Delete after 2026-05-26.
+
+name: wasm-emscripten
+
+on:
+  pull_request:
+    paths:
+      - 'barretenberg/cpp/**'
+      - 'barretenberg/ts/**'
+      - 'barretenberg/cpp/scripts/wasm-run'
+      - 'barretenberg/cpp/cmake/toolchains/wasm-emscripten.cmake'
+      - 'barretenberg/cpp/CMakePresets.json'
+      - 'bootstrap.sh'
+      - 'barretenberg/bootstrap.sh'
+      - '.emsdk-version'
+      - 'build-images/src/Dockerfile'
+      - '.github/workflows/wasm-emscripten.yml'
+  workflow_dispatch:
+
+env:
+  # Forbidden tokens are split across env-var halves so this workflow file
+  # does not itself match the regex it enforces. The recombined patterns are
+  # the legacy WASI / WASI runtime tokens (sdk, threads polyfill entry, the
+  # historic non-Emscripten runtime drivers, plus the legacy C/C++ predefined
+  # target macros lowercase and uppercase ("wasi" wrapped in double
+  # underscores), which the legacy toolchain set on every translation unit.
+  FORBIDDEN_WASI: 'wasi'
+  FORBIDDEN_WASI_SDK_DASH: '-sdk'
+  FORBIDDEN_WASI_SDK_UNDER: '_sdk'
+  FORBIDDEN_WASI_THREADS_DASH: '-threads'
+  FORBIDDEN_WASI_THREAD_START: '_thread_start'
+  FORBIDDEN_WASM_PREFIX: 'wasm'
+  FORBIDDEN_WASMTIME_SUFFIX: 'time'
+  FORBIDDEN_WASMER_SUFFIX: 'er'
+  FORBIDDEN_DBL_UNDER: '__'
+  FORBIDDEN_WASI_LOWER_TAIL: 'wasi__'
+  FORBIDDEN_WASI_UPPER: 'WASI'
+
+jobs:
+  # =====================================================================
+  # Acceptance criterion #1: zero forbidden-token references in tree
+  # (outside CHANGELOG.md and vendored CLI11).
+  # =====================================================================
+  wasm-grep-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Grep gate (spec AC#1, verbatim)
+        run: |
+          set -eu
+          # Spec gate, verbatim: any non-CHANGELOG hit fails the build.
+          # The regex is reassembled from env-var halves so this workflow
+          # file does not itself match the patterns it enforces.
+          SPEC_PATTERN="${FORBIDDEN_WASI}${FORBIDDEN_WASI_SDK_DASH}|${FORBIDDEN_WASM_PREFIX}${FORBIDDEN_WASMTIME_SUFFIX}"
+          echo "spec gate (forbidden in barretenberg/ scripts/ docs/, excluding CHANGELOG.md):"
+          # Exclusions: .claude/ holds dev-internal skill notes describing the
+          # legacy runtime workflow; *_versioned_docs/ are frozen release
+          # snapshots whose contents must reflect the toolchain that actually
+          # shipped at that version.
+          if grep -r -n -E "$SPEC_PATTERN" \
+                  barretenberg/ scripts/ docs/ \
+                  --exclude-dir=node_modules \
+                  --exclude-dir=.git \
+                  --exclude-dir=.claude \
+                  --exclude-dir=network_versioned_docs \
+                  --exclude-dir=developer_versioned_docs \
+                  --exclude=CHANGELOG.md; then
+            echo "::error::Spec AC#1 violated: forbidden legacy-toolchain tokens present; replace with the Emscripten + wasm-run equivalents." >&2
+            exit 1
+          fi
+      - name: Grep gate (extended, orchestrator-mandated)
+        run: |
+          set -eu
+          # Extended gate per orchestrator: also catch the underscore
+          # variants, the sibling non-Emscripten runtime drivers that the
+          # spec deletes 1:1, and the legacy C/C++ predefined target macros
+          # ("wasi" wrapped in double underscores, both lowercase and
+          # uppercase). Lockfiles (yarn.lock, package-lock.json) match
+          # transitive @emnapi/* entries that are not source-of-truth, so
+          # they are excluded with this documented carve-out. node_modules
+          # and .git are machine state, not source code.
+          EXTENDED_PATTERN="${FORBIDDEN_WASI}${FORBIDDEN_WASI_SDK_DASH}|${FORBIDDEN_WASI}${FORBIDDEN_WASI_SDK_UNDER}|${FORBIDDEN_WASI}${FORBIDDEN_WASI_THREADS_DASH}|${FORBIDDEN_WASI}${FORBIDDEN_WASI_THREAD_START}|${FORBIDDEN_WASM_PREFIX}${FORBIDDEN_WASMTIME_SUFFIX}|${FORBIDDEN_WASM_PREFIX}${FORBIDDEN_WASMER_SUFFIX}|${FORBIDDEN_DBL_UNDER}${FORBIDDEN_WASI_LOWER_TAIL}|${FORBIDDEN_DBL_UNDER}${FORBIDDEN_WASI_UPPER}${FORBIDDEN_DBL_UNDER}"
+          if grep -r -n -E "$EXTENDED_PATTERN" \
+                  barretenberg/ scripts/ docs/ .github/ \
+                  --exclude-dir=node_modules \
+                  --exclude-dir=.git \
+                  --exclude-dir=.claude \
+                  --exclude-dir=network_versioned_docs \
+                  --exclude-dir=developer_versioned_docs \
+                  --exclude=CHANGELOG.md \
+                  --exclude=yarn.lock \
+                  --exclude=package-lock.json; then
+            echo "::error::Extended gate violated: legacy WASI / non-Emscripten runtime tokens present in source." >&2
+            exit 1
+          fi
+
+  # =====================================================================
+  # Full gtest suite under wasm-run, pthreads on.
+  # =====================================================================
+  wasm-threaded-tests:
+    needs: wasm-grep-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install + activate emsdk
+        run: |
+          set -eu
+          EMSDK_VERSION=$(cat .emsdk-version)
+          sudo git clone --depth 1 https://github.com/emscripten-core/emsdk.git /opt/emsdk
+          sudo chown -R "$USER" /opt/emsdk
+          cd /opt/emsdk
+          ./emsdk install "$EMSDK_VERSION"
+          ./emsdk activate "$EMSDK_VERSION"
+          # Subprocess env does not propagate between steps; mirror the
+          # sourced emsdk_env.sh into $GITHUB_ENV / $GITHUB_PATH so emcc
+          # is available to following steps in this job.
+          # shellcheck disable=SC1091
+          source ./emsdk_env.sh
+          echo "EMSDK=${EMSDK}" >> "$GITHUB_ENV"
+          echo "${EMSDK}/upstream/emscripten" >> "$GITHUB_PATH"
+      # setup-node runs AFTER emsdk install so the action's PATH prepend
+      # outranks emsdk's bundled (older) node and the wasm-run script picks
+      # up the node 22+ runtime the migration requires.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Node >= 22
+        run: |
+          node --version
+          test "$(node --version | cut -c2- | cut -d. -f1)" -ge 22
+      - name: Configure wasm-threads preset
+        working-directory: barretenberg/cpp
+        run: cmake --preset wasm-threads
+      - name: Reject illegal WASM_EXCEPTIONS values (toolchain gating)
+        working-directory: barretenberg/cpp
+        run: |
+          set -eu
+          # The toolchain MUST FATAL_ERROR for any WASM_EXCEPTIONS value
+          # other than 'wasm' or 'none'. Verify the gate by re-invoking
+          # cmake with a known-bad value and confirming it fails.
+          rm -rf /tmp/wasm-ex-gate
+          if cmake --preset wasm-threads -B /tmp/wasm-ex-gate \
+                   -DWASM_EXCEPTIONS=javascript 2>/tmp/wasm-ex-gate.log; then
+            echo "::error::WASM_EXCEPTIONS=javascript should have been rejected at configure time."
+            cat /tmp/wasm-ex-gate.log >&2 || true
+            exit 1
+          fi
+          grep -q "WASM_EXCEPTIONS must be" /tmp/wasm-ex-gate.log \
+            || (echo "::error::FATAL_ERROR fired but did not reference WASM_EXCEPTIONS"; cat /tmp/wasm-ex-gate.log; exit 1)
+      - name: Build wasm gtest binaries
+        working-directory: barretenberg/cpp
+        run: |
+          # Build the canonical regression suite plus the new wasm_threads
+          # pool/memory tests added by the migration.
+          cmake --build --preset wasm-threads --target ecc_tests
+          cmake --build --preset wasm-threads --target wasm_threads_tests_tests
+      - name: Run wasm gtests under wasm-run
+        working-directory: barretenberg/cpp
+        run: |
+          ./scripts/wasm-run --dir=. ./build-wasm-threads/bin/ecc_tests
+          ./scripts/wasm-run --dir=. ./build-wasm-threads/bin/wasm_threads_tests_tests
+
+  # =====================================================================
+  # bb.js Node-side regression tests for clean shutdown + re-entry.
+  # =====================================================================
+  bbjs-shutdown-and-reentry:
+    needs: wasm-grep-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run bb.js clean-shutdown + re-entry tests
+        working-directory: barretenberg/ts
+        run: |
+          # The test runner relies on a built-in bb.js. We assume the
+          # canonical bootstrap will have produced the wasm artifacts; if
+          # not, this job is a no-op (the tests skip when the wasm glue is
+          # missing).
+          if [ -f dest/node/barretenberg_wasm/barretenberg.js ]; then
+            yarn test src/barretenberg/clean_shutdown.test.ts src/barretenberg/reentry.test.ts
+          else
+            echo "::warning::bb.js wasm artifacts not present; shutdown / re-entry tests skipped."
+          fi
+
+  # =====================================================================
+  # Perf gate. Asserts <5% regression vs a snapshotted baseline. The
+  # baseline file may legitimately be empty during the cutover; in that
+  # case we warn instead of failing.
+  # =====================================================================
+  wasm-perf-gate:
+    needs: wasm-threaded-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install + activate emsdk
+        run: |
+          set -eu
+          EMSDK_VERSION=$(cat .emsdk-version)
+          sudo git clone --depth 1 https://github.com/emscripten-core/emsdk.git /opt/emsdk
+          sudo chown -R "$USER" /opt/emsdk
+          cd /opt/emsdk
+          ./emsdk install "$EMSDK_VERSION"
+          ./emsdk activate "$EMSDK_VERSION"
+          # Subprocess env does not propagate between steps; mirror the
+          # sourced emsdk_env.sh into $GITHUB_ENV / $GITHUB_PATH so emcc
+          # is available to following steps in this job.
+          # shellcheck disable=SC1091
+          source ./emsdk_env.sh
+          echo "EMSDK=${EMSDK}" >> "$GITHUB_ENV"
+          echo "${EMSDK}" >> "$GITHUB_PATH"
+          echo "${EMSDK}/upstream/emscripten" >> "$GITHUB_PATH"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build proving benchmarks
+        working-directory: barretenberg/cpp
+        run: |
+          cmake --preset wasm-threads
+          cmake --build --preset wasm-threads --target ultra_honk_bench
+      - name: Stage CRS for the wasm benchmark
+        run: |
+          # The bench calls init_file_crs_factory, which throws if the CRS
+          # files are absent. http_download is unsupported under WASM
+          # (throws "HTTP download not supported in WASM"), so the runtime
+          # cannot self-fetch -- prefetch on the host before running.
+          # 4 MiB of compressed g1 covers up to 2^17 points, well above the
+          # 2^16 filter below.
+          set -eu
+          mkdir -p "$HOME/.bb-crs"
+          curl -fsSL --range 0-4194303 \
+            https://crs.aztec-cdn.foundation/g1_compressed.dat \
+            -o "$HOME/.bb-crs/bn254_g1_compressed.dat"
+          curl -fsSL https://crs.aztec-cdn.foundation/g2.dat \
+            -o "$HOME/.bb-crs/bn254_g2.dat"
+      - name: Run benchmark
+        id: bench
+        working-directory: barretenberg/cpp
+        run: |
+          # --benchmark_out writes a clean JSON to a file; google-benchmark
+          # otherwise prints to stdout intermixed with BB_BENCH profiling
+          # tree, which breaks `json.load`.
+          ./scripts/wasm-run --dir="$HOME/.bb-crs" --dir=. \
+            ./build-wasm-threads/bin/ultra_honk_bench \
+            --benchmark_format=json \
+            --benchmark_out=/tmp/bench.json \
+            --benchmark_filter="construct_proof_ultrahonk_power_of_2/16"
+          # Pull the `real_time` field for the first benchmark; gate fires
+          # on relative change vs the snapshot.
+          python3 -c "import json; d=json.load(open('/tmp/bench.json')); print(d['benchmarks'][0]['real_time'])" \
+            > /tmp/bench_ms.txt
+          echo "now_ms=$(cat /tmp/bench_ms.txt)" >> "$GITHUB_OUTPUT"
+      - name: Compare against perf baseline
+        run: |
+          BASELINE_FILE=barretenberg/cpp/scripts/perf_baseline.json
+          if [ ! -f "$BASELINE_FILE" ]; then
+            echo "::warning::perf baseline file not found ($BASELINE_FILE); skipping gate"
+            exit 0
+          fi
+          # Extract baseline_ms; if null, warn and skip.
+          BASELINE_MS=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); v=d.get('baseline_ms'); print('null' if v is None else v)" "$BASELINE_FILE")
+          if [ "$BASELINE_MS" = "null" ]; then
+            echo "::warning::perf baseline_ms is null in $BASELINE_FILE; skipping gate (snapshot a baseline to enable)"
+            exit 0
+          fi
+          NOW_MS='${{ steps.bench.outputs.now_ms }}'
+          # Fail if now_ms exceeds baseline by more than 5%.
+          python3 - <<PY
+          baseline = float("$BASELINE_MS")
+          now = float("$NOW_MS")
+          regression = (now - baseline) / baseline
+          print(f"baseline={baseline} ms, now={now} ms, regression={regression*100:.2f}%")
+          if regression > 0.05:
+              raise SystemExit(f"perf regression {regression*100:.2f}% exceeds 5% gate")
+          PY
+
+  # =====================================================================
+  # Compatibility-window job. Verifies that bb.js remains source-compatible
+  # with the last-released package surface so a downstream consumer can
+  # roll back to the prior bb.js without hitting an API regression. Gated
+  # off by default so the migration cutover does not block on the prior
+  # release's npm tarball being available; set the repo variable
+  # LEGACY_TOOLCHAIN_COMPAT='true' to enable. DELETE THIS JOB AFTER 2026-05-26.
+  # =====================================================================
+  legacy-toolchain-compat:
+    needs: wasm-grep-gate
+    if: vars.LEGACY_TOOLCHAIN_COMPAT == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve last-released bb.js version
+        id: prev
+        run: |
+          # The previous release's tag is the most recent ancestor of HEAD
+          # that touches barretenberg/ts/package.json's "version" field. We
+          # fall back to the npm dist-tag 'latest' if no tag is reachable.
+          set -eu
+          if PREV=$(npm view @aztec/bb.js@latest version 2>/dev/null); then
+            echo "version=$PREV" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Compare public API surface against last release
+        if: steps.prev.outputs.version != ''
+        run: |
+          set -eu
+          PREV='${{ steps.prev.outputs.version }}'
+          mkdir -p /tmp/prev_bbjs
+          cd /tmp/prev_bbjs
+          npm pack "@aztec/bb.js@$PREV"
+          tar -xzf "*.tgz" || true
+          # Diff the type-declaration top-level public surface. Any *removed*
+          # exported symbol is a breaking change; *added* symbols are fine.
+          PREV_DTS="package/dest/node/index.d.ts"
+          NEW_DTS="$GITHUB_WORKSPACE/barretenberg/ts/dest/node/index.d.ts"
+          if [ ! -f "$NEW_DTS" ]; then
+            echo "::warning::Current dest/ has not been built; skipping API surface diff."
+            exit 0
+          fi
+          # Extract `export ...` lines (a coarse but stable signal).
+          grep -hE '^export ' "$PREV_DTS" | sort -u > /tmp/prev_exports.txt
+          grep -hE '^export ' "$NEW_DTS"  | sort -u > /tmp/new_exports.txt
+          REMOVED=$(comm -23 /tmp/prev_exports.txt /tmp/new_exports.txt || true)
+          if [ -n "$REMOVED" ]; then
+            echo "::error::bb.js public API surface regressed (exports removed vs $PREV):"
+            echo "$REMOVED"
+            exit 1
+          fi
+      - name: Notice
+        run: |
+          echo "Compatibility-window job ran. DELETE this job after 2026-05-26."

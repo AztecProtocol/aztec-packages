@@ -400,51 +400,42 @@
     {
       "name": "wasm",
       "displayName": "Build for WASM",
-      "description": "Build with wasi-sdk to create wasm",
+      "description": "Build with Emscripten to create wasm (single-threaded fallback)",
       "binaryDir": "build-wasm",
       "generator": "Ninja",
-      "toolchainFile": "cmake/toolchains/wasm32-wasi.cmake",
+      "toolchainFile": "cmake/toolchains/wasm-emscripten.cmake",
       "environment": {
-        "WASI_SDK_PREFIX": "/opt/wasi-sdk",
-        "CC": "$env{WASI_SDK_PREFIX}/bin/clang",
-        "CXX": "$env{WASI_SDK_PREFIX}/bin/clang++",
-        "CXXFLAGS": "-DBB_VERBOSE -fvisibility=hidden",
-        "AR": "$env{WASI_SDK_PREFIX}/bin/llvm-ar",
-        "RANLIB": "$env{WASI_SDK_PREFIX}/bin/llvm-ranlib"
+        "CXXFLAGS": "-DBB_VERBOSE -fvisibility=hidden"
       },
       "cacheVariables": {
-        "CMAKE_SYSROOT": "$env{WASI_SDK_PREFIX}/share/wasi-sysroot",
-        "CMAKE_FIND_ROOT_PATH_MODE_PROGRAM": "NEVER",
-        "CMAKE_FIND_ROOT_PATH_MODE_LIBRARY": "ONLY",
-        "CMAKE_FIND_ROOT_PATH_MODE_INCLUDE": "ONLY",
-        "CMAKE_FIND_ROOT_PATH_MODE_PACKAGE": "ONLY",
-        "CMAKE_C_COMPILER_WORKS": "ON",
-        "CMAKE_CXX_COMPILER_WORKS": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
         "MULTITHREADING": "OFF",
-        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
+        "WASM_EXCEPTIONS": "wasm"
       }
     },
     {
       "name": "wasm-threads",
       "displayName": "Build for pthread enabled WASM",
-      "description": "Build for pthread enabled WASM",
+      "description": "Build with Emscripten + pthreads (release)",
       "inherits": "wasm",
       "binaryDir": "build-wasm-threads",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "MULTITHREADING": "ON",
-        "ENABLE_WASM_BENCH": "ON"
+        "ENABLE_WASM_BENCH": "ON",
+        "WASM_EXCEPTIONS": "wasm"
       }
     },
     {
       "name": "wasm-threads-dbg",
       "displayName": "Build for debug WASM",
       "binaryDir": "build-wasm-threads-dbg",
-      "description": "Build with wasi-sdk to create debug wasm",
+      "description": "Build with Emscripten + pthreads (debug, ASSERTIONS=2 + SAFE_HEAP=1)",
       "inherits": "wasm",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "MULTITHREADING": "ON"
+        "MULTITHREADING": "ON",
+        "WASM_EXCEPTIONS": "wasm"
       }
     },
     {
@@ -910,7 +901,26 @@
     {
       "name": "wasm",
       "configurePreset": "wasm",
-      "inheritConfigureEnvironment": true
+      "inheritConfigureEnvironment": true,
+      "execution": {
+        "stopOnFailure": false
+      }
+    },
+    {
+      "name": "wasm-threads",
+      "configurePreset": "wasm-threads",
+      "inheritConfigureEnvironment": true,
+      "execution": {
+        "stopOnFailure": false
+      }
+    },
+    {
+      "name": "wasm-threads-dbg",
+      "configurePreset": "wasm-threads-dbg",
+      "inheritConfigureEnvironment": true,
+      "execution": {
+        "stopOnFailure": false
+      }
     }
   ]
 }

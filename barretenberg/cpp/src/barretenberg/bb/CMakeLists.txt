@@ -25,6 +25,21 @@ if (NOT(FUZZING))
     if(NOT WASM AND NOT BB_LITE)
         target_link_libraries(bb PRIVATE ipc)
     endif()
+    if(WASM)
+        # bb has a main() and reads CRS / msgpack inputs from the host
+        # filesystem. The toolchain default PROXY_TO_PTHREAD migrates main
+        # onto a worker, which combined with NODERAWFS makes every file op
+        # silently return zero (Emscripten #19330). Mirror the bench
+        # override block in cmake/module.cmake so `bb prove ...` actually
+        # sees the disk it was pointed at.
+        target_link_options(
+            bb
+            PRIVATE
+            "SHELL:-sNODERAWFS=1"
+            "SHELL:-sPROXY_TO_PTHREAD=0"
+            "SHELL:-sALLOW_BLOCKING_ON_MAIN_THREAD=1"
+        )
+    endif()
     if(ENABLE_STACKTRACES)
         target_link_libraries(
             bb
@@ -64,6 +79,15 @@ if (NOT(FUZZING))
         endif()
         if(NOT WASM AND NOT BB_LITE)
             target_link_libraries(bb-avm PRIVATE ipc)
+        endif()
+        if(WASM)
+            target_link_options(
+                bb-avm
+                PRIVATE
+                "SHELL:-sNODERAWFS=1"
+                "SHELL:-sPROXY_TO_PTHREAD=0"
+                "SHELL:-sALLOW_BLOCKING_ON_MAIN_THREAD=1"
+            )
         endif()
         if(ENABLE_STACKTRACES)
             target_link_libraries(
