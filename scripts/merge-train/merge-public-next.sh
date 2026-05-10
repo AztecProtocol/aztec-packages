@@ -5,6 +5,7 @@ set -euo pipefail
 REMOTE="${REMOTE:-origin}"
 SOURCE_BRANCH="${SOURCE_BRANCH:-public-next}"
 TARGET_BRANCH="${TARGET_BRANCH:-next}"
+CONFLICT_EXIT_CODE="${CONFLICT_EXIT_CODE:-1}"
 
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -114,5 +115,5 @@ else
   echo "$conflicts"
 
   post_conflict_comment "$source_sha" "$conflicts" || log_warn "Failed to post conflict comment"
-  exit 1
+  exit "$CONFLICT_EXIT_CODE"
 fi
