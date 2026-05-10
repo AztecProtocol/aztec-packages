@@ -1,6 +1,6 @@
 # IPA AUDIT
 
-Repository: https://github.com/AztecProtocol/aztec-packages-private
+Repository: https://github.com/AztecProtocol/aztec-packages
 Commit hash: Most recent commit on branch 'next'
 
 

@@ -9,6 +9,26 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] TXE `call_public_incognito` no longer takes a `from` parameter
+
+`TestEnvironment::call_public_incognito` previously accepted a `from` address that was silently ignored (the function always uses a null `msg_sender`). The `from` parameter has been removed.
+
+```diff
+- env.call_public_incognito(sender, SampleContract::at(addr).some_function());
++ env.call_public_incognito(SampleContract::at(addr).some_function());
+```
+
+If you need to call a public function *with* a sender, use `call_public` instead.
+
+### [Aztec.nr] TXE `view_public_incognito` is deprecated
+
+`TestEnvironment::view_public_incognito` is now deprecated in favor of `view_public`, which has the same behavior (null `msg_sender`, static call).
+
+```diff
+- env.view_public_incognito(SampleContract::at(addr).some_view());
++ env.view_public(SampleContract::at(addr).some_view());
+```
+
 ### [Aztec.js] `DeployMethod` address-affecting parameters move to construction time
 
 Salt, deployer, and public keys are now passed when the `DeployMethod` is constructed, not on every call to `send` / `simulate` / `request` / `getInstance`. This locks the contract address once it is determined and prevents the silent salt-cache poisoning bug where the address could change between calls.
@@ -130,6 +150,53 @@ If you relied on a bundled bare-name binary for general use:
 - Or install Foundry / nargo separately via `foundryup` / `noirup`.
 
 If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/current/bin/nargo`, change it to `$HOME/.aztec/current/bin/aztec-nargo` (the symlink is a drop-in for `nargo`). See the [Noir VSCode Extension guide](../aztec-nr/installation.md) for details.
+
+### [Stdlib] `SimulationOverrides.contracts` entries no longer carry an artifact
+
+`ContractOverrides` entries are now `{ instance }` only. To override a contract's artifact, pre-register the target class via `pxe.registerContractClass(artifact)` and set the override instance's `currentContractClassId` to that class id:
+
+```diff
+- const instance = await getContractInstanceFromInstantiationParams(stubArtifact, { salt: Fr.random() });
++ const instance = await pxe.getContractInstance(addr);
++ await pxe.registerContractClass(stubArtifact);
++ const stubClassId = (await getContractClassFromArtifact(stubArtifact)).id;
+- overrides = { contracts: { [addr.toString()]: { instance, artifact: stubArtifact } } };
++ overrides = { contracts: { [addr.toString()]: { instance: { ...instance, currentContractClassId: stubClassId } } } };
+```
+
+### [Aztec.js] `simulate` accepts `overrides` for testing "what if storage value was X?"
+
+`Contract.methods.foo(...).simulate(...)` now accepts an `overrides` option that injects values into the simulator's (ephemeral) world-state fork and contract DB before the call runs. The supported field is `publicStorage`, which writes a `(contract, slot, value)` into the public-data tree as if a previous tx had set it. Overrides are thrown away after simulation completes.
+
+```typescript
+const result = await contract.methods.read_balance(account).simulate({
+  overrides: {
+    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+  },
+});
+```
+
+The same option flows through `wallet.simulateTx` and eventually to `simulatePublicCalls` RPC on `AztecNode`.
+
+Direct callers of the `SimulationOverrides` constructor must switch from a positional `contracts` argument to an options bag:
+
+```diff
+- new SimulationOverrides(contracts);
++ new SimulationOverrides({ contracts });
+```
+
+`overrides.contracts` swaps contract instances in the simulator's contract DB — useful for simulating a contract being on a different class than the one it was deployed with. To simulate a complete onchain upgrade flow, use the `fastForwardContractUpdate` helper which returns a `SimulationOverrides` covering both registry storage rewrites and the upgraded instance entry:
+
+```typescript
+import { fastForwardContractUpdate } from '@aztec/aztec.js';
+
+const overrides = await fastForwardContractUpdate({
+  instanceAddress: contract.address,
+  newClassId: upgradedClass.id,
+  node,
+});
+const result = await contract.methods.upgraded_method().simulate({ overrides });
+```
 
 ### [PXE] `proveTx` takes an options bag
 

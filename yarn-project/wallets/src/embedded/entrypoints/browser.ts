@@ -69,7 +69,9 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
           ));
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
-    return new this(pxe, aztecNode, walletDB, new LazyAccountContractsProvider(), rootLogger) as T;
+    const wallet = new this(pxe, aztecNode, walletDB, new LazyAccountContractsProvider(), rootLogger) as T;
+    await wallet.initStubClasses();
+    return wallet;
   }
 }
 

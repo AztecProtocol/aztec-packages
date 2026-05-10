@@ -13,11 +13,6 @@
 #include <cstdint>
 namespace bb {
 
-// We assume all kernels have space for two return data commitments on their public inputs
-constexpr uint32_t NUM_DATABUS_COMMITMENTS = 2;
-constexpr uint32_t PROPAGATED_DATABUS_COMMITMENT_SIZE = 8;
-constexpr uint32_t PROPAGATED_DATABUS_COMMITMENTS_SIZE = PROPAGATED_DATABUS_COMMITMENT_SIZE * NUM_DATABUS_COMMITMENTS;
-
 /**
  * @brief A DataBus column
  *
@@ -74,7 +69,7 @@ struct BusVector {
  * in-circuit as we would with public inputs).
  *
  */
-constexpr size_t NUM_BUS_COLUMNS = MAX_APPS_PER_KERNEL + /*kernel calldata*/ 1 + /*return data*/ 1;
+constexpr size_t NUM_BUS_COLUMNS = MAX_APPS_PER_KERNEL + /*kernel calldata*/ 1 + /*kernel returndata*/ 1;
 
 using DataBus = std::array<BusVector, NUM_BUS_COLUMNS>;
 enum class BusId : uint8_t {
@@ -82,6 +77,6 @@ enum class BusId : uint8_t {
     APP_CALLDATA = 1,
     RETURNDATA = MAX_APPS_PER_KERNEL + 1,
 };
-static_assert(static_cast<size_t>(BusId::RETURNDATA) == NUM_BUS_COLUMNS - 1, "BusId must match DataBus layout");
+static_assert(static_cast<size_t>(BusId::RETURNDATA) == NUM_BUS_COLUMNS - 1, "BusId enum must match DataBus layout");
 
 } // namespace bb
