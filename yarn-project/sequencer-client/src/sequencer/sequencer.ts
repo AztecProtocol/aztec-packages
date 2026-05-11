@@ -380,8 +380,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.log.debug(`Set proposer address ${proposer} for simulation in fisherman mode`);
     }
 
-    // Prepare invalidation request if the pending chain is invalid (returns undefined if no need)
-    let invalidateCheckpoint = await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
+    // Prepare invalidation request if the pending chain is invalid (returns undefined if no need).
+    // Only simulate invalidation when there's no proposed parent — otherwise the result is
+    // overwritten to undefined below.
+    let invalidateCheckpoint = syncedTo.hasProposedCheckpoint
+      ? undefined
+      : await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
 
     // Determine the correct archive and L1 state overrides for the canProposeAt check.
     // The L1 contract reads archives[proposedCheckpointNumber] and compares it with the provided archive.
