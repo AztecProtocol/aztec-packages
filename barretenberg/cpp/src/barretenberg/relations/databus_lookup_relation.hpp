@@ -120,10 +120,10 @@ template <typename FF_> class DatabusLookupRelationImpl {
     template <typename AllEntities> struct BusData</*bus_idx=*/0, AllEntities> {
         static auto& values(const AllEntities& in) { return in.kernel_calldata; }
         static auto& selector(const AllEntities& in) { return in.q_l; }
-        static auto& inverses(AllEntities& in) { return in.calldata_inverses; }
-        static auto& inverses(const AllEntities& in) { return in.calldata_inverses; } // const version
-        static auto& read_counts(const AllEntities& in) { return in.calldata_read_counts; }
-        static auto& indicator(const AllEntities& in) { return in.calldata_indicator; }
+        static auto& inverses(AllEntities& in) { return in.kernel_calldata_inverses; }
+        static auto& inverses(const AllEntities& in) { return in.kernel_calldata_inverses; } // const version
+        static auto& read_counts(const AllEntities& in) { return in.kernel_calldata_read_counts; }
+        static auto& indicator(const AllEntities& in) { return in.kernel_calldata_indicator; }
     };
 
     // Specialization for first_app_calldata (bus_idx = 1)
@@ -133,6 +133,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.first_app_calldata_inverses; }
         static auto& inverses(const AllEntities& in) { return in.first_app_calldata_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.first_app_calldata_read_counts; }
+        static auto& indicator(const AllEntities& in) { return in.first_app_calldata_indicator; }
     };
 
     // Specialization for second_app_calldata (bus_idx = 2)
@@ -142,6 +143,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.second_app_calldata_inverses; }
         static auto& inverses(const AllEntities& in) { return in.second_app_calldata_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.second_app_calldata_read_counts; }
+        static auto& indicator(const AllEntities& in) { return in.second_app_calldata_indicator; }
     };
 
     // Specialization for third_app_calldata (bus_idx = 3)
@@ -151,6 +153,7 @@ template <typename FF_> class DatabusLookupRelationImpl {
         static auto& inverses(AllEntities& in) { return in.third_app_calldata_inverses; }
         static auto& inverses(const AllEntities& in) { return in.third_app_calldata_inverses; } // const version
         static auto& read_counts(const AllEntities& in) { return in.third_app_calldata_read_counts; }
+        static auto& indicator(const AllEntities& in) { return in.third_app_calldata_indicator; }
     };
 
     // Specialization for return data (bus_idx = 4)

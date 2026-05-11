@@ -40,33 +40,28 @@ struct DatabusInputElements {
     FF q_m; // return data selector
 
     // Kernel calldata (bus_idx = 0)
-    FF calldata;
-    FF calldata_read_counts;
-    FF calldata_inverses;
-    FF calldata_indicator;
     FF kernel_calldata;
     FF kernel_calldata_read_counts;
     FF kernel_calldata_inverses;
+    FF kernel_calldata_indicator;
 
-    // App calldata (bus_idx = 1)
-    FF secondary_calldata;
-    FF secondary_calldata_read_counts;
-    FF secondary_calldata_inverses;
-    FF secondary_calldata_indicator;
     // First app calldata (bus_idx = 1)
     FF first_app_calldata;
     FF first_app_calldata_read_counts;
     FF first_app_calldata_inverses;
+    FF first_app_calldata_indicator;
 
     // Second app calldata (bus_idx = 2)
     FF second_app_calldata;
     FF second_app_calldata_read_counts;
     FF second_app_calldata_inverses;
+    FF second_app_calldata_indicator;
 
     // Third app calldata (bus_idx = 3)
     FF third_app_calldata;
     FF third_app_calldata_read_counts;
     FF third_app_calldata_inverses;
+    FF third_app_calldata_indicator;
 
     // Return data (bus_idx = 4)
     FF return_data;
@@ -84,28 +79,24 @@ struct DatabusInputElements {
         result.q_l = FF::random_element();
         result.q_r = FF::random_element();
         result.q_o = FF::random_element();
-        result.calldata = FF::random_element();
-        result.calldata_read_counts = FF::random_element();
-        result.calldata_inverses = FF::random_element();
-        result.calldata_indicator = FF::random_element();
-        result.secondary_calldata = FF::random_element();
-        result.secondary_calldata_read_counts = FF::random_element();
-        result.secondary_calldata_inverses = FF::random_element();
-        result.secondary_calldata_indicator = FF::random_element();
         result.q_4 = FF::random_element();
         result.q_m = FF::random_element();
         result.kernel_calldata = FF::random_element();
         result.kernel_calldata_read_counts = FF::random_element();
         result.kernel_calldata_inverses = FF::random_element();
+        result.kernel_calldata_indicator = FF::random_element();
         result.first_app_calldata = FF::random_element();
         result.first_app_calldata_read_counts = FF::random_element();
         result.first_app_calldata_inverses = FF::random_element();
+        result.first_app_calldata_indicator = FF::random_element();
         result.second_app_calldata = FF::random_element();
         result.second_app_calldata_read_counts = FF::random_element();
         result.second_app_calldata_inverses = FF::random_element();
+        result.second_app_calldata_indicator = FF::random_element();
         result.third_app_calldata = FF::random_element();
         result.third_app_calldata_read_counts = FF::random_element();
         result.third_app_calldata_inverses = FF::random_element();
+        result.third_app_calldata_indicator = FF::random_element();
         result.return_data = FF::random_element();
         result.return_data_read_counts = FF::random_element();
         result.return_data_inverses = FF::random_element();
@@ -133,9 +124,8 @@ struct DatabusInputElements {
         result.q_m = FF(0);
 
         // Read counts
-        result.calldata_read_counts = FF(1);
-        result.calldata_indicator = FF(1); // data row, so the read-count locality subrelation passes
         result.kernel_calldata_read_counts = FF(1);
+        result.kernel_calldata_indicator = FF(1); // data row, so the read-count locality subrelation passes
 
         // Other columns inactive
         result.first_app_calldata_read_counts = FF(0);
@@ -203,23 +193,40 @@ static std::array<FF, DatabusLookupRelationConsistency::NUM_SUBRELATIONS> comput
         };
 
     // Bus column 0 (kernel_calldata)
-    compute_column_subrelations(
-        0, in.q_l, in.kernel_calldata, in.kernel_calldata_read_counts, in.kernel_calldata_inverses);
+    compute_column_subrelations(0,
+                                in.q_l,
+                                in.kernel_calldata,
+                                in.kernel_calldata_read_counts,
+                                in.kernel_calldata_inverses,
+                                in.kernel_calldata_indicator);
 
     // Bus column 1 (first_app_calldata)
-    compute_column_subrelations(
-        1, in.q_r, in.first_app_calldata, in.first_app_calldata_read_counts, in.first_app_calldata_inverses);
+    compute_column_subrelations(1,
+                                in.q_r,
+                                in.first_app_calldata,
+                                in.first_app_calldata_read_counts,
+                                in.first_app_calldata_inverses,
+                                in.first_app_calldata_indicator);
 
     // Bus column 2 (second_app_calldata)
-    compute_column_subrelations(
-        2, in.q_o, in.second_app_calldata, in.second_app_calldata_read_counts, in.second_app_calldata_inverses);
+    compute_column_subrelations(2,
+                                in.q_o,
+                                in.second_app_calldata,
+                                in.second_app_calldata_read_counts,
+                                in.second_app_calldata_inverses,
+                                in.second_app_calldata_indicator);
 
     // Bus column 3 (third_app_calldata)
-    compute_column_subrelations(
-        3, in.q_4, in.third_app_calldata, in.third_app_calldata_read_counts, in.third_app_calldata_inverses);
+    compute_column_subrelations(3,
+                                in.q_4,
+                                in.third_app_calldata,
+                                in.third_app_calldata_read_counts,
+                                in.third_app_calldata_inverses,
+                                in.third_app_calldata_indicator);
 
     // Bus column 4 (return_data)
-    compute_column_subrelations(4, in.q_m, in.return_data, in.return_data_read_counts, in.return_data_inverses);
+    compute_column_subrelations(
+        4, in.q_m, in.return_data, in.return_data_read_counts, in.return_data_inverses, in.return_data_indicator);
 
     return expected_values;
 }
@@ -320,8 +327,8 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
     auto inverse = (lookup_term * table_term).invert();
     in.kernel_calldata_inverses = inverse;
 
-    in.calldata_read_counts = FF(1);
-    in.calldata_indicator = FF(1); // data row, read-count locality subrelation passes
+    in.kernel_calldata_read_counts = FF(1);
+    in.kernel_calldata_indicator = FF(1); // data row, read-count locality subrelation passes
 
     // Other columns inactive
     in.first_app_calldata_read_counts = FF(0);
@@ -642,16 +649,16 @@ TEST_F(DatabusLookupRelationConsistency, ReadCountLocalityRejectsOutOfBodyReadCo
     const auto& beta = parameters.beta;
     const auto& gamma = parameters.gamma;
 
-    // Out-of-body row (calldata_indicator = 0) with databus_id = 0 (matches body row 0).
+    // Out-of-body row (kernel_calldata_indicator = 0) with databus_id = 0 (matches body row 0).
     DatabusInputElements row{};
     row.databus_id = FF(0);
-    row.calldata = FF(12345);
-    row.calldata_read_counts = FF(7);
-    row.calldata_indicator = FF(0);
+    row.kernel_calldata = FF(12345);
+    row.kernel_calldata_read_counts = FF(7);
+    row.kernel_calldata_indicator = FF(0);
     {
         const auto L = row.w_l + row.w_r * beta + gamma;
-        const auto T = row.calldata + row.databus_id * beta + gamma;
-        row.calldata_inverses = (L * T).invert();
+        const auto T = row.kernel_calldata + row.databus_id * beta + gamma;
+        row.kernel_calldata_inverses = (L * T).invert();
     }
 
     std::array<FF, NUM_SUBRELATIONS> accumulator{};
@@ -663,6 +670,6 @@ TEST_F(DatabusLookupRelationConsistency, ReadCountLocalityRejectsOutOfBodyReadCo
     // accumulator[2] is the per-row part of the linearly-dependent lookup identity.
 
     // Read-count locality (subrelation 3 of bus column 0): (1 - 0) * 7 = 7 != 0.
-    EXPECT_EQ(accumulator[3], row.calldata_read_counts);
+    EXPECT_EQ(accumulator[3], row.kernel_calldata_read_counts);
     EXPECT_NE(accumulator[3], FF(0));
 }

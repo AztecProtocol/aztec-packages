@@ -254,17 +254,17 @@ TYPED_TEST(DataBusTests, OutOfBodyReadCountsRejectedPrefix)
     auto& polys = prover_instance->polynomials;
 
     // Prefix row is within the polynomial's populated region — no widen_to needed.
-    ASSERT_LT(FORGERY_ROW, polys.calldata.end_index());
+    ASSERT_LT(FORGERY_ROW, polys.kernel_calldata.end_index());
     ASSERT_EQ(polys.databus_id[FORGERY_ROW], FF(0));
-    ASSERT_EQ(polys.calldata[FORGERY_ROW], FF(0));
-    ASSERT_EQ(polys.calldata_indicator[FORGERY_ROW], FF(0));
+    ASSERT_EQ(polys.kernel_calldata[FORGERY_ROW], FF(0));
+    ASSERT_EQ(polys.kernel_calldata_indicator[FORGERY_ROW], FF(0));
     ASSERT_EQ(polys.databus_id[HONEST_ROW], FF(0));
-    ASSERT_EQ(polys.calldata[HONEST_ROW], v_honest_0);
+    ASSERT_EQ(polys.kernel_calldata[HONEST_ROW], v_honest_0);
 
     // Forged prefix-row entry; redirect the read multiplicity to it.
-    polys.calldata.at(FORGERY_ROW) = v_attack;
-    polys.calldata_read_counts.at(FORGERY_ROW) = FF(NUM_READS);
-    polys.calldata_read_counts.at(HONEST_ROW) = FF(0);
+    polys.kernel_calldata.at(FORGERY_ROW) = v_attack;
+    polys.kernel_calldata_read_counts.at(FORGERY_ROW) = FF(NUM_READS);
+    polys.kernel_calldata_read_counts.at(HONEST_ROW) = FF(0);
 
     // Rewrite the result wire of each busread gate from v_honest_0 to v_attack.
     size_t num_busread_rows_seen = 0;
@@ -335,22 +335,22 @@ TYPED_TEST(DataBusTests, OutOfBodyReadCountsRejected)
 
     // operator[] uses get() (returns 0 past end_index()); at() asserts.
     ASSERT_EQ(polys.databus_id[HONEST_ROW], FF(0));
-    ASSERT_EQ(polys.calldata[HONEST_ROW], v_honest_0);
-    ASSERT_EQ(polys.calldata_read_counts[HONEST_ROW], FF(NUM_READS));
-    ASSERT_EQ(polys.calldata_indicator[HONEST_ROW], FF(1));
+    ASSERT_EQ(polys.kernel_calldata[HONEST_ROW], v_honest_0);
+    ASSERT_EQ(polys.kernel_calldata_read_counts[HONEST_ROW], FF(NUM_READS));
+    ASSERT_EQ(polys.kernel_calldata_indicator[HONEST_ROW], FF(1));
     ASSERT_EQ(polys.databus_id[FORGERY_ROW], FF(0));
-    ASSERT_EQ(polys.calldata[FORGERY_ROW], FF(0));
-    ASSERT_EQ(polys.calldata_read_counts[FORGERY_ROW], FF(0));
-    ASSERT_EQ(polys.calldata_indicator[FORGERY_ROW], FF(0));
+    ASSERT_EQ(polys.kernel_calldata[FORGERY_ROW], FF(0));
+    ASSERT_EQ(polys.kernel_calldata_read_counts[FORGERY_ROW], FF(0));
+    ASSERT_EQ(polys.kernel_calldata_indicator[FORGERY_ROW], FF(0));
 
     // Widen calldata + read_counts so we can write at FORGERY_ROW.
-    widen_to(polys.calldata, FORGERY_ROW + 1);
-    widen_to(polys.calldata_read_counts, FORGERY_ROW + 1);
+    widen_to(polys.kernel_calldata, FORGERY_ROW + 1);
+    widen_to(polys.kernel_calldata_read_counts, FORGERY_ROW + 1);
 
     // Forged out-of-body calldata entry; redirect the read multiplicity to it.
-    polys.calldata.at(FORGERY_ROW) = v_attack;
-    polys.calldata_read_counts.at(FORGERY_ROW) = FF(NUM_READS);
-    polys.calldata_read_counts.at(HONEST_ROW) = FF(0);
+    polys.kernel_calldata.at(FORGERY_ROW) = v_attack;
+    polys.kernel_calldata_read_counts.at(FORGERY_ROW) = FF(NUM_READS);
+    polys.kernel_calldata_read_counts.at(HONEST_ROW) = FF(0);
 
     // Rewrite the result wire of each busread gate from v_honest_0 to v_attack.
     size_t num_busread_rows_seen = 0;
@@ -426,16 +426,16 @@ TYPED_TEST(DataBusTests, OutOfBodyReadCountsRejectedCrossColumn)
     auto& polys = prover_instance->polynomials;
 
     ASSERT_EQ(polys.databus_id[FORGERY_ROW], FF(FORGERY_BUS_IDX));
-    ASSERT_EQ(polys.calldata[FORGERY_ROW], FF(0));
-    ASSERT_EQ(polys.calldata_indicator[FORGERY_ROW], FF(0));
+    ASSERT_EQ(polys.kernel_calldata[FORGERY_ROW], FF(0));
+    ASSERT_EQ(polys.kernel_calldata_indicator[FORGERY_ROW], FF(0));
     ASSERT_EQ(polys.return_data_indicator[FORGERY_ROW], FF(1));
 
-    widen_to(polys.calldata, FORGERY_ROW + 1);
-    widen_to(polys.calldata_read_counts, FORGERY_ROW + 1);
+    widen_to(polys.kernel_calldata, FORGERY_ROW + 1);
+    widen_to(polys.kernel_calldata_read_counts, FORGERY_ROW + 1);
 
-    polys.calldata.at(FORGERY_ROW) = v_attack;
-    polys.calldata_read_counts.at(FORGERY_ROW) = FF(NUM_READS);
-    polys.calldata_read_counts.at(HONEST_ROW) = FF(0);
+    polys.kernel_calldata.at(FORGERY_ROW) = v_attack;
+    polys.kernel_calldata_read_counts.at(FORGERY_ROW) = FF(NUM_READS);
+    polys.kernel_calldata_read_counts.at(HONEST_ROW) = FF(0);
 
     // Both w_l and w_r are dangling, so each can be rewritten without breaking the
     // permutation argument. The wire 2 (read index) is set to FORGERY_BUS_IDX, which is
