@@ -225,6 +225,40 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     EXPECT_EQ(pairing_points.check(), true);
 }
 
+// Verifies a Shplemini → KZG flow with both shift-by-1 and right-shift-by-k claims.
+TEST_F(KZGTest, ShpleminiKzgWithShiftAndKShift)
+{
+    std::vector<Fr> mle_opening_point = random_evaluation_point(log_n);
+
+    MockClaimGenerator mock_claims(n,
+                                   /*num_polynomials*/ 5,
+                                   /*num_to_be_shifted*/ 2,
+                                   mle_opening_point,
+                                   ck,
+                                   /*num_to_be_right_shifted_by_k*/ 2);
+
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
+
+    auto prover_opening_claims =
+        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+
+    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+
+    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
+
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
+
+    auto batch_opening_claim =
+        ShpleminiVerifier::compute_batch_opening_claim(
+            mock_claims.claim_batcher, mle_opening_point, vk.get_g1_identity(), verifier_transcript)
+            .batch_opening_claim;
+
+    const auto pairing_points =
+        PCS::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
+
+    EXPECT_EQ(pairing_points.check(), true);
+}
+
 TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
 {
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
