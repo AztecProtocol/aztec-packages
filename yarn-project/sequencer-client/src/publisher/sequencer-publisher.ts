@@ -1371,7 +1371,12 @@ export class SequencerPublisher {
       blobEvaluationGas = BigInt(encodedData.blobs.length) * 21_000n;
       this.log.debug(`Using fixed blob evaluation gas estimate in fisherman mode: ${blobEvaluationGas}`);
     } else {
-      // Normal mode - use estimateGas with blob inputs
+      // We call validateBlobs via estimateGas with real blob+kzg sidecars as a consistency check
+      // that our locally-built blob commitments match the blob data. The bundle simulate at send
+      // time uses eth_simulateV1, which cannot carry blob inputs, so the rollup's on-chain blob
+      // check is forced off there — making this the only pre-flight detector of a commitment/data
+      // mismatch. The returned gas estimate is still added to the propose gasLimit, but the
+      // commitment check is the main reason we make this call.
       blobEvaluationGas = await this.l1TxUtils
         .estimateGas(
           this.getSenderAddress().toString(),
