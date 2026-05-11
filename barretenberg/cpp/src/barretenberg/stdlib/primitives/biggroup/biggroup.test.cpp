@@ -1439,6 +1439,69 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         EXPECT_EQ(builder.err(), "bigfield: prime limb diff is zero, but expected non-zero");
     }
 
+    // Regression test for the offset-generator as point at infinity in `mask_points`.
+    static void test_offset_generator_infinity_is_rejected()
+    {
+        // is_write_vk_mode=true so `set_variable` (used below to poison the offset generator's witness) is
+        // permitted; outside VK mode, the builder asserts to prevent accidental witness overwrites.
+        Builder builder(/*is_write_vk_mode=*/true);
+        using BaseField = typename element_ct::BaseField;
+
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+        for (size_t i = 0; i < 2; ++i) {
+            circuit_points.push_back(get_random_point(&builder, InputType::WITNESS).second);
+            circuit_scalars.push_back(get_random_scalar(&builder, InputType::WITNESS).second);
+        }
+
+        // Call mask_points via the test accessor (it is a private member of element).
+        auto [_masked_points, _masked_scalars, offset_G] = stdlib::element_default::element_test_accessor::
+            mask_points<Builder, typename element_ct::BaseField, scalar_ct, typename Curve::GroupNative>(
+                circuit_points, circuit_scalars);
+
+        // Sanity: with the honest random offset generator, mask_points's non-infinity constraint is satisfied.
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // Set offset generator to be a point at infinity: (0, 0) with is_infinity = 1.
+        for (size_t i = 0; i < BaseField::NUM_LIMBS; ++i) {
+            builder.set_variable(offset_G.x().binary_basis_limbs[i].element.get_witness_index(), 0);
+            builder.set_variable(offset_G.y().binary_basis_limbs[i].element.get_witness_index(), 0);
+        }
+        builder.set_variable(offset_G.is_point_at_infinity().get_witness_index(), 1);
+
+        // The non-infinity assertion inside mask_points must catch the malicious witness substitution.
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+
+    // Regression test for a masked point p_i + 2ⁱ·G being the point at infinity in `mask_points`.
+    static void test_masked_point_infinity_is_rejected()
+    {
+        Builder builder(/*is_write_vk_mode=*/true);
+        using BaseField = typename element_ct::BaseField;
+
+        std::vector<element_ct> circuit_points;
+        std::vector<scalar_ct> circuit_scalars;
+        for (size_t i = 0; i < 2; ++i) {
+            circuit_points.push_back(get_random_point(&builder, InputType::WITNESS).second);
+            circuit_scalars.push_back(get_random_scalar(&builder, InputType::WITNESS).second);
+        }
+
+        auto [masked_points, _masked_scalars, _offset_G] = stdlib::element_default::element_test_accessor::
+            mask_points<Builder, typename element_ct::BaseField, scalar_ct, typename Curve::GroupNative>(
+                circuit_points, circuit_scalars);
+
+        EXPECT_TRUE(CircuitChecker::check(builder));
+
+        // Set the first masked point to be a point at infinity: (0, 0) with is_infinity = 1.
+        for (size_t i = 0; i < BaseField::NUM_LIMBS; ++i) {
+            builder.set_variable(masked_points[0].x().binary_basis_limbs[i].element.get_witness_index(), 0);
+            builder.set_variable(masked_points[0].y().binary_basis_limbs[i].element.get_witness_index(), 0);
+        }
+        builder.set_variable(masked_points[0].is_point_at_infinity().get_witness_index(), 1);
+
+        EXPECT_FALSE(CircuitChecker::check(builder));
+    }
+
     static void test_one()
     {
         Builder builder;
@@ -2816,6 +2879,24 @@ HEAVY_TYPED_TEST(stdlib_biggroup, batch_mul_linearly_dependent_generators_failur
         GTEST_SKIP() << "this failure test is designed for ultra builder only";
     } else {
         TestFixture::test_batch_mul_linearly_dependent_generators_failure();
+    }
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, offset_generator_infinity_is_rejected)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mask_points is only used on the ultra path";
+    } else {
+        TestFixture::test_offset_generator_infinity_is_rejected();
+    }
+}
+
+HEAVY_TYPED_TEST(stdlib_biggroup, masked_point_infinity_is_rejected)
+{
+    if constexpr (HasGoblinBuilder<TypeParam>) {
+        GTEST_SKIP() << "mask_points is only used on the ultra path";
+    } else {
+        TestFixture::test_masked_point_infinity_is_rejected();
     }
 }
 
