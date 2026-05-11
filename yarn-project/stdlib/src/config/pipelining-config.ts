@@ -16,7 +16,7 @@ export const pipelineConfigMappings: ConfigMappingsType<PipelineConfig> = {
   enableProposerPipelining: {
     env: 'SEQ_ENABLE_PROPOSER_PIPELINING',
     description: 'Whether to enable build-ahead proposer pipelining.',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
 };
 

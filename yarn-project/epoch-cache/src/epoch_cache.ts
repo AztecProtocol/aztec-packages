@@ -111,7 +111,7 @@ export class EpochCache implements EpochCacheInterface {
       lagInEpochsForRandao: number;
     },
     private readonly dateProvider: DateProvider = new DateProvider(),
-    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60, enableProposerPipelining: false },
+    protected readonly config = { cacheSize: 12, validatorRefreshIntervalSeconds: 60, enableProposerPipelining: true },
   ) {
     this.enableProposerPipelining = this.config.enableProposerPipelining;
     this.log.debug(`Initialized EpochCache`, {

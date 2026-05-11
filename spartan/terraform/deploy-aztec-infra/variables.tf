@@ -438,7 +438,7 @@ variable "SEQ_PER_BLOCK_ALLOCATION_MULTIPLIER" {
 variable "SEQ_ENABLE_PROPOSER_PIPELINING" {
   description = "Whether to enable build-ahead proposer pipelining"
   type        = string
-  default     = "false"
+  default     = "true"
 }
 
 variable "AZTEC_EPOCHS_LAG" {

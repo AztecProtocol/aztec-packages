@@ -247,7 +247,7 @@ The configuration object is `SequencerConfig` (`src/sequencer/config.ts` + `src/
 | `attestationPropagationTime` / `SEQ_ATTESTATION_PROPAGATION_TIME` | 2 s | One-way p2p estimate fed to the timetable. |
 | `l1PublishingTime` / `SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT` | full L1 slot | Time reserved for the L1 tx to land. |
 | `sequencerPollingIntervalMS` / `SEQ_POLLING_INTERVAL_MS` | 500 | Work-loop tick rate. |
-| `enableProposerPipelining` / `SEQ_ENABLE_PROPOSER_PIPELINING` | false | When true, the sequencer builds for `slot + 1`. The flag lives in shared `PipelineConfig` and is read by `EpochCache`, not by the sequencer directly. |
+| `enableProposerPipelining` / `SEQ_ENABLE_PROPOSER_PIPELINING` | true | When true, the sequencer builds for `slot + 1`. The flag lives in shared `PipelineConfig` and is read by `EpochCache`, not by the sequencer directly. |
 
 ### Behavior
 
