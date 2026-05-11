@@ -546,8 +546,8 @@ static bool matches_arithmetic_fingerprint(Builder& builder,
 }
 
 static KZGArithmeticLocations locate_kzg_arithmetic_locations(Builder& builder,
-                                                             const std::vector<size_t>& all_squeezes,
-                                                             const std::set<size_t>& consumed_squeezes_before_kzg)
+                                                              const std::vector<size_t>& all_squeezes,
+                                                              const std::set<size_t>& consumed_squeezes_before_kzg)
 {
     KZGArithmeticLocations locations;
     auto masking_challenge =
@@ -560,8 +560,7 @@ static KZGArithmeticLocations locate_kzg_arithmetic_locations(Builder& builder,
     for (size_t masking_start = 0; masking_start <= masking_challenge.squeeze_gate; ++masking_start) {
         const bool contains_masking_squeeze =
             masking_start <= masking_challenge.squeeze_gate &&
-            masking_challenge.squeeze_gate <
-                masking_start + KZGVerification::MASKING_CHALLENGE_ARITHMETIC.gate_count;
+            masking_challenge.squeeze_gate < masking_start + KZGVerification::MASKING_CHALLENGE_ARITHMETIC.gate_count;
         if (!contains_masking_squeeze ||
             !matches_arithmetic_fingerprint(builder, masking_start, KZGVerification::MASKING_CHALLENGE_ARITHMETIC)) {
             continue;
@@ -570,8 +569,7 @@ static KZGArithmeticLocations locate_kzg_arithmetic_locations(Builder& builder,
             continue;
         }
 
-        const size_t w_receive_start =
-            masking_start - KZGVerification::TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC.gate_count;
+        const size_t w_receive_start = masking_start - KZGVerification::TRANSCRIPT_RECEIVE_KZG_W_ARITHMETIC.gate_count;
         const size_t batch_mul_start = masking_start + KZGVerification::MASKING_CHALLENGE_ARITHMETIC.gate_count;
         if (batch_mul_start > arith.size()) {
             continue;
@@ -603,8 +601,9 @@ static bool arithmetic_range_has_witness_in_block(Builder& builder,
     std::set<uint32_t> visited_real_indices;
 
     for (size_t gate_idx = arithmetic_start; gate_idx < arithmetic_end; ++gate_idx) {
-        std::array<uint32_t, 4> wires = { arith.w_l()[gate_idx], arith.w_r()[gate_idx], arith.w_o()[gate_idx],
-                                          arith.w_4()[gate_idx] };
+        std::array<uint32_t, 4> wires = {
+            arith.w_l()[gate_idx], arith.w_r()[gate_idx], arith.w_o()[gate_idx], arith.w_4()[gate_idx]
+        };
         for (uint32_t witness_idx : wires) {
             const uint32_t real_idx = builder.real_variable_index[witness_idx];
             if (!visited_real_indices.insert(real_idx).second) {
@@ -643,6 +642,437 @@ class BoomerangRecursionTests : public ::testing::Test {
 class BoomerangShpleminiTests : public BoomerangRecursionTests {};
 
 class BoomerangKZGStepTests : public BoomerangRecursionTests {};
+
+TEST_F(BoomerangShpleminiTests, ShpleminiComputeBatchOpeningClaimBlockAnalysis)
+{
+    info("");
+    info("=== ShpleminiComputeBatchOpeningClaimBlockAnalysis ===");
+
+    auto vc = setup_verifier_components(0);
+    Builder& builder = vc.builder();
+    auto snap = [&]() { return recursion_helpers::BlockSnapshot::capture(builder); };
+    auto write_stage =
+        [&](std::ofstream& out, const std::string& stage_name, const recursion_helpers::BlockSnapshot& before) {
+            write_function_block_data(out, stage_name, builder, before, snap());
+        };
+
+    run_oink_verifier_step(vc);
+    std::vector<FF> padding_indicator_array = run_padding_indicator_array_step(vc);
+    SumcheckStepOutput sumcheck_step = run_sumcheck_step(vc, padding_indicator_array);
+
+    const std::string output_path =
+        "/mnt/user-data/daniel/aztec-packages/barretenberg/cpp/build-debug/shplemini_functions_data.txt";
+    std::ofstream out(output_path);
+    ASSERT_TRUE(out.is_open()) << "Failed to open " << output_path;
+
+    using Commitment = RecursiveFlavor::Commitment;
+    using VerifierCommitments = RecursiveFlavor::VerifierCommitments;
+    using GeminiVerifier = GeminiVerifier_<Curve>;
+    using ShplonkVerifier = ShplonkVerifier_<Curve>;
+
+    VerifierCommitments commitments{ vc.verifier_instance->get_vk(), vc.verifier_instance->witness_commitments };
+    if constexpr (RecursiveFlavor::HasZK) {
+        commitments.gemini_masking_poly = vc.verifier_instance->gemini_masking_commitment;
+    }
+
+    using ClaimBatch = ClaimBatcher::Batch;
+    ClaimBatcher claim_batcher{ .unshifted =
+                                    ClaimBatch{ commitments.get_unshifted(),
+                                                sumcheck_step.sumcheck_output.claimed_evaluations.get_unshifted() },
+                                .shifted =
+                                    ClaimBatch{ commitments.get_to_be_shifted(),
+                                                sumcheck_step.sumcheck_output.claimed_evaluations.get_shifted() } };
+
+    const size_t virtual_log_n = sumcheck_step.sumcheck_output.challenge.size();
+    const bool committed_sumcheck = false;
+    FF batched_evaluation = FF{ 0 };
+
+    auto before_rho = snap();
+    const FF gemini_batching_challenge = vc.transcript->template get_challenge<FF>("rho");
+    write_stage(out, "Shplemini:rho", before_rho);
+
+    auto before_fold_commitments = snap();
+    const std::vector<Commitment> fold_commitments = GeminiVerifier::get_fold_commitments(virtual_log_n, vc.transcript);
+    write_stage(out, "Shplemini:Gemini_fold_commitments", before_fold_commitments);
+
+    auto before_gemini_r = snap();
+    const FF gemini_evaluation_challenge = vc.transcript->template get_challenge<FF>("Gemini:r");
+    write_stage(out, "Shplemini:Gemini_r", before_gemini_r);
+
+    auto before_fold_neg_evaluations = snap();
+    const std::vector<FF> gemini_fold_neg_evaluations =
+        GeminiVerifier::get_gemini_evaluations(virtual_log_n, vc.transcript);
+    write_stage(out, "Shplemini:Gemini_fold_neg_evaluations", before_fold_neg_evaluations);
+
+    FF p_pos = FF(0);
+    FF p_neg = FF(0);
+    if (claim_batcher.interleaved) {
+        auto before_interleaved_evaluations = snap();
+        p_pos = vc.transcript->template receive_from_prover<FF>("Gemini:P_pos");
+        p_neg = vc.transcript->template receive_from_prover<FF>("Gemini:P_neg");
+        write_stage(out, "Shplemini:Gemini_interleaved_evaluations", before_interleaved_evaluations);
+    }
+
+    auto before_gemini_eval_powers = snap();
+    const std::vector<FF> gemini_eval_challenge_powers =
+        gemini::powers_of_evaluation_challenge(gemini_evaluation_challenge, virtual_log_n);
+    write_stage(out, "Shplemini:Gemini_evaluation_challenge_powers", before_gemini_eval_powers);
+
+    std::array<FF, NUM_SMALL_IPA_EVALUATIONS> libra_evaluations;
+    if constexpr (RecursiveFlavor::HasZK) {
+        auto before_libra_evaluations = snap();
+        libra_evaluations[0] = vc.transcript->template receive_from_prover<FF>("Libra:concatenation_eval");
+        libra_evaluations[1] = vc.transcript->template receive_from_prover<FF>("Libra:shifted_grand_sum_eval");
+        libra_evaluations[2] = vc.transcript->template receive_from_prover<FF>("Libra:grand_sum_eval");
+        libra_evaluations[3] = vc.transcript->template receive_from_prover<FF>("Libra:quotient_eval");
+        if constexpr (Curve::is_stdlib_type) {
+            for (auto& eval : libra_evaluations) {
+                eval.clear_round_provenance();
+            }
+        }
+        write_stage(out, "Shplemini:Libra_evaluations", before_libra_evaluations);
+    }
+
+    auto before_shplonk_nu = snap();
+    const FF shplonk_batching_challenge = vc.transcript->template get_challenge<FF>("Shplonk:nu");
+    write_stage(out, "Shplemini:Shplonk_nu", before_shplonk_nu);
+
+    auto before_shplonk_batching_powers = snap();
+    const std::vector<FF> shplonk_batching_challenge_powers = compute_shplonk_batching_challenge_powers(
+        shplonk_batching_challenge, virtual_log_n, RecursiveFlavor::HasZK, committed_sumcheck);
+    write_stage(out, "Shplemini:Shplonk_batching_challenge_powers", before_shplonk_batching_powers);
+
+    auto before_q_commitment = snap();
+    const auto q_commitment = vc.transcript->template receive_from_prover<Commitment>("Shplonk:Q");
+    write_stage(out, "Shplemini:Shplonk_Q", before_q_commitment);
+
+    std::vector<Commitment> batch_mul_commitments{ q_commitment };
+
+    auto before_shplonk_z = snap();
+    const FF shplonk_evaluation_challenge = vc.transcript->template get_challenge<FF>("Shplonk:z");
+    write_stage(out, "Shplemini:Shplonk_z", before_shplonk_z);
+
+    FF constant_term_accumulator = FF(0);
+    std::vector<FF> scalars;
+    scalars.emplace_back(FF(1));
+
+    auto before_inverse_denominators = snap();
+    const std::vector<FF> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_gemini_denominators(
+        shplonk_evaluation_challenge, gemini_eval_challenge_powers);
+    write_stage(out, "Shplemini:Shplonk_inverse_gemini_denominators", before_inverse_denominators);
+
+    auto before_claim_batcher_scalars = snap();
+    claim_batcher.compute_scalars_for_each_batch(
+        inverse_vanishing_evals, shplonk_batching_challenge, gemini_evaluation_challenge);
+    write_stage(out, "Shplemini:ClaimBatcher_compute_scalars", before_claim_batcher_scalars);
+
+    FF shplonk_interleaving_batching_pos = FF{ 0 };
+    FF shplonk_interleaving_batching_neg = FF{ 0 };
+    auto before_batcher_update = snap();
+    if (claim_batcher.interleaved) {
+        const size_t interleaved_pos_index = 2 * virtual_log_n;
+        const size_t interleaved_neg_index = interleaved_pos_index + 1;
+        shplonk_interleaving_batching_pos = shplonk_batching_challenge_powers[interleaved_pos_index];
+        shplonk_interleaving_batching_neg = shplonk_batching_challenge_powers[interleaved_neg_index];
+        constant_term_accumulator +=
+            claim_batcher.interleaved->shplonk_denominator *
+            (p_pos * shplonk_interleaving_batching_pos + p_neg * shplonk_interleaving_batching_neg);
+    }
+    claim_batcher.update_batch_mul_inputs_and_batched_evaluation(batch_mul_commitments,
+                                                                 scalars,
+                                                                 batched_evaluation,
+                                                                 gemini_batching_challenge,
+                                                                 shplonk_interleaving_batching_pos,
+                                                                 shplonk_interleaving_batching_neg);
+    write_stage(out, "Shplemini:ClaimBatcher_update_batch_mul_inputs", before_batcher_update);
+
+    auto before_fold_pos_evaluations = snap();
+    const std::vector<FF> gemini_fold_pos_evaluations =
+        GeminiVerifier::compute_fold_pos_evaluations(padding_indicator_array,
+                                                     batched_evaluation,
+                                                     sumcheck_step.sumcheck_output.challenge,
+                                                     gemini_eval_challenge_powers,
+                                                     gemini_fold_neg_evaluations,
+                                                     p_neg);
+    write_stage(out, "Shplemini:Gemini_fold_pos_evaluations", before_fold_pos_evaluations);
+
+    auto before_batch_gemini_claims = snap();
+    Shplemini::batch_gemini_claims_received_from_prover(padding_indicator_array,
+                                                        fold_commitments,
+                                                        gemini_fold_neg_evaluations,
+                                                        gemini_fold_pos_evaluations,
+                                                        inverse_vanishing_evals,
+                                                        shplonk_batching_challenge_powers,
+                                                        batch_mul_commitments,
+                                                        scalars,
+                                                        constant_term_accumulator);
+    write_stage(out, "Shplemini:batch_gemini_claims_received_from_prover", before_batch_gemini_claims);
+
+    auto before_a0_constant_terms = snap();
+    const FF& full_a_0_pos = gemini_fold_pos_evaluations[0];
+    const FF a_0_pos = full_a_0_pos - p_pos;
+    constant_term_accumulator += a_0_pos * inverse_vanishing_evals[0];
+    constant_term_accumulator +=
+        gemini_fold_neg_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
+    write_stage(out, "Shplemini:A0_constant_terms", before_a0_constant_terms);
+
+    auto before_remove_repeated = snap();
+    Shplemini::remove_repeated_commitments(
+        batch_mul_commitments, scalars, RecursiveFlavor::REPEATED_COMMITMENTS, RecursiveFlavor::HasZK);
+    write_stage(out, "Shplemini:remove_repeated_commitments", before_remove_repeated);
+
+    bool consistency_checked = true;
+    if constexpr (RecursiveFlavor::HasZK) {
+        auto before_add_zk_data = snap();
+        Shplemini::add_zk_data(virtual_log_n,
+                               batch_mul_commitments,
+                               scalars,
+                               constant_term_accumulator,
+                               sumcheck_step.libra_commitments,
+                               libra_evaluations,
+                               gemini_evaluation_challenge,
+                               shplonk_batching_challenge_powers,
+                               shplonk_evaluation_challenge);
+        write_stage(out, "Shplemini:add_zk_data", before_add_zk_data);
+
+        auto before_libra_consistency = snap();
+        consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(
+            libra_evaluations,
+            gemini_evaluation_challenge,
+            sumcheck_step.sumcheck_output.challenge,
+            sumcheck_step.sumcheck_output.claimed_libra_evaluation);
+        write_stage(out, "Shplemini:check_libra_evaluations_consistency", before_libra_consistency);
+    }
+
+    auto before_finalize_claim = snap();
+    Commitment one_commitment = Commitment::one(&builder);
+    batch_mul_commitments.emplace_back(one_commitment);
+    scalars.emplace_back(constant_term_accumulator);
+    BatchOpeningClaim<Curve> batch_opening_claim{ batch_mul_commitments, scalars, shplonk_evaluation_challenge };
+    ShpleminiVerifierOutput_<Curve, RecursiveFlavor::HasZK> output{ batch_opening_claim };
+    if constexpr (RecursiveFlavor::HasZK) {
+        output.consistency_checked = consistency_checked;
+    }
+    write_stage(out, "Shplemini:finalize_batch_opening_claim", before_finalize_claim);
+
+    EXPECT_EQ(output.batch_opening_claim.commitments.size(), output.batch_opening_claim.scalars.size());
+    info("Wrote Shplemini function data to ", output_path);
+    info("=== ShpleminiComputeBatchOpeningClaimBlockAnalysis COMPLETE ===");
+}
+
+TEST_F(BoomerangShpleminiTests, ValidateCurrentShpleminiChecks)
+{
+    auto trace = execute_all_megazk_steps_and_save_challenge_witness_indices(0);
+    Builder& builder = trace.vc.builder();
+
+    std::set<size_t> consumed_before_shplemini;
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.oink.squeeze_gate_indices.begin(),
+                                    trace.challenge_witness_indices.oink.squeeze_gate_indices.end());
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.step2.squeeze_gate_indices.begin(),
+                                    trace.challenge_witness_indices.step2.squeeze_gate_indices.end());
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.sumcheck.squeeze_gate_indices.begin(),
+                                    trace.challenge_witness_indices.sumcheck.squeeze_gate_indices.end());
+
+    const std::vector<size_t> shplemini_squeeze_gates = recursion_helpers::take_unclaimed_squeezes(
+        trace.all_squeeze_gates, consumed_before_shplemini, recursion_helpers::NUM_SHPLEMINI_SQUEEZES);
+    ASSERT_EQ(shplemini_squeeze_gates.size(), recursion_helpers::NUM_SHPLEMINI_SQUEEZES);
+    EXPECT_EQ(trace.challenge_witness_indices.shplemini.squeeze_gate_indices,
+              std::set<size_t>(shplemini_squeeze_gates.begin(), shplemini_squeeze_gates.end()));
+
+    const size_t rho_gate = shplemini_squeeze_gates[0];
+    const size_t gemini_r_gate = shplemini_squeeze_gates[1];
+    const size_t shplonk_nu_gate = shplemini_squeeze_gates[2];
+    const size_t shplonk_z_gate = shplemini_squeeze_gates[3];
+
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
+    auto expect_challenge_valid = [&](size_t challenge_gate_idx,
+                                      const recursion_helpers::FunctionFingerprint& arith_fp,
+                                      const recursion_helpers::FunctionFingerprint& poseidon2_ext_fp,
+                                      const recursion_helpers::FunctionFingerprint& poseidon2_int_fp) {
+        auto result = ShpleminiVerification::validate_challenges_generation(
+            builder, analyzer, challenge_gate_idx, arith_fp, poseidon2_ext_fp, poseidon2_int_fp);
+        EXPECT_TRUE(result.is_valid);
+        EXPECT_NE(result.arithmetic_gate_start_idx, SIZE_MAX);
+        EXPECT_NE(result.poseidon2_external_gate_start_idx, SIZE_MAX);
+        EXPECT_NE(result.poseidon2_internal_gate_start_idx, SIZE_MAX);
+        EXPECT_LE(result.arithmetic_gate_start_idx, challenge_gate_idx);
+        EXPECT_LT(challenge_gate_idx, result.arithmetic_gate_start_idx + arith_fp.gate_count);
+        return result;
+    };
+
+    const auto rho_result = expect_challenge_valid(rho_gate,
+                                                  ShpleminiVerification::RHO_ARITHMETIC,
+                                                  ShpleminiVerification::RHO_POSEIDON2_EXT,
+                                                  ShpleminiVerification::RHO_POSEIDON2_INT);
+    const auto gemini_r_result = expect_challenge_valid(gemini_r_gate,
+                                                       ShpleminiVerification::GEMINI_R_ARITHMETIC,
+                                                       ShpleminiVerification::GEMINI_R_POSEIDON2_EXT,
+                                                       ShpleminiVerification::GEMINI_R_POSEIDON2_INT);
+    const auto shplonk_nu_result = expect_challenge_valid(shplonk_nu_gate,
+                                                         ShpleminiVerification::SHPLONK_NU_ARITHMETIC,
+                                                         ShpleminiVerification::SHPLONK_NU_POSEIDON2_EXT,
+                                                         ShpleminiVerification::SHPLONK_NU_POSEIDON2_INT);
+    const auto shplonk_z_result = expect_challenge_valid(shplonk_z_gate,
+                                                        ShpleminiVerification::SHPLONK_Z_ARITHMETIC,
+                                                        ShpleminiVerification::SHPLONK_Z_POSEIDON2_EXT,
+                                                        ShpleminiVerification::SHPLONK_Z_POSEIDON2_INT);
+
+    EXPECT_LT(rho_result.arithmetic_gate_start_idx, gemini_r_result.arithmetic_gate_start_idx);
+    EXPECT_LT(gemini_r_result.arithmetic_gate_start_idx, shplonk_nu_result.arithmetic_gate_start_idx);
+    EXPECT_LT(shplonk_nu_result.arithmetic_gate_start_idx, shplonk_z_result.arithmetic_gate_start_idx);
+
+    auto gemini_fold = ShpleminiVerification::validate_gemini_fold_commitments(
+        builder, analyzer, rho_gate, gemini_r_gate);
+    EXPECT_TRUE(gemini_fold.is_valid);
+    EXPECT_NE(gemini_fold.arithmetic_gate_start_idx, SIZE_MAX);
+    EXPECT_NE(gemini_fold.nnf_gate_start_idx, SIZE_MAX);
+    EXPECT_EQ(gemini_fold.arithmetic_gate_start_idx,
+              rho_result.arithmetic_gate_start_idx + ShpleminiVerification::RHO_ARITHMETIC.gate_count);
+    EXPECT_LT(gemini_fold.arithmetic_gate_start_idx, gemini_r_gate);
+}
+
+TEST_F(BoomerangShpleminiTests, ValidateShplonkTranscriptBlock)
+{
+    auto trace = execute_all_megazk_steps_and_save_challenge_witness_indices(0);
+    Builder& builder = trace.vc.builder();
+
+    std::set<size_t> consumed_before_shplemini;
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.oink.squeeze_gate_indices.begin(),
+                                    trace.challenge_witness_indices.oink.squeeze_gate_indices.end());
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.step2.squeeze_gate_indices.begin(),
+                                    trace.challenge_witness_indices.step2.squeeze_gate_indices.end());
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.sumcheck.squeeze_gate_indices.begin(),
+                                    trace.challenge_witness_indices.sumcheck.squeeze_gate_indices.end());
+
+    EXPECT_TRUE(ShpleminiVerification::validate_shplonk(builder, trace.all_squeeze_gates, consumed_before_shplemini));
+
+    const std::vector<size_t> shplemini_squeeze_gates = recursion_helpers::take_unclaimed_squeezes(
+        trace.all_squeeze_gates, consumed_before_shplemini, recursion_helpers::NUM_SHPLEMINI_SQUEEZES);
+    ASSERT_EQ(shplemini_squeeze_gates.size(), recursion_helpers::NUM_SHPLEMINI_SQUEEZES);
+    const size_t shplonk_nu_gate = shplemini_squeeze_gates[2];
+    const size_t shplonk_z_gate = shplemini_squeeze_gates[3];
+
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
+    auto nu = ShpleminiVerification::validate_challenges_generation(
+        builder,
+        analyzer,
+        shplonk_nu_gate,
+        ShpleminiVerification::SHPLONK_NU_ARITHMETIC,
+        ShpleminiVerification::SHPLONK_NU_POSEIDON2_EXT,
+        ShpleminiVerification::SHPLONK_NU_POSEIDON2_INT);
+    ASSERT_TRUE(nu.is_valid);
+
+    auto powers = ShpleminiVerification::validate_shplonk_batching_challenge_powers(builder, nu.arithmetic_gate_start_idx);
+    ASSERT_TRUE(powers.is_valid);
+    EXPECT_EQ(powers.arithmetic_gate_start_idx,
+              nu.arithmetic_gate_start_idx + ShpleminiVerification::SHPLONK_NU_ARITHMETIC.gate_count);
+
+    auto q = ShpleminiVerification::validate_shplonk_q<bb::fr>(builder, analyzer, powers.arithmetic_gate_start_idx);
+    ASSERT_TRUE(q.is_valid);
+    EXPECT_EQ(q.arithmetic_gate_start_idx,
+              powers.arithmetic_gate_start_idx +
+                  ShpleminiVerification::SHPLONK_BATCHING_CHALLENGE_POWERS_ARITHMETIC.gate_count);
+    EXPECT_NE(q.nnf_gate_start_idx, SIZE_MAX);
+
+    auto z = ShpleminiVerification::validate_challenges_generation(
+        builder,
+        analyzer,
+        shplonk_z_gate,
+        ShpleminiVerification::SHPLONK_Z_ARITHMETIC,
+        ShpleminiVerification::SHPLONK_Z_POSEIDON2_EXT,
+        ShpleminiVerification::SHPLONK_Z_POSEIDON2_INT);
+    ASSERT_TRUE(z.is_valid);
+    EXPECT_EQ(z.arithmetic_gate_start_idx,
+              q.arithmetic_gate_start_idx + ShpleminiVerification::SHPLONK_Q_ARITHMETIC.gate_count);
+}
+
+// Helper: run sub-validators nu→powers→q→z and return z.arithmetic_gate_start_idx.
+// Asserts each sub-stage is valid so callers can rely on the returned value.
+static size_t get_z_arith_start_for_shplonk_tail(
+    Builder& builder,
+    cdg::StaticAnalyzer_<bb::fr, Builder>& analyzer,
+    const std::vector<size_t>& all_squeeze_gates,
+    const std::set<size_t>& consumed_before_shplemini)
+{
+    const auto shplemini_gates = recursion_helpers::take_unclaimed_squeezes(
+        all_squeeze_gates, consumed_before_shplemini, recursion_helpers::NUM_SHPLEMINI_SQUEEZES);
+    EXPECT_EQ(shplemini_gates.size(), recursion_helpers::NUM_SHPLEMINI_SQUEEZES);
+
+    auto nu = ShpleminiVerification::validate_challenges_generation<bb::fr>(
+        builder,
+        analyzer,
+        shplemini_gates[2],
+        ShpleminiVerification::SHPLONK_NU_ARITHMETIC,
+        ShpleminiVerification::SHPLONK_NU_POSEIDON2_EXT,
+        ShpleminiVerification::SHPLONK_NU_POSEIDON2_INT);
+    EXPECT_TRUE(nu.is_valid);
+    auto powers =
+        ShpleminiVerification::validate_shplonk_batching_challenge_powers(builder, nu.arithmetic_gate_start_idx);
+    EXPECT_TRUE(powers.is_valid);
+    auto q = ShpleminiVerification::validate_shplonk_q<bb::fr>(builder, analyzer, powers.arithmetic_gate_start_idx);
+    EXPECT_TRUE(q.is_valid);
+    auto z = ShpleminiVerification::validate_challenges_generation<bb::fr>(
+        builder,
+        analyzer,
+        shplemini_gates[3],
+        ShpleminiVerification::SHPLONK_Z_ARITHMETIC,
+        ShpleminiVerification::SHPLONK_Z_POSEIDON2_EXT,
+        ShpleminiVerification::SHPLONK_Z_POSEIDON2_INT);
+    EXPECT_TRUE(z.is_valid);
+    return z.arithmetic_gate_start_idx;
+}
+
+TEST_F(BoomerangShpleminiTests, ValidateShplonkTail)
+{
+    auto trace = execute_all_megazk_steps_and_save_challenge_witness_indices(0);
+    Builder& builder = trace.vc.builder();
+
+    std::set<size_t> consumed_before_shplemini;
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.oink.squeeze_gate_indices.begin(),
+                                     trace.challenge_witness_indices.oink.squeeze_gate_indices.end());
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.step2.squeeze_gate_indices.begin(),
+                                     trace.challenge_witness_indices.step2.squeeze_gate_indices.end());
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.sumcheck.squeeze_gate_indices.begin(),
+                                     trace.challenge_witness_indices.sumcheck.squeeze_gate_indices.end());
+
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
+    const size_t z_arith_start = get_z_arith_start_for_shplonk_tail(
+        builder, analyzer, trace.all_squeeze_gates, consumed_before_shplemini);
+
+    EXPECT_TRUE(ShpleminiVerification::validate_shplonk_tail(builder, z_arith_start));
+}
+
+TEST_F(BoomerangShpleminiTests, ValidateShplonkTailDetectsCorruptedArithmeticGate)
+{
+    auto trace = execute_all_megazk_steps_and_save_challenge_witness_indices(0);
+    Builder& builder = trace.vc.builder();
+
+    std::set<size_t> consumed_before_shplemini;
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.oink.squeeze_gate_indices.begin(),
+                                     trace.challenge_witness_indices.oink.squeeze_gate_indices.end());
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.step2.squeeze_gate_indices.begin(),
+                                     trace.challenge_witness_indices.step2.squeeze_gate_indices.end());
+    consumed_before_shplemini.insert(trace.challenge_witness_indices.sumcheck.squeeze_gate_indices.begin(),
+                                     trace.challenge_witness_indices.sumcheck.squeeze_gate_indices.end());
+
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
+    const size_t z_arith_start = get_z_arith_start_for_shplonk_tail(
+        builder, analyzer, trace.all_squeeze_gates, consumed_before_shplemini);
+
+    // Corrupt a non-constant gate in the first tail stage (Shplonk_inverse_gemini_denominators).
+    auto& arith = builder.blocks.arithmetic;
+    const size_t tail_start = z_arith_start + ShpleminiVerification::SHPLONK_Z_ARITHMETIC.gate_count;
+    const size_t first_stage_end =
+        tail_start + ShpleminiVerification::SHPLONK_INVERSE_GEMINI_DENOMINATORS_ARITHMETIC.gate_count;
+    size_t gate_to_corrupt = tail_start;
+    while (gate_to_corrupt < first_stage_end && is_constant_fix_witness_gate(builder, gate_to_corrupt)) {
+        ++gate_to_corrupt;
+    }
+    ASSERT_LT(gate_to_corrupt, first_stage_end);
+    arith.q_c().set(gate_to_corrupt, arith.q_c()[gate_to_corrupt] + bb::fr::one());
+
+    EXPECT_FALSE(ShpleminiVerification::validate_shplonk_tail(builder, z_arith_start));
+}
 
 TEST_F(BoomerangKZGStepTests, ValidateKZG)
 {
@@ -783,9 +1213,8 @@ TEST_F(BoomerangKZGStepTests, ValidateMaskingChallengeGenerationDetectsCorrupted
         result.poseidon2_external_gate_start_idx + KZGVerification::MASKING_CHALLENGE_POSEIDON2_EXT.gate_count;
     ASSERT_LE(poseidon2_external_end, poseidon2_external.size());
     for (size_t gate_idx = result.poseidon2_external_gate_start_idx; gate_idx < poseidon2_external_end; ++gate_idx) {
-        poseidon2_external.q_poseidon2_external().set(gate_idx,
-                                                      poseidon2_external.q_poseidon2_external()[gate_idx] +
-                                                          bb::fr::one());
+        poseidon2_external.q_poseidon2_external().set(
+            gate_idx, poseidon2_external.q_poseidon2_external()[gate_idx] + bb::fr::one());
     }
 
     auto corrupted_result = KZGVerification::validate_masking_challenge_generation(
@@ -1119,20 +1548,34 @@ TEST_F(BoomerangKZGStepTests, DumpMaskingChallengeStaticAnalyzerGates)
         auto& block = blocks[block_idx];
         const char* block_name = block_idx < block_names.size() ? block_names[block_idx] : "unknown";
         info("  block[", block_idx, "] ", block_name, " gate=", gate_idx);
-        info("    wires(real): w_l=", builder.real_variable_index[block.w_l()[gate_idx]],
-             " w_r=", builder.real_variable_index[block.w_r()[gate_idx]],
-             " w_o=", builder.real_variable_index[block.w_o()[gate_idx]],
-             " w_4=", builder.real_variable_index[block.w_4()[gate_idx]]);
-        info("    selectors: q_m=", block.q_m()[gate_idx],
-             " q_c=", block.q_c()[gate_idx],
-             " q_1=", block.q_1()[gate_idx],
-             " q_2=", block.q_2()[gate_idx],
-             " q_3=", block.q_3()[gate_idx],
-             " q_4=", block.q_4()[gate_idx],
-             " q_arith=", block.q_arith()[gate_idx],
-             " q_nnf=", block.q_nnf()[gate_idx],
-             " q_poseidon2_ext=", block.q_poseidon2_external()[gate_idx],
-             " q_poseidon2_int=", block.q_poseidon2_internal()[gate_idx]);
+        info("    wires(real): w_l=",
+             builder.real_variable_index[block.w_l()[gate_idx]],
+             " w_r=",
+             builder.real_variable_index[block.w_r()[gate_idx]],
+             " w_o=",
+             builder.real_variable_index[block.w_o()[gate_idx]],
+             " w_4=",
+             builder.real_variable_index[block.w_4()[gate_idx]]);
+        info("    selectors: q_m=",
+             block.q_m()[gate_idx],
+             " q_c=",
+             block.q_c()[gate_idx],
+             " q_1=",
+             block.q_1()[gate_idx],
+             " q_2=",
+             block.q_2()[gate_idx],
+             " q_3=",
+             block.q_3()[gate_idx],
+             " q_4=",
+             block.q_4()[gate_idx],
+             " q_arith=",
+             block.q_arith()[gate_idx],
+             " q_nnf=",
+             block.q_nnf()[gate_idx],
+             " q_poseidon2_ext=",
+             block.q_poseidon2_external()[gate_idx],
+             " q_poseidon2_int=",
+             block.q_poseidon2_internal()[gate_idx]);
     }
 }
 
@@ -1178,18 +1621,28 @@ TEST_F(BoomerangKZGStepTests, DumpFirstKZGReceiveWitnessWithNNFGates)
     cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
     const size_t nnf_block_idx = block_index_for(builder, builder.blocks.nnf);
 
-    info("Scanning KZG transcript_receive_from_prover arithmetic gates [", receive_start, ", ", receive_end,
+    info("Scanning KZG transcript_receive_from_prover arithmetic gates [",
+         receive_start,
+         ", ",
+         receive_end,
          ") for witnesses with NNF gates");
 
     for (size_t gate_idx = receive_start; gate_idx < receive_end; ++gate_idx) {
-        std::array<uint32_t, 4> wires = { arith.w_l()[gate_idx], arith.w_r()[gate_idx], arith.w_o()[gate_idx],
-                                          arith.w_4()[gate_idx] };
+        std::array<uint32_t, 4> wires = {
+            arith.w_l()[gate_idx], arith.w_r()[gate_idx], arith.w_o()[gate_idx], arith.w_4()[gate_idx]
+        };
         for (uint32_t witness_idx : wires) {
             const uint32_t real_idx = builder.real_variable_index[witness_idx];
             for (const auto& [block_idx, nnf_gate_idx] : analyzer.get_variable_gates(real_idx)) {
                 if (block_idx == nnf_block_idx) {
-                    info("First transcript_receive_from_prover witness with NNF gates: witness=", witness_idx,
-                         " real=", real_idx, " arithmetic_gate=", gate_idx, " nnf_gate=", nnf_gate_idx);
+                    info("First transcript_receive_from_prover witness with NNF gates: witness=",
+                         witness_idx,
+                         " real=",
+                         real_idx,
+                         " arithmetic_gate=",
+                         gate_idx,
+                         " nnf_gate=",
+                         nnf_gate_idx);
                     SUCCEED();
                     return;
                 }
@@ -1254,11 +1707,9 @@ TEST_F(BoomerangKZGStepTests, KZGMaskingChallengePoseidonExternalWitnessesLinkTo
     [[maybe_unused]] FF masking_challenge = vc.transcript->template get_challenge<FF>("KZG:masking_challenge");
     auto after_masking_challenge = snap();
 
-    const size_t ext_start =
-        block_snapshot_size(builder, before_masking_challenge, builder.blocks.poseidon2_external);
+    const size_t ext_start = block_snapshot_size(builder, before_masking_challenge, builder.blocks.poseidon2_external);
     const size_t ext_end = block_snapshot_size(builder, after_masking_challenge, builder.blocks.poseidon2_external);
-    const size_t int_start =
-        block_snapshot_size(builder, before_masking_challenge, builder.blocks.poseidon2_internal);
+    const size_t int_start = block_snapshot_size(builder, before_masking_challenge, builder.blocks.poseidon2_internal);
     const size_t int_end = block_snapshot_size(builder, after_masking_challenge, builder.blocks.poseidon2_internal);
 
     info("KZG:masking_challenge poseidon2_external range [", ext_start, ", ", ext_end, ")");
@@ -1271,8 +1722,9 @@ TEST_F(BoomerangKZGStepTests, KZGMaskingChallengePoseidonExternalWitnessesLinkTo
     auto& ext = builder.blocks.poseidon2_external;
 
     for (size_t ext_gate = ext_start; ext_gate < ext_end; ++ext_gate) {
-        std::array<uint32_t, 4> wires = { ext.w_l()[ext_gate], ext.w_r()[ext_gate], ext.w_o()[ext_gate],
-                                          ext.w_4()[ext_gate] };
+        std::array<uint32_t, 4> wires = {
+            ext.w_l()[ext_gate], ext.w_r()[ext_gate], ext.w_o()[ext_gate], ext.w_4()[ext_gate]
+        };
         for (uint32_t witness_idx : wires) {
             const uint32_t real_idx = builder.real_variable_index[witness_idx];
             for (const auto& [block_idx, int_gate] : analyzer.get_variable_gates(real_idx)) {
@@ -1363,8 +1815,9 @@ TEST_F(BoomerangKZGStepTests, CheckBatchMulPoseidonExternalToInternalLink)
     auto& ext = builder.blocks.poseidon2_external;
 
     for (size_t ext_gate = ext_start; ext_gate < ext_end; ++ext_gate) {
-        std::array<uint32_t, 4> wires = { ext.w_l()[ext_gate], ext.w_r()[ext_gate], ext.w_o()[ext_gate],
-                                          ext.w_4()[ext_gate] };
+        std::array<uint32_t, 4> wires = {
+            ext.w_l()[ext_gate], ext.w_r()[ext_gate], ext.w_o()[ext_gate], ext.w_4()[ext_gate]
+        };
         for (uint32_t witness_idx : wires) {
             const uint32_t real_idx = builder.real_variable_index[witness_idx];
             for (const auto& [block_idx, int_gate] : analyzer.get_variable_gates(real_idx)) {
@@ -1740,12 +2193,11 @@ TEST_F(BoomerangKZGStepTests, DumpMultiBlockFingerprints)
     shplemini_output.batch_opening_claim.scalars.push_back(shplemini_output.batch_opening_claim.evaluation_point);
     auto s5bm_a = snap();
     using Group = Curve::Group;
-    [[maybe_unused]] Group P_0_kfp =
-        Group::batch_mul(shplemini_output.batch_opening_claim.commitments,
-                         shplemini_output.batch_opening_claim.scalars,
-                         /*max_num_bits=*/0,
-                         /*with_edgecases=*/true,
-                         /*masking_scalar=*/masking_challenge);
+    [[maybe_unused]] Group P_0_kfp = Group::batch_mul(shplemini_output.batch_opening_claim.commitments,
+                                                      shplemini_output.batch_opening_claim.scalars,
+                                                      /*max_num_bits=*/0,
+                                                      /*with_edgecases=*/true,
+                                                      /*masking_scalar=*/masking_challenge);
     print_fp("step5_kzg_batch_mul", s5bm_a, snap());
 
     auto s5neg_a = snap();
@@ -1794,12 +2246,11 @@ TEST_F(BoomerangKZGStepTests, KZGBatchMulChunkDump)
         shplemini_output.batch_opening_claim.commitments.push_back(W_commit);
         shplemini_output.batch_opening_claim.scalars.push_back(shplemini_output.batch_opening_claim.evaluation_point);
         using Group = Curve::Group;
-        [[maybe_unused]] Group P_0_kbm =
-            Group::batch_mul(shplemini_output.batch_opening_claim.commitments,
-                             shplemini_output.batch_opening_claim.scalars,
-                             /*max_num_bits=*/0,
-                             /*with_edgecases=*/true,
-                             /*masking_scalar=*/masking_challenge);
+        [[maybe_unused]] Group P_0_kbm = Group::batch_mul(shplemini_output.batch_opening_claim.commitments,
+                                                          shplemini_output.batch_opening_claim.scalars,
+                                                          /*max_num_bits=*/0,
+                                                          /*with_edgecases=*/true,
+                                                          /*masking_scalar=*/masking_challenge);
 
         size_t arith_end = builder.blocks.arithmetic.size();
         size_t batch_mul_gates = arith_end - arith_start;
