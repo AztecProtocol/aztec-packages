@@ -677,7 +677,11 @@ export class SequencerPublisher {
    */
   public async canProposeAt(tipArchive: Fr, msgSender: EthAddress, simulationOverridesPlan?: SimulationOverridesPlan) {
     // TODO: #14291 - should loop through multiple keys to check if any of them can propose
-    const ignoredErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
+    // These errors are expected when we cannot actually propose right now — usually because our
+    // local view of the chain is ahead of L1 (proposed parent hasn't landed yet, or someone
+    // else has just landed the slot, or the archive override doesn't match). We log a warn and
+    // skip the proposal; we do NOT treat these as bugs.
+    const expectedErrors = ['SlotAlreadyInChain', 'InvalidProposer', 'InvalidArchive'];
 
     const pipelined = this.epochCache.isProposerPipeliningEnabled();
     const slotOffset = pipelined ? this.aztecSlotDuration : 0n;
@@ -691,8 +695,8 @@ export class SequencerPublisher {
         await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan),
       )
       .catch(err => {
-        if (err instanceof FormattedViemError && ignoredErrors.find(e => err.message.includes(e))) {
-          this.log.warn(`Failed canProposeAtTime check with ${ignoredErrors.find(e => err.message.includes(e))}`, {
+        if (err instanceof FormattedViemError && expectedErrors.find(e => err.message.includes(e))) {
+          this.log.warn(`Failed canProposeAtTime check with ${expectedErrors.find(e => err.message.includes(e))}`, {
             error: err.message,
           });
         } else {
