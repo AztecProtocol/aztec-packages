@@ -2,7 +2,14 @@ import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { TimeoutError } from '@aztec/foundation/error';
 import type { Logger } from '@aztec/foundation/log';
 
-import { type Address, type EncodeFunctionDataParameters, type Hex, encodeFunctionData, multicall3Abi } from 'viem';
+import {
+  type Address,
+  type EncodeFunctionDataParameters,
+  type Hex,
+  type RequiredBy,
+  encodeFunctionData,
+  multicall3Abi,
+} from 'viem';
 
 import type { L1BlobInputs, L1TxConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from '../types.js';
@@ -45,15 +52,19 @@ export const aggregate3ValueAbi = [
 ] as const;
 
 export class Multicall3 {
-  static async forward(
+  static async forward<TOptGasLimitRequired extends boolean>(
     requests: L1TxRequest[],
     l1TxUtils: L1TxUtils,
-    gasConfig: L1TxConfig | undefined,
+    gasConfig: TOptGasLimitRequired extends true ? RequiredBy<L1TxConfig, 'gasLimit'> : L1TxConfig | undefined,
     blobConfig: L1BlobInputs | undefined,
     rollupAddress: Hex,
     logger: Logger,
-    opts: { revertOnFailure?: boolean } = {},
+    opts: { revertOnFailure?: boolean; gasLimitRequired?: TOptGasLimitRequired } = {},
   ) {
+    if (opts.gasLimitRequired && !gasConfig?.gasLimit) {
+      throw new Error('Multicall gasLimit is required when gasLimitRequired is true');
+    }
+
     requests = requests.filter(request => request.to !== null);
     const args = requests.map(r => ({
       target: r.to!,

@@ -522,6 +522,11 @@ export class SequencerPublisher {
     txConfig: RequestWithExpiry['gasConfig'],
     blobConfig: L1BlobInputs | undefined,
   ) {
+    if (!txConfig?.gasLimit) {
+      throw new Error('gasLimit is required for bundled transactions');
+    }
+    const txConfigWithGasLimit = txConfig as L1TxConfig & { gasLimit: bigint };
+
     const triedAddresses: EthAddress[] = [];
     let currentPublisher = this.l1TxUtils;
 
@@ -531,10 +536,11 @@ export class SequencerPublisher {
         const result = await Multicall3.forward(
           validRequests.map(r => r.request),
           currentPublisher,
-          txConfig,
+          txConfigWithGasLimit,
           blobConfig,
           this.rollupContract.address,
           this.log,
+          { gasLimitRequired: true },
         );
         this.l1TxUtils = currentPublisher;
         return result;
