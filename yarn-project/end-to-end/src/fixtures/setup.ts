@@ -538,7 +538,12 @@ export async function setup(
     const shouldDeployAccounts = numberOfAccounts > 0 && !opts.skipAccountDeployment;
     // Only set minTxsPerBlock=0 if we need an empty block (no accounts at all, not skipped deployment)
     const needsEmptyBlock = numberOfAccounts === 0 && !opts.skipAccountDeployment;
-    config.minTxsPerBlock = shouldDeployAccounts ? 1 : needsEmptyBlock ? 0 : originalMinTxsPerBlock;
+    // Under proposer pipelining, the sequencer builds during slot N-1 for slot N. A tx submitted at
+    // slot N start is too late — it arrives after the build. Forcing minTxsPerBlock=1 then stalls the
+    // chain on alternating slots, so allow empty checkpoints to let the chain advance while the test
+    // submits subsequent txs.
+    const accountsDeployMinTxs = config.enableProposerPipelining ? 0 : 1;
+    config.minTxsPerBlock = shouldDeployAccounts ? accountsDeployMinTxs : needsEmptyBlock ? 0 : originalMinTxsPerBlock;
 
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
