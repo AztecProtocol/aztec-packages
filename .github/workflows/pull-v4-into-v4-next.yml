@@ -42,6 +42,20 @@ jobs:
         if: steps.merge.outputs.conflict == 'false'
         run: git push origin v4-next
 
+      - name: Notify Slack on success
+        if: steps.merge.outputs.conflict == 'false'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            TEXT=$(printf '✅ Auto-merge v4 → v4-next succeeded. <%s|View Run>.' "$RUN_URL")
+            curl -sS -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')"
+          fi
+
       - name: Create conflict-resolution PR
         if: steps.merge.outputs.conflict == 'true'
         id: conflict-pr
@@ -89,3 +103,18 @@ jobs:
             -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
             -H "Content-type: application/json" \
             -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')"
+
+      - name: Notify Slack on workflow failure
+        if: failure()
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          if [ -n "${SLACK_BOT_TOKEN}" ]; then
+            RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            TEXT=$(printf '❌ Pull v4 into v4-next workflow failed. <%s|View Run>.' "$RUN_URL")
+
+            curl -sS -X POST https://slack.com/api/chat.postMessage \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-type: application/json" \
+              -d "$(jq -n --arg c "#backports" --arg t "$TEXT" '{channel:$c, text:$t}')"
+          fi
