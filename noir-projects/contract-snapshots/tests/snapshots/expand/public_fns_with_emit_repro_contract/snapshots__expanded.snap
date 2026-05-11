@@ -865,19 +865,22 @@ pub contract PublicFnsWithEmitRepro {
         parameters: fn_15_parameters,
     }
 
+    #[contract_library_method]
+    unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+        let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
+            let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
+            aztec::hash::hash_args(serialized_args)
+        });
+        let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
+        let self_address: aztec::protocol::address::AztecAddress = context.this_address();
+        let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
+        let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
+        let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
+        aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
+    }
+
     unconstrained fn __aztec_nr_internals__fn_01(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 1_u64);
@@ -886,18 +889,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_02(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 2_u64);
@@ -906,18 +898,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_03(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 3_u64);
@@ -926,18 +907,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_04(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 4_u64);
@@ -946,18 +916,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_05(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 5_u64);
@@ -966,18 +925,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_06(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 6_u64);
@@ -986,18 +934,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_07(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 7_u64);
@@ -1006,18 +943,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_08(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 8_u64);
@@ -1026,18 +952,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_09(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 9_u64);
@@ -1046,18 +961,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_10(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 10_u64);
@@ -1066,18 +970,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_11(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 11_u64);
@@ -1086,18 +979,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_12(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 12_u64);
@@ -1106,18 +988,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_13(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 13_u64);
@@ -1126,18 +997,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_14(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 14_u64);
@@ -1146,18 +1006,7 @@ pub contract PublicFnsWithEmitRepro {
     }
 
     unconstrained fn __aztec_nr_internals__fn_15(v: u64) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = {
-            let context: aztec::context::PublicContext = aztec::context::PublicContext::new(|| -> Field {
-                let serialized_args: [Field; 1] = aztec::oracle::avm::calldata_copy(1_u32, <u64 as aztec::protocol::traits::Serialize>::N);
-                aztec::hash::hash_args(serialized_args)
-            });
-            let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
-            let self_address: aztec::protocol::address::AztecAddress = context.this_address();
-            let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
-            let call_self_static: CallSelfStatic<aztec::context::PublicContext> = CallSelfStatic::<aztec::context::PublicContext> { address: self_address, context: context};
-            let internal: CallInternal<aztec::context::PublicContext> = CallInternal::<aztec::context::PublicContext> { context: context};
-            aztec::contract_self::contract_self_public::ContractSelfPublic::<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>>::new(context, storage, call_self, call_self_static, internal)
-        };
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let old: u64 = self.storage.value.read();
             self.storage.value.write((old + v) + 15_u64);
