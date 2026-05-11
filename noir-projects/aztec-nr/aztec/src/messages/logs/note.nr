@@ -19,7 +19,7 @@ pub(crate) global PRIVATE_NOTE_MSG_PLAINTEXT_RANDOMNESS_INDEX: u32 = 2;
 /// encryption overhead and extra fields in the message (e.g. message type id, storage slot, randomness, etc.).
 pub global MAX_NOTE_PACKED_LEN: u32 = MAX_MESSAGE_CONTENT_LEN - PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
 
-/// Creates the plaintext for a note-shaped message with the given `msg_type_id`.
+/// Creates the plaintext for a private note message with the given `msg_type_id`.
 ///
 /// Shared encoder used by [`encode_private_note_message`] and by custom message handlers that use the same format as
 /// standard private note message but perform additional validation logic.
