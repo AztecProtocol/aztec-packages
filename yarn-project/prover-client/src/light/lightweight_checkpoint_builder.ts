@@ -290,6 +290,14 @@ export class LightweightCheckpointBuilder {
       totalManaUsed,
     });
 
+    this.logger.debug(`Completed checkpoint ${this.checkpointNumber}`, {
+      checkpointNumber: this.checkpointNumber,
+      headerHash: header.hash().toString(),
+      checkpointOutHash: checkpointOutHash.toString(),
+      numPreviousCheckpointOutHashes: this.previousCheckpointOutHashes.length,
+      ...header.toInspect(),
+    });
+
     return new Checkpoint(newArchive, header, blocks, this.checkpointNumber, this.feeAssetPriceModifier);
   }
 
