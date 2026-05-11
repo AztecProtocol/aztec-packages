@@ -33,7 +33,7 @@ import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { buildPipelinedParentSimulationOverridesPlan } from './chain_state_overrides.js';
+import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointProposalJobMetrics } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
@@ -391,28 +391,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // The L1 contract reads archives[proposedCheckpointNumber] and compares it with the provided archive.
     // When invalidating or pipelining, the local archive may differ from L1's, so we adjust accordingly.
     let archiveForCheck = syncedTo.archive;
-    const l1SimulationOverridesBuilder = new SimulationOverridesBuilder();
+    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
 
-    if (this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint) {
-      // Parent checkpoint hasn't landed on L1 yet. Build a byte-faithful override of the parent's
-      // tempCheckpointLog cell — slotNumber is the load-bearing field that, if left at storage zero,
-      // makes canPruneAtTime spuriously declare the proof window expired and triggers a
-      // Rollup__InvalidArchive revert during the canProposeAt simulation.
-      const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
-      const parentPlan = await buildPipelinedParentSimulationOverridesPlan({
-        checkpointNumber,
-        proposedCheckpointData: syncedTo.proposedCheckpointData,
-        rollup: this.rollupContract,
-        signatureContext: this.signatureContext,
-        log: this.log,
-        pipeliningEnabled: true,
-      });
-      l1SimulationOverridesBuilder.merge(parentPlan);
+    if (isPipelining && syncedTo.hasProposedCheckpoint) {
       this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
-
       this.log.verbose(
         `Building on top of proposed checkpoint (pending=${syncedTo.proposedCheckpointData?.checkpointNumber}) for target slot ${targetSlot}`,
-        { targetSlot, parentCheckpointNumber },
+        { targetSlot, parentCheckpointNumber: CheckpointNumber(checkpointNumber - 1) },
       );
       // Clear the invalidation - the proposed checkpoint should handle it.
       invalidateCheckpoint = undefined;
@@ -420,18 +405,28 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       // After invalidation, L1 will roll back to checkpoint N-1. The archive at N-1 already
       // exists on L1, so we just pass the matching archive (the lastArchive of the invalid checkpoint).
       archiveForCheck = invalidateCheckpoint.lastArchive;
-      l1SimulationOverridesBuilder.withChainTips({ pending: invalidateCheckpoint.forcePendingCheckpointNumber });
       this.metrics.recordPipelineDepth(0);
     } else {
       this.metrics.recordPipelineDepth(0);
     }
 
+    // Build the base simulation plan: pending override from pipelining or invalidation + fee header.
+    const basePlan = await buildCheckpointSimulationOverridesPlan({
+      checkpointNumber,
+      proposedCheckpointData:
+        isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
+      invalidateToPendingCheckpointNumber: invalidateCheckpoint?.forcePendingCheckpointNumber,
+      rollup: this.rollupContract,
+      log: this.log,
+    });
+
     let provenOverride: CheckpointNumber | undefined;
+    const l1SimulationOverridesBuilder = SimulationOverridesBuilder.from(basePlan);
     if (await this.l2BlockSource.isPruneDueAtSlot(targetSlot)) {
       // Force `proven == pending` in the simulation so `STFLib.canPruneAtTime` short-circuits
       // to false. Use the simulated pending if the caller already overrode it, otherwise the
       // real L1 pending tip.
-      const overriddenPending = l1SimulationOverridesBuilder.build()?.chainTipsOverride?.pending;
+      const overriddenPending = basePlan?.chainTipsOverride?.pending;
       const realPending = (await this.l2BlockSource.getL2Tips()).checkpointed.checkpoint.number;
       provenOverride = overriddenPending ?? realPending;
       l1SimulationOverridesBuilder.withChainTips({ proven: provenOverride });

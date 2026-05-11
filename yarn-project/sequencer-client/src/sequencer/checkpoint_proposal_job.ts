@@ -66,10 +66,7 @@ import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validato
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import {
-  buildPipelinedParentSimulationOverridesPlan,
-  buildSubmissionSimulationOverridesPlan,
-} from './chain_state_overrides.js';
+import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
@@ -110,11 +107,12 @@ export class CheckpointProposalJob implements Traceable {
   private pendingL1Submission: Promise<void> | undefined;
 
   /**
-   * Build-time chain state overrides used both during build (globals + invariant checks) and
-   * later for enqueue-time submission validation. May carry the pipelined parent override, the
-   * pretend-proof-landed (`proven`) override at an epoch boundary, or both.
+   * Chain state overrides built once per slot in proposeCheckpoint after the checkpoint is
+   * complete. Carries the pending parent override and fee header for pipelining, or the
+   * invalidation pending override when rolling back. Reused by enqueueCheckpointForSubmission
+   * without recomputing.
    */
-  private pipelinedParentSimulationOverridesPlan?: SimulationOverridesPlan;
+  private checkpointSimulationOverridesPlan?: SimulationOverridesPlan;
 
   private getSignatureContext(): CoordinationSignatureContext {
     return this.signatureContext;
@@ -363,24 +361,19 @@ export class CheckpointProposalJob implements Traceable {
       }
     }
 
-    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-    const enqueueSimulationOverridesPlan = buildSubmissionSimulationOverridesPlan({
-      pipelinedParentPlan: this.pipelinedParentSimulationOverridesPlan,
+    // Pre-check plan: no pipelining overrides — reflects real L1 state right before submission
+    // to catch state drift (prunes, reorgs) that occurred during the pipeline sleep.
+    const preCheckSimulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
+      checkpointNumber: this.checkpointNumber,
       invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
       lastArchiveRoot: checkpoint.header.lastArchiveRoot,
-      pipeliningEnabled: isPipelining,
-    });
-
-    const preCheckSimulationOverridesPlan = buildSubmissionSimulationOverridesPlan({
-      pipelinedParentPlan: undefined,
-      invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
-      lastArchiveRoot: checkpoint.header.lastArchiveRoot,
-      pipeliningEnabled: isPipelining,
+      rollup: this.publisher.rollupContract,
+      log: this.log,
     });
 
     await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
       txTimeoutAt,
-      simulationOverridesPlan: enqueueSimulationOverridesPlan,
+      simulationOverridesPlan: this.checkpointSimulationOverridesPlan,
       preCheckSimulationOverridesPlan,
     });
   }
@@ -563,25 +556,24 @@ export class CheckpointProposalJob implements Traceable {
         this.publisher.enqueueInvalidateCheckpoint(this.invalidateCheckpoint);
       }
 
-      // Create checkpoint builder for the slot.
-      // When pipelining, force the proposed checkpoint number and fee header to our parent so the
-      // fee computation sees the same chain tip that L1 will see once the previous pipelined checkpoint lands.
+      // Build an early simulation plan (no archive yet) for globals and fee-asset price.
+      // When pipelining, this gives the globals builder the correct pending checkpoint + fee
+      // header so the mana-min-fee simulation sees the chain tip that L1 will see once the
+      // pipelined parent lands.
       const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-      this.pipelinedParentSimulationOverridesPlan = await buildPipelinedParentSimulationOverridesPlan({
+      const earlySimulationPlan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: this.checkpointNumber,
-        proposedCheckpointData: this.proposedCheckpointData,
+        proposedCheckpointData: isPipelining ? this.proposedCheckpointData : undefined,
+        invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
         rollup: this.publisher.rollupContract,
-        signatureContext: this.signatureContext,
         log: this.log,
-        pipeliningEnabled: isPipelining,
-        prunePending: this.prunePending,
       });
 
       const checkpointGlobalVariables = await this.globalsBuilder.buildCheckpointGlobalVariables(
         coinbase,
         feeRecipient,
         this.targetSlot,
-        this.pipelinedParentSimulationOverridesPlan,
+        earlySimulationPlan,
       );
 
       // Collect L1 to L2 messages for the checkpoint and compute their hash
@@ -605,8 +597,7 @@ export class CheckpointProposalJob implements Traceable {
 
       // Anchor the modifier to the predicted parent fee header: L1 will apply it against
       // that, not against the latest published checkpoint (which lags by one under pipelining).
-      const predictedParentEthPerFeeAssetE12 =
-        this.pipelinedParentSimulationOverridesPlan?.pendingCheckpointState?.feeHeader?.ethPerFeeAsset;
+      const predictedParentEthPerFeeAssetE12 = earlySimulationPlan?.pendingCheckpointState?.feeHeader?.ethPerFeeAsset;
       const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier(predictedParentEthPerFeeAssetE12);
 
       // Create a long-lived forked world state for the checkpoint builder
@@ -727,6 +718,17 @@ export class CheckpointProposalJob implements Traceable {
         });
         return undefined;
       }
+
+      // Build the final simulation plan now that we know the checkpoint's archive root.
+      // This plan is stored for reuse by enqueueCheckpointForSubmission.
+      this.checkpointSimulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
+        checkpointNumber: this.checkpointNumber,
+        proposedCheckpointData: isPipelining ? this.proposedCheckpointData : undefined,
+        invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
+        lastArchiveRoot: checkpoint.header.lastArchiveRoot,
+        rollup: this.publisher.rollupContract,
+        log: this.log,
+      });
 
       // Record checkpoint-level build metrics
       this.checkpointMetrics.recordCheckpointBuild(
