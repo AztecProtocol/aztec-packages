@@ -6,7 +6,6 @@ import {
   type EmpireSlashingProposerContract,
   FeeAssetPriceOracle,
   type GovernanceProposerContract,
-  type IEmpireBase,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
@@ -34,7 +33,6 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -118,7 +116,6 @@ export class SequencerPublisher {
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
   private isPayloadEmptyCache: Map<string, boolean> = new Map<string, boolean>();
-  private payloadProposedCache: Set<string> = new Set<string>();
 
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
@@ -685,7 +682,7 @@ export class SequencerPublisher {
     slotNumber: SlotNumber,
     signalType: GovernanceSignalAction,
     payload: EthAddress,
-    base: IEmpireBase,
+    base: GovernanceProposerContract,
     signerAddress: EthAddress,
     signer: (msg: TypedDataDefinition) => Promise<`0x${string}`>,
   ): Promise<boolean> {
@@ -716,29 +713,23 @@ export class SequencerPublisher {
       return false;
     }
 
-    // Check if payload was already submitted to governance
-    const cacheKey = payload.toString();
-    if (!this.payloadProposedCache.has(cacheKey)) {
-      try {
-        const l1StartBlock = await this.rollupContract.getL1StartBlock();
-        const proposed = await retry(
-          () => base.hasPayloadBeenProposed(payload.toString(), l1StartBlock),
-          'Check if payload was proposed',
-          makeBackoff([0, 1, 2]),
-          this.log,
-          true,
-        );
-        if (proposed) {
-          this.payloadProposedCache.add(cacheKey);
-        }
-      } catch (err) {
-        this.log.warn(`Failed to check if payload ${payload} was proposed after retries, skipping signal`, err);
-        return false;
-      }
+    // Skip signaling if there is already a live (non-terminal) Governance proposal for this
+    // payload. This is intentionally not cached: a previously-live proposal may transition to
+    // a terminal state (Dropped/Rejected/Expired/Executed), at which point we may want to re-signal
+    // the same payload in a future round.
+    let proposed = false;
+    try {
+      proposed = await base.hasActiveProposalWithPayload(payload.toString());
+    } catch (err) {
+      // We deliberately swallow the error and proceed to signal. Failing closed (skipping the
+      // signal) on transient RPC errors would let a flaky L1 endpoint silence governance
+      // participation entirely; failing open at worst produces a duplicate signal that the
+      // contract will simply count alongside others in the round.
+      this.log.error(`Failed to check if payload ${payload} was already proposed (signalling anyway)`, err);
     }
 
-    if (this.payloadProposedCache.has(cacheKey)) {
-      this.log.info(`Payload ${payload} was already proposed to governance, stopping signals`);
+    if (proposed) {
+      this.log.info(`Payload ${payload} has a live governance proposal, stopping signals`);
       return false;
     }
 
@@ -864,7 +855,7 @@ export class SequencerPublisher {
             slotNumber,
             'empire-slashing-signal',
             action.payload,
-            this.slashingProposerContract,
+            this.slashingProposerContract as any,
             signerAddress,
             signer,
           );
