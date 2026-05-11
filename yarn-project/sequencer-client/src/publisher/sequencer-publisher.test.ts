@@ -12,6 +12,7 @@ import {
   type GasPrice,
   type L1TxUtils,
   type L1TxUtilsConfig,
+  MAX_L1_TX_LIMIT,
   defaultL1TxUtilsConfig,
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError } from '@aztec/ethereum/utils';
@@ -34,7 +35,10 @@ import {
   type GetTransactionReceiptReturnType,
   type PrivateKeyAccount,
   type TransactionReceipt,
+  decodeFunctionResult,
   encodeFunctionData,
+  encodeFunctionResult,
+  multicall3Abi,
   toHex,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -171,10 +175,12 @@ describe('SequencerPublisher', () => {
     (l1TxUtils as any).estimateGas.mockResolvedValue(GAS_GUESS);
     (l1TxUtils as any).simulate.mockResolvedValue({ gasUsed: 1_000_000n, result: '0x' });
     (l1TxUtils as any).bumpGasLimit.mockImplementation((val: bigint) => val + (val * 20n) / 100n);
+    l1TxUtils.getSenderBalance.mockResolvedValue(10_000_000_000_000_000_000n); // 10 ETH, sufficient for all tests
     (l1TxUtils as any).client = {
       account: {
         address: '0x1234567890123456789012345678901234567890',
       },
+      getGasPrice: () => Promise.resolve(1n),
     };
 
     const currentL2Slot = publisher.getCurrentL2Slot();
@@ -279,6 +285,7 @@ describe('SequencerPublisher', () => {
       }),
       mockRollupAddress,
       expect.anything(), // the logger
+      { gasLimitRequired: true },
     );
 
     expect(forwardSpy.mock.calls[0][2]?.gasLimit).toBeGreaterThan(2_000_000n);
@@ -315,7 +322,14 @@ describe('SequencerPublisher', () => {
       secondL1TxUtils = mock<L1TxUtils>();
       secondL1TxUtils.getBlockNumber.mockResolvedValue(1n);
       secondL1TxUtils.getSenderAddress.mockReturnValue(EthAddress.random());
-      secondL1TxUtils.getSenderBalance.mockResolvedValue(1000n);
+      secondL1TxUtils.getSenderBalance.mockResolvedValue(10_000_000_000_000_000_000n); // 10 ETH
+      (secondL1TxUtils as any).client = {
+        account: { address: EthAddress.random().toString() },
+        getGasPrice: () => Promise.resolve(1n),
+      };
+      (secondL1TxUtils as any).bumpGasLimit = (val: bigint) => val + (val * 20n) / 100n;
+      (secondL1TxUtils as any).simulate = () => Promise.resolve({ gasUsed: 1_000_000n, result: '0x' });
+      (secondL1TxUtils as any).getBlockNumber = () => Promise.resolve(1n);
 
       getNextPublisher = jest.fn();
 
@@ -375,11 +389,13 @@ describe('SequencerPublisher', () => {
         expect.anything(),
         expect.anything(),
         expect.anything(),
+        expect.anything(),
       );
       expect(forwardSpy).toHaveBeenNthCalledWith(
         2,
         expect.anything(),
         secondL1TxUtils,
+        expect.anything(),
         expect.anything(),
         expect.anything(),
         expect.anything(),
@@ -445,21 +461,25 @@ describe('SequencerPublisher', () => {
   });
 
   it('does not send propose tx if rollup validation fails', async () => {
-    l1TxUtils.simulate.mockRejectedValueOnce(new Error('Test error'));
+    await publisher.enqueueProposeCheckpoint(
+      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+      CommitteeAttestationsAndSigners.empty(testSignatureContext),
+      Signature.empty(),
+    );
 
-    await expect(
-      publisher.enqueueProposeCheckpoint(
-        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(testSignatureContext),
-        Signature.empty(),
-      ),
-    ).rejects.toThrow();
-
-    expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
+    // Simulate the bundle-level validate returning a failed entry for the propose call.
+    // When all entries fail, bundleSimulate returns undefined and sendRequests returns undefined.
+    const failedResult = encodeFunctionResult({
+      abi: multicall3Abi,
+      functionName: 'aggregate3',
+      result: [{ success: false, returnData: '0x' }],
+    });
+    (l1TxUtils as any).simulate.mockResolvedValueOnce({ gasUsed: 0n, result: failedResult });
 
     const result = await publisher.sendRequests();
     expect(result).toEqual(undefined);
     expect(forwardSpy).not.toHaveBeenCalled();
+    expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
   });
 
   it('returns errorMsg if forwarder tx reverts', async () => {
@@ -572,9 +592,11 @@ describe('SequencerPublisher', () => {
     await publisher.sendRequests();
 
     expect(forwardSpy).toHaveBeenCalledTimes(1);
-    // The gas config should only include the valid request's gas (100_000), not the expired one (500_000)
+    // The expired request (500_000) is filtered before bundle simulate.
+    // Bundle simulate returns '0x' (fallback), so gasLimit comes from MAX_L1_TX_LIMIT,
+    // not from per-request gasConfig — the expired request's gasLimit has no effect.
     const txConfig = forwardSpy.mock.calls[0][2];
-    expect(txConfig?.gasLimit).toEqual(100_000n);
+    expect(txConfig?.gasLimit).toEqual(MAX_L1_TX_LIMIT);
   });
 
   it('does not signal for payload when quorum is reached', async () => {
@@ -599,8 +621,8 @@ describe('SequencerPublisher', () => {
 
   it('does not signal for payload with empty code', async () => {
     const { govPayload } = mockGovernancePayload();
-    l1TxUtils.getCode.mockReturnValue(Promise.resolve(undefined));
-    ``;
+    // isPayloadEmpty now lives on GovernanceProposerContract, not L1TxUtils.
+    governanceProposerContract.isPayloadEmpty.mockResolvedValue(true);
 
     expect(
       await publisher.enqueueGovernanceCastSignal(

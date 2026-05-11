@@ -138,12 +138,15 @@ describe('CheckpointVoter HA Integration', () => {
     txUtils.client = {
       account: validatorAccount,
       getCode: () => Promise.resolve('0x1234' as `0x${string}`),
+      getGasPrice: () => Promise.resolve(1n),
     } as any;
     txUtils.getSenderAddress.mockReturnValue(EthAddress.fromString(validatorAccount.address));
+    txUtils.getSenderBalance.mockResolvedValue(10_000_000_000_000_000_000n); // 10 ETH
     txUtils.simulate.mockResolvedValue({
       gasUsed: 100000n,
       result: '0x',
     });
+    (txUtils as any).bumpGasLimit = (val: bigint) => val + (val * 20n) / 100n;
     // Mock getCode to return non-empty bytecode for governance/slashing payloads
     txUtils.getCode.mockResolvedValue('0x1234' as any);
     return txUtils;
