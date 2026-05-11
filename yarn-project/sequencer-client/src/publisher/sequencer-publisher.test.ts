@@ -480,6 +480,126 @@ describe('SequencerPublisher', () => {
     expect(l1TxUtils.simulate).toHaveBeenCalledTimes(1);
   });
 
+  describe('bundleSimulate second-pass re-decode', () => {
+    const addTwoRequests = () => {
+      const currentL2Slot = publisher.getCurrentL2Slot();
+      publisher.addRequest({
+        action: 'invalidate-by-invalid-attestation',
+        request: { to: mockRollupAddress, data: '0xdeadbeef' },
+        lastValidL2Slot: SlotNumber(Number(currentL2Slot) + 2),
+        checkSuccess: () => true,
+      });
+      publisher.addRequest({
+        action: 'propose',
+        request: {
+          to: mockRollupAddress,
+          data: encodeFunctionData({
+            abi: EmpireBaseAbi,
+            functionName: 'signal',
+            args: [EthAddress.random().toString()],
+          }),
+        },
+        lastValidL2Slot: SlotNumber(Number(currentL2Slot) + 2),
+        checkSuccess: () => true,
+      });
+    };
+
+    it('drops an entry that still reverts in the second-pass re-simulate', async () => {
+      addTwoRequests();
+
+      // First simulate: invalidate succeeds, propose fails.
+      const firstResult = encodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        result: [
+          { success: true, returnData: '0x' },
+          { success: false, returnData: '0x' },
+        ],
+      });
+      // Second simulate (reduced bundle with only invalidate): that entry also fails.
+      const secondResult = encodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        result: [{ success: false, returnData: '0x' }],
+      });
+
+      (l1TxUtils as any).simulate
+        .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
+        .mockResolvedValueOnce({ gasUsed: 0n, result: secondResult });
+
+      const result = await publisher.sendRequests();
+
+      // Both passes dropped everything — should abort.
+      expect(result).toBeUndefined();
+      expect(forwardSpy).not.toHaveBeenCalled();
+      expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
+    });
+
+    it('sends only survivors after second-pass re-simulate filters additional failures', async () => {
+      addTwoRequests();
+
+      // First simulate: both succeed initially.
+      // (Simulate a case where second-pass further trims — to test the path where
+      // first pass survivors differ from second pass survivors.)
+      const firstResult = encodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        result: [
+          { success: true, returnData: '0x' },
+          { success: false, returnData: '0x' },
+        ],
+      });
+      // Second simulate (reduced bundle with only invalidate): that one succeeds.
+      const secondResult = encodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        result: [{ success: true, returnData: '0x' }],
+      });
+
+      (l1TxUtils as any).simulate
+        .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
+        .mockResolvedValueOnce({ gasUsed: 300_000n, result: secondResult });
+
+      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, errorMsg: undefined });
+
+      const result = await publisher.sendRequests();
+
+      expect(result).toBeDefined();
+      // Only the invalidate survivor was sent.
+      expect(result?.sentActions).toEqual(['invalidate-by-invalid-attestation']);
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+      expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
+    });
+
+    it('falls back to MAX_L1_TX_LIMIT when second-pass simulate returns 0x', async () => {
+      addTwoRequests();
+
+      // First simulate: propose fails.
+      const firstResult = encodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        result: [
+          { success: true, returnData: '0x' },
+          { success: false, returnData: '0x' },
+        ],
+      });
+      // Second simulate: fallback (eth_simulateV1 not supported).
+      (l1TxUtils as any).simulate
+        .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
+        .mockResolvedValueOnce({ gasUsed: 1_000_000n, result: '0x' });
+
+      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, errorMsg: undefined });
+
+      const result = await publisher.sendRequests();
+
+      expect(result).toBeDefined();
+      expect(result?.sentActions).toEqual(['invalidate-by-invalid-attestation']);
+      // Gas falls back to MAX_L1_TX_LIMIT when second-pass returns '0x'.
+      const gasLimit = forwardSpy.mock.calls[0][2]?.gasLimit;
+      expect(gasLimit).toEqual(MAX_L1_TX_LIMIT);
+    });
+  });
+
   it('returns errorMsg if forwarder tx reverts', async () => {
     forwardSpy.mockResolvedValue({
       receipt: { ...proposeTxReceipt, status: 'reverted' },
