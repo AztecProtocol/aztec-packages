@@ -765,6 +765,20 @@ export class CheckpointProposalJob implements Traceable {
         return { checkpoint, proposal: undefined!, blockProposedAt: this.dateProvider.now() };
       }
 
+      // Validate the header against L1 state before broadcasting.
+      // If this fails the slot is aborted before any gossip work; state drift between here
+      // and the eventual L1 send is caught by the bundle simulate at send time.
+      try {
+        await this.publisher.validateBlockHeader(checkpoint.header, this.checkpointSimulationOverridesPlan);
+      } catch (err) {
+        this.log.error(`Pre-broadcast header validation failed for slot ${this.targetSlot}; aborting`, err, {
+          slot: this.targetSlot,
+          checkpointNumber: this.checkpointNumber,
+        });
+        this.metrics.recordCheckpointProposalFailed('header_validation_failed');
+        return undefined;
+      }
+
       // Create the checkpoint proposal and broadcast it
       const proposal = await this.validatorClient.createCheckpointProposal(
         checkpoint.header,

@@ -466,12 +466,8 @@ describe('SequencerPublisher', () => {
   it('preCheck closure uses preCheckSimulationOverridesPlan, not the enqueue-time plan', async () => {
     (publisher.epochCache.isProposerPipeliningEnabled as jest.Mock).mockReturnValue(true);
 
-    const validateSpy = jest.spyOn(publisher, 'validateCheckpointForSubmission').mockResolvedValue(undefined);
+    const validateSpy = jest.spyOn(publisher, 'validateBlockHeader').mockResolvedValue(undefined);
 
-    const enqueuePlan: SimulationOverridesPlan = {
-      chainTipsOverride: { pending: CheckpointNumber(7) },
-      pendingCheckpointState: { archive: Fr.random() },
-    };
     const preCheckPlan: SimulationOverridesPlan = {
       chainTipsOverride: { pending: CheckpointNumber(8) },
     };
@@ -480,67 +476,50 @@ describe('SequencerPublisher', () => {
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
-      { simulationOverridesPlan: enqueuePlan, preCheckSimulationOverridesPlan: preCheckPlan },
+      { preCheckSimulationOverridesPlan: preCheckPlan },
     );
 
-    // Enqueue-time validation called with the enqueue plan (plus withoutBlobCheck applied).
-    expect(validateSpy).toHaveBeenCalledTimes(1);
-    expect(validateSpy.mock.calls[0][3]).toMatchObject({
-      chainTipsOverride: { pending: CheckpointNumber(7) },
-      disableBlobCheck: true,
-    });
+    // No enqueue-time validation — validateBlockHeader is only called from the preCheck closure.
+    expect(validateSpy).not.toHaveBeenCalled();
 
-    // The pending preCheck request should now run the preCheck closure with the preCheck plan.
+    // The pending preCheck request should run the preCheck closure with the preCheck plan.
     const requests: { preCheck?: () => Promise<void> }[] = (publisher as any).requests;
     expect(requests).toHaveLength(1);
     const preCheck = requests[0].preCheck;
     expect(preCheck).toBeDefined();
 
-    validateSpy.mockClear();
     await preCheck!();
 
     expect(validateSpy).toHaveBeenCalledTimes(1);
-    expect(validateSpy.mock.calls[0][3]).toMatchObject({
+    expect(validateSpy.mock.calls[0][1]).toMatchObject({
       chainTipsOverride: { pending: CheckpointNumber(8) },
       disableBlobCheck: true,
     });
-    // And not the enqueue plan's archive override.
-    expect(validateSpy.mock.calls[0][3]?.pendingCheckpointState).toBeUndefined();
   });
 
   it('preCheck does not fall back to the enqueue plan when preCheckSimulationOverridesPlan is omitted', async () => {
     (publisher.epochCache.isProposerPipeliningEnabled as jest.Mock).mockReturnValue(true);
 
-    const validateSpy = jest.spyOn(publisher, 'validateCheckpointForSubmission').mockResolvedValue(undefined);
-
-    const enqueuePlan: SimulationOverridesPlan = {
-      chainTipsOverride: { pending: CheckpointNumber(7) },
-      pendingCheckpointState: { archive: Fr.random() },
-    };
+    const validateSpy = jest.spyOn(publisher, 'validateBlockHeader').mockResolvedValue(undefined);
 
     await publisher.enqueueProposeCheckpoint(
       new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
       CommitteeAttestationsAndSigners.empty(testSignatureContext),
       Signature.empty(),
-      { simulationOverridesPlan: enqueuePlan },
     );
 
-    expect(validateSpy).toHaveBeenCalledTimes(1);
-    expect(validateSpy.mock.calls[0][3]).toMatchObject({
-      chainTipsOverride: { pending: CheckpointNumber(7) },
-      disableBlobCheck: true,
-    });
+    // No enqueue-time validation.
+    expect(validateSpy).not.toHaveBeenCalled();
 
     const requests: { preCheck?: () => Promise<void> }[] = (publisher as any).requests;
     expect(requests).toHaveLength(1);
     const preCheck = requests[0].preCheck;
     expect(preCheck).toBeDefined();
 
-    validateSpy.mockClear();
     await preCheck!();
 
     expect(validateSpy).toHaveBeenCalledTimes(1);
-    const preCheckArg = validateSpy.mock.calls[0][3];
+    const preCheckArg = validateSpy.mock.calls[0][1];
     expect(preCheckArg?.disableBlobCheck).toBe(true);
     expect(preCheckArg?.chainTipsOverride).toBeUndefined();
     expect(preCheckArg?.pendingCheckpointState).toBeUndefined();

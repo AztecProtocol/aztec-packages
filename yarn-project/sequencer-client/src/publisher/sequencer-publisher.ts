@@ -11,8 +11,6 @@ import {
   SimulationOverridesBuilder,
   type SimulationOverridesPlan,
   type SlashingProposerContract,
-  type ViemCommitteeAttestations,
-  type ViemHeader,
   buildSimulationOverridesStateOverride,
 } from '@aztec/ethereum/contracts';
 import { type L1FeeAnalysisResult, L1FeeAnalyzer } from '@aztec/ethereum/l1-fee-analysis';
@@ -33,7 +31,7 @@ import { pick } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
@@ -42,7 +40,11 @@ import { EmpireBaseAbi, ErrorsAbi, RollupAbi, SlashingProposerAbi } from '@aztec
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { getLastL1SlotTimestampForL2Slot, getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
+import {
+  getLastL1SlotTimestampForL2Slot,
+  getNextL1SlotTimestamp,
+  getTimestampForSlot,
+} from '@aztec/stdlib/epoch-helpers';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -151,6 +153,8 @@ interface RequestWithExpiry {
   lastValidL2Slot: SlotNumber;
   gasConfig?: Pick<L1TxConfig, 'txTimeoutAt' | 'gasLimit'>;
   blobConfig?: L1BlobInputs;
+  /** Gas consumed by validateBlobs; stashed for the bundle simulate at send time. */
+  blobEvaluationGas?: bigint;
   /** Optional pre-send validation. If it rejects, the request is discarded. */
   preCheck?: () => Promise<void>;
   checkSuccess: (
@@ -782,7 +786,8 @@ export class SequencerPublisher {
       flags,
     ] as const;
 
-    const ts = this.getSimulationTimestamp(header.slotNumber);
+    const l1Constants = this.epochCache.getL1Constants();
+    const ts = getTimestampForSlot(header.slotNumber, l1Constants);
     const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
     let balance = 0n;
     if (this.config.fishermanMode) {
@@ -934,35 +939,6 @@ export class SequencerPublisher {
       const _: never = reason;
       throw new Error(`Unknown reason for invalidation`);
     }
-  }
-
-  /** Simulates `propose` to make sure that the checkpoint is valid for submission */
-  @trackSpan('SequencerPublisher.validateCheckpointForSubmission')
-  public async validateCheckpointForSubmission(
-    checkpoint: Checkpoint,
-    attestationsAndSigners: CommitteeAttestationsAndSigners,
-    attestationsAndSignersSignature: Signature,
-    simulationOverridesPlan?: SimulationOverridesPlan,
-  ): Promise<void> {
-    const blobFields = checkpoint.toBlobFields();
-    const blobs = await getBlobsPerL1Block(blobFields);
-    const blobInput = getPrefixedEthBlobCommitments(blobs);
-
-    const args = [
-      {
-        header: checkpoint.header.toViem(),
-        archive: toHex(checkpoint.archive.root.toBuffer()),
-        oracleInput: {
-          feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
-        },
-      },
-      attestationsAndSigners.getPackedAttestations(),
-      attestationsAndSigners.getSigners().map(signer => signer.toString()),
-      attestationsAndSignersSignature.toViemSignature(),
-      blobInput,
-    ] as const;
-
-    await this.simulateProposeTx(args, simulationOverridesPlan);
   }
 
   private async enqueueCastSignalHelper(
@@ -1170,7 +1146,7 @@ export class SequencerPublisher {
     return true;
   }
 
-  /** Simulates and enqueues a proposal for a checkpoint on L1 */
+  /** Enqueues a proposal for a checkpoint on L1 */
   public async enqueueProposeCheckpoint(
     checkpoint: Checkpoint,
     attestationsAndSigners: CommitteeAttestationsAndSigners,
@@ -1191,61 +1167,25 @@ export class SequencerPublisher {
       feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     };
 
-    const simulationOverridesPlan = SimulationOverridesBuilder.from(opts.simulationOverridesPlan)
-      .withoutBlobCheck()
-      .build();
-
     const preCheckSimulationOverridesPlan = SimulationOverridesBuilder.from(opts.preCheckSimulationOverridesPlan)
       .withoutBlobCheck()
       .build();
 
-    try {
-      // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
-      //        This means that we can avoid the simulation issues in later checks.
-      //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
-      //        make time consistency checks break.
-      // TODO(palla): Check whether we're validating twice, once here and once within addProposeTx, since we call simulateProposeTx in both places.
-      await this.validateCheckpointForSubmission(
-        checkpoint,
-        attestationsAndSigners,
-        attestationsAndSignersSignature,
-        simulationOverridesPlan,
-      );
-    } catch (err: any) {
-      this.log.error(`Checkpoint validation failed. ${err instanceof Error ? err.message : 'No error message'}`, err, {
-        ...checkpoint.getStats(),
-        slotNumber: checkpoint.header.slotNumber,
-        simulationOverridesPlan,
-      });
-      throw err;
-    }
-
-    // Build a pre-check callback that re-validates the checkpoint before L1 submission.
+    // Build a pre-check callback that re-validates the checkpoint header before L1 submission.
     // During pipelining this catches stale proposals due to prunes or L1 reorgs that occur during the pipeline sleep.
     let preCheck = undefined;
     if (this.epochCache.isProposerPipeliningEnabled()) {
       preCheck = async () => {
-        this.log.debug(`Re-validating checkpoint ${checkpoint.number} before L1 submission`);
-        await this.validateCheckpointForSubmission(
-          checkpoint,
-          attestationsAndSigners,
-          attestationsAndSignersSignature,
-          preCheckSimulationOverridesPlan,
-        );
+        this.log.debug(`Re-validating checkpoint ${checkpoint.number} header before L1 submission`);
+        await this.validateBlockHeader(checkpoint.header, preCheckSimulationOverridesPlan);
       };
     }
 
     this.log.verbose(`Enqueuing checkpoint propose transaction`, {
       ...checkpoint.toCheckpointInfo(),
       txTimeoutAt: opts.txTimeoutAt,
-      simulationOverridesPlan,
     });
-    await this.addProposeTx(
-      checkpoint,
-      proposeTxArgs,
-      { txTimeoutAt: opts.txTimeoutAt, simulationOverridesPlan },
-      preCheck,
-    );
+    await this.addProposeTx(checkpoint, proposeTxArgs, { txTimeoutAt: opts.txTimeoutAt }, preCheck);
   }
 
   public enqueueInvalidateCheckpoint(
@@ -1340,7 +1280,7 @@ export class SequencerPublisher {
     this.l1TxUtils.restart();
   }
 
-  private async prepareProposeTx(encodedData: L1ProcessArgs, simulationOverridesPlan?: SimulationOverridesPlan) {
+  private async prepareProposeTx(encodedData: L1ProcessArgs) {
     const kzg = Blob.getViemKzgInstance();
     const blobInput = getPrefixedEthBlobCommitments(encodedData.blobs);
     this.log.debug('Validating blob input', { blobInput });
@@ -1357,8 +1297,7 @@ export class SequencerPublisher {
       // that our locally-built blob commitments match the blob data. The bundle simulate at send
       // time uses eth_simulateV1, which cannot carry blob inputs, so the rollup's on-chain blob
       // check is forced off there — making this the only pre-flight detector of a commitment/data
-      // mismatch. The returned gas estimate is still added to the propose gasLimit, but the
-      // commitment check is the main reason we make this call.
+      // mismatch. The returned gas estimate is stashed on the request for the bundle path to read.
       blobEvaluationGas = await this.l1TxUtils
         .estimateGas(
           this.getSenderAddress().toString(),
@@ -1416,98 +1355,9 @@ export class SequencerPublisher {
       blobInput,
     ] as const;
 
-    const { rollupData, simulationResult } = await this.simulateProposeTx(args, simulationOverridesPlan);
+    const rollupData = encodeFunctionData({ abi: RollupAbi, functionName: 'propose', args });
 
-    return { args, blobEvaluationGas, rollupData, simulationResult };
-  }
-
-  /**
-   * Simulates the propose tx with eth_simulateV1
-   * @param args - The propose tx args
-   * @returns The simulation result
-   */
-  private async simulateProposeTx(
-    args: readonly [
-      {
-        readonly header: ViemHeader;
-        readonly archive: `0x${string}`;
-        readonly oracleInput: {
-          readonly feeAssetPriceModifier: bigint;
-        };
-      },
-      ViemCommitteeAttestations,
-      `0x${string}`[], // Signers
-      ViemSignature,
-      `0x${string}`,
-    ],
-    simulationOverridesPlan?: SimulationOverridesPlan,
-  ) {
-    const rollupData = encodeFunctionData({
-      abi: RollupAbi,
-      functionName: 'propose',
-      args,
-    });
-
-    const stateOverrides = await buildSimulationOverridesStateOverride(this.rollupContract, simulationOverridesPlan);
-    // In fisherman mode, simulate as the proposer but with sufficient balance
-    if (this.proposerAddressForSimulation) {
-      stateOverrides.push({
-        address: this.proposerAddressForSimulation.toString(),
-        balance: 10n * WEI_CONST * WEI_CONST, // 10 ETH
-      });
-    }
-
-    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-    const simTs = this.getSimulationTimestamp(SlotNumber.fromBigInt(args[0].header.slotNumber));
-
-    const simulationResult = await this.l1TxUtils
-      .simulate(
-        {
-          to: this.rollupContract.address,
-          data: rollupData,
-          gas: MAX_L1_TX_LIMIT,
-          ...(this.proposerAddressForSimulation && { from: this.proposerAddressForSimulation.toString() }),
-        },
-        {
-          time: simTs,
-          // @note reth should have a 30m gas limit per block but throws errors that this tx is beyond limit so we increase here
-          gasLimit: MAX_L1_TX_LIMIT * 2n,
-        },
-        stateOverrides,
-        RollupAbi,
-        {
-          // @note fallback gas estimate to use if the node doesn't support simulation API
-          fallbackGasEstimate: MAX_L1_TX_LIMIT,
-        },
-      )
-      .catch(err => {
-        // In fisherman mode, we expect ValidatorSelection__MissingProposerSignature since fisherman doesn't have proposer signature
-        const viemError = formatViemError(err);
-        if (this.config.fishermanMode && viemError.message?.includes('ValidatorSelection__MissingProposerSignature')) {
-          this.log.debug(`Ignoring expected ValidatorSelection__MissingProposerSignature error in fisherman mode`);
-          // Return a minimal simulation result with the fallback gas estimate
-          return {
-            gasUsed: MAX_L1_TX_LIMIT,
-            logs: [],
-          };
-        }
-        this.log.error(`Failed to simulate propose tx`, viemError, { simulationTimestamp: simTs });
-        this.backupFailedTx({
-          id: keccak256(rollupData),
-          failureType: 'simulation',
-          request: { to: this.rollupContract.address, data: rollupData },
-          l1BlockNumber: l1BlockNumber.toString(),
-          error: { message: viemError.message, name: viemError.name },
-          context: {
-            actions: ['propose'],
-            slot: Number(args[0].header.slotNumber),
-            sender: this.getSenderAddress().toString(),
-          },
-        });
-        throw err;
-      });
-
-    return { rollupData, simulationResult };
+    return { args, blobEvaluationGas, rollupData };
   }
 
   private async addProposeTx(
@@ -1519,16 +1369,8 @@ export class SequencerPublisher {
     const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
     const kzg = Blob.getViemKzgInstance();
-    const { rollupData, simulationResult, blobEvaluationGas } = await this.prepareProposeTx(
-      encodedData,
-      opts.simulationOverridesPlan,
-    );
+    const { rollupData, blobEvaluationGas } = await this.prepareProposeTx(encodedData);
     const startBlock = await this.l1TxUtils.getBlockNumber();
-    const gasLimit = this.l1TxUtils.bumpGasLimit(
-      BigInt(Math.ceil((Number(simulationResult.gasUsed) * 64) / 63)) +
-        blobEvaluationGas +
-        SequencerPublisher.MULTICALL_OVERHEAD_GAS_GUESS, // We issue the simulation against the rollup contract, so we need to account for the overhead of the multicall3
-    );
 
     // Send the blobs to the blob client preemptively. This helps in tests where the sequencer mistakingly thinks that the propose
     // tx fails but it does get mined. We make sure that the blobs are sent to the blob client regardless of the tx outcome.
@@ -1545,7 +1387,8 @@ export class SequencerPublisher {
         data: rollupData,
       },
       lastValidL2Slot: checkpoint.header.slotNumber,
-      gasConfig: { txTimeoutAt: opts.txTimeoutAt, gasLimit },
+      gasConfig: { txTimeoutAt: opts.txTimeoutAt, gasLimit: undefined },
+      blobEvaluationGas,
       preCheck,
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),
