@@ -832,10 +832,7 @@ export class PXE {
         // storing the tags here prevents linkage of txs sent from the same PXE.
         const taggingIndexRangesUsedInTheTx = privateExecutionResult.entrypoint.taggingIndexRanges;
         if (taggingIndexRangesUsedInTheTx.length > 0) {
-          // Avoiding txProvingResult.toTx() because it walks the PrivateCallExecutionResult tree
-          // to collect logs that don't affect the tx hash. Tx.computeTxHash({ data: publicInputs })
-          // is equivalent — only `data` contributes to the hash.
-          const txHash = await Tx.computeTxHash({ data: publicInputs });
+          const txHash = await txProvingResult.getTxHash();
 
           await this.senderTaggingStore.storePendingIndexes(taggingIndexRangesUsedInTheTx, txHash, jobId);
           this.log.debug(`Stored used tagging index ranges as sender for the tx`, {
