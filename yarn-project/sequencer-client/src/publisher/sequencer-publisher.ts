@@ -38,7 +38,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import { type DateProvider, Timer } from '@aztec/foundation/timer';
-import { EmpireBaseAbi, ErrorsAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { EmpireBaseAbi, ErrorsAbi, RollupAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -48,6 +48,7 @@ import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import {
+  type Abi,
   type Hex,
   type TransactionReceipt,
   type TypedDataDefinition,
@@ -60,6 +61,21 @@ import {
 import type { SequencerPublisherConfig } from './config.js';
 import { type FailedL1Tx, type L1TxFailedStore, createL1TxFailedStore } from './l1_tx_failed_store/index.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
+
+/**
+ * Returns true if the receipt indicates a successful send AND the expected event was emitted
+ * by the target contract. Both pieces are required: an aggregate3 entry that reverted will
+ * have receipt.status === 'success' but no event log.
+ */
+function extractEventSuccess(
+  receipt: TransactionReceipt | undefined,
+  opts: { address: Hex | string; abi: Abi; eventName: string },
+): boolean {
+  if (!receipt || receipt.status !== 'success') {
+    return false;
+  }
+  return !!tryExtractEvent(receipt.logs, opts.address.toString() as Hex, opts.abi, opts.eventName);
+}
 
 /** Result of a sendRequests call, returned by both sendRequests() and sendRequestsAt(). */
 export type SendRequestsResult = {
@@ -1058,9 +1074,11 @@ export class SequencerPublisher {
       checkSuccess: (_request, result) => {
         const success =
           result &&
-          result.receipt &&
-          result.receipt.status === 'success' &&
-          tryExtractEvent(result.receipt.logs, base.address.toString(), EmpireBaseAbi, 'SignalCast');
+          extractEventSuccess(result.receipt, {
+            address: base.address.toString(),
+            abi: EmpireBaseAbi,
+            eventName: 'SignalCast',
+          });
 
         const logData = { ...result, slotNumber, round, payload: payload.toString() };
         if (!success) {
@@ -1133,7 +1151,11 @@ export class SequencerPublisher {
           await this.simulateAndEnqueueRequest(
             'vote-offenses',
             request,
-            (receipt: TransactionReceipt) => !!this.slashingProposerContract!.tryExtractVoteCastEvent(receipt.logs),
+            {
+              address: this.slashingProposerContract.address.toString(),
+              abi: SlashingProposerAbi,
+              eventName: 'VoteCast',
+            },
             slotNumber,
           );
           break;
@@ -1156,8 +1178,11 @@ export class SequencerPublisher {
           await this.simulateAndEnqueueRequest(
             'execute-slash',
             executeRequest,
-            (receipt: TransactionReceipt) =>
-              !!this.slashingProposerContract!.tryExtractRoundExecutedEvent(receipt.logs),
+            {
+              address: this.slashingProposerContract.address.toString(),
+              abi: SlashingProposerAbi,
+              eventName: 'RoundExecuted',
+            },
             slotNumber,
           );
           break;
@@ -1273,9 +1298,11 @@ export class SequencerPublisher {
       checkSuccess: (_req, result) => {
         const success =
           result &&
-          result.receipt &&
-          result.receipt.status === 'success' &&
-          tryExtractEvent(result.receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointInvalidated');
+          extractEventSuccess(result.receipt, {
+            address: this.rollupContract.address,
+            abi: RollupAbi,
+            eventName: 'CheckpointInvalidated',
+          });
         if (!success) {
           this.log.warn(`Invalidate checkpoint ${request.checkpointNumber} failed`, { ...result, ...logData });
         } else {
@@ -1289,7 +1316,7 @@ export class SequencerPublisher {
   private async simulateAndEnqueueRequest(
     action: Action,
     request: L1TxRequest,
-    checkSuccess: (receipt: TransactionReceipt) => boolean | undefined,
+    eventOpts: { address: Hex | string; abi: Abi; eventName: string },
     slotNumber: SlotNumber,
   ) {
     const timestamp = this.getSimulationTimestamp(slotNumber);
@@ -1347,7 +1374,7 @@ export class SequencerPublisher {
       gasConfig: { gasLimit },
       lastValidL2Slot: slotNumber,
       checkSuccess: (_req, result) => {
-        const success = result && result.receipt && result.receipt.status === 'success' && checkSuccess(result.receipt);
+        const success = result && extractEventSuccess(result.receipt, eventOpts);
         if (!success) {
           this.log.warn(`Action ${action} at ${slotNumber} failed`, { ...result, ...logData });
           this.lastActions[action] = cachedLastActionSlot;
@@ -1594,10 +1621,11 @@ export class SequencerPublisher {
           return false;
         }
         const { receipt, stats, errorMsg } = result;
-        const success =
-          receipt &&
-          receipt.status === 'success' &&
-          tryExtractEvent(receipt.logs, this.rollupContract.address, RollupAbi, 'CheckpointProposed');
+        const success = extractEventSuccess(receipt, {
+          address: this.rollupContract.address,
+          abi: RollupAbi,
+          eventName: 'CheckpointProposed',
+        });
 
         if (success) {
           const endBlock = receipt.blockNumber;
