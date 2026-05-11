@@ -10,7 +10,6 @@ import {
 import type { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
-import type { MaxBatchSize } from '../config/index.js';
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/private_kernel_reset_private_inputs_builder.js';
 
 /**
@@ -27,7 +26,7 @@ export class BatchPlanner {
   constructor(
     private noteHashNullifierCounterMap: Map<number, number>,
     private splitCounter: number,
-    private maxBatchSize: MaxBatchSize,
+    private maxBatchSize: number,
   ) {}
 
   /**

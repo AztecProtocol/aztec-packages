@@ -1,3 +1,5 @@
+import { MAX_APPS_PER_KERNEL } from '@aztec/constants';
+
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -12,13 +14,6 @@ describe('Circuit Recorder', () => {
   it('records circuit execution', async () => {
     // Set recording directory env var - this will activate the circuit recorder
     process.env.CIRCUIT_RECORD_DIR = RECORD_DIR;
-
-    // The assertions below look for a `PrivateKernelInit_main` recording (the single-app init
-    // kernel). With the default batch size of 3 the orchestrator picks `private_kernel_init_3`
-    // instead. This test is about the recorder mechanism, not kernel batching, so pin the batch
-    // size to 1 for the duration of the test.
-    const originalBatchSize = process.env.PXE_KERNEL_BATCH_SIZE;
-    process.env.PXE_KERNEL_BATCH_SIZE = '1';
 
     // Run setup which deploys an account contract and runs kernels
     const { teardown } = await setup(1);
@@ -49,19 +44,29 @@ describe('Circuit Recorder', () => {
       });
     }
 
-    // Then we'll do the same for a protocol circuit
+    // Then we'll do the same for a protocol circuit. The orchestrator dispatches to one of the
+    // init_K variants for the first kernel iteration, with K capped at MAX_APPS_PER_KERNEL.
+    // Which K is picked depends on how many apps the flow's first batch contains, so accept any
+    // init_K artifact whose K is within [1, MAX_APPS_PER_KERNEL]: that's the artifact name the
+    // recorder will produce on disk.
     {
+      const initVariants = Array.from({ length: MAX_APPS_PER_KERNEL }, (_, i) =>
+        i === 0 ? 'PrivateKernelInit' : `PrivateKernelInit_${i + 1}`,
+      );
+
       const files = await fs.readdir(RECORD_DIR);
       expect(files.length).toBeGreaterThan(0);
 
-      const recordingFile = files.find(f => f.startsWith('PrivateKernelInit_main'));
+      const recordingFile = files.find(f => initVariants.some(name => f.startsWith(`${name}_main`)));
       expect(recordingFile).toBeDefined();
+
+      const matchedVariant = initVariants.find(name => recordingFile!.startsWith(`${name}_main`));
 
       const recordingContent = await fs.readFile(path.join(RECORD_DIR, recordingFile!), 'utf8');
       const recording = JSON.parse(recordingContent);
 
       expect(recording).toMatchObject({
-        circuitName: 'PrivateKernelInit',
+        circuitName: matchedVariant,
         functionName: 'main',
         inputs: expect.any(Object),
         oracleCalls: expect.any(Array),
@@ -71,11 +76,6 @@ describe('Circuit Recorder', () => {
     // Cleanup
     await fs.rm(RECORD_DIR, { recursive: true, force: true });
     delete process.env.CIRCUIT_RECORD_DIR;
-    if (originalBatchSize === undefined) {
-      delete process.env.PXE_KERNEL_BATCH_SIZE;
-    } else {
-      process.env.PXE_KERNEL_BATCH_SIZE = originalBatchSize;
-    }
     await teardown();
   }, 60_000);
 });

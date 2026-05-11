@@ -1,3 +1,4 @@
+import { MAX_APPS_PER_KERNEL } from '@aztec/constants';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
@@ -37,7 +38,6 @@ import {
 } from '@aztec/stdlib/tx';
 import { VerificationKeyAsFields, VerificationKeyData, VkData } from '@aztec/stdlib/vks';
 
-import { parseKernelBatchSize } from '../config/index.js';
 import { BatchPlanner } from './batch_planner.js';
 import { computeTxExpirationTimestamp } from './hints/compute_tx_expiration_timestamp.js';
 import { PrivateKernelResetPrivateInputsBuilder } from './hints/private_kernel_reset_private_inputs_builder.js';
@@ -70,6 +70,7 @@ export class PrivateKernelExecutionProver {
     private proofCreator: PrivateKernelProver,
     private fakeProofs = false,
     bindings?: LoggerBindings,
+    private maxBatchSize: number = MAX_APPS_PER_KERNEL,
   ) {
     this.log = createLogger('pxe:private-kernel-execution-prover', bindings);
   }
@@ -117,8 +118,7 @@ export class PrivateKernelExecutionProver {
     // Each kernel iteration absorbs up to `maxBatchSize` apps. The planner walks the upcoming
     // apps and decides where the next reset must fall by using an accumulator and
     // reusing the existing single-app `needsReset()` check.
-    const maxBatchSize = parseKernelBatchSize();
-    const planner = new BatchPlanner(noteHashNullifierCounterMap, splitCounter, maxBatchSize);
+    const planner = new BatchPlanner(noteHashNullifierCounterMap, splitCounter, this.maxBatchSize);
 
     while (executionStack.length) {
       if (!firstIteration) {

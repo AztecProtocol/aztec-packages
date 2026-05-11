@@ -1,5 +1,6 @@
 import { BackendType, BarretenbergSync } from '@aztec/bb.js';
 import {
+  MAX_APPS_PER_KERNEL,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_TX_LIFETIME,
@@ -42,22 +43,18 @@ describe('Private Kernel Sequencer', () => {
   const blockTimestamp = 12345n;
   const expirationTimestamp = blockTimestamp + BigInt(MAX_TX_LIFETIME);
 
-  // The orchestrator dispatch tests below assert single-app `simulateInit` / `simulateInner` call
-  // counts. Pin the batch size to 1 so the multi-app dispatch (which would route through
-  // `simulateInit2` / `simulateInit3` / `simulateInner2` / `simulateInner3`) doesn't engage.
-  // Multi-app behaviour is integration-tested via the bench capture flows.
-  const originalBatchSize = process.env.PXE_KERNEL_BATCH_SIZE;
   beforeAll(async () => {
-    process.env.PXE_KERNEL_BATCH_SIZE = '1';
     await BarretenbergSync.initSingleton({ backend: BackendType.NativeSharedMemory, logger: logger.debug });
   });
-  afterAll(() => {
-    if (originalBatchSize === undefined) {
-      delete process.env.PXE_KERNEL_BATCH_SIZE;
-    } else {
-      process.env.PXE_KERNEL_BATCH_SIZE = originalBatchSize;
-    }
-  });
+
+  // Sanity-pin: the multi-app dispatch assertions below assume MAX_APPS_PER_KERNEL is 3. If the
+  // protocol constant changes, the per-test expected step shapes (especially the 14-app deep tree
+  // case) need to be reworked.
+  if (MAX_APPS_PER_KERNEL !== 3) {
+    throw new Error(
+      `This test suite assumes MAX_APPS_PER_KERNEL === 3, got ${MAX_APPS_PER_KERNEL}. Update the expected dispatch shapes.`,
+    );
+  }
 
   const createExecutionResult = (fnName: string): PrivateExecutionResult => {
     return new PrivateExecutionResult(createCallExecutionResult(fnName), Fr.zero(), []);
@@ -150,21 +147,30 @@ describe('Private Kernel Sequencer', () => {
 
     proofCreator = mock<PrivateKernelProver>();
     proofCreator.simulateInit.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInit2.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInit3.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateInner.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInner2.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInner3.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateReset.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateTail.mockResolvedValue(simulateProofOutputFinal());
 
     prover = new PrivateKernelExecutionProver(oracle, proofCreator, true);
   });
 
-  it('should execute private functions in correct order', async () => {
+  it('dispatches the right init_K / inner_K variant at MAX_APPS_PER_KERNEL', async () => {
     {
+      // Single app: only one app can be batched, so dispatch is plain init.
       dependencies = { a: [] };
       const executionResult = createExecutionResult('a');
       await prove(executionResult);
 
       expect(proofCreator.simulateInit).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInit2).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInit3).not.toHaveBeenCalled();
       expect(proofCreator.simulateInner).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner2).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner3).not.toHaveBeenCalled();
       proofCreator.simulateInit.mockClear();
     }
 
@@ -175,6 +181,8 @@ describe('Private Kernel Sequencer', () => {
       //   }
       //   d {}
       // }
+      // DFS order: a, b, c, d (4 apps). At N=3 the planner picks {a, b, c} as the first batch
+      // (init_3), leaving d for a single-app inner.
       dependencies = {
         a: ['b', 'd'],
         b: ['c'],
@@ -182,10 +190,12 @@ describe('Private Kernel Sequencer', () => {
       const executionResult = createExecutionResult('a');
       await prove(executionResult);
 
-      // Init for 'a', inner for 'b', 'c', 'd'.
-      expect(proofCreator.simulateInit).toHaveBeenCalledTimes(1);
-      expect(proofCreator.simulateInner).toHaveBeenCalledTimes(3);
-      proofCreator.simulateInit.mockClear();
+      expect(proofCreator.simulateInit).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInit3).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInner).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInner2).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner3).not.toHaveBeenCalled();
+      proofCreator.simulateInit3.mockClear();
       proofCreator.simulateInner.mockClear();
     }
 
@@ -210,6 +220,9 @@ describe('Private Kernel Sequencer', () => {
       //     }
       //     g {}
       //   }
+      // DFS order: a, b, d, h, c, e, f, i, j, l, n, m, k, g (14 apps). At N=3 the planner
+      // greedily takes 3 per iteration with no overflow under the mock kernel state, giving
+      // batches [a,b,d], [h,c,e], [f,i,j], [l,n,m], [k,g] → init_3 + 3×inner_3 + inner_2.
       dependencies = {
         a: ['b', 'c'],
         b: ['d'],
@@ -222,9 +235,11 @@ describe('Private Kernel Sequencer', () => {
       const executionResult = createExecutionResult('a');
       await prove(executionResult);
 
-      // Init for 'a', inner for the remaining 13 functions.
-      expect(proofCreator.simulateInit).toHaveBeenCalledTimes(1);
-      expect(proofCreator.simulateInner).toHaveBeenCalledTimes(13);
+      expect(proofCreator.simulateInit).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInit3).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInner).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner2).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInner3).toHaveBeenCalledTimes(3);
     }
   });
 
@@ -242,13 +257,15 @@ describe('Private Kernel Sequencer', () => {
     expect(proofCreator.simulateTail).toHaveBeenCalledTimes(1);
   });
 
-  it('executes init, inners, final reset, and tail for nested functions', async () => {
+  it('executes init_3, inner, final reset, and tail for nested functions', async () => {
     // a {
     //   b {
     //     c {}
     //   }
     //   d {}
     // }
+    // DFS order a, b, c, d. At MAX_APPS_PER_KERNEL=3 the first batch absorbs {a, b, c} into
+    // init_3, leaving d for a single-app inner.
     dependencies = { a: ['b', 'd'], b: ['c'] };
 
     const executionResult = createExecutionResult('a');
@@ -257,11 +274,9 @@ describe('Private Kernel Sequencer', () => {
     const stepNames = result.executionSteps.map(s => s.functionName);
     expect(stepNames).toEqual([
       'a',
-      'private_kernel_init',
       'b',
-      'private_kernel_inner',
       'c',
-      'private_kernel_inner',
+      'private_kernel_init_3',
       'd',
       'private_kernel_inner',
       'private_kernel_reset',

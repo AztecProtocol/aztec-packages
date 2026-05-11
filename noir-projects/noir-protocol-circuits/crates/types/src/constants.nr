@@ -133,6 +133,9 @@ pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 66;
 pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 67;
 pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 68;
 
+// Maximum number of apps absorbed by a single private kernel iteration.
+pub global MAX_APPS_PER_KERNEL: u32 = 3;
+
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
 pub global GLOBAL_INDEX_NOTE_HASH_READ_REQUEST_OFFSET: u32 = 0;
