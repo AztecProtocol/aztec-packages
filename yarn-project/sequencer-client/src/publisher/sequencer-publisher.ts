@@ -433,13 +433,38 @@ export class SequencerPublisher {
     // This ensures the committee gets precomputed correctly
     validRequests.sort((a, b) => compareActions(a.action, b.action));
 
+    // Backup helper for entries dropped by bundle simulation before any tx is sent.
+    const backupDroppedInSim = async (dropped: RequestWithExpiry[]) => {
+      if (dropped.length === 0) {
+        return;
+      }
+      const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+      for (const req of dropped) {
+        this.backupFailedTx({
+          id: keccak256(req.request.data!),
+          failureType: 'simulation',
+          request: { to: req.request.to! as Hex, data: req.request.data! },
+          l1BlockNumber: l1BlockNumber.toString(),
+          error: { message: 'Bundle entry dropped: action reverted in sim' },
+          context: {
+            actions: [req.action],
+            sender: this.getSenderAddress().toString(),
+          },
+        });
+      }
+    };
+
     try {
       // Bundle-level eth_simulateV1: filters out entries that revert and derives the gasLimit.
       const bundleResult = await this.bundleSimulate(validRequests, currentL2Slot);
       if (bundleResult === undefined) {
+        // All entries were dropped by simulation — back them up before aborting.
+        void backupDroppedInSim(validRequests);
         return undefined;
       }
       const { requests: survivingRequests, gasLimit } = bundleResult;
+      const droppedInSim = validRequests.filter(r => !survivingRequests.includes(r));
+      void backupDroppedInSim(droppedInSim);
       const sentActions = survivingRequests.map(x => x.action);
 
       // @note - we can only have one blob config per bundle
@@ -484,7 +509,8 @@ export class SequencerPublisher {
         result,
         txContext,
       );
-      return { result, expiredActions, sentActions, successfulActions, failedActions };
+      const allFailedActions = [...failedActions, ...droppedInSim.map(r => r.action)];
+      return { result, expiredActions, sentActions, successfulActions, failedActions: allFailedActions };
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
