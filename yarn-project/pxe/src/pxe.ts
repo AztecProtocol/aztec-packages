@@ -849,8 +849,7 @@ export class PXE {
         // storing the tags here prevents linkage of txs sent from the same PXE.
         const taggingIndexRangesUsedInTheTx = privateExecutionResult.entrypoint.taggingIndexRanges;
         if (taggingIndexRangesUsedInTheTx.length > 0) {
-          // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
-          const txHash = (await txProvingResult.toTx()).txHash;
+          const txHash = await txProvingResult.getTxHash();
 
           await this.senderTaggingStore.storePendingIndexes(taggingIndexRangesUsedInTheTx, txHash, jobId);
           this.log.debug(`Stored used tagging index ranges as sender for the tx`, {
