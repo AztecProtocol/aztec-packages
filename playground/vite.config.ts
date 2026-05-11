@@ -136,9 +136,10 @@ export default defineConfig(({ mode }) => {
         // Bump log:
         // - AD: bumped from 1600 => 1680 as we now have a 20kb msgpack lib in bb.js and other logic got us 50kb higher, adding some wiggle room.
         // - MW: bumped from 1700 => 1750 after adding the noble curves pkg to foundation required for blob batching calculations.
+        // - JB: bumped from 1750 => 1800 after adding the `aztec_utl_getTxEffect` oracle handler, which pulls TxEffect / FlatPublicLogs / PrivateLog / PublicDataWrite into the eager PXE import path (#22979).
         {
           pattern: /assets\/index-.*\.js$/,
-          maxSizeKB: 1750,
+          maxSizeKB: 1800,
           description: 'Main entrypoint, hard limit',
         },
         // Bump log:
