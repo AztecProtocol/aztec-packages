@@ -653,9 +653,11 @@ TYPED_TEST(ShpleminiTest, ToBeShiftedNonZeroConstantTermRejected)
     const auto opening_claim =
         ShpleminiProver::prove(this->n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
-    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
-        TestFixture::IPA::compute_opening_proof(ck, opening_claim, prover_transcript);
-    } else {
+    // For KZG, run the opening proof now: KZG never binds the claim into Fiat-Shamir, so the
+    // verifier can be handed a tampered claim later without affecting the prover transcript.
+    // For IPA, defer the opening proof until after the tampered batched claim is available; the
+    // adversarial prover hashes that claim into its FS buffer to match the verifier (see below).
+    if constexpr (!std::is_same_v<TypeParam, GrumpkinSettings>) {
         KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
     }
 
@@ -684,6 +686,20 @@ TYPED_TEST(ShpleminiTest, ToBeShiftedNonZeroConstantTermRejected)
                                    .batch_opening_claim;
 
     if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        // Adversarial IPA prover: stage the prover transcript with the same reduced claim the
+        // verifier will hash via add_claim_to_hash_buffer, then fold the honest polynomial. This
+        // keeps prover/verifier FS in sync so the rejection isolates the inner-product relation
+        // rather than transcript divergence.
+        const auto reduced = TestFixture::IPA::reduce_batch_opening_claim(batch_opening_claim);
+        prover_transcript->add_to_hash_buffer("IPA:commitment", reduced.commitment);
+        prover_transcript->add_to_hash_buffer("IPA:challenge", reduced.opening_pair.challenge);
+        prover_transcript->add_to_hash_buffer("IPA:evaluation", reduced.opening_pair.evaluation);
+        TestFixture::IPA::compute_opening_proof_internal(ck, opening_claim, prover_transcript);
+
+        // The verifier transcript was initialized before the IPA prover wrote its bytes; refresh
+        // its view of proof_data so the IPA verifier can read them.
+        verifier_transcript->test_get_proof_data() = prover_transcript->test_get_proof_data();
+
         auto result =
             TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
         EXPECT_EQ(result, false);
@@ -692,6 +708,14 @@ TYPED_TEST(ShpleminiTest, ToBeShiftedNonZeroConstantTermRejected)
             KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
         EXPECT_EQ(pairing_points.check(), false);
     }
+
+    // Confirm the rejection is not an artifact of transcript divergence: a fresh challenge with
+    // the same label drawn from both transcripts must agree. For KZG this is automatic (the
+    // claim is never hashed into FS). For IPA we matched the prover and verifier hash buffers
+    // explicitly above; if this check fails, the rejection above could be attributed to the
+    // prover and verifier consuming different challenges rather than the PCS check itself.
+    EXPECT_EQ(prover_transcript->template get_challenge<Fr>("transcript_sync_check"),
+              verifier_transcript->template get_challenge<Fr>("transcript_sync_check"));
 }
 
 /**
