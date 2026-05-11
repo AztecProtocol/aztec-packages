@@ -97,6 +97,7 @@ let lastStartedUpdateId = 0;
 
 async function readCheckpointsFromRpc(
   rpcUrl: string,
+  blockNumber: bigint,
 ): Promise<{ proven: number; pending: number }> {
   const publicClient = getPublicClient(rpcUrl);
   const [provenCheckpointNumber, pendingCheckpointNumber] = await Promise.all([
@@ -104,11 +105,13 @@ async function readCheckpointsFromRpc(
       address: ROLLUP_CONTRACT_ADDRESS as `0x${string}`,
       abi: ROLLUP_ABI,
       functionName: "getProvenCheckpointNumber",
+      blockNumber,
     }),
     publicClient.readContract({
       address: ROLLUP_CONTRACT_ADDRESS as `0x${string}`,
       abi: ROLLUP_ABI,
       functionName: "getPendingCheckpointNumber",
+      blockNumber,
     }),
   ]);
   return {
@@ -121,8 +124,11 @@ async function updateCheckpointNumbers(): Promise<void> {
   const thisUpdateId = ++lastStartedUpdateId;
   const startedAt = Date.now();
   try {
+    const blockNumber = await getPublicClient(
+      ethereumRpcUrls[0]!,
+    ).getBlockNumber();
     const settled = await Promise.allSettled(
-      ethereumRpcUrls.map((url) => readCheckpointsFromRpc(url)),
+      ethereumRpcUrls.map((url) => readCheckpointsFromRpc(url, blockNumber)),
     );
 
     if (thisUpdateId !== lastStartedUpdateId) {
