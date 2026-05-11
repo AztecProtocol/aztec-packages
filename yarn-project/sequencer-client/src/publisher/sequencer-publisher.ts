@@ -578,70 +578,100 @@ export class SequencerPublisher {
       );
     };
 
-    let simResult: { gasUsed: bigint; result: `0x${string}` };
-    try {
-      simResult = await simulateBundle(validRequests);
-    } catch (err) {
-      this.log.warn('Bundle simulate threw; skipping per-entry filtering and using MAX_L1_TX_LIMIT as gasLimit', {
-        err: formatViemError(err),
-        actions: validRequests.map(r => r.action),
-      });
-      return { requests: validRequests, gasLimit: MAX_L1_TX_LIMIT };
-    }
-
-    // Fallback path: eth_simulateV1 not supported by this node.
-    if (simResult.result === '0x') {
-      this.log.warn('Bundle simulate returned fallback (eth_simulateV1 unavailable); skipping per-entry filtering', {
-        gasUsed: simResult.gasUsed,
-        actions: validRequests.map(r => r.action),
-      });
-      return { requests: validRequests, gasLimit: MAX_L1_TX_LIMIT };
-    }
-
-    // Decode the aggregate3 Result[] and filter out reverted entries.
-    const decoded = decodeFunctionResult({
-      abi: multicall3Abi,
-      functionName: 'aggregate3',
-      data: simResult.result,
-    }) as readonly { success: boolean; returnData: `0x${string}` }[];
-
-    const survivingRequests: RequestWithExpiry[] = [];
-    for (let i = 0; i < validRequests.length; i++) {
-      const entry = decoded[i];
-      if (entry.success) {
-        survivingRequests.push(validRequests[i]);
-      } else {
-        const req = validRequests[i];
-        this.log.warn('Bundle entry dropped: action reverted in sim', {
-          action: req.action,
-          returnData: entry.returnData,
+    /**
+     * Runs simulateBundle on the given requests and decodes the per-entry Result[].
+     * Returns `{ survivors, droppedActions, gasUsed }` with survivors filtered to entries
+     * that did not revert. Returns `undefined` on throw or when the node does not support
+     * eth_simulateV1 (result === '0x'), so the caller can fall back to the unfiltered list.
+     */
+    const simulateAndDecode = async (
+      requests: RequestWithExpiry[],
+    ): Promise<{ survivors: RequestWithExpiry[]; droppedActions: Action[]; gasUsed: bigint } | undefined> => {
+      let simResult: { gasUsed: bigint; result: `0x${string}` };
+      try {
+        simResult = await simulateBundle(requests);
+      } catch (err) {
+        this.log.warn('Bundle simulate threw; skipping per-entry filtering', {
+          err: formatViemError(err),
+          actions: requests.map(r => r.action),
         });
+        return undefined;
       }
+
+      if (simResult.result === '0x') {
+        this.log.warn('Bundle simulate returned fallback (eth_simulateV1 unavailable); skipping per-entry filtering', {
+          gasUsed: simResult.gasUsed,
+          actions: requests.map(r => r.action),
+        });
+        return undefined;
+      }
+
+      const decoded = decodeFunctionResult({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        data: simResult.result,
+      }) as readonly { success: boolean; returnData: `0x${string}` }[];
+
+      const survivors: RequestWithExpiry[] = [];
+      const droppedActions: Action[] = [];
+      for (let i = 0; i < requests.length; i++) {
+        const entry = decoded[i];
+        if (entry.success) {
+          survivors.push(requests[i]);
+        } else {
+          const req = requests[i];
+          droppedActions.push(req.action);
+          this.log.warn('Bundle entry dropped: action reverted in sim', {
+            action: req.action,
+            returnData: entry.returnData,
+          });
+        }
+      }
+
+      return { survivors, droppedActions, gasUsed: simResult.gasUsed };
+    };
+
+    // First pass: simulate the full bundle.
+    const firstPass = await simulateAndDecode(validRequests);
+
+    // Fallback: eth_simulateV1 unavailable or threw — skip per-entry filtering.
+    if (firstPass === undefined) {
+      return { requests: validRequests, gasLimit: MAX_L1_TX_LIMIT };
     }
 
-    if (survivingRequests.length === 0) {
+    if (firstPass.survivors.length === 0) {
       this.log.warn('All bundle entries dropped in sim; aborting send', {
         actions: validRequests.map(r => r.action),
       });
       return undefined;
     }
 
-    // Re-simulate the reduced bundle to get an accurate gasUsed, if anything was dropped.
+    // Second pass: re-simulate the reduced bundle when entries were dropped, both to get
+    // an accurate gasUsed and to catch any entries that still revert after the reduction.
+    let survivingRequests: RequestWithExpiry[];
     let bundleGasUsed: bigint;
-    if (survivingRequests.length < validRequests.length) {
-      let reducedSimResult: { gasUsed: bigint; result: `0x${string}` };
-      try {
-        reducedSimResult = await simulateBundle(survivingRequests);
-      } catch (err) {
-        this.log.warn('Re-simulate of reduced bundle threw; using MAX_L1_TX_LIMIT as gasLimit', {
-          err: formatViemError(err),
-          actions: survivingRequests.map(r => r.action),
-        });
-        return { requests: survivingRequests, gasLimit: MAX_L1_TX_LIMIT };
+
+    if (firstPass.droppedActions.length > 0) {
+      const secondPass = await simulateAndDecode(firstPass.survivors);
+
+      if (secondPass === undefined) {
+        // Re-simulate threw or returned fallback — keep first-pass survivors, use MAX gas.
+        survivingRequests = firstPass.survivors;
+        bundleGasUsed = MAX_L1_TX_LIMIT;
+      } else {
+        survivingRequests = secondPass.survivors;
+        bundleGasUsed = secondPass.gasUsed;
+
+        if (survivingRequests.length === 0) {
+          this.log.warn('All bundle entries dropped after re-simulate; aborting send', {
+            actions: firstPass.survivors.map(r => r.action),
+          });
+          return undefined;
+        }
       }
-      bundleGasUsed = reducedSimResult.result === '0x' ? MAX_L1_TX_LIMIT : reducedSimResult.gasUsed;
     } else {
-      bundleGasUsed = simResult.gasUsed;
+      survivingRequests = firstPass.survivors;
+      bundleGasUsed = firstPass.gasUsed;
     }
 
     // gasLimit = bumpGasLimit(ceil(gasUsed * 64 / 63)), plus blobEvaluationGas if propose survived.
