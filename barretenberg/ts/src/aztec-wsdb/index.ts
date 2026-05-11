@@ -58,16 +58,7 @@ function formatMap(map: Record<number, number> | undefined): string | undefined 
 
 /** Build CLI args common to both UDS and SHM modes. */
 function buildWsdbArgs(inputPath: string, options: WsdbOptions, threads: number): string[] {
-  const args = [
-    'msgpack',
-    'run',
-    '--input',
-    inputPath,
-    '--data-dir',
-    options.dataDir,
-    '--threads',
-    threads.toString(),
-  ];
+  const args = ['msgpack', 'run', '--input', inputPath, '--data-dir', options.dataDir, '--threads', threads.toString()];
 
   if (options.initialHeaderGeneratorPoint !== undefined) {
     args.push('--initial-header-generator-point', options.initialHeaderGeneratorPoint.toString());
@@ -220,11 +211,7 @@ export class WsdbBackend implements IMsgpackBackendAsync {
 
   // ——— SHM connection ———
 
-  private connectShm(
-    resolve: () => void,
-    reject: (error: Error) => void,
-    napiPath?: string,
-  ) {
+  private connectShm(resolve: () => void, reject: (error: Error) => void, napiPath?: string) {
     const shmName = this.inputPath.replace(/\.shm$/, '');
     const addonPath = findNapiBinary(napiPath);
     if (!addonPath) {
@@ -264,7 +251,11 @@ export class WsdbBackend implements IMsgpackBackendAsync {
         resolve();
       } catch (e: any) {
         if (attempt >= maxAttempts) {
-          reject(new Error(`Timeout connecting to wsdb shared memory after ${maxAttempts * retryInterval}ms: ${e?.message ?? e}`));
+          reject(
+            new Error(
+              `Timeout connecting to wsdb shared memory after ${maxAttempts * retryInterval}ms: ${e?.message ?? e}`,
+            ),
+          );
         } else {
           this.connectionTimeout = setTimeout(tryConnect, retryInterval);
         }
