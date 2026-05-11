@@ -60,6 +60,11 @@ export type EpochsTestOpts = Partial<SetupOptions> & {
   aztecSlotDurationInL1Slots?: number;
   /** Skip creating/registering the hardcoded account during setup (for tests that handle accounts themselves). */
   skipHardcodedAccount?: boolean;
+  /**
+   * Force the hardcoded-account fast-path even when an initial sequencer is running. Useful for
+   * tests with tight per-block gas budgets that can't fit a full account-deploy tx.
+   */
+  useHardcodedAccount?: boolean;
 };
 
 export type TrackedSequencerEvent = {
@@ -130,9 +135,11 @@ export class EpochsTestContext {
     this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
     this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
 
-    // When skipInitialSequencer is set, auto-create a hardcoded account funded via genesis.
-    // This avoids needing to deploy accounts on-chain (which would require a running sequencer).
-    const useHardcodedAccount = opts.skipInitialSequencer && !opts.skipHardcodedAccount;
+    // Auto-create a hardcoded account funded via genesis when:
+    //  - skipInitialSequencer is set (no sequencer to deploy on-chain), or
+    //  - useHardcodedAccount is explicitly requested (e.g. tight per-block gas budgets that
+    //    can't fit a full account-deploy tx).
+    const useHardcodedAccount = (opts.skipInitialSequencer || opts.useHardcodedAccount) && !opts.skipHardcodedAccount;
     let hardcodedAccountData: InitialAccountData | undefined;
     if (useHardcodedAccount) {
       hardcodedAccountData = await EpochsTestContext.getHardcodedAccountData(Fr.random(), Fr.random());
