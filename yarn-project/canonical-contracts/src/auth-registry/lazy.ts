@@ -1,10 +1,10 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { type ContractArtifact, loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computeInitializationHash, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
-import type { ProtocolContract } from '../protocol_contract.js';
 import { AUTH_REGISTRY_ADDRESS, AUTH_REGISTRY_CLASS_ID } from './address.gen.js';
 
 let protocolContract: ProtocolContract;
@@ -32,7 +32,7 @@ export async function getCanonicalAuthRegistry(): Promise<ProtocolContract> {
       throw new Error(
         `auth_registry artifact class id ${contractClass.id.toString()} does not match committed ` +
           `AUTH_REGISTRY_CLASS_ID ${AUTH_REGISTRY_CLASS_ID.toString()}; regenerate via ` +
-          `\`yarn workspace @aztec/protocol-contracts run regen:auth-registry-address\`.`,
+          `\`yarn workspace @aztec/canonical-contracts run regen:auth-registry-address\`.`,
       );
     }
     const constructorArtifact = authRegistryArtifact.functions.find(f => f.name === 'constructor');

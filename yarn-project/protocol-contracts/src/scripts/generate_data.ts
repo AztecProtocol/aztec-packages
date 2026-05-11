@@ -264,13 +264,6 @@ async function main() {
     );
   }
 
-  // auth_registry is no longer a protocol contract (its address derives from its artifact), but
-  // the auth-registry sub-entrypoint still re-exports the compiled artifact for callers that
-  // construct the canonical instance via `getCanonicalAuthRegistry()`. Copy the artifact here so
-  // the rest of the build chain (and `auth-registry/index.ts`'s static `with` import) can resolve it.
-  await copyArtifact('auth_registry_contract-AuthRegistry', 'AuthRegistry');
-  await generateDeclarationFile('AuthRegistry');
-
   await generateOutputFile(destNames, contractDataList);
 }
 

@@ -15,7 +15,7 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 NARGO_TOML="$ROOT/noir-projects/noir-contracts/contracts/canonical/auth_registry_contract/Nargo.toml"
 ARTIFACT="$ROOT/noir-projects/noir-contracts/target/auth_registry_contract-AuthRegistry.json"
-LOCK="$ROOT/noir-projects/aztec-nr/canonical_addresses/lib.lock.json"
+LIB_NR="$ROOT/noir-projects/aztec-nr/canonical_addresses/src/lib.nr"
 
 if grep -q '^canonical_addresses[[:space:]]*=' "$NARGO_TOML"; then
   echo "auth registry must not depend on its own address; use the private authwit path or move logic to a non-protocol helper." >&2
@@ -27,13 +27,13 @@ if [ ! -f "$ARTIFACT" ]; then
   exit 1
 fi
 
-if [ ! -f "$LOCK" ]; then
-  echo "canonical_addresses lib.lock.json not found at $LOCK — run \`yarn workspace @aztec/protocol-contracts run regen:auth-registry-address\` from yarn-project/." >&2
+if [ ! -f "$LIB_NR" ]; then
+  echo "canonical_addresses lib.nr not found at $LIB_NR — run \`yarn workspace @aztec/canonical-contracts run regen:auth-registry-address\` from yarn-project/." >&2
   exit 1
 fi
 
-stamped_address=$(jq -r '.address' "$LOCK")
-if [ -z "$stamped_address" ] || [ "$stamped_address" = "null" ] || [ "$stamped_address" = "0x0" ]; then
+stamped_address=$(grep -A1 'from_field' "$LIB_NR" | grep -o '0x[0-9a-fA-F]*')
+if [ -z "$stamped_address" ] || [ "$stamped_address" = "0x0" ]; then
   exit 0
 fi
 

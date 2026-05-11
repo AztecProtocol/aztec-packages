@@ -797,6 +797,7 @@ __metadata:
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
     "@aztec/builder": "workspace:^"
+    "@aztec/canonical-contracts": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -1060,6 +1061,26 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/canonical-contracts@workspace:^, @aztec/canonical-contracts@workspace:canonical-contracts":
+  version: 0.0.0-use.local
+  resolution: "@aztec/canonical-contracts@workspace:canonical-contracts"
+  dependencies:
+    "@aztec/foundation": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
+    "@jest/globals": "npm:^30.0.0"
+    "@types/jest": "npm:^30.0.0"
+    "@types/node": "npm:^22.15.17"
+    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
+    jest: "npm:^30.0.0"
+    jest-mock-extended: "npm:^4.0.0"
+    ts-loader: "npm:^9.5.4"
+    ts-node: "npm:^10.9.1"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.3.3"
+  languageName: unknown
+  linkType: soft
+
 "@aztec/cli-wallet@workspace:cli-wallet":
   version: 0.0.0-use.local
   resolution: "@aztec/cli-wallet@workspace:cli-wallet"
@@ -1199,6 +1220,7 @@ __metadata:
     "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
     "@aztec/bot": "workspace:^"
+    "@aztec/canonical-contracts": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
@@ -1718,6 +1740,7 @@ __metadata:
   resolution: "@aztec/p2p@workspace:p2p"
   dependencies:
     "@aztec/archiver": "workspace:^"
+    "@aztec/canonical-contracts": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -1989,6 +2012,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/simulator@workspace:simulator"
   dependencies:
+    "@aztec/canonical-contracts": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"

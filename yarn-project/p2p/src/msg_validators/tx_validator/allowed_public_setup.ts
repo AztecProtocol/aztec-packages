@@ -1,5 +1,5 @@
+import { AUTH_REGISTRY_ADDRESS, AuthRegistryArtifact } from '@aztec/canonical-contracts/auth-registry';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { AUTH_REGISTRY_ADDRESS, AuthRegistryArtifact } from '@aztec/protocol-contracts/auth-registry';
 import { FeeJuiceArtifact } from '@aztec/protocol-contracts/fee-juice';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 

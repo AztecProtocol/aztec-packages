@@ -39,6 +39,7 @@
     "@aztec/blob-client": "workspace:^",
     "@aztec/blob-lib": "workspace:^",
     "@aztec/bot": "workspace:^",
+    "@aztec/canonical-contracts": "workspace:^",
     "@aztec/cli": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/entrypoints": "workspace:^",

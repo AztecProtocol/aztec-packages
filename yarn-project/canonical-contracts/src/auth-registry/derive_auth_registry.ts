@@ -1,7 +1,7 @@
 // Reusable renderers and derivation helpers for the auth_registry committed stamp.
 //
 // Consumed by:
-//   - `../scripts/derive_auth_registry.ts` — the CLI that writes the three committed files.
+//   - `../scripts/derive_auth_registry.ts` — the CLI that writes the two committed files.
 //   - `./derive_auth_registry.test.ts` — the CI freshness gate that re-derives from the
 //     freshly-built artifact and asserts byte-equality against the on-disk values.
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -31,8 +31,7 @@ export const ARTIFACT_PATH = path.join(
 );
 export const NR_CRATE_DIR = path.join(REPO_ROOT, 'noir-projects/aztec-nr/canonical_addresses');
 export const NR_LIB_PATH = path.join(NR_CRATE_DIR, 'src/lib.nr');
-export const NR_LOCK_PATH = path.join(NR_CRATE_DIR, 'lib.lock.json');
-export const TS_TWIN_PATH = path.join(REPO_ROOT, 'yarn-project/protocol-contracts/src/auth-registry/address.gen.ts');
+export const TS_TWIN_PATH = path.join(REPO_ROOT, 'yarn-project/canonical-contracts/src/auth-registry/address.gen.ts');
 export const AUTH_REGISTRY_SRC_DIR = path.join(
   REPO_ROOT,
   'noir-projects/noir-contracts/contracts/canonical/auth_registry_contract/src',
@@ -78,14 +77,15 @@ export async function deriveAuthRegistryStamp(
 export function renderNoirLib(stamp: AuthRegistryStamp): string {
   return `// GENERATED FILE - DO NOT EDIT
 //
-// Written by \`yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts\` once
+// Written by \`yarn-project/canonical-contracts/src/scripts/derive_auth_registry.ts\` once
 // \`auth_registry_contract\` has been compiled. Regenerate with
-// \`yarn workspace @aztec/protocol-contracts run regen:auth-registry-address\`.
+// \`yarn workspace @aztec/canonical-contracts run regen:auth-registry-address\`.
 //
 // Auth registry MUST NOT depend on this crate. The structural and bytecode-level cycle guard in
 // \`noir-projects/scripts/auth_registry_cycle_guard.sh\` pins this invariant.
 //
-// stampKey = ${stamp.artifactHash.toString()}
+// artifactHash    = ${stamp.artifactHash.toString()}
+// srcContentHash  = ${stamp.srcContentHash}
 
 use protocol_types::{address::AztecAddress, traits::FromField};
 
@@ -93,26 +93,9 @@ pub global AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(${stam
 `;
 }
 
-export function renderLockJson(stamp: AuthRegistryStamp): string {
-  return (
-    JSON.stringify(
-      {
-        _comment:
-          'GENERATED FILE - DO NOT EDIT. Written by yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts.',
-        address: stamp.address.toString(),
-        classId: stamp.classId.toString(),
-        artifactHash: stamp.artifactHash.toString(),
-        srcContentHash: stamp.srcContentHash,
-      },
-      null,
-      2,
-    ) + '\n'
-  );
-}
-
 export function renderTsTwin(stamp: AuthRegistryStamp): string {
   return `// GENERATED FILE - DO NOT EDIT.
-// Written by \`yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts\`.
+// Written by \`yarn-project/canonical-contracts/src/scripts/derive_auth_registry.ts\`.
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 

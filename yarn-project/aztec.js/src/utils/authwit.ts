@@ -1,6 +1,6 @@
+import { AUTH_REGISTRY_ADDRESS } from '@aztec/canonical-contracts/auth-registry';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { AUTH_REGISTRY_ADDRESS } from '@aztec/protocol-contracts/auth-registry';
 import { type ABIParameterVisibility, type FunctionAbi, type FunctionCall, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness, computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';

@@ -8,17 +8,15 @@ import {
   ARTIFACT_PATH,
   type AuthRegistryStamp,
   NR_LIB_PATH,
-  NR_LOCK_PATH,
   TS_TWIN_PATH,
   deriveAuthRegistryStamp,
   hashAuthRegistrySources,
-  renderLockJson,
   renderNoirLib,
   renderTsTwin,
 } from './derive_auth_registry.js';
 
 const REGEN_HINT =
-  'auth_registry stamp is stale; run `yarn workspace @aztec/protocol-contracts run regen:auth-registry-address` and commit the result.';
+  'auth_registry stamp is stale; run `yarn workspace @aztec/canonical-contracts run regen:auth-registry-address` and commit the result.';
 
 describe('derive_auth_registry renderers', () => {
   const stamp: AuthRegistryStamp = {
@@ -32,10 +30,6 @@ describe('derive_auth_registry renderers', () => {
     expect(renderNoirLib(stamp)).toEqual(renderNoirLib(stamp));
   });
 
-  it('renders byte-identical lock JSON for the same stamp (determinism)', () => {
-    expect(renderLockJson(stamp)).toEqual(renderLockJson(stamp));
-  });
-
   it('renders byte-identical TS twin for the same stamp (determinism)', () => {
     expect(renderTsTwin(stamp)).toEqual(renderTsTwin(stamp));
   });
@@ -47,11 +41,10 @@ describe('derive_auth_registry renderers', () => {
     expect(lib).not.toContain('AUTH_REGISTRY_CLASS_ID');
   });
 
-  it('embeds srcContentHash in the lock JSON for the freshness gate', () => {
-    const lock = JSON.parse(renderLockJson(stamp));
-    expect(lock.srcContentHash).toEqual(stamp.srcContentHash);
-    expect(lock.address).toEqual(stamp.address.toString());
-    expect(lock.classId).toEqual(stamp.classId.toString());
+  it('embeds artifactHash and srcContentHash in the Noir lib header', () => {
+    const lib = renderNoirLib(stamp);
+    expect(lib).toContain(stamp.artifactHash.toString());
+    expect(lib).toContain(stamp.srcContentHash);
   });
 
   it('TS twin parses as expected exports', () => {
@@ -72,7 +65,7 @@ describe('auth_registry stamp freshness', () => {
       .catch(() => false);
   });
 
-  it('on-disk lib.nr / lib.lock.json / address.gen.ts match the freshly-derived stamp', async () => {
+  it('on-disk lib.nr / address.gen.ts match the freshly-derived stamp', async () => {
     if (!artifactExists) {
       // Artifact is produced by `./bootstrap.sh build` (or `nargo compile` +
       // `bb aztec_process` for the noir-contracts package). Skip with a clear
@@ -87,16 +80,14 @@ describe('auth_registry stamp freshness', () => {
     const stamp = await deriveAuthRegistryStamp(artifact, srcContentHash);
 
     const expectedLib = renderNoirLib(stamp);
-    const expectedLock = renderLockJson(stamp);
     const expectedTs = renderTsTwin(stamp);
 
-    const [actualLib, actualLock, actualTs] = await Promise.all([
+    const [actualLib, actualTs] = await Promise.all([
       fs.readFile(NR_LIB_PATH, 'utf8'),
-      fs.readFile(NR_LOCK_PATH, 'utf8'),
       fs.readFile(TS_TWIN_PATH, 'utf8'),
     ]);
 
-    if (actualLib !== expectedLib || actualLock !== expectedLock || actualTs !== expectedTs) {
+    if (actualLib !== expectedLib || actualTs !== expectedTs) {
       throw new Error(REGEN_HINT);
     }
   });
