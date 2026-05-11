@@ -647,8 +647,22 @@ export class SequencerPublisher {
         } else {
           const req = requests[i];
           droppedActions.push(req.action);
+          // Decode the revert reason against the request's ABI if available;
+          // formatViemError reads the entry data via a CallExecutionError to produce a readable name.
+          let revertReason: string = entry.returnData;
+          if (req.request.abi && entry.returnData && entry.returnData !== '0x') {
+            try {
+              revertReason = formatViemError(
+                new Error(`Execution reverted with data: ${entry.returnData}`),
+                req.request.abi,
+              ).message;
+            } catch {
+              // Fall back to raw hex if decoding fails for any reason.
+            }
+          }
           this.log.warn('Bundle entry dropped: action reverted in sim', {
             action: req.action,
+            revertReason,
             returnData: entry.returnData,
           });
         }
