@@ -2,7 +2,6 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
-
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -1874,7 +1873,7 @@ pub contract AvmTest {
 
     unconstrained fn sync_state(scope: AztecAddress) {
         let address: AztecAddress = aztec::context::UtilityContext::new().this_address();
-        aztec::messages::discovery::do_sync_state(address, _compute_note_hash, _compute_note_nullifier, Option::<aztec::messages::discovery::CustomMessageHandler<()>>::none(), Option::<unconstrained fn(AztecAddress, AztecAddress) -> aztec::ephemeral::EphemeralArray<aztec::messages::processing::OffchainMessageWithContext>>::some(aztec::messages::processing::offchain::sync_inbox), scope);
+        aztec::messages::discovery::do_sync_state(address, _compute_note_hash, _compute_note_nullifier, Option::<unconstrained fn(AztecAddress, u64, u64, BoundedVec<Field, 11>, aztec::messages::processing::MessageContext, AztecAddress)>::none(), Option::<unconstrained fn(AztecAddress, AztecAddress) -> aztec::ephemeral::EphemeralArray<aztec::messages::processing::OffchainMessageWithContext>>::some(aztec::messages::processing::offchain::sync_inbox), scope);
     }
 
     pub struct offchain_receive_parameters {
@@ -2131,34 +2130,6 @@ pub contract AvmTest {
             }
         }
 
-        pub fn add_args_return(self, arg_a: Field, arg_b: Field) -> Field {
-            let mut serialized_params: [Field; 2] = [0_Field; 2];
-            let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 1] = arg_a.serialize();
-            let serialized_member_len: u32 = <Field as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                {
-                    let i_0: u32 = i + offset;
-                    serialized_params[i_0] = serialized_member[i];
-                }
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = arg_b.serialize();
-            let serialized_member_len: u32 = <Field as Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                {
-                    let i_1: u32 = i + offset;
-                    serialized_params[i_1] = serialized_member[i];
-                }
-            };
-            offset = offset + serialized_member_len;
-            let selector: FunctionSelector = FunctionSelector::from_field(2858633377_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<15, 2, Field>::new(self.address, selector, "add_args_return", serialized_params).call(self.context)
-            }
-        }
-
         pub fn variable_base_msm(self, scalar_lo: Field, scalar_hi: Field, scalar2_lo: Field, scalar2_hi: Field) -> Point {
             let mut serialized_params: [Field; 4] = [0_Field; 4];
             let mut offset: u32 = 0_u32;
@@ -2202,6 +2173,34 @@ pub contract AvmTest {
             // Safety: comment added by `nargo expand`
             unsafe {
                 aztec::context::calls::PublicCall::<17, 4, Point>::new(self.address, selector, "variable_base_msm", serialized_params).call(self.context)
+            }
+        }
+
+        pub fn add_args_return(self, arg_a: Field, arg_b: Field) -> Field {
+            let mut serialized_params: [Field; 2] = [0_Field; 2];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 1] = arg_a.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                {
+                    let i_0: u32 = i + offset;
+                    serialized_params[i_0] = serialized_member[i];
+                }
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = arg_b.serialize();
+            let serialized_member_len: u32 = <Field as Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                {
+                    let i_1: u32 = i + offset;
+                    serialized_params[i_1] = serialized_member[i];
+                }
+            };
+            offset = offset + serialized_member_len;
+            let selector: FunctionSelector = FunctionSelector::from_field(2858633377_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<15, 2, Field>::new(self.address, selector, "add_args_return", serialized_params).call(self.context)
             }
         }
 
@@ -2627,15 +2626,6 @@ pub contract AvmTest {
             }
         }
 
-        pub fn returndata_copy_oracle(self) {
-            let serialized_params: [Field; 0] = [];
-            let selector: FunctionSelector = FunctionSelector::from_field(4172530660_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<22, 0, ()>::new(self.address, selector, "returndata_copy_oracle", serialized_params).call(self.context)
-            }
-        }
-
         pub fn set_read_storage_single(self, a: Field) -> Field {
             let serialized_params: [Field; 1] = a.serialize();
             let selector: FunctionSelector = FunctionSelector::from_field(1932358992_Field);
@@ -2645,12 +2635,12 @@ pub contract AvmTest {
             }
         }
 
-        pub fn n_new_public_logs(self, num: u32) {
-            let serialized_params: [Field; 1] = num.serialize();
-            let selector: FunctionSelector = FunctionSelector::from_field(2907114368_Field);
+        pub fn returndata_copy_oracle(self) {
+            let serialized_params: [Field; 0] = [];
+            let selector: FunctionSelector = FunctionSelector::from_field(4172530660_Field);
             // Safety: comment added by `nargo expand`
             unsafe {
-                aztec::context::calls::PublicCall::<17, 1, ()>::new(self.address, selector, "n_new_public_logs", serialized_params).call(self.context)
+                aztec::context::calls::PublicCall::<22, 0, ()>::new(self.address, selector, "returndata_copy_oracle", serialized_params).call(self.context)
             }
         }
 
@@ -2697,6 +2687,15 @@ pub contract AvmTest {
             // Safety: comment added by `nargo expand`
             unsafe {
                 aztec::context::calls::PublicCall::<22, 0, Field>::new(self.address, selector, "set_opcode_small_field", serialized_params).call(self.context)
+            }
+        }
+
+        pub fn n_new_public_logs(self, num: u32) {
+            let serialized_params: [Field; 1] = num.serialize();
+            let selector: FunctionSelector = FunctionSelector::from_field(2907114368_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<17, 1, ()>::new(self.address, selector, "n_new_public_logs", serialized_params).call(self.context)
             }
         }
 
@@ -2792,15 +2791,6 @@ pub contract AvmTest {
             }
         }
 
-        pub fn call_fee_juice(self) {
-            let serialized_params: [Field; 0] = [];
-            let selector: FunctionSelector = FunctionSelector::from_field(2734888597_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<14, 0, ()>::new(self.address, selector, "call_fee_juice", serialized_params).call(self.context)
-            }
-        }
-
         pub fn get_da_gas_left(self) -> u32 {
             let serialized_params: [Field; 0] = [];
             let selector: FunctionSelector = FunctionSelector::from_field(2319460898_Field);
@@ -2825,6 +2815,15 @@ pub contract AvmTest {
             // Safety: comment added by `nargo expand`
             unsafe {
                 aztec::context::calls::PublicCall::<19, 0, Field>::new(self.address, selector, "read_storage_single", serialized_params).call(self.context)
+            }
+        }
+
+        pub fn call_fee_juice(self) {
+            let serialized_params: [Field; 0] = [];
+            let selector: FunctionSelector = FunctionSelector::from_field(2734888597_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<14, 0, ()>::new(self.address, selector, "call_fee_juice", serialized_params).call(self.context)
             }
         }
 

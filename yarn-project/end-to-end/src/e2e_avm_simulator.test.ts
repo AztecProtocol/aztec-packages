@@ -48,9 +48,9 @@ describe('e2e_avm_simulator', () => {
     describe('Assertions & error enriching', () => {
       /**
        * Expect an error like:
-       * Assertion failed: This assertion should fail! 'not_true == true'
+       * Assertion failed: This assertion should fail! 'assert(not_true == true, "This assertion should fail!")'
        * ...
-       * at not_true == true (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:16)
+       * at assert(not_true == true, "This assertion should fail!") (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:5)
        * at inner_helper_with_failed_assertion() (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:228:9)
        * at quote { $self } (../std/meta/expr.nr:269:9)
        * at function.name();
@@ -63,7 +63,9 @@ describe('e2e_avm_simulator', () => {
             avmContract.methods.assertion_failure().simulate({ from: defaultAccountAddress }),
           ).rejects.toThrow(
             expect.objectContaining({
-              message: expect.stringMatching(/Assertion failed: This assertion should fail! 'not_true == true'/),
+              message: expect.stringMatching(
+                /Assertion failed: This assertion should fail! 'assert\(not_true == true, "This assertion should fail!"\)'/,
+              ),
               stack: expect.stringMatching(/at inner_helper_with_failed_assertion[\s\S]*at AvmTest\..*/),
             }),
           );
