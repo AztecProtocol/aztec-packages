@@ -38,18 +38,6 @@ error: check_trait_impl_where_clause_matches_trait_where_clause: missing trait I
    │     ---------------- While running this function attribute
    │
 
-error: check_parent_traits_are_implemented: missing trait ID
-   ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:23:16
-   │
-23 │     let name = s.name();
-   │                --------
-   │
-   ┌─ src/main.nr:24:5
-   │
-24 │     #[authorization]
-   │     ---------------- While running this function attribute
-   │
-
 error: check_trait_impl_method_matches_declaration: missing trait impl
    ┌─ <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:42:16
    │
@@ -76,4 +64,4 @@ error: Selector collision detected between authorizations 'EventCollision8370082
     3: register_authorization
             at <repo>/noir-projects/aztec-nr/aztec/src/macros/authorization.nr:15:9
 
-Aborting due to 6 previous errors
+Aborting due to 5 previous errors
