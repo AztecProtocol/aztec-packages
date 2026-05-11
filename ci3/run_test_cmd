@@ -236,10 +236,8 @@ function track_test {
   redis_cli LTRIM $list_key 0 $max_lines &>/dev/null
 }
 
-# Slashes in TARGET_BRANCH (e.g. merge-train/spartan) are replaced with underscores
-# so the key is safe to embed in the /list/<key> dashboard URL.
 function track_test_history {
-  track_test "history_${test_hash}${TARGET_BRANCH:+_${TARGET_BRANCH//\//_}}" "$1" ${2:-}
+  track_test "history_${test_hash}${TARGET_BRANCH:+_$TARGET_BRANCH}" "$1" ${2:-}
 }
 
 function track_test_failed {
