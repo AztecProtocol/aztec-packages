@@ -530,6 +530,39 @@ export class SequencerPublisher {
 
     while (true) {
       triedAddresses.push(currentPublisher.getSenderAddress());
+
+      // Check the rotated publisher actually has enough funds before attempting the send.
+      // `gasLimit * maxFeePerGas` covers regular gas; for blob txs, `blobCount * 131072 * maxFeePerBlobGas`
+      // covers blob gas. We add a 2× safety factor to absorb EIP-1559 spikes and retry/replacement bumps.
+      // We use viem's client.getGasPrice() rather than the protected L1TxUtils.getGasPrice(), which
+      // projects stall-time and retry bumps; the 2× factor on our side absorbs that gap conservatively.
+      const balance = await currentPublisher.getSenderBalance();
+      const gasPrice = await currentPublisher.client.getGasPrice();
+      const worstCaseGas = txConfigWithGasLimit.gasLimit * gasPrice;
+      // maxFeePerBlobGas is optional on L1BlobInputs; if absent we rely on the 2× factor on the gas side.
+      const blobBytesPerBlob = 131_072n; // 4096 field elements * 32 bytes
+      const worstCaseBlob =
+        blobConfig && blobConfig.maxFeePerBlobGas !== undefined
+          ? BigInt(blobConfig.blobs.length) * blobBytesPerBlob * blobConfig.maxFeePerBlobGas
+          : 0n;
+      const worstCase = 2n * (worstCaseGas + worstCaseBlob);
+      if (balance < worstCase) {
+        this.log.warn(
+          `Publisher ${currentPublisher.getSenderAddress()} has insufficient balance (${balance} < ${worstCase}), rotating`,
+        );
+        if (!this.getNextPublisher) {
+          this.log.error('No fallback publisher available, failed to publish bundled transactions');
+          return undefined;
+        }
+        const nextPublisher = await this.getNextPublisher([...triedAddresses]);
+        if (!nextPublisher) {
+          this.log.error('All available publishers exhausted, failed to publish bundled transactions');
+          return undefined;
+        }
+        currentPublisher = nextPublisher;
+        continue;
+      }
+
       try {
         const result = await Multicall3.forward(
           validRequests.map(r => r.request),
