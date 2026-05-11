@@ -39,11 +39,7 @@ import { EmpireBaseAbi, ErrorsAbi, RollupAbi, SlashingProposerAbi } from '@aztec
 import { type ProposerSlashAction, encodeSlashConsensusVotes } from '@aztec/slasher';
 import { CommitteeAttestationsAndSigners, type ValidateCheckpointResult } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import {
-  getLastL1SlotTimestampForL2Slot,
-  getNextL1SlotTimestamp,
-  getTimestampForSlot,
-} from '@aztec/stdlib/epoch-helpers';
+import { getNextL1SlotTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { L1PublishCheckpointStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
@@ -172,9 +168,6 @@ export class SequencerPublisher {
   private readonly dateProvider: DateProvider;
 
   private blobClient: BlobClientInterface;
-
-  /** Address to use for simulations in fisherman mode (actual proposer's address) */
-  private proposerAddressForSimulation?: EthAddress;
 
   /** Optional callback to obtain a replacement publisher when the current one fails to send. */
   private getNextPublisher?: (excludeAddresses: EthAddress[]) => Promise<L1TxUtils | undefined>;
@@ -314,14 +307,6 @@ export class SequencerPublisher {
    */
   public getL1FeeAnalyzer(): L1FeeAnalyzer | undefined {
     return this.l1FeeAnalyzer;
-  }
-
-  /**
-   * Sets the proposer address to use for simulations in fisherman mode.
-   * @param proposerAddress - The actual proposer's address to use for balance lookups in simulations
-   */
-  public setProposerAddressForSimulation(proposerAddress: EthAddress | undefined) {
-    this.proposerAddressForSimulation = proposerAddress;
   }
 
   public addRequest(request: RequestWithExpiry) {
@@ -1406,13 +1391,6 @@ export class SequencerPublisher {
         }
       },
     });
-  }
-
-  /** Returns the timestamp of the last L1 slot within a given L2 slot. Used as the simulation timestamp
-   * for eth_simulateV1 calls, since it's guaranteed to be greater than any L1 block produced during the slot. */
-  private getSimulationTimestamp(slot: SlotNumber): bigint {
-    const l1Constants = this.epochCache.getL1Constants();
-    return getLastL1SlotTimestampForL2Slot(slot, l1Constants);
   }
 
   /** Returns the timestamp of the next L1 slot boundary after now. */

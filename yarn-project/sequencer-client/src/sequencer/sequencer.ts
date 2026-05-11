@@ -374,12 +374,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerForPublisher);
     this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
 
-    // In fisherman mode, set the actual proposer's address for simulations
-    if (this.config.fishermanMode && proposer) {
-      publisher.setProposerAddressForSimulation(proposer);
-      this.log.debug(`Set proposer address ${proposer} for simulation in fisherman mode`);
-    }
-
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need).
     // Only simulate invalidation when there's no proposed parent — otherwise the result is
     // overwritten to undefined below.
