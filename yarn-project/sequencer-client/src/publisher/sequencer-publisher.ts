@@ -555,7 +555,7 @@ export class SequencerPublisher {
     const targetSlot = this.getCurrentL2Slot();
     const targetTimestamp = getTimestampForSlot(targetSlot, l1Constants);
 
-    const simulateBundle = async (requests: RequestWithExpiry[]) => {
+    const simulateBundle = (requests: RequestWithExpiry[]) => {
       const calldata = encodeFunctionData({
         abi: multicall3Abi,
         functionName: 'aggregate3',
