@@ -287,10 +287,14 @@ export class SequencerPublisher {
 
   /**
    * Gets the fee asset price modifier from the oracle.
-   * Returns 0n if the oracle query fails.
+   *
+   * @param predictedParentEthPerFeeAssetE12 - Optional predicted parent eth-per-fee-asset (E12).
+   *   Pipelined proposers should pass the value from the predicted parent fee header so the
+   *   modifier matches the parent L1 will use when applying it.
+   * @returns The fee asset price modifier in basis points, or 0n if the oracle query fails.
    */
-  public getFeeAssetPriceModifier(): Promise<bigint> {
-    return this.feeAssetPriceOracle.computePriceModifier();
+  public getFeeAssetPriceModifier(predictedParentEthPerFeeAssetE12?: bigint): Promise<bigint> {
+    return this.feeAssetPriceOracle.computePriceModifier(predictedParentEthPerFeeAssetE12);
   }
 
   public getSenderAddress() {

@@ -587,8 +587,11 @@ export class CheckpointProposalJob implements Traceable {
         .filter(c => c.checkpointNumber < this.checkpointNumber)
         .map(c => c.checkpointOutHash);
 
-      // Get the fee asset price modifier from the oracle
-      const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier();
+      // Anchor the modifier to the predicted parent fee header: L1 will apply it against
+      // that, not against the latest published checkpoint (which lags by one under pipelining).
+      const predictedParentEthPerFeeAssetE12 =
+        this.pipelinedParentSimulationOverridesPlan?.pendingCheckpointState?.feeHeader?.ethPerFeeAsset;
+      const feeAssetPriceModifier = await this.publisher.getFeeAssetPriceModifier(predictedParentEthPerFeeAssetE12);
 
       // Create a long-lived forked world state for the checkpoint builder
       await using fork = await this.worldState.fork(this.syncedToBlockNumber, { closeDelayMs: 12_000 });
