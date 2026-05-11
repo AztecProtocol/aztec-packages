@@ -1,7 +1,7 @@
 ---
 name: remote-bench
 description: Run benchmarks on the dedicated remote EC2 benchmarking machine for noise-free, single-run results. Handles env var validation, lock management, binary transfer, and result collection. Use with /benchmark-chonk or any BB benchmark target.
-argument-hint: <target> e.g. "bb", "chonk_bench", "ultra_honk_bench", "wasm bb"
+argument-hint: <target> e.g. "bb", "ultra_honk_bench", "wasm bb"
 ---
 
 # Remote Bench
@@ -38,6 +38,25 @@ ssh $BB_SSH_KEY $BB_SSH_INSTANCE "echo ok" || {
 ```
 
 **If the env is not set up, stop and tell the user.** Do not attempt to run benchmarks locally as a fallback — the user invoked `/remote-bench` because they want stable results.
+
+## Remote bencher contract
+
+The bencher is an execution host only. It is not a Git workspace and not a
+toolchain bootstrap host.
+
+For private branches and private repos, build the benchmark binary locally in
+the session workspace, then copy the built binary and required input/result
+files with `scp`. The bencher should receive binaries and data, not source
+history.
+
+Do not send git bundles to the bencher. Do not create remote worktrees. Do not
+fetch private branches from GitHub on the bencher. Do not install per-session
+toolchains such as WASI SDK on the shared bencher to make a build work there.
+
+If local build tooling is missing (`emcc`, WASI SDK, CMake preset support, or
+similar), stop and report a local devbox/copy-base bootstrap issue. Fix the
+local build environment so it can produce the binary; do not mutate the shared
+bencher as a workaround.
 
 ### Setup (one-time)
 
@@ -95,7 +114,7 @@ The standard flow used by `scripts/benchmark_remote.sh`:
 ```bash
 cd barretenberg/cpp
 
-BENCHMARK="bb"                    # or chonk_bench, ultra_honk_bench, etc.
+BENCHMARK="bb"                    # or ultra_honk_bench, etc. (Chonk: use bb with --scheme chonk on real example flows — there is no synthetic chonk benchmark)
 PRESET="clang20-no-avm"          # or clang20
 BUILD_DIR="build-no-avm"         # matches preset
 
@@ -204,13 +223,13 @@ Compare current branch vs baseline (builds and runs both on remote):
 
 ```bash
 # Native
-./scripts/compare_chonk_bench.sh                # ChonkBench/Full/6
 ./scripts/compare_branch_vs_baseline_remote.sh <target> '<filter>'
 
 # WASM
-./scripts/compare_chonk_bench_wasm.sh           # ChonkBench/Full/6
 ./scripts/compare_branch_vs_baseline_remote_wasm.sh <target> '<filter>'
 ```
+
+For Chonk A/B, do not use a synthetic benchmark — measure `bb prove --scheme chonk` against pinned `ivc-inputs.msgpack` for both branches and compare manually.
 
 These use Google Benchmark's `compare.py` for statistical analysis. Note: comparison scripts check out the baseline branch locally, so your working tree must be clean.
 
@@ -220,10 +239,7 @@ These use Google Benchmark's `compare.py` for statistical analysis. Note: compar
 |--------|---------|
 | `scripts/benchmark_remote.sh` | Generic: build locally, scp, run remotely |
 | `scripts/benchmark_wasm_remote.sh` | Same for WASM (wasmtime on remote) |
-| `scripts/benchmark_example_ivc_flow_remote.sh` | Chonk with pinned inputs on remote |
-| `scripts/benchmark_chonk.sh` | Synthetic chonk_bench on remote |
-| `scripts/compare_chonk_bench.sh` | A/B native comparison |
-| `scripts/compare_chonk_bench_wasm.sh` | A/B WASM comparison |
+| `scripts/benchmark_example_ivc_flow_remote.sh` | Chonk with pinned inputs on remote (the only realistic Chonk bench) |
 | `scripts/compare_branch_vs_baseline_remote.sh` | Generic A/B native |
 | `scripts/compare_branch_vs_baseline_remote_wasm.sh` | Generic A/B WASM |
 | `scripts/_benchmark_remote_lock.sh` | Lock mechanism (source it, don't run it) |

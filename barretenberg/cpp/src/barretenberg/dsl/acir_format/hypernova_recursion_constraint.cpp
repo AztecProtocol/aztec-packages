@@ -31,7 +31,7 @@ using namespace bb;
  */
 std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
-    auto ivc = std::make_shared<Chonk>(std::max(constraints.size(), static_cast<size_t>(4)));
+    auto ivc = std::make_shared<Chonk>(std::max(constraints.size(), static_cast<size_t>(MAX_APPS_PER_KERNEL + 1)));
     // Check constraint proof type. Throws if proof_type is not a valid HyperNova type
     auto constraint_has_type = [](const RecursionConstraint& c, Chonk::QUEUE_TYPE expected) {
         return proof_type_to_chonk_queue_type(c.proof_type) == expected;

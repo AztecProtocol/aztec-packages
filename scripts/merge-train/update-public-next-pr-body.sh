@@ -14,6 +14,36 @@ function require_command {
   fi
 }
 
+function configure_gh_repo {
+  local remote_url repo
+
+  if [[ -n "${GH_REPO:-}" ]]; then
+    export GH_REPO
+    return
+  fi
+
+  if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    export GH_REPO="$GITHUB_REPOSITORY"
+    return
+  fi
+
+  remote_url=$(git remote get-url "$REMOTE" 2>/dev/null || true)
+  case "$remote_url" in
+    git@github.com:*)
+      repo="${remote_url#git@github.com:}"
+      ;;
+    https://github.com/*)
+      repo="${remote_url#https://github.com/}"
+      ;;
+    *)
+      return
+      ;;
+  esac
+
+  repo="${repo%.git}"
+  export GH_REPO="$repo"
+}
+
 function pr_for_commit {
   local _sha="$1"
   local subject="$2"
@@ -42,6 +72,7 @@ function append_pr_line {
 require_command git
 require_command gh
 require_command jq
+configure_gh_repo
 
 git fetch "$REMOTE" "$BASE_BRANCH" "$HEAD_BRANCH" --no-tags
 

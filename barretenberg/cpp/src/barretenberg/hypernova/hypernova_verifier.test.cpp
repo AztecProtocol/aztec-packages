@@ -190,7 +190,8 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         for (const auto& wire : { "ECC_OP_WIRE_1", "ECC_OP_WIRE_2", "ECC_OP_WIRE_3", "ECC_OP_WIRE_4" }) {
             manifest.add_entry(round, wire, frs_per_G);
         }
-        for (const auto& bus : { "KERNEL_CALLDATA", "APP_CALLDATA", "RETURNDATA" }) {
+        for (const auto& bus :
+             { "KERNEL_CALLDATA", "FIRST_APP_CALLDATA", "SECOND_APP_CALLDATA", "THIRD_APP_CALLDATA", "RETURN_DATA" }) {
             manifest.add_entry(round, bus, frs_per_G);
             manifest.add_entry(round, std::string(bus) + "_READ_COUNTS", frs_per_G);
         }
@@ -208,8 +209,10 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         manifest.add_challenge(round, "HypernovaFoldingProver:gate_challenge");
         manifest.add_entry(round, "LOOKUP_INVERSES", frs_per_G);
         manifest.add_entry(round, "KERNEL_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "APP_CALLDATA_INVERSES", frs_per_G);
-        manifest.add_entry(round, "RETURNDATA_INVERSES", frs_per_G);
+        manifest.add_entry(round, "FIRST_APP_CALLDATA_INVERSES", frs_per_G);
+        manifest.add_entry(round, "SECOND_APP_CALLDATA_INVERSES", frs_per_G);
+        manifest.add_entry(round, "THIRD_APP_CALLDATA_INVERSES", frs_per_G);
+        manifest.add_entry(round, "RETURN_DATA_INVERSES", frs_per_G);
         manifest.add_entry(round, "Z_PERM", frs_per_G);
         round++;
 
@@ -228,6 +231,10 @@ class HypernovaFoldingVerifierTests : public ::testing::Test {
         for (size_t i = 0; i < MegaFlavor::NUM_SHIFTED_ENTITIES - 1; ++i) {
             manifest.add_challenge(round, "shifted_challenge_" + std::to_string(i));
         }
+        manifest.add_entry(round, "Sumcheck:evaluations", MegaFlavor::NUM_ALL_ENTITIES);
+        round++;
+
+        // Round 25: Sumcheck:alpha + MLB accumulator data (Sumcheck:alpha is consecutive challenge)
         manifest.add_challenge(round, "Sumcheck:alpha");
         manifest.add_entry(round, "Sumcheck:evaluations", MegaFlavor::NUM_ALL_ENTITIES);
         round++;

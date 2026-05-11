@@ -19,6 +19,7 @@
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
+#include <array>
 
 namespace bb {
 
@@ -251,25 +252,24 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         // Kernel return data
         bool kernel_return_data_match =
-            kernel_input.kernel_return_data.get_value() == witness_commitments.calldata.get_value();
+            kernel_input.kernel_return_data.get_value() == witness_commitments.kernel_calldata.get_value();
         BB_ASSERT_DEBUG(kernel_return_data_match,
-                        "kernel_return_data mismatch: proof contains " << kernel_input.kernel_return_data.get_value()
-                                                                       << " but calldata commitment is "
-                                                                       << witness_commitments.calldata.get_value());
-        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
+                        "kernel_return_data mismatch: proof contains "
+                            << kernel_input.kernel_return_data.get_value() << " but kernel_calldata commitment is "
+                            << witness_commitments.kernel_calldata.get_value());
+        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata);
 
-        // App return data. Mega currently exposes a single app calldata witness commitment
-        // (`secondary_calldata`), so MAX_APPS_PER_KERNEL remains 1.
-        static_assert(MAX_APPS_PER_KERNEL == 1, "Multiple app calldata witness columns are not wired yet");
+        const std::array app_calldata_commitments{ &witness_commitments.first_app_calldata,
+                                                   &witness_commitments.second_app_calldata,
+                                                   &witness_commitments.third_app_calldata };
         for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
             bool app_return_data_match =
-                kernel_input.app_return_data[idx].get_value() == witness_commitments.secondary_calldata.get_value();
+                kernel_input.app_return_data[idx].get_value() == app_calldata_commitments[idx]->get_value();
             BB_ASSERT_DEBUG(app_return_data_match,
                             "app_return_data mismatch: proof contains "
-                                << kernel_input.app_return_data[idx].get_value()
-                                << " but secondary_calldata commitment is "
-                                << witness_commitments.secondary_calldata.get_value());
-            kernel_input.app_return_data[idx].incomplete_assert_equal(witness_commitments.secondary_calldata);
+                                << kernel_input.app_return_data[idx].get_value() << " but app calldata commitment "
+                                << idx << " is " << app_calldata_commitments[idx]->get_value());
+            kernel_input.app_return_data[idx].incomplete_assert_equal(*app_calldata_commitments[idx]);
         }
 
         // ============= Perform accumulator hash consistency check =========================
@@ -398,8 +398,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Determine kernel type from queue contents
-    bool is_init_kernel =
-        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::OINK);
+    bool is_init_kernel = stdlib_verification_queue.front().type == QUEUE_TYPE::OINK;
 
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);

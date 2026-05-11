@@ -102,7 +102,7 @@ TYPED_TEST(DataBusTests, KernelCallDataRead)
 }
 
 /**
- * @brief Test proof construction/verification for a circuit with secondary_calldata lookup gates
+ * @brief Test proof construction/verification for circuits with app calldata lookup gates
  *
  */
 TYPED_TEST(DataBusTests, AppCallDataRead)
@@ -111,6 +111,7 @@ TYPED_TEST(DataBusTests, AppCallDataRead)
         typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
         this->construct_circuit_with_databus_reads(builder, static_cast<BusId>(idx + 1));
 
+        EXPECT_TRUE(CircuitChecker::check(builder)) << "Circuit check failed for app calldata bus with index " << idx;
         EXPECT_TRUE(this->construct_and_verify_proof(builder)) << "Failed for app calldata bus with index " << idx;
     }
 }
@@ -124,6 +125,7 @@ TYPED_TEST(DataBusTests, ReturnDataRead)
     typename TypeParam::CircuitBuilder builder = this->construct_test_builder();
     this->construct_circuit_with_databus_reads(builder, BusId::RETURNDATA);
 
+    EXPECT_TRUE(CircuitChecker::check(builder));
     EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
 
@@ -140,6 +142,7 @@ TYPED_TEST(DataBusTests, ReadAll)
     }
     this->construct_circuit_with_databus_reads(builder, BusId::RETURNDATA);
 
+    EXPECT_TRUE(CircuitChecker::check(builder));
     EXPECT_TRUE(this->construct_and_verify_proof(builder));
 }
 

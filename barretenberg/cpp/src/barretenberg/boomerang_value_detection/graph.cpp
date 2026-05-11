@@ -272,8 +272,15 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
             try_pattern(ARITHMETIC, blk.q_arith());
             try_pattern(ELLIPTIC, blk.q_elliptic());
             try_pattern(LOOKUP, blk.q_lookup());
-            try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
             try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());
+            if constexpr (IsMegaBuilder<CircuitBuilder>) {
+                try_pattern(POSEIDON2_QUAD_INTERNAL, blk.q_poseidon2_quad_internal());
+                try_pattern(POSEIDON2_QUAD_INTERNAL_TERMINAL, blk.q_poseidon2_quad_internal_terminal());
+                try_pattern(POSEIDON2_TRANSITION_ENTRY, blk.q_poseidon2_transition_entry());
+                try_pattern(POSEIDON2_INITIAL_EXTERNAL, blk.q_poseidon2_external_initial());
+            } else {
+                try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
+            }
             try_pattern(NON_NATIVE_FIELD, blk.q_nnf());
             try_pattern(MEMORY, blk.q_memory()); // consistency gates only; access gates via ROM/RAM transcripts
             try_pattern(DELTA_RANGE, blk.q_delta_range());
@@ -1244,11 +1251,22 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_delta_range_gate_info(size_t gat
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_poseidon2s_gate_info(size_t gate_index, auto& block)
 {
-    auto internal_selector = block.q_poseidon2_internal()[gate_index];
     auto external_selector = block.q_poseidon2_external()[gate_index];
-    if (!internal_selector.is_zero() || !external_selector.is_zero()) {
-        info("q_poseidon2_internal == ", internal_selector);
+    bool nonzero = !external_selector.is_zero();
+    if constexpr (IsMegaBuilder<CircuitBuilder>) {
+        nonzero = nonzero || !block.q_poseidon2_external_initial()[gate_index].is_zero() ||
+                  !block.q_poseidon2_quad_internal()[gate_index].is_zero();
+    } else {
+        nonzero = nonzero || !block.q_poseidon2_internal()[gate_index].is_zero();
+    }
+    if (nonzero) {
         info("q_poseidon2_external == ", external_selector);
+        if constexpr (IsMegaBuilder<CircuitBuilder>) {
+            info("q_poseidon2_external_initial == ", block.q_poseidon2_external_initial()[gate_index]);
+            info("q_poseidon2_quad_internal == ", block.q_poseidon2_quad_internal()[gate_index]);
+        } else {
+            info("q_poseidon2_internal == ", block.q_poseidon2_internal()[gate_index]);
+        }
         info("w_1 == ", block.w_l()[gate_index]);
         info("w_2 == ", block.w_r()[gate_index]);
         info("w_3 == ", block.w_o()[gate_index]);

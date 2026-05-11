@@ -24,7 +24,10 @@
 #include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
-#include "barretenberg/relations/poseidon2_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_initial_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_quad_internal_relation.hpp"
+#include "barretenberg/relations/poseidon2_quad_internal_terminal_relation.hpp"
+#include "barretenberg/relations/poseidon2_transition_entry_relation.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
@@ -71,7 +74,10 @@ class MegaFlavor {
                                   bb::EccOpQueueRelation<FF>,
                                   bb::DatabusLookupRelation<FF>,
                                   bb::Poseidon2ExternalRelation<FF>,
-                                  bb::Poseidon2InternalRelation<FF>>;
+                                  bb::Poseidon2InitialExternalRelation<FF>,
+                                  bb::Poseidon2QuadInternalRelation<FF>,
+                                  bb::Poseidon2QuadInternalTerminalRelation<FF>,
+                                  bb::Poseidon2TransitionEntryRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -93,8 +99,10 @@ class MegaFlavor {
      * @details Used to build the proving key and verification key.
      *
      * These polynomials fall into several categories based on their origin:
-     * - **Circuit selectors** (q_m, q_c, q_l, q_r, q_o, q_4, q_busread, q_lookup, q_arith, q_delta_range,
-     *   q_elliptic, q_memory, q_nnf, q_poseidon2_external, q_poseidon2_internal): Populated directly from
+     * - **Circuit selectors** (q_m, q_c, q_l, q_r, q_o, q_4, q_5, q_busread, q_lookup, q_arith, q_delta_range,
+     *   q_elliptic, q_memory, q_nnf, q_poseidon2_external, q_poseidon2_external_initial,
+     *   q_poseidon2_quad_internal, q_poseidon2_quad_internal_terminal, q_poseidon2_transition_entry):
+     *   Populated directly from
      *   the circuit builder's execution trace blocks.
      * - **Permutation polynomials** (sigma_1-4, id_1-4): Computed from wire copy cycles.
      * - **Table polynomials** (table_1-4): Populated from lookup tables in the circuit.
@@ -145,7 +153,7 @@ class MegaFlavor {
                               return_data_indicator         // column 33 // 1 on return_data data rows
         )
 
-        auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4 }; };
+        auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4, q_5 }; };
         auto get_gate_selectors()
         {
             return RefArray{
@@ -157,7 +165,10 @@ class MegaFlavor {
                 q_memory,
                 q_nnf,
                 q_poseidon2_external,
-                q_poseidon2_internal,
+                q_poseidon2_external_initial,
+                q_poseidon2_quad_internal,
+                q_poseidon2_quad_internal_terminal,
+                q_poseidon2_transition_entry,
             };
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
@@ -181,23 +192,29 @@ class MegaFlavor {
     template <typename DataType> class DerivedEntities {
       public:
         DEFINE_FLAVOR_MEMBERS(DataType,
-                              z_perm,                         // column 4
-                              lookup_inverses,                // column 5
-                              lookup_read_counts,             // column 6
-                              lookup_read_tags,               // column 7
-                              ecc_op_wire_1,                  // column 8
-                              ecc_op_wire_2,                  // column 9
-                              ecc_op_wire_3,                  // column 10
-                              ecc_op_wire_4,                  // column 11
-                              calldata,                       // column 12
-                              calldata_read_counts,           // column 13
-                              calldata_inverses,              // column 14
-                              secondary_calldata,             // column 15
-                              secondary_calldata_read_counts, // column 16
-                              secondary_calldata_inverses,    // column 17
-                              return_data,                    // column 18
-                              return_data_read_counts,        // column 19
-                              return_data_inverses);          // column 20
+                              z_perm,                          // column 4
+                              lookup_inverses,                 // column 5
+                              lookup_read_counts,              // column 6
+                              lookup_read_tags,                // column 7
+                              ecc_op_wire_1,                   // column 8
+                              ecc_op_wire_2,                   // column 9
+                              ecc_op_wire_3,                   // column 10
+                              ecc_op_wire_4,                   // column 11
+                              kernel_calldata,                 // column 12
+                              kernel_calldata_read_counts,     // column 13
+                              kernel_calldata_inverses,        // column 14
+                              first_app_calldata,              // column 15
+                              first_app_calldata_read_counts,  // column 16
+                              first_app_calldata_inverses,     // column 17
+                              second_app_calldata,             // column 18
+                              second_app_calldata_read_counts, // column 19
+                              second_app_calldata_inverses,    // column 20
+                              third_app_calldata,              // column 21
+                              third_app_calldata_read_counts,  // column 22
+                              third_app_calldata_inverses,     // column 23
+                              return_data,                     // column 24
+                              return_data_read_counts,         // column 25
+                              return_data_inverses);           // column 26
         auto get_to_be_shifted() { return RefArray{ z_perm }; };
     };
 
@@ -222,22 +239,30 @@ class MegaFlavor {
         template <size_t bus_idx> auto databus_entities_for_bus()
         {
             if constexpr (bus_idx == 0) {
-                return RefArray{ this->calldata, this->calldata_read_counts };
+                return RefArray{ this->kernel_calldata, this->kernel_calldata_read_counts };
             } else if constexpr (bus_idx == 1) {
-                return RefArray{ this->secondary_calldata, this->secondary_calldata_read_counts };
+                return RefArray{ this->first_app_calldata, this->first_app_calldata_read_counts };
+            } else if constexpr (bus_idx == 2) {
+                return RefArray{ this->second_app_calldata, this->second_app_calldata_read_counts };
+            } else if constexpr (bus_idx == 3) {
+                return RefArray{ this->third_app_calldata, this->third_app_calldata_read_counts };
             } else {
-                static_assert(bus_idx == 2);
+                static_assert(bus_idx == 4);
                 return RefArray{ this->return_data, this->return_data_read_counts };
             }
         }
         template <size_t bus_idx> auto databus_inverse_for_bus()
         {
             if constexpr (bus_idx == 0) {
-                return RefArray{ this->calldata_inverses };
+                return RefArray{ this->kernel_calldata_inverses };
             } else if constexpr (bus_idx == 1) {
-                return RefArray{ this->secondary_calldata_inverses };
+                return RefArray{ this->first_app_calldata_inverses };
+            } else if constexpr (bus_idx == 2) {
+                return RefArray{ this->second_app_calldata_inverses };
+            } else if constexpr (bus_idx == 3) {
+                return RefArray{ this->third_app_calldata_inverses };
             } else {
-                static_assert(bus_idx == 2);
+                static_assert(bus_idx == 4);
                 return RefArray{ this->return_data_inverses };
             }
         }
@@ -392,21 +417,28 @@ class MegaFlavor {
             ecc_op_wire_2 = "ECC_OP_WIRE_2";
             ecc_op_wire_3 = "ECC_OP_WIRE_3";
             ecc_op_wire_4 = "ECC_OP_WIRE_4";
-            calldata = "KERNEL_CALLDATA";
-            calldata_read_counts = "KERNEL_CALLDATA_READ_COUNTS";
-            calldata_inverses = "KERNEL_CALLDATA_INVERSES";
-            secondary_calldata = "APP_CALLDATA";
-            secondary_calldata_read_counts = "APP_CALLDATA_READ_COUNTS";
-            secondary_calldata_inverses = "APP_CALLDATA_INVERSES";
-            return_data = "RETURNDATA";
-            return_data_read_counts = "RETURNDATA_READ_COUNTS";
-            return_data_inverses = "RETURNDATA_INVERSES";
+            kernel_calldata = "KERNEL_CALLDATA";
+            kernel_calldata_read_counts = "KERNEL_CALLDATA_READ_COUNTS";
+            kernel_calldata_inverses = "KERNEL_CALLDATA_INVERSES";
+            first_app_calldata = "FIRST_APP_CALLDATA";
+            first_app_calldata_read_counts = "FIRST_APP_CALLDATA_READ_COUNTS";
+            first_app_calldata_inverses = "FIRST_APP_CALLDATA_INVERSES";
+            second_app_calldata = "SECOND_APP_CALLDATA";
+            second_app_calldata_read_counts = "SECOND_APP_CALLDATA_READ_COUNTS";
+            second_app_calldata_inverses = "SECOND_APP_CALLDATA_INVERSES";
+            third_app_calldata = "THIRD_APP_CALLDATA";
+            third_app_calldata_read_counts = "THIRD_APP_CALLDATA_READ_COUNTS";
+            third_app_calldata_inverses = "THIRD_APP_CALLDATA_INVERSES";
+            return_data = "RETURN_DATA";
+            return_data_read_counts = "RETURN_DATA_READ_COUNTS";
+            return_data_inverses = "RETURN_DATA_INVERSES";
 
             q_c = "Q_C";
             q_l = "Q_L";
             q_r = "Q_R";
             q_o = "Q_O";
             q_4 = "Q_4";
+            q_5 = "Q_5";
             q_m = "Q_M";
             q_busread = "Q_BUSREAD";
             q_lookup = "Q_LOOKUP";
@@ -416,7 +448,10 @@ class MegaFlavor {
             q_memory = "Q_MEMORY";
             q_nnf = "Q_NNF";
             q_poseidon2_external = "Q_POSEIDON2_EXTERNAL";
-            q_poseidon2_internal = "Q_POSEIDON2_INTERNAL";
+            q_poseidon2_external_initial = "Q_POSEIDON2_EXTERNAL_INITIAL";
+            q_poseidon2_quad_internal = "Q_POSEIDON2_QUAD_INTERNAL";
+            q_poseidon2_quad_internal_terminal = "Q_POSEIDON2_QUAD_INTERNAL_TERMINAL";
+            q_poseidon2_transition_entry = "Q_POSEIDON2_TRANSITION_ENTRY";
             sigma_1 = "SIGMA_1";
             sigma_2 = "SIGMA_2";
             sigma_3 = "SIGMA_3";
