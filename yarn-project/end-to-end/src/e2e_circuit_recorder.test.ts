@@ -50,8 +50,12 @@ describe('Circuit Recorder', () => {
     // init_K artifact whose K is within [1, MAX_APPS_PER_KERNEL]: that's the artifact name the
     // recorder will produce on disk.
     {
+      // Match the recorder's `circuitName_functionName` filename: the recorder uses
+      // `artifact.name`, which BundleArtifactProvider derives by stripping 'Artifact' from the
+      // ClientProtocolArtifact key (e.g. 'PrivateKernelInit3Artifact' → 'PrivateKernelInit3'),
+      // so there is no underscore between 'Init' and the digit.
       const initVariants = Array.from({ length: MAX_APPS_PER_KERNEL }, (_, i) =>
-        i === 0 ? 'PrivateKernelInit' : `PrivateKernelInit_${i + 1}`,
+        i === 0 ? 'PrivateKernelInit' : `PrivateKernelInit${i + 1}`,
       );
 
       const files = await fs.readdir(RECORD_DIR);
