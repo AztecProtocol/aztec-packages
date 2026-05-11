@@ -424,17 +424,6 @@ export class SequencerPublisher {
       return undefined;
     }
 
-    // @note - we can only have one blob config per bundle
-    // find requests with gas and blob configs
-    // See https://github.com/AztecProtocol/aztec-packages/issues/11513
-    const blobConfigs = validRequests.filter(request => request.blobConfig).map(request => request.blobConfig);
-
-    if (blobConfigs.length > 1) {
-      throw new Error('Multiple blob configs found');
-    }
-
-    const blobConfig = blobConfigs[0];
-
     // Collect earliest txTimeoutAt across all requests.
     const gasConfigs = validRequests.filter(request => request.gasConfig).map(request => request.gasConfig);
     const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
@@ -452,6 +441,16 @@ export class SequencerPublisher {
       }
       const { requests: survivingRequests, gasLimit } = bundleResult;
       const sentActions = survivingRequests.map(x => x.action);
+
+      // @note - we can only have one blob config per bundle
+      // Compute blobConfig from survivors (not original validRequests) so that if the propose
+      // entry was dropped by bundleSimulate we don't attach a blob-typed config to a non-blob tx.
+      // See https://github.com/AztecProtocol/aztec-packages/issues/11513
+      const survivorBlobConfigs = survivingRequests.filter(r => r.blobConfig).map(r => r.blobConfig);
+      if (survivorBlobConfigs.length > 1) {
+        throw new Error('Multiple blob configs found');
+      }
+      const blobConfig = survivorBlobConfigs[0];
 
       const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
