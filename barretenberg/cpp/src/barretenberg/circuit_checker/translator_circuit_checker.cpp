@@ -65,11 +65,12 @@ void TranslatorCircuitChecker::populate_values(const Builder& circuit, AllValues
 
     // -----------------------------------------------------------------------
     // Shifted wire values (= values at next row, or zero at boundary).
-    // get_shifted() returns 86 refs:
+    // ShiftedEntities::get_all() returns 86 refs:
     //   [0..79]  : shifts of circuit.wires[1..80]  (x_lo_y_hi through last range constraint)
     //   [80..85] : shifts of ordered range constraints (0..4) and z_perm (not from circuit wires)
     // -----------------------------------------------------------------------
-    auto shifted_refs = values.get_shifted();
+    auto& shifted_base = static_cast<Flavor::ShiftedEntities<Fr>&>(values);
+    auto shifted_refs = shifted_base.get_all();
     if (row_idx + 1 < num_gates) {
         // circuit.wires[j+1] holds the wire that shifts to shifted_refs[j]
         for (size_t j = 0; j < 80; j++) {

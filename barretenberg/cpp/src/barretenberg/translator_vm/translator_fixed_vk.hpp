@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/common/ref_vector.hpp"
-#include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 
 namespace bb {
@@ -34,24 +33,6 @@ struct TranslatorHardcodedVKAndHash {
             Commitment(uint256_t("0x1ddbff0e1f0999f88ffa959e9505e5f489b57d6a7937c17a4d69fc871d5e9221"),
                        uint256_t("0x14149055853422bf016065386e8ea0ffb9425b454048e1cd14cfdca457aa7e17")),
         };
-    }
-
-    template <typename VKEntities> static void populate(VKEntities& vk)
-    {
-        const auto values = get_all();
-        size_t i = 0;
-        for (auto& field : vk.get_all()) {
-            field = values[i++];
-        }
-    }
-
-    template <typename Builder, typename StdlibVKEntities, typename NativeVKEntities>
-    static void populate_stdlib(Builder* builder, StdlibVKEntities& stdlib_vk, const NativeVKEntities& native_vk)
-    {
-        for (auto [stdlib_field, native_field] : zip_view(stdlib_vk.get_all(), native_vk.get_all())) {
-            stdlib_field = StdlibVKEntities::DataType::from_witness(builder, native_field);
-            stdlib_field.fix_witness();
-        }
     }
 };
 

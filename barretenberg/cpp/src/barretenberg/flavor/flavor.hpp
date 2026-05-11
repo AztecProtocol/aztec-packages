@@ -95,7 +95,7 @@ template <typename Polynomial, size_t NUM_PRECOMPUTED_ENTITIES> struct Precomput
  *
  * @tparam PrecomputedCommitments The precomputed entities containing VK commitments
  * @tparam HashType The field type for the precomputed hash (e.g., fr for both ECCVM and Translator)
- * @tparam HardcodedVKAndHash Class containing static vk_hash() and either populate() or get_all() with hardcoded values
+ * @tparam HardcodedVKAndHash Class containing static vk_hash() and get_all() methods with hardcoded values
  */
 template <typename PrecomputedCommitments, typename HashType, typename HardcodedVKAndHash>
 class FixedVKAndHash_ : public PrecomputedCommitments {
@@ -104,31 +104,13 @@ class FixedVKAndHash_ : public PrecomputedCommitments {
 
     bool operator==(const FixedVKAndHash_&) const = default;
 
-    // Default construct the fixed VK from a hardcoded commitment populator and precomputed hash.
+    // Default construct the fixed VK from hardcoded commitments and precomputed hash
     FixedVKAndHash_()
-        requires requires(PrecomputedCommitments& commitments) { HardcodedVKAndHash::populate(commitments); }
-        : hash(HardcodedVKAndHash::vk_hash())
-    {
-        HardcodedVKAndHash::populate(static_cast<PrecomputedCommitments&>(*this));
-    }
-
-    // Default construct the fixed VK from hardcoded commitment vectors and precomputed hash.
-    FixedVKAndHash_()
-        requires(!requires(PrecomputedCommitments& commitments) { HardcodedVKAndHash::populate(commitments); })
         : hash(HardcodedVKAndHash::vk_hash())
     {
         for (auto [vk_commitment, fixed_commitment] : zip_view(this->get_all(), HardcodedVKAndHash::get_all())) {
             vk_commitment = fixed_commitment;
         }
-    }
-
-    template <typename Builder, typename StdlibPrecomputedCommitments>
-    void populate_stdlib(Builder* builder, StdlibPrecomputedCommitments& commitments) const
-        requires requires(const PrecomputedCommitments& native_commitments) {
-            HardcodedVKAndHash::populate_stdlib(builder, commitments, native_commitments);
-        }
-    {
-        HardcodedVKAndHash::populate_stdlib(builder, commitments, static_cast<const PrecomputedCommitments&>(*this));
     }
 
     HashType get_hash() const { return hash; }
@@ -358,19 +340,6 @@ class FixedStdlibVKAndHash_ : public PrecomputedCommitments {
      * @brief Construct from native verification key and fix all witnesses (VK is constant for fixed circuits)
      */
     FixedStdlibVKAndHash_(Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-        requires requires(const NativeVerificationKey& native_key, PrecomputedCommitments& commitments) {
-            native_key.populate_stdlib(builder, commitments);
-        }
-        : hash(FF::from_witness(builder, native_key->get_hash()))
-    {
-        native_key->populate_stdlib(builder, static_cast<PrecomputedCommitments&>(*this));
-        hash.fix_witness();
-    }
-
-    FixedStdlibVKAndHash_(Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
-        requires(!requires(const NativeVerificationKey& native_key, PrecomputedCommitments& commitments) {
-            native_key.populate_stdlib(builder, commitments);
-        })
         : hash(FF::from_witness(builder, native_key->get_hash()))
     {
         for (auto [native_comm, comm] : zip_view(native_key->get_all(), this->get_all())) {

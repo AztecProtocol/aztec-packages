@@ -147,10 +147,7 @@ typename TranslatorVerifier_<Flavor>::VerifierCommitments TranslatorVerifier_<Fl
     transcript->add_to_hash_buffer("vk_hash", vk_hash);
     vinfo("Translator vk hash in verifier: ", vk_hash);
 
-    VerifierCommitments commitments;
-    // Only ordered_extra_range_constraints_numerator needs a VK commitment for PCS.
-    // All other precomputed selectors are computable (evaluations derived from sumcheck challenge).
-    commitments.ordered_extra_range_constraints_numerator = key->ordered_extra_range_constraints_numerator;
+    VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
 
     // For recursive verification, mark the accumulated result's prime basis limb as used
@@ -224,8 +221,8 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
     // Unshifted concat evals are reconstructed inside sumcheck (via complete_full_circuit_evaluations).
     // Here we only need the shifted concat evals for PCS, which are not stored in AllEntities.
     auto& claimed = sumcheck_output.claimed_evaluations;
-    auto concat_shift_evals = TranslatorFlavor::reconstruct_concatenated_evaluations</*Shifted=*/true>(
-        claimed, std::span<const FF>(sumcheck_output.challenge));
+    auto concat_shift_evals = TranslatorFlavor::reconstruct_concatenated_evaluations(
+        claimed.get_groups_to_be_concatenated_shifted(), std::span<const FF>(sumcheck_output.challenge));
 
     // --- PCS: build opening claims and verify ---
     auto combined_unshifted_comms = commitments.get_pcs_unshifted();

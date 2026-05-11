@@ -75,13 +75,6 @@ class TranslatorRecursiveFlavor {
         NativeFlavor::complete_full_circuit_evaluations(evals, full_circuit, challenge);
     }
 
-    template <bool Shifted, typename FFType>
-    static std::array<FFType, NativeFlavor::NUM_CONCATENATED_POLYS> reconstruct_concatenated_evaluations(
-        NativeFlavor::AllEntities<FFType>& evals, std::span<const FFType> challenge)
-    {
-        return NativeFlavor::template reconstruct_concatenated_evaluations<Shifted>(evals, challenge);
-    }
-
     using Relations = TranslatorFlavor::Relations_<FF>;
 
     static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
@@ -111,10 +104,11 @@ class TranslatorRecursiveFlavor {
     /**
      * @brief A container for the witness commitments.
      */
-    using WitnessCommitments = TranslatorFlavor::AllEntities<Commitment>;
+    using WitnessCommitments = TranslatorFlavor::WitnessEntities<Commitment>;
 
     using CommitmentLabels = TranslatorFlavor::CommitmentLabels;
-    using VerifierCommitments = TranslatorFlavor::AllEntities<Commitment>;
+    // Reuse the VerifierCommitments from Translator
+    using VerifierCommitments = TranslatorFlavor::VerifierCommitments_<Commitment, VerificationKey>;
     using Transcript = UltraStdlibTranscript;
 
     using VKAndHash = VKAndHash_<VerificationKey, FF>;
