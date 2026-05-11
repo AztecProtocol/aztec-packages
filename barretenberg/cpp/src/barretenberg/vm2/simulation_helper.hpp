@@ -48,6 +48,19 @@ class AvmSimulationHelper {
                                               const ProtocolContracts& protocol_contracts,
                                               simulation::CancellationTokenPtr cancellation_token = nullptr);
 
+    // Hint-collecting simulation against any LowLevelMerkleDBInterface implementation. Mirrors
+    // simulate_fast_internal but wraps the DBs in the hinting proxies used by witgen and dumps
+    // the recorded hints into the result. Used by the prover-node path on both the NAPI AVM
+    // (after the WSDB cutover) and the standalone aztec-avm.
+    TxSimulationResult simulate_for_hint_collection_internal(
+        simulation::ContractDBInterface& raw_contract_db,
+        simulation::LowLevelMerkleDBInterface& raw_merkle_db,
+        const PublicSimulatorConfig& config,
+        const Tx& tx,
+        const GlobalVariables& global_variables,
+        const ProtocolContracts& protocol_contracts,
+        simulation::CancellationTokenPtr cancellation_token = nullptr);
+
   protected:
     template <template <typename> class DefaultEventEmitter, template <typename> class DefaultDeduplicatingEventEmitter>
     std::tuple<simulation::EventsContainer, TxSimulationResult> simulate_for_witgen_internal(
