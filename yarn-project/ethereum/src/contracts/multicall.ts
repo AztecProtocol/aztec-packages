@@ -141,6 +141,10 @@ export class Multicall3 {
         throw err;
       }
 
+      // TODO(palla/publisher): if sendAndMonitorTransaction threw, the tx never landed —
+      // re-simulating each request individually only diagnoses on-chain reverts, not
+      // mempool/node-level rejections, so this loop can be misleading. Consider scoping
+      // the per-request resim to receipt-revert diagnosis only.
       for (const request of requests) {
         logger.debug('Simulating request', { request });
         const result = await l1TxUtils
