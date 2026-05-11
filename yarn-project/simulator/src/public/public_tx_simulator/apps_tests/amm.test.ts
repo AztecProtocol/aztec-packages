@@ -6,10 +6,7 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 import { ammTest } from '../../fixtures/amm_test.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
-describe.each([
-  { useCppSimulator: false, simulatorName: 'TS Simulator' },
-  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-])('Public TX simulator apps tests: AMM Contract ($simulatorName)', ({ useCppSimulator }) => {
+describe('Public TX simulator apps tests: AMM Contract', () => {
   const logger = createLogger('public-tx-apps-tests-amm');
 
   let worldStateService: NativeWorldStateService;
@@ -17,15 +14,11 @@ describe.each([
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
-    tester = await PublicTxSimulationTester.create(
-      worldStateService,
-      /*globals=*/ undefined,
-      /*metrics=*/ undefined,
-      useCppSimulator,
-    );
+    tester = await PublicTxSimulationTester.create(worldStateService, /*globals=*/ undefined, /*metrics=*/ undefined);
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 

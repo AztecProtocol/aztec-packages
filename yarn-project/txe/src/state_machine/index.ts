@@ -59,7 +59,7 @@ export class TXEStateMachine {
       new TXEGlobalVariablesBuilder(),
       new TXEFeeProvider(),
       new MockEpochCache(),
-      getPackageVersion(),
+      getPackageVersion() ?? '',
       new TestCircuitVerifier(),
       new TestCircuitVerifier(),
       undefined,

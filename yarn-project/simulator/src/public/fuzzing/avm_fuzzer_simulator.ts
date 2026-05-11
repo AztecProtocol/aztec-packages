@@ -241,7 +241,7 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
     await this.setFeePayerBalance(txHint.feePayer, new Fr(totalFee));
 
     const tx = await createTxFromHint(txHint);
-    return await this.simulator.simulate(tx);
+    return await this.simulator.simulate(tx).result;
   }
 
   /**

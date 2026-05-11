@@ -6,6 +6,7 @@ import { EMPTY_GENESIS_DATA, type GenesisData, isGenesisData } from '@aztec/stdl
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
+import type { WsdbIpcBackend } from '../native/ipc_world_state_instance.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
 import type { WorldStateConfig } from './config.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
@@ -24,10 +25,19 @@ export async function createWorldStateSynchronizer(
   genesisOrNativeWorldState: GenesisData | NativeWorldStateService,
   client: TelemetryClient = getTelemetryClient(),
   bindings?: LoggerBindings,
+  wsdbBackend?: WsdbIpcBackend,
+  recreateIpcInstance?: () => Promise<import('../native/native_world_state_instance.js').NativeWorldStateInstance>,
 ) {
   const instrumentation = new WorldStateInstrumentation(client);
   const merkleTrees = isGenesisData(genesisOrNativeWorldState)
-    ? await createWorldState(config, genesisOrNativeWorldState, instrumentation, bindings)
+    ? await createWorldState(
+        config,
+        genesisOrNativeWorldState,
+        instrumentation,
+        bindings,
+        wsdbBackend,
+        recreateIpcInstance,
+      )
     : genesisOrNativeWorldState;
   return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, instrumentation);
 }
@@ -47,7 +57,21 @@ export async function createWorldState(
   genesis: GenesisData = EMPTY_GENESIS_DATA,
   instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
   bindings?: LoggerBindings,
+  wsdbBackend?: WsdbIpcBackend,
+  recreateIpcInstance?: () => Promise<import('../native/native_world_state_instance.js').NativeWorldStateInstance>,
 ) {
+  // If an IPC backend is provided, use it directly (avoids spawning a new wsdb process)
+  if (wsdbBackend) {
+    return NativeWorldStateService.fromIpc(
+      wsdbBackend,
+      instrumentation,
+      bindings,
+      genesis,
+      undefined,
+      recreateIpcInstance,
+    );
+  }
+
   const dataDirectory = config.worldStateDataDirectory ?? config.dataDirectory;
   const dataStoreMapSizeKb = config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKb;
   const wsTreeMapSizes: WorldStateTreeMapSizes = {

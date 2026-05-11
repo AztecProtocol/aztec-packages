@@ -1,6 +1,7 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { type AvmIpcBackend, CdbIpcServer } from '@aztec/simulator/server';
 import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type {
   MerkleTreeReadOperations,
@@ -15,12 +16,35 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   // This works when set to 1 as well.
   private blockNumber = BlockNumber.ZERO;
 
+  /** AVM IPC backend shared across all public simulations. */
+  public avmBackend!: AvmIpcBackend;
+  /** CDB IPC server shared across all public simulations. */
+  public cdbServer!: CdbIpcServer;
+
   constructor(public nativeWorldStateService: NativeWorldStateService) {}
 
   static async create() {
     const nativeWorldStateService = await NativeWorldStateService.tmp();
 
-    return new this(nativeWorldStateService);
+    const synchronizer = new this(nativeWorldStateService);
+
+    // Spawn IPC backends for C++ public simulation
+    const wsdbSocketPath = nativeWorldStateService.getSocketPath();
+    const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
+    const { findAvmBinary } = await import('@aztec/bb.js/platform');
+    const avmBinaryPath = findAvmBinary();
+    if (!avmBinaryPath) {
+      throw new Error('aztec-avm binary not found — required for TXE public simulation');
+    }
+
+    synchronizer.cdbServer = new CdbIpcServer();
+    synchronizer.avmBackend = new AvmBackend({
+      binaryPath: avmBinaryPath,
+      wsdbSocketPath,
+      cdbSocketPath: synchronizer.cdbServer.socketPath,
+    });
+
+    return synchronizer;
   }
 
   public async handleL2Block(block: L2Block) {
@@ -70,8 +94,8 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     throw new Error('TXE Synchronizer does not implement "status"');
   }
 
-  public stop(): Promise<void> {
-    throw new Error('TXE Synchronizer does not implement "stop"');
+  public async stop(): Promise<void> {
+    await this.closeIpc();
   }
 
   public stopSync(): Promise<void> {
@@ -84,5 +108,15 @@ export class TXESynchronizer implements WorldStateSynchronizer {
 
   public clear(): Promise<void> {
     throw new Error('TXE Synchronizer does not implement "clear"');
+  }
+
+  /** Clean up IPC resources. */
+  public async closeIpc(): Promise<void> {
+    if (this.avmBackend?.destroy) {
+      await this.avmBackend.destroy();
+    }
+    if (this.cdbServer) {
+      await this.cdbServer.close();
+    }
   }
 }

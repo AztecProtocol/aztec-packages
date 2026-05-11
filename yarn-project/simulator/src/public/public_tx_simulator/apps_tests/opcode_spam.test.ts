@@ -5,6 +5,7 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
+import { CdbIpcServer } from '../../cdb_ipc_server.js';
 import { getSpamConfigsPerOpcode, testOpcodeSpamCase } from '../../fixtures/opcode_spammer.js';
 import {
   type MeasuredSimulatorFactory,
@@ -12,9 +13,10 @@ import {
   defaultGlobals,
 } from '../../fixtures/public_tx_simulation_tester.js';
 import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
+import { PublicContractsDB } from '../../public_db_sources.js';
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
-import { MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
-import { MeasuredCppVsTsPublicTxSimulator } from '../cpp_vs_ts_public_tx_simulator.js';
+import { type AvmIpcBackend, MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
+import { MeasuredPublicTxSimulator } from '../measured_public_tx_simulator.js';
 
 // NOTE: This test is meant to be run for benchmarking. Set RUN_AVM_OPCODE_SPAM=1 to enable.
 const describeOrSkip = process.env.RUN_AVM_OPCODE_SPAM ? describe : describe.skip;
@@ -66,35 +68,64 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
   });
 
   describe.each([
-    // NOTE: Cpp vs TS simulation is very slow (because TS is slow), so we skip it by default.
+    // NOTE: IpcVsTs simulation is very slow (because TS is slow), so we skip it by default.
     // It is useful to manually run to make sure these tests perform identically between simulators.
-    //{ useCppSimulator: false, simulatorName: 'CppVsTs' },
+    //{ useCppSimulator: false, simulatorName: 'IpcVsTs' },
     { useCppSimulator: true, simulatorName: 'Cpp' },
   ])('($simulatorName) Simulator', ({ useCppSimulator, simulatorName }) => {
     const metricsPrefix = simulatorName;
 
     let worldStateService: NativeWorldStateService;
     let tester: PublicTxSimulationTester;
+    let avmBackend: AvmIpcBackend | undefined;
+    let cdbServer: CdbIpcServer | undefined;
 
     beforeEach(async () => {
       worldStateService = await NativeWorldStateService.tmp();
       const contractDataSource = new SimpleContractDataSource();
       const merkleTree = await worldStateService.fork();
-      const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-        ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-        : (mt, cdb, g, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, m, c);
-      tester = new PublicTxSimulationTester(
-        merkleTree,
-        contractDataSource,
-        defaultGlobals(),
-        metrics,
-        simulatorFactory,
-        config,
-      );
+      const globals = defaultGlobals();
+
+      let simulatorFactory: MeasuredSimulatorFactory;
+      if (useCppSimulator) {
+        // IPC: spawn aztec-avm + CDB server
+        const wsdbSocketPath = worldStateService.getSocketPath();
+        const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
+        const { findAvmBinary } = await import('@aztec/bb.js/platform');
+        const avmBinaryPath = findAvmBinary();
+        if (!avmBinaryPath) {
+          throw new Error('aztec-avm binary not found');
+        }
+
+        const contractsDB = new PublicContractsDB(contractDataSource);
+        cdbServer = new CdbIpcServer();
+        const forkId = merkleTree.getRevision().forkId;
+        cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
+
+        avmBackend = new AvmBackend({
+          binaryPath: avmBinaryPath,
+          wsdbSocketPath,
+          cdbSocketPath: cdbServer.socketPath,
+        });
+        simulatorFactory = (_mt, _cdb, g, m, c) =>
+          new MeasuredCppPublicTxSimulator(avmBackend!, g, m, c, undefined, forkId);
+      } else {
+        simulatorFactory = (mt, cdb, g, m, c) => new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
+      }
+
+      tester = new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics, simulatorFactory, config);
       tester.setMetricsPrefix(`${metricsPrefix} Opcode Spam`);
     });
 
     afterEach(async () => {
+      if (avmBackend?.destroy) {
+        await avmBackend.destroy();
+      }
+      if (cdbServer) {
+        await cdbServer.close();
+      }
+      avmBackend = undefined;
+      cdbServer = undefined;
       await worldStateService.close();
     });
 

@@ -14,6 +14,7 @@ import {
   type AvmProvingRequest,
   PublicDataWrite,
   PublicSimulatorConfig,
+  type PublicTxResult,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -50,8 +51,10 @@ import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { AssertionError } from 'assert';
 
+import type { CdbIpcServer } from '../cdb_ipc_server.js';
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import {
+  type AvmIpcBackend,
   type PublicTxSimulatorConfig,
   type PublicTxSimulatorInterface,
   TelemetryCppPublicTxSimulator,
@@ -66,6 +69,8 @@ export class PublicProcessorFactory {
   private log: Logger;
   constructor(
     private contractDataSource: ContractDataSource,
+    private avmBackend: AvmIpcBackend,
+    private cdbServer?: CdbIpcServer,
     private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
@@ -74,10 +79,10 @@ export class PublicProcessorFactory {
   }
 
   /**
-   * Creates a new instance of a PublicProcessor.
-   * @param globalVariables - The global variables for the block being processed.
-   * @param skipFeeEnforcement - Allows disabling balance checks for fee estimations.
-   * @returns A new instance of a PublicProcessor.
+   * Creates a new instance of a PublicProcessor and registers the fork's contracts DB
+   * on the CDB server for fork-ID-based request routing.
+   *
+   * The caller must call `unregisterFork(forkId)` when the fork is closed.
    */
   public create(
     merkleTree: MerkleTreeWriteOperations,
@@ -86,9 +91,16 @@ export class PublicProcessorFactory {
   ): PublicProcessor {
     const bindings = this.log.getBindings();
     const contractsDB = new PublicContractsDB(this.contractDataSource, bindings);
+    const forkId = merkleTree.getRevision().forkId;
+
+    // Register this fork's contracts DB on the CDB server so AVM requests
+    // carrying this forkId are routed to the correct PublicContractsDB instance.
+    if (this.cdbServer) {
+      this.cdbServer.registerFork(forkId, contractsDB, globalVariables.timestamp);
+    }
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, contractsDB, globalVariables, config);
+    const publicTxSimulator = this.createPublicTxSimulator(guardedFork, globalVariables, config);
 
     return new PublicProcessor(
       globalVariables,
@@ -101,19 +113,25 @@ export class PublicProcessorFactory {
     );
   }
 
+  /** Unregister a fork's contracts DB from the CDB server. Call when the fork is closed. */
+  unregisterFork(forkId: number): void {
+    this.cdbServer?.unregisterFork(forkId);
+  }
+
   protected createPublicTxSimulator(
     merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulatorInterface {
+    const bindings = this.log.getBindings();
+    const forkId = merkleTree.getRevision().forkId;
     return new TelemetryCppPublicTxSimulator(
-      merkleTree,
-      contractsDB,
+      this.avmBackend,
       globalVariables,
       this.telemetryClient,
       config,
-      this.log.getBindings(),
+      bindings,
+      forkId,
     );
   }
 }
@@ -131,6 +149,8 @@ class PublicProcessorTimeoutError extends Error {
  */
 export class PublicProcessor implements Traceable {
   private metrics: PublicProcessorMetrics;
+  /** Handle for the currently in-flight simulation, used for cancellation on timeout. */
+  private currentSimulationHandle?: { cancel(waitTimeoutMs?: number): Promise<void> };
   constructor(
     protected globalVariables: GlobalVariables,
     private guardedMerkleTree: GuardedMerkleTreeOperations,
@@ -327,7 +347,7 @@ export class PublicProcessor implements Traceable {
           // and won't check the cancellation flag until that operation completes.
           // Without waiting, we'd proceed to revert checkpoints while C++ is still writing to state.
           // Wait for C++ to stop gracefully.
-          await this.publicTxSimulator.cancel?.();
+          await this.currentSimulationHandle?.cancel();
 
           // Now stop the guarded fork to prevent any further TS-side access to the world state.
           await this.guardedMerkleTree.stop();
@@ -578,7 +598,14 @@ export class PublicProcessor implements Traceable {
   private async processTxWithPublicCalls(tx: Tx): Promise<[ProcessedTx, NestedProcessReturnValues[], DebugLog[]]> {
     const timer = new Timer();
 
-    const result = await this.publicTxSimulator.simulate(tx);
+    const handle = this.publicTxSimulator.simulate(tx);
+    this.currentSimulationHandle = handle;
+    let result: PublicTxResult;
+    try {
+      result = await handle.result;
+    } finally {
+      this.currentSimulationHandle = undefined;
+    }
     // TODO: use the callStackMetadata here to extract more data about public execution
     const { hints, publicInputs, publicTxEffect, gasUsed, revertCode /*callStackMetadata*/ } = result;
 

@@ -18,24 +18,17 @@ import {
 } from '../../fixtures/custom_bytecode_tests.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
-describe.each([
-  { useCppSimulator: false, simulatorName: 'TS Simulator' },
-  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-])('Public TX simulator apps tests: custom bytecodes unhappy paths ($simulatorName)', ({ useCppSimulator }) => {
+describe('Public TX simulator apps tests: custom bytecodes unhappy paths', () => {
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
-    tester = await PublicTxSimulationTester.create(
-      worldStateService,
-      /*globals=*/ undefined,
-      /*metrics=*/ undefined,
-      useCppSimulator,
-    );
+    tester = await PublicTxSimulationTester.create(worldStateService, /*globals=*/ undefined, /*metrics=*/ undefined);
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 
@@ -65,24 +58,17 @@ describe.each([
   });
 });
 
-describe.each([
-  { useCppSimulator: false, simulatorName: 'TS Simulator' },
-  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-])('Public TX simulator apps tests: bytecode flow unhappy paths ($simulatorName)', ({ useCppSimulator }) => {
+describe('Public TX simulator apps tests: bytecode flow unhappy paths', () => {
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
-    tester = await PublicTxSimulationTester.create(
-      worldStateService,
-      /*globals=*/ undefined,
-      /*metrics=*/ undefined,
-      useCppSimulator,
-    );
+    tester = await PublicTxSimulationTester.create(worldStateService, /*globals=*/ undefined, /*metrics=*/ undefined);
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 
@@ -117,21 +103,13 @@ describe.each([
   });
 });
 
-describe.each([
-  { useCppSimulator: false, simulatorName: 'TS Simulator' },
-  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-])('Public TX simulator apps tests: custom bytecodes truncation ($simulatorName)', ({ useCppSimulator }) => {
+describe('Public TX simulator apps tests: custom bytecodes truncation', () => {
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
-    tester = await PublicTxSimulationTester.create(
-      worldStateService,
-      /*globals=*/ undefined,
-      /*metrics=*/ undefined,
-      useCppSimulator,
-    );
+    tester = await PublicTxSimulationTester.create(worldStateService);
   });
 
   afterEach(async () => {
