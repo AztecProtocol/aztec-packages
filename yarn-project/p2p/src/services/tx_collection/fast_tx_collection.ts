@@ -8,40 +8,54 @@ import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
-import type { BatchTxRequesterConfig } from '../reqresp/batch-tx-requester/config.js';
+import { BatchTxRequester } from '../reqresp/batch-tx-requester/batch_tx_requester.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
+import type { BlockTxsSource } from '../reqresp/index.js';
 import type { TxCollectionConfig } from './config.js';
-import {
-  BatchTxRequesterCollector,
-  type MissingTxsCollector,
-  SendBatchRequestCollector,
-} from './proposal_tx_collector.js';
-import { RequestTracker } from './request_tracker.js';
+import { type IRequestTracker, RequestTracker } from './request_tracker.js';
 import type { FastCollectionRequest, FastCollectionRequestInput } from './tx_collection.js';
 import type { TxAddContext, TxCollectionSink } from './tx_collection_sink.js';
 import type { TxSource } from './tx_source.js';
 
+/**
+ * Collect missing transactions for a block or proposal via reqresp.
+ * @param requestTracker - The missing transactions tracker
+ * @param blockTxsSource - The block or proposal containing the transactions
+ * @param pinnedPeer - Optional peer expected to have the transactions
+ * @returns The collected transactions
+ */
+export type IReqRespTxsCollector = (
+  requestTracker: IRequestTracker,
+  blockTxsSource: BlockTxsSource,
+  pinnedPeer: PeerId | undefined,
+) => Promise<Tx[]>;
+
 export class FastTxCollection {
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   protected requests: Set<FastCollectionRequest> = new Set();
-  private missingTxsCollector: MissingTxsCollector;
 
   constructor(
-    p2pService: BatchTxRequesterLibP2PService,
+    private readonly p2pService: BatchTxRequesterLibP2PService,
     private nodes: TxSource[],
     private txCollectionSink: TxCollectionSink,
     private config: TxCollectionConfig,
     private dateProvider: DateProvider = new DateProvider(),
     private log: Logger = createLogger('p2p:tx_collection_service'),
-    missingTxsCollector?: MissingTxsCollector,
+    protected reqRespTxsCollector?: IReqRespTxsCollector,
   ) {
-    const batchTxRequesterConfig = this.config as Partial<BatchTxRequesterConfig>;
-    const missingTxsCollectorType = this.config.txCollectionMissingTxsCollectorType;
-    this.missingTxsCollector =
-      missingTxsCollector ??
-      (missingTxsCollectorType === 'old'
-        ? new SendBatchRequestCollector(p2pService)
-        : new BatchTxRequesterCollector(p2pService, log, dateProvider, undefined, batchTxRequesterConfig));
+    if (!this.reqRespTxsCollector) {
+      this.reqRespTxsCollector = (requestTracker, blockTxsSource, pinnedPeer) =>
+        BatchTxRequester.collectAllTxs(
+          new BatchTxRequester(
+            requestTracker,
+            blockTxsSource,
+            pinnedPeer,
+            this.p2pService,
+            this.log,
+            this.dateProvider,
+          ).run(),
+        );
+    }
   }
 
   public async stop() {
@@ -269,22 +283,19 @@ export class FastTxCollection {
     try {
       await this.txCollectionSink.collect(
         async () => {
-          let result: Tx[];
+          let blockTxsSource: BlockTxsSource;
           if (request.type === 'proposal') {
-            result = await this.missingTxsCollector.collectTxs(
-              request.requestTracker,
-              request.blockProposal,
-              pinnedPeer,
-            );
+            blockTxsSource = request.blockProposal;
           } else if (request.type === 'block') {
-            const blockTxsSource = {
+            blockTxsSource = {
               txHashes: request.block.body.txEffects.map(e => e.txHash),
               archive: request.block.archive.root,
             };
-            result = await this.missingTxsCollector.collectTxs(request.requestTracker, blockTxsSource, pinnedPeer);
           } else {
-            throw new Error(`Unknown request type: ${(request as any).type}`);
+            throw new Error(`Unknown request type: ${(request as { type: string }).type}`);
           }
+
+          const result = await this.reqRespTxsCollector!(request.requestTracker, blockTxsSource, pinnedPeer);
           return { validTxs: result, invalidTxHashes: [] };
         },
         Array.from(request.requestTracker.missingTxHashes),

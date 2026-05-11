@@ -79,11 +79,6 @@ describe('config', () => {
     expect(allowList).toEqual([instanceFunction]);
   });
 
-  it('defaults missing txs collector type to new', () => {
-    const config = getP2PDefaultConfig();
-    expect(config.txCollectionMissingTxsCollectorType).toBe('new');
-  });
-
   it('defaults public IP service URLs', () => {
     const config = getP2PDefaultConfig();
     expect(config.publicIpServices).toEqual([

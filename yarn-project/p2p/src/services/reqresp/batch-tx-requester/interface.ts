@@ -32,7 +32,7 @@ export interface ITxMetadataCollection {
  */
 export interface BatchTxRequesterLibP2PService {
   /** ReqResp interface for sending requests to peers */
-  reqResp: Pick<ReqRespInterface, 'sendBatchRequest' | 'sendRequestToPeer'>;
+  reqResp: Pick<ReqRespInterface, 'sendRequestToPeer'>;
   /** Connection sampler for getting peer lists */
   connectionSampler: Pick<ConnectionSampler, 'getPeerListSortedByConnectionCountAsc'>;
   /** Configuration needed for transaction validation */
