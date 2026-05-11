@@ -8,7 +8,6 @@ import {
   MULTI_CALL_3_ADDRESS,
   Multicall3,
   RollupContract,
-  SimulationOverridesBuilder,
   type SimulationOverridesPlan,
   type SlashingProposerContract,
   buildSimulationOverridesStateOverride,
@@ -138,13 +137,6 @@ export type InvalidateCheckpointRequest = {
 type EnqueueProposeCheckpointOpts = {
   txTimeoutAt?: Date;
   simulationOverridesPlan?: SimulationOverridesPlan;
-  /**
-   * Overrides to apply to the preCheck simulation right before L1 submission.
-   * Intentionally separate from `simulationOverridesPlan`: enqueue-time validation
-   * may need pipelined-parent / pretend-proof-landed overrides, but preCheck must
-   * reflect real L1 state to catch state drift between build and submission.
-   */
-  preCheckSimulationOverridesPlan?: SimulationOverridesPlan;
 };
 
 interface RequestWithExpiry {
@@ -155,8 +147,6 @@ interface RequestWithExpiry {
   blobConfig?: L1BlobInputs;
   /** Gas consumed by validateBlobs; stashed for the bundle simulate at send time. */
   blobEvaluationGas?: bigint;
-  /** Optional pre-send validation. If it rejects, the request is discarded. */
-  preCheck?: () => Promise<void>;
   checkSuccess: (
     request: L1TxRequest,
     result?: { receipt: TransactionReceipt; stats?: TransactionStats; errorMsg?: string },
@@ -619,41 +609,31 @@ export class SequencerPublisher {
   }
 
   /*
-   * Schedules sending all enqueued requests at (or after) the given timestamp.
+   * Schedules sending all enqueued requests at (or after) the start of the given L2 slot.
+   * Sleeps until one L1 slot before the L2 slot boundary so the tx has a chance of being
+   * picked up by the first L1 block of the L2 slot.
+   * NB: there is a known correctness risk — being included in the L1 block right before the
+   * L2 slot starts would revert propose with HeaderLib__InvalidSlotNumber.
    * Uses InterruptibleSleep so it can be cancelled via interrupt().
-   * Returns the promise for the L1 response (caller should NOT await this in the work loop).
    */
-  public async sendRequestsAt(submitAfter: Date): Promise<SendRequestsResult | undefined> {
-    const ms = submitAfter.getTime() - this.dateProvider.now();
-    if (ms > 0) {
-      this.log.debug(`Sleeping ${ms}ms before sending requests`, { submitAfter });
-      await this.interruptibleSleep.sleep(ms);
+  public async sendRequestsAt(targetSlot: SlotNumber): Promise<SendRequestsResult | undefined> {
+    const l1Constants = this.epochCache.getL1Constants();
+    // Start of the target L2 slot, in ms (getTimestampForSlot returns seconds).
+    const startOfTargetSlotMs = Number(getTimestampForSlot(targetSlot, l1Constants)) * 1000;
+    // Aim to be in the mempool one L1 slot before the L2 slot starts, so we have a chance of
+    // being picked up by the first L1 block of the L2 slot.
+    const submitAfterMs = startOfTargetSlotMs - Number(this.ethereumSlotDuration) * 1000;
+    const sleepMs = submitAfterMs - this.dateProvider.now();
+    if (sleepMs > 0) {
+      this.log.debug(`Sleeping ${sleepMs}ms before sending requests`, {
+        targetSlot,
+        submitAfterMs,
+      });
+      await this.interruptibleSleep.sleep(sleepMs);
     }
     if (this.interrupted) {
       return undefined;
     }
-
-    // Re-validate enqueued requests after the sleep (state may have changed, e.g. prune or L1 reorg)
-    const validRequests: RequestWithExpiry[] = [];
-    for (const request of this.requests) {
-      if (!request.preCheck) {
-        validRequests.push(request);
-        continue;
-      }
-
-      try {
-        await request.preCheck();
-        validRequests.push(request);
-      } catch (err) {
-        this.log.warn(`Pre-send validation failed for ${request.action}, discarding request`, err);
-      }
-    }
-
-    this.requests = validRequests;
-    if (this.requests.length === 0) {
-      return undefined;
-    }
-
     return this.sendRequests();
   }
 
@@ -1167,25 +1147,11 @@ export class SequencerPublisher {
       feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
     };
 
-    const preCheckSimulationOverridesPlan = SimulationOverridesBuilder.from(opts.preCheckSimulationOverridesPlan)
-      .withoutBlobCheck()
-      .build();
-
-    // Build a pre-check callback that re-validates the checkpoint header before L1 submission.
-    // During pipelining this catches stale proposals due to prunes or L1 reorgs that occur during the pipeline sleep.
-    let preCheck = undefined;
-    if (this.epochCache.isProposerPipeliningEnabled()) {
-      preCheck = async () => {
-        this.log.debug(`Re-validating checkpoint ${checkpoint.number} header before L1 submission`);
-        await this.validateBlockHeader(checkpoint.header, preCheckSimulationOverridesPlan);
-      };
-    }
-
     this.log.verbose(`Enqueuing checkpoint propose transaction`, {
       ...checkpoint.toCheckpointInfo(),
       txTimeoutAt: opts.txTimeoutAt,
     });
-    await this.addProposeTx(checkpoint, proposeTxArgs, { txTimeoutAt: opts.txTimeoutAt }, preCheck);
+    await this.addProposeTx(checkpoint, proposeTxArgs, { txTimeoutAt: opts.txTimeoutAt });
   }
 
   public enqueueInvalidateCheckpoint(
@@ -1364,7 +1330,6 @@ export class SequencerPublisher {
     checkpoint: Checkpoint,
     encodedData: L1ProcessArgs,
     opts: EnqueueProposeCheckpointOpts = {},
-    preCheck?: () => Promise<void>,
   ): Promise<void> {
     const slot = checkpoint.header.slotNumber;
     const timer = new Timer();
@@ -1389,7 +1354,6 @@ export class SequencerPublisher {
       lastValidL2Slot: checkpoint.header.slotNumber,
       gasConfig: { txTimeoutAt: opts.txTimeoutAt, gasLimit: undefined },
       blobEvaluationGas,
-      preCheck,
       blobConfig: {
         blobs: encodedData.blobs.map(b => b.data),
         kzg,

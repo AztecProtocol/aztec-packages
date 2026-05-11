@@ -213,11 +213,7 @@ export class CheckpointProposalJob implements Traceable {
       // signature verification to fail silently inside Multicall3. Delay submission to the
       // start of `targetSlot` so the tx mines in the slot the vote was signed for.
       if (!this.config.fishermanMode) {
-        const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-        const submitAfter = isPipelining
-          ? new Date(Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) * 1000)
-          : this.dateProvider.nowAsDate();
-        this.pendingL1Submission = this.publisher.sendRequestsAt(submitAfter).then(() => {});
+        this.pendingL1Submission = this.publisher.sendRequestsAt(this.targetSlot).then(() => {});
       }
       return undefined;
     }
@@ -276,12 +272,7 @@ export class CheckpointProposalJob implements Traceable {
       }
 
       // Send whatever was enqueued: votes + (propose | invalidation | nothing).
-      // Compute the earliest time to submit: pipeline slot start when pipelining, now otherwise.
-      const submitAfter = isPipelining
-        ? new Date(Number(getTimestampForSlot(this.targetSlot, this.l1Constants)) * 1000)
-        : new Date(this.dateProvider.now());
-
-      const l1Response = await this.publisher.sendRequestsAt(submitAfter);
+      const l1Response = await this.publisher.sendRequestsAt(this.targetSlot);
       const proposedAction = l1Response?.successfulActions.find(a => a === 'propose');
       if (proposedAction) {
         this.logCheckpointEvent('published', `Checkpoint published for slot ${this.targetSlot}`, {
@@ -361,20 +352,9 @@ export class CheckpointProposalJob implements Traceable {
       }
     }
 
-    // Pre-check plan: no pipelining overrides — reflects real L1 state right before submission
-    // to catch state drift (prunes, reorgs) that occurred during the pipeline sleep.
-    const preCheckSimulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
-      checkpointNumber: this.checkpointNumber,
-      invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
-      lastArchiveRoot: checkpoint.header.lastArchiveRoot,
-      rollup: this.publisher.rollupContract,
-      log: this.log,
-    });
-
     await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
       txTimeoutAt,
       simulationOverridesPlan: this.checkpointSimulationOverridesPlan,
-      preCheckSimulationOverridesPlan,
     });
   }
 

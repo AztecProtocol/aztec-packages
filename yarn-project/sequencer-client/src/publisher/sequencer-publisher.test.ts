@@ -6,7 +6,6 @@ import {
   type GovernanceProposerContract,
   Multicall3,
   type RollupContract,
-  type SimulationOverridesPlan,
   type SlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import {
@@ -16,7 +15,7 @@ import {
   defaultL1TxUtilsConfig,
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError } from '@aztec/ethereum/utils';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -463,68 +462,6 @@ describe('SequencerPublisher', () => {
     expect(forwardSpy).not.toHaveBeenCalled();
   });
 
-  it('preCheck closure uses preCheckSimulationOverridesPlan, not the enqueue-time plan', async () => {
-    (publisher.epochCache.isProposerPipeliningEnabled as jest.Mock).mockReturnValue(true);
-
-    const validateSpy = jest.spyOn(publisher, 'validateBlockHeader').mockResolvedValue(undefined);
-
-    const preCheckPlan: SimulationOverridesPlan = {
-      chainTipsOverride: { pending: CheckpointNumber(8) },
-    };
-
-    await publisher.enqueueProposeCheckpoint(
-      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(testSignatureContext),
-      Signature.empty(),
-      { preCheckSimulationOverridesPlan: preCheckPlan },
-    );
-
-    // No enqueue-time validation — validateBlockHeader is only called from the preCheck closure.
-    expect(validateSpy).not.toHaveBeenCalled();
-
-    // The pending preCheck request should run the preCheck closure with the preCheck plan.
-    const requests: { preCheck?: () => Promise<void> }[] = (publisher as any).requests;
-    expect(requests).toHaveLength(1);
-    const preCheck = requests[0].preCheck;
-    expect(preCheck).toBeDefined();
-
-    await preCheck!();
-
-    expect(validateSpy).toHaveBeenCalledTimes(1);
-    expect(validateSpy.mock.calls[0][1]).toMatchObject({
-      chainTipsOverride: { pending: CheckpointNumber(8) },
-      disableBlobCheck: true,
-    });
-  });
-
-  it('preCheck does not fall back to the enqueue plan when preCheckSimulationOverridesPlan is omitted', async () => {
-    (publisher.epochCache.isProposerPipeliningEnabled as jest.Mock).mockReturnValue(true);
-
-    const validateSpy = jest.spyOn(publisher, 'validateBlockHeader').mockResolvedValue(undefined);
-
-    await publisher.enqueueProposeCheckpoint(
-      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(testSignatureContext),
-      Signature.empty(),
-    );
-
-    // No enqueue-time validation.
-    expect(validateSpy).not.toHaveBeenCalled();
-
-    const requests: { preCheck?: () => Promise<void> }[] = (publisher as any).requests;
-    expect(requests).toHaveLength(1);
-    const preCheck = requests[0].preCheck;
-    expect(preCheck).toBeDefined();
-
-    await preCheck!();
-
-    expect(validateSpy).toHaveBeenCalledTimes(1);
-    const preCheckArg = validateSpy.mock.calls[0][1];
-    expect(preCheckArg?.disableBlobCheck).toBe(true);
-    expect(preCheckArg?.chainTipsOverride).toBeUndefined();
-    expect(preCheckArg?.pendingCheckpointState).toBeUndefined();
-  });
-
   it('returns errorMsg if forwarder tx reverts', async () => {
     forwardSpy.mockResolvedValue({
       receipt: { ...proposeTxReceipt, status: 'reverted' },
@@ -567,64 +504,6 @@ describe('SequencerPublisher', () => {
     expect(result).toEqual(undefined);
     expect(forwardSpy).not.toHaveBeenCalled();
     expect((publisher as any).requests.length).toEqual(0);
-  });
-
-  it('discards only the request whose preCheck fails before sending', async () => {
-    const currentL2Slot = publisher.getCurrentL2Slot();
-    const keptRequest = {
-      to: mockGovernanceProposerAddress,
-      data: encodeFunctionData({
-        abi: EmpireBaseAbi,
-        functionName: 'signal',
-        args: [EthAddress.random().toString()],
-      }),
-    };
-    const failedRequest = {
-      to: mockRollupAddress,
-      data: encodeFunctionData({
-        abi: EmpireBaseAbi,
-        functionName: 'signal',
-        args: [EthAddress.random().toString()],
-      }),
-    };
-
-    const keptPreCheck = jest.fn(() => Promise.resolve());
-    const failedPreCheck = jest.fn(() => Promise.reject(new Error('preCheck failed')));
-
-    publisher.addRequest({
-      action: 'vote-offenses',
-      request: keptRequest,
-      lastValidL2Slot: currentL2Slot,
-      preCheck: keptPreCheck,
-      checkSuccess: () => true,
-    });
-    publisher.addRequest({
-      action: 'governance-signal',
-      request: failedRequest,
-      lastValidL2Slot: currentL2Slot,
-      preCheck: failedPreCheck,
-      checkSuccess: () => true,
-    });
-
-    forwardSpy.mockResolvedValue({
-      receipt: proposeTxReceipt,
-      errorMsg: undefined,
-    });
-
-    const result = await publisher.sendRequestsAt(new Date((publisher as any).dateProvider.now()));
-
-    expect(keptPreCheck).toHaveBeenCalledTimes(1);
-    expect(failedPreCheck).toHaveBeenCalledTimes(1);
-    expect(result?.sentActions).toEqual(['vote-offenses']);
-    expect(forwardSpy).toHaveBeenCalledTimes(1);
-    expect(forwardSpy).toHaveBeenCalledWith(
-      [keptRequest],
-      l1TxUtils,
-      { gasLimit: undefined, txTimeoutAt: undefined },
-      undefined,
-      mockRollupAddress,
-      expect.anything(),
-    );
   });
 
   it('does not send requests if no valid requests are found', async () => {
