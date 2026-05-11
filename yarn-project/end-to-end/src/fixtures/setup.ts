@@ -7,6 +7,8 @@ import {
   BatchCall,
   type ContractFunctionInteraction,
   type ContractMethod,
+  type DeployInteractionWaitOptions,
+  type DeployOptions,
   getContractClassFromArtifact,
   waitForProven,
 } from '@aztec/aztec.js/contracts';
@@ -45,7 +47,7 @@ import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ProverNodeConfig } from '@aztec/prover-node';
-import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
+import { type PXEConfig, type PXECreationOptions, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { ARTIFACT_VERSION_BEFORE_INJECTION } from '@aztec/stdlib/abi';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
@@ -203,6 +205,8 @@ export type SetupOptions = {
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
   /** Wallet minimum fee padding multiplier (defaults to 0.5, which is 50% padding). */
   walletMinFeePadding?: number;
+  /** Options forwarded to PXE creation (e.g. execution hooks). */
+  pxeCreationOptions?: PXECreationOptions;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -563,7 +567,10 @@ export async function setup(
     pxeConfig.dataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
     // For tests we only want proving enabled if specifically requested
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
-    const wallet = await TestWallet.create(aztecNodeService, pxeConfig, { loggerActorLabel: 'pxe-0' });
+    const wallet = await TestWallet.create(aztecNodeService, pxeConfig, {
+      loggerActorLabel: 'pxe-0',
+      ...opts.pxeCreationOptions,
+    });
 
     if (opts.walletMinFeePadding !== undefined) {
       wallet.setMinFeePadding(opts.walletMinFeePadding);
@@ -860,7 +867,7 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
  * Returns deployed account data that can be used by tests.
  */
 export const deployAccounts =
-  (numberOfAccounts: number, logger: Logger) =>
+  (numberOfAccounts: number, logger: Logger, deployOptions?: Partial<DeployOptions<DeployInteractionWaitOptions>>) =>
   async ({ wallet, initialFundedAccounts }: { wallet: TestWallet; initialFundedAccounts: InitialAccountData[] }) => {
     if (initialFundedAccounts.length < numberOfAccounts) {
       throw new Error(`Cannot deploy more than ${initialFundedAccounts.length} initial accounts.`);
@@ -879,6 +886,7 @@ export const deployAccounts =
       await deployMethod.send({
         from: NO_FROM,
         skipClassPublication: i !== 0, // Publish the contract class at most once.
+        ...deployOptions,
       });
     }
 

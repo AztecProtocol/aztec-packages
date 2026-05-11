@@ -12,10 +12,11 @@ import { type IndexedTxEffect, TxEffect } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
+import { EventValidationRequest } from '../contract_function_simulator/noir-structs/event_validation_request.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { EventService } from './event_service.js';
 
-describe('validateAndStoreEvent', () => {
+describe('validateAndStoreEvents', () => {
   let blockNumber: BlockNumber;
   let eventSelector: EventSelector;
   let randomness: Fr;
@@ -66,11 +67,10 @@ describe('validateAndStoreEvent', () => {
 
     /* Happy path context conditions:
      ** - PXE is sync'd to _at least_ block including tx
-     ** - Node returns the corresponding tx effect and the tx effect includes the event commitment
+     ** - Caller provides the corresponding tx effect via the prefetched map and the tx effect includes the event
+     **   commitment.
      */
     const anchorBlockHeader = makeBlockHeader(0, { blockNumber });
-
-    aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
 
     logger = mock<Logger>();
     eventService = new EventService(anchorBlockHeader, aztecNode, privateEventStore, 'test', logger);
@@ -80,34 +80,33 @@ describe('validateAndStoreEvent', () => {
     overrides: {
       eventContent?: Fr[];
       eventCommitment?: Fr;
+      txEffectsMap?: Map<string, IndexedTxEffect>;
     } = {},
   ) {
-    await eventService.validateAndStoreEvent(
+    const request = new EventValidationRequest(
       contractAddress,
       eventSelector,
       randomness,
-      overrides.eventContent || eventContent,
-      overrides.eventCommitment || eventCommitment,
+      overrides.eventContent ?? eventContent,
+      overrides.eventCommitment ?? eventCommitment,
       txEffect.txHash,
-      recipient,
     );
+
+    const map = overrides.txEffectsMap ?? defaultTxEffectsMap();
+    await eventService.validateAndStoreEvents([request], recipient, map);
 
     await privateEventStore.commit('test');
   }
 
   it('should throw when tx does not exist or has no effects', async () => {
-    aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(undefined));
-    await expect(runStoreEvent).rejects.toThrow(/Could not find tx effect for tx hash/);
+    const txEffectsMap = new Map();
+    await expect(() => runStoreEvent({ txEffectsMap })).rejects.toThrow(/Could not find tx effect for tx hash/);
   });
 
   it('should throw when tx block has not yet been synchronized', async () => {
-    indexedTxEffect = {
-      ...indexedTxEffect,
-      l2BlockNumber: BlockNumber(blockNumber + 1),
-    };
-    aztecNode.getTxEffect.mockImplementation(() => Promise.resolve(indexedTxEffect));
-
-    await expect(runStoreEvent).rejects.toThrow(
+    const laterIndexedTxEffect = { ...indexedTxEffect, l2BlockNumber: BlockNumber(blockNumber + 1) };
+    const txEffectsMap = new Map([[txEffect.txHash.toString(), laterIndexedTxEffect]]);
+    await expect(() => runStoreEvent({ txEffectsMap })).rejects.toThrow(
       /Obtained a newer tx effect for .* for an event validation request than the anchor block/,
     );
   });
@@ -159,4 +158,8 @@ describe('validateAndStoreEvent', () => {
     expect(result.length).toEqual(1);
     expect(result[0].packedEvent).toEqual(eventContent);
   });
+
+  function defaultTxEffectsMap() {
+    return new Map([[txEffect.txHash.toString(), indexedTxEffect]]);
+  }
 });

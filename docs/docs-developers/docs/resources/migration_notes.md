@@ -43,6 +43,148 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 **Impact**: Custom message handlers that reused the standard note message processing pipeline must switch to `process_private_note_msg`. Contracts using only built-in private note handling are unaffected.
 
+### [aztec-up] Bundled binaries are no longer exposed under bare names on `PATH`
+
+The Aztec installer previously placed bundled binaries directly into `$HOME/.aztec/current/bin` under bare names (`forge`, `nargo`, `bb`, `pxe`, ...). Anything with the same name in your own `PATH` was silently shadowed in unrelated projects.
+
+Every bundled binary is now exposed only under an `aztec-` prefixed name in `$HOME/.aztec/current/bin`. Bare names are not on `PATH` at all and resolve to your own install (if any).
+
+| Was on `PATH` | Now |
+|---|---|
+| `forge` | `aztec-forge` |
+| `cast` | `aztec-cast` |
+| `anvil` | `aztec-anvil` |
+| `chisel` | `aztec-chisel` |
+| `nargo` | `aztec-nargo` |
+| `noir-profiler` | `aztec-noir-profiler` |
+| `bb` | `aztec-bb` |
+| `bb-cli` | `aztec-bb-cli` |
+| `pxe` | `aztec-pxe` |
+| `txe` | `aztec-txe` |
+| `validator-client` | `aztec-validator-client` |
+| `blob-client` | `aztec-blob-client` |
+
+`aztec`, `aztec-wallet`, and `aztec-up` keep their existing names.
+
+If you relied on a bundled bare-name binary for general use:
+
+- For Aztec contract work, prefer `aztec compile` and `aztec test`.
+- For other Noir / Foundry commands, invoke the `aztec-*` symlink directly (e.g. `aztec-nargo fmt`, `aztec-forge build`).
+- Or install Foundry / nargo separately via `foundryup` / `noirup`.
+
+If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/current/bin/nargo`, change it to `$HOME/.aztec/current/bin/aztec-nargo` (the symlink is a drop-in for `nargo`). See the [Noir VSCode Extension guide](../aztec-nr/installation.md) for details.
+
+### [Aztec.js] `DeployMethod` address-affecting parameters move to construction time
+
+Salt, deployer, and public keys are now passed when the `DeployMethod` is constructed, not on every call to `send` / `simulate` / `request` / `getInstance`. This locks the contract address once it is determined and prevents the silent salt-cache poisoning bug where the address could change between calls.
+
+`contractAddressSalt`, `deployer`, and `universalDeploy` have been removed from `DeployOptions`, `RequestDeployOptions`, and `SimulateDeployOptions`. They now live on a new `DeployInstantiationOptions` argument passed at construction. `deployer` and `universalDeploy` are mutually exclusive; passing both throws. `Contract.deployWithPublicKeys` and the generated `MyContract.deployWithPublicKeys(...)` factories have been removed; pass `publicKeys` via the `instantiation` argument of `deploy(...)` instead. The buggy synchronous `address` and `partialAddress` getters have been removed and replaced with `getAddress()` and `getPartialAddress()` (both `async`).
+
+The compact form keeps working: `MyContract.deploy(wallet, ...args).send({ from: alice })` deploys with `deployer = alice` and `salt = random()`, exactly as before. The deployer is locked the first time `send` / `simulate` / `profile` is called (from `options.from`, with `NO_FROM` or undefined → universal) and cannot change after that:
+
+- Subsequent `send` / `simulate` / `profile` calls with a `from` that would imply a different deployer throw, instead of silently producing a different address.
+- A lock to universal (`AztecAddress.ZERO`) is the only one compatible with any sender, since the universal address does not depend on `from`.
+- A lock to a concrete address only accepts that exact `from` on subsequent calls.
+
+**Migration:**
+
+Universal deployment with a fixed salt:
+
+```diff
+- const deploy = MyContract.deploy(wallet, ...args);
+- await deploy.send({
+-   from: alice,
+-   contractAddressSalt: salt,
+-   universalDeploy: true,
+- });
++ const deploy = MyContract.deploy(wallet, ...args, { salt, universalDeploy: true });
++ await deploy.send({ from: alice });
+```
+
+Non-universal deploy where `from` doubles as the deployer:
+
+```diff
+- const deploy = MyContract.deploy(wallet, ...args);
+- await deploy.send({ from: alice, contractAddressSalt: salt });
++ const deploy = MyContract.deploy(wallet, ...args, { salt });
++ await deploy.send({ from: alice });
+```
+
+If you need to read the address before sending, lock the deployer at construction:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { salt, deployer: alice });
+const address = await deploy.getAddress(); // resolves; deployer was locked at construction
+await deploy.send({ from: alice }); // deploys at the address `getAddress` returned
+```
+
+Universal deploys can be sent by any account, since the universal address does not depend on `from`:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { universalDeploy: true });
+await deploy.send({ from: bob }); // OK, universal accepts any sender
+```
+
+A lock to a concrete deployer rejects sending from a different account, instead of silently deploying at a different address:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { deployer: alice });
+await deploy.send({ from: bob }); // throws: deployer is locked to alice
+```
+
+`deployWithPublicKeys` is gone; pass `publicKeys` in the instantiation options instead:
+
+```diff
+- const deploy = MyContract.deployWithPublicKeys(publicKeys, wallet, ...args);
++ const deploy = MyContract.deploy(wallet, ...args, { publicKeys });
+```
+
+`ContractDeployer.deploy(...)` now takes the instantiation argument as its first parameter (pass `{}` to use defaults and rely on lazy locking from `from`):
+
+```diff
+- const cd = new ContractDeployer(artifact, wallet);
+- await cd.deploy(...ctorArgs).send({ from: alice, contractAddressSalt: salt });
++ const cd = new ContractDeployer(artifact, wallet);
++ await cd.deploy(ctorArgs, { salt }).send({ from: alice });
+```
+
+The synchronous `address` / `partialAddress` getters are gone:
+
+```diff
+- const address = deploy.address;                       // sync, possibly undefined
+- const partial = await deploy.partialAddress;          // sync getter wrapping async value
++ const address = await deploy.getAddress();            // requires the deployer to be locked
++ const partial = await deploy.getPartialAddress();     // requires the deployer to be locked
+```
+
+`getInstance()` no longer takes options; use the construction-time instantiation instead:
+
+```diff
+- const instance = await deploy.getInstance({ contractAddressSalt: salt });
++ const deploy = MyContract.deploy(wallet, ...args, { salt, deployer: alice });
++ const instance = await deploy.getInstance();
+```
+
+### [Aztec.nr] TXE `call_public_incognito` no longer takes a `from` parameter
+
+`TestEnvironment::call_public_incognito` previously accepted a `from` address that was silently ignored (the function always uses a null `msg_sender`). The `from` parameter has been removed.
+
+```diff
+- env.call_public_incognito(sender, SampleContract::at(addr).some_function());
++ env.call_public_incognito(SampleContract::at(addr).some_function());
+```
+
+If you need to call a public function *with* a sender, use `call_public` instead.
+
+### [Aztec.nr] TXE `view_public_incognito` is deprecated
+
+`TestEnvironment::view_public_incognito` is now deprecated in favor of `view_public`, which has the same behavior (null `msg_sender`, static call).
+
+```diff
+- env.view_public_incognito(SampleContract::at(addr).some_view());
++ env.view_public(SampleContract::at(addr).some_view());
+```
+
 ### [PXE] `proveTx` takes an options bag
 
 `PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:

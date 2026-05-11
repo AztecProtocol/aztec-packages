@@ -13,7 +13,7 @@ unconstrained fn check_block_number() {
     let public_checks = PublicChecks::at(public_checks_contract_address);
 
     let expected_next_block_number = env.next_block_number();
-    env.view_public_incognito(public_checks.check_block_number(Comparator.LT, expected_next_block_number + 1));
+    env.view_public(public_checks.check_block_number(Comparator.LT, expected_next_block_number + 1));
 }
 
 #[test(should_fail_with = "Block number mismatch.")]
@@ -24,7 +24,7 @@ unconstrained fn check_block_number_fail() {
     let public_checks = PublicChecks::at(public_checks_contract_address);
 
     let expected_next_block_number = env.next_block_number();
-    env.view_public_incognito(public_checks.check_block_number(Comparator.LT, expected_next_block_number));
+    env.view_public(public_checks.check_block_number(Comparator.LT, expected_next_block_number));
 }
 
 #[test]
@@ -36,7 +36,7 @@ unconstrained fn check_timestamp() {
 
     let expected_next_block_timestamp = env.last_block_timestamp() + 100;
     env.set_next_block_timestamp(expected_next_block_timestamp);
-    env.view_public_incognito(public_checks.check_timestamp(Comparator.LT, expected_next_block_timestamp + 1));
+    env.view_public(public_checks.check_timestamp(Comparator.LT, expected_next_block_timestamp + 1));
 }
 
 #[test(should_fail_with = "Timestamp mismatch.")]
@@ -48,5 +48,5 @@ unconstrained fn check_timestamp_fail() {
 
     let expected_next_block_timestamp = env.last_block_timestamp() + 100;
     env.set_next_block_timestamp(expected_next_block_timestamp);
-    env.view_public_incognito(public_checks.check_timestamp(Comparator.LT, expected_next_block_timestamp));
+    env.view_public(public_checks.check_timestamp(Comparator.LT, expected_next_block_timestamp));
 }

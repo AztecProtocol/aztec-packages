@@ -71,6 +71,7 @@ export { DefaultWaitOpts, type WaitOpts } from '../contract/wait_opts.js';
 export { ContractBase, type ContractMethod, type ContractStorageLayout } from '../contract/contract_base.js';
 export { BatchCall } from '../contract/batch_call.js';
 export {
+  type DeployInstantiationOptions,
   type DeployOptions,
   type DeployResultMined,
   type DeployReturn,
@@ -80,6 +81,7 @@ export {
   DeployMethod,
   type RequestDeployOptions,
   type SimulateDeployOptions,
+  UniversalDeployMethod,
 } from '../contract/deploy_method.js';
 export { waitForProven, type WaitForProvenOpts, DefaultWaitForProvenOpts } from '../contract/wait_for_proven.js';
 export { getGasLimits } from '../contract/get_gas_limits.js';

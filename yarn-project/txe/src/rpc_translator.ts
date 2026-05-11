@@ -1,6 +1,12 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr, Point } from '@aztec/aztec.js/fields';
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
+import {
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
+  PRIVATE_LOG_CIPHERTEXT_LEN,
+  PRIVATE_LOG_SIZE_IN_FIELDS,
+} from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import {
   type IMiscOracle,
@@ -289,12 +295,38 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_txe_getLastTxEffects() {
-    const { txHash, noteHashes, nullifiers } = await this.handlerAsTxe().getLastTxEffects();
+    const { txHash, noteHashes, nullifiers, privateLogs } = await this.handlerAsTxe().getLastTxEffects();
+
+    if (privateLogs.length > MAX_PRIVATE_LOGS_PER_TX) {
+      throw new Error(`${privateLogs.length} private logs exceed max ${MAX_PRIVATE_LOGS_PER_TX}`);
+    }
+
+    // Same workaround as `aztec_txe_getPrivateEvents`: Noir cannot yet return nested structs with arrays, so we return
+    // a flat multidimensional array plus per-log lengths and the total count, and reassemble into a
+    // `BoundedVec<BoundedVec<T>>` on the Noir side. Each log contributes only its emitted fields. The rest
+    // is zero-padded to `PRIVATE_LOG_SIZE_IN_FIELDS`.
+    const emittedLogs = privateLogs.map(log => log.getEmittedFields());
+
+    const rawLogStorage = emittedLogs
+      .map(fields => fields.concat(Array(PRIVATE_LOG_SIZE_IN_FIELDS - fields.length).fill(new Fr(0))))
+      .concat(
+        Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(Array(PRIVATE_LOG_SIZE_IN_FIELDS).fill(new Fr(0))),
+      )
+      .flat();
+
+    const logLengths = emittedLogs
+      .map(fields => new Fr(fields.length))
+      .concat(Array(MAX_PRIVATE_LOGS_PER_TX - emittedLogs.length).fill(new Fr(0)));
+
+    const logCount = new Fr(emittedLogs.length);
 
     return toForeignCallResult([
       toSingle(txHash.hash),
       ...arrayToBoundedVec(toArray(noteHashes), MAX_NOTE_HASHES_PER_TX),
       ...arrayToBoundedVec(toArray(nullifiers), MAX_NULLIFIERS_PER_TX),
+      toArray(rawLogStorage),
+      toArray(logLengths),
+      toSingle(logCount),
     ]);
   }
 
@@ -1322,19 +1354,26 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_txe_privateCallNewFlow(
-    foreignFrom: ForeignCallSingle,
+    foreignFromIsSome: ForeignCallSingle,
+    foreignFromValue: ForeignCallSingle,
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
     foreignArgsHash: ForeignCallSingle,
     foreignIsStaticCall: ForeignCallSingle,
+    foreignAdditionalScopes: ForeignCallArray,
+    foreignAuthorizedUtilityCallTargets: ForeignCallArray,
   ) {
-    const from = addressFromSingle(foreignFrom);
+    const from = fromSingle(foreignFromIsSome).toBool() ? addressFromSingle(foreignFromValue) : undefined;
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
+    const additionalScopes = fromArray(foreignAdditionalScopes).map(field => AztecAddress.fromField(field));
+    const authorizedUtilityCallTargets = fromArray(foreignAuthorizedUtilityCallTargets).map(field =>
+      AztecAddress.fromField(field),
+    );
 
     const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
@@ -1344,7 +1383,9 @@ export class RPCTranslator {
         args,
         argsHash,
         isStaticCall,
+        additionalScopes,
         this.stateHandler.getCurrentJob(),
+        authorizedUtilityCallTargets,
       );
 
       // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than
@@ -1376,10 +1417,14 @@ export class RPCTranslator {
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
+    foreignAuthorizedUtilityCallTargets: ForeignCallArray,
   ) {
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
+    const authorizedUtilityCallTargets = fromArray(foreignAuthorizedUtilityCallTargets).map(field =>
+      AztecAddress.fromField(field),
+    );
 
     const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const returnValues = await this.handlerAsTxe().executeUtilityFunction(
@@ -1387,6 +1432,7 @@ export class RPCTranslator {
         functionSelector,
         args,
         this.stateHandler.getCurrentJob(),
+        authorizedUtilityCallTargets,
       );
 
       // TODO(F-335): Avoid doing the following call here.
@@ -1400,12 +1446,13 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_txe_publicCallNewFlow(
-    foreignFrom: ForeignCallSingle,
+    foreignFromIsSome: ForeignCallSingle,
+    foreignFromValue: ForeignCallSingle,
     foreignAddress: ForeignCallSingle,
     foreignCalldata: ForeignCallArray,
     foreignIsStaticCall: ForeignCallSingle,
   ) {
-    const from = addressFromSingle(foreignFrom);
+    const from = fromSingle(foreignFromIsSome).toBool() ? addressFromSingle(foreignFromValue) : undefined;
     const address = addressFromSingle(foreignAddress);
     const calldata = fromArray(foreignCalldata);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();

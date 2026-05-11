@@ -581,6 +581,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       log: this.logger,
       senderForTags: this.defaultSenderForTags,
       simulator: this.simulator,
+      hooks: this.hooks,
       l2TipsStore: this.l2TipsStore,
     });
 
