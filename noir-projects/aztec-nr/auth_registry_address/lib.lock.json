@@ -1,7 +1,7 @@
 {
-  "_comment": "Address used by the auth_registry_address crate. While auth_registry remains a protocol contract this is the magic slot-1 address; once it is demoted, yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts overwrites this file with the artifact-derived values.",
-  "address": "0x0000000000000000000000000000000000000000000000000000000000000001",
-  "classId": "0x0",
-  "artifactHash": "0x0",
-  "srcContentHash": "0x0"
+  "_comment": "GENERATED FILE - DO NOT EDIT. Written by yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts.",
+  "address": "0x27225abf9a79bc1c9279c82591f5e19d0b861cffcff33ac21d9f89ce14004ff1",
+  "classId": "0x12e672a384cda5e1a03f18c901f40e01ec859355b56ca9f21a4cd0b2e99d3689",
+  "artifactHash": "0x2f40338537369f28dd399693f5cd35b177935af02ece1f3c9024639ac840d1f0",
+  "srcContentHash": "0x4ea3348417959a4d18386572ff254539805f0ea5d786f96e7b66f06c947403ec"
 }

@@ -3,7 +3,6 @@
 // `protocol_contract_data.ts`. This avoids clients repeating the expensive hashing at runtime and
 // ensures a single source of truth for the protocol contracts hash enforced by circuits, P2P, and L1.
 import {
-  CANONICAL_AUTH_REGISTRY_ADDRESS,
   CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   CONTRACT_INSTANCE_PUBLISHED_MAGIC_VALUE,
   CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
@@ -40,7 +39,6 @@ const outputFilePath = './src/protocol_contract_data.ts';
 const salt = new Fr(1);
 
 const contractAddressMapping: { [name: string]: number } = {
-  AuthRegistry: CANONICAL_AUTH_REGISTRY_ADDRESS,
   ContractInstanceRegistry: CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS,
   ContractClassRegistry: CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
   MultiCallEntrypoint: MULTI_CALL_ENTRYPOINT_ADDRESS,
@@ -265,6 +263,13 @@ async function main() {
       await computeContractData(artifact, AztecAddress.fromBigInt(BigInt(contractAddressMapping[destName]))),
     );
   }
+
+  // auth_registry is no longer a protocol contract (its address derives from its artifact), but
+  // the auth-registry sub-entrypoint still re-exports the compiled artifact for callers that
+  // construct the canonical instance via `getCanonicalAuthRegistry()`. Copy the artifact here so
+  // the rest of the build chain (and `auth-registry/index.ts`'s static `with` import) can resolve it.
+  await copyArtifact('auth_registry_contract-AuthRegistry', 'AuthRegistry');
+  await generateDeclarationFile('AuthRegistry');
 
   await generateOutputFile(destNames, contractDataList);
 }

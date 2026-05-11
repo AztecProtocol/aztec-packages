@@ -1,18 +1,14 @@
-// Address of the canonical auth_registry deployment.
+// GENERATED FILE - DO NOT EDIT
 //
-// auth_registry today is a protocol contract published at the magic slot-1 address. This crate is
-// the dependency-cut point that lets a future PR demote auth_registry to a non-protocol contract
-// whose address derives from its compiled artifact: every consumer (aztec-nr authwit helpers, the
-// avm test contract, etc.) imports `AUTH_REGISTRY_ADDRESS` from here, and auth_registry itself
-// MUST NOT depend on this crate. The structural and bytecode-level cycle guard in
-// `noir-projects/scripts/auth_registry_cycle_guard.sh` pins that invariant.
+// Written by `yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts` after phase 1
+// of `noir-projects/noir-contracts/bootstrap.sh` has compiled `auth_registry_contract`.
 //
-// While auth_registry remains a protocol contract, `AUTH_REGISTRY_ADDRESS` is the canonical magic
-// address (slot 1) and is kept in sync with `CANONICAL_AUTH_REGISTRY_ADDRESS` in
-// `noir-protocol-circuits/crates/types/src/constants.nr`. The follow-up demotion PR overwrites
-// this file via `yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts`.
+// Auth registry MUST NOT depend on this crate. The structural and bytecode-level cycle guard in
+// `noir-projects/scripts/auth_registry_cycle_guard.sh` pins this invariant.
+//
+// stampKey = 0x2f40338537369f28dd399693f5cd35b177935af02ece1f3c9024639ac840d1f0
 
 use protocol_types::{address::AztecAddress, traits::FromField};
 
-pub global AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
-pub global AUTH_REGISTRY_CLASS_ID: Field = 0;
+pub global AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(0x27225abf9a79bc1c9279c82591f5e19d0b861cffcff33ac21d9f89ce14004ff1);
+pub global AUTH_REGISTRY_CLASS_ID: Field = 0x12e672a384cda5e1a03f18c901f40e01ec859355b56ca9f21a4cd0b2e99d3689;

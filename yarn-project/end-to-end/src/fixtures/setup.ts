@@ -47,6 +47,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
+import { AuthRegistryArtifact, getCanonicalAuthRegistry } from '@aztec/protocol-contracts/auth-registry';
 import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, type PXECreationOptions, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
@@ -855,6 +856,26 @@ export async function expectMappingDelta<K, V extends number | bigint>(
   const diffs = outputs.map((output, i) => output - initialValues[i]);
 
   expect(diffs).toEqual(expectedDiffs);
+}
+
+/**
+ * Registers the auth_registry contract class and publishes its canonical instance on first call.
+ * Idempotent: subsequent calls are no-ops once both are published.
+ *
+ * auth_registry was previously a protocol contract whose deployment was implicit at genesis. Once
+ * demoted to a regular contract, anything exercising the public authwit path (which relies on the
+ * AVM's deployment-nullifier check at `contract_instance_manager.cpp:83-95`) must ensure the
+ * registry is publicly published before use. Test harnesses invoke this from `setup()`; mainnet/
+ * testnet chain operators publish auth_registry as a normal transaction in early blocks.
+ */
+export async function ensureAuthRegistryPublished(wallet: Wallet, from: AztecAddress) {
+  const { instance, contractClass } = await getCanonicalAuthRegistry();
+  if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
+    await (await publishContractClass(wallet, AuthRegistryArtifact)).send({ from });
+  }
+  if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
+    await (await publishInstance(wallet, instance)).send({ from });
+  }
 }
 
 /**
