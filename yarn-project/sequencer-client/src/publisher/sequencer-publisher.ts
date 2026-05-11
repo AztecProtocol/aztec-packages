@@ -382,20 +382,24 @@ export class SequencerPublisher {
 
   /**
    * Sends all requests that are still valid.
+   * @param targetSlot - The target L2 slot for this send. When provided (pipelined path via
+   *   sendRequestsAt), it is threaded into bundleSimulate so the block.timestamp override
+   *   matches the slot the propose is built for. When omitted, falls back to
+   *   getCurrentL2Slot() for the non-pipelined callers in Sequencer.doWork.
    * @returns one of:
    * - A receipt and stats if the tx succeeded
    * - a receipt and errorMsg if it failed on L1
    * - undefined if no valid requests are found OR the tx failed to send.
    */
   @trackSpan('SequencerPublisher.sendRequests')
-  public async sendRequests(): Promise<SendRequestsResult | undefined> {
+  public async sendRequests(targetSlot?: SlotNumber): Promise<SendRequestsResult | undefined> {
     const requestsToProcess = [...this.requests];
     this.requests = [];
 
     if (this.interrupted || requestsToProcess.length === 0) {
       return undefined;
     }
-    const currentL2Slot = this.getCurrentL2Slot();
+    const currentL2Slot = targetSlot ?? this.getCurrentL2Slot();
     this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
     const expiredActions = requestsToProcess
@@ -442,7 +446,7 @@ export class SequencerPublisher {
 
     try {
       // Bundle-level eth_simulateV1: filters out entries that revert and derives the gasLimit.
-      const bundleResult = await this.bundleSimulate(validRequests);
+      const bundleResult = await this.bundleSimulate(validRequests, currentL2Slot);
       if (bundleResult === undefined) {
         return undefined;
       }
@@ -525,6 +529,7 @@ export class SequencerPublisher {
    */
   private async bundleSimulate(
     validRequests: RequestWithExpiry[],
+    targetSlot: SlotNumber,
   ): Promise<{ requests: RequestWithExpiry[]; gasLimit: bigint } | undefined> {
     if (!(await this.ensureMulticall3Deployed())) {
       return undefined;
@@ -550,9 +555,6 @@ export class SequencerPublisher {
       : [];
 
     const l1Constants = this.epochCache.getL1Constants();
-    // Use current L2 slot as the target: sendRequestsAt already slept until the right moment,
-    // so current slot ≈ target slot.
-    const targetSlot = this.getCurrentL2Slot();
     const targetTimestamp = getTimestampForSlot(targetSlot, l1Constants);
 
     const simulateBundle = (requests: RequestWithExpiry[]) => {
@@ -779,7 +781,7 @@ export class SequencerPublisher {
     if (this.interrupted) {
       return undefined;
     }
-    return this.sendRequests();
+    return this.sendRequests(targetSlot);
   }
 
   private callbackBundledTransactions(
