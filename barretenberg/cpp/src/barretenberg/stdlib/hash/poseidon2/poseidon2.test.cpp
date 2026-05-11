@@ -12,12 +12,8 @@ auto& engine = numeric::get_debug_randomness();
 }
 
 template <typename Builder> class StdlibPoseidon2 : public testing::Test {
-    using curve = stdlib::bn254<Builder>;
-
-    using byte_array_ct = stdlib::byte_array<Builder>;
     using field_ct = stdlib::field_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
-    using public_witness_ct = stdlib::public_witness_t<Builder>;
     using poseidon2 = typename stdlib::poseidon2<Builder>;
     using native_poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
@@ -27,16 +23,26 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
     static std::size_t gate_count(std::size_t N)
     {
-        if (N == 1) {
-            return 73;
-        }
-        const size_t P_cost = 73;
-        const size_t D_full_adds = 3;
-
         // Number of Poseidon2 permutation invocations
         size_t P_N = (N + 2) / 3;
-        // Number of extra additions in sqeeze
+        // Number of extra additions in squeeze
         size_t N_3 = N % 3;
+
+        if constexpr (IsMegaBuilder<Builder>) {
+            // Mega uses the K=4 compressed encoding with a custom initial-linear-layer row.
+            if (P_N == 1) {
+                return 28;
+            }
+            return (N_3 == 0) ? (30 * P_N - 2) : (30 * P_N - 5 + N_3);
+        }
+
+        // Ultra uses the standard single-round encoding (73 gates).
+        constexpr size_t P_cost = 73;
+        if (N == 1) {
+            return P_cost;
+        }
+        const size_t D_full_adds = 3;
+
         if (N_3 == 0) {
             return (1 + P_N * P_cost + (P_N - 1) * D_full_adds);
         } else {
@@ -95,8 +101,6 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
 
         left.set_public();
 
-        info("num gates = ", builder.get_num_finalized_gates_inefficient());
-
         bool result = CircuitChecker::check(builder);
         EXPECT_EQ(result, true);
     }
@@ -136,7 +140,6 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
             }
         }
 
-        native_poseidon2::hash(inputs);
         EXPECT_THROW_WITH_MESSAGE(poseidon2::hash(witness_inputs), "Sponge inputs should not be stdlib constants");
     }
 

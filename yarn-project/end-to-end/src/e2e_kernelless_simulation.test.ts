@@ -15,6 +15,7 @@ import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy
 import { PendingNoteHashesContract } from '@aztec/noir-test-contracts.js/PendingNoteHashes';
 import { type AbiDecoded, decodeFromAbi, getFunctionArtifact } from '@aztec/stdlib/abi';
 import { computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { jest } from '@jest/globals';
 
@@ -412,7 +413,7 @@ describe('Kernelless simulation', () => {
       });
 
       // Spy on the node API that generateSimulatedProvingResult uses to verify settled read requests
-      const noteHashMembershipWitnessSpy = jest.spyOn(aztecNode, 'getNoteHashMembershipWitness');
+      const findLeavesIndexesSpy = jest.spyOn(aztecNode, 'findLeavesIndexes');
 
       wallet.setSimulationMode('kernelless-override');
       await expect(
@@ -421,8 +422,12 @@ describe('Kernelless simulation', () => {
         }),
       ).resolves.toBeDefined();
 
-      expect(noteHashMembershipWitnessSpy).toHaveBeenCalled();
-      noteHashMembershipWitnessSpy.mockRestore();
+      expect(findLeavesIndexesSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        MerkleTreeId.NOTE_HASH_TREE,
+        expect.anything(),
+      );
+      findLeavesIndexesSpy.mockRestore();
     });
   });
 

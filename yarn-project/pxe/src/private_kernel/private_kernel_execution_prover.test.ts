@@ -55,16 +55,20 @@ describe('Private Kernel Sequencer', () => {
     {
       publicInputs,
       childPublicInputs = [],
+      address = contractAddress,
+      nestedResults,
     }: {
       publicInputs?: PrivateCircuitPublicInputs;
       childPublicInputs?: PrivateCircuitPublicInputs[];
+      address?: AztecAddress;
+      nestedResults?: PrivateCallExecutionResult[];
     } = {},
   ): PrivateCallExecutionResult => {
     if (!publicInputs) {
       publicInputs = PrivateCircuitPublicInputs.empty();
     }
     publicInputs.callContext.functionSelector = new FunctionSelector(fnName.charCodeAt(0));
-    publicInputs.callContext.contractAddress = contractAddress;
+    publicInputs.callContext.contractAddress = address;
 
     return new PrivateCallExecutionResult(
       Buffer.alloc(0),
@@ -76,9 +80,10 @@ describe('Private Kernel Sequencer', () => {
       [],
       [],
       [],
-      (dependencies[fnName] || []).map((name, i) =>
-        createCallExecutionResult(name, { publicInputs: childPublicInputs[i] }),
-      ),
+      nestedResults ??
+        (dependencies[fnName] || []).map((name, i) =>
+          createCallExecutionResult(name, { publicInputs: childPublicInputs[i] }),
+        ),
       [],
     );
   };
@@ -360,5 +365,23 @@ describe('Private Kernel Sequencer', () => {
     expect(proofCreator.simulateInner).toHaveBeenCalledTimes(1);
     expect(proofCreator.simulateReset).toHaveBeenCalledTimes(3);
     expect(proofCreator.simulateTail).toHaveBeenCalledTimes(1);
+  });
+
+  it('fetches updated class id hints once per unique contract address', async () => {
+    const contractAddressB = AztecAddress.fromBigInt(111111n);
+
+    // a { b {} c {} }
+    // a and c use contractAddress, b uses contractAddressB → 2 unique contracts, 3 executions.
+    dependencies = {};
+    const bExec = createCallExecutionResult('b', { address: contractAddressB });
+    const cExec = createCallExecutionResult('c');
+    const aExec = createCallExecutionResult('a', { nestedResults: [bExec, cExec] });
+
+    const executionResult = new PrivateExecutionResult(aExec, Fr.zero(), []);
+    await prove(executionResult);
+
+    expect(oracle.getUpdatedClassIdHints).toHaveBeenCalledTimes(2);
+    expect(oracle.getUpdatedClassIdHints).toHaveBeenCalledWith(contractAddress);
+    expect(oracle.getUpdatedClassIdHints).toHaveBeenCalledWith(contractAddressB);
   });
 });

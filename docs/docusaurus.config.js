@@ -289,6 +289,9 @@ const config = {
     ],
     // ["./src/plugins/plugin-embed-code", {}],
   ],
+  clientModules: [
+    './src/clientModules/docsgpt.js',
+  ],
   customFields: {},
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -312,6 +315,11 @@ const config = {
           ],
           apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", // public search-only api key, safe to commit
         },
+        // aztec-nr-api pages live in /static/ as raw HTML, not React Router
+        // routes. Without this, the dropdown calls history.push() and the SPA
+        // 404s on click. Matching the regex makes the theme use
+        // window.location.href for a real page load that Netlify resolves.
+        externalUrlRegex: "/aztec-nr-api/",
       },
       colorMode: {
         defaultMode: "light",

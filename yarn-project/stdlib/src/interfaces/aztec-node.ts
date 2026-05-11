@@ -46,6 +46,7 @@ import {
   BlockHeader,
   type IndexedTxEffect,
   PublicSimulationOutput,
+  SimulationOverrides,
   Tx,
   TxHash,
   TxReceipt,
@@ -464,8 +465,15 @@ export interface AztecNode {
    * Simulates the public part of a transaction with the current state.
    * This currently just checks that the transaction execution succeeds.
    * @param tx - The transaction to simulate.
+   * @param skipFeeEnforcement - If true, fee enforcement is skipped.
+   * @param overrides - Optional pre-simulation overrides applied to the ephemeral fork and contract DB
+   * (publicStorage writes, contract instance overrides).
    **/
-  simulatePublicCalls(tx: Tx, skipFeeEnforcement?: boolean): Promise<PublicSimulationOutput>;
+  simulatePublicCalls(
+    tx: Tx,
+    skipFeeEnforcement?: boolean,
+    overrides?: SimulationOverrides,
+  ): Promise<PublicSimulationOutput>;
 
   /**
    * Returns true if the transaction is valid for inclusion at the current state. Valid transactions can be
@@ -668,7 +676,10 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(schemas.EthAddress, optional(schemas.SlotNumber), optional(schemas.SlotNumber))
     .returns(SingleValidatorStatsSchema.optional()),
 
-  simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
+  simulatePublicCalls: z
+    .function()
+    .args(Tx.schema, optional(z.boolean()), optional(SimulationOverrides.schema))
+    .returns(PublicSimulationOutput.schema),
 
   isValidTx: z
     .function()

@@ -166,6 +166,10 @@ export class WorkerWallet implements Wallet {
     return this.call('registerContract', instance, artifact, secretKey);
   }
 
+  registerContractClass(artifact: ContractArtifact): Promise<void> {
+    return this.call('registerContractClass', artifact);
+  }
+
   simulateTx(exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset> {
     return this.call('simulateTx', exec, opts);
   }

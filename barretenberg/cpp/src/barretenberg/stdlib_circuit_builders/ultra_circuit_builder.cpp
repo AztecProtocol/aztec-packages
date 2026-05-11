@@ -128,6 +128,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
     blocks.arithmetic.q_3().emplace_back(in.c_scaling);
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
+    blocks.arithmetic.q_5().emplace_back(0);
     blocks.arithmetic.set_gate_selector(include_next_gate_w_4 ? 2 : 1);
     check_selector_length_consistency();
     this->increment_num_gates();
@@ -153,6 +154,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<F
     blocks.arithmetic.q_3().emplace_back(in.c_scaling);
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
+    blocks.arithmetic.q_5().emplace_back(0);
     blocks.arithmetic.set_gate_selector(include_next_gate_w_4 ? 2 : 1);
     check_selector_length_consistency();
     this->increment_num_gates();
@@ -175,6 +177,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
     blocks.arithmetic.q_3().emplace_back(0);
     blocks.arithmetic.q_c().emplace_back(0);
     blocks.arithmetic.q_4().emplace_back(0);
+    blocks.arithmetic.q_5().emplace_back(0);
     blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
     this->increment_num_gates();
@@ -198,6 +201,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_arithmetic_gate(const arithmet
     blocks.arithmetic.q_3().emplace_back(in.q_o);
     blocks.arithmetic.q_c().emplace_back(in.q_c);
     blocks.arithmetic.q_4().emplace_back(0);
+    blocks.arithmetic.q_5().emplace_back(0);
     blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
     this->increment_num_gates();
@@ -243,6 +247,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_1().emplace_back(q_sign);
 
         block.q_2().emplace_back(0);
@@ -297,6 +302,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
         block.q_3().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.set_gate_selector(1);
         check_selector_length_consistency();
         this->increment_num_gates();
@@ -326,6 +332,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
     blocks.arithmetic.q_3().emplace_back(0);
     blocks.arithmetic.q_c().emplace_back(-witness_value);
     blocks.arithmetic.q_4().emplace_back(0);
+    blocks.arithmetic.q_5().emplace_back(0);
     blocks.arithmetic.set_gate_selector(1);
     check_selector_length_consistency();
     this->increment_num_gates();
@@ -397,6 +404,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_lookup_gate(const uint32_t key
     blocks.lookup.q_c().emplace_back(column_3_step_size);
     blocks.lookup.q_1().emplace_back(0);
     blocks.lookup.q_4().emplace_back(0);
+    blocks.lookup.q_5().emplace_back(0);
 
     check_selector_length_consistency();
     this->increment_num_gates();
@@ -778,6 +786,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::enforce_small_deltas(const std::vecto
         blocks.delta_range.q_3().emplace_back(0);
         blocks.delta_range.q_c().emplace_back(0);
         blocks.delta_range.q_4().emplace_back(0);
+        blocks.delta_range.q_5().emplace_back(0);
         blocks.delta_range.set_gate_selector(1);
         check_selector_length_consistency();
     }
@@ -838,6 +847,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
         block.q_3().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.set_gate_selector(1);
         check_selector_length_consistency();
     }
@@ -888,6 +898,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_2().emplace_back(1);
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         check_selector_length_consistency();
@@ -903,6 +914,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(1);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         check_selector_length_consistency();
@@ -915,6 +927,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(1);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         check_selector_length_consistency();
@@ -928,6 +941,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(0); // read/write flag stored in q_c
         check_selector_length_consistency();
@@ -941,6 +955,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(0); // read/write flag stored in q_c
         check_selector_length_consistency();
@@ -954,6 +969,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(1); // read/write flag stored in q_c
         check_selector_length_consistency();
@@ -964,6 +980,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         check_selector_length_consistency();
@@ -1006,6 +1023,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(1);
         block.q_4().emplace_back(1);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         check_selector_length_consistency();
@@ -1016,6 +1034,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(1);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(1);
         block.q_c().emplace_back(0);
         check_selector_length_consistency();
@@ -1026,6 +1045,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_2().emplace_back(1);
         block.q_3().emplace_back(1);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         check_selector_length_consistency();
@@ -1036,6 +1056,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_2().emplace_back(1);
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(1);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         check_selector_length_consistency();
@@ -1046,6 +1067,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_2().emplace_back(1);
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(1);
         block.q_c().emplace_back(0);
         check_selector_length_consistency();
@@ -1056,6 +1078,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTO
         block.q_2().emplace_back(0);
         block.q_3().emplace_back(0);
         block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         check_selector_length_consistency();
@@ -1502,6 +1525,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_2().emplace_back(-x_mulconst0 * linear_term_scale_factor);
     block.q_3().emplace_back(-y_mulconst0 * linear_term_scale_factor);
     block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
     block.set_gate_selector(3);
 
@@ -1510,6 +1534,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_2().emplace_back(-x_mulconst1);
     block.q_3().emplace_back(-y_mulconst1);
     block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst1);
     block.set_gate_selector(2);
 
@@ -1518,6 +1543,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_2().emplace_back(-y_mulconst2);
     block.q_3().emplace_back(1);
     block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst2);
     block.set_gate_selector(1);
 
@@ -1526,6 +1552,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_2().emplace_back(-y_mulconst3);
     block.q_3().emplace_back(1);
     block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst3);
     block.set_gate_selector(1);
 
@@ -1627,6 +1654,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_2().emplace_back(-x_mulconst0 * linear_term_scale_factor);
     block.q_3().emplace_back(y_mulconst0 * linear_term_scale_factor);
     block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
     block.set_gate_selector(3);
 
@@ -1635,6 +1663,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_2().emplace_back(-x_mulconst1);
     block.q_3().emplace_back(y_mulconst1);
     block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst1);
     block.set_gate_selector(2);
 
@@ -1643,6 +1672,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_2().emplace_back(y_mulconst2);
     block.q_3().emplace_back(1);
     block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst2);
     block.set_gate_selector(1);
 
@@ -1651,6 +1681,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_2().emplace_back(y_mulconst3);
     block.q_3().emplace_back(1);
     block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst3);
     block.set_gate_selector(1);
 
@@ -1800,28 +1831,35 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
     block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
     block.q_c().emplace_back(0);
     block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
+    block.q_5().emplace_back(0);
     block.set_gate_selector(1);
     this->check_selector_length_consistency();
     this->increment_num_gates();
 }
 
 /**
- * @brief Poseidon2 internal round gate, activates the q_poseidon2_internal selector and relation
+ * @brief Poseidon2 internal round gate, activates the q_poseidon2_internal selector and relation.
+ *        Ultra-only: Mega covers all internal rounds via the compressed quad-internal block.
  */
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_internal_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_internal;
-    block.populate_wires(in.a, in.b, in.c, in.d);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-    block.q_2().emplace_back(0);
-    block.q_3().emplace_back(0);
-    block.q_c().emplace_back(0);
-    block.q_4().emplace_back(0);
-    block.set_gate_selector(1);
-    this->check_selector_length_consistency();
-    this->increment_num_gates();
+    if constexpr (requires { this->blocks.poseidon2_internal; }) {
+        auto& block = this->blocks.poseidon2_internal;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
+        block.set_gate_selector(1);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    } else {
+        throw_or_abort("create_poseidon2_internal_gate is Ultra-only (Mega uses the compressed block)");
+    }
 }
 
 /**

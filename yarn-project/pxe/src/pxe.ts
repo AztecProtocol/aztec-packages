@@ -120,7 +120,11 @@ export type SimulateTxOpts = {
   skipFeeEnforcement?: boolean;
   /** If true, kernel logic is emulated in TS for simulation */
   skipKernels?: boolean;
-  /** State overrides for the simulation, such as contract instances and artifacts. Requires skipKernels: true */
+  /**
+   * Pre-simulation overrides applied to the ephemeral fork and contract DB. Bundles publicStorage
+   * writes (no skipKernels required) and per-address (instance, artifact?) overrides used by both
+   * AVM-side public dispatch and PXE-side ACIR private dispatch (requires skipKernels: true).
+   */
   overrides?: SimulationOverrides;
   /** Addresses whose private state and keys are accessible during private execution */
   scopes: AztecAddress[];
@@ -484,11 +488,11 @@ export class PXE {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicCalls(tx: Tx, skipFeeEnforcement: boolean) {
+  async #simulatePublicCalls(tx: Tx, skipFeeEnforcement: boolean, overrides?: SimulationOverrides) {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement);
+      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement, overrides);
       if (result.revertReason) {
         throw result.revertReason;
       }
@@ -702,7 +706,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractStore.getContractArtifact(instance.currentContractClassId);
@@ -749,7 +755,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
 
       currentInstance.currentContractClassId = contractClass.id;
       await Promise.all([
@@ -998,21 +1006,12 @@ export class PXE {
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
-        const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
-        const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
-
-        if (hasOverriddenContracts && !skipKernels) {
+        if (overrides?.contracts && Object.keys(overrides.contracts).length > 0 && !skipKernels) {
           throw new Error(
             'Simulating with overridden contracts is not compatible with kernel execution. Please set skipKernels to true when simulating with overridden contracts.',
           );
         }
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-
-        if (hasOverriddenContracts) {
-          // Overridden contracts don't have a sync function, so calling sync on them would fail.
-          // We exclude them so the sync service skips them entirely.
-          this.contractSyncService.setExcludedFromSync(jobId, overriddenContracts);
-        }
 
         // Execution of private functions only; no proving, and no kernel logic.
         const privateExecutionResult = await this.#executePrivate({
@@ -1054,7 +1053,7 @@ export class PXE {
         let publicOutput: PublicSimulationOutput | undefined;
         if (simulatePublic && publicInputs.forPublic) {
           const publicSimulationTimer = new Timer();
-          publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
+          publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement, overrides);
           publicSimulationTime = publicSimulationTimer.ms();
           if (publicOutput?.debugLogs?.length) {
             await displayDebugLogs(publicOutput.debugLogs, addr => this.contractStore.getDebugContractName(addr));
