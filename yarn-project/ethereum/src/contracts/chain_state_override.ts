@@ -1,14 +1,25 @@
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
-import type { CheckpointNumber } from '@aztec/foundation/branded-types';
+import type { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { StateOverride } from 'viem';
 
 import { type FeeHeader, RollupContract } from './rollup.js';
 
+/**
+ * Override values for the pending checkpoint that the simulation should treat as already applied.
+ * Every field is optional at plan-building time so callers can populate them incrementally; whatever
+ * is present at translation time is forwarded to the partial `tempCheckpointLogs` helper so the
+ * load-bearing `slotNumber` can land even if other fields could not be derived locally.
+ */
 export type PendingCheckpointOverrideState = {
   archive?: Fr;
   feeHeader?: FeeHeader;
+  headerHash?: Fr;
+  outHash?: Fr;
+  payloadDigest?: Buffer32;
+  slotNumber?: SlotNumber;
 };
 
 export type ChainTipsOverride = {
@@ -75,6 +86,22 @@ export class SimulationOverridesBuilder {
     return this;
   }
 
+  /**
+   * Overrides the locally-derivable `tempCheckpointLogs` cell fields for the configured pending
+   * checkpoint. Callers populate these together because they all come from the same proposed
+   * checkpoint payload — there is no use case for setting them independently.
+   */
+  public withPendingTempCheckpointLogFields(fields: {
+    headerHash: Fr;
+    outHash: Fr;
+    payloadDigest: Buffer32;
+    slotNumber: SlotNumber;
+  }): this {
+    this.assertPendingCheckpointNumber();
+    this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), ...fields };
+    return this;
+  }
+
   /** Disables blob checking for simulations that cannot provide DA inputs. */
   public withoutBlobCheck(): this {
     this.disableBlobCheck = true;
@@ -128,10 +155,16 @@ export async function buildSimulationOverridesStateOverride(
     );
   }
 
-  if (plan.pendingCheckpointState?.feeHeader) {
+  if (plan.pendingCheckpointState) {
     rollupStateDiff.push(
       ...extractRollupStateDiff(
-        await rollup.makeFeeHeaderOverride(plan.chainTipsOverride!.pending!, plan.pendingCheckpointState.feeHeader),
+        await rollup.makeTempCheckpointLogOverride(plan.chainTipsOverride!.pending!, {
+          headerHash: plan.pendingCheckpointState.headerHash,
+          outHash: plan.pendingCheckpointState.outHash,
+          payloadDigest: plan.pendingCheckpointState.payloadDigest,
+          slotNumber: plan.pendingCheckpointState.slotNumber,
+          feeHeader: plan.pendingCheckpointState.feeHeader,
+        }),
       ),
     );
   }

@@ -1,4 +1,5 @@
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import { SimulationOverridesBuilder } from './chain_state_override.js';
@@ -63,5 +64,29 @@ describe('SimulationOverridesBuilder', () => {
     builder.merge({ chainTipsOverride: { proven: CheckpointNumber(3) } });
     const plan = builder.build();
     expect(plan?.chainTipsOverride).toEqual({ pending: CheckpointNumber(7), proven: CheckpointNumber(3) });
+  });
+
+  it('attaches temp checkpoint log fields under the configured pending checkpoint', () => {
+    const headerHash = Fr.random();
+    const outHash = Fr.random();
+    const payloadDigest = Buffer32.random();
+    const slotNumber = SlotNumber(42);
+    const plan = new SimulationOverridesBuilder()
+      .withChainTips({ pending: CheckpointNumber(7) })
+      .withPendingTempCheckpointLogFields({ headerHash, outHash, payloadDigest, slotNumber })
+      .build();
+
+    expect(plan?.pendingCheckpointState).toEqual({ headerHash, outHash, payloadDigest, slotNumber });
+  });
+
+  it('throws when withPendingTempCheckpointLogFields is called without a pending chain-tip override', () => {
+    expect(() =>
+      new SimulationOverridesBuilder().withPendingTempCheckpointLogFields({
+        headerHash: Fr.random(),
+        outHash: Fr.random(),
+        payloadDigest: Buffer32.random(),
+        slotNumber: SlotNumber(42),
+      }),
+    ).toThrow(/withChainTips\(\{ pending \}\) must be called/);
   });
 });

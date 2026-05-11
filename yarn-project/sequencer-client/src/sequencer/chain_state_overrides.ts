@@ -2,12 +2,15 @@ import { RollupContract, SimulationOverridesBuilder, type SimulationOverridesPla
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
+import { computeCheckpointPayloadDigest } from '@aztec/stdlib/checkpoint';
 import type { ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 
 type PipelinedParentSimulationOverridesPlanInput = {
   checkpointNumber: CheckpointNumber;
   proposedCheckpointData?: ProposedCheckpointData;
   rollup: RollupContract;
+  signatureContext: CoordinationSignatureContext;
   log: Logger;
   /**
    * Whether proposer pipelining is enabled. Controls only the parent pending/fee-header
@@ -41,6 +44,22 @@ export async function buildPipelinedParentSimulationOverridesPlan(
   if (input.pipeliningEnabled) {
     const parentCheckpointNumber = CheckpointNumber(input.checkpointNumber - 1);
     builder.withChainTips({ pending: parentCheckpointNumber });
+
+    if (input.proposedCheckpointData) {
+      const { header, archive, checkpointOutHash, feeAssetPriceModifier } = input.proposedCheckpointData;
+      builder.withPendingArchive(archive.root).withPendingTempCheckpointLogFields({
+        headerHash: header.hash(),
+        outHash: checkpointOutHash,
+        slotNumber: header.slotNumber,
+        payloadDigest: computeCheckpointPayloadDigest({
+          header,
+          archiveRoot: archive.root,
+          feeAssetPriceModifier,
+          signatureContext: input.signatureContext,
+        }),
+      });
+    }
+
     const pendingFeeHeader = await computePipelinedParentFeeHeader(input);
     if (pendingFeeHeader) {
       builder.withPendingFeeHeader(pendingFeeHeader);
