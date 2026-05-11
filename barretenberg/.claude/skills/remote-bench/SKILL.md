@@ -39,6 +39,25 @@ ssh $BB_SSH_KEY $BB_SSH_INSTANCE "echo ok" || {
 
 **If the env is not set up, stop and tell the user.** Do not attempt to run benchmarks locally as a fallback — the user invoked `/remote-bench` because they want stable results.
 
+## Remote bencher contract
+
+The bencher is an execution host only. It is not a Git workspace and not a
+toolchain bootstrap host.
+
+For private branches and private repos, build the benchmark binary locally in
+the session workspace, then copy the built binary and required input/result
+files with `scp`. The bencher should receive binaries and data, not source
+history.
+
+Do not send git bundles to the bencher. Do not create remote worktrees. Do not
+fetch private branches from GitHub on the bencher. Do not install per-session
+toolchains such as WASI SDK on the shared bencher to make a build work there.
+
+If local build tooling is missing (`emcc`, WASI SDK, CMake preset support, or
+similar), stop and report a local devbox/copy-base bootstrap issue. Fix the
+local build environment so it can produce the binary; do not mutate the shared
+bencher as a workaround.
+
 ### Setup (one-time)
 
 Add to `~/.zshrc` (ask a crypto eng team member for actual values):
