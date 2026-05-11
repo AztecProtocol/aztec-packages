@@ -23,7 +23,7 @@ import {
   WEI_CONST,
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
-import { sumBigint } from '@aztec/foundation/bigint';
+import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { trimmedBytesLength } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
@@ -49,6 +49,7 @@ import {
   type Hex,
   type TransactionReceipt,
   type TypedDataDefinition,
+  decodeFunctionResult,
   encodeFunctionData,
   keccak256,
   multicall3Abi,
@@ -151,6 +152,7 @@ interface RequestWithExpiry {
 
 export class SequencerPublisher {
   private interrupted = false;
+  private multicall3HasCode?: boolean;
   private metrics: SequencerPublisherMetrics;
   public epochCache: EpochCache;
   private failedTxStore?: Promise<L1TxFailedStore | undefined>;
@@ -402,7 +404,6 @@ export class SequencerPublisher {
     const currentL2Slot = this.getCurrentL2Slot();
     this.log.debug(`Sending requests on L2 slot ${currentL2Slot}`);
     const validRequests = requestsToProcess.filter(request => request.lastValidL2Slot >= currentL2Slot);
-    const validActions = validRequests.map(x => x.action);
     const expiredActions = requestsToProcess
       .filter(request => request.lastValidL2Slot < currentL2Slot)
       .map(x => x.action);
@@ -428,7 +429,6 @@ export class SequencerPublisher {
     // @note - we can only have one blob config per bundle
     // find requests with gas and blob configs
     // See https://github.com/AztecProtocol/aztec-packages/issues/11513
-    const gasConfigs = validRequests.filter(request => request.gasConfig).map(request => request.gasConfig);
     const blobConfigs = validRequests.filter(request => request.blobConfig).map(request => request.blobConfig);
 
     if (blobConfigs.length > 1) {
@@ -437,34 +437,33 @@ export class SequencerPublisher {
 
     const blobConfig = blobConfigs[0];
 
-    // Merge gasConfigs. Yields the sum of gasLimits, and the earliest txTimeoutAt, or undefined if no gasConfig sets them.
-    const gasLimits = gasConfigs.map(g => g?.gasLimit).filter((g): g is bigint => g !== undefined);
-    let gasLimit = gasLimits.length > 0 ? sumBigint(gasLimits) : undefined; // sum
-    // Cap at L1 block gas limit so the node accepts the tx ("gas limit too high" otherwise).
-    const maxGas = MAX_L1_TX_LIMIT;
-    if (gasLimit !== undefined && gasLimit > maxGas) {
-      this.log.debug('Capping bundled tx gas limit to L1 max', {
-        requested: gasLimit,
-        capped: maxGas,
-      });
-      gasLimit = maxGas;
-    }
+    // Collect earliest txTimeoutAt across all requests.
+    const gasConfigs = validRequests.filter(request => request.gasConfig).map(request => request.gasConfig);
     const txTimeoutAts = gasConfigs.map(g => g?.txTimeoutAt).filter((g): g is Date => g !== undefined);
-    const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined; // earliest
-    const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
+    const txTimeoutAt = txTimeoutAts.length > 0 ? new Date(Math.min(...txTimeoutAts.map(g => g.getTime()))) : undefined;
 
     // Sort the requests so that proposals always go first
     // This ensures the committee gets precomputed correctly
     validRequests.sort((a, b) => compareActions(a.action, b.action));
 
     try {
+      // Bundle-level eth_simulateV1: filters out entries that revert and derives the gasLimit.
+      const bundleResult = await this.bundleSimulate(validRequests);
+      if (bundleResult === undefined) {
+        return undefined;
+      }
+      const { requests: survivingRequests, gasLimit } = bundleResult;
+      const sentActions = survivingRequests.map(x => x.action);
+
+      const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
+
       // Capture context for failed tx backup before sending
       const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
       const multicallData = encodeFunctionData({
         abi: multicall3Abi,
         functionName: 'aggregate3',
         args: [
-          validRequests.map(r => ({
+          survivingRequests.map(r => ({
             target: r.request.to!,
             callData: r.request.data!,
             allowFailure: true,
@@ -476,19 +475,19 @@ export class SequencerPublisher {
       const txContext = { multicallData, blobData: blobDataHex, l1BlockNumber };
 
       this.log.debug('Forwarding transactions', {
-        validRequests: validRequests.map(request => request.action),
+        survivingRequests: survivingRequests.map(request => request.action),
         txConfig,
       });
-      const result = await this.forwardWithPublisherRotation(validRequests, txConfig, blobConfig);
+      const result = await this.forwardWithPublisherRotation(survivingRequests, txConfig, blobConfig);
       if (result === undefined) {
         return undefined;
       }
       const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(
-        validRequests,
+        survivingRequests,
         result,
         txContext,
       );
-      return { result, expiredActions, sentActions: validActions, successfulActions, failedActions };
+      return { result, expiredActions, sentActions, successfulActions, failedActions };
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
@@ -503,6 +502,173 @@ export class SequencerPublisher {
         this.log.warn(`Failed to record balance after sending tx: ${err}`);
       }
     }
+  }
+
+  /** Checks (once, then caches) that Multicall3 bytecode is deployed at MULTI_CALL_3_ADDRESS. */
+  private async ensureMulticall3Deployed(): Promise<boolean> {
+    if (this.multicall3HasCode !== undefined) {
+      return this.multicall3HasCode;
+    }
+    const code = await this.l1TxUtils.getCode(EthAddress.fromString(MULTI_CALL_3_ADDRESS));
+    this.multicall3HasCode = !!code && code !== '0x';
+    if (!this.multicall3HasCode) {
+      this.log.error('Multicall3 bytecode missing at MULTI_CALL_3_ADDRESS; cannot send bundled tx');
+    }
+    return this.multicall3HasCode;
+  }
+
+  /**
+   * Bundle-level eth_simulateV1 of the assembled aggregate3 payload. Returns the filtered
+   * survivor list and the gasLimit to use on the real send. Returns undefined if the bundle
+   * is empty after filtering, or if the Multicall3 contract is missing.
+   *
+   * Per-entry results are read from the aggregate3 Result[] return. Entries with success=false
+   * are dropped from the bundle (the user's votes/slashing/invalidate continue even if propose
+   * fails). The reduced bundle is re-simulated to get an accurate gasUsed.
+   *
+   * If eth_simulateV1 is not supported (fallback path), per-entry filtering is skipped and we
+   * use MAX_L1_TX_LIMIT as a conservative bundle gasLimit.
+   */
+  private async bundleSimulate(
+    validRequests: RequestWithExpiry[],
+  ): Promise<{ requests: RequestWithExpiry[]; gasLimit: bigint } | undefined> {
+    if (!(await this.ensureMulticall3Deployed())) {
+      return undefined;
+    }
+
+    const hasProposeAction = validRequests.some(r => r.action === 'propose');
+    const proposeRequest = validRequests.find(r => r.action === 'propose');
+
+    // eth_simulateV1 cannot carry blob sidecar data, so disable the on-chain blob check when
+    // a propose is in the bundle. Nothing else needs a state override.
+    const stateOverrides = hasProposeAction
+      ? [
+          {
+            address: this.rollupContract.address,
+            stateDiff: [
+              {
+                slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true),
+                value: toPaddedHex(0n, true),
+              },
+            ],
+          },
+        ]
+      : [];
+
+    const l1Constants = this.epochCache.getL1Constants();
+    // Use current L2 slot as the target: sendRequestsAt already slept until the right moment,
+    // so current slot ≈ target slot.
+    const targetSlot = this.getCurrentL2Slot();
+    const targetTimestamp = getTimestampForSlot(targetSlot, l1Constants);
+
+    const simulateBundle = async (requests: RequestWithExpiry[]) => {
+      const calldata = encodeFunctionData({
+        abi: multicall3Abi,
+        functionName: 'aggregate3',
+        args: [
+          requests.map(r => ({
+            target: r.request.to!,
+            callData: r.request.data!,
+            allowFailure: true,
+          })),
+        ],
+      });
+
+      return this.l1TxUtils.simulate(
+        { to: MULTI_CALL_3_ADDRESS, data: calldata, gas: MAX_L1_TX_LIMIT },
+        { time: targetTimestamp, gasLimit: MAX_L1_TX_LIMIT * 2n },
+        stateOverrides,
+        multicall3Abi,
+        { fallbackGasEstimate: MAX_L1_TX_LIMIT },
+      );
+    };
+
+    let simResult: { gasUsed: bigint; result: `0x${string}` };
+    try {
+      simResult = await simulateBundle(validRequests);
+    } catch (err) {
+      this.log.warn('Bundle simulate threw; skipping per-entry filtering and using MAX_L1_TX_LIMIT as gasLimit', {
+        err: formatViemError(err),
+        actions: validRequests.map(r => r.action),
+      });
+      return { requests: validRequests, gasLimit: MAX_L1_TX_LIMIT };
+    }
+
+    // Fallback path: eth_simulateV1 not supported by this node.
+    if (simResult.result === '0x') {
+      this.log.warn('Bundle simulate returned fallback (eth_simulateV1 unavailable); skipping per-entry filtering', {
+        gasUsed: simResult.gasUsed,
+        actions: validRequests.map(r => r.action),
+      });
+      return { requests: validRequests, gasLimit: MAX_L1_TX_LIMIT };
+    }
+
+    // Decode the aggregate3 Result[] and filter out reverted entries.
+    const decoded = decodeFunctionResult({
+      abi: multicall3Abi,
+      functionName: 'aggregate3',
+      data: simResult.result,
+    }) as readonly { success: boolean; returnData: `0x${string}` }[];
+
+    const survivingRequests: RequestWithExpiry[] = [];
+    for (let i = 0; i < validRequests.length; i++) {
+      const entry = decoded[i];
+      if (entry.success) {
+        survivingRequests.push(validRequests[i]);
+      } else {
+        const req = validRequests[i];
+        this.log.warn('Bundle entry dropped: action reverted in sim', {
+          action: req.action,
+          returnData: entry.returnData,
+        });
+      }
+    }
+
+    if (survivingRequests.length === 0) {
+      this.log.warn('All bundle entries dropped in sim; aborting send', {
+        actions: validRequests.map(r => r.action),
+      });
+      return undefined;
+    }
+
+    // Re-simulate the reduced bundle to get an accurate gasUsed, if anything was dropped.
+    let bundleGasUsed: bigint;
+    if (survivingRequests.length < validRequests.length) {
+      let reducedSimResult: { gasUsed: bigint; result: `0x${string}` };
+      try {
+        reducedSimResult = await simulateBundle(survivingRequests);
+      } catch (err) {
+        this.log.warn('Re-simulate of reduced bundle threw; using MAX_L1_TX_LIMIT as gasLimit', {
+          err: formatViemError(err),
+          actions: survivingRequests.map(r => r.action),
+        });
+        return { requests: survivingRequests, gasLimit: MAX_L1_TX_LIMIT };
+      }
+      bundleGasUsed = reducedSimResult.result === '0x' ? MAX_L1_TX_LIMIT : reducedSimResult.gasUsed;
+    } else {
+      bundleGasUsed = simResult.gasUsed;
+    }
+
+    // gasLimit = bumpGasLimit(ceil(gasUsed * 64 / 63)), plus blobEvaluationGas if propose survived.
+    const gasUsedWithEip150 = (bundleGasUsed * 64n + 62n) / 63n;
+    let gasLimit = this.l1TxUtils.bumpGasLimit(gasUsedWithEip150);
+    if (hasProposeAction && proposeRequest?.blobEvaluationGas && survivingRequests.includes(proposeRequest)) {
+      gasLimit += proposeRequest.blobEvaluationGas;
+    }
+    // Never exceed the L1 block gas limit.
+    if (gasLimit > MAX_L1_TX_LIMIT) {
+      gasLimit = MAX_L1_TX_LIMIT;
+    }
+
+    this.log.debug('Bundle simulate complete', {
+      totalRequests: validRequests.length,
+      survivingRequests: survivingRequests.length,
+      bundleGasUsed,
+      gasLimit,
+      actions: survivingRequests.map(r => r.action),
+    });
+
+    return { requests: survivingRequests, gasLimit };
   }
 
   /**
