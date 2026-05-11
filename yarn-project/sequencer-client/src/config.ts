@@ -239,8 +239,6 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
-  // chainConfigMappings must come first: its l1Contracts only maps rollupAddress,
-  // while l1ReaderConfigMappings (spread later) maps all L1 contract addresses.
   ...chainConfigMappings,
   ...validatorClientConfigMappings,
   ...sequencerConfigMappings,

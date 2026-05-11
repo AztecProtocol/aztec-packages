@@ -359,11 +359,11 @@ describe('sequencer', () => {
     dateProvider = new TestDateProvider();
 
     signatureContext = { chainId: chainId.toNumber(), rollupAddress: EthAddress.random() };
-    const config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'l1Contracts'> = {
+    const config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'> = {
       enforceTimeTable: true,
       maxTxsPerBlock: 4,
       l1ChainId: signatureContext.chainId,
-      l1Contracts: { rollupAddress: signatureContext.rollupAddress },
+      rollupAddress: signatureContext.rollupAddress,
     };
     sequencer = new TestSequencer(
       publisherFactory,

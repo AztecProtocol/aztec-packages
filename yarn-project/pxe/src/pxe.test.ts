@@ -10,6 +10,7 @@ import { WASMSimulator } from '@aztec/simulator/client';
 import { EventSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, GENESIS_BLOCK_HEADER_HASH, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
+import { emptyChainConfig } from '@aztec/stdlib/config';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { SiloedTag } from '@aztec/stdlib/logs';
@@ -39,10 +40,11 @@ describe('PXE', () => {
     const kernelProver = new BBBundlePrivateKernelProver(simulator);
     const protocolContractsProvider = new BundledProtocolContractsProvider();
     const config: PXEConfig = {
+      ...emptyChainConfig,
       l2BlockBatchSize: 50,
       dataDirectory: undefined,
       dataStoreMapSizeKb: 1024 * 1024,
-      l1Contracts: { rollupAddress: EthAddress.random() },
+      rollupAddress: EthAddress.random(),
       l1ChainId: 31337,
       rollupVersion: 1,
     };

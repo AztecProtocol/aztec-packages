@@ -1246,9 +1246,7 @@ class TestLibP2PService extends LibP2PService {
       disableTransactions: false,
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       rollupVersion: 1,
-      l1Contracts: {
-        rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
-      },
+      rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
     };
 
     const mockPeerDiscoveryService = mock<PeerDiscoveryService>();

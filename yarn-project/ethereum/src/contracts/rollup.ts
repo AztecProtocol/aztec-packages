@@ -248,7 +248,7 @@ export class RollupContract {
 
   static getFromConfig(config: L1ReaderConfig) {
     const client = getPublicClient(config);
-    const address = config.l1Contracts.rollupAddress.toString();
+    const address = config.rollupAddress.toString();
     return new RollupContract(client, address);
   }
 

@@ -62,7 +62,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
             {
               dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
               dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-              l1Contracts,
+              rollupAddress: l1Contracts.rollupAddress,
             },
             1,
             rootLogger.createChild('wallet:data'),

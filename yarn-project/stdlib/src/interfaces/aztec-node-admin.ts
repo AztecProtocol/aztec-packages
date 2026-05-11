@@ -71,8 +71,8 @@ export interface AztecNodeAdmin {
   reloadKeystore(): Promise<void>;
 }
 
-// L1 contracts are not mutable via admin updates.
-export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, 'l1Contracts'> &
+// Rollup address is not mutable via admin updates.
+export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, 'rollupAddress'> &
   SequencerConfig &
   ProverConfig &
   SlasherConfig &
@@ -87,7 +87,7 @@ export type AztecNodeAdminConfig = Omit<ValidatorClientFullConfig, 'l1Contracts'
 
 export const AztecNodeAdminConfigSchema = SequencerConfigSchema.merge(ProverConfigSchema)
   .merge(SlasherConfigSchema)
-  .merge(ValidatorClientFullConfigSchema.omit({ l1Contracts: true }))
+  .merge(ValidatorClientFullConfigSchema.omit({ rollupAddress: true }))
   .merge(
     ArchiverSpecificConfigSchema.pick({
       archiverPollingIntervalMS: true,

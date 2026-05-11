@@ -92,7 +92,7 @@ export class SequencerClient {
       bindings: log.getBindings(),
       funder: deps.funderL1TxUtils,
     });
-    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+    const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
     const [l1GenesisTime, slotDuration, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
@@ -101,12 +101,12 @@ export class SequencerClient {
 
     const governanceProposerContract = new GovernanceProposerContract(
       publicClient,
-      config.l1Contracts.governanceProposerAddress.toString(),
+      config.governanceProposerAddress.toString(),
     );
     const epochCache =
       deps.epochCache ??
       (await EpochCache.create(
-        config.l1Contracts.rollupAddress,
+        config.rollupAddress,
         {
           l1RpcUrls: rpcUrls,
           l1ChainId: chainId,

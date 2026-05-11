@@ -424,7 +424,7 @@ export async function setup(
       },
     );
 
-    config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+    Object.assign(config, deployL1ContractsValues.l1ContractAddresses);
     config.rollupVersion = deployL1ContractsValues.rollupVersion;
 
     if (enableAutomine) {

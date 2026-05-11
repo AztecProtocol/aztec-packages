@@ -190,13 +190,10 @@ describe('aztec node', () => {
     const nodeConfigFromEnvVars: AztecNodeConfig = getConfigEnvVars();
     nodeConfig = {
       ...nodeConfigFromEnvVars,
-      l1Contracts: {
-        ...nodeConfigFromEnvVars.l1Contracts,
-        rollupAddress: EthAddress.ZERO,
-        registryAddress: EthAddress.ZERO,
-        inboxAddress: EthAddress.ZERO,
-        outboxAddress: EthAddress.ZERO,
-      },
+      rollupAddress: EthAddress.ZERO,
+      registryAddress: EthAddress.ZERO,
+      inboxAddress: EthAddress.ZERO,
+      outboxAddress: EthAddress.ZERO,
     };
 
     // Inject a spurious config value to test that the config is correctly picked up

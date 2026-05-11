@@ -9,7 +9,7 @@ import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { FeeAssetHandlerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
@@ -544,7 +544,8 @@ describe('e2e_p2p_add_rollup', () => {
       dataDirectory: DATA_DIR_NEW,
       rollupVersion: Number(newVersion),
       governanceProposerPayload: EthAddress.ZERO,
-      l1Contracts: { ...t.ctx.deployL1ContractsValues.l1ContractAddresses, ...addresses },
+      ...t.ctx.deployL1ContractsValues.l1ContractAddresses,
+      ...addresses,
     };
     await setupSharedBlobStorage(newConfig);
 
@@ -584,7 +585,7 @@ describe('e2e_p2p_add_rollup', () => {
       nodes[0],
       initialTestAccounts[0],
       t.ctx.deployL1ContractsValues.l1Client,
-      newConfig.l1Contracts,
+      pickL1ContractAddresses(newConfig),
       BigInt(newConfig.rollupVersion),
       newConfig.l1RpcUrls,
     );

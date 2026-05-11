@@ -184,7 +184,7 @@ describe('ValidatorClient', () => {
       disableTransactions: false,
       haSigningEnabled: false,
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
-      l1Contracts: { rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress },
+      rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
       nodeId: 'test-node-id',
       pollingIntervalMs: 1000,
       signingTimeoutMs: 1000,

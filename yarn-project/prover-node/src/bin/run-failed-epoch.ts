@@ -50,7 +50,7 @@ async function rerunFailedEpoch(provingJobUrl: string, baseLocalDir: string) {
   logger.info(`Rerunning proving job from ${jobPath} with state from ${dataDir}`, metadata);
   const result = await rerunEpochProvingJob(jobPath, logger, {
     ...config,
-    l1Contracts: { rollupAddress: metadata.rollupAddress } as L1ContractAddresses,
+    rollupAddress: metadata.rollupAddress,
     rollupVersion: metadata.rollupVersion,
   });
 
