@@ -30,7 +30,7 @@ export const ARTIFACT_PATH = path.join(
   REPO_ROOT,
   'noir-projects/noir-contracts/target/auth_registry_contract-AuthRegistry.json',
 );
-export const NR_CRATE_DIR = path.join(REPO_ROOT, 'noir-projects/aztec-nr/auth_registry_address');
+export const NR_CRATE_DIR = path.join(REPO_ROOT, 'noir-projects/aztec-nr/canonical_addresses');
 export const NR_LIB_PATH = path.join(NR_CRATE_DIR, 'src/lib.nr');
 export const NR_LOCK_PATH = path.join(NR_CRATE_DIR, 'lib.lock.json');
 export const TS_TWIN_PATH = path.join(REPO_ROOT, 'yarn-project/protocol-contracts/src/auth-registry/address.gen.ts');
@@ -79,8 +79,9 @@ export async function deriveAuthRegistryStamp(
 export function renderNoirLib(stamp: AuthRegistryStamp): string {
   return `// GENERATED FILE - DO NOT EDIT
 //
-// Written by \`yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts\` after phase 1
-// of \`noir-projects/noir-contracts/bootstrap.sh\` has compiled \`auth_registry_contract\`.
+// Written by \`yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts\` once
+// \`auth_registry_contract\` has been compiled. Regenerate with
+// \`yarn workspace @aztec/protocol-contracts run regen:auth-registry-address\`.
 //
 // Auth registry MUST NOT depend on this crate. The structural and bytecode-level cycle guard in
 // \`noir-projects/scripts/auth_registry_cycle_guard.sh\` pins this invariant.

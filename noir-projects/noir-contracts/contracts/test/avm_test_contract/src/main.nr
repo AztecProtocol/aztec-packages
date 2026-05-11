@@ -29,7 +29,7 @@ pub contract AvmTest {
         storage::map::derive_storage_slot_in_map,
         traits::{Empty, FromField, ToField},
     };
-    use auth_registry_address::AUTH_REGISTRY_ADDRESS;
+    use canonical_addresses::AUTH_REGISTRY_ADDRESS;
     use aztec::protocol::traits::Serialize;
     use aztec::state_vars::Map;
     use aztec::state_vars::PublicMutable;

@@ -1,7 +1,8 @@
 // GENERATED FILE - DO NOT EDIT
 //
-// Written by `yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts` after phase 1
-// of `noir-projects/noir-contracts/bootstrap.sh` has compiled `auth_registry_contract`.
+// Written by `yarn-project/protocol-contracts/src/scripts/derive_auth_registry.ts` once
+// `auth_registry_contract` has been compiled. Regenerate with
+// `yarn workspace @aztec/protocol-contracts run regen:auth-registry-address`.
 //
 // Auth registry MUST NOT depend on this crate. The structural and bytecode-level cycle guard in
 // `noir-projects/scripts/auth_registry_cycle_guard.sh` pins this invariant.

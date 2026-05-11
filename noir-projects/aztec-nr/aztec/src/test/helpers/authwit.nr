@@ -8,7 +8,7 @@ use crate::{
 use crate::protocol::{
     abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField,
 };
-use auth_registry_address::AUTH_REGISTRY_ADDRESS;
+use canonical_addresses::AUTH_REGISTRY_ADDRESS;
 
 pub unconstrained fn add_private_authwit_from_call<let M: u32, let N: u32, T>(
     env: TestEnvironment,

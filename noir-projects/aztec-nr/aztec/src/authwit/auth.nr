@@ -12,7 +12,7 @@ use crate::protocol::{
     hash::poseidon2_hash_with_separator,
     traits::{Serialize, ToField},
 };
-use auth_registry_address::AUTH_REGISTRY_ADDRESS;
+use canonical_addresses::AUTH_REGISTRY_ADDRESS;
 
 /// Authentication witness helper library
 ///

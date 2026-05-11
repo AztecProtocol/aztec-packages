@@ -5,9 +5,9 @@
 // canonical address (salt = Fr(1), deployer = AztecAddress::zero(), public_keys = default),
 // and writes three artefacts:
 //
-//   1. noir-projects/aztec-nr/auth_registry_address/src/lib.nr
+//   1. noir-projects/aztec-nr/canonical_addresses/src/lib.nr
 //      — Noir twin consumed by phase 2 of the contract build.
-//   2. noir-projects/aztec-nr/auth_registry_address/lib.lock.json
+//   2. noir-projects/aztec-nr/canonical_addresses/lib.lock.json
 //      — { address, classId, artifactHash, srcContentHash } for the freshness gate
 //        in the protocol-contracts test job and reproducible-build CI.
 //   3. yarn-project/protocol-contracts/src/auth-registry/address.gen.ts

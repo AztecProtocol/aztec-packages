@@ -223,7 +223,7 @@ pub global MAX_PROTOCOL_CONTRACTS: u32 = 11;
 // Address 0 is not a protocol contract.
 // Address 1 is reserved (auth_registry was previously published here as a protocol contract; it is
 // now deployed as a regular contract at an artifact-derived address, see
-// `noir-projects/aztec-nr/auth_registry_address`).
+// `noir-projects/aztec-nr/canonical_addresses`).
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);

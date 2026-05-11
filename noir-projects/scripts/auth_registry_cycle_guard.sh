@@ -3,7 +3,7 @@
 # Cycle guard for auth_registry. Run from CI.
 #
 # auth_registry must NOT depend (directly or transitively as a Nargo dep) on the
-# auth_registry_address crate. The non-cycling two-pass build relies on the fact
+# canonical_addresses crate. The non-cycling two-pass build relies on the fact
 # that auth_registry's compiled bytecode does not embed its own address: only
 # the public-path wrappers in aztec-nr/authwit do, and those get tree-shaken.
 # This script enforces both halves of that invariant.
@@ -15,9 +15,9 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 NARGO_TOML="$ROOT/noir-projects/noir-contracts/contracts/protocol/auth_registry_contract/Nargo.toml"
 ARTIFACT="$ROOT/noir-projects/noir-contracts/target/auth_registry_contract-AuthRegistry.json"
-LOCK="$ROOT/noir-projects/aztec-nr/auth_registry_address/lib.lock.json"
+LOCK="$ROOT/noir-projects/aztec-nr/canonical_addresses/lib.lock.json"
 
-if grep -q '^auth_registry_address[[:space:]]*=' "$NARGO_TOML"; then
+if grep -q '^canonical_addresses[[:space:]]*=' "$NARGO_TOML"; then
   echo "auth registry must not depend on its own address; use the private authwit path or move logic to a non-protocol helper." >&2
   exit 1
 fi
@@ -28,7 +28,7 @@ if [ ! -f "$ARTIFACT" ]; then
 fi
 
 if [ ! -f "$LOCK" ]; then
-  echo "auth_registry_address lib.lock.json not found at $LOCK — run \`./bootstrap.sh regen-auth-registry-address\` from noir-projects/." >&2
+  echo "canonical_addresses lib.lock.json not found at $LOCK — run \`yarn workspace @aztec/protocol-contracts run regen:auth-registry-address\` from yarn-project/." >&2
   exit 1
 fi
 
