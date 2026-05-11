@@ -337,6 +337,23 @@ export async function setup(
     if (config.enableProposerPipelining && opts.minTxsPerBlock === undefined) {
       config.minTxsPerBlock = 0;
     }
+    // The default 72s/12s slot durations are too slow for the pipelined checkpoint cycle to fit
+    // setup work into a 300s Jest hook. Match the proven shortened configuration used by the
+    // pipelining-aware e2e tests (e.g. add_rollup.test.ts) so all e2e tests have headroom.
+    if (config.enableProposerPipelining) {
+      if (opts.aztecSlotDuration === undefined) {
+        config.aztecSlotDuration = 12;
+        opts.aztecSlotDuration = 12;
+      }
+      if (opts.ethereumSlotDuration === undefined) {
+        config.ethereumSlotDuration = 4;
+        opts.ethereumSlotDuration = 4;
+      }
+      if (opts.aztecProofSubmissionEpochs === undefined) {
+        config.aztecProofSubmissionEpochs = 640;
+        opts.aztecProofSubmissionEpochs = 640;
+      }
+    }
     // use initialValidators for the node config
     config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 
