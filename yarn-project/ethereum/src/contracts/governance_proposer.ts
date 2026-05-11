@@ -144,18 +144,22 @@ export class GovernanceProposerContract implements IEmpireBase {
   /**
    * Returns true if the given payload address has no deployed bytecode. Used as a cheap
    * pre-flight check before casting a governance signal — voting for a zero-code address
-   * is unrecoverable. Cached: bytecode existence is immutable, so once we've checked, we
-   * never need to re-query.
+   * is unrecoverable.
+   *
+   * We only cache the `false` result (address has bytecode). The `true` result is NOT
+   * cached because a CREATE2-redeployed address could go from empty to populated, and
+   * caching `true` would make us keep skipping a payload that later becomes valid.
    */
   public async isPayloadEmpty(payload: EthAddress): Promise<boolean> {
     const key = payload.toString() as Hex;
-    const cached = this.emptyPayloadCache.get(key);
-    if (cached !== undefined) {
-      return cached;
+    if (this.emptyPayloadCache.get(key) === false) {
+      return false;
     }
     const code = await this.client.getCode({ address: key });
     const isEmpty = !code || code === '0x';
-    this.emptyPayloadCache.set(key, isEmpty);
+    if (!isEmpty) {
+      this.emptyPayloadCache.set(key, false);
+    }
     return isEmpty;
   }
 
