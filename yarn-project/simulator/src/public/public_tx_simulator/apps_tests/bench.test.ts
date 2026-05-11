@@ -5,6 +5,7 @@ import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AvmGadgetsTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
+import { PublicFnsWithEmitReproContractArtifact } from '@aztec/noir-test-contracts.js/PublicFnsWithEmitRepro';
 import { StorageProofTestContractArtifact } from '@aztec/noir-test-contracts.js/StorageProofTest';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -130,6 +131,32 @@ describe('Public TX simulator apps tests: benchmarks', () => {
               address: avmTestContract.address,
               fnName: 'nested_call_large_calldata',
               args: [/*input=*/ Array.from({ length: 300 }, () => Fr.random())],
+            },
+          ],
+        );
+        expect(result.revertCode.isOK()).toBe(true);
+      });
+
+      it('PublicFnsWithEmitRepro contract test', async () => {
+        // See comments on the contract source for motivation as to including this contract in our benchmarks.
+        tester.setMetricsPrefix(`${metricsPrefixPrefix}PublicFnsWithEmitRepro contract tests`);
+        const deployer = AztecAddress.fromNumber(42);
+
+        const reproContract = await tester.registerAndDeployContract(
+          /*constructorArgs=*/ [],
+          deployer,
+          /*contractArtifact=*/ PublicFnsWithEmitReproContractArtifact,
+        );
+
+        const result = await tester.executeTxWithLabel(
+          /*txLabel=*/ 'PublicFnsWithEmitRepro/fn_01',
+          /*sender=*/ deployer,
+          /*setupCalls=*/ [],
+          /*appCalls=*/ [
+            {
+              address: reproContract.address,
+              fnName: 'fn_01',
+              args: [/*v=*/ 1n],
             },
           ],
         );

@@ -115,18 +115,6 @@ describe('ContractSyncService', () => {
       expectSyncedScopes([scopeA], [scopeB]);
     });
 
-    it('skips sync for excluded contract in the same job', async () => {
-      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectNoSync();
-    });
-
-    it('does not skip sync for excluded contract in a different job', async () => {
-      service.setExcludedFromSync('other-job', new Set([contractAddress.toString()]));
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectSyncedScopes([scopeA]);
-    });
-
     it('concurrent calls for same contract+scope share one sync promise', async () => {
       const p1 = service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
         scopeA,
@@ -170,16 +158,6 @@ describe('ContractSyncService', () => {
   });
 
   describe('commit', () => {
-    it('clears exclusions for the given job', async () => {
-      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
-      await service.commit(jobId);
-
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      // When exclusions are set, contract sync is skipped. We verify the exclusions were cleared by confirming that sync
-      // was actually triggered.
-      expectSyncedScopes([scopeA]);
-    });
-
     it('does not clear sync cache', async () => {
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       await service.commit(jobId);
@@ -196,32 +174,6 @@ describe('ContractSyncService', () => {
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       // We check that the sync cache was cleared by checking that the sync was triggered twice.
       expectSyncedScopes([scopeA], [scopeA]);
-    });
-
-    it('clears exclusions for the given job', async () => {
-      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
-      await service.discardStaged(jobId);
-
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      // When exclusions are set, contract sync is skipped. We verify the exclusions were cleared by confirming that sync
-      // was actually triggered.
-      expectSyncedScopes([scopeA]);
-    });
-
-    it('preserves exclusions for other jobs', async () => {
-      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
-      service.setExcludedFromSync('other-job', new Set([contractAddress.toString()]));
-      await service.discardStaged(jobId);
-
-      // jobId exclusion cleared, sync proceeds
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectSyncedScopes([scopeA]);
-
-      // other-job exclusion still active, sync skipped
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, 'other-job', [
-        scopeA,
-      ]);
-      expectSyncedScopes([scopeA]);
     });
   });
 

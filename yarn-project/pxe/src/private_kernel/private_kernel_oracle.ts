@@ -1,4 +1,10 @@
-import { FUNCTION_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT, PUBLIC_DATA_TREE_HEIGHT, VK_TREE_HEIGHT } from '@aztec/constants';
+import {
+  FUNCTION_TREE_HEIGHT,
+  NOTE_HASH_TREE_HEIGHT,
+  PUBLIC_DATA_TREE_HEIGHT,
+  UPDATES_VALUE_SIZE,
+  VK_TREE_HEIGHT,
+} from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { MembershipWitness } from '@aztec/foundation/trees';
@@ -132,12 +138,16 @@ export class PrivateKernelOracle {
       throw new Error(`No public data tree witness found for ${hashLeafSlot}`);
     }
 
+    // In an indexed merkle tree, getPublicDataWitness returns a leaf whose slot matches our query
+    // only if the slot has been written to. Otherwise, it returns the "low leaf" predecessor, whose
+    // slot will differ. Most contracts are never updated, so we can skip the readFromTree call
+    // (which triggers multiple RPC calls) and return empty values directly.
     const readStorage = (storageSlot: Fr) =>
       this.node.getPublicStorageAt(blockHash, ProtocolContractAddress.ContractInstanceRegistry, storageSlot);
-    const delayedPublicMutableValues = await DelayedPublicMutableValues.readFromTree(
-      delayedPublicMutableSlot,
-      readStorage,
-    );
+    const slotExists = updatedClassIdWitness.leafPreimage.leaf.slot.equals(hashLeafSlot);
+    const delayedPublicMutableValues = slotExists
+      ? await DelayedPublicMutableValues.readFromTree(delayedPublicMutableSlot, readStorage)
+      : DelayedPublicMutableValues.empty(UPDATES_VALUE_SIZE);
 
     return new UpdatedClassIdHints(
       new MembershipWitness(

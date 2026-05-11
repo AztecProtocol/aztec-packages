@@ -3,16 +3,25 @@ use aztec::macros::aztec;
 // Stub account contract for ECDSA accounts (both secp256k1 and secp256r1) used during simulation.
 // Matches the constructor signature of EcdsaKAccount / EcdsaRAccount so that deployment
 // simulations using this stub as an override do not fail on selector lookup.
-// See simulated_account_contract for the base stub without a constructor.
+// Mirrors the EcdsaKAccount/EcdsaRAccount storage layout so simulation sync can decode
+// the real account's signing_public_key note.
 #[aztec]
 pub contract SimulatedEcdsaAccount {
     use aztec::{
         authwit::{account::AccountActions, auth::IS_VALID_SELECTOR, entrypoint::app::AppPayload},
         context::PrivateContext,
-        macros::functions::{allow_phase_change, external, view},
+        macros::{functions::{allow_phase_change, external, view}, storage::storage},
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,
         oracle::random::random,
+        state_vars::SinglePrivateImmutable,
     };
+
+    use ecdsa_public_key_note::EcdsaPublicKeyNote;
+
+    #[storage]
+    struct Storage<Context> {
+        signing_public_key: SinglePrivateImmutable<EcdsaPublicKeyNote, Context>,
+    }
 
     // Stub constructor matching the EcdsaKAccount / EcdsaRAccount constructor signature.
     // Does NOT use #[initializer] so that the macro does not inject
@@ -66,13 +75,5 @@ pub contract SimulatedEcdsaAccount {
     #[contract_library_method]
     fn is_valid_impl(_context: &mut PrivateContext, _outer_hash: Field) -> bool {
         true
-    }
-
-    #[external("utility")]
-    unconstrained fn sync_state() {
-        assert(
-            false,
-            "BUG ALERT: sync_state on a simulated account contract should never be triggered.",
-        );
     }
 }

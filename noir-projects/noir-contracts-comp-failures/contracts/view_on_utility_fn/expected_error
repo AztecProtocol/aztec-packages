@@ -1,1 +1,0 @@
-The #[view] attribute cannot be applied to #[external("utility")] functions - foo

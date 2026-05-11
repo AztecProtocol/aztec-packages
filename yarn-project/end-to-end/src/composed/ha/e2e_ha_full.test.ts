@@ -331,9 +331,8 @@ describe('HA Full Setup', () => {
     // Deploy a contract to trigger block building
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
     logger.info(`Deploying contract from ${ownerAddress}`);
-    const { receipt } = await deployer.deploy(ownerAddress, 1).send({
+    const { receipt } = await deployer.deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) }).send({
       from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
     });
 
     await waitForProven(aztecNode, receipt, {
@@ -350,8 +349,8 @@ describe('HA Full Setup', () => {
     }
 
     // Verify txs were included in the block (tests full signing path)
-    expect(block.block.body.txEffects.length).toBeGreaterThan(0);
-    logger.info(`Block contains ${block.block.body.txEffects.length} transaction(s)`);
+    expect(block.body!.txEffects.length).toBeGreaterThan(0);
+    logger.info(`Block contains ${block.body!.txEffects.length} transaction(s)`);
 
     // get attestations from checkpoint
     const [checkpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1, { includeAttestations: true });
@@ -372,7 +371,7 @@ describe('HA Full Setup', () => {
     logger.info(`Verified ${attestations.length} signatures from Web3Signer`);
 
     // Query database to verify HA coordination
-    const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
+    const slotNumber = BigInt(block.header.globalVariables.slotNumber);
     logger.info(`Querying duties for slot ${slotNumber} (block ${receipt.blockNumber})`);
     const allDuties = await getValidatorDuties(mainPool, slotNumber);
     expect(allDuties.length).toBeGreaterThan(0);
@@ -449,9 +448,8 @@ describe('HA Full Setup', () => {
     // Send a transaction to trigger block building which will also trigger voting
     logger.info('Sending transaction to trigger block building...');
     const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-    const { receipt } = await deployer.deploy(ownerAddress, 42).send({
+    const { receipt } = await deployer.deploy([ownerAddress, 42], { salt: Fr.random() }).send({
       from: ownerAddress,
-      contractAddressSalt: Fr.random(),
     });
     expect(receipt.blockNumber).toBeDefined();
     logger.info(`Transaction mined in block ${receipt.blockNumber}`);
@@ -461,7 +459,7 @@ describe('HA Full Setup', () => {
     if (!block) {
       throw new Error(`Block ${receipt.blockNumber} not found`);
     }
-    const blockSlot = block.block.header.globalVariables.slotNumber;
+    const blockSlot = block.header.globalVariables.slotNumber;
     logger.info(`Block was built in slot ${blockSlot}`);
 
     // Compute round for governance voting from the block slot
@@ -606,9 +604,8 @@ describe('HA Full Setup', () => {
       }
 
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const receipt = await deployer.deploy(ownerAddress, 201).send({
+      const receipt = await deployer.deploy([ownerAddress, 201], { salt: new Fr(201) }).send({
         from: ownerAddress,
-        contractAddressSalt: new Fr(201),
       });
       expect(receipt.receipt.blockNumber).toBeDefined();
       const [block] = await aztecNode.getCheckpointedBlocks(receipt.receipt.blockNumber!, 1);
@@ -648,9 +645,8 @@ describe('HA Full Setup', () => {
       logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
 
       const deployer = new ContractDeployer(StatefulTestContractArtifact, wallet);
-      const { receipt } = await deployer.deploy(ownerAddress, i + 100).send({
+      const { receipt } = await deployer.deploy([ownerAddress, i + 100], { salt: new Fr(BigInt(i + 100)) }).send({
         from: ownerAddress,
-        contractAddressSalt: new Fr(BigInt(i + 100)),
       });
 
       expect(receipt.blockNumber).toBeDefined();
@@ -668,7 +664,7 @@ describe('HA Full Setup', () => {
       if (!block) {
         throw new Error(`Block ${receipt.blockNumber} not found`);
       }
-      const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
+      const slotNumber = BigInt(block.header.globalVariables.slotNumber);
       const duties = await getValidatorDuties(mainPool, slotNumber);
       const blockProposalDuty = duties.find(d => d.dutyType === 'BLOCK_PROPOSAL');
 
@@ -731,7 +727,7 @@ describe('HA Full Setup', () => {
       if (!block) {
         throw new Error(`Block ${receipt.blockNumber} not found`);
       }
-      const slotNumber = BigInt(block.block.header.globalVariables.slotNumber);
+      const slotNumber = BigInt(block.header.globalVariables.slotNumber);
 
       // PRIMARY CHECK: Database records show all attestation duties attempted/completed
       const duties = await getValidatorDuties(mainPool, slotNumber);

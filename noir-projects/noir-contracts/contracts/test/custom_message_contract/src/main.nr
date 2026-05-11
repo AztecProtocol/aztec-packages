@@ -42,12 +42,9 @@ unconstrained fn handle_multi_log_message(
         let slot = poseidon2_hash([MULTI_LOG_PARTS_SEPARATOR, message_id]);
 
         // Load (or initialize) the pending event and place this part at its index.
-        let mut multi_log: MultiLog<NUM_MULTI_LOG_PARTS> = capsules::load(
-            contract_address,
-            slot,
-            scope,
-        )
-            .unwrap_or(MultiLog { parts: [BoundedVec::new(); NUM_MULTI_LOG_PARTS] });
+        let mut multi_log: MultiLog<NUM_MULTI_LOG_PARTS> = capsules::load(contract_address, slot, scope).unwrap_or(
+            MultiLog { parts: [BoundedVec::new(); NUM_MULTI_LOG_PARTS] },
+        );
         multi_log.parts[part_number] = msg_content;
 
         if multi_log.is_complete() {
@@ -56,8 +53,7 @@ unconstrained fn handle_multi_log_message(
             // Part N content: [randomness, ...event_fields]
             let randomness = message_id;
             let mut event_type_id_field: Field = 0;
-            let mut serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN> =
-                BoundedVec::new();
+            let mut serialized_event: BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN> = BoundedVec::new();
 
             for part_index in 0..NUM_MULTI_LOG_PARTS {
                 let content = multi_log.parts[part_index];
@@ -78,11 +74,8 @@ unconstrained fn handle_multi_log_message(
             capsules::delete(contract_address, slot, scope);
 
             let event_type_id = EventSelector::from_field(event_type_id_field);
-            let event_commitment = compute_private_serialized_event_commitment(
-                serialized_event,
-                randomness,
-                event_type_id_field,
-            );
+            let event_commitment =
+                compute_private_serialized_event_commitment(serialized_event, randomness, event_type_id_field);
 
             enqueue_event_for_validation(
                 contract_address,
@@ -111,10 +104,7 @@ contract CustomMessage {
     use aztec::{
         event::event_interface::{compute_private_event_commitment, EventInterface},
         macros::{events::event, functions::external},
-        messages::{
-            encoding::encode_message,
-            message_delivery::{do_private_message_delivery, MessageDelivery},
-        },
+        messages::{encoding::encode_message, message_delivery::{do_private_message_delivery, MessageDelivery}},
         oracle::random::random,
         protocol::{address::AztecAddress, traits::ToField},
     };
@@ -149,13 +139,7 @@ contract CustomMessage {
     ///   Part 0 (metadata=pack(0,2)): content = [randomness, event_type_id, value0, value1]
     ///   Part 1 (metadata=pack(1,2)): content = [randomness, value2, value3]
     #[external("private")]
-    fn emit_multi_log_event(
-        value0: Field,
-        value1: Field,
-        value2: Field,
-        value3: Field,
-        recipient: AztecAddress,
-    ) {
+    fn emit_multi_log_event(value0: Field, value1: Field, value2: Field, value3: Field, recipient: AztecAddress) {
         let event = MultiLogEvent { value0, value1, value2, value3 };
 
         // Safety: randomness produced by the sender, same trust model as standard events.

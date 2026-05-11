@@ -17,7 +17,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2TipsProvider } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractInstanceWithAddress,
@@ -66,6 +66,7 @@ import { readCurrentClassId } from './contract_sync/helpers.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
+import type { ExecutionHooks } from './hooks/index.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
 import { MessageContextService } from './messages/message_context_service.js';
 import {
@@ -120,7 +121,11 @@ export type SimulateTxOpts = {
   skipFeeEnforcement?: boolean;
   /** If true, kernel logic is emulated in TS for simulation */
   skipKernels?: boolean;
-  /** State overrides for the simulation, such as contract instances and artifacts. Requires skipKernels: true */
+  /**
+   * Pre-simulation overrides applied to the ephemeral fork and contract DB. Bundles publicStorage
+   * writes (no skipKernels required) and per-address (instance, artifact?) overrides used by both
+   * AVM-side public dispatch and PXE-side ACIR private dispatch (requires skipKernels: true).
+   */
   overrides?: SimulationOverrides;
   /** Addresses whose private state and keys are accessible during private execution */
   scopes: AztecAddress[];
@@ -152,6 +157,8 @@ export type PXECreateArgs = {
   config: PXEConfig;
   /** Optional logger instance or string suffix for the logger name. */
   loggerOrSuffix?: string | Logger;
+  /** Optional hooks to observe and influence contract execution. */
+  hooks?: ExecutionHooks;
 };
 
 /**
@@ -184,6 +191,7 @@ export class PXE {
     private jobQueue: SerialQueue,
     private jobCoordinator: JobCoordinator,
     public debug: PXEDebugUtils,
+    private hooks: ExecutionHooks | undefined,
   ) {}
 
   /**
@@ -201,6 +209,7 @@ export class PXE {
     protocolContractsProvider,
     config,
     loggerOrSuffix,
+    hooks,
   }: PXECreateArgs) {
     // Extract bindings from the logger, or use empty bindings if a string suffix is provided.
     const bindings: LoggerBindings | undefined =
@@ -212,6 +221,14 @@ export class PXE {
         : loggerOrSuffix;
 
     const info = await node.getNodeInfo();
+
+    // Source the genesis block hash from the node so PXE's L2BlockStream agrees with the node's
+    // archiver on the dynamic initial header hash. Without this the tip store would fall back to
+    // the static `GENESIS_BLOCK_HEADER_HASH` constant, which only matches deployments with the
+    // default empty genesis (timestamp 0, no prefilled public data) and diverges otherwise — the
+    // sync at block 0 would then get stuck in `areBlockHashesEqualAt` and abort. If the node does
+    // not return a genesis block (older node or test fixture) we fall back to the static constant.
+    const initialBlockHash = (await node.getBlock(BlockNumber.ZERO))?.hash ?? GENESIS_BLOCK_HEADER_HASH;
 
     const proverEnabled = config.proverEnabled !== undefined ? config.proverEnabled : info.realProofs;
     const {
@@ -226,7 +243,7 @@ export class PXE {
       capsuleStore,
       keyStore,
       l2TipsStore,
-    } = openPxeStores(store);
+    } = openPxeStores(store, initialBlockHash);
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,
@@ -286,6 +303,7 @@ export class PXE {
       jobQueue,
       jobCoordinator,
       debugUtils,
+      hooks,
     );
 
     debugUtils.setPXEHelpers(
@@ -321,6 +339,7 @@ export class PXE {
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
       messageContextService: this.messageContextService,
+      hooks: this.hooks,
     });
   }
 
@@ -470,11 +489,11 @@ export class PXE {
    * It can also be used for estimating gas in the future.
    * @param tx - The transaction to be simulated.
    */
-  async #simulatePublicCalls(tx: Tx, skipFeeEnforcement: boolean) {
+  async #simulatePublicCalls(tx: Tx, skipFeeEnforcement: boolean, overrides?: SimulationOverrides) {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement);
+      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement, overrides);
       if (result.revertReason) {
         throw result.revertReason;
       }
@@ -688,7 +707,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractStore.getContractArtifact(instance.currentContractClassId);
@@ -735,7 +756,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
 
       currentInstance.currentContractClassId = contractClass.id;
       await Promise.all([
@@ -830,8 +853,7 @@ export class PXE {
           this.senderTaggingStore,
           privateExecutionResult.entrypoint.taggingIndexRanges,
           publicInputs,
-          // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
-          async () => (await txProvingResult.toTx()).txHash,
+          () => txProvingResult.getTxHash(),
           jobId,
           this.log,
         );
@@ -982,21 +1004,12 @@ export class PXE {
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
-        const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
-        const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
-
-        if (hasOverriddenContracts && !skipKernels) {
+        if (overrides?.contracts && Object.keys(overrides.contracts).length > 0 && !skipKernels) {
           throw new Error(
             'Simulating with overridden contracts is not compatible with kernel execution. Please set skipKernels to true when simulating with overridden contracts.',
           );
         }
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-
-        if (hasOverriddenContracts) {
-          // Overridden contracts don't have a sync function, so calling sync on them would fail.
-          // We exclude them so the sync service skips them entirely.
-          this.contractSyncService.setExcludedFromSync(jobId, overriddenContracts);
-        }
 
         // Execution of private functions only; no proving, and no kernel logic.
         const privateExecutionResult = await this.#executePrivate({
@@ -1038,7 +1051,7 @@ export class PXE {
         let publicOutput: PublicSimulationOutput | undefined;
         if (simulatePublic && publicInputs.forPublic) {
           const publicSimulationTimer = new Timer();
-          publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement);
+          publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement, overrides);
           publicSimulationTime = publicSimulationTimer.ms();
           if (publicOutput?.debugLogs?.length) {
             await displayDebugLogs(publicOutput.debugLogs, addr => this.contractStore.getDebugContractName(addr));

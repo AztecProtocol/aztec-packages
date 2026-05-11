@@ -1,1 +1,0 @@
-The #[initializer] attribute cannot be applied to #[external("utility")] functions - foo

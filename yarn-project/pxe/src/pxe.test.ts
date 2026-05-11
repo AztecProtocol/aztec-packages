@@ -1,13 +1,13 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
-import { EventSelector } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, GENESIS_BLOCK_HEADER_HASH, GENESIS_CHECKPOINT_HEADER_HASH } from '@aztec/stdlib/block';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -18,7 +18,6 @@ import {
   randomContractInstanceWithAddress,
   randomDeployedContract,
 } from '@aztec/stdlib/testing';
-import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
@@ -162,6 +161,40 @@ describe('PXE', () => {
     await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
   });
 
+  it('does not call registerContractFunctionSignatures for contracts without public functions', async () => {
+    const { artifact, instance } = await randomDeployedContract();
+    node.registerContractFunctionSignatures.mockClear();
+
+    await pxe.registerContract({ artifact, instance });
+
+    expect(node.registerContractFunctionSignatures).not.toHaveBeenCalled();
+  });
+
+  it('calls registerContractFunctionSignatures for contracts with public functions', async () => {
+    const artifact = randomContractArtifact();
+    artifact.functions = [
+      {
+        name: 'my_public_fn',
+        functionType: FunctionType.PUBLIC,
+        isOnlySelf: false,
+        isStatic: false,
+        isInitializer: false,
+        parameters: [],
+        returnTypes: [],
+        errorTypes: {},
+        bytecode: Buffer.from(''),
+        debugSymbols: '',
+      },
+    ];
+    const contractClass = await getContractClassFromArtifact(artifact);
+    const instance = await randomContractInstanceWithAddress({ contractClassId: contractClass.id });
+    node.registerContractFunctionSignatures.mockClear();
+
+    await pxe.registerContract({ artifact, instance });
+
+    expect(node.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
+  });
+
   // These tests are meant to quickly exercise PXE as a
   // frontier API so we don't need to rely on slower E2E
   // tests (which in turn are more meaningful for acceptance).
@@ -184,14 +217,7 @@ describe('PXE', () => {
         globalVariables,
       });
       node.getBlockHeader.mockResolvedValue(blockHeader);
-      node.getBlock.mockResolvedValue({
-        header: blockHeader,
-        archive: AppendOnlyTreeSnapshot.empty(),
-        hash: GENESIS_BLOCK_HEADER_HASH,
-        checkpointNumber: CheckpointNumber.fromBlockNumber(lastKnownBlockNumber),
-        indexWithinCheckpoint: IndexWithinCheckpoint.ZERO,
-        number: lastKnownBlockNumber,
-      } as any);
+      node.getBlock.mockResolvedValue({ header: blockHeader } as any);
 
       // Mock getL2Tips which is needed for syncing tagged logs
       const tipId = {

@@ -424,6 +424,7 @@ process.on('message', async msg => {
         undefined,
         telemetry as TelemetryClient,
         deps,
+        await l2BlockSource.getInitialHeader().hash(),
       );
 
       const testService = new TestLibP2PService(

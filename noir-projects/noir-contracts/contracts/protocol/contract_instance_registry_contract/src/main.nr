@@ -103,11 +103,7 @@ pub contract ContractInstanceRegistry {
         // body, I have removed that check.
         assert_compatible_oracle_version();
 
-        let serialized_params: [Field; 16] = [
-            salt,
-            contract_class_id.to_field(),
-            initialization_hash,
-        ]
+        let serialized_params: [Field; 16] = [salt, contract_class_id.to_field(), initialization_hash]
             .concat(public_keys.serialize())
             .concat([universal_deploy.to_field()]);
 
@@ -130,8 +126,7 @@ pub contract ContractInstanceRegistry {
             context.maybe_msg_sender().unwrap()
         };
 
-        let partial_address =
-            PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
+        let partial_address = PartialAddress::compute(contract_class_id, salt, initialization_hash, deployer);
 
         // Validate public key points lie on the Grumpkin curve and are non-0 to prevent AVM DoS attacks.
         public_keys.validate_on_curve();
@@ -182,8 +177,7 @@ pub contract ContractInstanceRegistry {
         // MACRO CODE START
         let context: PublicContext = PublicContext::new(
             || -> Field {
-                let serialized_args: [Field; 1] =
-                    avm::calldata_copy(1, <ContractClassId as Serialize>::N);
+                let serialized_args: [Field; 1] = avm::calldata_copy(1, <ContractClassId as Serialize>::N);
                 hash_args(serialized_args)
             },
         );
@@ -202,17 +196,12 @@ pub contract ContractInstanceRegistry {
         // Safety: we're using the nullifier's existence as a guarantee of the availability of the new contract class'
         // information through registration, which is safe - we just need this information to be _eventually_ available.
         assert(
-            context.nullifier_exists_unsafe(
-                new_contract_class_id.to_field(),
-                CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS,
-            ),
+            context.nullifier_exists_unsafe(new_contract_class_id.to_field(), CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS),
             "New contract class is not registered",
         );
 
-        let scheduled_value_update = storage
-            .updated_class_ids
-            .at(address)
-            .schedule_and_get_value_change(new_contract_class_id);
+        let scheduled_value_update =
+            storage.updated_class_ids.at(address).schedule_and_get_value_change(new_contract_class_id);
         let (prev_contract_class_id, timestamp_of_change) = scheduled_value_update.get_previous();
 
         let event = ContractInstanceUpdated {
@@ -274,8 +263,7 @@ pub contract ContractInstanceRegistry {
 
     // THE REST OF THE CODE IN THIS CONTRACT WAS ORIGINALLY INJECTED BY THE #[aztec] MACRO.
 
-    global UPDATE_SELECTOR: Field =
-        comptime { FunctionSelector::from_signature("update((Field))").to_field() };
+    global UPDATE_SELECTOR: Field = comptime { FunctionSelector::from_signature("update((Field))").to_field() };
     global SET_UPDATE_DELAY_SELECTOR: Field =
         comptime { FunctionSelector::from_signature("set_update_delay(u64)").to_field() };
     global GET_UPDATE_DELAY_SELECTOR: Field =
@@ -284,11 +272,9 @@ pub contract ContractInstanceRegistry {
     #[aztec::macros::internals_functions_generation::abi_attributes::abi_public]
     pub unconstrained fn public_dispatch(selector: Field) {
         if selector == UPDATE_SELECTOR {
-            let input_calldata: [Field; 1] =
-                avm::calldata_copy(1, <ContractClassId as Serialize>::N);
+            let input_calldata: [Field; 1] = avm::calldata_copy(1, <ContractClassId as Serialize>::N);
             let mut reader: Reader<1> = Reader::new(input_calldata);
-            let arg0: ContractClassId =
-                <ContractClassId as Deserialize>::stream_deserialize(&mut reader);
+            let arg0: ContractClassId = <ContractClassId as Deserialize>::stream_deserialize(&mut reader);
             update(arg0);
             avm::avm_return([].as_vector());
         };

@@ -13,6 +13,7 @@ import {
   stdDev,
   times,
   unique,
+  uniqueBy,
   variance,
 } from './array.js';
 
@@ -140,6 +141,24 @@ describe('compactArray', () => {
 describe('unique', () => {
   it('works with bigints', () => {
     expect(unique([1n, 2n, 1n])).toEqual([1n, 2n]);
+  });
+});
+
+describe('uniqueBy', () => {
+  it('keeps the first occurrence per key', () => {
+    const items = [
+      { id: 'a', n: 1 },
+      { id: 'b', n: 2 },
+      { id: 'a', n: 3 },
+    ];
+    expect(uniqueBy(items, x => x.id)).toEqual([
+      { id: 'a', n: 1 },
+      { id: 'b', n: 2 },
+    ]);
+  });
+
+  it('returns an empty array for an empty input', () => {
+    expect(uniqueBy([], x => x)).toEqual([]);
   });
 });
 

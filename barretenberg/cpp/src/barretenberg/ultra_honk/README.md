@@ -128,7 +128,7 @@ Not all subrelations are enforced pointwise at every row. Some identities are de
 | # | Relation | Selector | Subrelations | Max Partial Length | Description |
 |---|---|---|---|---|---|
 | 10 | `EccOpQueueRelation` | `q_busread` | 8 | 3 | ECC operation queue wire consistency (Goblin) |
-| 11 | `DatabusLookupRelation` | (structural) | 9 | 5 | Log-derivative databus reads (calldata, return data, secondary calldata; 3 subrelations each) |
+| 11 | `DatabusLookupRelation` | (structural) | 15 | 5 | Log-derivative databus reads (kernel calldata, 3 app calldata columns, return data; 3 subrelations each) |
 
 See also: [LogUp README](../relations/LOGUP_README.md), [Permutation Argument README](../relations/PERMUTATION_ARGUMENT_README.md), [Generic LogUp README](../relations/generic_lookup/GENERIC_LOGUP_README.md), [Generic Permutation README](../relations/generic_permutation/GENERIC_PERMUTATION_README.md)
 

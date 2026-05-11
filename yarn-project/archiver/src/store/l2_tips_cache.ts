@@ -2,8 +2,8 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import {
   type BlockData,
+  type BlockHash,
   type CheckpointId,
-  GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
   type L2Tips,
 } from '@aztec/stdlib/block';
@@ -18,7 +18,16 @@ import type { BlockStore } from './block_store.js';
 export class L2TipsCache {
   #tipsPromise: Promise<L2Tips> | undefined;
 
-  constructor(private blockStore: BlockStore) {}
+  /**
+   * Asymmetric by design: the genesis block hash is dynamic — derived from the injected initial header,
+   * which depends on `genesisTimestamp` and any prefilled state. The genesis checkpoint hash is static —
+   * checkpoint 0 is fully synthetic (no real checkpoint header exists at 0), so it stays at the protocol
+   * constant `GENESIS_CHECKPOINT_HEADER_HASH`.
+   */
+  constructor(
+    private blockStore: BlockStore,
+    private readonly initialBlockHash: BlockHash,
+  ) {}
 
   /** Returns the cached L2 tips. Loads from the block store on first call. */
   public getL2Tips(): Promise<L2Tips> {
@@ -47,13 +56,15 @@ export class L2TipsCache {
     ]);
 
     const genesisBlockHeader = {
-      blockHash: GENESIS_BLOCK_HEADER_HASH,
+      blockHash: this.initialBlockHash,
       checkpointNumber: CheckpointNumber.ZERO,
     } as const;
     const beforeInitialBlockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
 
     const getBlockData = (blockNumber: BlockNumber) =>
-      blockNumber > beforeInitialBlockNumber ? this.blockStore.getBlockData(blockNumber) : genesisBlockHeader;
+      blockNumber > beforeInitialBlockNumber
+        ? this.blockStore.getBlockData({ number: blockNumber })
+        : genesisBlockHeader;
 
     const [latestBlockData, provenBlockData, proposedCheckpointBlockData, checkpointedBlockData, finalizedBlockData] =
       await Promise.all(
