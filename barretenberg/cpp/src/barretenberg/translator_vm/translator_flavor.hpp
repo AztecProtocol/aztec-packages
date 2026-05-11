@@ -30,6 +30,13 @@
 
 namespace bb {
 
+namespace detail {
+template <typename> struct ref_array_extent;
+template <typename T, std::size_t N> struct ref_array_extent<RefArray<T, N>> {
+    static constexpr std::size_t value = N;
+};
+} // namespace detail
+
 class TranslatorFlavor {
 
   public:
@@ -1259,5 +1266,18 @@ class TranslatorFlavor {
     }
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
 };
+
+// Guard against drift between the runtime PCS entity lists and their compile-time counts;
+// REPEATED_COMMITMENTS and PROOF_LENGTH depend on these counts and desync silently otherwise.
+static_assert(detail::ref_array_extent<decltype(std::declval<TranslatorFlavor::AllEntities<TranslatorFlavor::FF>&>()
+                                                    .get_pcs_unshifted())>::value ==
+                  TranslatorFlavor::NUM_PCS_UNSHIFTED,
+              "get_pcs_unshifted() entity count must equal NUM_PCS_UNSHIFTED. If you added a witness entity, "
+              "update both the runtime list and NUM_UNSHIFTED_WITNESSES_WITHOUT_CONCATENATED.");
+static_assert(detail::ref_array_extent<decltype(std::declval<TranslatorFlavor::AllEntities<TranslatorFlavor::FF>&>()
+                                                    .get_pcs_to_be_shifted())>::value ==
+                  TranslatorFlavor::NUM_PCS_TO_BE_SHIFTED,
+              "get_pcs_to_be_shifted() entity count must equal NUM_PCS_TO_BE_SHIFTED. If you added a to-be-shifted "
+              "entity, update both the runtime list and NUM_TO_BE_SHIFTED.");
 
 } // namespace bb
