@@ -90,7 +90,6 @@ export function renderNoirLib(stamp: AuthRegistryStamp): string {
 use protocol_types::{address::AztecAddress, traits::FromField};
 
 pub global AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(${stamp.address.toField().toString()});
-pub global AUTH_REGISTRY_CLASS_ID: Field = ${stamp.classId.toString()};
 `;
 }
 

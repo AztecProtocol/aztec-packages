@@ -11,5 +11,6 @@
 
 use protocol_types::{address::AztecAddress, traits::FromField};
 
-pub global AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(0x27225abf9a79bc1c9279c82591f5e19d0b861cffcff33ac21d9f89ce14004ff1);
-pub global AUTH_REGISTRY_CLASS_ID: Field = 0x12e672a384cda5e1a03f18c901f40e01ec859355b56ca9f21a4cd0b2e99d3689;
+pub global AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
+    0x27225abf9a79bc1c9279c82591f5e19d0b861cffcff33ac21d9f89ce14004ff1,
+);

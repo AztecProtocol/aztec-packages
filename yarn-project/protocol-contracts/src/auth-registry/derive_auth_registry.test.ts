@@ -40,12 +40,11 @@ describe('derive_auth_registry renderers', () => {
     expect(renderTsTwin(stamp)).toEqual(renderTsTwin(stamp));
   });
 
-  it('embeds the stamped address and class id in the Noir lib', () => {
+  it('embeds the stamped address in the Noir lib', () => {
     const lib = renderNoirLib(stamp);
     expect(lib).toContain(stamp.address.toField().toString());
-    expect(lib).toContain(stamp.classId.toString());
     expect(lib).toContain('AUTH_REGISTRY_ADDRESS');
-    expect(lib).toContain('AUTH_REGISTRY_CLASS_ID');
+    expect(lib).not.toContain('AUTH_REGISTRY_CLASS_ID');
   });
 
   it('embeds srcContentHash in the lock JSON for the freshness gate', () => {
@@ -57,7 +56,9 @@ describe('derive_auth_registry renderers', () => {
 
   it('TS twin parses as expected exports', () => {
     const ts = renderTsTwin(stamp);
-    expect(ts).toContain(`AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress.fromString('${stamp.address.toString()}')`);
+    expect(ts).toContain(
+      `AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress.fromString('${stamp.address.toString()}')`,
+    );
     expect(ts).toContain(`AUTH_REGISTRY_CLASS_ID: Fr = Fr.fromString('${stamp.classId.toString()}')`);
   });
 });
