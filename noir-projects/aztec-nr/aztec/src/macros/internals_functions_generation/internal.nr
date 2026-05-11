@@ -55,12 +55,6 @@ pub(crate) comptime fn generate_private_internal(f: FunctionDefinition) -> Quote
 /// Generates a public internal function based on the function that was originally marked with #[internal("public")].
 /// For more details on why we do this instead of just transforming the original function, see the documentation of
 /// this module.
-///
-/// The `self` value is constructed by delegating to the per-contract
-///
-///
-/// [`__aztec_nr_internals__build_public_self_from_context`](super::external::public::generate_public_self_builder_from_context)
-/// helper rather than inlining the preamble in every internal body.
 pub(crate) comptime fn generate_public_internal(f: FunctionDefinition) -> Quoted {
     let original_function_name = f.name();
     let fn_name = f"__aztec_nr_internals__{original_function_name}".quoted_contents();
