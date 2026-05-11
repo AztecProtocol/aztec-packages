@@ -33,6 +33,7 @@ import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import { buildPipelinedParentSimulationOverridesPlan } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointProposalJobMetrics } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
@@ -389,12 +390,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const l1SimulationOverridesBuilder = new SimulationOverridesBuilder();
 
     if (this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint) {
-      // Parent checkpoint hasn't landed on L1 yet. Override both the proposed checkpoint number
-      // and the archive at that checkpoint so L1 simulation sees the correct chain tip.
+      // Parent checkpoint hasn't landed on L1 yet. Build a byte-faithful override of the parent's
+      // tempCheckpointLog cell — slotNumber is the load-bearing field that, if left at storage zero,
+      // makes canPruneAtTime spuriously declare the proof window expired and triggers a
+      // Rollup__InvalidArchive revert during the canProposeAt simulation.
       const parentCheckpointNumber = CheckpointNumber(checkpointNumber - 1);
-      l1SimulationOverridesBuilder
-        .withChainTips({ pending: parentCheckpointNumber })
-        .withPendingArchive(syncedTo.archive);
+      const parentPlan = await buildPipelinedParentSimulationOverridesPlan({
+        checkpointNumber,
+        proposedCheckpointData: syncedTo.proposedCheckpointData,
+        rollup: this.rollupContract,
+        signatureContext: this.signatureContext,
+        log: this.log,
+        pipeliningEnabled: true,
+      });
+      l1SimulationOverridesBuilder.merge(parentPlan);
       this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
 
       this.log.verbose(
@@ -683,12 +692,48 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const blockNumber = worldState.number;
     const blockData = await this.l2BlockSource.getBlockData({ number: blockNumber });
     if (!blockData) {
-      // this shouldn't really happen because a moment ago we checked that all components were in sync
-      this.log.error(`Failed to get L2 block data ${blockNumber} from the archiver with all components in sync`);
+      this.log.warn(`Sequencer sync check failed: failed to get L2 block data ${blockNumber} from the archiver`, {
+        blockNumber,
+        l2Tips,
+        syncedL2Slot,
+        ...args,
+      });
       return undefined;
     }
 
     const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
+
+    // The l2Tips and proposedCheckpointData reads above come from independent archiver snapshots
+    // (a JS-side tips cache vs. a direct store read on `#proposedCheckpoints`). A concurrent archiver
+    // write that mutates both can be observed split, leaving us with `hasProposedCheckpoint=true` but
+    // no proposedCheckpointData (or one whose number doesn't match the tip). Refuse to proceed in that
+    // window — the next checkSync tick will see a coherent snapshot.
+    if (
+      hasProposedCheckpoint &&
+      (!proposedCheckpointData ||
+        proposedCheckpointData.checkpointNumber !== l2Tips.proposedCheckpoint.checkpoint.number)
+    ) {
+      this.log.warn(`Sequencer sync check failed: inconsistent proposed-checkpoint state`, {
+        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
+        checkpointedTipNumber: l2Tips.checkpointed.checkpoint.number,
+        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+        syncedL2Slot,
+        ...args,
+      });
+      return undefined;
+    }
+
+    // Check that the proposed checkpoint is indeed the parent of the checkpoint we'll be building
+    // The checkpoint number to build is derived as blockData.checkpointNumber + 1
+    if (proposedCheckpointData && proposedCheckpointData.checkpointNumber !== blockData.checkpointNumber) {
+      this.log.warn(`Sequencer sync check failed: proposed checkpoint number mismatch`, {
+        proposedCheckpointNumber: proposedCheckpointData.checkpointNumber,
+        blockCheckpointNumber: blockData.checkpointNumber,
+        syncedL2Slot,
+        ...args,
+      });
+      return undefined;
+    }
 
     return {
       blockData,

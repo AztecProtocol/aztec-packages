@@ -1,5 +1,6 @@
 import { getPublicClient } from '@aztec/ethereum/client';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
@@ -389,6 +390,108 @@ describe('Rollup', () => {
       });
 
       expect(Fr.fromString(overriddenArchive as string).equals(expectedArchive)).toBe(true);
+    });
+  });
+
+  describe('makeTempCheckpointLogOverride', () => {
+    const fields = {
+      headerHash: Fr.random(),
+      outHash: Fr.random(),
+      payloadDigest: Buffer32.random(),
+      slotNumber: SlotNumber(42),
+      feeHeader: {
+        manaUsed: 12345n,
+        excessMana: 67890n,
+        ethPerFeeAsset: 1_000_000_000_000n,
+        congestionCost: 99999n,
+        proverCost: 55555n,
+      } as FeeHeader,
+    };
+
+    function getDiffMap(
+      checkpointNumber: CheckpointNumber,
+      override: Awaited<ReturnType<RollupContract['makeTempCheckpointLogOverride']>>,
+    ) {
+      const map = new Map<string, string>();
+      for (const entry of override) {
+        for (const diff of entry.stateDiff ?? []) {
+          map.set(diff.slot.toLowerCase(), diff.value.toLowerCase());
+        }
+      }
+      const slotFor = async (field: TempCheckpointLogField) =>
+        `0x${(await rollup.getTempCheckpointLogStorageSlot(checkpointNumber, field)).toString(16).padStart(64, '0')}`.toLowerCase();
+      return { map, slotFor };
+    }
+
+    it('emits one diff entry per required field at the expected storage slot', async () => {
+      const checkpointNumber = CheckpointNumber(7);
+      const override = await rollup.makeTempCheckpointLogOverride(checkpointNumber, fields);
+      const { map, slotFor } = getDiffMap(checkpointNumber, override);
+
+      expect(override).toHaveLength(1);
+      expect(override[0].stateDiff).toHaveLength(5);
+      expect(map.get(await slotFor(TempCheckpointLogField.HeaderHash))).toBe(
+        fields.headerHash.toString().toLowerCase(),
+      );
+      expect(map.get(await slotFor(TempCheckpointLogField.OutHash))).toBe(fields.outHash.toString().toLowerCase());
+      expect(map.get(await slotFor(TempCheckpointLogField.PayloadDigest))).toBe(
+        fields.payloadDigest.toString().toLowerCase(),
+      );
+      expect(map.get(await slotFor(TempCheckpointLogField.SlotNumber))).toBe(
+        `0x${BigInt(fields.slotNumber).toString(16).padStart(64, '0')}`.toLowerCase(),
+      );
+      expect(map.get(await slotFor(TempCheckpointLogField.FeeHeader))).toBe(
+        `0x${RollupContract.compressFeeHeader(fields.feeHeader).toString(16).padStart(64, '0')}`.toLowerCase(),
+      );
+    });
+
+    it('throws when slotNumber overflows uint32 (matches L1 SafeCast.toUint32 semantics)', async () => {
+      const checkpointNumber = CheckpointNumber(3);
+      const slotNumber = SlotNumber(0xdeadbeef + 0x1_0000_0000);
+      await expect(rollup.makeTempCheckpointLogOverride(checkpointNumber, { ...fields, slotNumber })).rejects.toThrow(
+        /does not fit in uint32/,
+      );
+    });
+
+    it('partial override emits only the supplied fields', async () => {
+      const checkpointNumber = CheckpointNumber(13);
+      const override = await rollup.makeTempCheckpointLogOverride(checkpointNumber, {
+        slotNumber: SlotNumber(7),
+      });
+      const { map, slotFor } = getDiffMap(checkpointNumber, override);
+      expect(override[0].stateDiff).toHaveLength(1);
+      expect(map.get(await slotFor(TempCheckpointLogField.SlotNumber))).toBe(
+        `0x${7n.toString(16).padStart(64, '0')}`.toLowerCase(),
+      );
+    });
+
+    it('partial override returns an empty array when no fields are supplied', async () => {
+      const override = await rollup.makeTempCheckpointLogOverride(CheckpointNumber(13), {});
+      expect(override).toEqual([]);
+    });
+
+    it('round-trips slot, header hash, and fee header through getCheckpoint', async () => {
+      // Reset tips so checkpoint 0 is in range, then build an override and read it back through the contract.
+      await cheatCodes.store(
+        EthAddress.fromString(rollupAddress),
+        RollupContract.chainTipsStorageSlot,
+        RollupContract.packChainTips(0n, 0n),
+      );
+
+      const checkpointNumber = CheckpointNumber(0);
+      const override = await rollup.makeTempCheckpointLogOverride(checkpointNumber, fields);
+
+      const { result } = await publicClient.simulateContract({
+        address: rollupAddress,
+        abi: RollupAbi as Abi,
+        functionName: 'getCheckpoint',
+        args: [BigInt(checkpointNumber)],
+        stateOverride: override,
+      });
+      const checkpoint = result as { headerHash: `0x${string}`; outHash: `0x${string}`; slotNumber: bigint };
+      expect(checkpoint.headerHash.toLowerCase()).toBe(fields.headerHash.toString().toLowerCase());
+      expect(checkpoint.outHash.toLowerCase()).toBe(fields.outHash.toString().toLowerCase());
+      expect(checkpoint.slotNumber).toBe(BigInt(fields.slotNumber));
     });
   });
 

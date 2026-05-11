@@ -28,7 +28,7 @@ import {
   type L2BlockSource,
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { Checkpoint, type ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -40,6 +40,7 @@ import {
   type WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';
@@ -1100,7 +1101,14 @@ describe('sequencer', () => {
       } satisfies BlockData);
       l2BlockSource.getProposedCheckpointData.mockResolvedValue({
         checkpointNumber: CheckpointNumber(1),
-      } as any);
+        header: CheckpointHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.ZERO,
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      } satisfies ProposedCheckpointData);
 
       await sequencer.work();
 
@@ -1261,7 +1269,14 @@ describe('sequencer', () => {
       } satisfies BlockData);
       l2BlockSource.getProposedCheckpointData.mockResolvedValue({
         checkpointNumber: CheckpointNumber(1),
-      } as any);
+        header: CheckpointHeader.empty(),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        checkpointOutHash: Fr.ZERO,
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 0n,
+        feeAssetPriceModifier: 0n,
+      } satisfies ProposedCheckpointData);
 
       // The sequencer sets proven == simulated pending so canPruneAtTime short-circuits to false.
       l2BlockSource.isPruneDueAtSlot.mockResolvedValue(true);
