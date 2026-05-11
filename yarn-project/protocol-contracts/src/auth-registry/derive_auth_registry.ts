@@ -4,7 +4,6 @@
 //   - `../scripts/derive_auth_registry.ts` — the CLI that writes the three committed files.
 //   - `./derive_auth_registry.test.ts` — the CI freshness gate that re-derives from the
 //     freshly-built artifact and asserts byte-equality against the on-disk values.
-
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -36,7 +35,7 @@ export const NR_LOCK_PATH = path.join(NR_CRATE_DIR, 'lib.lock.json');
 export const TS_TWIN_PATH = path.join(REPO_ROOT, 'yarn-project/protocol-contracts/src/auth-registry/address.gen.ts');
 export const AUTH_REGISTRY_SRC_DIR = path.join(
   REPO_ROOT,
-  'noir-projects/noir-contracts/contracts/protocol/auth_registry_contract/src',
+  'noir-projects/noir-contracts/contracts/canonical/auth_registry_contract/src',
 );
 
 export type AuthRegistryStamp = {

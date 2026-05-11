@@ -13,7 +13,7 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
-NARGO_TOML="$ROOT/noir-projects/noir-contracts/contracts/protocol/auth_registry_contract/Nargo.toml"
+NARGO_TOML="$ROOT/noir-projects/noir-contracts/contracts/canonical/auth_registry_contract/Nargo.toml"
 ARTIFACT="$ROOT/noir-projects/noir-contracts/target/auth_registry_contract-AuthRegistry.json"
 LOCK="$ROOT/noir-projects/aztec-nr/canonical_addresses/lib.lock.json"
 
