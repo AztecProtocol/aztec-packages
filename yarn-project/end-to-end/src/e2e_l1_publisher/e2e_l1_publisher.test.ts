@@ -639,6 +639,9 @@ describe('L1Publisher integration', () => {
 
   describe('with attestations', () => {
     beforeEach(async () => {
+      // This block exercises the L1 publisher's canProposeAt / propose flow against a just-built
+      // block; under pipelining canProposeAt would target slot+1, breaking the slot equality checks.
+      config.enableProposerPipelining = false;
       validators = [new Secp256k1Signer(Buffer32.fromString(sequencerPK)), ...times(2, Secp256k1Signer.random)];
       await setup({
         aztecTargetCommitteeSize: 3,

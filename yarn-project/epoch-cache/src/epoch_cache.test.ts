@@ -508,6 +508,7 @@ describe('EpochCache', () => {
 
   describe('proposer pipelining', () => {
     it('getTargetSlot() returns slotNow when pipelining disabled', () => {
+      epochCache.setProposerPipelining(false);
       const initialTime = Number(l1GenesisTime) * 1000;
       jest.setSystemTime(initialTime);
 
@@ -561,6 +562,7 @@ describe('EpochCache', () => {
     });
 
     it('getTargetAndNextSlot() returns same as getCurrentAndNextSlot when pipelining disabled', () => {
+      epochCache.setProposerPipelining(false);
       const initialTime = Number(l1GenesisTime) * 1000;
       jest.setSystemTime(initialTime);
 

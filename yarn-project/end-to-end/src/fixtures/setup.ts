@@ -318,6 +318,18 @@ export async function setup(
     opts.slasherEnabled ??= false;
 
     const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
+
+    // When proposer pipelining is enabled, the sequencer starts building checkpoint N during slot N-1
+    // before the L1 inbox tree for N has sealed. Default inboxLag to 2 so the proposer sources L1->L2
+    // messages from checkpoint N-1 (already sealed), avoiding L1ToL2MessagesNotReadyError.
+    if (
+      config.enableProposerPipelining &&
+      opts.inboxLag === undefined &&
+      opts.l1ContractsArgs?.inboxLag === undefined
+    ) {
+      opts.inboxLag = 2;
+      config.inboxLag = 2;
+    }
     // use initialValidators for the node config
     config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 
