@@ -143,6 +143,7 @@ export class TestContext {
   async cleanup() {
     await this.brokerProverFacade.stop();
     await this.broker.stop();
+    await this.worldState.close();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       try {
         await fs.rm(dir, { recursive: true, force: true, maxRetries: 3 });
