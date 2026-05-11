@@ -8,7 +8,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { Pool } from 'pg';
 
-import { LmdbSlashingProtectionDatabase } from './db/lmdb.js';
+import { LmdbSlashingProtectionDatabase, migrateLmdbSlashingProtectionDatabase } from './db/lmdb.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { HASignerMetrics } from './metrics.js';
 import type { CreateHASignerDeps, CreateLocalSignerWithProtectionDeps, SlashingProtectionDatabase } from './types.js';
@@ -119,11 +119,26 @@ export async function createLocalSignerWithProtection(
   const telemetryClient = deps?.telemetryClient ?? getTelemetryClient();
   const dateProvider = deps?.dateProvider ?? new DateProvider();
 
-  const kvStore = await createStore('signing-protection', LmdbSlashingProtectionDatabase.SCHEMA_VERSION, {
-    dataDirectory: config.dataDirectory,
-    dataStoreMapSizeKb: config.signingProtectionMapSizeKb ?? config.dataStoreMapSizeKb,
-    l1Contracts: config.l1Contracts,
-  });
+  const kvStore = await createStore(
+    'signing-protection',
+    LmdbSlashingProtectionDatabase.SCHEMA_VERSION,
+    {
+      dataDirectory: config.dataDirectory,
+      dataStoreMapSizeKb: config.signingProtectionMapSizeKb ?? config.dataStoreMapSizeKb,
+      l1Contracts: config.l1Contracts,
+    },
+    undefined,
+    {
+      onUpgrade: (dataDirectory, currentVersion, latestVersion) =>
+        migrateLmdbSlashingProtectionDatabase(
+          dataDirectory,
+          currentVersion,
+          latestVersion,
+          config.signingProtectionMapSizeKb ?? config.dataStoreMapSizeKb,
+        ),
+      schemaVersionMismatchPolicy: 'throw',
+    },
+  );
 
   const db = new LmdbSlashingProtectionDatabase(kvStore, dateProvider);
 
