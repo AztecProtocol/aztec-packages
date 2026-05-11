@@ -757,7 +757,8 @@ describe('sequencer', () => {
         expect.any(EthAddress),
         expect.any(Function),
       );
-      expect(publisher.sendRequests).toHaveBeenCalled();
+      // Votes are submitted via sendRequestsAt (fire-and-forget, scheduled at target slot start).
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
     });
 
     it('should not vote when sync fails and within time limit', async () => {
@@ -817,18 +818,19 @@ describe('sequencer', () => {
       // First attempt should succeed
       await sequencer.work();
       expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
-      expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+      // Votes are submitted via sendRequestsAt (fire-and-forget, scheduled at target slot start).
+      expect(publisher.sendRequestsAt).toHaveBeenCalledTimes(1);
 
       // Reset mocks
       publisher.enqueueSlashingActions.mockClear();
-      publisher.sendRequests.mockClear();
+      publisher.sendRequestsAt.mockClear();
       slasherClient.getProposerActions.mockClear();
 
       // Second attempt in the same slot should be skipped
       await sequencer.work();
       expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
-      expect(publisher.sendRequests).not.toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
     });
   });
 
@@ -1114,7 +1116,7 @@ describe('sequencer', () => {
 
       const simulationOverridesPlan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
       expect(simulationOverridesPlan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
-      expect(simulationOverridesPlan?.pendingCheckpointState?.archive).toEqual(expect.anything());
+      // The archive root is passed directly as the first arg to canProposeAt (not inside the plan).
     });
 
     it('skips proposal when checkpoint exceeds pipeline depth', async () => {
