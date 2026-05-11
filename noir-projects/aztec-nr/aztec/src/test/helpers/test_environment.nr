@@ -159,10 +159,7 @@ impl<let N: u32, let T: u32> CallPrivateOptions<N, T> {
         self,
         additional_scopes: [AztecAddress; N_2],
     ) -> CallPrivateOptions<N_2, T> {
-        CallPrivateOptions {
-            additional_scopes,
-            authorized_utility_call_targets: self.authorized_utility_call_targets,
-        }
+        CallPrivateOptions { additional_scopes, authorized_utility_call_targets: self.authorized_utility_call_targets }
     }
 
     /// Authorizes cross-contract utility calls to the given target contracts during this call.
@@ -173,10 +170,7 @@ impl<let N: u32, let T: u32> CallPrivateOptions<N, T> {
         self,
         targets: [AztecAddress; T_2],
     ) -> CallPrivateOptions<N, T_2> {
-        CallPrivateOptions {
-            additional_scopes: self.additional_scopes,
-            authorized_utility_call_targets: targets,
-        }
+        CallPrivateOptions { additional_scopes: self.additional_scopes, authorized_utility_call_targets: targets }
     }
 }
 
@@ -214,10 +208,7 @@ impl<let S: u32, let T: u32> ViewPrivateOptions<S, T> {
         self,
         additional_scopes: [AztecAddress; S2],
     ) -> ViewPrivateOptions<S2, T> {
-        ViewPrivateOptions {
-            additional_scopes,
-            authorized_utility_call_targets: self.authorized_utility_call_targets,
-        }
+        ViewPrivateOptions { additional_scopes, authorized_utility_call_targets: self.authorized_utility_call_targets }
     }
 
     /// Authorizes cross-contract utility calls to the given target contracts during this call.
@@ -228,10 +219,7 @@ impl<let S: u32, let T: u32> ViewPrivateOptions<S, T> {
         self,
         targets: [AztecAddress; T_2],
     ) -> ViewPrivateOptions<S, T_2> {
-        ViewPrivateOptions {
-            additional_scopes: self.additional_scopes,
-            authorized_utility_call_targets: targets,
-        }
+        ViewPrivateOptions { additional_scopes: self.additional_scopes, authorized_utility_call_targets: targets }
     }
 }
 
@@ -773,10 +761,7 @@ impl TestEnvironment {
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
-    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(
-        self: Self,
-        call: UtilityCall<M, N, T>,
-    ) -> T
+    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(self: Self, call: UtilityCall<M, N, T>) -> T
     where
         T: Deserialize,
     {

@@ -11,7 +11,11 @@ const circuits = [
   'parity_base',
   'parity_root',
   'private_kernel_init',
+  'private_kernel_init_2',
+  'private_kernel_init_3',
   'private_kernel_inner',
+  'private_kernel_inner_2',
+  'private_kernel_inner_3',
   'private_kernel_reset',
   'private_kernel_tail',
   'private_kernel_tail_to_public',
@@ -55,7 +59,10 @@ const main = async () => {
   for (const circuit of circuits) {
     const rawData = await fs.readFile(`./artifacts/${circuit}.json`, 'utf-8');
     const abiObj: CompiledCircuit = JSON.parse(rawData);
-    programs.push([pascalCase(circuit), abiObj]);
+    // pascalCase('private_kernel_init_3') yields 'PrivateKernelInit_3'; collapse the
+    // underscore-before-digit so emitted identifiers match the hand-written classes
+    // (e.g. PrivateKernelInit3CircuitPrivateInputs) and pass the camelcase lint rule.
+    programs.push([pascalCase(circuit).replace(/_(\d)/g, '$1'), abiObj]);
   }
   const code = codegen(
     programs,
