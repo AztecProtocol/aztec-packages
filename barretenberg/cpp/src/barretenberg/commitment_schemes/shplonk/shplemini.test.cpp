@@ -611,6 +611,90 @@ TYPED_TEST(ShpleminiTest, HighDegreeAttackReject)
 }
 
 /**
+ * @brief Soundness of the to-be-shifted PCS backstop: a commitment with a non-zero constant
+ * coefficient must be rejected.
+ *
+ * @details For "to-be-shifted-by-one" polynomials (e.g. z_perm in Honk flavors), the verifier
+ * batches the commitment com(p) with scalar r^{-1} against the claimed MLE evaluation
+ * p_shift(u). With G(X) the univariate whose coefficients are p in Lagrange basis, the
+ * commitment side opens to G(r)/r = p[0]/r + G_shift(r), while the MLE side delivers
+ * G_shift(r) via the Gemini fold. The two sides differ by the algebraic term p[0]/r; when
+ * p[0] != 0 the would-be Shplonk quotient is a rational function rather than a polynomial,
+ * and the KZG pairing check rejects with overwhelming probability over the FS challenges.
+ *
+ * This is the implicit PCS-shift backstop that several relations rely on to enforce
+ * z_perm[0] = 0 in disabled rows of ZK flavors (where row-disabling zeros the explicit
+ * lagrange_first * z_perm subrelation). The test commits to (p + c * delta_0), claims the
+ * shifted MLE evaluation of the honest p (which is unchanged by adding c at index 0, since
+ * shifting drops the constant term), and confirms the verifier rejects.
+ */
+TYPED_TEST(ShpleminiTest, ToBeShiftedNonZeroConstantTermRejected)
+{
+    using Curve = typename TypeParam::Curve;
+    using Fr = typename Curve::ScalarField;
+    using GroupElement = typename Curve::Element;
+    using Commitment = typename Curve::AffineElement;
+    using CK = typename TypeParam::CommitmentKey;
+    using ShpleminiProver = ShpleminiProver_<Curve>;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+
+    CK ck = create_commitment_key<CK>(this->n);
+
+    auto mle_opening_point = this->random_evaluation_point(this->log_n);
+
+    MockClaimGenerator<Curve> mock_claims(this->n,
+                                          /*num_polynomials*/ this->num_polynomials,
+                                          /*num_to_be_shifted*/ this->num_shiftable,
+                                          mle_opening_point,
+                                          ck);
+
+    auto prover_transcript = NativeTranscript::test_prover_init_empty();
+
+    const auto opening_claim =
+        ShpleminiProver::prove(this->n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        TestFixture::IPA::compute_opening_proof(ck, opening_claim, prover_transcript);
+    } else {
+        KZG<Curve>::compute_opening_proof(ck, opening_claim, prover_transcript);
+    }
+
+    // Simulate adversary: replace the first to-be-shifted commitment with com(p + c * delta_0),
+    // i.e. add c * [1]_1 to it. The shifted MLE evaluation is unchanged (shifting drops the [0]
+    // coefficient). The unshifted MLE evaluation of p + c * delta_0 differs from the unshifted MLE
+    // evaluation of p by c * prod_i (1 - u_i); update the unshifted counterpart claim accordingly
+    // so that any rejection cannot be attributed to a stale unshifted-side mismatch.
+    const Fr c = Fr::random_element();
+    const Commitment g1_identity = this->vk().get_g1_identity();
+    const auto tampered = Commitment(GroupElement(mock_claims.to_be_shifted.commitments[0]) + g1_identity * c);
+
+    Fr lagrange0_at_u = Fr(1);
+    for (const auto& u_i : mle_opening_point) {
+        lagrange0_at_u *= (Fr(1) - u_i);
+    }
+    const size_t unshifted_idx = this->num_polynomials - this->num_shiftable; // first to-be-shifted in unshifted batch
+    mock_claims.to_be_shifted.commitments[0] = tampered;
+    mock_claims.unshifted.commitments[unshifted_idx] = tampered;
+    mock_claims.unshifted.evals[unshifted_idx] += c * lagrange0_at_u;
+
+    auto verifier_transcript = NativeTranscript::test_verifier_init_empty(prover_transcript);
+
+    auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(
+                                   mock_claims.claim_batcher, mle_opening_point, g1_identity, verifier_transcript)
+                                   .batch_opening_claim;
+
+    if constexpr (std::is_same_v<TypeParam, GrumpkinSettings>) {
+        auto result =
+            TestFixture::IPA::reduce_verify_batch_opening_claim(batch_opening_claim, this->vk(), verifier_transcript);
+        EXPECT_EQ(result, false);
+    } else {
+        const auto pairing_points =
+            KZG<Curve>::reduce_verify_batch_opening_claim(std::move(batch_opening_claim), verifier_transcript);
+        EXPECT_EQ(pairing_points.check(), false);
+    }
+}
+
+/**
  * @brief Test that consistency_checked is false when a Libra univariate evaluation is corrupted.
  * @details This test simulates a malicious prover sending a corrupted Libra evaluation via the
  * transcript. The ShpleminiVerifier should detect the inconsistency and set consistency_checked to false.
