@@ -7,7 +7,7 @@ import { times } from '@aztec/foundation/collection';
 import { sleep } from '@aztec/foundation/sleep';
 import { unfreeze } from '@aztec/foundation/types';
 import type { LibP2PService, P2PClient } from '@aztec/p2p';
-import type { CppPublicTxSimulator, PublicTxResult } from '@aztec/simulator/server';
+import type { CppPublicTxSimulator, SimulationHandle } from '@aztec/simulator/server';
 import { BlockProposal } from '@aztec/stdlib/p2p';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
 import type { ValidatorKeyStore } from '@aztec/validator-client';
@@ -166,7 +166,7 @@ describe('e2e_p2p_reex', () => {
     // We abuse the fact that the proposer will always run before the validators
     const interceptTxProcessorSimulate = (
       node: AztecNodeService,
-      stub: (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => Promise<PublicTxResult>,
+      stub: (tx: Tx, originalSimulate: (tx: Tx) => SimulationHandle) => SimulationHandle,
     ) => {
       const blockBuilder: any = (node as any).sequencer.sequencer.blockBuilder;
       const originalCreateDeps = blockBuilder.makeBlockBuilderDeps.bind(blockBuilder);
@@ -194,19 +194,25 @@ describe('e2e_p2p_reex', () => {
 
     // Have the public tx processor take an extra long time to process the tx, so the validator times out
     const interceptTxProcessorWithTimeout = (node: AztecNodeService) => {
-      interceptTxProcessorSimulate(node, async (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
-        t.logger.warn('Public tx simulator sleeping for 40s to simulate timeout', { txHash: tx.getTxHash() });
-        await sleep(40_000);
-        return originalSimulate(tx);
+      interceptTxProcessorSimulate(node, (tx: Tx, originalSimulate: (tx: Tx) => SimulationHandle) => {
+        const result = (async () => {
+          t.logger.warn('Public tx simulator sleeping for 40s to simulate timeout', { txHash: tx.getTxHash() });
+          await sleep(40_000);
+          return originalSimulate(tx).result;
+        })();
+        return { result, cancel: async () => {} };
       });
     };
 
     // Have the public tx processor throw when processing a tx
     const interceptTxProcessorWithFailure = (node: AztecNodeService) => {
-      interceptTxProcessorSimulate(node, async (tx: Tx, _originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
-        await sleep(1);
-        t.logger.warn('Public tx simulator failing', { txHash: tx.getTxHash() });
-        throw new Error(`Fake tx failure`);
+      interceptTxProcessorSimulate(node, (tx: Tx, _originalSimulate: (tx: Tx) => SimulationHandle) => {
+        const result = (async () => {
+          await sleep(1);
+          t.logger.warn('Public tx simulator failing', { txHash: tx.getTxHash() });
+          throw new Error(`Fake tx failure`);
+        })();
+        return { result, cancel: async () => {} };
       });
     };
 

@@ -114,12 +114,12 @@ describe('AVM Integration', () => {
       worldStateService,
       /*globals=*/ undefined, // default
       /*metrics=*/ undefined,
-      /*useCppSimulator=*/ true,
       simConfig,
     );
   });
 
   afterEach(async () => {
+    await simTester.close();
     await worldStateService.close();
   });
 
