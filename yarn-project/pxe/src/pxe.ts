@@ -688,6 +688,12 @@ export class PXE {
     const { instance } = contract;
     let { artifact } = contract;
 
+    const existing = await this.contractStore.getContractInstance(instance.address);
+    if (existing) {
+      this.log.debug(`Contract already registered at ${instance.address.toString()}, skipping.`);
+      return;
+    }
+
     if (artifact) {
       // If the user provides an artifact, validate it against the expected class id and register it
       const contractClass = await getContractClassFromArtifact(artifact);

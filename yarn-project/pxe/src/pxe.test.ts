@@ -161,6 +161,23 @@ describe('PXE', () => {
     await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
   });
 
+  it('does not throw when registering the same contract twice and deduplicates', async () => {
+    const contract = await randomDeployedContract();
+    await pxe.registerContract(contract);
+
+    // Clear the mock so we can verify the second registration short-circuits
+    node.registerContractFunctionSignatures.mockClear();
+
+    await pxe.registerContract(contract);
+
+    // If dedup is working, the second call should return early without re-registering function signatures
+    expect(node.registerContractFunctionSignatures).not.toHaveBeenCalled();
+
+    const contractAddresses = await pxe.getContracts();
+    const matches = contractAddresses.filter(addr => addr.equals(contract.instance.address));
+    expect(matches).toHaveLength(1);
+  });
+
   // These tests are meant to quickly exercise PXE as a
   // frontier API so we don't need to rely on slower E2E
   // tests (which in turn are more meaningful for acceptance).
