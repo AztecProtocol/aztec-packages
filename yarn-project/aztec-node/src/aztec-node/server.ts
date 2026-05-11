@@ -3,7 +3,12 @@ import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
-import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import {
+  ARCHIVE_HEIGHT,
+  INITIAL_L2_BLOCK_NUM,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  type NOTE_HASH_TREE_HEIGHT,
+} from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
@@ -99,7 +104,7 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
-import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { InboxLeaf, type L1ToL2MessageSource, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { Offense } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -1483,8 +1488,32 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     // Ensure world-state has caught up with the latest block we loaded from the archiver
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
-    const merkleTreeFork = await this.worldStateSynchronizer.fork();
+
+    // Compute the slot a proposer would actually target under pipelining, then compare with the
+    // latest block's slot: if they differ the simulated block opens a new checkpoint, and we must
+    // mirror the L1→L2 message insertion the on-chain proposer will perform so that AVM opcodes
+    // l1_to_l2_msg_exists / consume_l1_to_l2_message see the same tree state as on-chain.
+    const { slot: targetSlot } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
+    const latestBlockData = await this.blockSource.getBlockData({ number: latestBlockNumber });
+    const isGenesis = latestBlockNumber === BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
+    if (latestBlockData === undefined && !isGenesis) {
+      throw new Error(`Failed to load block data for latest block ${latestBlockNumber}`);
+    }
+    const isNewCheckpoint = isGenesis || targetSlot > latestBlockData!.header.getSlot();
+    const nextCheckpointMessages = isNewCheckpoint
+      ? await this.l1ToL2MessageSource.getL1ToL2Messages(
+          CheckpointNumber((latestBlockData?.checkpointNumber ?? CheckpointNumber.ZERO) + 1),
+        )
+      : undefined;
+
+    // Pin the fork to the captured `latestBlockNumber` so background sync advancing between
+    // `syncImmediate` and `fork` cannot leave the fork at a newer block than our checkpoint
+    // boundary calculation.
+    const merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
     try {
+      if (nextCheckpointMessages !== undefined) {
+        await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
+      }
       await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
       const config = PublicSimulatorConfig.from({
         skipFeeEnforcement,
