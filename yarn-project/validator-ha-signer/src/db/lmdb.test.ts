@@ -449,7 +449,7 @@ describe('LmdbSlashingProtectionDatabase - schema migration', () => {
   });
 
   const createConfig = () => ({
-    l1Contracts: { rollupAddress: ROLLUP_ADDRESS },
+    rollupAddress: ROLLUP_ADDRESS,
     nodeId: NODE_ID,
     pollingIntervalMs: 100,
     signingTimeoutMs: 3_000,
