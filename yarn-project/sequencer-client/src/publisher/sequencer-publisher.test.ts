@@ -17,7 +17,6 @@ import {
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError } from '@aztec/ethereum/utils';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
@@ -35,7 +34,6 @@ import {
   type GetTransactionReceiptReturnType,
   type PrivateKeyAccount,
   type TransactionReceipt,
-  decodeFunctionResult,
   encodeFunctionData,
   encodeFunctionResult,
   multicall3Abi,
