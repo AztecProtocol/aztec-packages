@@ -58,18 +58,21 @@ describe('e2e tx effect oracle', () => {
 
   afterAll(() => teardown());
 
-  it('hashes a settled tx effect identically in Noir and TS', async () => {
+  it('tx effect in Noir exactly matches tx effect in TS', async () => {
     const nodeEffect = await aztecNode.getTxEffect(deployTxHash);
     expect(nodeEffect).toBeDefined();
 
+    // We compare hashes instead of comparing the tx effects directly as returning the full tx effect from the function
+    // would be tricky.
     const expectedHash = await hashTxEffect(nodeEffect!.data);
-
-    await contract.methods
-      .assert_tx_effect_hash(deployTxHash.hash, expectedHash)
+    const { result: actualHash } = await contract.methods
+      .get_tx_effect_hash(deployTxHash.hash)
       .simulate({ from: defaultAccountAddress });
+
+    expect(actualHash).toEqual(expectedHash.toBigInt());
   });
 
-  it('returns None for an unknown tx hash', async () => {
+  it('aztec_utl_getTxEffect oracle returns None for a random tx hash', async () => {
     await contract.methods.assert_is_none(Fr.random()).simulate({ from: defaultAccountAddress });
   });
 });

@@ -1,9 +1,6 @@
-// A contract used to exercise the `get_tx_effect` utility oracle end-to-end. The utility hashes the full serialized
-// `TxEffect` and asserts equality against a poseidon2 hash computed in TypeScript over `TxEffect.toFields()`. If any
-// field's layout drifts between TS and Noir, the hash mismatches.
-
 use aztec::macros::aztec;
 
+/// A contract used to exercise the `aztec_utl_getTxEffect` oracle end-to-end.
 #[aztec]
 pub contract TxEffectOracleTest {
     use aztec::{
@@ -13,12 +10,9 @@ pub contract TxEffectOracleTest {
     };
 
     #[external("utility")]
-    unconstrained fn assert_tx_effect_hash(tx_hash: Field, expected_hash: Field) {
+    unconstrained fn get_tx_effect_hash(tx_hash: Field) -> Field {
         let e = get_tx_effect(tx_hash).unwrap();
-
-        let actual_hash = poseidon2_hash(e.serialize());
-
-        assert_eq(actual_hash, expected_hash, "TxEffect poseidon2 hash mismatch");
+        poseidon2_hash(e.serialize())
     }
 
     #[external("utility")]
