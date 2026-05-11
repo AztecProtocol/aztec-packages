@@ -36,13 +36,17 @@ describe('world-state integration', () => {
     log = createLogger('world-state:test:integration');
     rollupAddress = EthAddress.random();
     const db = await NativeWorldStateService.tmp(rollupAddress);
-    const fork = await db.fork(BlockNumber(0));
-    log.info(`Generating ${MAX_CHECKPOINT_COUNT} mock checkpoints`);
-    checkpoints = await timesAsync(MAX_CHECKPOINT_COUNT, i =>
-      mockCheckpoint(CheckpointNumber(i + 1), fork, { startBlockNumber: BlockNumber(i + 1) }),
-    );
-    log.info(`Generated ${checkpoints.length} mock checkpoints`);
-    await fork.close();
+    try {
+      const fork = await db.fork(BlockNumber(0));
+      log.info(`Generating ${MAX_CHECKPOINT_COUNT} mock checkpoints`);
+      checkpoints = await timesAsync(MAX_CHECKPOINT_COUNT, i =>
+        mockCheckpoint(CheckpointNumber(i + 1), fork, { startBlockNumber: BlockNumber(i + 1) }),
+      );
+      log.info(`Generated ${checkpoints.length} mock checkpoints`);
+      await fork.close();
+    } finally {
+      await db.close();
+    }
   });
 
   beforeEach(async () => {
