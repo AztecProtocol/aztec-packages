@@ -28,8 +28,8 @@ const TIMEOUT = 120_000;
 // same fixed-size flat field layout used by Noir's auto-derived `Serialize<TxEffect>`. Any layout drift
 // between Noir and TS produces a mismatch.
 // Note: This would ideally be an integration test as it only tests an oracle implementation but we currently don't
-// have the infrastructure for that. Testing it with TXE is also infeasible as txe doesn't work with transactions
-// (hence no tx effect).
+// have the infrastructure for that. Testing it with TXE is also infeasible as there we would not be able to check the
+// obtained tx effect from oracle with the one obtained directly in TS.
 
 // Mirrors Noir's auto-derived `Serialize<TxEffect>` layout: variable-length collections are padded to their
 // `MAX_*` constant. Note that contract class log fields are emitted in Noir struct order
