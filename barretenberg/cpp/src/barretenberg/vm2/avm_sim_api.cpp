@@ -16,11 +16,16 @@ TxSimulationResult AvmSimAPI::simulate(const FastSimulationInputs& inputs,
     vinfo("Simulating...");
     AvmSimulationHelper simulation_helper;
 
-    // Hint collection still requires an in-process WorldState (PureRawMerkleDB plumbing). The IPC AVM
-    // does not collect hints — that is handled by the prover-node which spawns its own simulator.
-    BB_ASSERT(!inputs.config.collect_hints &&
-              "Hint collection is not supported via simulate(merkle_db); use simulate_for_hint_collection on "
-              "AvmSimulationHelper directly with an in-process WorldState.");
+    if (inputs.config.collect_hints) {
+        return AVM_TRACK_TIME_V("simulation/all",
+                                simulation_helper.simulate_for_hint_collection_internal(contract_db,
+                                                                                        merkle_db,
+                                                                                        inputs.config,
+                                                                                        inputs.tx,
+                                                                                        inputs.global_variables,
+                                                                                        inputs.protocol_contracts,
+                                                                                        cancellation_token));
+    }
 
     return AVM_TRACK_TIME_V("simulation/all",
                             simulation_helper.simulate_fast_internal(contract_db,
