@@ -14,7 +14,6 @@ import { NO_FROM } from './interaction_options.js';
 
 describe('DeployMethod', () => {
   let wallet: MockProxy<Wallet>;
-
   beforeEach(() => {
     wallet = mock<Wallet>();
     wallet.registerContract.mockResolvedValue({} as ContractInstanceWithAddress);
@@ -27,14 +26,10 @@ describe('DeployMethod', () => {
     const txSimResult = mock<TxSimulationResultWithAppOffset>();
     Object.defineProperty(txSimResult, 'offchainEffects', { value: offchainEffects });
     Object.defineProperty(txSimResult, 'publicInputs', {
-      value: {
-        constants: { anchorBlockHeader: { globalVariables: { timestamp: anchorBlockTimestamp } } },
-      },
+      value: { constants: { anchorBlockHeader: { globalVariables: { timestamp: anchorBlockTimestamp } } } },
     });
     Object.defineProperty(txSimResult, 'stats', { value: {} });
-    Object.defineProperty(txSimResult, 'gasUsed', {
-      value: { totalGas: Gas.empty(), teardownGas: Gas.empty() },
-    });
+    Object.defineProperty(txSimResult, 'gasUsed', { value: { totalGas: Gas.empty(), teardownGas: Gas.empty() } });
     return txSimResult;
   };
 
@@ -43,19 +38,12 @@ describe('DeployMethod', () => {
     const contractAddress = await AztecAddress.random();
     const msgPayload = [Fr.random(), Fr.random()];
     const anchorBlockTimestamp = 42000n;
-
     const offchainEffects: OffchainEffect[] = [
-      {
-        data: [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.toField(), ...msgPayload],
-        contractAddress,
-      },
+      { data: [OFFCHAIN_MESSAGE_IDENTIFIER, recipient.toField(), ...msgPayload], contractAddress },
     ];
-
     wallet.simulateTx.mockResolvedValue(makeSimulateResult(offchainEffects, anchorBlockTimestamp));
-
     const deploy = Contract.deploy(wallet, testContractArtifact, []);
     const result = await deploy.simulate({ from: await AztecAddress.random() });
-
     expect(result.offchainMessages).toHaveLength(1);
     expect(result.offchainMessages[0]).toEqual({
       recipient,
@@ -112,15 +100,11 @@ describe('DeployMethod', () => {
 
     it('keeps the address stable across simulate then send when lazy-locking from `from`', async () => {
       const deploy = Contract.deploy(wallet, testContractArtifact, [], undefined, { salt });
-
       const expected = await expectedAddress(alice);
-
       await deploy.simulate({ from: alice });
       const afterSimulate = await deploy.getAddress();
-
       await deploy.send({ from: alice });
       const afterSend = await deploy.getAddress();
-
       expect(afterSimulate).toEqual(afterSend);
       expect(afterSimulate).toEqual(expected);
     });
@@ -147,7 +131,6 @@ describe('DeployMethod', () => {
     it('allows any sender when locked to universal at construction, and the address is stable', async () => {
       const deploy = Contract.deploy(wallet, testContractArtifact, [], undefined, { salt, universalDeploy: true });
       const expected = await expectedAddress(AztecAddress.ZERO);
-
       await expect(deploy.send({ from: alice })).resolves.toBeDefined();
       expect(await deploy.getAddress()).toEqual(expected);
       await expect(deploy.send({ from: bob })).resolves.toBeDefined();

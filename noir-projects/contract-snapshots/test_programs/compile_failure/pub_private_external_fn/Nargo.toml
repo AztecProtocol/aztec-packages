@@ -1,0 +1,7 @@
+[package]
+name = "pub_private_external_fn"
+type = "contract"
+authors = [""]
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }

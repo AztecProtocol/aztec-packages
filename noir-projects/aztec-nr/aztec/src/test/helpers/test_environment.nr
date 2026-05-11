@@ -132,21 +132,22 @@ struct UtilityContextOptions {
 /// ```noir
 /// env.call_private_opts(from, CallPrivateOptions::new().with_additional_scopes([other]), call);
 /// ```
-pub struct CallPrivateOptions<let N: u32> {
+pub struct CallPrivateOptions<let N: u32, let T: u32> {
     additional_scopes: [AztecAddress; N],
+    authorized_utility_call_targets: [AztecAddress; T],
 }
 
-impl CallPrivateOptions<0> {
+impl CallPrivateOptions<0, 0> {
     /// Creates default `CallPrivateOptions`.
     ///
     /// The default values are the same as if using [`TestEnvironment::call_private`] instead of
     /// [`TestEnvironment::call_private_opts`].
     pub fn new() -> Self {
-        CallPrivateOptions { additional_scopes: [] }
+        CallPrivateOptions { additional_scopes: [], authorized_utility_call_targets: [] }
     }
 }
 
-impl<let N: u32> CallPrivateOptions<N> {
+impl<let N: u32, let T: u32> CallPrivateOptions<N, T> {
     /// Grants access to secrets of additional accounts.
     ///
     /// By default only the secrets that belong to the `from` account can be accessed: this function lets contracts
@@ -155,10 +156,21 @@ impl<let N: u32> CallPrivateOptions<N> {
     /// Example usage includes accounts withdrawing from an escrow, which may require accessing the escrow's own notes
     /// and secrets.
     pub fn with_additional_scopes<let N_2: u32>(
-        _self: Self,
+        self,
         additional_scopes: [AztecAddress; N_2],
-    ) -> CallPrivateOptions<N_2> {
-        CallPrivateOptions { additional_scopes }
+    ) -> CallPrivateOptions<N_2, T> {
+        CallPrivateOptions { additional_scopes, authorized_utility_call_targets: self.authorized_utility_call_targets }
+    }
+
+    /// Authorizes cross-contract utility calls to the given target contracts during this call.
+    ///
+    /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
+    /// contracts are allowed to be called via utility functions during execution.
+    pub fn with_authorized_utility_call_targets<let T_2: u32>(
+        self,
+        targets: [AztecAddress; T_2],
+    ) -> CallPrivateOptions<N, T_2> {
+        CallPrivateOptions { additional_scopes: self.additional_scopes, authorized_utility_call_targets: targets }
     }
 }
 
@@ -169,21 +181,22 @@ impl<let N: u32> CallPrivateOptions<N> {
 /// ```noir
 /// env.view_private_opts(from, ViewPrivateOptions::new().with_additional_scopes([other]), call);
 /// ```
-pub struct ViewPrivateOptions<let S: u32> {
+pub struct ViewPrivateOptions<let S: u32, let T: u32> {
     additional_scopes: [AztecAddress; S],
+    authorized_utility_call_targets: [AztecAddress; T],
 }
 
-impl ViewPrivateOptions<0> {
+impl ViewPrivateOptions<0, 0> {
     /// Creates default `ViewPrivateOptions`.
     ///
     /// The default values are the same as if using [`TestEnvironment::view_private`] instead of
     /// [`TestEnvironment::view_private_opts`].
     pub fn new() -> Self {
-        ViewPrivateOptions { additional_scopes: [] }
+        ViewPrivateOptions { additional_scopes: [], authorized_utility_call_targets: [] }
     }
 }
 
-impl<let S: u32> ViewPrivateOptions<S> {
+impl<let S: u32, let T: u32> ViewPrivateOptions<S, T> {
     /// Grants access to secrets of additional accounts.
     ///
     /// By default only the secrets that belong to the `from` account can be accessed: this function lets contracts
@@ -192,10 +205,21 @@ impl<let S: u32> ViewPrivateOptions<S> {
     /// Example usage includes accounts querying an escrow's balance, which may require accessing the escrow's own
     /// notes.
     pub fn with_additional_scopes<let S2: u32>(
-        _self: Self,
+        self,
         additional_scopes: [AztecAddress; S2],
-    ) -> ViewPrivateOptions<S2> {
-        ViewPrivateOptions { additional_scopes }
+    ) -> ViewPrivateOptions<S2, T> {
+        ViewPrivateOptions { additional_scopes, authorized_utility_call_targets: self.authorized_utility_call_targets }
+    }
+
+    /// Authorizes cross-contract utility calls to the given target contracts during this call.
+    ///
+    /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
+    /// contracts are allowed to be called via utility functions during execution.
+    pub fn with_authorized_utility_call_targets<let T_2: u32>(
+        self,
+        targets: [AztecAddress; T_2],
+    ) -> ViewPrivateOptions<S, T_2> {
+        ViewPrivateOptions { additional_scopes: self.additional_scopes, authorized_utility_call_targets: targets }
     }
 }
 
@@ -205,6 +229,40 @@ struct NoteDiscoveryOptions {
 
 struct EventDiscoveryOptions {
     contract_address: Option<AztecAddress>,
+}
+
+/// Configuration for [`TestEnvironment::execute_utility_opts`].
+///
+/// Constructed by calling [`ExecuteUtilityOptions::new`] and then chaining methods:
+///
+/// ```noir
+/// env.execute_utility_opts(
+///     ExecuteUtilityOptions::new().with_authorized_utility_call_targets([target]),
+///     SomeContract::at(addr).some_utility_function(),
+/// );
+/// ```
+pub struct ExecuteUtilityOptions<let T: u32> {
+    authorized_utility_call_targets: [AztecAddress; T],
+}
+
+impl ExecuteUtilityOptions<0> {
+    /// Creates default `ExecuteUtilityOptions`.
+    pub fn new() -> Self {
+        ExecuteUtilityOptions { authorized_utility_call_targets: [] }
+    }
+}
+
+impl<let T: u32> ExecuteUtilityOptions<T> {
+    /// Authorizes cross-contract utility calls to the given target contracts during this call.
+    ///
+    /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
+    /// contracts are allowed to be called via utility functions during execution.
+    pub fn with_authorized_utility_call_targets<let T_2: u32>(
+        _self: Self,
+        targets: [AztecAddress; T_2],
+    ) -> ExecuteUtilityOptions<T_2> {
+        ExecuteUtilityOptions { authorized_utility_call_targets: targets }
+    }
 }
 
 /// Configuration values for [`TestEnvironment::deploy_opts`]. Meant to be used by calling `new` and then chaining
@@ -629,10 +687,10 @@ impl TestEnvironment {
     }
 
     /// Variant of `call_private` which allows specifying multiple configuration values via `CallPrivateOptions`.
-    pub unconstrained fn call_private_opts<let M: u32, let N: u32, let S: u32, T>(
+    pub unconstrained fn call_private_opts<let M: u32, let N: u32, let S: u32, let U: u32, T>(
         _self: Self,
         from: AztecAddress,
-        opts: CallPrivateOptions<S>,
+        opts: CallPrivateOptions<S, U>,
         call: PrivateCall<M, N, T>,
     ) -> T
     where
@@ -646,6 +704,7 @@ impl TestEnvironment {
             hash_args(call.args),
             /*is_static=*/ false,
             opts.additional_scopes,
+            opts.authorized_utility_call_targets,
         );
 
         T::deserialize(serialized_return_values)
@@ -670,10 +729,10 @@ impl TestEnvironment {
     }
 
     /// Variant of `view_private` which allows specifying multiple configuration values via `ViewPrivateOptions`.
-    pub unconstrained fn view_private_opts<let M: u32, let N: u32, let S: u32, T>(
+    pub unconstrained fn view_private_opts<let M: u32, let N: u32, let S: u32, let U: u32, T>(
         _self: Self,
         from: AztecAddress,
-        opts: ViewPrivateOptions<S>,
+        opts: ViewPrivateOptions<S, U>,
         call: PrivateStaticCall<M, N, T>,
     ) -> T
     where
@@ -687,6 +746,7 @@ impl TestEnvironment {
             hash_args(call.args),
             /*is_static=*/ true,
             opts.additional_scopes,
+            opts.authorized_utility_call_targets,
         );
 
         T::deserialize(serialized_return_values)
@@ -701,12 +761,29 @@ impl TestEnvironment {
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
-    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
+    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(self: Self, call: UtilityCall<M, N, T>) -> T
     where
         T: Deserialize,
     {
-        let serialized_return_values =
-            txe_oracles::execute_utility_function(call.target_contract, call.selector, call.args);
+        self.execute_utility_opts(ExecuteUtilityOptions::new(), call)
+    }
+
+    /// Variant of `execute_utility` which allows specifying configuration values via `ExecuteUtilityOptions`, such as
+    /// authorizing cross-contract utility calls.
+    pub unconstrained fn execute_utility_opts<let M: u32, let N: u32, let U: u32, T>(
+        _self: Self,
+        opts: ExecuteUtilityOptions<U>,
+        call: UtilityCall<M, N, T>,
+    ) -> T
+    where
+        T: Deserialize,
+    {
+        let serialized_return_values = txe_oracles::execute_utility_function(
+            call.target_contract,
+            call.selector,
+            call.args,
+            opts.authorized_utility_call_targets,
+        );
 
         T::deserialize(serialized_return_values)
     }
