@@ -20,7 +20,7 @@ error: Argument from in function foo must be of type AztecAddress, but is of typ
     5: process_functions
             at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/mod.nr:48:41
     6: generate_public_external
-            at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/public.nr:136:9
+            at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/public.nr:134:9
     7: create_authorize_once_check
             at <repo>/noir-projects/aztec-nr/aztec/src/macros/internals_functions_generation/external/helpers.nr:72:9
 

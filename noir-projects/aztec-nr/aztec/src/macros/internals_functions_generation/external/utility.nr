@@ -33,8 +33,6 @@ pub(crate) comptime fn generate_utility_self_creator(m: Module) -> Quoted {
 pub(crate) comptime fn generate_utility_external(f: FunctionDefinition) -> Quoted {
     let module_has_initializer = module_has_initializer(f.module());
 
-    // Construct `self` via the per-contract `__aztec_nr_internals__create_utility_self` helper rather than inlining the
-    // preamble in every utility function. See `generate_utility_self_creator` for the helper definition.
     let contract_self_creation = quote {
         #[allow(unused_variables)]
         let mut self = __aztec_nr_internals__create_utility_self();

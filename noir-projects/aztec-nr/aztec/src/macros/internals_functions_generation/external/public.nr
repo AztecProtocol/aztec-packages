@@ -39,17 +39,15 @@ pub(crate) comptime fn generate_public_self_builder_from_context(m: Module) -> Q
     }
 }
 
-/// Emits a per-contract helper that builds the `self` value used by every public external function.
+/// Generates the per-contract helper that builds public `self`.
 ///
 /// Each public external function calls this helper instead of inlining the construction, so the same preamble does not
 /// appear duplicated in every public function body. We let Noir's inliner decide whether to inline the helper at each
 /// call site rather than forcing it via macro expansion.
 ///
-/// The helper is parameterized over the calldata length `N` so that the args closure passed to `PublicContext::new`
-/// is monomorphized per arity. All public functions with the same arity share a single monomorphization. Once the
-/// `PublicContext` exists, construction is delegated to
-/// [`__aztec_nr_internals__build_public_self_from_context`](generate_public_self_builder_from_context) so that public
-/// internal methods and contract library methods share the same body.
+/// The helper is generic over the calldata length `N` because `PublicContext::new` takes a closure that reads `N`
+/// fields from calldata. Noir monomorphizes one copy per distinct `N`, so public functions with the same number of
+/// serialized args reuse the same compiled code.
 pub(crate) comptime fn generate_public_self_creator(m: Module) -> Quoted {
     let storage_type = if module_has_storage(m) {
         quote { Storage<aztec::context::PublicContext> }
@@ -60,6 +58,8 @@ pub(crate) comptime fn generate_public_self_creator(m: Module) -> Quoted {
     quote {
         #[contract_library_method]
         unconstrained fn __aztec_nr_internals__create_public_self<let N: u32>() -> aztec::contract_self::ContractSelfPublic<$storage_type, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+            // Unlike in the private case, in public the `context` does not need to receive the hash of the original
+            // params.
             let context = aztec::context::PublicContext::new(|| {
                 // We start from 1 because we skip the selector for the dispatch function.
                 let serialized_args : [Field; N] = aztec::oracle::avm::calldata_copy(1, N);
@@ -91,8 +91,6 @@ pub(crate) comptime fn generate_public_external(f: FunctionDefinition) -> Quoted
             .join(quote {+})
     };
 
-    // Construct `self` via the per-contract `__aztec_nr_internals__create_public_self` helper rather than inlining the
-    // preamble in every public function. See `generate_public_self_creator` for the helper definition.
     let contract_self_creation = quote {
         #[allow(unused_variables)]
         let mut self = __aztec_nr_internals__create_public_self::<$args_len_quote>();
