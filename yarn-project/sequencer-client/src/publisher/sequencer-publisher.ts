@@ -1364,16 +1364,13 @@ export class SequencerPublisher {
       return;
     }
 
-    // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
-    const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(request.gasUsed) * 64) / 63)));
-
     const { gasUsed, checkpointNumber } = request;
-    const logData = { gasUsed, checkpointNumber, gasLimit, opts };
+    const logData = { gasUsed, checkpointNumber, opts };
     this.log.verbose(`Enqueuing invalidate checkpoint request`, logData);
     this.addRequest({
       action: `invalidate-by-${request.reason}`,
       request: request.request,
-      gasConfig: { gasLimit, txTimeoutAt: opts.txTimeoutAt },
+      gasConfig: opts.txTimeoutAt ? { txTimeoutAt: opts.txTimeoutAt } : undefined,
       lastValidL2Slot: SlotNumber(this.getCurrentL2Slot() + 2),
       checkSuccess: (_req, result) => {
         const success =
