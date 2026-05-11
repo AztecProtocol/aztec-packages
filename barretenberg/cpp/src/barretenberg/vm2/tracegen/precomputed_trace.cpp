@@ -400,12 +400,9 @@ void PrecomputedTraceBuilder::process_phase_table(TraceContainer& trace)
             { C::precomputed_is_revertible, spec.is_revertible ? 1 : 0 },
             { C::precomputed_read_pi_start_offset, spec.read_pi_start_offset },
             { C::precomputed_read_pi_length_offset, spec.read_pi_length_offset },
-            { C::precomputed_sel_non_revertible_append_note_hash, spec.non_revertible_append_note_hash ? 1 : 0 },
-            { C::precomputed_sel_non_revertible_append_nullifier, spec.non_revertible_append_nullifier ? 1 : 0 },
-            { C::precomputed_sel_non_revertible_append_l2_l1_msg, spec.non_revertible_append_l2_l1_msg ? 1 : 0 },
-            { C::precomputed_sel_revertible_append_note_hash, spec.revertible_append_note_hash ? 1 : 0 },
-            { C::precomputed_sel_revertible_append_nullifier, spec.revertible_append_nullifier ? 1 : 0 },
-            { C::precomputed_sel_revertible_append_l2_l1_msg, spec.revertible_append_l2_l1_msg ? 1 : 0 },
+            { C::precomputed_sel_append_note_hash, spec.append_note_hash ? 1 : 0 },
+            { C::precomputed_sel_append_nullifier, spec.append_nullifier ? 1 : 0 },
+            { C::precomputed_sel_append_l2_l1_msg, spec.append_l2_l1_msg ? 1 : 0 },
             { C::precomputed_next_phase_on_revert, spec.next_phase_on_revert },
         };
 

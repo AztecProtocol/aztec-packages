@@ -11,8 +11,9 @@ import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
-import { type L2Block, L2BlockSourceEvents, type L2Tips } from '@aztec/stdlib/block';
+import { type L2Block, L2BlockSourceEvents } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import type { ChainTips } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -181,14 +182,14 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
     // We capture the L2 tips synchronously inside the handler — the archiver has already removed
     // the pruned blocks at emit time, so this snapshot reflects the rolled-back state before any
     // new pipelined block can be applied.
-    type PruneObservation = { slotNumber: SlotNumber; blocks: L2Block[]; tipsAtPrune: L2Tips };
+    type PruneObservation = { slotNumber: SlotNumber; blocks: L2Block[]; tipsAtPrune: ChainTips };
     const prunePromises: Promise<PruneObservation>[] = nodes.map(
       (node, idx) =>
         new Promise<PruneObservation>(resolve => {
           const archiver = node.getBlockSource() as Archiver;
           // eslint-disable-next-line @typescript-eslint/no-misused-promises
           archiver.events.once(L2BlockSourceEvents.L2PruneUncheckpointed, async ev => {
-            const tipsAtPrune = await node.getL2Tips();
+            const tipsAtPrune = await node.getChainTips();
             logger.warn(`Node ${idx} pruned uncheckpointed blocks`, {
               slotNumber: ev.slotNumber,
               blocks: ev.blocks.map(b => ({ number: b.number, slot: b.header.globalVariables.slotNumber })),
@@ -234,7 +235,7 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
       nodes.map((node, idx) =>
         retryUntil(
           async () => {
-            const tips = await node.getL2Tips();
+            const tips = await node.getChainTips();
             if (tips.proposed.number === 0) {
               return false;
             }
@@ -254,7 +255,7 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
       nodes.map((node, idx) =>
         retryUntil(
           async () => {
-            const tips = await node.getL2Tips();
+            const tips = await node.getChainTips();
             if (tips.proposed.number === 0) {
               return false;
             }
@@ -311,7 +312,7 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
       nodes.map((node, idx) =>
         retryUntil(
           async () => {
-            const tips = await node.getL2Tips();
+            const tips = await node.getChainTips();
             if (tips.proposed.number === 0) {
               return false;
             }
@@ -339,7 +340,7 @@ describe('e2e_epochs/epochs_missed_l1_publish', () => {
       nodes.map((node, idx) =>
         retryUntil(
           async () => {
-            const tips = await node.getL2Tips();
+            const tips = await node.getChainTips();
             if (tips.checkpointed.checkpoint.number === 0) {
               return false;
             }

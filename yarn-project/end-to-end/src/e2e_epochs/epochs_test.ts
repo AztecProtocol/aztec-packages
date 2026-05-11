@@ -398,7 +398,7 @@ export class EpochsTestContext {
       await sleep(waitTime);
       const [syncState, tips] = await Promise.all([
         this.context.aztecNode.getWorldStateSyncStatus(),
-        await this.context.aztecNode.getL2Tips(),
+        await this.context.aztecNode.getChainTips(),
       ]);
       this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
       if (type === 'proven') {

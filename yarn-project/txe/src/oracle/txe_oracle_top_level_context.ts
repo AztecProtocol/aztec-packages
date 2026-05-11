@@ -170,7 +170,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async getLastBlockTimestamp() {
-    return (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.timestamp;
+    return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
   async getLastTxEffects() {
@@ -318,12 +318,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async privateCallNewFlow(
-    from: AztecAddress,
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress = AztecAddress.zero(),
     functionSelector: FunctionSelector = FunctionSelector.empty(),
     args: Fr[],
     argsHash: Fr = Fr.zero(),
     isStaticCall: boolean = false,
+    additionalScopes: AztecAddress[] = [],
     jobId: string,
   ) {
     this.logger.verbose(
@@ -338,9 +339,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       throw new Error(message);
     }
 
-    // When `from` is the zero address (e.g. when deploying a new account contract), we return an
-    // empty scope list which acts as deny-all: no notes are visible and no keys are accessible.
-    const effectiveScopes = from.isZero() ? [] : [from];
+    const scopes = from === undefined ? additionalScopes : [from, ...additionalScopes];
 
     // Sync notes before executing private function to discover notes from previous transactions
     const utilityExecutor = async (call: FunctionCall, execScopes: AztecAddress[]) => {
@@ -354,12 +353,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       utilityExecutor,
       blockHeader,
       jobId,
-      effectiveScopes,
+      scopes,
     );
 
     const blockNumber = await this.getNextBlockNumber();
 
-    const callContext = new CallContext(from, targetContractAddress, functionSelector, isStaticCall);
+    const msgSender = from ?? AztecAddress.NULL_MSG_SENDER;
+    const callContext = new CallContext(msgSender, targetContractAddress, functionSelector, isStaticCall);
 
     const gasLimits = new Gas(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS);
     const teardownGasLimits = new Gas(FALLBACK_TEARDOWN_DA_GAS_LIMIT, FALLBACK_TEARDOWN_L2_GAS_LIMIT);
@@ -397,19 +397,19 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
       senderAddressBookStore: this.senderAddressBookStore,
-      capsuleService: new CapsuleService(this.capsuleStore, effectiveScopes),
+      capsuleService: new CapsuleService(this.capsuleStore, scopes),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       jobId,
       totalPublicCalldataCount: 0,
       sideEffectCounter: minRevertibleSideEffectCounter,
-      scopes: effectiveScopes,
+      scopes,
       // In TXE, the typical transaction entrypoint is skipped, so we need to simulate the actions that such a
       // contract would perform, including setting senderForTags.
       senderForTags: from,
       simulator,
       messageContextService: this.stateMachine.messageContextService,
-      l2TipsStore: this.stateMachine.node,
+      l2TipsStore: this.stateMachine.l2TipsProvider,
     });
 
     // Note: This is a slight modification of simulator.run without any of the checks. Maybe we should modify simulator.run with a boolean value to skip checks.
@@ -553,7 +553,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async publicCallNewFlow(
-    from: AztecAddress,
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,
@@ -621,7 +621,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     // may require producing reverts.
     const revertibleAccumulatedData = PrivateToPublicAccumulatedData.empty();
     revertibleAccumulatedData.publicCallRequests[0] = new PublicCallRequest(
-      from,
+      from ?? AztecAddress.NULL_MSG_SENDER,
       targetContractAddress,
       isStaticCall,
       calldataHash,
@@ -775,7 +775,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         privateEventStore: this.privateEventStore,
         messageContextService: this.stateMachine.messageContextService,
         contractSyncService: this.stateMachine.contractSyncService,
-        l2TipsStore: this.stateMachine.node,
+        l2TipsStore: this.stateMachine.l2TipsProvider,
         jobId,
         scopes,
         simulator,
@@ -808,7 +808,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {
-    const header = await this.stateMachine.node.getBlockHeader('latest');
-    return header ? header.globalVariables.blockNumber : BlockNumber.ZERO;
+    const block = await this.stateMachine.node.getBlock('latest');
+    return block ? block.header.globalVariables.blockNumber : BlockNumber.ZERO;
   }
 }

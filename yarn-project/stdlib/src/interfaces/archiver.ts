@@ -92,10 +92,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getRollupAddress: z.function().args().returns(schemas.EthAddress),
   getRegistryAddress: z.function().args().returns(schemas.EthAddress),
   getBlockNumber: z.function().args(optional(BlockQuerySchema)).returns(BlockNumberSchema.optional()),
-  getProvenBlockNumber: z.function().args().returns(BlockNumberSchema),
-  getCheckpointedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
   getCheckpointNumber: z.function().args().returns(CheckpointNumberSchema),
-  getFinalizedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
   getCheckpoint: z.function().args(CheckpointQuerySchema).returns(PublishedCheckpoint.schema.optional()),
   getCheckpoints: z.function().args(CheckpointsQuerySchema).returns(z.array(PublishedCheckpoint.schema)),
   getCheckpointData: z.function().args(CheckpointQuerySchema).returns(CheckpointDataSchema.optional()),
@@ -129,6 +126,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
+  isPruneDueAtSlot: z.function().args(schemas.SlotNumber).returns(z.boolean()),
   getGenesisValues: z
     .function()
     .args()

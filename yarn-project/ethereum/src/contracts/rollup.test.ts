@@ -266,52 +266,96 @@ describe('Rollup', () => {
     await anvil?.stop().catch(err => createLogger('cleanup').error(err));
   });
 
-  describe('makePendingCheckpointNumberOverride', () => {
-    it('creates state override that correctly overrides pending checkpoint number', async () => {
-      const testProvenCheckpointNumber = CheckpointNumber(42);
-      const testPendingCheckpointNumber = CheckpointNumber(100);
-      const newPendingCheckpointNumber = CheckpointNumber(150);
+  describe('makeChainTipsOverride', () => {
+    const testProvenCheckpointNumber = CheckpointNumber(42);
+    const testPendingCheckpointNumber = CheckpointNumber(100);
 
-      // Set storage directly using cheat codes
-      // The storage slot stores both values: pending (high 128 bits) | proven (low 128 bits)
+    async function setLiveTips(pending: CheckpointNumber, proven: CheckpointNumber) {
       const storageSlot = RollupContract.stfStorageSlot;
-      const packedValue = (BigInt(testPendingCheckpointNumber) << 128n) | BigInt(testProvenCheckpointNumber);
+      const packedValue = (BigInt(pending) << 128n) | BigInt(proven);
       await cheatCodes.store(EthAddress.fromString(rollupAddress), BigInt(storageSlot), packedValue);
+    }
 
-      // Verify the values were set correctly by calling the getters directly
-      const provenCheckpointNumber = await rollup.getProvenCheckpointNumber();
-      const pendingCheckpointNumber = await rollup.getCheckpointNumber();
+    async function readOverridden(stateOverride: Awaited<ReturnType<RollupContract['makeChainTipsOverride']>>) {
+      const [pendingResult, provenResult] = await Promise.all([
+        publicClient.simulateContract({
+          address: rollupAddress,
+          abi: RollupAbi as Abi,
+          functionName: 'getPendingCheckpointNumber',
+          stateOverride,
+        }),
+        publicClient.simulateContract({
+          address: rollupAddress,
+          abi: RollupAbi as Abi,
+          functionName: 'getProvenCheckpointNumber',
+          stateOverride,
+        }),
+      ]);
+      return {
+        pending: CheckpointNumber.fromBigInt(pendingResult.result),
+        proven: CheckpointNumber.fromBigInt(provenResult.result),
+      };
+    }
 
-      expect(provenCheckpointNumber).toBe(testProvenCheckpointNumber);
-      expect(pendingCheckpointNumber).toBe(testPendingCheckpointNumber);
+    it('emits a single combined state-diff when both pending and proven are set', async () => {
+      await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
 
-      // Create the override
-      const stateOverride = await rollup.makePendingCheckpointNumberOverride(newPendingCheckpointNumber);
+      const newPending = CheckpointNumber(150);
+      const newProven = CheckpointNumber(75);
+      const stateOverride = await rollup.makeChainTipsOverride({ pending: newPending, proven: newProven });
 
-      // Test the override using simulateContract
-      const { result: overriddenPendingCheckpointNumber } = await publicClient.simulateContract({
-        address: rollupAddress,
-        abi: RollupAbi as Abi,
-        functionName: 'getPendingCheckpointNumber',
-        stateOverride,
-      });
+      expect(stateOverride).toHaveLength(1);
+      expect(stateOverride[0].stateDiff).toHaveLength(1);
+      expect(stateOverride[0].stateDiff![0].slot).toBe(RollupContract.stfStorageSlot);
+      const expectedValue = (BigInt(newPending) << 128n) | BigInt(newProven);
+      expect(stateOverride[0].stateDiff![0].value).toBe(`0x${expectedValue.toString(16).padStart(64, '0')}`);
 
-      // The overridden value should be the new pending checkpoint number
-      expect(overriddenPendingCheckpointNumber).toBe(BigInt(newPendingCheckpointNumber));
+      const observed = await readOverridden(stateOverride);
+      expect(observed.pending).toBe(newPending);
+      expect(observed.proven).toBe(newProven);
+    });
 
-      // Verify that the proven checkpoint number is preserved in the override
-      const { result: overriddenProvenCheckpointNumber } = await publicClient.simulateContract({
-        address: rollupAddress,
-        abi: RollupAbi as Abi,
-        functionName: 'getProvenCheckpointNumber',
-        stateOverride,
-      });
+    it('preserves the live proven half when only pending is overridden', async () => {
+      await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
 
-      expect(CheckpointNumber.fromBigInt(overriddenProvenCheckpointNumber)).toBe(testProvenCheckpointNumber);
+      const newPending = CheckpointNumber(150);
+      const stateOverride = await rollup.makeChainTipsOverride({ pending: newPending });
 
-      // Verify the actual storage hasn't changed
-      const actualPendingCheckpointNumber = await rollup.getCheckpointNumber();
-      expect(actualPendingCheckpointNumber).toBe(testPendingCheckpointNumber);
+      const observed = await readOverridden(stateOverride);
+      expect(observed.pending).toBe(newPending);
+      expect(observed.proven).toBe(testProvenCheckpointNumber);
+    });
+
+    it('preserves the live pending half when only proven is overridden', async () => {
+      await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
+
+      const newProven = CheckpointNumber(75);
+      const stateOverride = await rollup.makeChainTipsOverride({ proven: newProven });
+
+      const observed = await readOverridden(stateOverride);
+      expect(observed.pending).toBe(testPendingCheckpointNumber);
+      expect(observed.proven).toBe(newProven);
+    });
+
+    it('returns an empty override when neither pending nor proven is set', async () => {
+      const stateOverride = await rollup.makeChainTipsOverride({});
+      expect(stateOverride).toEqual([]);
+    });
+
+    it('throws when the resulting proven > pending', async () => {
+      await setLiveTips(testPendingCheckpointNumber, testProvenCheckpointNumber);
+
+      await expect(
+        rollup.makeChainTipsOverride({ pending: CheckpointNumber(50), proven: CheckpointNumber(100) }),
+      ).rejects.toThrow(/proven .* > pending/);
+    });
+
+    it('throws when only proven is set and the resulting proven > live pending', async () => {
+      await setLiveTips(CheckpointNumber(10), CheckpointNumber(5));
+
+      await expect(rollup.makeChainTipsOverride({ proven: CheckpointNumber(20) })).rejects.toThrow(
+        /proven .* > pending/,
+      );
     });
   });
 

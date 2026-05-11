@@ -1,8 +1,5 @@
 use crate::cards::Card;
-use aztec::protocol::{
-    address::AztecAddress,
-    traits::{Deserialize, FromField, Packable, Serialize, ToField},
-};
+use aztec::protocol::{address::AztecAddress, traits::{Deserialize, FromField, Packable, Serialize, ToField}};
 use std::meta::derive;
 
 global NUMBER_OF_PLAYERS: u32 = 2;
@@ -19,10 +16,7 @@ impl Packable for PlayerEntry {
     let N: u32 = 2;
 
     fn pack(self) -> [Field; Self::N] {
-        [
-            self.address.to_field(),
-            (self.deck_strength as Field) * 2.pow_32(64) + (self.points as Field),
-        ]
+        [self.address.to_field(), (self.deck_strength as Field) * 2.pow_32(64) + (self.points as Field)]
     }
 
     fn unpack(packed: [Field; Self::N]) -> Self {
@@ -134,9 +128,8 @@ impl Game {
             let entry = self.players[i];
             assert(entry.is_initialized(), "Game not full");
         }
-        let sorted_by_deck_strength = self.players.sort_via(|a: PlayerEntry, b: PlayerEntry| {
-            a.deck_strength < b.deck_strength
-        });
+        let sorted_by_deck_strength =
+            self.players.sort_via(|a: PlayerEntry, b: PlayerEntry| a.deck_strength < b.deck_strength);
         self.players = sorted_by_deck_strength;
         self.started = true;
     }
@@ -203,11 +196,7 @@ mod test {
 
     #[test]
     fn test_pack_unpack_player_entry() {
-        let entry = PlayerEntry {
-            address: AztecAddress::from_field(0xdeadbeef),
-            deck_strength: 999,
-            points: 12345678,
-        };
+        let entry = PlayerEntry { address: AztecAddress::from_field(0xdeadbeef), deck_strength: 999, points: 12345678 };
         let unpacked = PlayerEntry::unpack(entry.pack());
         assert(unpacked.address.eq(entry.address));
         assert_eq(unpacked.deck_strength, entry.deck_strength);
@@ -216,8 +205,7 @@ mod test {
 
     #[test]
     fn test_pack_unpack_player_entry_zeros() {
-        let entry =
-            PlayerEntry { address: AztecAddress::from_field(0), deck_strength: 0, points: 0 };
+        let entry = PlayerEntry { address: AztecAddress::from_field(0), deck_strength: 0, points: 0 };
         let unpacked = PlayerEntry::unpack(entry.pack());
         assert(unpacked.address.eq(entry.address));
         assert_eq(unpacked.deck_strength, 0);
@@ -228,16 +216,8 @@ mod test {
     fn test_pack_unpack_game() {
         let game = Game {
             players: [
-                PlayerEntry {
-                    address: AztecAddress::from_field(1),
-                    deck_strength: 100,
-                    points: 50,
-                },
-                PlayerEntry {
-                    address: AztecAddress::from_field(2),
-                    deck_strength: 200,
-                    points: 75,
-                },
+                PlayerEntry { address: AztecAddress::from_field(1), deck_strength: 100, points: 50 },
+                PlayerEntry { address: AztecAddress::from_field(2), deck_strength: 200, points: 75 },
             ],
             rounds_cards: [
                 Card { strength: 10, points: 5 },

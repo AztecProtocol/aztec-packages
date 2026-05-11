@@ -1,25 +1,25 @@
 {
   "index_name": "aztec-docs",
   "start_urls": [
-      {
-        "url": "https://docs.aztec.network/",
-        "page_rank": 10
-      },
-      {
-        "url": "https://docs.aztec.network/aztec-nr-api/mainnet/",
-        "selectors_key": "api-nr",
-        "page_rank": 2
+    {
+      "url": "https://docs.aztec.network/aztec-nr-api/mainnet/",
+      "selectors_key": "api-nr",
+      "page_rank": 2,
+      "extra_attributes": {
+        "language": "en",
+        "docusaurus_tag": "default"
       }
-    ],
-    "sitemap_urls": [
-      "https://docs.aztec.network/sitemap.xml"
-    ],
-    "stop_urls": [
-      "https://docs.aztec.network/aztec-nr-api/mainnet/std/",
-      "https://docs.aztec.network/aztec-nr-api/mainnet/all.html",
-      "aztec-nr-api/.*/global\\.[^/]+\\.html$"
-    ],
-  "sitemap_alternate_links": true,
+    },
+    {
+      "url": "https://docs.aztec.network/",
+      "page_rank": 10
+    }
+  ],
+  "stop_urls": [
+    "https://docs.aztec.network/aztec-nr-api/mainnet/std/",
+    "https://docs.aztec.network/aztec-nr-api/mainnet/all.html",
+    "aztec-nr-api/.*/global\\.[^/]+\\.html$"
+  ],
   "selectors": {
     "default": {
       "lvl0": {
@@ -45,18 +45,13 @@
       "lvl2": "main h2",
       "lvl3": "main h3",
       "lvl4": "main h4",
-      "text": "main .comments p, main .comments li, main .item-description"
+      "text": "main .comments p, main .comments li, main .padded-description, main .item-description, main .struct-field, main li"
     }
   },
   "strip_chars": " .,;:#",
   "custom_settings": {
     "separatorsToIndex": "_",
-    "attributesForFaceting": [
-      "language",
-      "version",
-      "type",
-      "docusaurus_tag"
-    ],
+    "attributesForFaceting": ["language", "version", "type", "docusaurus_tag"],
     "attributesToRetrieve": [
       "hierarchy",
       "content",
@@ -66,8 +61,6 @@
       "type"
     ]
   },
-  "conversation_id": [
-    "833762294"
-  ],
+  "conversation_id": ["833762294"],
   "nb_hits": 46250
 }

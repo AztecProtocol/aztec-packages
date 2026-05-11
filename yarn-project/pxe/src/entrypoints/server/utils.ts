@@ -69,6 +69,7 @@ export async function createPXE(
     protocolContractsProvider,
     config: configWithContracts,
     loggerOrSuffix: pxeLogger,
+    hooks: options.hooks,
   });
   return pxe;
 }

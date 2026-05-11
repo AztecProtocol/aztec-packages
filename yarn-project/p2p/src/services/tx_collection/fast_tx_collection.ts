@@ -335,6 +335,13 @@ export class FastTxCollection {
     }
   }
 
+  /** Returns the tx hashes that are still missing (from all requests). */
+  public getMissingTxHashes(): TxHash[] {
+    return Array.from(this.requests.values()).flatMap(request =>
+      Array.from(request.requestTracker.missingTxHashes).map(TxHash.fromString),
+    );
+  }
+
   /**
    * Stop collecting all txs for blocks less than or requal to the block number specified.
    * To be called when we no longer care about gathering txs up to a certain block, eg when they become proven or finalized.

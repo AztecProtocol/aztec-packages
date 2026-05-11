@@ -120,6 +120,13 @@ export type InvalidateCheckpointRequest = {
 type EnqueueProposeCheckpointOpts = {
   txTimeoutAt?: Date;
   simulationOverridesPlan?: SimulationOverridesPlan;
+  /**
+   * Overrides to apply to the preCheck simulation right before L1 submission.
+   * Intentionally separate from `simulationOverridesPlan`: enqueue-time validation
+   * may need pipelined-parent / pretend-proof-landed overrides, but preCheck must
+   * reflect real L1 state to catch state drift between build and submission.
+   */
+  preCheckSimulationOverridesPlan?: SimulationOverridesPlan;
 };
 
 interface RequestWithExpiry {
@@ -280,10 +287,14 @@ export class SequencerPublisher {
 
   /**
    * Gets the fee asset price modifier from the oracle.
-   * Returns 0n if the oracle query fails.
+   *
+   * @param predictedParentEthPerFeeAssetE12 - Optional predicted parent eth-per-fee-asset (E12).
+   *   Pipelined proposers should pass the value from the predicted parent fee header so the
+   *   modifier matches the parent L1 will use when applying it.
+   * @returns The fee asset price modifier in basis points, or 0n if the oracle query fails.
    */
-  public getFeeAssetPriceModifier(): Promise<bigint> {
-    return this.feeAssetPriceOracle.computePriceModifier();
+  public getFeeAssetPriceModifier(predictedParentEthPerFeeAssetE12?: bigint): Promise<bigint> {
+    return this.feeAssetPriceOracle.computePriceModifier(predictedParentEthPerFeeAssetE12);
   }
 
   public getSenderAddress() {
@@ -1157,6 +1168,10 @@ export class SequencerPublisher {
       .withoutBlobCheck()
       .build();
 
+    const preCheckSimulationOverridesPlan = SimulationOverridesBuilder.from(opts.preCheckSimulationOverridesPlan)
+      .withoutBlobCheck()
+      .build();
+
     try {
       // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
       //        This means that we can avoid the simulation issues in later checks.
@@ -1188,7 +1203,7 @@ export class SequencerPublisher {
           checkpoint,
           attestationsAndSigners,
           attestationsAndSignersSignature,
-          simulationOverridesPlan,
+          preCheckSimulationOverridesPlan,
         );
       };
     }

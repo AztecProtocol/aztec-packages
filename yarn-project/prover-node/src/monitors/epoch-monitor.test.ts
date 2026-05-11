@@ -45,7 +45,10 @@ describe('EpochMonitor', () => {
             : ({ header: { getSlot: () => SlotNumber.fromBigInt(slot) } as unknown as BlockHeader } as any),
         );
       },
-      getProvenBlockNumber() {
+      getBlockNumber(query?: any) {
+        if (query && 'tag' in query && query.tag === 'proven') {
+          return Promise.resolve(BlockNumber(provenBlockNumber));
+        }
         return Promise.resolve(BlockNumber(provenBlockNumber));
       },
     });

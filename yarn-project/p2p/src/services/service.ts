@@ -201,6 +201,9 @@ export interface PeerDiscoveryService extends EventEmitter {
   on(event: 'peer:discovered', listener: (enr: ENR) => void): this;
   emit(event: 'peer:discovered', enr: ENR): boolean;
 
+  on(event: 'ip:changed', listener: (ip: string) => void): this;
+  emit(event: 'ip:changed', ip: string): boolean;
+
   getStatus(): PeerDiscoveryState;
 
   getEnr(): ENR | undefined;

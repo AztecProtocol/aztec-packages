@@ -18,6 +18,7 @@ import {
   TxSimulationResult,
   UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
+import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 
 import {
   type InteractionWaitOptions,
@@ -126,6 +127,7 @@ describe('WalletSchema', () => {
   it('registerContract', async () => {
     const mockArtifact: ContractArtifact = {
       name: 'TestContract',
+      aztecVersion: DEV_VERSION,
       functions: [],
       nonDispatchPublicFunctions: [],
       outputs: { structs: {}, globals: {} },
@@ -153,6 +155,19 @@ describe('WalletSchema', () => {
       salt: expect.any(Fr),
       version: 1,
     });
+  });
+
+  it('registerContractClass', async () => {
+    const mockArtifact: ContractArtifact = {
+      name: 'TestContract',
+      aztecVersion: DEV_VERSION,
+      functions: [],
+      nonDispatchPublicFunctions: [],
+      outputs: { structs: {}, globals: {} },
+      fileMap: {},
+      storageLayout: {},
+    };
+    await context.client.registerContractClass(mockArtifact);
   });
 
   it('simulateTx', async () => {
@@ -318,6 +333,7 @@ describe('WalletSchema', () => {
 
     const mockArtifact: ContractArtifact = {
       name: 'TestContract',
+      aztecVersion: DEV_VERSION,
       functions: [],
       nonDispatchPublicFunctions: [],
       outputs: { structs: {}, globals: {} },
@@ -447,6 +463,8 @@ class MockWallet implements Wallet {
       salt: Fr.random(),
     };
   }
+
+  async registerContractClass(_artifact: any): Promise<void> {}
 
   async simulateTx(_exec: ExecutionPayload, _opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset> {
     return TxSimulationResultWithAppOffset.fromResultAndOffset(await TxSimulationResult.random(), 0);

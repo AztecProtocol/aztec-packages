@@ -393,6 +393,30 @@ describe('sequencer', () => {
       expectPublisherProposeL2Block();
     });
 
+    it('does not build a block when targetSlot is in pauseProposingForSlots', async () => {
+      await setupSingleTxBlock();
+      const targetSlot = block.header.globalVariables.slotNumber;
+      sequencer.updateConfig({ pauseProposingForSlots: [targetSlot] });
+
+      await sequencer.work();
+
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(0);
+      expect(publisher.canProposeAt).not.toHaveBeenCalled();
+      expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
+    });
+
+    it('still builds a block when targetSlot is not in pauseProposingForSlots', async () => {
+      await setupSingleTxBlock();
+      const targetSlot = block.header.globalVariables.slotNumber;
+      const otherSlot = SlotNumber(Number(targetSlot) + 1);
+      sequencer.updateConfig({ pauseProposingForSlots: [otherSlot] });
+
+      await sequencer.work();
+      await sequencer.awaitLastProposalSubmission();
+
+      expectPublisherProposeL2Block();
+    });
+
     it('does not build a block if it does not have enough time left in the slot', async () => {
       await setupSingleTxBlock();
 
@@ -1081,7 +1105,7 @@ describe('sequencer', () => {
       await sequencer.work();
 
       const simulationOverridesPlan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
-      expect(simulationOverridesPlan?.pendingCheckpointNumber).toEqual(CheckpointNumber(1));
+      expect(simulationOverridesPlan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
       expect(simulationOverridesPlan?.pendingCheckpointState?.archive).toEqual(expect.anything());
     });
 
@@ -1173,6 +1197,129 @@ describe('sequencer', () => {
       await sequencer.work();
 
       expect(publisher.canProposeAt.mock.calls.at(-1)?.[2]).toBeUndefined();
+    });
+
+    it('attaches proven override equal to real pending when isPruneDueAtSlot returns true', async () => {
+      await setupSingleTxBlock();
+
+      // No proposed checkpoint, so we exercise the standalone proven override path.
+      // The default `getL2Tips` mock has checkpointed.checkpoint.number == CheckpointNumber.ZERO.
+      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber.ZERO);
+    });
+
+    it('uses the simulated pending as the proven override when the caller overrides pending', async () => {
+      await setupSingleTxBlock();
+
+      // Set up a pipelined parent (pending override = parentCheckpointNumber = 1).
+      const nonGenesisHash = Fr.random().toString();
+      const proposedCheckpointHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: BlockNumber(1),
+          latestBlockHash: nonGenesisHash,
+          finalizedBlockNumber: BlockNumber.ZERO,
+          oldestHistoricBlockNumber: BlockNumber.ZERO,
+          treesAreSynched: true,
+        },
+      } satisfies WorldStateSynchronizerStatus);
+      const tipsWithBlock1 = {
+        proposed: { number: BlockNumber(1), hash: nonGenesisHash },
+        proposedCheckpoint: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
+        },
+        checkpointed: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+        proven: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+        finalized: {
+          block: { number: BlockNumber(1), hash: nonGenesisHash },
+          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+        },
+      };
+      l2BlockSource.getL2Tips.mockResolvedValue(tipsWithBlock1);
+      l1ToL2MessageSource.getL2Tips.mockResolvedValue(tipsWithBlock1);
+      p2p.getStatus.mockResolvedValue({
+        syncedToL2Block: { number: BlockNumber(1), hash: nonGenesisHash },
+      } as any);
+      l2BlockSource.getBlockData.mockResolvedValue({
+        header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1) }) }),
+        archive: AppendOnlyTreeSnapshot.empty(),
+        blockHash: BlockHash.ZERO,
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      } satisfies BlockData);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
+        checkpointNumber: CheckpointNumber(1),
+      } as any);
+
+      // The sequencer sets proven == simulated pending so canPruneAtTime short-circuits to false.
+      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(1));
+    });
+
+    it('does not attach proven override when isPruneDueAtSlot returns false', async () => {
+      await setupSingleTxBlock();
+
+      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(false);
+
+      await sequencer.work();
+
+      const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
+      expect(plan?.chainTipsOverride?.proven).toBeUndefined();
+    });
+
+    it('emits preparing-checkpoint with provenOverride when prune is due', async () => {
+      await setupSingleTxBlock();
+
+      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(true);
+
+      const events: any[] = [];
+      sequencer.on('preparing-checkpoint', args => events.push(args));
+
+      await sequencer.work();
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toEqual({
+        targetSlot: SlotNumber(2),
+        checkpointNumber: expect.anything(),
+        hadProposedParent: false,
+        provenOverride: CheckpointNumber.ZERO,
+        simulatedPending: undefined,
+      });
+    });
+
+    it('emits preparing-checkpoint without provenOverride when no prune is due', async () => {
+      await setupSingleTxBlock();
+
+      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(false);
+
+      const events: any[] = [];
+      sequencer.on('preparing-checkpoint', args => events.push(args));
+
+      await sequencer.work();
+
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        targetSlot: SlotNumber(2),
+        hadProposedParent: false,
+        provenOverride: undefined,
+      });
     });
   });
 

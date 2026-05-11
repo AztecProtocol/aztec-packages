@@ -299,7 +299,8 @@ describe('e2e_epochs/epochs_mbps', () => {
     // wait for the other node to synch
     const maxBlockNumber = Math.max(...receipts.map(r => r.blockNumber!));
     await retryUntil(
-      async () => ((await archiver.getCheckpointedL2BlockNumber()) >= maxBlockNumber ? true : undefined),
+      async () =>
+        ((await archiver.getBlockNumber({ tag: 'checkpointed' })) ?? 0) >= maxBlockNumber ? true : undefined,
       `archiver to checkpoint block ${maxBlockNumber}`,
       test.L2_SLOT_DURATION_IN_S * 3,
       0.1,
@@ -507,7 +508,7 @@ describe('e2e_epochs/epochs_mbps', () => {
     const highPriority = new GasFees(100, 100);
     const lowPriority = new GasFees(1, 1);
 
-    const deployMethod = TestContract.deploy(wallet);
+    const deployMethod = TestContract.deploy(wallet, { deployer: from });
     const deployInstance = await deployMethod.getInstance();
     logger.warn(`Will deploy TestContract at ${deployInstance.address}`);
 
@@ -576,12 +577,26 @@ describe('e2e_epochs/epochs_mbps', () => {
 
     // Verify both blocks belong to the same checkpoint.
     const deployCheckpointedBlock = await retryUntil(
-      async () => (await context.aztecNode.getCheckpointedBlocks(deployReceipt.blockNumber!, 1))[0],
+      async () =>
+        (
+          await context.aztecNode.getBlocks(deployReceipt.blockNumber!, 1, {
+            includeL1PublishInfo: true,
+            includeAttestations: true,
+            onlyCheckpointed: true,
+          })
+        )[0],
       'deploy checkpointed block',
       timeout,
     );
     const callCheckpointedBlock = await retryUntil(
-      async () => (await context.aztecNode.getCheckpointedBlocks(callReceipt.blockNumber!, 1))[0],
+      async () =>
+        (
+          await context.aztecNode.getBlocks(callReceipt.blockNumber!, 1, {
+            includeL1PublishInfo: true,
+            includeAttestations: true,
+            onlyCheckpointed: true,
+          })
+        )[0],
       'call checkpointed block',
       timeout,
     );

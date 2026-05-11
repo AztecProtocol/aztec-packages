@@ -30,7 +30,14 @@ import {
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import {
+  type L1RollupConstants,
+  getEpochAtSlot,
+  getEpochNumberAtTimestamp,
+  getLastL1SlotTimestampForL2Slot,
+  getProofSubmissionDeadlineEpoch,
+  getSlotRangeForEpoch,
+} from '@aztec/stdlib/epoch-helpers';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import type { LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -143,6 +150,29 @@ export abstract class ArchiverDataSourceBase
 
   abstract syncImmediate(): Promise<void>;
 
+  public async isPruneDueAtSlot(slot: SlotNumber): Promise<boolean> {
+    if (!this.l1Constants) {
+      throw new Error('isPruneDueAtSlot requires l1Constants');
+    }
+    const tips = await this.getL2Tips();
+    const proven = tips.proven.checkpoint.number;
+    const pending = tips.checkpointed.checkpoint.number;
+    if (pending === proven) {
+      return false;
+    }
+
+    const oldestUnproven = await this.getCheckpointData({ number: CheckpointNumber(Number(proven) + 1) });
+    if (!oldestUnproven) {
+      return false;
+    }
+
+    const slotTs = getLastL1SlotTimestampForL2Slot(slot, this.l1Constants);
+    const slotEpoch = getEpochNumberAtTimestamp(slotTs, this.l1Constants);
+    const oldestUnprovenEpoch = getEpochAtSlot(oldestUnproven.header.slotNumber, this.l1Constants);
+    const deadlineEpoch = getProofSubmissionDeadlineEpoch(oldestUnprovenEpoch, this.l1Constants);
+    return slotEpoch >= deadlineEpoch;
+  }
+
   public getCheckpointNumber(): Promise<CheckpointNumber> {
     return this.stores.blocks.getLatestCheckpointNumber();
   }
@@ -165,18 +195,6 @@ export abstract class ArchiverDataSourceBase
       return BlockNumber.ZERO;
     }
     return this.stores.blocks.getBlockNumber(resolved);
-  }
-
-  public getProvenBlockNumber(): Promise<BlockNumber> {
-    return this.stores.blocks.getProvenBlockNumber();
-  }
-
-  public getCheckpointedL2BlockNumber(): Promise<BlockNumber> {
-    return this.stores.blocks.getCheckpointedL2BlockNumber();
-  }
-
-  public getFinalizedL2BlockNumber(): Promise<BlockNumber> {
-    return this.stores.blocks.getFinalizedL2BlockNumber();
   }
 
   /**

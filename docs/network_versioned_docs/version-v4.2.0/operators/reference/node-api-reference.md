@@ -109,9 +109,9 @@ Get a block specified by its block number or 'latest'.
 
 **Parameters**:
 
-1. `blockParameter` - `number | "latest"` - The block parameter (block number, block hash, or 'latest').
+1. `blockParameter` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest').
 
-**Returns**: `L2Block` - The requested block.
+**Returns**: `L2Block | undefined` - The requested block.
 
 **Example**:
 
@@ -129,7 +129,7 @@ Get a block specified by its hash.
 
 1. `blockHash` - `BlockHash` - The block hash being requested.
 
-**Returns**: `L2Block` - The requested block.
+**Returns**: `L2Block | undefined` - The requested block.
 
 **Example**:
 
@@ -147,7 +147,7 @@ Get a block specified by its archive root.
 
 1. `archive` - `Fr` - The archive root being requested.
 
-**Returns**: `L2Block` - The requested block.
+**Returns**: `L2Block | undefined` - The requested block.
 
 **Example**:
 
@@ -173,7 +173,7 @@ Method to request blocks. Will attempt to return all requested blocks but will r
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getBlocks","params":[12345,12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getBlocks","params":[1,100],"id":1}'
 ```
 
 ### node_getBlockHeader
@@ -182,9 +182,9 @@ Returns the block header for a given block number, block hash, or 'latest'.
 
 **Parameters**:
 
-1. `block` - `number | "latest" | undefined` - The block parameter (block number, block hash, or 'latest'). Defaults to 'latest'.
+1. `block` - `BlockHash | number | "latest" | undefined` - The block parameter (block number, block hash, or 'latest'). Defaults to 'latest'.
 
-**Returns**: `BlockHeader` - The requested block header.
+**Returns**: `BlockHeader | undefined` - The requested block header.
 
 **Example**:
 
@@ -202,7 +202,7 @@ Get a block header specified by its archive root.
 
 1. `archive` - `Fr` - The archive root being requested.
 
-**Returns**: `BlockHeader` - The requested block header.
+**Returns**: `BlockHeader | undefined` - The requested block header.
 
 **Example**:
 
@@ -228,7 +228,7 @@ Retrieves a collection of checkpoints.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpoints","params":[12345,12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getCheckpoints","params":[1,100],"id":1}'
 ```
 
 ### node_getCheckpointedBlocks
@@ -245,7 +245,7 @@ curl -X POST http://localhost:8080 \
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getCheckpointedBlocks","params":[12345,12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getCheckpointedBlocks","params":[1,100],"id":1}'
 ```
 
 ### node_getCheckpointsDataForEpoch
@@ -332,7 +332,7 @@ Method to retrieve a single pending tx.
 
 1. `txHash` - `TxHash` - The transaction hash to return.
 
-**Returns**: `Tx` - The pending tx if it exists.
+**Returns**: `Tx | undefined` - The pending tx if it exists.
 
 **Example**:
 
@@ -376,7 +376,7 @@ Method to retrieve pending txs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPendingTxs","params":[12345,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getPendingTxs","params":[100,"0x1234..."],"id":1}'
 ```
 
 ### node_getPendingTxCount
@@ -442,9 +442,12 @@ curl -X POST http://localhost:8080 \
 
 Gets the storage value at the given contract storage slot.
 
+**Remarks**: The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
+Aztec's version of `eth_getStorageAt`.
+
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `contract` - `AztecAddress` - Address of the contract to query.
 3. `slot` - `Fr` - Slot to query.
 
@@ -483,11 +486,11 @@ the leaves were inserted.
 
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `treeId` - `MerkleTreeId` - The tree to search in.
 3. `leafValues` - `Fr[]` - The values to search for.
 
-**Returns**: `DataInBlock<bigint> | undefined[]` - The indices of leaves and the block metadata of a block in which the leaves were inserted.
+**Returns**: `(DataInBlock<bigint> | undefined)[]` - The indices of leaves and the block metadata of a block in which the leaves were inserted.
 
 **Example**:
 
@@ -503,10 +506,10 @@ Returns a nullifier membership witness for a given nullifier at a given block.
 
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `nullifier` - `Fr` - Nullifier we try to find witness for.
 
-**Returns**: `NullifierMembershipWitness` - The nullifier membership witness (if found).
+**Returns**: `NullifierMembershipWitness | undefined` - The nullifier membership witness (if found).
 
 **Example**:
 
@@ -520,12 +523,16 @@ curl -X POST http://localhost:8080 \
 
 Returns a low nullifier membership witness for a given nullifier at a given block.
 
+**Remarks**: Low nullifier witness can be used to perform a nullifier non-inclusion proof by leveraging the "linked
+list structure" of leaves and proving that a lower nullifier is pointing to a bigger next value than the nullifier
+we are trying to prove non-inclusion for.
+
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `nullifier` - `Fr` - Nullifier we try to find the low nullifier witness for.
 
-**Returns**: `NullifierMembershipWitness` - The low nullifier membership witness (if found).
+**Returns**: `NullifierMembershipWitness | undefined` - The low nullifier membership witness (if found).
 
 **Example**:
 
@@ -539,12 +546,16 @@ curl -X POST http://localhost:8080 \
 
 Returns a public data tree witness for a given leaf slot at a given block.
 
+**Remarks**: The witness can be used to compute the current value of the public data tree leaf. If the low leaf preimage corresponds to an
+"in range" slot, means that the slot doesn't exist and the value is 0. If the low leaf preimage corresponds to the exact slot, the current value
+is contained in the leaf preimage.
+
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `leafSlot` - `Fr` - The leaf slot we try to find the witness for.
 
-**Returns**: `PublicDataWitness` - The public data witness (if found).
+**Returns**: `PublicDataWitness | undefined` - The public data witness (if found).
 
 **Example**:
 
@@ -565,7 +576,7 @@ a specific block exists in the chain's history.
 
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data
 (which contains the root of the archive tree in which we are searching for the block hash).
 2. `blockHash` - `BlockHash` - The block hash to find in the archive tree.
 
@@ -585,7 +596,7 @@ Returns a membership witness for a given note hash at a given block.
 
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `noteHash` - `Fr` - The note hash we try to find the witness for.
 
 **Returns**: `MembershipWitness | undefined`
@@ -606,7 +617,7 @@ Returns the index and a sibling path for a leaf in the committed l1 to l2 data t
 
 **Parameters**:
 
-1. `referenceBlock` - `number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
+1. `referenceBlock` - `BlockHash | number | "latest"` - The block parameter (block number, block hash, or 'latest') at which to get the data.
 2. `l1ToL2Message` - `Fr` - The l1ToL2Message to get the index / sibling path for.
 
 **Returns**: `[bigint, SiblingPath] | undefined` - A tuple of the index and the sibling path of the L1ToL2Message (undefined if not found).
@@ -736,7 +747,7 @@ for a tag, the caller should fetch the next page to check for more logs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPrivateLogsByTags","params":[["0x1234..."],12345,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getPrivateLogsByTags","params":[["0x1234..."],0,"0x1234..."],"id":1}'
 ```
 
 ### node_getPublicLogsByTagsFromContract
@@ -762,7 +773,7 @@ for a tag, the caller should fetch the next page to check for more logs.
 ```bash
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"node_getPublicLogsByTagsFromContract","params":["0x1234...",["0x1234..."],12345,"0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"node_getPublicLogsByTagsFromContract","params":["0x1234...",["0x1234..."],0,"0x1234..."],"id":1}'
 ```
 
 ## Contract queries
@@ -819,6 +830,26 @@ Method to fetch the current min fees.
 curl -X POST http://localhost:8080 \
   -H 'Content-Type: application/json' \
   -d '{"jsonrpc":"2.0","method":"node_getCurrentMinFees","params":[],"id":1}'
+```
+
+### node_getPredictedMinFees
+
+Returns predicted min fees for the current slot and next N slots.
+Each entry accounts for the L1 gas oracle transition and congestion growth based on the
+given mana usage estimate. Defaults to target usage (steady state).
+
+**Parameters**:
+
+1. `manaUsage` - `ManaUsageEstimate | undefined` - Expected mana usage per checkpoint (none, target, or limit).
+
+**Returns**: `GasFees[]` - An array of GasFees, one per slot in the prediction window.
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8080 \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","method":"node_getPredictedMinFees","params":["target"],"id":1}'
 ```
 
 ### node_getMaxPriorityFees
@@ -1169,6 +1200,8 @@ Pauses syncing and rolls back the database to the target L2 block number.
 **Parameters**:
 
 1. `targetBlockNumber` - `number` - The block number to roll back to.
+2. `force` - `boolean | undefined` - If true, clears the world state db and p2p dbs if rolling back to behind the finalized block.
+3. `resumeSync` - `boolean | undefined` - If true (default), resumes archiver and world state sync after rollback.
 
 **Returns**: `void`
 
@@ -1177,7 +1210,7 @@ Pauses syncing and rolls back the database to the target L2 block number.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345,true,true],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1185,7 +1218,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_rollbackTo","params":[12345,true,true],"id":1}'
 ```
 
 ### nodeAdmin_startSnapshotUpload
@@ -1214,30 +1247,6 @@ docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -d '{"jsonrpc":"2.0","method":"nodeAdmin_startSnapshotUpload","params":["0x1234..."],"id":1}'
 ```
 
-### nodeAdmin_getSlashPayloads
-
-Returns all monitored payloads by the slasher for the current round.
-
-**Parameters**: None
-
-**Returns**: `SlashPayloadRound[]`
-
-**Example (CLI)**:
-
-```bash
-curl -X POST http://localhost:8880 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashPayloads","params":[],"id":1}'
-```
-
-**Example (Docker)**:
-
-```bash
-docker exec -it aztec-node curl -X POST http://localhost:8880 \
-  -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashPayloads","params":[],"id":1}'
-```
-
 ### nodeAdmin_getSlashOffenses
 
 Returns all offenses applicable for the given round.
@@ -1253,7 +1262,7 @@ Returns all offenses applicable for the given round.
 ```bash
 curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```
 
 **Example (Docker)**:
@@ -1261,7 +1270,7 @@ curl -X POST http://localhost:8880 \
 ```bash
 docker exec -it aztec-node curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["0x1234..."],"id":1}'
+  -d '{"jsonrpc":"2.0","method":"nodeAdmin_getSlashOffenses","params":["current"],"id":1}'
 ```
 
 ### nodeAdmin_reloadKeystore

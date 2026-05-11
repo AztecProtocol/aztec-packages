@@ -43,6 +43,7 @@ describe('PeerManager', () => {
     off: jest.fn(),
     isBootstrapPeer: jest.fn().mockReturnValue(false),
     runRandomNodesQuery: jest.fn(),
+    getKadValues: jest.fn().mockReturnValue([]),
   };
 
   const mockEpochCache = mock<EpochCache>();

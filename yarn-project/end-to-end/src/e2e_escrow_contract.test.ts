@@ -38,7 +38,7 @@ describe('e2e_escrow_contract', () => {
     // Note that we need to register it first if we want to emit an encrypted note for it in the constructor
     escrowSecretKey = Fr.random();
     escrowPublicKeys = (await deriveKeys(escrowSecretKey)).publicKeys;
-    const escrowDeployment = EscrowContract.deployWithPublicKeys(escrowPublicKeys, wallet, owner);
+    const escrowDeployment = EscrowContract.deploy(wallet, owner, { publicKeys: escrowPublicKeys, deployer: owner });
     const escrowInstance = await escrowDeployment.getInstance();
     await wallet.registerContract(escrowInstance, EscrowContract.artifact, escrowSecretKey);
     // The contract constructor initializes private storage vars that need the contract's own nullifier key.

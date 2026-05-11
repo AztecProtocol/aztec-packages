@@ -18,14 +18,9 @@ pub unconstrained fn setup(
     };
 
     // Deploy token contract
-    let initializer_call = Token::interface().constructor(
-        owner,
-        "TestToken0000000000000000000000",
-        "TT00000000000000000000000000000",
-        18,
-    );
-    let token_contract_address =
-        env.deploy("Token").with_public_initializer(owner, initializer_call);
+    let initializer_call =
+        Token::interface().constructor(owner, "TestToken0000000000000000000000", "TT00000000000000000000000000000", 18);
+    let token_contract_address = env.deploy("Token").with_public_initializer(owner, initializer_call);
     (env, token_contract_address, owner, recipient)
 }
 
@@ -68,10 +63,7 @@ pub unconstrained fn check_public_balance(
     address: AztecAddress,
     address_amount: u128,
 ) {
-    assert_eq(
-        env.view_public(Token::at(token_contract_address).balance_of_public(address)),
-        address_amount,
-    );
+    assert_eq(env.view_public(Token::at(token_contract_address).balance_of_public(address)), address_amount);
 }
 
 pub unconstrained fn check_private_balance(
@@ -80,10 +72,7 @@ pub unconstrained fn check_private_balance(
     address: AztecAddress,
     address_amount: u128,
 ) {
-    assert_eq(
-        env.execute_utility(Token::at(token_contract_address).balance_of_private(address)),
-        address_amount,
-    );
+    assert_eq(env.execute_utility(Token::at(token_contract_address).balance_of_private(address)), address_amount);
 }
 
 // While authwits authorize a contract to perform an action, spending private notes still requires

@@ -24,7 +24,10 @@ TEST_F(SpecialPublicInputsTests, Basic)
     G1Native P0_val = G1Native::random_element();
     G1Native P1_val = G1Native::random_element();
     G1Native kernel_return_data_val = G1Native::random_element();
-    G1Native app_return_data_val = G1Native::random_element();
+    std::array<G1Native, MAX_APPS_PER_KERNEL> app_return_data_val;
+    for (auto& value : app_return_data_val) {
+        value = G1Native::random_element();
+    }
     FFNative ecc_op_hash_val = FFNative::random_element();
     FFNative output_hn_accum_hash_val = FFNative::random_element();
 
@@ -40,7 +43,9 @@ TEST_F(SpecialPublicInputsTests, Basic)
         PairingInputs pairing_inputs{ G1::from_witness(&builder, P0_val), G1::from_witness(&builder, P1_val) };
         kernel_output.pairing_inputs = pairing_inputs;
         kernel_output.kernel_return_data = G1::from_witness(&builder, kernel_return_data_val);
-        kernel_output.app_return_data = G1::from_witness(&builder, app_return_data_val);
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+            kernel_output.app_return_data[idx] = G1::from_witness(&builder, app_return_data_val[idx]);
+        }
         kernel_output.ecc_op_hash = FF::from_witness(&builder, ecc_op_hash_val);
         kernel_output.output_hn_accum_hash = FF::from_witness(&builder, output_hn_accum_hash_val);
 
@@ -70,7 +75,9 @@ TEST_F(SpecialPublicInputsTests, Basic)
         EXPECT_EQ(kernel_input.pairing_inputs.P0().get_value(), P0_val);
         EXPECT_EQ(kernel_input.pairing_inputs.P1().get_value(), P1_val);
         EXPECT_EQ(kernel_input.kernel_return_data.get_value(), kernel_return_data_val);
-        EXPECT_EQ(kernel_input.app_return_data.get_value(), app_return_data_val);
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+            EXPECT_EQ(kernel_input.app_return_data[idx].get_value(), app_return_data_val[idx]);
+        }
         EXPECT_EQ(kernel_input.ecc_op_hash.get_value(), ecc_op_hash_val);
         EXPECT_EQ(kernel_input.output_hn_accum_hash.get_value(), output_hn_accum_hash_val);
     }

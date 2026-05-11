@@ -126,25 +126,6 @@ export interface L2BlockSource {
   getCheckpointNumber(): Promise<CheckpointNumber>;
 
   /**
-   * Gets the number of the latest L2 block proven seen by the block source implementation.
-   * @returns The number of the latest L2 block proven seen by the block source implementation.
-   */
-  getProvenBlockNumber(): Promise<BlockNumber>;
-
-  /**
-   * Gets the number of the latest L2 block checkpointed seen by the block source implementation.
-   * @returns The number of the latest L2 block checkpointed seen by the block source implementation.
-   */
-  getCheckpointedL2BlockNumber(): Promise<BlockNumber>;
-
-  /**
-   * Returns the finalized L2 block number. A block is finalized when it was proven
-   * in an L1 block that has itself been finalized on Ethereum.
-   * @returns The finalized block number.
-   */
-  getFinalizedL2BlockNumber(): Promise<BlockNumber>;
-
-  /**
    * Gets a single confirmed checkpoint matching the given query.
    * Heavy shape: includes nested full `L2Block`s with transaction bodies.
    * @param query - Lookup by checkpoint number, slot, or chain-tip tag.
@@ -215,6 +196,13 @@ export interface L2BlockSource {
    * Returns the rollup constants for the current chain.
    */
   getL1Constants(): Promise<L1RollupConstants>;
+
+  /**
+   * Returns true iff `canPruneAtTime` would be true at the latest L1 timestamp inside
+   * the L2 slot's window. Computed entirely from local archiver state (no L1 RPC).
+   * @param slot - The L2 slot to check.
+   */
+  isPruneDueAtSlot(slot: SlotNumber): Promise<boolean>;
 
   /** Returns values for the genesis block */
   getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }>;
