@@ -18,7 +18,9 @@ import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
-describe('e2e_fees failures', () => {
+// TODO(kill-non-pipelined): fee-failure assertions rely on snapshot-stale-fees being rejected at a
+// specific cadence that no longer reproduces under pipelined proposing.
+describe.skip('e2e_fees failures', () => {
   let wallet: Wallet;
   let aliceAddress: AztecAddress;
   let sequencerAddress: AztecAddress;

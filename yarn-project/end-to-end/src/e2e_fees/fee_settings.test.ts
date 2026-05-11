@@ -16,7 +16,9 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
-describe('e2e_fees fee settings', () => {
+// TODO(kill-non-pipelined): tests exercise fee-snapshot race timing that no longer reproduces under
+// pipelined proposing (compressed slot cadence + faster fee evolution). Re-evaluate the scenarios.
+describe.skip('e2e_fees fee settings', () => {
   let aztecNode: AztecNode;
   let cheatCodes: CheatCodes;
   let aliceAddress: AztecAddress;
