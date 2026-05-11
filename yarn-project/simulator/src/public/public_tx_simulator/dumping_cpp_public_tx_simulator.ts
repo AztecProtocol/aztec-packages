@@ -4,80 +4,65 @@ import {
   AvmCircuitPublicInputs,
   AvmExecutionHints,
   type PublicSimulatorConfig,
-  PublicTxResult,
+  type PublicTxResult,
   serializeWithMessagePack,
 } from '@aztec/stdlib/avm';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
-import type { GlobalVariables, Tx, TxHash } from '@aztec/stdlib/tx';
+import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-import type { PublicContractsDB } from '../public_db_sources.js';
-import { CppPublicTxSimulator } from './cpp_public_tx_simulator.js';
+import { type AvmIpcBackend, CppPublicTxSimulator } from './cpp_public_tx_simulator.js';
+import type { SimulationHandle } from './public_tx_simulator_interface.js';
 
 /**
- * A C++ public tx simulator that dumps AVM circuit inputs to disk after simulation.
- * Used during nightly CI runs to collect circuit inputs for benchmarking.
+ * IPC-based C++ public tx simulator that dumps AVM circuit inputs to disk after simulation.
+ * Used during nightly CI runs to collect circuit inputs for AVM proving benchmarks.
  */
 export class DumpingCppPublicTxSimulator extends CppPublicTxSimulator {
   private readonly outputDir: string;
 
   constructor(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
+    avmBackend: AvmIpcBackend,
     globalVariables: GlobalVariables,
     config: Partial<PublicSimulatorConfig>,
     outputDir: string,
     bindings?: LoggerBindings,
+    wsdbForkId?: number,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config, bindings);
+    super(avmBackend, globalVariables, config, bindings, wsdbForkId);
     assert(config.collectHints === true, 'collectHints must be enabled to dump AVM circuit inputs');
     assert(config.collectPublicInputs === true, 'collectPublicInputs must be enabled to dump AVM circuit inputs');
     this.outputDir = outputDir;
   }
 
-  public override async simulate(tx: Tx): Promise<PublicTxResult> {
-    const result = await super.simulate(tx);
-
-    // Dump the circuit inputs after successful simulation
-    const txHash = this.computeTxHash(tx);
-    this.dumpAvmCircuitInputs(result, txHash);
-
-    return result;
+  public override simulate(tx: Tx): SimulationHandle {
+    const handle = super.simulate(tx);
+    const result = handle.result.then(r => {
+      this.dumpAvmCircuitInputs(r, tx.getTxHash().toString());
+      return r;
+    });
+    return { result, cancel: handle.cancel };
   }
 
-  /**
-   * Dumps AVM circuit inputs to disk.
-   *
-   * @param result - The simulation result containing hints and public inputs
-   * @param txHash - The transaction hash to use in the filename
-   */
-  private dumpAvmCircuitInputs(result: PublicTxResult, txHash: TxHash): void {
+  private dumpAvmCircuitInputs(result: PublicTxResult, txHash: string): void {
     try {
-      // Ensure the output directory exists
       mkdirSync(this.outputDir, { recursive: true });
 
-      // Generate filename using transaction hash
-      const filename = `avm-circuit-inputs-tx-${txHash.toString()}.bin`;
+      const filename = `avm-circuit-inputs-tx-${txHash}.bin`;
       const filepath = join(this.outputDir, filename);
 
-      // Create circuit inputs from the result
       const hints = result.hints ?? AvmExecutionHints.empty();
       const publicInputs = result.publicInputs ?? AvmCircuitPublicInputs.empty();
       const avmCircuitInputs = new AvmCircuitInputs(hints, publicInputs);
 
-      // Serialize the circuit inputs using MessagePack
       const serialized = serializeWithMessagePack(avmCircuitInputs);
-
-      // Write to disk
       writeFileSync(filepath, serialized);
 
       this.log.debug(`Dumped AVM circuit inputs to ${filepath}`);
     } catch (error) {
-      // Non-blocking error handling - log but don't interrupt processing
-      this.log.warn(`Failed to dump AVM circuit inputs for tx ${txHash.toString()}: ${error}`);
+      this.log.warn(`Failed to dump AVM circuit inputs for tx ${txHash}: ${error}`);
     }
   }
 }

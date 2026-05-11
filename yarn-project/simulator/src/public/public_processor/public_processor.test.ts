@@ -93,9 +93,10 @@ describe('public_processor', () => {
     merkleTree.getStateReference.mockResolvedValue(stateReference);
     merkleTree.createCheckpoint.mockResolvedValue(1);
 
-    publicTxSimulator.simulate.mockImplementation(() => {
-      return Promise.resolve(mockedEnqueuedCallsResult);
-    });
+    publicTxSimulator.simulate.mockImplementation(() => ({
+      result: Promise.resolve(mockedEnqueuedCallsResult),
+      cancel: async () => {},
+    }));
 
     processor = new PublicProcessor(
       globalVariables,
@@ -148,7 +149,13 @@ describe('public_processor', () => {
     });
 
     it('returns failed txs without aborting entire operation', async function () {
-      publicTxSimulator.simulate.mockRejectedValue(new Error(`Failed`));
+      publicTxSimulator.simulate.mockImplementation(() => {
+        const result = Promise.resolve().then(() => {
+          throw new Error(`Failed`);
+        });
+        void result.catch(() => {}); // Prevent unhandled rejection
+        return { result, cancel: async () => {} };
+      });
 
       const tx = await mockTxWithPublicCalls();
       const [processed, failed] = await processor.process([tx]);
@@ -270,10 +277,13 @@ describe('public_processor', () => {
       const txs = await timesParallel(3, seed => mockTxWithPublicCalls({ seed }));
 
       // The simulator will take 400ms to process each tx
-      publicTxSimulator.simulate.mockImplementation(async () => {
-        await sleep(800);
-        return mockedEnqueuedCallsResult;
-      });
+      publicTxSimulator.simulate.mockImplementation(() => ({
+        result: (async () => {
+          await sleep(800);
+          return mockedEnqueuedCallsResult;
+        })(),
+        cancel: async () => {},
+      }));
 
       // We allocate a deadline of 2s, so only 2 txs should fit
       const deadline = new Date(Date.now() + 2000);
@@ -349,7 +359,13 @@ describe('public_processor', () => {
   describe('checkpoint depth', () => {
     it('calls revertAllCheckpointsTo with depth on tx failure', async function () {
       merkleTree.createCheckpoint.mockResolvedValue(2);
-      publicTxSimulator.simulate.mockRejectedValue(new Error('Boom'));
+      publicTxSimulator.simulate.mockImplementation(() => {
+        const result = Promise.resolve().then(() => {
+          throw new Error('Boom');
+        });
+        void result.catch(() => {}); // Prevent unhandled rejection
+        return { result, cancel: async () => {} };
+      });
 
       const tx = await mockTxWithPublicCalls();
       const [processed, failed] = await processor.process([tx]);
@@ -401,5 +417,36 @@ describe('public_processor', () => {
     const contractClass = await contractsDB.getContractClass(contractClassId);
     // On uncaught error, the public processor clears the tx-level cache entirely
     expect(contractClass).toBeUndefined();
+  });
+
+  describe('timeout cancellation', () => {
+    it('calls cancel on simulation handle when deadline is exceeded', async function () {
+      let cancelCalled = false;
+      const cancelFn = () => {
+        cancelCalled = true;
+        return Promise.resolve();
+      };
+
+      // Simulate a slow simulation: resolves after 2000ms (will be killed by 100ms timeout)
+      publicTxSimulator.simulate.mockImplementation(() => {
+        const result = new Promise<typeof mockedEnqueuedCallsResult>(resolve => {
+          setTimeout(() => resolve(mockedEnqueuedCallsResult), 2000);
+        });
+        return { result, cancel: cancelFn };
+      });
+
+      const tx = await mockTxWithPublicCalls();
+      // Set deadline 100ms in the future — simulation takes 2s so timeout wins
+      const deadline = new Date(Date.now() + 100);
+
+      const [processed] = await processor.process([tx], { deadline });
+
+      // Simulation should have been cancelled via handle.cancel()
+      expect(cancelCalled).toBe(true);
+      // Tx should be dropped (timeout stops processing)
+      expect(processed).toEqual([]);
+      // Checkpoints should have been reverted
+      expect(merkleTree.revertAllCheckpointsTo).toHaveBeenCalled();
+    });
   });
 });

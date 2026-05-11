@@ -10,10 +10,11 @@ import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
+import { CdbIpcServer } from '../../cdb_ipc_server.js';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { PublicContractsDB } from '../../public_db_sources.js';
-import { CppPublicTxSimulator } from '../../public_tx_simulator/cpp_public_tx_simulator.js';
-import { CppVsTsPublicTxSimulator } from '../../public_tx_simulator/cpp_vs_ts_public_tx_simulator.js';
+import { type AvmIpcBackend, CppPublicTxSimulator } from '../../public_tx_simulator/cpp_public_tx_simulator.js';
+import { IpcVsTsPublicTxSimulator } from '../../public_tx_simulator/ipc_vs_ts_public_tx_simulator.js';
 import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
@@ -32,6 +33,8 @@ describe.each([
   let contractsDB: PublicContractsDB;
   let tester: PublicTxSimulationTester;
   let processor: PublicProcessor;
+  let avmBackend: AvmIpcBackend | undefined;
+  let cdbServer: CdbIpcServer | undefined;
 
   beforeEach(async () => {
     const globals = GlobalVariables.empty();
@@ -50,11 +53,59 @@ describe.each([
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    // TS mode: use CppVsTs to compare TS and C++ results
-    // C++ mode: use only C++ (pure Cpp simulator)
-    const simulator = useCppSimulator
-      ? new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config)
-      : new CppVsTsPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
+
+    let simulator;
+    if (useCppSimulator) {
+      // IPC: spawn aztec-avm + CDB server
+      const wsdbSocketPath = worldStateService.getSocketPath();
+      const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
+      const { findAvmBinary } = await import('@aztec/bb.js/platform');
+      const avmBinaryPath = findAvmBinary();
+      if (!avmBinaryPath) {
+        throw new Error('aztec-avm binary not found');
+      }
+
+      cdbServer = new CdbIpcServer();
+
+      avmBackend = new AvmBackend({
+        binaryPath: avmBinaryPath,
+        wsdbSocketPath,
+        cdbSocketPath: cdbServer.socketPath,
+      });
+
+      const forkId = merkleTrees.getRevision().forkId;
+      cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
+      simulator = new CppPublicTxSimulator(avmBackend, globals, config, undefined, forkId);
+    } else {
+      // TS mode: use IpcVsTs to compare TS and IPC C++ results
+      const wsdbSocketPath = worldStateService.getSocketPath();
+      const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
+      const { findAvmBinary } = await import('@aztec/bb.js/platform');
+      const avmBinaryPath = findAvmBinary();
+      if (!avmBinaryPath) {
+        throw new Error('aztec-avm binary not found');
+      }
+
+      cdbServer = new CdbIpcServer();
+
+      avmBackend = new AvmBackend({
+        binaryPath: avmBinaryPath,
+        wsdbSocketPath,
+        cdbSocketPath: cdbServer.socketPath,
+      });
+
+      const forkId = merkleTrees.getRevision().forkId;
+      cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
+      simulator = new IpcVsTsPublicTxSimulator(
+        guardedMerkleTrees,
+        contractsDB,
+        globals,
+        avmBackend,
+        config,
+        undefined,
+        forkId,
+      );
+    }
 
     processor = new PublicProcessor(
       globals,
@@ -74,6 +125,14 @@ describe.each([
   });
 
   afterEach(async () => {
+    if (avmBackend?.destroy) {
+      await avmBackend.destroy();
+    }
+    if (cdbServer) {
+      await cdbServer.close();
+    }
+    avmBackend = undefined;
+    cdbServer = undefined;
     await worldStateService.close();
   });
 

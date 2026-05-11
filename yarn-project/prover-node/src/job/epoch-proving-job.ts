@@ -4,7 +4,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { Timer } from '@aztec/foundation/timer';
-import { AVM_MAX_CONCURRENT_SIMULATIONS } from '@aztec/native';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { buildFinalBlobChallenges } from '@aztec/prover-client/helpers';
@@ -28,6 +27,9 @@ import * as crypto from 'node:crypto';
 import type { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { type EpochProvingJobData, validateEpochProvingJobData } from './epoch-proving-job-data.js';
+
+/** Default parallelism for processing checkpoints. The AVM pool already limits concurrent processes. */
+const DEFAULT_PARALLEL_CHECKPOINT_LIMIT = parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
 
 export type EpochProvingJobOptions = {
   parallelBlockLimit?: number;
@@ -167,8 +169,8 @@ export class EpochProvingJob implements Traceable {
 
       const parallelism = this.config.parallelBlockLimit
         ? this.config.parallelBlockLimit
-        : AVM_MAX_CONCURRENT_SIMULATIONS > 0
-          ? AVM_MAX_CONCURRENT_SIMULATIONS
+        : DEFAULT_PARALLEL_CHECKPOINT_LIMIT > 0
+          ? DEFAULT_PARALLEL_CHECKPOINT_LIMIT
           : this.checkpoints.length;
 
       await this.processCheckpoints(parallelism, async checkpoint => {
@@ -229,26 +231,27 @@ export class EpochProvingJob implements Traceable {
 
           // Process public fns. L1 to L2 messages are only inserted for the first block of a checkpoint,
           // as the fork for subsequent blocks already includes them from the previous block's synced state.
-          {
-            await using db = await this.createFork(
-              BlockNumber(block.number - 1),
-              blockIndex === 0 ? l1ToL2Messages : undefined,
-            );
-            this.checkState();
-            const config = PublicSimulatorConfig.from({
-              proverId: this.prover.getProverId().toField(),
-              skipFeeEnforcement: false,
-              collectDebugLogs: false,
-              collectHints: true,
-              collectPublicInputs: true,
-              collectStatistics: false,
-            });
-            const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
-            const processed = await this.processTxs(publicProcessor, txs);
-            this.checkState();
-            await this.prover.addTxs(processed);
+          const db = await this.createFork(
+            BlockNumber(block.number - 1),
+            blockIndex === 0 ? l1ToL2Messages : undefined,
+          );
+          const config = PublicSimulatorConfig.from({
+            proverId: this.prover.getProverId().toField(),
+            skipFeeEnforcement: false,
+            collectDebugLogs: false,
+            collectHints: true,
+            collectPublicInputs: true,
+            collectStatistics: false,
+          });
+          const publicProcessor = this.publicProcessorFactory.create(db, globalVariables, config);
+          const processed = await this.processTxs(publicProcessor, txs);
+          await this.prover.addTxs(processed);
+          try {
+            this.publicProcessorFactory.unregisterFork(db.getRevision().forkId);
+          } catch {
+            // Fork may not have a revision (e.g., in tests with mocked DBs)
           }
-          this.checkState();
+          await db.close();
           this.log.verbose(`Processed all ${txs.length} txs for block ${block.number}`, {
             blockNumber: block.number,
             blockHash: (await block.hash()).toString(),

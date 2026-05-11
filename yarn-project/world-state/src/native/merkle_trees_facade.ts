@@ -50,10 +50,6 @@ export class MerkleTreesFacade implements MerkleTreeReadOperations {
     return this.revision;
   }
 
-  getSocketPath(): string {
-    return this.instance.getSocketPath();
-  }
-
   findLeafIndices(treeId: MerkleTreeId, values: MerkleTreeLeafType<MerkleTreeId>[]): Promise<(bigint | undefined)[]> {
     return this.findLeafIndicesAfter(treeId, values, 0n);
   }
@@ -224,6 +220,12 @@ export class MerkleTreesForkFacade extends MerkleTreesFacade implements MerkleTr
     assert.equal(revision.includeUncommitted, true, 'Fork must include uncommitted data');
     super(instance, initialHeader, revision);
   }
+
+  /** Returns the WSDB fork ID for this fork. */
+  getForkId(): number {
+    return this.revision.forkId;
+  }
+
   async updateArchive(header: BlockHeader): Promise<void> {
     await this.instance.call(WorldStateMessageType.UPDATE_ARCHIVE, {
       forkId: this.revision.forkId,

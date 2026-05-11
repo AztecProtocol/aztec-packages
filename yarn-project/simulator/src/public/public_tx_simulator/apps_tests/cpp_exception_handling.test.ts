@@ -5,7 +5,7 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
-describe('C++ Exception Handling during Public Tx Simulation', () => {
+describe('AVM Error Propagation during Public Tx Simulation', () => {
   const sender = AztecAddress.fromNumber(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: PublicTxSimulationTester;
@@ -13,12 +13,7 @@ describe('C++ Exception Handling during Public Tx Simulation', () => {
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
-    tester = await PublicTxSimulationTester.create(
-      worldStateService,
-      /*globals=*/ undefined,
-      /*metrics=*/ undefined,
-      /*useCppSimulator=*/ true, // Use C++ simulator
-    );
+    tester = await PublicTxSimulationTester.create(worldStateService, /*globals=*/ undefined, /*metrics=*/ undefined);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
@@ -27,14 +22,15 @@ describe('C++ Exception Handling during Public Tx Simulation', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 
   /**
-   * Call assertion_failure function during setup, and expect C++ simulator to throw.
+   * Call assertion_failure function during setup. The AVM should detect the assertion
+   * failure, revert the setup phase, and propagate the error back through IPC.
    */
-  it('assertion failure during setup - C++ simulator should throw and TS should handle gracefully', async () => {
-    // expect reject with SimulationError
+  it('assertion failure during setup propagates as simulation error', async () => {
     await expect(
       tester.simulateTx(
         sender,
@@ -47,6 +43,6 @@ describe('C++ Exception Handling during Public Tx Simulation', () => {
         ],
         /*appCalls=*/ [],
       ),
-    ).rejects.toThrow(/C\+\+ simulation failed.*SETUP/);
+    ).rejects.toThrow(/simulation failed|AVM error|assertion/i);
   }, 30_000);
 });

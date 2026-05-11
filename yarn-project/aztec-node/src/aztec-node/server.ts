@@ -42,7 +42,13 @@ import {
   type SequencerPublisher,
   createAutomineSequencer,
 } from '@aztec/sequencer-client';
-import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
+import {
+  type AvmIpcBackend,
+  AvmSimulatorPool,
+  CdbIpcServer,
+  PublicContractsDB,
+  PublicProcessorFactory,
+} from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   BroadcastedInvalidCheckpointProposalWatcher,
@@ -145,8 +151,17 @@ import {
   createValidatorClient,
 } from '@aztec/validator-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
-import { createWorldState, createWorldStateSynchronizer } from '@aztec/world-state';
+import {
+  IpcWorldState,
+  WorldStateInstrumentation,
+  createWorldState,
+  createWorldStateSynchronizer,
+  getWsdbOptions,
+} from '@aztec/world-state';
 
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createPublicClient } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
@@ -173,6 +188,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   private sequencerPausedMinTxsPerBlock: number | undefined;
 
   public readonly tracer: Tracer;
+
+  /** IPC backends to clean up on stop (CDB, AVM). WSDB is cleaned up by world state. */
+  private ipcBackends: Array<{ destroy?(): Promise<void> }> = [];
+  /** AVM IPC backend (pool) for parallel public simulation. */
+  private avmPool?: AvmIpcBackend;
+  /** CDB IPC server for contract data queries during AVM simulation. */
+  private cdbServer?: CdbIpcServer;
 
   constructor(
     protected config: AztecNodeConfig,
@@ -486,7 +508,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   ): Promise<AztecNodeService> {
     const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
     const log = deps.logger ?? createLogger('node');
-    const packageVersion = getPackageVersion();
+    const packageVersion = getPackageVersion() ?? '';
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
@@ -574,11 +596,89 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     const epochCache = await EpochCache.create(config.rollupAddress, config, { dateProvider });
 
+    // Set up IPC backends for world state and AVM simulation.
+    const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
+    const { findWsdbBinary, findAvmBinary } = await import('@aztec/bb.js/platform');
+
+    const wsdbBinaryPath = findWsdbBinary();
+    const avmBinaryPath = findAvmBinary();
+
+    if (!wsdbBinaryPath || !avmBinaryPath) {
+      throw new Error(`Missing required binaries: wsdb=${wsdbBinaryPath}, avm=${avmBinaryPath}`);
+    }
+
+    const configuredDataDir = config.worldStateDataDirectory ?? config.dataDirectory;
+    const dataDirectory = configuredDataDir ?? (await mkdtemp(join(tmpdir(), 'aztec-world-state-')));
+    const dataStoreMapSizeKb = config.worldStateDbMapSizeKb ?? config.dataStoreMapSizeKb;
+    const wsTreeMapSizes = {
+      archiveTreeMapSizeKb: config.archiveTreeMapSizeKb ?? dataStoreMapSizeKb,
+      nullifierTreeMapSizeKb: config.nullifierTreeMapSizeKb ?? dataStoreMapSizeKb,
+      noteHashTreeMapSizeKb: config.noteHashTreeMapSizeKb ?? dataStoreMapSizeKb,
+      messageTreeMapSizeKb: config.messageTreeMapSizeKb ?? dataStoreMapSizeKb,
+      publicDataTreeMapSizeKb: config.publicDataTreeMapSizeKb ?? dataStoreMapSizeKb,
+    };
+    const wsdbOpts = getWsdbOptions(dataDirectory, wsTreeMapSizes);
+    const prefilledData = (options.genesis?.prefilledPublicData ?? []).map(
+      d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
+    );
+
+    log.info('Starting IPC backends', {
+      wsdbBinary: wsdbBinaryPath,
+      avmBinary: avmBinaryPath,
+      dataDir: dataDirectory,
+    });
+
+    const wsdbBackend = new WsdbBackend({
+      binaryPath: wsdbBinaryPath,
+      dataDir: join(dataDirectory, 'world_state'),
+      ...wsdbOpts,
+      prefilledPublicData: prefilledData,
+      genesisTimestamp: Number(options.genesis?.genesisTimestamp ?? 0),
+      logger: (msg: string) => log.debug(msg),
+      useShm: false,
+    });
+
+    const cdbServer = new CdbIpcServer();
+
+    log.info('Waiting for WSDB backend to be ready...');
+    await wsdbBackend.waitUntilReady();
+
+    log.info('WSDB ready, creating AVM simulator pool');
+    const avmPool = new AvmSimulatorPool({
+      avmBinaryPath,
+      wsdbSocketPath: wsdbBackend.getSocketPath(),
+      cdbSocketPath: cdbServer.socketPath,
+      logger: (msg: string) => log.debug(msg),
+    });
+
+    const wsdbDir = join(dataDirectory, 'world_state');
+    const recreateIpcInstance = async () => {
+      await rm(wsdbDir, { recursive: true, force: true, maxRetries: 3 });
+      await mkdir(wsdbDir, { recursive: true });
+      const freshBackend = new WsdbBackend({
+        binaryPath: wsdbBinaryPath,
+        dataDir: wsdbDir,
+        ...wsdbOpts,
+        prefilledPublicData: prefilledData,
+        logger: (msg: string) => log.debug(msg),
+        useShm: false,
+      });
+      await freshBackend.waitUntilReady();
+      return new IpcWorldState(freshBackend, new WorldStateInstrumentation(telemetry));
+    };
+
     // Track started resources so we can clean up on partial failure during node creation.
     const started: { stop?(): Promise<void> | void }[] = [];
     try {
       // Create world-state first so we can retrieve the initial header before constructing the archiver.
-      const nativeWs = await createWorldState(config, options.genesis);
+      const nativeWs = await createWorldState(
+        config,
+        options.genesis,
+        undefined,
+        undefined,
+        wsdbBackend,
+        recreateIpcInstance,
+      );
       const initialHeader = nativeWs.getInitialHeader();
       const initialBlockHash = await initialHeader.hash();
       const archiver = await createArchiver(
@@ -624,6 +724,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         rollupVersion: BigInt(config.rollupVersion),
         l1GenesisTime,
         slotDuration: Number(slotDuration),
+        rollupManaLimit,
       };
 
       const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
@@ -667,6 +768,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         archiver,
         dateProvider,
         telemetry,
+        undefined, // debugLogStore
+        avmPool,
+        cdbServer,
       );
 
       let validatorClient: ValidatorClient | undefined;
@@ -872,6 +976,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           dateProvider,
           telemetry,
           debugLogStore,
+          avmPool,
+          cdbServer,
         );
 
         if (config.useAutomineSequencer) {
@@ -953,6 +1059,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           epochCache,
           blobClient,
           keyStoreManager,
+          avmBackend: avmPool,
+          cdbServer,
         });
 
         if (!options.dontStartProverNode) {
@@ -994,6 +1102,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         debugLogStore,
         automineSequencer,
       );
+
+      // Register IPC backends for cleanup on stop
+      if (cdbServer) {
+        node.ipcBackends.push({ destroy: () => cdbServer!.close() });
+      }
+      if (avmPool) {
+        node.ipcBackends.push(avmPool);
+        node.avmPool = avmPool;
+      }
+      if (cdbServer) {
+        node.cdbServer = cdbServer;
+      }
 
       return node;
     } catch (err) {
@@ -1271,6 +1391,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
     await tryStop(this.blobClient);
+    // Destroy IPC backends (CDB, AVM). WSDB is cleaned up by worldStateSynchronizer.
+    for (const backend of this.ipcBackends) {
+      try {
+        await backend.destroy?.();
+      } catch (e) {
+        this.log.warn(`Error destroying IPC backend: ${e}`);
+      }
+    }
     await tryStop(this.telemetry);
     this.log.info(`Stopped Aztec Node`);
   }
@@ -1564,6 +1692,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
+      this.avmPool!,
+      this.cdbServer,
       new DateProvider(),
       this.telemetry,
       this.log.getBindings(),
@@ -1610,7 +1740,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         `Appending ${nextCheckpointMessages.length} L1-to-L2 messages to the world state tree for the next checkpoint`,
         { checkpointNumber: l2Tips.proposedCheckpoint.checkpoint.number + 1 },
       );
-      await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
     }
     await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
 

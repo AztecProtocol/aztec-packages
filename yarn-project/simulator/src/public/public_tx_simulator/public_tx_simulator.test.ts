@@ -270,6 +270,9 @@ describe('public_tx_simulator', () => {
   }, 30_000);
 
   afterEach(async () => {
+    // Close forks before closing the service to avoid IPC shutdown races
+    await merkleTrees.close();
+    await merkleTreesCopy.close();
     await worldStateService.close();
   });
 
@@ -278,7 +281,7 @@ describe('public_tx_simulator', () => {
       numberOfSetupCalls: 2,
     });
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.findRevertReason()).toBeUndefined();
@@ -312,7 +315,7 @@ describe('public_tx_simulator', () => {
       numberOfAppLogicCalls: 2,
     });
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.findRevertReason()).toBeUndefined();
@@ -346,7 +349,7 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.findRevertReason()).toBeUndefined();
@@ -381,7 +384,7 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.findRevertReason()).toBeUndefined();
@@ -457,7 +460,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
 
     expect(simulateInternal).toHaveBeenCalledTimes(3);
 
@@ -491,7 +494,7 @@ describe('public_tx_simulator', () => {
       ),
     );
 
-    await expect(simulator.simulate(tx)).rejects.toThrow(setupFailureMsg);
+    await expect(simulator.simulate(tx).result).rejects.toThrow(setupFailureMsg);
 
     expect(simulateInternal).toHaveBeenCalledTimes(1);
   });
@@ -505,7 +508,7 @@ describe('public_tx_simulator', () => {
       numberOfAppLogicCalls: 1,
     });
 
-    await expect(simulator.simulate(tx)).rejects.toThrow(
+    await expect(simulator.simulate(tx).result).rejects.toThrow(
       `exceeds the maximum processable gas of ${MAX_PROCESSABLE_L2_GAS}`,
     );
 
@@ -559,7 +562,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
 
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.findRevertReason()).toBeUndefined();
@@ -689,7 +692,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
 
     expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
     // tx reports app logic failure
@@ -810,7 +813,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
 
     expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
     expect(txResult.findRevertReason()).toEqual(teardownFailure);
@@ -919,7 +922,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
 
     expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
     // tx reports app logic failure
@@ -999,7 +1002,7 @@ describe('public_tx_simulator', () => {
       },
     ]);
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
 
     await checkNullifierRoot(txResult);
   });
@@ -1016,7 +1019,7 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const txResult = await simulator.simulate(tx);
+    const txResult = await simulator.simulate(tx).result;
     expect(txResult.revertCode).toEqual(RevertCode.OK);
     expect(txResult.findRevertReason()).toBeUndefined();
 
@@ -1054,7 +1057,7 @@ describe('public_tx_simulator', () => {
         feePayer,
       });
 
-      const txResult = await simulator.simulate(tx);
+      const txResult = await simulator.simulate(tx).result;
       expect(txResult.revertCode).toEqual(RevertCode.OK);
       expect(txResult.findRevertReason()).toBeUndefined();
     });
@@ -1071,7 +1074,7 @@ describe('public_tx_simulator', () => {
             hasPublicTeardownCall: true,
             feePayer,
           }),
-        ),
+        ).result,
       ).rejects.toThrow(/Not enough balance for fee payer to pay for transaction/);
     });
 
@@ -1086,7 +1089,7 @@ describe('public_tx_simulator', () => {
           hasPublicTeardownCall: true,
           feePayer,
         }),
-      );
+      ).result;
       expect(txResult.revertCode).toEqual(RevertCode.OK);
       expect(txResult.findRevertReason()).toBeUndefined();
     });
@@ -1105,7 +1108,7 @@ describe('public_tx_simulator', () => {
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = duplicateNullifier;
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[1] = duplicateNullifier;
 
-    await expect(simulator.simulate(tx)).rejects.toThrow(/Nullifier collision/);
+    await expect(simulator.simulate(tx).result).rejects.toThrow(/Nullifier collision/);
   });
 
   describe('prover id', () => {
@@ -1114,7 +1117,7 @@ describe('public_tx_simulator', () => {
         numberOfAppLogicCalls: 1,
       });
 
-      const txResult = await simulator.simulate(tx);
+      const txResult = await simulator.simulate(tx).result;
 
       expect(txResult.publicInputs?.proverId).toEqual(Fr.ZERO);
     });
@@ -1128,7 +1131,7 @@ describe('public_tx_simulator', () => {
 
       simulator = createSimulator({ skipFeeEnforcement: true, proverId });
 
-      const txResult = await simulator.simulate(tx);
+      const txResult = await simulator.simulate(tx).result;
 
       expect(txResult.publicInputs?.proverId).toEqual(proverId);
     });
@@ -1147,7 +1150,7 @@ describe('public_tx_simulator', () => {
       const msg = 'This is an unchecked error during enqueued call';
       simulateInternal.mockRejectedValue(new Error(msg));
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+      await expect(simulator.simulate(tx).result).rejects.toThrow(msg);
     });
 
     it('Unchecked error during revertible nullifier insertion should NOT be caught', async () => {
@@ -1171,7 +1174,7 @@ describe('public_tx_simulator', () => {
         throw new Error(msg);
       });
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+      await expect(simulator.simulate(tx).result).rejects.toThrow(msg);
     });
 
     it('Unchecked error during revertible note hash insertion should NOT be caught', async () => {
@@ -1192,7 +1195,7 @@ describe('public_tx_simulator', () => {
         throw new Error(msg);
       });
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+      await expect(simulator.simulate(tx).result).rejects.toThrow(msg);
     });
 
     it('Unchecked error during revertible l2 to l1 message insertion should NOT be caught', async () => {
@@ -1216,7 +1219,7 @@ describe('public_tx_simulator', () => {
         throw new Error(msg);
       });
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+      await expect(simulator.simulate(tx).result).rejects.toThrow(msg);
     });
   });
 
@@ -1245,8 +1248,8 @@ describe('public_tx_simulator', () => {
         throw new NullifierLimitReachedError();
       });
 
-      const txResult = await simulator.simulate(tx);
-      expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
+      const txResult = await simulator.simulate(tx).result;
+      expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
       const revertReason = txResult.findRevertReason();
       expect(revertReason).toBeDefined();
       expect(revertReason?.getOriginalMessage()).toContain(new NullifierLimitReachedError().message);
@@ -1268,8 +1271,8 @@ describe('public_tx_simulator', () => {
       jest.spyOn(PublicPersistableStateManager.prototype, 'writeSiloedNoteHash').mockImplementation(() => {
         throw new NoteHashLimitReachedError();
       });
-      const txResult = await simulator.simulate(tx);
-      expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
+      const txResult = await simulator.simulate(tx).result;
+      expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
       const revertReason = txResult.findRevertReason();
       expect(revertReason).toBeDefined();
       expect(revertReason?.getOriginalMessage()).toContain(new NoteHashLimitReachedError().message);
@@ -1295,8 +1298,8 @@ describe('public_tx_simulator', () => {
         throw new L2ToL1MessageLimitReachedError();
       });
 
-      const txResult = await simulator.simulate(tx);
-      expect(txResult.revertCode).toEqual(RevertCode.REVERTED);
+      const txResult = await simulator.simulate(tx).result;
+      expect(txResult.revertCode).toEqual(RevertCode.APP_LOGIC_REVERTED);
       const revertReason = txResult.findRevertReason();
       expect(revertReason).toBeDefined();
       expect(revertReason?.getOriginalMessage()).toContain(new L2ToL1MessageLimitReachedError().message);
@@ -1323,7 +1326,7 @@ describe('public_tx_simulator', () => {
       const msg = 'Error uncaught by AvmSimulator';
       simulateInternal.mockRejectedValue(new CheckedError(msg));
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+      await expect(simulator.simulate(tx).result).rejects.toThrow(msg);
     });
 
     it('Unchecked error during revertible nullifier insertion should NOT be caught', async () => {
@@ -1347,7 +1350,7 @@ describe('public_tx_simulator', () => {
         throw new Error(msg);
       });
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+      await expect(simulator.simulate(tx).result).rejects.toThrow(msg);
     });
 
     it('Unchecked error during revertible note hash insertion should NOT be caught', async () => {
@@ -1368,7 +1371,7 @@ describe('public_tx_simulator', () => {
         throw new Error(msg);
       });
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+      await expect(simulator.simulate(tx).result).rejects.toThrow(msg);
     });
 
     it('Unchecked error during revertible l2 to l1 message insertion should NOT be caught', async () => {
@@ -1392,7 +1395,7 @@ describe('public_tx_simulator', () => {
         throw new Error(msg);
       });
 
-      await expect(simulator.simulate(tx)).rejects.toThrow(msg);
+      await expect(simulator.simulate(tx).result).rejects.toThrow(msg);
     });
   });
 });

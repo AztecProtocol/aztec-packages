@@ -9,6 +9,8 @@ import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import { createTxValidatorForBlockBuilding, getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import {
+  type AvmIpcBackend,
+  type CdbIpcServer,
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
@@ -59,6 +61,8 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     private telemetryClient: TelemetryClient,
     bindings?: LoggerBindings,
     private debugLogStore: DebugLogStore = new NullDebugLogStore(),
+    private avmBackend?: AvmIpcBackend,
+    private cdbServer?: CdbIpcServer,
   ) {
     this.log = createLogger('checkpoint-builder', {
       ...bindings,
@@ -101,7 +105,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       feeRecipient: constants.feeRecipient,
       gasFees: constants.gasFees,
     });
-    const { processor, validator } = await this.makeBlockBuilderDeps(globalVariables, this.fork);
+    const { processor, validator, wsdbForkId } = await this.makeBlockBuilderDeps(globalVariables, this.fork);
 
     // Cap gas limits amd available blob fields by remaining checkpoint-level budgets
     const cappedOpts: PublicProcessorLimits & { expectedEndState?: StateReference } = {
@@ -156,6 +160,11 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
       // Otherwise it reverts any changes made to the fork for this failed block
       await forkCheckpoint.revert();
       throw err;
+    } finally {
+      // Unregister the fork's contracts DB from the CDB server to prevent leaks.
+      if (wsdbForkId !== undefined) {
+        this.cdbServer?.unregisterFork(wsdbForkId);
+      }
     }
   }
 
@@ -241,16 +250,23 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const contractsDB = this.contractsDB;
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
-    const collectDebugLogs = this.debugLogStore.isEnabled;
-
     const bindings = this.log.getBindings();
+    if (!this.avmBackend) {
+      throw new Error('AVM IPC backend is required for block building. Ensure aztec-avm is running.');
+    }
+    // Extract the WSDB fork ID so the C++ AVM can modify the same fork in-place.
+    const wsdbForkId = fork.getRevision().forkId;
+    // Register this fork's contracts DB on the CDB server for fork-ID routing.
+    if (this.cdbServer) {
+      this.cdbServer.registerFork(wsdbForkId, contractsDB, globalVariables.timestamp);
+    }
     const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
-      guardedFork,
-      contractsDB,
+      this.avmBackend,
       globalVariables,
       this.telemetryClient,
       bindings,
-      collectDebugLogs,
+      wsdbForkId,
+      this.debugLogStore?.isEnabled ?? false,
     );
 
     const processor = new PublicProcessor(
@@ -276,6 +292,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     return {
       processor,
       validator,
+      wsdbForkId,
     };
   }
 }
@@ -291,6 +308,8 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
     private debugLogStore: DebugLogStore = new NullDebugLogStore(),
+    private avmBackend?: AvmIpcBackend,
+    private cdbServer?: CdbIpcServer,
   ) {
     this.log = createLogger('checkpoint-builder');
   }
@@ -346,6 +365,8 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.telemetryClient,
       bindings,
       this.debugLogStore,
+      this.avmBackend,
+      this.cdbServer,
     );
   }
 
@@ -407,6 +428,8 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.telemetryClient,
       bindings,
       this.debugLogStore,
+      this.avmBackend,
+      this.cdbServer,
     );
   }
 

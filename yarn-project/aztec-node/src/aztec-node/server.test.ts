@@ -64,10 +64,11 @@ import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import { jest } from '@jest/globals';
-import { mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
@@ -229,7 +230,7 @@ describe('aztec node', () => {
       globalVariablesBuilder,
       feeProvider,
       epochCache,
-      getPackageVersion(),
+      getPackageVersion() ?? '',
       new TestCircuitVerifier(),
       new TestCircuitVerifier(),
     );
@@ -358,8 +359,13 @@ describe('aztec node', () => {
 
     describe('node info', () => {
       it('returns the correct node version', async () => {
+        const releasePleaseVersionFile = readFileSync(
+          resolve(dirname(fileURLToPath(import.meta.url)), '../../../../.release-please-manifest.json'),
+        ).toString();
+        const releasePleaseVersion = JSON.parse(releasePleaseVersionFile)['.'];
+
         const nodeInfo = await node.getNodeInfo();
-        expect(nodeInfo.nodeVersion).toBe(getPackageVersion());
+        expect(nodeInfo.nodeVersion).toBe(releasePleaseVersion);
       });
     });
 
@@ -746,7 +752,7 @@ describe('aztec node', () => {
           globalVariablesBuilder,
           feeProvider,
           epochCache,
-          getPackageVersion(),
+          getPackageVersion() ?? '',
           new TestCircuitVerifier(),
           new TestCircuitVerifier(),
           undefined,
@@ -937,7 +943,7 @@ describe('aztec node', () => {
           globalVariablesBuilder,
           feeProvider,
           epochCache,
-          getPackageVersion(),
+          getPackageVersion() ?? '',
           new TestCircuitVerifier(),
           new TestCircuitVerifier(),
           undefined,
@@ -1009,7 +1015,7 @@ describe('aztec node', () => {
         globalVariablesBuilder,
         mock<FeeProvider>(),
         epochCache,
-        getPackageVersion(),
+        getPackageVersion() ?? '',
         new TestCircuitVerifier(),
         new TestCircuitVerifier(),
       );

@@ -555,10 +555,6 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     return this.db.getRevision();
   }
 
-  public getSocketPath(): string {
-    return this.db.getSocketPath();
-  }
-
   public async updateArchive(header: any): Promise<void> {
     return await this.db.updateArchive(header);
   }

@@ -479,11 +479,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
+    // Update CDB server with current contract data source for this simulation
+    const { cdbServer, avmBackend } = this.stateMachine.synchronizer;
+    const forkId = forkedWorldTrees.getRevision().forkId;
+    cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,
       contractsDB,
-      new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings),
+      new CppPublicTxSimulator(avmBackend, globals, config, bindings, forkId),
       new TestDateProvider(),
       undefined,
       createLogger('simulator:public-processor', bindings),
@@ -501,58 +505,59 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       checkpoint = await ForkCheckpoint.new(forkedWorldTrees);
     }
 
-    const results = await processor.process([tx]);
+    try {
+      const results = await processor.process([tx]);
 
-    const [processedTx] = results[0];
-    const failedTxs = results[1];
+      const [processedTx] = results[0];
+      const failedTxs = results[1];
 
-    if (failedTxs.length !== 0) {
-      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
-    } else if (!processedTx.revertCode.isOK()) {
-      if (processedTx.revertReason) {
-        try {
-          await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
-          // eslint-disable-next-line no-empty
-        } catch {}
-        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
-      } else {
-        throw new Error('Contract execution has reverted');
+      if (failedTxs.length !== 0) {
+        throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
+      } else if (!processedTx.revertCode.isOK()) {
+        if (processedTx.revertReason) {
+          try {
+            await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
+            // eslint-disable-next-line no-empty
+          } catch {}
+          throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
+        } else {
+          throw new Error('Contract execution has reverted');
+        }
       }
-    }
 
-    // Walk the nested private-call tree and collect every offchain effect the transaction emitted.
-    // PXE stores these on each `PrivateCallExecutionResult` and they never reach TXE via the
-    // `aztec_utl_emitOffchainEffect` foreign-call path (that path only fires at the top-level), so
-    // we pull them out here and the RPC wrapper will hand them to `TXESession` for buffering.
-    const offchainEffects = collectNested([executionResult], r => r.offchainEffects.map(e => e.data));
+      // Walk the nested private-call tree and collect every offchain effect the transaction emitted.
+      // PXE stores these on each `PrivateCallExecutionResult` and they never reach TXE via the
+      // `aztec_utl_emitOffchainEffect` foreign-call path (that path only fires at the top-level), so
+      // we pull them out here and the RPC wrapper will hand them to `TXESession` for buffering.
+      const offchainEffects = collectNested([executionResult], r => r.offchainEffects.map(e => e.data));
 
-    if (isStaticCall) {
-      await checkpoint!.revert();
+      if (isStaticCall) {
+        await checkpoint!.revert();
+        return { returnValues: executionResult.returnValues ?? [], offchainEffects };
+      }
 
-      await forkedWorldTrees.close();
+      const txEffect = TxEffect.empty();
+
+      txEffect.noteHashes = processedTx!.txEffect.noteHashes;
+      txEffect.nullifiers = processedTx!.txEffect.nullifiers;
+      txEffect.privateLogs = processedTx!.txEffect.privateLogs;
+      txEffect.publicLogs = processedTx!.txEffect.publicLogs;
+      txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
+
+      txEffect.txHash = new TxHash(new Fr(blockNumber));
+
+      const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
+      await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+
+      const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
+
+      await this.stateMachine.handleL2Block(l2Block);
+
       return { returnValues: executionResult.returnValues ?? [], offchainEffects };
+    } finally {
+      cdbServer.unregisterFork(forkId);
+      await forkedWorldTrees.close();
     }
-
-    const txEffect = TxEffect.empty();
-
-    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
-
-    txEffect.txHash = new TxHash(new Fr(blockNumber));
-
-    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
-    await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
-
-    const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
-
-    await this.stateMachine.handleL2Block(l2Block);
-
-    await forkedWorldTrees.close();
-
-    return { returnValues: executionResult.returnValues ?? [], offchainEffects };
   }
 
   async publicCallNewFlow(
@@ -597,7 +602,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    const simulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings2);
+    // Update CDB server with current contract data source for this simulation
+    const { cdbServer: cdbServer2, avmBackend: avmBackend2 } = this.stateMachine.synchronizer;
+    const forkId2 = forkedWorldTrees.getRevision().forkId;
+    cdbServer2.registerFork(forkId2, contractsDB, globals.timestamp);
+    const simulator = new CppPublicTxSimulator(avmBackend2, globals, config, bindings2, forkId2);
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,
@@ -654,55 +663,55 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       checkpoint = await ForkCheckpoint.new(forkedWorldTrees);
     }
 
-    const results = await processor.process([tx]);
+    try {
+      const results = await processor.process([tx]);
 
-    const [processedTx] = results[0];
-    const failedTxs = results[1];
+      const [processedTx] = results[0];
+      const failedTxs = results[1];
 
-    if (failedTxs.length !== 0) {
-      throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
-    } else if (!processedTx.revertCode.isOK()) {
-      if (processedTx.revertReason) {
-        try {
-          await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
-          // eslint-disable-next-line no-empty
-        } catch {}
-        throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
-      } else {
-        throw new Error('Contract execution has reverted');
+      if (failedTxs.length !== 0) {
+        throw new Error(`Public execution has failed: ${failedTxs[0].error}`);
+      } else if (!processedTx.revertCode.isOK()) {
+        if (processedTx.revertReason) {
+          try {
+            await enrichPublicSimulationError(processedTx.revertReason, this.contractStore, this.logger);
+            // eslint-disable-next-line no-empty
+          } catch {}
+          throw new Error(`Contract execution has reverted: ${processedTx.revertReason.getMessage()}`);
+        } else {
+          throw new Error('Contract execution has reverted');
+        }
       }
-    }
 
-    const returnValues = results[3][0].values;
+      const returnValues = results[3][0].values;
 
-    if (isStaticCall) {
-      await checkpoint!.revert();
+      if (isStaticCall) {
+        await checkpoint!.revert();
+        return returnValues ?? [];
+      }
 
-      await forkedWorldTrees.close();
+      const txEffect = TxEffect.empty();
+
+      txEffect.noteHashes = processedTx!.txEffect.noteHashes;
+      txEffect.nullifiers = processedTx!.txEffect.nullifiers;
+      txEffect.privateLogs = processedTx!.txEffect.privateLogs;
+      txEffect.publicLogs = processedTx!.txEffect.publicLogs;
+      txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
+
+      txEffect.txHash = new TxHash(new Fr(blockNumber));
+
+      const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
+      await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
+
+      const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
+
+      await this.stateMachine.handleL2Block(l2Block);
 
       return returnValues ?? [];
+    } finally {
+      cdbServer2.unregisterFork(forkId2);
+      await forkedWorldTrees.close();
     }
-
-    const txEffect = TxEffect.empty();
-
-    txEffect.noteHashes = processedTx!.txEffect.noteHashes;
-    txEffect.nullifiers = processedTx!.txEffect.nullifiers;
-    txEffect.privateLogs = processedTx!.txEffect.privateLogs;
-    txEffect.publicLogs = processedTx!.txEffect.publicLogs;
-    txEffect.publicDataWrites = processedTx!.txEffect.publicDataWrites;
-
-    txEffect.txHash = new TxHash(new Fr(blockNumber));
-
-    const l1ToL2Messages = Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(0).map(Fr.zero);
-    await forkedWorldTrees.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2Messages);
-
-    const l2Block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
-
-    await this.stateMachine.handleL2Block(l2Block);
-
-    await forkedWorldTrees.close();
-
-    return returnValues ?? [];
   }
 
   async executeUtilityFunction(

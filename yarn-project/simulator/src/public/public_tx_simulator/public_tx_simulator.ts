@@ -31,7 +31,7 @@ import {
 } from '../side_effect_errors.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
-import type { PublicTxSimulatorInterface } from './public_tx_simulator_interface.js';
+import type { PublicTxSimulatorInterface, SimulationHandle } from './public_tx_simulator_interface.js';
 
 // The errors below are only thrown here in the public tx simulator,
 // and only during revertible phases (revertible insertions, app logic and teardown).
@@ -98,9 +98,14 @@ export class PublicTxSimulator implements PublicTxSimulatorInterface {
   /**
    * Simulate a transaction's public portion including all of its phases.
    * @param tx - The transaction to simulate.
-   * @returns The result of the transaction's public execution.
+   * @returns A SimulationHandle with the result promise and a no-op cancel.
    */
-  public async simulate(tx: Tx): Promise<PublicTxResult> {
+  public simulate(tx: Tx): SimulationHandle {
+    const result = this.doSimulate(tx);
+    return { result, cancel: async () => {} };
+  }
+
+  protected async doSimulate(tx: Tx): Promise<PublicTxResult> {
     const txHash = this.computeTxHash(tx);
     this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 

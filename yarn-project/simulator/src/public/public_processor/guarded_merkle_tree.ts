@@ -97,9 +97,6 @@ export class GuardedMerkleTreeOperations implements MerkleTreeWriteOperations {
   public getRevision(): WorldStateRevision {
     return this.target.getRevision();
   }
-  public getSocketPath(): string {
-    return this.target.getSocketPath();
-  }
   getSiblingPath<ID extends MerkleTreeId>(treeId: ID, index: bigint): Promise<SiblingPath<TreeHeights[ID]>> {
     return this.guardAndPush(() => this.target.getSiblingPath(treeId, index));
   }

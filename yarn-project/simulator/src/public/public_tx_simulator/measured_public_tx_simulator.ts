@@ -1,6 +1,6 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { Timer } from '@aztec/foundation/timer';
-import type { PublicSimulatorConfig, PublicTxResult } from '@aztec/stdlib/avm';
+import type { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { Gas } from '@aztec/stdlib/gas';
 import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
@@ -12,7 +12,7 @@ import type { PublicContractsDB } from '../public_db_sources.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
 import { PublicTxSimulator } from './public_tx_simulator.js';
-import type { MeasuredPublicTxSimulatorInterface } from './public_tx_simulator_interface.js';
+import type { MeasuredPublicTxSimulatorInterface, SimulationHandle } from './public_tx_simulator_interface.js';
 
 /**
  * A public tx simulator that tracks miscellaneous simulation metrics without telemetry.
@@ -28,15 +28,19 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
     super(merkleTree, contractsDB, globalVariables, config);
   }
 
-  public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
+  public override simulate(tx: Tx, txLabel: string = 'unlabeledTx'): SimulationHandle {
+    const handle = super.simulate(tx);
     this.metrics.startRecordingTxSimulation(txLabel);
-    let avmResult: PublicTxResult | undefined;
-    try {
-      avmResult = await super.simulate(tx);
-    } finally {
-      this.metrics.stopRecordingTxSimulation(txLabel, avmResult?.gasUsed, avmResult?.revertCode);
-    }
-    return avmResult;
+    const result = handle.result
+      .then(r => {
+        this.metrics.stopRecordingTxSimulation(txLabel, r?.gasUsed, r?.revertCode);
+        return r;
+      })
+      .catch(err => {
+        this.metrics.stopRecordingTxSimulation(txLabel, undefined, undefined);
+        throw err;
+      });
+    return { result, cancel: handle.cancel };
   }
 
   protected override async insertNonRevertiblesFromPrivate(context: PublicTxContext) {
