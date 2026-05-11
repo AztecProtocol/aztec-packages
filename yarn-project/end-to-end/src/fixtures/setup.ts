@@ -330,6 +330,13 @@ export async function setup(
       opts.inboxLag = 2;
       config.inboxLag = 2;
     }
+    // Under pipelining the sequencer builds during slot N-1 for slot N, so a tx submitted right at
+    // slot N start arrives after the build window. With minTxsPerBlock=1 the slot is then abandoned
+    // and the chain stalls on alternating slots, timing out test setup hooks. Allow empty
+    // checkpoints so the chain keeps advancing while subsequent txs flow in.
+    if (config.enableProposerPipelining && opts.minTxsPerBlock === undefined) {
+      config.minTxsPerBlock = 0;
+    }
     // use initialValidators for the node config
     config.validatorPrivateKeys = new SecretValue(opts.initialValidators?.map(v => v.privateKey) ?? []);
 
