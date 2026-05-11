@@ -85,8 +85,9 @@ template <size_t size_in_unsigned_ints> std::array<unsigned int, size_in_unsigne
         size_t bytes_left = RANDOM_BUFFER_SIZE;
         uint8_t* current_offset = random_buffer_wrapper.buffer.get();
         // Bound EINTR retries so a pathological signal storm cannot mask a genuine fault.
-        constexpr int MAX_EINTR_RETRIES = 16;
-        int eintr_retries = 0;
+        // Unused on Windows (BCryptGenRandom is not interruptible).
+        [[maybe_unused]] constexpr int MAX_EINTR_RETRIES = 16;
+        [[maybe_unused]] int eintr_retries = 0;
         // Sample until we fill the buffer
         while (bytes_left != 0) {
 #if defined(__wasm__) || defined(__APPLE__)
