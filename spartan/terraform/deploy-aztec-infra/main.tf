@@ -306,9 +306,6 @@ locals {
         service = {
           p2p = { publicIP = local.p2p_public_ip }
         }
-        node = {
-          logLevel = local.d.LOG_LEVEL
-        }
         # spread validator pods to different nodes to avoid having two validators with the same attester keys on the same physical node
         topologySpreadConstraints = [{
           maxSkew           = 1
@@ -442,19 +439,6 @@ locals {
           service = {
             p2p = { publicIP = local.p2p_public_ip }
           }
-          node = {
-            logLevel = local.d.LOG_LEVEL
-          }
-        }
-        broker = {
-          node = {
-            logLevel = local.d.LOG_LEVEL
-          }
-        }
-        agent = {
-          node = {
-            logLevel = local.d.LOG_LEVEL
-          }
         }
         })], local.is_kind ? [yamlencode({
         agent = {
@@ -562,9 +546,6 @@ locals {
       inline_values = [yamlencode({
         service = {
           p2p = { publicIP = local.p2p_public_ip }
-        }
-        node = {
-          logLevel = try(local.d.FISHERMAN_LOG_LEVEL, local.d.LOG_LEVEL)
         }
       })]
       # Pod env vars flow from var.releases.fisherman.env via inline_values

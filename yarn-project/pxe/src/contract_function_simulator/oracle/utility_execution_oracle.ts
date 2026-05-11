@@ -1,5 +1,6 @@
 import type { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
@@ -7,6 +8,15 @@ import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import { isProtocolContract } from '@aztec/protocol-contracts';
+import {
+  type CircuitSimulator,
+  ExecutionError,
+  extractCallStack,
+  resolveAssertionMessageFromError,
+  toACVMWitness,
+  witnessMapToFields,
+} from '@aztec/simulator/client';
+import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
@@ -19,11 +29,12 @@ import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs'
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule, OffchainEffect } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule, IndexedTxEffect, OffchainEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { EventService } from '../../events/event_service.js';
+import type { ExecutionHooks } from '../../hooks/index.js';
 import { LogService } from '../../logs/log_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
 import { NoteService } from '../../notes/note_service.js';
@@ -44,6 +55,7 @@ import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IMiscOracle, IUtilityExecutionOracle, NoteData } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
+import { Oracle } from './oracle.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -67,6 +79,8 @@ export type UtilityExecutionOracleArgs = {
   jobId: string;
   log?: ReturnType<typeof createLogger>;
   scopes: AztecAddress[];
+  simulator: CircuitSimulator;
+  hooks?: ExecutionHooks;
 };
 
 /**
@@ -103,6 +117,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly jobId: string;
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AztecAddress[];
+  protected readonly simulator: CircuitSimulator;
+  protected readonly hooks: ExecutionHooks | undefined;
 
   constructor(args: UtilityExecutionOracleArgs) {
     this.contractAddress = args.contractAddress;
@@ -124,6 +140,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.jobId = args.jobId;
     this.logger = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
+    this.simulator = args.simulator;
+    this.hooks = args.hooks;
   }
 
   public assertCompatibleOracleVersion(major: number, minor: number): void {
@@ -626,36 +644,18 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     eventValidationRequests: EventValidationRequest[],
     scope: AztecAddress,
   ) {
+    const txEffects = await this.#fetchTxEffects([
+      ...noteValidationRequests.map(r => r.txHash),
+      ...eventValidationRequests.map(r => r.txHash),
+    ]);
+
     const noteService = new NoteService(this.noteStore, this.aztecNode, this.anchorBlockHeader, this.jobId);
-    const noteStorePromises = noteValidationRequests.map(request =>
-      noteService.validateAndStoreNote(
-        request.contractAddress,
-        request.owner,
-        request.storageSlot,
-        request.randomness,
-        request.noteNonce,
-        request.content,
-        request.noteHash,
-        request.nullifier,
-        request.txHash,
-        scope,
-      ),
-    );
-
     const eventService = new EventService(this.anchorBlockHeader, this.aztecNode, this.privateEventStore, this.jobId);
-    const eventStorePromises = eventValidationRequests.map(request =>
-      eventService.validateAndStoreEvent(
-        request.contractAddress,
-        request.eventTypeId,
-        request.randomness,
-        request.serializedEvent,
-        request.eventCommitment,
-        request.txHash,
-        scope,
-      ),
-    );
 
-    await Promise.all([...noteStorePromises, ...eventStorePromises]);
+    await Promise.all([
+      noteService.validateAndStoreNotes(noteValidationRequests, scope, txEffects),
+      eventService.validateAndStoreEvents(eventValidationRequests, scope, txEffects),
+    ]);
   }
 
   public async getLogsByTag(
@@ -894,9 +894,103 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return Promise.resolve();
   }
 
+  /** Executes another utility function from within this one and returns its serialized return values. */
+  public async callUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]> {
+    const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
+      targetContractAddress,
+      functionSelector,
+    );
+
+    if (!targetContractAddress.equals(this.contractAddress)) {
+      const request = {
+        caller: this.contractAddress,
+        target: targetContractAddress,
+        functionSelector,
+        functionName: targetArtifact.name,
+        args,
+        callerContext: ('isPrivate' in this ? 'private' : 'utility') as 'private' | 'utility',
+      };
+
+      const response = this.hooks
+        ? await this.hooks.authorizeUtilityCall(request)
+        : { authorized: false, reason: 'No execution hooks configured' };
+
+      if (!response.authorized) {
+        const reason = response.reason ? `: ${response.reason}` : '';
+        throw new Error(
+          `Cross-contract utility call denied${reason}. ${this.contractAddress} attempted to call ` +
+            `${targetContractAddress}:${functionSelector} (${targetArtifact.name}). ` +
+            `See https://docs.aztec.network/errors/11`,
+        );
+      }
+    }
+
+    this.logger.debug(
+      `Calling nested utility function ${targetContractAddress}:${functionSelector} from ${this.contractAddress}`,
+    );
+
+    const nestedOracle = new UtilityExecutionOracle({
+      contractAddress: targetContractAddress,
+      authWitnesses: this.authWitnesses,
+      capsules: this.capsules,
+      anchorBlockHeader: this.anchorBlockHeader,
+      contractStore: this.contractStore,
+      noteStore: this.noteStore,
+      keyStore: this.keyStore,
+      addressStore: this.addressStore,
+      aztecNode: this.aztecNode,
+      recipientTaggingStore: this.recipientTaggingStore,
+      senderAddressBookStore: this.senderAddressBookStore,
+      capsuleService: this.capsuleService,
+      privateEventStore: this.privateEventStore,
+      messageContextService: this.messageContextService,
+      contractSyncService: this.contractSyncService,
+      l2TipsStore: this.l2TipsStore,
+      jobId: this.jobId,
+      scopes: this.scopes,
+      simulator: this.simulator,
+      hooks: this.hooks,
+      log: this.logger,
+    });
+
+    const initialWitness = toACVMWitness(0, args);
+    const acvmCallback = new Oracle(nestedOracle);
+    const acirExecutionResult = await this.simulator
+      .executeUserCircuit(initialWitness, targetArtifact, acvmCallback.toACIRCallback())
+      .catch((err: Error) => {
+        err.message = resolveAssertionMessageFromError(err, targetArtifact);
+        throw new ExecutionError(
+          err.message,
+          { contractAddress: targetContractAddress, functionSelector },
+          extractCallStack(err, targetArtifact.debug),
+          { cause: err },
+        );
+      });
+
+    return witnessMapToFields(acirExecutionResult.returnWitness);
+  }
+
   /** Returns offchain effects collected during execution. */
   public getOffchainEffects(): OffchainEffect[] {
     return this.offchainEffects;
+  }
+
+  /**
+   * Fetches tx effects for the given hashes in parallel, deduplicating repeated hashes so each tx is only requested
+   * once. Returns a map keyed by `TxHash.toString()`; hashes for which the node has no tx effect are omitted.
+   */
+  async #fetchTxEffects(txHashes: TxHash[]): Promise<Map<string, IndexedTxEffect>> {
+    const uniqueTxHashes = uniqueBy(txHashes, h => h.toString());
+    const fetched = await Promise.all(uniqueTxHashes.map(h => this.aztecNode.getTxEffect(h)));
+    return new Map(
+      uniqueTxHashes
+        .map((h, i): [string, IndexedTxEffect | undefined] => [h.toString(), fetched[i]])
+        .filter((entry): entry is [string, IndexedTxEffect] => entry[1] !== undefined),
+    );
   }
 
   /** Runs a query concurrently with a validation that the block hash is not ahead of the anchor block. */

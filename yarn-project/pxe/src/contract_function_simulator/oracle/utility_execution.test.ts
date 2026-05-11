@@ -347,6 +347,7 @@ describe('Utility Execution test suite', () => {
         jobId: 'test-job-id',
         scopes: [scope],
         l2TipsStore,
+        simulator,
       });
     });
 
@@ -414,6 +415,7 @@ describe('Utility Execution test suite', () => {
           jobId: 'test-job-id',
           scopes: [scope],
           l2TipsStore,
+          simulator,
         });
 
         capsuleStore.getCapsule.mockResolvedValueOnce(persisted);
@@ -595,6 +597,7 @@ describe('Utility Execution test suite', () => {
             jobId: 'test-job-id',
             scopes: [],
             l2TipsStore,
+            simulator,
           });
 
         const oracleA = makeOracle(contractAddressA);

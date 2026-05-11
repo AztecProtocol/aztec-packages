@@ -1,3 +1,4 @@
+import { type SlotNumber, SlotNumberSchema } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Prettify } from '@aztec/foundation/types';
 
@@ -15,6 +16,8 @@ export interface SequencerConfig {
   maxTxsPerBlock?: number;
   /** The maximum number of txs across all blocks in a checkpoint. */
   maxTxsPerCheckpoint?: number;
+  /** Maximum number of blocks the sequencer packs into a single checkpoint, and the highest indexWithinCheckpoint accepted on a block proposal. */
+  maxBlocksPerCheckpoint?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
   /** The minimum number of valid txs (after execution) to include in a block. If not set, falls back to minTxsPerBlock. */
@@ -83,6 +86,10 @@ export interface SequencerConfig {
   minBlocksForCheckpoint?: number;
   /** Skip publishing checkpoint proposals probability (for testing checkpoint prunes only) */
   skipPublishingCheckpointsPercent?: number;
+  /** Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only) */
+  skipBroadcastProposals?: boolean;
+  /** List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected. */
+  pauseProposingForSlots?: SlotNumber[];
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -90,6 +97,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     sequencerPollingIntervalMS: z.number().optional(),
     maxTxsPerBlock: z.number().optional(),
     maxTxsPerCheckpoint: z.number().optional(),
+    maxBlocksPerCheckpoint: z.number().positive().optional(),
     minValidTxsPerBlock: z.number().optional(),
     minTxsPerBlock: z.number().optional(),
     maxL2BlockGas: z.number().optional(),
@@ -124,6 +132,8 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
     minBlocksForCheckpoint: z.number().positive().optional(),
     skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),
+    skipBroadcastProposals: z.boolean().optional(),
+    pauseProposingForSlots: z.array(SlotNumberSchema).optional(),
   }),
 );
 
@@ -145,7 +155,9 @@ type SequencerConfigOptionalKeys =
   | 'maxTxsPerCheckpoint'
   | 'maxL2BlockGas'
   | 'maxDABlockGas'
-  | 'redistributeCheckpointBudget';
+  | 'redistributeCheckpointBudget'
+  | 'skipBroadcastProposals'
+  | 'pauseProposingForSlots';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>

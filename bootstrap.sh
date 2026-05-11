@@ -785,7 +785,7 @@ case "$cmd" in
     ;;
   "ci-network-bench-10tps")
     # Args: <env_file> <namespace> [docker_image]
-    # Deploys bench-10tps and runs the 38-min sustained 10 TPS benchmark.
+    # Deploys bench-10tps and runs the 10-min sustained 10 TPS benchmark.
     # Cleanup is done separately via ci-network-teardown.
     export CI=1
     env_file="${1:?env_file is required}"
@@ -823,6 +823,17 @@ case "$cmd" in
   # RELEASES #
   ############
   "ci-release")
+    # Verification build for a release tag. Does NOT publish — publishing happens in
+    # ci-release-publish, gated on ci-compat-e2e so a compat regression blocks the release.
+    export CI=1
+    export USE_TEST_CACHE=1
+    if ! semver check $REF_NAME; then
+      exit 1
+    fi
+    build
+    ;;
+  "ci-release-publish")
+    # Actual publish step. `build` cache-hits against ci-release's build of the same commit.
     export CI=1
     export USE_TEST_CACHE=1
     if ! semver check $REF_NAME; then
@@ -902,6 +913,82 @@ case "$cmd" in
     build
     yarn-project/end-to-end/bootstrap.sh avm_check_circuit
     ;;
+  #############################################
+  # BACKWARDS COMPATIBILITY E2E TESTS         #
+  #############################################
+  "ci-compat-e2e")
+    # Runs e2e tests with contract artifacts from every prior stable release since 4.2.0 (version where we committed to
+    # backwards compatibility). This Validates that old contract artifacts work on current release.
+    export CI=1
+    export USE_TEST_CACHE=0
+    export CI_FULL=0
+    export NO_FAIL_FAST=1
+
+    build
+
+    # TODO: bump when v5 commits to backwards-compatible contract artifacts.
+    #   compat_major:       major version that has compat guarantees today.
+    #   compat_min_version: earliest stable tag of that major to test against
+    #                       (artifacts before this are incompatible due to oracle interface changes).
+    compat_major="4"
+    compat_min_version="4.2.0"
+
+    # Get current major version.
+    current_version=$(jq -r '."."' .release-please-manifest.json)
+    major=$(semver major "$current_version")
+    if [ "$major" != "$compat_major" ]; then
+      echo "Compat e2e tests only apply to v${compat_major}. Current major: v${major}. Skipping."
+      exit 0
+    fi
+    min_version="$compat_min_version"
+
+    # Fetch tags (EC2 clone may not have them). Fail loud: a silent fetch failure plus an empty
+    # tag list would publish a real release with zero compat coverage.
+    if ! git fetch origin 'refs/tags/v*:refs/tags/v*'; then
+      echo "ERROR: failed to fetch release tags." >&2
+      exit 1
+    fi
+
+    # Discover stable tags for this major version (no prerelease suffixes).
+    versions=()
+    while IFS= read -r tag; do
+      ver=${tag#v}
+      # Include only versions >= min_version (sort -V puts smaller first).
+      if [ "$(printf '%s\n%s' "$min_version" "$ver" | sort -V | head -1)" = "$min_version" ]; then
+        versions+=("$ver")
+      fi
+    done < <(git tag -l "v${major}.*" | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | sort -V)
+
+    # Exclude the current tag when running on a release tag push.
+    if [[ "${REF_NAME:-}" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+      current_tag="${BASH_REMATCH[1]}"
+      filtered=()
+      for v in "${versions[@]}"; do
+        [ "$v" != "$current_tag" ] && filtered+=("$v")
+      done
+      versions=("${filtered[@]}")
+    fi
+
+    if [ ${#versions[@]} -eq 0 ]; then
+      echo "No prior stable versions found for v${major}.x (>= $min_version). Skipping compat tests."
+      exit 0
+    fi
+
+    echo_header "Backwards compatibility e2e tests"
+    echo "Testing against ${#versions[@]} prior stable version(s): ${versions[*]}"
+
+    # Pre-populate the legacy contract cache on the host. Test containers run with --net=none, so the
+    # jest resolver's on-demand npm install would fail with EAI_AGAIN. Install here where we have network.
+    for ver in "${versions[@]}"; do
+      node yarn-project/end-to-end/src/install_legacy_contracts.cjs "$ver"
+    done
+
+    # Generate compat test commands for all versions and run them in parallel.
+    for ver in "${versions[@]}"; do
+      yarn-project/end-to-end/bootstrap.sh compat_test_cmds "$ver"
+    done | filter_test_cmds | parallelize
+    ;;
+
   ##########################################
   # ROLLUP UPGRADE DEPLOYMENT              #
   ##########################################

@@ -312,24 +312,19 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
 
   @trackSpan('ProverNode.gatherEpochData', epochNumber => ({ [Attributes.EPOCH_NUMBER]: epochNumber }))
   private async gatherEpochData(epochNumber: EpochNumber): Promise<EpochProvingJobData> {
-    const checkpoints = await this.gatherCheckpoints(epochNumber);
+    const publishedCheckpoints = await this.l2BlockSource.getCheckpoints({ epoch: epochNumber });
+    if (publishedCheckpoints.length === 0) {
+      throw new EmptyEpochError(epochNumber);
+    }
+    const checkpoints = publishedCheckpoints.map(p => p.checkpoint);
+    const attestations = publishedCheckpoints.at(-1)?.attestations ?? [];
     const txArray = await this.gatherTxs(epochNumber, checkpoints);
     const txs = new Map<string, Tx>(txArray.map(tx => [tx.getTxHash().toString(), tx]));
     const l1ToL2Messages = await this.gatherMessages(epochNumber, checkpoints);
     const [firstBlock] = checkpoints[0].blocks;
     const previousBlockHeader = await this.gatherPreviousBlockHeader(epochNumber, firstBlock.number - 1);
-    const [lastPublishedCheckpoint] = await this.l2BlockSource.getCheckpoints(checkpoints.at(-1)!.number, 1);
-    const attestations = lastPublishedCheckpoint?.attestations ?? [];
 
     return { checkpoints, txs, l1ToL2Messages, epochNumber, previousBlockHeader, attestations };
-  }
-
-  private async gatherCheckpoints(epochNumber: EpochNumber) {
-    const checkpoints = await this.l2BlockSource.getCheckpointsForEpoch(epochNumber);
-    if (checkpoints.length === 0) {
-      throw new EmptyEpochError(epochNumber);
-    }
-    return checkpoints;
   }
 
   private async gatherTxs(epochNumber: EpochNumber, checkpoints: Checkpoint[]) {
@@ -360,16 +355,13 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   }
 
   private async gatherPreviousBlockHeader(epochNumber: EpochNumber, previousBlockNumber: number) {
-    const header = await (previousBlockNumber === 0
-      ? this.worldState.getCommitted().getInitialHeader()
-      : this.l2BlockSource.getBlockHeader(BlockNumber(previousBlockNumber)));
-
-    if (!header) {
+    const data = await this.l2BlockSource.getBlockData({ number: BlockNumber(previousBlockNumber) });
+    if (!data?.header) {
       throw new Error(`Previous block header ${previousBlockNumber} not found for proving epoch ${epochNumber}`);
     }
 
-    this.log.verbose(`Gathered previous block header ${header.getBlockNumber()} for epoch ${epochNumber}`);
-    return header;
+    this.log.verbose(`Gathered previous block header ${data.header.getBlockNumber()} for epoch ${epochNumber}`);
+    return data.header;
   }
 
   /** Extracted for testing purposes. */

@@ -10,6 +10,8 @@ import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
+import { waitForL1ToL2MessageSeen } from './wait_for_l1_to_l2_message.js';
+
 export interface IGasBridgingTestHarness {
   getL1FeeJuiceBalance(address: EthAddress): Promise<bigint>;
   prepareTokensOnL1(owner: AztecAddress): Promise<L2AmountClaim>;
@@ -144,8 +146,7 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     await this.mintTokensOnL1();
     const claim = await this.sendTokensToPortalPublic(bridgeAmount, owner);
 
-    const isSynced = async () => await this.aztecNode.isL1ToL2MessageSynced(Fr.fromHexString(claim.messageHash));
-    await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 1);
+    await waitForL1ToL2MessageSeen(this.aztecNode, Fr.fromHexString(claim.messageHash), { timeoutSeconds: 24 });
 
     // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
     await this.advanceL2Block();

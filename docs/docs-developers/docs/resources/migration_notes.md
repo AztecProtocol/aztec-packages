@@ -9,6 +9,182 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] TXE `call_public_incognito` no longer takes a `from` parameter
+
+`TestEnvironment::call_public_incognito` previously accepted a `from` address that was silently ignored (the function always uses a null `msg_sender`). The `from` parameter has been removed.
+
+```diff
+- env.call_public_incognito(sender, SampleContract::at(addr).some_function());
++ env.call_public_incognito(SampleContract::at(addr).some_function());
+```
+
+If you need to call a public function *with* a sender, use `call_public` instead.
+
+### [Aztec.nr] TXE `view_public_incognito` is deprecated
+
+`TestEnvironment::view_public_incognito` is now deprecated in favor of `view_public`, which has the same behavior (null `msg_sender`, static call).
+
+```diff
+- env.view_public_incognito(SampleContract::at(addr).some_view());
++ env.view_public(SampleContract::at(addr).some_view());
+```
+
+### [Aztec.js] `DeployMethod` address-affecting parameters move to construction time
+
+Salt, deployer, and public keys are now passed when the `DeployMethod` is constructed, not on every call to `send` / `simulate` / `request` / `getInstance`. This locks the contract address once it is determined and prevents the silent salt-cache poisoning bug where the address could change between calls.
+
+`contractAddressSalt`, `deployer`, and `universalDeploy` have been removed from `DeployOptions`, `RequestDeployOptions`, and `SimulateDeployOptions`. They now live on a new `DeployInstantiationOptions` argument passed at construction. `deployer` and `universalDeploy` are mutually exclusive; passing both throws. `Contract.deployWithPublicKeys` and the generated `MyContract.deployWithPublicKeys(...)` factories have been removed; pass `publicKeys` via the `instantiation` argument of `deploy(...)` instead. The buggy synchronous `address` and `partialAddress` getters have been removed and replaced with `getAddress()` and `getPartialAddress()` (both `async`).
+
+The compact form keeps working: `MyContract.deploy(wallet, ...args).send({ from: alice })` deploys with `deployer = alice` and `salt = random()`, exactly as before. The deployer is locked the first time `send` / `simulate` / `profile` is called (from `options.from`, with `NO_FROM` or undefined → universal) and cannot change after that:
+
+- Subsequent `send` / `simulate` / `profile` calls with a `from` that would imply a different deployer throw, instead of silently producing a different address.
+- A lock to universal (`AztecAddress.ZERO`) is the only one compatible with any sender, since the universal address does not depend on `from`.
+- A lock to a concrete address only accepts that exact `from` on subsequent calls.
+
+**Migration:**
+
+Universal deployment with a fixed salt:
+
+```diff
+- const deploy = MyContract.deploy(wallet, ...args);
+- await deploy.send({
+-   from: alice,
+-   contractAddressSalt: salt,
+-   universalDeploy: true,
+- });
++ const deploy = MyContract.deploy(wallet, ...args, { salt, universalDeploy: true });
++ await deploy.send({ from: alice });
+```
+
+Non-universal deploy where `from` doubles as the deployer:
+
+```diff
+- const deploy = MyContract.deploy(wallet, ...args);
+- await deploy.send({ from: alice, contractAddressSalt: salt });
++ const deploy = MyContract.deploy(wallet, ...args, { salt });
++ await deploy.send({ from: alice });
+```
+
+If you need to read the address before sending, lock the deployer at construction:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { salt, deployer: alice });
+const address = await deploy.getAddress(); // resolves; deployer was locked at construction
+await deploy.send({ from: alice }); // deploys at the address `getAddress` returned
+```
+
+Universal deploys can be sent by any account, since the universal address does not depend on `from`:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { universalDeploy: true });
+await deploy.send({ from: bob }); // OK, universal accepts any sender
+```
+
+A lock to a concrete deployer rejects sending from a different account, instead of silently deploying at a different address:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { deployer: alice });
+await deploy.send({ from: bob }); // throws: deployer is locked to alice
+```
+
+`deployWithPublicKeys` is gone; pass `publicKeys` in the instantiation options instead:
+
+```diff
+- const deploy = MyContract.deployWithPublicKeys(publicKeys, wallet, ...args);
++ const deploy = MyContract.deploy(wallet, ...args, { publicKeys });
+```
+
+`ContractDeployer.deploy(...)` now takes the instantiation argument as its first parameter (pass `{}` to use defaults and rely on lazy locking from `from`):
+
+```diff
+- const cd = new ContractDeployer(artifact, wallet);
+- await cd.deploy(...ctorArgs).send({ from: alice, contractAddressSalt: salt });
++ const cd = new ContractDeployer(artifact, wallet);
++ await cd.deploy(ctorArgs, { salt }).send({ from: alice });
+```
+
+The synchronous `address` / `partialAddress` getters are gone:
+
+```diff
+- const address = deploy.address;                       // sync, possibly undefined
+- const partial = await deploy.partialAddress;          // sync getter wrapping async value
++ const address = await deploy.getAddress();            // requires the deployer to be locked
++ const partial = await deploy.getPartialAddress();     // requires the deployer to be locked
+```
+
+`getInstance()` no longer takes options; use the construction-time instantiation instead:
+
+```diff
+- const instance = await deploy.getInstance({ contractAddressSalt: salt });
++ const deploy = MyContract.deploy(wallet, ...args, { salt, deployer: alice });
++ const instance = await deploy.getInstance();
+```
+
+### [aztec-up] Bundled binaries are no longer exposed under bare names on `PATH`
+
+The Aztec installer previously placed bundled binaries directly into `$HOME/.aztec/current/bin` under bare names (`forge`, `nargo`, `bb`, `pxe`, ...). Anything with the same name in your own `PATH` was silently shadowed in unrelated projects.
+
+Every bundled binary is now exposed only under an `aztec-` prefixed name in `$HOME/.aztec/current/bin`. Bare names are not on `PATH` at all and resolve to your own install (if any).
+
+| Was on `PATH`      | Now                      |
+| ------------------ | ------------------------ |
+| `forge`            | `aztec-forge`            |
+| `cast`             | `aztec-cast`             |
+| `anvil`            | `aztec-anvil`            |
+| `chisel`           | `aztec-chisel`           |
+| `nargo`            | `aztec-nargo`            |
+| `noir-profiler`    | `aztec-noir-profiler`    |
+| `bb`               | `aztec-bb`               |
+| `bb-cli`           | `aztec-bb-cli`           |
+| `pxe`              | `aztec-pxe`              |
+| `txe`              | `aztec-txe`              |
+| `validator-client` | `aztec-validator-client` |
+| `blob-client`      | `aztec-blob-client`      |
+
+`aztec`, `aztec-wallet`, and `aztec-up` keep their existing names.
+
+If you relied on a bundled bare-name binary for general use:
+
+- For Aztec contract work, prefer `aztec compile` and `aztec test`.
+- For other Noir / Foundry commands, invoke the `aztec-*` symlink directly (e.g. `aztec-nargo fmt`, `aztec-forge build`).
+- Or install Foundry / nargo separately via `foundryup` / `noirup`.
+
+If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/current/bin/nargo`, change it to `$HOME/.aztec/current/bin/aztec-nargo` (the symlink is a drop-in for `nargo`). See the [Noir VSCode Extension guide](../aztec-nr/installation.md) for details.
+
+### [Stdlib] `SimulationOverrides.contracts` entries no longer carry an artifact
+
+`ContractOverrides` entries are now `{ instance }` only. To override a contract's artifact, pre-register the target class via `pxe.registerContractClass(artifact)` and set the override instance's `currentContractClassId` to that class id:
+
+```diff
+- const instance = await getContractInstanceFromInstantiationParams(stubArtifact, { salt: Fr.random() });
++ const instance = await pxe.getContractInstance(addr);
++ await pxe.registerContractClass(stubArtifact);
++ const stubClassId = (await getContractClassFromArtifact(stubArtifact)).id;
+- overrides = { contracts: { [addr.toString()]: { instance, artifact: stubArtifact } } };
++ overrides = { contracts: { [addr.toString()]: { instance: { ...instance, currentContractClassId: stubClassId } } } };
+```
+
+### [Aztec.js] `simulate` accepts `overrides` for testing "what if storage value was X?"
+
+`Contract.methods.foo(...).simulate(...)` now accepts an `overrides` option that injects values into the simulator's (ephemeral) world-state fork and contract DB before the call runs. The supported field is `publicStorage`, which writes a `(contract, slot, value)` into the public-data tree as if a previous tx had set it. Overrides are thrown away after simulation completes.
+
+```typescript
+const result = await contract.methods.read_balance(account).simulate({
+  overrides: {
+    publicStorage: [{ contract: contract.address, slot: BALANCE_SLOT, value: new Fr(1_000_000n) }],
+  },
+});
+```
+
+The same option flows through `wallet.simulateTx` and eventually to `simulatePublicCalls` RPC on `AztecNode`.
+
+Direct callers of the `SimulationOverrides` constructor must switch from a positional `contracts` argument to an options bag:
+
+```diff
+- new SimulationOverrides(contracts);
++ new SimulationOverrides({ contracts });
+```
+
 ### [PXE] `proveTx` takes an options bag
 
 `PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:
@@ -42,15 +218,15 @@ The Aztec Node JSON-RPC surface for fetching blocks and checkpoints has been con
 
 **Removed methods:**
 
-| Removed | Replacement |
-|---|---|
-| `getBlockByHash(hash)` | `getBlock(hash)` or `getBlock({ hash })` |
-| `getBlockByArchive(archive)` | `getBlock({ archive })` |
+| Removed                            | Replacement                                  |
+| ---------------------------------- | -------------------------------------------- |
+| `getBlockByHash(hash)`             | `getBlock(hash)` or `getBlock({ hash })`     |
+| `getBlockByArchive(archive)`       | `getBlock({ archive })`                      |
 | `getBlockHeaderByArchive(archive)` | `getBlock({ archive }).then(r => r?.header)` |
-| `getProvenBlockNumber()` | `getBlockNumber('proven')` |
-| `getCheckpointedBlockNumber()` | `getBlockNumber('checkpointed')` |
+| `getProvenBlockNumber()`           | `getBlockNumber('proven')`                   |
+| `getCheckpointedBlockNumber()`     | `getBlockNumber('checkpointed')`             |
 
-**Deprecated but still present** (scheduled for removal once internal consumers of the archiver shape are rewired): `getL2Tips` (use `getChainTips`), `getBlockHeader` (use `getBlock(param).then(r => r?.header)`), `getCheckpointedBlocks` (use `getBlocks(from, limit, { includeL1PublishInfo: true, includeAttestations: true })`), `getCheckpointsDataForEpoch` (use `getCheckpoints(from, limit)` over the epoch's checkpoint range). Do not adopt these in new code.
+**Deprecated but still present** (scheduled for removal once internal consumers of the archiver shape are rewired): `getL2Tips` (use `getChainTips`), `getBlockHeader` (use `getBlock(param).then(r => r?.header)`), `getCheckpointedBlocks` (use `getBlocks(from, limit, { includeL1PublishInfo: true, includeAttestations: true })`). Do not adopt these in new code. (`getCheckpointsDataForEpoch` was previously listed here; see the dedicated checkpoint-API entry below for its removal.)
 
 **New response shapes:** `BlockResponse` always carries `header`, `archive`, `hash`, `number`, `checkpointNumber`, and `indexWithinCheckpoint`. `body`, `l1` (an `L1PublishInfo` discriminated union), and `attestations` are present only when the matching include option is set. `CheckpointResponse` mirrors this for checkpoints, with `blocks` gated on `includeBlocks`, and always carries `feeAssetPriceModifier` as a base field. The response types are generic over the options object, so passing a literal `{ includeTransactions: true }` narrows the return type and `response.body` becomes non-optional.
 
@@ -79,11 +255,64 @@ The Aztec Node JSON-RPC surface for fetching blocks and checkpoints has been con
 
 `getBlockHeader`, `getCheckpointedBlocks`, `getCheckpointsDataForEpoch`, and `getL2Tips` continue to work in this release but are deprecated; migrate to the replacements above.
 
-**Chain-tip selectors:** `getBlockNumber` and `getCheckpointNumber` now accept an optional `ChainTip` argument (`'proposed' | 'checkpointed' | 'proven' | 'finalized'`). Note the semantic difference: on the block side `'proposed'` means the latest proposed block (chain head), whereas on the checkpoint side `'proposed'` resolves to the latest L1-confirmed checkpoint. Pre-L1-confirmation checkpoints are not exposed over RPC.
+**Chain-tip selectors:** `getBlockNumber` and `getCheckpointNumber` now accept an optional `ChainTip` argument (`'proposed' | 'checkpointed' | 'proven' | 'finalized'`). The `'proposed'` semantics are described in the dedicated checkpoint-API entry below — they were tightened in this release to mean "the proposed-tip checkpoint" rather than "the latest L1-confirmed checkpoint."
 
 **Block parameter variants:** `BlockParameter` now also accepts a block hash, an archive root, and chain-tip names. The existing `number | 'latest'` forms continue to work — `'latest'` is an alias for `'proposed'`.
 
 **Impact**: Source changes are required anywhere the removed methods are called. Type changes are required anywhere `L2Block` / `BlockHeader` / `CheckpointedL2Block` were consumed from the RPC — those call sites now receive `BlockResponse` / `CheckpointResponse` and must request the fields they need via `options`. Production nodes will reject JSON-RPC calls to the removed method names.
+
+### [Aztec Node] Checkpoint RPC: `'proposed'` is now strictly proposed; `'latest'` removed; `getCheckpointsData` takes a query
+
+Follow-up to the unified-RPC change above. Tightens the checkpoint-side API surface: removes the old positional / per-shape entrypoints, drops the wire-level alias that conflated proposed and confirmed checkpoints, and replaces the deprecated epoch-only `getCheckpointsDataForEpoch` method with a unified query-shaped `getCheckpointsData` that mirrors the block-side API.
+
+**`getCheckpointsDataForEpoch(epoch)` removed.** The previously-deprecated method is gone. Use `getCheckpointsData({ epoch })` instead. The new `getCheckpointsData` also accepts a contiguous range:
+
+```diff
+- const cps = await node.getCheckpointsDataForEpoch(epoch);
++ const cps = await node.getCheckpointsData({ epoch });
+
+  // New: contiguous range
++ const cps = await node.getCheckpointsData({ from: 1, limit: 5 });
+```
+
+**`'latest'` removed from `CheckpointParameter`.** The `'latest'` literal previously accepted by `getCheckpoint('latest', options)` is no longer valid. Use `'checkpointed'` to address the latest confirmed checkpoint, or `'proposed'` for the proposed-tip semantics described below. (Block-side `'latest'` in `BlockParameter` is unaffected.)
+
+```diff
+- await node.getCheckpoint('latest');
++ await node.getCheckpoint('checkpointed');
+```
+
+**`'proposed'` semantics changed.** Previously `'proposed'` on the checkpoint side aliased to "latest L1-confirmed checkpoint" — a documented foot-gun. After this release:
+
+- `getCheckpoint('proposed')` resolves to the proposed-tip checkpoint number and looks it up confirmed-first, then falls back to the proposed-checkpoint store. When a proposed entry exists at that number it is returned; when none exists, the proposed-tip falls back to the confirmed tip and the call returns the latest confirmed checkpoint. Returns `undefined` only when neither store has the resolved number.
+- `getCheckpointNumber('proposed')` returns the proposed-tip checkpoint number, falling back to the latest confirmed checkpoint number when no proposed entry exists. Return type stays `Promise<CheckpointNumber>`.
+
+If you want the latest L1-confirmed checkpoint regardless of proposed state, switch the call to `'checkpointed'`:
+
+```diff
+- const cp = await node.getCheckpoint('proposed');
+- const n  = await node.getCheckpointNumber('proposed');
++ const cp = await node.getCheckpoint('checkpointed');
++ const n  = await node.getCheckpointNumber('checkpointed');
+```
+
+**By-number / by-slot lookups gain a confirmed→proposed fallback.** `getCheckpoint({ number: N })` and `getCheckpoint({ slot: S })` now check the confirmed store first, then fall back to the proposed store. Tag-based lookups (`'checkpointed'`, `'proven'`, `'finalized'`) do not fall back — those tags name confirmed-only positions.
+
+**Throws on a proposed match + L1/attestations.** Proposed checkpoints have no L1 publish info or committee attestations (those data points only exist after L1 confirmation). The throw fires only when the lookup actually lands on a proposed entry — i.e. the confirmed store missed and the proposed store hit. When the proposed-tip falls back to the confirmed tip (no proposed entry exists), `'proposed' + includeAttestations` returns the latest confirmed checkpoint with attestations rather than throwing:
+
+```ts
+// Throws BadRequestError when a proposed entry exists at the resolved number:
+await node.getCheckpoint('proposed', { includeAttestations: true });
+await node.getCheckpoint('proposed', { includeL1PublishInfo: true });
+
+// And when a by-number / by-slot lookup falls back to a proposed entry:
+await node.getCheckpoint({ number: N }, { includeAttestations: true });
+// → throws if N is matched only in the proposed store
+```
+
+If your code asks for `includeAttestations` / `includeL1PublishInfo` and might land on a proposed entry, gate the call on `getCheckpoint(param)` first, then re-issue with the include flags only after confirming the result is from the confirmed store (e.g. by checking that the tag-based equivalent returns the same checkpoint number).
+
+**Impact**: Wallet, indexer, and tooling code that called `node.getCheckpoint('proposed')` or `node.getCheckpoint('latest')` will need to update their tag. Any code relying on the old "proposed = latest confirmed" alias should switch to `'checkpointed'`. Code that combined `'proposed'` (or by-number/by-slot fallbacks) with `includeAttestations` / `includeL1PublishInfo` will now throw at runtime; gate those flags as described above.
 
 ### [Aztec Node] `feeAssetPriceModifier` now correctly populated on confirmed checkpoints
 
@@ -144,6 +373,7 @@ Regenerate these values from a fresh build of this release — do not copy them 
 `poseidon2HashWithSeparator` is exported from `@aztec/foundation/crypto/poseidon`; the `DomainSeparator` enum and the matching `DOM_SEP__*` constants are defined in `@aztec/constants`. The new entries listed above are additions — existing separator names are unchanged.
 
 For TypeScript consumers, `@aztec/stdlib/hash` exports ready-made helpers that wrap the right separator: `computeMerkleHash` (append-only), `computeNullifierMerkleHash`, and `computePublicDataMerkleHash`. Prefer these over calling `poseidon2HashWithSeparator` directly so the separator choice stays colocated with the tree.
+
 ### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
 
 `emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.
@@ -197,6 +427,7 @@ This has been done because this is the format expected by the functionality in p
 The empire slashing model has been removed. Only the tally-based slashing model remains, and it has been renamed from `TallySlashingProposer` to `SlashingProposer`.
 
 **L1 contract changes:**
+
 - `SlasherFlavor` enum removed from `ISlasher.sol`
 - `RollupConfigInput.slasherFlavor` (enum) replaced with `slasherEnabled` (bool)
 - `TallySlashingProposer` contract renamed to `SlashingProposer`
@@ -206,6 +437,7 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 - All `TallySlashingProposer__` error prefixes renamed to `SlashingProposer__`
 
 **Environment variable changes:**
+
 ```diff
 - AZTEC_SLASHER_FLAVOR=tally    # was: "tally" | "empire" | "none"
 + AZTEC_SLASHER_ENABLED=true    # now a boolean
@@ -218,6 +450,7 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 **Node admin API:** `getSlashPayloads()` method removed.
 
 **TypeScript config changes:**
+
 ```diff
 - slasherFlavor: 'tally' | 'none'
 + slasherEnabled: boolean

@@ -1045,14 +1045,16 @@ template <typename Builder> class stdlib_field : public testing::Test {
         EXPECT_EQ(result, false);
     }
 
-    static void test_pow()
+    static void test_pow(uint32_t max_exponent_bits)
     {
         Builder builder = Builder();
 
-        std::array<uint32_t, 3> const_exponent_values{ 0, 1, engine.get_random_uint32() };
-        std::array<field_ct, 3> witness_exponent_values{ witness_ct(&builder, 0),
-                                                         witness_ct(&builder, 1),
-                                                         witness_ct(&builder, engine.get_random_uint32()) };
+        std::array<uint32_t, 3> const_exponent_values{ 0, 1, engine.get_random_uint32() % (1 << max_exponent_bits) };
+        std::array<field_ct, 3> witness_exponent_values{
+            witness_ct(&builder, 0),
+            witness_ct(&builder, 1),
+            witness_ct(&builder, engine.get_random_uint32() % (1 << max_exponent_bits))
+        };
 
         std::array<uint256_t, 3> base_values{ 0, 1, engine.get_random_uint256() };
         for (auto& base : base_values) {
@@ -1063,7 +1065,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent));
                 // Test witness base && integer exponent cases
                 field_ct witness_base(witness_ct(&builder, base));
-                result = witness_base.pow(exponent);
+                if (max_exponent_bits == 32) {
+                    result = witness_base.pow(exponent);
+                } else if (max_exponent_bits == CONST_OP_QUEUE_LOG_SIZE + 1) {
+                    result = witness_base.template pow<CONST_OP_QUEUE_LOG_SIZE + 1>(exponent);
+                } else {
+                    bb::assert_failure("Invalid max_exponent_bits value in test_pow");
+                }
 
                 if (exponent != 0) {
                     EXPECT_TRUE(!result.is_constant());
@@ -1085,7 +1093,13 @@ template <typename Builder> class stdlib_field : public testing::Test {
                 EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent.get_value()));
                 // Test witness base && witness exponent cases
                 field_ct witness_base(witness_ct(&builder, base));
-                result = witness_base.pow(exponent);
+                if (max_exponent_bits == 32) {
+                    result = witness_base.pow(exponent);
+                } else if (max_exponent_bits == CONST_OP_QUEUE_LOG_SIZE + 1) {
+                    result = witness_base.template pow<CONST_OP_QUEUE_LOG_SIZE + 1>(exponent);
+                } else {
+                    bb::assert_failure("Invalid max_exponent_bits value in test_pow");
+                }
 
                 EXPECT_TRUE(!result.is_constant());
                 EXPECT_EQ(result.get_value(), bb::fr(base).pow(exponent.get_value()));
@@ -1095,21 +1109,51 @@ template <typename Builder> class stdlib_field : public testing::Test {
         }
     }
 
-    static void test_pow_exponent_out_of_range()
+    static void test_pow_witness_exponent_out_of_range(uint32_t max_exponent_bits)
     {
-        Builder builder = Builder();
 
         fr base_val(engine.get_random_uint256());
-        uint64_t exponent_val = engine.get_random_uint32();
-        exponent_val += (uint64_t(1) << 32);
+        uint64_t exponent_val = engine.get_random_uint32() % (uint64_t(1) << max_exponent_bits);
+        exponent_val += (uint64_t(1) << max_exponent_bits);
+
+        Builder builder = Builder();
 
         [[maybe_unused]] field_ct base = witness_ct(&builder, base_val);
         field_ct exponent = witness_ct(&builder, exponent_val);
-        EXPECT_THROW_WITH_MESSAGE(base.pow(exponent), "Exponent too large in field_t::pow");
+        field_ct result;
+        if (max_exponent_bits == 32) {
+            result = base.pow(exponent);
+        } else if (max_exponent_bits == CONST_OP_QUEUE_LOG_SIZE + 1) {
+            result = base.template pow<CONST_OP_QUEUE_LOG_SIZE + 1>(exponent);
+        } else {
+            bb::assert_failure("Invalid max_exponent_bits value in test_pow");
+        }
 
-        exponent = field_ct(exponent_val);
-        EXPECT_THROW_WITH_MESSAGE(base.pow(exponent), "Exponent too large in field_t::pow");
-    };
+        EXPECT_FALSE(CircuitChecker::check(builder));
+        EXPECT_TRUE(builder.failed());
+        EXPECT_EQ(builder.err(), "field_t::pow exponent accumulator incorrect");
+    }
+
+    static void test_pow_constant_exponent_out_of_range(uint32_t max_exponent_bits)
+
+    {
+        fr base_val(engine.get_random_uint256());
+        uint64_t exponent_val = engine.get_random_uint32() % (uint64_t(1) << max_exponent_bits);
+        exponent_val += (uint64_t(1) << max_exponent_bits);
+
+        Builder builder = Builder();
+
+        [[maybe_unused]] field_ct base = witness_ct(&builder, base_val);
+        field_ct exponent = field_ct(exponent_val);
+        if (max_exponent_bits == 32) {
+            EXPECT_THROW_WITH_MESSAGE(base.pow(exponent), "Exponent too large in field_t::pow");
+        } else if (max_exponent_bits == CONST_OP_QUEUE_LOG_SIZE + 1) {
+            EXPECT_THROW_WITH_MESSAGE(base.template pow<CONST_OP_QUEUE_LOG_SIZE + 1>(exponent),
+                                      "Exponent too large in field_t::pow");
+        } else {
+            bb::assert_failure("Invalid max_exponent_bits value in test_pow");
+        }
+    }
 
     static void test_copy_as_new_witness()
     {
@@ -1701,13 +1745,31 @@ TYPED_TEST(stdlib_field, test_postfix_increment)
 {
     TestFixture::test_postfix_increment();
 }
-TYPED_TEST(stdlib_field, test_pow)
+TYPED_TEST(stdlib_field, test_pow_op_queue)
 {
-    TestFixture::test_pow();
+    TestFixture::test_pow(/*max_exponent_bits*/ CONST_OP_QUEUE_LOG_SIZE + 1);
 }
-TYPED_TEST(stdlib_field, test_pow_exponent_out_of_range)
+TYPED_TEST(stdlib_field, test_pow_32)
 {
-    TestFixture::test_pow_exponent_out_of_range();
+    TestFixture::test_pow(/*max_exponent_bits*/ 32);
+}
+TYPED_TEST(stdlib_field, test_pow_witness_exponent_out_of_range_op_queue)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_pow_witness_exponent_out_of_range(/*max_exponent_bits*/ CONST_OP_QUEUE_LOG_SIZE + 1);
+}
+TYPED_TEST(stdlib_field, test_pow_witness_exponent_out_of_range_32)
+{
+    BB_DISABLE_ASSERTS();
+    TestFixture::test_pow_witness_exponent_out_of_range(/*max_exponent_bits*/ 32);
+}
+TYPED_TEST(stdlib_field, test_pow_constant_exponent_out_of_range_op_queue)
+{
+    TestFixture::test_pow_constant_exponent_out_of_range(/*max_exponent_bits*/ CONST_OP_QUEUE_LOG_SIZE + 1);
+}
+TYPED_TEST(stdlib_field, test_pow_constant_exponent_out_of_range_32)
+{
+    TestFixture::test_pow_constant_exponent_out_of_range(/*max_exponent_bits*/ 32);
 }
 TYPED_TEST(stdlib_field, test_prefix_increment)
 {

@@ -13,7 +13,6 @@ import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses'
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import {
   GovernanceAbi,
@@ -43,6 +42,7 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../fixtures/setup_p2p_test.js';
 import { setupSharedBlobStorage } from '../fixtures/utils.js';
+import { waitForL1ToL2MessageSeen } from '../shared/wait_for_l1_to_l2_message.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
@@ -307,8 +307,7 @@ describe('e2e_p2p_add_rollup', () => {
       });
 
       const makeMessageConsumable = async (msgHash: Fr) => {
-        // We poll isL1ToL2MessageSynced endpoint until the message is available
-        await retryUntil(async () => await node.isL1ToL2MessageSynced(msgHash), 'message sync', 10);
+        await waitForL1ToL2MessageSeen(node, msgHash, { timeoutSeconds: 10 });
 
         const { receipt } = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)

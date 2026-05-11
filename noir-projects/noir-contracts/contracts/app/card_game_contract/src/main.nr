@@ -55,10 +55,7 @@ pub contract CardGame {
         let game_storage = self.storage.games.at(game as Field);
 
         let mut game_data = game_storage.read();
-        assert(
-            game_data.add_player(PlayerEntry { address: player, deck_strength, points: 0 }),
-            "Game full",
-        );
+        assert(game_data.add_player(PlayerEntry { address: player, deck_strength, points: 0 }), "Game full");
 
         game_storage.write(game_data);
     }
@@ -116,10 +113,7 @@ pub contract CardGame {
         assert(!game_data.claimed, "Already claimed");
         game_data.claimed = true;
 
-        assert_eq(
-            cards_hash,
-            poseidon2_hash(game_data.rounds_cards.map(|card: Card| card.to_field())),
-        );
+        assert_eq(cards_hash, poseidon2_hash(game_data.rounds_cards.map(|card: Card| card.to_field())));
 
         let winner = game_data.winner();
         assert(player.eq(winner.address), "Not the winner");
@@ -128,10 +122,7 @@ pub contract CardGame {
     }
 
     #[external("utility")]
-    unconstrained fn view_collection_cards(
-        owner: AztecAddress,
-        offset: u32,
-    ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
+    unconstrained fn view_collection_cards(owner: AztecAddress, offset: u32) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let collection = self.storage.collections;
         collection.view_cards(owner, offset)
     }

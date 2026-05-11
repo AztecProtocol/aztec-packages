@@ -7,8 +7,8 @@ import {
   BatchCall,
   type ContractFunctionInteraction,
   type ContractMethod,
-  type DeployInteractionWaitOptions,
   type DeployOptions,
+  type InteractionWaitOptions,
   getContractClassFromArtifact,
   waitForProven,
 } from '@aztec/aztec.js/contracts';
@@ -48,8 +48,9 @@ import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ProverNodeConfig } from '@aztec/prover-node';
-import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
+import { type PXEConfig, type PXECreationOptions, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import { ARTIFACT_VERSION_BEFORE_INJECTION } from '@aztec/stdlib/abi';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
@@ -212,6 +213,8 @@ export type SetupOptions = {
   /** Whether the initial node should be a lightweight RPC-only node (no sequencer, no validator).
    *  Use for tests that create their own validator nodes and don't need the initial sequencer. */
   skipInitialSequencer?: boolean;
+  /** Options forwarded to PXE creation (e.g. execution hooks). */
+  pxeCreationOptions?: PXECreationOptions;
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
@@ -271,6 +274,32 @@ export type EndToEndContext = {
 };
 
 /**
+ * When CONTRACT_ARTIFACTS_VERSION is set (backwards compatibility testing), asserts that the loaded artifact's
+ * aztecVersion matches the expected version. This is a sanity check verifying that the legacy artifact resolver
+ * actually swapped in the correct version.
+ */
+function assertContractArtifactsVersion() {
+  const expected = process.env.CONTRACT_ARTIFACTS_VERSION;
+  if (!expected) {
+    return;
+  }
+  const { aztecVersion } = SponsoredFPCContract.artifact;
+  // TODO(F-557): Remove this bypass once pre-version artifacts are no longer tested.
+  if (aztecVersion === ARTIFACT_VERSION_BEFORE_INJECTION) {
+    createLogger('e2e:setup').info(
+      `Skipping artifact version check: artifact predates version injection (CONTRACT_ARTIFACTS_VERSION=${expected})`,
+    );
+    return;
+  }
+  if (aztecVersion !== expected) {
+    throw new Error(
+      `Artifact version mismatch: expected ${expected} but got ${aztecVersion}. ` +
+        `The legacy artifact resolver may not have swapped in the correct version.`,
+    );
+  }
+}
+
+/**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
  * @param opts - Options to pass to the node initialization and to the setup script.
@@ -282,6 +311,7 @@ export async function setup(
   pxeOpts: Partial<PXEConfig> = {},
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
+  assertContractArtifactsVersion();
   let anvil: Anvil | undefined;
   try {
     opts.aztecTargetCommitteeSize ??= 0;
@@ -559,7 +589,10 @@ export async function setup(
     pxeConfig.dataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
     // For tests we only want proving enabled if specifically requested
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
-    const wallet = await TestWallet.create(aztecNodeService, pxeConfig, { loggerActorLabel: 'pxe-0' });
+    const wallet = await TestWallet.create(aztecNodeService, pxeConfig, {
+      loggerActorLabel: 'pxe-0',
+      ...opts.pxeCreationOptions,
+    });
 
     if (opts.walletMinFeePadding !== undefined) {
       wallet.setMinFeePadding(opts.walletMinFeePadding);
@@ -858,7 +891,7 @@ export async function ensureAccountContractsPublished(wallet: Wallet, accountsTo
  * Returns deployed account data that can be used by tests.
  */
 export const deployAccounts =
-  (numberOfAccounts: number, logger: Logger, deployOptions?: Partial<DeployOptions<DeployInteractionWaitOptions>>) =>
+  (numberOfAccounts: number, logger: Logger, deployOptions?: Partial<DeployOptions<InteractionWaitOptions>>) =>
   async ({ wallet, initialFundedAccounts }: { wallet: TestWallet; initialFundedAccounts: InitialAccountData[] }) => {
     if (initialFundedAccounts.length < numberOfAccounts) {
       throw new Error(`Cannot deploy more than ${initialFundedAccounts.length} initial accounts.`);

@@ -73,6 +73,8 @@ describe('e2e_p2p_data_withholding_slash', () => {
         slashAmountLarge: slashingUnit * 3n,
         slashSelfAllowed: true,
         minTxsPerBlock: 0,
+        enableProposerPipelining: true,
+        inboxLag: 2,
       },
     });
 
@@ -165,6 +167,11 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
     // Re-create the nodes.
     // ASSUMING they sync in the middle of the epoch, they will "see" the reorg, and try to slash.
+    // Reset minTxsPerBlock to 0 so re-created validators build empty checkpoints. Under proposer
+    // pipelining, the vote-offenses signature is bound to the target slot and the multicall is only
+    // delayed to the target slot start when a checkpoint is being proposed; without a proposal,
+    // votes would mine in the current wall-clock slot, causing the EIP-712 signature verification to fail.
+    t.ctx.aztecNodeConfig.minTxsPerBlock = 0;
     t.logger.warn('Re-creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,

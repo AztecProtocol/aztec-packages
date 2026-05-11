@@ -15,9 +15,8 @@ pub contract Benchmarking {
         protocol::{
             address::{AztecAddress, EthAddress},
             constants::{
-                CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_L2_TO_L1_MSGS_PER_CALL,
-                MAX_NOTE_HASHES_PER_CALL, MAX_NULLIFIERS_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL,
-                PRIVATE_LOG_CIPHERTEXT_LEN,
+                CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, MAX_L2_TO_L1_MSGS_PER_CALL, MAX_NOTE_HASHES_PER_CALL,
+                MAX_NULLIFIERS_PER_CALL, MAX_PRIVATE_LOGS_PER_CALL, PRIVATE_LOG_CIPHERTEXT_LEN,
             },
         },
         state_vars::{Map, Owned, PrivateSet, PublicMutable},

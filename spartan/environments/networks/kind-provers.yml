@@ -27,10 +27,12 @@ env:
   AWS_SECRET_ACCESS_KEY: ''
   OTEL_COLLECTOR_ENDPOINT: 'http://metrics-opentelemetry-collector.metrics:4318'
   VALIDATOR_REPLICAS: '4'
-  VALIDATORS_PER_NODE: '12 # We allocate 0.5 per validator, so 4 * 0.5 * 12 = 24 cores total'
+  # We allocate 0.5 per validator, so 4 * 0.5 * 12 = 24 cores total
+  VALIDATORS_PER_NODE: '12'
   VALIDATOR_PUBLISHERS_PER_REPLICA: '4'
   VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX: '5000'
-  PROVER_REPLICAS: '8 # 16 * 16 = 128 cores total'
+  # 16 * 16 = 128 cores total
+  PROVER_REPLICAS: '8'
   PROVER_AGENTS_PER_PROVER: '1'
   PROVER_PUBLISHER_MNEMONIC_START_INDEX: '8000'
   PUBLISHERS_PER_PROVER: '1'

@@ -1,3 +1,5 @@
+mod test;
+
 use aztec::macros::aztec;
 
 #[aztec]
@@ -41,6 +43,28 @@ pub contract TestLog {
         example_set: Owned<PrivateSet<FieldNote, Context>, Context>,
     }
 
+    /// Emits a single private log with the given raw tag and a one-field payload.
+    #[external("private")]
+    fn emit_raw_private_log(tag: Field, payload: Field) {
+        self.context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array([payload]));
+    }
+
+    /// Emits three private logs with payloads of different lengths (1, 3, and 5 fields). Used to
+    /// exercise the nested `BoundedVec<BoundedVec<Field, _>, _>` serialization between TXE and Noir.
+    #[external("private")]
+    fn emit_three_raw_private_logs_diff_lengths(
+        tag1: Field,
+        payload1: Field,
+        tag2: Field,
+        payload2: [Field; 3],
+        tag3: Field,
+        payload3: [Field; 5],
+    ) {
+        self.context.emit_private_log_vec_unsafe(tag1, BoundedVec::from_array([payload1]));
+        self.context.emit_private_log_vec_unsafe(tag2, BoundedVec::from_array(payload2));
+        self.context.emit_private_log_vec_unsafe(tag3, BoundedVec::from_array(payload3));
+    }
+
     #[external("private")]
     fn emit_encrypted_events(other: AztecAddress, preimages: [Field; 4]) {
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
@@ -50,10 +74,7 @@ pub contract TestLog {
         // We duplicate the emission, but swapping the sender and recipient:
         self.emit(event0).deliver_to(other, MessageDelivery.ONCHAIN_CONSTRAINED);
 
-        let event1 = ExampleEvent1 {
-            value2: AztecAddress::from_field(preimages[2]),
-            value3: preimages[3] as u8,
-        };
+        let event1 = ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 };
 
         self.emit(event1).deliver_to(self.msg_sender(), MessageDelivery.ONCHAIN_CONSTRAINED);
     }
@@ -62,12 +83,7 @@ pub contract TestLog {
     fn emit_unencrypted_events(preimages: [Field; 4]) {
         self.emit(ExampleEvent0 { value0: preimages[0], value1: preimages[1] });
 
-        self.emit(
-            ExampleEvent1 {
-                value2: AztecAddress::from_field(preimages[2]),
-                value3: preimages[3] as u8,
-            },
-        );
+        self.emit(ExampleEvent1 { value2: AztecAddress::from_field(preimages[2]), value3: preimages[3] as u8 });
     }
 
     // Emits an event with a nested struct to test that decoding works correctly

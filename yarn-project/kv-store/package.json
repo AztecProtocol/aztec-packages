@@ -16,9 +16,9 @@
     "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
-    "test:browser": "vitest run --config ./vitest.config.ts",
+    "test:browser": "bash scripts/run-browser-tests.sh",
     "bench:browser": "VITE_BENCH=1 vitest run --config ./vitest.config.ts src/bench",
-    "test": "yarn test:node",
+    "test": "yarn test:node && yarn test:browser",
     "test:jest": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
@@ -30,8 +30,8 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/native": "workspace:^",
+    "@aztec/sqlite3mc-wasm": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "@sqlite.org/sqlite-wasm": "3.50.4-build1",
     "idb": "^8.0.0",
     "lmdb": "^3.2.0",
     "msgpackr": "^1.11.2",

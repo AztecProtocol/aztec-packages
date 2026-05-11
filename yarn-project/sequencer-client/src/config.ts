@@ -14,6 +14,7 @@ import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ChainConfig,
+  DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
   type PipelineConfig,
   type SequencerConfig,
   chainConfigMappings,
@@ -59,6 +60,7 @@ export const DefaultSequencerConfig = {
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
   skipPublishingCheckpointsPercent: 0,
+  maxBlocksPerCheckpoint: DEFAULT_MAX_BLOCKS_PER_CHECKPOINT,
 } satisfies ResolvedSequencerConfig;
 
 /**
@@ -228,6 +230,14 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT',
     description: 'Percent probability (0 - 100) of sequencer skipping checkpoint publishing (testing only)',
     ...numberConfigHelper(DefaultSequencerConfig.skipPublishingCheckpointsPercent),
+  },
+  skipBroadcastProposals: {
+    description: 'Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  pauseProposingForSlots: {
+    description:
+      'List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected.',
   },
   ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
 };

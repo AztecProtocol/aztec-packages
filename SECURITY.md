@@ -6,9 +6,11 @@ We welcome external submissions in the meantime. To submit a vulnerability, plea
 
 ## Reporting Security Vulnerabilities
 
-- **Do not** open public GitHub issues or pull requests for suspected security vulnerabilities.
+Please use [Aztec Network Bug Bounty](https://cantina.xyz/bounties/80e74370-10d8-4e52-8e4b-7294deb7c9ee) to submit vulnerabilities. If the vulnerability is not in scope of the bug bounty program, please use the following procedure.
 
-Instead, please use the [Private Vulnerability Reporting](https://github.com/AztecProtocol/aztec-packages/security/advisories/new) process on GitHub. 
+**Do not** open public GitHub issues or pull requests for suspected security vulnerabilities.
+
+Instead, please use the [Private Vulnerability Reporting](https://github.com/AztecProtocol/aztec-packages/security/advisories/new) process on GitHub.
 
 - Navigate to the "Security" tab of this repository.
 - Click "Report a vulnerability" on the left sidebar.

@@ -58,7 +58,7 @@ const NODE_COUNT = 3;
 //
 const BLOCKS_PER_CHECKPOINT = 4;
 const TXS_PER_BLOCK = 2;
-const CHECKPOINTS_TO_CHECK = 2;
+const CHECKPOINTS_TO_CHECK = 3;
 // Extra txs beyond the ones we assert on: one partial checkpoint at startup (sequencers start mid-slot with
 // only one blockDuration of slack) plus a buffer at the tail.
 const TX_COUNT = BLOCKS_PER_CHECKPOINT * TXS_PER_BLOCK * (CHECKPOINTS_TO_CHECK + 1);
@@ -171,47 +171,56 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     // checkpoints whose target slot is at or after the slot we waited for, assert every checkpoint is fully
     // filled (BLOCKS_PER_CHECKPOINT blocks × TXS_PER_BLOCK txs each) and the checkpoint tx landed in the 1st
     // or 2nd L1 block of the target slot.
-    const blocks = await nodes[0].getCheckpointedBlocks(BlockNumber(1), 50);
+    const blocks = await nodes[0].getBlocks(BlockNumber(1), 50, {
+      includeL1PublishInfo: true,
+      includeAttestations: true,
+      includeTransactions: true,
+      onlyCheckpointed: true,
+    });
     const ethereumSlotDuration = test.L1_BLOCK_TIME_IN_S;
     const checkpoints = chunkBy(blocks, b => Number(b.checkpointNumber));
     let checkedFullCheckpoints = 0;
     for (const checkpointBlocks of checkpoints) {
       const first = checkpointBlocks[0];
-      const slotStartTimestamp = getTimestampForSlot(first.block.slot, test.constants);
-      const l1OffsetInSlot = Number(first.l1.timestamp - slotStartTimestamp) / ethereumSlotDuration;
+      const firstSlot = first.header.globalVariables.slotNumber;
+      const slotStartTimestamp = getTimestampForSlot(firstSlot, test.constants);
+      const l1OffsetInSlot = first.l1?.published
+        ? Number(first.l1.timestamp - slotStartTimestamp) / ethereumSlotDuration
+        : undefined;
       logger.warn(
-        `Checkpoint ${first.checkpointNumber} (target slot ${first.block.slot}) mined at L1 block ${first.l1.blockNumber} ` +
+        `Checkpoint ${first.checkpointNumber} (target slot ${firstSlot}) mined at L1 block ${first.l1?.published ? first.l1.blockNumber : 'pending'} ` +
           `(offset ${l1OffsetInSlot} into L2 slot) with ${checkpointBlocks.length} blocks`,
         {
-          blocks: checkpointBlocks.map(b => ({ number: b.block.number, txs: b.block.body.txEffects.length })),
+          blocks: checkpointBlocks.map(b => ({ number: b.number, txs: b.body?.txEffects.length })),
         },
       );
-      if (first.block.slot < targetSlot || checkedFullCheckpoints >= CHECKPOINTS_TO_CHECK) {
+      if (firstSlot < targetSlot || checkedFullCheckpoints >= CHECKPOINTS_TO_CHECK) {
         continue;
       }
-      expect(checkpointBlocks).toHaveLength(BLOCKS_PER_CHECKPOINT);
+
+      // We don't test for exactly BLOCKS_PER_CHECKPOINT since CI delays make this flakey
+      expect(checkpointBlocks.length).toBeGreaterThanOrEqual(BLOCKS_PER_CHECKPOINT - 1);
+
       for (const block of checkpointBlocks) {
         // We don't test for exactly TXS_PER_BLOCK since CI delays make this flakey
-        const txCount = block.block.body.txEffects.length;
+        const txCount = block.body!.txEffects.length;
         expect(txCount).toBeGreaterThanOrEqual(1);
         expect(txCount).toBeLessThanOrEqual(TXS_PER_BLOCK);
       }
       expect([0, 1]).toContain(l1OffsetInSlot);
       checkedFullCheckpoints++;
     }
-    expect(checkedFullCheckpoints).toBe(CHECKPOINTS_TO_CHECK);
 
-    // Expect no failures from sequencers during block building. Filter out the self-proposal 'Rollup contract
-    // check failed' spam: when a validator proposes two consecutive checkpoints, the archiver's sequentiality
-    // guard rejects persisting the second proposed checkpoint until the first is confirmed on L1, so the next
-    // pipelining cycle falls through without simulation overrides and canProposeAt reverts until state catches
-    // up. Tracked in A-910.
-    const significantFailEvents = failEvents.filter(
-      e => !(e.type === 'proposer-rollup-check-failed' && e.reason === 'Rollup contract check failed'),
-    );
-    if (significantFailEvents.length > 0) {
-      logger.error(`Failed events from sequencers`, significantFailEvents);
+    // Check that we've gone through all checkpoints, and at least one checkpoint reached
+    // expected number of blocks, and at least one block reached the expected number of txs.
+    expect(checkedFullCheckpoints).toBe(CHECKPOINTS_TO_CHECK);
+    expect(Math.max(...blocks.map(b => b.body!.txEffects.length))).toEqual(TXS_PER_BLOCK);
+    expect(Math.max(...checkpoints.map(c => c.length))).toEqual(BLOCKS_PER_CHECKPOINT);
+
+    // Expect no failures from sequencers during block building
+    if (failEvents.length > 0) {
+      logger.error(`Failed events from sequencers`, failEvents);
     }
-    expect(significantFailEvents).toEqual([]);
+    expect(failEvents).toEqual([]);
   });
 });

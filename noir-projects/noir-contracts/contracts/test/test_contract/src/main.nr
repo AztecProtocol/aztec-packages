@@ -23,10 +23,7 @@ pub contract Test {
             HintedNote,
         },
         // State variable types
-        state_vars::{
-            DelayedPublicMutable, Map, Owned, PrivateImmutable, PrivateMutable, PrivateSet,
-            PublicImmutable,
-        },
+        state_vars::{DelayedPublicMutable, Map, Owned, PrivateImmutable, PrivateMutable, PrivateSet, PublicImmutable},
         // Protocol types and constants
         protocol::{
             abis::function_selector::FunctionSelector,
@@ -49,7 +46,6 @@ pub contract Test {
         // Contract instance management
         publish_contract_instance::publish_contract_instance_for_public_execution,
     };
-    use std::hash::pedersen_hash_with_separator;
     use std::meta::derive;
     use token_portal_content_hash_lib::get_mint_to_private_content_hash;
 
@@ -134,16 +130,9 @@ pub contract Test {
     fn dummy_public_call() {}
 
     #[external("private")]
-    fn call_create_note(
-        value: u128,
-        owner: AztecAddress,
-        storage_slot: Field,
-        make_tx_hybrid: bool,
-    ) {
+    fn call_create_note(value: u128, owner: AztecAddress, storage_slot: Field, make_tx_hybrid: bool) {
         let note = UintNote { value };
-        create_note(self.context, owner, storage_slot, note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        create_note(self.context, owner, storage_slot, note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
 
         if make_tx_hybrid {
             self.enqueue_self.dummy_public_call();
@@ -161,11 +150,7 @@ pub contract Test {
     }
 
     #[external("private")]
-    fn call_create_and_complete_partial_note(
-        owner: AztecAddress,
-        storage_slot: Field,
-        value: u128,
-    ) {
+    fn call_create_and_complete_partial_note(owner: AztecAddress, storage_slot: Field, value: u128) {
         let partial_note = UintNote::partial(owner, self.context, owner, self.address);
 
         self.enqueue_self.call_complete_partial_note(partial_note, storage_slot, value);
@@ -178,35 +163,25 @@ pub contract Test {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
-            get_notes(self.context, storage_slot, options);
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> = get_notes(self.context, storage_slot, options);
 
         confirmed_notes.get(0).note.value
     }
 
     #[external("private")]
-    fn call_get_notes_many(
-        owner: AztecAddress,
-        storage_slot: Field,
-        active_or_nullified: bool,
-    ) -> [u128; 2] {
+    fn call_get_notes_many(owner: AztecAddress, storage_slot: Field, active_or_nullified: bool) -> [u128; 2] {
         let mut options = NoteGetterOptions::new().set_owner(owner);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
         }
 
-        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
-            get_notes(self.context, storage_slot, options);
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> = get_notes(self.context, storage_slot, options);
 
         [confirmed_notes.get(0).note.value, confirmed_notes.get(1).note.value]
     }
 
     #[external("utility")]
-    unconstrained fn call_view_notes(
-        owner: AztecAddress,
-        storage_slot: Field,
-        active_or_nullified: bool,
-    ) -> u128 {
+    unconstrained fn call_view_notes(owner: AztecAddress, storage_slot: Field, active_or_nullified: bool) -> u128 {
         let mut options = NoteViewerOptions::new().set_owner(owner);
         if (active_or_nullified) {
             options = options.set_status(NoteStatus.ACTIVE_OR_NULLIFIED);
@@ -236,8 +211,7 @@ pub contract Test {
     #[external("private")]
     fn call_destroy_note(owner: AztecAddress, storage_slot: Field) {
         let options = NoteGetterOptions::new().set_owner(owner);
-        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> =
-            get_notes(self.context, storage_slot, options);
+        let confirmed_notes: BoundedVec<ConfirmedNote<UintNote>, _> = get_notes(self.context, storage_slot, options);
 
         destroy_note(self.context, confirmed_notes.get(0));
     }
@@ -250,8 +224,7 @@ pub contract Test {
         // instead manually construct the value from a `ConfirmedNote` (which doesn't make sense, since `get_note`
         // already proves note inclusion).
         // TODO(F-255).
-        let confirmed_note: ConfirmedNote<UintNote> =
-            get_notes(self.context, storage_slot, options).get(0);
+        let confirmed_note: ConfirmedNote<UintNote> = get_notes(self.context, storage_slot, options).get(0);
         let hinted_note = HintedNote {
             note: confirmed_note.note,
             contract_address: confirmed_note.contract_address,
@@ -325,12 +298,7 @@ pub contract Test {
 
     // For testing non-note encrypted logs
     #[external("private")]
-    fn emit_array_as_encrypted_log(
-        tag: Field,
-        fields: [Field; 5],
-        owner: AztecAddress,
-        nest: bool,
-    ) {
+    fn emit_array_as_encrypted_log(tag: Field, fields: [Field; 5], owner: AztecAddress, nest: bool) {
         let event = ExampleEvent {
             value0: fields[0],
             value1: fields[1],
@@ -362,8 +330,7 @@ pub contract Test {
     #[external("public")]
     fn emit_full_size_public_log(value_offset: Field) {
         // -1 because emit_public_log_unsafe prepends the tag, so the emitted log is N + 1 fields.
-        let log_fields =
-            [0; MAX_PUBLIC_LOG_SIZE_IN_FIELDS - 1].mapi(|i, _| value_offset + i as Field);
+        let log_fields = [0; MAX_PUBLIC_LOG_SIZE_IN_FIELDS - 1].mapi(|i, _| value_offset + i as Field);
         self.context.emit_public_log_unsafe(0, log_fields);
     }
 
@@ -432,16 +399,6 @@ pub contract Test {
     pub struct DummyNote {
         pub amount: Field,
         pub secret_hash: Field,
-    }
-
-    impl DummyNote {
-        fn new(amount: Field, secret_hash: Field) -> Self {
-            Self { amount, secret_hash }
-        }
-
-        fn get_commitment(self) -> Field {
-            pedersen_hash_with_separator([self.amount, self.secret_hash], 0)
-        }
     }
 
     #[derive(Serialize)]

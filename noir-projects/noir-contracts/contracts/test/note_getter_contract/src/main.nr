@@ -34,11 +34,7 @@ pub contract NoteGetter {
     }
 
     #[external("utility")]
-    unconstrained fn read_note_values(
-        owner: AztecAddress,
-        comparator: u8,
-        value: Field,
-    ) -> BoundedVec<Field, 10> {
+    unconstrained fn read_note_values(owner: AztecAddress, comparator: u8, value: Field) -> BoundedVec<Field, 10> {
         let notes = self.storage.set.at(owner).view_notes(NoteViewerOptions::new().select(
             FieldNote::properties().value,
             comparator,
@@ -62,11 +58,8 @@ pub contract NoteGetter {
         value: Field,
     ) -> BoundedVec<[u8; 2], 10> {
         let selector = PackedNote::high_selector();
-        let notes = self.storage.packed_set.at(owner).view_notes(NoteViewerOptions::new().select(
-            selector,
-            comparator,
-            value,
-        ));
+        let notes =
+            self.storage.packed_set.at(owner).view_notes(NoteViewerOptions::new().select(selector, comparator, value));
         notes.map(|note: PackedNote| [note.high, note.low])
     }
 
@@ -77,11 +70,8 @@ pub contract NoteGetter {
         value: Field,
     ) -> BoundedVec<[u8; 2], 10> {
         let selector = PackedNote::low_selector();
-        let notes = self.storage.packed_set.at(owner).view_notes(NoteViewerOptions::new().select(
-            selector,
-            comparator,
-            value,
-        ));
+        let notes =
+            self.storage.packed_set.at(owner).view_notes(NoteViewerOptions::new().select(selector, comparator, value));
         notes.map(|note: PackedNote| [note.high, note.low])
     }
 }

@@ -1,42 +1,38 @@
-import type { BaseBuffer32 } from '../buffer/buffer32.js';
-import { Buffer32 } from '../buffer/buffer32.js';
 import type { Branded } from './types.js';
 
-/** A branded Buffer32 representing a block proposal hash, used for p2p deduplication. */
-export type BlockProposalHash = Branded<BaseBuffer32, 'BlockProposalHash'>;
+/**
+ * A branded `0x`-prefixed hex string representing a checkpoint proposal payload hash.
+ *
+ * A `CheckpointProposal` and the matching `CheckpointAttestation` sign the same
+ * `ConsensusPayload`, so they share this hash type. Used by the p2p attestation
+ * pool to dedup signed payloads and detect equivocations.
+ */
+export type CheckpointProposalHash = Branded<`0x${string}`, 'CheckpointProposalHash'>;
 
-/** Creates a BlockProposalHash from a BaseBuffer32. */
-export function BlockProposalHash(buf: BaseBuffer32): BlockProposalHash {
-  return buf as BlockProposalHash;
+/** Brands a `0x`-prefixed hex string as a CheckpointProposalHash. */
+export function CheckpointProposalHash(s: `0x${string}`): CheckpointProposalHash {
+  return s as CheckpointProposalHash;
 }
 
-/** Creates a BlockProposalHash from a raw Buffer. */
-BlockProposalHash.fromBuffer = function (buf: Buffer): BlockProposalHash {
-  return new Buffer32(buf) as unknown as BlockProposalHash;
-};
-
-/** A branded Buffer32 representing a checkpoint proposal hash, used for p2p deduplication. */
-export type CheckpointProposalHash = Branded<BaseBuffer32, 'CheckpointProposalHash'>;
-
-/** Creates a CheckpointProposalHash from a BaseBuffer32. */
-export function CheckpointProposalHash(buf: BaseBuffer32): CheckpointProposalHash {
-  return buf as CheckpointProposalHash;
-}
-
-/** Creates a CheckpointProposalHash from a raw Buffer. */
+/** Constructs a CheckpointProposalHash from a raw 32-byte hash buffer. */
 CheckpointProposalHash.fromBuffer = function (buf: Buffer): CheckpointProposalHash {
-  return new Buffer32(buf) as unknown as CheckpointProposalHash;
+  return `0x${buf.toString('hex')}` as CheckpointProposalHash;
 };
 
-/** A branded Buffer32 representing a checkpoint attestation hash, used for p2p deduplication. */
-export type CheckpointAttestationHash = Branded<BaseBuffer32, 'CheckpointAttestationHash'>;
+/**
+ * A branded `0x`-prefixed hex string representing a block proposal payload hash.
+ *
+ * Used by the p2p attestation pool to dedup signed payloads at a given
+ * `(slot, indexWithinCheckpoint)` and detect equivocations.
+ */
+export type BlockProposalHash = Branded<`0x${string}`, 'BlockProposalHash'>;
 
-/** Creates a CheckpointAttestationHash from a BaseBuffer32. */
-export function CheckpointAttestationHash(buf: BaseBuffer32): CheckpointAttestationHash {
-  return buf as CheckpointAttestationHash;
+/** Brands a `0x`-prefixed hex string as a BlockProposalHash. */
+export function BlockProposalHash(s: `0x${string}`): BlockProposalHash {
+  return s as BlockProposalHash;
 }
 
-/** Creates a CheckpointAttestationHash from a raw Buffer. */
-CheckpointAttestationHash.fromBuffer = function (buf: Buffer): CheckpointAttestationHash {
-  return new Buffer32(buf) as unknown as CheckpointAttestationHash;
+/** Constructs a BlockProposalHash from a raw 32-byte hash buffer. */
+BlockProposalHash.fromBuffer = function (buf: Buffer): BlockProposalHash {
+  return `0x${buf.toString('hex')}` as BlockProposalHash;
 };

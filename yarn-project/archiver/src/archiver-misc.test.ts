@@ -4,21 +4,26 @@ import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
-import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import type { L2Tips } from '@aztec/stdlib/block';
+import type { CheckpointData } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
+import { jest } from '@jest/globals';
 import { EventEmitter } from 'events';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { Archiver, type ArchiverEmitter } from './archiver.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
 import { ArchiverL1Synchronizer } from './modules/l1_synchronizer.js';
-import { KVArchiverDataStore } from './store/kv_archiver_store.js';
+import { createArchiverDataStores } from './store/data_stores.js';
 import { L2TipsCache } from './store/l2_tips_cache.js';
 
 describe('Archiver misc', () => {
@@ -55,9 +60,11 @@ describe('Archiver misc', () => {
 
     const tracer = getTelemetryClient().getTracer('');
     const instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    const archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_misc_test'), 1000);
+    const archiverStore = createArchiverDataStores(await openTmpStore('archiver_misc_test'), { logsMaxPageSize: 1000 });
     const events = new EventEmitter() as ArchiverEmitter;
-    const l2TipsCache = new L2TipsCache(archiverStore.blockStore);
+    const initialHeader = BlockHeader.empty();
+    const initialBlockHash = await initialHeader.hash();
+    const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);
 
     archiver = new Archiver(
       publicClient,
@@ -77,6 +84,8 @@ describe('Archiver misc', () => {
       l1Constants,
       synchronizer,
       events,
+      initialHeader,
+      initialBlockHash,
       l2TipsCache,
     );
   });
@@ -187,6 +196,93 @@ describe('Archiver misc', () => {
     it('returns epoch 1 when synced to mid epoch 2', async () => {
       synchronizer.getL1Timestamp.mockReturnValue(slotLastL1Block(9));
       expect(await archiver.getSyncedL2EpochNumber()).toEqual(EpochNumber(1));
+    });
+  });
+
+  describe('isPruneDueAtSlot', () => {
+    /**
+     * Builds a fake L2Tips. `pending` is the L1-confirmed pending checkpoint (= `tips.checkpointed`
+     * in production). `proposedCheckpoint` is set to `pending + 1` to catch any implementation that
+     * accidentally reads the local-optimistic proposed checkpoint instead of the L1-confirmed one.
+     */
+    function makeTips(pending: CheckpointNumber, proven: CheckpointNumber): L2Tips {
+      const block = { number: BlockNumber(0), hash: '0x' };
+      const tip = (n: CheckpointNumber) => ({ block, checkpoint: { number: n, hash: '0x' } });
+      const proposedAhead = CheckpointNumber(Number(pending) + 1);
+      return {
+        proposed: block,
+        proposedCheckpoint: tip(proposedAhead),
+        checkpointed: tip(pending),
+        proven: tip(proven),
+        finalized: tip(proven),
+      };
+    }
+
+    /** Builds a fake CheckpointData with only the fields these methods read. */
+    function makeCheckpointData(checkpointNumber: CheckpointNumber, slotNumber: SlotNumber): CheckpointData {
+      return {
+        checkpointNumber,
+        header: CheckpointHeader.empty({ slotNumber }),
+      } as unknown as CheckpointData;
+    }
+
+    /**
+     * Stubs `getL2Tips` and `getCheckpointData` so that the methods under test see a
+     * synthetic chain. Each entry in `checkpoints` maps a checkpoint number to its slot.
+     */
+    function stubChain(args: {
+      pending: CheckpointNumber;
+      proven: CheckpointNumber;
+      checkpoints: Array<{ number: CheckpointNumber; slot: SlotNumber }>;
+    }): void {
+      jest.spyOn(archiver, 'getL2Tips').mockResolvedValue(makeTips(args.pending, args.proven));
+      jest
+        .spyOn(archiver, 'getCheckpointData')
+        .mockImplementation((query: any): Promise<CheckpointData | undefined> => {
+          if ('number' in query) {
+            const entry = args.checkpoints.find(c => c.number === query.number);
+            return Promise.resolve(entry ? makeCheckpointData(entry.number, entry.slot) : undefined);
+          }
+          return Promise.resolve(undefined);
+        });
+    }
+
+    // proofSubmissionEpochs = 1 (from beforeEach). With epochDuration = 4:
+    // epoch 0 = slots 0-3, epoch 1 = slots 4-7, epoch 2 = slots 8-11, epoch 3 = slots 12-15.
+    // Deadline epoch for an epoch K is K + proofSubmissionEpochs + 1 = K + 2.
+    // So a checkpoint in epoch K becomes "prune-due" when the current slot's epoch >= K + 2.
+
+    it('returns false when pending equals proven', async () => {
+      stubChain({ pending: CheckpointNumber(3), proven: CheckpointNumber(3), checkpoints: [] });
+      expect(await archiver.isPruneDueAtSlot(SlotNumber(20))).toBe(false);
+    });
+
+    it('returns false when slot is before the deadline', async () => {
+      // Oldest unproven checkpoint is in epoch 0 (slot 2). Deadline epoch = 2.
+      // Slot 7 is in epoch 1, which is before the deadline.
+      stubChain({
+        pending: CheckpointNumber(2),
+        proven: CheckpointNumber(0),
+        checkpoints: [
+          { number: CheckpointNumber(1), slot: SlotNumber(2) },
+          { number: CheckpointNumber(2), slot: SlotNumber(3) },
+        ],
+      });
+      expect(await archiver.isPruneDueAtSlot(SlotNumber(7))).toBe(false);
+    });
+
+    it('returns true when slot is at or after the deadline', async () => {
+      // Oldest unproven checkpoint is in epoch 0. Deadline epoch = 2.
+      // Slot 8 is the first slot of epoch 2, so the deadline has expired.
+      stubChain({
+        pending: CheckpointNumber(2),
+        proven: CheckpointNumber(0),
+        checkpoints: [
+          { number: CheckpointNumber(1), slot: SlotNumber(2) },
+          { number: CheckpointNumber(2), slot: SlotNumber(3) },
+        ],
+      });
+      expect(await archiver.isPruneDueAtSlot(SlotNumber(8))).toBe(true);
     });
   });
 });

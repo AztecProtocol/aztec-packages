@@ -264,12 +264,16 @@ const config = {
       {
         generateLLMsTxt: true,
         generateLLMsFullTxt: true,
-        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}/`,
+        docsDir: `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}`,
         title: "Aztec Protocol Documentation",
         excludeImports: true,
         version: mainnetDeveloperVersion || developerTestnetVersion,
+        addMdExtension: false,
         pathTransformation: {
-          ignorePaths: ["docs"],
+          ignorePaths: [
+            `developer_versioned_docs/version-${mainnetDeveloperVersion || developerTestnetVersion}`,
+          ],
+          addPaths: ["developers"],
         },
       },
     ],
@@ -284,6 +288,9 @@ const config = {
       },
     ],
     // ["./src/plugins/plugin-embed-code", {}],
+  ],
+  clientModules: [
+    './src/clientModules/docsgpt.js',
   ],
   customFields: {},
   themeConfig:

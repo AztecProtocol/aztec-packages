@@ -63,7 +63,7 @@ class alignas(32) uint256_t {
     {}
     constexpr uint256_t(uint256_t&& other) noexcept = default;
 
-    explicit constexpr uint256_t(const std::string& input) noexcept
+    explicit constexpr uint256_t(const std::string& input)
     {
         /* Quick and dirty conversion from a single character to its hex equivelent */
         constexpr auto HexCharToInt = [](uint8_t Input) {

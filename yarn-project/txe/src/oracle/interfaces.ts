@@ -6,6 +6,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PrivateLog } from '@aztec/stdlib/logs';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 // These interfaces complement the ones defined in PXE, and combined with those contain the full list of oracles used by
@@ -58,15 +59,17 @@ export interface ITxeExecutionOracle {
     txHash: TxHash;
     noteHashes: Fr[];
     nullifiers: Fr[];
+    privateLogs: PrivateLog[];
   }>;
   getPrivateEvents(selector: EventSelector, contractAddress: AztecAddress, scope: AztecAddress): Promise<Fr[][]>;
   privateCallNewFlow(
-    from: AztecAddress,
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
     argsHash: Fr,
     isStaticCall: boolean,
+    additionalScopes: AztecAddress[],
     jobId: string,
   ): Promise<{ returnValues: Fr[]; offchainEffects: Fr[][] }>;
   executeUtilityFunction(
@@ -76,7 +79,7 @@ export interface ITxeExecutionOracle {
     jobId: string,
   ): Promise<Fr[]>;
   publicCallNewFlow(
-    from: AztecAddress,
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,

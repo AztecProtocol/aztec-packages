@@ -146,6 +146,11 @@ tests:
       - *palla
 
   # yarn-project tests
+  # Attempt to catch all kv-store browser test failures (consider them quarantined for now)
+  - regex: "yarn-project/kv-store"
+    error_regex: "vitest"
+    owners:
+      - *martin
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -153,7 +158,7 @@ tests:
   - regex: "yarn-project/kv-store"
     error_regex: "timeout: sending signal TERM to command"
     owners:
-      - *alex
+      - *martin
   - regex: "yarn-project/kv-store"
     error_regex: "Failed to fetch dynamically imported module"
     owners:
@@ -182,6 +187,14 @@ tests:
     owners:
       - *phil
       - *palla
+
+  # http://ci.aztec-labs.com/64a972aafaa40dd0
+  # ProvingBroker › Retries › does not retry if job is stale — kv-store closes
+  # before the broker's final reportProvingJobError write lands.
+  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
+    error_regex: "does not retry if job is stale|Store is closed"
+    owners:
+      - *alex
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
@@ -288,6 +301,14 @@ tests:
     error_regex: "core dumped"
     owners:
       - *adam
+
+  # tx_stats_bench's 10 TPS sub-test occasionally returns valid:false from a single IVC
+  # verification under heavy concurrency (8 parallel verifiers, each spawning a fresh bb subprocess
+  # via the bb.js NativeUnixSocket backend introduced in #21564). The serial sub-tests pass.
+  - regex: "tx_stats_bench"
+    error_regex: "tx_stats_bench\\.test\\.ts:[0-9]+:[0-9]+"
+    owners:
+      - *charlie
 
   - regex: "src/e2e_token_bridge_tutorial.test.ts"
     error_regex: "Error: Unable to find low leaf for block"
