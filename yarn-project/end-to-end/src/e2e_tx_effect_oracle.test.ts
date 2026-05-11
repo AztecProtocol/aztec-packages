@@ -23,40 +23,14 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 120_000;
 
-// Exercises the `aztec_utl_getTxEffect` utility oracle end-to-end. The contract hashes the deserialized
-// `TxEffect` field-by-field with poseidon2 and asserts the result matches a hash computed in TS over the
-// same fixed-size flat field layout used by Noir's auto-derived `Serialize<TxEffect>`. Any layout drift
-// between Noir and TS produces a mismatch.
+// Exercises the `aztec_utl_getTxEffect` utility oracle end-to-end. The contract hashes the deserialized `TxEffect`
+// field-by-field with poseidon2 and asserts the result matches a hash computed in TS over the same fixed-size flat
+// field layout used by Noir's auto-derived `Serialize<TxEffect>`. Any layout drift between Noir and TS produces a
+// mismatch.
+//
 // Note: This would ideally be an integration test as it only tests an oracle implementation but we currently don't
 // have the infrastructure for that. Testing it with TXE is also infeasible as there we would not be able to check the
 // obtained tx effect from oracle with the one obtained directly in TS.
-
-// Mirrors Noir's auto-derived `Serialize<TxEffect>` layout: variable-length collections are padded to their
-// `MAX_*` constant. Note that contract class log fields are emitted in Noir struct order
-// (`log.fields`, `log.length`, `contract_address`), which differs from `ContractClassLog.toFields()`.
-function hashTxEffect(effect: TxEffect): Promise<Fr> {
-  const fields = [
-    effect.revertCode.toField(),
-    effect.txHash.hash,
-    effect.transactionFee,
-    ...padArrayEnd(effect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-    ...padArrayEnd(effect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
-    ...padArrayEnd(effect.l2ToL1Msgs, Fr.ZERO, MAX_L2_TO_L1_MSGS_PER_TX),
-    ...padArrayEnd(
-      effect.publicDataWrites,
-      PublicDataWrite.empty(),
-      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-    ).flatMap(w => w.toFields()),
-    ...padArrayEnd(effect.privateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX).flatMap(l => l.toFields()),
-    ...FlatPublicLogs.fromLogs(effect.publicLogs).toFields(),
-    ...padArrayEnd(effect.contractClassLogs, ContractClassLog.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX).flatMap(l => [
-      ...l.fields.toFields(),
-      new Fr(l.emittedLength),
-      l.contractAddress.toField(),
-    ]),
-  ];
-  return poseidon2Hash(fields);
-}
 
 describe('e2e tx effect oracle', () => {
   let contract: TxEffectOracleTestContract;
@@ -99,3 +73,30 @@ describe('e2e tx effect oracle', () => {
     await contract.methods.assert_is_none(Fr.random()).simulate({ from: defaultAccountAddress });
   });
 });
+
+// Mirrors Noir's auto-derived `Serialize<TxEffect>` layout: variable-length collections are padded to their `MAX_*`
+// constant. Note that contract class log fields are emitted in Noir struct order (`log.fields`, `log.length`,
+// `contract_address`), which differs from `ContractClassLog.toFields()`.
+function hashTxEffect(effect: TxEffect): Promise<Fr> {
+  const fields = [
+    effect.revertCode.toField(),
+    effect.txHash.hash,
+    effect.transactionFee,
+    ...padArrayEnd(effect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+    ...padArrayEnd(effect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX),
+    ...padArrayEnd(effect.l2ToL1Msgs, Fr.ZERO, MAX_L2_TO_L1_MSGS_PER_TX),
+    ...padArrayEnd(
+      effect.publicDataWrites,
+      PublicDataWrite.empty(),
+      MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
+    ).flatMap(w => w.toFields()),
+    ...padArrayEnd(effect.privateLogs, PrivateLog.empty(), MAX_PRIVATE_LOGS_PER_TX).flatMap(l => l.toFields()),
+    ...FlatPublicLogs.fromLogs(effect.publicLogs).toFields(),
+    ...padArrayEnd(effect.contractClassLogs, ContractClassLog.empty(), MAX_CONTRACT_CLASS_LOGS_PER_TX).flatMap(l => [
+      ...l.fields.toFields(),
+      new Fr(l.emittedLength),
+      l.contractAddress.toField(),
+    ]),
+  ];
+  return poseidon2Hash(fields);
+}
