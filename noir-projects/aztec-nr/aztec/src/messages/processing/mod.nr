@@ -4,7 +4,7 @@ pub mod offchain;
 mod message_context;
 pub use message_context::MessageContext;
 
-pub(crate) mod note_validation_request;
+mod note_validation_request;
 pub use note_validation_request::NoteValidationRequest;
 
 pub(crate) mod log_retrieval_request;

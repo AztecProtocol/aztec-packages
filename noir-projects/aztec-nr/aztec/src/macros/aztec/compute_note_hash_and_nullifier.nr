@@ -243,7 +243,9 @@ comptime fn generate_contract_library_method_compute_note_nullifier() -> Quoted 
         quote {
             /// Computes a note's inner nullifier (non-siloed) given its unique note hash, preimage and extra data.
             ///
-            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteNullifier` type, and so it can be used to call functions from that module such as `do_sync_state`.
+            /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteNullifier`
+            /// type, and so it can be used to call functions from that module such as `do_sync_state` and
+            /// `process_private_note_msg`.
             ///
             /// This function is automatically injected by the `#[aztec]` macro.
             #[contract_library_method]
