@@ -132,19 +132,15 @@ template <typename Curve> class GeminiProver_ {
 
         Polynomial batched_unshifted;            // linear combination of unshifted polynomials
         Polynomial batched_to_be_shifted_by_one; // linear combination of to-be-shifted polynomials
-        Polynomial batched_to_be_shifted_by_k;   // linear combination of to-be-right-shifted-by-k polynomials
 
         // Batched tails: small polynomials covering only the tail region (e.g. last NUM_MASKED_ROWS positions).
         // Populated during compute_batched if tails are registered.
         Polynomial batched_unshifted_tail_;
         Polynomial batched_shifted_tail_;
 
-        size_t k_shift_magnitude = 0; // magnitude of right-shift-by-k (assumed even)
-
       public:
         RefVector<Polynomial> unshifted;            // set of unshifted polynomials
         RefVector<Polynomial> to_be_shifted_by_one; // set of polynomials to be left shifted by 1
-        RefVector<Polynomial> to_be_shifted_by_k;   // set of polynomials to be right shifted by k
 
         // Tails: small polynomials (e.g. masking values) to be batched with the same rho scalar
         // as their corresponding base polynomial. Pairs of (index in unshifted/shifted list, tail poly).
@@ -160,18 +156,10 @@ template <typename Curve> class GeminiProver_ {
 
         bool has_unshifted() const { return unshifted.size() > 0; }
         bool has_to_be_shifted_by_one() const { return to_be_shifted_by_one.size() > 0; }
-        bool has_to_be_shifted_by_k() const { return to_be_shifted_by_k.size() > 0; }
 
         // Set references to the polynomials to be batched
         void set_unshifted(RefVector<Polynomial> polynomials) { unshifted = polynomials; }
         void set_to_be_shifted_by_one(RefVector<Polynomial> polynomials) { to_be_shifted_by_one = polynomials; }
-        void set_to_be_shifted_by_k(RefVector<Polynomial> polynomials, const size_t shift_magnitude)
-        {
-            // k must be even for the +/- evaluation formulas to share a sign convention
-            BB_ASSERT_EQ(shift_magnitude % 2, static_cast<size_t>(0));
-            to_be_shifted_by_k = polynomials;
-            k_shift_magnitude = shift_magnitude;
-        }
 
         void add_unshifted_tail(size_t batcher_index, Polynomial&& tail)
         {
@@ -248,13 +236,6 @@ template <typename Curve> class GeminiProver_ {
                 full_batched += batched_shifted_tail_.shifted();
             }
 
-            if (has_to_be_shifted_by_k()) {
-                batched_to_be_shifted_by_k =
-                    Polynomial(full_batched_size - k_shift_magnitude, full_batched_size, /*start_index=*/0);
-                batch(batched_to_be_shifted_by_k, to_be_shifted_by_k);
-                full_batched += batched_to_be_shifted_by_k.right_shifted(k_shift_magnitude); // A₀ += X^k * H
-            }
-
             return full_batched;
         }
 
@@ -277,24 +258,7 @@ template <typename Curve> class GeminiProver_ {
                 A_0_pos = std::move(A_0_extended);
             }
 
-            // The k-shift contribution lives on [0, full_batched_size - k); ensure the running
-            // accumulators cover that range before adding (mirrors the tail-extension pattern above).
-            if (has_to_be_shifted_by_k()) {
-                const size_t needed_end = full_batched_size - k_shift_magnitude;
-                if (A_0_pos.end_index() < needed_end) {
-                    Polynomial A_0_extended(A_0_pos, needed_end - A_0_pos.start_index());
-                    A_0_pos = std::move(A_0_extended);
-                }
-            }
-
             Polynomial A_0_neg = A_0_pos;
-
-            if (has_to_be_shifted_by_k()) {
-                const Fr r_pow_k =
-                    r_challenge.pow(static_cast<uint32_t>(k_shift_magnitude)); // r^k (k even ⇒ same sign at ±r)
-                A_0_pos.add_scaled(batched_to_be_shifted_by_k, r_pow_k);
-                A_0_neg.add_scaled(batched_to_be_shifted_by_k, r_pow_k);
-            }
 
             Fr r_inv = r_challenge.invert();
             if (has_to_be_shifted_by_one()) {
