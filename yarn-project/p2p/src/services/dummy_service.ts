@@ -38,6 +38,8 @@ import {
  * A dummy implementation of the P2P Service.
  */
 export class DummyP2PService implements P2PService {
+  private allNodesCheckpointReceivedCallback?: P2PCheckpointReceivedCallback;
+
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
 
   /** Returns an empty array for peers. */
@@ -88,10 +90,14 @@ export class DummyP2PService implements P2PService {
    * Register a callback into the validator client for when a checkpoint proposal is received
    */
   public registerValidatorCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
-  public registerAllNodesCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
+  public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
+    this.allNodesCheckpointReceivedCallback = callback;
+  }
 
-  public notifyOwnCheckpointProposal(_checkpoint: CheckpointProposalCore): Promise<void> {
-    return Promise.resolve();
+  // Mirror libp2p's own-proposal loopback so the proposer's pipelined `canProposeAt` override sees its own
+  // in-flight parent checkpoint when running in p2p-disabled (single-node e2e) mode.
+  public async notifyOwnCheckpointProposal(checkpoint: CheckpointProposalCore): Promise<void> {
+    await this.allNodesCheckpointReceivedCallback?.(checkpoint, undefined as unknown as PeerId);
   }
 
   /**
