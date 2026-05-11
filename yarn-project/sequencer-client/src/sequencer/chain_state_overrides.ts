@@ -13,6 +13,8 @@ type CheckpointSimulationOverridesPlanInput = {
    * (pre-build) callers like canProposeAt that do not yet have a built checkpoint.
    */
   lastArchiveRoot?: Fr;
+  /** If set, overrides `tips.proven` so `canPruneAtTime` short-circuits to false at the simulation timestamp. */
+  provenOverride?: CheckpointNumber;
   rollup: RollupContract;
   log: Logger;
 };
@@ -45,6 +47,9 @@ export async function buildCheckpointSimulationOverridesPlan(
   }
   if (feeHeader) {
     builder.withPendingFeeHeader(feeHeader);
+  }
+  if (input.provenOverride !== undefined) {
+    builder.withChainTips({ proven: input.provenOverride });
   }
 
   return builder.build();

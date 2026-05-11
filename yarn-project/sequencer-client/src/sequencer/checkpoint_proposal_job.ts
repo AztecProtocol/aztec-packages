@@ -545,6 +545,7 @@ export class CheckpointProposalJob implements Traceable {
         checkpointNumber: this.checkpointNumber,
         proposedCheckpointData: isPipelining ? this.proposedCheckpointData : undefined,
         invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
+        provenOverride: this.prunePending?.provenOverride,
         rollup: this.publisher.rollupContract,
         log: this.log,
       });
@@ -706,6 +707,7 @@ export class CheckpointProposalJob implements Traceable {
         proposedCheckpointData: isPipelining ? this.proposedCheckpointData : undefined,
         invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
         lastArchiveRoot: checkpoint.header.lastArchiveRoot,
+        provenOverride: this.prunePending?.provenOverride,
         rollup: this.publisher.rollupContract,
         log: this.log,
       });
