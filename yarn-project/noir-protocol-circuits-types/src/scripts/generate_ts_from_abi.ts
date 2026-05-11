@@ -38,8 +38,12 @@ const main = async () => {
   const dimensionsLists = JSON.parse(
     await fs.readFile('../../noir-projects/noir-protocol-circuits/private_kernel_reset_dimensions.json', 'utf8'),
   ) as number[][];
-  // Need any variant in the set so that the type will be rendered with generics.
-  circuits.push(`private_kernel_reset_${dimensionsLists[0].join('_')}`);
+  // Need a variant whose every dimension differs from the base private_kernel_reset
+  // circuit (which uses protocol maxima). noir-codegen only renders a generic for
+  // dimensions that differ between the two reference circuits; matching values get
+  // hardcoded, which breaks the typed mapPrivateKernelResetHintsToNoir helper.
+  const sampleVariant = dimensionsLists.find(d => d.every(v => v < 32)) ?? dimensionsLists[0];
+  circuits.push(`private_kernel_reset_${sampleVariant.join('_')}`);
 
   try {
     await fs.access('./src/types/');

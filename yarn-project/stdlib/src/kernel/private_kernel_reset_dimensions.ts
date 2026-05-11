@@ -69,13 +69,17 @@ export const privateKernelResetDimensionNames: DimensionName[] = [
 ];
 
 export interface DimensionConfig {
-  variants: number[];
-  standalone: number[];
   cost: number;
+}
+
+export interface ResetCatalogEntry {
+  name: string;
+  dimensions: number[];
 }
 
 // Must match the config in noir-projects/noir-protocol-circuits/private_kernel_reset_config.json
 export interface PrivateKernelResetDimensionsConfig {
   dimensions: { [K in DimensionName]: DimensionConfig };
-  specialCases: number[][];
+  inner: ResetCatalogEntry[];
+  final: ResetCatalogEntry[];
 }
