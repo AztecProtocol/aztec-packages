@@ -1038,36 +1038,8 @@ export class SequencerPublisher {
       lastValidL2Slot: slotNumber,
     });
 
-    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-    const timestamp = this.getSimulationTimestamp(slotNumber);
-
-    try {
-      await this.l1TxUtils.simulate(request, { time: timestamp }, [], mergeAbis([request.abi ?? [], ErrorsAbi]));
-      this.log.debug(`Simulation for ${action} at slot ${slotNumber} succeeded`, { request });
-    } catch (err) {
-      const viemError = formatViemError(err);
-      this.log.error(`Failed simulation for ${action} at slot ${slotNumber} (enqueuing the action anyway)`, viemError, {
-        simulationTimestamp: timestamp,
-        l1BlockNumber,
-      });
-      this.backupFailedTx({
-        id: keccak256(request.data!),
-        failureType: 'simulation',
-        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
-        l1BlockNumber: l1BlockNumber.toString(),
-        error: { message: viemError.message, name: viemError.name },
-        context: {
-          actions: [action],
-          slot: slotNumber,
-          sender: this.getSenderAddress().toString(),
-        },
-      });
-      // Yes, we enqueue the request anyway, in case there was a bug with the simulation itself
-    }
-
     // TODO(palla/slash): All votes (governance and slashing) should txTimeoutAt at the end of the slot.
     this.addRequest({
-      gasConfig: { gasLimit: SequencerPublisher.VOTE_GAS_GUESS },
       action,
       request,
       lastValidL2Slot: slotNumber,
@@ -1148,7 +1120,7 @@ export class SequencerPublisher {
           }
           const votes = bufferToHex(encodeSlashConsensusVotes(action.votes));
           const request = await this.slashingProposerContract.buildVoteRequestFromSigner(votes, slotNumber, signer);
-          await this.simulateAndEnqueueRequest(
+          this.enqueueRequest(
             'vote-offenses',
             request,
             {
@@ -1175,7 +1147,7 @@ export class SequencerPublisher {
             action.round,
             action.committees,
           );
-          await this.simulateAndEnqueueRequest(
+          this.enqueueRequest(
             'execute-slash',
             executeRequest,
             {
@@ -1313,73 +1285,36 @@ export class SequencerPublisher {
     });
   }
 
-  private async simulateAndEnqueueRequest(
+  /**
+   * Dedup-checked enqueue helper for actions that are simulated at bundle-send time rather
+   * than at enqueue time. Validates the (action, slot) dedup key, sets `lastActions`, and
+   * enqueues without a gasLimit so the bundle simulate sets the only gasLimit that matters.
+   */
+  private enqueueRequest(
     action: Action,
     request: L1TxRequest,
     eventOpts: { address: string; abi: Abi; eventName: string },
     slotNumber: SlotNumber,
-  ) {
-    const timestamp = this.getSimulationTimestamp(slotNumber);
-    const logData = { slotNumber, timestamp, gasLimit: undefined as bigint | undefined };
+  ): boolean {
     if (this.lastActions[action] && this.lastActions[action] === slotNumber) {
       this.log.debug(`Skipping duplicate action ${action} for slot ${slotNumber}`);
       return false;
     }
-
     const cachedLastActionSlot = this.lastActions[action];
     this.lastActions[action] = slotNumber;
 
-    this.log.debug(`Simulating ${action} for slot ${slotNumber}`, logData);
-
-    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-
-    let gasUsed: bigint;
-    const simulateAbi = mergeAbis([request.abi ?? [], ErrorsAbi]);
-
-    try {
-      ({ gasUsed } = await this.l1TxUtils.simulate(request, { time: timestamp }, [], simulateAbi));
-      this.log.verbose(`Simulation for ${action} succeeded`, { ...logData, request, gasUsed });
-    } catch (err) {
-      const viemError = formatViemError(err, simulateAbi);
-      this.log.error(`Simulation for ${action} at ${slotNumber} failed`, viemError, logData);
-
-      this.backupFailedTx({
-        id: keccak256(request.data!),
-        failureType: 'simulation',
-        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
-        l1BlockNumber: l1BlockNumber.toString(),
-        error: { message: viemError.message, name: viemError.name },
-        context: {
-          actions: [action],
-          slot: slotNumber,
-          sender: this.getSenderAddress().toString(),
-        },
-      });
-
-      return false;
-    }
-
-    // We issued the simulation against the rollup contract, so we need to account for the overhead of the multicall3
-    const gasLimit = this.l1TxUtils.bumpGasLimit(BigInt(Math.ceil((Number(gasUsed) * 64) / 63)));
-    logData.gasLimit = gasLimit;
-
-    // Store the ABI used for simulation on the request so Multicall3.forward can decode errors
-    // when the tx is sent and a revert is diagnosed via simulation.
-    const requestWithAbi = { ...request, abi: simulateAbi };
-
-    this.log.debug(`Enqueuing ${action}`, logData);
+    this.log.debug(`Enqueuing ${action}`, { slotNumber });
     this.addRequest({
       action,
-      request: requestWithAbi,
-      gasConfig: { gasLimit },
+      request,
       lastValidL2Slot: slotNumber,
-      checkSuccess: (_req, result) => {
+      checkSuccess: (_request, result) => {
         const success = result && extractEventSuccess(result.receipt, eventOpts);
         if (!success) {
-          this.log.warn(`Action ${action} at ${slotNumber} failed`, { ...result, ...logData });
+          this.log.warn(`Action ${action} at ${slotNumber} failed`, { ...result, slotNumber });
           this.lastActions[action] = cachedLastActionSlot;
         } else {
-          this.log.info(`Action ${action} at ${slotNumber} succeeded`, { ...result, ...logData });
+          this.log.info(`Action ${action} at ${slotNumber} succeeded`, { ...result, slotNumber });
         }
         return !!success;
       },
