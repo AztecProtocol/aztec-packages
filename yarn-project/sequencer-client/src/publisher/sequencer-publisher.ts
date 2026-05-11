@@ -69,7 +69,7 @@ import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
  */
 function extractEventSuccess(
   receipt: TransactionReceipt | undefined,
-  opts: { address: Hex | string; abi: Abi; eventName: string },
+  opts: { address: string; abi: Abi; eventName: string },
 ): boolean {
   if (!receipt || receipt.status !== 'success') {
     return false;
@@ -1316,7 +1316,7 @@ export class SequencerPublisher {
   private async simulateAndEnqueueRequest(
     action: Action,
     request: L1TxRequest,
-    eventOpts: { address: Hex | string; abi: Abi; eventName: string },
+    eventOpts: { address: string; abi: Abi; eventName: string },
     slotNumber: SlotNumber,
   ) {
     const timestamp = this.getSimulationTimestamp(slotNumber);
