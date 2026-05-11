@@ -80,7 +80,12 @@ import {
 import { type Chain, foundry } from 'viem/chains';
 
 import { TestWallet } from '../test-wallet/test_wallet.js';
-import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
+import {
+  LARGE_MIN_FEE_PADDING,
+  MNEMONIC,
+  TEST_MAX_PENDING_TX_POOL_COUNT,
+  TEST_PEER_CHECK_INTERVAL_MS,
+} from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
@@ -635,8 +640,14 @@ export async function setup(
       ...opts.pxeCreationOptions,
     });
 
-    if (opts.walletMinFeePadding !== undefined) {
-      wallet.setMinFeePadding(opts.walletMinFeePadding);
+    // Under pipelining the proposer's fee-asset price modifier evolves faster across the build/publish
+    // gap, so client-set maxFeesPerGas (sized for 5x padding) was getting bumped past by the time the tx
+    // mined a few slots later. Use the wider LARGE_MIN_FEE_PADDING when pipelining is on unless the test
+    // explicitly overrides it.
+    const effectiveWalletMinFeePadding =
+      opts.walletMinFeePadding ?? (config.enableProposerPipelining ? LARGE_MIN_FEE_PADDING : undefined);
+    if (effectiveWalletMinFeePadding !== undefined) {
+      wallet.setMinFeePadding(effectiveWalletMinFeePadding);
     }
 
     const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
