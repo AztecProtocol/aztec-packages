@@ -250,7 +250,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
 
     // Databus data uses NUM_DISABLED_ROWS_IN_SUMCHECK as its offset rather than Flavor::TRACE_OFFSET so that
     // commitments match across the IVC boundary (a non-ZK kernel's return_data is copy-constrained to a MegaZK
-    // hiding kernel's calldata). MegaZK additionally requires this offset to clear the masking region
+    // hiding kernel's kernel_calldata). MegaZK additionally requires this offset to clear the masking region
     // [1, NUM_DISABLED_ROWS_IN_SUMCHECK); non-ZK Mega mirrors the layout even though it has no masking.
     const auto offset_size = [](size_t content) -> size_t { return NUM_DISABLED_ROWS_IN_SUMCHECK + content; };
 
@@ -274,7 +274,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
         inverse_ref[0] = Polynomial(std::max(offset_size(bus_size), q_busread_end), dyadic_size());
 
         if constexpr (Flavor::HasZK) {
-            // Mask databus witness polynomials. The calldata values column (bus_idx == 0) is NOT
+            // Mask databus witness polynomials. The kernel_calldata values column (bus_idx == 0) is NOT
             // masked; its read_counts column is.
             auto& values_poly = entities[0];
             auto& read_counts_poly = entities[1];
@@ -292,9 +292,12 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     // Used by the read-count locality subrelation to force read_counts to vanish outside the
     // column's data range, so the lookup table multi-set can only contain entries from rows the
     // indicator marks as belonging to this column.
-    polynomials.calldata_indicator = Polynomial(offset_size(circuit.get_bus_vector(0).size()), dyadic_size());
-    polynomials.secondary_calldata_indicator = Polynomial(offset_size(circuit.get_bus_vector(1).size()), dyadic_size());
-    polynomials.return_data_indicator = Polynomial(offset_size(circuit.get_bus_vector(2).size()), dyadic_size());
+    polynomials.kernel_calldata_indicator = Polynomial(offset_size(circuit.get_bus_vector(0).size()), dyadic_size());
+    polynomials.first_app_calldata_indicator = Polynomial(offset_size(circuit.get_bus_vector(1).size()), dyadic_size());
+    polynomials.second_app_calldata_indicator =
+        Polynomial(offset_size(circuit.get_bus_vector(2).size()), dyadic_size());
+    polynomials.third_app_calldata_indicator = Polynomial(offset_size(circuit.get_bus_vector(3).size()), dyadic_size());
+    polynomials.return_data_indicator = Polynomial(offset_size(circuit.get_bus_vector(4).size()), dyadic_size());
 }
 
 template <typename Flavor> void ProverInstance_<Flavor>::construct_lookup_polynomials(Circuit& circuit)
@@ -339,8 +342,8 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 
     // Populate per-column indicators: 1 on the column's data rows, 0 elsewhere (default).
     std::array<std::reference_wrapper<Polynomial>, NUM_BUS_COLUMNS> indicators{
-        polynomials.calldata_indicator,
-        polynomials.secondary_calldata_indicator,
+        polynomials.kernel_calldata_indicator,     polynomials.first_app_calldata_indicator,
+        polynomials.second_app_calldata_indicator, polynomials.third_app_calldata_indicator,
         polynomials.return_data_indicator,
     };
     for (size_t bus_idx = 0; bus_idx < NUM_BUS_COLUMNS; ++bus_idx) {

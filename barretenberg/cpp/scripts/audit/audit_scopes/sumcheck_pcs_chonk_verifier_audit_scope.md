@@ -1,6 +1,6 @@
 # External Audit Scope: Sumcheck + PCS + Chonk Verifier
 
-Repository: https://github.com/AztecProtocol/aztec-packages-private
+Repository: https://github.com/AztecProtocol/aztec-packages
 Commit hash: Most recent commit on branch 'next'
 
 This scope combines Sumcheck, Polynomial Commitment Schemes, and Chonk verifier components since they are tightly coupled and benefit from being audited together.
@@ -108,19 +108,19 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | `chonk/chonk_verifier.test.cpp` | Native and recursive verifier correctness |
 | `chonk/chonk_batch_verifier.test.cpp` | Batch Chonk verification with IPA batching |
 | `chonk/chonk_transcript_invariants.test.cpp` | Transcript consistency, tampering detection |
-| `chonk/batched_honk_translator/batched_honk_translator.test.cpp` | Batched Honk+Translator verifier tests |
+| `chonk/batched_honk_translator/batched_honk_translator.test.cpp` | Joint MegaZK+Translator: ProveAndVerify, ProofSize, ManifestConsistency |
 | `goblin/goblin_verifier.test.cpp` | Goblin verifier tests |
 | `goblin/merge.test.cpp` | Merge protocol correctness, transcript pinning |
 | `eccvm/eccvm.test.cpp` | ECCVM prover/verifier tests |
 | `eccvm/eccvm_transcript.test.cpp` | ECCVM transcript tests |
 | `translator_vm/translator.test.cpp` | Translator prover/verifier tests |
-| `ultra_honk/honk_transcript.test.cpp` | Honk transcript manifest consistency |
-| `ultra_honk/mega_honk.test.cpp` | Mega transcript manifest consistency |
+| `ultra_honk/ultra_transcript.test.cpp` | Ultra transcript manifest consistency |
+| `ultra_honk/mega_transcript.test.cpp` | Mega transcript manifest consistency |
 
 ### In-Circuit (Recursive) Verifier Tests
 | File | Description |
 |------|-------------|
-| `stdlib/honk_verifier/honk_recursive_verifier.test.cpp` | Honk recursive verifier tests |
+| `stdlib/honk_verifier/ultra_recursive_verifier.test.cpp` | Ultra recursive verifier tests |
 | `stdlib/eccvm_verifier/eccvm_recursive_verifier.test.cpp` | ECCVM recursive verifier tests |
 | `stdlib/eccvm_verifier/ecc_relation_consistency.test.cpp` | ECC relation consistency tests |
 | `stdlib/eccvm_verifier/verifier_commitment_key.test.cpp` | Verifier commitment key tests |
@@ -139,6 +139,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 ### Boomerang Static Analyzer
 | File | Description |
 |------|-------------|
+| `boomerang_value_detection/graph_description_ultra_recursive_verifier.test.cpp` | Ultra recursive verifier analysis |
 | `boomerang_value_detection/graph_description_goblin.test.cpp` | Goblin recursive verifier analysis |
 | `boomerang_value_detection/graph_description_merge_recursive_verifier.test.cpp` | Merge protocol recursive verifier analysis |
 | `boomerang_value_detection/graph_description_ipa_recursive.test.cpp` | IPA recursive verification analysis |

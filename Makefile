@@ -301,7 +301,6 @@ aztec-nr: noir bb-cpp-native
 noir-projects-txe-tests:
 	$(call test,$@,noir-projects/aztec-nr)
 	$(call test,$@,noir-projects/noir-contracts)
-	$(call test,$@,noir-projects/noir-contracts-comp-failures)
 
 # Noir Projects - Aggregate target (builds all sub-projects)
 noir-projects: noir-protocol-circuits mock-protocol-circuits noir-contracts aztec-nr

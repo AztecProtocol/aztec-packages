@@ -5,6 +5,7 @@ set -euo pipefail
 REMOTE="${REMOTE:-origin}"
 SOURCE_BRANCH="${SOURCE_BRANCH:-public-next}"
 TARGET_BRANCH="${TARGET_BRANCH:-next}"
+CONFLICT_EXIT_CODE="${CONFLICT_EXIT_CODE:-1}"
 
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -24,6 +25,36 @@ function require_command {
     log_error "Missing required command: $command"
     exit 1
   fi
+}
+
+function configure_gh_repo {
+  local remote_url repo
+
+  if [[ -n "${GH_REPO:-}" ]]; then
+    export GH_REPO
+    return
+  fi
+
+  if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    export GH_REPO="$GITHUB_REPOSITORY"
+    return
+  fi
+
+  remote_url=$(git remote get-url "$REMOTE" 2>/dev/null || true)
+  case "$remote_url" in
+    git@github.com:*)
+      repo="${remote_url#git@github.com:}"
+      ;;
+    https://github.com/*)
+      repo="${remote_url#https://github.com/}"
+      ;;
+    *)
+      return
+      ;;
+  esac
+
+  repo="${repo%.git}"
+  export GH_REPO="$repo"
 }
 
 function branch_exists {
@@ -68,6 +99,7 @@ Please resolve the conflicts manually."
 require_command git
 require_command gh
 require_command jq
+configure_gh_repo
 
 if ! branch_exists "$SOURCE_BRANCH"; then
   log_warn "Branch $SOURCE_BRANCH does not exist, skipping merge"
@@ -114,5 +146,5 @@ else
   echo "$conflicts"
 
   post_conflict_comment "$source_sha" "$conflicts" || log_warn "Failed to post conflict comment"
-  exit 1
+  exit "$CONFLICT_EXIT_CODE"
 fi

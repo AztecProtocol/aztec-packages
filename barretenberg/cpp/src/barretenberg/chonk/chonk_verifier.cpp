@@ -42,9 +42,9 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     }
 
     // Step 2: Databus consistency check
-    const Commitment calldata_commitment = oink_result.calldata_commitment;
+    const Commitment kernel_calldata_commitment = oink_result.kernel_calldata_commitment;
     const Commitment return_data_commitment = kernel_io.kernel_return_data;
-    bool databus_consistency_verified = (calldata_commitment == return_data_commitment);
+    bool databus_consistency_verified = (kernel_calldata_commitment == return_data_commitment);
     vinfo("ChonkVerifier: databus consistency verified: ", databus_consistency_verified);
     if (!databus_consistency_verified) {
         info("ChonkVerifier: verification failed at databus consistency check");
@@ -146,11 +146,11 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
     kernel_io.reconstruct_from_public(oink_result.public_inputs);
 
     // Step 2: Databus consistency check (in-circuit)
-    const Commitment calldata_commitment = oink_result.calldata_commitment;
-    if (kernel_io.kernel_return_data.get_value() != calldata_commitment.get_value()) {
+    const Commitment kernel_calldata_commitment = oink_result.kernel_calldata_commitment;
+    if (kernel_io.kernel_return_data.get_value() != kernel_calldata_commitment.get_value()) {
         info("ChonkRecursiveVerifier: Databus Consistency check failure");
     }
-    kernel_io.kernel_return_data.incomplete_assert_equal(calldata_commitment);
+    kernel_io.kernel_return_data.incomplete_assert_equal(kernel_calldata_commitment);
 
     // Step 3: Merge verification
     MergeCommitments merge_commitments{ .t_commitments = oink_result.ecc_op_wires,
