@@ -1280,10 +1280,8 @@ fn handle_black_box_function(
         BlackBoxOp::EmbeddedCurveAdd {
             input1_x: p1_x_offset,
             input1_y: p1_y_offset,
-            input1_infinite: p1_infinite_offset,
             input2_x: p2_x_offset,
             input2_y: p2_y_offset,
-            input2_infinite: p2_infinite_offset,
             result,
         } => avm_instrs.push(AvmInstruction {
             opcode: AvmOpcode::ECADD,
@@ -1292,20 +1290,16 @@ fn handle_black_box_function(
                 AddressingModeBuilder::default()
                     .direct_operand(p1_x_offset)
                     .direct_operand(p1_y_offset)
-                    .direct_operand(p1_infinite_offset)
                     .direct_operand(p2_x_offset)
                     .direct_operand(p2_y_offset)
-                    .direct_operand(p2_infinite_offset)
                     .indirect_operand(&result.pointer)
                     .build(),
             ),
             operands: vec![
                 AvmOperand::U16 { value: p1_x_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: p1_y_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: p1_infinite_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: p2_x_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: p2_y_offset.to_u32() as u16 },
-                AvmOperand::U16 { value: p2_infinite_offset.to_u32() as u16 },
                 AvmOperand::U16 { value: result.pointer.to_u32() as u16 },
             ],
             ..Default::default()
@@ -1326,7 +1320,7 @@ fn handle_black_box_function(
             avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
             avm_instrs.push(generate_set_to_procedure(
                 AvmTypeTag::UINT32,
-                &FieldElement::from(points.size.0 / 3),
+                &FieldElement::from(points.size.0 / 2),
                 2,
             ));
             avm_instrs.push(generate_mov_to_procedure(&outputs.pointer, 3));
