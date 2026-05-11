@@ -820,6 +820,12 @@ export class PXE {
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
 
+        // We keep track of which tagging indices we've used in this tx so that we don't repeat them in future txs
+        // (which would link them) without having to rely on this tx being mined (and us seeing the indices being used
+        // onchain).
+        // Note that this must happen _after_ proving as it requires the proof's public inputs, from which the kernels
+        // may have removed some logs due to note-nullifier squashing - this may lead to range of tagging indices we've
+        // actually used to being reduced.
         await persistSenderTaggingIndexRangesForTx(
           this.senderTaggingStore,
           privateExecutionResult.entrypoint.taggingIndexRanges,

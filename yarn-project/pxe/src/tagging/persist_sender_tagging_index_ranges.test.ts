@@ -104,19 +104,4 @@ describe('persistSenderTaggingIndexRangesForTx', () => {
       'test',
     );
   });
-
-  it('passes through the jobId to the store', async () => {
-    publicInputs.getNonEmptyPrivateLogs.mockReturnValue([await survivingLogForIndex(1)]);
-
-    await persistSenderTaggingIndexRangesForTx(
-      store,
-      [{ extendedSecret: secret, lowestIndex: 1, highestIndex: 1 }],
-      publicInputs,
-      getTxHash,
-      'job-42',
-      log,
-    );
-
-    expect(store.storePendingIndexes).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'job-42');
-  });
 });

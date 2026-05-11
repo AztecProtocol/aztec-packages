@@ -23,6 +23,12 @@ import { type ExtendedDirectionalAppTaggingSecret, SiloedTag, type TaggingIndexR
  *
  * Ranges with no surviving indexes are dropped from the output entirely.
  *
+ * Example scenario:
+ *   - used indexes 3 to 7, kerel squashed indexes 3, 5, and 7:
+ *      - range: [3, 7]
+ *      - survived: set(3, 5, 7)
+ *      - output: [4, 6]  (trimmed from both ends, gap at 5 is tolerated)
+ *
  * @param ranges - The tagging index ranges as recorded during private execution (pre-squash).
  * @param survivingTags - The set of siloed tag values (as strings) of private logs that survived kernel squashing.
  * @returns The reconciled ranges, with bounds tightened to surviving indexes and fully-squashed ranges removed.

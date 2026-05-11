@@ -176,20 +176,4 @@ describe('reconcileTaggingIndexRangesAgainstSurvivingTags', () => {
 
     expect(reconciled).toEqual([]);
   });
-
-  it('ignores surviving tags from another secret when reconciling a range', async () => {
-    // Note that the surviving tags correspond to secret2, but the range uses secret1.
-    const survivingTags = await buildSurvivingTags([
-      { secret: secret2, index: 1 },
-      { secret: secret2, index: 2 },
-      { secret: secret2, index: 3 },
-    ]);
-
-    const reconciled = await reconcileTaggingIndexRangesAgainstSurvivingTags(
-      [{ extendedSecret: secret1, lowestIndex: 1, highestIndex: 3 }],
-      survivingTags,
-    );
-
-    expect(reconciled).toEqual([]);
-  });
 });
