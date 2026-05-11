@@ -183,12 +183,6 @@ export class SequencerPublisher {
   /** Interruptible sleep used by sendRequestsAt to wait until a target timestamp. */
   private readonly interruptibleSleep = new InterruptibleSleep();
 
-  // A CALL to a cold address is 2700 gas
-  public static MULTICALL_OVERHEAD_GAS_GUESS = 5000n;
-
-  // Gas report for VotingWithSigTest shows a max gas of 100k, but we've seen it cost 700k+ in testnet
-  public static VOTE_GAS_GUESS: bigint = 800_000n;
-
   public l1TxUtils: L1TxUtils;
   public rollupContract: RollupContract;
   public govProposerContract: GovernanceProposerContract;
