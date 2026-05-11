@@ -115,18 +115,6 @@ describe('ContractSyncService', () => {
       expectSyncedScopes([scopeA], [scopeB]);
     });
 
-    it('skips sync for excluded contract in the same job', async () => {
-      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectNoSync();
-    });
-
-    it('does not skip sync for excluded contract in a different job', async () => {
-      service.setExcludedFromSync('other-job', new Set([contractAddress.toString()]));
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectSyncedScopes([scopeA]);
-    });
-
     it('concurrent calls for same contract+scope share one sync promise', async () => {
       const p1 = service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
         scopeA,
@@ -170,16 +158,6 @@ describe('ContractSyncService', () => {
   });
 
   describe('commit', () => {
-    it('clears exclusions for the given job', async () => {
-      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
-      await service.commit(jobId);
-
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      // When exclusions are set, contract sync is skipped. We verify the exclusions were cleared by confirming that sync
-      // was actually triggered.
-      expectSyncedScopes([scopeA]);
-    });
-
     it('does not clear sync cache', async () => {
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
       await service.commit(jobId);
@@ -197,31 +175,52 @@ describe('ContractSyncService', () => {
       // We check that the sync cache was cleared by checking that the sync was triggered twice.
       expectSyncedScopes([scopeA], [scopeA]);
     });
+  });
 
-    it('clears exclusions for the given job', async () => {
-      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
-      await service.discardStaged(jobId);
+  describe('class ID verification deduplication', () => {
+    const contract2 = AztecAddress.fromBigInt(300n);
 
+    it('verifies class ID only once per contract across scope batches', async () => {
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      // When exclusions are set, contract sync is skipped. We verify the exclusions were cleared by confirming that sync
-      // was actually triggered.
-      expectSyncedScopes([scopeA]);
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeB]);
+      expectVerifiedContracts(contractAddress);
     });
 
-    it('preserves exclusions for other jobs', async () => {
-      service.setExcludedFromSync(jobId, new Set([contractAddress.toString()]));
-      service.setExcludedFromSync('other-job', new Set([contractAddress.toString()]));
-      await service.discardStaged(jobId);
-
-      // jobId exclusion cleared, sync proceeds
+    it('verifies class ID separately for different contracts', async () => {
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectSyncedScopes([scopeA]);
+      await service.ensureContractSynced(contract2, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectVerifiedContracts(contractAddress, contract2);
+    });
 
-      // other-job exclusion still active, sync skipped
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, 'other-job', [
-        scopeA,
-      ]);
-      expectSyncedScopes([scopeA]);
+    it('re-verifies class ID after wipe', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      service.wipe();
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeB]);
+      expectVerifiedContracts(contractAddress, contractAddress);
+    });
+
+    it('re-verifies class ID after discardStaged', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      await service.discardStaged(jobId);
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectVerifiedContracts(contractAddress, contractAddress);
+    });
+
+    it('re-verifies class ID after verification failure', async () => {
+      contractStore.getContractInstance.mockRejectedValueOnce(new Error('node unavailable'));
+      await expect(
+        service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]),
+      ).rejects.toThrow('node unavailable');
+
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectVerifiedContracts(contractAddress, contractAddress);
+    });
+
+    it('does not re-verify class ID when only scope cache is invalidated', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      service.invalidateContractForScopes(contractAddress, [scopeA]);
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectVerifiedContracts(contractAddress);
     });
   });
 
@@ -334,6 +333,14 @@ describe('ContractSyncService', () => {
       const [call, actualScopes] = utilityExecutor.mock.calls[i];
       expect(call.to).toEqual(expected[i][0]);
       expect(actualScopes).toEqual(expected[i][1]);
+    }
+  };
+
+  /** Asserts that class ID verification was triggered for each contract address in the given sequence. */
+  const expectVerifiedContracts = (...addresses: AztecAddress[]) => {
+    expect(contractStore.getContractInstance).toHaveBeenCalledTimes(addresses.length);
+    for (let i = 0; i < addresses.length; i++) {
+      expect(contractStore.getContractInstance).toHaveBeenNthCalledWith(i + 1, addresses[i]);
     }
   };
 

@@ -94,12 +94,14 @@ function title {
   echo -e "Installing version: ${bold}${o}$VERSION${r}"
   echo
   echo -e "This script installs the following and updates your PATH if necessary:"
-  echo -e "  ${bold}${g}nargo${r}          - the noir programming language compiler and simulator."
-  echo -e "  ${bold}${g}noir-profiler${r}  - a profiler for analyzing and visualizing noir programs."
-  echo -e "  ${bold}${g}bb${r}             - the barretenberg proving backend."
   echo -e "  ${bold}${g}aztec${r}          - compiles and tests contracts, interacts with the network."
   echo -e "  ${bold}${g}aztec-up${r}       - installs and manages aztec toolchain versions."
   echo -e "  ${bold}${g}aztec-wallet${r}   - a minimalistic wallet cli."
+  echo -e "  ${bold}${g}aztec-bb${r}       - the barretenberg proving backend."
+  echo -e "  ${bold}${g}aztec-nargo${r}    - the noir compiler and simulator."
+  echo -e "  ${bold}${g}aztec-forge${r}, ${bold}${g}aztec-cast${r}, ${bold}${g}aztec-anvil${r}, ${bold}${g}aztec-chisel${r} - the bundled foundry tools."
+  echo
+  echo -e "Foundry, Noir, and Barretenberg are bundled at the versions ${bold}${g}aztec${r} needs. Your own ${bold}${g}forge${r} / ${bold}${g}nargo${r} / ${bold}${g}bb${r} installs still work under their bare names."
   echo
   read -p "Do you wish to continue? (Y/n) " -n 1 -r
   echo

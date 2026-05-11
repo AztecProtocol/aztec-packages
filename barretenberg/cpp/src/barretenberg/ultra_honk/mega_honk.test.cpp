@@ -308,6 +308,12 @@ TYPED_TEST(MegaHonkTests, WitnessPolynomialsMasked)
             EXPECT_TRUE(has_masking) << label << " should be masked";
         };
 
+        auto check_unmasked = [](const auto& poly, const std::string& label) {
+            for (size_t j = 0; j < NUM_MASKED_ROWS; j++) {
+                EXPECT_TRUE(poly[NUM_ZERO_ROWS + j].is_zero()) << label << " should not be masked";
+            }
+        };
+
         auto& polys = prover_instance->polynomials;
         check_masked(polys.w_l, "w_l");
         check_masked(polys.w_r, "w_r");
@@ -317,11 +323,18 @@ TYPED_TEST(MegaHonkTests, WitnessPolynomialsMasked)
         check_masked(polys.lookup_read_counts, "lookup_read_counts");
         check_masked(polys.lookup_read_tags, "lookup_read_tags");
         check_masked(polys.lookup_inverses, "lookup_inverses");
-        check_masked(polys.calldata_read_counts, "calldata_read_counts");
-        check_masked(polys.calldata_inverses, "calldata_inverses");
-        check_masked(polys.secondary_calldata, "secondary_calldata");
-        check_masked(polys.secondary_calldata_read_counts, "secondary_calldata_read_counts");
-        check_masked(polys.secondary_calldata_inverses, "secondary_calldata_inverses");
+        check_unmasked(polys.kernel_calldata, "kernel_calldata");
+        check_masked(polys.kernel_calldata_read_counts, "kernel_calldata_read_counts");
+        check_masked(polys.kernel_calldata_inverses, "kernel_calldata_inverses");
+        check_masked(polys.first_app_calldata, "first_app_calldata");
+        check_masked(polys.first_app_calldata_read_counts, "first_app_calldata_read_counts");
+        check_masked(polys.first_app_calldata_inverses, "first_app_calldata_inverses");
+        check_masked(polys.second_app_calldata, "second_app_calldata");
+        check_masked(polys.second_app_calldata_read_counts, "second_app_calldata_read_counts");
+        check_masked(polys.second_app_calldata_inverses, "second_app_calldata_inverses");
+        check_masked(polys.third_app_calldata, "third_app_calldata");
+        check_masked(polys.third_app_calldata_read_counts, "third_app_calldata_read_counts");
+        check_masked(polys.third_app_calldata_inverses, "third_app_calldata_inverses");
         check_masked(polys.return_data, "return_data");
         check_masked(polys.return_data_read_counts, "return_data_read_counts");
         check_masked(polys.return_data_inverses, "return_data_inverses");

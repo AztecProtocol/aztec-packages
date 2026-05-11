@@ -11,7 +11,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -75,6 +75,10 @@ const DEFAULT_ESTIMATED_GAS_PADDING = 0.1;
 
 export class EmbeddedWallet extends BaseWallet {
   protected estimatedGasPadding = DEFAULT_ESTIMATED_GAS_PADDING;
+
+  // Stub class ids, populated on wallet startup
+  // to avoid redundant work per simulation
+  protected stubClassIds = new Map<AccountType, Fr>();
 
   constructor(
     pxe: PXE,
@@ -193,6 +197,25 @@ export class EmbeddedWallet extends BaseWallet {
   }
 
   /**
+   * Hashes and registers the stub class for every supported account type with PXE, populating
+   * stubClassIds. Called on wallet initialization.
+   */
+  async initStubClasses(): Promise<void> {
+    const schnorrArtifact = await this.accountContracts.getStubAccountContractArtifact('schnorr');
+    const { id: schnorrClassId } = await getContractClassFromArtifact(schnorrArtifact);
+    await this.pxe.registerContractClass(schnorrArtifact);
+
+    // ecdsa stubs share the same class id
+    const ecdsaArtifact = await this.accountContracts.getStubAccountContractArtifact('ecdsasecp256r1');
+    const { id: ecdsaClassId } = await getContractClassFromArtifact(ecdsaArtifact);
+    await this.pxe.registerContractClass(ecdsaArtifact);
+
+    this.stubClassIds.set('schnorr', schnorrClassId);
+    this.stubClassIds.set('ecdsasecp256k1', ecdsaClassId);
+    this.stubClassIds.set('ecdsasecp256r1', ecdsaClassId);
+  }
+
+  /**
    * Builds contract overrides for all provided addresses by replacing their account contracts with stub implementations.
    * Uses a type-specific stub artifact so that the stub's constructor selector matches the real account's constructor.
    */
@@ -205,7 +228,12 @@ export class EmbeddedWallet extends BaseWallet {
     for (const account of filtered) {
       const address = account.item;
       const { type } = await this.walletDB.retrieveAccount(address);
-      const stubArtifact = await this.accountContracts.getStubAccountContractArtifact(type);
+      const stubClassId = this.stubClassIds.get(type);
+      if (!stubClassId) {
+        throw new Error(
+          `Stub class for account type '${type}' was not registered at wallet init. This is a bug — initStubClasses should cover every supported AccountType.`,
+        );
+      }
 
       const originalAccount = await this.getAccountFromAddress(address);
       const completeAddress = originalAccount.getCompleteAddress();
@@ -216,15 +244,8 @@ export class EmbeddedWallet extends BaseWallet {
         );
       }
 
-      const stubConstructorArgs = type === 'schnorr' ? [Fr.ZERO, Fr.ZERO] : [Buffer.alloc(32), Buffer.alloc(32)];
-      const stubInstance = await getContractInstanceFromInstantiationParams(stubArtifact, {
-        salt: Fr.random(),
-        constructorArgs: stubConstructorArgs,
-      });
-
       contracts[address.toString()] = {
-        instance: stubInstance,
-        artifact: stubArtifact,
+        instance: { ...contractInstance, currentContractClassId: stubClassId },
       };
     }
 
@@ -250,7 +271,7 @@ export class EmbeddedWallet extends BaseWallet {
     const chainInfo = await this.getChainInfo();
 
     const accountOverrides = await this.buildAccountOverrides(scopes);
-    const overrides = new SimulationOverrides(accountOverrides);
+    const overrides = new SimulationOverrides({ contracts: accountOverrides });
 
     let txRequest: TxExecutionRequest;
     if (from === NO_FROM) {
@@ -360,7 +381,8 @@ export class EmbeddedWallet extends BaseWallet {
     this.estimatedGasPadding = value ?? DEFAULT_ESTIMATED_GAS_PADDING;
   }
 
-  stop() {
-    return this.pxe.stop();
+  async stop(): Promise<void> {
+    await this.pxe.stop();
+    await this.walletDB.close();
   }
 }

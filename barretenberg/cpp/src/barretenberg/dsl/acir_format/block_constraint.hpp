@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <cstdint>
@@ -17,10 +18,12 @@ enum AccessType : std::uint8_t {
     Write = 1,
 };
 
-enum CallDataType : std::uint8_t {
-    None = 0,
-    Primary = 1,
-    Secondary = 2,
+enum CallDataType : std::uint32_t {
+    KernelCalldata = 0,
+    FirstAppCalldata = 1,
+    SecondAppCalldata = 2,
+    ThirdAppCalldata = 3,
+    None = bb::MAX_APPS_PER_KERNEL + 1, // Used for non-calldata blocks
 };
 
 /**
@@ -46,8 +49,8 @@ enum BlockType : std::uint8_t {
  * @details 1. init holds the initial values of the RAM/ROM/CallData/ReturnData table
  *          2. trace holds the sequence of memory operations (reads/writes) performed on the table
  *          3. type indicates the type of memory being constrained (RAM/ROM/CallData/ReturnData)
- *          4. calldata_id (used only for CallData) indicates whether we are operating on primary (kernel) or secondary
- *             (app) calldata
+ *          4. calldata_id (used only for CallData) indicates whether we are operating on kernel calldata or an app
+ *             calldata slot. The kernel calldata id is 0, app calldata ids are in [1, MAX_APPS_PER_KERNEL].
  */
 struct BlockConstraint {
     std::vector<uint32_t> init;

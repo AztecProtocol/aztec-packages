@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import type { AztecAsyncSingleton, AztecSingleton } from './singleton.js';
 import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
 import { isSyncStore } from './utils.js';
@@ -29,18 +27,18 @@ export function describeAztecSingleton(
     }
 
     it('returns undefined if the value is not set', async () => {
-      expect(await get()).to.equal(undefined);
+      expect(await get()).toBe(undefined);
     });
 
     it('should be able to set and get values', async () => {
-      expect(await singleton.set('foo')).to.equal(true);
-      expect(await get()).to.equal('foo');
+      expect(await singleton.set('foo')).toBe(true);
+      expect(await get()).toBe('foo');
     });
 
     it('overwrites the value if it is set again', async () => {
-      expect(await singleton.set('foo')).to.equal(true);
-      expect(await singleton.set('bar')).to.equal(true);
-      expect(await get()).to.equal('bar');
+      expect(await singleton.set('foo')).toBe(true);
+      expect(await singleton.set('bar')).toBe(true);
+      expect(await get()).toBe('bar');
     });
   });
 }
