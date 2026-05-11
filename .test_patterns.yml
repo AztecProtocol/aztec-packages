@@ -361,3 +361,8 @@ tests:
     error_regex: "timeout: sending signal"
     owners:
       - *charlie
+
+  - regex: "run_test.sh simple tx_stats_bench"
+    error_regex: "✕ verifies transactions at 10 TPS"
+    owners:
+      - *phil
