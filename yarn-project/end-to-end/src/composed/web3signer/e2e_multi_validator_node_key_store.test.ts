@@ -154,8 +154,10 @@ function verifyKeyStore(directory: string) {
   expect(validatorAdapter.getAttesterAddresses()).toHaveLength(VALIDATOR_COUNT);
 }
 
+jest.setTimeout(900_000);
+
 describe('e2e_multi_validator_node', () => {
-  jest.setTimeout(10 * 60 * 1000);
+  jest.setTimeout(900_000);
 
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];

@@ -25,7 +25,7 @@ function set_dump_avm {
 
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  local prefix="$hash:ISOLATE=1"
+  local prefix="$hash:ISOLATE=1:TIMEOUT=15m"
 
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"

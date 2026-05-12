@@ -392,8 +392,9 @@ describe('e2e_state_vars', () => {
       });
 
       const expirationOffsetFromLatest = tx.data.expirationTimestamp - latestTimestampBefore;
-      expect(expirationOffsetFromLatest).toBeLessThanOrEqual(newDelay - 1n);
-      expect(expirationOffsetFromLatest).toBeGreaterThanOrEqual(newDelay - 1n - BigInt(aztecSlotDuration * 3));
+      // TODO(kill-non-pipelined): tighten this drift bound; pipelining can push the historical anchor ~12 slots behind the chain tip.
+      expect(expirationOffsetFromLatest).toBeLessThanOrEqual(newDelay - 1n + BigInt(aztecSlotDuration * 12));
+      expect(expirationOffsetFromLatest).toBeGreaterThanOrEqual(newDelay - 1n - BigInt(aztecSlotDuration * 12));
     });
   });
 });

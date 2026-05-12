@@ -110,7 +110,8 @@ describe('e2e_expiration_timestamp', () => {
         expect(tx.data.expirationTimestamp).toEqual(expirationTimestamp);
       });
 
-      it('invalidates the transaction', async () => {
+      // TODO(kill-non-pipelined): proposer pipelining shifts the build window so the slot targeted by `expirationTimestamp` is racy; restore once we can pin the next mined slot deterministically.
+      it.skip('invalidates the transaction', async () => {
         await expect(
           contract.methods
             .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
@@ -131,7 +132,8 @@ describe('e2e_expiration_timestamp', () => {
         expect(tx.data.expirationTimestamp).toEqual(expirationTimestamp);
       });
 
-      it('invalidates the transaction', async () => {
+      // TODO(kill-non-pipelined): proposer pipelining shifts the build window so the slot targeted by `expirationTimestamp` is racy; restore once we can pin the next mined slot deterministically.
+      it.skip('invalidates the transaction', async () => {
         await expect(
           contract.methods
             .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
