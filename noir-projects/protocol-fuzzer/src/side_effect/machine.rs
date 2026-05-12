@@ -476,8 +476,9 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
         //
         // 3. ONE-SHOT -- success-only, no model state (opt-in via --include-one-shots):
         //    RequestOvskApp and TestSettingTeardown. Always succeed with no
-        //    parameters to vary meaningfully. A single execution (in new_system)
-        //    proves the kernel plumbing works; repeating wastes tx budget.
+        //    parameters to vary meaningfully. Smoke-tested at setup (direct +
+        //    via_parent) in new_system(); repeating during fuzzing wastes tx
+        //    budget.
         let mut choices = crate::util::weighted_choices(&[
             ("create_note", 8),
             ("create_partial_note", 3),
@@ -708,28 +709,26 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
         system.execute_command_batch(cmds)
     }
 
-    /// Verify that the sandbox result matches the model's expectations.
+    /// Verify the sandbox result against the model. Per-`Category` strategy:
     ///
-    /// See `changes_model()` and `flushes_batch()` for the three command
-    /// categories.  Verification strategy:
-    ///
-    /// - **Stateful sends** (`changes_model() = true`):
+    /// - **Stateful**:
     ///   - Notes: success/failure checked here; values verified transitively
-    ///     by subsequent ViewNotesMany/GetNotesMany queries.
+    ///     by subsequent View/GetNotesMany.
     ///   - Nullifiers: success + duplicate detection; insertion verified
     ///     transitively by TestNullifierInclusion.
-    ///   - L2->L1 messages: reconstructs expected hash (via bridge) and verifies
-    ///     it appears in TxEffect (same check an L1 contract would perform).
-    ///   - Private logs: computes siloed tag and queries the node, then verifies
-    ///     the just-emitted content is discoverable AND that all previously-emitted
-    ///     logs with the same tag (tracked in `pre_state.private_logs`) are still
-    ///     present (per-tag completeness).  The contract uses `emit_private_log_unsafe`
-    ///     with plaintext tags, so we verify siloing + indexing, not the full
-    ///     ECDH-based encryption/discovery protocol.
-    /// - **Queries** (`flushes_batch() = true`): directly compares returned
-    ///   values against the model's expected notes.
-    /// - **Kernel exercisers** (`!changes_model() && !flushes_batch()`):
-    ///   success-only -- success is the proof that kernel plumbing works.
+    ///   - L2->L1 messages: reconstruct the expected hash (via bridge) and
+    ///     check it appears in TxEffect (same check an L1 contract performs).
+    ///   - Private logs: compute the siloed tag, query the node, and verify
+    ///     the just-emitted content is discoverable AND every previously-emitted
+    ///     log with the same tag is still present (per-tag completeness).
+    ///     `emit_private_log_unsafe` uses plaintext tags, so we verify siloing
+    ///     + indexing, not the full ECDH discovery protocol.
+    /// - **ReadOnlyQuery** (View/GetNotesMany): compare returned values to the
+    ///   model's expected notes.
+    /// - **AssertionQuery** (TestNote/NullifierInclusion): expect the tx to
+    ///   succeed iff the asserted condition holds in the model.
+    /// - **KernelExerciser** (RequestOvskApp/TestSettingTeardown): success-only;
+    ///   success proves the kernel plumbing works.
     fn check_result(&self, cmd: &Self::Command, pre_state: &Self::State, result: Self::Result) {
         use SideEffectCommand::*;
 
