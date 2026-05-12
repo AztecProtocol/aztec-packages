@@ -747,6 +747,11 @@ export class CheckpointProposalJob implements Traceable {
           checkpointNumber: this.checkpointNumber,
         });
         this.metrics.recordCheckpointProposalFailed('header_validation_failed');
+        this.eventEmitter.emit('header-validation-failed', {
+          slot: this.targetSlot,
+          checkpointNumber: this.checkpointNumber,
+          reason: err instanceof Error ? err.message : String(err),
+        });
         return undefined;
       }
 
