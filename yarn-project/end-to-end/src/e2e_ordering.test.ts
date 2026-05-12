@@ -26,8 +26,7 @@ describe('e2e_ordering', () => {
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;
 
-  const expectLogsFromLastBlockToBe = async (logMessages: bigint[]) => {
-    const fromBlock = await aztecNode.getBlockNumber();
+  const expectLogsFromBlockToBe = async (logMessages: bigint[], fromBlock: number) => {
     const logFilter = {
       fromBlock,
       toBlock: fromBlock + 1,
@@ -70,15 +69,14 @@ describe('e2e_ordering', () => {
         enqueue_calls_to_child_with_nested_last: [directValue, nestedValue] as bigint[], // eslint-disable-line camelcase
       } as const;
 
-      // TODO(kill-non-pipelined): public logs not synced before test timeout under pipelined publisher
-      it.skip.each(['enqueue_calls_to_child_with_nested_first', 'enqueue_calls_to_child_with_nested_last'] as const)(
+      it.each(['enqueue_calls_to_child_with_nested_first', 'enqueue_calls_to_child_with_nested_last'] as const)(
         'orders public function execution in %s',
         async method => {
           const expectedOrder = expectedOrders[method];
           const action = parent.methods[method](child.address, pubSetValueSelector);
           const tx = await proveInteraction(wallet, action, { from: defaultAccountAddress });
 
-          await tx.send();
+          const receipt = await tx.send();
 
           // There are two enqueued calls
           const enqueuedPublicCalls = tx.getPublicCallRequestsWithCalldata();
@@ -95,7 +93,7 @@ describe('e2e_ordering', () => {
           expect(enqueuedPublicCalls.map(c => c.args[0].toBigInt())).toEqual(expectedOrder);
 
           // Logs are emitted in the expected order
-          await expectLogsFromLastBlockToBe(expectedOrder);
+          await expectLogsFromBlockToBe(expectedOrder, receipt.blockNumber!);
 
           // The final value of the child is the last one set
           const value = await aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
@@ -127,18 +125,17 @@ describe('e2e_ordering', () => {
         expect(value.toBigInt()).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
       });
 
-      // TODO(kill-non-pipelined): public logs not synced before test timeout under pipelined publisher
-      it.skip.each([
+      it.each([
         'set_value_twice_with_nested_first',
         'set_value_twice_with_nested_last',
         'set_value_with_two_nested_calls',
       ] as const)('orders public logs in %s', async method => {
         const expectedOrder = expectedOrders[method];
 
-        await child.methods[method]().send({ from: defaultAccountAddress });
+        const receipt = await child.methods[method]().send({ from: defaultAccountAddress });
 
         // Logs are emitted in the expected order
-        await expectLogsFromLastBlockToBe(expectedOrder);
+        await expectLogsFromBlockToBe(expectedOrder, receipt.blockNumber!);
       });
     });
   });
