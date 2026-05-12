@@ -6,6 +6,7 @@ import { ClaimContract } from '@aztec/noir-contracts.js/Claim';
 import { CrowdfundingContract } from '@aztec/noir-contracts.js/Crowdfunding';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
@@ -46,6 +47,7 @@ describe('e2e_crowdfunding_and_claim', () => {
   let crowdfundingSecretKey: Fr;
   let crowdfundingPublicKeys: PublicKeys;
   let cheatCodes: CheatCodes;
+  let aztecNode: AztecNode & AztecNodeDebug;
   let deadline: number; // end of crowdfunding period
 
   let uintNote!: any;
@@ -56,6 +58,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       teardown,
       logger,
       wallet,
+      aztecNode,
       accounts: [operatorAddress, donor1Address, donor2Address],
     } = await setup(3));
 
@@ -296,8 +299,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow('Assertion failed: Not an operator');
   });
 
-  // TODO(kill-non-pipelined): date-provider time-warp creates slot mismatch with pipelined sequencer
-  it.skip('cannot donate after a deadline', async () => {
+  it('cannot donate after a deadline', async () => {
     const donationAmount = 1000n;
 
     // 1) We add authwit so that the Crowdfunding contract can transfer donor's DNT
@@ -310,8 +312,11 @@ describe('e2e_crowdfunding_and_claim', () => {
     );
     const witness = await wallet.createAuthWit(donor2Address, { caller: crowdfundingContract.address, action });
 
-    // 2) We set next block timestamp to be after the deadline
-    await cheatCodes.eth.warp(deadline + 1);
+    // 2) We set next block timestamp to be after the deadline. Warp L1 only (not L2) — the
+    //    huge 7-day warp would cascade publishers if we forced an L2 mineBlock, and the
+    //    donate's deadline check only needs the next-mined slot's timestamp to be past the
+    //    deadline, which follows from L1 time alone.
+    await cheatCodes.eth.warp(deadline + 1, { resetBlockInterval: true });
 
     // 3) We donate to the crowdfunding contract
     await expect(
