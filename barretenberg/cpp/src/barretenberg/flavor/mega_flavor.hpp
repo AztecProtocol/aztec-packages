@@ -151,7 +151,12 @@ class MegaFlavor {
                               lagrange_first,                     // column 31
                               lagrange_last,                      // column 32
                               lagrange_ecc_op,                    // column 33 // indicator poly for ecc op gates
-                              databus_id                          // column 34 // id polynomial, i.e. id_i = i
+                              databus_id,                         // column 34 // id polynomial, i.e. id_i = i
+                              kernel_calldata_indicator,          // column 35 // 1 on kernel_calldata data rows
+                              first_app_calldata_indicator,       // column 36 // 1 on first_app_calldata data rows
+                              second_app_calldata_indicator,      // column 37 // 1 on second_app_calldata data rows
+                              third_app_calldata_indicator,       // column 38 // 1 on third_app_calldata data rows
+                              return_data_indicator               // column 39 // 1 on return_data data rows
         )
 
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4, q_5 }; };

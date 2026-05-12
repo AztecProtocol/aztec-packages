@@ -1,14 +1,7 @@
 name: Pull Request Validation
 
 on:
-  # This check is skipped in merge queue, but we need it to run (even skipped) for status checks.
-  merge_group:
-  pull_request:
-    types:
-      - opened
-      - reopened
-      - edited
-      - synchronize
+  workflow_dispatch:
 
 permissions:
   pull-requests: read

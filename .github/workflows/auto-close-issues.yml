@@ -1,9 +1,7 @@
 name: Auto-Close Issues from Merge Commits
 
 on:
-  push:
-    branches:
-      - next
+  workflow_dispatch:
 
 jobs:
   auto-close-issues:

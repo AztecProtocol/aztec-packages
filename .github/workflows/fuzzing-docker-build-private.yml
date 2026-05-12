@@ -1,9 +1,6 @@
 name: Build Private Fuzzing Container
 
 on:
-  push:
-    branches:
-      - next
   workflow_dispatch:
     inputs:
       commit:

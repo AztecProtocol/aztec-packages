@@ -345,7 +345,6 @@ std::vector<std::pair<C, FF>> handle_nullifier_append(const PrivateAppendTreeEve
     uint32_t remaining_nullifiers = MAX_NULLIFIERS_PER_TX - state_before.tree_states.nullifier_tree.counter;
 
     return { { C::tx_leaf_value, event.leaf_value },
-             { C::tx_nullifier_limit_error, remaining_nullifiers > 0 ? 0 : 1 },
              { C::tx_remaining_side_effects_inv, remaining_nullifiers }, // Will be inverted in batch later
              { C::tx_sel_try_nullifier_append, 1 },
              { C::tx_sel_nullifier_append, remaining_nullifiers > 0 ? 1 : 0 },

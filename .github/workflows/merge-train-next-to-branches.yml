@@ -1,9 +1,7 @@
 name: Merge Train Auto-Pull
 
 on:
-  push:
-    branches:
-      - next
+  workflow_dispatch:
 
 jobs:
   merge-to-trains:
@@ -29,4 +27,3 @@ jobs:
           for branch in merge-train/avm merge-train/barretenberg merge-train/ci merge-train/docs merge-train/fairies merge-train/spartan; do
             ./scripts/merge-train/merge-next.sh "$branch" || true
           done
-

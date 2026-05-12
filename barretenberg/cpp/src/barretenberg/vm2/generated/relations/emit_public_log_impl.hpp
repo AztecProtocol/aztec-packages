@@ -280,47 +280,53 @@ void emit_public_logImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                     static_cast<View>(in.get(C::emit_public_log_sel_write_to_public_inputs)));
         std::get<33>(evals) += (tmp * scaling_factor);
     }
-    {
+    { // SEL_WRITE_TO_PI_ON_SEL
         using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::emit_public_log_start)) *
-                   (CView(emit_public_log_START_PUBLIC_INDEX) -
-                    static_cast<View>(in.get(C::emit_public_log_public_inputs_index)));
+        auto tmp = static_cast<View>(in.get(C::emit_public_log_sel_write_to_public_inputs)) *
+                   (FF(1) - static_cast<View>(in.get(C::emit_public_log_sel)));
         std::get<34>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::emit_public_log_start)) *
+                   (CView(emit_public_log_START_PUBLIC_INDEX) -
+                    static_cast<View>(in.get(C::emit_public_log_public_inputs_index)));
+        std::get<35>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
         auto tmp = CView(emit_public_log_NOT_END) *
                    ((static_cast<View>(in.get(C::emit_public_log_public_inputs_index)) + FF(1)) -
                     static_cast<View>(in.get(C::emit_public_log_public_inputs_index_shift)));
-        std::get<35>(evals) += (tmp * scaling_factor);
+        std::get<36>(evals) += (tmp * scaling_factor);
     }
     { // CONTRACT_ADDRESS_CONSISTENCY
-        using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
         auto tmp =
             CView(emit_public_log_NOT_END) * (static_cast<View>(in.get(C::emit_public_log_contract_address)) -
                                               static_cast<View>(in.get(C::emit_public_log_contract_address_shift)));
-        std::get<36>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
-        auto tmp = CView(emit_public_log_IS_WRITE_LOG_LENGTH) *
-                   (static_cast<View>(in.get(C::emit_public_log_log_size)) -
-                    static_cast<View>(in.get(C::emit_public_log_public_inputs_value)));
         std::get<37>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::emit_public_log_is_write_contract_address)) *
-                   (static_cast<View>(in.get(C::emit_public_log_contract_address)) -
+        auto tmp = CView(emit_public_log_IS_WRITE_LOG_LENGTH) *
+                   (static_cast<View>(in.get(C::emit_public_log_log_size)) -
                     static_cast<View>(in.get(C::emit_public_log_public_inputs_value)));
         std::get<38>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::emit_public_log_is_write_contract_address)) *
+                   (static_cast<View>(in.get(C::emit_public_log_contract_address)) -
+                    static_cast<View>(in.get(C::emit_public_log_public_inputs_value)));
+        std::get<39>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::emit_public_log_is_write_memory_value)) *
                    (static_cast<View>(in.get(C::emit_public_log_value)) -
                     static_cast<View>(in.get(C::emit_public_log_public_inputs_value)));
-        std::get<39>(evals) += (tmp * scaling_factor);
+        std::get<40>(evals) += (tmp * scaling_factor);
     }
 }
 
