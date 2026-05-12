@@ -10,7 +10,6 @@ import {
   type SlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import {
-  type GasPrice,
   type L1TxUtils,
   type L1TxUtilsConfig,
   MAX_L1_TX_LIMIT,
