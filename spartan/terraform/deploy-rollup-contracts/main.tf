@@ -20,6 +20,13 @@ provider "kubernetes" {
 locals {
   d = var.deploy
 
+  # For genesis-affecting flags, var.env (pod runtime baseline) wins over var.deploy
+  # (deployment defaults) because network YAMLs often define them under env: so that
+  # both the contract deployment and pod runtime use the same value.
+  sponsored_fpc = try(tobool(var.env["SPONSORED_FPC"]), tobool(local.d.SPONSORED_FPC))
+  test_accounts = try(tobool(var.env["TEST_ACCOUNTS"]), tobool(local.d.TEST_ACCOUNTS))
+  real_verifier = try(tobool(var.env["REAL_VERIFIER"]), tobool(local.d.REAL_VERIFIER))
+
   deploy_args = concat(
     ["deploy-l1-contracts"],
     ["--l1-rpc-urls", local.d.L1_RPC_URLS],
@@ -27,9 +34,9 @@ locals {
     ["--l1-chain-id", tostring(tonumber(try(local.d.ETHEREUM_CHAIN_ID, "31337")))],
     ["--validators", local.d.VALIDATORS],
     ["--json"], # Always output JSON for easier parsing
-    tobool(local.d.SPONSORED_FPC) ? ["--sponsored-fpc"] : [],
-    tobool(local.d.TEST_ACCOUNTS) ? ["--test-accounts"] : [],
-    tobool(local.d.REAL_VERIFIER) ? ["--real-verifier"] : [],
+    local.sponsored_fpc ? ["--sponsored-fpc"] : [],
+    local.test_accounts ? ["--test-accounts"] : [],
+    local.real_verifier ? ["--real-verifier"] : [],
     tobool(try(local.d.VERIFY_CONTRACTS, "false")) ? ["--verify-contracts"] : []
   )
 
