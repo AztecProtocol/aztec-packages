@@ -3,12 +3,7 @@ import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
-import {
-  ARCHIVE_HEIGHT,
-  INITIAL_L2_BLOCK_NUM,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  type NOTE_HASH_TREE_HEIGHT,
-} from '@aztec/constants';
+import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
@@ -1461,7 +1456,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
 
     const txHash = tx.getTxHash();
-    const latestBlockNumber = await this.blockSource.getBlockNumber();
+    const l2Tips = await this.blockSource.getL2Tips();
+    const latestBlockNumber = l2Tips.proposed.number;
     const blockNumber = BlockNumber.add(latestBlockNumber, 1);
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
@@ -1473,6 +1469,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       coinbase,
       feeRecipient,
     );
+
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
       new DateProvider(),
@@ -1489,74 +1486,63 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // Ensure world-state has caught up with the latest block we loaded from the archiver
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
 
-    // When pipelining is enabled, the simulated block lands at the pipelining target slot,
-    // which may open a new checkpoint relative to the latest block. In that case mirror the
-    // L1→L2 message insertion the on-chain proposer will perform so that AVM opcodes
-    // l1_to_l2_msg_exists / consume_l1_to_l2_message see the same tree state as on-chain.
-    // When pipelining is disabled, simulate against the current checkpoint state (which is
-    // the pre-fix behaviour). This also avoids requesting messages for an unsealed checkpoint
-    // in low-inbox-lag setups that don't enable pipelining.
-    let nextCheckpointMessages: Fr[] | undefined;
-    if (this.epochCache.isProposerPipeliningEnabled()) {
-      const { slot: targetSlot } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
-      const latestBlockData = await this.blockSource.getBlockData({ number: latestBlockNumber });
-      const isGenesis = latestBlockNumber === BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
-      if (latestBlockData === undefined && !isGenesis) {
-        throw new Error(`Failed to load block data for latest block ${latestBlockNumber}`);
-      }
-      const isNewCheckpoint = isGenesis || targetSlot > latestBlockData!.header.getSlot();
-      if (isNewCheckpoint) {
-        nextCheckpointMessages = await this.l1ToL2MessageSource.getL1ToL2Messages(
-          CheckpointNumber((latestBlockData?.checkpointNumber ?? CheckpointNumber.ZERO) + 1),
-        );
-      }
-    }
+    // If we detect the next block would start a new checkpoint, then insert L1-to-L2 messages into
+    // the world state tree so simulation can take them into account. We detect if the next block would
+    // start a new checkpoint by checking if the proposed checkpoint's block number matches the latest block number,
+    // which means the next block would be the first block of the next checkpoint.
+    const nextCheckpointMessages: Fr[] | undefined =
+      l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number
+        ? await this.l1ToL2MessageSource.getL1ToL2Messages(
+            CheckpointNumber((l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1),
+          )
+        : undefined;
 
-    // Pin the fork to the captured `latestBlockNumber` so background sync advancing between
-    // `syncImmediate` and `fork` cannot leave the fork at a newer block than our checkpoint
-    // boundary calculation.
-    const merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
-    try {
-      if (nextCheckpointMessages !== undefined) {
-        await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
-      }
-      await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
-      const config = PublicSimulatorConfig.from({
-        skipFeeEnforcement,
-        collectDebugLogs: true,
-        collectHints: false,
-        collectCallMetadata: true,
-        collectStatistics: false,
-        collectionLimits: CollectionLimitsConfig.from({
-          maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
-        }),
-      });
-      const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
-      if (overrides?.contracts) {
-        contractsDB.addContracts(Object.values(overrides.contracts).map(({ instance }) => instance));
-      }
-      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config, contractsDB);
+    // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
+    await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
 
-      // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-      const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
-      // REFACTOR: Consider returning the error rather than throwing
-      if (failedTxs.length) {
-        this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
-        throw failedTxs[0].error;
-      }
-
-      const [processedTx] = processedTxs;
-      return new PublicSimulationOutput(
-        processedTx.revertReason,
-        processedTx.globalVariables,
-        processedTx.txEffect,
-        returns,
-        processedTx.gasUsed,
-        debugLogs,
+    if (nextCheckpointMessages !== undefined) {
+      this.log.debug(
+        `Appending ${nextCheckpointMessages.length} L1-to-L2 messages to the world state tree for the next checkpoint`,
+        { checkpointNumber: l2Tips.proposedCheckpoint.checkpoint.number + 1 },
       );
-    } finally {
-      await merkleTreeFork.close();
+      await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
     }
+    await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
+
+    const config = PublicSimulatorConfig.from({
+      skipFeeEnforcement,
+      collectDebugLogs: true,
+      collectHints: false,
+      collectCallMetadata: true,
+      collectStatistics: false,
+      collectionLimits: CollectionLimitsConfig.from({
+        maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
+      }),
+    });
+
+    const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
+    if (overrides?.contracts) {
+      contractsDB.addContracts(Object.values(overrides.contracts).map(({ instance }) => instance));
+    }
+    const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config, contractsDB);
+
+    // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
+    const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
+    // REFACTOR: Consider returning the error rather than throwing
+    if (failedTxs.length) {
+      this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
+      throw failedTxs[0].error;
+    }
+
+    const [processedTx] = processedTxs;
+    return new PublicSimulationOutput(
+      processedTx.revertReason,
+      processedTx.globalVariables,
+      processedTx.txEffect,
+      returns,
+      processedTx.gasUsed,
+      debugLogs,
+    );
   }
 
   public async isValidTx(
