@@ -1,4 +1,8 @@
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import {
+  type L1ContractAddresses,
+  pickL1ContractAddressMappings,
+  pickL1ContractAddressesSchema,
+} from '@aztec/ethereum/l1-contract-addresses';
 import {
   type ConfigMappingsType,
   SecretValue,
@@ -9,7 +13,6 @@ import {
   optionalNumberConfigHelper,
   secretStringConfigHelper,
 } from '@aztec/foundation/config';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ZodFor } from '@aztec/foundation/schemas';
 
 import { z } from 'zod';
@@ -17,9 +20,7 @@ import { z } from 'zod';
 /**
  * Base signing protection configuration shared by both HA (Postgres) and local (LMDB) signers.
  */
-export interface BaseSignerConfig {
-  /** L1 contract addresses (rollup address required) */
-  l1Contracts: Pick<L1ContractAddresses, 'rollupAddress'>;
+export type BaseSignerConfig = {
   /** Unique identifier for this node */
   nodeId: string;
   /** How long to wait between polls when a duty is being signed (ms) */
@@ -30,18 +31,9 @@ export interface BaseSignerConfig {
   maxStuckDutiesAgeMs?: number;
   /** Optional: clean up old duties after this many hours (disabled if not set) */
   cleanupOldDutiesAfterHours?: number;
-}
+} & Pick<L1ContractAddresses, 'rollupAddress'>;
 
 export const baseSignerConfigMappings: ConfigMappingsType<BaseSignerConfig> = {
-  l1Contracts: {
-    description: 'L1 contract addresses (rollup address required)',
-    nested: {
-      rollupAddress: {
-        description: 'The Ethereum address of the rollup contract (must be set programmatically)',
-        parseEnv: (val: string) => EthAddress.fromString(val),
-      },
-    },
-  },
   nodeId: {
     env: 'VALIDATOR_HA_NODE_ID',
     description: 'The unique identifier for this node',
@@ -67,15 +59,16 @@ export const baseSignerConfigMappings: ConfigMappingsType<BaseSignerConfig> = {
     description: 'Optional: clean up old duties after this many hours (disabled if not set)',
     ...optionalNumberConfigHelper(),
   },
+  ...pickL1ContractAddressMappings('rollupAddress'),
 };
 
 export const BaseSignerConfigSchema = z.object({
-  l1Contracts: z.object({ rollupAddress: z.instanceof(EthAddress) }),
   nodeId: z.string(),
   pollingIntervalMs: z.number().min(0),
   signingTimeoutMs: z.number().min(0),
   maxStuckDutiesAgeMs: z.number().min(0).optional(),
   cleanupOldDutiesAfterHours: z.number().min(0).optional(),
+  ...pickL1ContractAddressesSchema('rollupAddress'),
 }) satisfies ZodFor<BaseSignerConfig>;
 
 /**

@@ -11,6 +11,7 @@
 
 #include "gate_patterns.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/delta_range_constraint_relation.hpp"
 #include "barretenberg/relations/elliptic_relation.hpp"
@@ -18,6 +19,7 @@
 #include "barretenberg/relations/memory_relation.hpp"
 #include "barretenberg/relations/non_native_field_relation.hpp"
 #include "barretenberg/relations/poseidon2_external_relation.hpp"
+#include "barretenberg/relations/poseidon2_initial_external_relation.hpp"
 #include "barretenberg/relations/poseidon2_internal_relation.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
@@ -30,16 +32,16 @@ using namespace bb::gate_patterns;
 using FF = fr;
 using Entities = MegaFlavor::AllValues;
 
-Entities get_random_entities()
+template <typename E> E get_random_entities()
 {
-    Entities entities;
+    E entities;
     for (auto& field : entities.get_all()) {
         field = FF::random_element();
     }
     return entities;
 }
 
-FF& get_wire(Entities& entities, Wire wire)
+template <typename E> FF& get_wire(E& entities, Wire wire)
 {
     switch (wire) {
     case Wire::W_L:
@@ -62,7 +64,7 @@ FF& get_wire(Entities& entities, Wire wire)
     __builtin_unreachable();
 }
 
-Selectors make_selectors(const Entities& entities, int64_t gate_selector_value)
+template <typename E> Selectors make_selectors(const E& entities, int64_t gate_selector_value)
 {
     return Selectors{
         .gate_selector = gate_selector_value,
@@ -94,8 +96,8 @@ std::set<Wire> get_pattern_wires(const GatePattern& pattern, const Selectors& se
  *
  * This is the ground truth: perturb each wire and see if the output changes.
  */
-template <typename Relation>
-std::set<Wire> get_actually_constrained_wires(const Entities& entities, const auto& parameters)
+template <typename Relation, typename E>
+std::set<Wire> get_actually_constrained_wires(const E& entities, const auto& parameters)
 {
     std::set<Wire> constrained;
 
@@ -112,7 +114,7 @@ std::set<Wire> get_actually_constrained_wires(const Entities& entities, const au
                        Wire::W_R_SHIFT,
                        Wire::W_O_SHIFT,
                        Wire::W_4_SHIFT }) {
-        Entities perturbed = entities;
+        E perturbed = entities;
         get_wire(perturbed, wire) += FF::random_element();
 
         typename Relation::SumcheckArrayOfValuesOverSubrelations perturbed_result{};
@@ -131,9 +133,10 @@ std::set<Wire> get_actually_constrained_wires(const Entities& entities, const au
  *
  * @param configure_selectors Lambda that configures entity selectors and returns the gate selector field value
  */
-template <typename Relation> void verify_pattern(const GatePattern& pattern, auto configure_selectors)
+template <typename Relation, typename E = Entities>
+void verify_pattern(const GatePattern& pattern, auto configure_selectors)
 {
-    Entities entities = get_random_entities();
+    E entities = get_random_entities<E>();
     FF gate_selector = configure_selectors(entities);
     int64_t gate_selector_value = static_cast<int64_t>(uint64_t(gate_selector));
 
@@ -141,7 +144,7 @@ template <typename Relation> void verify_pattern(const GatePattern& pattern, aut
     auto pattern_claims = get_pattern_wires(pattern, selectors);
 
     auto parameters = RelationParameters<FF>::get_random();
-    auto actually_constrained = get_actually_constrained_wires<Relation>(entities, parameters);
+    auto actually_constrained = get_actually_constrained_wires<Relation, E>(entities, parameters);
 
     EXPECT_EQ(actually_constrained, pattern_claims);
 }
@@ -288,14 +291,23 @@ TEST(PatternTest, MemoryRamConsistency)
 
 TEST(PatternTest, Poseidon2Internal)
 {
-    verify_pattern<Poseidon2InternalRelation<FF>>(POSEIDON2_INTERNAL,
-                                                  [](Entities& e) { return e.q_poseidon2_internal = FF(1); });
+    // q_poseidon2_internal lives on UltraFlavor only; MegaFlavor covers all internal rounds via the
+    // compressed quad-internal block.
+    using UltraEntities = UltraFlavor::AllValues;
+    verify_pattern<Poseidon2InternalRelation<FF>, UltraEntities>(
+        POSEIDON2_INTERNAL, [](UltraEntities& e) { return e.q_poseidon2_internal = FF(1); });
 }
 
 TEST(PatternTest, Poseidon2External)
 {
     verify_pattern<Poseidon2ExternalRelation<FF>>(POSEIDON2_EXTERNAL,
                                                   [](Entities& e) { return e.q_poseidon2_external = FF(1); });
+}
+
+TEST(PatternTest, Poseidon2InitialExternal)
+{
+    verify_pattern<Poseidon2InitialExternalRelation<FF>>(
+        POSEIDON2_INITIAL_EXTERNAL, [](Entities& e) { return e.q_poseidon2_external_initial = FF(1); });
 }
 
 TEST(PatternTest, LookupBasic)
@@ -363,7 +375,7 @@ TEST(PatternTest, DetectOverConstrained)
                                                   } };
 
     // q_arith=3 disables mul term, q_2=0 means w_r has no linear term, so w_r is unconstrained
-    Entities entities = get_random_entities();
+    Entities entities = get_random_entities<Entities>();
     entities.q_arith = FF(3);
     entities.q_m = FF(1);
     entities.q_l = FF(1);
@@ -373,7 +385,7 @@ TEST(PatternTest, DetectOverConstrained)
     auto pattern_claims = get_pattern_wires(OVERCONSTRAINED_PATTERN, selectors);
     auto correct_claims = get_pattern_wires(ARITHMETIC, selectors);
     auto parameters = RelationParameters<FF>::get_random();
-    auto actually_constrained = get_actually_constrained_wires<ArithmeticRelation<FF>>(entities, parameters);
+    auto actually_constrained = get_actually_constrained_wires<ArithmeticRelation<FF>, Entities>(entities, parameters);
 
     EXPECT_TRUE(pattern_claims.contains(Wire::W_R)) << "Over-constrained pattern claims W_R";
     EXPECT_FALSE(actually_constrained.contains(Wire::W_R)) << "Relation does not constrain W_R in this config";
@@ -402,7 +414,7 @@ TEST(PatternTest, DetectUnderConstrained)
                                      } };
 
     // RAM consistency check: q_3 != 0
-    Entities entities = get_random_entities();
+    Entities entities = get_random_entities<Entities>();
     entities.q_memory = FF(1);
     entities.q_o = FF(1); // q_3
 
@@ -410,7 +422,7 @@ TEST(PatternTest, DetectUnderConstrained)
     auto pattern_claims = get_pattern_wires(UNDERCONSTRAINED_PATTERN, selectors);
     auto correct_claims = get_pattern_wires(MEMORY, selectors);
     auto parameters = RelationParameters<FF>::get_random();
-    auto actually_constrained = get_actually_constrained_wires<MemoryRelation<FF>>(entities, parameters);
+    auto actually_constrained = get_actually_constrained_wires<MemoryRelation<FF>, Entities>(entities, parameters);
 
     EXPECT_FALSE(pattern_claims.contains(Wire::W_L)) << "Under-constrained pattern missing W_L";
     EXPECT_FALSE(pattern_claims.contains(Wire::W_R)) << "Under-constrained pattern missing W_R";

@@ -8,26 +8,20 @@ import {
 import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
 
 /** Configuration of the L1GlobalReader. */
-export interface L1ReaderConfig {
+export type L1ReaderConfig = {
   /** List of URLs of Ethereum RPC nodes that services will connect to (comma separated). */
   l1RpcUrls: string[];
   /** The RPC Url of the ethereum debug host for trace and debug methods. */
   l1DebugRpcUrls: string[];
   /** The chain ID of the ethereum host. */
   l1ChainId: number;
-  /** The deployed l1 contract addresses */
-  l1Contracts: L1ContractAddresses;
   /** The polling interval viem uses in ms */
   viemPollingIntervalMS: number;
   /** Timeout for HTTP requests to the L1 RPC node in ms. */
   l1HttpTimeoutMS?: number;
-}
+} & L1ContractAddresses;
 
 export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
-  l1Contracts: {
-    description: 'The deployed L1 contract addresses',
-    nested: l1ContractAddressesMapping,
-  },
   l1ChainId: {
     env: 'L1_CHAIN_ID',
     ...optionalNumberConfigHelper(),
@@ -55,6 +49,7 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
     description: 'Timeout for HTTP requests to the L1 RPC node in ms.',
     ...optionalNumberConfigHelper(),
   },
+  ...l1ContractAddressesMapping,
 };
 
 export function getL1ReaderConfigFromEnv(): L1ReaderConfig {

@@ -118,10 +118,6 @@ describe('SequencerPublisher', () => {
     const config = {
       l1RpcUrls: [`http://127.0.0.1:8545`],
       l1ChainId: 1,
-      l1Contracts: {
-        rollupAddress: EthAddress.ZERO.toString(),
-        governanceProposerAddress: mockGovernanceProposerAddress,
-      },
       aztecSlotDuration: 36,
       ...defaultL1TxUtilsConfig,
     } as unknown as TxSenderConfig &

@@ -1,4 +1,3 @@
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumberSchema, CheckpointNumberSchema, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
@@ -48,9 +47,6 @@ export type ArchiverSpecificConfig = {
 
   /** The polling interval viem uses in ms */
   viemPollingIntervalMS?: number;
-
-  /** The deployed L1 contract addresses */
-  l1Contracts: L1ContractAddresses;
 
   /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;

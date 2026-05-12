@@ -12,7 +12,9 @@ pub(crate) mod internal;
 
 use abi_export::create_fn_abi_export;
 use external::{
-    private::generate_private_external, public::generate_public_external, utility::generate_utility_external,
+    private::generate_private_external,
+    public::{generate_public_external, generate_public_self_creator},
+    utility::generate_utility_external,
 };
 use internal::{generate_private_internal, generate_public_internal};
 
@@ -46,6 +48,15 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
         public_functions.map(|function| generate_public_external(function)).join(quote {});
     let transformed_utility_functions =
         utility_functions.map(|function| generate_utility_external(function)).join(quote {});
+
+    // Emit a contract-level helper that constructs `self` for public functions. Each transformed public function calls
+    // this helper rather than inlining the preamble. The helper is only useful for public external functions, so we
+    // skip emitting it when the contract has none.
+    let public_self_creator = if public_functions.len() > 0 {
+        generate_public_self_creator(m)
+    } else {
+        quote {}
+    };
 
     // Now that we have generated quotes of the new functions based on the original function definitions, we replace
     // the original functions' bodies with `static_assert(false, ...)` to prevent them from being called directly from
@@ -84,6 +95,7 @@ pub(crate) comptime fn process_functions(m: Module) -> Quoted {
 
     // We return the new functions' quotes to be injected into the contract.
     quote {
+        $public_self_creator
         $transformed_private_functions
         $transformed_public_functions
         $transformed_utility_functions

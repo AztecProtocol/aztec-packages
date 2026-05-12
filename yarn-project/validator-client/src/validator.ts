@@ -204,7 +204,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
       signatureContext: {
         chainId: config.l1ChainId,
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
       },
     });
     const proposalHandler = new ProposalHandler(
@@ -288,7 +288,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private getSignatureContext(): CoordinationSignatureContext {
     return {
       chainId: this.config.l1ChainId,
-      rollupAddress: this.config.l1Contracts.rollupAddress,
+      rollupAddress: this.config.rollupAddress,
     };
   }
 

@@ -1,6 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
-import { type L1ContractAddresses, l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import {
@@ -53,8 +52,6 @@ export type AztecNodeConfig = ArchiverConfig &
   NodeRPCConfig &
   SlasherConfig &
   ProverNodeConfig & {
-    /** L1 contracts addresses */
-    l1Contracts: L1ContractAddresses;
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
     /** Whether to skip waiting for the archiver to be fully synced before starting other services */
@@ -81,10 +78,6 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...nodeRpcConfigMappings,
   ...slasherConfigMappings,
   ...specificProverNodeConfigMappings,
-  l1Contracts: {
-    description: 'The deployed L1 contract addresses',
-    nested: l1ContractAddressesMapping,
-  },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',

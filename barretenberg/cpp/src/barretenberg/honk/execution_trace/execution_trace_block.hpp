@@ -315,9 +315,10 @@ template <typename FF, size_t NUM_WIRES_> class ExecutionTraceBlock {
     Selector<FF>& q_2() { return non_gate_selectors[3]; };
     Selector<FF>& q_3() { return non_gate_selectors[4]; };
     Selector<FF>& q_4() { return non_gate_selectors[5]; };
+    Selector<FF>& q_5() { return non_gate_selectors[6]; };
 
   protected:
-    std::array<SlabVectorSelector<FF>, 6> non_gate_selectors;
+    std::array<SlabVectorSelector<FF>, 7> non_gate_selectors;
 };
 
 } // namespace bb

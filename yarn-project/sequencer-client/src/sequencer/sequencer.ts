@@ -102,7 +102,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     protected dateProvider: DateProvider,
     protected epochCache: EpochCache,
     protected rollupContract: RollupContract,
-    config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'l1Contracts'>,
+    config: SequencerConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>,
     protected telemetry: TelemetryClient = getTelemetryClient(),
     protected log = createLogger('sequencer'),
   ) {
@@ -116,7 +116,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     this.signatureContext = {
       chainId: config.l1ChainId,
-      rollupAddress: config.l1Contracts.rollupAddress,
+      rollupAddress: config.rollupAddress,
     };
     this.metrics = new SequencerMetrics(telemetry, this.rollupContract, 'Sequencer');
     this.checkpointProposalJobMetrics = new CheckpointProposalJobMetrics(telemetry);

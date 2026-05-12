@@ -185,6 +185,19 @@ Direct callers of the `SimulationOverrides` constructor must switch from a posit
 + new SimulationOverrides({ contracts });
 ```
 
+`overrides.contracts` swaps contract instances in the simulator's contract DB — useful for simulating a contract being on a different class than the one it was deployed with. To simulate a complete onchain upgrade flow, use the `fastForwardContractUpdate` helper which returns a `SimulationOverrides` covering both registry storage rewrites and the upgraded instance entry:
+
+```typescript
+import { fastForwardContractUpdate } from '@aztec/aztec.js';
+
+const overrides = await fastForwardContractUpdate({
+  instanceAddress: contract.address,
+  newClassId: upgradedClass.id,
+  node,
+});
+const result = await contract.methods.upgraded_method().simulate({ overrides });
+```
+
 ### [PXE] `proveTx` takes an options bag
 
 `PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:
