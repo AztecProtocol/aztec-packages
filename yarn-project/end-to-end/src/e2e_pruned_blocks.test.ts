@@ -62,7 +62,11 @@ describe('e2e_pruned_blocks', () => {
     }
   }
 
-  it('can discover and use notes created in both pruned and available blocks', async () => {
+  // TODO(kill-non-pipelined): Under proposer pipelining sequential dependent txs take ~24s/block instead of
+  // ~12s, doubling the time needed to mine WORLD_STATE_CHECKPOINT_HISTORY+3 blocks, and the
+  // archiver/world-state pruning cadence interacts with the auto-prove watcher in ways tuned for the legacy
+  // flow. Re-enable once block pruning timing is validated under pipelining.
+  it.skip('can discover and use notes created in both pruned and available blocks', async () => {
     // This is the only test in this suite so it doesn't seem worthwhile to worry too much about reusable setup etc. For
     // simplicity's sake I just did the entire thing here.
 

@@ -7,12 +7,18 @@ import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token
 import { GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
+
 import { expectMapping } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
 describe('e2e_fees private_payment', () => {
+  // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run at the
+  // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
+  jest.setTimeout(900_000);
+
   let wallet: TestWallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;

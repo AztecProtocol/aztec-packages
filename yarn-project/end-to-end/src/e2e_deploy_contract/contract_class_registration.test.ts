@@ -18,10 +18,16 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ContractClassIdPreimage } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
+import { jest } from '@jest/globals';
+
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
 describe('e2e_deploy_contract contract class registration', () => {
+  // Pipelined cadence (~24s/dependent-tx) inflates the chained deploy/publish setup beyond the default 5 min
+  // hook window. Many of the publishInstance helpers serially register multiple contracts/instances per case.
+  jest.setTimeout(900_000);
+
   const t = new DeployTest('contract class');
 
   let logger: Logger;

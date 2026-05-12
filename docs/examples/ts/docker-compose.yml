@@ -29,6 +29,7 @@ services:
       ARCHIVER_VIEM_POLLING_INTERVAL_MS: 500
       P2P_MIN_TX_POOL_AGE_MS: 0
       HARDWARE_CONCURRENCY: ${HARDWARE_CONCURRENCY:-}
+      SEQ_ENABLE_PROPOSER_PIPELINING: 'false'
 
   docs-examples:
     image: aztecprotocol/build:3.0

@@ -78,8 +78,9 @@ export class BlacklistTokenContractTest {
    * 2. Publicly deploy accounts, deploy token contract and a "bad account".
    */
   async applyBaseSetup() {
-    // Adding a timeout of 2 minutes in here such that it is propagated to the underlying tests
-    jest.setTimeout(120_000);
+    // Bumped from 2 min: pipelined cadence (~24s/dependent-tx) makes the 3-account deploy plus token/bad-account/
+    // proxy deploys exceed the original window.
+    jest.setTimeout(600_000);
 
     this.logger.info('Deploying 3 accounts');
     const { deployedAccounts } = await deployAccounts(

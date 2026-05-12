@@ -382,19 +382,18 @@ describe('e2e_state_vars', () => {
       // Since the CHANGE_AUTHORIZED_DELAY in the Auth contract is equal to 5 slots we just wait for 4 blocks.
       await delay(4);
 
-      // The validity of our DelayedPublicMutable read request should be limited to the new delay
-      // Note: We subtract 1 because blocks within the same checkpoint can share timestamps so the earliest scheduling
-      // can happen at the anchor timestamp itself. For this reason, the latest timestamp at which a change is
-      // guaranteed to not have happened is the anchor timestamp + the new delay - 1.
-      const expectedModifiedExpirationTimestamp =
-        (await aztecNode.getBlockData('latest'))!.header.globalVariables.timestamp + newDelay - 1n;
-
-      // We now call our AuthContract to see if the change in expiration timestamp has reflected our delay change
+      // We now call our AuthContract to see if the change in expiration timestamp has reflected our delay change.
+      // The expirationTimestamp is anchored to the historical header used during proving, which may be a slot or
+      // two behind the chain tip under pipelining. Allow a small slot-multiple drift while still asserting the
+      // value tracks the new (shorter) delay rather than the old one.
+      const latestTimestampBefore = (await aztecNode.getBlockData('latest'))!.header.globalVariables.timestamp;
       const tx = await proveInteraction(wallet, authContract.methods.get_authorized_in_private(), {
         from: defaultAccountAddress,
       });
 
-      expect(tx.data.expirationTimestamp).toEqual(expectedModifiedExpirationTimestamp);
+      const expirationOffsetFromLatest = tx.data.expirationTimestamp - latestTimestampBefore;
+      expect(expirationOffsetFromLatest).toBeLessThanOrEqual(newDelay - 1n);
+      expect(expirationOffsetFromLatest).toBeGreaterThanOrEqual(newDelay - 1n - BigInt(aztecSlotDuration * 3));
     });
   });
 });
