@@ -47,6 +47,7 @@ pub(crate) mod logging;
 pub mod utils;
 pub mod authwit;
 pub mod public_checks;
+pub mod public_checks_interface;
 pub mod macros;
 
 pub mod test;
