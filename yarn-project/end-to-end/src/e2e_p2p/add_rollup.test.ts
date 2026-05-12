@@ -5,6 +5,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
+import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
 import { FeeAssetHandlerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
@@ -13,6 +14,7 @@ import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethere
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import {
   GovernanceAbi,
@@ -42,7 +44,6 @@ import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../fixtures/setup_p2p_test.js';
 import { setupSharedBlobStorage } from '../fixtures/utils.js';
-import { waitForL1ToL2MessageSeen } from '../shared/wait_for_l1_to_l2_message.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
 
@@ -53,7 +54,7 @@ const BOOT_NODE_UDP_PORT = 4500;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-old-'));
 const DATA_DIR_NEW = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-new-'));
 
-jest.setTimeout(1000 * 60 * 10);
+jest.setTimeout(1000 * 60 * 20);
 
 /**
  * This test emulates the addition of a new rollup to the registry and tests that cross-chain messages work.
@@ -80,6 +81,14 @@ describe('e2e_p2p_add_rollup', () => {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
         listenAddress: '127.0.0.1',
         governanceProposerRoundSize: 10,
+        enableProposerPipelining: true,
+        // Allow validators to build empty checkpoints under pipelining so the chain keeps
+        // advancing while we wait for L1->L2 messages to land in the next checkpoint's inbox tree.
+        minTxsPerBlock: 0,
+        // Pipelining starts cycle for checkpoint N+1 during slot N, but the inbox tree for
+        // checkpoint N is only sealed when checkpoint N is published. inboxLag: 2 sources
+        // L1->L2 messages from checkpoint N-1 (already sealed), avoiding L1ToL2MessagesNotReadyError.
+        inboxLag: 2,
       },
       startProverNode: false, // Start one later using p2p.
     });
@@ -307,7 +316,10 @@ describe('e2e_p2p_add_rollup', () => {
       });
 
       const makeMessageConsumable = async (msgHash: Fr) => {
-        await waitForL1ToL2MessageSeen(node, msgHash, { timeoutSeconds: 10 });
+        // Wait until the message is ready to be consumed (the rollup has reached the message's checkpoint).
+        // Using waitForL1ToL2MessageReady rather than isL1ToL2MessageSynced because with `inboxLag > 0`
+        // a synced message is not yet present in the latest checkpoint's inbox tree.
+        await waitForL1ToL2MessageReady(node, msgHash, { timeoutSeconds: 120 });
 
         const { receipt } = await testContract.methods
           .create_l2_to_l1_message_arbitrary_recipient_private(contentOutFromRollup, ethRecipient)
@@ -578,6 +590,21 @@ describe('e2e_p2p_add_rollup', () => {
 
     // The new rollup should have no checkpoints
     expect(await newRollup.getCheckpointNumber()).toBe(CheckpointNumber(0));
+
+    // Wait for the new rollup to publish its first checkpoint AND for `nodes[0]` to have synced
+    // it locally, before the second bridging step. The bridge wallet uses
+    // `syncChainTip: 'checkpointed'`, which falls back to the genesis block when no checkpoint
+    // exists. After warping ~500 epochs forward, txs anchored at genesis would expire before
+    // being included. We poll the node's local view (not just the L1 rollup contract) so the PXE
+    // and the assertion observe the same chain state.
+    t.logger.info(`Waiting for new rollup to publish its first checkpoint`);
+    await retryUntil(
+      async () => Number(await nodes[0].getCheckpointNumber('checkpointed')) > 0,
+      'newRollup first checkpoint synced by node',
+      300,
+      2,
+    );
+    t.logger.info(`New rollup published its first checkpoint`);
 
     // Bridge into and out of the new rollup to ensure that it works.
     await bridging(

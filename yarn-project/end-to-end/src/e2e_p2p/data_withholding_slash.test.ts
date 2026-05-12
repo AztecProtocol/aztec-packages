@@ -157,8 +157,36 @@ describe('e2e_p2p_data_withholding_slash', () => {
     t.logger.warn('L2 txs mined');
 
     t.logger.warn('Stopping nodes');
+    // removeInitialNode sends a dummy L1 tx and awaits its receipt to sync the
+    // dateProvider, so it must run while L1 mining is still active.
     await t.removeInitialNode();
-    // Now stop the nodes,
+
+    // Pause L1 block production while we tear down and recreate validators. With
+    // `aztecProofSubmissionEpochs=0`, epoch 8 becomes prunable as soon as epoch 9 begins
+    // (~32s after slot 17). The stop/wipe/recreate cycle takes longer than that, so L1
+    // would otherwise race past the prune deadline before the recreated nodes come up.
+    // When that happens, the recreated archivers detect the prune during their initial
+    // sync (`handleEpochPrune` emits `L2PruneUnproven`), but the `EpochPruneWatcher`
+    // listener is only attached after `archiver.waitForInitialSync()` resolves
+    // (see `aztec-node/server.ts`), so the event is dropped and `DATA_WITHHOLDING` is
+    // never emitted. By freezing L1 here, the recreated archivers ingest checkpoint 1
+    // cleanly during initial sync, the watcher starts and attaches its listener, and
+    // then we resume L1 below so the prune fires while the listener is live.
+    const ethCheatCodes = t.ctx.cheatCodes.eth;
+    await ethCheatCodes.setAutomine(false);
+    await ethCheatCodes.setIntervalMining(0);
+
+    // Fail fast if we paused too late — i.e. if L1 already crossed into epoch 9 before
+    // we got here. In that case the recreated nodes would still see the prune during
+    // initial sync and the test would flake exactly the same way.
+    const epochAtPause = await rollup.getCurrentEpoch();
+    expect(Number(epochAtPause)).toBeLessThan(9);
+
+    // Now stop the validator nodes. With L1 paused, any in-flight L1 submissions from
+    // the validator sequencers would hang `sequencer.stop()` (it awaits pending L1
+    // submissions). Since `minTxsPerBlock=1` and no txs are queued for slot 18+, the
+    // sequencers don't submit further L1 transactions after the slot-17 checkpoint
+    // (already published before `waitForTx` returned), so this is safe.
     await t.stopNodes(nodes);
     // And remove the data directories (which forms the crux of the "attack")
     for (let i = 0; i < NUM_VALIDATORS; i++) {
@@ -185,6 +213,16 @@ describe('e2e_p2p_data_withholding_slash', () => {
 
     // Wait for P2P mesh to be fully formed before proceeding
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
+
+    // Resume L1 block production. Warp L1 forward to current wall-clock time so the
+    // epoch-8 deadline is crossed immediately on the next L1 block, then re-enable
+    // interval mining. By now each recreated archiver has block 1 stored locally and
+    // its `EpochPruneWatcher` listener is attached, so the next sync iteration emits
+    // `L2PruneUnproven` for epoch 8 to a live listener → `DATA_WITHHOLDING`.
+    const resumeTimestamp = Math.floor(t.ctx.dateProvider.now() / 1000);
+    await ethCheatCodes.setNextBlockTimestamp(resumeTimestamp);
+    await ethCheatCodes.mine();
+    await ethCheatCodes.setIntervalMining(t.ctx.aztecNodeConfig.ethereumSlotDuration);
 
     const offenses = await awaitOffenseDetected({
       epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,

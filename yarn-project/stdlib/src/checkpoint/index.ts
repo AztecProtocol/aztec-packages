@@ -2,5 +2,6 @@ export * from './checkpoint.js';
 export * from './checkpoint_data.js';
 export * from './checkpoint_info.js';
 export * from './digest.js';
+export * from './previous_checkpoint_out_hashes.js';
 export * from './published_checkpoint.js';
 export * from './validate.js';
