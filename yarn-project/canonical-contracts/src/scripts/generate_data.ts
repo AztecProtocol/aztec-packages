@@ -1,5 +1,5 @@
-// Copies the compiled AuthRegistry artifact from the noir-contracts build output into
-// the canonical-contracts artifacts directory, making it available for static imports.
+// Copies the compiled canonical contract artifacts from the noir-contracts build output into
+// the canonical-contracts artifacts directory, making them available for static imports.
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,9 +7,12 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '../../../../');
 
-const srcArtifact = path.join(repoRoot, 'noir-projects/noir-contracts/target/auth_registry_contract-AuthRegistry.json');
 const destDir = path.join(__dirname, '../../artifacts');
-const destArtifact = path.join(destDir, 'AuthRegistry.json');
+
+const artifacts: { srcName: string; destName: string }[] = [
+  { srcName: 'auth_registry_contract-AuthRegistry', destName: 'AuthRegistry' },
+  { srcName: 'public_checks_contract-PublicChecks', destName: 'PublicChecks' },
+];
 
 async function generateDeclarationFile(destName: string) {
   const content = `
@@ -22,9 +25,13 @@ async function generateDeclarationFile(destName: string) {
 
 async function main() {
   await fs.mkdir(destDir, { recursive: true });
-  await fs.copyFile(srcArtifact, destArtifact);
-  await generateDeclarationFile('AuthRegistry');
-  process.stdout.write('canonical-contracts: copied AuthRegistry artifact\n');
+  for (const { srcName, destName } of artifacts) {
+    const srcArtifact = path.join(repoRoot, `noir-projects/noir-contracts/target/${srcName}.json`);
+    const destArtifact = path.join(destDir, `${destName}.json`);
+    await fs.copyFile(srcArtifact, destArtifact);
+    await generateDeclarationFile(destName);
+    process.stdout.write(`canonical-contracts: copied ${destName} artifact\n`);
+  }
 }
 
 try {

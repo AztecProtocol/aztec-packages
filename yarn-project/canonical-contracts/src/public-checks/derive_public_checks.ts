@@ -1,8 +1,8 @@
-// Reusable renderers and derivation helpers for the auth_registry committed stamp.
+// Reusable renderers and derivation helpers for the public_checks committed stamp.
 //
 // Consumed by:
-//   - `../scripts/derive_auth_registry.ts` — the CLI that writes the two committed files.
-//   - `./derive_auth_registry.test.ts` — the CI freshness gate that re-derives from the
+//   - `../scripts/derive_public_checks.ts` — the CLI that writes the two committed files.
+//   - `./derive_public_checks.test.ts` — the CI freshness gate that re-derives from the
 //     freshly-built artifact and asserts byte-equality against the on-disk values.
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
@@ -27,27 +27,27 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = path.resolve(__dirname, '../../../../');
 export const ARTIFACT_PATH = path.join(
   REPO_ROOT,
-  'noir-projects/noir-contracts/target/auth_registry_contract-AuthRegistry.json',
+  'noir-projects/noir-contracts/target/public_checks_contract-PublicChecks.json',
 );
 export const NR_CRATE_DIR = path.join(REPO_ROOT, 'noir-projects/aztec-nr/canonical_addresses');
-export const NR_LIB_PATH = path.join(NR_CRATE_DIR, 'src/auth_registry.nr');
-export const TS_TWIN_PATH = path.join(REPO_ROOT, 'yarn-project/canonical-contracts/src/auth-registry/address.gen.ts');
-export const AUTH_REGISTRY_SRC_DIR = path.join(
+export const NR_LIB_PATH = path.join(NR_CRATE_DIR, 'src/public_checks.nr');
+export const TS_TWIN_PATH = path.join(REPO_ROOT, 'yarn-project/canonical-contracts/src/public-checks/address.gen.ts');
+export const PUBLIC_CHECKS_SRC_DIR = path.join(
   REPO_ROOT,
-  'noir-projects/noir-contracts/contracts/canonical/auth_registry_contract/src',
+  'noir-projects/noir-contracts/contracts/canonical/public_checks_contract/src',
 );
 
-export type AuthRegistryStamp = {
+export type PublicChecksStamp = {
   address: AztecAddress;
   classId: Fr;
   artifactHash: Fr;
   srcContentHash: string;
 };
 
-export async function deriveAuthRegistryStamp(
+export async function derivePublicChecksStamp(
   artifact: NoirCompiledContract,
   srcContentHash: string,
-): Promise<AuthRegistryStamp> {
+): Promise<PublicChecksStamp> {
   const loaded = loadContractArtifact(artifact);
   const contractClass = await getContractClassFromArtifact(loaded);
   const constructorArtifact = loaded.functions.find(f => f.name === 'constructor');
@@ -63,7 +63,7 @@ export async function deriveAuthRegistryStamp(
   });
   if (address.toBigInt() <= 11n) {
     throw new Error(
-      `Derived auth_registry address ${address.toString()} collides with the reserved protocol-contract range [1, MAX_PROTOCOL_CONTRACTS]; perturb the salt.`,
+      `Derived public_checks address ${address.toString()} collides with the reserved protocol-contract range [1, MAX_PROTOCOL_CONTRACTS]; perturb the salt.`,
     );
   }
   return {
@@ -74,51 +74,48 @@ export async function deriveAuthRegistryStamp(
   };
 }
 
-export function renderNoirLib(stamp: AuthRegistryStamp): string {
-  // The fully-rendered `pub global ... = AztecAddress::from_field(0x...)` line is wider than
-  // `nargo fmt`'s print-width, and the noir-projects bootstrap re-runs `nargo fmt --check`. The
-  // renderer pre-wraps eagerly so the freshness test's byte-equality assertion survives the
-  // formatter.
+export function renderNoirLib(stamp: PublicChecksStamp): string {
+  // See the same note in `auth-registry/derive_auth_registry.ts`.
   return `// GENERATED FILE - DO NOT EDIT
 //
-// Written by \`yarn-project/canonical-contracts/src/scripts/derive_auth_registry.ts\` once
-// \`auth_registry_contract\` has been compiled. Regenerate with
-// \`yarn workspace @aztec/canonical-contracts run regen:auth-registry-address\`.
+// Written by \`yarn-project/canonical-contracts/src/scripts/derive_public_checks.ts\` once
+// \`public_checks_contract\` has been compiled. Regenerate with
+// \`yarn workspace @aztec/canonical-contracts run regen:public-checks-address\`.
 //
-// Auth registry MUST NOT depend on this crate. The aztec-nr authwit module is split into
-// \`common\` / \`private\` / \`public\` so that auth_registry can import only the address-free
-// halves, structurally preventing the cycle.
+// public_checks_contract MAY depend on this crate transitively through \`aztec-nr/aztec\`,
+// but the contract's external functions MUST NOT reference its own address. The
+// structural and bytecode-level cycle guard in
+// \`noir-projects/scripts/public_checks_cycle_guard.sh\` pins this invariant.
 //
 // artifactHash    = ${stamp.artifactHash.toString()}
 // srcContentHash  = ${stamp.srcContentHash}
 
 use protocol_types::{address::AztecAddress, traits::FromField};
 
-pub global AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
+pub global PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(
     ${stamp.address.toField().toString()},
 );
 `;
 }
 
-export function renderTsTwin(stamp: AuthRegistryStamp): string {
-  // The fully-rendered `AztecAddress.fromString('0x...')` line is wider than the project's prettier
-  // print-width (120), and the pre-commit hook re-wraps any inline `.ts` file. The renderer matches
-  // that wrap eagerly so the freshness test's byte-equality assertion survives the formatter.
+export function renderTsTwin(stamp: PublicChecksStamp): string {
+  // See the same note in `auth-registry/derive_auth_registry.ts`: prettier wraps any `.ts` line
+  // wider than the project's print-width on commit, so the renderer pre-wraps to match.
   return `// GENERATED FILE - DO NOT EDIT.
-// Written by \`yarn-project/canonical-contracts/src/scripts/derive_auth_registry.ts\`.
+// Written by \`yarn-project/canonical-contracts/src/scripts/derive_public_checks.ts\`.
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-export const AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress.fromString(
+export const PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress.fromString(
   '${stamp.address.toString()}',
 );
-export const AUTH_REGISTRY_CLASS_ID: Fr = Fr.fromString(
+export const PUBLIC_CHECKS_CLASS_ID: Fr = Fr.fromString(
   '${stamp.classId.toString()}',
 );
 `;
 }
 
-export async function hashAuthRegistrySources(srcDir: string = AUTH_REGISTRY_SRC_DIR): Promise<string> {
+export async function hashPublicChecksSources(srcDir: string = PUBLIC_CHECKS_SRC_DIR): Promise<string> {
   const files: string[] = [];
   async function walk(dir: string) {
     const entries = await fs.readdir(dir, { withFileTypes: true });

@@ -224,11 +224,14 @@ pub global MAX_PROTOCOL_CONTRACTS: u32 = 11;
 // Address 1 is reserved (auth_registry was previously published here as a protocol contract; it is
 // now deployed as a regular contract at an artifact-derived address, see
 // `noir-projects/aztec-nr/canonical_addresses`).
+// Address 6 is reserved (public_checks was previously published here as a protocol contract; it is
+// now deployed as a regular contract at an artifact-derived address; see
+// `noir-projects/aztec-nr/canonical_addresses` for the Noir stamp and
+// `yarn-project/canonical-contracts/src/public-checks` for the TS twin).
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
-pub global PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
 // `SIDE_EFFECT_MASKING_ADDRESS` is used by the protocol circuits to silo the padding side effects. It's not a protocol
 // contract (hence its address is greater than `MAX_PROTOCOL_CONTRACTS`).

@@ -6,20 +6,20 @@ import { promises as fs } from 'node:fs';
 
 import {
   ARTIFACT_PATH,
-  type AuthRegistryStamp,
   NR_LIB_PATH,
+  type PublicChecksStamp,
   TS_TWIN_PATH,
-  deriveAuthRegistryStamp,
-  hashAuthRegistrySources,
+  derivePublicChecksStamp,
+  hashPublicChecksSources,
   renderNoirLib,
   renderTsTwin,
-} from './derive_auth_registry.js';
+} from './derive_public_checks.js';
 
 const REGEN_HINT =
-  'auth_registry stamp is stale; run `yarn workspace @aztec/canonical-contracts run regen:auth-registry-address` and commit the result.';
+  'public_checks stamp is stale; run `yarn workspace @aztec/canonical-contracts run regen:public-checks-address` and commit the result.';
 
-describe('derive_auth_registry renderers', () => {
-  const stamp: AuthRegistryStamp = {
+describe('derive_public_checks renderers', () => {
+  const stamp: PublicChecksStamp = {
     address: AztecAddress.fromBigInt(0xfeedfaceabbabeen),
     classId: Fr.fromString('0x000000000000000000000000000000000000000000000000000000000beefcafe'),
     artifactHash: Fr.fromString('0x000000000000000000000000000000000000000000000000000000000c0ffee1'),
@@ -37,8 +37,8 @@ describe('derive_auth_registry renderers', () => {
   it('embeds the stamped address in the Noir lib', () => {
     const lib = renderNoirLib(stamp);
     expect(lib).toContain(stamp.address.toField().toString());
-    expect(lib).toContain('AUTH_REGISTRY_ADDRESS');
-    expect(lib).not.toContain('AUTH_REGISTRY_CLASS_ID');
+    expect(lib).toContain('PUBLIC_CHECKS_ADDRESS');
+    expect(lib).not.toContain('PUBLIC_CHECKS_CLASS_ID');
   });
 
   it('embeds artifactHash and srcContentHash in the Noir lib header', () => {
@@ -51,12 +51,12 @@ describe('derive_auth_registry renderers', () => {
     const ts = renderTsTwin(stamp);
     expect(ts).toContain(stamp.address.toString());
     expect(ts).toContain(stamp.classId.toString());
-    expect(ts).toContain('AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress.fromString(');
-    expect(ts).toContain('AUTH_REGISTRY_CLASS_ID: Fr = Fr.fromString(');
+    expect(ts).toContain('PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress.fromString(');
+    expect(ts).toContain('PUBLIC_CHECKS_CLASS_ID: Fr = Fr.fromString(');
   });
 });
 
-describe('auth_registry stamp freshness', () => {
+describe('public_checks stamp freshness', () => {
   let artifactExists = false;
   beforeAll(async () => {
     artifactExists = await fs
@@ -65,19 +65,14 @@ describe('auth_registry stamp freshness', () => {
       .catch(() => false);
   });
 
-  it('on-disk lib.nr / address.gen.ts match the freshly-derived stamp', async () => {
+  it('on-disk public_checks.nr / address.gen.ts match the freshly-derived stamp', async () => {
     if (!artifactExists) {
-      // Artifact is produced by `./bootstrap.sh build` (or `nargo compile` +
-      // `bb aztec_process` for the noir-contracts package). Skip with a clear
-      // message rather than fail when the artifact has not been built yet —
-      // the dedicated CI job that runs this test ensures the artifact is on
-      // disk before invoking jest.
       console.warn(`Skipping freshness check: ${ARTIFACT_PATH} not found (run ./bootstrap.sh build first).`);
       return;
     }
     const artifact = JSON.parse(await fs.readFile(ARTIFACT_PATH, 'utf8')) as NoirCompiledContract;
-    const srcContentHash = await hashAuthRegistrySources();
-    const stamp = await deriveAuthRegistryStamp(artifact, srcContentHash);
+    const srcContentHash = await hashPublicChecksSources();
+    const stamp = await derivePublicChecksStamp(artifact, srcContentHash);
 
     const expectedLib = renderNoirLib(stamp);
     const expectedTs = renderTsTwin(stamp);

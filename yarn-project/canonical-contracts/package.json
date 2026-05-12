@@ -15,6 +15,7 @@
     "generate:data": "node --no-warnings --loader @swc-node/register/esm src/scripts/generate_data.ts",
     "regen:auth-registry-address": "node --experimental-vm-modules dest/scripts/derive_auth_registry.js",
     "regen:canonical-interfaces": "node --no-warnings --loader @swc-node/register/esm src/scripts/generate_interfaces.ts",
+    "regen:public-checks-address": "node --experimental-vm-modules dest/scripts/derive_public_checks.js",
     "build:dev": "../scripts/tsc.sh --watch",
     "build:ts": "../scripts/tsc.sh",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts",
