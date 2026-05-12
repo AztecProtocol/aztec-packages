@@ -29,9 +29,9 @@ export class ContractSyncService implements StagedStore {
   // The value is a promise that resolves when the contract is synced.
   private syncedContracts: Map<string, Promise<void>> = new Map();
 
-  // Tracks contract-wide sync (class ID verification, etc.). Keyed by contract address only (no scope),
-  // since these operations are scope-independent. Cleared on wipe/discard.
-  private contractWideSyncCache: Map<string, Promise<void>> = new Map();
+  // Tracks class ID verification results. Keyed by contract address only (no scope),
+  // since verification is scope-independent. Cleared on wipe/discard.
+  private classIdVerificationCache: Map<string, Promise<void>> = new Map();
 
   // Bounds the number of scope syncs running concurrently. Scopes beyond this limit queue here. Sized to trade off
   // parallelism on non-ACIR work (node RPC, note store reads) against memory pressure from concurrent circuit
@@ -81,7 +81,7 @@ export class ContractSyncService implements StagedStore {
   wipe(): void {
     this.log.debug(`Wiping contract sync cache (${this.syncedContracts.size} entries)`);
     this.syncedContracts.clear();
-    this.contractWideSyncCache.clear();
+    this.classIdVerificationCache.clear();
   }
 
   commit(_jobId: string): Promise<void> {
@@ -92,16 +92,15 @@ export class ContractSyncService implements StagedStore {
     // We clear the synced contracts cache here because, when the job is discarded, any associated database writes from
     // the sync are also undone.
     this.syncedContracts.clear();
-    this.contractWideSyncCache.clear();
+    this.classIdVerificationCache.clear();
     return Promise.resolve();
   }
 
   /**
-   * Sync is split into three tiers that run in parallel:
-   *  1. Contract-wide (cached): scope-independent operations, shared across all scopes.
-   *  2. Multi-scope (per batch): operations batched across all unsynced scopes. Does not need its own cache
-   *     because it only runs for unsynced scopes, so it is implicitly protected by the per-scope cache.
-   *  3. Per-scope (cached, semaphore-bounded): operations that run once per scope.
+   * For each unsynced scope, creates a promise that waits on:
+   *  1. Class ID verification (cached per contract, scope-agnostic).
+   *  2. Note nullifier sync (shared, batched across all unsynced scopes).
+   *  3. Per-scope sync (individual, semaphore-bounded).
    */
   #startSyncIfNeeded(
     contractAddress: AztecAddress,
@@ -117,8 +116,8 @@ export class ContractSyncService implements StagedStore {
 
     this.log.debug(`Syncing contract ${contractAddress} for ${scopesToSync.length} scope(s)`);
 
-    const contractSyncPromise = this.#contractWideSync(contractAddress, anchorBlockHeader);
-    const multiScopeSyncPromise = this.#multiScopeSync(contractAddress, anchorBlockHeader, jobId, scopesToSync);
+    const contractSyncPromise = this.#verifyClassId(contractAddress, anchorBlockHeader);
+    const multiScopeSyncPromise = this.#syncNoteNullifiers(contractAddress, anchorBlockHeader, jobId, scopesToSync);
 
     for (const scope of scopesToSync) {
       const key = toKey(contractAddress, scope);
@@ -136,25 +135,25 @@ export class ContractSyncService implements StagedStore {
     }
   }
 
-  /** Runs contract-wide, scope-independent sync operations (cached, evicts on failure so retries re-run). */
-  #contractWideSync(contractAddress: AztecAddress, anchorBlockHeader: BlockHeader): Promise<void> {
+  /** Verifies the local class ID matches the on-chain value (cached, evicts on failure so retries re-verify). */
+  #verifyClassId(contractAddress: AztecAddress, anchorBlockHeader: BlockHeader): Promise<void> {
     const contractKey = contractAddress.toString();
-    const cached = this.contractWideSyncCache.get(contractKey);
+    const cached = this.classIdVerificationCache.get(contractKey);
     if (cached) {
       return cached;
     }
     const promise = verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader).catch(
       err => {
-        this.contractWideSyncCache.delete(contractKey);
+        this.classIdVerificationCache.delete(contractKey);
         throw err;
       },
     );
-    this.contractWideSyncCache.set(contractKey, promise);
+    this.classIdVerificationCache.set(contractKey, promise);
     return promise;
   }
 
-  /** Runs operations that span multiple scopes but can be batched into a single call. */
-  async #multiScopeSync(
+  /** Syncs note nullifiers across all unsynced scopes in a single batched call. */
+  async #syncNoteNullifiers(
     contractAddress: AztecAddress,
     anchorBlockHeader: BlockHeader,
     jobId: string,

@@ -177,7 +177,7 @@ describe('ContractSyncService', () => {
     });
   });
 
-  describe('contract-wide sync deduplication', () => {
+  describe('class ID verification deduplication', () => {
     const contract2 = AztecAddress.fromBigInt(300n);
 
     it('verifies class ID only once per contract across scope batches', async () => {
