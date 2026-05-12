@@ -290,15 +290,6 @@ _deploy_defaults:
   BOT_TRANSFERS_REPLICAS: "0"
   BOT_SWAPS_REPLICAS: "0"
   BOT_CROSS_CHAIN_REPLICAS: "0"
-  BOT_TRANSFERS_TX_INTERVAL_SECONDS: "60"
-  BOT_SWAPS_TX_INTERVAL_SECONDS: "60"
-  BOT_CROSS_CHAIN_TX_INTERVAL_SECONDS: "10"
-  BOT_TRANSFERS_FOLLOW_CHAIN: "NONE"
-  BOT_SWAPS_FOLLOW_CHAIN: "NONE"
-  BOT_CROSS_CHAIN_FOLLOW_CHAIN: "PENDING"
-  BOT_TRANSFERS_PXE_SYNC_CHAIN_TIP: "checkpointed"
-  BOT_SWAPS_PXE_SYNC_CHAIN_TIP: "checkpointed"
-  BOT_CROSS_CHAIN_PXE_SYNC_CHAIN_TIP: "checkpointed"
 
   # RPC ingress
   RPC_INGRESS_ENABLED: "false"
@@ -390,13 +381,22 @@ _release_defaults:
     env: {}
   bot_transfers:
     replicaCount: 0
-    env: {}
+    env:
+      BOT_TX_INTERVAL_SECONDS: "60"
+      BOT_FOLLOW_CHAIN: "NONE"
+      PXE_SYNC_CHAIN_TIP: "checkpointed"
   bot_swaps:
     replicaCount: 0
-    env: {}
+    env:
+      BOT_TX_INTERVAL_SECONDS: "60"
+      BOT_FOLLOW_CHAIN: "NONE"
+      PXE_SYNC_CHAIN_TIP: "checkpointed"
   bot_cross_chain:
     replicaCount: 0
-    env: {}
+    env:
+      BOT_TX_INTERVAL_SECONDS: "10"
+      BOT_FOLLOW_CHAIN: "PENDING"
+      PXE_SYNC_CHAIN_TIP: "checkpointed"
 
 #===============================================================================
 # NETWORK PRESETS

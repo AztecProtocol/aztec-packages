@@ -81,28 +81,6 @@ data = json.load(sys.stdin)
 env = data.setdefault("env", {})
 deploy = data.setdefault("deploy", {})
 
-# Keep deploy-time topology inputs aligned with pod env when older network YAMLs
-# still declare them under env:. Terraform reads these from deploy:.
-for key in [
-    "VALIDATOR_REPLICAS",
-    "VALIDATOR_HA_REPLICAS",
-    "VALIDATOR_HA_REPLICA_COUNT",
-    "VALIDATORS_PER_NODE",
-    "VALIDATOR_PUBLISHERS_PER_REPLICA",
-    "VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX",
-    "PROVER_REPLICAS",
-    "PUBLISHERS_PER_PROVER",
-    "PROVER_PUBLISHER_MNEMONIC_START_INDEX",
-    "RPC_REPLICAS",
-    "FISHERMAN_REPLICAS",
-    "FULL_NODE_REPLICAS",
-    "BOT_TRANSFERS_REPLICAS",
-    "BOT_SWAPS_REPLICAS",
-    "BOT_CROSS_CHAIN_REPLICAS",
-]:
-    if key in env:
-        deploy[key] = env[key]
-
 # devnet: namespace pattern v<MAJOR>-devnet-<ITERATION> picks a non-conflicting
 # mnemonic offset so concurrent devnets sharing the same mnemonic on the same L1
 # do not collide on nonces.
