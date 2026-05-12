@@ -84,6 +84,7 @@ env:
   L1_TX_FAILED_STORE: "gs://aztec-develop/testnet/failed-l1-txs"
 
 bot_transfers:
-  env:
-    BOT_TX_INTERVAL_SECONDS: "72"
-    BOT_FOLLOW_CHAIN: "PENDING"
+  bot:
+    env:
+      BOT_TX_INTERVAL_SECONDS: "72"
+      BOT_FOLLOW_CHAIN: "PENDING"

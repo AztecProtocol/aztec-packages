@@ -341,8 +341,9 @@ _deploy_defaults:
 
 _release_defaults:
   validator:
-    replicaCount: 0
-    env: {}
+    validator: # subchart alias in aztec-validator (mirrors prover.{node,broker,agent} convention)
+      replicaCount: 0
+      env: {}
   prover:
     node:
       replicaCount: 1
@@ -380,23 +381,26 @@ _release_defaults:
     replicaCount: 1
     env: {}
   bot_transfers:
-    replicaCount: 0
-    env:
-      BOT_TX_INTERVAL_SECONDS: "60"
-      BOT_FOLLOW_CHAIN: "NONE"
-      PXE_SYNC_CHAIN_TIP: "checkpointed"
+    bot: # subchart alias in aztec-bot
+      replicaCount: 0
+      env:
+        BOT_TX_INTERVAL_SECONDS: "60"
+        BOT_FOLLOW_CHAIN: "NONE"
+        PXE_SYNC_CHAIN_TIP: "checkpointed"
   bot_swaps:
-    replicaCount: 0
-    env:
-      BOT_TX_INTERVAL_SECONDS: "60"
-      BOT_FOLLOW_CHAIN: "NONE"
-      PXE_SYNC_CHAIN_TIP: "checkpointed"
+    bot:
+      replicaCount: 0
+      env:
+        BOT_TX_INTERVAL_SECONDS: "60"
+        BOT_FOLLOW_CHAIN: "NONE"
+        PXE_SYNC_CHAIN_TIP: "checkpointed"
   bot_cross_chain:
-    replicaCount: 0
-    env:
-      BOT_TX_INTERVAL_SECONDS: "10"
-      BOT_FOLLOW_CHAIN: "PENDING"
-      PXE_SYNC_CHAIN_TIP: "checkpointed"
+    bot:
+      replicaCount: 0
+      env:
+        BOT_TX_INTERVAL_SECONDS: "10"
+        BOT_FOLLOW_CHAIN: "PENDING"
+        PXE_SYNC_CHAIN_TIP: "checkpointed"
 
 #===============================================================================
 # NETWORK PRESETS

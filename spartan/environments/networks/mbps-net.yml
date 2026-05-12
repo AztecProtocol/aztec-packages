@@ -51,19 +51,22 @@ env:
   DEBUG_P2P_INSTRUMENT_MESSAGES: "true"
 
 bot_transfers:
-  env:
-    BOT_TX_INTERVAL_SECONDS: "4"
-    BOT_FOLLOW_CHAIN: "PROPOSED"
-    PXE_SYNC_CHAIN_TIP: "proposed"
+  bot:
+    env:
+      BOT_TX_INTERVAL_SECONDS: "4"
+      BOT_FOLLOW_CHAIN: "PROPOSED"
+      PXE_SYNC_CHAIN_TIP: "proposed"
 
 bot_swaps:
-  env:
-    BOT_TX_INTERVAL_SECONDS: "4"
-    BOT_FOLLOW_CHAIN: "PROPOSED"
-    PXE_SYNC_CHAIN_TIP: "proposed"
+  bot:
+    env:
+      BOT_TX_INTERVAL_SECONDS: "4"
+      BOT_FOLLOW_CHAIN: "PROPOSED"
+      PXE_SYNC_CHAIN_TIP: "proposed"
 
 bot_cross_chain:
-  env:
-    BOT_TX_INTERVAL_SECONDS: "8"
-    BOT_FOLLOW_CHAIN: "PROPOSED"
-    PXE_SYNC_CHAIN_TIP: "proposed"
+  bot:
+    env:
+      BOT_TX_INTERVAL_SECONDS: "8"
+      BOT_FOLLOW_CHAIN: "PROPOSED"
+      PXE_SYNC_CHAIN_TIP: "proposed"

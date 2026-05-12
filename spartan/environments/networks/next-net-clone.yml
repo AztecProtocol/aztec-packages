@@ -52,11 +52,13 @@ env:
   AZTEC_PROOF_SUBMISSION_EPOCHS: "1"
 
 bot_transfers:
-  env:
-    BOT_TX_INTERVAL_SECONDS: "250"
-    BOT_FOLLOW_CHAIN: "PENDING"
+  bot:
+    env:
+      BOT_TX_INTERVAL_SECONDS: "250"
+      BOT_FOLLOW_CHAIN: "PENDING"
 
 bot_swaps:
-  env:
-    BOT_TX_INTERVAL_SECONDS: "350"
-    BOT_FOLLOW_CHAIN: "PENDING"
+  bot:
+    env:
+      BOT_TX_INTERVAL_SECONDS: "350"
+      BOT_FOLLOW_CHAIN: "PENDING"

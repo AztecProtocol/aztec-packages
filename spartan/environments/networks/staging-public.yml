@@ -59,16 +59,19 @@ env:
   LOG_LEVEL: "debug; info: simulator, json-rpc"
 
 bot_transfers:
-  env:
-    BOT_TX_INTERVAL_SECONDS: "250"
-    BOT_FOLLOW_CHAIN: "PROPOSED"
+  bot:
+    env:
+      BOT_TX_INTERVAL_SECONDS: "250"
+      BOT_FOLLOW_CHAIN: "PROPOSED"
 
 bot_swaps:
-  env:
-    BOT_TX_INTERVAL_SECONDS: "350"
-    BOT_FOLLOW_CHAIN: "PROPOSED"
+  bot:
+    env:
+      BOT_TX_INTERVAL_SECONDS: "350"
+      BOT_FOLLOW_CHAIN: "PROPOSED"
 
 bot_cross_chain:
-  env:
-    BOT_TX_INTERVAL_SECONDS: "250"
-    BOT_FOLLOW_CHAIN: "PROPOSED"
+  bot:
+    env:
+      BOT_TX_INTERVAL_SECONDS: "250"
+      BOT_FOLLOW_CHAIN: "PROPOSED"
