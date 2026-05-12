@@ -6,7 +6,6 @@
 
 #pragma once
 #include "barretenberg/constants.hpp"
-#include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include <cstdint>
 #include <vector>
@@ -27,13 +26,13 @@ enum CallDataType : std::uint32_t {
 };
 
 /**
- * @brief Memory operation. Index and value store the index of the memory location, and value is the value to be read or
- * written.
+ * @brief Memory operation. `index` is the witness index of the memory location, and `value` is the witness index of the
+ * value to be read or written.
  */
 struct MemOp {
     AccessType access_type;
-    WitnessOrConstant<bb::fr> index;
-    WitnessOrConstant<bb::fr> value;
+    uint32_t index;
+    uint32_t value;
 };
 
 enum BlockType : std::uint8_t {
