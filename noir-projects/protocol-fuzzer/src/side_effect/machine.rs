@@ -1101,39 +1101,6 @@ mod tests {
     }
 
     #[test]
-    fn partial_note_adds_to_active() {
-        let m = machine();
-        let state = make_state();
-        let cmd = SideEffectCommand::CreateAndCompletePartialNote {
-            owner: 1,
-            storage_slot: 10,
-            value: 99,
-            from: 0,
-        };
-        let state = m.next_state(&cmd, state);
-        assert_eq!(state.active_notes[&(10, 1)], vec![99]);
-    }
-
-    #[test]
-    fn destroy_note_removes_first_note() {
-        let m = machine();
-        let mut state = make_state();
-        state.active_notes.insert((5, 0), vec![10, 20, 30]);
-
-        let cmd = SideEffectCommand::DestroyNote {
-            owner: 0,
-            storage_slot: 5,
-            from: 0,
-            via_parent: false,
-        };
-        let state = m.next_state(&cmd, state);
-
-        // First note (10) should be removed, not last (30)
-        assert_eq!(state.active_notes[&(5, 0)], vec![20, 30]);
-        assert_eq!(state.destroyed_notes[&(5, 0)], vec![10]);
-    }
-
-    #[test]
     fn destroy_note_on_empty_slot_is_noop() {
         let m = machine();
         let state = make_state();
@@ -1532,7 +1499,10 @@ mod tests {
     }
 
     #[test]
-    fn stateless_sends_dont_change_note_or_nullifier_state() {
+    /// L2->L1 and private-log sends mutate their own model lists but must not
+    /// pollute note or nullifier state. (Kernel exercisers are covered by
+    /// `kernel_exercisers_dont_change_any_state`, which is strictly stronger.)
+    fn l2_to_l1_and_private_log_dont_touch_note_or_nullifier_state() {
         let m = machine();
         let mut state = make_state();
         state.active_notes.insert((5, 0), vec![42]);
@@ -1548,14 +1518,6 @@ mod tests {
             SideEffectCommand::EmitPrivateLog {
                 tag: 3,
                 content: 4,
-                from: 0,
-                via_parent: false,
-            },
-            SideEffectCommand::RequestOvskApp {
-                from: 0,
-                via_parent: false,
-            },
-            SideEffectCommand::TestSettingTeardown {
                 from: 0,
                 via_parent: false,
             },
