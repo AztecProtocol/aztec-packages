@@ -6,9 +6,12 @@
 #include "barretenberg/dsl/acir_format/witness_constant.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256r1.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
+#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 #include <algorithm>
 #include <gtest/gtest.h>
+#include <memory>
 #include <vector>
 
 using namespace bb;
@@ -31,7 +34,7 @@ template <class Curve> class EcdsaTestingFunctions {
             ZeroR,               // Set R=0 (tests ECDSA validation)
             ZeroS,               // Set S=0 (tests ECDSA validation)
             HighS,               // Set S=high (tests malleability protection)
-            P,                   // Invalidate public key
+            P,                   // Make public key fail the curve equation
             Result               // Invalid signature with claimed valid result
         };
 
@@ -43,7 +46,8 @@ template <class Curve> class EcdsaTestingFunctions {
 
         static std::vector<std::string> get_labels()
         {
-            return { "None", "Hash is not a byte array", "Zero R", "Zero S", "High S", "Public key", "Result" };
+            return { "None",   "Hash is not a byte array", "Zero R", "Zero S",
+                     "High S", "Public key not on curve",  "Result" };
         }
     };
 
@@ -52,6 +56,20 @@ template <class Curve> class EcdsaTestingFunctions {
         FrNative("0xd67abee717b3fc725adf59e2cc8cd916435c348b277dd814a34e3ceb279436c2");
 
     static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static std::pair<AcirConstraint, WitnessVector> generate_invalid_verification_result_constraints(
+        const InvalidWitness::Target& invalid_witness_target)
+    {
+        AcirConstraint ecdsa_constraint;
+        WitnessVector witness_values;
+        generate_constraints(ecdsa_constraint, witness_values);
+
+        auto [invalid_constraint, invalid_witness_values] =
+            invalidate_witness(ecdsa_constraint, witness_values, invalid_witness_target);
+
+        invalid_witness_values[invalid_constraint.result] = bb::fr(0);
+        return { invalid_constraint, invalid_witness_values };
+    }
 
     static std::pair<AcirConstraint, WitnessVector> invalidate_witness(
         AcirConstraint ecdsa_constraints,
@@ -94,7 +112,7 @@ template <class Curve> class EcdsaTestingFunctions {
             };
             break;
         case InvalidWitness::Target::P:
-            // Invalidate public key
+            // Invalidate public key so signature verification returns false.
             witness_values[ecdsa_constraints.pub_x_indices[0]] += bb::fr(1);
             break;
         case InvalidWitness::Target::Result:
@@ -169,6 +187,24 @@ template <class Curve> class EcdsaTestingFunctions {
     }
 };
 
+template <typename Flavor> bool construct_and_verify_honk_proof(typename Flavor::CircuitBuilder& builder)
+{
+    using Prover = UltraProver_<Flavor>;
+    using Verifier = UltraVerifier_<Flavor, DefaultIO>;
+    using ProverInstance = ProverInstance_<Flavor>;
+    using VerificationKey = typename Flavor::VerificationKey;
+
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto verification_key = std::make_shared<VerificationKey>(prover_instance->get_precomputed());
+    auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
+
+    Prover prover(prover_instance, verification_key);
+    auto proof = prover.construct_proof();
+
+    Verifier verifier(vk_and_hash);
+    return verifier.verify_proof(proof).result;
+}
+
 template <class Curve>
 class EcdsaConstraintsTest : public ::testing::Test, public TestClassWithPredicate<EcdsaTestingFunctions<Curve>> {
   protected:
@@ -219,4 +255,35 @@ TYPED_TEST(EcdsaConstraintsTest, InvalidWitnesses)
 {
     BB_DISABLE_ASSERTS();
     [[maybe_unused]] std::vector<std::string> _ = TestFixture::test_invalid_witnesses();
+}
+
+TYPED_TEST(EcdsaConstraintsTest, InvalidVerificationInputsReturnFalseAndProve)
+{
+    BB_DISABLE_ASSERTS();
+    using Builder = typename TypeParam::Builder;
+    using Flavor = std::conditional_t<std::is_same_v<Builder, UltraCircuitBuilder>, UltraFlavor, MegaFlavor>;
+    using InvalidWitnessTarget = typename TestFixture::InvalidWitnessTarget;
+
+    const std::vector<InvalidWitnessTarget> invalid_targets = {
+        InvalidWitnessTarget::ZeroR,
+        InvalidWitnessTarget::ZeroS,
+        InvalidWitnessTarget::P,
+    };
+    const std::vector<std::string> target_labels = { "zero r", "zero s", "public key not on curve" };
+
+    for (auto [invalid_target, target_label] : zip_view(invalid_targets, target_labels)) {
+        SCOPED_TRACE(target_label);
+
+        auto [constraint, witness_values] =
+            TestFixture::Base::generate_invalid_verification_result_constraints(invalid_target);
+        ASSERT_EQ(witness_values[constraint.result], bb::fr(0));
+
+        AcirFormat constraint_system = constraint_to_acir_format(constraint);
+        AcirProgram program{ constraint_system, witness_values };
+        auto builder = create_circuit<Builder>(program, TestFixture::Base::generate_metadata());
+
+        EXPECT_TRUE(CircuitChecker::check(builder));
+        EXPECT_FALSE(builder.failed()) << builder.err();
+        EXPECT_TRUE(construct_and_verify_honk_proof<Flavor>(builder));
+    }
 }
