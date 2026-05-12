@@ -195,29 +195,4 @@ describe('AztecLMDBStoreV2', () => {
     await store2.close();
     await store2.delete();
   });
-<<<<<<< HEAD
-=======
-
-  describe('Map size validation', () => {
-    it('rejects zero map size', async () => {
-      const dataDir = await mkdtemp(join(tmpdir(), 'lmdb-map-size-test-'));
-      try {
-        await AztecLMDBStoreV2.new(dataDir, 0);
-        throw new Error('Expected an error for zero map size');
-      } catch (e: any) {
-        expect(e.message).toContain('Map size must be a positive number');
-      }
-    });
-
-    it('rejects negative map size', async () => {
-      const dataDir = await mkdtemp(join(tmpdir(), 'lmdb-map-size-test-'));
-      try {
-        await AztecLMDBStoreV2.new(dataDir, -1);
-        throw new Error('Expected an error for negative map size');
-      } catch (e: any) {
-        expect(e.message).toContain('Map size must be a positive number');
-      }
-    });
-  });
->>>>>>> 4b5178aef3 (chore: kv store test fully on vitest (#23096))
 });

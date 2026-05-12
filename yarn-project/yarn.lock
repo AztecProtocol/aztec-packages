@@ -15945,22 +15945,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-<<<<<<< HEAD
-"just-extend@npm:^6.2.0":
-  version: 6.2.0
-  resolution: "just-extend@npm:6.2.0"
-  checksum: 10/1f487b074b9e5773befdd44dc5d1b446f01f24f7d4f1f255d51c0ef7f686e8eb5f95d983b792b9ca5c8b10cd7e60a924d64103725759eddbd7f18bcb22743f92
-  languageName: node
-  linkType: hard
-
 "jwa@npm:^2.0.0":
   version: 2.0.0
   resolution: "jwa@npm:2.0.0"
-=======
-"jwa@npm:^2.0.1":
-  version: 2.0.1
-  resolution: "jwa@npm:2.0.1"
->>>>>>> 4b5178aef3 (chore: kv store test fully on vitest (#23096))
   dependencies:
     buffer-equal-constant-time: "npm:1.0.1"
     ecdsa-sig-formatter: "npm:1.0.11"
@@ -16868,7 +16855,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-<<<<<<< HEAD
 "minimatch@npm:^10.2.2":
   version: 10.2.5
   resolution: "minimatch@npm:10.2.5"
@@ -16878,10 +16864,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"minimatch@npm:^5.0.1, minimatch@npm:^5.1.6":
-=======
 "minimatch@npm:^5.0.1":
->>>>>>> 4b5178aef3 (chore: kv store test fully on vitest (#23096))
   version: 5.1.9
   resolution: "minimatch@npm:5.1.9"
   dependencies:
