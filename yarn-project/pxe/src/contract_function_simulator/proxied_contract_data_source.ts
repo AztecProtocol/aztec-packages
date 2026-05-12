@@ -1,4 +1,4 @@
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import { type FunctionSelector, findFunctionArtifactBySelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractOverrides } from '@aztec/stdlib/tx';
 
@@ -22,22 +22,6 @@ export class ProxiedContractStoreFactory {
       return contractStore;
     }
 
-    const findFunctionInArtifact = async (
-      artifact: { name: string; functions: { name: string; parameters: any[] }[] },
-      selector: FunctionSelector,
-      contractAddress: AztecAddress,
-    ) => {
-      for (const fn of artifact.functions) {
-        const fnSelector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
-        if (fnSelector.equals(selector)) {
-          return { ...fn, contractName: artifact.name } as any;
-        }
-      }
-      throw new Error(
-        `Function with selector ${selector} not found in stub artifact for overridden contract at ${contractAddress}.`,
-      );
-    };
-
     return new Proxy(contractStore, {
       get(target, prop: keyof ContractStore) {
         if (prop === 'getContractInstance') {
@@ -59,7 +43,13 @@ export class ProxiedContractStoreFactory {
                   `at ${contractAddress}. Register it via pxe.registerContractClass(...) before simulating.`,
               );
             }
-            return findFunctionInArtifact(artifact, selector, contractAddress);
+            const fn = await findFunctionArtifactBySelector(artifact, selector);
+            if (!fn) {
+              throw new Error(
+                `Function with selector ${selector} not found in stub artifact for overridden contract at ${contractAddress}.`,
+              );
+            }
+            return { ...fn, contractName: artifact.name };
           };
         }
         const value = Reflect.get(target, prop);

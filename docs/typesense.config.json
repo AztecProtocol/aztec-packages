@@ -7,11 +7,7 @@
       "page_rank": 2,
       "extra_attributes": {
         "language": "en",
-        "docusaurus_tag": [
-          "docs-participate-current",
-          "docs-root-current",
-          "default"
-        ]
+        "docusaurus_tag": "default"
       }
     },
     {
@@ -63,76 +59,6 @@
       "url",
       "url_without_anchor",
       "type"
-    ],
-    "field_definitions": [
-      { "name": "anchor", "type": "string", "optional": true },
-      { "name": "content", "type": "string", "optional": true },
-      { "name": "url", "type": "string", "facet": true },
-      {
-        "name": "url_without_anchor",
-        "type": "string",
-        "facet": true,
-        "optional": true
-      },
-      {
-        "name": "version",
-        "type": "string[]",
-        "facet": true,
-        "optional": true
-      },
-      {
-        "name": "hierarchy.lvl0",
-        "type": "string",
-        "facet": true,
-        "optional": true
-      },
-      {
-        "name": "hierarchy.lvl1",
-        "type": "string",
-        "facet": true,
-        "optional": true
-      },
-      {
-        "name": "hierarchy.lvl2",
-        "type": "string",
-        "facet": true,
-        "optional": true
-      },
-      {
-        "name": "hierarchy.lvl3",
-        "type": "string",
-        "facet": true,
-        "optional": true
-      },
-      {
-        "name": "hierarchy.lvl4",
-        "type": "string",
-        "facet": true,
-        "optional": true
-      },
-      {
-        "name": "hierarchy.lvl5",
-        "type": "string",
-        "facet": true,
-        "optional": true
-      },
-      {
-        "name": "hierarchy.lvl6",
-        "type": "string",
-        "facet": true,
-        "optional": true
-      },
-      { "name": "type", "type": "string", "facet": true, "optional": true },
-      {
-        "name": "docusaurus_tag",
-        "type": "string*",
-        "facet": true,
-        "optional": true
-      },
-      { "name": ".*_tag", "type": "string", "facet": true, "optional": true },
-      { "name": "language", "type": "string", "facet": true, "optional": true },
-      { "name": "tags", "type": "string[]", "facet": true, "optional": true },
-      { "name": "item_priority", "type": "int64" }
     ]
   },
   "conversation_id": ["833762294"],

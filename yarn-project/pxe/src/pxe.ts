@@ -84,6 +84,7 @@ import { PrivateEventStore } from './storage/private_event_store/private_event_s
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
 import { SenderAddressBookStore } from './storage/tagging_store/sender_address_book_store.js';
 import { SenderTaggingStore } from './storage/tagging_store/sender_tagging_store.js';
+import { persistSenderTaggingIndexRangesForTx } from './tagging/index.js';
 
 export type PackedPrivateEvent = InTx & {
   packedEvent: Fr[];
@@ -706,7 +707,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractStore.getContractArtifact(instance.currentContractClassId);
@@ -753,7 +756,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
 
       currentInstance.currentContractClassId = contractClass.id;
       await Promise.all([
@@ -838,23 +843,20 @@ export class PXE {
           nodeRPCCalls: contractFunctionSimulator?.getStats().nodeRPCCalls,
         });
 
-        // While not strictly necessary to store tagging cache contents in the DB since we sync tagging indexes from
-        // chain before sending new logs, the sync can only see logs already included in blocks. If we send another
-        // transaction before this one is included in a block from this PXE, and that transaction contains a log with
-        // a tag derived from the same secret, we would reuse the tag and the transactions would be linked. Hence
-        // storing the tags here prevents linkage of txs sent from the same PXE.
-        const taggingIndexRangesUsedInTheTx = privateExecutionResult.entrypoint.taggingIndexRanges;
-        if (taggingIndexRangesUsedInTheTx.length > 0) {
-          // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
-          const txHash = (await txProvingResult.toTx()).txHash;
-
-          await this.senderTaggingStore.storePendingIndexes(taggingIndexRangesUsedInTheTx, txHash, jobId);
-          this.log.debug(`Stored used tagging index ranges as sender for the tx`, {
-            taggingIndexRangesUsedInTheTx,
-          });
-        } else {
-          this.log.debug(`No tagging index ranges used in the tx`);
-        }
+        // We keep track of which tagging indices we've used in this tx so that we don't repeat them in future txs
+        // (which would link them) without having to rely on this tx being mined (and us seeing the indices being used
+        // onchain).
+        // Note that this must happen _after_ proving as it requires the proof's public inputs, from which the kernels
+        // may have removed some logs due to note-nullifier squashing - this may lead to range of tagging indices we've
+        // actually used to being reduced.
+        await persistSenderTaggingIndexRangesForTx(
+          this.senderTaggingStore,
+          privateExecutionResult.entrypoint.taggingIndexRanges,
+          publicInputs,
+          () => txProvingResult.getTxHash(),
+          jobId,
+          this.log,
+        );
 
         return txProvingResult;
       } catch (err: any) {
@@ -1002,21 +1004,12 @@ export class PXE {
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
-        const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
-        const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
-
-        if (hasOverriddenContracts && !skipKernels) {
+        if (overrides?.contracts && Object.keys(overrides.contracts).length > 0 && !skipKernels) {
           throw new Error(
             'Simulating with overridden contracts is not compatible with kernel execution. Please set skipKernels to true when simulating with overridden contracts.',
           );
         }
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-
-        if (hasOverriddenContracts) {
-          // Overridden contracts don't have a sync function, so calling sync on them would fail.
-          // We exclude them so the sync service skips them entirely.
-          this.contractSyncService.setExcludedFromSync(jobId, overriddenContracts);
-        }
 
         // Execution of private functions only; no proving, and no kernel logic.
         const privateExecutionResult = await this.#executePrivate({

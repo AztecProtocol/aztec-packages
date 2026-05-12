@@ -418,20 +418,10 @@ export async function getFunctionArtifact(
   artifact: ContractArtifact,
   functionNameOrSelector: string | FunctionSelector,
 ): Promise<FunctionArtifactWithContractName> {
-  let functionArtifact;
-  if (typeof functionNameOrSelector === 'string') {
-    functionArtifact = artifact.functions.find(f => f.name === functionNameOrSelector);
-  } else {
-    const functionsAndSelectors = await Promise.all(
-      artifact.functions.map(async fn => ({
-        fn,
-        selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
-      })),
-    );
-    functionArtifact = functionsAndSelectors.find(fnAndSelector =>
-      functionNameOrSelector.equals(fnAndSelector.selector),
-    )?.fn;
-  }
+  const functionArtifact =
+    typeof functionNameOrSelector === 'string'
+      ? artifact.functions.find(f => f.name === functionNameOrSelector)
+      : await findFunctionArtifactBySelector(artifact, functionNameOrSelector);
   if (!functionArtifact) {
     throw new Error(`Unknown function ${functionNameOrSelector}`);
   }
@@ -439,6 +429,40 @@ export async function getFunctionArtifact(
   const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
 
   return { ...functionArtifact, debug: debugMetadata, contractName: artifact.name };
+}
+
+/**
+ * Finds the function artifact within `artifact.functions` whose selector matches `selector`.
+ * Returns `undefined` if no match is found.
+ */
+export async function findFunctionArtifactBySelector(
+  artifact: ContractArtifact,
+  selector: FunctionSelector,
+): Promise<FunctionArtifact | undefined> {
+  const fnsAndSelectors = await Promise.all(
+    artifact.functions.map(async fn => ({
+      fn,
+      selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
+    })),
+  );
+  return fnsAndSelectors.find(({ selector: s }) => s.equals(selector))?.fn;
+}
+
+/**
+ * Finds the function abi (across both `functions` and `nonDispatchPublicFunctions`) whose selector
+ * matches `selector`. Returns `undefined` if no match is found.
+ */
+export async function findFunctionAbiBySelector(
+  artifact: ContractArtifact,
+  selector: FunctionSelector,
+): Promise<FunctionAbi | undefined> {
+  const fnsAndSelectors = await Promise.all(
+    getAllFunctionAbis(artifact).map(async fn => ({
+      fn,
+      selector: await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters),
+    })),
+  );
+  return fnsAndSelectors.find(({ selector: s }) => s.equals(selector))?.fn;
 }
 
 /** Gets all function abis */
