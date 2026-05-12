@@ -7,6 +7,7 @@ import {
   type GovernanceProposerContract,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
+  MulticallForwarderRevertedError,
   type RollupContract,
   type SimulationOverridesPlan,
   type SlashingProposerContract,
@@ -75,8 +76,8 @@ function extractEventSuccess(
 
 /** Result of a sendRequests call, returned by both sendRequests() and sendRequestsAt(). */
 export type SendRequestsResult = {
-  /** The L1 transaction receipt or error from the bundled multicall. */
-  result: { receipt: TransactionReceipt; errorMsg?: string } | FormattedViemError;
+  /** The L1 transaction receipt from the bundled multicall. */
+  result: { receipt: TransactionReceipt };
   /** Actions that expired (past their deadline) before the request was sent. */
   expiredActions: Action[];
   /** Actions that were included in the sent L1 transaction. */
@@ -453,10 +454,6 @@ export class SequencerPublisher {
       const [blobConfig] = requests.filter(r => r.blobConfig).map(r => r.blobConfig);
       const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
-      // Capture L1 block number for failed-tx backup context before sending.
-      const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-      const blobDataHex = blobConfig?.blobs?.map(b => toHex(b)) as Hex[] | undefined;
-
       this.log.debug('Forwarding transactions', {
         requests: requests.map(request => request.action),
         txConfig,
@@ -465,12 +462,7 @@ export class SequencerPublisher {
       if (result === undefined) {
         return undefined;
       }
-      const txContext = { multicallData: result.multicallData, blobData: blobDataHex, l1BlockNumber };
-      const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(
-        requests,
-        result,
-        txContext,
-      );
+      const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(requests, result);
       const allFailedActions = [...failedActions, ...droppedRequests.map(r => r.action)];
       return {
         result,
@@ -536,7 +528,7 @@ export class SequencerPublisher {
 
     while (true) {
       if (txConfig.txTimeoutAt && new Date() > txConfig.txTimeoutAt) {
-        this.log.warn(`txTimeoutAt (${txConfig.txTimeoutAt.toISOString()}) elapsed; stopping publisher rotation`, {
+        this.log.warn(`Tx timeout (${txConfig.txTimeoutAt.toISOString()}) elapsed; stopping publisher rotation`, {
           triedAddresses: triedAddresses.map(a => a.toString()),
         });
         return undefined;
@@ -549,8 +541,6 @@ export class SequencerPublisher {
           currentPublisher,
           txConfigWithGasLimit,
           blobConfig,
-          this.rollupContract.address,
-          this.log,
           { gasLimitRequired: true },
         );
         this.l1TxUtils = currentPublisher;
@@ -558,6 +548,12 @@ export class SequencerPublisher {
       } catch (err) {
         if (err instanceof TimeoutError) {
           throw err;
+        }
+        if (err instanceof MulticallForwarderRevertedError) {
+          this.log.error('Forwarder transaction reverted on-chain; not rotating publisher', err, {
+            transactionHash: err.receipt.transactionHash,
+          });
+          return undefined;
         }
         const viemError = formatViemError(err);
         if (!this.getNextPublisher) {
@@ -609,75 +605,29 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result:
-      | { receipt: TransactionReceipt; errorMsg?: string; multicallData: Hex }
-      | (FormattedViemError & { multicallData: Hex })
-      | undefined,
-    txContext: { multicallData: Hex; blobData?: Hex[]; l1BlockNumber: bigint },
+    result: { receipt: TransactionReceipt; multicallData: Hex },
   ) {
     const actionsListStr = requests.map(r => r.action).join(', ');
-    if (result instanceof FormattedViemError) {
-      this.log.error(`Failed to publish bundled transactions (${actionsListStr})`, result);
-      this.backupFailedTx({
-        id: keccak256(txContext.multicallData),
-        failureType: 'send-error',
-        request: { to: MULTI_CALL_3_ADDRESS, data: txContext.multicallData },
-        blobData: txContext.blobData,
-        l1BlockNumber: txContext.l1BlockNumber.toString(),
-        error: { message: result.message, name: result.name },
-        context: {
-          actions: requests.map(r => r.action),
-          requests: requests.map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
-          sender: this.getSenderAddress().toString(),
-        },
-      });
-      return { failedActions: requests.map(r => r.action) };
-    } else {
-      this.log.verbose(`Published bundled transactions (${actionsListStr})`, {
-        result,
-        requests: requests.map(r => ({
-          ...r,
-          // Avoid logging large blob data
-          blobConfig: r.blobConfig
-            ? { ...r.blobConfig, blobs: r.blobConfig.blobs.map(b => ({ size: trimmedBytesLength(b) })) }
-            : undefined,
-        })),
-      });
-      const successfulActions: Action[] = [];
-      const failedActions: Action[] = [];
-      for (const request of requests) {
-        if (request.checkSuccess(request.request, result)) {
-          successfulActions.push(request.action);
-        } else {
-          failedActions.push(request.action);
-        }
+    this.log.verbose(`Published bundled transactions (${actionsListStr})`, {
+      result,
+      requests: requests.map(r => ({
+        ...r,
+        // Avoid logging large blob data
+        blobConfig: r.blobConfig
+          ? { ...r.blobConfig, blobs: r.blobConfig.blobs.map(b => ({ size: trimmedBytesLength(b) })) }
+          : undefined,
+      })),
+    });
+    const successfulActions: Action[] = [];
+    const failedActions: Action[] = [];
+    for (const request of requests) {
+      if (request.checkSuccess(request.request, result)) {
+        successfulActions.push(request.action);
+      } else {
+        failedActions.push(request.action);
       }
-      // Single backup for the whole reverted tx
-      if (failedActions.length > 0 && result?.receipt?.status === 'reverted') {
-        this.backupFailedTx({
-          id: result.receipt.transactionHash,
-          failureType: 'revert',
-          request: { to: MULTI_CALL_3_ADDRESS, data: txContext.multicallData },
-          blobData: txContext.blobData,
-          l1BlockNumber: result.receipt.blockNumber.toString(),
-          receipt: {
-            transactionHash: result.receipt.transactionHash,
-            blockNumber: result.receipt.blockNumber.toString(),
-            gasUsed: (result.receipt.gasUsed ?? 0n).toString(),
-            status: 'reverted',
-          },
-          error: { message: result.errorMsg ?? 'Transaction reverted' },
-          context: {
-            actions: failedActions,
-            requests: requests
-              .filter(r => failedActions.includes(r.action))
-              .map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
-            sender: this.getSenderAddress().toString(),
-          },
-        });
-      }
-      return { successfulActions, failedActions };
     }
+    return { successfulActions, failedActions };
   }
 
   /**

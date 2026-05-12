@@ -5,6 +5,7 @@ import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import {
   type GovernanceProposerContract,
   Multicall3,
+  MulticallForwarderRevertedError,
   type RollupContract,
   type SlashingProposerContract,
 } from '@aztec/ethereum/contracts';
@@ -15,7 +16,6 @@ import {
   MAX_L1_TX_LIMIT,
   defaultL1TxUtilsConfig,
 } from '@aztec/ethereum/l1-tx-utils';
-import { FormattedViemError } from '@aztec/ethereum/utils';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -239,7 +239,7 @@ describe('SequencerPublisher', () => {
 
     forwardSpy.mockResolvedValue({
       receipt: proposeTxReceipt,
-      errorMsg: undefined,
+      stats: undefined,
       multicallData: '0x',
     });
 
@@ -284,8 +284,6 @@ describe('SequencerPublisher', () => {
       expect.objectContaining({
         blobs: expect.any(Array),
       }),
-      mockRollupAddress,
-      expect.anything(), // the logger
       { gasLimitRequired: true },
     );
 
@@ -302,7 +300,7 @@ describe('SequencerPublisher', () => {
   it('errors if forwarder tx fails', async () => {
     forwardSpy.mockRejectedValueOnce(new Error()).mockResolvedValueOnce({
       receipt: proposeTxReceipt,
-      errorMsg: undefined,
+      stats: undefined,
       multicallData: '0x',
     });
 
@@ -371,7 +369,7 @@ describe('SequencerPublisher', () => {
     it('rotates to next publisher when forward throws and retries successfully', async () => {
       forwardSpy
         .mockRejectedValueOnce(new Error('RPC error'))
-        .mockResolvedValueOnce({ receipt: proposeTxReceipt, errorMsg: undefined, multicallData: '0x' });
+        .mockResolvedValueOnce({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
       getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
 
       await rotatingPublisher.enqueueProposeCheckpoint(
@@ -390,15 +388,11 @@ describe('SequencerPublisher', () => {
         expect.anything(),
         expect.anything(),
         expect.anything(),
-        expect.anything(),
-        expect.anything(),
       );
       expect(forwardSpy).toHaveBeenNthCalledWith(
         2,
         expect.anything(),
         secondL1TxUtils,
-        expect.anything(),
-        expect.anything(),
         expect.anything(),
         expect.anything(),
         expect.anything(),
@@ -484,12 +478,10 @@ describe('SequencerPublisher', () => {
       expect(forwardSpy).toHaveBeenCalledTimes(1);
     });
 
-    it('does not rotate when forward returns a revert (on-chain failure)', async () => {
-      forwardSpy.mockResolvedValue({
-        receipt: { ...proposeTxReceipt, status: 'reverted' },
-        errorMsg: 'revert reason',
-        multicallData: '0x',
-      });
+    it('does not rotate when forward throws MulticallForwarderRevertedError (on-chain failure)', async () => {
+      forwardSpy.mockRejectedValueOnce(
+        new MulticallForwarderRevertedError({ ...proposeTxReceipt, status: 'reverted' }),
+      );
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
@@ -500,8 +492,7 @@ describe('SequencerPublisher', () => {
 
       expect(forwardSpy).toHaveBeenCalledTimes(1);
       expect(getNextPublisher).not.toHaveBeenCalled();
-      // Result contains the reverted receipt (no rotation)
-      expect(result?.result).toMatchObject({ receipt: { status: 'reverted' } });
+      expect(result).toBeUndefined();
     });
   });
 
@@ -607,7 +598,7 @@ describe('SequencerPublisher', () => {
         .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
         .mockResolvedValueOnce({ gasUsed: 300_000n, result: secondResult });
 
-      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, errorMsg: undefined, multicallData: '0x' });
+      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
 
       const result = await publisher.sendRequests();
 
@@ -635,7 +626,7 @@ describe('SequencerPublisher', () => {
         .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
         .mockResolvedValueOnce({ gasUsed: 1_000_000n, result: '0x' });
 
-      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, errorMsg: undefined, multicallData: '0x' });
+      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
 
       const result = await publisher.sendRequests();
 
@@ -648,40 +639,16 @@ describe('SequencerPublisher', () => {
     });
   });
 
-  it('returns errorMsg if forwarder tx reverts', async () => {
-    forwardSpy.mockResolvedValue({
-      receipt: { ...proposeTxReceipt, status: 'reverted' },
-      errorMsg: 'Test error',
-      multicallData: '0x',
-    });
-
-    await publisher.enqueueProposeCheckpoint(
-      new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-      CommitteeAttestationsAndSigners.empty(testSignatureContext),
-      Signature.empty(),
-    );
-    const result = await publisher.sendRequests();
-
-    expect(result).not.toBeInstanceOf(FormattedViemError);
-    if (result instanceof FormattedViemError) {
-      fail('Not Expected result to be a FormattedViemError');
-    } else {
-      expect((result as any).result.errorMsg).toEqual('Test error');
-    }
-  });
-
   it('does not send requests if interrupted', async () => {
     forwardSpy.mockImplementationOnce(
       () =>
         sleep(10, {
           receipt: proposeTxReceipt,
-          gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
-          errorMsg: undefined,
+          stats: undefined,
           multicallData: '0x',
         }) as Promise<{
           receipt: TransactionReceipt;
-          gasPrice: GasPrice;
-          errorMsg: undefined;
+          stats: undefined;
           multicallData: Hex;
         }>,
     );
@@ -759,7 +726,7 @@ describe('SequencerPublisher', () => {
 
     forwardSpy.mockResolvedValue({
       receipt: proposeTxReceipt,
-      errorMsg: undefined,
+      stats: undefined,
       multicallData: '0x',
     });
 

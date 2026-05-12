@@ -186,7 +186,7 @@ describe('CheckpointProposalJob', () => {
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.sendRequestsAt.mockResolvedValue({
-      result: { receipt: { status: 'success' } as TransactionReceipt, errorMsg: undefined },
+      result: { receipt: { status: 'success' } as TransactionReceipt },
       successfulActions: ['propose'],
       failedActions: [],
       sentActions: ['propose'],

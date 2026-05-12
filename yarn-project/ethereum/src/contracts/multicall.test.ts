@@ -17,7 +17,6 @@ import { L1TxUtils, createL1TxUtils } from '../l1_tx_utils/index.js';
 import type { Anvil } from '../test/start_anvil.js';
 import { startAnvil } from '../test/start_anvil.js';
 import type { ExtendedViemWalletClient } from '../types.js';
-import { FormattedViemError } from '../utils.js';
 import { MULTI_CALL_3_ADDRESS, Multicall3, deployMulticall3 } from './multicall.js';
 
 describe('Multicall3', () => {
@@ -97,35 +96,11 @@ describe('Multicall3', () => {
     abi: GovernanceProposerAbi,
   });
 
-  it('should be able to call multiple functions in a single transaction', async () => {
-    await deployMulticall3(walletClient, logger);
-    const result = await Multicall3.forward(
-      [makeSuccessfulCall(), makeFailingCall()],
-      l1TxUtils,
-      undefined,
-      undefined,
-      deployed.l1ContractAddresses.rollupAddress.toString(),
-      logger,
-      { revertOnFailure: true },
-    );
-    expect(result).toBeDefined();
-    expect(result).toBeInstanceOf(FormattedViemError);
-    const formattedError = result as FormattedViemError;
-    expect(formattedError.message).toContain('ValidatorSelection__InsufficientValidatorSetSize');
-  });
-
   it('should not revert by default if a single call fails', async () => {
     await deployMulticall3(walletClient, logger);
-    const result = await Multicall3.forward(
-      [makeSuccessfulCall(), makeFailingCall()],
-      l1TxUtils,
-      undefined,
-      undefined,
-      deployed.l1ContractAddresses.rollupAddress.toString(),
-      logger,
-    );
+    const result = await Multicall3.forward([makeSuccessfulCall(), makeFailingCall()], l1TxUtils, undefined, undefined);
     expect(result).toBeDefined();
-    expect('receipt' in result && result.receipt.status).toBe('success');
+    expect(result.receipt.status).toBe('success');
   });
 
   describe('simulateAggregate3', () => {

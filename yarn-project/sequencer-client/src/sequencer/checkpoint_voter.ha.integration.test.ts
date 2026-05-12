@@ -694,7 +694,7 @@ describe('CheckpointVoter HA Integration', () => {
           status: 'success',
           logs: [],
         } as any,
-        errorMsg: undefined,
+        stats: undefined,
         multicallData: '0x',
       });
 

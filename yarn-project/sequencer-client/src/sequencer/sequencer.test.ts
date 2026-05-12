@@ -222,7 +222,7 @@ describe('sequencer', () => {
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.sendRequestsAt.mockResolvedValue({
-      result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+      result: { receipt: { status: 'success' } as any },
       successfulActions: ['propose'],
       failedActions: [],
       sentActions: ['propose'],
@@ -563,7 +563,7 @@ describe('sequencer', () => {
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
         pub.sendRequestsAt.mockResolvedValue({
-          result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+          result: { receipt: { status: 'success' } as any },
           successfulActions: ['propose'],
           failedActions: [],
           sentActions: ['propose'],
