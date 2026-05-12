@@ -215,4 +215,94 @@ TEST(ShmTest, SingleClientSmallRingHighVolume)
 //     server->close();
 // } // namespace
 
+/**
+ * Sanity check for the MPSC (multi-producer single-consumer) SHM transport: two clients
+ * concurrently send distinct payloads and each receives back its own echoed response.
+ * This is the load-bearing property MPSC adds over SPSC — multiple producers must not
+ * mix up responses or block each other.
+ */
+TEST(ShmTest, MpscEchoTwoClients)
+{
+    constexpr size_t NUM_CLIENTS = 2;
+    constexpr size_t NUM_MESSAGES = 200;
+    constexpr size_t MSG_SIZE = 64;
+    constexpr size_t RING_SIZE = 4UL * 1024;
+
+    std::string base_name = "shm_mpsc_" + std::to_string(getpid());
+    auto server = IpcServer::create_mpsc_shm(base_name, NUM_CLIENTS, RING_SIZE, RING_SIZE);
+    ASSERT_TRUE(server->listen()) << "MPSC server failed to listen";
+
+    std::atomic<bool> server_running{ true };
+
+    // Echo server: poll for any client with data, echo it back to that client.
+    std::thread server_thread([&]() {
+        while (server_running.load(std::memory_order_acquire)) {
+            server->accept();
+            int client_id = server->wait_for_data(1000000); // 1ms
+            if (client_id < 0) {
+                continue;
+            }
+            auto request_buf = server->receive(client_id);
+            if (request_buf.empty()) {
+                continue;
+            }
+            std::vector<uint8_t> request(request_buf.begin(), request_buf.end());
+            server->release(client_id, request.size());
+            while (!server->send(client_id, request.data(), request.size())) {
+                // Retry if the client's response ring is full.
+            }
+        }
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    auto run_client = [&](size_t client_id) {
+        auto client = IpcClient::create_mpsc_shm(base_name, client_id);
+        ASSERT_TRUE(client->connect()) << "Client " << client_id << " failed to connect";
+
+        for (size_t iter = 0; iter < NUM_MESSAGES; iter++) {
+            std::vector<uint8_t> payload(MSG_SIZE);
+            // First byte tags the client; remaining bytes encode (client_id, iter, offset).
+            payload[0] = static_cast<uint8_t>(client_id);
+            for (size_t i = 1; i < MSG_SIZE; i++) {
+                payload[i] = static_cast<uint8_t>((client_id ^ iter ^ i) & 0xFF);
+            }
+
+            while (!client->send(payload.data(), payload.size(), 100000000)) {
+                // Retry on send timeout.
+            }
+
+            std::span<const uint8_t> response;
+            while ((response = client->receive(100000000)).empty()) {
+                // Retry on receive timeout.
+            }
+
+            ASSERT_EQ(response.size(), MSG_SIZE) << "client " << client_id << " iter " << iter;
+            // The crucial MPSC invariant: client sees its own payload back, not another client's.
+            ASSERT_EQ(response[0], static_cast<uint8_t>(client_id))
+                << "client " << client_id << " got cross-client response at iter " << iter;
+            for (size_t i = 1; i < MSG_SIZE; i++) {
+                uint8_t expected = static_cast<uint8_t>((client_id ^ iter ^ i) & 0xFF);
+                ASSERT_EQ(response[i], expected) << "client " << client_id << " iter " << iter << " offset " << i;
+            }
+            client->release(response.size());
+        }
+        client->close();
+    };
+
+    std::vector<std::thread> client_threads;
+    client_threads.reserve(NUM_CLIENTS);
+    for (size_t id = 0; id < NUM_CLIENTS; id++) {
+        client_threads.emplace_back(run_client, id);
+    }
+    for (auto& t : client_threads) {
+        t.join();
+    }
+
+    server_running.store(false);
+    server->request_shutdown();
+    server_thread.join();
+    server->close();
+}
+
 } // namespace
