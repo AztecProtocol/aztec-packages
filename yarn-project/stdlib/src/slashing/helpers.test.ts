@@ -178,7 +178,7 @@ describe('SlashingHelpers', () => {
     it('handles epoch-based offense that spans multiple rounds', () => {
       const offense = {
         epochOrSlot: 2n, // epoch 2 = slot 8
-        offenseType: OffenseType.DATA_WITHHOLDING,
+        offenseType: OffenseType.INACTIVITY,
       };
       const round = getRoundForOffense(offense, constants);
       expect(round).toEqual(0n); // slot 8 / roundSize 10 = round 0
@@ -187,7 +187,7 @@ describe('SlashingHelpers', () => {
     it('handles epoch-based offense when round is multiple of epoch duration', () => {
       const offense = {
         epochOrSlot: 2n, // epoch 2 = slot 8
-        offenseType: OffenseType.DATA_WITHHOLDING,
+        offenseType: OffenseType.INACTIVITY,
       };
       const round = getRoundForOffense(offense, { ...constants, slashingRoundSize: 8 });
       expect(round).toEqual(1n); // slot 8 / roundSize 8 = round 1
@@ -202,7 +202,6 @@ describe('SlashingHelpers', () => {
         slashDuplicateProposalPenalty: 3n,
         slashDuplicateAttestationPenalty: 4n,
         slashAttestInvalidCheckpointProposalPenalty: 5n,
-        slashPrunePenalty: 6n,
         slashDataWithholdingPenalty: 7n,
         slashUnknownPenalty: 8n,
         slashInactivityPenalty: 9n,

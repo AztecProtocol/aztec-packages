@@ -200,8 +200,8 @@ locals {
     "validator.sentinel.enabled"                                  = var.SENTINEL_ENABLED
     "validator.slash.inactivityTargetPercentage"                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
     "validator.slash.inactivityPenalty"                           = var.SLASH_INACTIVITY_PENALTY
-    "validator.slash.prunePenalty"                                = var.SLASH_PRUNE_PENALTY
     "validator.slash.dataWithholdingPenalty"                      = var.SLASH_DATA_WITHHOLDING_PENALTY
+    "validator.slash.dataWithholdingToleranceSlots"               = var.SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS
     "validator.slash.proposeInvalidAttestationsPenalty"           = var.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
     "validator.slash.duplicateProposalPenalty"                    = var.SLASH_DUPLICATE_PROPOSAL_PENALTY
     "validator.slash.duplicateAttestationPenalty"                 = var.SLASH_DUPLICATE_ATTESTATION_PENALTY

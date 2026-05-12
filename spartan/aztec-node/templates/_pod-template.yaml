@@ -217,13 +217,13 @@ spec:
         - name: SLASH_VALIDATORS_NEVER
           value: {{ join "," .Values.node.slash.validatorsNever | quote }}
         {{- end }}
-        {{- if .Values.node.slash.prunePenalty }}
-        - name: SLASH_PRUNE_PENALTY
-          value: {{ .Values.node.slash.prunePenalty | quote }}
-        {{- end }}
         {{- if .Values.node.slash.dataWithholdingPenalty }}
         - name: SLASH_DATA_WITHHOLDING_PENALTY
           value: {{ .Values.node.slash.dataWithholdingPenalty | quote }}
+        {{- end }}
+        {{- if .Values.node.slash.dataWithholdingToleranceSlots }}
+        - name: SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS
+          value: {{ .Values.node.slash.dataWithholdingToleranceSlots | quote }}
         {{- end }}
         {{- if .Values.node.slash.inactivityPenalty }}
         - name: SLASH_INACTIVITY_PENALTY

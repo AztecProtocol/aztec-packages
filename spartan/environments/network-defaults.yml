@@ -119,10 +119,10 @@ slasher: &slasher
   SLASH_MAX_PAYLOAD_SIZE: 80
   # Rounds to look back when executing slashes.
   SLASH_EXECUTE_ROUNDS_LOOK_BACK: 4
-  # Penalty for slashing validators of a valid pruned epoch.
-  SLASH_PRUNE_PENALTY: 10e18
   # Penalty for data withholding.
   SLASH_DATA_WITHHOLDING_PENALTY: 10e18
+  # Number of full L2 slots to wait after a checkpoint's slot before declaring its txs missing.
+  SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS: 3
   # Missed attestation percentage to trigger inactivity slash (0, 1].
   SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.9
   # Consecutive epochs a validator must be inactive before slashing.
@@ -235,7 +235,6 @@ networks:
     PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ""
     PUBLIC_OTEL_COLLECT_FROM: ""
     # Slasher penalties
-    SLASH_PRUNE_PENALTY: 10e18
     SLASH_DATA_WITHHOLDING_PENALTY: 10e18
     SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.9
     SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: 1
@@ -281,7 +280,6 @@ networks:
     P2P_MAX_PENDING_TX_COUNT: 1000
     P2P_TX_POOL_DELETE_TXS_AFTER_REORG: true
     # Slasher penalties
-    SLASH_PRUNE_PENALTY: 10e18
     SLASH_DATA_WITHHOLDING_PENALTY: 10e18
     SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.9
     SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: 1
@@ -341,7 +339,6 @@ networks:
     PUBLIC_OTEL_COLLECT_FROM: ""
     ENABLE_VERSION_CHECK: false
     # Slasher penalties - more lenient initially
-    SLASH_PRUNE_PENALTY: 0
     SLASH_DATA_WITHHOLDING_PENALTY: 0
     SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.8
     SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: 2

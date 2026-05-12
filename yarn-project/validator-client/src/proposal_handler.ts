@@ -20,6 +20,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
@@ -117,6 +118,7 @@ export class ProposalHandler {
     private epochCache: EpochCache,
     private config: ValidatorClientFullConfig,
     private blobClient: BlobClientInterface,
+    private reexecutionTracker: CheckpointReexecutionTracker,
     private metrics?: ValidatorMetrics,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
@@ -794,18 +796,21 @@ export class ProposalHandler {
   ): Promise<CheckpointProposalValidationResult> {
     const slot = proposal.slotNumber;
 
-    // Timeout block syncing at the start of the next slot
+    // Block-sync deadline = the moment the proposer can no longer publish this checkpoint to L1.
+    // With pipelining off that's the end of the proposal's own slot; with pipelining on the
+    // proposal is built one slot ahead, so the publication deadline is the start of the target
+    // slot. `getReexecutionDeadline` handles both cases.
     const config = this.checkpointsBuilder.getConfig();
-    const nextSlotTimestampSeconds = Number(getTimestampForSlot(SlotNumber(slot + 1), config));
-    const timeoutSeconds = Math.max(1, nextSlotTimestampSeconds - Math.floor(this.dateProvider.now() / 1000));
+    const deadline = this.getReexecutionDeadline(slot, config);
+    const timeoutSeconds = Math.max(1, Math.floor((deadline.getTime() - this.dateProvider.now()) / 1000));
 
     // Wait for last block to sync by archive
-    let lastBlockHeader;
+    let lastBlockData;
     try {
-      lastBlockHeader = await retryUntil(
+      lastBlockData = await retryUntil(
         async () => {
           await this.blockSource.syncImmediate();
-          return (await this.blockSource.getBlockData({ archive: proposal.archive }))?.header;
+          return await this.blockSource.getBlockData({ archive: proposal.archive });
         },
         `waiting for block with archive ${proposal.archive.toString()} for slot ${slot}`,
         timeoutSeconds,
@@ -820,9 +825,19 @@ export class ProposalHandler {
       return { isValid: false, reason: 'block_fetch_error' };
     }
 
-    if (!lastBlockHeader) {
+    if (!lastBlockData) {
       this.log.warn(`Last block not found for checkpoint proposal`, proposalInfo);
       return { isValid: false, reason: 'last_block_not_found' };
+    }
+
+    // Refuse to attest if the block's enclosing checkpoint has already been published to L1.
+    const existingCheckpoint = await this.blockSource.getCheckpointData({ number: lastBlockData.checkpointNumber });
+    if (existingCheckpoint) {
+      this.log.warn(`Refusing to attest to checkpoint proposal whose checkpoint is already on L1`, {
+        ...proposalInfo,
+        checkpointNumber: lastBlockData.checkpointNumber,
+      });
+      return { isValid: false, reason: 'checkpoint_already_published' };
     }
 
     // Get all full blocks for the slot and checkpoint
@@ -943,6 +958,21 @@ export class ProposalHandler {
     }
 
     this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
+
+    // We successfully re-executed every block in this checkpoint locally, record for any observers
+    this.reexecutionTracker.recordReexecuted(checkpointNumber, proposal.archive);
+
+    // Drop tracker entries for checkpoints that have reached L1 finality.
+    try {
+      const tips = await this.blockSource.getL2Tips();
+      const finalizedCheckpointNumber = tips.finalized.checkpoint.number;
+      if (finalizedCheckpointNumber > 0) {
+        this.reexecutionTracker.removeBefore(CheckpointNumber(finalizedCheckpointNumber + 1));
+      }
+    } catch (err) {
+      this.log.error(`Error pruning reexecution tracker`, err, proposalInfo);
+    }
+
     return { isValid: true, checkpointNumber };
   }
 

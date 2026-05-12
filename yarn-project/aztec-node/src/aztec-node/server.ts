@@ -42,7 +42,7 @@ import {
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
-  EpochPruneWatcher,
+  DataWithholdingWatcher,
   type SlasherClientInterface,
   type Watcher,
   createSlasher,
@@ -61,7 +61,12 @@ import {
   type NormalizedBlockParameter,
   inspectBlockParameter,
 } from '@aztec/stdlib/block';
-import { type CheckpointData, L1PublishedData, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import {
+  type CheckpointData,
+  InMemoryCheckpointReexecutionTracker,
+  L1PublishedData,
+  type PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -174,7 +179,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     protected readonly proverNode: ProverNode | undefined,
     protected readonly slasherClient: SlasherClientInterface | undefined,
     protected readonly validatorsSentinel: Sentinel | undefined,
-    protected readonly epochPruneWatcher: EpochPruneWatcher | undefined,
+    protected readonly dataWithholdingWatcher: DataWithholdingWatcher | undefined,
     protected readonly attestationsBlockWatcher: AttestationsBlockWatcher | undefined,
     protected readonly l1ChainId: number,
     protected readonly version: number,
@@ -659,6 +664,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       let validatorClient: ValidatorClient | undefined;
 
+      // Shared by the (validator's or non-validator's) ProposalHandler and the
+      // DataWithholdingWatcher: the proposal handler records every checkpoint it
+      // successfully re-executes, and the watcher short-circuits its mempool probe for
+      // those entries.
+      const reexecutionTracker = new InMemoryCheckpointReexecutionTracker();
+
       if (!config.disableValidator) {
         // Create validator client if required
         validatorClient = await createValidatorClient(config, {
@@ -672,6 +683,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           l1ToL2MessageSource: archiver,
           keyStoreManager,
           blobClient,
+          reexecutionTracker,
           slashingProtectionDb: deps.slashingProtectionDb,
         });
 
@@ -708,6 +720,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           blobClient,
           dateProvider,
           telemetry,
+          reexecutionTracker,
         }).register(p2pClient, reexecute, archiver);
       }
 
@@ -718,7 +731,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       await p2pClient.start();
 
       let validatorsSentinel: Awaited<ReturnType<typeof createSentinel>> | undefined;
-      let epochPruneWatcher: EpochPruneWatcher | undefined;
+      let dataWithholdingWatcher: DataWithholdingWatcher | undefined;
       let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
 
       if (!proverOnly) {
@@ -727,16 +740,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           watchers.push(validatorsSentinel);
         }
 
-        if (config.slashPrunePenalty > 0n || config.slashDataWithholdingPenalty > 0n) {
-          epochPruneWatcher = new EpochPruneWatcher(
-            archiver,
-            archiver,
+        if (config.slashDataWithholdingPenalty > 0n) {
+          dataWithholdingWatcher = new DataWithholdingWatcher(
             epochCache,
+            archiver,
             p2pClient.getTxProvider(),
-            validatorCheckpointsBuilder,
+            p2pClient,
+            reexecutionTracker,
+            { chainId: config.l1ChainId, rollupAddress: config.rollupAddress },
             config,
           );
-          watchers.push(epochPruneWatcher);
+          watchers.push(dataWithholdingWatcher);
         }
 
         // We assume we want to slash for invalid attestations unless all max penalties are set to 0
@@ -754,9 +768,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
             await validatorsSentinel.start();
             started.push(validatorsSentinel);
           }
-          if (epochPruneWatcher) {
-            await epochPruneWatcher.start();
-            started.push(epochPruneWatcher);
+          if (dataWithholdingWatcher) {
+            await dataWithholdingWatcher.start();
+            started.push(dataWithholdingWatcher);
           }
           if (attestationsBlockWatcher) {
             await attestationsBlockWatcher.start();
@@ -891,7 +905,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         proverNode,
         slasherClient,
         validatorsSentinel,
-        epochPruneWatcher,
+        dataWithholdingWatcher,
         attestationsBlockWatcher,
         ethereumChain.chainInfo.id,
         config.rollupVersion,
@@ -1170,7 +1184,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.log.info(`Stopping Aztec Node`);
     await tryStop(this.attestationsBlockWatcher);
     await tryStop(this.validatorsSentinel);
-    await tryStop(this.epochPruneWatcher);
+    await tryStop(this.dataWithholdingWatcher);
     await tryStop(this.slasherClient);
     await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
     await tryStop(this.sequencer);

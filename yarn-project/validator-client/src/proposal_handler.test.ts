@@ -9,7 +9,7 @@ import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 import type { P2P } from '@aztec/p2p';
 import type { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import type { Checkpoint } from '@aztec/stdlib/checkpoint';
+import { type Checkpoint, InMemoryCheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -98,6 +98,7 @@ describe('ProposalHandler checkpoint validation', () => {
       epochCache,
       config,
       mock<BlobClientInterface>(),
+      new InMemoryCheckpointReexecutionTracker(),
       metrics,
       dateProvider,
     );
@@ -167,6 +168,7 @@ describe('ProposalHandler checkpoint validation', () => {
         epochCache,
         config,
         mock<BlobClientInterface>(),
+        new InMemoryCheckpointReexecutionTracker(),
         metrics,
         dateProvider,
       );

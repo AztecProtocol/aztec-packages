@@ -10,8 +10,13 @@ export interface SlasherConfig {
   slashValidatorsNever: EthAddress[]; // Array of validator addresses
   slashInactivityTargetPercentage: number; // 0-1, 0.9 means 90%. Must be greater than 0
   slashInactivityConsecutiveEpochThreshold: number; // Number of consecutive epochs a validator must be inactive before slashing
-  slashPrunePenalty: bigint;
   slashDataWithholdingPenalty: bigint;
+  /**
+   * Number of full L2 slots that must elapse after a checkpoint's slot before declaring its
+   * txs missing and slashing the checkpoint's attesters for data withholding. With tolerance
+   * = N and checkpoint slot S, the check fires at the start of slot `S + N + 1`.
+   */
+  slashDataWithholdingToleranceSlots: number;
   slashInactivityPenalty: bigint;
   slashBroadcastedInvalidBlockPenalty: bigint;
   slashDuplicateProposalPenalty: bigint;
@@ -31,8 +36,8 @@ export const SlasherConfigSchema = zodFor<SlasherConfig>()(
     slashOverridePayload: schemas.EthAddress.optional(),
     slashValidatorsAlways: z.array(schemas.EthAddress),
     slashValidatorsNever: z.array(schemas.EthAddress),
-    slashPrunePenalty: schemas.BigInt,
     slashDataWithholdingPenalty: schemas.BigInt,
+    slashDataWithholdingToleranceSlots: z.number(),
     slashInactivityTargetPercentage: z.number(),
     slashInactivityConsecutiveEpochThreshold: z.number(),
     slashInactivityPenalty: schemas.BigInt,
