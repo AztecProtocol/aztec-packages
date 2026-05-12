@@ -48,7 +48,7 @@ fi
 mergeable_state=$(gh api "repos/AztecProtocol/aztec-packages/pulls/$pr_number" --jq '.mergeable_state // "unknown"')
 days=$(( age_hours / 24 ))
 
-message=$(printf ':warning: `%s` has not merged into `%s` in %d day(s) — <%s|PR #%d> is in state `%s`. Please investigate.' \
+message=$(printf ':warning: `%s` has not merged into `%s` in %d day(s). <%s|PR #%d> is in state `%s`.' \
   "$REF_NAME" "$BASE_BRANCH" "$days" "$pr_url" "$pr_number" "$mergeable_state")
 
 TOPDIR=$(git rev-parse --show-toplevel)

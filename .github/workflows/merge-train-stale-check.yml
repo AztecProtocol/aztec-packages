@@ -2,8 +2,8 @@ name: Merge-Train Stale Check
 
 on:
   schedule:
-    # Daily at 09:07 UTC — once per day, off the round-minute mark.
-    - cron: "7 9 * * *"
+    # Daily at 09:15 UTC — once per day, off the round-minute mark.
+    - cron: "15 9 * * *"
   workflow_dispatch:
 
 jobs:
