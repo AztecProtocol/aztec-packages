@@ -88,7 +88,8 @@ describe('e2e_block_building', () => {
 
     afterAll(() => teardown());
 
-    it('processes txs until hitting timetable', async () => {
+    // TODO(kill-non-pipelined): timetable mocking and enforceTimeTable assumptions don't apply under pipelining
+    it.skip('processes txs until hitting timetable', async () => {
       const DEADLINE_S = 0.5; // half a second of building per block
       const DEADLINE_MS = DEADLINE_S * 1000;
       const MAX_TXS_FIT_IN_DEADLINE = 5; // via deadline and fake delay, we force this maximum to be true

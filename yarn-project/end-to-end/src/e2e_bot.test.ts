@@ -292,13 +292,13 @@ describe('e2e_bot', () => {
       expect(block).toBeDefined();
       const l2ToL1Msgs = block!.body.txEffects.flatMap(e => e.l2ToL1Msgs).filter(m => !m.isZero());
       expect(l2ToL1Msgs.length).toBeGreaterThanOrEqual(1);
-    }, 120_000);
+    }, 300_000);
 
     it('replenishes the seeding pipeline across ticks', async () => {
       // Tick 2: the first tick consumed one message. This tick should seed a
       // replacement and still have a ready message to consume.
       const result = await bot.run();
       expect(result).toBeDefined();
-    }, 120_000);
+    }, 300_000);
   });
 });

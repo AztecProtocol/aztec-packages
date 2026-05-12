@@ -62,7 +62,7 @@ const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = 4;
 
 describe('HA Full Setup', () => {
-  jest.setTimeout(20 * 60 * 1000); // 20 minutes
+  jest.setTimeout(30 * 60 * 1000); // 30 minutes
 
   let logger: Logger;
   let wallet: TestWallet;

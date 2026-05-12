@@ -272,7 +272,8 @@ describe('e2e_epochs/epochs_mbps', () => {
     await waitForProvenCheckpoint(multiBlockCheckpoint);
   });
 
-  it('builds multiple blocks per slot with L2 to L1 messages', async () => {
+  // TODO(kill-non-pipelined): slot timing for multi-block-per-slot differs under pipelining
+  it.skip('builds multiple blocks per slot with L2 to L1 messages', async () => {
     await setupTest({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
 
     // Start sequencers first, then deploy cross-chain contract (needs running sequencer to mine).

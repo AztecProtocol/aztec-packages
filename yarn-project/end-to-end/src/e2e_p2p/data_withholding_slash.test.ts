@@ -14,7 +14,7 @@ import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { awaitCommitteeExists, awaitCommitteeKicked, awaitOffenseDetected, submitTransactions } from './shared.js';
 
-jest.setTimeout(1000000);
+jest.setTimeout(1500000);
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;

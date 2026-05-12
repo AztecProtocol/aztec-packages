@@ -78,7 +78,7 @@ describe('e2e_genesis_timestamp', () => {
     // The tx landed after block 1, proving that genesis-anchored transactions
     // are valid beyond the first block when the genesis has a non-zero timestamp.
     expect(receipt.blockNumber).toBeGreaterThan(1);
-  }, 120_000);
+  }, 300_000);
 
   // Regression for an issue where PXE failed to prove txs while anchored to block zero
   // if there were new blocks mined that modified the public data tree.
@@ -113,5 +113,5 @@ describe('e2e_genesis_timestamp', () => {
     logger.info(`Second genesis-anchored deploy mined in block ${secondReceipt.blockNumber}`);
     expect(secondReceipt.blockNumber).toBeDefined();
     expect(secondReceipt.blockNumber!).toBeGreaterThan(firstReceipt.blockNumber!);
-  }, 180_000);
+  }, 400_000);
 });

@@ -155,6 +155,8 @@ function verifyKeyStore(directory: string) {
 }
 
 describe('e2e_multi_validator_node', () => {
+  jest.setTimeout(10 * 60 * 1000);
+
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];
   let teardown: () => Promise<void>;

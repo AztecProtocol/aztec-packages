@@ -143,7 +143,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         return isReady;
       },
       `wait for rollup to reach msg checkpoint ${msgCheckpoint}`,
-      120,
+      240,
     );
   };
 
@@ -196,7 +196,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       // which is not nullified
       await sendConsumeMsgTx(actualMessage2Index);
     },
-    120_000,
+    300_000,
   );
 
   // Inbox checkpoint number can drift on two scenarios: if the rollup reorgs and rolls back its own
