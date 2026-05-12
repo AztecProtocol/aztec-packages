@@ -39,7 +39,6 @@ node:
 
     startCmd:
       - --prover-node
-      - --archiver
 
     configMap:
       envEnabled: true

@@ -3,4 +3,3 @@ env:
 node:
   startCmd:
     - --node
-    - --archiver

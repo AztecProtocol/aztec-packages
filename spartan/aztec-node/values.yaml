@@ -86,7 +86,6 @@ node:
 
   startCmd:
     - --node
-    - --archiver
 
   image:
     repository: ""
