@@ -19,6 +19,7 @@ import {
 import { jest } from '@jest/globals';
 import { inspect } from 'util';
 
+import { getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import { FeesTest } from './fees_test.js';
 
 /**
@@ -73,11 +74,14 @@ describe('e2e_fees gas_estimation', () => {
   });
 
   beforeEach(async () => {
-    // Load the gas fees at the start of each test, use those exactly as the max fees per gas
-    const gasFees = await aztecNode.getCurrentMinFees();
+    // Pad max fees per gas to absorb pipelined fee-asset price evolution between snapshot and
+    // submission. The assertions below compare `transactionFee` (manaUsed * block.gasFees) against
+    // `estimatedGas.gasLimits.computeFee(block.gasFees)`, so they only require `gasLimits == manaUsed`
+    // (guaranteed by `estimatedGasPadding: 0`); they do not require `maxFeesPerGas == block.gasFees`.
+    const paddedMaxFees = await getPaddedMaxFeesPerGas(aztecNode);
     gasSettings = GasSettings.from({
       ...gasSettings,
-      maxFeesPerGas: gasFees,
+      maxFeesPerGas: paddedMaxFees,
       maxPriorityFeesPerGas: new GasFees(0, 0),
     });
   }, 10000);
