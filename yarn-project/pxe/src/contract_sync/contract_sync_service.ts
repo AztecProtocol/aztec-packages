@@ -70,31 +70,12 @@ export class ContractSyncService implements StagedStore {
     jobId: string,
     scopes: AztecAddress[],
   ): Promise<void> {
-<<<<<<< HEAD
     if (this.#shouldSkipSync(jobId, contractAddress)) {
       return;
     }
 
-    this.#startSyncIfNeeded(
-      contractAddress,
-      scopes,
-      () => verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader),
-      scope =>
-        syncState(
-          contractAddress,
-          this.contractStore,
-          functionToInvokeAfterSync,
-          utilityExecutor,
-          this.noteStore,
-          this.aztecNode,
-          anchorBlockHeader,
-          jobId,
-          scope,
-        ),
-=======
     this.#startSyncIfNeeded(contractAddress, scopes, anchorBlockHeader, jobId, scope =>
       syncScope(contractAddress, this.contractStore, functionToInvokeAfterSync, utilityExecutor, scope),
->>>>>>> 9122c7d422 (refactor(pxe): batch nullifier sync across scopes (#23129))
     );
 
     await this.#awaitSync(contractAddress, scopes);
@@ -125,12 +106,8 @@ export class ContractSyncService implements StagedStore {
     // We clear the synced contracts cache here because, when the job is discarded, any associated database writes from
     // the sync are also undone.
     this.syncedContracts.clear();
-<<<<<<< HEAD
-    this.verifiedClassIds.clear();
-    this.excludedFromSync.delete(jobId);
-=======
     this.classIdVerificationCache.clear();
->>>>>>> 9122c7d422 (refactor(pxe): batch nullifier sync across scopes (#23129))
+    this.excludedFromSync.delete(jobId);
     return Promise.resolve();
   }
   /** Returns true if sync should be skipped for this contract */
