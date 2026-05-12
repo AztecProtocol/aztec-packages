@@ -121,11 +121,7 @@ export class ContractSyncService implements StagedStore {
 
     for (const scope of scopesToSync) {
       const key = toKey(contractAddress, scope);
-      const promise = Promise.all([
-        verifyPromise,
-        syncNullifiersPromise,
-        this.#runBounded(() => syncScopeFn(scope)),
-      ])
+      const promise = Promise.all([verifyPromise, syncNullifiersPromise, this.#runBounded(() => syncScopeFn(scope))])
         .then(() => {})
         .catch(err => {
           this.syncedContracts.delete(key);
