@@ -9,6 +9,11 @@ cmake-build-debug
 *_opt.pil
 bench-out
 
+# Transient artifact downloaded/extracted by test_chonk_standalone_vks_havent_changed.sh.
+# If left untracked it trips ci3's rebuild-patterns check, since two .rebuild_patterns
+# files (barretenberg/cpp and barretenberg/sol) include `^barretenberg/cpp/scripts/`.
+cpp/scripts/bb-chonk-inputs.tar.gz
+
 # Generated code from msgpack schema (run `yarn generate` in ts/)
 rust/barretenberg-rs/src/generated_types.rs
 rust/barretenberg-rs/src/api.rs
