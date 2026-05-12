@@ -127,4 +127,59 @@ describe('Multicall3', () => {
     expect(result).toBeDefined();
     expect('receipt' in result && result.receipt.status).toBe('success');
   });
+
+  describe('simulateAggregate3', () => {
+    beforeAll(async () => {
+      await deployMulticall3(walletClient, logger);
+    });
+
+    it('decodes per-entry results when all entries succeed', async () => {
+      const result = await Multicall3.simulateAggregate3([makeSuccessfulCall(), makeSuccessfulCall()], l1TxUtils);
+      expect(result.kind).toBe('decoded');
+      if (result.kind !== 'decoded') {
+        return;
+      }
+      expect(result.entries).toHaveLength(2);
+      expect(result.entries[0].success).toBe(true);
+      expect(result.entries[1].success).toBe(true);
+      expect(result.gasUsed).toBeGreaterThan(0n);
+    });
+
+    it('marks reverted entries with a decoded revert reason', async () => {
+      const result = await Multicall3.simulateAggregate3([makeSuccessfulCall(), makeFailingCall()], l1TxUtils);
+      expect(result.kind).toBe('decoded');
+      if (result.kind !== 'decoded') {
+        return;
+      }
+      expect(result.entries).toHaveLength(2);
+      expect(result.entries[0].success).toBe(true);
+      expect(result.entries[1].success).toBe(false);
+      expect(result.entries[1].revertReason).toContain('ValidatorSelection__InsufficientValidatorSetSize');
+    });
+
+    it('honours fakeSenderBalance by overriding the sender balance for the simulate', async () => {
+      // Use a sender we have not funded so a real send would fail with insufficient funds.
+      const poorPrivateKey = '0x' + 'aa'.repeat(32);
+      const poorAccount = privateKeyToAccount(poorPrivateKey as `0x${string}`);
+      const poorClient = createExtendedL1Client([rpcUrl], poorAccount, foundry);
+      const poorL1TxUtils = createL1TxUtils(poorClient, { logger });
+
+      // Without fakeSenderBalance, the simulate would not fail on entry-level (call doesn't need
+      // value), but the eth_simulateV1 may still validate sender funds for gas. Either way, with
+      // fakeSenderBalance we explicitly cap balance high enough that no balance-related path can
+      // fail in the simulate.
+      const result = await Multicall3.simulateAggregate3([makeSuccessfulCall()], poorL1TxUtils, {
+        fakeSenderBalance: 10n ** 20n,
+      });
+      expect(result.kind).toBe('decoded');
+      if (result.kind !== 'decoded') {
+        return;
+      }
+      expect(result.entries[0].success).toBe(true);
+    });
+
+    it('reports hasCode() true after deployMulticall3', async () => {
+      expect(await Multicall3.hasCode(l1TxUtils)).toBe(true);
+    });
+  });
 });

@@ -1,12 +1,18 @@
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { TimeoutError } from '@aztec/foundation/error';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 
 import {
+  type Abi,
   type Address,
+  type BlockOverrides,
   type EncodeFunctionDataParameters,
   type Hex,
   type RequiredBy,
+  type StateOverride,
+  decodeErrorResult,
+  decodeFunctionResult,
   encodeFunctionData,
   multicall3Abi,
 } from 'viem';
@@ -51,7 +57,129 @@ export const aggregate3ValueAbi = [
   },
 ] as const;
 
+/** A single call to embed inside an aggregate3 simulation. The abi is used to decode revert reasons. */
+export type SimulateAggregate3Request = {
+  to: Address;
+  data: Hex;
+  /** Optional ABI used to decode the revert reason if this entry reverts. */
+  abi?: Abi;
+};
+
+export type SimulateAggregate3EntryResult = {
+  success: boolean;
+  /** Decoded revert reason text when `success === false` and a request abi was provided. */
+  revertReason?: string;
+  /** Raw return data hex. `'0x'` for successful entries with void return. */
+  returnData: Hex;
+};
+
+/**
+ * Outcome of a bundle simulation.
+ * - `decoded`: eth_simulateV1 ran and produced a per-entry Result[]. Use `entries` for filtering.
+ * - `fallback`: the node does not support eth_simulateV1; `fallbackGasEstimate` was returned and no
+ *    per-entry info is available. Caller should send the bundle as-is with a conservative gas cap.
+ */
+export type SimulateAggregate3Result =
+  | { kind: 'decoded'; entries: SimulateAggregate3EntryResult[]; gasUsed: bigint }
+  | { kind: 'fallback'; gasUsed: bigint };
+
+export type SimulateAggregate3Options = {
+  blockOverrides?: BlockOverrides<bigint, number>;
+  stateOverrides?: StateOverride;
+  /**
+   * If set, append a state override that fakes the sender's balance during the simulation so a
+   * low or zero balance does not cause the simulate to fail with insufficient funds. The fake
+   * balance is applied to `l1TxUtils.getSenderAddress()`.
+   */
+  fakeSenderBalance?: bigint;
+  /** Gas cap to pass on the simulate call itself (defaults to viem's behavior). */
+  gas?: bigint;
+  /** When eth_simulateV1 is unavailable, fall back to this gas estimate instead of throwing. */
+  fallbackGasEstimate?: bigint;
+};
+
 export class Multicall3 {
+  /**
+   * Returns true iff Multicall3 bytecode is deployed at MULTI_CALL_3_ADDRESS. An empty result from
+   * a non-existent contract would otherwise silently validate any bundle that uses Multicall3.
+   */
+  static async hasCode(l1TxUtils: L1TxUtils): Promise<boolean> {
+    const code = await l1TxUtils.getCode(EthAddress.fromString(MULTI_CALL_3_ADDRESS));
+    return !!code && code !== '0x';
+  }
+
+  /**
+   * Simulates an aggregate3 call composed of the given requests via eth_simulateV1 and decodes the
+   * per-entry Result[]. Entries that revert are returned with a decoded revertReason (if the request
+   * provided an abi).
+   *
+   * Use this to pre-validate a bundle before sending it through `Multicall3.forward`. The caller can
+   * drop reverted entries from the bundle and re-simulate with the reduced list to get an accurate
+   * `gasUsed`.
+   */
+  static async simulateAggregate3(
+    requests: SimulateAggregate3Request[],
+    l1TxUtils: L1TxUtils,
+    opts: SimulateAggregate3Options = {},
+  ): Promise<SimulateAggregate3Result> {
+    const calldata = encodeFunctionData({
+      abi: multicall3Abi,
+      functionName: 'aggregate3',
+      args: [
+        requests.map(r => ({
+          target: r.to,
+          callData: r.data,
+          allowFailure: true,
+        })),
+      ],
+    });
+
+    const stateOverrides: StateOverride = [...(opts.stateOverrides ?? [])];
+    if (opts.fakeSenderBalance !== undefined) {
+      stateOverrides.push({
+        address: l1TxUtils.getSenderAddress().toString(),
+        balance: opts.fakeSenderBalance,
+      });
+    }
+
+    const simResult = await l1TxUtils.simulate(
+      { to: MULTI_CALL_3_ADDRESS, data: calldata, gas: opts.gas },
+      opts.blockOverrides,
+      stateOverrides,
+      multicall3Abi,
+      { fallbackGasEstimate: opts.fallbackGasEstimate },
+    );
+
+    if (simResult.result === '0x') {
+      return { kind: 'fallback', gasUsed: simResult.gasUsed };
+    }
+
+    const decoded = decodeFunctionResult({
+      abi: multicall3Abi,
+      functionName: 'aggregate3',
+      data: simResult.result,
+    }) as readonly { success: boolean; returnData: `0x${string}` }[];
+
+    const entries: SimulateAggregate3EntryResult[] = decoded.map((entry, i) => {
+      if (entry.success) {
+        return { success: true, returnData: entry.returnData };
+      }
+      let revertReason: string | undefined;
+      const abi = requests[i].abi;
+      if (abi && entry.returnData && entry.returnData !== '0x') {
+        try {
+          const decodedError = decodeErrorResult({ abi, data: entry.returnData });
+          revertReason = `${decodedError.errorName}(${decodedError.args?.join(', ') ?? ''})`;
+        } catch {
+          // Decoding failed; leave revertReason undefined so the caller can log the raw returnData.
+        }
+      }
+      return { success: false, returnData: entry.returnData, revertReason };
+    });
+
+    return { kind: 'decoded', entries, gasUsed: simResult.gasUsed };
+  }
+
   static async forward<TOptGasLimitRequired extends boolean>(
     requests: L1TxRequest[],
     l1TxUtils: L1TxUtils,

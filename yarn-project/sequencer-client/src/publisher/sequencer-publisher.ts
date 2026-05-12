@@ -14,6 +14,7 @@ import {
 } from '@aztec/ethereum/contracts';
 import { type L1FeeAnalysisResult, L1FeeAnalyzer } from '@aztec/ethereum/l1-fee-analysis';
 import {
+  InsufficientBalanceError,
   type L1BlobInputs,
   type L1TxConfig,
   type L1TxRequest,
@@ -49,7 +50,6 @@ import {
   type Hex,
   type TransactionReceipt,
   type TypedDataDefinition,
-  decodeFunctionResult,
   encodeFunctionData,
   keccak256,
   multicall3Abi,
@@ -532,8 +532,7 @@ export class SequencerPublisher {
     if (this.multicall3HasCode !== undefined) {
       return this.multicall3HasCode;
     }
-    const code = await this.l1TxUtils.getCode(EthAddress.fromString(MULTI_CALL_3_ADDRESS));
-    this.multicall3HasCode = !!code && code !== '0x';
+    this.multicall3HasCode = await Multicall3.hasCode(this.l1TxUtils);
     if (!this.multicall3HasCode) {
       this.log.error('Multicall3 bytecode missing at MULTI_CALL_3_ADDRESS; cannot send bundled tx');
     }
@@ -607,40 +606,27 @@ export class SequencerPublisher {
       simulateTimestamp = predictedNextL1Ts < targetTimestamp ? predictedNextL1Ts : targetTimestamp;
     }
 
-    const simulateBundle = (requests: RequestWithExpiry[]) => {
-      const calldata = encodeFunctionData({
-        abi: multicall3Abi,
-        functionName: 'aggregate3',
-        args: [
-          requests.map(r => ({
-            target: r.request.to!,
-            callData: r.request.data!,
-            allowFailure: true,
-          })),
-        ],
-      });
-
-      return this.l1TxUtils.simulate(
-        { to: MULTI_CALL_3_ADDRESS, data: calldata, gas: MAX_L1_TX_LIMIT },
-        { time: simulateTimestamp, gasLimit: MAX_L1_TX_LIMIT * 2n },
-        stateOverrides,
-        multicall3Abi,
-        { fallbackGasEstimate: MAX_L1_TX_LIMIT },
-      );
-    };
-
     /**
-     * Runs simulateBundle on the given requests and decodes the per-entry Result[].
+     * Runs Multicall3.simulateAggregate3 on the given requests and decodes the per-entry Result[].
      * Returns `{ survivors, droppedActions, gasUsed }` with survivors filtered to entries
      * that did not revert. Returns `undefined` on throw or when the node does not support
-     * eth_simulateV1 (result === '0x'), so the caller can fall back to the unfiltered list.
+     * eth_simulateV1, so the caller can fall back to the unfiltered list.
      */
     const simulateAndDecode = async (
       requests: RequestWithExpiry[],
     ): Promise<{ survivors: RequestWithExpiry[]; droppedActions: Action[]; gasUsed: bigint } | undefined> => {
-      let simResult: { gasUsed: bigint; result: `0x${string}` };
+      let simResult: Awaited<ReturnType<typeof Multicall3.simulateAggregate3>>;
       try {
-        simResult = await simulateBundle(requests);
+        simResult = await Multicall3.simulateAggregate3(
+          requests.map(r => ({ to: r.request.to! as Hex, data: r.request.data! as Hex, abi: r.request.abi })),
+          this.l1TxUtils,
+          {
+            blockOverrides: { time: simulateTimestamp, gasLimit: MAX_L1_TX_LIMIT * 2n },
+            stateOverrides,
+            gas: MAX_L1_TX_LIMIT,
+            fallbackGasEstimate: MAX_L1_TX_LIMIT,
+          },
+        );
       } catch (err) {
         this.log.warn('Bundle simulate threw; skipping per-entry filtering', {
           err: formatViemError(err),
@@ -649,7 +635,7 @@ export class SequencerPublisher {
         return undefined;
       }
 
-      if (simResult.result === '0x') {
+      if (simResult.kind === 'fallback') {
         this.log.warn('Bundle simulate returned fallback (eth_simulateV1 unavailable); skipping per-entry filtering', {
           gasUsed: simResult.gasUsed,
           actions: requests.map(r => r.action),
@@ -657,37 +643,18 @@ export class SequencerPublisher {
         return undefined;
       }
 
-      const decoded = decodeFunctionResult({
-        abi: multicall3Abi,
-        functionName: 'aggregate3',
-        data: simResult.result,
-      }) as readonly { success: boolean; returnData: `0x${string}` }[];
-
       const survivors: RequestWithExpiry[] = [];
       const droppedActions: Action[] = [];
       for (let i = 0; i < requests.length; i++) {
-        const entry = decoded[i];
+        const entry = simResult.entries[i];
         if (entry.success) {
           survivors.push(requests[i]);
         } else {
           const req = requests[i];
           droppedActions.push(req.action);
-          // Decode the revert reason against the request's ABI if available;
-          // formatViemError reads the entry data via a CallExecutionError to produce a readable name.
-          let revertReason: string = entry.returnData;
-          if (req.request.abi && entry.returnData && entry.returnData !== '0x') {
-            try {
-              revertReason = formatViemError(
-                new Error(`Execution reverted with data: ${entry.returnData}`),
-                req.request.abi,
-              ).message;
-            } catch {
-              // Fall back to raw hex if decoding fails for any reason.
-            }
-          }
           this.log.warn('Bundle entry dropped: action reverted in sim', {
             action: req.action,
-            revertReason,
+            revertReason: entry.revertReason ?? entry.returnData,
             returnData: entry.returnData,
           });
         }
@@ -774,45 +741,18 @@ export class SequencerPublisher {
     if (!txConfig?.gasLimit) {
       throw new Error('gasLimit is required for bundled transactions');
     }
-    const txConfigWithGasLimit = txConfig as L1TxConfig & { gasLimit: bigint };
+    // checkBalance is honoured by L1TxUtils.sendTransaction (inside Multicall3.forward) and will
+    // throw InsufficientBalanceError if the rotated publisher cannot afford the worst-case cost.
+    const txConfigWithGasLimit: L1TxConfig & { gasLimit: bigint } = {
+      ...txConfig,
+      checkBalance: true,
+    } as L1TxConfig & { gasLimit: bigint };
 
     const triedAddresses: EthAddress[] = [];
     let currentPublisher = this.l1TxUtils;
 
     while (true) {
       triedAddresses.push(currentPublisher.getSenderAddress());
-
-      // Check the rotated publisher actually has enough funds before attempting the send.
-      // `gasLimit * maxFeePerGas` covers regular gas; for blob txs, `blobCount * 131072 * maxFeePerBlobGas`
-      // covers blob gas. We add a 2× safety factor to absorb EIP-1559 spikes and retry/replacement bumps.
-      // We use viem's client.getGasPrice() rather than the protected L1TxUtils.getGasPrice(), which
-      // projects stall-time and retry bumps; the 2× factor on our side absorbs that gap conservatively.
-      const balance = await currentPublisher.getSenderBalance();
-      const gasPrice = await currentPublisher.client.getGasPrice();
-      const worstCaseGas = txConfigWithGasLimit.gasLimit * gasPrice;
-      // maxFeePerBlobGas is optional on L1BlobInputs; if absent we rely on the 2× factor on the gas side.
-      const blobBytesPerBlob = 131_072n; // 4096 field elements * 32 bytes
-      const worstCaseBlob =
-        blobConfig && blobConfig.maxFeePerBlobGas !== undefined
-          ? BigInt(blobConfig.blobs.length) * blobBytesPerBlob * blobConfig.maxFeePerBlobGas
-          : 0n;
-      const worstCase = 2n * (worstCaseGas + worstCaseBlob);
-      if (balance < worstCase) {
-        this.log.warn(
-          `Publisher ${currentPublisher.getSenderAddress()} has insufficient balance (${balance} < ${worstCase}), rotating`,
-        );
-        if (!this.getNextPublisher) {
-          this.log.error('No fallback publisher available, failed to publish bundled transactions');
-          return undefined;
-        }
-        const nextPublisher = await this.getNextPublisher([...triedAddresses]);
-        if (!nextPublisher) {
-          this.log.error('All available publishers exhausted, failed to publish bundled transactions');
-          return undefined;
-        }
-        currentPublisher = nextPublisher;
-        continue;
-      }
 
       try {
         const result = await Multicall3.forward(
@@ -830,15 +770,25 @@ export class SequencerPublisher {
         if (err instanceof TimeoutError) {
           throw err;
         }
-        const viemError = formatViemError(err);
+        if (err instanceof InsufficientBalanceError) {
+          this.log.warn(
+            `Publisher ${currentPublisher.getSenderAddress()} has insufficient balance (${err.balance} < ${err.worstCase}), rotating`,
+          );
+        } else {
+          const viemError = formatViemError(err);
+          if (!this.getNextPublisher) {
+            this.log.error('Failed to publish bundled transactions', viemError);
+            return undefined;
+          }
+          this.log.warn(
+            `Publisher ${currentPublisher.getSenderAddress()} failed to send, rotating to next publisher`,
+            viemError,
+          );
+        }
         if (!this.getNextPublisher) {
-          this.log.error('Failed to publish bundled transactions', viemError);
+          this.log.error('No fallback publisher available, failed to publish bundled transactions');
           return undefined;
         }
-        this.log.warn(
-          `Publisher ${currentPublisher.getSenderAddress()} failed to send, rotating to next publisher`,
-          viemError,
-        );
         const nextPublisher = await this.getNextPublisher([...triedAddresses]);
         if (!nextPublisher) {
           this.log.error('All available publishers exhausted, failed to publish bundled transactions');
