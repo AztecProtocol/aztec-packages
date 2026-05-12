@@ -5,8 +5,7 @@ import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixture
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
-// TODO(kill-non-pipelined): blacklist setup grants admin role notes that don't materialize in time under pipelining; needs deterministic block-wait before role checks.
-describe.skip('e2e_blacklist_token_contract unshielding', () => {
+describe('e2e_blacklist_token_contract unshielding', () => {
   const t = new BlacklistTokenContractTest('unshielding');
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 

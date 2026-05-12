@@ -2,7 +2,10 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 
 import { BlacklistTokenContractTest, Role } from './blacklist_token_contract_test.js';
 
-// TODO(kill-non-pipelined): blacklist setup grants admin role notes that don't materialize in time under pipelining; needs deterministic block-wait before role checks.
+// TODO(kill-non-pipelined): each test body calls crossTimestampOfChange (86400s warp), so the suite warps the chain
+// 4+ times. Under pipelining, after ~3 cumulative warps the L1-sync/snapshot path resets the L2 block index back to 1,
+// breaking mineBlock's monotonic `newBlockNumber > currentBlockNumber` wait condition with a TimeoutError. Other
+// blacklist suites warp at most twice (setup + applyMint) and are unaffected.
 describe.skip('e2e_blacklist_token_contract access control', () => {
   const t = new BlacklistTokenContractTest('access_control');
 
