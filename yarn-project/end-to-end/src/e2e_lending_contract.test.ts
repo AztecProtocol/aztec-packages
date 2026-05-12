@@ -4,6 +4,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { LendingContract } from '@aztec/noir-contracts.js/Lending';
 import { PriceFeedContract } from '@aztec/noir-contracts.js/PriceFeed';
@@ -11,17 +12,18 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { afterAll, jest } from '@jest/globals';
 
+import type { EndToEndContext } from './fixtures/setup.js';
 import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
-// TODO(kill-non-pipelined): pipelining advances block timestamps past LendingSimulator's predicted ts and triggers anchor-block reorgs across multi-step tests.
-describe.skip('e2e_lending_contract', () => {
+describe('e2e_lending_contract', () => {
   jest.setTimeout(100_000);
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
+  let aztecNode: EndToEndContext['aztecNode'];
 
   let logger: Logger;
   let teardown: () => Promise<void>;
@@ -86,6 +88,7 @@ describe.skip('e2e_lending_contract', () => {
       wallet,
       deployL1ContractsValues,
       dateProvider,
+      aztecNode,
       accounts: [defaultAccountAddress],
     } = ctx);
     ({ lendingContract, priceFeedContract, collateralAsset, stableCoin } = await deployContracts());
@@ -124,6 +127,11 @@ describe.skip('e2e_lending_contract', () => {
     await lendingSim.check();
   });
 
+  const observeBlock = async (blockNumber: number | undefined) => {
+    const block = await aztecNode.getBlock(BlockNumber(blockNumber!));
+    lendingSim.observeBlockTimestamp(Number(block!.header.globalVariables.timestamp));
+  };
+
   it('Mint assets for later usage', async () => {
     await priceFeedContract.methods.set_price(0n, 2n * 10n ** 9n).send({ from: defaultAccountAddress });
 
@@ -146,11 +154,15 @@ describe.skip('e2e_lending_contract', () => {
   });
 
   it('Initialize the contract', async () => {
-    await lendingSim.prepare();
     logger.info('Initializing contract');
-    await lendingContract.methods
+    const { receipt } = await lendingContract.methods
       .init(priceFeedContract.address, 8000, collateralAsset.address, stableCoin.address)
       .send({ from: defaultAccountAddress });
+    // init writes accumulator = BASE and last_updated_ts = block.timestamp.
+    // Match that exactly without advancing the accumulator from the previous (zero) time.
+    const block = await aztecNode.getBlock(BlockNumber(receipt.blockNumber!));
+    lendingSim.prepare();
+    lendingSim.time = Number(block!.header.globalVariables.timestamp);
   });
 
   describe('Deposits', () => {
@@ -166,8 +178,7 @@ describe.skip('e2e_lending_contract', () => {
           authwitNonce,
         ),
       });
-      await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.depositPrivate(lendingAccount.address, await lendingAccount.key(), activationThreshold);
+      await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
 
       // Make a private deposit of funds into own account.
       // This should:
@@ -175,7 +186,7 @@ describe.skip('e2e_lending_contract', () => {
       // - increase last updated timestamp.
       // - increase the private collateral.
       logger.info('Depositing 🥸 : 💰 -> 🏦');
-      await lendingContract.methods
+      const { receipt } = await lendingContract.methods
         .deposit_private(
           lendingAccount.address,
           activationThreshold,
@@ -185,6 +196,8 @@ describe.skip('e2e_lending_contract', () => {
           collateralAsset.address,
         )
         .send({ from: defaultAccountAddress, authWitnesses: [transferToPublicAuthwit] });
+      await observeBlock(receipt.blockNumber);
+      lendingSim.depositPrivate(lendingAccount.address, await lendingAccount.key(), activationThreshold);
     });
 
     it('Depositing 🥸 on behalf of recipient: 💰 -> 🏦', async () => {
@@ -200,15 +213,14 @@ describe.skip('e2e_lending_contract', () => {
         ),
       });
 
-      await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.depositPrivate(lendingAccount.address, lendingAccount.address.toField(), activationThreshold);
+      await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
       // Make a private deposit of funds into another account, in this case, a public account.
       // This should:
       // - increase the interest accumulator
       // - increase last updated timestamp.
       // - increase the public collateral.
       logger.info('Depositing 🥸 on behalf of recipient: 💰 -> 🏦');
-      await lendingContract.methods
+      const { receipt } = await lendingContract.methods
         .deposit_private(
           lendingAccount.address,
           activationThreshold,
@@ -218,6 +230,8 @@ describe.skip('e2e_lending_contract', () => {
           collateralAsset.address,
         )
         .send({ from: defaultAccountAddress, authWitnesses: [transferToPublicAuthwit] });
+      await observeBlock(receipt.blockNumber);
+      lendingSim.depositPrivate(lendingAccount.address, lendingAccount.address.toField(), activationThreshold);
     });
 
     it('Depositing: 💰 -> 🏦', async () => {
@@ -241,8 +255,7 @@ describe.skip('e2e_lending_contract', () => {
       );
       await validateAction.send();
 
-      await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.depositPublic(lendingAccount.address, lendingAccount.address.toField(), activationThreshold);
+      await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
 
       // Make a public deposit of funds into self.
       // This should:
@@ -251,17 +264,18 @@ describe.skip('e2e_lending_contract', () => {
       // - increase the public collateral.
 
       logger.info('Depositing: 💰 -> 🏦');
-      await lendingContract.methods
+      const { receipt } = await lendingContract.methods
         .deposit_public(activationThreshold, authwitNonce, lendingAccount.address, collateralAsset.address)
         .send({ from: defaultAccountAddress });
+      await observeBlock(receipt.blockNumber);
+      lendingSim.depositPublic(lendingAccount.address, lendingAccount.address.toField(), activationThreshold);
     });
   });
 
   describe('Borrow', () => {
     it('Borrow 🥸 : 🏦 -> 🍌', async () => {
       const borrowAmount = 69n;
-      await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.borrow(await lendingAccount.key(), lendingAccount.address, borrowAmount);
+      await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
 
       // Make a private borrow using the private account
       // This should:
@@ -270,15 +284,16 @@ describe.skip('e2e_lending_contract', () => {
       // - increase the private debt.
 
       logger.info('Borrow 🥸 : 🏦 -> 🍌');
-      await lendingContract.methods
+      const { receipt } = await lendingContract.methods
         .borrow_private(lendingAccount.secret, lendingAccount.address, borrowAmount)
         .send({ from: defaultAccountAddress });
+      await observeBlock(receipt.blockNumber);
+      lendingSim.borrow(await lendingAccount.key(), lendingAccount.address, borrowAmount);
     });
 
     it('Borrow: 🏦 -> 🍌', async () => {
       const borrowAmount = 69n;
-      await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.borrow(lendingAccount.address.toField(), lendingAccount.address, borrowAmount);
+      await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
 
       // Make a public borrow using the private account
       // This should:
@@ -287,9 +302,11 @@ describe.skip('e2e_lending_contract', () => {
       // - increase the public debt.
 
       logger.info('Borrow: 🏦 -> 🍌');
-      await lendingContract.methods
+      const { receipt } = await lendingContract.methods
         .borrow_public(lendingAccount.address, borrowAmount)
         .send({ from: defaultAccountAddress });
+      await observeBlock(receipt.blockNumber);
+      lendingSim.borrow(lendingAccount.address.toField(), lendingAccount.address, borrowAmount);
     });
   });
 
@@ -302,8 +319,7 @@ describe.skip('e2e_lending_contract', () => {
         action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, authwitNonce),
       });
 
-      await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.repayPrivate(lendingAccount.address, await lendingAccount.key(), repayAmount);
+      await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
 
       // Make a private repay of the debt in the private account
       // This should:
@@ -312,9 +328,11 @@ describe.skip('e2e_lending_contract', () => {
       // - decrease the private debt.
 
       logger.info('Repay 🥸 : 🍌 -> 🏦');
-      await lendingContract.methods
+      const { receipt } = await lendingContract.methods
         .repay_private(lendingAccount.address, repayAmount, authwitNonce, lendingAccount.secret, 0n, stableCoin.address)
         .send({ from: defaultAccountAddress, authWitnesses: [burnPrivateAuthwit] });
+      await observeBlock(receipt.blockNumber);
+      lendingSim.repayPrivate(lendingAccount.address, await lendingAccount.key(), repayAmount);
     });
 
     it('Repay 🥸  on behalf of public: 🍌 -> 🏦', async () => {
@@ -325,8 +343,7 @@ describe.skip('e2e_lending_contract', () => {
         action: stableCoin.methods.burn_private(lendingAccount.address, repayAmount, authwitNonce),
       });
 
-      await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.repayPrivate(lendingAccount.address, lendingAccount.address.toField(), repayAmount);
+      await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
 
       // Make a private repay of the debt in the public account
       // This should:
@@ -335,7 +352,7 @@ describe.skip('e2e_lending_contract', () => {
       // - decrease the public debt.
 
       logger.info('Repay 🥸  on behalf of public: 🍌 -> 🏦');
-      await lendingContract.methods
+      const { receipt } = await lendingContract.methods
         .repay_private(
           lendingAccount.address,
           repayAmount,
@@ -345,6 +362,8 @@ describe.skip('e2e_lending_contract', () => {
           stableCoin.address,
         )
         .send({ from: defaultAccountAddress, authWitnesses: [burnPrivateAuthwit] });
+      await observeBlock(receipt.blockNumber);
+      lendingSim.repayPrivate(lendingAccount.address, lendingAccount.address.toField(), repayAmount);
     });
 
     it('Repay: 🍌 -> 🏦', async () => {
@@ -362,8 +381,7 @@ describe.skip('e2e_lending_contract', () => {
       );
       await validateAction.send();
 
-      await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.repayPublic(lendingAccount.address, lendingAccount.address.toField(), repayAmount);
+      await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
 
       // Make a public repay of the debt in the public account
       // This should:
@@ -372,17 +390,18 @@ describe.skip('e2e_lending_contract', () => {
       // - decrease the public debt.
 
       logger.info('Repay: 🍌 -> 🏦');
-      await lendingContract.methods
+      const { receipt } = await lendingContract.methods
         .repay_public(repayAmount, authwitNonce, lendingAccount.address, stableCoin.address)
         .send({ from: defaultAccountAddress });
+      await observeBlock(receipt.blockNumber);
+      lendingSim.repayPublic(lendingAccount.address, lendingAccount.address.toField(), repayAmount);
     });
   });
 
   describe('Withdraw', () => {
     it('Withdraw: 🏦 -> 💰', async () => {
       const withdrawAmount = 42n;
-      await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.withdraw(lendingAccount.address.toField(), lendingAccount.address, withdrawAmount);
+      await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
 
       // Withdraw funds from the public account
       // This should:
@@ -391,15 +410,16 @@ describe.skip('e2e_lending_contract', () => {
       // - decrease the public collateral.
 
       logger.info('Withdraw: 🏦 -> 💰');
-      await lendingContract.methods
+      const { receipt } = await lendingContract.methods
         .withdraw_public(lendingAccount.address, withdrawAmount)
         .send({ from: defaultAccountAddress });
+      await observeBlock(receipt.blockNumber);
+      lendingSim.withdraw(lendingAccount.address.toField(), lendingAccount.address, withdrawAmount);
     });
 
     it('Withdraw 🥸 : 🏦 -> 💰', async () => {
       const withdrawAmount = 42n;
-      await lendingSim.progressSlots(SLOT_JUMP, dateProvider);
-      lendingSim.withdraw(await lendingAccount.key(), lendingAccount.address, withdrawAmount);
+      await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
 
       // Withdraw funds from the private account
       // This should:
@@ -408,9 +428,11 @@ describe.skip('e2e_lending_contract', () => {
       // - decrease the private collateral.
 
       logger.info('Withdraw 🥸 : 🏦 -> 💰');
-      await lendingContract.methods
+      const { receipt } = await lendingContract.methods
         .withdraw_private(lendingAccount.secret, lendingAccount.address, withdrawAmount)
         .send({ from: defaultAccountAddress });
+      await observeBlock(receipt.blockNumber);
+      lendingSim.withdraw(await lendingAccount.key(), lendingAccount.address, withdrawAmount);
     });
 
     describe('failure cases', () => {
