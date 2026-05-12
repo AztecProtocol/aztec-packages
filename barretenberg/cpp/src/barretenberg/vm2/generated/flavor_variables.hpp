@@ -612,7 +612,6 @@ struct AvmFlavorVariables {
         perm_data_copy_mem_write_relation<FF_>,
         perm_ecc_mem_write_mem_0_relation<FF_>,
         perm_ecc_mem_write_mem_1_relation<FF_>,
-        perm_ecc_mem_write_mem_2_relation<FF_>,
         perm_emit_public_log_read_mem_relation<FF_>,
         perm_execution_dispatch_to_cd_copy_relation<FF_>,
         perm_execution_dispatch_to_ecc_add_relation<FF_>,
