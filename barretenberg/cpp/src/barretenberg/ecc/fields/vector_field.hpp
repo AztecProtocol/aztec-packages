@@ -43,6 +43,7 @@
 #include "barretenberg/ecc/fields/field_impl_generic.hpp"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -102,6 +103,14 @@ template <class Params> struct alignas(32) VectorField {
     using Field = field<Params>;
     using scalar_type = Field;
     static constexpr size_t SIZE = 5;
+
+    // load_contiguous, store_contiguous, and the linear-memory ctor read/write
+    // raw Field bytes at fixed offsets (+32, +48, ...). Catch any future drift
+    // in field<Params>'s layout at compile time instead of as silent corruption
+    // at runtime.
+    static_assert(sizeof(field<Params>) == 32, "VectorField raw-byte transpose assumes sizeof(field<Params>) == 32");
+    static_assert(offsetof(field<Params>, data) == 0,
+                  "VectorField raw-byte transpose assumes field::data is at offset 0");
 
     static constexpr std::array<uint64_t, 9> P_WASM = { Params::modulus_wasm_0, Params::modulus_wasm_1,
                                                         Params::modulus_wasm_2, Params::modulus_wasm_3,
@@ -171,6 +180,13 @@ template <class Params> struct alignas(32) VectorField {
 
     VectorField operator+(const VectorField& other) const noexcept;
     VectorField operator-(const VectorField& other) const noexcept;
+    // Under WASM SIMD, operator* is only specialized for Bn254FrParams (see
+    // vector_field_wasm.cpp). Instantiating with any other Params under SIMD
+    // is a link-time error; gating it at compile time via a requires clause
+    // would change the symbol mangling and break the explicit specialization
+    // match, so we keep the declaration unconstrained and rely on callers
+    // (e.g. `vectorized_for<N, Fr>`) to route non-Bn254 Fr through the
+    // scalar path.
     VectorField operator*(const VectorField& other) const noexcept;
 
     // Gather: returns a VectorField whose lane L equals base[idx[L]].
@@ -277,8 +293,9 @@ template <class Params> struct alignas(32) VectorField {
     //         vector_field.test.cpp (150 random trials that chain the result
     //         through +, -, *, eq, is_zero and confirm consistency).
     //
-    // WASM-SIMD specializations are provided for K in {1, 2, 3, 4, 5, 6}. The
-    // native/fallback path uses the naive K-muls-then-sum implementation below.
+    // WASM-SIMD specializations are provided for K in {1, 2, 3, 4, 5, 6} for
+    // Bn254FrParams only. Anything else under SIMD is a link-time error — see
+    // the note on operator* above for why a requires clause is unsuitable.
     template <size_t K>
     static VectorField dot_product(const std::array<std::pair<VectorField, VectorField>, K>& pairs) noexcept;
 
