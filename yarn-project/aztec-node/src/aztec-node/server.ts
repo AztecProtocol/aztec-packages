@@ -8,7 +8,7 @@ import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
@@ -195,7 +195,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.tracer = telemetry.getTracer('AztecNodeService');
 
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
-    this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
+    this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, pickL1ContractAddresses(config));
 
     // A defensive check that protects us against introducing a bug in the complex `createAndSync` function. We must
     // never have debugLogStore enabled when not in test mode because then we would be accumulating debug logs in
@@ -533,14 +533,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     const l1ContractsAddresses = await RegistryContract.collectAddresses(
       publicClient,
-      config.l1Contracts.registryAddress,
+      config.registryAddress,
       config.rollupVersion ?? 'canonical',
     );
 
-    // Overwrite the passed in vars.
-    config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
+    Object.assign(config, l1ContractsAddresses);
 
-    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+    const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
     const [l1GenesisTime, slotDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
@@ -561,7 +560,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // attempt snapshot sync if possible
     await trySnapshotSync(config, log);
 
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+    const epochCache = await EpochCache.create(config.rollupAddress, config, { dateProvider });
 
     // Track started resources so we can clean up on partial failure during node creation.
     const started: { stop?(): Promise<void> | void }[] = [];
@@ -608,7 +607,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       }
 
       const globalVariableBuilderConfig = {
-        l1Contracts: config.l1Contracts,
+        rollupAddress: config.rollupAddress,
         ethereumSlotDuration: config.ethereumSlotDuration,
         rollupVersion: BigInt(config.rollupVersion),
         l1GenesisTime,
@@ -779,7 +778,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
         slasherClient = await createSlasher(
           config,
-          config.l1Contracts,
+          pickL1ContractAddresses(config),
           getPublicClient(config),
           watchers,
           dateProvider,
@@ -950,7 +949,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @returns - The currently deployed L1 contract addresses.
    */
   public getL1ContractAddresses(): Promise<L1ContractAddresses> {
-    return Promise.resolve(this.config.l1Contracts);
+    return Promise.resolve(pickL1ContractAddresses(this.config));
   }
 
   public getEncodedEnr(): Promise<string | undefined> {

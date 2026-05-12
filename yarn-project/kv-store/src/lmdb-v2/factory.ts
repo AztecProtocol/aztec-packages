@@ -25,7 +25,7 @@ export async function createStore(
   options: CreateStoreOptions = {},
 ): Promise<AztecLMDBStoreV2> {
   const log = createLogger('kv-store:lmdb-v2:' + name, bindings);
-  const { dataDirectory, l1Contracts } = config;
+  const { dataDirectory, rollupAddress: rollupFromConfig } = config;
 
   let store: AztecLMDBStoreV2;
   if (typeof dataDirectory !== 'undefined') {
@@ -33,7 +33,7 @@ export async function createStore(
     const subDir = join(dataDirectory, name);
     await mkdir(subDir, { recursive: true });
 
-    const rollupAddress = l1Contracts ? l1Contracts.rollupAddress : EthAddress.ZERO;
+    const rollupAddress = rollupFromConfig ?? EthAddress.ZERO;
 
     // Create a version manager
     const versionManager = new DatabaseVersionManager({

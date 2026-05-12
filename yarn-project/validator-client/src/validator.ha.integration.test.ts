@@ -142,7 +142,7 @@ describe('ValidatorClient HA Integration', () => {
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
-      l1Contracts: { rollupAddress },
+      rollupAddress,
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,

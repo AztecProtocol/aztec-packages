@@ -239,7 +239,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       p2pPropagationTime,
       signatureContext: {
         chainId: config.l1ChainId,
-        rollupAddress: config.l1Contracts.rollupAddress,
+        rollupAddress: config.rollupAddress,
       },
     };
     this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);

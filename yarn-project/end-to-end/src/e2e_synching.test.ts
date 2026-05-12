@@ -441,10 +441,10 @@ describe('e2e_synching', () => {
     const rollupContract = new RollupContract(deployL1ContractsValues.l1Client, rollupAddress);
     const governanceProposerContract = new GovernanceProposerContract(
       deployL1ContractsValues.l1Client,
-      config.l1Contracts.governanceProposerAddress.toString(),
+      config.governanceProposerAddress.toString(),
     );
     const slashingProposerContract = await rollupContract.getSlashingProposer();
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+    const epochCache = await EpochCache.create(config.rollupAddress, config, { dateProvider });
     const sequencerPublisherMetrics: MockProxy<SequencerPublisherMetrics> = mock<SequencerPublisherMetrics>();
     const publisher = new SequencerPublisher(
       {

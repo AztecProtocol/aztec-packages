@@ -125,7 +125,7 @@ export async function createLocalSignerWithProtection(
     {
       dataDirectory: config.dataDirectory,
       dataStoreMapSizeKb: config.signingProtectionMapSizeKb ?? config.dataStoreMapSizeKb,
-      l1Contracts: config.l1Contracts,
+      rollupAddress: config.rollupAddress,
     },
     undefined,
     {
@@ -175,7 +175,7 @@ export function createSignerFromSharedDb(
   db: SlashingProtectionDatabase,
   config: Pick<
     ValidatorHASignerConfig,
-    'nodeId' | 'pollingIntervalMs' | 'signingTimeoutMs' | 'maxStuckDutiesAgeMs' | 'l1Contracts'
+    'nodeId' | 'pollingIntervalMs' | 'signingTimeoutMs' | 'maxStuckDutiesAgeMs' | 'rollupAddress'
   >,
   deps?: CreateLocalSignerWithProtectionDeps,
 ): { signer: ValidatorHASigner; db: SlashingProtectionDatabase } {
