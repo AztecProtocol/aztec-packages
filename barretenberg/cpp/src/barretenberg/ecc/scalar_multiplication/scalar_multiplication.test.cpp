@@ -318,7 +318,9 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
     {
         BB_BENCH_NAME("BatchMultiScalarMul");
 
-        const size_t num_msms = static_cast<size_t>(engine.get_random_uint8()) % kMaxBatchMSMs;
+        // Use 1 + (rand % (max - 1)) so the test always exercises at least one MSM with at
+        // least one point — `rand % max` can be 0, which would make the iteration vacuous.
+        const size_t num_msms = 1 + (static_cast<size_t>(engine.get_random_uint8()) % (kMaxBatchMSMs - 1));
         std::vector<AffineElement> expected(num_msms);
 
         std::vector<std::vector<ScalarField>> batch_scalars_copies(num_msms);
@@ -327,7 +329,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
 
         size_t vector_offset = 0;
         for (size_t k = 0; k < num_msms; ++k) {
-            const size_t num_pts = static_cast<size_t>(engine.get_random_uint16()) % kMaxBatchPointsPerMSM;
+            const size_t num_pts = 1 + (static_cast<size_t>(engine.get_random_uint16()) % (kMaxBatchPointsPerMSM - 1));
 
             ASSERT_LT(vector_offset + num_pts, num_points);
             std::span<const AffineElement> batch_points(&generators[vector_offset], num_pts);
