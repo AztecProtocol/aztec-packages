@@ -2,11 +2,11 @@
 
 This document covers how the sequencer schedules its work within a slot. See the [package README](../../README.md) for the high-level architecture; this one focuses on the timing math and the state-machine deadlines.
 
-The model described here is for **proposer pipelining**, the standard mode in production. Non-pipelined scheduling existed historically and is in the process of being removed.
+The model described here is for **proposer pipelining**, the standard mode in production. Non-pipelined scheduling existed historically.
 
 ## Overview
 
-Block production runs on three nested clocks:
+Block production runs on a cadence of fixed-length **slots** (e.g. 72 s). Each slot has a single elected proposer who is allowed to build during that slot. The proposer can build several blocks within the slot, but all those blocks are part of the same **checkpoint** and commit to the same L2 slot:
 
 - A **slot** is a fixed window (e.g. 72 s) during which one elected proposer is allowed to build.
 - A slot contains several equal-length **sub-slots** (e.g. 8 s). Each sub-slot owns the budget for one L2 block and has a deadline fixed relative to the slot start.

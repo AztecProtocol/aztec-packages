@@ -10,7 +10,7 @@ The sequencer does **not** decide what is in the next block on its own. It compo
 
 ### Slots, Blocks, and Checkpoints
 
-The Aztec consensus design splits each Aztec slot into multiple L2 blocks. This is the design originally called [building in chunks](https://github.com/AztecProtocol/engineering-designs/blob/main/docs/building-in-chunks/index.md).
+The Aztec design splits each Aztec slot into multiple L2 blocks:
 
 - **Slot** — a fixed time window (e.g. 72 s) during which one proposer is allowed to build.
 - **Block** — a single batch of transactions, executed and validated as a unit, with its own header.
@@ -26,11 +26,13 @@ There are two tips the sequencer cares about:
 - The **proposed chain** is the set of blocks that have been broadcast over p2p but not yet committed to L1. Both the sequencer and validators push these blocks into the archiver so the rest of the node can serve them.
 - The **checkpointed chain** is the set of checkpoints that have landed on L1, recovered from `CheckpointProposed` events.
 
-Within a slot, the proposer adds blocks to the proposed chain as it goes. Only the last block within the slot is bundled with a `CheckpointProposal` that committee members attest to; intermediate blocks are accepted onto the proposed chain by virtue of the proposer's signature alone, and every node that wants to follow the proposed chain re-executes them. See the [validator client README](../validator-client/README.md) for the consumer side.
+Within a slot, the proposer adds blocks to the proposed chain as it goes. At the end of its slot, it sends a `CheckpointProposal` that committee members attest to; intermediate blocks are accepted onto the proposed chain by virtue of the proposer's signature alone, and every node that wants to follow the proposed chain re-executes them. See the [validator client README](../validator-client/README.md) for the consumer side.
 
 ### Proposer Pipelining
 
-The legacy ("non-pipelined") flow has the proposer for slot `N` build, attest, and publish inside slot `N`. The proposer spends most of `N` collecting attestations and waiting for the L1 transaction to be mined, leaving a long idle window. Pipelining, [proposed in this discussion](https://github.com/AztecProtocol/governance/discussions/8), removes that idle window: the proposer for slot `N` builds blocks during slot `N - 1`, finishes attestation collection before the slot boundary, and submits the L1 transaction at the start of slot `N`.
+The legacy non-pipelined flow had the proposer for slot `N` build, attest, and publish inside slot `N`; so the proposer spent most of `N` collecting attestations and waiting for the L1 transaction to be mined, leaving a long idle window. 
+
+Pipelining removes that idle window: the proposer for slot `N` builds blocks during slot `N - 1`, finishes attestation collection before the slot boundary, and submits the L1 transaction at the start of slot `N`.
 
 Pipelining shifts the work like this:
 
@@ -43,12 +45,9 @@ Pipelining shifts the work like this:
 
 \* The pipelined timing model reserves enough end-of-slot budget for attestations to be in hand by the slot boundary, but the enforced deadline (`checkpointAttestationDeadline`) actually extends to `2 * aztecSlotDuration - l1PublishingTime`, so a late attestation can still spill into the target slot.
 
-In practice, "non-pipelined mode" is being removed; this README treats pipelining as the default. The toggle still exists (`enableProposerPipelining`) because `EpochCache` consults it when looking up the proposer for the next L1 slot — when pipelining is enabled, the sequencer asks the cache for the proposer of `slot + 1` rather than `slot`.
+The non-pipelined mode is being removed; this README treats pipelining as the default. The toggle still exists for lingering tests.
 
-The pipelining flow introduces two failure modes that block building has to handle:
-
-- **Pipeline depth** is bounded to 2 (`checkpointNumber ≤ confirmedCheckpoint + 2`). Building further ahead would require trusting more in-flight parent proposals than the design allows.
-- **Pipelined parent invalidation**: if the parent checkpoint we built on top of fails to land cleanly on L1, the next proposer's work is discarded (`pipelined-checkpoint-discarded` event) and an `invalidate` request is enqueued for the parent.
+Note that, under pipelining, if the parent checkpoint we built on top of fails to land cleanly on L1, the next proposer's work is discarded (`pipelined-checkpoint-discarded` event).
 
 ## Architecture
 
