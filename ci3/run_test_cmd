@@ -50,8 +50,12 @@ if [ "$CI" -eq 1 ]; then
     track_test_history=1
   fi
 
-  # Notify on flakes if in merge queue or backport-to-v2-staging.
-  [[ "$is_merge_queue" -eq 1 || "$REF_NAME" == "backport-to-v2-staging" ]] && slack_notify_flake=1
+  # Notify on flakes if in merge queue, backport-to-v2-staging, or merge-train/spartan.
+  # merge-train/spartan runs its full test suite on pull_request (via ci-full-no-test-cache),
+  # not just merge_group, so without this case the spartan PR's flakes are never reported.
+  [[ "$is_merge_queue" -eq 1 \
+      || "$REF_NAME" == "backport-to-v2-staging" \
+      || "$REF_NAME" == "merge-train/spartan" ]] && slack_notify_flake=1
 
   # Notify on fails for scenario tests.
   [[ ${SCENARIO_TESTS:-0} -eq 1 ]] && slack_notify_fail=1
@@ -341,8 +345,8 @@ function flake_slack_channel {
     cat "$cache"
     return
   fi
-  local head_branch="${PR_HEAD_REF:-}"
-  if [ -z "$head_branch" ] && [[ "$REF_NAME" =~ ^gh-readonly-queue/.+/pr-([0-9]+)- ]] \
+  local head_branch="${PR_HEAD_REF:-$REF_NAME}"
+  if [[ "$head_branch" =~ ^gh-readonly-queue/.+/pr-([0-9]+)- ]] \
       && [ -n "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
     head_branch=$(GH_TOKEN="$GITHUB_TOKEN" gh pr view "${BASH_REMATCH[1]}" \
       --repo AztecProtocol/aztec-packages --json headRefName -q '.headRefName' 2>/dev/null || true)
