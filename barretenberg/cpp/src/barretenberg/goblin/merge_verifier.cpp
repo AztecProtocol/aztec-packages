@@ -150,6 +150,10 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     table_commitments.emplace_back(
         transcript->template receive_from_prover<Commitment>("REVERSED_BATCHED_LEFT_TABLES"));
 
+    // Compute batching challenges
+    std::vector<FF> shplonk_batching_challenges =
+        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
+
     // Evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
@@ -172,18 +176,14 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
     // Receive evaluation of G at 1/κ
     evals.emplace_back(transcript->template receive_from_prover<FF>("REVERSED_BATCHED_LEFT_TABLES_EVAL"));
 
-    // OriginTag false positive: evals are PCS bound - once the table commitments are fixed and kappa is derived, the
-    // correct evaluations are uniquely determined. The origin tag mechanism alerts us that we are mixing a challenge
-    // from a previous round (kappa) with element sent afterwards, which in this case is OK because the evals are
-    // uniquely determined.
-    std::vector<OriginTag> origin_tags;
-    origin_tags.reserve(evals.size());
-
+    // OriginTag false positive: The evaluations are PCS-bound - once the table commitments
+    // are fixed and kappa is derived, the correct evaluations are uniquely determined. Tag them
+    // with kappa to reflect this constraint. The last eval (G at 1/κ) is bound by degree_check_challenges.
     if constexpr (IsRecursive) {
         for (auto& eval : evals) {
-            origin_tags.emplace_back(eval.get_origin_tag());
-            eval.set_origin_tag(pow_kappa.get_origin_tag());
+            eval.set_origin_tag(kappa.get_origin_tag());
         }
+        evals.back().set_origin_tag(degree_check_challenges.back().get_origin_tag());
     }
 
     // Check concatenation identities
@@ -191,17 +191,6 @@ typename MergeVerifier_<Curve>::ReductionResult MergeVerifier_<Curve>::reduce_to
 
     // Check degree identity
     bool degree_check_verified = check_degree_identity(evals, pow_kappa_minus_one, degree_check_challenges);
-
-    // Reset origin tags
-    if constexpr (IsRecursive) {
-        for (auto [eval, origin_tag] : zip_view(evals, origin_tags)) {
-            eval.set_origin_tag(origin_tag);
-        }
-    }
-
-    // Compute batching challenges
-    std::vector<FF> shplonk_batching_challenges =
-        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
 
     // Receive Shplonk batched quotient
     Commitment shplonk_batched_quotient =

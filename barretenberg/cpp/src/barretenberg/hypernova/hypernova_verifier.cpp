@@ -112,7 +112,6 @@ std::pair<bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> Hypernov
 template <typename Flavor>
 std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> HypernovaFoldingVerifier<
     Flavor>::verify_folding_proof(const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
-                                  const Accumulator& accumulator,
                                   const HypernovaFoldingVerifier::Proof& proof)
 {
     BB_BENCH_NAME("HypernovaFoldingVerifier::verify_folding_proof");
@@ -133,8 +132,8 @@ std::tuple<bool, bool, typename HypernovaFoldingVerifier<Flavor>::Accumulator> H
     VerifierCommitments verifier_commitments(instance->get_vk(), instance->witness_commitments);
 
     MultilinearBatchingVerifier batching_verifier(transcript);
-    auto [sumcheck_batching_result, new_accumulator] = batching_verifier.verify_proof(
-        sumcheck_output, verifier_commitments, unshifted_challenges, shifted_challenges, accumulator);
+    auto [sumcheck_batching_result, new_accumulator] =
+        batching_verifier.verify_proof(sumcheck_output, verifier_commitments, unshifted_challenges, shifted_challenges);
 
     if (sumcheck_output.verified && sumcheck_batching_result) {
         vinfo("HypernovaFoldingVerifier: successfully verified folding proof.");

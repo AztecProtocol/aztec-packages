@@ -14,6 +14,36 @@ function require_command {
   fi
 }
 
+function configure_gh_repo {
+  local remote_url repo
+
+  if [[ -n "${GH_REPO:-}" ]]; then
+    export GH_REPO
+    return
+  fi
+
+  if [[ -n "${GITHUB_REPOSITORY:-}" ]]; then
+    export GH_REPO="$GITHUB_REPOSITORY"
+    return
+  fi
+
+  remote_url=$(git remote get-url "$REMOTE" 2>/dev/null || true)
+  case "$remote_url" in
+    git@github.com:*)
+      repo="${remote_url#git@github.com:}"
+      ;;
+    https://github.com/*)
+      repo="${remote_url#https://github.com/}"
+      ;;
+    *)
+      return
+      ;;
+  esac
+
+  repo="${repo%.git}"
+  export GH_REPO="$repo"
+}
+
 function pr_for_commit {
   local _sha="$1"
   local subject="$2"
@@ -28,34 +58,21 @@ function pr_for_commit {
   fi
 }
 
-function append_pr_section {
+function append_pr_line {
   local pr_number="$1"
   local pr_json="$2"
-  local title url base_ref head_ref merged_at merge_sha
+  local title url
 
   title=$(jq -r '.title' <<<"$pr_json")
   url=$(jq -r '.url' <<<"$pr_json")
-  base_ref=$(jq -r '.baseRefName' <<<"$pr_json")
-  head_ref=$(jq -r '.headRefName' <<<"$pr_json")
-  merged_at=$(jq -r '.mergedAt // "not merged"' <<<"$pr_json")
-  merge_sha=$(jq -r '.mergeCommit.oid // empty' <<<"$pr_json")
 
-  {
-    echo "- [#${pr_number}: ${title}](${url})"
-    echo "  - ${head_ref} -> ${base_ref}; merged: ${merged_at}"
-    if [[ -n "$merge_sha" ]]; then
-      echo "  - merge commit: \`${merge_sha:0:10}\`"
-    fi
-    echo "  - commits:"
-  } >>"$body_file"
-
-  gh api "repos/{owner}/{repo}/pulls/${pr_number}/commits" \
-    --jq '.[] | "    - `\(.sha[0:10])` \(.commit.message | split("\n")[0])"' >>"$body_file"
+  echo "- [#${pr_number}: ${title}](${url})" >>"$body_file"
 }
 
 require_command git
 require_command gh
 require_command jq
+configure_gh_repo
 
 git fetch "$REMOTE" "$BASE_BRANCH" "$HEAD_BRANCH" --no-tags
 
@@ -84,64 +101,38 @@ payload_file=""
 trap 'rm -f "$body_file" "$payload_file"' EXIT
 
 {
-  echo "BEGIN_COMMIT_OVERRIDE"
-  echo "## Private PRs included in \`${HEAD_BRANCH}\`"
+  echo "## Private PRs in \`${BASE_BRANCH}..${HEAD_BRANCH}\`"
   echo
-  echo "Generated from first-parent history for \`${BASE_BRANCH}..${HEAD_BRANCH}\`."
-  echo
-  echo "- Base: \`${BASE_BRANCH}\` @ \`${base_sha:0:10}\`"
-  echo "- Head: \`${HEAD_BRANCH}\` @ \`${head_sha:0:10}\`"
-  echo "- Holding PR: ${pr_url}"
+  echo "_${base_sha:0:10}..${head_sha:0:10}_"
   echo
 } >"$body_file"
 
 declare -A seen_prs=()
-declare -a unresolved=()
 
-while IFS=$'\t' read -r sha subject; do
-  [[ -n "$sha" ]] || continue
+while read -r pr_candidate; do
+  [[ -n "$pr_candidate" ]] || continue
 
-  pr_candidate=$(pr_for_commit "$sha" "$subject")
-  if [[ -z "$pr_candidate" ]]; then
-    case "$subject" in
-      "chore: merge upstream next"*) ;;
-      "Merge branch 'next' into "*) ;;
-      *) unresolved+=("${sha:0:10} ${subject}") ;;
-    esac
-    continue
-  fi
-
-  if [[ -n "${seen_prs[$pr_candidate]:-}" ]]; then
-    continue
-  fi
+  [[ -z "${seen_prs[$pr_candidate]:-}" ]] || continue
 
   pr_json=$(gh pr view "$pr_candidate" \
-    --json number,title,url,baseRefName,headRefName,mergedAt,mergeCommit,state \
-    --jq '.')
+    --json number,title,url,state \
+    --jq '.' 2>/dev/null || true)
 
-  if [[ "$(jq -r '.state' <<<"$pr_json")" != "MERGED" ]]; then
-    unresolved+=("${sha:0:10} ${subject} (associated PR #${pr_candidate} is not merged)")
+  if [[ -z "$pr_json" || "$(jq -r '.state' <<<"$pr_json")" != "MERGED" ]]; then
     continue
   fi
 
   seen_prs[$pr_candidate]=1
-  append_pr_section "$pr_candidate" "$pr_json"
-done < <(git log --first-parent --reverse --pretty=format:'%H%x09%s' "${base_ref}..${head_ref}")
+  append_pr_line "$pr_candidate" "$pr_json"
+done < <(
+  git log --reverse --pretty=format:'%s' "${base_ref}..${head_ref}" |
+    grep -Eo 'Merge pull request #[0-9]+|\(#[0-9]+\)' |
+    grep -Eo '[0-9]+'
+)
 
 if [[ "${#seen_prs[@]}" -eq 0 ]]; then
   echo "*No merged private PRs found in the compare range.*" >>"$body_file"
 fi
-
-if [[ "${#unresolved[@]}" -gt 0 ]]; then
-  {
-    echo
-    echo "## Unresolved first-parent commits"
-    echo
-    printf -- "- \`%s\`\n" "${unresolved[@]}"
-  } >>"$body_file"
-fi
-
-echo "END_COMMIT_OVERRIDE" >>"$body_file"
 
 payload_file=$(mktemp)
 jq -n --rawfile body "$body_file" '{ body: $body }' >"$payload_file"

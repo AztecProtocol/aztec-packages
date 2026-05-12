@@ -1,6 +1,0 @@
-Contract function 'bad_private_return' returns a value of type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-Parameter '_p' of contract function 'bad_private_param' has type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-Contract function 'bad_public_return' returns a value of type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-Parameter '_p' of contract function 'bad_public_param' has type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-Contract function 'bad_utility_return' returns a value of type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.
-Parameter '_p' of contract function 'bad_utility_param' has type NotSerializable, which does not implement the Serialize trait. Add #[derive(Serialize)] to NotSerializable's declaration.

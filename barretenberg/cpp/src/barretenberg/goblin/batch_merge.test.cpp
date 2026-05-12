@@ -41,7 +41,8 @@ enum class FaultMode : uint8_t {
     PADDING_NOT_INFINITY,     // padded slot sends non-zero shift size and non-zero commitment/eval
     SHIFT_SIZE_MINUS_ONE,     // send k-1 as shift size for a subtable polynomial of size k
     ZK_TABLE_DEGREE_TOO_HIGH, // zk table has degree above verifier hard-coded ZK shift
-    ZERO_SUBTABLES_CLAIM      // send 0 as number of subtables
+    ZERO_SUBTABLES_CLAIM,     // send 0 as number of subtables,
+    TOO_MANY_SUBTABLES,       // send a number of subtables above the max that the verifier is configured for
 };
 
 void populate_subtable(const std::shared_ptr<ECCOpQueue>& op_queue, size_t num_ops)
@@ -238,11 +239,29 @@ class TweakableBatchMergeProver : public BatchMergeProver {
         }
 
         // Step 6: degree-check poly
+        if (fault_mode == FaultMode::TOO_MANY_SUBTABLES) {
+            // This is the case in which we test that if the prover sends more columns than the max number of tables
+            // then the verifier rejects
+            size_t diff = flattened_cols.size() - num_degree_check_challenges;
+            for (size_t idx = 0; idx < diff * NUM_WIRES; ++idx) {
+                // Add challenges for the extra columns sent by the prover
+                degree_check_challenges.push_back(degree_check_challenges.back() * degree_check_challenge);
+            }
+        }
+
         Polynomial degree_check_poly =
             compute_degree_check_polynomial(flattened_cols, degree_check_challenges, max_shift_size);
+
+        if (fault_mode == FaultMode::TOO_MANY_SUBTABLES) {
+            // Remove the extra challenge added above to keep the degree check poly consistent with the rest of the
+            // proof
+            degree_check_challenges.pop_back();
+        }
+
         if (fault_mode == FaultMode::BAD_DEGREE_CHECK_POLY && !degree_check_poly.is_empty()) {
             degree_check_poly.at(0) += FF(1);
         }
+
         transcript->send_to_verifier("DEGREE_CHECK_POLY", pcs_commitment_key.commit(degree_check_poly));
 
         // Step 7
@@ -320,7 +339,7 @@ template <typename Param> class BatchMergeTests : public testing::Test {
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
 
-    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 10456 : 45946;
+    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 6362 : 22624;
     static constexpr size_t ZK_OFFSET = NumSubtables == 9 ? 666 : 520;
 
     struct VerifyResult {
@@ -473,7 +492,7 @@ TYPED_TEST(BatchMergeTests, TooManySubtablesFails)
     } else {
         BB_DISABLE_ASSERTS();
         auto op_queue = make_op_queue_with_n_subtables(TestFixture::NumSubtables + 1);
-        auto res = TestFixture::prove_and_verify(op_queue);
+        auto res = TestFixture::prove_and_verify(op_queue, FaultMode::TOO_MANY_SUBTABLES);
         EXPECT_FALSE(res.reduction_ok); // Caught by product check
         EXPECT_FALSE(res.pairing_ok);   // Verifier uses fewer commitments than the one sent
         if constexpr (TestFixture::IsRecursive) {

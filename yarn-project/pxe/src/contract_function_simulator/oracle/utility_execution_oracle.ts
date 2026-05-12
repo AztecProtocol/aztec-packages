@@ -29,11 +29,12 @@ import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs'
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule, IndexedTxEffect, OffchainEffect, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule, IndexedTxEffect, OffchainEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { EventService } from '../../events/event_service.js';
+import type { ExecutionHooks } from '../../hooks/index.js';
 import { LogService } from '../../logs/log_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
 import { NoteService } from '../../notes/note_service.js';
@@ -79,6 +80,7 @@ export type UtilityExecutionOracleArgs = {
   log?: ReturnType<typeof createLogger>;
   scopes: AztecAddress[];
   simulator: CircuitSimulator;
+  hooks?: ExecutionHooks;
 };
 
 /**
@@ -116,6 +118,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected logger: ReturnType<typeof createLogger>;
   protected readonly scopes: AztecAddress[];
   protected readonly simulator: CircuitSimulator;
+  protected readonly hooks: ExecutionHooks | undefined;
 
   constructor(args: UtilityExecutionOracleArgs) {
     this.contractAddress = args.contractAddress;
@@ -138,6 +141,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.logger = args.log ?? createLogger('simulator:client_view_context');
     this.scopes = args.scopes;
     this.simulator = args.simulator;
+    this.hooks = args.hooks;
   }
 
   public assertCompatibleOracleVersion(major: number, minor: number): void {
@@ -301,6 +305,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
     if (blockNumber > anchorBlockNumber) {
       throw new Error(`Block number ${blockNumber} is higher than current block ${anchorBlockNumber}`);
+    }
+
+    // Most contracts query state at the "current" block, which is the anchor. Skip the RPC when we can.
+    if (blockNumber === anchorBlockNumber) {
+      return this.anchorBlockHeader;
     }
 
     const block = await this.aztecNode.getBlock(blockNumber);
@@ -781,6 +790,23 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.ephemeralArrayService.newArray(maybeMessageContexts.map(MessageContext.toSerializedOption));
   }
 
+  /**
+   * Fetches the effects of a transaction by its hash. Returns null if the tx is not found or is beyond the anchor
+   * block.
+   */
+  public async getTxEffect(txHash: TxHash): Promise<TxEffect | null> {
+    if (txHash.hash.isZero()) {
+      throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
+    }
+
+    const txEffect = await this.aztecNode.getTxEffect(txHash);
+    if (!txEffect || txEffect.l2BlockNumber > this.anchorBlockHeader.getBlockNumber()) {
+      return null;
+    }
+
+    return txEffect.data;
+  }
+
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
@@ -896,22 +922,37 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     functionSelector: FunctionSelector,
     args: Fr[],
   ): Promise<Fr[]> {
-    // TODO(F-29): We want to support cross-contract utility calls, but doing so safely requires wallets to have
-    // a way to authorize which contracts can be called transitively, since those calls may expose private state.
-    // Until that is in place, restrict nested utility calls to the same contract only.
+    const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
+      targetContractAddress,
+      functionSelector,
+    );
+
     if (!targetContractAddress.equals(this.contractAddress)) {
-      throw new Error(
-        `Cross-contract utility calls are not yet supported: cannot call ${targetContractAddress} from utility function on ${this.contractAddress}.`,
-      );
+      const request = {
+        caller: this.contractAddress,
+        target: targetContractAddress,
+        functionSelector,
+        functionName: targetArtifact.name,
+        args,
+        callerContext: ('isPrivate' in this ? 'private' : 'utility') as 'private' | 'utility',
+      };
+
+      const response = this.hooks
+        ? await this.hooks.authorizeUtilityCall(request)
+        : { authorized: false, reason: 'No execution hooks configured' };
+
+      if (!response.authorized) {
+        const reason = response.reason ? `: ${response.reason}` : '';
+        throw new Error(
+          `Cross-contract utility call denied${reason}. ${this.contractAddress} attempted to call ` +
+            `${targetContractAddress}:${functionSelector} (${targetArtifact.name}). ` +
+            `See https://docs.aztec.network/errors/11`,
+        );
+      }
     }
 
     this.logger.debug(
       `Calling nested utility function ${targetContractAddress}:${functionSelector} from ${this.contractAddress}`,
-    );
-
-    const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
-      targetContractAddress,
-      functionSelector,
     );
 
     const nestedOracle = new UtilityExecutionOracle({
@@ -934,6 +975,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       jobId: this.jobId,
       scopes: this.scopes,
       simulator: this.simulator,
+      hooks: this.hooks,
       log: this.logger,
     });
 
@@ -975,6 +1017,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
   /** Runs a query concurrently with a validation that the block hash is not ahead of the anchor block. */
   async #queryWithBlockHashNotAfterAnchor<T>(blockHash: BlockHash, query: () => Promise<T>): Promise<T> {
+    // Most contracts query state at the "current" block, which is the anchor. Skip the validation when we can.
+    const anchorHash = await this.anchorBlockHeader.hash();
+    if (blockHash.equals(anchorHash)) {
+      return query();
+    }
+
     const [response] = await Promise.all([
       query(),
       (async () => {
@@ -986,7 +1034,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
         if (header.getBlockNumber() > this.anchorBlockHeader.getBlockNumber()) {
           throw new Error(
-            `Made a node query with a reference block hash ${blockHash} with block number ${header.getBlockNumber()}, which is ahead of the anchor block number ${this.anchorBlockHeader.getBlockNumber()} (from anchor block hash ${await this.anchorBlockHeader.hash()}).`,
+            `Made a node query with a reference block hash ${blockHash} with block number ${header.getBlockNumber()}, which is ahead of the anchor block number ${this.anchorBlockHeader.getBlockNumber()} (from anchor block hash ${anchorHash}).`,
           );
         }
       })(),

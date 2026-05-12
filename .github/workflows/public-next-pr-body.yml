@@ -1,9 +1,6 @@
 name: Public Next PR Body
 
 on:
-  push:
-    branches:
-      - next
   workflow_dispatch:
 
 jobs:

@@ -72,7 +72,17 @@ template <typename Flavor> HonkProof create_mock_sumcheck_proof()
 HonkProof create_mock_multilinear_batch_proof()
 {
     using Flavor = MultilinearBatchingFlavor;
+    using FF = typename Flavor::FF;
     HonkProof proof;
+
+    // Populate mock accumulator commitments (non_shifted + shifted)
+    populate_field_elements_for_mock_commitments(proof, Flavor::NUM_ACCUMULATOR_COMMITMENTS);
+
+    // Accumulator multivariate challenges
+    populate_field_elements<FF>(proof, Flavor::VIRTUAL_LOG_N);
+
+    // Accumulator polynomial evaluations (non_shifted + shifted)
+    populate_field_elements<FF>(proof, Flavor::NUM_ACCUMULATOR_EVALUATIONS);
 
     // Sumcheck proof
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();

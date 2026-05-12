@@ -245,10 +245,94 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
     block.q_1().emplace_back(idx == 0 ? 1 : 0);
     block.q_2().emplace_back(idx == 1 ? 1 : 0);
     block.q_3().emplace_back(idx == 2 ? 1 : 0);
-    block.q_4().emplace_back(0);
-    block.q_m().emplace_back(0);
+    block.q_4().emplace_back(idx == 3 ? 1 : 0);
+    block.q_5().emplace_back(0);
+    block.q_m().emplace_back(idx == 4 ? 1 : 0);
     block.q_c().emplace_back(0);
     block.set_gate_selector(1);
+}
+
+/**
+ * @brief Poseidon2 initial linear layer gate, activates the q_poseidon2_external_initial selector and relation.
+ * @details Constrains the whole initial linear layer with a bespoke row.
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in)
+{
+    auto& block = this->blocks.poseidon2_external;
+    block.populate_wires(in.a, in.b, in.c, in.d);
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(0);
+    block.q_2().emplace_back(0);
+    block.q_3().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
+    block.set_initial_gate_selector(1);
+    this->check_selector_length_consistency();
+    this->increment_num_gates();
+}
+
+/**
+ * @brief Poseidon2 K=4 compressed internal-round gate: processes FOUR consecutive internal rounds per row.
+ * @details
+ *   Wires:     a, b, c, d = state[0] at rounds 4i+0, 4i+1, 4i+2, 4i+3
+ *   Selectors: q_1, q_2, q_3, q_4 = c_{4i}, c_{4i+1}, c_{4i+2}, c_{4i+3}   (this quad's 4 constants)
+ *              q_m, q_c, q_5      = c_{4(i+1)}, c_{4(i+1)+1}, c_{4(i+1)+2} (next quad's first 3, for
+ *                                                                           the shifted Vandermonde check)
+ *   Terminal rows use q_poseidon2_quad_internal_terminal and set q_m, q_c, q_5 = 0 (no next quad).
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon2_quad_internal_gate_<FF>& in)
+{
+    auto& block = this->blocks.poseidon2_quad_internal;
+    block.populate_wires(in.a, in.b, in.c, in.d);
+    const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
+    block.q_1().emplace_back(rc[in.round_idx_start + 0][0]);
+    block.q_2().emplace_back(rc[in.round_idx_start + 1][0]);
+    block.q_3().emplace_back(rc[in.round_idx_start + 2][0]);
+    block.q_4().emplace_back(rc[in.round_idx_start + 3][0]);
+    if (in.is_terminal) {
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        block.q_5().emplace_back(0);
+        block.set_terminal_gate_selector(1);
+    } else {
+        block.q_m().emplace_back(rc[in.next_pair_start + 0][0]);
+        block.q_c().emplace_back(rc[in.next_pair_start + 1][0]);
+        block.q_5().emplace_back(rc[in.next_pair_start + 2][0]);
+        block.set_gate_selector(1);
+    }
+    this->check_selector_length_consistency();
+    this->increment_num_gates();
+}
+
+/**
+ * @brief Poseidon2 transition-entry gate: standard → K=4 compressed encoding boundary.
+ * @details Placed immediately before the first compressed row.
+ *   Wires:     a, b, c, d = (s_0, s_1, s_2, s_3) at round `round_idx_start` (standard encoding)
+ *   Selectors: q_1, q_2, q_3 = c_{start}, c_{start+1}, c_{start+2}
+ *              q_4, q_m, q_c, q_5 = 0 (unused)
+ *
+ * Enforces the successor's (w_r_shift, w_o_shift, w_4_shift) equal state[0] at rounds
+ * `start+1, start+2, start+3` respectively, via 3 degree-7 subrelations.
+ */
+template <typename FF>
+void MegaCircuitBuilder_<FF>::create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in)
+{
+    auto& block = this->blocks.poseidon2_quad_internal;
+    block.populate_wires(in.a, in.b, in.c, in.d);
+    const auto& rc = crypto::Poseidon2Bn254ScalarFieldParams::round_constants;
+    block.q_m().emplace_back(0);
+    block.q_1().emplace_back(rc[in.round_idx_start + 0][0]);
+    block.q_2().emplace_back(rc[in.round_idx_start + 1][0]);
+    block.q_3().emplace_back(rc[in.round_idx_start + 2][0]);
+    block.q_4().emplace_back(0);
+    block.q_5().emplace_back(0);
+    block.q_c().emplace_back(0);
+    block.set_entry_gate_selector(1);
+    this->check_selector_length_consistency();
+    this->increment_num_gates();
 }
 
 template class MegaCircuitBuilder_<bb::fr>;

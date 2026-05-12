@@ -37,7 +37,7 @@ RUN --mount=type=secret,id=github_token \
 WORKDIR /root/aztec-packages
 
 # Run bootstrap up to yarn-project (release-image needs docker which isn't available)
-RUN ./bootstrap.sh build yarn-project
+RUN BOOTSTRAP_TO=yarn-project ./bootstrap.sh
 
 # Build the tx fuzzer
 WORKDIR /root/aztec-packages/barretenberg/cpp
