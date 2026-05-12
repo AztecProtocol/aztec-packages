@@ -16,9 +16,19 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
-// TODO(kill-non-pipelined): tests exercise fee-snapshot race timing that no longer reproduces under
-// pipelined proposing (compressed slot cadence + faster fee evolution). Re-evaluate the scenarios.
+// TODO(kill-non-pipelined): the fee-snapshot race scenarios drive an L1 fee spike via
+// `cheatCodes.rollup.bumpProvingCostPerMana`, but under pipelined proposing the sequencer has
+// already pre-built a checkpoint against the old provingCostPerMana. The bump invalidates the
+// in-flight proposal with `Rollup__InvalidManaMinFee(expected, actual)` (the block's declared
+// `gasFees.feePerL2Gas` no longer matches the L1 mana min fee), and the test's own txs get
+// dropped by P2P when the failed checkpoint is rolled back. The wallet's padding logic is
+// covered by unit tests; re-skip until we have a non-racing way to deterministically spike
+// L2 min fees mid-test.
 describe.skip('e2e_fees fee settings', () => {
+  // FeesTest.setup chains many dependent txs which run at the ~24s/tx pipelined cadence,
+  // exceeding the default 5 min hook window.
+  jest.setTimeout(900_000);
+
   let aztecNode: AztecNode;
   let cheatCodes: CheatCodes;
   let aliceAddress: AztecAddress;
