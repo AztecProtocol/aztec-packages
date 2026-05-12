@@ -96,6 +96,42 @@ TEST(Polynomial, Indices)
     EXPECT_EQ(std::get<1>(*poly.indexed_values().begin()), poly[poly.start_index()]);
 }
 
+TEST(Polynomial, AddScaledVectorizedMatchesScalar)
+{
+    using FF = bb::fr;
+    using Poly = bb::Polynomial<FF>;
+
+    // self: logical indices [2, 32); other: logical indices [5, 18).
+    // Overlap region is other's range [5, 18) — 13 elements, not a multiple
+    // of 5 (exercises both the bulk and the tail of vectorized_for).
+    constexpr size_t SELF_SIZE = 30;
+    constexpr size_t SELF_VSIZE = 32;
+    constexpr size_t SELF_START = 2;
+    constexpr size_t OTHER_SIZE = 13;
+    constexpr size_t OTHER_VSIZE = 32;
+    constexpr size_t OTHER_START = 5;
+
+    Poly self(SELF_SIZE, SELF_VSIZE, SELF_START);
+    Poly other(OTHER_SIZE, OTHER_VSIZE, OTHER_START);
+    for (size_t i = SELF_START; i < SELF_START + SELF_SIZE; ++i) {
+        self.at(i) = FF((i * 11) + 1);
+    }
+    for (size_t i = OTHER_START; i < OTHER_START + OTHER_SIZE; ++i) {
+        other.at(i) = FF((i * 17) + 3);
+    }
+    Poly self_ref = self;
+    FF scalar = FF(7);
+
+    self.add_scaled(other, scalar);
+
+    for (size_t i = OTHER_START; i < OTHER_START + OTHER_SIZE; ++i) {
+        self_ref.at(i) = self_ref.at(i) + scalar * other.at(i);
+    }
+    for (size_t i = SELF_START; i < SELF_START + SELF_SIZE; ++i) {
+        EXPECT_EQ(self.at(i), self_ref.at(i)) << "i=" << i;
+    }
+}
+
 // evaluate_mle on a 0-variable MLE returns the constant coefficient.
 TEST(Polynomial, EvaluateMleSingleCoefficientEmptyPoints)
 {
