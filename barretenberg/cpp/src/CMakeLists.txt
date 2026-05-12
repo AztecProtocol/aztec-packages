@@ -127,6 +127,8 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
     add_subdirectory(barretenberg/ipc)
+    add_subdirectory(barretenberg/wsdb)
+    add_subdirectory(barretenberg/wsdb_client)
     add_subdirectory(barretenberg/nodejs_module)
 endif()
 
