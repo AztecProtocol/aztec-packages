@@ -184,10 +184,12 @@ describe('L1Publisher integration', () => {
     const currentSlot = await rollup.getSlotNumber();
     if (BigInt(targetSlot) > BigInt(currentSlot)) {
       await progressTimeBySlot(Number(BigInt(targetSlot) - BigInt(currentSlot)));
-    } else {
-      // Chain is already at or past targetSlot; only the dateProvider needs to catch up.
-      await ethCheatCodes.syncDateProvider();
     }
+    // Always resync the dateProvider so `epochCache.getSlotNow()` matches L1's block.timestamp.
+    // `sendRequests` derives its bundle-simulate timestamp from `getCurrentL2Slot()`, so if the
+    // dateProvider lags the chain the simulate runs at a stale slot and the rollup rejects the
+    // header with `HeaderLib__InvalidSlotNumber`.
+    await ethCheatCodes.syncDateProvider();
   };
 
   let port = 8545; // We increase the port for each test to avoid anvil conflicts
