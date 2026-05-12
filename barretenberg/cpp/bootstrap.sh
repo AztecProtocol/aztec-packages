@@ -267,7 +267,8 @@ function test_cmds_native {
 
   # The pinned IVC inputs / VKs live in the public repo; the private fork
   # carries divergent circuits so the check is expected to fail there.
-  if [[ "${GITHUB_REPOSITORY,,}" != "aztecprotocol/aztec-packages-private" ]]; then
+  local github_repository="${GITHUB_REPOSITORY:-}"
+  if [[ "${github_repository,,}" != "aztecprotocol/aztec-packages-private" ]]; then
     echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
   fi
 }

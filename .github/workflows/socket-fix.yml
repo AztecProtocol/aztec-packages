@@ -18,7 +18,7 @@ on:
       severity:
         description: "Minimum severity to fix (critical, high, medium, low)"
         required: false
-        default: "critical"
+        default: "high"
         type: choice
         options:
           - critical
@@ -50,4 +50,4 @@ jobs:
           SOCKET_SECURITY_API_TOKEN: ${{ secrets.SOCKET_SECURITY_API_TOKEN }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: ./.github/ci3.sh socket-fix ${{ inputs.severity || 'critical' }}
+        run: ./.github/ci3.sh socket-fix ${{ inputs.severity || 'high' }}

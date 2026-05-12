@@ -196,10 +196,11 @@ jobs:
       matrix:
         test_set: ["1", "2"]
     # We run on current nightly tags only, or when the ci-network-scenario label is present in a PR.
-    needs: [ci, validate-nightly-tag]
+    needs: [ci, validate-nightly-tag, ci-release-publish]
     if: |
       always()
       && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
+      && (needs.ci-release-publish.result == 'success' || needs.ci-release-publish.result == 'skipped')
       && github.event.pull_request.head.repo.fork != true
       && github.event.pull_request.draft == false
       && (
