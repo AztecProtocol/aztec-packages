@@ -581,21 +581,31 @@ export class SequencerPublisher {
 
     const l1Constants = this.epochCache.getL1Constants();
     const targetTimestamp = getTimestampForSlot(targetSlot, l1Constants);
-    // Predict the actual next-L1-block timestamp. Under healthy L1 mining this equals
-    // `latest.timestamp + ethereumSlotDuration`, which lines up with `targetTimestamp` because
-    // sendRequestsAt wakes one L1 slot before the target. If L1 is mining off-cadence (e.g.
-    // missed L1 slots, anvil with overridden timestamps), the prediction can diverge and land
-    // in the prior L2 slot — propose's `validateHeader` checks
-    // `slotFromTimestamp(block.timestamp) == headerSlot`, so we must catch the divergence here
-    // or the propose would revert silently inside multicall on send.
-    // We take the min of (predicted, target) so that in the off-cadence case we surface the
+    // Pick the simulate `block.timestamp` override based on bundle composition.
+    //
+    // For bundles containing a propose: propose's `validateHeader` checks
+    // `slotFromTimestamp(block.timestamp) == headerSlot`. If L1 is mining off-cadence (e.g.
+    // missed L1 slots, anvil with overridden timestamps), the actual next-L1-block timestamp
+    // can land in the prior L2 slot, so propose would revert silently inside multicall on send.
+    // We predict the next-L1-block timestamp and take `min(predicted, target)` to surface the
     // revert at simulate time and drop the propose; in the healthy case both are equal.
-    const latestL1Block = await this.l1TxUtils.client.getBlock({
-      blockTag: 'latest',
-      includeTransactions: false,
-    });
-    const predictedNextL1Ts = latestL1Block.timestamp + this.ethereumSlotDuration;
-    const simulateTimestamp = predictedNextL1Ts < targetTimestamp ? predictedNextL1Ts : targetTimestamp;
+    //
+    // For bundles without propose (slasher/governance signals, slash execution, invalidations):
+    // these actions verify EIP-712 signatures against the slot derived from `block.timestamp`
+    // (see `EmpireBase._internalSignal` → `selection.getCurrentProposer()`). The validator
+    // signed for `targetSlot`, so simulating at any other timestamp will recover a different
+    // proposer and the signature check reverts with `SignatureLib__InvalidSignature` even
+    // though the on-chain submission at `targetSlot` would succeed. Use `targetTimestamp` in
+    // this path to match what the validator signed for.
+    let simulateTimestamp = targetTimestamp;
+    if (hasProposeAction) {
+      const latestL1Block = await this.l1TxUtils.client.getBlock({
+        blockTag: 'latest',
+        includeTransactions: false,
+      });
+      const predictedNextL1Ts = latestL1Block.timestamp + this.ethereumSlotDuration;
+      simulateTimestamp = predictedNextL1Ts < targetTimestamp ? predictedNextL1Ts : targetTimestamp;
+    }
 
     const simulateBundle = (requests: RequestWithExpiry[]) => {
       const calldata = encodeFunctionData({
