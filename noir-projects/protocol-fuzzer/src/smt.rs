@@ -289,7 +289,7 @@ macro_rules! state_machine_seed {
 mod tests {
     use arbitrary::{Result, Unstructured};
 
-    use super::{fixed_size_builder, seeded_builder, StateMachine};
+    use super::{StateMachine, fixed_size_builder, seeded_builder};
 
     /// A sample System Under Test.
     struct Counter {

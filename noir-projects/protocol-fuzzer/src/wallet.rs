@@ -400,7 +400,9 @@ fn with_retry<T>(label: &str, f: impl Fn() -> anyhow::Result<T>) -> anyhow::Resu
             Ok(v) => return Ok(v),
             Err(e) if attempt < MAX_RETRIES && is_transient_error(&e) => {
                 attempt += 1;
-                log::warn!("Transient error on {label} (attempt {attempt}/{MAX_RETRIES}): {e}, retrying...");
+                log::warn!(
+                    "Transient error on {label} (attempt {attempt}/{MAX_RETRIES}): {e}, retrying..."
+                );
                 std::thread::sleep(Duration::from_secs(2));
             }
             Err(e) => return Err(e),

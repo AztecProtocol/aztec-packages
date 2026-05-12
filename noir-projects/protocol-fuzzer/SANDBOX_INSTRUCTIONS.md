@@ -1,7 +1,7 @@
 # Protocol Fuzzer: Running with Nightly Docker Sandbox
 
 > **For local development** (no Docker), use `setup-local.sh` instead. It starts
-> anvil, the Aztec node, compiles contracts, and launches the bridge — all on the
+> anvil, the Aztec node, compiles contracts, and launches the bridge -- all on the
 > host. See `README.md` for quick-start instructions.
 
 ## Overview
@@ -252,7 +252,7 @@ Custom contract for testing side-effect processing:
 - `call_view_notes_many` / `call_get_notes_many` -- query notes (returns `[u128; 2]`)
 - `emit_nullifier` / `test_settled_nullifier_inclusion` -- nullifier operations
 - `test_note_inclusion` -- prove note exists in the tree
-- `send_l2_to_l1_message` -- emit an L2→L1 message
+- `send_l2_to_l1_message` -- emit an L2->L1 message
 - `emit_private_log` -- emit a private log with tag and content
 - `request_ovsk_app` -- exercise key validation request
 - `test_setting_teardown` / `dummy_public_call` -- exercise public teardown execution

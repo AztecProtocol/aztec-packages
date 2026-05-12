@@ -8,9 +8,9 @@ Two machines are available:
   operations (public and private), tracking balances and total supply.
 - **side-effect** -- deploys custom `SideEffect` and `Parent` contracts, then fuzzes
   note lifecycle (create, destroy, view, get, partial notes), nullifier emission,
-  L2→L1 messages, private logs, key validation requests, public teardown calls,
+  L2->L1 messages, private logs, key validation requests, public teardown calls,
   and cross-contract calls. Verifies note values against the model, nullifier
-  uniqueness, L2→L1 message hashes in TxEffect, and private logs against the
+  uniqueness, L2->L1 message hashes in TxEffect, and private logs against the
   model (each emission discoverable via siloed tag, plus per-tag completeness:
   no earlier log gets dropped or overwritten).
 
@@ -60,7 +60,7 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 > **Note:** `--artifacts-dir` is resolved on the host and sent as-is to the bridge.
 > For **local** setup the bridge runs on the host, so use the real path (e.g.
 > `contracts/target`). For **nightly Docker** the bridge runs inside the container,
-> so the path must be valid inside it — the default `/tmp` works because the nightly
+> so the path must be valid inside it -- the default `/tmp` works because the nightly
 > script places artifacts at `/tmp/*.json` inside the container.
 
 ### Parallel batching
@@ -70,19 +70,19 @@ same block. This reduces N sequential transactions from N*5s to ~5s.
 
 Commands fall into three categories (see `changes_model()` / `flushes_batch()` in `machine.rs`):
 
-- **Stateful sends** — create notes, emit nullifiers, send L2→L1 messages, emit private logs.
+- **Stateful sends** -- create notes, emit nullifiers, send L2->L1 messages, emit private logs.
   Batched together when non-conflicting.
-- **Queries** — view/get notes, test note/nullifier inclusion. Flush the pending batch first
+- **Queries** -- view/get notes, test note/nullifier inclusion. Flush the pending batch first
   since they need to observe prior committed state. Some are on-chain sends (e.g.
   `TestNoteInclusion` exercises kernel verification) but still flush the batch.
-- **Kernel exercisers** — key validation (`RequestOvskApp`), public teardown
+- **Kernel exercisers** -- key validation (`RequestOvskApp`), public teardown
   (`TestSettingTeardown`). On-chain sends that don't change model state and don't need the
-  batch flushed — they batch freely with other sends.
+  batch flushed -- they batch freely with other sends.
 
 Conflict rules (conservative -- false positives only reduce batch size):
 - **token**: two commands on the same token conflict (shared total supply)
 - **side-effect**: two commands on the same (storage_slot, owner) or same nullifier value conflict;
-  L2→L1 messages, private logs, key validation, and teardown are conflict-free with all sends
+  L2->L1 messages, private logs, key validation, and teardown are conflict-free with all sends
 
 ## Smoke Tests
 
@@ -108,7 +108,7 @@ because the two have incompatible APIs (e.g. `RetrievedNote` / `destroy_note_uns
 with oracle calls (like `utilityLog`) that the nightly PXE doesn't support.
 
 - **SideEffect** (`contracts/side_effect_contract/`) -- note lifecycle, nullifier ops,
-  L2→L1 messages, private logs, key validation, public teardown
+  L2->L1 messages, private logs, key validation, public teardown
 - **Parent** (`contracts/parent_contract/`) -- forwards calls to SideEffect for
   cross-contract call testing
 
