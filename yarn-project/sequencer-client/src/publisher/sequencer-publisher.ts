@@ -7,7 +7,7 @@ import {
   type GovernanceProposerContract,
   MULTI_CALL_3_ADDRESS,
   Multicall3,
-  RollupContract,
+  type RollupContract,
   type SimulationOverridesPlan,
   type SlashingProposerContract,
   buildSimulationOverridesStateOverride,
@@ -24,7 +24,6 @@ import {
   WEI_CONST,
 } from '@aztec/ethereum/l1-tx-utils';
 import { FormattedViemError, formatViemError, mergeAbis, tryExtractEvent } from '@aztec/ethereum/utils';
-import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { trimmedBytesLength } from '@aztec/foundation/buffer';
 import { pick } from '@aztec/foundation/collection';
@@ -58,6 +57,7 @@ import {
 
 import type { SequencerPublisherConfig } from './config.js';
 import { type FailedL1Tx, type L1TxFailedStore, createL1TxFailedStore } from './l1_tx_failed_store/index.js';
+import { SequencerBundleSimulator } from './sequencer-bundle-simulator.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 
 /**
@@ -133,10 +133,9 @@ export type InvalidateCheckpointRequest = {
 
 type EnqueueProposeCheckpointOpts = {
   txTimeoutAt?: Date;
-  simulationOverridesPlan?: SimulationOverridesPlan;
 };
 
-interface RequestWithExpiry {
+export interface RequestWithExpiry {
   action: Action;
   request: L1TxRequest;
   lastValidL2Slot: SlotNumber;
@@ -152,8 +151,8 @@ interface RequestWithExpiry {
 
 export class SequencerPublisher {
   private interrupted = false;
-  private multicall3HasCode?: boolean;
   private metrics: SequencerPublisherMetrics;
+  private bundleSimulator: SequencerBundleSimulator;
   public epochCache: EpochCache;
   private failedTxStore?: Promise<L1TxFailedStore | undefined>;
 
@@ -254,6 +253,13 @@ export class SequencerPublisher {
 
     // Initialize failed L1 tx store (optional, for test networks)
     this.failedTxStore = createL1TxFailedStore(config.l1TxFailedStore, this.log);
+
+    this.bundleSimulator = new SequencerBundleSimulator({
+      getL1TxUtils: () => this.l1TxUtils,
+      rollupContract: this.rollupContract,
+      epochCache: this.epochCache,
+      log: createLogger('sequencer:publisher:bundle-simulator'),
+    });
   }
 
   /**
@@ -433,44 +439,35 @@ export class SequencerPublisher {
     // This ensures the committee gets precomputed correctly
     validRequests.sort((a, b) => compareActions(a.action, b.action));
 
-    // Backup helper for entries dropped by bundle simulation before any tx is sent.
-    const backupDroppedInSim = async (dropped: RequestWithExpiry[]) => {
-      if (dropped.length === 0) {
-        return;
-      }
-      const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-      for (const req of dropped) {
-        this.backupFailedTx({
-          id: keccak256(req.request.data!),
-          failureType: 'simulation',
-          request: { to: req.request.to! as Hex, data: req.request.data! },
-          l1BlockNumber: l1BlockNumber.toString(),
-          error: { message: 'Bundle entry dropped: action reverted in sim' },
-          context: {
-            actions: [req.action],
-            sender: this.getSenderAddress().toString(),
-          },
-        });
-      }
-    };
-
     try {
       // Bundle-level eth_simulateV1: filters out entries that revert and derives the gasLimit.
-      const bundleResult = await this.bundleSimulate(validRequests, currentL2Slot);
-      if (bundleResult === undefined) {
-        // All entries were dropped by simulation — back them up before aborting.
-        void backupDroppedInSim(validRequests);
+      const bundleResult = await this.bundleSimulator.simulate(validRequests, currentL2Slot);
+
+      if (bundleResult.kind === 'aborted') {
+        void this.backupDroppedInSim(bundleResult.droppedRequests);
         return undefined;
       }
-      const { requests: survivingRequests, gasLimit } = bundleResult;
-      const droppedInSim = validRequests.filter(r => !survivingRequests.includes(r));
-      void backupDroppedInSim(droppedInSim);
+
+      let survivingRequests: RequestWithExpiry[];
+      let gasLimit: bigint;
+      let droppedInSim: RequestWithExpiry[];
+
+      if (bundleResult.kind === 'fallback') {
+        // eth_simulateV1 unavailable — send the full bundle as-is with a safe gas limit.
+        survivingRequests = validRequests;
+        gasLimit = MAX_L1_TX_LIMIT;
+        droppedInSim = [];
+      } else {
+        survivingRequests = bundleResult.requests;
+        gasLimit = bundleResult.gasLimit;
+        droppedInSim = bundleResult.droppedRequests;
+        void this.backupDroppedInSim(droppedInSim);
+      }
+
       const sentActions = survivingRequests.map(x => x.action);
 
-      // @note - we can only have one blob config per bundle
       // Compute blobConfig from survivors (not original validRequests) so that if the propose
       // entry was dropped by bundleSimulate we don't attach a blob-typed config to a non-blob tx.
-      // See https://github.com/AztecProtocol/aztec-packages/issues/11513
       const survivorBlobConfigs = survivingRequests.filter(r => r.blobConfig).map(r => r.blobConfig);
       if (survivorBlobConfigs.length > 1) {
         throw new Error('Multiple blob configs found');
@@ -527,205 +524,25 @@ export class SequencerPublisher {
     }
   }
 
-  /** Checks (once, then caches) that Multicall3 bytecode is deployed at MULTI_CALL_3_ADDRESS. */
-  private async ensureMulticall3Deployed(): Promise<boolean> {
-    if (this.multicall3HasCode !== undefined) {
-      return this.multicall3HasCode;
+  /** Backs up entries dropped by bundle simulation, one record per dropped action. */
+  private async backupDroppedInSim(dropped: RequestWithExpiry[]): Promise<void> {
+    if (dropped.length === 0) {
+      return;
     }
-    this.multicall3HasCode = await Multicall3.hasCode(this.l1TxUtils);
-    if (!this.multicall3HasCode) {
-      this.log.error('Multicall3 bytecode missing at MULTI_CALL_3_ADDRESS; cannot send bundled tx');
-    }
-    return this.multicall3HasCode;
-  }
-
-  /**
-   * Bundle-level eth_simulateV1 of the assembled aggregate3 payload. Returns the filtered
-   * survivor list and the gasLimit to use on the real send. Returns undefined if the bundle
-   * is empty after filtering, or if the Multicall3 contract is missing.
-   *
-   * Per-entry results are read from the aggregate3 Result[] return. Entries with success=false
-   * are dropped from the bundle (the user's votes/slashing/invalidate continue even if propose
-   * fails). The reduced bundle is re-simulated to get an accurate gasUsed.
-   *
-   * If eth_simulateV1 is not supported (fallback path), per-entry filtering is skipped and we
-   * use MAX_L1_TX_LIMIT as a conservative bundle gasLimit.
-   */
-  private async bundleSimulate(
-    validRequests: RequestWithExpiry[],
-    targetSlot: SlotNumber,
-  ): Promise<{ requests: RequestWithExpiry[]; gasLimit: bigint } | undefined> {
-    if (!(await this.ensureMulticall3Deployed())) {
-      return undefined;
-    }
-
-    const hasProposeAction = validRequests.some(r => r.action === 'propose');
-    const proposeRequest = validRequests.find(r => r.action === 'propose');
-
-    // eth_simulateV1 cannot carry blob sidecar data, so disable the on-chain blob check when
-    // a propose is in the bundle. Nothing else needs a state override.
-    const stateOverrides = hasProposeAction
-      ? [
-          {
-            address: this.rollupContract.address,
-            stateDiff: [
-              {
-                slot: toPaddedHex(RollupContract.checkBlobStorageSlot, true),
-                value: toPaddedHex(0n, true),
-              },
-            ],
-          },
-        ]
-      : [];
-
-    const l1Constants = this.epochCache.getL1Constants();
-    const targetTimestamp = getTimestampForSlot(targetSlot, l1Constants);
-    // Pick the simulate `block.timestamp` override based on bundle composition.
-    //
-    // For bundles containing a propose: propose's `validateHeader` checks
-    // `slotFromTimestamp(block.timestamp) == headerSlot`. If L1 is mining off-cadence (e.g.
-    // missed L1 slots, anvil with overridden timestamps), the actual next-L1-block timestamp
-    // can land in the prior L2 slot, so propose would revert silently inside multicall on send.
-    // We predict the next-L1-block timestamp and take `min(predicted, target)` to surface the
-    // revert at simulate time and drop the propose; in the healthy case both are equal.
-    //
-    // For bundles without propose (slasher/governance signals, slash execution, invalidations):
-    // these actions verify EIP-712 signatures against the slot derived from `block.timestamp`
-    // (see `EmpireBase._internalSignal` → `selection.getCurrentProposer()`). The validator
-    // signed for `targetSlot`, so simulating at any other timestamp will recover a different
-    // proposer and the signature check reverts with `SignatureLib__InvalidSignature` even
-    // though the on-chain submission at `targetSlot` would succeed. Use `targetTimestamp` in
-    // this path to match what the validator signed for.
-    let simulateTimestamp = targetTimestamp;
-    if (hasProposeAction) {
-      const latestL1Block = await this.l1TxUtils.client.getBlock({
-        blockTag: 'latest',
-        includeTransactions: false,
+    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+    for (const req of dropped) {
+      this.backupFailedTx({
+        id: keccak256(req.request.data!),
+        failureType: 'simulation',
+        request: { to: req.request.to! as Hex, data: req.request.data! },
+        l1BlockNumber: l1BlockNumber.toString(),
+        error: { message: 'Bundle entry dropped: action reverted in sim' },
+        context: {
+          actions: [req.action],
+          sender: this.getSenderAddress().toString(),
+        },
       });
-      const predictedNextL1Ts = latestL1Block.timestamp + this.ethereumSlotDuration;
-      simulateTimestamp = predictedNextL1Ts < targetTimestamp ? predictedNextL1Ts : targetTimestamp;
     }
-
-    /**
-     * Runs Multicall3.simulateAggregate3 on the given requests and decodes the per-entry Result[].
-     * Returns `{ survivors, droppedActions, gasUsed }` with survivors filtered to entries
-     * that did not revert. Returns `undefined` on throw or when the node does not support
-     * eth_simulateV1, so the caller can fall back to the unfiltered list.
-     */
-    const simulateAndDecode = async (
-      requests: RequestWithExpiry[],
-    ): Promise<{ survivors: RequestWithExpiry[]; droppedActions: Action[]; gasUsed: bigint } | undefined> => {
-      let simResult: Awaited<ReturnType<typeof Multicall3.simulateAggregate3>>;
-      try {
-        simResult = await Multicall3.simulateAggregate3(
-          requests.map(r => ({ to: r.request.to! as Hex, data: r.request.data! as Hex, abi: r.request.abi })),
-          this.l1TxUtils,
-          {
-            blockOverrides: { time: simulateTimestamp, gasLimit: MAX_L1_TX_LIMIT * 2n },
-            stateOverrides,
-            gas: MAX_L1_TX_LIMIT,
-            fallbackGasEstimate: MAX_L1_TX_LIMIT,
-          },
-        );
-      } catch (err) {
-        this.log.warn('Bundle simulate threw; skipping per-entry filtering', {
-          err: formatViemError(err),
-          actions: requests.map(r => r.action),
-        });
-        return undefined;
-      }
-
-      if (simResult.kind === 'fallback') {
-        this.log.warn('Bundle simulate returned fallback (eth_simulateV1 unavailable); skipping per-entry filtering', {
-          gasUsed: simResult.gasUsed,
-          actions: requests.map(r => r.action),
-        });
-        return undefined;
-      }
-
-      const survivors: RequestWithExpiry[] = [];
-      const droppedActions: Action[] = [];
-      for (let i = 0; i < requests.length; i++) {
-        const entry = simResult.entries[i];
-        if (entry.success) {
-          survivors.push(requests[i]);
-        } else {
-          const req = requests[i];
-          droppedActions.push(req.action);
-          this.log.warn('Bundle entry dropped: action reverted in sim', {
-            action: req.action,
-            revertReason: entry.revertReason ?? entry.returnData,
-            returnData: entry.returnData,
-          });
-        }
-      }
-
-      return { survivors, droppedActions, gasUsed: simResult.gasUsed };
-    };
-
-    // First pass: simulate the full bundle.
-    const firstPass = await simulateAndDecode(validRequests);
-
-    // Fallback: eth_simulateV1 unavailable or threw — skip per-entry filtering.
-    if (firstPass === undefined) {
-      return { requests: validRequests, gasLimit: MAX_L1_TX_LIMIT };
-    }
-
-    if (firstPass.survivors.length === 0) {
-      this.log.warn('All bundle entries dropped in sim; aborting send', {
-        actions: validRequests.map(r => r.action),
-      });
-      return undefined;
-    }
-
-    // Second pass: re-simulate the reduced bundle when entries were dropped, both to get
-    // an accurate gasUsed and to catch any entries that still revert after the reduction.
-    let survivingRequests: RequestWithExpiry[];
-    let bundleGasUsed: bigint;
-
-    if (firstPass.droppedActions.length > 0) {
-      const secondPass = await simulateAndDecode(firstPass.survivors);
-
-      if (secondPass === undefined) {
-        // Re-simulate threw or returned fallback — keep first-pass survivors, use MAX gas.
-        survivingRequests = firstPass.survivors;
-        bundleGasUsed = MAX_L1_TX_LIMIT;
-      } else {
-        survivingRequests = secondPass.survivors;
-        bundleGasUsed = secondPass.gasUsed;
-
-        if (survivingRequests.length === 0) {
-          this.log.warn('All bundle entries dropped after re-simulate; aborting send', {
-            actions: firstPass.survivors.map(r => r.action),
-          });
-          return undefined;
-        }
-      }
-    } else {
-      survivingRequests = firstPass.survivors;
-      bundleGasUsed = firstPass.gasUsed;
-    }
-
-    // gasLimit = bumpGasLimit(ceil(gasUsed * 64 / 63)), plus blobEvaluationGas if propose survived.
-    const gasUsedWithEip150 = (bundleGasUsed * 64n + 62n) / 63n;
-    let gasLimit = this.l1TxUtils.bumpGasLimit(gasUsedWithEip150);
-    if (hasProposeAction && proposeRequest?.blobEvaluationGas && survivingRequests.includes(proposeRequest)) {
-      gasLimit += proposeRequest.blobEvaluationGas;
-    }
-    // Never exceed the L1 block gas limit.
-    if (gasLimit > MAX_L1_TX_LIMIT) {
-      gasLimit = MAX_L1_TX_LIMIT;
-    }
-
-    this.log.debug('Bundle simulate complete', {
-      totalRequests: validRequests.length,
-      survivingRequests: survivingRequests.length,
-      bundleGasUsed,
-      gasLimit,
-      actions: survivingRequests.map(r => r.action),
-    });
-
-    return { requests: survivingRequests, gasLimit };
   }
 
   /**

@@ -573,7 +573,7 @@ describe('SequencerPublisher', () => {
       expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
     });
 
-    it('falls back to MAX_L1_TX_LIMIT when second-pass simulate returns 0x', async () => {
+    it('aborts the send when second-pass simulate returns fallback', async () => {
       addTwoRequests();
 
       // First simulate: propose fails.
@@ -590,15 +590,11 @@ describe('SequencerPublisher', () => {
         .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
         .mockResolvedValueOnce({ gasUsed: 1_000_000n, result: '0x' });
 
-      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, errorMsg: undefined });
-
       const result = await publisher.sendRequests();
 
-      expect(result).toBeDefined();
-      expect(result?.sentActions).toEqual(['invalidate-by-invalid-attestation']);
-      // Gas falls back to MAX_L1_TX_LIMIT when second-pass returns '0x'.
-      const gasLimit = forwardSpy.mock.calls[0][2]?.gasLimit;
-      expect(gasLimit).toEqual(MAX_L1_TX_LIMIT);
+      expect(result).toBeUndefined();
+      expect(forwardSpy).not.toHaveBeenCalled();
+      expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
     });
   });
 
