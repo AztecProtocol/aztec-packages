@@ -2,7 +2,10 @@
   "name": "@aztec/end-to-end",
   "version": "0.0.0",
   "type": "module",
-  "exports": "./dest/index.js",
+  "exports": {
+    ".": "./dest/index.js",
+    "./*": "./dest/*"
+  },
   "inherits": [
     "../package.common.json",
     "./package.local.json"

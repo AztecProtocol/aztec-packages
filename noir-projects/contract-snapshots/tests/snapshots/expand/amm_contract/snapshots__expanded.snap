@@ -2,6 +2,7 @@
 source: tests/snapshots.rs
 expression: stdout
 ---
+
 use aztec::macros::aztec;
 use aztec::macros::aztec;
 
@@ -333,9 +334,12 @@ pub contract AMM {
         })
     }
 
-    /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash (non-siloed).
+    /// Unpacks an array into a note corresponding to `note_type_id` and then computes its note hash
+    /// (non-siloed).
     /// 
-    /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHash` type, and so it can be used to call functions from that module such as `do_sync_state` and `attempt_note_discovery`.
+    /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteHash` type,
+    /// and so it can be used to call functions from that module such as `do_sync_state` and
+    /// `process_private_note_msg`.
     /// 
     /// This function is automatically injected by the `#[aztec]` macro.
     #[contract_library_method]
@@ -358,7 +362,9 @@ pub contract AMM {
 
     /// Computes a note's inner nullifier (non-siloed) given its unique note hash, preimage and extra data.
     /// 
-    /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteNullifier` type, and so it can be used to call functions from that module such as `do_sync_state` and `attempt_note_discovery`.
+    /// The signature of this function notably matches the `aztec::messages::discovery::ComputeNoteNullifier`
+    /// type, and so it can be used to call functions from that module such as `do_sync_state` and
+    /// `process_private_note_msg`.
     /// 
     /// This function is automatically injected by the `#[aztec]` macro.
     #[contract_library_method]
