@@ -20,6 +20,45 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 } // namespace
 
+TEST(BlockConstraintMemOpEncoding, ReadFlagFalseDecodesAsRead)
+{
+    Acir::Opcode::MemoryInit mem_init{
+        .block_id = Acir::BlockId{ .value = 0 },
+        .init = { Acir::Witness{ .value = 0 } },
+        .block_type = Acir::BlockType{ .value = Acir::BlockType::CallData{ .value = 0 } },
+    };
+    BlockConstraint block = memory_init_to_block_constraint(mem_init);
+
+    Acir::Opcode::MemoryOp mem_op{
+        .block_id = Acir::BlockId{ .value = 0 },
+        .op = Acir::MemOp{ .read = false, .index = Acir::Witness{ .value = 1 }, .value = Acir::Witness{ .value = 2 } },
+    };
+
+    EXPECT_NO_THROW(add_memory_op_to_block_constraint(mem_op, block));
+
+    ASSERT_EQ(block.trace.size(), 1);
+    EXPECT_EQ(block.trace[0].access_type, AccessType::Read);
+    EXPECT_EQ(block.trace[0].index.index, 1);
+    EXPECT_EQ(block.trace[0].value.index, 2);
+}
+
+TEST(BlockConstraintMemOpEncoding, AccessTypeEncodesToReadFlag)
+{
+    const MemOp read_op{
+        .access_type = AccessType::Read,
+        .index = WitnessOrConstant<bb::fr>::from_index(1),
+        .value = WitnessOrConstant<bb::fr>::from_index(2),
+    };
+    const MemOp write_op{
+        .access_type = AccessType::Write,
+        .index = WitnessOrConstant<bb::fr>::from_index(3),
+        .value = WitnessOrConstant<bb::fr>::from_index(4),
+    };
+
+    EXPECT_FALSE(mem_op_to_acir_mem_op(read_op).read);
+    EXPECT_TRUE(mem_op_to_acir_mem_op(write_op).read);
+}
+
 /**
  * @brief Utility method to add read/write operations with constant indices/values
  */
