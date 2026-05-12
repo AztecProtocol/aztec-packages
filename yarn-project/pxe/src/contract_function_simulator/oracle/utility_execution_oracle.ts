@@ -29,7 +29,7 @@ import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs'
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule, IndexedTxEffect, OffchainEffect, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule, IndexedTxEffect, OffchainEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
@@ -788,6 +788,23 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     return this.ephemeralArrayService.newArray(maybeMessageContexts.map(MessageContext.toSerializedOption));
+  }
+
+  /**
+   * Fetches the effects of a transaction by its hash. Returns null if the tx is not found or is beyond the anchor
+   * block.
+   */
+  public async getTxEffect(txHash: TxHash): Promise<TxEffect | null> {
+    if (txHash.hash.isZero()) {
+      throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
+    }
+
+    const txEffect = await this.aztecNode.getTxEffect(txHash);
+    if (!txEffect || txEffect.l2BlockNumber > this.anchorBlockHeader.getBlockNumber()) {
+      return null;
+    }
+
+    return txEffect.data;
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {

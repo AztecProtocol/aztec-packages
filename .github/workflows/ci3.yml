@@ -456,9 +456,6 @@ jobs:
   # Escape hatch: ci-skip-compat-e2e label makes failures non-blocking on release PRs.
   ci-compat-e2e:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: read
     needs: [ci]
     if: |
       always()
@@ -478,17 +475,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-          aws-region: us-east-2
-          role-session-name: ci3-compat-e2e-${{ github.run_id }}
-          role-duration-seconds: 21600 # 6h – covers AWS_SHUTDOWN_TIME (300 min) + 60 min buffer
-
       - name: Run Backwards Compatibility E2E Tests
         timeout-minutes: 330
         env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
