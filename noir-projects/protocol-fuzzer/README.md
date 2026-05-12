@@ -55,6 +55,9 @@ cargo run -- side-effect --max-steps 100000 --seed 0x5a7211231dcd6500
 --max-steps N         Max fuzzing steps (default: 400)
 --max-batch-size N    Max parallel sends per batch (default: 8)
 --artifacts-dir DIR   Contract artifact directory (side-effect only, default: /tmp)
+--include-one-shots   Include RequestOvskApp and TestSettingTeardown in the
+                      random command pool (side-effect only; off by default
+                      -- they always succeed and have no parameters to vary)
 ```
 
 > **Note:** `--artifacts-dir` is resolved on the host and sent as-is to the bridge.
@@ -101,20 +104,26 @@ Environment variables for tests:
 
 ## Contracts
 
-Contract sources live in `contracts/` within this crate, not in `noir-contracts/`. They
-must be compiled against the **nightly sandbox's aztec-nr**, not the repo's current branch,
-because the two have incompatible APIs (e.g. `RetrievedNote` / `destroy_note_unsafe` vs
-`ConfirmedNote` / `destroy_note`). Compiling against the repo's aztec-nr produces artifacts
-with oracle calls (like `utilityLog`) that the nightly PXE doesn't support.
+Contract sources live in `contracts/` within this crate, not in `noir-contracts/`.
 
 - **SideEffect** (`contracts/side_effect_contract/`) -- note lifecycle, nullifier ops,
   L2->L1 messages, private logs, key validation, public teardown
 - **Parent** (`contracts/parent_contract/`) -- forwards calls to SideEffect for
   cross-contract call testing
 
-Artifacts are built by `setup-local.sh` or `setup-nightly-sandbox.sh` and placed in
-`contracts/target/`. Pre-built artifacts are checked into git for convenience.
+Contracts must be compiled against the same aztec-nr as the node they'll be
+deployed to:
 
-The nightly setup script auto-detects the nightly commit by matching the container's
-nargo hash against `origin/next`. See `NIGHTLY_SANDBOX_INSTRUCTIONS.md` for the full build
-pipeline, version matrix, and troubleshooting.
+- **Local setup** uses the repo's current aztec-nr (the noir submodule + `noir-projects/aztec-nr/`).
+  `setup-local.sh` invokes the locally-built nargo + bb.
+- **Nightly Docker setup** compiles inside the container against the nightly image's
+  aztec-nr (which may diverge from `next`). `setup-nightly-sandbox.sh` extracts the
+  nightly's aztec-nr source by auto-detecting the matching nargo hash on `origin/next`,
+  then compiles there.
+
+Mixing them fails at deploy: artifacts compiled with one aztec-nr produce different
+class IDs / VK sizes than the other expects. Build artifacts land in `contracts/target/`
+(host) and `/tmp/` (container) and are not tracked in git.
+
+See `NIGHTLY_SANDBOX_INSTRUCTIONS.md` for the full nightly build pipeline, version
+matrix, and troubleshooting.

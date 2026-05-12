@@ -74,14 +74,10 @@ pub contract SideEffect {
         );
     }
 
-    // Partial-note flow: the private phase hashes the owner, storage slot, and
-    // a random nonce into a "partial commitment" (without the value), emits an
-    // encrypted log for the recipient, and enqueues a public call. The public
-    // phase fills in the value, pushes the final note hash, and emits a public
-    // log so the recipient can reconstruct the full note. This lets the value
-    // be determined by public state (e.g. a token swap amount that depends on
-    // the current pool price) while keeping the owner private. Here the value
-    // is known upfront, but we still exercise the cross-phase machinery.
+    // Exercises the partial-note cross-phase flow: the private phase commits to
+    // (owner, storage_slot, nonce) without the value and enqueues a public call
+    // that fills in the value and finalizes the note hash. The fuzzer treats
+    // this as model-equivalent to call_create_note.
     // Value must be non-zero (0 is the "no note found" sentinel).
     #[external("private")]
     fn call_create_and_complete_partial_note(
@@ -180,11 +176,10 @@ pub contract SideEffect {
         self.context.push_nullifier(nullifier);
     }
 
-    // Send a cross-chain message from L2 to L1. The base rollup circuit hashes
-    // (l2Sender, rollupVersion, l1Recipient, chainId, content) via sha256
-    // (sequencer-side, for EVM compatibility) and appends the hash to the
-    // TxEffect's l2ToL1Msgs array. An L1 contract can later verify the message
-    // against the rollup's outbox.
+    // Send a cross-chain L2->L1 message. The base rollup sha256-hashes
+    // (l2Sender, rollupVersion, l1Recipient, chainId, content) and appends the
+    // hash to TxEffect.l2ToL1Msgs; an L1 contract verifies it against the
+    // rollup outbox.
     #[external("private")]
     #[noinitcheck]
     fn send_l2_to_l1_message(content: Field, recipient: EthAddress) {
@@ -192,12 +187,10 @@ pub contract SideEffect {
     }
 
     // Emit a private log with a plaintext tag. Uses `emit_private_log_unsafe`
-    // which bypasses the ECDH-based sender/recipient tag derivation protocol --
-    // fields[0] is set to `tag` directly (the kernel then siloes it via
-    // poseidon2(contractAddr, tag)). The log body is padded to
-    // PRIVATE_LOG_CIPHERTEXT_LEN with zeros; only the first field (content)
-    // carries data. The fuzzer verifies discoverability by querying the node
-    // with the siloed tag.
+    // (bypasses the usual ECDH tag derivation) so the fuzzer can predict the
+    // siloed tag from (contractAddr, tag) and query the node for the log.
+    // Body padded to PRIVATE_LOG_CIPHERTEXT_LEN; only the first field carries
+    // data.
     #[external("private")]
     #[noinitcheck]
     fn emit_private_log(tag: Field, content: Field) {
