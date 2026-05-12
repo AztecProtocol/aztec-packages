@@ -393,6 +393,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         `Building on top of proposed checkpoint (pending=${syncedTo.proposedCheckpointData?.checkpointNumber}) for target slot ${targetSlot}`,
         { targetSlot, parentCheckpointNumber: CheckpointNumber(checkpointNumber - 1) },
       );
+      // Match what L1 will see at archives[pending] once the proposed parent lands: the parent's
+      // own archive root from the gossiped proposal. `syncedTo.archive` is the world-state-local
+      // view and can transiently diverge from the proposed parent (e.g. before the proposed
+      // parent's blocks have been applied locally); diverging here would cause the canProposeAt
+      // override to set archives[pending] to one value while we present another for comparison.
+      archiveForCheck = syncedTo.proposedCheckpointData!.archive.root;
       // Clear the invalidation - the proposed checkpoint should handle it.
       invalidateCheckpoint = undefined;
     } else if (invalidateCheckpoint) {
@@ -410,7 +416,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposedCheckpointData:
         isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
       invalidateToPendingCheckpointNumber: invalidateCheckpoint?.forcePendingCheckpointNumber,
-      lastArchiveRoot: isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.archive : undefined,
+      lastArchiveRoot:
+        isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData!.archive.root : undefined,
       rollup: this.rollupContract,
       log: this.log,
     });

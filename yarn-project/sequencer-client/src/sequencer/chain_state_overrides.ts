@@ -44,6 +44,19 @@ export async function buildCheckpointSimulationOverridesPlan(
     if (input.lastArchiveRoot !== undefined) {
       builder.withPendingArchive(input.lastArchiveRoot);
     }
+    // When pipelining with a proposed parent we must also override the parent's
+    // tempCheckpointLogs.slotNumber: without it `STFLib.canPruneAtTime` reads a slotNumber of 0
+    // for the overridden pending tip, decides the tip is in a long-expired epoch, and reports the
+    // chain as prunable. `getEffectivePendingCheckpointNumber` then collapses pending back to
+    // proven and the pending override is silently bypassed, producing a spurious
+    // `Rollup__InvalidArchive` against the on-chain genesis archive. The invalidate-only override
+    // path does not have a proposed parent to read the slot from; it relies on the absence of an
+    // unproven pending tip to avoid this code path.
+    if (input.proposedCheckpointData) {
+      builder.withPendingTempCheckpointLogFields({
+        slotNumber: input.proposedCheckpointData.header.slotNumber,
+      });
+    }
   }
   if (feeHeader) {
     builder.withPendingFeeHeader(feeHeader);

@@ -87,15 +87,21 @@ export class SimulationOverridesBuilder {
   }
 
   /**
-   * Overrides the locally-derivable `tempCheckpointLogs` cell fields for the configured pending
-   * checkpoint. Callers populate these together because they all come from the same proposed
-   * checkpoint payload — there is no use case for setting them independently.
+   * Overrides one or more `tempCheckpointLogs` cell fields for the configured pending checkpoint.
+   * Fields are independent: any subset can be provided. The translator (`makeTempCheckpointLogOverride`)
+   * emits a stateDiff entry per field actually set, so unspecified fields stay at their on-chain
+   * values.
+   *
+   * `slotNumber` is load-bearing for `STFLib.canPruneAtTime`: when the simulation overrides `pending`
+   * to a checkpoint that has no on-chain `tempCheckpointLogs` entry yet, the missing slotNumber falls
+   * back to 0 and the contract treats the pending tip as belonging to epoch 0, triggering a phantom
+   * prune that silently undoes the `pending` override.
    */
   public withPendingTempCheckpointLogFields(fields: {
-    headerHash: Fr;
-    outHash: Fr;
-    payloadDigest: Buffer32;
-    slotNumber: SlotNumber;
+    headerHash?: Fr;
+    outHash?: Fr;
+    payloadDigest?: Buffer32;
+    slotNumber?: SlotNumber;
   }): this {
     this.assertPendingCheckpointNumber();
     this.pendingCheckpointState = { ...(this.pendingCheckpointState ?? {}), ...fields };
