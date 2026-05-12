@@ -371,6 +371,9 @@ _release_defaults:
   blob_sink:
     replicaCount: 1
     env: {}
+  p2p_bootstrap:
+    replicaCount: 1
+    env: {}
   bot_transfers:
     bot: # subchart alias in aztec-bot
       replicaCount: 0

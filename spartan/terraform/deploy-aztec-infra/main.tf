@@ -35,14 +35,14 @@ locals {
   validator_ha_replica_cnt   = try(tonumber(local.d.VALIDATOR_HA_REPLICA_COUNT), null)
   validators_per_node        = tonumber(local.d.VALIDATORS_PER_NODE)
   validator_pubs_per_replica = tonumber(local.d.VALIDATOR_PUBLISHERS_PER_REPLICA)
-  validator_mnemonic_idx     = tonumber(local.d.VALIDATOR_MNEMONIC_START_INDEX)
+  validator_mnemonic_idx     = tonumber(local.d.LABS_INFRA_MNEMONIC_START_INDEX)
   validator_pub_mnemonic_idx = tonumber(local.d.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX)
   prover_replicas            = tonumber(local.d.PROVER_REPLICAS)
   prover_pub_mnemonic_idx    = tonumber(local.d.PROVER_PUBLISHER_MNEMONIC_START_INDEX)
   prover_pubs_per_prover     = tonumber(local.d.PUBLISHERS_PER_PROVER)
   rpc_replicas               = tonumber(local.d.RPC_REPLICAS)
   fisherman_replicas         = tonumber(local.d.FISHERMAN_REPLICAS)
-  fisherman_mnemonic_idx     = tonumber(local.d.FISHERMAN_MNEMONIC_START_INDEX)
+  fisherman_mnemonic_idx     = tonumber(local.d.LABS_INFRA_MNEMONIC_START_INDEX)
   full_node_replicas         = tonumber(local.d.FULL_NODE_REPLICAS)
   bot_transfers_replicas     = tonumber(local.d.BOT_TRANSFERS_REPLICAS)
   bot_swaps_replicas         = tonumber(local.d.BOT_SWAPS_REPLICAS)
@@ -55,8 +55,8 @@ locals {
   deploy_archival_node = tobool(local.d.DEPLOY_ARCHIVAL_NODE)
   prover_no_proof_pub  = tobool(local.d.PROVER_NODE_DISABLE_PROOF_PUBLISH)
   wait_for_prover      = try(tobool(local.d.WAIT_FOR_PROVER_DEPLOY), true)
-  p2p_nodeport_enabled = tobool(local.d.P2P_NODEPORT_ENABLED)
-  p2p_public_ip        = tobool(local.d.P2P_PUBLIC_IP)
+  p2p_nodeport_enabled = local.is_kind
+  p2p_public_ip        = !local.is_kind
 
   # Optional strings: "" means "not set" for legacy callers; null when the key
   # may be entirely absent.
@@ -132,7 +132,7 @@ module "web3signer" {
   RELEASE_NAME                             = local.d.RELEASE_PREFIX
   AZTEC_DOCKER_IMAGE                       = local.d.AZTEC_DOCKER_IMAGE
   CHAIN_ID                                 = local.d.L1_CHAIN_ID
-  MNEMONIC                                 = local.d.VALIDATOR_MNEMONIC
+  MNEMONIC                                 = local.d.LABS_INFRA_MNEMONIC
   ADDRESS_CONFIGMAP_NAME                   = "${local.d.RELEASE_PREFIX}-attester-addresses"
   ATTESTERS_PER_NODE                       = local.validators_per_node
   NODE_COUNT                               = local.max_validator_nodes
@@ -189,6 +189,19 @@ locals {
 
   # Detect local kind context (e.g., "kind-kind") to gate Service types
   is_kind = can(regex("^kind", local.d.K8S_CLUSTER_CONTEXT))
+
+  # Resource profiles: per-network YAML's deploy: block takes precedence; fall back to
+  # kind->dev, GKE->prod. This mirrors the old bash cascade without requiring the shell
+  # to pre-compute and inject each profile separately.
+  resource_profile_default       = local.is_kind ? "dev" : "prod"
+  validator_resource_profile     = try(local.d.VALIDATOR_RESOURCE_PROFILE, local.resource_profile_default)
+  prover_resource_profile        = try(local.d.PROVER_RESOURCE_PROFILE, local.resource_profile_default)
+  rpc_resource_profile           = try(local.d.RPC_RESOURCE_PROFILE, local.resource_profile_default)
+  full_node_resource_profile     = try(local.d.FULL_NODE_RESOURCE_PROFILE, local.resource_profile_default)
+  p2p_bootstrap_resource_profile = try(local.d.P2P_BOOTSTRAP_RESOURCE_PROFILE, local.resource_profile_default)
+  archive_resource_profile       = try(local.d.ARCHIVE_RESOURCE_PROFILE, local.resource_profile_default)
+  blob_sink_resource_profile     = try(local.d.BLOB_SINK_RESOURCE_PROFILE, local.resource_profile_default)
+  bot_resource_profile           = try(local.d.BOT_RESOURCE_PROFILE, local.resource_profile_default)
 
   internal_boot_node_url = local.deploy_internal_boot ? "http://${local.d.RELEASE_PREFIX}-p2p-bootstrap-node.${local.d.NAMESPACE}.svc.cluster.local:8080" : ""
 
@@ -279,7 +292,7 @@ locals {
     values = [
       "common.yaml",
       "validator.yaml",
-      "validator-resources-${local.d.VALIDATOR_RESOURCE_PROFILE}.yaml"
+      "validator-resources-${local.validator_resource_profile}.yaml"
     ]
     inline_values = [yamlencode({
       validator = {
@@ -314,13 +327,13 @@ locals {
     # K8s shape / cluster decisions (not pod env).
     "validator.service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
     "validator.web3signerUrl"               = "http://${local.d.RELEASE_PREFIX}-signer-web3signer.${local.d.NAMESPACE}.svc.cluster.local:9000/"
-    "validator.mnemonic"                    = local.d.VALIDATOR_MNEMONIC
+    "validator.mnemonic"                    = local.d.LABS_INFRA_MNEMONIC
     "validator.mnemonicStartIndex"          = local.validator_mnemonic_idx
     "validator.validatorsPerNode"           = local.validators_per_node
     "validator.publishersPerReplica"        = local.validator_pubs_per_replica
     "validator.publisherMnemonicStartIndex" = local.validator_pub_mnemonic_idx
     "validator.node.secret.envEnabled"      = true
-    "validator.node.secret.mnemonic"        = local.d.VALIDATOR_MNEMONIC
+    "validator.node.secret.mnemonic"        = local.d.LABS_INFRA_MNEMONIC
     "validator.node.secret.mnemonicIndex"   = local.validator_mnemonic_idx
     "validator.node.adminApiKeyHash"        = local.d.ADMIN_API_KEY_HASH
     # Renames: chart-side var name differs from pod env name.
@@ -386,7 +399,7 @@ locals {
       values = [
         "common.yaml",
         "p2p-bootstrap.yaml",
-        "p2p-bootstrap-resources-${local.d.P2P_BOOTSTRAP_RESOURCE_PROFILE}.yaml"
+        "p2p-bootstrap-resources-${local.p2p_bootstrap_resource_profile}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
@@ -412,7 +425,7 @@ locals {
       values = [
         "common.yaml",
         "prover.yaml",
-        "prover-resources-${local.d.PROVER_RESOURCE_PROFILE}.yaml"
+        "prover-resources-${local.prover_resource_profile}.yaml"
       ]
       inline_values = concat([yamlencode({
         node = {
@@ -433,10 +446,10 @@ locals {
       custom_settings = merge(
         {
           # Chart-shape / k8s shape.
-          "node.mnemonic"                    = local.d.PROVER_MNEMONIC
+          "node.mnemonic"                    = local.d.LABS_INFRA_MNEMONIC
           "node.mnemonicStartIndex"          = local.prover_pub_mnemonic_idx
           "node.node.secret.envEnabled"      = true
-          "node.node.secret.mnemonic"        = local.d.PROVER_MNEMONIC
+          "node.node.secret.mnemonic"        = local.d.LABS_INFRA_MNEMONIC
           "node.node.secret.mnemonicIndex"   = local.prover_pub_mnemonic_idx
           "node.service.p2p.nodePortEnabled" = local.p2p_nodeport_enabled
           "node.service.p2p.announcePort"    = local.p2p_port_prover
@@ -467,7 +480,7 @@ locals {
       values = [
         "common.yaml",
         "rpc.yaml",
-        "rpc-resources-${local.d.RPC_RESOURCE_PROFILE}.yaml"
+        "rpc-resources-${local.rpc_resource_profile}.yaml"
       ]
       inline_values = concat(local.rpc_ingress_enabled ? [yamlencode({
         service = {
@@ -521,7 +534,7 @@ locals {
       values = [
         "common.yaml",
         "rpc.yaml",
-        "rpc-resources-${local.d.RPC_RESOURCE_PROFILE}.yaml"
+        "rpc-resources-${local.rpc_resource_profile}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
@@ -537,7 +550,7 @@ locals {
         "service.p2p.announcePort"    = local.p2p_port_fisherman
         "service.p2p.port"            = local.p2p_port_fisherman
         "node.secret.envEnabled"      = true
-        "node.secret.mnemonic"        = local.d.FISHERMAN_MNEMONIC
+        "node.secret.mnemonic"        = local.d.LABS_INFRA_MNEMONIC
         "node.secret.mnemonicIndex"   = local.fisherman_mnemonic_idx
         "node.preStartScript"         = "source /scripts/get-private-key.sh"
         # Rename: chart-side var name differs from pod env name.
@@ -554,7 +567,7 @@ locals {
       values = [
         "common.yaml",
         "full-node.yaml",
-        "full-node-resources-${local.d.FULL_NODE_RESOURCE_PROFILE}.yaml"
+        "full-node-resources-${local.full_node_resource_profile}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
@@ -583,7 +596,7 @@ locals {
       values = [
         "common.yaml",
         "archive.yaml",
-        "archive-resources-${local.d.ARCHIVE_RESOURCE_PROFILE}.yaml"
+        "archive-resources-${local.archive_resource_profile}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
@@ -610,7 +623,7 @@ locals {
       values = [
         "common.yaml",
         "blob-sink.yaml",
-        "blob-sink-resources-${local.d.BLOB_SINK_RESOURCE_PROFILE}.yaml"
+        "blob-sink-resources-${local.blob_sink_resource_profile}.yaml"
       ]
       inline_values = [yamlencode({
         service = {
@@ -636,14 +649,14 @@ locals {
       values = [
         "common.yaml",
         "bot-token-transfer.yaml",
-        "bot-resources-${local.d.BOT_RESOURCE_PROFILE}.yaml",
+        "bot-resources-${local.bot_resource_profile}.yaml",
       ]
       custom_settings = merge(
         {
           "bot.replicaCount"       = local.bot_transfers_replicas
           "bot.env.AZTEC_NODE_URL" = local.internal_rpc_url
           "bot.botPrivateKey"      = try(local.d.BOT_TRANSFERS_L2_PRIVATE_KEY, "0xcafe01")
-          "bot.mnemonic"           = local.d.BOT_MNEMONIC
+          "bot.mnemonic"           = local.d.LABS_INFRA_MNEMONIC
           "bot.mnemonicStartIndex" = local.d.BOT_TRANSFERS_MNEMONIC_START_INDEX
         },
         try(local.d.BOT_DA_GAS_LIMIT, "") != "" ? { "bot.env.BOT_DA_GAS_LIMIT" = local.d.BOT_DA_GAS_LIMIT } : {},
@@ -661,14 +674,14 @@ locals {
       values = [
         "common.yaml",
         "bot-amm-swaps.yaml",
-        "bot-resources-${local.d.BOT_RESOURCE_PROFILE}.yaml",
+        "bot-resources-${local.bot_resource_profile}.yaml",
       ]
       custom_settings = merge(
         {
           "bot.replicaCount"       = local.bot_swaps_replicas
           "bot.env.AZTEC_NODE_URL" = local.internal_rpc_url
           "bot.botPrivateKey"      = try(local.d.BOT_SWAPS_L2_PRIVATE_KEY, "0xcafe02")
-          "bot.mnemonic"           = local.d.BOT_MNEMONIC
+          "bot.mnemonic"           = local.d.LABS_INFRA_MNEMONIC
           "bot.mnemonicStartIndex" = local.d.BOT_SWAPS_MNEMONIC_START_INDEX
         },
         try(local.d.BOT_DA_GAS_LIMIT, "") != "" ? { "bot.env.BOT_DA_GAS_LIMIT" = local.d.BOT_DA_GAS_LIMIT } : {},
@@ -686,14 +699,14 @@ locals {
       values = [
         "common.yaml",
         "bot-cross-chain.yaml",
-        "bot-resources-${local.d.BOT_RESOURCE_PROFILE}.yaml",
+        "bot-resources-${local.bot_resource_profile}.yaml",
       ]
       custom_settings = merge(
         {
           "bot.replicaCount"       = local.bot_cross_chain_replicas
           "bot.env.AZTEC_NODE_URL" = local.internal_rpc_url
           "bot.botPrivateKey"      = try(local.d.BOT_CROSS_CHAIN_L2_PRIVATE_KEY, "0xcafe03")
-          "bot.mnemonic"           = local.d.BOT_MNEMONIC
+          "bot.mnemonic"           = local.d.LABS_INFRA_MNEMONIC
           "bot.mnemonicStartIndex" = local.d.BOT_CROSS_CHAIN_MNEMONIC_START_INDEX
         },
         try(local.d.BOT_DA_GAS_LIMIT, "") != "" ? { "bot.env.BOT_DA_GAS_LIMIT" = local.d.BOT_DA_GAS_LIMIT } : {},

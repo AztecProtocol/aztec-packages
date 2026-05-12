@@ -52,23 +52,13 @@ declare -A STAGE_TIMINGS
 NAMESPACE=${NAMESPACE:?NAMESPACE is required (set in YAML deploy: block or env)}
 BASE_STATE_PATH="${CLUSTER}/${NAMESPACE}"
 
-# RESOURCE_PROFILE depends on the cluster (kind -> dev, otherwise prod). Each
-# release-specific profile cascades from RESOURCE_PROFILE unless overridden.
+# RESOURCE_PROFILE: kind -> dev, otherwise prod. Used by the eth-devnet module only;
+# per-release profiles are derived from is_kind in deploy-aztec-infra/main.tf.
 RESOURCE_PROFILE=${RESOURCE_PROFILE:-$([[ "${CLUSTER}" == "kind" ]] && echo "dev" || echo "prod")}
-BOT_RESOURCE_PROFILE=${BOT_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
-RPC_RESOURCE_PROFILE=${RPC_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
-FULL_NODE_RESOURCE_PROFILE=${FULL_NODE_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
-P2P_BOOTSTRAP_RESOURCE_PROFILE=${P2P_BOOTSTRAP_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
-VALIDATOR_RESOURCE_PROFILE=${VALIDATOR_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
-PROVER_RESOURCE_PROFILE=${PROVER_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
-ARCHIVE_RESOURCE_PROFILE=${ARCHIVE_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
-BLOB_SINK_RESOURCE_PROFILE=${BLOB_SINK_RESOURCE_PROFILE:-${RESOURCE_PROFILE}}
 
 # When unset, derive from default mnemonic index 0.
 ROLLUP_DEPLOYMENT_PRIVATE_KEY=${ROLLUP_DEPLOYMENT_PRIVATE_KEY:-$(cast wallet private-key --mnemonic "$LABS_INFRA_MNEMONIC" --mnemonic-index 0)}
 
-# PROVER_REAL_PROOFS mirrors REAL_VERIFIER (deploy-script flag).
-PROVER_REAL_PROOFS=${REAL_VERIFIER}
 
 # Max node count: max of primary (VALIDATOR_REPLICAS) and HA pod counts
 # Determines how many attester keys and addresses to generate
@@ -377,20 +367,11 @@ AZTEC_INFRA_START=$(date +%s)
 DEPLOY_AZTEC_INFRA_DIR="${SCRIPT_DIR}/../terraform/deploy-aztec-infra"
 "${SCRIPT_DIR}/override_terraform_backend.sh" "${DEPLOY_AZTEC_INFRA_DIR}" "${CLUSTER}" "${BASE_STATE_PATH}/deploy-aztec-infra"
 
-# Gate NodePort based on cluster (true for kind, false for GKE)
-if [[ "${CLUSTER}" == "kind" ]]; then
-  P2P_NODEPORT_ENABLED=true
-  P2P_PUBLIC_IP=false
-else
-  P2P_NODEPORT_ENABLED=false
-  P2P_PUBLIC_IP=${P2P_PUBLIC_IP:-true}
-fi
 
 # Build deploy-aztec-infra/terraform.tfvars.json from the YAML loader's
 # structured {deploy, env, releases} output plus deploy-time-computed values
-# overlaid on the deploy block (cluster context, image overrides, contract
-# addresses from the rollup-contracts step, admin API key hash, mnemonic
-# plumbing, P2P cluster gating, L1 endpoints, R2-derived URLs).
+# overlaid on the deploy block (cluster context, image, contract addresses,
+# admin API key hash, mnemonic, L1 endpoints).
 #
 # main.tf reads everything via var.deploy.<KEY> / var.env / var.releases --
 # no individual `variable "X"` declarations remain in variables.tf.
@@ -412,20 +393,9 @@ DEPLOY_OVERRIDES=$(jq -n \
   --arg registry "${REGISTRY_ADDRESS}" \
   --arg fee_handler "${FEE_ASSET_HANDLER_ADDRESS}" \
   --arg l1_chain_id "${ETHEREUM_CHAIN_ID}" \
-  --arg validator_mnemonic "${LABS_INFRA_MNEMONIC}" \
-  --arg p2p_nodeport_enabled "${P2P_NODEPORT_ENABLED}" \
-  --arg p2p_public_ip "${P2P_PUBLIC_IP}" \
+  --arg mnemonic "${LABS_INFRA_MNEMONIC}" \
   --arg gcp_project "${GCP_PROJECT_ID}" \
   --arg gcp_region "${GCP_REGION}" \
-  --arg validator_resource "${VALIDATOR_RESOURCE_PROFILE}" \
-  --arg prover_resource "${PROVER_RESOURCE_PROFILE}" \
-  --arg rpc_resource "${RPC_RESOURCE_PROFILE}" \
-  --arg full_node_resource "${FULL_NODE_RESOURCE_PROFILE}" \
-  --arg p2p_bootstrap_resource "${P2P_BOOTSTRAP_RESOURCE_PROFILE}" \
-  --arg archive_resource "${ARCHIVE_RESOURCE_PROFILE}" \
-  --arg blob_sink_resource "${BLOB_SINK_RESOURCE_PROFILE}" \
-  --arg bot_resource "${BOT_RESOURCE_PROFILE}" \
-  --arg prover_real_proofs "${PROVER_REAL_PROOFS}" \
   --argjson l1_rpc_urls "${L1_RPC_URLS_JSON}" \
   --argjson l1_consensus_urls "${L1_CONSENSUS_HOST_URLS_JSON}" \
   --argjson l1_consensus_keys "${L1_CONSENSUS_HOST_API_KEYS_JSON:-null}" \
@@ -447,21 +417,7 @@ DEPLOY_OVERRIDES=$(jq -n \
     L1_CONSENSUS_HOST_URLS: $l1_consensus_urls,
     L1_CONSENSUS_HOST_API_KEYS: $l1_consensus_keys,
     L1_CONSENSUS_HOST_API_KEY_HEADERS: $l1_consensus_headers,
-    VALIDATOR_MNEMONIC: $validator_mnemonic,
-    PROVER_MNEMONIC: $validator_mnemonic,
-    BOT_MNEMONIC: $validator_mnemonic,
-    FISHERMAN_MNEMONIC: $validator_mnemonic,
-    P2P_NODEPORT_ENABLED: $p2p_nodeport_enabled,
-    P2P_PUBLIC_IP: $p2p_public_ip,
-    VALIDATOR_RESOURCE_PROFILE: $validator_resource,
-    PROVER_RESOURCE_PROFILE: $prover_resource,
-    RPC_RESOURCE_PROFILE: $rpc_resource,
-    FULL_NODE_RESOURCE_PROFILE: $full_node_resource,
-    P2P_BOOTSTRAP_RESOURCE_PROFILE: $p2p_bootstrap_resource,
-    ARCHIVE_RESOURCE_PROFILE: $archive_resource,
-    BLOB_SINK_RESOURCE_PROFILE: $blob_sink_resource,
-    BOT_RESOURCE_PROFILE: $bot_resource,
-    PROVER_REAL_PROOFS: $prover_real_proofs,
+    LABS_INFRA_MNEMONIC: $mnemonic,
   }')
 
 echo "${LOADER_JSON}" | jq \
