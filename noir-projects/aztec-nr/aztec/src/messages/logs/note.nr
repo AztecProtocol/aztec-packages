@@ -19,10 +19,12 @@ pub(crate) global PRIVATE_NOTE_MSG_PLAINTEXT_RANDOMNESS_INDEX: u32 = 2;
 /// encryption overhead and extra fields in the message (e.g. message type id, storage slot, randomness, etc.).
 pub global MAX_NOTE_PACKED_LEN: u32 = MAX_MESSAGE_CONTENT_LEN - PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN;
 
-/// Creates the plaintext for a private note message (i.e. one of type [`PRIVATE_NOTE_MSG_TYPE_ID`]).
+/// Creates the plaintext for a private note message with the given `msg_type_id`.
 ///
-/// This plaintext is meant to be decoded via [`decode_private_note_message`].
-pub fn encode_private_note_message<Note>(
+/// Shared encoder used by [`encode_private_note_message`] and by custom message handlers that use the same format as
+/// standard private note message but perform additional validation logic.
+pub fn encode_private_note_message_with_msg_type_id<Note>(
+    msg_type_id: u64,
     note: Note,
     owner: AztecAddress,
     storage_slot: Field,
@@ -49,7 +51,28 @@ where
     }
 
     // Notes use the note type id for metadata
-    encode_message(PRIVATE_NOTE_MSG_TYPE_ID, Note::get_id() as u64, msg_content)
+    encode_message(msg_type_id, Note::get_id() as u64, msg_content)
+}
+
+/// Creates the plaintext for a private note message (i.e. one of type [`PRIVATE_NOTE_MSG_TYPE_ID`]).
+///
+/// This plaintext is meant to be decoded via [`decode_private_note_message`].
+pub fn encode_private_note_message<Note>(
+    note: Note,
+    owner: AztecAddress,
+    storage_slot: Field,
+    randomness: Field,
+) -> [Field; PRIVATE_NOTE_MSG_PLAINTEXT_RESERVED_FIELDS_LEN + <Note as Packable>::N + MESSAGE_EXPANDED_METADATA_LEN]
+where
+    Note: NoteType + Packable,
+{
+    encode_private_note_message_with_msg_type_id(
+        PRIVATE_NOTE_MSG_TYPE_ID,
+        note,
+        owner,
+        storage_slot,
+        randomness,
+    )
 }
 
 /// Decodes the plaintext from a private note message (i.e. one of type [`PRIVATE_NOTE_MSG_TYPE_ID`]).

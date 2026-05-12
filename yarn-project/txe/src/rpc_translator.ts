@@ -1,6 +1,7 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import {
+  ARCHIVE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
@@ -8,6 +9,7 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
@@ -16,6 +18,7 @@ import {
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { BlockHash } from '@aztec/stdlib/block';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -776,6 +779,7 @@ export class RPCTranslator {
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
+  // TODO(https://linear.app/aztec-labs/issue/F-651): drop this
   // eslint-disable-next-line camelcase
   async aztec_utl_getBlockHashMembershipWitness(
     foreignAnchorBlockHash: ForeignCallSingle,
@@ -792,6 +796,20 @@ export class RPCTranslator {
       );
     }
     return toForeignCallResult(witness.toNoirRepresentation());
+  }
+
+  // TODO(https://linear.app/aztec-labs/issue/F-651): rename to aztec_utl_getBlockHashMembershipWitness
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getBlockHashMembershipWitnessV2(
+    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignBlockHash: ForeignCallSingle,
+  ) {
+    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+
+    const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash);
+    const effective = witness ?? MembershipWitness.empty(ARCHIVE_HEIGHT);
+    return toForeignCallResult([toSingle(new Fr(witness !== undefined ? 1 : 0)), ...effective.toNoirRepresentation()]);
   }
 
   // eslint-disable-next-line camelcase
