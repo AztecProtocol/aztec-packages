@@ -34,6 +34,16 @@ export type ConfigMappingsType<T> = {
   [K in keyof T]-?: ConfigMapping<Required<T>[K]>;
 };
 
+type AnyConfig = Record<string, unknown>;
+type AnyConfigMappings = ConfigMappingsType<AnyConfig>;
+type ConfigFromMappings<TMappings> = TMappings extends ConfigMappingsType<infer T> ? T : never;
+type UnionToIntersection<T> = (T extends unknown ? (value: T) => void : never) extends (value: infer I) => void
+  ? I
+  : never;
+type ComposedConfigType<TSources extends readonly AnyConfigMappings[]> = UnionToIntersection<
+  ConfigFromMappings<TSources[number]>
+>;
+
 /**
  * Shared utility function to get a value from environment variables with fallback support.
  * This can be used by both getConfigFromMappings and CLI utilities.
@@ -116,6 +126,33 @@ export function omitConfigMappings<T, K extends keyof T>(
   return Object.fromEntries(
     Object.entries(configMappings).filter(([key]) => !keysToFilter.includes(key as K)),
   ) as ConfigMappingsType<Omit<T, K>>;
+}
+
+/**
+ * Composes multiple config mapping objects into one mapping.
+ * Throws when the same config key is declared by different mapping objects.
+ */
+export function composeConfigMappings<TSources extends readonly AnyConfigMappings[]>(
+  ...sources: TSources
+): ConfigMappingsType<ComposedConfigType<TSources>> {
+  const composedMappings: Record<string, ConfigMapping<unknown>> = {};
+
+  for (const sourceMappings of sources) {
+    for (const [key, mapping] of Object.entries(sourceMappings)) {
+      if (key in composedMappings) {
+        if (composedMappings[key] !== mapping) {
+          throw new Error(
+            `Duplicate config mapping key '${key}' with a different mapping object while composing config mappings. ` +
+              `To share this key across multiple components, extract it into a dedicated mapping object and import that same object in each component using composeConfigMappings rather than redeclaring it.`,
+          );
+        }
+        continue;
+      }
+      composedMappings[key] = mapping;
+    }
+  }
+
+  return composedMappings as ConfigMappingsType<ComposedConfigType<TSources>>;
 }
 
 /**
