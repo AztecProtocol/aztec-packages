@@ -104,6 +104,9 @@ function stamp_aztec_version {
   local tmp=$(mktemp)
   jq --arg v "$version" '.aztec_version = $v' "$json_path" > "$tmp"
   mv "$tmp" "$json_path"
+  # mktemp creates files with mode 0600, which mv preserves. Bake-in containers run as non-root
+  # (e.g. spartan deploy-rollup-contracts at UID 1000) and need to read these artifacts.
+  chmod 0644 "$json_path"
 }
 export -f stamp_aztec_version
 
