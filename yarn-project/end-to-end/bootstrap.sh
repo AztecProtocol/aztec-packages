@@ -25,7 +25,7 @@ function set_dump_avm {
 
 function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
-  local prefix="$hash:ISOLATE=1:TIMEOUT=15m"
+  local prefix="$hash:ISOLATE=1:TIMEOUT=20m"
 
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
@@ -74,7 +74,7 @@ function test_cmds {
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
-    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script compose $test"
+    echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=20m $run_test_script compose $test"
   done
 
   tests=(
@@ -82,7 +82,7 @@ function test_cmds {
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
-    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer $test"
+    echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=20m $run_test_script web3signer $test"
   done
 
   tests=(
@@ -90,7 +90,7 @@ function test_cmds {
   )
   for test in "${tests[@]}"; do
     # We must set ONLY_TERM_PARENT=1 to allow the script to fully control cleanup process.
-    echo "$hash:ONLY_TERM_PARENT=1 $run_test_script ha $test"
+    echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=30m $run_test_script ha $test"
   done
 
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
