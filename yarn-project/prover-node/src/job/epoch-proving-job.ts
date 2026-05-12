@@ -191,11 +191,12 @@ export class EpochProvingJob implements Traceable {
         const previousHeader = previousBlockHeaders[checkpointIndex];
         const l1ToL2Messages = this.getL1ToL2Messages(checkpoint);
 
-        this.log.verbose(`Starting processing checkpoint ${checkpoint.number}`, {
+        this.log.debug(`Starting processing checkpoint ${checkpoint.number}`, {
           number: checkpoint.number,
           checkpointHash: checkpoint.hash().toString(),
-          lastArchive: checkpoint.header.lastArchiveRoot,
-          previousHeader: previousHeader.hash(),
+          headerHash: checkpoint.header.hash().toString(),
+          numL1ToL2Messages: l1ToL2Messages.length,
+          previousBlockNumber: previousHeader.globalVariables.blockNumber,
           uuid: this.uuid,
         });
 
