@@ -192,7 +192,7 @@ Block 1 has 7 s of build time instead of 8 s. Still well above `minExecutionTime
 
 ### Very slow initialization (8 s)
 
-Sub-slot 1's deadline (9 s) is closer than `minExecutionTime` (2 s), so it is skipped entirely. The first attempted block runs in sub-slot 2 with the usual budget. The checkpoint will have one fewer block.
+Sub-slot 1's deadline (9 s) is less than `minExecutionTime` (2 s) away, so it is skipped entirely. The first attempted block runs in sub-slot 2 with the usual budget. The checkpoint will have one fewer block.
 
 ### Block takes longer than its budget
 
@@ -208,7 +208,7 @@ The current sub-slot is dropped without committing anything. The loop retries on
 
 ### Build slot ends before attestations arrive
 
-`assertTimeLeft` will reject `PUBLISHING_CHECKPOINT` if the attestation deadline has passed; the slot is abandoned, and `checkpoint-publish-failed` is emitted. The `PUBLISHING_CHECKPOINT` deadline allows spillover into the target slot (`2 * aztecSlotDuration - l1PublishingTime`) precisely to absorb a small overrun.
+`waitForAttestations` enforces `checkpointAttestationDeadline` (`2 * aztecSlotDuration - l1PublishingTime`) and returns `undefined` if the quorum is not in by then. The proposal stays on the proposed chain but no `propose` call is enqueued for L1; governance and slashing votes still go out via `sendRequestsAt`. The publishing-state deadline allows spillover into the target slot precisely to absorb a small overrun while the quorum is still arriving.
 
 ### Pipelined parent fails on L1
 
@@ -228,6 +228,6 @@ aztecSlotDuration ≥ checkpointInitializationTime
                   + blockDuration                    // last-block re-execution window
 ```
 
-Block duration should be ≥ `minExecutionTime` (otherwise no sub-slot ever has enough headroom). `p2pPropagationTime` should be measured against the deployment's actual p2p latency: it directly determines how much of each slot is spent on the cooldown.
+If `blockDuration` is set below `minExecutionTime`, the timing model normalizes `minExecutionTime` down to `blockDuration` rather than rejecting the config (see `normalizeCheckpointTimingConfig` in `stdlib/src/timetable/index.ts`). `p2pPropagationTime` should be measured against the deployment's actual p2p latency: it directly determines how much of each slot is spent on the cooldown.
 
 `l1PublishingTime` should fit inside the Ethereum slot the target slot maps to. The default of 12 s lines up with one Ethereum slot; congested deployments may need to increase it (which only affects the `PUBLISHING_CHECKPOINT` deadline, not the number of blocks built).
