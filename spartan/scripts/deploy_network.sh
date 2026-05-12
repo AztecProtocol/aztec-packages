@@ -290,9 +290,14 @@ else
   ETHERSCAN_API_KEY_TF=null
 fi
 
+# Destroy-only runs may omit AZTEC_DOCKER_IMAGE, but Terraform still evaluates
+# the current resource config before destroying state.
+ROLLUP_CONTRACTS_DOCKER_IMAGE="${AZTEC_DOCKER_IMAGE:-aztecprotocol/aztec:latest}"
+
 rm -f "${DEPLOY_ROLLUP_CONTRACTS_DIR}/terraform.tfvars"
 echo "${LOADER_JSON}" | jq \
   --arg k8s_context    "${K8S_CLUSTER_CONTEXT}" \
+  --arg image          "${ROLLUP_CONTRACTS_DOCKER_IMAGE}" \
   --arg l1_rpc_urls    "${CSV_RPC_URLS}" \
   --arg private_key    "${ROLLUP_DEPLOYMENT_PRIVATE_KEY}" \
   --arg validators     "${VALIDATOR_ADDRESSES}" \
@@ -301,6 +306,7 @@ echo "${LOADER_JSON}" | jq \
   '{
     deploy: (.deploy + {
       K8S_CLUSTER_CONTEXT:           $k8s_context,
+      AZTEC_DOCKER_IMAGE:            $image,
       L1_RPC_URLS:                   $l1_rpc_urls,
       PRIVATE_KEY:                   $private_key,
       VALIDATORS:                    $validators,
