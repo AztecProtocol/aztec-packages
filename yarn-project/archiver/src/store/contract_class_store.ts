@@ -49,14 +49,14 @@ export class ContractClassStore {
   ): Promise<void> {
     await this.db.transactionAsync(async () => {
       const key = contractClass.id.toString();
-      if (await this.#contractClasses.hasAsync(key)) {
-        throw new Error(`Contract class ${key} already exists, cannot add again at block ${blockNumber}`);
-      }
-      await this.#contractClasses.set(
+      // Class id is content-derived (artifactHash, privateFunctionsRoot, publicBytecodeCommitment),
+      // so a duplicate add carries identical data. Keep the original entry's l2BlockNumber so that
+      // a later rollback at a higher block leaves the class registered at its earliest block.
+      await this.#contractClasses.setIfNotExists(
         key,
         serializeContractClassPublic({ ...contractClass, l2BlockNumber: blockNumber }),
       );
-      await this.#bytecodeCommitments.set(key, bytecodeCommitment.toBuffer());
+      await this.#bytecodeCommitments.setIfNotExists(key, bytecodeCommitment.toBuffer());
     });
   }
 

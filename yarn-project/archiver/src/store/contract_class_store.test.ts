@@ -43,10 +43,13 @@ describe('ContractClassStore', () => {
       await expect(contractClassStore.getContractClass(contractClass.id)).resolves.toBeUndefined();
     });
 
-    it('throws if the same contract class is added again', async () => {
+    it('is a no-op if the same contract class is added again at a later block', async () => {
       await expect(
         contractClassStore.addContractClasses([await withCommitment(contractClass)], BlockNumber(blockNum + 1)),
-      ).rejects.toThrow(/already exists/);
+      ).resolves.toBe(true);
+      // Original l2BlockNumber is preserved, so a later delete at blockNum + 1 should not remove it.
+      await contractClassStore.deleteContractClasses([contractClass], BlockNumber(blockNum + 1));
+      await expect(contractClassStore.getContractClass(contractClass.id)).resolves.toMatchObject(contractClass);
     });
 
     it('returns contract class if deleted at a later block number', async () => {

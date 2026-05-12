@@ -71,13 +71,16 @@ export class ContractInstanceStore {
   addContractInstance(contractInstance: ContractInstanceWithAddress, blockNumber: number): Promise<void> {
     return this.db.transactionAsync(async () => {
       const key = contractInstance.address.toString();
-      if (await this.#contractInstances.hasAsync(key)) {
-        throw new Error(
-          `Contract instance at ${key} already exists (deployed at block ${await this.#contractInstancePublishedAt.getAsync(key)}), cannot add again at block ${blockNumber}`,
-        );
+      // Instance address is content-derived from instance fields, so a duplicate add carries
+      // identical data. Keep the original entry's blockNumber so that a later rollback at a higher
+      // block leaves the instance registered at its earliest block.
+      const inserted = await this.#contractInstances.setIfNotExists(
+        key,
+        new SerializableContractInstance(contractInstance).toBuffer(),
+      );
+      if (inserted) {
+        await this.#contractInstancePublishedAt.set(key, blockNumber);
       }
-      await this.#contractInstances.set(key, new SerializableContractInstance(contractInstance).toBuffer());
-      await this.#contractInstancePublishedAt.set(key, blockNumber);
     });
   }
 

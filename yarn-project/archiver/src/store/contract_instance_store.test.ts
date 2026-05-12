@@ -48,10 +48,11 @@ describe('ContractInstanceStore', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('throws when adding the same contract instance twice', async () => {
-      await expect(contractInstanceStore.addContractInstances([contractInstance], BlockNumber(2))).rejects.toThrow(
-        /already exists/,
-      );
+    it('is a no-op when adding the same contract instance twice', async () => {
+      await expect(contractInstanceStore.addContractInstances([contractInstance], BlockNumber(2))).resolves.toBe(true);
+      await expect(
+        contractInstanceStore.getContractInstance(contractInstance.address, timestamp),
+      ).resolves.toMatchObject(contractInstance);
     });
   });
 
