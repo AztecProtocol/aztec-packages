@@ -1042,11 +1042,11 @@ TEST_F(ExecutionSimulationTest, EccAdd)
 
     MemoryValue p_x = MemoryValue::from<FF>(FF("0x04c95d1b26d63d46918a156cae92db1bcbc4072a27ec81dc82ea959abdbcf16a"));
     MemoryValue p_y = MemoryValue::from<FF>(FF("0x035b6dd9e63c1370462c74775765d07fc21fd1093cc988149d3aa763bb3dbb60"));
-    EmbeddedCurvePoint p(p_x.as_ff(), p_y, false);
+    EmbeddedCurvePoint p(p_x.as_ff(), p_y);
 
     MemoryValue q_x = MemoryValue::from<FF>(FF("0x009242167ec31949c00cbe441cd36757607406e87844fa2c8c4364a4403e66d7"));
     MemoryValue q_y = MemoryValue::from<FF>(FF("0x0fe3016d64cfa8045609f375284b6b739b5fa282e4cbb75cc7f1687ecc7420e3"));
-    EmbeddedCurvePoint q(q_x.as_ff(), q_y.as_ff(), false);
+    EmbeddedCurvePoint q(q_x.as_ff(), q_y.as_ff());
 
     // Mock the context and memory interactions
     MemoryValue zero = MemoryValue::from<uint1_t>(0);
