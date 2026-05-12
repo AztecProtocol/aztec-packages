@@ -1301,11 +1301,13 @@ describe('sequencer', () => {
       // With no pipelined or invalidation override, both `pending` and `proven` are pinned to the
       // on-chain pending snapshot (checkpointedCheckpointNumber) so `canPruneAtTime` short-circuits
       // and a live re-read inside `makeChainTipsOverride` can't reintroduce a phantom prune.
+      // `provenOverride` on the event is only populated when a prune would actually fire at the
+      // target slot; `isPruneDueAtSlot` is falsy in the mock, so the event reports undefined.
       expect(events[0]).toEqual({
         targetSlot: SlotNumber(2),
         checkpointNumber: expect.anything(),
         hadProposedParent: false,
-        provenOverride: CheckpointNumber.ZERO,
+        provenOverride: undefined,
         simulatedPending: CheckpointNumber.ZERO,
       });
     });

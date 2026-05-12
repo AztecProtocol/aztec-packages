@@ -19,9 +19,12 @@ export type SequencerEvents = {
    * - `hadProposedParent` indicates whether the build saw a proposed (pipelined) parent
    *   checkpoint that hasn't landed on L1 yet.
    * - `provenOverride` is the assumed proven checkpoint number when the proven-override
-   *   for a pending prune was applied; `undefined` when no override was applied.
-   * - `simulatedPending` is the pending checkpoint passed to L1 simulation (when
-   *   pipelining or invalidating; undefined otherwise).
+   *   for a pending prune was applied; `undefined` when no prune was due at the target
+   *   slot and the override is therefore not load-bearing (the plan may still pin proven
+   *   defensively against simulation prunes — the event only reports the meaningful case).
+   * - `simulatedPending` is the pending checkpoint passed to L1 simulation. The plan
+   *   always pins both chain tips to short-circuit `canPruneAtTime`, so this reflects
+   *   either the pipelined/invalidated tip or the on-chain pending snapshot.
    */
   ['preparing-checkpoint']: (args: {
     targetSlot: SlotNumber;

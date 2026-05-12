@@ -424,11 +424,26 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       log: this.log,
     });
 
+    // The plan always pins both pending/proven (to short-circuit `canPruneAtTime` in simulation),
+    // but the event reports the proven override only when it is load-bearing — i.e. when a prune
+    // would actually fire at the target slot without it. This matches the documented event
+    // semantic ("the assumed proven checkpoint when the override was applied") and lets observers
+    // distinguish "we are building optimistically across a pruning boundary" from "we are just
+    // pinning the snapshot defensively".
+    const isPruneDueAtSlot = await this.l2BlockSource.isPruneDueAtSlot(targetSlot);
+    const provenOverride = isPruneDueAtSlot ? simulationOverridesPlan?.chainTipsOverride?.proven : undefined;
+    if (provenOverride !== undefined) {
+      this.log.warn(
+        `Assuming proof for epoch ending at checkpoint ${provenOverride} lands by target slot ${targetSlot}`,
+        { checkpointNumber, slot, targetSlot, provenOverride },
+      );
+    }
+
     this.emit('preparing-checkpoint', {
       targetSlot,
       checkpointNumber,
       hadProposedParent: this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint,
-      provenOverride: simulationOverridesPlan?.chainTipsOverride?.proven,
+      provenOverride,
       simulatedPending: simulationOverridesPlan?.chainTipsOverride?.pending,
     });
 
