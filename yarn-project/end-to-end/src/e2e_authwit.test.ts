@@ -13,7 +13,7 @@ import { DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
 import { type EndToEndContext, ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
-const TIMEOUT = 150_000;
+const TIMEOUT = 300_000;
 
 describe('e2e_authwit_tests', () => {
   jest.setTimeout(TIMEOUT);

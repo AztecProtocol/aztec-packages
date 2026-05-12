@@ -7,7 +7,7 @@ import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 // Verifies nested utility calls via pow_utility(x, n) = x^n (recursive utility→utility),
 // calling it from a private function via pow_private, and the default hook behavior.

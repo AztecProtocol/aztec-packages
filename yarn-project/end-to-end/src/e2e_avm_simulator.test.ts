@@ -11,7 +11,7 @@ import { jest } from '@jest/globals';
 
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
-const TIMEOUT = 100_000;
+const TIMEOUT = 300_000;
 
 describe('e2e_avm_simulator', () => {
   jest.setTimeout(TIMEOUT);

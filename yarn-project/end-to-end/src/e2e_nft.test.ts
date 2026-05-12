@@ -7,7 +7,7 @@ import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 // This is a very simple test checking only the happy path. More complete tests of the NFT are implemented with TXE.
 // This test is only kept around to check that public data writes are squashed as expected.

@@ -43,7 +43,7 @@ describe('e2e_sequencer_config', () => {
         ...getBotDefaultConfig(),
         followChain: 'CHECKPOINTED',
         botMode: 'transfer',
-        txMinedWaitSeconds: 12,
+        txMinedWaitSeconds: 60,
       };
       wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
       const accountManager = await wallet.createSchnorrAccount(

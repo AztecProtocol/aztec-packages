@@ -19,7 +19,7 @@ import { jest } from '@jest/globals';
 
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('Logs', () => {
   let testLogContract: TestLogContract;

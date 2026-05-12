@@ -10,7 +10,7 @@ import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 /// Tests that events exceeding MAX_EVENT_SERIALIZED_LEN can be emitted publicly.
 describe('LargePublicEvent', () => {

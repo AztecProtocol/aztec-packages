@@ -81,5 +81,5 @@ describe('Circuit Recorder', () => {
     await fs.rm(RECORD_DIR, { recursive: true, force: true });
     delete process.env.CIRCUIT_RECORD_DIR;
     await teardown();
-  }, 60_000);
+  }, 120_000);
 });

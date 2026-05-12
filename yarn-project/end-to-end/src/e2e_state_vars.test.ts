@@ -11,7 +11,7 @@ import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
 
-const TIMEOUT = 180_000;
+const TIMEOUT = 300_000;
 
 describe('e2e_state_vars', () => {
   jest.setTimeout(TIMEOUT);

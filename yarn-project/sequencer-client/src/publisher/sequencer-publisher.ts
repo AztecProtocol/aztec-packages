@@ -584,7 +584,11 @@ export class SequencerPublisher {
         );
         const nextPublisher = await this.getNextPublisher([...triedAddresses]);
         if (!nextPublisher) {
-          this.log.error('All available publishers exhausted, failed to publish bundled transactions');
+          this.log.error(
+            `All available publishers exhausted (tried ${triedAddresses.length}), failed to publish bundled transactions`,
+            viemError,
+            { triedAddresses: triedAddresses.map(a => a.toString()) },
+          );
           return undefined;
         }
         currentPublisher = nextPublisher;

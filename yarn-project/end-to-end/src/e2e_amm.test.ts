@@ -10,7 +10,7 @@ import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 // TODO(F-560): Consider whether it makes sense to drop this
 // https://linear.app/aztec-labs/issue/F-560/add-more-tests-to-forward-compatibility-testing

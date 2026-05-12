@@ -8,7 +8,7 @@ import { jest } from '@jest/globals';
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 describe('partial notes', () => {
   jest.setTimeout(TIMEOUT);

@@ -38,8 +38,9 @@ describe('e2e_expiration_timestamp', () => {
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
-      // The timestamp of the next slot.
-      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration;
+      // Two slots ahead of the latest mined block, to leave room for the anchor block to advance
+      // by one slot under proposer pipelining between fetching the header and proving the tx.
+      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration * 2n;
     });
 
     describe('with no enqueued public calls', () => {
@@ -91,8 +92,10 @@ describe('e2e_expiration_timestamp', () => {
       if (!header) {
         throw new Error('Block header not found in the setup of e2e_expiration_timestamp.test.ts');
       }
-      // 1n lower than the next slot.
-      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration - 1n;
+      // 1n lower than two slots ahead. Under proposer pipelining the anchor block may already
+      // have advanced one slot past the latest mined header, so the next slot to be mined is
+      // typically two slots ahead; this expiration sits just below that slot's start.
+      expirationTimestamp = header.globalVariables.timestamp + aztecSlotDuration * 2n - 1n;
     });
 
     describe('with no enqueued public calls', () => {

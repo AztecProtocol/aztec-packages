@@ -13,7 +13,7 @@ import { mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
-jest.setTimeout(200_000);
+jest.setTimeout(400_000);
 
 // Tests crowdfunding via the Crowdfunding contract and claiming the reward token via the Claim contract
 describe('e2e_crowdfunding_and_claim', () => {

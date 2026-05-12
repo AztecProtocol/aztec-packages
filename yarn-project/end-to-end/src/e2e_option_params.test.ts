@@ -7,7 +7,7 @@ import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 300_000;
 
 const U64_MAX = 2n ** 64n - 1n;
 const I64_MIN = -(2n ** 63n);

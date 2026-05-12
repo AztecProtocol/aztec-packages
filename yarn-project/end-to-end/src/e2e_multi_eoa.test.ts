@@ -204,9 +204,9 @@ describe('e2e_multi_eoa', () => {
         return sequencerKeysAndAddresses.findIndex(ka => ka.address === address);
       };
 
-      // We should be at L2 block 2
+      // We should be at L2 block 2 or later (pipelining may produce additional empty blocks)
       const blockNumber = await aztecNode.getBlockNumber();
-      expect(blockNumber).toBe(2);
+      expect(blockNumber).toBeGreaterThanOrEqual(2);
 
       // This means that 2 of our accounts have been used to send blocks to L1.
       // We want to figure out which ones these are, they will be in the 'MINED' state within the sequencer
