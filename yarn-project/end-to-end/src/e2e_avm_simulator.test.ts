@@ -3,8 +3,7 @@ import { BatchCall, type ContractInstanceWithAddress } from '@aztec/aztec.js/con
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
-import type { PublicStorageOverride } from '@aztec/aztec.js/wallet';
-import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { PublicStorageOverride, Wallet } from '@aztec/aztec.js/wallet';
 import { AvmInitializerTestContract } from '@aztec/noir-test-contracts.js/AvmInitializerTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 

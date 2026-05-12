@@ -706,7 +706,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractStore.getContractArtifact(instance.currentContractClassId);
@@ -753,7 +755,9 @@ export class PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      if (publicFunctionSignatures.length > 0) {
+        await this.node.registerContractFunctionSignatures(publicFunctionSignatures);
+      }
 
       currentInstance.currentContractClassId = contractClass.id;
       await Promise.all([
@@ -845,8 +849,7 @@ export class PXE {
         // storing the tags here prevents linkage of txs sent from the same PXE.
         const taggingIndexRangesUsedInTheTx = privateExecutionResult.entrypoint.taggingIndexRanges;
         if (taggingIndexRangesUsedInTheTx.length > 0) {
-          // TODO(benesjan): The following is an expensive operation. Figure out a way to avoid it.
-          const txHash = (await txProvingResult.toTx()).txHash;
+          const txHash = await txProvingResult.getTxHash();
 
           await this.senderTaggingStore.storePendingIndexes(taggingIndexRangesUsedInTheTx, txHash, jobId);
           this.log.debug(`Stored used tagging index ranges as sender for the tx`, {
@@ -1002,21 +1005,12 @@ export class PXE {
         const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
         const syncTime = syncTimer.ms();
 
-        const overriddenContracts = overrides?.contracts ? new Set(Object.keys(overrides.contracts)) : undefined;
-        const hasOverriddenContracts = overriddenContracts !== undefined && overriddenContracts.size > 0;
-
-        if (hasOverriddenContracts && !skipKernels) {
+        if (overrides?.contracts && Object.keys(overrides.contracts).length > 0 && !skipKernels) {
           throw new Error(
             'Simulating with overridden contracts is not compatible with kernel execution. Please set skipKernels to true when simulating with overridden contracts.',
           );
         }
         const contractFunctionSimulator = this.#getSimulatorForTx(overrides);
-
-        if (hasOverriddenContracts) {
-          // Overridden contracts don't have a sync function, so calling sync on them would fail.
-          // We exclude them so the sync service skips them entirely.
-          this.contractSyncService.setExcludedFromSync(jobId, overriddenContracts);
-        }
 
         // Execution of private functions only; no proving, and no kernel logic.
         const privateExecutionResult = await this.#executePrivate({

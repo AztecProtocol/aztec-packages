@@ -788,7 +788,6 @@
         "barretenberg-debug.wasm",
         "ecc_tests",
         "ultra_honk_bench",
-        "chonk_bench",
         "bb"
       ]
     },

@@ -10,7 +10,7 @@ import {
 } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 
-import { jestExpect as expect } from '@jest/expect';
+import { expect } from 'vitest';
 
 import { GENESIS_BLOCK_HEADER_HASH } from '../block_hash.js';
 import type { L2TipsStore } from '../l2_block_stream/index.js';

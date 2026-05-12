@@ -31,9 +31,6 @@ export class ContractSyncService implements StagedStore {
   // class ID verification is scope-independent. Cleared on wipe/discard.
   private verifiedClassIds: Map<string, Promise<void>> = new Map();
 
-  // Per-job excluded contract addresses - these contracts should not be synced.
-  private excludedFromSync: Map<string, Set<string>> = new Map();
-
   // Bounds the number of scope syncs running concurrently. Scopes beyond this limit queue here. Sized to trade off
   // parallelism on non-ACIR work (node RPC, note store reads) against memory pressure from concurrent circuit
   // execution.
@@ -45,11 +42,6 @@ export class ContractSyncService implements StagedStore {
     private noteStore: NoteStore,
     private log: Logger,
   ) {}
-
-  /** Sets contracts that should be skipped during sync for a specific job. */
-  setExcludedFromSync(jobId: string, addresses: Set<string>): void {
-    this.excludedFromSync.set(jobId, addresses);
-  }
 
   /**
    * Ensures a contract's private state is synchronized and that the PXE holds the current class artifact.
@@ -68,10 +60,6 @@ export class ContractSyncService implements StagedStore {
     jobId: string,
     scopes: AztecAddress[],
   ): Promise<void> {
-    if (this.#shouldSkipSync(jobId, contractAddress)) {
-      return;
-    }
-
     this.#startSyncIfNeeded(
       contractAddress,
       scopes,
@@ -108,23 +96,16 @@ export class ContractSyncService implements StagedStore {
     this.verifiedClassIds.clear();
   }
 
-  commit(jobId: string): Promise<void> {
-    // Clear excluded contracts for this job
-    this.excludedFromSync.delete(jobId);
+  commit(_jobId: string): Promise<void> {
     return Promise.resolve();
   }
 
-  discardStaged(jobId: string): Promise<void> {
+  discardStaged(_jobId: string): Promise<void> {
     // We clear the synced contracts cache here because, when the job is discarded, any associated database writes from
     // the sync are also undone.
     this.syncedContracts.clear();
     this.verifiedClassIds.clear();
-    this.excludedFromSync.delete(jobId);
     return Promise.resolve();
-  }
-  /** Returns true if sync should be skipped for this contract */
-  #shouldSkipSync(jobId: string, contractAddress: AztecAddress): boolean {
-    return !!this.excludedFromSync.get(jobId)?.has(contractAddress.toString());
   }
 
   /**

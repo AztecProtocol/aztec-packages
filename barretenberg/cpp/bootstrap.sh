@@ -267,7 +267,8 @@ function test_cmds_native {
 
   # The pinned IVC inputs / VKs live in the public repo; the private fork
   # carries divergent circuits so the check is expected to fail there.
-  if [[ "${GITHUB_REPOSITORY,,}" != "aztecprotocol/aztec-packages-private" ]]; then
+  local github_repository="${GITHUB_REPOSITORY:-}"
+  if [[ "${github_repository,,}" != "aztecprotocol/aztec-packages-private" ]]; then
     echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
   fi
 }
@@ -324,12 +325,8 @@ function bench_cmds {
   prefix="$hash:CPUS=8"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/ultra_honk_zk $native_build_dir/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk $native_build_dir/bin/chonk_bench ChonkBench/Full/5$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_power_of_2/20$"
   echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/ultra_honk_zk build-wasm-threads/bin/ultra_honk_bench construct_proof_ultrahonk_zk_power_of_2/20$"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh wasm bb-micro-bench/wasm/chonk build-wasm-threads/bin/chonk_bench ChonkBench/Full/5$"
-  prefix="$hash:CPUS=1"
-  echo "$prefix barretenberg/cpp/scripts/run_bench.sh native bb-micro-bench/native/chonk_verify $native_build_dir/bin/chonk_bench VerificationOnly$"
 }
 
 # Runs benchmarks sharded over machine cores.

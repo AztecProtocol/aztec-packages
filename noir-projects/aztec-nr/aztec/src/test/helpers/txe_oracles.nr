@@ -36,7 +36,7 @@ pub unconstrained fn deploy<let M: u32, let N: u32, let P: u32>(
     ContractInstance::deserialize(instance_fields)
 }
 
-pub unconstrained fn private_call_new_flow<let M: u32, let N: u32, let S: u32>(
+pub unconstrained fn private_call_new_flow<let M: u32, let N: u32, let S: u32, let T: u32>(
     from: Option<AztecAddress>,
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
@@ -44,6 +44,7 @@ pub unconstrained fn private_call_new_flow<let M: u32, let N: u32, let S: u32>(
     args_hash: Field,
     is_static_call: bool,
     additional_scopes: [AztecAddress; S],
+    authorized_utility_call_targets: [AztecAddress; T],
 ) -> [Field; N] {
     private_call_new_flow_oracle(
         from,
@@ -53,6 +54,7 @@ pub unconstrained fn private_call_new_flow<let M: u32, let N: u32, let S: u32>(
         args_hash,
         is_static_call,
         additional_scopes,
+        authorized_utility_call_targets,
     )
 }
 
@@ -68,12 +70,18 @@ pub unconstrained fn public_call_new_flow<let M: u32, let N: u32>(
     public_call_new_flow_oracle(from, contract_address, calldata, is_static_call)
 }
 
-pub unconstrained fn execute_utility_function<let M: u32, let N: u32>(
+pub unconstrained fn execute_utility_function<let M: u32, let N: u32, let T: u32>(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field; M],
+    authorized_utility_call_targets: [AztecAddress; T],
 ) -> [Field; N] {
-    execute_utility_function_oracle(contract_address, function_selector, args)
+    execute_utility_function_oracle(
+        contract_address,
+        function_selector,
+        args,
+        authorized_utility_call_targets,
+    )
 }
 
 #[oracle(aztec_txe_getNextBlockNumber)]
@@ -209,7 +217,7 @@ pub unconstrained fn add_account(secret: Field) -> TestAccount {}
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {}
 
 #[oracle(aztec_txe_privateCallNewFlow)]
-unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32, let S: u32>(
+unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32, let S: u32, let T: u32>(
     _from: Option<AztecAddress>,
     _contract_address: AztecAddress,
     _function_selector: FunctionSelector,
@@ -217,6 +225,7 @@ unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32, let S: u32
     _args_hash: Field,
     _is_static_call: bool,
     _additional_scopes: [AztecAddress; S],
+    _authorized_utility_call_targets: [AztecAddress; T],
 ) -> [Field; N] {}
 
 #[oracle(aztec_txe_publicCallNewFlow)]
@@ -228,10 +237,11 @@ unconstrained fn public_call_new_flow_oracle<let M: u32, let N: u32>(
 ) -> [Field; N] {}
 
 #[oracle(aztec_txe_executeUtilityFunction)]
-unconstrained fn execute_utility_function_oracle<let M: u32, let N: u32>(
+unconstrained fn execute_utility_function_oracle<let M: u32, let N: u32, let T: u32>(
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field; M],
+    authorized_utility_call_targets: [AztecAddress; T],
 ) -> [Field; N] {}
 
 #[oracle(aztec_txe_setTopLevelTXEContext)]
