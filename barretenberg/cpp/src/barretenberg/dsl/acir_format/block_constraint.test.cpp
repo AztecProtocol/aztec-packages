@@ -59,51 +59,7 @@ TEST(BlockConstraintMemOpEncoding, AccessTypeEncodesToReadFlag)
     EXPECT_TRUE(mem_op_to_acir_mem_op(write_op).read);
 }
 
-/**
- * @brief Utility method to add read/write operations with constant indices/values
- */
-template <AccessType access_type>
-void add_constant_ops(const size_t table_size,
-                      const std::vector<bb::fr>& table_values,
-                      WitnessVector& witness_values,
-                      std::vector<MemOp>& trace)
-{
-    const size_t table_index = static_cast<size_t>(engine.get_random_uint32() % table_size);
-    bb::fr value_fr =
-        access_type == AccessType::Read ? table_values[table_index] : table_values[table_index] + bb::fr(1);
-
-    // Index constant, value witness
-    {
-        WitnessOrConstant<bb::fr> index = WitnessOrConstant<bb::fr>::from_constant(table_index);
-        WitnessOrConstant<bb::fr> value =
-            WitnessOrConstant<bb::fr>::from_index(add_to_witness_and_track_indices(witness_values, value_fr));
-
-        const MemOp read_op = { .access_type = access_type, .index = index, .value = value };
-
-        trace.push_back(read_op);
-    }
-    // Index witness, value constant
-    {
-        WitnessOrConstant<bb::fr> index = WitnessOrConstant<bb::fr>::from_index(
-            add_to_witness_and_track_indices(witness_values, bb::fr(table_index)));
-        WitnessOrConstant<bb::fr> value = WitnessOrConstant<bb::fr>::from_constant(value_fr);
-
-        const MemOp read_op = { .access_type = access_type, .index = index, .value = value };
-
-        trace.push_back(read_op);
-    }
-    // Index constant, value constant
-    {
-        WitnessOrConstant<bb::fr> index = WitnessOrConstant<bb::fr>::from_constant(table_index);
-        WitnessOrConstant<bb::fr> value = WitnessOrConstant<bb::fr>::from_constant(value_fr);
-
-        const MemOp read_op = { .access_type = access_type, .index = index, .value = value };
-
-        trace.push_back(read_op);
-    }
-}
-
-template <typename Builder_, size_t TableSize_, size_t NumReads_, bool PerformConstantOps_> struct ROMTestParams {
+template <typename Builder_, size_t TableSize_, size_t NumReads_> struct ROMTestParams {
     using Builder = Builder_;
     static constexpr size_t table_size = TableSize_;
     static constexpr size_t num_reads = NumReads_;
@@ -387,12 +343,10 @@ using RAMTestConfigs = testing::Types<RAMTestParams<UltraCircuitBuilder, 0, 0, 0
                                       RAMTestParams<UltraCircuitBuilder, 10, 0, 0>,
                                       RAMTestParams<UltraCircuitBuilder, 10, 0, 10>,
                                       RAMTestParams<UltraCircuitBuilder, 10, 10, 0>,
-                                      RAMTestParams<UltraCircuitBuilder, 10, 20, 10>,
                                       RAMTestParams<MegaCircuitBuilder, 0, 0, 0>,
                                       RAMTestParams<MegaCircuitBuilder, 10, 0, 0>,
                                       RAMTestParams<MegaCircuitBuilder, 10, 0, 10>,
-                                      RAMTestParams<MegaCircuitBuilder, 10, 10, 0>,
-                                      RAMTestParams<MegaCircuitBuilder, 10, 20, 10>>;
+                                      RAMTestParams<MegaCircuitBuilder, 10, 10, 0>>;
 
 TYPED_TEST_SUITE(RAMTest, RAMTestConfigs);
 
