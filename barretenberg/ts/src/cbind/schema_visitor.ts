@@ -8,7 +8,7 @@
  *   - Output is "compiled schema" with resolved types
  */
 
-export type PrimitiveType = 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'f64' | 'string' | 'bytes' | 'field2';
+export type PrimitiveType = 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'f64' | 'string' | 'bytes' | 'field2' | 'enum_u32' | 'map_u32_pair';
 
 export interface Type {
   kind: 'primitive' | 'vector' | 'array' | 'optional' | 'struct';
@@ -43,6 +43,9 @@ export interface CompiledSchema {
 
   // Response types
   responses: Map<string, Struct>;
+
+  // Error response type name (e.g. 'WsdbErrorResponse')
+  errorTypeName?: string;
 }
 
 /**
@@ -71,11 +74,14 @@ export class SchemaVisitor {
       }
     }
 
+    // Find the error response type name (e.g. 'WsdbErrorResponse')
+    const errorResponses = responsePairs.filter(([name]: [string, any]) => name.endsWith('ErrorResponse'));
+    const errorTypeName = errorResponses.length > 0 ? errorResponses[0][0] : undefined;
+
     // Visit all commands and pair with responses
+    const normalResponses = responsePairs.filter(([name]: [string, any]) => !name.endsWith('ErrorResponse'));
     for (let i = 0; i < commandPairs.length; i++) {
       const [cmdName, cmdSchema] = commandPairs[i];
-      // Find matching response (skip ErrorResponse which is always last)
-      const normalResponses = responsePairs.filter(([name]: [string, any]) => name !== 'ErrorResponse');
       const [respName] = normalResponses[i];
 
       // Discover command structure
@@ -94,6 +100,7 @@ export class SchemaVisitor {
       structs: this.structs,
       commands,
       responses: this.responses,
+      errorTypeName,
     };
   }
 
@@ -203,6 +210,8 @@ export class SchemaVisitor {
       'string': 'string',
       'bin32': 'bytes',
       'field2': 'field2',  // Extension field (Fq2) - pair of field elements
+      'MerkleTreeId': 'enum_u32',  // C++ enum serialized as uint32
+      'unordered_map': 'map_u32_pair',  // StateReference: map<MerkleTreeId, pair<fr, index_t>>
     };
 
     const primitive = primitiveMap[name];
