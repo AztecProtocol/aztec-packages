@@ -21,7 +21,6 @@ unconstrained fn get_block_hash_membership_witness_oracle(
 
 /// Returns a membership witness for a `note_hash` in the note hash tree whose root is defined in
 // `anchor_block_header`.
-// TODO(https://linear.app/aztec-labs/issue/F-652): add Noir tests for this oracle
 pub unconstrained fn get_note_hash_membership_witness(
     anchor_block_header: BlockHeader,
     note_hash: Field,
@@ -55,10 +54,52 @@ pub unconstrained fn get_maybe_block_hash_membership_witness(
 }
 
 mod test {
+    use crate::history::test::{create_note, NOTE_CREATED_AT};
+    use crate::note::note_interface::NoteHash;
     use crate::oracle::block_header::get_block_header_at;
-    use crate::protocol::{merkle_tree::root::root_from_sibling_path, traits::Hash};
-    use crate::test::helpers::test_environment::TestEnvironment;
-    use super::{get_block_hash_membership_witness, get_maybe_block_hash_membership_witness};
+    use crate::protocol::{
+        hash::{compute_siloed_note_hash, compute_unique_note_hash},
+        merkle_tree::root::root_from_sibling_path,
+        traits::Hash,
+    };
+    use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
+    use super::{
+        get_block_hash_membership_witness, get_maybe_block_hash_membership_witness, get_note_hash_membership_witness,
+    };
+
+    #[test]
+    unconstrained fn get_note_hash_membership_witness_returns_valid_witness_for_known_note() {
+        let (env, hinted_note) = create_note();
+
+        env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(NOTE_CREATED_AT), |context| {
+            let anchor = context.anchor_block_header;
+
+            let note_hash =
+                hinted_note.note.compute_note_hash(hinted_note.owner, hinted_note.storage_slot, hinted_note.randomness);
+            let siloed = compute_siloed_note_hash(hinted_note.contract_address, note_hash);
+            let unique = compute_unique_note_hash(hinted_note.metadata.to_settled().note_nonce(), siloed);
+
+            let witness = get_note_hash_membership_witness(anchor, unique);
+
+            assert_eq(
+                root_from_sibling_path(unique, witness.leaf_index, witness.sibling_path),
+                anchor.state.partial.note_hash_tree.root,
+            );
+        });
+    }
+
+    #[test(should_fail_with = "not found in the note hash tree at block")]
+    unconstrained fn get_note_hash_membership_witness_panics_for_unknown_note() {
+        let env = TestEnvironment::new();
+
+        env.mine_block();
+        env.mine_block();
+
+        env.private_context(|context| {
+            let anchor = context.anchor_block_header;
+            let _witness = get_note_hash_membership_witness(anchor, 0xdeadbeef);
+        });
+    }
 
     #[test]
     unconstrained fn get_block_hash_membership_witness_returns_valid_witness_for_known_block() {
