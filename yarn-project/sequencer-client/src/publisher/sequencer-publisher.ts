@@ -14,7 +14,6 @@ import {
 } from '@aztec/ethereum/contracts';
 import { type L1FeeAnalysisResult, L1FeeAnalyzer } from '@aztec/ethereum/l1-fee-analysis';
 import {
-  InsufficientBalanceError,
   type L1BlobInputs,
   type L1TxConfig,
   type L1TxRequest,
@@ -558,17 +557,18 @@ export class SequencerPublisher {
     if (!txConfig?.gasLimit) {
       throw new Error('gasLimit is required for bundled transactions');
     }
-    // checkBalance is honoured by L1TxUtils.sendTransaction (inside Multicall3.forward) and will
-    // throw InsufficientBalanceError if the rotated publisher cannot afford the worst-case cost.
-    const txConfigWithGasLimit: L1TxConfig & { gasLimit: bigint } = {
-      ...txConfig,
-      checkBalance: true,
-    } as L1TxConfig & { gasLimit: bigint };
+    const txConfigWithGasLimit = txConfig as L1TxConfig & { gasLimit: bigint };
 
     const triedAddresses: EthAddress[] = [];
     let currentPublisher = this.l1TxUtils;
 
     while (true) {
+      if (txConfig.txTimeoutAt && new Date() > txConfig.txTimeoutAt) {
+        this.log.warn(`txTimeoutAt (${txConfig.txTimeoutAt.toISOString()}) elapsed; stopping publisher rotation`, {
+          triedAddresses: triedAddresses.map(a => a.toString()),
+        });
+        return undefined;
+      }
       triedAddresses.push(currentPublisher.getSenderAddress());
 
       try {
@@ -587,25 +587,15 @@ export class SequencerPublisher {
         if (err instanceof TimeoutError) {
           throw err;
         }
-        if (err instanceof InsufficientBalanceError) {
-          this.log.warn(
-            `Publisher ${currentPublisher.getSenderAddress()} has insufficient balance (${err.balance} < ${err.worstCase}), rotating`,
-          );
-        } else {
-          const viemError = formatViemError(err);
-          if (!this.getNextPublisher) {
-            this.log.error('Failed to publish bundled transactions', viemError);
-            return undefined;
-          }
-          this.log.warn(
-            `Publisher ${currentPublisher.getSenderAddress()} failed to send, rotating to next publisher`,
-            viemError,
-          );
-        }
+        const viemError = formatViemError(err);
         if (!this.getNextPublisher) {
-          this.log.error('No fallback publisher available, failed to publish bundled transactions');
+          this.log.error('Failed to publish bundled transactions', viemError);
           return undefined;
         }
+        this.log.warn(
+          `Publisher ${currentPublisher.getSenderAddress()} failed to send, rotating to next publisher`,
+          viemError,
+        );
         const nextPublisher = await this.getNextPublisher([...triedAddresses]);
         if (!nextPublisher) {
           this.log.error('All available publishers exhausted, failed to publish bundled transactions');

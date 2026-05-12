@@ -13,17 +13,7 @@ export interface L1TxRequest {
   abi?: Abi;
 }
 
-export type L1TxConfig = Partial<L1TxUtilsConfig> & {
-  gasLimit?: bigint;
-  txTimeoutAt?: Date;
-  /**
-   * When true, sendTransaction will compute a worst-case cost from gasLimit and the live gas price
-   * (plus blob gas if applicable) and verify the sender balance can cover it before broadcasting.
-   * If not, an InsufficientBalanceError is thrown so callers (e.g. publisher rotation) can react.
-   * Defaults to false. The check is only meaningful when `gasLimit` is set; otherwise it is skipped.
-   */
-  checkBalance?: boolean;
-};
+export type L1TxConfig = Partial<L1TxUtilsConfig> & { gasLimit?: bigint; txTimeoutAt?: Date };
 
 export interface L1BlobInputs {
   blobs: Uint8Array[];
@@ -91,17 +81,5 @@ export class DroppedTransactionError extends Error {
   constructor(nonce: number, account: string) {
     super(`Transaction with nonce ${nonce} from account ${account} was dropped from the mempool`);
     this.name = 'DroppedTransactionError';
-  }
-}
-
-/** Thrown by sendTransaction when checkBalance is true and the sender lacks the worst-case cost. */
-export class InsufficientBalanceError extends Error {
-  constructor(
-    public readonly account: string,
-    public readonly balance: bigint,
-    public readonly worstCase: bigint,
-  ) {
-    super(`Account ${account} has insufficient balance: ${balance} < ${worstCase} (worst case)`);
-    this.name = 'InsufficientBalanceError';
   }
 }

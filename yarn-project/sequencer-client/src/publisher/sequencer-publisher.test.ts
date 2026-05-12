@@ -278,7 +278,6 @@ describe('SequencerPublisher', () => {
       {
         gasLimit: expect.any(BigInt),
         txTimeoutAt: undefined,
-        checkBalance: true,
       },
       expect.objectContaining({
         blobs: expect.any(Array),
@@ -441,6 +440,45 @@ describe('SequencerPublisher', () => {
       expect(forwardSpy).toHaveBeenCalledTimes(2);
       expect(getNextPublisher).toHaveBeenCalledTimes(2);
       expect(result).toBeUndefined();
+    });
+
+    it('does not enter the rotation loop when txTimeoutAt is already in the past', async () => {
+      const pastTimeout = new Date(Date.now() - 1000);
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
+        Signature.empty(),
+        { txTimeoutAt: pastTimeout },
+      );
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(result).toBeUndefined();
+      expect(forwardSpy).not.toHaveBeenCalled();
+      expect(getNextPublisher).not.toHaveBeenCalled();
+    });
+
+    it('stops rotating once txTimeoutAt elapses mid-rotation', async () => {
+      // First forward throws; getNextPublisher rotates to a new publisher; but by then the
+      // deadline has elapsed and the rotation loop should bail before the second forward call.
+      const futureTimeout = new Date(Date.now() + 100); // will elapse during the await below
+      forwardSpy.mockImplementationOnce(async () => {
+        await new Promise(resolve => setTimeout(resolve, 200));
+        throw new Error('RPC error on first');
+      });
+      getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
+
+      await rotatingPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
+        Signature.empty(),
+        { txTimeoutAt: futureTimeout },
+      );
+      const result = await rotatingPublisher.sendRequests();
+
+      expect(result).toBeUndefined();
+      // forward was attempted exactly once (the first publisher); rotation was aborted before
+      // the second attempt because the deadline had passed.
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
     });
 
     it('does not rotate when forward returns a revert (on-chain failure)', async () => {
