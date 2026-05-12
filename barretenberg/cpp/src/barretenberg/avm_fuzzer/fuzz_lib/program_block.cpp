@@ -1310,7 +1310,7 @@ void ProgramBlock::process_ecadd_instruction(ECADD_Instruction instruction)
                                  .build();
     instructions.push_back(ecadd_instruction);
 
-    // ECADD writes 3 consecutive memory locations: result_x (FF), result_y (FF), result_is_inf (U1)
+    // ECADD writes 2 consecutive memory locations: result_x (FF), result_y (FF)
     memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, result.value().first.absolute_address);
     memory_manager.set_memory_address(bb::avm2::MemoryTag::FF, result.value().first.absolute_address + 1);
 }
