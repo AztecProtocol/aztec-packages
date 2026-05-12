@@ -4,8 +4,9 @@
 #
 # Usage: deploy_network.sh <network>
 #   <network>: bare YAML name (resolved to spartan/environments/networks/<name>.yml)
-#              or absolute path. Used to re-invoke load_network_config.sh for
-#              the structured deploy/env/releases JSON written to
+#              or absolute path. Used to invoke load_network_config.sh for the
+#              structured deploy/env/releases JSON written to
+#              deploy-rollup-contracts/terraform.tfvars.json and
 #              deploy-aztec-infra/terraform.tfvars.json.
 #
 # Assumes env was already sourced by deploy_network_with_env.sh (or the caller).
@@ -28,18 +29,6 @@ die() { err "$*"; exit 1; }
 # Wrapper for denoise with k8s context injection
 k8s_denoise() {
   "${SCRIPT_DIR}/k8s_enriched_denoise" "${NAMESPACE}" "$1"
-}
-
-tf_str() {
-  local value="${1:-}"
-  local default_value="${2:-null}"
-  if [[ -n "$value" ]]; then
-    value="${value//\\/\\\\}"  # escape backslashes first
-    value="${value//\"/\\\"}"  # then escape double quotes
-    echo "\"${value}\""
-  else
-    echo "$default_value"
-  fi
 }
 
 # We want to separate out these logs.
@@ -264,6 +253,18 @@ else
 fi
 
 # -------------------------------
+# Load YAML config (tfvars JSON)
+# -------------------------------
+# Load the structured {deploy, env, releases} tfvars JSON once here so both
+# the rollup-contracts and aztec-infra modules can use it without a second
+# round of YAML merging and GCP secret fetches.
+if [[ -n "${NETWORK_TFVARS_JSON:-}" && -f "${NETWORK_TFVARS_JSON}" ]]; then
+  LOADER_JSON=$(cat "${NETWORK_TFVARS_JSON}")
+else
+  LOADER_JSON=$("${SCRIPT_DIR}/load_network_config.sh" "${NETWORK_YAML}" --format=tfvars)
+fi
+
+# -------------------------------
 # Deploy rollup contracts
 # -------------------------------
 
@@ -289,50 +290,29 @@ else
   ETHERSCAN_API_KEY_TF=null
 fi
 
-cat > "${DEPLOY_ROLLUP_CONTRACTS_DIR}/terraform.tfvars" << EOF
-K8S_CLUSTER_CONTEXT = "${K8S_CLUSTER_CONTEXT}"
-NAMESPACE = "${NAMESPACE}"
-AZTEC_DOCKER_IMAGE = "${AZTEC_DOCKER_IMAGE}"
-L1_RPC_URLS = "${CSV_RPC_URLS}"
-PRIVATE_KEY = "${ROLLUP_DEPLOYMENT_PRIVATE_KEY}"
-L1_CHAIN_ID = "${ETHEREUM_CHAIN_ID}"
-VALIDATORS = "${VALIDATOR_ADDRESSES}"
-SPONSORED_FPC = ${SPONSORED_FPC}
-TEST_ACCOUNTS = ${TEST_ACCOUNTS}
-REAL_VERIFIER = ${REAL_VERIFIER}
-AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET = ${AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET:-null}
-AZTEC_LAG_IN_EPOCHS_FOR_RANDAO = ${AZTEC_LAG_IN_EPOCHS_FOR_RANDAO:-null}
-AZTEC_SLOT_DURATION = ${AZTEC_SLOT_DURATION:-null}
-AZTEC_EPOCH_DURATION = ${AZTEC_EPOCH_DURATION:-null}
-AZTEC_TARGET_COMMITTEE_SIZE = ${AZTEC_TARGET_COMMITTEE_SIZE:-null}
-AZTEC_INBOX_LAG = ${AZTEC_INBOX_LAG:-null}
-AZTEC_PROOF_SUBMISSION_EPOCHS = ${AZTEC_PROOF_SUBMISSION_EPOCHS:-null}
-AZTEC_ACTIVATION_THRESHOLD = ${AZTEC_ACTIVATION_THRESHOLD:-null}
-AZTEC_EJECTION_THRESHOLD = ${AZTEC_EJECTION_THRESHOLD:-null}
-AZTEC_LOCAL_EJECTION_THRESHOLD = ${AZTEC_LOCAL_EJECTION_THRESHOLD:-null}
-AZTEC_SLASHING_QUORUM = ${AZTEC_SLASHING_QUORUM:-null}
-AZTEC_SLASHING_ROUND_SIZE = ${AZTEC_SLASHING_ROUND_SIZE:-null}
-AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS = ${AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS:-null}
-AZTEC_SLASHING_LIFETIME_IN_ROUNDS = ${AZTEC_SLASHING_LIFETIME_IN_ROUNDS:-null}
-AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = ${AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS:-null}
-AZTEC_SLASHING_VETOER = ${AZTEC_SLASHING_VETOER:-null}
-AZTEC_SLASHING_OFFSET_IN_ROUNDS = ${AZTEC_SLASHING_OFFSET_IN_ROUNDS:-null}
-AZTEC_SLASH_AMOUNT_SMALL = ${AZTEC_SLASH_AMOUNT_SMALL:-null}
-AZTEC_SLASH_AMOUNT_MEDIUM = ${AZTEC_SLASH_AMOUNT_MEDIUM:-null}
-AZTEC_SLASH_AMOUNT_LARGE = ${AZTEC_SLASH_AMOUNT_LARGE:-null}
-AZTEC_SLASHER_ENABLED = ${AZTEC_SLASHER_ENABLED:-null}
-AZTEC_GOVERNANCE_PROPOSER_QUORUM = ${AZTEC_GOVERNANCE_PROPOSER_QUORUM:-null}
-AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE = ${AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE:-null}
-AZTEC_GOVERNANCE_VOTING_DURATION = ${AZTEC_GOVERNANCE_VOTING_DURATION:-null}
-AZTEC_MANA_TARGET = ${AZTEC_MANA_TARGET:-null}
-AZTEC_PROVING_COST_PER_MANA = ${AZTEC_PROVING_COST_PER_MANA:-null}
-AZTEC_EXIT_DELAY_SECONDS = ${AZTEC_EXIT_DELAY_SECONDS:-null}
-ETHERSCAN_API_KEY = ${ETHERSCAN_API_KEY_TF}
-NETWORK = $(tf_str "${NETWORK:-}")
-JOB_NAME = "deploy-rollup-contracts"
-JOB_BACKOFF_LIMIT = 3
-JOB_TTL_SECONDS_AFTER_FINISHED = 3600
-EOF
+rm -f "${DEPLOY_ROLLUP_CONTRACTS_DIR}/terraform.tfvars"
+echo "${LOADER_JSON}" | jq \
+  --arg k8s_context    "${K8S_CLUSTER_CONTEXT}" \
+  --arg l1_rpc_urls    "${CSV_RPC_URLS}" \
+  --arg private_key    "${ROLLUP_DEPLOYMENT_PRIVATE_KEY}" \
+  --arg validators     "${VALIDATOR_ADDRESSES}" \
+  --arg verify         "${VERIFY_CONTRACTS:-false}" \
+  --argjson etherscan  "${ETHERSCAN_API_KEY_TF}" \
+  '{
+    deploy: (.deploy + {
+      K8S_CLUSTER_CONTEXT:           $k8s_context,
+      L1_RPC_URLS:                   $l1_rpc_urls,
+      PRIVATE_KEY:                   $private_key,
+      VALIDATORS:                    $validators,
+      VERIFY_CONTRACTS:              $verify,
+      ETHERSCAN_API_KEY:             $etherscan,
+      JOB_NAME:                      "deploy-rollup-contracts",
+      JOB_BACKOFF_LIMIT:             "3",
+      JOB_TTL_SECONDS_AFTER_FINISHED: "3600"
+    }),
+    env: .env
+  }' \
+  > "${DEPLOY_ROLLUP_CONTRACTS_DIR}/terraform.tfvars.json"
 
 # Check terraform state for existing contract addresses
 # This avoids redeploying contracts when the k8s job has been cleaned up by TTL
@@ -413,7 +393,7 @@ fi
 # but a leftover HCL file can shadow the JSON one.
 rm -f "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars"
 
-LOADER_JSON=$("${SCRIPT_DIR}/load_network_config.sh" "${NETWORK_YAML}" --format=tfvars)
+# LOADER_JSON was loaded before the rollup-contracts step; reuse it here.
 
 DEPLOY_OVERRIDES=$(jq -n \
   --arg namespace "${NAMESPACE}" \
