@@ -10,8 +10,9 @@ The protocol fuzzer has two state machines:
 
 - **token**: Fuzzes the Token contract (mint/burn/transfer, public and private).
   Works with any Aztec sandbox -- no special setup needed.
-- **side-effect**: Fuzzes note lifecycle, nullifier emission, and cross-contract calls via
-  custom `SideEffect` and `Parent` contracts. **Requires the nightly sandbox.**
+- **side-effect**: Fuzzes note lifecycle, nullifier emission, L2->L1 messages, private logs,
+  key validation requests, public teardown, and cross-contract calls via custom `SideEffect`
+  and `Parent` contracts. **Requires the nightly sandbox.**
 
 Both machines talk to the sandbox via a persistent Node.js HTTP bridge (`wallet-bridge.mjs`)
 that keeps a single CLIWallet instance alive across requests.
@@ -22,7 +23,7 @@ The side-effect machine deploys custom contracts that must be version-compatible
 sandbox (PXE, sequencer, L1 contracts), the wallet CLI, and the compiled artifact format.
 
 The `latest` Docker image ships an older nargo that stack-overflows on current aztec-nr.
-Dated nightly images (e.g. `5.0.0-nightly.20260224`) have a matching nargo but the wallet
+Dated nightly images (e.g. `5.0.0-nightly.20260402`) have a matching nargo but the wallet
 is broken (missing `inquirer` npm package). The contracts must be compiled against the
 **nightly's aztec-nr**, not the repo's current branch, because oracle interfaces may differ
 between versions (the setup script auto-detects when they match).
@@ -99,7 +100,7 @@ If the automated script doesn't work, follow these steps.
 Match the nightly image's nargo hash to an aztec-packages commit:
 
 ```bash
-docker run --rm --entrypoint "" aztecprotocol/aztec:5.0.0-nightly.20260224 \
+docker run --rm --entrypoint "" aztecprotocol/aztec:5.0.0-nightly.20260402 \
   /usr/src/noir/noir-repo/target/release/nargo --version
 # e.g. 7d07e187fb04d79f5a7cf41501d2c12bc2b1d5d2
 
@@ -133,7 +134,7 @@ docker run -d --rm --name aztec-sandbox-nightly \
   -e AZTEC_EPOCH_DURATION=4 \
   -e SEQ_ENFORCE_TIME_TABLE=false \
   --entrypoint "" \
-  aztecprotocol/aztec:5.0.0-nightly.20260224 \
+  aztecprotocol/aztec:5.0.0-nightly.20260402 \
   bash -c '/opt/foundry/bin/anvil --host 0.0.0.0 --port 8545 & \
   sleep 2 && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --local-network --l1-rpc-urls http://127.0.0.1:8545'
 ```

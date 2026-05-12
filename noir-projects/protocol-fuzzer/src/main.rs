@@ -17,7 +17,9 @@ struct Args {
 enum MachineCommand {
     /// Fuzz the Token contract (mint/burn/transfer, public and private)
     Token(TokenArgs),
-    /// Fuzz note lifecycle, nullifier emission, and cross-contract calls
+    /// Fuzz note lifecycle, nullifier emission, L2->L1 messages, private logs,
+    /// and kernel exercisers (key validation, public teardown) -- both direct
+    /// and via a parent contract
     SideEffect(SideEffectArgs),
 }
 
@@ -64,8 +66,8 @@ struct SideEffectArgs {
     #[arg(long, default_value = "/tmp")]
     artifacts_dir: String,
     /// Include one-shot kernel exercisers (RequestOvskApp, TestSettingTeardown)
-    /// in the random command pool. These are always smoke-tested once during
-    /// setup regardless of this flag.
+    /// in the random command pool. These are always smoke-tested during setup
+    /// (direct + via_parent) regardless of this flag.
     #[arg(long, default_value_t = false)]
     include_one_shots: bool,
 }
@@ -116,7 +118,7 @@ fn main() {
             let mut machine = token::TokenMachine::new(Some(&bridge));
             machine.min_tokens = token_args.min_tokens;
             machine.max_tokens = token_args.max_tokens;
-            log::debug!("Starting token machine with parameters: {:?}", &machine);
+            log::debug!("Starting token machine with parameters: {:?}", machine);
             builder.run(|u| {
                 smt::run_batched(
                     u,
@@ -136,7 +138,7 @@ fn main() {
             };
             log::debug!(
                 "Starting side-effect machine with parameters: {:?}",
-                &machine
+                machine
             );
             builder.run(|u| {
                 smt::run_batched(

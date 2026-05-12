@@ -192,7 +192,7 @@ pub contract SideEffect {
     }
 
     // Emit a private log with a plaintext tag. Uses `emit_private_log_unsafe`
-    // which bypasses the ECDH-based sender/recipient tag derivation protocol —
+    // which bypasses the ECDH-based sender/recipient tag derivation protocol --
     // fields[0] is set to `tag` directly (the kernel then siloes it via
     // poseidon2(contractAddr, tag)). The log body is padded to
     // PRIVATE_LOG_CIPHERTEXT_LEN with zeros; only the first field (content)
@@ -208,7 +208,7 @@ pub contract SideEffect {
     // Request the app-scoped outgoing viewing secret key (ovsk_app). Looks up
     // the account's master outgoing viewing public key (ovpk_m), hashes it, and
     // asks the kernel for the corresponding app-siloed secret. This exercises
-    // the key validation request path in the kernel — success proves the kernel
+    // the key validation request path in the kernel -- success proves the kernel
     // can derive and validate app-scoped keys.
     #[external("private")]
     #[noinitcheck]
@@ -248,7 +248,7 @@ pub contract SideEffect {
         assert_nullifier_existed_by(header, siloed);
     }
 
-    // Public counterpart of call_create_and_complete_partial_note — fills in
+    // Public counterpart of call_create_and_complete_partial_note -- fills in
     // the value and finalizes the note hash. See comment on that function.
     #[external("public")]
     fn call_complete_partial_note(partial_note: PartialUintNote, storage_slot: Field, value: u128) {

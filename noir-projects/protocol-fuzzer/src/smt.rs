@@ -74,9 +74,11 @@ pub trait StateMachine {
 /// Trait for commands that can be batched for parallel execution.
 pub trait Batchable {
     /// Returns `true` if executing `self` and `other` concurrently could produce
-    /// different results than executing them sequentially.
-    /// Queries (non-state-changing commands) must conflict with sends so they
-    /// observe prior state, but two queries can safely batch together.
+    /// different results than executing them sequentially. Two commands conflict
+    /// when either one must observe the other's effect to be correct, or when
+    /// they touch the same exclusive resource (e.g. the same storage slot).
+    /// Be conservative: false positives only shrink batches, false negatives
+    /// silently corrupt the model.
     fn conflicts(&self, other: &Self) -> bool;
 }
 
@@ -287,7 +289,7 @@ macro_rules! state_machine_seed {
 mod tests {
     use arbitrary::{Result, Unstructured};
 
-    use super::{StateMachine, fixed_size_builder, seeded_builder};
+    use super::{fixed_size_builder, seeded_builder, StateMachine};
 
     /// A sample System Under Test.
     struct Counter {

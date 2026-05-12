@@ -30,10 +30,11 @@ pub struct SideEffectMachine<'a> {
     pub artifacts_dir: String,
     /// Include RequestOvskApp and TestSettingTeardown in the random command pool.
     /// These are "one-shot" kernel exercisers: they always succeed, have no
-    /// parameters to vary meaningfully, and produce no model state. A single
-    /// execution (done automatically in `new_system()`) proves the kernel
-    /// plumbing works; repeating them wastes ~5-13s per tx without finding new
-    /// bugs. Enable with `--include-one-shots` for exhaustive runs.
+    /// parameters to vary meaningfully, and produce no model state. They are
+    /// smoke-tested at setup (direct + via_parent) in `new_system()` to prove
+    /// the kernel plumbing works; repeating them during fuzzing wastes ~5-13s
+    /// per tx without finding new bugs. Enable with `--include-one-shots` for
+    /// exhaustive runs.
     pub include_one_shots: bool,
 }
 
@@ -110,6 +111,14 @@ pub enum SideEffectCommand {
     },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Category {
+    Stateful,
+    ReadOnlyQuery,
+    AssertionQuery,
+    KernelExerciser,
+}
+
 impl SideEffectCommand {
     pub(crate) fn name(&self) -> &'static str {
         match self {
@@ -128,68 +137,48 @@ impl SideEffectCommand {
         }
     }
 
-    /// How to execute on the sandbox: `Simulate` for read-only view/get,
-    /// `Send` for everything else.  See `changes_model()` and `flushes_batch()`
-    /// for the full three-way categorization.
-    pub fn verb(&self) -> wallet::Verb {
-        match self {
-            Self::ViewNotesMany { .. } | Self::GetNotesMany { .. } => wallet::Verb::Simulate,
-            Self::CreateNote { .. }
-            | Self::CreateAndCompletePartialNote { .. }
-            | Self::DestroyNote { .. }
-            | Self::TestNoteInclusion { .. }
-            | Self::EmitNullifier { .. }
-            | Self::TestNullifierInclusion { .. }
-            | Self::SendL2ToL1Message { .. }
-            | Self::EmitPrivateLog { .. }
-            | Self::RequestOvskApp { .. }
-            | Self::TestSettingTeardown { .. } => wallet::Verb::Send,
-        }
-    }
-
-    /// Whether this command must observe all prior committed state before
-    /// executing (flushes the batch).  Commands in this category read state
-    /// that prior sends may have changed, so the batch must be flushed first.
-    pub fn flushes_batch(&self) -> bool {
-        match self {
-            Self::ViewNotesMany { .. }
-            | Self::GetNotesMany { .. }
-            | Self::TestNoteInclusion { .. }
-            | Self::TestNullifierInclusion { .. } => true,
-            Self::CreateNote { .. }
-            | Self::CreateAndCompletePartialNote { .. }
-            | Self::DestroyNote { .. }
-            | Self::EmitNullifier { .. }
-            | Self::SendL2ToL1Message { .. }
-            | Self::EmitPrivateLog { .. }
-            | Self::RequestOvskApp { .. }
-            | Self::TestSettingTeardown { .. } => false,
-        }
-    }
-
-    /// Whether this command changes the fuzzer's model state.
+    /// Bucket each command falls into. Predicates below derive from this so a
+    /// new variant only needs adding here and to the per-field extractors.
     ///
-    /// Three categories emerge from `(changes_model, flushes_batch)`:
-    /// - `(true,  false)`: stateful sends -- create notes, emit nullifiers, etc.
-    /// - `(false, true)`:  queries -- read committed state, verify against model.
-    /// - `(false, false)`: kernel exercisers -- fire-and-confirm sends that
-    ///   exercise kernel plumbing (key validation, public teardown) without
-    ///   producing observable model state.
-    pub fn changes_model(&self) -> bool {
+    /// - `Stateful`        -- changes model state; sends a tx; batchable.
+    /// - `ReadOnlyQuery`   -- simulates locally; flushes batch to observe prior writes.
+    /// - `AssertionQuery`  -- sends a tx that asserts on committed state; flushes batch.
+    /// - `KernelExerciser` -- sends a tx that exercises kernel plumbing (key
+    ///   validation, public teardown); no model state, doesn't flush.
+    pub(crate) fn category(&self) -> Category {
         match self {
             Self::CreateNote { .. }
             | Self::CreateAndCompletePartialNote { .. }
             | Self::DestroyNote { .. }
             | Self::EmitNullifier { .. }
             | Self::SendL2ToL1Message { .. }
-            | Self::EmitPrivateLog { .. } => true,
-            Self::ViewNotesMany { .. }
-            | Self::GetNotesMany { .. }
-            | Self::TestNoteInclusion { .. }
-            | Self::TestNullifierInclusion { .. }
-            | Self::RequestOvskApp { .. }
-            | Self::TestSettingTeardown { .. } => false,
+            | Self::EmitPrivateLog { .. } => Category::Stateful,
+            Self::ViewNotesMany { .. } | Self::GetNotesMany { .. } => Category::ReadOnlyQuery,
+            Self::TestNoteInclusion { .. } | Self::TestNullifierInclusion { .. } => {
+                Category::AssertionQuery
+            }
+            Self::RequestOvskApp { .. } | Self::TestSettingTeardown { .. } => {
+                Category::KernelExerciser
+            }
         }
+    }
+
+    pub fn verb(&self) -> wallet::Verb {
+        match self.category() {
+            Category::ReadOnlyQuery => wallet::Verb::Simulate,
+            _ => wallet::Verb::Send,
+        }
+    }
+
+    pub fn flushes_batch(&self) -> bool {
+        matches!(
+            self.category(),
+            Category::ReadOnlyQuery | Category::AssertionQuery
+        )
+    }
+
+    pub fn changes_model(&self) -> bool {
+        matches!(self.category(), Category::Stateful)
     }
 
     pub(crate) fn via_parent(&self) -> bool {
@@ -279,7 +268,9 @@ impl Batchable for SideEffectCommand {
         }
 
         // Same nullifier value -> conflict (EmitNullifier(x) vs EmitNullifier(x)
-        // or TestNullifierInclusion(x)).
+        // or TestNullifierInclusion(x)). Conservative: Test could in principle
+        // batch after Emit, but we don't model the ordering -- the cost is just
+        // smaller batches, not correctness.
         if let (Some(a), Some(b)) = (self.nullifier_val(), other.nullifier_val()) {
             if a == b {
                 return true;
@@ -648,9 +639,7 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                 state.emitted_nullifiers.insert(*nullifier);
             }
             SendL2ToL1Message {
-                content,
-                recipient,
-                ..
+                content, recipient, ..
             } => {
                 state.l2_to_l1_messages.push((*content, *recipient));
             }
@@ -754,9 +743,16 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                 content, recipient, ..
             } => {
                 assert_expected(cmd.name(), true, &result);
+                // Recipient-side verification requires the bridge (to compute the
+                // expected hash) and TxEffect data (extracted from the receipt by
+                // the bridge). Either being absent silently skips this check --
+                // unit tests run without a bridge, and the bridge may fail to fetch
+                // TxEffect if the block isn't indexed yet.
                 if let Some(bridge) = self.bridge {
                     let output = result.as_ref().unwrap();
                     if let Some(ref effects) = output.tx_effects {
+                        // All sends originate from the SideEffect contract deployed
+                        // under the `test0` alias (see `deploy_side_effect_contract`).
                         let contract = bridge.resolve("contracts:test0");
                         let expected_hash = bridge
                             .compute_l2_to_l1_hash(
@@ -765,10 +761,7 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                                 &content.to_string(),
                             )
                             .expect("compute_l2_to_l1_hash failed");
-                        let found = effects
-                            .l2_to_l1_msg_hashes
-                            .iter()
-                            .any(|h| *h == expected_hash);
+                        let found = effects.l2_to_l1_msg_hashes.contains(&expected_hash);
                         assert!(
                             found,
                             "{}: expected L2->L1 msg hash {} not in TxEffect hashes {:?}",
@@ -1724,67 +1717,87 @@ mod tests {
         assert!(b.conflicts(&a));
     }
 
-    // -- changes_model / flushes_batch category tests --
+    // -- Category -> predicate derivation --
+    //
+    // The exhaustive match in `category()` guarantees every variant is bucketed;
+    // these cases confirm each bucket maps to the right (changes_model,
+    // flushes_batch, verb) triple. One representative per bucket is enough.
 
     #[test]
-    fn stateful_sends_change_model_and_dont_flush() {
-        let cmds: Vec<SideEffectCommand> = vec![
-            SideEffectCommand::CreateNote {
-                value: 1, owner: 0, storage_slot: 1, from: 0, via_parent: false,
-            },
-            SideEffectCommand::CreateAndCompletePartialNote {
-                owner: 0, storage_slot: 1, value: 1, from: 0,
-            },
-            SideEffectCommand::DestroyNote {
-                owner: 0, storage_slot: 1, from: 0, via_parent: false,
-            },
-            SideEffectCommand::EmitNullifier {
-                nullifier: 1, from: 0, via_parent: false,
-            },
-            SideEffectCommand::SendL2ToL1Message {
-                content: 1, recipient: 2, from: 0, via_parent: false,
-            },
-            SideEffectCommand::EmitPrivateLog {
-                tag: 1, content: 2, from: 0, via_parent: false,
-            },
+    fn category_predicates() {
+        let cases: &[(SideEffectCommand, Category, bool, bool, wallet::Verb)] = &[
+            (
+                SideEffectCommand::CreateNote {
+                    value: 1,
+                    owner: 0,
+                    storage_slot: 1,
+                    from: 0,
+                    via_parent: false,
+                },
+                Category::Stateful,
+                true,
+                false,
+                wallet::Verb::Send,
+            ),
+            (
+                SideEffectCommand::ViewNotesMany {
+                    owner: 0,
+                    storage_slot: 1,
+                    active_or_nullified: false,
+                    offset: 0,
+                    from: 0,
+                },
+                Category::ReadOnlyQuery,
+                false,
+                true,
+                wallet::Verb::Simulate,
+            ),
+            (
+                SideEffectCommand::TestNoteInclusion {
+                    owner: 0,
+                    storage_slot: 1,
+                    from: 0,
+                    via_parent: false,
+                },
+                Category::AssertionQuery,
+                false,
+                true,
+                wallet::Verb::Send,
+            ),
+            (
+                SideEffectCommand::RequestOvskApp {
+                    from: 0,
+                    via_parent: false,
+                },
+                Category::KernelExerciser,
+                false,
+                false,
+                wallet::Verb::Send,
+            ),
         ];
-        for cmd in &cmds {
-            assert!(cmd.changes_model(), "{} should change model", cmd.name());
-            assert!(!cmd.flushes_batch(), "{} should not flush batch", cmd.name());
-        }
-    }
-
-    #[test]
-    fn queries_flush_batch_and_dont_change_model() {
-        let cmds: Vec<SideEffectCommand> = vec![
-            SideEffectCommand::ViewNotesMany {
-                owner: 0, storage_slot: 1, active_or_nullified: false, offset: 0, from: 0,
-            },
-            SideEffectCommand::GetNotesMany {
-                owner: 0, storage_slot: 1, active_or_nullified: false, offset: 0, from: 0,
-            },
-            SideEffectCommand::TestNoteInclusion {
-                owner: 0, storage_slot: 1, from: 0, via_parent: false,
-            },
-            SideEffectCommand::TestNullifierInclusion {
-                nullifier: 1, from: 0, via_parent: false,
-            },
-        ];
-        for cmd in &cmds {
-            assert!(!cmd.changes_model(), "{} should not change model", cmd.name());
-            assert!(cmd.flushes_batch(), "{} should flush batch", cmd.name());
-        }
-    }
-
-    #[test]
-    fn kernel_exercisers_neither_change_model_nor_flush() {
-        let cmds: Vec<SideEffectCommand> = vec![
-            SideEffectCommand::RequestOvskApp { from: 0, via_parent: false },
-            SideEffectCommand::TestSettingTeardown { from: 0, via_parent: false },
-        ];
-        for cmd in &cmds {
-            assert!(!cmd.changes_model(), "{} should not change model", cmd.name());
-            assert!(!cmd.flushes_batch(), "{} should not flush batch", cmd.name());
+        for (cmd, cat, changes, flushes, verb) in cases {
+            assert_eq!(cmd.category(), *cat, "{}: category", cmd.name());
+            assert_eq!(
+                cmd.changes_model(),
+                *changes,
+                "{}: changes_model",
+                cmd.name()
+            );
+            assert_eq!(
+                cmd.flushes_batch(),
+                *flushes,
+                "{}: flushes_batch",
+                cmd.name()
+            );
+            assert!(
+                matches!(
+                    (cmd.verb(), verb),
+                    (wallet::Verb::Send, wallet::Verb::Send)
+                        | (wallet::Verb::Simulate, wallet::Verb::Simulate)
+                ),
+                "{}: verb",
+                cmd.name()
+            );
         }
     }
 
@@ -1796,13 +1809,19 @@ mod tests {
         let state = make_state();
         let state = m.next_state(
             &SideEffectCommand::SendL2ToL1Message {
-                content: 10, recipient: 20, from: 0, via_parent: false,
+                content: 10,
+                recipient: 20,
+                from: 0,
+                via_parent: false,
             },
             state,
         );
         let state = m.next_state(
             &SideEffectCommand::SendL2ToL1Message {
-                content: 30, recipient: 40, from: 1, via_parent: false,
+                content: 30,
+                recipient: 40,
+                from: 1,
+                via_parent: false,
             },
             state,
         );
@@ -1815,13 +1834,19 @@ mod tests {
         let state = make_state();
         let state = m.next_state(
             &SideEffectCommand::EmitPrivateLog {
-                tag: 1, content: 2, from: 0, via_parent: false,
+                tag: 1,
+                content: 2,
+                from: 0,
+                via_parent: false,
             },
             state,
         );
         let state = m.next_state(
             &SideEffectCommand::EmitPrivateLog {
-                tag: 3, content: 4, from: 1, via_parent: false,
+                tag: 3,
+                content: 4,
+                from: 1,
+                via_parent: false,
             },
             state,
         );
@@ -1834,31 +1859,44 @@ mod tests {
         let state = make_state();
         let state = m.next_state(
             &SideEffectCommand::EmitPrivateLog {
-                tag: 42, content: 100, from: 0, via_parent: false,
+                tag: 42,
+                content: 100,
+                from: 0,
+                via_parent: false,
             },
             state,
         );
         let state = m.next_state(
             &SideEffectCommand::EmitPrivateLog {
-                tag: 42, content: 200, from: 0, via_parent: false,
+                tag: 42,
+                content: 200,
+                from: 0,
+                via_parent: false,
             },
             state,
         );
         let state = m.next_state(
             &SideEffectCommand::EmitPrivateLog {
-                tag: 99, content: 300, from: 0, via_parent: false,
+                tag: 99,
+                content: 300,
+                from: 0,
+                via_parent: false,
             },
             state,
         );
 
         // Two logs under tag 42, one under tag 99.
-        let tag42: Vec<_> = state.private_logs.iter()
+        let tag42: Vec<_> = state
+            .private_logs
+            .iter()
             .filter(|(t, _)| *t == 42)
             .map(|(_, c)| *c)
             .collect();
         assert_eq!(tag42, vec![100, 200]);
 
-        let tag99: Vec<_> = state.private_logs.iter()
+        let tag99: Vec<_> = state
+            .private_logs
+            .iter()
             .filter(|(t, _)| *t == 99)
             .map(|(_, c)| *c)
             .collect();
@@ -1871,13 +1909,19 @@ mod tests {
         let state = make_state();
         let state = m.next_state(
             &SideEffectCommand::SendL2ToL1Message {
-                content: 10, recipient: 20, from: 0, via_parent: false,
+                content: 10,
+                recipient: 20,
+                from: 0,
+                via_parent: false,
             },
             state,
         );
         let state = m.next_state(
             &SideEffectCommand::EmitPrivateLog {
-                tag: 1, content: 2, from: 0, via_parent: false,
+                tag: 1,
+                content: 2,
+                from: 0,
+                via_parent: false,
             },
             state,
         );
@@ -1895,16 +1939,37 @@ mod tests {
         state.private_logs.push((3, 4));
 
         let cmds = vec![
-            SideEffectCommand::RequestOvskApp { from: 0, via_parent: false },
-            SideEffectCommand::TestSettingTeardown { from: 0, via_parent: false },
+            SideEffectCommand::RequestOvskApp {
+                from: 0,
+                via_parent: false,
+            },
+            SideEffectCommand::TestSettingTeardown {
+                from: 0,
+                via_parent: false,
+            },
         ];
 
         for cmd in &cmds {
             let new_state = m.next_state(cmd, state.clone());
             assert_eq!(new_state.active_notes, state.active_notes, "{}", cmd.name());
-            assert_eq!(new_state.destroyed_notes, state.destroyed_notes, "{}", cmd.name());
-            assert_eq!(new_state.emitted_nullifiers, state.emitted_nullifiers, "{}", cmd.name());
-            assert_eq!(new_state.l2_to_l1_messages, state.l2_to_l1_messages, "{}", cmd.name());
+            assert_eq!(
+                new_state.destroyed_notes,
+                state.destroyed_notes,
+                "{}",
+                cmd.name()
+            );
+            assert_eq!(
+                new_state.emitted_nullifiers,
+                state.emitted_nullifiers,
+                "{}",
+                cmd.name()
+            );
+            assert_eq!(
+                new_state.l2_to_l1_messages,
+                state.l2_to_l1_messages,
+                "{}",
+                cmd.name()
+            );
             assert_eq!(new_state.private_logs, state.private_logs, "{}", cmd.name());
         }
     }

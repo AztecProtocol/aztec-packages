@@ -179,8 +179,9 @@ impl Bridge {
     }
 
     /// Execute a wallet command and return output including optional TxEffect
-    /// data.  Retries automatically on transient sandbox errors (e.g.
-    /// block-hash-not-found after a reorg).
+    /// data.  Retries automatically on transient sandbox errors -- see
+    /// `is_transient_error` for which messages are retried (currently stale
+    /// world-state reads and reorg notices).
     pub fn execute(&self, cmd: &WalletCommand) -> anyhow::Result<ExecOutput> {
         let book = self.address_book.lock().unwrap();
         let resolved_from = book.resolve(&cmd.from);

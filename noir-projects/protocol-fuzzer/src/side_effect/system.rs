@@ -117,10 +117,7 @@ impl From<&SideEffectCommand> for WalletCommand {
                 vec![format!("{content}"), format!("0x{recipient:064x}")],
             ),
             EmitPrivateLog {
-                tag,
-                content,
-                from,
-                ..
+                tag, content, from, ..
             } => (
                 "emit_private_log",
                 format!("accounts:test{from}"),
@@ -129,6 +126,9 @@ impl From<&SideEffectCommand> for WalletCommand {
             RequestOvskApp { from, .. } => (
                 "request_ovsk_app",
                 format!("accounts:test{from}"),
+                // The argument is the owner whose ovsk_app we request; passing
+                // `from` exercises the success path. A mismatched owner would
+                // test the failure path (kernel rejects unauthorized derivation).
                 vec![format!("accounts:test{from}")],
             ),
             TestSettingTeardown { from, .. } => (
@@ -189,16 +189,29 @@ impl<'a> SideEffectSystem<'a> {
         )
     }
 
-    /// Run one-shot kernel exercisers once during setup. These operations
-    /// always succeed and have no parameters to vary, so a single execution
-    /// proves the kernel plumbing works. Running them here (instead of
-    /// repeatedly during fuzzing) saves ~5-13s per redundant tx.
+    /// Smoke-test the kernel exercisers during setup: each is run both directly
+    /// and via the parent contract (cross-contract enqueue is a different kernel
+    /// call shape, so it needs its own check). They always succeed and have no
+    /// parameters to vary, so once these four pass, repeating them during
+    /// fuzzing wastes ~5-13s per redundant tx.
     pub(crate) fn run_one_shot_smoke_tests(&self) -> anyhow::Result<()> {
         let cmds = [
-            SideEffectCommand::RequestOvskApp { from: 0, via_parent: false },
-            SideEffectCommand::TestSettingTeardown { from: 0, via_parent: false },
-            SideEffectCommand::RequestOvskApp { from: 0, via_parent: true },
-            SideEffectCommand::TestSettingTeardown { from: 0, via_parent: true },
+            SideEffectCommand::RequestOvskApp {
+                from: 0,
+                via_parent: false,
+            },
+            SideEffectCommand::TestSettingTeardown {
+                from: 0,
+                via_parent: false,
+            },
+            SideEffectCommand::RequestOvskApp {
+                from: 0,
+                via_parent: true,
+            },
+            SideEffectCommand::TestSettingTeardown {
+                from: 0,
+                via_parent: true,
+            },
         ];
         for cmd in &cmds {
             self.execute_command(cmd)

@@ -199,6 +199,42 @@ fn credit(balances: &mut BalanceMap, key: (TokenId, AccountId), amount: TokenAmo
     *balances.entry(key).or_default() += amount;
 }
 
+/// Apply a mint to model state: bumps total supply and the chosen balance map,
+/// silently denying overflows (matching the contract). `is_public` selects the
+/// balance map and the log label.
+fn try_mint(
+    state: &mut TokenState,
+    token: TokenId,
+    amount: TokenAmount,
+    from: AccountId,
+    to: AccountId,
+    is_public: bool,
+) {
+    if state.owners[&token] != from {
+        return;
+    }
+    let supply = *state
+        .total_supply
+        .get(&token)
+        .expect("total supply should be initialized");
+    let balances = if is_public {
+        &mut state.balances_public
+    } else {
+        &mut state.balances_private
+    };
+    let balance = balances.get(&(token, to)).copied().unwrap_or(0);
+    match (supply.checked_add(amount), balance.checked_add(amount)) {
+        (Some(new_supply), Some(new_balance)) => {
+            balances.insert((token, to), new_balance);
+            state.total_supply.insert(token, new_supply);
+        }
+        _ => {
+            let kind = if is_public { "public" } else { "private" };
+            debug!("Overflow minting {amount} of {token} to {to} ({kind}), denied");
+        }
+    }
+}
+
 impl TokenMachine<'_> {
     fn gen_valid_mint(
         &self,
@@ -416,53 +452,13 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
                 amount,
                 from,
                 to,
-            } => {
-                if state.owners[token] == *from {
-                    let supply = state
-                        .total_supply
-                        .get(token)
-                        .expect("total supply should be initialized");
-                    let balance = state
-                        .balances_public
-                        .get(&(*token, *to))
-                        .copied()
-                        .unwrap_or(0);
-                    if let (Some(new_supply), Some(new_balance)) =
-                        (supply.checked_add(*amount), balance.checked_add(*amount))
-                    {
-                        state.total_supply.insert(*token, new_supply);
-                        state.balances_public.insert((*token, *to), new_balance);
-                    } else {
-                        debug!("Overflow minting {amount} of {token} to {to} (public), denied");
-                    }
-                }
-            }
+            } => try_mint(&mut state, *token, *amount, *from, *to, true),
             MintPrivate {
                 token,
                 amount,
                 from,
                 to,
-            } => {
-                if state.owners[token] == *from {
-                    let supply = state
-                        .total_supply
-                        .get(token)
-                        .expect("total supply should be initialized");
-                    let balance = state
-                        .balances_private
-                        .get(&(*token, *to))
-                        .copied()
-                        .unwrap_or(0);
-                    if let (Some(new_supply), Some(new_balance)) =
-                        (supply.checked_add(*amount), balance.checked_add(*amount))
-                    {
-                        state.total_supply.insert(*token, new_supply);
-                        state.balances_private.insert((*token, *to), new_balance);
-                    } else {
-                        debug!("Overflow minting {amount} of {token} to {to} (private), denied");
-                    }
-                }
-            }
+            } => try_mint(&mut state, *token, *amount, *from, *to, false),
             BurnPublic {
                 token,
                 amount,
