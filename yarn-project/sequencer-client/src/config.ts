@@ -191,6 +191,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Broadcast invalid block proposals with corrupted state (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.broadcastInvalidBlockProposal),
   },
+  invalidBlockProposalIndexWithinCheckpoint: {
+    description: 'Broadcast an invalid block proposal only at this indexWithinCheckpoint (for testing only)',
+    ...optionalNumberConfigHelper(),
+  },
   injectFakeAttestation: {
     description: 'Inject a fake attestation (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.injectFakeAttestation),

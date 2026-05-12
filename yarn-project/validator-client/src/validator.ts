@@ -213,6 +213,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
+      skipSlotValidation: config.skipProposalSlotValidation,
       signatureContext: {
         chainId: config.l1ChainId,
         rollupAddress: config.rollupAddress,
@@ -876,7 +877,8 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       proposerAddress,
       {
         ...options,
-        broadcastInvalidBlockProposal: this.config.broadcastInvalidBlockProposal,
+        broadcastInvalidBlockProposal:
+          options.broadcastInvalidBlockProposal || this.config.broadcastInvalidBlockProposal,
       },
     );
     this.lastProposedBlock = newProposal;
