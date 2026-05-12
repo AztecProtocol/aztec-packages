@@ -124,6 +124,7 @@ export class CheckpointProposalJob implements Traceable {
     private readonly targetEpoch: EpochNumber,
     private readonly checkpointNumber: CheckpointNumber,
     private readonly syncedToBlockNumber: BlockNumber,
+    private readonly checkpointedCheckpointNumber: CheckpointNumber,
     // TODO(palla/mbps): Can we remove the proposer in favor of attestorAddress? Need to check fisherman-node flows.
     private readonly proposer: EthAddress | undefined,
     private readonly publisher: SequencerPublisher,
@@ -151,7 +152,6 @@ export class CheckpointProposalJob implements Traceable {
     public readonly tracer: Tracer,
     bindings?: LoggerBindings,
     private readonly proposedCheckpointData?: ProposedCheckpointData,
-    private readonly prunePending?: { provenOverride: CheckpointNumber },
   ) {
     this.log = createLogger('sequencer:checkpoint-proposal', {
       ...bindings,
@@ -540,12 +540,14 @@ export class CheckpointProposalJob implements Traceable {
       // mana-min-fee simulation (in the globals builder) and the pre-broadcast
       // validateBlockHeader see the chain tip the eventual L1 send will see.
       const isPipelining = this.epochCache.isProposerPipeliningEnabled();
+      const isPruneDueAtSlot = await this.l2BlockSource.isPruneDueAtSlot(this.targetSlot);
       this.checkpointSimulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: this.checkpointNumber,
         proposedCheckpointData: isPipelining ? this.proposedCheckpointData : undefined,
         invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
         lastArchiveRoot: isPipelining ? this.proposedCheckpointData?.archive.root : undefined,
-        provenOverride: this.prunePending?.provenOverride,
+        isPruneDueAtSlot,
+        checkpointedCheckpointNumber: this.checkpointedCheckpointNumber,
         rollup: this.publisher.rollupContract,
         log: this.log,
       });

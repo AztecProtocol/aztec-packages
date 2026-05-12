@@ -769,6 +769,7 @@ describe('CheckpointProposalJob', () => {
       overrides?.targetEpoch ?? epoch,
       checkpointNumber,
       lastBlockNumber,
+      CheckpointNumber(checkpointNumber - 1),
       proposer,
       publisher,
       attestorAddress,
@@ -914,6 +915,8 @@ describe('CheckpointProposalJob', () => {
       const plan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: checkpointNumberUnderTest,
         proposedCheckpointData: proposedData,
+        isPruneDueAtSlot: false,
+        checkpointedCheckpointNumber: CheckpointNumber(0),
         rollup: publisher.rollupContract,
         log: createLogger('test'),
       });
@@ -924,6 +927,8 @@ describe('CheckpointProposalJob', () => {
     it('returns undefined when no proposedCheckpointData and no invalidateToPendingCheckpointNumber', async () => {
       const plan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: checkpointNumberUnderTest,
+        isPruneDueAtSlot: false,
+        checkpointedCheckpointNumber: CheckpointNumber(0),
         rollup: publisher.rollupContract,
         log: createLogger('test'),
       });
@@ -934,6 +939,8 @@ describe('CheckpointProposalJob', () => {
       const plan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: checkpointNumberUnderTest,
         invalidateToPendingCheckpointNumber: CheckpointNumber(0),
+        isPruneDueAtSlot: false,
+        checkpointedCheckpointNumber: CheckpointNumber(0),
         rollup: publisher.rollupContract,
         log: createLogger('test'),
       });
@@ -956,6 +963,8 @@ describe('CheckpointProposalJob', () => {
         checkpointNumber: checkpointNumberUnderTest,
         proposedCheckpointData: proposedData,
         invalidateToPendingCheckpointNumber: CheckpointNumber(0),
+        isPruneDueAtSlot: false,
+        checkpointedCheckpointNumber: CheckpointNumber(0),
         rollup: publisher.rollupContract,
         log: createLogger('test'),
       });
@@ -968,6 +977,8 @@ describe('CheckpointProposalJob', () => {
         checkpointNumber: checkpointNumberUnderTest,
         invalidateToPendingCheckpointNumber: CheckpointNumber(0),
         lastArchiveRoot,
+        isPruneDueAtSlot: false,
+        checkpointedCheckpointNumber: CheckpointNumber(0),
         rollup: publisher.rollupContract,
         log: createLogger('test'),
       });
@@ -979,6 +990,8 @@ describe('CheckpointProposalJob', () => {
       const plan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: checkpointNumberUnderTest,
         invalidateToPendingCheckpointNumber: CheckpointNumber(0),
+        isPruneDueAtSlot: false,
+        checkpointedCheckpointNumber: CheckpointNumber(0),
         rollup: publisher.rollupContract,
         log: createLogger('test'),
       });
@@ -1013,6 +1026,8 @@ describe('CheckpointProposalJob', () => {
       const plan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: CheckpointNumber(2),
         proposedCheckpointData: proposedData,
+        isPruneDueAtSlot: false,
+        checkpointedCheckpointNumber: CheckpointNumber(0),
         rollup: publisher.rollupContract,
         log: createLogger('test'),
       });

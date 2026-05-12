@@ -13,8 +13,18 @@ type CheckpointSimulationOverridesPlanInput = {
    * (pre-build) callers like canProposeAt that do not yet have a built checkpoint.
    */
   lastArchiveRoot?: Fr;
-  /** If set, overrides `tips.proven` so `canPruneAtTime` short-circuits to false at the simulation timestamp. */
-  provenOverride?: CheckpointNumber;
+  /**
+   * Whether the rollup contract will treat the target slot as the start of a prune. When true,
+   * the plan overrides `tips.proven` so `canPruneAtTime` short-circuits to false at simulation
+   * time. Callers are expected to compute this with `l2BlockSource.isPruneDueAtSlot(targetSlot)`.
+   */
+  isPruneDueAtSlot: boolean;
+  /**
+   * The real on-chain pending checkpoint number (typically `syncedTo.checkpointedCheckpointNumber`
+   * or `l2BlockSource.getL2Tips().checkpointed.checkpoint.number`). Used as the fallback
+   * `proven` override when `isPruneDueAtSlot` is true and no other pending override is set.
+   */
+  checkpointedCheckpointNumber: CheckpointNumber;
   rollup: RollupContract;
   log: Logger;
 };
@@ -25,9 +35,6 @@ type CheckpointSimulationOverridesPlanInput = {
  * (validateBlockHeader, simulateProposeTx). The plan reflects "as if our pipelined parent
  * checkpoint has landed and any required invalidation has executed" — the gap that needs to be
  * bridged at enqueue time.
- *
- * The bundle simulate at send time deliberately does NOT consume this plan — by then the parent
- * is actually on L1 and the overrides would lie about chain state.
  */
 export async function buildCheckpointSimulationOverridesPlan(
   input: CheckpointSimulationOverridesPlanInput,
@@ -61,8 +68,12 @@ export async function buildCheckpointSimulationOverridesPlan(
   if (feeHeader) {
     builder.withPendingFeeHeader(feeHeader);
   }
-  if (input.provenOverride !== undefined) {
-    builder.withChainTips({ proven: input.provenOverride });
+  if (input.isPruneDueAtSlot) {
+    // Force `proven == pending` in simulation so `canPruneAtTime` short-circuits to false.
+    // Prefer the pending override we may have just installed (pipelining/invalidating); fall back
+    // to the real on-chain pending tip when no override applies.
+    const provenOverride = pendingCheckpointNumber ?? input.checkpointedCheckpointNumber;
+    builder.withChainTips({ proven: provenOverride });
   }
 
   return builder.build();

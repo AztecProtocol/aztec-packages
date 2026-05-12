@@ -1,6 +1,6 @@
 import { getKzg } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { NoCommitteeError, type RollupContract, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
+import { NoCommitteeError, type RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, omit, pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -374,18 +374,20 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposerForPublisher);
     this.log.verbose(`Created publisher at address ${publisher.getSenderAddress()} for attestor ${attestorAddress}`);
 
+    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
+
     // Prepare invalidation request if the pending chain is invalid (returns undefined if no need).
-    // Only simulate invalidation when there's no proposed parent — otherwise the result is
-    // overwritten to undefined below.
-    let invalidateCheckpoint = syncedTo.hasProposedCheckpoint
-      ? undefined
-      : await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
+    // Only simulate invalidation when there's no proposed parent, since we assume the proposed parent
+    // will invalidate the currently invalid checkpoint on L1.
+    const invalidateCheckpoint =
+      (isPipelining && syncedTo.hasProposedCheckpoint) || syncedTo.pendingChainValidationStatus.valid
+        ? undefined
+        : await publisher.simulateInvalidateCheckpoint(syncedTo.pendingChainValidationStatus);
 
     // Determine the correct archive and L1 state overrides for the canProposeAt check.
     // The L1 contract reads archives[proposedCheckpointNumber] and compares it with the provided archive.
     // When invalidating or pipelining, the local archive may differ from L1's, so we adjust accordingly.
     let archiveForCheck = syncedTo.archive;
-    const isPipelining = this.epochCache.isProposerPipeliningEnabled();
 
     if (isPipelining && syncedTo.hasProposedCheckpoint) {
       this.metrics.recordPipelineDepth(syncedTo.checkpointNumber - syncedTo.checkpointedCheckpointNumber);
@@ -399,8 +401,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       // parent's blocks have been applied locally); diverging here would cause the canProposeAt
       // override to set archives[pending] to one value while we present another for comparison.
       archiveForCheck = syncedTo.proposedCheckpointData!.archive.root;
-      // Clear the invalidation - the proposed checkpoint should handle it.
-      invalidateCheckpoint = undefined;
     } else if (invalidateCheckpoint) {
       // After invalidation, L1 will roll back to checkpoint N-1. The archive at N-1 already
       // exists on L1, so we just pass the matching archive (the lastArchive of the invalid checkpoint).
@@ -410,35 +410,28 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics.recordPipelineDepth(0);
     }
 
-    // Build the base simulation plan: pending override from pipelining or invalidation + fee header.
-    const basePlan = await buildCheckpointSimulationOverridesPlan({
+    // Build the simulation plan: pending override from pipelining or invalidation, fee header,
+    // and the proven-override when a prune would otherwise fire at the target slot.
+    const isPruneDueAtSlot = await this.l2BlockSource.isPruneDueAtSlot(targetSlot);
+    const simulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
       checkpointNumber,
       proposedCheckpointData:
         isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
       invalidateToPendingCheckpointNumber: invalidateCheckpoint?.forcePendingCheckpointNumber,
       lastArchiveRoot:
         isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData!.archive.root : undefined,
+      isPruneDueAtSlot,
+      checkpointedCheckpointNumber: syncedTo.checkpointedCheckpointNumber,
       rollup: this.rollupContract,
       log: this.log,
     });
-
-    let provenOverride: CheckpointNumber | undefined;
-    const l1SimulationOverridesBuilder = SimulationOverridesBuilder.from(basePlan);
-    if (await this.l2BlockSource.isPruneDueAtSlot(targetSlot)) {
-      // Force `proven == pending` in the simulation so `STFLib.canPruneAtTime` short-circuits
-      // to false. Use the simulated pending if the caller already overrode it, otherwise the
-      // real L1 pending tip.
-      const overriddenPending = basePlan?.chainTipsOverride?.pending;
-      const realPending = (await this.l2BlockSource.getL2Tips()).checkpointed.checkpoint.number;
-      provenOverride = overriddenPending ?? realPending;
-      l1SimulationOverridesBuilder.withChainTips({ proven: provenOverride });
+    const provenOverride = simulationOverridesPlan?.chainTipsOverride?.proven;
+    if (provenOverride !== undefined) {
       this.log.warn(
-        `applying-proven-override-for-boundary: assuming proof for epoch ending at checkpoint ${provenOverride} lands by target slot ${targetSlot}`,
-        { checkpointNumber, slot, targetSlot, provenOverride, overriddenPending },
+        `Assuming proof for epoch ending at checkpoint ${provenOverride} lands by target slot ${targetSlot}`,
+        { checkpointNumber, slot, targetSlot, provenOverride },
       );
     }
-
-    const simulationOverridesPlan = l1SimulationOverridesBuilder.build();
 
     this.emit('preparing-checkpoint', {
       targetSlot,
@@ -516,12 +509,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       targetEpoch,
       checkpointNumber,
       syncedTo.blockNumber,
+      syncedTo.checkpointedCheckpointNumber,
       proposer,
       publisher,
       attestorAddress,
       invalidateCheckpoint,
       syncedTo.proposedCheckpointData,
-      provenOverride !== undefined ? { provenOverride } : undefined,
     );
   }
 
@@ -531,12 +524,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     targetEpoch: EpochNumber,
     checkpointNumber: CheckpointNumber,
     syncedToBlockNumber: BlockNumber,
+    checkpointedCheckpointNumber: CheckpointNumber,
     proposer: EthAddress | undefined,
     publisher: SequencerPublisher,
     attestorAddress: EthAddress,
     invalidateCheckpoint: InvalidateCheckpointRequest | undefined,
     proposedCheckpointData?: ProposedCheckpointData,
-    prunePending?: { provenOverride: CheckpointNumber },
   ): CheckpointProposalJob {
     return new CheckpointProposalJob(
       slot,
@@ -544,6 +537,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       targetEpoch,
       checkpointNumber,
       syncedToBlockNumber,
+      checkpointedCheckpointNumber,
       proposer,
       publisher,
       attestorAddress,
@@ -570,7 +564,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.tracer,
       this.log.getBindings(),
       proposedCheckpointData,
-      prunePending,
     );
   }
 
