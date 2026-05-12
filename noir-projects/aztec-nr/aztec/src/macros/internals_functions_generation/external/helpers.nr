@@ -104,9 +104,9 @@ pub(crate) comptime fn create_authorize_once_check(f: FunctionDefinition, is_pri
                 .join(quote {+});
             quote { ($params_quote_without_parentheses) }
         };
-        quote { aztec::authwit::auth::assert_current_call_valid_authwit::<($serialized_len_quote)> }
+        quote { aztec::authwit::private::assert_current_call_valid_authwit::<($serialized_len_quote)> }
     } else {
-        quote { aztec::authwit::auth::assert_current_call_valid_authwit_public }
+        quote { aztec::authwit::public::assert_current_call_valid_authwit_public }
     };
     let invalid_nonce_message = f"Invalid authwit nonce. When '{from_arg_name}' and 'msg_sender' are the same, '{nonce_arg_name}' must be zero"
         .as_quoted_str();

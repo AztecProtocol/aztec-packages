@@ -1,11 +1,8 @@
-use crate::context::{gas::GasOpts, PrivateContext, PublicContext};
+use crate::context::PrivateContext;
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::AztecAddress,
-    constants::{
-        CANONICAL_AUTH_REGISTRY_ADDRESS, DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER,
-        DOM_SEP__AUTHWIT_OUTER,
-    },
+    constants::{DOM_SEP__AUTHWIT_INNER, DOM_SEP__AUTHWIT_NULLIFIER, DOM_SEP__AUTHWIT_OUTER},
     hash::poseidon2_hash_with_separator,
     traits::ToField,
 };
@@ -54,39 +51,6 @@ pub fn assert_inner_hash_valid_authwit(
     context.push_nullifier(nullifier);
 }
 
-/// Assert that `on_behalf_of` has authorized the current call in the authentication registry
-///
-/// @param on_behalf_of The address that has allegedly authorized the current call
-pub unconstrained fn assert_current_call_valid_authwit_public(
-    context: PublicContext,
-    on_behalf_of: AztecAddress,
-) {
-    let inner_hash = compute_inner_authwit_hash([
-        context.maybe_msg_sender().unwrap().to_field(),
-        context.selector().to_field(),
-        context.get_args_hash(),
-    ]);
-    assert_inner_hash_valid_authwit_public(context, on_behalf_of, inner_hash);
-}
-
-/// Assert that `on_behalf_of` has authorized a specific `inner_hash` in the authentication registry
-///
-/// @param on_behalf_of The address that has allegedly authorized the `inner_hash`
-pub unconstrained fn assert_inner_hash_valid_authwit_public(
-    context: PublicContext,
-    on_behalf_of: AztecAddress,
-    inner_hash: Field,
-) {
-    let results: [Field] = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
-        comptime { FunctionSelector::from_signature("consume((Field),Field)") },
-        [on_behalf_of.to_field(), inner_hash],
-        GasOpts::default(),
-    );
-    assert(results.len() == 1, "Invalid response from registry");
-    assert(results[0] == IS_VALID_SELECTOR, "Message not authorized by account");
-}
-
 /// Computes the `inner_hash` of the authentication witness
 ///
 /// @param args The arguments to hash
@@ -121,31 +85,4 @@ pub fn compute_authwit_message_hash(
         [consumer.to_field(), chain_id, version, inner_hash],
         DOM_SEP__AUTHWIT_OUTER,
     )
-}
-
-/// Helper function to set the authorization status of a message hash
-///
-/// @param message_hash The hash of the message to authorize
-/// @param authorize True if the message should be authorized, false if it should be revoked
-pub unconstrained fn set_authorized(context: PublicContext, message_hash: Field, authorize: bool) {
-    let res = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
-        comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
-        [message_hash, authorize as Field],
-        GasOpts::default(),
-    );
-    assert(res.len() == 0);
-}
-
-/// Helper function to reject all authwits
-///
-/// @param reject True if all authwits should be rejected, false otherwise
-pub unconstrained fn set_reject_all(context: PublicContext, reject: bool) {
-    let res = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
-        comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
-        [reject as Field],
-        GasOpts::default(),
-    );
-    assert(res.len() == 0);
 }

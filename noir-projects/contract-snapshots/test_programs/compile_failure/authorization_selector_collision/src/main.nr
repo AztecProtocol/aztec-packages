@@ -3,7 +3,7 @@
 ///
 /// Note on the noisy cascade in `expected_error`: the `#[authorization]` macro is
 /// currently `pub` in aztec-nr but only ever consumed from within aztec-nr itself (in
-/// `authwit/auth.nr`). Its generated code references `crate::authwit::*` paths which
+/// `authwit/common.nr`). Its generated code references `crate::authwit::*` paths which
 /// do not resolve from a downstream crate, producing a handful of cascading resolution
 /// errors before the collision panic is reached.
 ///

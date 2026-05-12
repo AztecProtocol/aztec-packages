@@ -1,13 +1,13 @@
 use crate::{
-    authwit::auth::{compute_authwit_message_hash, compute_inner_authwit_hash},
+    authwit::common::{compute_authwit_message_hash, compute_inner_authwit_hash},
     context::{PrivateCall, PublicCall},
     hash::hash_args,
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
 use crate::protocol::{
-    abis::function_selector::FunctionSelector, address::AztecAddress, constants::CANONICAL_AUTH_REGISTRY_ADDRESS,
-    traits::ToField,
+    abis::function_selector::FunctionSelector, address::AztecAddress,
+    constants::CANONICAL_AUTH_REGISTRY_ADDRESS as AUTH_REGISTRY_ADDRESS, traits::ToField,
 };
 
 pub unconstrained fn add_private_authwit_from_call<let M: u32, let N: u32, T>(
@@ -48,7 +48,7 @@ pub unconstrained fn add_public_authwit_from_call<let M: u32, let N: u32, T>(
     env.call_public(
         on_behalf_of,
         PublicCall::<_, _, ()>::new(
-            CANONICAL_AUTH_REGISTRY_ADDRESS,
+            AUTH_REGISTRY_ADDRESS,
             comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
             "set_authorized",
             [message_hash, true as Field],

@@ -9,7 +9,7 @@ pub contract SchnorrAccount {
     use aztec::{
         authwit::{
             account::AccountActions,
-            auth::{compute_authwit_message_hash, compute_authwit_nullifier},
+            common::{compute_authwit_message_hash, compute_authwit_nullifier},
             entrypoint::app::AppPayload,
         },
         context::PrivateContext,

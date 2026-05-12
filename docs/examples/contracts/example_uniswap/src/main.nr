@@ -9,9 +9,9 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract ExampleUniswap {
     use aztec::{
-        authwit::auth::{
-            assert_current_call_valid_authwit_public, compute_authwit_message_hash_from_call,
-            set_authorized,
+        authwit::{
+            common::compute_authwit_message_hash_from_call,
+            public::{assert_current_call_valid_authwit_public, set_authorized},
         },
         macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol::{
