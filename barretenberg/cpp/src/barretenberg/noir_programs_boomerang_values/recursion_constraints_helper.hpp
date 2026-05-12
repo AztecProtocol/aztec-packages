@@ -940,7 +940,8 @@ template <typename CircuitBuilder> std::vector<size_t> find_all_transcript_squee
 // Expected squeeze-gate counts per phase in MegaZK full recursive verification (steps 0..4).
 static constexpr size_t NUM_OINK_SQUEEZES = 3;      // eta, beta/gamma pair, alpha
 static constexpr size_t NUM_STEP2_SQUEEZES = 1;     // gate_challenge[0]
-static constexpr size_t NUM_SUMCHECK_SQUEEZES = 17; // u_0..u_15 + ZK correction
+static constexpr size_t NUM_SUMCHECK_ROUNDS = 16;
+static constexpr size_t NUM_SUMCHECK_SQUEEZES = NUM_SUMCHECK_ROUNDS + 1; // u_0..u_15 + ZK correction
 static constexpr size_t NUM_SHPLEMINI_SQUEEZES = 4; // rho, Gemini:r, Shplonk:nu, Shplonk:z
 static constexpr size_t NUM_KZG_SQUEEZES = 1;       // KZG:masking_challenge
 static constexpr size_t NUM_TOTAL_SQUEEZES =
@@ -1059,10 +1060,12 @@ SumcheckChallenges sumcheck_challenges(CircuitBuilder& builder,
     }
     auto& arith = builder.blocks.arithmetic;
     auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
+    // gates[0] = Libra:Challenge (ZK correction handler squeezes first, before any round)
+    // gates[1..16] = u_0..u_15 (one per sumcheck round)
+    out.zk_correction = to_real(arith.w_l()[gates[0]]);
     for (size_t i = 0; i < 16; i++) {
-        out.u[i] = to_real(arith.w_l()[gates[i]]);
+        out.u[i] = to_real(arith.w_l()[gates[i + 1]]);
     }
-    out.zk_correction = to_real(arith.w_l()[gates[16]]);
     out.squeeze_gate_indices = std::set(gates.begin(), gates.end());
     out.valid = true;
     return out;
@@ -3563,8 +3566,8 @@ struct ShplonkQValidationResult {
  * @return Validated arithmetic start, with `is_valid` set on success.
  */
 template <typename CircuitBuilder>
-ShplonkBatchingChallengePowersValidationResult validate_shplonk_batching_challenge_powers(
-    CircuitBuilder& builder, size_t nu_arith_start)
+ShplonkBatchingChallengePowersValidationResult validate_shplonk_batching_challenge_powers(CircuitBuilder& builder,
+                                                                                          size_t nu_arith_start)
 {
     ShplonkBatchingChallengePowersValidationResult result;
     auto& arith = builder.blocks.arithmetic;
@@ -3649,24 +3652,23 @@ ShplonkQValidationResult validate_shplonk_q(CircuitBuilder& builder,
  * @param z_arith_start Validated arithmetic start of the Shplonk:z stage.
  * @return `true` when all nine tail stages match their expected fingerprints.
  */
-template <typename CircuitBuilder>
-bool validate_shplonk_tail(CircuitBuilder& builder, size_t z_arith_start)
+template <typename CircuitBuilder> bool validate_shplonk_tail(CircuitBuilder& builder, size_t z_arith_start)
 {
     auto& arith = builder.blocks.arithmetic;
 
-    static constexpr std::array<recursion_helpers::FunctionFingerprint, 9> TAIL_STAGES = {{
+    static constexpr std::array<recursion_helpers::FunctionFingerprint, 9> TAIL_STAGES = { {
         SHPLONK_INVERSE_GEMINI_DENOMINATORS_ARITHMETIC,   //  64 gates
-        CLAIM_BATCHER_COMPUTE_SCALARS_ARITHMETIC,          //   6 gates
-        CLAIM_BATCHER_UPDATE_BATCH_MUL_INPUTS_ARITHMETIC,  // 239 gates
-        GEMINI_FOLD_POS_EVALUATIONS_ARITHMETIC,            // 208 gates
-        BATCH_GEMINI_CLAIMS_ARITHMETIC,                    // 119 gates
-        A0_CONSTANT_TERMS_ARITHMETIC,                      //   5 gates
-        REMOVE_REPEATED_COMMITMENTS_ARITHMETIC,            //   5 gates
-        ADD_ZK_DATA_ARITHMETIC,                            //  19 gates
-        CHECK_LIBRA_EVALUATIONS_CONSISTENCY_ARITHMETIC,    // 1434 gates
-    }};
+        CLAIM_BATCHER_COMPUTE_SCALARS_ARITHMETIC,         //   6 gates
+        CLAIM_BATCHER_UPDATE_BATCH_MUL_INPUTS_ARITHMETIC, // 239 gates
+        GEMINI_FOLD_POS_EVALUATIONS_ARITHMETIC,           // 208 gates
+        BATCH_GEMINI_CLAIMS_ARITHMETIC,                   // 119 gates
+        A0_CONSTANT_TERMS_ARITHMETIC,                     //   5 gates
+        REMOVE_REPEATED_COMMITMENTS_ARITHMETIC,           //   5 gates
+        ADD_ZK_DATA_ARITHMETIC,                           //  19 gates
+        CHECK_LIBRA_EVALUATIONS_CONSISTENCY_ARITHMETIC,   // 1434 gates
+    } };
 
-    static constexpr std::array<const char*, 9> TAIL_STAGE_NAMES = {{
+    static constexpr std::array<const char*, 9> TAIL_STAGE_NAMES = { {
         "Shplonk_inverse_gemini_denominators",
         "ClaimBatcher_compute_scalars",
         "ClaimBatcher_update_batch_mul_inputs",
@@ -3676,16 +3678,13 @@ bool validate_shplonk_tail(CircuitBuilder& builder, size_t z_arith_start)
         "remove_repeated_commitments",
         "add_zk_data",
         "check_libra_evaluations_consistency",
-    }};
+    } };
 
     size_t offset = z_arith_start + SHPLONK_Z_ARITHMETIC.gate_count;
     for (size_t i = 0; i < TAIL_STAGES.size(); ++i) {
         if (!KZGVerification::matches_fingerprint_at(builder, arith, offset, TAIL_STAGES[i])) {
-            info("Shplemini tail validation failed at stage ",
-                 TAIL_STAGE_NAMES[i],
-                 " (arithmetic offset ",
-                 offset,
-                 ")");
+            info(
+                "Shplemini tail validation failed at stage ", TAIL_STAGE_NAMES[i], " (arithmetic offset ", offset, ")");
             return false;
         }
         offset += TAIL_STAGES[i].gate_count;
@@ -3755,12 +3754,8 @@ bool validate_shplonk(CircuitBuilder& builder,
     }
 
     // Stage 4: Shplonk:z challenge generation (arithmetic + poseidon2 chain).
-    auto z = validate_challenges_generation<bb::fr>(builder,
-                                                    analyzer,
-                                                    shplonk_z_gate_idx,
-                                                    SHPLONK_Z_ARITHMETIC,
-                                                    SHPLONK_Z_POSEIDON2_EXT,
-                                                    SHPLONK_Z_POSEIDON2_INT);
+    auto z = validate_challenges_generation<bb::fr>(
+        builder, analyzer, shplonk_z_gate_idx, SHPLONK_Z_ARITHMETIC, SHPLONK_Z_POSEIDON2_EXT, SHPLONK_Z_POSEIDON2_INT);
     if (!z.is_valid) {
         return false;
     }
@@ -3791,4 +3786,665 @@ bool validate_shplonk(CircuitBuilder& builder,
     return true;
 }
 
+/**
+ * @brief Validate the full Shplemini verification chain.
+ *
+ * Stages (in circuit order):
+ *   1. rho challenge generation        (arithmetic + poseidon2 chain)
+ *   2. Gemini fold commitments         (arithmetic + NNF, anchored at rho end)
+ *   3. Gemini:r challenge generation   (arithmetic + poseidon2 chain)
+ *   4. Shplonk:nu challenge generation (arithmetic + poseidon2 chain)
+ *   5. Shplonk batching-challenge powers (arithmetic only)
+ *   6. Shplonk:Q commitment receive    (arithmetic + NNF)
+ *   7. Shplonk:z challenge generation  (arithmetic + poseidon2 chain)
+ *      Cross-check: z immediately follows Q in arithmetic block.
+ *   8. Shplonk tail                    (9-stage arithmetic offset walk)
+ *
+ * Squeeze gates are discovered internally from the builder. The first
+ * NUM_OINK + NUM_STEP2 + NUM_SUMCHECK gates are treated as consumed; the
+ * next NUM_SHPLEMINI gates anchor the four Shplemini challenges.
+ */
+
+/**
+ * @brief Result of validating the `Shplemini:Gemini_evaluation_challenge_powers` stage.
+ */
+struct EvaluationChallengePowersValidationResult {
+    bool is_valid = false;
+    size_t arithmetic_gate_start_idx = SIZE_MAX;
+};
+
+/**
+ * @brief Validate the `Shplemini:Gemini_evaluation_challenge_powers` stage.
+ *
+ * Derives the arithmetic start immediately after the Gemini:r arithmetic range and validates
+ * the fingerprint. No cross-block links: this stage is purely arithmetic.
+ *
+ * @tparam CircuitBuilder Circuit builder type.
+ * @param builder Builder containing the generated Shplemini circuit.
+ * @param gemini_r_arith_start Validated arithmetic start of the preceding Gemini:r stage.
+ * @return Validated arithmetic start, with `is_valid` set on success.
+ */
+template <typename CircuitBuilder>
+EvaluationChallengePowersValidationResult validate_evaluation_challenge_powers(CircuitBuilder& builder,
+                                                                               size_t gemini_r_arith_start)
+{
+    EvaluationChallengePowersValidationResult result;
+    auto& arith = builder.blocks.arithmetic;
+
+    const size_t eval_powers_arith_start = gemini_r_arith_start + GEMINI_R_ARITHMETIC.gate_count;
+    if (!KZGVerification::matches_fingerprint_at(
+            builder, arith, eval_powers_arith_start, GEMINI_EVALUATION_CHALLENGE_POWERS_ARITHMETIC)) {
+        info("validate_evaluation_challenge_powers failed: fingerprint mismatch at derived start ",
+             eval_powers_arith_start);
+        return result;
+    }
+    result.arithmetic_gate_start_idx = eval_powers_arith_start;
+    result.is_valid = true;
+    return result;
+}
+
+/**
+ * @tparam FF Field type used by the StaticAnalyzer.
+ * @tparam CircuitBuilder Circuit builder type.
+ * @param builder Builder containing the generated Shplemini circuit.
+ * @param analyzer Static analyzer built for `builder`.
+ * @return `true` when all stages pass validation.
+ */
+template <typename FF, typename CircuitBuilder>
+bool validate_shplemini(CircuitBuilder& builder, cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
+{
+    constexpr size_t consumed_count = recursion_helpers::NUM_OINK_SQUEEZES + recursion_helpers::NUM_STEP2_SQUEEZES +
+                                      recursion_helpers::NUM_SUMCHECK_SQUEEZES;
+
+    auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
+    if (all_squeezes.size() < consumed_count + recursion_helpers::NUM_SHPLEMINI_SQUEEZES) {
+        info("validate_shplemini failed: expected at least ",
+             consumed_count + recursion_helpers::NUM_SHPLEMINI_SQUEEZES,
+             " squeeze gates, found ",
+             all_squeezes.size());
+        return false;
+    }
+    const std::set<size_t> consumed_before_shplemini(all_squeezes.begin(), all_squeezes.begin() + consumed_count);
+    const auto shplemini_gates = recursion_helpers::take_unclaimed_squeezes(
+        all_squeezes, consumed_before_shplemini, recursion_helpers::NUM_SHPLEMINI_SQUEEZES);
+
+    const size_t rho_gate = shplemini_gates[0];
+    const size_t gemini_r_gate = shplemini_gates[1];
+    const size_t shplonk_nu_gate = shplemini_gates[2];
+    const size_t shplonk_z_gate = shplemini_gates[3];
+
+    // Stage 1: rho challenge generation.
+    auto rho = validate_challenges_generation<FF>(
+        builder, analyzer, rho_gate, RHO_ARITHMETIC, RHO_POSEIDON2_EXT, RHO_POSEIDON2_INT);
+    if (!rho.is_valid) {
+        return false;
+    }
+
+    // Stage 2: Gemini fold commitments.
+    auto fold = validate_gemini_fold_commitments<FF>(builder, analyzer, rho_gate, gemini_r_gate);
+    if (!fold.is_valid) {
+        return false;
+    }
+
+    // Stage 3: Gemini:r challenge generation.
+    auto gemini_r = validate_challenges_generation<FF>(
+        builder, analyzer, gemini_r_gate, GEMINI_R_ARITHMETIC, GEMINI_R_POSEIDON2_EXT, GEMINI_R_POSEIDON2_INT);
+    if (!gemini_r.is_valid) {
+        return false;
+    }
+
+    // Stage 3.5: Gemini evaluation challenge powers.
+    auto eval_powers = validate_evaluation_challenge_powers(builder, gemini_r.arithmetic_gate_start_idx);
+    if (!eval_powers.is_valid) {
+        return false;
+    }
+
+    // Stage 4: Shplonk:nu challenge generation.
+    auto nu = validate_challenges_generation<FF>(
+        builder, analyzer, shplonk_nu_gate, SHPLONK_NU_ARITHMETIC, SHPLONK_NU_POSEIDON2_EXT, SHPLONK_NU_POSEIDON2_INT);
+    if (!nu.is_valid) {
+        return false;
+    }
+
+    // Stage 5: compute_shplonk_batching_challenge_powers.
+    auto powers = validate_shplonk_batching_challenge_powers(builder, nu.arithmetic_gate_start_idx);
+    if (!powers.is_valid) {
+        return false;
+    }
+
+    // Stage 6: Shplonk:Q commitment receive.
+    auto q = validate_shplonk_q<FF>(builder, analyzer, powers.arithmetic_gate_start_idx);
+    if (!q.is_valid) {
+        return false;
+    }
+
+    // Stage 7: Shplonk:z challenge generation.
+    auto z = validate_challenges_generation<FF>(
+        builder, analyzer, shplonk_z_gate, SHPLONK_Z_ARITHMETIC, SHPLONK_Z_POSEIDON2_EXT, SHPLONK_Z_POSEIDON2_INT);
+    if (!z.is_valid) {
+        return false;
+    }
+    if (z.arithmetic_gate_start_idx != q.arithmetic_gate_start_idx + SHPLONK_Q_ARITHMETIC.gate_count) {
+        info("validate_shplemini failed: z arithmetic start ",
+             z.arithmetic_gate_start_idx,
+             " != expected ",
+             q.arithmetic_gate_start_idx + SHPLONK_Q_ARITHMETIC.gate_count,
+             " (Q arithmetic end)");
+        return false;
+    }
+
+    // Stage 8: Shplonk tail (9-stage arithmetic offset walk).
+    if (!validate_shplonk_tail(builder, z.arithmetic_gate_start_idx)) {
+        return false;
+    }
+
+    info("validate_shplemini succeeded: rho at ",
+         rho.arithmetic_gate_start_idx,
+         ", gemini_r at ",
+         gemini_r.arithmetic_gate_start_idx,
+         ", nu at ",
+         nu.arithmetic_gate_start_idx,
+         ", z at ",
+         z.arithmetic_gate_start_idx);
+    return true;
+}
+
 } // namespace ShpleminiVerification
+
+// ============================================================================
+// SumcheckValidation — structural fingerprint validators for the Sumcheck step
+// ============================================================================
+namespace SumcheckValidation {
+
+// ── Group A: Prefix (non-round) stage fingerprints ───────────────────────────
+
+// Libra:concatenation_commitment  (arith 79 gates + NNF 62 gates)
+static constexpr recursion_helpers::FunctionFingerprint LIBRA_CONCAT_COMMIT_ARITHMETIC = {
+    79, 0xb44f41ca2be07184ULL, 0x7e14d02952bda35aULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint LIBRA_CONCAT_COMMIT_NNF = {
+    62, 0xff2ca3c0bde9b337ULL, 0x6f7911bba1f0ffe7ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+
+// ZK_correction_handler:Libra_challenge  (arith 35 + p2ext 20 + p2int 114)
+static constexpr recursion_helpers::FunctionFingerprint ZK_HANDLER_LIBRA_CHALLENGE_ARITHMETIC = {
+    35, 0x49966e00712e56a5ULL, 0xfafaa0824a5575d1ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_EXT = {
+    20, 0x0ec92a899925d755ULL, 0x0ec92a899925d755ULL, 20 // 20 gates: prefix == full
+};
+static constexpr recursion_helpers::FunctionFingerprint ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_INT = {
+    114, 0xee3a7ac895f8a6d9ULL, 0x8112ac29167e98daULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+
+// ZK_correction_handler:initialize_target_sum  (arith 1 gate)
+static constexpr recursion_helpers::FunctionFingerprint ZK_HANDLER_INIT_TARGET_SUM_ARITHMETIC = {
+    1, 0x9d231075bdfe6ef4ULL, 0x9d231075bdfe6ef4ULL, 1 // 1 gate: prefix == full
+};
+
+// ── Group B: Per-round fingerprints ──────────────────────────────────────────
+
+// u_r challenge (arith + p2ext + p2int): identical across all 16 rounds
+static constexpr recursion_helpers::FunctionFingerprint ROUND_U_ARITHMETIC = {
+    51, 0x1c8f1b12f50c854cULL, 0x6217b4e6def623f4ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint ROUND_U_POSEIDON2_EXT = {
+    40, 0x0ec92a899925d755ULL, 0x48f1e27a98839056ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint ROUND_U_POSEIDON2_INT = {
+    228, 0xee3a7ac895f8a6d9ULL, 0x282fd7e7a05cc2b7ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+
+// check_sum: rounds 0–14 share hash; round 15 differs
+static constexpr recursion_helpers::FunctionFingerprint ROUND_CHECK_SUM_ARITHMETIC = {
+    4, 0x5552265f27140639ULL, 0x5552265f27140639ULL, 4 // 4 gates: prefix == full
+};
+static constexpr recursion_helpers::FunctionFingerprint ROUND15_CHECK_SUM_ARITHMETIC = {
+    4, 0xe60bbf41c8b4882fULL, 0xe60bbf41c8b4882fULL, 4 // 4 gates: prefix == full
+};
+
+// compute_next_target_sum: rounds 0–14 share hash; round 15 differs
+static constexpr recursion_helpers::FunctionFingerprint ROUND_COMPUTE_NEXT_TARGET_SUM_ARITHMETIC = {
+    47, 0x529c4a5c0d537283ULL, 0xfa6eaa478535a26cULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint ROUND15_COMPUTE_NEXT_TARGET_SUM_ARITHMETIC = {
+    47, 0x4675eff1d121e227ULL, 0x7a64496ac2b57d26ULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+
+// gate_separators_partially_evaluate:
+//   round 0  → 3 gates (distinct from rounds 1–14)
+//   rounds 1–14 → 5 gates, shared hash
+//   round 15 → 5 gates, different hash
+static constexpr recursion_helpers::FunctionFingerprint ROUND_GATE_SEP_R0_ARITHMETIC = {
+    3, 0x39cf175250f474bcULL, 0x39cf175250f474bcULL, 3 // 3 gates: prefix == full
+};
+static constexpr recursion_helpers::FunctionFingerprint ROUND_GATE_SEP_ARITHMETIC = {
+    5, 0xcf8b9f27267d5afbULL, 0xcf8b9f27267d5afbULL, 5 // 5 gates: prefix == full
+};
+static constexpr recursion_helpers::FunctionFingerprint ROUND15_GATE_SEP_ARITHMETIC = {
+    5, 0x1ebf4208b8115fc3ULL, 0x1ebf4208b8115fc3ULL, 5 // 5 gates: prefix == full
+};
+
+// ── Group C: Suffix stage fingerprints ───────────────────────────────────────
+
+static constexpr recursion_helpers::FunctionFingerprint COMPUTE_FULL_RELATION_ARITHMETIC = {
+    454, 0xad80ba6a68d708bdULL, 0x27a84dfb09ed573aULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint ROW_DISABLING_ARITHMETIC = {
+    42, 0x82c761cb614b5021ULL, 0xac86124c84b7aaecULL, recursion_helpers::SCANNER_FINGERPRINT_SIZE
+};
+static constexpr recursion_helpers::FunctionFingerprint LIBRA_CORRECTION_ARITHMETIC = {
+    2, 0xe9aa725997d31ecdULL, 0xe9aa725997d31ecdULL, 2 // 2 gates: prefix == full
+};
+// Libra:grand_sum_commitment and Libra:quotient_commitment share identical fingerprints with
+// Libra:concatenation_commitment — discriminated by arithmetic position and witness links.
+static constexpr recursion_helpers::FunctionFingerprint LIBRA_GRAND_SUM_COMMIT_ARITHMETIC =
+    LIBRA_CONCAT_COMMIT_ARITHMETIC;
+static constexpr recursion_helpers::FunctionFingerprint LIBRA_GRAND_SUM_COMMIT_NNF = LIBRA_CONCAT_COMMIT_NNF;
+static constexpr recursion_helpers::FunctionFingerprint LIBRA_QUOTIENT_COMMIT_ARITHMETIC =
+    LIBRA_CONCAT_COMMIT_ARITHMETIC;
+static constexpr recursion_helpers::FunctionFingerprint LIBRA_QUOTIENT_COMMIT_NNF = LIBRA_CONCAT_COMMIT_NNF;
+
+// ── Result structs ────────────────────────────────────────────────────────────
+
+struct LibraChallengeValidationResult {
+    bool is_valid = false;
+    size_t arithmetic_gate_start_idx = SIZE_MAX;
+    size_t poseidon2_external_gate_start_idx = SIZE_MAX;
+    size_t poseidon2_internal_gate_start_idx = SIZE_MAX;
+};
+
+struct LibraCommitmentValidationResult {
+    bool is_valid = false;
+    size_t arithmetic_gate_start_idx = SIZE_MAX;
+    size_t nnf_gate_start_idx = SIZE_MAX;
+};
+
+// ── validate_libra_challenge_generation ──────────────────────────────────────
+
+/**
+ * @brief Validate the ZK correction handler Libra:Challenge stage.
+ *
+ * Anchored at the Libra:Challenge squeeze gate; validates arithmetic range containing
+ * that gate, then follows witness links to poseidon2_ext and poseidon2_int blocks.
+ * Delegates to ShpleminiVerification::validate_challenges_generation.
+ */
+template <typename FF, typename CircuitBuilder>
+LibraChallengeValidationResult validate_libra_challenge_generation(CircuitBuilder& builder,
+                                                                   cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                                   size_t libra_challenge_squeeze_gate)
+{
+    LibraChallengeValidationResult result;
+    auto inner = ShpleminiVerification::validate_challenges_generation<FF>(builder,
+                                                                           analyzer,
+                                                                           libra_challenge_squeeze_gate,
+                                                                           ZK_HANDLER_LIBRA_CHALLENGE_ARITHMETIC,
+                                                                           ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_EXT,
+                                                                           ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_INT);
+    if (!inner.is_valid) {
+        info("validate_libra_challenge_generation failed");
+        return result;
+    }
+    result.arithmetic_gate_start_idx = inner.arithmetic_gate_start_idx;
+    result.poseidon2_external_gate_start_idx = inner.poseidon2_external_gate_start_idx;
+    result.poseidon2_internal_gate_start_idx = inner.poseidon2_internal_gate_start_idx;
+    result.is_valid = true;
+    return result;
+}
+
+// ── validate_libra_commitment_receive ────────────────────────────────────────
+
+/**
+ * @brief Validate a single Libra commitment receive stage (arith + NNF).
+ *
+ * Used for Libra:concatenation_commitment, Libra:grand_sum_commitment, and
+ * Libra:quotient_commitment, all of which share identical fingerprints.
+ * Discriminated by arithmetic position (provided by caller) and witness links.
+ *
+ * Algorithm:
+ *   1. Validate arith fingerprint at `arith_start`.
+ *   2. Collect witness links from arith range → NNF block.
+ *   3. Find NNF range containing any linked gate matching `nnf_fp`.
+ */
+template <typename FF, typename CircuitBuilder>
+LibraCommitmentValidationResult validate_libra_commitment_receive(
+    CircuitBuilder& builder,
+    cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+    size_t arith_start,
+    const recursion_helpers::FunctionFingerprint& arith_fp,
+    const recursion_helpers::FunctionFingerprint& nnf_fp,
+    const char* stage_name)
+{
+    LibraCommitmentValidationResult result;
+    auto& arith = builder.blocks.arithmetic;
+    auto& nnf = builder.blocks.nnf;
+
+    if (!KZGVerification::matches_fingerprint_at(builder, arith, arith_start, arith_fp)) {
+        info("validate_libra_commitment_receive (",
+             stage_name,
+             "): arithmetic fingerprint mismatch at offset ",
+             arith_start);
+        return result;
+    }
+    result.arithmetic_gate_start_idx = arith_start;
+
+    const size_t arith_end = arith_start + arith_fp.gate_count;
+    const std::set<size_t> linked_nnf_gates =
+        KZGVerification::collect_linked_gates(builder, analyzer, arith, arith_start, arith_end, nnf);
+    if (linked_nnf_gates.empty()) {
+        info("validate_libra_commitment_receive (",
+             stage_name,
+             "): no witness links from arithmetic range to NNF block");
+        return result;
+    }
+
+    auto nnf_start =
+        KZGVerification::find_fingerprint_range_containing_any_gate(builder, nnf, linked_nnf_gates, nnf_fp);
+    if (!nnf_start.has_value()) {
+        info("validate_libra_commitment_receive (",
+             stage_name,
+             "): no NNF range matching fingerprint contains a linked gate");
+        return result;
+    }
+    result.nnf_gate_start_idx = *nnf_start;
+    result.is_valid = true;
+    return result;
+}
+
+// ── Result structs for round and prefix ──────────────────────────────────────
+
+struct SumcheckRoundValidationResult {
+    bool is_valid = false;
+    size_t arith_end = SIZE_MAX; // first arithmetic gate after this round's gate_sep
+};
+
+struct SumcheckPrefixValidationResult {
+    bool is_valid = false;
+    size_t libra_challenge_arith_start = SIZE_MAX;
+    size_t concat_commit_arith_start = SIZE_MAX;
+    size_t init_target_sum_arith_start = SIZE_MAX;
+    size_t init_target_sum_arith_end = SIZE_MAX; // = arith cursor going into round 0
+};
+
+// ── validate_sumcheck_round ───────────────────────────────────────────────────
+
+/**
+ * @brief Validate one sumcheck round (r = 0..15).
+ *
+ * Each round contains 4 sub-stages in the arithmetic block:
+ *   u_r (arith 51 + p2ext 40 + p2int 228), check_sum (arith 4),
+ *   compute_next_target_sum (arith 47), gate_separators_partially_evaluate (arith 3 or 5).
+ *
+ * u_r is anchored at its squeeze gate (via validate_challenges_generation).
+ * The remaining 3 sub-stages are contiguous in arithmetic immediately after u_r's arith range.
+ *
+ * Cross-check: the u_r arith start must equal `expected_arith_start` (cursor from prior round).
+ */
+template <typename FF, typename CircuitBuilder>
+SumcheckRoundValidationResult validate_sumcheck_round(CircuitBuilder& builder,
+                                                      cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                      size_t round_idx,
+                                                      size_t u_squeeze_gate,
+                                                      size_t expected_arith_start)
+{
+    SumcheckRoundValidationResult result;
+    auto& arith = builder.blocks.arithmetic;
+
+    // 1. Validate u_r challenge (arith + poseidon2_ext + poseidon2_int via witness links).
+    auto u = ShpleminiVerification::validate_challenges_generation<FF>(
+        builder, analyzer, u_squeeze_gate, ROUND_U_ARITHMETIC, ROUND_U_POSEIDON2_EXT, ROUND_U_POSEIDON2_INT);
+    if (!u.is_valid) {
+        info("validate_sumcheck_round failed at round ", round_idx, ": u_r challenge generation invalid");
+        return result;
+    }
+
+    // 2. Cross-check: u_r arith start must equal the cursor from the prior stage.
+    if (u.arithmetic_gate_start_idx != expected_arith_start) {
+        info("validate_sumcheck_round failed at round ",
+             round_idx,
+             ": u_r arith start ",
+             u.arithmetic_gate_start_idx,
+             " != expected ",
+             expected_arith_start);
+        return result;
+    }
+
+    // 3. Offset walk for the 3 arithmetic-only sub-stages.
+    const recursion_helpers::FunctionFingerprint& check_sum_fp =
+        (round_idx == 15) ? ROUND15_CHECK_SUM_ARITHMETIC : ROUND_CHECK_SUM_ARITHMETIC;
+    const recursion_helpers::FunctionFingerprint& next_target_fp =
+        (round_idx == 15) ? ROUND15_COMPUTE_NEXT_TARGET_SUM_ARITHMETIC : ROUND_COMPUTE_NEXT_TARGET_SUM_ARITHMETIC;
+    const recursion_helpers::FunctionFingerprint& gate_sep_fp =
+        (round_idx == 15) ? ROUND15_GATE_SEP_ARITHMETIC
+                          : (round_idx == 0 ? ROUND_GATE_SEP_R0_ARITHMETIC : ROUND_GATE_SEP_ARITHMETIC);
+
+    static constexpr const char* SUB_STAGE_NAMES[3] = { "check_sum",
+                                                        "compute_next_target_sum",
+                                                        "gate_separators_partially_evaluate" };
+    const recursion_helpers::FunctionFingerprint* fps[3] = { &check_sum_fp, &next_target_fp, &gate_sep_fp };
+
+    size_t offset = u.arithmetic_gate_start_idx + ROUND_U_ARITHMETIC.gate_count;
+    for (size_t i = 0; i < 3; ++i) {
+        if (!KZGVerification::matches_fingerprint_at(builder, arith, offset, *fps[i])) {
+            info("validate_sumcheck_round failed at round ",
+                 round_idx,
+                 ", sub-stage ",
+                 SUB_STAGE_NAMES[i],
+                 " (arithmetic offset ",
+                 offset,
+                 ")");
+            return result;
+        }
+        offset += fps[i]->gate_count;
+    }
+
+    result.arith_end = offset;
+    result.is_valid = true;
+    return result;
+}
+
+// ── validate_sumcheck_prefix ──────────────────────────────────────────────────
+
+/**
+ * @brief Validate the three sumcheck prefix stages before the round loop.
+ *
+ * Stages (circuit order):
+ *   1. Libra:concatenation_commitment (arith backward-scan from libra_challenge + NNF via witness links)
+ *   2. ZK_correction_handler:Libra_challenge (arith + p2ext + p2int via squeeze gate)
+ *   3. ZK_correction_handler:initialize_target_sum (arith, immediately after libra_challenge arith)
+ *
+ * Returns the arith cursor pointing past init_target_sum (= start of round 0).
+ */
+template <typename FF, typename CircuitBuilder>
+SumcheckPrefixValidationResult validate_sumcheck_prefix(CircuitBuilder& builder,
+                                                        cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                                                        size_t libra_challenge_squeeze_gate)
+{
+    SumcheckPrefixValidationResult result;
+    auto& arith = builder.blocks.arithmetic;
+
+    // Stage 2: Libra:Challenge (anchored at squeeze gate).
+    auto ch = validate_libra_challenge_generation<FF>(builder, analyzer, libra_challenge_squeeze_gate);
+    if (!ch.is_valid) {
+        return result;
+    }
+    result.libra_challenge_arith_start = ch.arithmetic_gate_start_idx;
+
+    // Stage 1: Libra:concatenation_commitment — backward-scan before libra_challenge arith start.
+    // Accept only the first candidate that also validates NNF linkage via validate_libra_commitment_receive.
+    size_t concat_arith_start = SIZE_MAX;
+    for (size_t s = ch.arithmetic_gate_start_idx; s >= LIBRA_CONCAT_COMMIT_ARITHMETIC.gate_count; --s) {
+        const size_t candidate_start = s - LIBRA_CONCAT_COMMIT_ARITHMETIC.gate_count;
+        if (!KZGVerification::matches_fingerprint_at(builder, arith, candidate_start, LIBRA_CONCAT_COMMIT_ARITHMETIC)) {
+            continue;
+        }
+
+        auto candidate = validate_libra_commitment_receive<FF>(builder,
+                                                               analyzer,
+                                                               candidate_start,
+                                                               LIBRA_CONCAT_COMMIT_ARITHMETIC,
+                                                               LIBRA_CONCAT_COMMIT_NNF,
+                                                               "concat_commitment");
+        if (!candidate.is_valid) {
+            continue;
+        }
+
+        concat_arith_start = candidate_start;
+        break;
+    }
+    if (concat_arith_start == SIZE_MAX) {
+        info("validate_sumcheck_prefix failed: Libra:concatenation_commitment not found before libra_challenge");
+        return result;
+    }
+    result.concat_commit_arith_start = concat_arith_start;
+
+    // Stage 3: initialize_target_sum — immediately after libra_challenge arith.
+    const size_t init_start = ch.arithmetic_gate_start_idx + ZK_HANDLER_LIBRA_CHALLENGE_ARITHMETIC.gate_count;
+    if (!KZGVerification::matches_fingerprint_at(builder, arith, init_start, ZK_HANDLER_INIT_TARGET_SUM_ARITHMETIC)) {
+        info("validate_sumcheck_prefix failed: ZK_handler_init_target_sum fingerprint mismatch at ", init_start);
+        return result;
+    }
+    result.init_target_sum_arith_start = init_start;
+    result.init_target_sum_arith_end = init_start + ZK_HANDLER_INIT_TARGET_SUM_ARITHMETIC.gate_count;
+
+    result.is_valid = true;
+    return result;
+}
+
+// ── validate_sumcheck_suffix ──────────────────────────────────────────────────
+
+/**
+ * @brief Validate the 5 arithmetic stages after round 15.
+ *
+ * Strict order (all arithmetic contiguous, NNF stages via witness links):
+ *   1. compute_full_relation_purported_value (454 gates)
+ *   2. row_disabling_evaluate_at_challenge   ( 42 gates)
+ *   3. libra_correction                      (  2 gates)
+ *   4. Libra:grand_sum_commitment            ( 79 arith + NNF 62)
+ *   5. Libra:quotient_commitment             ( 79 arith + NNF 62)
+ */
+template <typename FF, typename CircuitBuilder>
+bool validate_sumcheck_suffix(CircuitBuilder& builder,
+                              cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
+                              size_t arith_cursor)
+{
+    auto& arith = builder.blocks.arithmetic;
+
+    // Stages 1-3: pure arithmetic offset walk.
+    static constexpr std::array<recursion_helpers::FunctionFingerprint, 3> ARITH_STAGES = { {
+        COMPUTE_FULL_RELATION_ARITHMETIC,
+        ROW_DISABLING_ARITHMETIC,
+        LIBRA_CORRECTION_ARITHMETIC,
+    } };
+    static constexpr std::array<const char*, 3> ARITH_NAMES = { {
+        "compute_full_relation_purported_value",
+        "row_disabling_evaluate_at_challenge",
+        "libra_correction",
+    } };
+    for (size_t i = 0; i < ARITH_STAGES.size(); ++i) {
+        if (!KZGVerification::matches_fingerprint_at(builder, arith, arith_cursor, ARITH_STAGES[i])) {
+            info(
+                "validate_sumcheck_suffix failed at stage ", ARITH_NAMES[i], " (arithmetic offset ", arith_cursor, ")");
+            return false;
+        }
+        arith_cursor += ARITH_STAGES[i].gate_count;
+    }
+
+    // Stage 4: Libra:grand_sum_commitment (arith + NNF via witness links).
+    auto grand_sum = validate_libra_commitment_receive<FF>(builder,
+                                                           analyzer,
+                                                           arith_cursor,
+                                                           LIBRA_GRAND_SUM_COMMIT_ARITHMETIC,
+                                                           LIBRA_GRAND_SUM_COMMIT_NNF,
+                                                           "Libra_grand_sum_commitment");
+    if (!grand_sum.is_valid) {
+        return false;
+    }
+    arith_cursor += LIBRA_GRAND_SUM_COMMIT_ARITHMETIC.gate_count;
+
+    // Stage 5: Libra:quotient_commitment (arith + NNF via witness links).
+    auto quotient = validate_libra_commitment_receive<FF>(builder,
+                                                          analyzer,
+                                                          arith_cursor,
+                                                          LIBRA_QUOTIENT_COMMIT_ARITHMETIC,
+                                                          LIBRA_QUOTIENT_COMMIT_NNF,
+                                                          "Libra_quotient_commitment");
+    if (!quotient.is_valid) {
+        return false;
+    }
+
+    return true;
+}
+
+// ── validate_sumcheck (top-level) ─────────────────────────────────────────────
+
+/**
+ * @brief Validate the full Sumcheck step structural layout.
+ *
+ * Entry point for the sumcheck validation chain. Extracts the 17 sumcheck
+ * squeeze gates (Libra:Challenge + u_0..u_15), validates the prefix, all 16 rounds,
+ * and the suffix in order.
+ *
+ * @tparam FF Field type.
+ * @tparam CircuitBuilder Circuit builder type.
+ * @param builder Builder containing the full MegaZK recursive verification circuit.
+ * @param analyzer Static analyzer built for `builder`.
+ * @return `true` when all stages pass validation.
+ */
+template <typename FF, typename CircuitBuilder>
+bool validate_sumcheck(CircuitBuilder& builder, cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer)
+{
+    constexpr size_t consumed_count = recursion_helpers::NUM_OINK_SQUEEZES + recursion_helpers::NUM_STEP2_SQUEEZES;
+
+    auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
+    if (all_squeezes.size() < consumed_count + recursion_helpers::NUM_SUMCHECK_SQUEEZES) {
+        info("validate_sumcheck failed: expected at least ",
+             consumed_count + recursion_helpers::NUM_SUMCHECK_SQUEEZES,
+             " squeeze gates, found ",
+             all_squeezes.size());
+        return false;
+    }
+    const std::set<size_t> consumed(all_squeezes.begin(), all_squeezes.begin() + consumed_count);
+    auto sc_gates =
+        recursion_helpers::take_unclaimed_squeezes(all_squeezes, consumed, recursion_helpers::NUM_SUMCHECK_SQUEEZES);
+    if (sc_gates.size() != recursion_helpers::NUM_SUMCHECK_SQUEEZES) {
+        info("validate_sumcheck failed: expected ",
+             recursion_helpers::NUM_SUMCHECK_SQUEEZES,
+             " unclaimed sumcheck squeezes, found ",
+             sc_gates.size());
+        return false;
+    }
+
+    // Validate prefix (concat_commit + libra_challenge + init_target_sum).
+    auto prefix = validate_sumcheck_prefix<FF>(builder, analyzer, sc_gates[0]);
+    if (!prefix.is_valid) {
+        info("validate_sumcheck failed: prefix invalid");
+        return false;
+    }
+
+    // Validate all sumcheck rounds.
+    size_t arith_cursor = prefix.init_target_sum_arith_end;
+    for (size_t r = 0; r < recursion_helpers::NUM_SUMCHECK_ROUNDS; ++r) {
+        auto round = validate_sumcheck_round<FF>(builder, analyzer, r, sc_gates[r + 1], arith_cursor);
+        if (!round.is_valid) {
+            info("validate_sumcheck failed: round ", r, " invalid");
+            return false;
+        }
+        arith_cursor = round.arith_end;
+    }
+
+    // Validate suffix (full_relation + row_disabling + libra_correction + 2 Libra commits).
+    if (!validate_sumcheck_suffix<FF>(builder, analyzer, arith_cursor)) {
+        info("validate_sumcheck failed: suffix invalid");
+        return false;
+    }
+
+    info("validate_sumcheck succeeded. Prefix libra_challenge at ",
+         prefix.libra_challenge_arith_start,
+         ", concat_commit at ",
+         prefix.concat_commit_arith_start,
+         ", rounds 0-15 validated, suffix validated.");
+    return true;
+}
+
+} // namespace SumcheckValidation

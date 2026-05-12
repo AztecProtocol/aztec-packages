@@ -2339,3 +2339,400 @@ TEST_F(BoomerangKZGStepTests, KZGReduceVerifyBatchOpeningClaimBlockAnalysis)
 
     info("=== KZGReduceVerifyBatchOpeningClaimBlockAnalysis COMPLETE ===");
 }
+
+// ============================================================================
+// Sumcheck analysis test suite
+// ============================================================================
+class BoomerangSumcheckTest : public BoomerangRecursionTests {};
+
+TEST_F(BoomerangSumcheckTest, SumcheckVerifyAnalysis)
+{
+    info("");
+    info("=== SumcheckVerifyAnalysis ===");
+
+    auto vc = setup_verifier_components(0);
+    Builder& builder = vc.builder();
+    auto snap = [&]() { return recursion_helpers::BlockSnapshot::capture(builder); };
+    auto write_stage = [&](std::ofstream& out_,
+                           const std::string& stage_name,
+                           const recursion_helpers::BlockSnapshot& before) {
+        write_function_block_data(out_, stage_name, builder, before, snap());
+    };
+
+    run_oink_verifier_step(vc);
+    std::vector<FF> padding_indicator_array = run_padding_indicator_array_step(vc);
+
+    const std::string output_path =
+        "/mnt/user-data/daniel/aztec-packages/barretenberg/cpp/build-debug/sumcheck_functions_data.txt";
+    std::ofstream out(output_path);
+    ASSERT_TRUE(out.is_open()) << "Failed to open " << output_path;
+
+    using SumcheckRound = SumcheckVerifierRound<RecursiveFlavor>;
+    using SumcheckRoundUnivariate = SumcheckRound::SumcheckRoundUnivariate;
+    using GateSep = bb::GateSeparatorPolynomial<FF>;
+    using SubrelationSeparators = std::array<FF, RecursiveFlavor::NUM_SUBRELATIONS - 1>;
+    using AllValues = RecursiveFlavor::AllValues;
+    using Commitment = RecursiveFlavor::Commitment;
+
+    // Libra:concatenation_commitment (ZK pre-sumcheck receive)
+    auto before_concat_comm = snap();
+    vc.transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+    write_stage(out, "Sumcheck:Libra_concatenation_commitment", before_concat_comm);
+
+    // ZK correction handler: Libra:Sum receive
+    auto before_libra_sum = snap();
+    FF libra_total_sum = vc.transcript->template receive_from_prover<FF>("Libra:Sum");
+    write_stage(out, "Sumcheck:ZK_correction_handler_libra_sum_receive", before_libra_sum);
+
+    // ZK correction handler: Libra:Challenge squeeze
+    auto before_libra_challenge = snap();
+    FF libra_challenge = vc.transcript->template get_challenge<FF>("Libra:Challenge");
+    write_stage(out, "Sumcheck:ZK_correction_handler_libra_challenge", before_libra_challenge);
+
+    // ZK correction handler: initialize_target_sum
+    SumcheckRound round;
+    auto before_init_target = snap();
+    round.target_total_sum = libra_total_sum * libra_challenge;
+    write_stage(out, "Sumcheck:ZK_correction_handler_initialize_target_sum", before_init_target);
+
+    GateSep gate_separators(vc.verifier_instance->gate_challenges);
+
+    std::vector<FF> multivariate_challenge;
+    multivariate_challenge.reserve(vc.log_n);
+
+    // 16 rounds: each broken into 5 sub-stages
+    for (size_t round_idx = 0; round_idx < vc.log_n; round_idx++) {
+        const FF& padding_indicator = padding_indicator_array[round_idx];
+        const std::string sfx = "_" + std::to_string(round_idx);
+
+        // 1. receive round univariate from transcript
+        auto before_univariate = snap();
+        auto round_univariate = vc.transcript->template receive_from_prover<SumcheckRoundUnivariate>(
+            "Sumcheck:univariate_" + std::to_string(round_idx));
+        write_stage(out, "Sumcheck:univariate_receive" + sfx, before_univariate);
+
+        // 2. squeeze round challenge
+        auto before_challenge = snap();
+        FF round_challenge = vc.transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+        multivariate_challenge.emplace_back(round_challenge);
+        write_stage(out, "Sumcheck:u" + sfx, before_challenge);
+
+        // 3. check_sum: assert target_total_sum == S(0) + S(1)
+        auto before_check_sum = snap();
+        round.check_sum(round_univariate, padding_indicator);
+        write_stage(out, "Sumcheck:check_sum" + sfx, before_check_sum);
+
+        // 4. compute_next_target_sum: target_total_sum = S(u_i)
+        auto before_next_target = snap();
+        round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator);
+        write_stage(out, "Sumcheck:compute_next_target_sum" + sfx, before_next_target);
+
+        // 5. gate_separators.partially_evaluate
+        auto before_gate_sep = snap();
+        gate_separators.partially_evaluate(round_challenge, padding_indicator);
+        write_stage(out, "Sumcheck:gate_separators_partially_evaluate" + sfx, before_gate_sep);
+    }
+
+    // Receive all claimed evaluations at the sumcheck challenge
+    auto before_eval_receive = snap();
+    constexpr size_t NUM_POLYNOMIALS = RecursiveFlavor::NUM_ALL_ENTITIES;
+    auto transcript_evaluations =
+        vc.transcript->template receive_from_prover<std::array<FF, NUM_POLYNOMIALS>>("Sumcheck:evaluations");
+    AllValues purported_evaluations;
+    for (auto [eval, transcript_eval] : zip_view(purported_evaluations.get_all(), transcript_evaluations)) {
+        eval = transcript_eval;
+    }
+    write_stage(out, "Sumcheck:evaluations_receive", before_eval_receive);
+
+    // Compute full Honk relation value at the claimed evaluations
+    SubrelationSeparators alphas =
+        bb::initialize_relation_separator<FF, RecursiveFlavor::NUM_SUBRELATIONS - 1>(vc.verifier_instance->alpha);
+    auto before_full_relation = snap();
+    FF full_honk_purported_value = round.compute_full_relation_purported_value(
+        purported_evaluations, vc.verifier_instance->relation_parameters, gate_separators, alphas);
+    write_stage(out, "Sumcheck:compute_full_relation_purported_value", before_full_relation);
+
+    // ZK correction: multiply by row-disabling polynomial evaluation
+    auto before_row_disabling = snap();
+    full_honk_purported_value *=
+        bb::RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding_indicator_array);
+    write_stage(out, "Sumcheck:row_disabling_evaluate_at_challenge", before_row_disabling);
+
+    // Receive Libra evaluation at the sumcheck challenge
+    auto before_libra_eval = snap();
+    FF libra_evaluation = vc.transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
+    write_stage(out, "Sumcheck:Libra_claimed_evaluation_receive", before_libra_eval);
+
+    // ZK correction: add libra contribution
+    auto before_libra_correction = snap();
+    full_honk_purported_value += libra_evaluation * libra_challenge;
+    write_stage(out, "Sumcheck:libra_correction", before_libra_correction);
+
+    // Final verification: assert computed value == target sum
+    auto before_final_verify = snap();
+    round.perform_final_verification(full_honk_purported_value);
+    write_stage(out, "Sumcheck:perform_final_verification", before_final_verify);
+
+    // Post-sumcheck ZK Libra commitments
+    auto before_grand_sum = snap();
+    vc.transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
+    write_stage(out, "Sumcheck:Libra_grand_sum_commitment", before_grand_sum);
+
+    auto before_quotient = snap();
+    vc.transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
+    write_stage(out, "Sumcheck:Libra_quotient_commitment", before_quotient);
+
+    info("Wrote Sumcheck function data to ", output_path);
+    info("=== SumcheckVerifyAnalysis COMPLETE ===");
+}
+
+TEST_F(BoomerangSumcheckTest, LibraChallengeWitnessIndex)
+{
+    auto vc = setup_verifier_components(0);
+    Builder& builder = vc.builder();
+    auto& arith = builder.blocks.arithmetic;
+    auto to_real = [&](uint32_t w) { return builder.real_variable_index[w]; };
+
+    run_oink_verifier_step(vc);
+    run_padding_indicator_array_step(vc);
+
+    // Consume squeezes from oink + step2 so we know which follow belong to sumcheck.
+    auto squeezes_before_sumcheck = recursion_helpers::find_all_transcript_squeeze_gates(builder);
+    const std::set<size_t> consumed_before_sumcheck(squeezes_before_sumcheck.begin(),
+                                                    squeezes_before_sumcheck.end());
+
+    // ── Replay sumcheck transcript operations only (no math needed for squeeze detection) ──
+
+    // Pre-sumcheck ZK receive
+    vc.transcript->template receive_from_prover<RecursiveFlavor::Commitment>("Libra:concatenation_commitment");
+
+    // ZK correction handler init: Libra:Sum receive then Libra:Challenge squeeze
+    vc.transcript->template receive_from_prover<FF>("Libra:Sum");
+    [[maybe_unused]] FF libra_challenge = vc.transcript->template get_challenge<FF>("Libra:Challenge");
+
+    // Record the squeeze gate just added for Libra:Challenge.
+    auto squeezes_after_libra = recursion_helpers::find_all_transcript_squeeze_gates(builder);
+    ASSERT_EQ(squeezes_after_libra.size(), squeezes_before_sumcheck.size() + 1)
+        << "Expected exactly one new squeeze gate after Libra:Challenge";
+    const size_t libra_squeeze_gate = squeezes_after_libra.back();
+    const uint32_t libra_challenge_real_idx = to_real(arith.w_l()[libra_squeeze_gate]);
+
+    // Replay 16 round transcript operations (univariate receive + challenge squeeze per round).
+    using SumcheckRoundUnivariate = SumcheckVerifierRound<RecursiveFlavor>::SumcheckRoundUnivariate;
+    for (size_t round_idx = 0; round_idx < vc.log_n; round_idx++) {
+        vc.transcript->template receive_from_prover<SumcheckRoundUnivariate>(
+            "Sumcheck:univariate_" + std::to_string(round_idx));
+        vc.transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(round_idx));
+    }
+
+    // All 17 sumcheck squeeze gates now exist in the circuit.
+    auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
+    auto sumcheck_ch = recursion_helpers::sumcheck_challenges(builder, all_squeezes, consumed_before_sumcheck);
+    ASSERT_TRUE(sumcheck_ch.valid);
+    ASSERT_EQ(sumcheck_ch.squeeze_gate_indices.size(), recursion_helpers::NUM_SUMCHECK_SQUEEZES);
+
+    // zk_correction must be the witness index of the Libra:Challenge field element.
+    EXPECT_EQ(sumcheck_ch.zk_correction, libra_challenge_real_idx);
+}
+
+// ── Step 1 verification: every SumcheckValidation fingerprint constant hits in the real circuit ──
+TEST_F(BoomerangSumcheckTest, FingerprintConstantsMatchCircuit)
+{
+    // Build the full circuit so all sumcheck blocks are populated.
+    auto vc = setup_verifier_components(0);
+    Builder& builder = vc.builder();
+    run_oink_verifier_step(vc);
+    auto pia = run_padding_indicator_array_step(vc);
+    auto sumcheck_out = run_sumcheck_step(vc, pia);
+
+    auto& arith  = builder.blocks.arithmetic;
+    auto& nnf    = builder.blocks.nnf;
+    auto& p2ext  = builder.blocks.poseidon2_external;
+    auto& p2int  = builder.blocks.poseidon2_internal;
+
+    // Helper: scan a block for the first occurrence of a fingerprint.
+    auto find_any = [&](auto& block, const recursion_helpers::FunctionFingerprint& fp) -> bool {
+        for (size_t s = 0; s + fp.gate_count <= block.size(); ++s) {
+            if (KZGVerification::matches_fingerprint_at(builder, block, s, fp)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    namespace SC = SumcheckValidation;
+
+    // Group A
+    EXPECT_TRUE(find_any(arith, SC::LIBRA_CONCAT_COMMIT_ARITHMETIC))      << "LIBRA_CONCAT_COMMIT_ARITHMETIC";
+    EXPECT_TRUE(find_any(nnf,   SC::LIBRA_CONCAT_COMMIT_NNF))             << "LIBRA_CONCAT_COMMIT_NNF";
+    EXPECT_TRUE(find_any(arith, SC::ZK_HANDLER_LIBRA_CHALLENGE_ARITHMETIC)) << "ZK_HANDLER_LIBRA_CHALLENGE_ARITHMETIC";
+    EXPECT_TRUE(find_any(p2ext, SC::ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_EXT)) << "ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_EXT";
+    EXPECT_TRUE(find_any(p2int, SC::ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_INT)) << "ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_INT";
+    EXPECT_TRUE(find_any(arith, SC::ZK_HANDLER_INIT_TARGET_SUM_ARITHMETIC)) << "ZK_HANDLER_INIT_TARGET_SUM_ARITHMETIC";
+
+    // Group B
+    EXPECT_TRUE(find_any(arith, SC::ROUND_U_ARITHMETIC))           << "ROUND_U_ARITHMETIC";
+    EXPECT_TRUE(find_any(p2ext, SC::ROUND_U_POSEIDON2_EXT))        << "ROUND_U_POSEIDON2_EXT";
+    EXPECT_TRUE(find_any(p2int, SC::ROUND_U_POSEIDON2_INT))        << "ROUND_U_POSEIDON2_INT";
+    EXPECT_TRUE(find_any(arith, SC::ROUND_CHECK_SUM_ARITHMETIC))   << "ROUND_CHECK_SUM_ARITHMETIC";
+    EXPECT_TRUE(find_any(arith, SC::ROUND15_CHECK_SUM_ARITHMETIC)) << "ROUND15_CHECK_SUM_ARITHMETIC";
+    EXPECT_TRUE(find_any(arith, SC::ROUND_COMPUTE_NEXT_TARGET_SUM_ARITHMETIC))   << "ROUND_COMPUTE_NEXT_TARGET_SUM_ARITHMETIC";
+    EXPECT_TRUE(find_any(arith, SC::ROUND15_COMPUTE_NEXT_TARGET_SUM_ARITHMETIC)) << "ROUND15_COMPUTE_NEXT_TARGET_SUM_ARITHMETIC";
+    EXPECT_TRUE(find_any(arith, SC::ROUND_GATE_SEP_R0_ARITHMETIC)) << "ROUND_GATE_SEP_R0_ARITHMETIC";
+    EXPECT_TRUE(find_any(arith, SC::ROUND_GATE_SEP_ARITHMETIC))    << "ROUND_GATE_SEP_ARITHMETIC";
+    EXPECT_TRUE(find_any(arith, SC::ROUND15_GATE_SEP_ARITHMETIC))  << "ROUND15_GATE_SEP_ARITHMETIC";
+
+    // Group C
+    EXPECT_TRUE(find_any(arith, SC::COMPUTE_FULL_RELATION_ARITHMETIC)) << "COMPUTE_FULL_RELATION_ARITHMETIC";
+    EXPECT_TRUE(find_any(arith, SC::ROW_DISABLING_ARITHMETIC))         << "ROW_DISABLING_ARITHMETIC";
+    EXPECT_TRUE(find_any(arith, SC::LIBRA_CORRECTION_ARITHMETIC))      << "LIBRA_CORRECTION_ARITHMETIC";
+    // Libra commits share fingerprint — just verify it exists (3 occurrences expected)
+    EXPECT_TRUE(find_any(arith, SC::LIBRA_GRAND_SUM_COMMIT_ARITHMETIC)) << "LIBRA_GRAND_SUM_COMMIT_ARITHMETIC";
+    EXPECT_TRUE(find_any(nnf,   SC::LIBRA_GRAND_SUM_COMMIT_NNF))        << "LIBRA_GRAND_SUM_COMMIT_NNF";
+}
+
+TEST_F(BoomerangSumcheckTest, ValidateLibraChallengeAndConcatCommit)
+{
+    auto vc = setup_verifier_components(0);
+    Builder& builder = vc.builder();
+    run_oink_verifier_step(vc);
+    auto pia = run_padding_indicator_array_step(vc);
+    run_sumcheck_step(vc, pia);
+
+    // Find the Libra:Challenge squeeze gate (first of the 17 sumcheck squeezes).
+    auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
+    const size_t consumed_count = recursion_helpers::NUM_OINK_SQUEEZES + recursion_helpers::NUM_STEP2_SQUEEZES;
+    const std::set<size_t> consumed(all_squeezes.begin(), all_squeezes.begin() + consumed_count);
+    auto sc_gates = recursion_helpers::take_unclaimed_squeezes(all_squeezes, consumed,
+                                                               recursion_helpers::NUM_SUMCHECK_SQUEEZES);
+    ASSERT_EQ(sc_gates.size(), recursion_helpers::NUM_SUMCHECK_SQUEEZES);
+    const size_t libra_challenge_gate = sc_gates[0];  // Libra:Challenge is first
+
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
+
+    // validate_libra_challenge_generation
+    auto ch = SumcheckValidation::validate_libra_challenge_generation<bb::fr>(
+        builder, analyzer, libra_challenge_gate);
+    ASSERT_TRUE(ch.is_valid);
+    EXPECT_NE(ch.arithmetic_gate_start_idx, SIZE_MAX);
+    EXPECT_NE(ch.poseidon2_external_gate_start_idx, SIZE_MAX);
+    EXPECT_NE(ch.poseidon2_internal_gate_start_idx, SIZE_MAX);
+    EXPECT_LE(ch.arithmetic_gate_start_idx, libra_challenge_gate);
+    EXPECT_LT(libra_challenge_gate,
+              ch.arithmetic_gate_start_idx + SumcheckValidation::ZK_HANDLER_LIBRA_CHALLENGE_ARITHMETIC.gate_count);
+
+    // validate_libra_commitment_receive for concat_commitment (immediately before libra_challenge arith).
+    // Backward-scan for concat_commit: gap between concat_commit end and libra_challenge start
+    // comes from initialize_relation_separator + GateSeparatorPolynomial init inside SumcheckVerifier,
+    // so a fixed offset doesn't work — scan backward to the first fingerprint match.
+    auto& arith_ref = builder.blocks.arithmetic;
+    size_t concat_arith_start = SIZE_MAX;
+    for (size_t s = ch.arithmetic_gate_start_idx;
+         s >= SumcheckValidation::LIBRA_CONCAT_COMMIT_ARITHMETIC.gate_count; --s) {
+        if (KZGVerification::matches_fingerprint_at(builder, arith_ref, s - SumcheckValidation::LIBRA_CONCAT_COMMIT_ARITHMETIC.gate_count,
+                                                    SumcheckValidation::LIBRA_CONCAT_COMMIT_ARITHMETIC)) {
+            concat_arith_start = s - SumcheckValidation::LIBRA_CONCAT_COMMIT_ARITHMETIC.gate_count;
+            break;
+        }
+    }
+    ASSERT_NE(concat_arith_start, SIZE_MAX) << "concat_commit fingerprint not found before libra_challenge";
+    auto concat = SumcheckValidation::validate_libra_commitment_receive<bb::fr>(
+        builder, analyzer,
+        concat_arith_start,
+        SumcheckValidation::LIBRA_CONCAT_COMMIT_ARITHMETIC,
+        SumcheckValidation::LIBRA_CONCAT_COMMIT_NNF,
+        "concat_commitment");
+    EXPECT_TRUE(concat.is_valid);
+    EXPECT_EQ(concat.arithmetic_gate_start_idx, concat_arith_start);
+    EXPECT_NE(concat.nnf_gate_start_idx, SIZE_MAX);
+}
+
+TEST_F(BoomerangSumcheckTest, ValidatePrefixAndAllRounds)
+{
+    auto vc = setup_verifier_components(0);
+    Builder& builder = vc.builder();
+    run_oink_verifier_step(vc);
+    auto pia = run_padding_indicator_array_step(vc);
+    run_sumcheck_step(vc, pia);
+
+    auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
+    const size_t consumed_count = recursion_helpers::NUM_OINK_SQUEEZES + recursion_helpers::NUM_STEP2_SQUEEZES;
+    const std::set<size_t> consumed(all_squeezes.begin(), all_squeezes.begin() + consumed_count);
+    auto sc_gates = recursion_helpers::take_unclaimed_squeezes(all_squeezes, consumed,
+                                                               recursion_helpers::NUM_SUMCHECK_SQUEEZES);
+    ASSERT_EQ(sc_gates.size(), recursion_helpers::NUM_SUMCHECK_SQUEEZES);
+
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
+
+    // Validate prefix.
+    auto prefix = SumcheckValidation::validate_sumcheck_prefix<bb::fr>(builder, analyzer, sc_gates[0]);
+    ASSERT_TRUE(prefix.is_valid) << "prefix validation failed";
+    EXPECT_NE(prefix.libra_challenge_arith_start, SIZE_MAX);
+    EXPECT_NE(prefix.concat_commit_arith_start, SIZE_MAX);
+    EXPECT_NE(prefix.init_target_sum_arith_end, SIZE_MAX);
+
+    // Validate all sumcheck rounds, passing the cursor forward.
+    size_t arith_cursor = prefix.init_target_sum_arith_end;
+    for (size_t r = 0; r < recursion_helpers::NUM_SUMCHECK_ROUNDS; ++r) {
+        const size_t u_squeeze = sc_gates[r + 1];  // gates[1..16] = u_0..u_15
+        auto round = SumcheckValidation::validate_sumcheck_round<bb::fr>(
+            builder, analyzer, r, u_squeeze, arith_cursor);
+        ASSERT_TRUE(round.is_valid) << "round " << r << " validation failed";
+        EXPECT_NE(round.arith_end, SIZE_MAX);
+        arith_cursor = round.arith_end;
+    }
+    info("Prefix + 16 rounds validated. Final arith cursor: ", arith_cursor);
+}
+
+TEST_F(BoomerangSumcheckTest, ValidateSumcheck)
+{
+    auto vc = setup_verifier_components(0);
+    Builder& builder = vc.builder();
+    run_oink_verifier_step(vc);
+    auto pia = run_padding_indicator_array_step(vc);
+    run_sumcheck_step(vc, pia);
+
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
+    EXPECT_TRUE(SumcheckValidation::validate_sumcheck<bb::fr>(builder, analyzer));
+}
+
+TEST_F(BoomerangSumcheckTest, ValidateSumcheckDetectsCorruptedRoundArithmeticGate)
+{
+    auto vc = setup_verifier_components(0);
+    Builder& builder = vc.builder();
+    run_oink_verifier_step(vc);
+    auto pia = run_padding_indicator_array_step(vc);
+    run_sumcheck_step(vc, pia);
+
+    // Find the start of round 5's check_sum arithmetic range and corrupt it.
+    auto all_squeezes = recursion_helpers::find_all_transcript_squeeze_gates(builder);
+    const size_t consumed_count = recursion_helpers::NUM_OINK_SQUEEZES + recursion_helpers::NUM_STEP2_SQUEEZES;
+    const std::set<size_t> consumed(all_squeezes.begin(), all_squeezes.begin() + consumed_count);
+    auto sc_gates = recursion_helpers::take_unclaimed_squeezes(all_squeezes, consumed,
+                                                               recursion_helpers::NUM_SUMCHECK_SQUEEZES);
+    ASSERT_EQ(sc_gates.size(), recursion_helpers::NUM_SUMCHECK_SQUEEZES);
+
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder, false);
+
+    // Walk to round 5's check_sum start to find the gate to corrupt.
+    auto prefix = SumcheckValidation::validate_sumcheck_prefix<bb::fr>(builder, analyzer, sc_gates[0]);
+    ASSERT_TRUE(prefix.is_valid);
+    size_t cursor = prefix.init_target_sum_arith_end;
+    for (size_t r = 0; r < 5; ++r) {
+        auto rd = SumcheckValidation::validate_sumcheck_round<bb::fr>(
+            builder, analyzer, r, sc_gates[r + 1], cursor);
+        ASSERT_TRUE(rd.is_valid);
+        cursor = rd.arith_end;
+    }
+    // cursor now points to start of round 5's u_5 arithmetic range.
+    // check_sum for round 5 starts at cursor + ROUND_U_ARITHMETIC.gate_count.
+    const size_t check_sum_start = cursor + SumcheckValidation::ROUND_U_ARITHMETIC.gate_count;
+
+    // Corrupt the first non-constant gate in the check_sum range.
+    auto& arith = builder.blocks.arithmetic;
+    arith.q_c().set(check_sum_start, arith.q_c()[check_sum_start] + bb::fr::one());
+
+    // validate_sumcheck must now fail.
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer2(builder, false);
+    EXPECT_FALSE(SumcheckValidation::validate_sumcheck<bb::fr>(builder, analyzer2));
+}
