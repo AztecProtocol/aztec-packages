@@ -38,7 +38,7 @@ cargo run -- side-effect --max-steps 100
 ```
 The nightly script places artifacts at `/tmp/` inside the container (the default `--artifacts-dir`).
 
-See `SANDBOX_INSTRUCTIONS.md` for manual nightly steps and troubleshooting.
+See `NIGHTLY_SANDBOX_INSTRUCTIONS.md` for manual nightly steps and troubleshooting.
 
 To replay a specific failure seed:
 
@@ -116,5 +116,5 @@ Artifacts are built by `setup-local.sh` or `setup-nightly-sandbox.sh` and placed
 `contracts/target/`. Pre-built artifacts are checked into git for convenience.
 
 The nightly setup script auto-detects the nightly commit by matching the container's
-nargo hash against `origin/next`. See `SANDBOX_INSTRUCTIONS.md` for the full build
+nargo hash against `origin/next`. See `NIGHTLY_SANDBOX_INSTRUCTIONS.md` for the full build
 pipeline, version matrix, and troubleshooting.
