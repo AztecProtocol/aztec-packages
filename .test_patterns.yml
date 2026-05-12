@@ -91,6 +91,15 @@ tests:
     owners:
       - *nico
 
+  # noir-contracts tests calling public functions occasionally hit the 60s AVM->TS
+  # callback timeout for `get_contract_instance` when many tests run in parallel
+  # against a single TXE. Observed on merge-train/fairies (which runs all
+  # noir-contracts tests on every PR via `disabled-cache`).
+  - regex: "noir-projects/scripts/run_test.sh noir-contracts"
+    error_regex: "Timeout waiting for TypeScript callback for contract instance"
+    owners:
+      - *charlie
+
   # e2e tests skipped
   - regex: "testbench/port_change.test.ts"
     skip: true
