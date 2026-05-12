@@ -262,6 +262,9 @@ function avm_check_circuit {
 # tests are known-flaky and provide no additional backwards-compat coverage). Also excludes
 # kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks whenever
 # contracts add/remove nullifier emissions across versions (unrelated to the compat contract surface).
+# event_logs and avm_simulator are excluded for the same reason: they exercise contract surface that
+# evolves alongside the test code (TestLog gains methods, AVM assertion-string format changes with
+# nargo) rather than the PXE oracle surface that backwards compatibility actually guarantees.
 function compat_test_cmds {
   local version=${1:?version is required}
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
@@ -271,7 +274,7 @@ function compat_test_cmds {
   local tests=(
     src/e2e_!(prover|block_building|epochs)/*.test.ts
     src/e2e_p2p/reqresp/*.test.ts
-    src/e2e_!(block_building|prover_*|kernelless_simulation).test.ts
+    src/e2e_!(block_building|prover_*|kernelless_simulation|event_logs|avm_simulator).test.ts
   )
   for test in "${tests[@]}"; do
     local name=${test#*e2e_}
