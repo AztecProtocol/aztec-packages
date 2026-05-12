@@ -20,7 +20,90 @@ namespace {
 auto& engine = numeric::get_debug_randomness();
 } // namespace
 
-template <typename Builder_, size_t TableSize_, size_t NumReads_> struct ROMTestParams {
+TEST(BlockConstraintMemOpEncoding, ReadFlagFalseDecodesAsRead)
+{
+    Acir::Opcode::MemoryInit mem_init{
+        .block_id = Acir::BlockId{ .value = 0 },
+        .init = { Acir::Witness{ .value = 0 } },
+        .block_type = Acir::BlockType{ .value = Acir::BlockType::CallData{ .value = 0 } },
+    };
+    BlockConstraint block = memory_init_to_block_constraint(mem_init);
+
+    Acir::Opcode::MemoryOp mem_op{
+        .block_id = Acir::BlockId{ .value = 0 },
+        .op = Acir::MemOp{ .read = false, .index = Acir::Witness{ .value = 1 }, .value = Acir::Witness{ .value = 2 } },
+    };
+
+    EXPECT_NO_THROW(add_memory_op_to_block_constraint(mem_op, block));
+
+    ASSERT_EQ(block.trace.size(), 1);
+    EXPECT_EQ(block.trace[0].access_type, AccessType::Read);
+    EXPECT_EQ(block.trace[0].index.index, 1);
+    EXPECT_EQ(block.trace[0].value.index, 2);
+}
+
+TEST(BlockConstraintMemOpEncoding, AccessTypeEncodesToReadFlag)
+{
+    const MemOp read_op{
+        .access_type = AccessType::Read,
+        .index = WitnessOrConstant<bb::fr>::from_index(1),
+        .value = WitnessOrConstant<bb::fr>::from_index(2),
+    };
+    const MemOp write_op{
+        .access_type = AccessType::Write,
+        .index = WitnessOrConstant<bb::fr>::from_index(3),
+        .value = WitnessOrConstant<bb::fr>::from_index(4),
+    };
+
+    EXPECT_FALSE(mem_op_to_acir_mem_op(read_op).read);
+    EXPECT_TRUE(mem_op_to_acir_mem_op(write_op).read);
+}
+
+/**
+ * @brief Utility method to add read/write operations with constant indices/values
+ */
+template <AccessType access_type>
+void add_constant_ops(const size_t table_size,
+                      const std::vector<bb::fr>& table_values,
+                      WitnessVector& witness_values,
+                      std::vector<MemOp>& trace)
+{
+    const size_t table_index = static_cast<size_t>(engine.get_random_uint32() % table_size);
+    bb::fr value_fr =
+        access_type == AccessType::Read ? table_values[table_index] : table_values[table_index] + bb::fr(1);
+
+    // Index constant, value witness
+    {
+        WitnessOrConstant<bb::fr> index = WitnessOrConstant<bb::fr>::from_constant(table_index);
+        WitnessOrConstant<bb::fr> value =
+            WitnessOrConstant<bb::fr>::from_index(add_to_witness_and_track_indices(witness_values, value_fr));
+
+        const MemOp read_op = { .access_type = access_type, .index = index, .value = value };
+
+        trace.push_back(read_op);
+    }
+    // Index witness, value constant
+    {
+        WitnessOrConstant<bb::fr> index = WitnessOrConstant<bb::fr>::from_index(
+            add_to_witness_and_track_indices(witness_values, bb::fr(table_index)));
+        WitnessOrConstant<bb::fr> value = WitnessOrConstant<bb::fr>::from_constant(value_fr);
+
+        const MemOp read_op = { .access_type = access_type, .index = index, .value = value };
+
+        trace.push_back(read_op);
+    }
+    // Index constant, value constant
+    {
+        WitnessOrConstant<bb::fr> index = WitnessOrConstant<bb::fr>::from_constant(table_index);
+        WitnessOrConstant<bb::fr> value = WitnessOrConstant<bb::fr>::from_constant(value_fr);
+
+        const MemOp read_op = { .access_type = access_type, .index = index, .value = value };
+
+        trace.push_back(read_op);
+    }
+}
+
+template <typename Builder_, size_t TableSize_, size_t NumReads_, bool PerformConstantOps_> struct ROMTestParams {
     using Builder = Builder_;
     static constexpr size_t table_size = TableSize_;
     static constexpr size_t num_reads = NumReads_;

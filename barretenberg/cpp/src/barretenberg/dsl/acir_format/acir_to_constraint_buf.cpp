@@ -812,7 +812,8 @@ BlockConstraint memory_init_to_block_constraint(Acir::Opcode::MemoryInit const& 
 
 void add_memory_op_to_block_constraint(Acir::Opcode::MemoryOp const& mem_op, BlockConstraint& block)
 {
-    AccessType access_type = mem_op.op.read ? AccessType::Read : AccessType::Write;
+    // Acir::MemOp::read is the serialized MemOpKind bool: false = Read, true = Write.
+    AccessType access_type = mem_op.op.read ? AccessType::Write : AccessType::Read;
     if (access_type == AccessType::Write) {
         // We are not allowed to write on the databus
         BB_ASSERT((block.type != BlockType::CallData) && (block.type != BlockType::ReturnData));

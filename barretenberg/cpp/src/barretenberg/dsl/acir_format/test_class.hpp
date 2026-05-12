@@ -75,7 +75,8 @@ inline Acir::MemOp mem_op_to_acir_mem_op(const MemOp& mem_op)
     BB_ASSERT(!mem_op.index.is_constant, "Acir::MemOp::index must be a witness");
     BB_ASSERT(!mem_op.value.is_constant, "Acir::MemOp::value must be a witness");
     return Acir::MemOp{
-        .read = (mem_op.access_type == AccessType::Read),
+        // Acir::MemOp::read is the serialized MemOpKind bool: false = Read, true = Write.
+        .read = (mem_op.access_type == AccessType::Write),
         .index = Acir::Witness{ .value = mem_op.index.index },
         .value = Acir::Witness{ .value = mem_op.value.index },
     };
