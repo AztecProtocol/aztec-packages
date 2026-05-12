@@ -141,10 +141,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 122;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 2956;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 2949;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 364;
-    static constexpr size_t NUM_WIRES = 2512;
-    static constexpr size_t NUM_ALL_ENTITIES = 3442;
+    static constexpr size_t NUM_WIRES = 2506;
+    static constexpr size_t NUM_ALL_ENTITIES = 3435;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -612,7 +612,6 @@ struct AvmFlavorVariables {
         perm_data_copy_mem_write_relation<FF_>,
         perm_ecc_mem_write_mem_0_relation<FF_>,
         perm_ecc_mem_write_mem_1_relation<FF_>,
-        perm_ecc_mem_write_mem_2_relation<FF_>,
         perm_emit_public_log_read_mem_relation<FF_>,
         perm_execution_dispatch_to_cd_copy_relation<FF_>,
         perm_execution_dispatch_to_ecc_add_relation<FF_>,
