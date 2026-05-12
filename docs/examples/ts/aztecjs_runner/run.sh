@@ -16,7 +16,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 EXAMPLES_DIR="$(dirname "$SCRIPT_DIR")"
-source "$EXAMPLES_DIR/lib.sh"
 # Derive repo root from known path (docs/examples/ts/aztecjs_runner) to avoid
 # git safe.directory failures when running inside Docker containers.
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
@@ -53,8 +52,9 @@ setup_project() {
 
     cd "$project_dir"
 
-    # Clean up any previous setup (include codegenCache.json so codegen re-generates artifacts/)
-    rm -rf node_modules .yarn package.json tsconfig.json artifacts codegenCache.json 2>/dev/null || true
+    # Clean up generated artifacts only. The committed package.json, yarn.lock,
+    # and .yarnrc.yml are the source of truth.
+    rm -rf node_modules tsconfig.json artifacts codegenCache.json 2>/dev/null || true
 
     # Run codegen for custom contracts if specified in config.yaml
     local contract_count
@@ -75,29 +75,19 @@ setup_project() {
             node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o artifacts
         done < <(yq eval '.contracts[]' config.yaml)
 
-        # Verify codegen produced the expected files
         echo -e "  Generated artifacts:"
         ls -la artifacts/ 2>/dev/null || echo -e "${RED}  ERROR: artifacts/ directory does not exist after codegen${NC}"
     fi
 
-    # Initialize yarn
-    yarn init -y > /dev/null 2>&1
-    yarn config set nodeLinker node-modules > /dev/null 2>&1
-
-    # Set package type to module for ESM
-    node -e "const pkg = require('./package.json'); pkg.type = 'module'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2));"
-
-    # Read dependencies from config.yaml and install
-    parse_dependencies config.yaml "$REPO_ROOT"
-    if [ "$PARSED_DEPS_FOUND" = true ]; then
-        local all_link_deps=("${AZTEC_DEPS[@]}" "${EXPLICIT_LINK_DEPS[@]}")
-        [ ${#all_link_deps[@]} -gt 0 ] && yarn add "${all_link_deps[@]}" > /dev/null 2>&1
-        [ ${#NPM_DEPS[@]} -gt 0 ] && yarn add "${NPM_DEPS[@]}" > /dev/null 2>&1
+    # Install against committed package.json + yarn.lock. --immutable enforces
+    # that no descriptor or dep range has drifted; if it has, the contributor
+    # must run docs/examples/bootstrap.sh refresh-ts-lockfiles.
+    if ! yarn install --immutable > /dev/null 2>&1; then
+        echo -e "${RED}ERROR: yarn install --immutable failed for $project_name${NC}"
+        echo -e "${RED}  Run: docs/examples/bootstrap.sh refresh-ts-lockfiles${NC}"
+        return 1
     fi
 
-    yarn add -D typescript tsx > /dev/null 2>&1
-
-    # Copy tsconfig
     cp "$EXAMPLES_DIR/tsconfig.template.json" tsconfig.json
 
     echo -e "${GREEN}✓ $project_name ready${NC}"
@@ -132,7 +122,7 @@ run_project() {
     local max_retries=5
 
     for attempt in $(seq 1 $max_retries); do
-        if npx tsx index.ts; then
+        if yarn tsx index.ts; then
             local end_time=$(date +%s)
             local duration=$((end_time - start_time))
             echo ""
@@ -155,21 +145,17 @@ run_project() {
     return 1
 }
 
-# Cleanup function
+# Cleanup function — removes only generated artifacts. The committed
+# package.json, yarn.lock, and .yarnrc.yml stay in place.
 cleanup_project() {
     local project_name=$1
     local project_dir="$EXAMPLES_DIR/$project_name"
 
     rm -rf "$project_dir/node_modules" \
-           "$project_dir/.yarn" \
-           "$project_dir/package.json" \
            "$project_dir/tsconfig.json" \
-           "$project_dir/.yarnrc.yml" \
            "$project_dir/artifacts" \
            "$project_dir/codegenCache.json" \
            "$project_dir/data.json" 2>/dev/null || true
-    # Keep yarn.lock empty
-    > "$project_dir/yarn.lock"
 }
 
 # Determine which examples to run

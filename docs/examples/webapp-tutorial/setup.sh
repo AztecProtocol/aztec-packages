@@ -31,6 +31,10 @@ node -e "
 "
 
 echo "Installing dependencies..."
+# The committed yarn.lock pins the link-mode dependency graph used by CI
+# (see docs/examples/bootstrap.sh::validate-webapp-tutorial). End users
+# install against published @aztec/* versions, so regenerate locally.
+rm -f yarn.lock
 yarn install
 
 echo "Setup complete!"

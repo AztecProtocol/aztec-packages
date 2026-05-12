@@ -1,0 +1,25 @@
+{
+  "name": "@aztec-docs/recursive-verification",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "yarn@4.13.0",
+  "dependencies": {
+    "@aztec/accounts": "link:../../../../yarn-project/accounts",
+    "@aztec/aztec.js": "link:../../../../yarn-project/aztec.js",
+    "@aztec/bb.js": "link:../../../../barretenberg/ts",
+    "@aztec/kv-store": "link:../../../../yarn-project/kv-store",
+    "@aztec/noir-acvm_js": "link:../../../../noir/packages/acvm_js",
+    "@aztec/noir-contracts.js": "link:../../../../yarn-project/noir-contracts.js",
+    "@aztec/noir-noir_js": "link:../../../../noir/packages/noir_js",
+    "@aztec/noir-noirc_abi": "link:../../../../noir/packages/noirc_abi",
+    "@aztec/noir-types": "link:../../../../noir/packages/types",
+    "@aztec/pxe": "link:../../../../yarn-project/pxe",
+    "@aztec/wallets": "link:../../../../yarn-project/wallets",
+    "pako": "^2.1.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "^5.3.3"
+  }
+}

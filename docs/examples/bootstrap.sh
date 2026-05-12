@@ -9,11 +9,6 @@ export NARGO=${NARGO:-"$REPO_ROOT/noir/noir-repo/target/release/nargo"}
 export BB_HASH=${BB_HASH:-$("$REPO_ROOT/barretenberg/cpp/bootstrap.sh" hash)}
 export NOIR_HASH=${NOIR_HASH:-$("$REPO_ROOT/noir/bootstrap.sh" hash)}
 
-# Safety net: ensure all TS example yarn.lock files are empty on exit.
-# Both validate-ts and execute-examples (via Docker volume mount) can populate
-# these files, and their per-project cleanup may not run if processes are killed.
-trap 'for lf in "$REPO_ROOT"/docs/examples/ts/*/yarn.lock; do [ -f "$lf" ] && > "$lf"; done' EXIT
-
 hash=$(hash_str \
   $BB_HASH \
   $NOIR_HASH \
@@ -126,57 +121,70 @@ function validate-webapp-tutorial {
   local BUILDER_CLI="$REPO_ROOT/yarn-project/builder/dest/bin/cli.js"
   local YP="$REPO_ROOT/yarn-project"
 
+  # link: depends on yarn-project being bootstrapped — link entries don't
+  # record transitive deps in our yarn.lock, so we won't catch a missing
+  # runtime dep until the vite build, and the error there is opaque.
+  if [ ! -d "$YP/node_modules" ]; then
+    echo_stderr "ERROR: yarn-project is not bootstrapped (missing $YP/node_modules)."
+    echo_stderr "Run yarn-project/bootstrap.sh first."
+    return 1
+  fi
+
   # Compile the pod_racing_contract (uses existing compile infrastructure)
   compile webapp-tutorial/contracts
 
   (
     cd "$TUTORIAL_DIR"
 
-    # Backup package.json (the only tracked file we mutate). yarn.lock is
-    # gitignored and regenerated on each run, so we don't back it up.
+    # Backup package.json (the only tracked file we mutate). yarn.lock and
+    # .yarnrc.yml are committed and represent the link-mode pinned graph;
+    # don't touch them.
     cp package.json package.json.bak
 
     cleanup() {
       local exit_code=$?
       echo_stderr "Cleaning up webapp-tutorial..."
       [ -f package.json.bak ] && mv package.json.bak package.json
-      rm -rf node_modules .yarn yarn.lock .yarnrc.yml 2>/dev/null || true
+      rm -rf node_modules 2>/dev/null || true
       return $exit_code
     }
     trap cleanup EXIT
 
-    # Start from a fresh node_modules / lock so we don't reuse state from
-    # a previous run that may have been interrupted mid-cleanup.
-    # An empty yarn.lock is required to mark this directory as a standalone
-    # yarn project; otherwise yarn 4 walks up to docs/ and refuses to install
-    # because webapp-tutorial isn't listed as a workspace there.
-    rm -rf node_modules .yarn .yarnrc.yml
-    : > yarn.lock
+    # Start from a fresh node_modules so we don't reuse state from a previous
+    # run that may have been interrupted mid-cleanup. The committed yarn.lock
+    # pins the link-mode descriptor graph; --immutable below verifies it matches
+    # the rewritten package.json.
+    rm -rf node_modules
 
-    # Replace #include_aztec_version with link: paths to local yarn-project packages
+    # Replace #include_aztec_version with link: paths (relative to this
+    # package.json) so the resolved descriptors are stable across machines.
+    # link: (not portal:) is required because yarn-project packages declare
+    # cross-dependencies via workspace:^, which only resolves inside that
+    # workspace — portal: would try to follow them and fail.
     echo_stderr "Linking local @aztec packages..."
     node -e "
       const fs = require('fs');
       const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-      const yp = '$YP';
       for (const section of ['dependencies', 'devDependencies']) {
         for (const [name, ver] of Object.entries(pkg[section] || {})) {
           if (ver === '#include_aztec_version' && name.startsWith('@aztec/')) {
             const dir = name.replace('@aztec/', '');
-            pkg[section][name] = 'link:' + yp + '/' + dir;
+            pkg[section][name] = 'link:../../../yarn-project/' + dir;
           }
         }
       }
       fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
     "
 
-    # Fresh yarn setup for linking
-    yarn config set nodeLinker node-modules 2>/dev/null || true
-    yarn install
+    # --immutable enforces that the committed yarn.lock exactly matches the
+    # rewritten package.json. If a third-party dep version range was bumped or
+    # the tutorial's @aztec/* dep set changed, this fails and the author must
+    # run docs/examples/bootstrap.sh refresh-webapp-tutorial-lockfile.
+    yarn install --immutable
 
-    # yarn's `link:` protocol creates portals into yarn-project/*, which require
-    # --preserve-symlinks for Node's ESM loader to resolve dependencies correctly
-    # (vite in particular fails to load its config without it).
+    # link: creates symlinks into yarn-project/*; --preserve-symlinks tells
+    # Node's ESM loader to resolve transitive deps through the symlink target's
+    # node_modules (vite in particular fails to load its config without it).
     export NODE_OPTIONS="${NODE_OPTIONS:-} --preserve-symlinks"
 
     # Copy compiled contract artifact and run codegen
@@ -189,13 +197,15 @@ function validate-webapp-tutorial {
     cp "$artifact" src/artifacts/
     node --no-warnings "$BUILDER_CLI" codegen "$artifact" -o src/artifacts
 
-    # Type check (build mode follows project references in tsconfig.json)
+    # Type check (build mode follows project references in tsconfig.json).
+    # yarn invokes the locally-installed binary; npx would fall back to a
+    # registry install if missing, bypassing the lockfile.
     echo_stderr "Type checking webapp-tutorial..."
-    npx tsc -b --noEmit
+    yarn tsc -b --noEmit
 
     # Vite production build
     echo_stderr "Running vite build..."
-    npx vite build
+    yarn vite build
 
     echo_stderr "webapp-tutorial validated successfully"
   )
@@ -205,6 +215,65 @@ function execute-examples {
   echo_header "Executing TypeScript documentation examples"
   local COMPOSE_DIR="$REPO_ROOT/docs/examples/ts"
   run_compose_test "docs_examples" "docs-examples" "$COMPOSE_DIR"
+}
+
+# Regenerate the committed yarn.lock by performing the same package.json
+# rewrite as validate-webapp-tutorial, but without --immutable. Run this when
+# CI fails with "lockfile would have been modified" — typically after a
+# yarn-project package adds, removes, or version-bumps a transitive dep.
+function refresh-webapp-tutorial-lockfile {
+  echo_header "Refreshing webapp-tutorial yarn.lock"
+  local TUTORIAL_DIR="$REPO_ROOT/docs/examples/webapp-tutorial"
+
+  (
+    cd "$TUTORIAL_DIR"
+
+    cp package.json package.json.bak
+    trap '[ -f package.json.bak ] && mv package.json.bak package.json; rm -rf node_modules' EXIT
+
+    rm -rf node_modules
+    node -e "
+      const fs = require('fs');
+      const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+      for (const section of ['dependencies', 'devDependencies']) {
+        for (const [name, ver] of Object.entries(pkg[section] || {})) {
+          if (ver === '#include_aztec_version' && name.startsWith('@aztec/')) {
+            const dir = name.replace('@aztec/', '');
+            pkg[section][name] = 'link:../../../yarn-project/' + dir;
+          }
+        }
+      }
+      fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+    "
+
+    yarn install
+    echo_stderr "yarn.lock updated. Commit the change."
+  )
+}
+
+# Regenerate the committed yarn.lock for every docs/examples/ts/* example.
+# Run this when validate-ts fails with "lockfile would have been modified" —
+# typically after a third-party dep range bump or a new dep added to a
+# committed package.json. Each example's package.json is the source of truth;
+# this just refreshes the lockfile to match it.
+function refresh-ts-lockfiles {
+  echo_header "Refreshing docs/examples/ts/* yarn.lock files"
+  local TS_DIR="$REPO_ROOT/docs/examples/ts"
+
+  for d in "$TS_DIR"/*/; do
+    local name
+    name=$(basename "$d")
+    if [ ! -f "$d/package.json" ] || [ ! -f "$d/index.ts" ]; then
+      continue
+    fi
+    echo_stderr "Refreshing $name..."
+    (
+      cd "$d"
+      rm -rf node_modules
+      yarn install
+    )
+  done
+  echo_stderr "All docs/examples/ts/<example>/yarn.lock files updated. Commit the changes."
 }
 
 function test_cmds {
@@ -387,6 +456,12 @@ case "$cmd" in
     ;;
   execute)
     execute-examples
+    ;;
+  refresh-webapp-tutorial-lockfile)
+    refresh-webapp-tutorial-lockfile
+    ;;
+  refresh-ts-lockfiles)
+    refresh-ts-lockfiles
     ;;
   *)
     default_cmd_handler "$@"

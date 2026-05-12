@@ -1,0 +1,17 @@
+{
+  "name": "@aztec-docs/bob-token-contract",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "yarn@4.13.0",
+  "dependencies": {
+    "@aztec/accounts": "link:../../../../yarn-project/accounts",
+    "@aztec/aztec.js": "link:../../../../yarn-project/aztec.js",
+    "@aztec/kv-store": "link:../../../../yarn-project/kv-store",
+    "@aztec/wallets": "link:../../../../yarn-project/wallets"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "typescript": "^5.3.3"
+  }
+}

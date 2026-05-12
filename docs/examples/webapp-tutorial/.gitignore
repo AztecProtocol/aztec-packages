@@ -8,6 +8,3 @@ test-extension/wasm/
 # Build cache artifacts
 codegenCache.json
 *.tsbuildinfo
-
-# Lock file — CI regenerates with link: paths; external users generate via setup.sh
-yarn.lock
