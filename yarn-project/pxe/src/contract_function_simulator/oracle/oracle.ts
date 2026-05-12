@@ -1,4 +1,5 @@
 import {
+  ARCHIVE_HEIGHT,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
@@ -10,6 +11,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import {
   type ACIRCallback,
   type ACVMField,
@@ -248,6 +250,7 @@ export class Oracle {
     return witness.toNoirRepresentation();
   }
 
+  // TODO(https://linear.app/aztec-labs/issue/F-651): drop this
   // eslint-disable-next-line camelcase
   async aztec_utl_getBlockHashMembershipWitness(
     [anchorBlockHash]: ACVMField[],
@@ -265,13 +268,18 @@ export class Oracle {
     return witness.toNoirRepresentation();
   }
 
+  // TODO(https://linear.app/aztec-labs/issue/F-651): rename to aztec_utl_getBlockHashMembershipWitness
   // eslint-disable-next-line camelcase
-  async aztec_utl_isBlockInArchive([anchorBlockHash]: ACVMField[], [blockHash]: ACVMField[]): Promise<ACVMField[]> {
+  async aztec_utl_getBlockHashMembershipWitnessV2(
+    [anchorBlockHash]: ACVMField[],
+    [blockHash]: ACVMField[],
+  ): Promise<(ACVMField | ACVMField[])[]> {
     const parsedAnchorBlockHash = BlockHash.fromString(anchorBlockHash);
     const parsedBlockHash = BlockHash.fromString(blockHash);
 
     const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(parsedAnchorBlockHash, parsedBlockHash);
-    return [toACVMField(witness !== undefined)];
+    const effective = witness ?? MembershipWitness.empty(ARCHIVE_HEIGHT);
+    return [toACVMField(witness !== undefined ? 1 : 0), ...effective.toNoirRepresentation()];
   }
 
   // eslint-disable-next-line camelcase
