@@ -108,18 +108,25 @@ Fires when a session ends (tab closed, user disconnects, etc.). Use it to clean 
 
 ### Routing wallet calls
 
-For every incoming `onWalletMessage`, decide whether the call needs user approval, then either prompt the user or forward to your wallet implementation. A typical approval matrix:
+For every incoming `onWalletMessage`, decide whether the call needs user approval, then either prompt the user or forward to your wallet implementation.
 
-| Method | Approval needed? | Why |
+`aztec.js` models privileged methods behind named capabilities (see `AppCapabilities` and `Capability` in `@aztec/aztec.js/wallet`). The expected pattern is: the dApp calls `requestCapabilities` once, your wallet shows the user a single combined dialog, and methods covered by an approved capability can run without further prompting. The matrix below assumes you follow that pattern.
+
+| Method | Approval policy | Capability gating the method |
 |---|---|---|
-| `sendTx` | Yes | State-changing transaction |
-| `batch` containing `sendTx` | Yes | Contains state-changing calls |
-| `requestCapabilities` (first time) | Yes | Grants permissions to the dApp |
-| `simulateTx` | No | Read-only |
-| `executeUtility` | No | Unconstrained call |
-| `getAccounts`, `registerContract` | No | Read-only or background |
+| `requestCapabilities` (first time) | Per-call: prompt the user with the full manifest | n/a (grants the capabilities themselves) |
+| `sendTx` | Per-call confirmation, on top of an approved `transaction` capability | `transaction` |
+| `batch` | Treat as the union of its inner methods | derived from inner methods |
+| `simulateTx`, `profileTx` | Run after an approved `simulation` (with a `transactions` scope) | `simulation.transactions` |
+| `executeUtility` | Run after an approved `simulation` (with a `utilities` scope) | `simulation.utilities` |
+| `getAccounts`, `createAuthWit` | Run after an approved `accounts` capability | `accounts` |
+| `registerContract`, `getContractMetadata` | Run after an approved `contracts` capability | `contracts` |
+| `getContractClassMetadata` | Run after an approved `contractClasses` capability | `contractClasses` |
+| `getAddressBook`, `getPrivateEvents` | Run after an approved `data` capability | `data` |
 
-For auto-executing methods, forward the call to your wallet host and reply with `handler.sendResponse()`:
+The SDK does not enforce any of this — `requestCapabilities` in `BaseWallet` throws "Not implemented" by default, and capability persistence and per-call policy are entirely your wallet's responsibility. A wallet is free to require an extra confirmation for sensitive methods even when a capability is granted (for example, every `sendTx`), or to skip prompts for trusted origins it has remembered.
+
+Once you decide a call may proceed, forward it to your wallet host and reply with `handler.sendResponse()`:
 
 ```typescript
 await handler.sendResponse(session.sessionId, {

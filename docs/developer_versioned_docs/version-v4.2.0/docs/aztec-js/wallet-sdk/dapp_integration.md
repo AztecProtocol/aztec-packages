@@ -51,6 +51,8 @@ const manager = WalletManager.configure({
   extensions: { enabled: true },
 });
 
+const providers: WalletProvider[] = [];
+
 const discovery = manager.getAvailableWallets({
   appId: 'my-app',
   chainInfo: {
@@ -58,15 +60,26 @@ const discovery = manager.getAvailableWallets({
     version: new Fr(rollupVersion),
   },
   onWalletDiscovered: (provider) => {
-    console.log(`Found wallet: ${provider.name} (${provider.id})`);
+    providers.push(provider);
+    renderWalletPicker(providers); // your UI hook
   },
 });
-
-await discovery.done;
-discovery.cancel();
 ```
 
-Wallets configured for a different chain will not respond. The `extensions` config also accepts an optional `allowList` and `blockList` of wallet IDs.
+Wallets are streamed via `onWalletDiscovered` as soon as the user approves the request in each extension; do not block on `discovery.done` before showing options. The default discovery timeout is 60 seconds, but you should let the user pick as soon as the first acceptable wallet arrives:
+
+```typescript
+async function onUserPicked(provider: WalletProvider) {
+  discovery.cancel();
+  // proceed to Step 2 with this provider
+}
+```
+
+`discovery.done` is still useful if you want to wait for the timeout to elapse before declaring "no wallets found." Call `discovery.cancel()` once a wallet is selected or the user gives up.
+
+The `extensions` config also accepts an optional `allowList` and `blockList` of wallet IDs to constrain which wallets you will accept.
+
+Chain matching is wallet policy, not enforced by `WalletManager`. The SDK passes `chainInfo` through the discovery message, but it is up to each wallet to inspect it and decline (for example, by refusing approval in its popup) when the user's selected network does not match. Treat any wallet that responds as a candidate and re-check via `wallet.getChainInfo()` after the connection is established if you need a strong guarantee.
 
 To discover web/iframe wallets alongside extensions, pass a `webWallets` block too. Both kinds of provider are returned in the same `DiscoverySession`:
 
@@ -81,7 +94,7 @@ Each `WalletProvider` has `id`, `name`, `icon`, optional `metadata`, and the met
 
 ## Step 2: Establish a secure channel
 
-Once the user picks a provider, perform the ECDH key exchange:
+Once the user picks a provider (the `provider` argument passed to `onUserPicked` above), perform the ECDH key exchange:
 
 ```typescript
 const pending: PendingConnection = await provider.establishSecureChannel('my-app');

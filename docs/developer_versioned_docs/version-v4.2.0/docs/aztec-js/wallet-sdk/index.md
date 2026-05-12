@@ -48,8 +48,8 @@ Discovery uses `window.postMessage` (unencrypted, public). When the user approve
 The protocol has three phases with increasing trust.
 
 1. **Discovery (public).** The dApp broadcasts a request. Extensions only respond after the user explicitly approves the connection in their extension popup. No cryptographic material is exchanged.
-2. **Key exchange (authenticated).** Both sides generate ephemeral ECDH P-256 key pairs. The shared secret is expanded via HKDF into an AES-256-GCM encryption key and an HMAC verification key. A 2-second timeout limits the window for interception.
-3. **Verified channel (encrypted).** The HMAC verification key produces a hash that both sides convert to a 9-emoji grid. The user visually confirms the emojis match on both the dApp and the wallet, defending against man-in-the-middle attacks. After confirmation, all messages are encrypted with AES-256-GCM.
+2. **Key exchange (unauthenticated ECDH).** Both sides generate ephemeral ECDH P-256 key pairs and derive a shared secret. The secret is expanded via HKDF into an AES-256-GCM encryption key and a separate HMAC key. A 2-second timeout limits the window for interception. The exchange itself is not authenticated; an attacker who relays it can sit in the middle until phase 3 catches them.
+3. **Verified channel (authenticated, encrypted).** The HMAC key produces a verification hash that both sides convert to the same 9-emoji grid. The user visually confirms the emojis match on the dApp and the wallet, which authenticates the session out of band and defends against man-in-the-middle attacks. After confirmation, all messages are encrypted with AES-256-GCM.
 
 ## Where to start
 
