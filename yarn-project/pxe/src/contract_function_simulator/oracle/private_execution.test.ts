@@ -337,17 +337,17 @@ describe('Private Execution test suite', () => {
 
     keyStore.getAccounts.mockResolvedValue([owner, recipient, senderForTags]);
 
-    keyStore.accountHasKey.mockImplementation(async (account: AztecAddress, pkMHash: Fr) => {
+    keyStore.accountHasKey.mockImplementation((account: AztecAddress, pkMHash: Fr) => {
       if (account.equals(owner)) {
-        return pkMHash.equals(ownerCompleteAddress.publicKeys.npkMHash);
+        return Promise.resolve(pkMHash.equals(ownerCompleteAddress.publicKeys.npkMHash));
       }
       if (account.equals(recipient)) {
-        return pkMHash.equals(recipientCompleteAddress.publicKeys.npkMHash);
+        return Promise.resolve(pkMHash.equals(recipientCompleteAddress.publicKeys.npkMHash));
       }
       if (account.equals(senderForTags)) {
-        return pkMHash.equals(senderForTagsCompleteAddress.publicKeys.npkMHash);
+        return Promise.resolve(pkMHash.equals(senderForTagsCompleteAddress.publicKeys.npkMHash));
       }
-      return false;
+      return Promise.resolve(false);
     });
 
     keyStore.getKeyValidationRequest.mockImplementation(async (pkMHash: Fr, contractAddress: AztecAddress) => {
