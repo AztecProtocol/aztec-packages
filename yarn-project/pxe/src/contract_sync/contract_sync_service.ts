@@ -29,8 +29,8 @@ export class ContractSyncService implements StagedStore {
   // The value is a promise that resolves when the contract is synced.
   private syncedContracts: Map<string, Promise<void>> = new Map();
 
-  // Tracks class ID verification results. Keyed by contract address only (no scope),
-  // since verification is scope-independent. Cleared on wipe/discard.
+  // Tracks class ID verification per contract. Keyed by contract address only (no scope), since
+  // class ID verification is scope-independent. Cleared on wipe/discard.
   private classIdVerificationCache: Map<string, Promise<void>> = new Map();
 
   // Bounds the number of scope syncs running concurrently. Scopes beyond this limit queue here. Sized to trade off
@@ -98,7 +98,7 @@ export class ContractSyncService implements StagedStore {
 
   /**
    * For each unsynced scope, creates a promise that waits on:
-   *  1. Class ID verification (cached per contract, scope-agnostic).
+   *  1. Class ID verification (cached per contract, scope-independent).
    *  2. Note nullifier sync (shared, batched across all unsynced scopes).
    *  3. Per-scope sync (individual, semaphore-bounded).
    */
@@ -116,14 +116,14 @@ export class ContractSyncService implements StagedStore {
 
     this.log.debug(`Syncing contract ${contractAddress} for ${scopesToSync.length} scope(s)`);
 
-    const contractSyncPromise = this.#verifyClassId(contractAddress, anchorBlockHeader);
-    const multiScopeSyncPromise = this.#syncNoteNullifiers(contractAddress, anchorBlockHeader, jobId, scopesToSync);
+    const verifyPromise = this.#verifyClassId(contractAddress, anchorBlockHeader);
+    const syncNullifiersPromise = this.#syncNoteNullifiers(contractAddress, anchorBlockHeader, jobId, scopesToSync);
 
     for (const scope of scopesToSync) {
       const key = toKey(contractAddress, scope);
       const promise = Promise.all([
-        contractSyncPromise,
-        multiScopeSyncPromise,
+        verifyPromise,
+        syncNullifiersPromise,
         this.#runBounded(() => syncScopeFn(scope)),
       ])
         .then(() => {})
