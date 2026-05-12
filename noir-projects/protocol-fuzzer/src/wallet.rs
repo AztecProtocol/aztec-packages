@@ -394,21 +394,18 @@ const MAX_RETRIES: usize = 2;
 
 /// Retry a fallible operation on transient sandbox errors.
 fn with_retry<T>(label: &str, f: impl Fn() -> anyhow::Result<T>) -> anyhow::Result<T> {
-    for attempt in 0..=MAX_RETRIES {
+    let mut attempt = 0;
+    loop {
         match f() {
             Ok(v) => return Ok(v),
             Err(e) if attempt < MAX_RETRIES && is_transient_error(&e) => {
-                log::warn!(
-                    "Transient error on {label} (attempt {}/{}): {e}, retrying...",
-                    attempt + 1,
-                    MAX_RETRIES
-                );
+                attempt += 1;
+                log::warn!("Transient error on {label} (attempt {attempt}/{MAX_RETRIES}): {e}, retrying...");
                 std::thread::sleep(Duration::from_secs(2));
             }
             Err(e) => return Err(e),
         }
     }
-    unreachable!()
 }
 
 // ---------------------------------------------------------------------------

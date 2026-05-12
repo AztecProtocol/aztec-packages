@@ -43,9 +43,9 @@ By default the script uses the last tested nightly tag (`KNOWN_GOOD_TAG` in the 
 To try a newer nightly, use `find-latest-nightly.sh` to query Docker Hub:
 
 ```bash
-bash find-latest-nightly.sh                # prints e.g. 5.0.0-nightly.20260225
+bash find-latest-nightly.sh                # prints e.g. 5.0.0-nightly.20260402
 bash setup-nightly-sandbox.sh --latest     # auto-discovers and uses the newest tag
-NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260225 bash setup-nightly-sandbox.sh  # specific tag
+NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260402 bash setup-nightly-sandbox.sh  # specific tag
 ```
 
 Then run the fuzzer:

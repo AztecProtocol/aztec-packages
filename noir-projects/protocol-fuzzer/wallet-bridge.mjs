@@ -24,6 +24,12 @@ const DATA_DIR =
 const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
 const { AztecAddress } = await import("@aztec/aztec.js/addresses");
 const { openStoreAt } = await import("@aztec/kv-store/lmdb-v2");
+const { TxHash } = await import("@aztec/stdlib/tx");
+const { Fr } = await import("@aztec/foundation/curves/bn254");
+const { EthAddress } = await import("@aztec/foundation/eth-address");
+const { computeSiloedPrivateLogFirstField, computeL2ToL1MessageHash } =
+  await import("@aztec/stdlib/hash");
+const { SiloedTag } = await import("@aztec/stdlib/logs");
 
 // Auto-detect CLI path: try container path, then common local locations.
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -167,7 +173,6 @@ const handlers = {
       const hashMatch = stdout.match(/Transaction hash:\s+(0x[a-f0-9]+)/i);
       if (hashMatch) {
         try {
-          const { TxHash } = await import("@aztec/stdlib/tx");
           const effect = await node.getTxEffect(
             TxHash.fromString(hashMatch[1]),
           );
@@ -189,12 +194,6 @@ const handlers = {
   },
 
   "/query-private-logs": async ({ contract, rawTag }) => {
-    const { Fr } = await import("@aztec/foundation/curves/bn254");
-    const { computeSiloedPrivateLogFirstField } = await import(
-      "@aztec/stdlib/hash"
-    );
-    const { SiloedTag } = await import("@aztec/stdlib/logs");
-
     const contractAddr = AztecAddress.fromString(contract);
     const tagFr = new Fr(BigInt(rawTag));
     const siloedFr = await computeSiloedPrivateLogFirstField(
@@ -212,10 +211,6 @@ const handlers = {
   },
 
   "/compute-l2-to-l1-hash": async ({ l2Sender, l1Recipient, content }) => {
-    const { EthAddress } = await import("@aztec/foundation/eth-address");
-    const { Fr } = await import("@aztec/foundation/curves/bn254");
-    const { computeL2ToL1MessageHash } = await import("@aztec/stdlib/hash");
-
     const chainId = new Fr(await node.getChainId());
     const rollupVersion = new Fr(await node.getVersion());
     const hash = computeL2ToL1MessageHash({

@@ -180,21 +180,6 @@ mod integration_tests {
         std::env::var("ARTIFACTS_DIR").unwrap_or_else(|_| "/tmp".to_string())
     }
 
-    /// Verifies the sandbox is reachable and test accounts can be imported.
-    /// Run this first to diagnose setup issues before running heavier tests.
-    /// Prefixed with `_0` so it sorts first alphabetically (`_` < `a` in
-    /// ASCII, and Rust functions are snake_case). #[serial] tests run in
-    /// alphabetical order.
-    #[test]
-    #[ignore = "requires sandbox"]
-    #[serial]
-    fn _0_sandbox_smoke() {
-        let bridge = init_test_env();
-        bridge
-            .import_test_accounts()
-            .expect("import test accounts failed");
-    }
-
     /// Deploys 1 token, runs 5 random operations. Requires a running sandbox.
     #[test]
     #[ignore = "requires sandbox"]

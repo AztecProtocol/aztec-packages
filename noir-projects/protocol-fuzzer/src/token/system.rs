@@ -1,5 +1,5 @@
 use super::machine::{TokenCommand, TokenId};
-use crate::wallet::{AccountId, Bridge, WalletCommand};
+use crate::wallet::{AccountId, Bridge, ExecOutput, WalletCommand};
 
 pub struct TokenSystem<'a> {
     bridge: &'a Bridge,
@@ -9,149 +9,59 @@ impl From<&TokenCommand> for WalletCommand {
     fn from(cmd: &TokenCommand) -> Self {
         use TokenCommand::*;
         // authwit_nonce is always 0 because msg_sender == from in all commands.
-        let (method, contract, from, args) = match cmd {
-            MintPublic {
-                token,
-                amount,
-                from,
-                to,
+        let args: Vec<String> = match cmd {
+            MintPublic { amount, to, .. } | MintPrivate { amount, to, .. } => {
+                vec![format!("accounts:test{to}"), format!("{amount}")]
             }
-            | MintPrivate {
-                token,
-                amount,
-                from,
-                to,
-            } => (
-                if matches!(cmd, MintPublic { .. }) {
-                    "mint_to_public"
-                } else {
-                    "mint_to_private"
-                },
-                format!("contracts:token{token}"),
+            BurnPublic { amount, from, .. } | BurnPrivate { amount, from, .. } => vec![
                 format!("accounts:test{from}"),
-                vec![format!("accounts:test{to}"), format!("{amount}")],
-            ),
-            BurnPublic {
-                token,
-                amount,
-                from,
-            }
-            | BurnPrivate {
-                token,
-                amount,
-                from,
-            } => (
-                if matches!(cmd, BurnPublic { .. }) {
-                    "burn_public"
-                } else {
-                    "burn_private"
-                },
-                format!("contracts:token{token}"),
-                format!("accounts:test{from}"),
-                vec![
-                    format!("accounts:test{from}"),
-                    format!("{amount}"),
-                    "0".into(),
-                ],
-            ),
+                format!("{amount}"),
+                "0".into(),
+            ],
             TransferPublic {
-                token,
-                to,
-                amount,
-                from,
+                to, amount, from, ..
             }
             | TransferPrivate {
-                token,
-                to,
-                amount,
-                from,
+                to, amount, from, ..
             }
             | TransferPrivateToPublic {
-                token,
-                to,
-                amount,
-                from,
-            } => (
-                match cmd {
-                    TransferPublic { .. } => "transfer_in_public",
-                    TransferPrivate { .. } => "transfer_in_private",
-                    TransferPrivateToPublic { .. } => "transfer_to_public",
-                    _ => unreachable!(),
-                },
-                format!("contracts:token{token}"),
+                to, amount, from, ..
+            } => vec![
                 format!("accounts:test{from}"),
-                vec![
-                    format!("accounts:test{from}"),
-                    format!("accounts:test{to}"),
-                    format!("{amount}"),
-                    "0".into(),
-                ],
-            ),
-            TransferPublicToPrivate {
-                token,
-                to,
-                amount,
-                from,
-            } => (
-                "transfer_to_private",
-                format!("contracts:token{token}"),
-                format!("accounts:test{from}"),
-                vec![format!("accounts:test{to}"), format!("{amount}")],
-            ),
-            BalanceOfPublic {
-                token,
-                from,
-                address,
+                format!("accounts:test{to}"),
+                format!("{amount}"),
+                "0".into(),
+            ],
+            TransferPublicToPrivate { to, amount, .. } => {
+                vec![format!("accounts:test{to}"), format!("{amount}")]
             }
-            | BalanceOfPrivate {
-                token,
-                from,
-                address,
-            } => (
-                if matches!(cmd, BalanceOfPublic { .. }) {
-                    "balance_of_public"
-                } else {
-                    "balance_of_private"
-                },
-                format!("contracts:token{token}"),
-                format!("accounts:test{from}"),
-                vec![format!("accounts:test{address}")],
-            ),
-            TotalSupply { token, from } => (
-                "total_supply",
-                format!("contracts:token{token}"),
-                format!("accounts:test{from}"),
-                vec![],
-            ),
+            BalanceOfPublic { address, .. } | BalanceOfPrivate { address, .. } => {
+                vec![format!("accounts:test{address}")]
+            }
+            TotalSupply { .. } => vec![],
         };
 
         WalletCommand {
             verb: cmd.verb(),
-            method: method.to_string(),
-            contract,
-            from,
+            method: cmd.method_name().to_string(),
+            contract: format!("contracts:token{}", cmd.token_id()),
+            from: format!("accounts:test{}", cmd.from()),
             args,
         }
     }
 }
 
 impl<'a> TokenSystem<'a> {
-    pub(crate) fn execute_command(&self, cmd: &TokenCommand) -> anyhow::Result<String> {
-        self.bridge
-            .execute(&WalletCommand::from(cmd))
-            .map(|o| o.stdout)
+    pub(crate) fn execute_command(&self, cmd: &TokenCommand) -> anyhow::Result<ExecOutput> {
+        self.bridge.execute(&WalletCommand::from(cmd))
     }
 
     pub(crate) fn execute_command_batch(
         &self,
         cmds: &[TokenCommand],
-    ) -> Vec<anyhow::Result<String>> {
+    ) -> Vec<anyhow::Result<ExecOutput>> {
         let wallet_cmds: Vec<WalletCommand> = cmds.iter().map(WalletCommand::from).collect();
-        self.bridge
-            .execute_many(&wallet_cmds)
-            .into_iter()
-            .map(|r| r.map(|o| o.stdout))
-            .collect()
+        self.bridge.execute_many(&wallet_cmds)
     }
 
     pub(crate) fn deploy_token(

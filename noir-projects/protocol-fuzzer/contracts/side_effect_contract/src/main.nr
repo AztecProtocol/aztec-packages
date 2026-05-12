@@ -11,9 +11,9 @@ use aztec::macros::aztec;
 /// - Note hashes: `call_create_note`, `call_create_and_complete_partial_note`
 /// - Nullifiers (from note destruction): `call_destroy_note`
 /// - Raw nullifier emission: `emit_nullifier`
-/// - Note read requests: `call_get_notes_many`
+/// - Note read requests: `call_get_notes_many`, `test_note_inclusion`
 /// - Unconstrained note queries: `call_view_notes_many`
-/// - Archive inclusion proofs: `test_note_inclusion`, `test_settled_nullifier_inclusion`
+/// - Archive inclusion proofs: `test_settled_nullifier_inclusion`
 /// - L2->L1 messages: `send_l2_to_l1_message`
 /// - Private log emissions: `emit_private_log`
 /// - Key validation requests: `request_ovsk_app`
@@ -109,10 +109,10 @@ pub contract SideEffect {
         destroy_note(self.context, confirmed_notes.get(0));
     }
 
-    // test_note_inclusion: get_notes proves that a settled note exists in the
-    // note hash tree, and a pending note was emitted earlier in the tx. We
-    // assert len == 1 so the tx fails on empty slots, exercising the inclusion
-    // proof path only when a note actually exists.
+    // get_notes returns settled notes (proven via kernel read requests against
+    // the note hash tree) and pending notes (emitted earlier in this tx).
+    // Asserting len == 1 makes the tx fail on empty slots, so a successful
+    // call proves a note exists -- but doesn't distinguish settled from pending.
     #[external("private")]
     fn test_note_inclusion(owner: AztecAddress, storage_slot: Field) {
         let options: NoteGetterOptions<UintNote, _, _, _> = NoteGetterOptions::new()

@@ -10,8 +10,9 @@ Two machines are available:
   note lifecycle (create, destroy, view, get, partial notes), nullifier emission,
   L2→L1 messages, private logs, key validation requests, public teardown calls,
   and cross-contract calls. Verifies note values against the model, nullifier
-  uniqueness, L2→L1 message hashes in TxEffect, and private log discoverability
-  via siloed tag queries.
+  uniqueness, L2→L1 message hashes in TxEffect, and private logs against the
+  model (each emission discoverable via siloed tag, plus per-tag completeness:
+  no earlier log gets dropped or overwritten).
 
 ## Running
 

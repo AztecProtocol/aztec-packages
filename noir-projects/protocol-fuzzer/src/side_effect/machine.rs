@@ -137,6 +137,42 @@ impl SideEffectCommand {
         }
     }
 
+    /// Contract method (snake_case, as exported by the Noir contract).
+    pub(crate) fn method_name(&self) -> &'static str {
+        match self {
+            Self::CreateNote { .. } => "call_create_note",
+            Self::CreateAndCompletePartialNote { .. } => "call_create_and_complete_partial_note",
+            Self::ViewNotesMany { .. } => "call_view_notes_many",
+            Self::GetNotesMany { .. } => "call_get_notes_many",
+            Self::DestroyNote { .. } => "call_destroy_note",
+            Self::TestNoteInclusion { .. } => "test_note_inclusion",
+            Self::EmitNullifier { .. } => "emit_nullifier",
+            Self::TestNullifierInclusion { .. } => "test_settled_nullifier_inclusion",
+            Self::SendL2ToL1Message { .. } => "send_l2_to_l1_message",
+            Self::EmitPrivateLog { .. } => "emit_private_log",
+            Self::RequestOvskApp { .. } => "request_ovsk_app",
+            Self::TestSettingTeardown { .. } => "test_setting_teardown",
+        }
+    }
+
+    /// The account ID this command originates from (used as `msg_sender`).
+    pub(crate) fn from(&self) -> AccountId {
+        match self {
+            Self::CreateNote { from, .. }
+            | Self::CreateAndCompletePartialNote { from, .. }
+            | Self::ViewNotesMany { from, .. }
+            | Self::GetNotesMany { from, .. }
+            | Self::DestroyNote { from, .. }
+            | Self::TestNoteInclusion { from, .. }
+            | Self::EmitNullifier { from, .. }
+            | Self::TestNullifierInclusion { from, .. }
+            | Self::SendL2ToL1Message { from, .. }
+            | Self::EmitPrivateLog { from, .. }
+            | Self::RequestOvskApp { from, .. }
+            | Self::TestSettingTeardown { from, .. } => *from,
+        }
+    }
+
     /// Bucket each command falls into. Predicates below derive from this so a
     /// new variant only needs adding here and to the per-field extractors.
     ///
