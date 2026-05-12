@@ -23,7 +23,7 @@ The side-effect machine deploys custom contracts that must be version-compatible
 sandbox (PXE, sequencer, L1 contracts), the wallet CLI, and the compiled artifact format.
 
 The `latest` Docker image ships an older nargo that stack-overflows on current aztec-nr.
-Dated nightly images (e.g. `5.0.0-nightly.20260402`) have a matching nargo but the wallet
+Dated nightly images (e.g. `5.0.0-nightly.20260512`) have a matching nargo but the wallet
 is broken (missing `inquirer` npm package). The contracts must be compiled against the
 **nightly's aztec-nr**, not the repo's current branch, because oracle interfaces may differ
 between versions (the setup script auto-detects when they match).
@@ -43,9 +43,9 @@ By default the script uses the last tested nightly tag (`KNOWN_GOOD_TAG` in the 
 To try a newer nightly, use `find-latest-nightly.sh` to query Docker Hub:
 
 ```bash
-bash find-latest-nightly.sh                # prints e.g. 5.0.0-nightly.20260402
+bash find-latest-nightly.sh                # prints e.g. 5.0.0-nightly.20260512
 bash setup-nightly-sandbox.sh --latest     # auto-discovers and uses the newest tag
-NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260402 bash setup-nightly-sandbox.sh  # specific tag
+NIGHTLY_IMAGE=aztecprotocol/aztec:5.0.0-nightly.20260512 bash setup-nightly-sandbox.sh  # specific tag
 ```
 
 Then run the fuzzer:
@@ -100,7 +100,7 @@ If the automated script doesn't work, follow these steps.
 Match the nightly image's nargo hash to an aztec-packages commit:
 
 ```bash
-docker run --rm --entrypoint "" aztecprotocol/aztec:5.0.0-nightly.20260402 \
+docker run --rm --entrypoint "" aztecprotocol/aztec:5.0.0-nightly.20260512 \
   /usr/src/noir/noir-repo/target/release/nargo --version
 # e.g. 7d07e187fb04d79f5a7cf41501d2c12bc2b1d5d2
 
@@ -134,7 +134,7 @@ docker run -d --rm --name aztec-sandbox-nightly \
   -e AZTEC_EPOCH_DURATION=4 \
   -e SEQ_ENFORCE_TIME_TABLE=false \
   --entrypoint "" \
-  aztecprotocol/aztec:5.0.0-nightly.20260402 \
+  aztecprotocol/aztec:5.0.0-nightly.20260512 \
   bash -c '/opt/foundry/bin/anvil --host 0.0.0.0 --port 8545 & \
   sleep 2 && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --local-network --l1-rpc-urls http://127.0.0.1:8545'
 ```
@@ -341,7 +341,7 @@ on the first request. The Rust fuzzer resolves aliases (`accounts:test0`,
 
 ### Version matrix (as of 2026-02-25)
 
-| Component | latest image | dated nightly (20260224) | repo (next branch) |
+| Component | latest image | dated nightly (20260512) | repo (next branch) |
 |-----------|-------------|--------------------------|-------------------|
 | nargo | beta.11 | beta.19 | beta.19 |
 | aztec-nr API | old | current | current |

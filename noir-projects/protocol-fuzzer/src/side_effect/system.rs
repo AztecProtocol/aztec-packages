@@ -163,9 +163,15 @@ impl<'a> SideEffectSystem<'a> {
     }
 
     pub(crate) fn new(bridge: &'a Bridge, artifacts_dir: &str) -> Self {
-        let dir = std::path::Path::new(artifacts_dir)
-            .canonicalize()
-            .unwrap_or_else(|e| panic!("cannot resolve artifacts dir {artifacts_dir:?}: {e}"));
+        // Resolve relative paths against the current dir, but tolerate paths
+        // that don't exist on the host: in Docker mode `artifacts_dir` points
+        // inside the container (the bridge will read the file there).
+        let path = std::path::Path::new(artifacts_dir);
+        let dir = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            std::env::current_dir().expect("cwd unavailable").join(path)
+        };
         let dir = dir.display();
         Self {
             side_effect_artifact: format!("{dir}/side_effect_contract-SideEffect.json"),
