@@ -1,7 +1,5 @@
 import { toArray } from '@aztec/foundation/iterable';
 
-import { expect } from 'chai';
-
 import type { AztecArray, AztecAsyncArray } from './array.js';
 import type { AztecAsyncKVStore, AztecKVStore } from './store.js';
 import { isSyncStore } from './utils.js';
@@ -53,12 +51,12 @@ export function describeAztecArray(
       await arr.push(2);
       await arr.push(3);
 
-      expect(await length()).to.equal(3);
+      expect(await length()).toBe(3);
 
-      expect(await arr.pop()).to.equal(3);
-      expect(await arr.pop()).to.equal(2);
-      expect(await arr.pop()).to.equal(1);
-      expect(await arr.pop()).to.equal(undefined);
+      expect(await arr.pop()).toBe(3);
+      expect(await arr.pop()).toBe(2);
+      expect(await arr.pop()).toBe(1);
+      expect(await arr.pop()).toBe(undefined);
     });
 
     it('should be able to get values by index', async () => {
@@ -66,14 +64,14 @@ export function describeAztecArray(
       await arr.push(2);
       await arr.push(3);
 
-      expect(await at(0)).to.equal(1);
-      expect(await at(1)).to.equal(2);
-      expect(await at(2)).to.equal(3);
-      expect(await at(3)).to.equal(undefined);
-      expect(await at(-1)).to.equal(3);
-      expect(await at(-2)).to.equal(2);
-      expect(await at(-3)).to.equal(1);
-      expect(await at(-4)).to.equal(undefined);
+      expect(await at(0)).toBe(1);
+      expect(await at(1)).toBe(2);
+      expect(await at(2)).toBe(3);
+      expect(await at(3)).toBe(undefined);
+      expect(await at(-1)).toBe(3);
+      expect(await at(-2)).toBe(2);
+      expect(await at(-3)).toBe(1);
+      expect(await at(-4)).toBe(undefined);
     });
 
     it('should be able to set values by index', async () => {
@@ -81,27 +79,27 @@ export function describeAztecArray(
       await arr.push(2);
       await arr.push(3);
 
-      expect(await arr.setAt(0, 4)).to.equal(true);
-      expect(await arr.setAt(1, 5)).to.equal(true);
-      expect(await arr.setAt(2, 6)).to.equal(true);
+      expect(await arr.setAt(0, 4)).toBe(true);
+      expect(await arr.setAt(1, 5)).toBe(true);
+      expect(await arr.setAt(2, 6)).toBe(true);
 
-      expect(await arr.setAt(3, 7)).to.equal(false);
+      expect(await arr.setAt(3, 7)).toBe(false);
 
-      expect(await at(0)).to.equal(4);
-      expect(await at(1)).to.equal(5);
-      expect(await at(2)).to.equal(6);
-      expect(await at(3)).to.equal(undefined);
+      expect(await at(0)).toBe(4);
+      expect(await at(1)).toBe(5);
+      expect(await at(2)).toBe(6);
+      expect(await at(3)).toBe(undefined);
 
-      expect(await arr.setAt(-1, 8)).to.equal(true);
-      expect(await arr.setAt(-2, 9)).to.equal(true);
-      expect(await arr.setAt(-3, 10)).to.equal(true);
+      expect(await arr.setAt(-1, 8)).toBe(true);
+      expect(await arr.setAt(-2, 9)).toBe(true);
+      expect(await arr.setAt(-3, 10)).toBe(true);
 
-      expect(await arr.setAt(-4, 11)).to.equal(false);
+      expect(await arr.setAt(-4, 11)).toBe(false);
 
-      expect(await at(-1)).to.equal(8);
-      expect(await at(-2)).to.equal(9);
-      expect(await at(-3)).to.equal(10);
-      expect(await at(-4)).to.equal(undefined);
+      expect(await at(-1)).toBe(8);
+      expect(await at(-2)).toBe(9);
+      expect(await at(-3)).toBe(10);
+      expect(await at(-4)).toBe(undefined);
     });
 
     it('should be able to iterate over values', async () => {
@@ -109,8 +107,8 @@ export function describeAztecArray(
       await arr.push(2);
       await arr.push(3);
 
-      expect(await values()).to.deep.equal([1, 2, 3]);
-      expect(await entries()).to.deep.equal([
+      expect(await values()).toEqual([1, 2, 3]);
+      expect(await entries()).toEqual([
         [0, 1],
         [1, 2],
         [2, 3],
@@ -123,8 +121,8 @@ export function describeAztecArray(
       await arr.push(3);
 
       const arr2 = store.openArray<number>('test');
-      expect(await length(arr2)).to.equal(3);
-      expect(await values(arr2)).to.deep.equal(await values());
+      expect(await length(arr2)).toBe(3);
+      expect(await values(arr2)).toEqual(await values());
     });
   });
 }
