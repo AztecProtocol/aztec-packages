@@ -100,6 +100,7 @@ template <class Params> inline constexpr std::array<uint64_t, 9> compute_tnm_was
 
 template <class Params> struct alignas(32) VectorField {
     using Field = field<Params>;
+    using scalar_type = Field;
     static constexpr size_t SIZE = 5;
 
     static constexpr std::array<uint64_t, 9> P_WASM = { Params::modulus_wasm_0, Params::modulus_wasm_1,
@@ -158,6 +159,56 @@ template <class Params> struct alignas(32) VectorField {
     VectorField operator+(const VectorField& other) const noexcept;
     VectorField operator-(const VectorField& other) const noexcept;
     VectorField operator*(const VectorField& other) const noexcept;
+
+    // Gather: returns a VectorField whose lane L equals base[idx[L]].
+    static VectorField gather(const Field* base, std::array<size_t, 5> idx) noexcept
+    {
+        std::array<Field, 5> tmp{ base[idx[0]], base[idx[1]], base[idx[2]], base[idx[3]], base[idx[4]] };
+        return VectorField(tmp);
+    }
+
+    // Scatter: writes base[idx[L]] = this->get(L) for L in 0..4.
+    void scatter(Field* base, std::array<size_t, 5> idx) const noexcept
+    {
+        auto a = to_array();
+        base[idx[0]] = a[0];
+        base[idx[1]] = a[1];
+        base[idx[2]] = a[2];
+        base[idx[3]] = a[3];
+        base[idx[4]] = a[4];
+    }
+
+    // Mixed-type operators: broadcast scalar into a VectorField and delegate.
+    friend VectorField operator+(VectorField v, const Field& s) noexcept
+    {
+        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
+        return v + bcast;
+    }
+    friend VectorField operator+(const Field& s, VectorField v) noexcept
+    {
+        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
+        return bcast + v;
+    }
+    friend VectorField operator-(VectorField v, const Field& s) noexcept
+    {
+        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
+        return v - bcast;
+    }
+    friend VectorField operator-(const Field& s, VectorField v) noexcept
+    {
+        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
+        return bcast - v;
+    }
+    friend VectorField operator*(VectorField v, const Field& s) noexcept
+    {
+        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
+        return v * bcast;
+    }
+    friend VectorField operator*(const Field& s, VectorField v) noexcept
+    {
+        VectorField bcast(std::array<Field, 5>{ s, s, s, s, s });
+        return bcast * v;
+    }
 
     // dot_product<K>((a_0,b_0), ..., (a_{K-1},b_{K-1})) == sum_k a_k * b_k (mod p).
     //

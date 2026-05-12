@@ -4,6 +4,7 @@
 #include "barretenberg/numeric/random/engine.hpp"
 
 #include <gtest/gtest.h>
+#include <type_traits>
 
 namespace {
 
@@ -437,6 +438,86 @@ TEST(VectorFieldTest, DotProductK6WorstCaseOutputIsCoarseForm)
         Vec zeroed = dp - dp;
         EXPECT_EQ(zeroed.is_zero(), 0b11111u) << "self-sub not zero on trial " << trial;
     }
+}
+
+TEST(VectorFieldTest, GatherScatterRoundTrip)
+{
+    std::array<fr, 16> src;
+    for (size_t i = 0; i < 16; ++i) {
+        src[i] = fr::random_element();
+    }
+    std::array<size_t, 5> idx{ 3, 0, 7, 15, 9 };
+
+    Vec v = Vec::gather(src.data(), idx);
+
+    std::array<fr, 16> dst;
+    for (size_t i = 0; i < 16; ++i) {
+        dst[i] = fr::zero();
+    }
+    v.scatter(dst.data(), idx);
+
+    for (size_t L = 0; L < 5; ++L) {
+        EXPECT_EQ(dst[idx[L]], src[idx[L]]) << "lane " << L;
+    }
+}
+
+TEST(VectorFieldTest, GatherLanesMatchArray)
+{
+    std::array<fr, 16> src;
+    for (size_t i = 0; i < 16; ++i) {
+        src[i] = fr::random_element();
+    }
+    std::array<size_t, 5> idx{ 2, 5, 1, 8, 0 };
+
+    Vec v = Vec::gather(src.data(), idx);
+    for (size_t L = 0; L < 5; ++L) {
+        EXPECT_EQ(v.get(L), src[idx[L]]) << "lane " << L;
+    }
+}
+
+TEST(VectorFieldTest, MixedAddBroadcast)
+{
+    auto a = random_five();
+    fr s = fr::random_element();
+    Vec va(a);
+    Vec bcast(std::array<fr, 5>{ s, s, s, s, s });
+
+    {
+        auto lhs = (va + s).to_array();
+        auto rhs = (va + bcast).to_array();
+        EXPECT_TRUE(field_array_eq(lhs, rhs));
+    }
+    {
+        auto lhs = (s + va).to_array();
+        auto rhs = (bcast + va).to_array();
+        EXPECT_TRUE(field_array_eq(lhs, rhs));
+    }
+    {
+        auto lhs = (va - s).to_array();
+        auto rhs = (va - bcast).to_array();
+        EXPECT_TRUE(field_array_eq(lhs, rhs));
+    }
+    {
+        auto lhs = (s - va).to_array();
+        auto rhs = (bcast - va).to_array();
+        EXPECT_TRUE(field_array_eq(lhs, rhs));
+    }
+    {
+        auto lhs = (va * s).to_array();
+        auto rhs = (va * bcast).to_array();
+        EXPECT_TRUE(field_array_eq(lhs, rhs));
+    }
+    {
+        auto lhs = (s * va).to_array();
+        auto rhs = (bcast * va).to_array();
+        EXPECT_TRUE(field_array_eq(lhs, rhs));
+    }
+}
+
+TEST(VectorFieldTest, ScalarTypeAlias)
+{
+    static_assert(std::is_same_v<typename Vec::scalar_type, bb::fr>);
+    SUCCEED();
 }
 
 } // namespace
