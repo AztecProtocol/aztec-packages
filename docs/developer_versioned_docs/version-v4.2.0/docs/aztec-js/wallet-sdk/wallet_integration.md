@@ -75,28 +75,31 @@ The handler exposes four optional callbacks at different protocol stages.
 Fired when a dApp broadcasts a discovery request. Decide whether to auto-approve (trusted origin) or open the popup so the user can approve:
 
 ```typescript
-async onPendingDiscovery({ requestId, origin, tabId }) {
-  // Optional: terminate stale sessions from the same tab on page refresh.
-  for (const s of handler.getActiveSessions()) {
-    if (s.tabId === tabId) handler.terminateSession(s.sessionId);
-  }
+const callbacks = {
+  async onPendingDiscovery({ requestId, appId, origin, tabId, chainInfo }) {
+    // Optional: terminate stale sessions from the same tab on page refresh.
+    for (const s of handler.getActiveSessions()) {
+      if (s.tabId === tabId) handler.terminateSession(s.sessionId);
+    }
 
-  if (await isTrustedOrigin(origin)) {
-    handler.approveDiscovery(requestId);
-  } else {
-    await openApprovalPopup({ requestId, origin });
-    // The popup later calls handler.approveDiscovery(requestId)
-    // or handler.rejectDiscovery(requestId).
-  }
-}
+    if (await isTrustedOrigin({ appId, origin, chainInfo })) {
+      handler.approveDiscovery(requestId);
+    } else {
+      await openApprovalPopup({ requestId, appId, origin, chainInfo });
+      // The popup later calls handler.approveDiscovery(requestId)
+      // or handler.rejectDiscovery(requestId).
+    }
+  },
+  // onSessionEstablished, onWalletMessage, onSessionTerminated below.
+};
 ```
 
 #### `onSessionEstablished`
 
-Fires after ECDH key exchange completes. The session has a `verificationHash` for the emoji grid:
+Fires after ECDH key exchange completes. The session has a `verificationHash` for the emoji grid. The SDK does not expose a "confirm" call on the wallet side, so what your wallet does at this point is pure policy:
 
-- For trusted origins: confirm the session immediately and restore previously granted capabilities. Persistence and policy are entirely up to your wallet code.
-- For new origins: stash the session and show the emoji grid in the popup so the user can match it against the dApp.
+- For trusted origins: mark the session as trusted in your own state and restore previously granted capabilities. Persistence and policy are entirely up to your wallet code.
+- For new origins: stash the session and show the emoji grid in the popup so the user can match it against the dApp before you treat any incoming message as authorized.
 
 #### `onWalletMessage`
 
@@ -185,7 +188,7 @@ protected async completeFeeOptions(config: CompleteFeeOptionsConfig) {
 
 If you want returning users to skip the approval popup, your wallet code can persist the set of trusted origins. Use `chrome.storage.local` if the trust list should survive browser restarts, or `chrome.storage.session` if it should clear when the browser closes. The SDK does not store trust state for you.
 
-Be careful what you scope trust to. Origin alone is rarely enough: a wallet that auto-approves an `origin` for one chain shouldn't auto-approve the same origin on a different chain or under a different `appId`. Storing the tuple `(appId, origin, chainId, rollupVersion)` and checking the full tuple in `onPendingDiscovery` keeps the auto-approve scoped tightly enough. The handler exposes:
+Be careful what you scope trust to. Origin alone is rarely enough: a wallet that auto-approves an `origin` for one chain shouldn't auto-approve the same origin on a different chain or under a different `appId`. Storing the tuple `(appId, origin, chainInfo.chainId, chainInfo.version)` and checking the full tuple in `onPendingDiscovery` keeps the auto-approve scoped tightly enough (`chainInfo.version` is the L2 rollup version the dApp passed in; the SDK forwards both fields to your callback unchanged). The handler exposes:
 
 - `handler.terminateSession(sessionId)`: end a specific session.
 - `handler.terminateForTab(tabId)`: end every session for a tab.

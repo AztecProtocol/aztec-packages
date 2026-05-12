@@ -90,7 +90,7 @@ WalletManager.configure({
 });
 ```
 
-Each `WalletProvider` has `id`, `name`, `icon`, optional `metadata`, and the methods used in the next steps. A `WalletProvider` is only emitted after the user explicitly approves the request inside the extension popup, so websites cannot silently enumerate which wallets the user has installed. The session itself completes when discovery times out, the user cancels, or you call `discovery.cancel()`.
+Each `WalletProvider` has `id`, `name`, `icon`, optional `metadata`, and the methods used in the next steps. For extension wallets, a `WalletProvider` is only emitted after the user explicitly approves the request inside the extension popup, so websites cannot silently enumerate which extension wallets the user has installed. Web/iframe wallets respond to the discovery probe automatically without a popup, so a `WalletProvider` from `webWallets` does not imply user approval; only the per-connection emoji step in Step 3 authenticates the wallet to the user. The session itself resolves when discovery times out or you call `discovery.cancel()`; a wallet that rejects the request is silent on the dApp side.
 
 ## Step 2: Establish a secure channel
 
@@ -108,6 +108,8 @@ const verificationEmojis = hashToEmoji(pending.verificationHash);
 - `verificationHash`: hex string both sides compute independently.
 - `confirm()`: finalizes the connection and returns a `Wallet` proxy.
 - `cancel()`: aborts the pending connection.
+
+`establishSecureChannel` rejects if key exchange times out (default 2 seconds) or the wallet never responds. Treat any rejection as a hard reset: call `pending.cancel()` if you held onto the value, drop any `verificationHash` you displayed, and let the user retry from Step 1.
 
 ## Step 3: Emoji verification
 
