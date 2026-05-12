@@ -7,11 +7,17 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
+import { jest } from '@jest/globals';
+
 import { setup } from './fixtures/utils.js';
 
 // Tests PXE interacting with a node that has pruned relevant blocks, preventing usage of the archive API (which PXE
 // should not rely on).
 describe('e2e_pruned_blocks', () => {
+  // Mining WORLD_STATE_CHECKPOINT_HISTORY+3 sequential dependent txs takes ~24s/block under
+  // pipelining, exceeding the default 5min jest timeout. Bump to 15 minutes.
+  jest.setTimeout(15 * 60 * 1000);
+
   let logger: Logger;
   let teardown: () => Promise<void>;
 
@@ -62,10 +68,11 @@ describe('e2e_pruned_blocks', () => {
     }
   }
 
-  // TODO(kill-non-pipelined): Under proposer pipelining sequential dependent txs take ~24s/block instead of
-  // ~12s, doubling the time needed to mine WORLD_STATE_CHECKPOINT_HISTORY+3 blocks, and the
-  // archiver/world-state pruning cadence interacts with the auto-prove watcher in ways tuned for the legacy
-  // flow. Re-enable once block pruning timing is validated under pipelining.
+  // TODO(kill-non-pipelined): mining the 5 dependent txs is fine (~24s/tx pipelined), but the
+  // node never observes the expected `unable to find leaf` error from pruned history within
+  // 15 min — the archiver/world-state pruning cadence under pipelining differs from the
+  // legacy flow this test was tuned for. Needs the pruning interaction with the auto-prove
+  // watcher validated under pipelining before re-enabling.
   it.skip('can discover and use notes created in both pruned and available blocks', async () => {
     // This is the only test in this suite so it doesn't seem worthwhile to worry too much about reusable setup etc. For
     // simplicity's sake I just did the entire thing here.
