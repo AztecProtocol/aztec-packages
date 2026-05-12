@@ -33,3 +33,12 @@ If you believe a vulnerability is actively being exploited or has severe impact 
 **Use GitHub Issues** to report bugs or issues that are **not** security-sensitive (performance problems, feature requests, etc.):
 
 Keeping normal bugs and feature requests public helps the community track progress and collaborate on fixes, while keeping security issues private helps protect users until a fix is available.
+
+## Vulnerabilities discovered in Aztec Network v4
+
+The following table contains a list of high and critical vulnerabilities discovered internally and through external audits by 11.05.2026
+
+|Severity | Count |
+|----|----|
+| Critical | 8 |
+| High | 7 |
