@@ -1489,22 +1489,28 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // Ensure world-state has caught up with the latest block we loaded from the archiver
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
 
-    // Compute the slot a proposer would actually target under pipelining, then compare with the
-    // latest block's slot: if they differ the simulated block opens a new checkpoint, and we must
-    // mirror the L1→L2 message insertion the on-chain proposer will perform so that AVM opcodes
+    // When pipelining is enabled, the simulated block lands at the pipelining target slot,
+    // which may open a new checkpoint relative to the latest block. In that case mirror the
+    // L1→L2 message insertion the on-chain proposer will perform so that AVM opcodes
     // l1_to_l2_msg_exists / consume_l1_to_l2_message see the same tree state as on-chain.
-    const { slot: targetSlot } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
-    const latestBlockData = await this.blockSource.getBlockData({ number: latestBlockNumber });
-    const isGenesis = latestBlockNumber === BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
-    if (latestBlockData === undefined && !isGenesis) {
-      throw new Error(`Failed to load block data for latest block ${latestBlockNumber}`);
-    }
-    const isNewCheckpoint = isGenesis || targetSlot > latestBlockData!.header.getSlot();
-    const nextCheckpointMessages = isNewCheckpoint
-      ? await this.l1ToL2MessageSource.getL1ToL2Messages(
+    // When pipelining is disabled, simulate against the current checkpoint state (which is
+    // the pre-fix behaviour). This also avoids requesting messages for an unsealed checkpoint
+    // in low-inbox-lag setups that don't enable pipelining.
+    let nextCheckpointMessages: Fr[] | undefined;
+    if (this.epochCache.isProposerPipeliningEnabled()) {
+      const { slot: targetSlot } = this.epochCache.getTargetEpochAndSlotInNextL1Slot();
+      const latestBlockData = await this.blockSource.getBlockData({ number: latestBlockNumber });
+      const isGenesis = latestBlockNumber === BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
+      if (latestBlockData === undefined && !isGenesis) {
+        throw new Error(`Failed to load block data for latest block ${latestBlockNumber}`);
+      }
+      const isNewCheckpoint = isGenesis || targetSlot > latestBlockData!.header.getSlot();
+      if (isNewCheckpoint) {
+        nextCheckpointMessages = await this.l1ToL2MessageSource.getL1ToL2Messages(
           CheckpointNumber((latestBlockData?.checkpointNumber ?? CheckpointNumber.ZERO) + 1),
-        )
-      : undefined;
+        );
+      }
+    }
 
     // Pin the fork to the captured `latestBlockNumber` so background sync advancing between
     // `syncImmediate` and `fork` cannot leave the fork at a newer block than our checkpoint
