@@ -179,6 +179,7 @@ describe('SequencerPublisher', () => {
         address: '0x1234567890123456789012345678901234567890',
       },
       getGasPrice: () => Promise.resolve(1n),
+      getBlock: () => Promise.resolve({ timestamp: 0n }),
     };
 
     const currentL2Slot = publisher.getCurrentL2Slot();

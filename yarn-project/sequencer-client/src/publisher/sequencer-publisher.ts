@@ -581,6 +581,21 @@ export class SequencerPublisher {
 
     const l1Constants = this.epochCache.getL1Constants();
     const targetTimestamp = getTimestampForSlot(targetSlot, l1Constants);
+    // Predict the actual next-L1-block timestamp. Under healthy L1 mining this equals
+    // `latest.timestamp + ethereumSlotDuration`, which lines up with `targetTimestamp` because
+    // sendRequestsAt wakes one L1 slot before the target. If L1 is mining off-cadence (e.g.
+    // missed L1 slots, anvil with overridden timestamps), the prediction can diverge and land
+    // in the prior L2 slot — propose's `validateHeader` checks
+    // `slotFromTimestamp(block.timestamp) == headerSlot`, so we must catch the divergence here
+    // or the propose would revert silently inside multicall on send.
+    // We take the min of (predicted, target) so that in the off-cadence case we surface the
+    // revert at simulate time and drop the propose; in the healthy case both are equal.
+    const latestL1Block = await this.l1TxUtils.client.getBlock({
+      blockTag: 'latest',
+      includeTransactions: false,
+    });
+    const predictedNextL1Ts = latestL1Block.timestamp + this.ethereumSlotDuration;
+    const simulateTimestamp = predictedNextL1Ts < targetTimestamp ? predictedNextL1Ts : targetTimestamp;
 
     const simulateBundle = (requests: RequestWithExpiry[]) => {
       const calldata = encodeFunctionData({
@@ -597,7 +612,7 @@ export class SequencerPublisher {
 
       return this.l1TxUtils.simulate(
         { to: MULTI_CALL_3_ADDRESS, data: calldata, gas: MAX_L1_TX_LIMIT },
-        { time: targetTimestamp, gasLimit: MAX_L1_TX_LIMIT * 2n },
+        { time: simulateTimestamp, gasLimit: MAX_L1_TX_LIMIT * 2n },
         stateOverrides,
         multicall3Abi,
         { fallbackGasEstimate: MAX_L1_TX_LIMIT },

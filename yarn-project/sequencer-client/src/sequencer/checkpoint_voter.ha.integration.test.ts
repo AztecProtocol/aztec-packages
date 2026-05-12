@@ -139,6 +139,7 @@ describe('CheckpointVoter HA Integration', () => {
       account: validatorAccount,
       getCode: () => Promise.resolve('0x1234' as `0x${string}`),
       getGasPrice: () => Promise.resolve(1n),
+      getBlock: () => Promise.resolve({ timestamp: 0n } as any),
     } as any;
     txUtils.getSenderAddress.mockReturnValue(EthAddress.fromString(validatorAccount.address));
     txUtils.getSenderBalance.mockResolvedValue(10_000_000_000_000_000_000n); // 10 ETH
