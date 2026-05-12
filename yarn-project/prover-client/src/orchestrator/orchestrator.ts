@@ -896,7 +896,11 @@ export class ProvingOrchestrator implements EpochProver {
         },
       ),
       async result => {
-        this.logger.debug(`Completed ${rollupType} proof for block ${provingState.blockNumber}`);
+        this.logger.debug(`Completed ${rollupType} proof for block ${provingState.blockNumber}`, {
+          blockNumber: provingState.blockNumber,
+          checkpointIndex: provingState.parentCheckpoint.index,
+          ...result.inputs.toInspect(),
+        });
 
         const leafLocation = provingState.setBlockRootRollupProof(result);
         const checkpointProvingState = provingState.parentCheckpoint;
@@ -1015,6 +1019,11 @@ export class ProvingOrchestrator implements EpochProver {
         signal => this.prover.getBlockMergeRollupProof(inputs, signal, provingState.epochNumber),
       ),
       async result => {
+        this.logger.debug(`Completed block merge rollup proof for checkpoint ${provingState.index}`, {
+          checkpointIndex: provingState.index,
+          mergeLocation: location,
+          ...result.inputs.toInspect(),
+        });
         provingState.setBlockMergeRollupProof(location, result);
         await this.checkAndEnqueueNextBlockMergeRollup(provingState, location);
       },
@@ -1067,7 +1076,10 @@ export class ProvingOrchestrator implements EpochProver {
           return;
         }
 
-        this.logger.debug(`Completed ${rollupType} proof for checkpoint ${provingState.index}.`);
+        this.logger.debug(`Completed ${rollupType} proof for checkpoint ${provingState.index}`, {
+          checkpointIndex: provingState.index,
+          ...result.inputs.toInspect(),
+        });
 
         const leafLocation = provingState.setCheckpointRootRollupProof(result);
         const epochProvingState = provingState.parentEpoch;

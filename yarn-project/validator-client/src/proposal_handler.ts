@@ -20,7 +20,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p/msg_validators';
 import type { BlockData, L2Block, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
-import { validateCheckpoint } from '@aztec/stdlib/checkpoint';
+import { getPreviousCheckpointOutHashes, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import type { ITxProvider, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
@@ -347,11 +347,18 @@ export class ProposalHandler {
       return { isValid: false, blockNumber, reason: 'txs_not_available' };
     }
 
-    // Collect the out hashes of all the checkpoints before this one in the same epoch
+    // Collect the out hashes of all the checkpoints before this one in the same epoch.
+    // Mirror the proposer-side fallback: under pipelining the immediately-preceding cp may not
+    // yet be on L1, in which case the helper grafts the locally-known proposed cp's outHash.
     const epoch = getEpochAtSlot(slotNumber, this.epochCache.getL1Constants());
-    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsData({ epoch }))
-      .filter(c => c.checkpointNumber < checkpointNumber)
-      .map(c => c.checkpointOutHash);
+    const previousCheckpointOutHashes = await getPreviousCheckpointOutHashes({
+      blockSource: this.blockSource,
+      epoch,
+      checkpointNumber,
+      l1Constants: this.epochCache.getL1Constants(),
+      pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
+      log: this.log,
+    });
 
     // Try re-executing the transactions in the proposal if needed
     let reexecutionResult;
@@ -854,11 +861,17 @@ export class ProposalHandler {
     // Get L1-to-L2 messages for this checkpoint
     const l1ToL2Messages = await this.l1ToL2MessageSource.getL1ToL2Messages(checkpointNumber);
 
-    // Collect the out hashes of all the checkpoints before this one in the same epoch
+    // Collect the out hashes of all the checkpoints before this one in the same epoch.
+    // See note on the analogous block-proposal site: the helper handles pipelining lag.
     const epoch = getEpochAtSlot(slot, this.epochCache.getL1Constants());
-    const previousCheckpointOutHashes = (await this.blockSource.getCheckpointsData({ epoch }))
-      .filter(c => c.checkpointNumber < checkpointNumber)
-      .map(c => c.checkpointOutHash);
+    const previousCheckpointOutHashes = await getPreviousCheckpointOutHashes({
+      blockSource: this.blockSource,
+      epoch,
+      checkpointNumber,
+      l1Constants: this.epochCache.getL1Constants(),
+      pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
+      log: this.log,
+    });
 
     // Fork world state at the block before the first block
     const parentBlockNumber = BlockNumber(firstBlock.number - 1);

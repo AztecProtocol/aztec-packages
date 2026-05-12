@@ -33,13 +33,13 @@ import {
   MaliciousCommitteeAttestationsAndSigners,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import { type Checkpoint, type ProposedCheckpointData, validateCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
-  computeQuorum,
-  getEpochAtSlot,
-  getSlotStartBuildTimestamp,
-  getTimestampForSlot,
-} from '@aztec/stdlib/epoch-helpers';
+  type Checkpoint,
+  type ProposedCheckpointData,
+  getPreviousCheckpointOutHashes,
+  validateCheckpoint,
+} from '@aztec/stdlib/checkpoint';
+import { computeQuorum, getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
   type BlockBuilderOptions,
@@ -417,37 +417,6 @@ export class CheckpointProposalJob implements Traceable {
   }
 
   /**
-   * Returns the out hashes of all checkpoints in `targetEpoch` that precede the one being built.
-   * Under pipelining, the parent checkpoint may not be on L1 yet at build time, so the on-chain
-   * archiver is missing it; in that case we splice in the parent's `checkpointOutHash` from the
-   * proposed-checkpoint payload (when it is in the same epoch) so the resulting `epochOutHash`
-   * matches what other validators and L1 will compute once the parent lands.
-   */
-  private async collectPreviousCheckpointOutHashes(): Promise<Fr[]> {
-    const parentCheckpointNumber = CheckpointNumber(this.checkpointNumber - 1);
-    const checkpointed = (await this.l2BlockSource.getCheckpointsData({ epoch: this.targetEpoch }))
-      .filter(c => c.checkpointNumber < this.checkpointNumber)
-      .map(c => ({ checkpointNumber: c.checkpointNumber, checkpointOutHash: c.checkpointOutHash }));
-
-    const shouldSpliceParent =
-      this.epochCache.isProposerPipeliningEnabled() &&
-      this.proposedCheckpointData !== undefined &&
-      this.proposedCheckpointData.checkpointNumber === parentCheckpointNumber &&
-      getEpochAtSlot(this.proposedCheckpointData.header.slotNumber, this.epochCache.getL1Constants()) ===
-        this.targetEpoch &&
-      !checkpointed.some(c => c.checkpointNumber === parentCheckpointNumber);
-
-    if (shouldSpliceParent) {
-      checkpointed.push({
-        checkpointNumber: parentCheckpointNumber,
-        checkpointOutHash: this.proposedCheckpointData!.checkpointOutHash,
-      });
-    }
-
-    return checkpointed.sort((a, b) => a.checkpointNumber - b.checkpointNumber).map(c => c.checkpointOutHash);
-  }
-
-  /**
    * Waits for the parent checkpoint to land on L1 before submitting a pipelined checkpoint.
    * Polls until the archiver has synced L1 past the parent's slot, then verifies:
    * - If we built on a proposed parent: it must have landed on L1 with matching hash and valid attestations.
@@ -620,11 +589,19 @@ export class CheckpointProposalJob implements Traceable {
       const inHash = computeInHashFromL1ToL2Messages(l1ToL2Messages);
 
       // Collect the out hashes of all the checkpoints before this one in the same epoch.
-      // Under pipelining, the parent checkpoint may not be on L1 yet at build time, so
-      // `getCheckpointsData` would miss it. Splice in the parent's checkpointOutHash from the
-      // proposed-checkpoint payload so the resulting `epochOutHash` matches what the validators
-      // (and L1) compute once the parent lands on L1.
-      const previousCheckpointOutHashes = await this.collectPreviousCheckpointOutHashes();
+      // Under pipelining the parent checkpoint may not be on L1 yet at build time, so the helper
+      // splices in the parent's checkpointOutHash from the locally-known proposed checkpoint so
+      // the resulting `epochOutHash` matches what validators (and L1) compute once the parent
+      // lands on L1.
+      const previousCheckpointOutHashes = await getPreviousCheckpointOutHashes({
+        blockSource: this.l2BlockSource,
+        epoch: this.targetEpoch,
+        checkpointNumber: this.checkpointNumber,
+        l1Constants: this.epochCache.getL1Constants(),
+        pipeliningEnabled: this.epochCache.isProposerPipeliningEnabled(),
+        proposedCheckpointData: this.proposedCheckpointData,
+        log: this.log,
+      });
 
       // Anchor the modifier to the predicted parent fee header: L1 will apply it against
       // that, not against the latest published checkpoint (which lags by one under pipelining).
