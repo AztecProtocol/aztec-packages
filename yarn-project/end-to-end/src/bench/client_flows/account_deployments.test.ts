@@ -9,7 +9,7 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { jest } from '@jest/globals';
 
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { captureProfile } from './benchmark.js';
+import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
@@ -79,15 +79,13 @@ describe('Deployment benchmark', () => {
             `deploy_${accountType}+${benchmarkingPaymentMethod}`,
             deploymentInteraction,
             options,
-            1 + // Multicall entrypoint
-              1 + // Kernel init
-              2 + // ContractInstanceRegistry publish + kernel inner
-              2 + // Account constructor + kernel inner
-              2 + // Account entrypoint (wrapped fee payload) + kernel inner
-              paymentMethodManager.circuits + // Payment method circuits
-              1 + // Kernel reset
-              1 + // Kernel tail
-              1, // Kernel hiding
+            expectedExecutionSteps(
+              1 + // Multicall entrypoint
+                1 + // ContractInstanceRegistry publish
+                1 + // Account constructor
+                1 + // Account entrypoint (wrapped fee payload)
+                paymentMethodManager.apps, // Payment method apps
+            ),
           );
 
           if (process.env.SANITY_CHECKS) {

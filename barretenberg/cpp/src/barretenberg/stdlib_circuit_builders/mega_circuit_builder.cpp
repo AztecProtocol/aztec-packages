@@ -268,7 +268,7 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_initial_external_gate(const posei
     block.q_c().emplace_back(0);
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
-    block.set_initial_gate_selector(1);
+    block.set_gate_selector(GateKind::Poseidon2ExtInitial, 1);
     this->check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -296,12 +296,12 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_quad_internal_gate(const poseidon
         block.q_m().emplace_back(0);
         block.q_c().emplace_back(0);
         block.q_5().emplace_back(0);
-        block.set_terminal_gate_selector(1);
+        block.set_gate_selector(GateKind::Poseidon2QuadIntTerminal, 1);
     } else {
         block.q_m().emplace_back(rc[in.next_pair_start + 0][0]);
         block.q_c().emplace_back(rc[in.next_pair_start + 1][0]);
         block.q_5().emplace_back(rc[in.next_pair_start + 2][0]);
-        block.set_gate_selector(1);
+        block.set_gate_selector(GateKind::Poseidon2QuadInt, 1);
     }
     this->check_selector_length_consistency();
     this->increment_num_gates();
@@ -330,7 +330,7 @@ void MegaCircuitBuilder_<FF>::create_poseidon2_transition_entry_gate(const posei
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(0);
-    block.set_entry_gate_selector(1);
+    block.set_gate_selector(GateKind::Poseidon2TransitionEntry, 1);
     this->check_selector_length_consistency();
     this->increment_num_gates();
 }
