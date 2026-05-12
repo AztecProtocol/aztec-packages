@@ -74,7 +74,7 @@ The tag `aztec-build-local:3.0` avoids conflicts with the official Docker Hub im
 
 **What this does:**
 - Builds the `build` stage from `build-images/src/Dockerfile`
-- Installs Node.js 24.12.0 from NodeSource repository
+- Installs Node.js 24.15.0 from NodeSource repository
 - Installs Clang 16, 18, and 20 from LLVM
 - Installs Rust 1.85.0 using the Rust toolchain installer with wasm32 targets
 - Downloads and installs WASI SDK 27 from GitHub releases
@@ -93,7 +93,7 @@ After the build completes, inspect the image to verify its contents:
 docker run -it --rm aztec-build-local:3.0 /bin/bash
 
 # Check specific versions once inside:
-node --version        # Should show v24.12.0
+node --version        # Should show v24.15.0
 rustc --version       # Should show Rust 1.85.0
 clang-20 --version    # Should show clang 20.x
 forge --version       # Should show v1.4.1
