@@ -1521,10 +1521,10 @@ void Execution::ecc_add(ContextInterface& context,
     // is_infinity. The flag will be removed in future.
     const FF p_x_ff = p_x.as_ff();
     const FF p_y_ff = p_y.as_ff();
-    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x_ff, p_y_ff, (p_x_ff == FF::zero()) && (p_y_ff == FF::zero()));
+    EmbeddedCurvePoint p = EmbeddedCurvePoint(p_x_ff, p_y_ff);
     const FF q_x_ff = q_x.as_ff();
     const FF q_y_ff = q_y.as_ff();
-    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x_ff, q_y_ff, (q_x_ff == FF::zero()) && (q_y_ff == FF::zero()));
+    EmbeddedCurvePoint q = EmbeddedCurvePoint(q_x_ff, q_y_ff);
 
     try {
         embedded_curve.add(memory, p, q, dst_addr);
