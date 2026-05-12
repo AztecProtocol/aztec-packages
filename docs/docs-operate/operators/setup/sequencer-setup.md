@@ -410,7 +410,6 @@ services:
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --node
-      --archiver
       --sequencer
       --network #release_network
     networks:
