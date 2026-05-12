@@ -66,7 +66,7 @@ import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-ex
 import { toFunctionSelector } from 'viem';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import { syncState } from '../../contract_sync/helpers.js';
+import { syncScope } from '../../contract_sync/helpers.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -326,19 +326,9 @@ describe('Private Execution test suite', () => {
     messageContextService.getMessageContextsByTxHash.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
-      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId, scopes) => {
+      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, _anchorBlockHeader, _jobId, scopes) => {
         for (const scope of scopes) {
-          await syncState(
-            contractAddress,
-            contractStore,
-            functionToInvokeAfterSync,
-            utilityExecutor,
-            noteStore,
-            aztecNode,
-            anchorBlockHeader,
-            jobId,
-            scope,
-          );
+          await syncScope(contractAddress, contractStore, functionToInvokeAfterSync, utilityExecutor, scope);
         }
       },
     );
