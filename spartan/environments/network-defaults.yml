@@ -310,22 +310,17 @@ _deploy_defaults:
   P2P_GOSSIPSUB_DHI: "12"
   P2P_DROP_TX_CHANCE: "0"
 
-  # Filestore
-  BLOB_ALLOW_EMPTY_SOURCES: "false"
-  BLOB_FILE_STORE_URLS: ""
+  # Filestore: TX_FILE_STORE_ENABLED is read by per-network YAMLs to gate
+  # filestore-related features; everything else here is set per-network.
   TX_FILE_STORE_ENABLED: "false"
-  TX_COLLECTION_FILE_STORE_URLS: ""
-  PROVER_FAILED_PROOF_STORE: ""
 
-  # Optional secrets (overridden by per-network YAML or GCP secrets).
-  AWS_ACCESS_KEY_ID: ""
-  AWS_SECRET_ACCESS_KEY: ""
-  OTEL_COLLECTOR_ENDPOINT: ""
-
-  # RPC ingress optional fields (per-network YAML overrides when used).
+  # RPC ingress: only RPC_INGRESS_STATIC_IP_NAME needs a default. main.tf
+  # references it directly in the rpc release's ingress block, which terraform
+  # validates eagerly even when local.rpc_ingress_enabled is false. The other
+  # ingress / cloud-armor / session-affinity / OTEL / R2 secret fields are
+  # read via try(local.d.X, "") in main.tf or only consumed at runtime, so an
+  # empty default would just be redundant.
   RPC_INGRESS_STATIC_IP_NAME: ""
-  RPC_CLOUD_ARMOR_POLICY_NAME: ""
-  RPC_INGRESS_SESSION_AFFINITY: ""
 
   # Logging / debug
   LOG_LEVEL: "info"
@@ -350,14 +345,10 @@ _release_defaults:
       env: {}
     broker:
       replicaCount: 1
-      env:
-        # Broker doesn't actually use bootstrap nodes; the chart requires the var to
-        # be set so its env block validates. Placeholder retained from legacy config.
-        BOOTSTRAP_NODES: "asdf"
+      env: {}
     agent:
       replicaCount: 4
       env:
-        BOOTSTRAP_NODES: "asdf"
         CRS_PATH: "/usr/src/crs"
   rpc:
     replicaCount: 1

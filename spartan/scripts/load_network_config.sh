@@ -99,7 +99,16 @@ env["MNEMONIC_INDEX_OFFSET"] = str(offset)
 # Mnemonic start indices: shift declared base by MNEMONIC_INDEX_OFFSET. These
 # live under deploy: because they configure the deploy script (terraform.tfvars
 # generation), not pod env. Defaults match deploy_network.sh fallbacks.
+# Fail loudly if a per-network YAML accidentally puts these under env: -- the
+# shift would silently not apply and concurrent devnets would collide on L1
+# nonces.
 def shift(key, default_base):
+    if key in env:
+        sys.stderr.write(
+            f"load_network_config: {key} found under env: -- it must live under deploy:\n"
+            f"  Move it to the deploy: block so MNEMONIC_INDEX_OFFSET is applied.\n"
+        )
+        sys.exit(1)
     base = int(deploy.get(key, default_base))
     deploy[key] = str(base + offset)
 
