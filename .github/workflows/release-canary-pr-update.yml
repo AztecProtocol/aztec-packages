@@ -1,11 +1,20 @@
 name: Alpha Team Canary
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - next
+    paths:
+      # Match any file named bootstrap.sh
+      - '**/bootstrap.sh'
+      # Anything in ci3 folder
+      - 'ci3/**'
+      # Anything in yarn-project
+      - 'yarn-project/**'
 
 env:
   CANARY_BRANCH: ad/chore/ci-release-pr-canary
-  PR_TITLE: "chore: alpha canary PR"
+  PR_TITLE: "no-merge: alpha canary PR"
 
 jobs:
   update-canary-pr:
@@ -60,13 +69,6 @@ jobs:
           pr_number=$(gh pr list --state open --head "$CANARY_BRANCH" --json number --jq '.[0].number')
 
           if [[ -z "$pr_number" ]]; then
-            git fetch origin "$CANARY_BRANCH" next
-            git checkout -B "$CANARY_BRANCH" "origin/$CANARY_BRANCH"
-            if [[ "$(git rev-list --count origin/next..HEAD)" -eq 0 ]]; then
-              git commit --allow-empty -m "chore(ci): keep alpha canary PR open"
-              git push origin "$CANARY_BRANCH"
-            fi
-
             echo "Creating canary PR"
             pr_url=$(gh pr create \
               --head "$CANARY_BRANCH" \

@@ -67,7 +67,7 @@ class ECCVMFlavor {
     // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
 
-    static constexpr size_t NUM_WIRES = 86;
+    static constexpr size_t NUM_WIRES = 85;
 
     // The number of entities added for ZK (gemini_masking_poly)
     static constexpr size_t NUM_MASKING_POLYNOMIALS = 1;
@@ -75,14 +75,14 @@ class ECCVMFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
     // Note: this number does not include the individual sorted list polynomials.
-    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 118 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_ALL_ENTITIES = 119;
+    // Includes gemini_masking_poly for ZK (NUM_ALL_ENTITIES = 117 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_ALL_ENTITIES = 118;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 4;
     // The total number of witness entities not including shifts.
-    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 87 + NUM_MASKING_POLYNOMIALS)
-    static constexpr size_t NUM_WITNESS_ENTITIES = 88;
+    // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 86 + NUM_MASKING_POLYNOMIALS)
+    static constexpr size_t NUM_WITNESS_ENTITIES = 87;
     // The number of entities in ShiftedEntities.
     static constexpr size_t NUM_SHIFTED_ENTITIES = 26;
     // The number of entities in DerivedWitnessEntities that are not going to be shifted.
@@ -107,11 +107,11 @@ class ECCVMFlavor {
 
     // Pin entity counts and REPEATED_COMMITMENTS indices so that any layout change triggers a compile error.
     // The to-be-shifted witnesses must form a contiguous block starting at NUM_WIRE_NON_SHIFTED within WitnessEntities.
-    static_assert(NUM_WIRE_NON_SHIFTED == 61, "WireNonShiftedEntities size changed — update REPEATED_COMMITMENTS");
+    static_assert(NUM_WIRE_NON_SHIFTED == 60, "WireNonShiftedEntities size changed — update REPEATED_COMMITMENTS");
     static_assert(NUM_MASKING_POLYNOMIALS == 1, "MaskingEntities size changed — review REPEATED_COMMITMENTS offset");
-    static_assert(REPEATED_COMMITMENTS.first.original_start == 65,
+    static_assert(REPEATED_COMMITMENTS.first.original_start == 64,
                   "REPEATED_COMMITMENTS original_start changed — verify Shplemini offset convention");
-    static_assert(REPEATED_COMMITMENTS.first.duplicate_start == 92,
+    static_assert(REPEATED_COMMITMENTS.first.duplicate_start == 91,
                   "REPEATED_COMMITMENTS duplicate_start changed — verify Shplemini offset convention");
     static_assert(REPEATED_COMMITMENTS.first.count == 26, "REPEATED_COMMITMENTS count changed");
 
@@ -273,8 +273,7 @@ class ECCVMFlavor {
                               transcript_msm_infinity,                    // column 56
                               transcript_msm_x_inverse,                   // column 57
                               transcript_msm_count_zero_at_transition,    // column 58
-                              transcript_msm_count_at_transition_inverse, // column 59
-                              msm_round_minus_31_inv)                     // column 60
+                              transcript_msm_count_at_transition_inverse) // column 59
     };
 
     /**
@@ -684,19 +683,6 @@ class ECCVMFlavor {
             lagrange_second.at(trace_offset + 1) = 1;
             lagrange_third.at(trace_offset + 2) = 1;
             lagrange_last.at(dyadic_num_rows - 1) = 1;
-
-            static const auto MSM_ROUND_MINUS_31_INV_BY_ROUND = []() {
-                std::array<FF, LAST_ADDITION_ROUND + 2> table{};
-                for (size_t round = 0; round < table.size(); ++round) {
-                    // IMPORTANT: when round == LAST_ADDITION_ROUND, the entry is exactly 0 because
-                    // (round - LAST_ADDITION_ROUND)^-1 is undefined. Every other slot stores the canonical inverse.
-                    table[round] = (round == LAST_ADDITION_ROUND)
-                                       ? FF(0)
-                                       : (FF(static_cast<uint32_t>(round)) - FF(LAST_ADDITION_ROUND)).invert();
-                }
-                return table;
-            }();
-
             for (size_t i = 0; i < point_table_read_counts[0].size(); ++i) {
                 // Explanation of off-by-one offset:
                 // When computing the WNAF slice for a point at point counter value `pc` and a round index `round`, the
@@ -795,10 +781,6 @@ class ECCVMFlavor {
                     msm_size_of_msm.set_if_valid_index(idx, msm_rows[i].msm_size);
                     msm_count.set_if_valid_index(idx, msm_rows[i].msm_count);
                     msm_round.set_if_valid_index(idx, msm_rows[i].msm_round);
-                    // IMPORTANT: when msm_round == 31, this witness is exactly 0 because (31 - 31)^-1 does not exist.
-                    // On every other active MSM row it is the precomputed inverse (msm_round - 31)^-1.
-                    msm_round_minus_31_inv.set_if_valid_index(idx,
-                                                              MSM_ROUND_MINUS_31_INV_BY_ROUND[msm_rows[i].msm_round]);
                     msm_add1.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[0].add));
                     msm_add2.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[1].add));
                     msm_add3.set_if_valid_index(idx, static_cast<int>(msm_rows[i].add_state[2].add));
@@ -962,7 +944,6 @@ class ECCVMFlavor {
             Base::transcript_msm_x_inverse = "TRANSCRIPT_MSM_X_INVERSE";
             Base::transcript_msm_count_zero_at_transition = "TRANSCRIPT_MSM_COUNT_ZERO_AT_TRANSITION";
             Base::transcript_msm_count_at_transition_inverse = "TRANSCRIPT_MSM_COUNT_AT_TRANSITION_INVERSE";
-            Base::msm_round_minus_31_inv = "MSM_ROUND_MINUS_31_INV";
             Base::z_perm = "Z_PERM";
             Base::z_perm_shift = "Z_PERM_SHIFT";
             Base::lookup_inverses = "LOOKUP_INVERSES";
