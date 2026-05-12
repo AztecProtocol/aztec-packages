@@ -1,4 +1,5 @@
 import { MAX_APPS_PER_KERNEL } from '@aztec/constants';
+import { uniqueBy } from '@aztec/foundation/collection';
 import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
@@ -27,12 +28,14 @@ import {
   PrivateKernelTailCircuitPrivateInputs,
   type PrivateKernelTailCircuitPublicInputs,
   PrivateVerificationKeyHints,
+  type UpdatedClassIdHints,
 } from '@aztec/stdlib/kernel';
 import { ChonkProof, ChonkProofWithPublicInputs } from '@aztec/stdlib/proofs';
 import {
   type PrivateCallExecutionResult,
   type PrivateExecutionResult,
   TxRequest,
+  collectNested,
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
@@ -120,6 +123,8 @@ export class PrivateKernelExecutionProver {
     // reusing the existing single-app `needsReset()` check.
     const planner = new BatchPlanner(noteHashNullifierCounterMap, splitCounter, this.maxBatchSize);
 
+    const updatedClassIdHintsMap = await this.prefetchUpdatedClassIdHints(executionResult);
+
     while (executionStack.length) {
       if (!firstIteration) {
         let resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
@@ -156,7 +161,7 @@ export class PrivateKernelExecutionProver {
       const batchSize = planner.decideBatchSize(output.publicInputs, executionStack);
       const apps: PrivateCallData[] = [];
       for (let i = 0; i < batchSize; i++) {
-        apps.push(await this.consumeNextApp(executionStack, executionSteps));
+        apps.push(await this.consumeNextApp(executionStack, executionSteps, updatedClassIdHintsMap));
       }
 
       output = await this.runBatchedKernel({
@@ -365,6 +370,7 @@ export class PrivateKernelExecutionProver {
   private async consumeNextApp(
     executionStack: PrivateCallExecutionResult[],
     executionSteps: PrivateExecutionStep[],
+    updatedClassIdHintsMap: Map<string, UpdatedClassIdHints>,
   ): Promise<PrivateCallData> {
     const next = executionStack.pop()!;
     executionStack.push(...[...next.nestedExecutionResults].reverse());
@@ -385,10 +391,31 @@ export class PrivateKernelExecutionProver {
       },
     });
 
-    return await this.createPrivateCallData(next);
+    return await this.createPrivateCallData(next, updatedClassIdHintsMap);
   }
 
-  private async createPrivateCallData({ publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult) {
+  /** Prefetches updated class id hints for all unique contracts in the execution tree in parallel. */
+  private async prefetchUpdatedClassIdHints(
+    executionResult: PrivateExecutionResult,
+  ): Promise<Map<string, UpdatedClassIdHints>> {
+    const allAddresses = collectNested([executionResult.entrypoint], exec => [
+      exec.publicInputs.callContext.contractAddress,
+    ]);
+    const uniqueAddresses = uniqueBy(allAddresses, a => a.toString());
+    return new Map<string, UpdatedClassIdHints>(
+      await Promise.all(
+        uniqueAddresses.map(
+          async addr =>
+            [addr.toString(), await this.oracle.getUpdatedClassIdHints(addr)] as [string, UpdatedClassIdHints],
+        ),
+      ),
+    );
+  }
+
+  private async createPrivateCallData(
+    { publicInputs, vk: vkAsBuffer }: PrivateCallExecutionResult,
+    updatedClassIdHintsMap: Map<string, UpdatedClassIdHints>,
+  ) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
     const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
@@ -404,7 +431,7 @@ export class PrivateKernelExecutionProver {
     const { artifactHash: contractClassArtifactHash, publicBytecodeCommitment: contractClassPublicBytecodeCommitment } =
       await this.oracle.getContractClassIdPreimage(currentContractClassId);
 
-    const updatedClassIdHints = await this.oracle.getUpdatedClassIdHints(contractAddress);
+    const updatedClassIdHints = updatedClassIdHintsMap.get(contractAddress.toString())!;
 
     return PrivateCallData.from({
       publicInputs,
