@@ -6,7 +6,7 @@ use log::debug;
 
 use super::system::TokenSystem;
 use crate::smt::{self, Batchable};
-use crate::wallet::{self, AccountId, Bridge};
+use crate::wallet::{self, AccountId, Bridge, ExecOutput};
 
 pub(crate) type TokenId = usize;
 
@@ -127,7 +127,7 @@ impl TokenCommand {
         matches!(self.verb(), wallet::Verb::Simulate)
     }
 
-    fn token_id(&self) -> TokenId {
+    pub(crate) fn token_id(&self) -> TokenId {
         match self {
             Self::MintPublic { token, .. }
             | Self::MintPrivate { token, .. }
@@ -140,6 +140,40 @@ impl TokenCommand {
             | Self::BalanceOfPublic { token, .. }
             | Self::BalanceOfPrivate { token, .. }
             | Self::TotalSupply { token, .. } => *token,
+        }
+    }
+
+    /// Contract method (snake_case, as exported by Token).
+    pub(crate) fn method_name(&self) -> &'static str {
+        match self {
+            Self::MintPublic { .. } => "mint_to_public",
+            Self::MintPrivate { .. } => "mint_to_private",
+            Self::BurnPublic { .. } => "burn_public",
+            Self::BurnPrivate { .. } => "burn_private",
+            Self::TransferPublic { .. } => "transfer_in_public",
+            Self::TransferPrivate { .. } => "transfer_in_private",
+            Self::TransferPublicToPrivate { .. } => "transfer_to_private",
+            Self::TransferPrivateToPublic { .. } => "transfer_to_public",
+            Self::BalanceOfPublic { .. } => "balance_of_public",
+            Self::BalanceOfPrivate { .. } => "balance_of_private",
+            Self::TotalSupply { .. } => "total_supply",
+        }
+    }
+
+    /// The account ID this command originates from (used as `msg_sender`).
+    pub(crate) fn from(&self) -> AccountId {
+        match self {
+            Self::MintPublic { from, .. }
+            | Self::MintPrivate { from, .. }
+            | Self::BurnPublic { from, .. }
+            | Self::BurnPrivate { from, .. }
+            | Self::TransferPublic { from, .. }
+            | Self::TransferPrivate { from, .. }
+            | Self::TransferPublicToPrivate { from, .. }
+            | Self::TransferPrivateToPublic { from, .. }
+            | Self::BalanceOfPublic { from, .. }
+            | Self::BalanceOfPrivate { from, .. }
+            | Self::TotalSupply { from, .. } => *from,
         }
     }
 }
@@ -199,6 +233,42 @@ fn credit(balances: &mut BalanceMap, key: (TokenId, AccountId), amount: TokenAmo
     *balances.entry(key).or_default() += amount;
 }
 
+/// Apply a mint to model state: bumps total supply and the chosen balance map,
+/// silently denying overflows (matching the contract). `is_public` selects the
+/// balance map and the log label.
+fn try_mint(
+    state: &mut TokenState,
+    token: TokenId,
+    amount: TokenAmount,
+    from: AccountId,
+    to: AccountId,
+    is_public: bool,
+) {
+    if state.owners[&token] != from {
+        return;
+    }
+    let supply = *state
+        .total_supply
+        .get(&token)
+        .expect("total supply should be initialized");
+    let balances = if is_public {
+        &mut state.balances_public
+    } else {
+        &mut state.balances_private
+    };
+    let balance = balances.get(&(token, to)).copied().unwrap_or(0);
+    match (supply.checked_add(amount), balance.checked_add(amount)) {
+        (Some(new_supply), Some(new_balance)) => {
+            balances.insert((token, to), new_balance);
+            state.total_supply.insert(token, new_supply);
+        }
+        _ => {
+            let kind = if is_public { "public" } else { "private" };
+            debug!("Overflow minting {amount} of {token} to {to} ({kind}), denied");
+        }
+    }
+}
+
 impl TokenMachine<'_> {
     fn gen_valid_mint(
         &self,
@@ -236,7 +306,7 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
     type System = TokenSystem<'a>;
     type State = TokenState;
     type Command = TokenCommand;
-    type Result = Result<String>;
+    type Result = Result<ExecOutput>;
 
     fn gen_state(&mut self, u: &mut Unstructured) -> arbitrary::Result<Self::State> {
         let mut state = Self::State {
@@ -416,53 +486,13 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
                 amount,
                 from,
                 to,
-            } => {
-                if state.owners[token] == *from {
-                    let supply = state
-                        .total_supply
-                        .get(token)
-                        .expect("total supply should be initialized");
-                    let balance = state
-                        .balances_public
-                        .get(&(*token, *to))
-                        .copied()
-                        .unwrap_or(0);
-                    if let (Some(new_supply), Some(new_balance)) =
-                        (supply.checked_add(*amount), balance.checked_add(*amount))
-                    {
-                        state.total_supply.insert(*token, new_supply);
-                        state.balances_public.insert((*token, *to), new_balance);
-                    } else {
-                        debug!("Overflow minting {amount} of {token} to {to} (public), denied");
-                    }
-                }
-            }
+            } => try_mint(&mut state, *token, *amount, *from, *to, true),
             MintPrivate {
                 token,
                 amount,
                 from,
                 to,
-            } => {
-                if state.owners[token] == *from {
-                    let supply = state
-                        .total_supply
-                        .get(token)
-                        .expect("total supply should be initialized");
-                    let balance = state
-                        .balances_private
-                        .get(&(*token, *to))
-                        .copied()
-                        .unwrap_or(0);
-                    if let (Some(new_supply), Some(new_balance)) =
-                        (supply.checked_add(*amount), balance.checked_add(*amount))
-                    {
-                        state.total_supply.insert(*token, new_supply);
-                        state.balances_private.insert((*token, *to), new_balance);
-                    } else {
-                        debug!("Overflow minting {amount} of {token} to {to} (private), denied");
-                    }
-                }
-            }
+            } => try_mint(&mut state, *token, *amount, *from, *to, false),
             BurnPublic {
                 token,
                 amount,
@@ -545,7 +575,7 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
         match cmd {
             BalanceOfPublic { token, address, .. } => {
                 let output = result.expect("BalanceOfPublic should succeed");
-                let amount = wallet::parse_simulation_result(&output)
+                let amount = wallet::parse_simulation_result(&output.stdout)
                     .expect("failed to parse BalanceOfPublic simulation result");
                 let state_balance = pre_state
                     .balances_public
@@ -564,7 +594,7 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
                 address,
             } => {
                 let output = result.expect("BalanceOfPrivate should succeed");
-                let amount = wallet::parse_simulation_result(&output)
+                let amount = wallet::parse_simulation_result(&output.stdout)
                     .expect("failed to parse BalanceOfPrivate simulation result");
                 // Private notes are encrypted -- only the owner's PXE can decrypt them.
                 // When from != address, the PXE returns 0.
@@ -584,7 +614,7 @@ impl<'a> smt::StateMachine for TokenMachine<'a> {
             }
             TotalSupply { token, .. } => {
                 let output = result.expect("TotalSupply should succeed");
-                let amount = wallet::parse_simulation_result(&output)
+                let amount = wallet::parse_simulation_result(&output.stdout)
                     .expect("failed to parse TotalSupply simulation result");
                 let state_supply = pre_state.total_supply.get(token).copied().unwrap_or(0);
                 debug!(

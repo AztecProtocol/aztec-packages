@@ -40,17 +40,16 @@ impl AddressBook {
     /// Resolve an alias like `accounts:test0` or `contracts:test0` to a hex
     /// address.  Non-alias strings (plain numbers, hex addresses) pass through.
     fn resolve(&self, alias: &str) -> String {
-        if let Some(rest) = alias.strip_prefix("accounts:test") {
-            if let Ok(id) = rest.parse::<usize>() {
-                if let Some(addr) = self.accounts.get(id) {
-                    return addr.clone();
-                }
-            }
+        if let Some(rest) = alias.strip_prefix("accounts:test")
+            && let Ok(id) = rest.parse::<usize>()
+            && let Some(addr) = self.accounts.get(id)
+        {
+            return addr.clone();
         }
-        if let Some(name) = alias.strip_prefix("contracts:") {
-            if let Some(info) = self.contracts.get(name) {
-                return info.address.clone();
-            }
+        if let Some(name) = alias.strip_prefix("contracts:")
+            && let Some(info) = self.contracts.get(name)
+        {
+            return info.address.clone();
         }
         alias.to_string()
     }
@@ -85,6 +84,22 @@ pub struct WalletCommand {
     pub contract: String,
     pub from: String,
     pub args: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TxEffects {
+    pub l2_to_l1_msg_hashes: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PrivateLogData {
+    pub log_data: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ExecOutput {
+    pub stdout: String,
+    pub tx_effects: Option<TxEffects>,
 }
 
 // ---------------------------------------------------------------------------
@@ -162,9 +177,11 @@ impl Bridge {
         }
     }
 
-    /// Execute a wallet command and return stdout.  Retries automatically on
-    /// transient sandbox errors (e.g. block-hash-not-found after a reorg).
-    pub fn execute(&self, cmd: &WalletCommand) -> anyhow::Result<String> {
+    /// Execute a wallet command and return output including optional TxEffect
+    /// data.  Retries automatically on transient sandbox errors -- see
+    /// `is_transient_error` for which messages are retried (currently stale
+    /// world-state reads and reorg notices).
+    pub fn execute(&self, cmd: &WalletCommand) -> anyhow::Result<ExecOutput> {
         let book = self.address_book.lock().unwrap();
         let resolved_from = book.resolve(&cmd.from);
         let resolved_contract = book.resolve(&cmd.contract);
@@ -193,7 +210,8 @@ impl Bridge {
             let result = self.post("/execute", &body)?;
             let stdout = result["stdout"].as_str().unwrap_or("").to_string();
             debug!("bridge execute stdout: {stdout}");
-            Ok(stdout)
+            let tx_effects = parse_tx_effects(&result);
+            Ok(ExecOutput { stdout, tx_effects })
         })
     }
 
@@ -265,7 +283,7 @@ impl Bridge {
 
     /// Execute multiple wallet commands in parallel using scoped threads.
     /// Returns results in the same order as the input commands.
-    pub fn execute_many(&self, cmds: &[WalletCommand]) -> Vec<anyhow::Result<String>> {
+    pub fn execute_many(&self, cmds: &[WalletCommand]) -> Vec<anyhow::Result<ExecOutput>> {
         std::thread::scope(|s| {
             let handles: Vec<_> = cmds
                 .iter()
@@ -274,6 +292,86 @@ impl Bridge {
             handles.into_iter().map(|h| h.join().unwrap()).collect()
         })
     }
+
+    /// Resolve an alias (e.g. `contracts:test0`) to a hex address.
+    pub fn resolve(&self, alias: &str) -> String {
+        self.address_book.lock().unwrap().resolve(alias)
+    }
+
+    /// Query the node for private logs matching the siloed tag derived from
+    /// `contract` and `raw_tag`. The bridge computes the siloed tag via
+    /// `poseidon2_hash_with_separator([contract, rawTag], DOM_SEP)` and
+    /// queries `getPrivateLogsByTags`.
+    pub fn query_private_logs(
+        &self,
+        contract: &str,
+        raw_tag: &str,
+    ) -> anyhow::Result<Vec<PrivateLogData>> {
+        let body = json!({ "contract": contract, "rawTag": raw_tag });
+        let result = self.post("/query-private-logs", &body)?;
+        let logs = result
+            .get("logs")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .map(|log| PrivateLogData {
+                        log_data: log
+                            .get("logData")
+                            .and_then(|f| f.as_array())
+                            .map(|fs| {
+                                fs.iter()
+                                    .filter_map(|f| f.as_str().map(String::from))
+                                    .collect()
+                            })
+                            .unwrap_or_default(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        Ok(logs)
+    }
+
+    /// Compute the L2->L1 message hash that an L1 recipient would check against
+    /// the outbox.  Delegates to the bridge which has access to chain ID and
+    /// rollup version.
+    pub fn compute_l2_to_l1_hash(
+        &self,
+        l2_sender: &str,
+        l1_recipient: &str,
+        content: &str,
+    ) -> anyhow::Result<String> {
+        let body = json!({
+            "l2Sender": l2_sender,
+            "l1Recipient": l1_recipient,
+            "content": content,
+        });
+        let result = self.post("/compute-l2-to-l1-hash", &body)?;
+        result["hash"]
+            .as_str()
+            .map(String::from)
+            .ok_or_else(|| anyhow!("missing 'hash' in response"))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TxEffect parsing
+// ---------------------------------------------------------------------------
+
+/// Parse the optional `txEffects` field from a bridge JSON response.
+fn parse_tx_effects(result: &serde_json::Value) -> Option<TxEffects> {
+    let effects = result.get("txEffects")?;
+    let l2_to_l1_msg_hashes = effects
+        .get("l2ToL1Msgs")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    Some(TxEffects {
+        l2_to_l1_msg_hashes,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -292,56 +390,47 @@ const MAX_RETRIES: usize = 2;
 
 /// Retry a fallible operation on transient sandbox errors.
 fn with_retry<T>(label: &str, f: impl Fn() -> anyhow::Result<T>) -> anyhow::Result<T> {
-    for attempt in 0..=MAX_RETRIES {
+    let mut attempt = 0;
+    loop {
         match f() {
             Ok(v) => return Ok(v),
             Err(e) if attempt < MAX_RETRIES && is_transient_error(&e) => {
+                attempt += 1;
                 log::warn!(
-                    "Transient error on {label} (attempt {}/{}): {e}, retrying...",
-                    attempt + 1,
-                    MAX_RETRIES
+                    "Transient error on {label} (attempt {attempt}/{MAX_RETRIES}): {e}, retrying..."
                 );
                 std::thread::sleep(Duration::from_secs(2));
             }
             Err(e) => return Err(e),
         }
     }
-    unreachable!()
 }
 
 // ---------------------------------------------------------------------------
 // Parsing helpers
 // ---------------------------------------------------------------------------
 
+fn capture_u128(caps: &regex::Captures, i: usize) -> u128 {
+    caps.get(i)
+        .unwrap()
+        .as_str()
+        .parse()
+        .expect("matched digits should parse as u128")
+}
+
 /// Parse "Simulation result:  12345n" -> Some(12345)
 pub fn parse_simulation_result(stdout: &str) -> Option<u128> {
-    RE_SINGLE.captures(stdout).map(|caps| {
-        caps.get(1)
-            .unwrap()
-            .as_str()
-            .parse::<u128>()
-            .expect("matched digits should parse as u128")
-    })
+    RE_SINGLE
+        .captures(stdout)
+        .map(|caps| capture_u128(&caps, 1))
 }
 
 /// Parse "Simulation result:  [12345n, 67890n]" -> Some([12345, 67890])
 /// Uses (?s) so \s matches newlines (sandbox wraps long arrays across lines).
 pub fn parse_simulation_result_pair(stdout: &str) -> Option<[u128; 2]> {
-    RE_PAIR.captures(stdout).map(|caps| {
-        let a = caps
-            .get(1)
-            .unwrap()
-            .as_str()
-            .parse::<u128>()
-            .expect("matched digits should parse as u128");
-        let b = caps
-            .get(2)
-            .unwrap()
-            .as_str()
-            .parse::<u128>()
-            .expect("matched digits should parse as u128");
-        [a, b]
-    })
+    RE_PAIR
+        .captures(stdout)
+        .map(|caps| [capture_u128(&caps, 1), capture_u128(&caps, 2)])
 }
 
 #[cfg(test)]

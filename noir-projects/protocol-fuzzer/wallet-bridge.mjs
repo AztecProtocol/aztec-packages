@@ -23,13 +23,18 @@ const DATA_DIR = process.env.WALLET_DATA_DIRECTORY || join(homedir(), '.aztec/wa
 const { createAztecNodeClient } = await import('@aztec/aztec.js/node');
 const { AztecAddress } = await import('@aztec/aztec.js/addresses');
 const { openStoreAt } = await import('@aztec/kv-store/lmdb-v2');
+const { TxHash } = await import('@aztec/stdlib/tx');
+const { Fr } = await import('@aztec/foundation/curves/bn254');
+const { EthAddress } = await import('@aztec/foundation/eth-address');
+const { computeSiloedPrivateLogFirstField, computeL2ToL1MessageHash } = await import('@aztec/stdlib/hash');
+const { SiloedTag } = await import('@aztec/stdlib/logs');
 
 // Auto-detect CLI path: try container path, then common local locations.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const candidates = [
-  '/usr/src/yarn-project/cli-wallet/dest',                  // nightly container
-  resolve(__dirname, 'cli-wallet/dest'),                     // symlinked into yarn-project/
-  resolve(__dirname, '../../yarn-project/cli-wallet/dest'),  // original location in protocol-fuzzer/
+  '/usr/src/yarn-project/cli-wallet/dest', // nightly container
+  resolve(__dirname, 'cli-wallet/dest'), // symlinked into yarn-project/
+  resolve(__dirname, '../../yarn-project/cli-wallet/dest'), // original location in protocol-fuzzer/
 ];
 const CLI = candidates.find(p => existsSync(p));
 if (!CLI) throw new Error('Cannot find cli-wallet/dest in any known location');
@@ -41,6 +46,10 @@ const { simulate } = await import(`${CLI}/cmds/simulate.js`);
 const { deploy } = await import(`${CLI}/cmds/deploy.js`);
 
 // Wallet -- lazy-initialized on first request so --prove can be forwarded.
+// Only /import-test-accounts passes `prove` through; /deploy and /execute
+// rely on the wallet already existing with the right prover setting, so the
+// client must call /import-test-accounts first (the Rust fuzzer does this in
+// `new_system`).
 const noop = () => {};
 const node = createAztecNodeClient(NODE_URL);
 const db = WalletDB.getInstance();
@@ -68,7 +77,10 @@ async function capturing(operation) {
 
 const feeOpts = {
   estimateOnly: false,
-  toUserFeeOptions: async () => ({ paymentMethod: undefined, gasSettings: undefined }),
+  toUserFeeOptions: async () => ({
+    paymentMethod: undefined,
+    gasSettings: undefined,
+  }),
 };
 
 // Handlers -- each receives the parsed JSON body and returns a result object.
@@ -85,20 +97,25 @@ const handlers = {
     const w = await ensureWallet();
     const { result: address, stdout } = await capturing(log =>
       deploy(
-        w, node, AztecAddress.fromString(from), artifact,
-        false,                                  /* json */
-        undefined,                              /* publicKeys */
-        Array.isArray(args) ? args : [],        /* args */
-        undefined,                              /* salt */
-        initMethod ?? 'constructor',            /* init */
-        false,                                  /* skipInstancePublication */
-        false,                                  /* skipClassPublication */
-        false,                                  /* skipInitialization */
-        true,                                   /* wait */
-        feeOpts,                                  /* fee */
-        'mined',                                /* waitForStatus */
-        false, 120,                             /* verbose, timeout */
-        { debug: noop, error: noop }, log,      /* debugLogger, log */
+        w,
+        node,
+        AztecAddress.fromString(from),
+        artifact,
+        false /* json */,
+        undefined /* publicKeys */,
+        Array.isArray(args) ? args : [] /* args */,
+        undefined /* salt */,
+        initMethod ?? 'constructor' /* init */,
+        false /* skipInstancePublication */,
+        false /* skipClassPublication */,
+        false /* skipInitialization */,
+        true /* wait */,
+        feeOpts /* fee */,
+        'mined' /* waitForStatus */,
+        false,
+        120 /* verbose, timeout */,
+        { debug: noop, error: noop },
+        log /* debugLogger, log */,
       ),
     );
     return { ok: true, address: address.toString(), stdout };
@@ -114,7 +131,55 @@ const handlers = {
         ? send(w, node, sender, method, callArgs, artifact, target, true, false, feeOpts, [], 'mined', false, log)
         : simulate(w, node, sender, method, callArgs, artifact, target, feeOpts, [], false, log),
     );
-    return { ok: true, stdout };
+    const result = { ok: true, stdout };
+
+    // For sends, extract TxEffect data for verification in the fuzzer.
+    if (verb === 'send') {
+      const hashMatch = stdout.match(/Transaction hash:\s+(0x[a-f0-9]+)/i);
+      if (hashMatch) {
+        try {
+          const effect = await node.getTxEffect(TxHash.fromString(hashMatch[1]));
+          if (effect) {
+            const d = effect.data;
+            result.txEffects = {
+              l2ToL1Msgs: d.l2ToL1Msgs.filter(m => !m.isZero()).map(m => m.toBigInt().toString()),
+            };
+          }
+        } catch (err) {
+          console.warn('Failed to fetch TxEffect:', err.message);
+        }
+      }
+    }
+
+    return result;
+  },
+
+  '/query-private-logs': async ({ contract, rawTag }) => {
+    const contractAddr = AztecAddress.fromString(contract);
+    const tagFr = new Fr(BigInt(rawTag));
+    const siloedFr = await computeSiloedPrivateLogFirstField(contractAddr, tagFr);
+    const siloedTag = new SiloedTag(siloedFr);
+
+    const results = await node.getPrivateLogsByTags([siloedTag]);
+    const logs = (results[0] || []).map(log => ({
+      logData: log.logData.map(f => f.toBigInt().toString()),
+    }));
+
+    return { ok: true, siloedTag: siloedFr.toBigInt().toString(), logs };
+  },
+
+  '/compute-l2-to-l1-hash': async ({ l2Sender, l1Recipient, content }) => {
+    const chainId = new Fr(await node.getChainId());
+    const rollupVersion = new Fr(await node.getVersion());
+    const hash = computeL2ToL1MessageHash({
+      l2Sender: AztecAddress.fromString(l2Sender),
+      l1Recipient: EthAddress.fromField(new Fr(BigInt(l1Recipient))),
+      content: new Fr(BigInt(content)),
+      rollupVersion,
+      chainId,
+    });
+
+    return { ok: true, hash: hash.toBigInt().toString() };
   },
 };
 
@@ -123,7 +188,7 @@ const handlers = {
 function readBody(req) {
   return new Promise(resolve => {
     let data = '';
-    req.on('data', chunk => data += chunk);
+    req.on('data', chunk => (data += chunk));
     req.on('end', () => resolve(data));
   });
 }
