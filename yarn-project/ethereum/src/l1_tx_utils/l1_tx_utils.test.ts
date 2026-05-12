@@ -1024,6 +1024,33 @@ describe('L1TxUtils', () => {
       expect(result.receipt.status).toBe('reverted');
     });
 
+    it('throws InsufficientBalanceError when checkBalance is enabled and balance is too low', async () => {
+      // Mock getSenderBalance to return 0 so any non-trivial gasLimit * gasPrice exceeds it.
+      const balanceSpy = jest.spyOn(gasUtils, 'getSenderBalance').mockResolvedValue(0n);
+      try {
+        await expect(gasUtils.sendTransaction(request, { gasLimit: 1_000_000n, checkBalance: true })).rejects.toThrow(
+          /insufficient balance/i,
+        );
+      } finally {
+        balanceSpy.mockRestore();
+      }
+    });
+
+    it('does not check balance by default', async () => {
+      // Even with zero balance, the call should not throw the balance error; it would only fail
+      // later for unrelated reasons. We assert by reading the rejection — if it has the
+      // insufficient-balance message, the default skipped the check incorrectly.
+      const balanceSpy = jest.spyOn(gasUtils, 'getSenderBalance').mockResolvedValue(0n);
+      try {
+        // The send may or may not succeed depending on the test anvil's state; we only care that
+        // it does NOT throw InsufficientBalanceError.
+        const result = await gasUtils.sendTransaction(request, { gasLimit: 1_000_000n }).catch(err => err);
+        expect(result?.message ?? '').not.toMatch(/insufficient balance/i);
+      } finally {
+        balanceSpy.mockRestore();
+      }
+    });
+
     it('does not consume nonce when transaction times out before sending', async () => {
       // first send a transaction to advance the nonce
       await gasUtils.sendAndMonitorTransaction(request);

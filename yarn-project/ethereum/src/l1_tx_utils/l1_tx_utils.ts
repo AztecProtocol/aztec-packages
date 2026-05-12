@@ -32,6 +32,7 @@ import { ReadOnlyL1TxUtils } from './readonly_l1_tx_utils.js';
 import { Delayer, createDelayer, wrapClientWithDelayer } from './tx_delayer.js';
 import {
   DroppedTransactionError,
+  InsufficientBalanceError,
   type L1BlobInputs,
   type L1TxConfig,
   type L1TxRequest,
@@ -244,6 +245,22 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       this.logger.trace(`Computed gas limit ${gasLimit}`, { gasLimit, ...request });
 
       const gasPrice = await this.getGasPrice(gasConfig, !!blobInputs);
+
+      if (gasConfig.checkBalance) {
+        // Worst-case = gasLimit * maxFeePerGas, plus blob gas cost when this is a blob tx. The 2x
+        // safety factor absorbs replacement bumps and EIP-1559 spikes during the tx's lifetime.
+        const worstCaseGas = gasLimit * gasPrice.maxFeePerGas;
+        const blobBytesPerBlob = 131_072n; // 4096 field elements * 32 bytes
+        const worstCaseBlob =
+          blobInputs && gasPrice.maxFeePerBlobGas !== undefined
+            ? BigInt(blobInputs.blobs.length) * blobBytesPerBlob * gasPrice.maxFeePerBlobGas
+            : 0n;
+        const worstCase = 2n * (worstCaseGas + worstCaseBlob);
+        const balance = await this.getSenderBalance();
+        if (balance < worstCase) {
+          throw new InsufficientBalanceError(account, balance, worstCase);
+        }
+      }
 
       if (this.interrupted) {
         throw new InterruptError(`Transaction sending is interrupted`);

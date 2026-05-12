@@ -278,6 +278,7 @@ describe('SequencerPublisher', () => {
       {
         gasLimit: expect.any(BigInt),
         txTimeoutAt: undefined,
+        checkBalance: true,
       },
       expect.objectContaining({
         blobs: expect.any(Array),
