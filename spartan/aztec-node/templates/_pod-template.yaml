@@ -253,6 +253,10 @@ spec:
         - name: SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
           value: {{ .Values.node.slash.attestDescendantOfInvalidPenalty | quote }}
         {{- end }}
+        {{- if .Values.node.slash.attestInvalidCheckpointProposalPenalty }}
+        - name: SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY
+          value: {{ .Values.node.slash.attestInvalidCheckpointProposalPenalty | quote }}
+        {{- end }}
         {{- if .Values.node.slash.unknownPenalty }}
         - name: SLASH_UNKNOWN_PENALTY
           value: {{ .Values.node.slash.unknownPenalty | quote }}

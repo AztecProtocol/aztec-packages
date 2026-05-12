@@ -135,7 +135,10 @@ describe('ValidatorClient HA Integration', () => {
     const baseConfig: ValidatorClientConfig &
       Pick<
         SlasherConfig,
-        'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashDuplicateProposalPenalty'
+        | 'slashDuplicateAttestationPenalty'
+        | 'slashAttestInvalidCheckpointProposalPenalty'
       > = {
       validatorPrivateKeys: new SecretValue(validatorPrivateKeys),
       attestationPollingIntervalMs: 1000,
@@ -146,6 +149,7 @@ describe('ValidatorClient HA Integration', () => {
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,
+      slashAttestInvalidCheckpointProposalPenalty: 1n,
       haSigningEnabled: true,
       nodeId: 'ha-node-1', // temporary
       pollingIntervalMs: 100,
@@ -188,7 +192,10 @@ describe('ValidatorClient HA Integration', () => {
     config: ValidatorClientConfig &
       Pick<
         SlasherConfig,
-        'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+        | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashDuplicateProposalPenalty'
+        | 'slashDuplicateAttestationPenalty'
+        | 'slashAttestInvalidCheckpointProposalPenalty'
       >,
   ): Promise<ValidatorClient> {
     // Track pool for cleanup

@@ -115,6 +115,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       slashBroadcastedInvalidBlockPenalty: 1n,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,
+      slashAttestInvalidCheckpointProposalPenalty: 1000n,
       secondsBeforeInvalidatingBlockAsCommitteeMember: 0,
       secondsBeforeInvalidatingBlockAsNonCommitteeMember: 0,
       slashProposeInvalidAttestationsPenalty: 1000n,

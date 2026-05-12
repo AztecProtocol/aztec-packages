@@ -155,6 +155,7 @@ node:
     invalidBlockPenalty: ""
     proposeInvalidAttestationsPenalty: ""
     attestDescendantOfInvalidPenalty: ""
+    attestInvalidCheckpointProposalPenalty: ""
     unknownPenalty: ""
     # Slasher behavior configuration
     gracePeriodL2Slots: ""

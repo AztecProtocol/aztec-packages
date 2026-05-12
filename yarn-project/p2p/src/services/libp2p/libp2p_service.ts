@@ -112,6 +112,7 @@ import {
 import { ReqResp } from '../reqresp/reqresp.js';
 import type {
   P2PBlockReceivedCallback,
+  P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
   P2PDuplicateAttestationCallback,
   P2PService,
@@ -156,6 +157,9 @@ export class LibP2PService extends WithTracer implements P2PService {
 
   /** Callback invoked when a duplicate attestation is detected (triggers slashing). */
   private duplicateAttestationCallback?: P2PDuplicateAttestationCallback;
+
+  /** Callback invoked when a valid checkpoint attestation is accepted into the pool. */
+  private checkpointAttestationCallback?: P2PCheckpointAttestationCallback;
 
   /**
    * Callback for when a block is received from a peer.
@@ -764,6 +768,10 @@ export class LibP2PService extends WithTracer implements P2PService {
     this.duplicateAttestationCallback = callback;
   }
 
+  public registerCheckpointAttestationCallback(callback: P2PCheckpointAttestationCallback): void {
+    this.checkpointAttestationCallback = callback;
+  }
+
   /**
    * Subscribes to a topic.
    * @param topic - The topic to subscribe to.
@@ -1224,6 +1232,7 @@ export class LibP2PService extends WithTracer implements P2PService {
     }
 
     // Attestation was added successfully - accept it so other nodes can also detect the equivocation
+    this.checkpointAttestationCallback?.(attestation);
     return { result: TopicValidatorResult.Accept, obj: attestation };
   }
 
