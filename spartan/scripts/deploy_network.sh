@@ -458,15 +458,9 @@ DEPLOY_OVERRIDES=$(jq -n \
     PROVER_REAL_PROOFS: $prover_real_proofs,
   }')
 
-# Promote env-side construction outputs (R2-derived URLs from
-# load_network_config.sh's resolve_secrets) into deploy: -- main.tf gates
-# helm releases on these (e.g. blob_sink only if BLOB_FILE_STORE_UPLOAD_URL).
 echo "${LOADER_JSON}" | jq \
   --argjson overrides "${DEPLOY_OVERRIDES}" \
-  '.deploy = (.deploy + $overrides)
-   | .deploy.BLOB_FILE_STORE_UPLOAD_URL = (.env.BLOB_FILE_STORE_UPLOAD_URL // "")
-   | .deploy.STORE_SNAPSHOT_URL         = (.env.STORE_SNAPSHOT_URL // "")
-   | .deploy.TX_FILE_STORE_URL          = (.env.TX_FILE_STORE_URL // "")' \
+  '.deploy = (.deploy + $overrides)' \
   > "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars.json"
 
 k8s_denoise "tf_run "${DEPLOY_AZTEC_INFRA_DIR}" "${DESTROY_AZTEC_INFRA}" "${CREATE_AZTEC_INFRA}""

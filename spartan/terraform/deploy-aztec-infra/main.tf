@@ -61,8 +61,8 @@ locals {
   # Optional strings: "" means "not set" for legacy callers; null when the key
   # may be entirely absent.
   network                    = try(local.d.NETWORK, "")
-  store_snapshot_url         = try(local.d.STORE_SNAPSHOT_URL, "")
-  blob_file_store_upload_url = try(local.d.BLOB_FILE_STORE_UPLOAD_URL, "")
+  store_snapshot_url         = try(var.env.STORE_SNAPSHOT_URL, "")
+  blob_file_store_upload_url = try(var.env.BLOB_FILE_STORE_UPLOAD_URL, "")
   prover_agent_image_str     = try(local.d.PROVER_AGENT_DOCKER_IMAGE, "")
   validator_ha_image_str     = try(local.d.VALIDATOR_HA_DOCKER_IMAGE, "")
   otel_endpoint              = try(local.d.OTEL_COLLECTOR_ENDPOINT, "")
