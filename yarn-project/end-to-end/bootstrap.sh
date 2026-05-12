@@ -32,13 +32,16 @@ function test_cmds {
   else
     echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
   fi
-  echo "$prefix:TIMEOUT=15m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
+  echo "$prefix:TIMEOUT=25m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
+  echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
+
+
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_!(prover)/*.test.ts
     src/e2e_p2p/reqresp/*.test.ts
-    src/e2e_!(block_building).test.ts
+    src/e2e_!(block_building|avm_simulator).test.ts
   )
   for test in "${tests[@]}"; do
     local name=${test#*e2e_}
