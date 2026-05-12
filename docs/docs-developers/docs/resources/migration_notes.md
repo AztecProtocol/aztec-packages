@@ -9,6 +9,40 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `attempt_note_discovery` is no longer exposed; use `process_private_note_msg`
+
+`attempt_note_discovery` is now crate-private. Custom message handlers (implementations of `CustomMessageHandler`) that previously called it directly should call `process_private_note_msg` instead, which runs the standard private note message decoding and discovery pipeline.
+
+`process_private_note_msg` takes the raw `msg_metadata` and `msg_content` rather than already-decoded note fields, so it handles decoding (and silently discards undecodable messages) on your behalf:
+
+```diff
+- attempt_note_discovery(
+-     contract_address,
+-     tx_hash,
+-     unique_note_hashes_in_tx,
+-     first_nullifier_in_tx,
+-     compute_note_hash,
+-     compute_note_nullifier,
+-     owner,
+-     storage_slot,
+-     randomness,
+-     note_type_id,
+-     packed_note,
+- );
++ process_private_note_msg(
++     contract_address,
++     tx_hash,
++     unique_note_hashes_in_tx,
++     first_nullifier_in_tx,
++     compute_note_hash,
++     compute_note_nullifier,
++     msg_metadata,
++     msg_content,
++ );
+```
+
+**Impact**: Custom message handlers that reused the standard note message processing pipeline must switch to `process_private_note_msg`. Contracts using only built-in private note handling are unaffected.
+
 ### [Aztec.nr] TXE `call_public_incognito` no longer takes a `from` parameter
 
 `TestEnvironment::call_public_incognito` previously accepted a `from` address that was silently ignored (the function always uses a null `msg_sender`). The `from` parameter has been removed.
