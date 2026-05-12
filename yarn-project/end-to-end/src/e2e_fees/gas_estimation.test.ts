@@ -149,11 +149,7 @@ describe('e2e_fees gas_estimation', () => {
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 
-  // TODO(kill-non-pipelined): gas estimation snapshot for public payment method races with the
-  // pipelined fee-asset price modifier — the simulated maxFeesPerGas captured pre-tx is stale by
-  // the time the tx is included, causing `maxFeesPerGas < gasFees` rejections. Needs re-grounding
-  // against the actual committed gasFees at inclusion. The other two estimation tests pass.
-  it.skip('estimates gas with public payment method', async () => {
+  it('estimates gas with public payment method', async () => {
     const gasSettingsForEstimation = new GasSettings(
       new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
       new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT),
