@@ -1,32 +1,38 @@
 import { RollupContract, SimulationOverridesBuilder, type SimulationOverridesPlan } from '@aztec/ethereum/contracts';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
-import type { ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import { type ProposedCheckpointData, computeCheckpointPayloadDigest } from '@aztec/stdlib/checkpoint';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 
 type CheckpointSimulationOverridesPlanInput = {
+  /** Target rollup contract. */
+  rollup: RollupContract;
+  /** Checkpoint number to be proposed. */
   checkpointNumber: CheckpointNumber;
+  /** Logger instance. */
+  log: Logger;
+  /**
+   * The proposed parent checkpoint when pipelining. Its `checkpointNumber` must equal
+   * `checkpointNumber - 1`; the helper enforces this. Mutually exclusive with
+   * `invalidateToPendingCheckpointNumber`.
+   */
   proposedCheckpointData?: ProposedCheckpointData;
+  /**
+   * The pending checkpoint number we'll end up at after invalidation lands. Mutually exclusive
+   * with `proposedCheckpointData`.
+   */
   invalidateToPendingCheckpointNumber?: CheckpointNumber;
   /**
-   * The archive root to set on the pending checkpoint when pipelining. Undefined for early
-   * (pre-build) callers like canProposeAt that do not yet have a built checkpoint.
-   */
-  lastArchiveRoot?: Fr;
-  /**
-   * Whether the rollup contract will treat the target slot as the start of a prune. When true,
-   * the plan overrides `tips.proven` so `canPruneAtTime` short-circuits to false at simulation
-   * time. Callers are expected to compute this with `l2BlockSource.isPruneDueAtSlot(targetSlot)`.
-   */
-  isPruneDueAtSlot: boolean;
-  /**
-   * The real on-chain pending checkpoint number (typically `syncedTo.checkpointedCheckpointNumber`
-   * or `l2BlockSource.getL2Tips().checkpointed.checkpoint.number`). Used as the fallback
-   * `proven` override when `isPruneDueAtSlot` is true and no other pending override is set.
+   * The real on-chain pending checkpoint number (typically `syncedTo.checkpointedCheckpointNumber`).
+   * Used as the snapshot we pin both `pending` and `proven` to avoid prunes in simulation.
    */
   checkpointedCheckpointNumber: CheckpointNumber;
-  rollup: RollupContract;
-  log: Logger;
+  /**
+   * Chain-level consensus signature context. Used to recompute the parent's `payloadDigest` for the
+   * pipelined simulation override so it matches what `propose` will write into `tempCheckpointLogs[parent]`
+   * once the parent lands.
+   */
+  signatureContext: CoordinationSignatureContext;
 };
 
 /**
@@ -35,88 +41,122 @@ type CheckpointSimulationOverridesPlanInput = {
  * (validateBlockHeader, simulateProposeTx). The plan reflects "as if our pipelined parent
  * checkpoint has landed and any required invalidation has executed" — the gap that needs to be
  * bridged at enqueue time.
+ *
+ * Pipelining (`proposedCheckpointData`) and invalidation (`invalidateToPendingCheckpointNumber`)
+ * are mutually exclusive; passing both throws.
  */
 export async function buildCheckpointSimulationOverridesPlan(
   input: CheckpointSimulationOverridesPlanInput,
 ): Promise<SimulationOverridesPlan | undefined> {
-  const feeHeader = await computePipelinedParentFeeHeader(input);
-
-  const pendingCheckpointNumber =
-    input.invalidateToPendingCheckpointNumber ??
-    (input.proposedCheckpointData ? CheckpointNumber(input.checkpointNumber - 1) : undefined);
+  if (input.proposedCheckpointData && input.invalidateToPendingCheckpointNumber !== undefined) {
+    throw new Error(
+      'Error in buildCheckpointSimulationOverridesPlan: proposedCheckpointData and invalidateToPendingCheckpointNumber are mutually exclusive',
+    );
+  }
 
   const builder = new SimulationOverridesBuilder();
-  if (pendingCheckpointNumber !== undefined) {
-    builder.withChainTips({ pending: pendingCheckpointNumber });
-    if (input.lastArchiveRoot !== undefined) {
-      builder.withPendingArchive(input.lastArchiveRoot);
+  const pendingCheckpointNumber = derivePendingCheckpointNumber(input);
+
+  // Override the latest checkpoint number when invalidating or pipelining, so our checkpoint
+  // follows from it. We also override the proven chain tip so we dont need to worry about
+  // prunes kicking in that would break out simulation if there's a prune pending. We always
+  // assume that a proof will land in time. If we don't have a pending checkpoint number to force,
+  // we still set both tips to the current checkpoint number to avoid the prune trigger.
+  const overridenChainTip = pendingCheckpointNumber ?? input.checkpointedCheckpointNumber;
+  builder.withChainTips({ pending: overridenChainTip, proven: overridenChainTip });
+
+  if (input.proposedCheckpointData) {
+    const { header, archive, checkpointOutHash, feeAssetPriceModifier } = input.proposedCheckpointData;
+    builder.withPendingArchive(archive.root);
+    // Override every locally-derivable `tempCheckpointLogs[parent]` field that L1 will eventually
+    // write. `slotNumber` is load-bearing for `STFLib.canPruneAtTime`: without it the cell reads
+    // slotNumber 0, the contract treats the pending tip as belonging to an expired epoch, and
+    // `getEffectivePendingCheckpointNumber` silently collapses pending back to proven — producing
+    // a spurious `Rollup__InvalidArchive` against the on-chain genesis archive. The other fields
+    // (headerHash, outHash, payloadDigest) are not strictly load-bearing for `canProposeAt` /
+    // `validateBlockHeader`, but mirroring the full cell keeps the simulation byte-faithful with
+    // what the actual `propose()` send will observe, which is a defense against future reads
+    // taking dependencies on them.
+    builder.withPendingTempCheckpointLogFields({
+      headerHash: header.hash(),
+      outHash: checkpointOutHash,
+      slotNumber: header.slotNumber,
+      payloadDigest: computeCheckpointPayloadDigest({
+        header,
+        archiveRoot: archive.root,
+        feeAssetPriceModifier,
+        signatureContext: input.signatureContext,
+      }),
+    });
+
+    const feeHeader = await computePipelinedParentFeeHeader({
+      checkpointNumber: input.checkpointNumber,
+      proposedCheckpointData: input.proposedCheckpointData,
+      rollup: input.rollup,
+      log: input.log,
+    });
+    if (feeHeader) {
+      builder.withPendingFeeHeader(feeHeader);
     }
-    // When pipelining with a proposed parent we must also override the parent's
-    // tempCheckpointLogs.slotNumber: without it `STFLib.canPruneAtTime` reads a slotNumber of 0
-    // for the overridden pending tip, decides the tip is in a long-expired epoch, and reports the
-    // chain as prunable. `getEffectivePendingCheckpointNumber` then collapses pending back to
-    // proven and the pending override is silently bypassed, producing a spurious
-    // `Rollup__InvalidArchive` against the on-chain genesis archive. The invalidate-only override
-    // path does not have a proposed parent to read the slot from; it relies on the absence of an
-    // unproven pending tip to avoid this code path.
-    if (input.proposedCheckpointData) {
-      builder.withPendingTempCheckpointLogFields({
-        slotNumber: input.proposedCheckpointData.header.slotNumber,
-      });
-    }
-  }
-  if (feeHeader) {
-    builder.withPendingFeeHeader(feeHeader);
-  }
-  if (input.isPruneDueAtSlot) {
-    // Force `proven == pending` in simulation so `canPruneAtTime` short-circuits to false.
-    // Prefer the pending override we may have just installed (pipelining/invalidating); fall back
-    // to the real on-chain pending tip when no override applies.
-    const provenOverride = pendingCheckpointNumber ?? input.checkpointedCheckpointNumber;
-    builder.withChainTips({ proven: provenOverride });
   }
 
   return builder.build();
 }
 
+function derivePendingCheckpointNumber(input: CheckpointSimulationOverridesPlanInput): CheckpointNumber | undefined {
+  if (input.invalidateToPendingCheckpointNumber !== undefined) {
+    return input.invalidateToPendingCheckpointNumber;
+  }
+  if (!input.proposedCheckpointData) {
+    return undefined;
+  }
+  if (input.checkpointNumber < 1) {
+    throw new Error(`Cannot build simulation override for checkpoint ${input.checkpointNumber}: no parent exists`);
+  }
+  const expectedParent = CheckpointNumber(input.checkpointNumber - 1);
+  if (input.proposedCheckpointData.checkpointNumber !== expectedParent) {
+    throw new Error(
+      `Cannot build simulation override for checkpoint ${input.checkpointNumber}: proposedCheckpointData.checkpointNumber (${input.proposedCheckpointData.checkpointNumber}) does not match expected parent ${expectedParent}`,
+    );
+  }
+  return expectedParent;
+}
+
 type PipelinedParentFeeHeaderInput = {
   checkpointNumber: CheckpointNumber;
-  proposedCheckpointData?: ProposedCheckpointData;
+  proposedCheckpointData: ProposedCheckpointData;
   rollup: RollupContract;
   log: Logger;
 };
 
-/** Derives the pending parent fee header used during pipelined proposal simulation. */
+/**
+ * Derives the pending parent fee header used during pipelined proposal simulation. Returns
+ * `undefined` only when no grandparent exists (i.e. the proposed parent is the genesis
+ * checkpoint); all other failure modes (missing grandparent state, missing fee header, RPC
+ * errors) throw so callers don't silently desync the fee-header override.
+ */
 export async function computePipelinedParentFeeHeader(input: PipelinedParentFeeHeaderInput) {
-  if (!input.proposedCheckpointData || input.checkpointNumber < 2) {
+  if (input.checkpointNumber < 2) {
     return undefined;
   }
 
   const grandparentCheckpointNumber = CheckpointNumber(input.checkpointNumber - 2);
 
-  try {
-    const [grandparentCheckpoint, manaTarget] = await Promise.all([
-      input.rollup.getCheckpoint(grandparentCheckpointNumber),
-      input.rollup.getManaTarget(),
-    ]);
+  const [grandparentCheckpoint, manaTarget] = await Promise.all([
+    input.rollup.getCheckpoint(grandparentCheckpointNumber),
+    input.rollup.getManaTarget(),
+  ]);
 
-    if (!grandparentCheckpoint?.feeHeader) {
-      input.log.error(
-        `Grandparent checkpoint or feeHeader missing for checkpoint ${grandparentCheckpointNumber.toString()}`,
-      );
-      return undefined;
-    }
-
-    return RollupContract.computeChildFeeHeader(
-      grandparentCheckpoint.feeHeader,
-      input.proposedCheckpointData.totalManaUsed,
-      input.proposedCheckpointData.feeAssetPriceModifier,
-      manaTarget,
+  if (!grandparentCheckpoint?.feeHeader) {
+    throw new Error(
+      `Grandparent checkpoint or feeHeader missing for checkpoint ${grandparentCheckpointNumber.toString()}`,
     );
-  } catch (err) {
-    input.log.error(
-      `Failed to derive pipelined parent fee header for checkpoint ${grandparentCheckpointNumber.toString()}: ${err}`,
-    );
-    return undefined;
   }
+
+  return RollupContract.computeChildFeeHeader(
+    grandparentCheckpoint.feeHeader,
+    input.proposedCheckpointData.totalManaUsed,
+    input.proposedCheckpointData.feeAssetPriceModifier,
+    manaTarget,
+  );
 }

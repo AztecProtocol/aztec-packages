@@ -410,34 +410,25 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics.recordPipelineDepth(0);
     }
 
-    // Build the simulation plan: pending override from pipelining or invalidation, fee header,
-    // and the proven-override when a prune would otherwise fire at the target slot.
-    const isPruneDueAtSlot = await this.l2BlockSource.isPruneDueAtSlot(targetSlot);
+    // Build the simulation plan: pending/proven override from pipelining or invalidation (or the
+    // current snapshot when neither applies, to short-circuit any pending prune in simulation),
+    // plus the parent checkpoint cell and fee header when pipelining.
     const simulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
       checkpointNumber,
       proposedCheckpointData:
         isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
       invalidateToPendingCheckpointNumber: invalidateCheckpoint?.forcePendingCheckpointNumber,
-      lastArchiveRoot:
-        isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData!.archive.root : undefined,
-      isPruneDueAtSlot,
       checkpointedCheckpointNumber: syncedTo.checkpointedCheckpointNumber,
       rollup: this.rollupContract,
+      signatureContext: this.signatureContext,
       log: this.log,
     });
-    const provenOverride = simulationOverridesPlan?.chainTipsOverride?.proven;
-    if (provenOverride !== undefined) {
-      this.log.warn(
-        `Assuming proof for epoch ending at checkpoint ${provenOverride} lands by target slot ${targetSlot}`,
-        { checkpointNumber, slot, targetSlot, provenOverride },
-      );
-    }
 
     this.emit('preparing-checkpoint', {
       targetSlot,
       checkpointNumber,
       hadProposedParent: this.epochCache.isProposerPipeliningEnabled() && syncedTo.hasProposedCheckpoint,
-      provenOverride,
+      provenOverride: simulationOverridesPlan?.chainTipsOverride?.proven,
       simulatedPending: simulationOverridesPlan?.chainTipsOverride?.pending,
     });
 

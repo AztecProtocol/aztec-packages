@@ -1,6 +1,7 @@
 import { toHex as toPaddedHex } from '@aztec/foundation/bigint-buffer';
 import type { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Buffer32 } from '@aztec/foundation/buffer';
+import { merge } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { StateOverride } from 'viem';
@@ -45,18 +46,22 @@ export class SimulationOverridesBuilder {
     return new SimulationOverridesBuilder().merge(plan);
   }
 
-  /** Merges another plan into this builder. Later values win on a per-half basis for chain tips. */
+  /**
+   * Merges another plan into this builder. Later values win on a per-half basis for chain tips,
+   * but explicit `undefined` fields in the incoming plan are ignored so they cannot erase a
+   * previously-set value.
+   */
   public merge(plan: SimulationOverridesPlan | undefined): this {
     if (!plan) {
       return this;
     }
 
     if (plan.chainTipsOverride) {
-      this.chainTipsOverride = { ...(this.chainTipsOverride ?? {}), ...plan.chainTipsOverride };
+      this.chainTipsOverride = merge(this.chainTipsOverride ?? {}, plan.chainTipsOverride);
     }
-    this.pendingCheckpointState = plan.pendingCheckpointState
-      ? { ...(this.pendingCheckpointState ?? {}), ...plan.pendingCheckpointState }
-      : this.pendingCheckpointState;
+    if (plan.pendingCheckpointState) {
+      this.pendingCheckpointState = merge(this.pendingCheckpointState ?? {}, plan.pendingCheckpointState);
+    }
     this.disableBlobCheck = this.disableBlobCheck || (plan.disableBlobCheck ?? false);
 
     return this;

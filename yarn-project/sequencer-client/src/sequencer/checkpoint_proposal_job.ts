@@ -540,15 +540,13 @@ export class CheckpointProposalJob implements Traceable {
       // mana-min-fee simulation (in the globals builder) and the pre-broadcast
       // validateBlockHeader see the chain tip the eventual L1 send will see.
       const isPipelining = this.epochCache.isProposerPipeliningEnabled();
-      const isPruneDueAtSlot = await this.l2BlockSource.isPruneDueAtSlot(this.targetSlot);
       this.checkpointSimulationOverridesPlan = await buildCheckpointSimulationOverridesPlan({
         checkpointNumber: this.checkpointNumber,
         proposedCheckpointData: isPipelining ? this.proposedCheckpointData : undefined,
         invalidateToPendingCheckpointNumber: this.invalidateCheckpoint?.forcePendingCheckpointNumber,
-        lastArchiveRoot: isPipelining ? this.proposedCheckpointData?.archive.root : undefined,
-        isPruneDueAtSlot,
         checkpointedCheckpointNumber: this.checkpointedCheckpointNumber,
         rollup: this.publisher.rollupContract,
+        signatureContext: this.signatureContext,
         log: this.log,
       });
 

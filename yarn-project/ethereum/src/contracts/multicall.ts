@@ -227,6 +227,9 @@ export class Multicall3 {
       blobConfig,
     );
 
+    // This shouldn't happen. Any failure in individual calls is swallowed by forward since we set
+    // allowFailure to true for all calls, so a reverted status here would indicate a problem with
+    // the Multicall3 contract itself or the forwarder transaction (such as an out-of-gas).
     if (receipt.status !== 'success') {
       throw new MulticallForwarderRevertedError(receipt);
     }
