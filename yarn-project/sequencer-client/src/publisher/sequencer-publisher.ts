@@ -446,7 +446,11 @@ export class SequencerPublisher {
 
       const { requests, droppedRequests, gasLimit } =
         bundleResult.kind === 'fallback'
-          ? { requests: [...validRequests], droppedRequests: [], gasLimit: MAX_L1_TX_LIMIT }
+          ? {
+              requests: bundleResult.requests,
+              droppedRequests: bundleResult.droppedRequests,
+              gasLimit: MAX_L1_TX_LIMIT,
+            }
           : bundleResult;
 
       // Compute blobConfig from survivors (not original validRequests) so that if the propose

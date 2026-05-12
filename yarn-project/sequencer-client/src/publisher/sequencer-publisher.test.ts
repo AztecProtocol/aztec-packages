@@ -608,10 +608,10 @@ describe('SequencerPublisher', () => {
       expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
     });
 
-    it('sends the full bundle blindly when second-pass simulate returns fallback', async () => {
+    it('preserves first-pass survivors when second-pass simulate returns fallback', async () => {
       addTwoRequests();
 
-      // First simulate: propose fails.
+      // First simulate: propose fails, invalidate survives.
       const firstResult = encodeFunctionResult({
         abi: multicall3Abi,
         functionName: 'aggregate3',
@@ -629,11 +629,14 @@ describe('SequencerPublisher', () => {
 
       const result = await publisher.sendRequests();
 
-      // Fallback → caller sends the whole validRequests set with MAX_L1_TX_LIMIT.
+      // Second-pass fallback must NOT re-include the propose entry that first-pass dropped.
       expect(result).toBeDefined();
-      expect(result?.sentActions).toEqual(['invalidate-by-invalid-attestation', 'propose']);
+      expect(result?.sentActions).toEqual(['invalidate-by-invalid-attestation']);
+      expect(result?.failedActions).toEqual(['propose']);
       expect(forwardSpy).toHaveBeenCalledTimes(1);
       expect(forwardSpy.mock.calls[0][2]?.gasLimit).toEqual(MAX_L1_TX_LIMIT);
+      // The forwarded bundle should only contain the survivor.
+      expect(forwardSpy.mock.calls[0][0]).toHaveLength(1);
       expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
     });
   });

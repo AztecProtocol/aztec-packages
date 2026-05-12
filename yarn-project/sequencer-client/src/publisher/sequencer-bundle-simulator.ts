@@ -16,20 +16,20 @@ import type { RequestWithExpiry } from './sequencer-publisher.js';
  * - `success`: simulation succeeded. `requests` is the filtered survivor list, `gasLimit` is
  *   the bumped gas limit derived from `gasUsed` (plus blob evaluation gas). `droppedRequests`
  *   lists the entries that were observed to revert in simulation.
- * - `fallback`: the node does not support eth_simulateV1 (or the simulate call threw). No
- *   per-entry filtering was possible. The caller should send the bundle as-is with a safe gas
- *   limit (e.g. {@link MAX_L1_TX_LIMIT}).
+ * - `fallback`: the node does not support eth_simulateV1 (or the simulate call threw). The
+ *   caller should send `requests` as-is with a safe gas limit (e.g. {@link MAX_L1_TX_LIMIT}).
+ *   `droppedRequests` carries any entries that the first pass already proved reverted, so the
+ *   caller does not re-include them when the second pass falls back.
  * - `aborted`: the bundle cannot be sent. `droppedRequests` contains only entries that were
  *   actually observed to revert (so they can be reported as simulation failures); it is empty
- *   when the abort was caused by infrastructure issues like a missing Multicall3 contract or a
- *   second-pass eth_simulateV1 fallback.
+ *   when the abort was caused by an empty input bundle.
  */
 export type BundleSimulateResult =
   | { kind: 'success'; requests: RequestWithExpiry[]; gasLimit: bigint; droppedRequests: RequestWithExpiry[] }
-  | { kind: 'fallback' }
+  | { kind: 'fallback'; requests: RequestWithExpiry[]; droppedRequests: RequestWithExpiry[] }
   | { kind: 'aborted'; reason: AbortReason; droppedRequests: RequestWithExpiry[] };
 
-export type AbortReason = 'empty-bundle' | 'all-reverted' | 'second-pass-reverts' | 'second-pass-fallback';
+export type AbortReason = 'empty-bundle' | 'all-reverted' | 'second-pass-reverts';
 
 type SimulatePassResult =
   | { kind: 'decoded'; survivors: RequestWithExpiry[]; droppedRequests: RequestWithExpiry[]; gasUsed: bigint }
@@ -96,7 +96,7 @@ export class SequencerBundleSimulator {
       this.log.warn('Bundle simulate fallback (eth_simulateV1 unavailable); caller will send bundle as-is', {
         actions: validRequests.map(r => r.action),
       });
-      return { kind: 'fallback' };
+      return { kind: 'fallback', requests: validRequests, droppedRequests: [] };
     }
 
     if (firstPass.survivors.length === 0) {
@@ -126,10 +126,14 @@ export class SequencerBundleSimulator {
     );
 
     if (secondPass.kind === 'fallback') {
-      this.log.warn('Bundle simulate fallback (eth_simulateV1 unavailable); caller will send bundle as-is', {
-        actions: firstPass.survivors.map(r => r.action),
-      });
-      return { kind: 'fallback' };
+      this.log.warn(
+        'Bundle simulate errored on second pass (eth_simulateV1 unavailable); sending first-pass survivors as-is',
+        {
+          actions: firstPass.survivors.map(r => r.action),
+          droppedActions: firstPass.droppedRequests.map(r => r.action),
+        },
+      );
+      return { kind: 'fallback', requests: firstPass.survivors, droppedRequests: firstPass.droppedRequests };
     }
 
     // We refuse to chase reverts through repeated trimming: anything other than a clean second pass aborts the whole send
