@@ -137,7 +137,6 @@ case "$cmd" in
   avm-inputs-collection|avm-check-circuit)
     export CI_DASHBOARD="nightly"
     export JOB_ID="x-$cmd"
-    export INSTANCE_POSTFIX="${INSTANCE_POSTFIX:-$cmd}"
     bootstrap_ec2 "./bootstrap.sh ci-$cmd"
     ;;
   grind)

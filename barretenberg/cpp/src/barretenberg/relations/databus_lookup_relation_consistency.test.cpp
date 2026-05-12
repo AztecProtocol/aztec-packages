@@ -4,11 +4,10 @@
  * @details Similar to ultra_relation_consistency.test.cpp, this test verifies that the optimized relation
  * implementation produces the same results as a simpler, more readable reference implementation.
  *
- * The DatabusLookupRelation implements a log-derivative lookup argument with 4 subrelations per bus column:
+ * The DatabusLookupRelation implements a log-derivative lookup argument with 3 subrelations per bus column:
  * 1a. Inverse correctness (read rows): (I * L * T - 1) * is_read = 0
  * 1b. Inverse correctness (write rows): (I * L * T - 1) * count = 0
  * 2.  Log-derivative lookup: sum of (is_read * T - count * L) * I = 0
- * 3.  Read-count locality: (1 - indicator) * count = 0
  */
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
@@ -43,31 +42,26 @@ struct DatabusInputElements {
     FF kernel_calldata;
     FF kernel_calldata_read_counts;
     FF kernel_calldata_inverses;
-    FF kernel_calldata_indicator;
 
     // First app calldata (bus_idx = 1)
     FF first_app_calldata;
     FF first_app_calldata_read_counts;
     FF first_app_calldata_inverses;
-    FF first_app_calldata_indicator;
 
     // Second app calldata (bus_idx = 2)
     FF second_app_calldata;
     FF second_app_calldata_read_counts;
     FF second_app_calldata_inverses;
-    FF second_app_calldata_indicator;
 
     // Third app calldata (bus_idx = 3)
     FF third_app_calldata;
     FF third_app_calldata_read_counts;
     FF third_app_calldata_inverses;
-    FF third_app_calldata_indicator;
 
     // Return data (bus_idx = 4)
     FF return_data;
     FF return_data_read_counts;
     FF return_data_inverses;
-    FF return_data_indicator;
 
     static DatabusInputElements get_random()
     {
@@ -84,23 +78,18 @@ struct DatabusInputElements {
         result.kernel_calldata = FF::random_element();
         result.kernel_calldata_read_counts = FF::random_element();
         result.kernel_calldata_inverses = FF::random_element();
-        result.kernel_calldata_indicator = FF::random_element();
         result.first_app_calldata = FF::random_element();
         result.first_app_calldata_read_counts = FF::random_element();
         result.first_app_calldata_inverses = FF::random_element();
-        result.first_app_calldata_indicator = FF::random_element();
         result.second_app_calldata = FF::random_element();
         result.second_app_calldata_read_counts = FF::random_element();
         result.second_app_calldata_inverses = FF::random_element();
-        result.second_app_calldata_indicator = FF::random_element();
         result.third_app_calldata = FF::random_element();
         result.third_app_calldata_read_counts = FF::random_element();
         result.third_app_calldata_inverses = FF::random_element();
-        result.third_app_calldata_indicator = FF::random_element();
         result.return_data = FF::random_element();
         result.return_data_read_counts = FF::random_element();
         result.return_data_inverses = FF::random_element();
-        result.return_data_indicator = FF::random_element();
         return result;
     }
 
@@ -125,7 +114,6 @@ struct DatabusInputElements {
 
         // Read counts
         result.kernel_calldata_read_counts = FF(1);
-        result.kernel_calldata_indicator = FF(1); // data row, so the read-count locality subrelation passes
 
         // Other columns inactive
         result.first_app_calldata_read_counts = FF(0);
@@ -172,7 +160,7 @@ static std::array<FF, DatabusLookupRelationConsistency::NUM_SUBRELATIONS> comput
 
     // Lambda to compute subrelations for a given bus column
     auto compute_column_subrelations =
-        [&](size_t bus_idx, FF column_selector, FF bus_value, FF read_counts, FF inverses, FF indicator) {
+        [&](size_t bus_idx, FF column_selector, FF bus_value, FF read_counts, FF inverses) {
             auto is_read = in.q_busread * column_selector;
             auto table_term = bus_value + in.databus_id * beta + gamma;
 
@@ -180,53 +168,33 @@ static std::array<FF, DatabusLookupRelationConsistency::NUM_SUBRELATIONS> comput
             auto common = lookup_term * table_term * inverses - FF(1);
 
             // Subrelation 1a: Inverse correctness on read rows: (I*L*T - 1) * is_read
-            expected_values[bus_idx * 4] = common * is_read;
+            expected_values[bus_idx * 3] = common * is_read;
 
             // Subrelation 1b: Inverse correctness on write rows: (I*L*T - 1) * count
-            expected_values[bus_idx * 4 + 1] = common * read_counts;
+            expected_values[bus_idx * 3 + 1] = common * read_counts;
 
             // Subrelation 2: Log-derivative lookup (no scaling factor since linearly dependent)
-            expected_values[bus_idx * 4 + 2] = (is_read * table_term - read_counts * lookup_term) * inverses;
-
-            // Subrelation 3: Read-count locality: (1 - indicator) * count
-            expected_values[bus_idx * 4 + 3] = read_counts - indicator * read_counts;
+            expected_values[bus_idx * 3 + 2] = (is_read * table_term - read_counts * lookup_term) * inverses;
         };
 
     // Bus column 0 (kernel_calldata)
-    compute_column_subrelations(0,
-                                in.q_l,
-                                in.kernel_calldata,
-                                in.kernel_calldata_read_counts,
-                                in.kernel_calldata_inverses,
-                                in.kernel_calldata_indicator);
+    compute_column_subrelations(
+        0, in.q_l, in.kernel_calldata, in.kernel_calldata_read_counts, in.kernel_calldata_inverses);
 
     // Bus column 1 (first_app_calldata)
-    compute_column_subrelations(1,
-                                in.q_r,
-                                in.first_app_calldata,
-                                in.first_app_calldata_read_counts,
-                                in.first_app_calldata_inverses,
-                                in.first_app_calldata_indicator);
+    compute_column_subrelations(
+        1, in.q_r, in.first_app_calldata, in.first_app_calldata_read_counts, in.first_app_calldata_inverses);
 
     // Bus column 2 (second_app_calldata)
-    compute_column_subrelations(2,
-                                in.q_o,
-                                in.second_app_calldata,
-                                in.second_app_calldata_read_counts,
-                                in.second_app_calldata_inverses,
-                                in.second_app_calldata_indicator);
+    compute_column_subrelations(
+        2, in.q_o, in.second_app_calldata, in.second_app_calldata_read_counts, in.second_app_calldata_inverses);
 
     // Bus column 3 (third_app_calldata)
-    compute_column_subrelations(3,
-                                in.q_4,
-                                in.third_app_calldata,
-                                in.third_app_calldata_read_counts,
-                                in.third_app_calldata_inverses,
-                                in.third_app_calldata_indicator);
+    compute_column_subrelations(
+        3, in.q_4, in.third_app_calldata, in.third_app_calldata_read_counts, in.third_app_calldata_inverses);
 
     // Bus column 4 (return_data)
-    compute_column_subrelations(
-        4, in.q_m, in.return_data, in.return_data_read_counts, in.return_data_inverses, in.return_data_indicator);
+    compute_column_subrelations(4, in.q_m, in.return_data, in.return_data_read_counts, in.return_data_inverses);
 
     return expected_values;
 }
@@ -328,7 +296,6 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
     in.kernel_calldata_inverses = inverse;
 
     in.kernel_calldata_read_counts = FF(1);
-    in.kernel_calldata_indicator = FF(1); // data row, read-count locality subrelation passes
 
     // Other columns inactive
     in.first_app_calldata_read_counts = FF(0);
@@ -352,11 +319,8 @@ TEST_F(DatabusLookupRelationConsistency, ValidInverseComputation)
     // (2) Lookup: (is_read*T - count*L) * I = (T - L) * I = 0 (since L == T here)
     EXPECT_EQ(accumulator[2], FF(0));
 
-    // (3) Read-count locality: (1 - 1) * 1 = 0
-    EXPECT_EQ(accumulator[3], FF(0));
-
     // Other columns should have all-zero subrelations (inactive)
-    for (size_t i = 4; i < NUM_SUBRELATIONS; i++) {
+    for (size_t i = 3; i < NUM_SUBRELATIONS; i++) {
         EXPECT_EQ(accumulator[i], FF(0)) << "Inactive column subrelation " << i << " should be zero";
     }
 }
@@ -456,23 +420,18 @@ TEST_F(DatabusLookupRelationConsistency, InverseUnconstrainedAtInactiveRows)
 
     // (1a) gated by is_read = 0: always zero regardless of I
     EXPECT_EQ(accumulator[0], FF(0));
-    EXPECT_EQ(accumulator[4], FF(0));
-    EXPECT_EQ(accumulator[8], FF(0));
+    EXPECT_EQ(accumulator[3], FF(0));
+    EXPECT_EQ(accumulator[6], FF(0));
 
     // (1b) gated by count = 0: always zero regardless of I
     EXPECT_EQ(accumulator[1], FF(0));
-    EXPECT_EQ(accumulator[5], FF(0));
-    EXPECT_EQ(accumulator[9], FF(0));
+    EXPECT_EQ(accumulator[4], FF(0));
+    EXPECT_EQ(accumulator[7], FF(0));
 
     // (2) lookup: (0 * T - 0 * L) * I = 0 regardless of I
     EXPECT_EQ(accumulator[2], FF(0));
-    EXPECT_EQ(accumulator[6], FF(0));
-    EXPECT_EQ(accumulator[10], FF(0));
-
-    // (3) read-count locality: (1 - indicator) * 0 = 0 regardless of indicator
-    EXPECT_EQ(accumulator[3], FF(0));
-    EXPECT_EQ(accumulator[7], FF(0));
-    EXPECT_EQ(accumulator[11], FF(0));
+    EXPECT_EQ(accumulator[5], FF(0));
+    EXPECT_EQ(accumulator[8], FF(0));
 }
 
 /**
@@ -630,46 +589,4 @@ TEST_F(DatabusLookupRelationConsistency, CorrectInverseOnWriteRow)
     FF expected_lookup = (FF(0) * table_term - FF(3) * lookup_term) * (lookup_term * table_term).invert();
     EXPECT_EQ(accumulator[2], expected_lookup);
     EXPECT_NE(accumulator[2], FF(0)); // nonzero contribution (balances across the full trace sum)
-}
-
-/**
- * @brief Regression: a row outside the calldata body with `calldata_read_counts > 0` is
- * rejected by the read-count locality subrelation.
- *
- * Without it, a row with `calldata_indicator = 0`, `databus_id = 0`,
- * `calldata = v_attack`, `calldata_read_counts = c` satisfies the inverse-correctness
- * and lookup subrelations, and its contribution to the summed lookup identity cancels
- * against `c` reads of `(v_attack, 0)`. The read-count locality subrelation
- * `(1 - calldata_indicator) * calldata_read_counts = 0` is the per-row check that
- * rejects this input directly.
- */
-TEST_F(DatabusLookupRelationConsistency, ReadCountLocalityRejectsOutOfBodyReadCounts)
-{
-    const auto parameters = RelationParameters<FF>::get_random();
-    const auto& beta = parameters.beta;
-    const auto& gamma = parameters.gamma;
-
-    // Out-of-body row (kernel_calldata_indicator = 0) with databus_id = 0 (matches body row 0).
-    DatabusInputElements row{};
-    row.databus_id = FF(0);
-    row.kernel_calldata = FF(12345);
-    row.kernel_calldata_read_counts = FF(7);
-    row.kernel_calldata_indicator = FF(0);
-    {
-        const auto L = row.w_l + row.w_r * beta + gamma;
-        const auto T = row.kernel_calldata + row.databus_id * beta + gamma;
-        row.kernel_calldata_inverses = (L * T).invert();
-    }
-
-    std::array<FF, NUM_SUBRELATIONS> accumulator{};
-    Relation::accumulate(accumulator, row, parameters, FF(1));
-
-    // Other per-row subrelations all vanish (they don't catch this input):
-    EXPECT_EQ(accumulator[0], FF(0)); // (1a) inverse correctness on read (is_read = 0)
-    EXPECT_EQ(accumulator[1], FF(0)); // (1b) inverse correctness on write (I*L*T = 1)
-    // accumulator[2] is the per-row part of the linearly-dependent lookup identity.
-
-    // Read-count locality (subrelation 3 of bus column 0): (1 - 0) * 7 = 7 != 0.
-    EXPECT_EQ(accumulator[3], row.kernel_calldata_read_counts);
-    EXPECT_NE(accumulator[3], FF(0));
 }

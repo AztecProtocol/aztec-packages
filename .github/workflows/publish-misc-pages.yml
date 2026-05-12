@@ -1,6 +1,10 @@
 name: Publish misc GitHub Pages
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - next
+    paths:
+      - "yarn-project/scripts/latency-explorer/**"
 
 jobs:
   publish:
