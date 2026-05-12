@@ -869,9 +869,7 @@ describe('L1Publisher integration', () => {
       // Invalidate and propose
       logger.warn('Enqueuing requests to invalidate and propose the checkpoint');
       publisher.enqueueInvalidateCheckpoint(invalidateRequest);
-      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature, {
-        simulationOverridesPlan: invalidationSimulationOverridesPlan,
-      });
+      await publisher.enqueueProposeCheckpoint(checkpoint, attestationsAndSigners, attestationsAndSignersSignature);
       const result = await publisher.sendRequests();
       expect(result!.successfulActions).toEqual(['invalidate-by-insufficient-attestations', 'propose']);
       expect(result!.failedActions).toEqual([]);
