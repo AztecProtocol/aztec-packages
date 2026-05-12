@@ -671,7 +671,10 @@ describe('sequencer', () => {
       expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(1));
       expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
       expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalled();
-      expect(publisher.sendRequests).toHaveBeenCalled();
+      // Submission goes through sendRequestsAt so the bundle simulate's block.timestamp
+      // override matches the slot the EIP-712 signatures were generated for.
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
+      expect(publisher.sendRequests).not.toHaveBeenCalled();
 
       // But checkpoint proposal must not start
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
@@ -694,16 +697,16 @@ describe('sequencer', () => {
 
       await sequencer.work();
       expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
-      expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequestsAt).toHaveBeenCalledTimes(1);
 
       publisher.enqueueSlashingActions.mockClear();
-      publisher.sendRequests.mockClear();
+      publisher.sendRequestsAt.mockClear();
       slasherClient.getProposerActions.mockClear();
 
       await sequencer.work();
       expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
-      expect(publisher.sendRequests).not.toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
     });
   });
 

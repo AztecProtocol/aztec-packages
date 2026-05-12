@@ -924,7 +924,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     this.log.info(`Voting in slot ${slot} (escape hatch open)`, { slot });
-    await publisher.sendRequests();
+    // Votes are EIP-712-signed for `slot` (the slot in which the multicall is expected to mine).
+    // Without threading the slot through, bundleSimulate would override block.timestamp to the
+    // wall-clock current slot, which can be one L2 slot earlier than `slot`. The L1 contract
+    // then reads `signaler = getCurrentProposer()` against the wrong slot, so signature
+    // verification fails inside Multicall3 and every governance/slashing entry is dropped.
+    await publisher.sendRequestsAt(slot);
   }
 
   /**
