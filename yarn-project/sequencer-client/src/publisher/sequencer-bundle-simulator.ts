@@ -1,10 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
-import {
-  MULTI_CALL_3_ADDRESS,
-  Multicall3,
-  type RollupContract,
-  buildSimulationOverridesStateOverride,
-} from '@aztec/ethereum/contracts';
+import { Multicall3, type RollupContract, buildSimulationOverridesStateOverride } from '@aztec/ethereum/contracts';
 import { type L1TxUtils, MAX_L1_TX_LIMIT } from '@aztec/ethereum/l1-tx-utils';
 import { formatViemError } from '@aztec/ethereum/utils';
 import type { SlotNumber } from '@aztec/foundation/branded-types';
@@ -34,12 +29,7 @@ export type BundleSimulateResult =
   | { kind: 'fallback' }
   | { kind: 'aborted'; reason: AbortReason; droppedRequests: RequestWithExpiry[] };
 
-export type AbortReason =
-  | 'multicall-missing'
-  | 'empty-bundle'
-  | 'all-reverted'
-  | 'second-pass-reverts'
-  | 'second-pass-fallback';
+export type AbortReason = 'empty-bundle' | 'all-reverted' | 'second-pass-reverts' | 'second-pass-fallback';
 
 type SimulatePassResult =
   | { kind: 'decoded'; survivors: RequestWithExpiry[]; droppedRequests: RequestWithExpiry[]; gasUsed: bigint }
@@ -54,8 +44,6 @@ type SimulatePassResult =
  */
 export class SequencerBundleSimulator {
   private readonly log: Logger;
-  /** Cached only when true; a missing Multicall3 should be re-checked on subsequent calls. */
-  private multicall3HasCode = false;
 
   constructor(
     private readonly deps: {
@@ -97,9 +85,6 @@ export class SequencerBundleSimulator {
     // Pin the publisher we'll use across the whole simulate call so that the publisher's rotation
     // can't change l1TxUtils mid-flight.
     const l1TxUtils = this.deps.getL1TxUtils();
-    if (!(await this.ensureMulticall3Deployed(l1TxUtils))) {
-      return { kind: 'aborted', reason: 'multicall-missing', droppedRequests: [] };
-    }
 
     const proposeRequest = validRequests.find(r => r.action === 'propose');
     const simulateTimestamp = getTimestampForSlot(targetSlot, this.deps.epochCache.getL1Constants());
@@ -115,7 +100,7 @@ export class SequencerBundleSimulator {
     }
 
     if (firstPass.survivors.length === 0) {
-      this.log.warn('All bundle entries dropped in sim; aborting send', {
+      this.log.warn('All bundle entries dropped in simulation; aborting send', {
         actions: validRequests.map(r => r.action),
       });
       return { kind: 'aborted', reason: 'all-reverted', droppedRequests: validRequests };
@@ -129,8 +114,8 @@ export class SequencerBundleSimulator {
       droppedActions: firstPass.droppedRequests.map(r => r.action),
       remainingActions: firstPass.survivors.map(r => r.action),
     });
-    // Rebuild overrides for the reduced bundle: if propose was dropped, we no longer need the
-    // blob-check override.
+
+    // Rebuild overrides for the reduced bundle: if propose was dropped, we no longer need the blob-check override
     const proposeSurvived = proposeRequest !== undefined && firstPass.survivors.includes(proposeRequest);
     const secondPassOverrides = proposeSurvived ? firstPassOverrides : await this.buildStateOverrides(false);
     const secondPass = await this.simulateAndDecode(
@@ -140,14 +125,14 @@ export class SequencerBundleSimulator {
       secondPassOverrides,
     );
 
-    // We refuse to chase reverts through repeated trimming: anything other than a clean second
-    // pass aborts the whole send.
     if (secondPass.kind === 'fallback') {
-      this.log.error('Re-simulate returned fallback; aborting send', {
-        survivingActions: firstPass.survivors.map(r => r.action),
+      this.log.warn('Bundle simulate fallback (eth_simulateV1 unavailable); caller will send bundle as-is', {
+        actions: firstPass.survivors.map(r => r.action),
       });
-      return { kind: 'aborted', reason: 'second-pass-fallback', droppedRequests: firstPass.droppedRequests };
+      return { kind: 'fallback' };
     }
+
+    // We refuse to chase reverts through repeated trimming: anything other than a clean second pass aborts the whole send
     if (secondPass.droppedRequests.length > 0) {
       this.log.error('Re-simulate surfaced reverts; aborting send', {
         secondPassDroppedActions: secondPass.droppedRequests.map(r => r.action),
@@ -206,17 +191,6 @@ export class SequencerBundleSimulator {
       this.deps.rollupContract,
       hasProposeAction ? { disableBlobCheck: true } : undefined,
     );
-  }
-
-  private async ensureMulticall3Deployed(l1TxUtils: L1TxUtils): Promise<boolean> {
-    if (this.multicall3HasCode) {
-      return true;
-    }
-    this.multicall3HasCode = await Multicall3.hasCode(l1TxUtils);
-    if (!this.multicall3HasCode) {
-      this.log.error(`Multicall3 bytecode missing at ${MULTI_CALL_3_ADDRESS}; cannot send bundled tx`);
-    }
-    return this.multicall3HasCode;
   }
 
   private async simulateAndDecode(
