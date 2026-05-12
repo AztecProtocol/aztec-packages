@@ -410,6 +410,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       proposedCheckpointData:
         isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.proposedCheckpointData : undefined,
       invalidateToPendingCheckpointNumber: invalidateCheckpoint?.forcePendingCheckpointNumber,
+      lastArchiveRoot: isPipelining && syncedTo.hasProposedCheckpoint ? syncedTo.archive : undefined,
       rollup: this.rollupContract,
       log: this.log,
     });
