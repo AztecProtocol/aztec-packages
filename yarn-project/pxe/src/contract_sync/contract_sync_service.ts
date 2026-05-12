@@ -1,16 +1,14 @@
 import type { Logger } from '@aztec/foundation/log';
 import { Semaphore } from '@aztec/foundation/queue';
-import { isProtocolContract } from '@aztec/protocol-contracts';
 import type { FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { StagedStore } from '../job_coordinator/job_coordinator.js';
-import { NoteService } from '../notes/note_service.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
-import { syncScope, verifyCurrentClassId } from './helpers.js';
+import { syncState, verifyCurrentClassId } from './helpers.js';
 
 /** Maximum number of scope syncs running concurrently across the PXE. */
 const MAX_CONCURRENT_SCOPE_SYNCS = 5;
@@ -31,7 +29,7 @@ export class ContractSyncService implements StagedStore {
 
   // Tracks class ID verification per contract. Keyed by contract address only (no scope), since
   // class ID verification is scope-independent. Cleared on wipe/discard.
-  private classIdVerificationCache: Map<string, Promise<void>> = new Map();
+  private verifiedClassIds: Map<string, Promise<void>> = new Map();
 
   // Bounds the number of scope syncs running concurrently. Scopes beyond this limit queue here. Sized to trade off
   // parallelism on non-ACIR work (node RPC, note store reads) against memory pressure from concurrent circuit
@@ -62,8 +60,22 @@ export class ContractSyncService implements StagedStore {
     jobId: string,
     scopes: AztecAddress[],
   ): Promise<void> {
-    this.#startSyncIfNeeded(contractAddress, scopes, anchorBlockHeader, jobId, scope =>
-      syncScope(contractAddress, this.contractStore, functionToInvokeAfterSync, utilityExecutor, scope),
+    this.#startSyncIfNeeded(
+      contractAddress,
+      scopes,
+      () => verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader),
+      scope =>
+        syncState(
+          contractAddress,
+          this.contractStore,
+          functionToInvokeAfterSync,
+          utilityExecutor,
+          this.noteStore,
+          this.aztecNode,
+          anchorBlockHeader,
+          jobId,
+          scope,
+        ),
     );
 
     await this.#awaitSync(contractAddress, scopes);
@@ -81,7 +93,7 @@ export class ContractSyncService implements StagedStore {
   wipe(): void {
     this.log.debug(`Wiping contract sync cache (${this.syncedContracts.size} entries)`);
     this.syncedContracts.clear();
-    this.classIdVerificationCache.clear();
+    this.verifiedClassIds.clear();
   }
 
   commit(_jobId: string): Promise<void> {
@@ -92,21 +104,19 @@ export class ContractSyncService implements StagedStore {
     // We clear the synced contracts cache here because, when the job is discarded, any associated database writes from
     // the sync are also undone.
     this.syncedContracts.clear();
-    this.classIdVerificationCache.clear();
+    this.verifiedClassIds.clear();
     return Promise.resolve();
   }
 
   /**
-   * For each unsynced scope, creates a promise that waits on:
-   *  1. Class ID verification (cached per contract, scope-independent).
-   *  2. Note nullifier sync (shared, batched across all unsynced scopes).
-   *  3. Per-scope sync (individual, semaphore-bounded).
+   * If there are unsynced scopes, starts one sync per scope (bounded by #syncSlot) and stores each promise in the
+   * cache with per-scope error cleanup. The verifyFn runs once for the whole fan-out and is awaited by every new
+   * scope's promise, matching the pre-parallelization invariant that a cache-miss batch re-verifies the class id.
    */
   #startSyncIfNeeded(
     contractAddress: AztecAddress,
     scopes: AztecAddress[],
-    anchorBlockHeader: BlockHeader,
-    jobId: string,
+    verifyFn: () => Promise<void>,
     syncScopeFn: (scope: AztecAddress) => Promise<void>,
   ): void {
     const scopesToSync = scopes.filter(scope => !this.syncedContracts.has(toKey(contractAddress, scope)));
@@ -115,13 +125,11 @@ export class ContractSyncService implements StagedStore {
     }
 
     this.log.debug(`Syncing contract ${contractAddress} for ${scopesToSync.length} scope(s)`);
-
-    const verifyPromise = this.#verifyClassId(contractAddress, anchorBlockHeader);
-    const syncNullifiersPromise = this.#syncNoteNullifiers(contractAddress, anchorBlockHeader, jobId, scopesToSync);
+    const verifyPromise = this.#getOrStartVerification(contractAddress, verifyFn);
 
     for (const scope of scopesToSync) {
       const key = toKey(contractAddress, scope);
-      const promise = Promise.all([verifyPromise, syncNullifiersPromise, this.#runBounded(() => syncScopeFn(scope))])
+      const promise = Promise.all([verifyPromise, this.#runBounded(() => syncScopeFn(scope))])
         .then(() => {})
         .catch(err => {
           this.syncedContracts.delete(key);
@@ -131,38 +139,19 @@ export class ContractSyncService implements StagedStore {
     }
   }
 
-  /** Verifies the local class ID matches the on-chain value (cached, evicts on failure so retries re-verify). */
-  #verifyClassId(contractAddress: AztecAddress, anchorBlockHeader: BlockHeader): Promise<void> {
+  /** Returns the cached verification promise for a contract, starting a new one if needed. Evicts from cache on failure so retries re-verify. */
+  #getOrStartVerification(contractAddress: AztecAddress, verifyFn: () => Promise<void>): Promise<void> {
     const contractKey = contractAddress.toString();
-    const cached = this.classIdVerificationCache.get(contractKey);
+    const cached = this.verifiedClassIds.get(contractKey);
     if (cached) {
       return cached;
     }
-    const promise = verifyCurrentClassId(contractAddress, this.aztecNode, this.contractStore, anchorBlockHeader).catch(
-      err => {
-        this.classIdVerificationCache.delete(contractKey);
-        throw err;
-      },
-    );
-    this.classIdVerificationCache.set(contractKey, promise);
+    const promise = verifyFn().catch(err => {
+      this.verifiedClassIds.delete(contractKey);
+      throw err;
+    });
+    this.verifiedClassIds.set(contractKey, promise);
     return promise;
-  }
-
-  /** Syncs note nullifiers across all unsynced scopes in a single batched call. */
-  async #syncNoteNullifiers(
-    contractAddress: AztecAddress,
-    anchorBlockHeader: BlockHeader,
-    jobId: string,
-    scopes: AztecAddress[],
-  ): Promise<void> {
-    // Protocol contracts don't have private state to sync
-    if (isProtocolContract(contractAddress)) {
-      return;
-    }
-    // This runs in parallel with per-scope sync (which also writes to the note store). That's safe because
-    // the note store handles concurrent operations.
-    const noteService = new NoteService(this.noteStore, this.aztecNode, anchorBlockHeader, jobId);
-    await noteService.syncNoteNullifiers(contractAddress, scopes);
   }
 
   /** Runs fn while holding a slot in #syncSlot, bounding total concurrent scope syncs. */

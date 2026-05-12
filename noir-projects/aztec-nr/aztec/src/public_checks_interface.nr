@@ -1,8 +1,8 @@
 // GENERATED FILE - DO NOT EDIT
 //
-// Written by `yarn-project/protocol-contracts/src/scripts/generate_interfaces.ts` from the compiled
+// Written by `yarn-project/canonical-contracts/src/scripts/generate_interfaces.ts` from the compiled
 // `PublicChecks` artifact. Regenerate with
-// `yarn workspace @aztec/protocol-contracts run regen:canonical-interfaces`.
+// `yarn workspace @aztec/canonical-contracts run regen:canonical-interfaces`.
 //
 // The selectors below are derived via `comptime { FunctionSelector::from_signature(...) }` at
 // Noir compile time, with the signature string emitted from the artifact's parameter list. This

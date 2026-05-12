@@ -45,14 +45,14 @@ export const AUTH_REGISTRY_INTERFACE: InterfaceSpec = {
   interfaceName: 'AuthRegistryInterface',
   artifactPath: path.join(REPO_ROOT, 'noir-projects/noir-contracts/target/auth_registry_contract-AuthRegistry.json'),
   outputPath: path.join(AZTEC_NR_SRC_DIR, 'authwit/auth_registry_interface.nr'),
-  generatorRelPath: 'yarn-project/protocol-contracts/src/scripts/generate_interfaces.ts',
+  generatorRelPath: 'yarn-project/canonical-contracts/src/scripts/generate_interfaces.ts',
 };
 
 export const PUBLIC_CHECKS_INTERFACE: InterfaceSpec = {
   interfaceName: 'PublicChecksInterface',
   artifactPath: path.join(REPO_ROOT, 'noir-projects/noir-contracts/target/public_checks_contract-PublicChecks.json'),
   outputPath: path.join(AZTEC_NR_SRC_DIR, 'public_checks_interface.nr'),
-  generatorRelPath: 'yarn-project/protocol-contracts/src/scripts/generate_interfaces.ts',
+  generatorRelPath: 'yarn-project/canonical-contracts/src/scripts/generate_interfaces.ts',
 };
 
 export const ALL_INTERFACES: InterfaceSpec[] = [AUTH_REGISTRY_INTERFACE, PUBLIC_CHECKS_INTERFACE];
@@ -279,7 +279,7 @@ export function renderInterfaceFile(spec: InterfaceSpec, artifact: NoirCompiledC
 //
 // Written by \`${spec.generatorRelPath}\` from the compiled
 // \`${artifact.name}\` artifact. Regenerate with
-// \`yarn workspace @aztec/protocol-contracts run regen:canonical-interfaces\`.
+// \`yarn workspace @aztec/canonical-contracts run regen:canonical-interfaces\`.
 //
 // The selectors below are derived via \`comptime { FunctionSelector::from_signature(...) }\` at
 // Noir compile time, with the signature string emitted from the artifact's parameter list. This

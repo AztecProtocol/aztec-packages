@@ -72,14 +72,10 @@ if (result.ok) {
   log(`All steps PASSED (${msToSecs(Date.now() - totalStart)}s total)`);
   console.log(`TEST_RESULT=pass version=${result.aztecVersion}`);
   rmSync(TMP_DIR, { recursive: true, force: true });
-  // Explicit exit fires the 'exit' handler registered in startLocalNetwork(), which SIGTERMs the
-  // long-running `aztec start --local-network` child. Without this, the child keeps Node's event
-  // loop alive — the handler never fires and the process hangs until the CI timeout cancels it.
-  process.exit(0);
 } else {
   reportFailure(result.stepName, result.aztecVersion, result.error);
   leaveTmpDirForInspection();
-  process.exit(1);
+  process.exitCode = 1;
 }
 
 async function main(): Promise<RunResult> {

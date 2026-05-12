@@ -5,7 +5,7 @@ import { promises as fs } from 'node:fs';
 import { ALL_INTERFACES, renderInterfaceFile } from './generate_interfaces.js';
 
 const REGEN_HINT =
-  'canonical interface stubs are stale; run `yarn workspace @aztec/protocol-contracts run regen:canonical-interfaces` and commit the result.';
+  'canonical interface stubs are stale; run `yarn workspace @aztec/canonical-contracts run regen:canonical-interfaces` and commit the result.';
 
 describe('canonical interface stub freshness', () => {
   for (const spec of ALL_INTERFACES) {

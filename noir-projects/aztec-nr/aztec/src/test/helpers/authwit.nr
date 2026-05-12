@@ -5,10 +5,8 @@ use crate::{
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
 };
 
-use crate::protocol::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
-    constants::CANONICAL_AUTH_REGISTRY_ADDRESS as AUTH_REGISTRY_ADDRESS, traits::ToField,
-};
+use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField};
+use canonical_addresses::AUTH_REGISTRY_ADDRESS;
 
 pub unconstrained fn add_private_authwit_from_call<let M: u32, let N: u32, T>(
     env: TestEnvironment,

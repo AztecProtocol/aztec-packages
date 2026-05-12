@@ -1,9 +1,8 @@
 use crate::authwit::auth_registry_interface::AuthRegistryInterface;
 use crate::authwit::common::{compute_inner_authwit_hash, IS_VALID_SELECTOR};
 use crate::context::PublicContext;
-use crate::protocol::{
-    address::AztecAddress, constants::CANONICAL_AUTH_REGISTRY_ADDRESS as AUTH_REGISTRY_ADDRESS, traits::ToField,
-};
+use crate::protocol::{address::AztecAddress, traits::ToField};
+use canonical_addresses::AUTH_REGISTRY_ADDRESS;
 
 /// Public-flow authwit helpers.
 ///

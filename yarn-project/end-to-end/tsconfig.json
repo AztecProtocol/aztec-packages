@@ -35,6 +35,9 @@
       "path": "../bot"
     },
     {
+      "path": "../canonical-contracts"
+    },
+    {
       "path": "../cli"
     },
     {

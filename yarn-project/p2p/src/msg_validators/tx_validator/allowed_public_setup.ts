@@ -1,5 +1,5 @@
+import { AUTH_REGISTRY_ADDRESS, AuthRegistryArtifact } from '@aztec/canonical-contracts/auth-registry';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { AuthRegistryArtifact } from '@aztec/protocol-contracts/auth-registry';
 import { FeeJuiceArtifact } from '@aztec/protocol-contracts/fee-juice';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 
@@ -12,12 +12,12 @@ export async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[
   if (defaultAllowedSetupFunctions === undefined) {
     defaultAllowedSetupFunctions = await Promise.all([
       // AuthRegistry: needed for authwit support via private path (set_authorized_private enqueues _set_authorized)
-      buildAllowedElement(AuthRegistryArtifact, { address: ProtocolContractAddress.AuthRegistry }, '_set_authorized', {
+      buildAllowedElement(AuthRegistryArtifact, { address: AUTH_REGISTRY_ADDRESS }, '_set_authorized', {
         onlySelf: true,
         rejectNullMsgSender: true,
       }),
       // AuthRegistry: needed for authwit support via public path (PublicFeePaymentMethod calls set_authorized directly)
-      buildAllowedElement(AuthRegistryArtifact, { address: ProtocolContractAddress.AuthRegistry }, 'set_authorized', {
+      buildAllowedElement(AuthRegistryArtifact, { address: AUTH_REGISTRY_ADDRESS }, 'set_authorized', {
         rejectNullMsgSender: true,
       }),
       // FeeJuice: needed for claiming on the same tx as a spend (claim_and_end_setup enqueues this)

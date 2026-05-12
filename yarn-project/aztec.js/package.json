@@ -94,6 +94,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/canonical-contracts": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",
@@ -101,7 +102,7 @@
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
-    "axios": "^1.15.1",
+    "axios": "^1.13.5",
     "tslib": "^2.4.0",
     "viem": "npm:@aztec/viem@2.38.2",
     "zod": "^3.23.8"

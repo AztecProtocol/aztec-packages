@@ -14,4 +14,4 @@ pub mod deployment;
 pub mod note;
 pub mod nullifier;
 pub mod storage;
-pub(crate) mod test;
+mod test;
