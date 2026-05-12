@@ -16,6 +16,7 @@ import {
   GasSettings,
 } from '@aztec/stdlib/gas';
 
+import { jest } from '@jest/globals';
 import { inspect } from 'util';
 
 import { FeesTest } from './fees_test.js';
@@ -48,9 +49,11 @@ function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<vo
   });
 }
 
-// TODO(kill-non-pipelined): gas estimation flow asserts maxFeesPerGas vs gasFees against a snapshot
-// captured before the pipelined fee-asset price modifier evolves; needs re-grounding under pipelining.
-describe.skip('e2e_fees gas_estimation', () => {
+describe('e2e_fees gas_estimation', () => {
+  // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run
+  // at the pipelined cadence, exceeding the default 5 min hook window.
+  jest.setTimeout(900_000);
+
   let wallet: Wallet;
   let aliceAddress: AztecAddress;
   let bobAddress: AztecAddress;
@@ -142,7 +145,11 @@ describe.skip('e2e_fees gas_estimation', () => {
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 
-  it('estimates gas with public payment method', async () => {
+  // TODO(kill-non-pipelined): gas estimation snapshot for public payment method races with the
+  // pipelined fee-asset price modifier — the simulated maxFeesPerGas captured pre-tx is stale by
+  // the time the tx is included, causing `maxFeesPerGas < gasFees` rejections. Needs re-grounding
+  // against the actual committed gasFees at inclusion. The other two estimation tests pass.
+  it.skip('estimates gas with public payment method', async () => {
     const gasSettingsForEstimation = new GasSettings(
       new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
       new Gas(GAS_ESTIMATION_TEARDOWN_DA_GAS_LIMIT, GAS_ESTIMATION_TEARDOWN_L2_GAS_LIMIT),
