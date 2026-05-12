@@ -1307,14 +1307,13 @@ fn handle_black_box_function(
 
         BlackBoxOp::MultiScalarMul { points, scalars, outputs } => {
             // The length of the scalars vector is 2x the length of the points vector due to limb
-            // decomposition
-            // Output array is fixed to 3
+            // decomposition. Points are (x, y); the point at infinity is encoded as (0, 0).
             assert_eq!(
                 outputs.size,
-                SemiFlattenedLength(3),
-                "Output array size must be equal to 3"
+                SemiFlattenedLength(2),
+                "Output array size must be equal to 2"
             );
-            assert_eq!(points.size.0 % 3, 0, "Points array size must be divisible by 3");
+            assert_eq!(points.size.0 % 2, 0, "Points array size must be divisible by 2");
 
             avm_instrs.push(generate_mov_to_procedure(&points.pointer, 0));
             avm_instrs.push(generate_mov_to_procedure(&scalars.pointer, 1));
