@@ -258,4 +258,29 @@ describe('Logs', () => {
       expect(allTags.size).toBe(tx1NumLogs + tx2NumLogs);
     });
   });
+
+  describe('tagging cache reconciliation against kernel squashing', () => {
+    // Regression test for https://github.com/AztecProtocol/aztec-packages/issues/22949.
+    //
+    // The PXE's tagging cache reserves an index for every log emission attempted during private execution, but the
+    // kernel may then squash some of those logs (e.g. when a note is created and nullified in the same tx, taking
+    // its delivery log with it). The PXE must reconcile the recorded ranges against the kernel's surviving private
+    // logs before persisting them, otherwise a subsequent tx sharing the same tagging secret hits a
+    // `Conflicting range` error when its tagging sync re-derives the range from on-chain data and notices a mismatch.
+    it('does not throw `Conflicting range` across consecutive squashing txs sharing a tagging secret', async () => {
+      // Each call reserves two indexes for the (sender, sender, contract) tagging secret and squashes the first
+      // delivery's (note, nullifier, log) triple. Pre-fix, the second call's tagging sync would observe that the
+      // first tx had recorded `[N, N+1]` while only `[N+1]` actually landed on chain, and throw.
+      // Using `account1Address` for both sender and recipient mirrors the original repro from #22949
+      // (`transfer_private_to_public(self, self, ...)`) and keeps the note's owner accessible from the wallet for
+      // in-tx nullification.
+      await testLogContract.methods
+        .deliver_squashed_and_surviving_notes(account1Address)
+        .send({ from: account1Address });
+
+      await testLogContract.methods
+        .deliver_squashed_and_surviving_notes(account1Address)
+        .send({ from: account1Address });
+    });
+  });
 });

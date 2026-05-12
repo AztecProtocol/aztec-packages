@@ -556,7 +556,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       return avmProof;
     };
-    return await this.runInDirectory(operation);
+    return await this.runInTempDirectory(operation);
   }
 
   /**
@@ -618,7 +618,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         proof,
       };
     };
-    return await this.runInDirectory(operation);
+    return await this.runInTempDirectory(operation);
   }
 
   /**
@@ -628,20 +628,27 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    */
   public async verifyProof(circuitType: ServerProtocolArtifact, proof: Proof) {
     const verificationKey = this.getVerificationKeyDataForCircuit(circuitType);
-    return await this.verifyInternal(proof, verificationKey, (proofPath, vkPath) =>
+    return await this.verifyInternal(proof, verificationKey, (proofPath, vkPath, _bbWorkingDirectory) =>
       verifyProof(this.config.bbBinaryPath, proofPath, vkPath, getUltraHonkFlavorForCircuit(circuitType), logger),
     );
   }
 
   public async verifyAvmProof(proof: Proof, publicInputs: AvmCircuitPublicInputs) {
-    return await this.verifyInternal(proof, /*verificationKey=*/ undefined, (proofPath, /*unused*/ _vkPath) =>
-      verifyAvmProof(this.config.bbBinaryPath, this.config.bbWorkingDirectory, proofPath, publicInputs, logger),
+    return await this.verifyInternal(
+      proof,
+      /*verificationKey=*/ undefined,
+      (proofPath, /*unused*/ _vkPath, bbWorkingDirectory) =>
+        verifyAvmProof(this.config.bbBinaryPath, bbWorkingDirectory, proofPath, publicInputs, logger),
     );
   }
   private async verifyInternal(
     proof: Proof,
     verificationKey: { keyAsBytes: Buffer } | undefined,
-    verificationFunction: (proofPath: string, vkPath: string) => Promise<BBFailure | BBSuccess>,
+    verificationFunction: (
+      proofPath: string,
+      vkPath: string,
+      bbWorkingDirectory: string,
+    ) => Promise<BBFailure | BBSuccess>,
   ) {
     const operation = async (bbWorkingDirectory: string) => {
       const publicInputsFileName = path.join(bbWorkingDirectory, PUBLIC_INPUTS_FILENAME);
@@ -654,7 +661,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
       }
 
-      const result = await verificationFunction(proofFileName, verificationKeyPath);
+      const result = await verificationFunction(proofFileName, verificationKeyPath, bbWorkingDirectory);
 
       if (result.status === BB_RESULT.FAILURE) {
         const errorMessage = `Failed to verify proof from key!`;
@@ -664,7 +671,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       logger.info(`Successfully verified proof from key in ${result.durationMs} ms`);
     };
 
-    await this.runInDirectory(operation);
+    await this.runInTempDirectory(operation);
   }
 
   /**
@@ -703,7 +710,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return new RecursiveProof(proofFieldsPadded, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   }
 
-  private runInDirectory<T>(fn: (dir: string) => Promise<T>) {
+  private runInTempDirectory<T>(fn: (dir: string) => Promise<T>) {
+    // Runs the given function in a temporary directory underneath the BB working directory.
     return runInDirectory(
       this.config.bbWorkingDirectory,
       (dir: string) =>
