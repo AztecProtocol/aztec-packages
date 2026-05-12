@@ -40,17 +40,16 @@ impl AddressBook {
     /// Resolve an alias like `accounts:test0` or `contracts:test0` to a hex
     /// address.  Non-alias strings (plain numbers, hex addresses) pass through.
     fn resolve(&self, alias: &str) -> String {
-        if let Some(rest) = alias.strip_prefix("accounts:test") {
-            if let Ok(id) = rest.parse::<usize>() {
-                if let Some(addr) = self.accounts.get(id) {
-                    return addr.clone();
-                }
-            }
+        if let Some(rest) = alias.strip_prefix("accounts:test")
+            && let Ok(id) = rest.parse::<usize>()
+            && let Some(addr) = self.accounts.get(id)
+        {
+            return addr.clone();
         }
-        if let Some(name) = alias.strip_prefix("contracts:") {
-            if let Some(info) = self.contracts.get(name) {
-                return info.address.clone();
-            }
+        if let Some(name) = alias.strip_prefix("contracts:")
+            && let Some(info) = self.contracts.get(name)
+        {
+            return info.address.clone();
         }
         alias.to_string()
     }

@@ -297,20 +297,20 @@ impl Batchable for SideEffectCommand {
         }
 
         // Same (slot, owner) pair -> conflict.
-        if let (Some(a), Some(b)) = (self.slot_owner(), other.slot_owner()) {
-            if a == b {
-                return true;
-            }
+        if let (Some(a), Some(b)) = (self.slot_owner(), other.slot_owner())
+            && a == b
+        {
+            return true;
         }
 
         // Same nullifier value -> conflict (EmitNullifier(x) vs EmitNullifier(x)
         // or TestNullifierInclusion(x)). Conservative: Test could in principle
         // batch after Emit, but we don't model the ordering -- the cost is just
         // smaller batches, not correctness.
-        if let (Some(a), Some(b)) = (self.nullifier_val(), other.nullifier_val()) {
-            if a == b {
-                return true;
-            }
+        if let (Some(a), Some(b)) = (self.nullifier_val(), other.nullifier_val())
+            && a == b
+        {
+            return true;
         }
 
         false
@@ -663,12 +663,12 @@ impl<'a> smt::StateMachine for SideEffectMachine<'a> {
                 ..
             } => {
                 let key = (*storage_slot, *owner);
-                if let Some(notes) = state.active_notes.get_mut(&key) {
-                    if !notes.is_empty() {
-                        // Contract sorts by value ASC, destroys get(0) (smallest).
-                        let value = notes.remove(0);
-                        state.destroyed_notes.entry(key).or_default().push(value);
-                    }
+                if let Some(notes) = state.active_notes.get_mut(&key)
+                    && !notes.is_empty()
+                {
+                    // Contract sorts by value ASC, destroys get(0) (smallest).
+                    let value = notes.remove(0);
+                    state.destroyed_notes.entry(key).or_default().push(value);
                 }
             }
             EmitNullifier { nullifier, .. } => {
