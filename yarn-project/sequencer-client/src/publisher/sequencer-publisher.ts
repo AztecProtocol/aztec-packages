@@ -56,7 +56,7 @@ import {
 
 import type { SequencerPublisherConfig } from './config.js';
 import { type FailedL1Tx, type L1TxFailedStore, createL1TxFailedStore } from './l1_tx_failed_store/index.js';
-import { SequencerBundleSimulator } from './sequencer-bundle-simulator.js';
+import { type DroppedRequest, SequencerBundleSimulator } from './sequencer-bundle-simulator.js';
 import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 
 /**
@@ -440,6 +440,7 @@ export class SequencerPublisher {
       const bundleResult = await this.bundleSimulator.simulate(validRequests, currentL2Slot);
 
       if (bundleResult.kind === 'aborted') {
+        this.logDroppedInSim(bundleResult.droppedRequests);
         void this.backupDroppedInSim(bundleResult.droppedRequests);
         return undefined;
       }
@@ -452,6 +453,8 @@ export class SequencerPublisher {
               gasLimit: MAX_L1_TX_LIMIT,
             }
           : bundleResult;
+
+      this.logDroppedInSim(droppedRequests);
 
       // Compute blobConfig from survivors (not original validRequests) so that if the propose
       // entry was dropped by bundleSimulate we don't attach a blob-typed config to a non-blob tx.
@@ -467,7 +470,7 @@ export class SequencerPublisher {
         return undefined;
       }
       const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(requests, result);
-      const allFailedActions = [...failedActions, ...droppedRequests.map(r => r.action)];
+      const allFailedActions = [...failedActions, ...droppedRequests.map(d => d.request.action)];
       return {
         result,
         expiredActions,
@@ -491,13 +494,24 @@ export class SequencerPublisher {
     }
   }
 
+  /** Logs entries dropped by bundle simulation as warnings on the publisher's logger. */
+  private logDroppedInSim(dropped: DroppedRequest[]): void {
+    for (const drop of dropped) {
+      this.log.warn('Bundle entry dropped: action reverted in sim', {
+        action: drop.request.action,
+        revertReason: drop.revertReason ?? drop.returnData,
+        returnData: drop.returnData,
+      });
+    }
+  }
+
   /** Backs up entries dropped by bundle simulation, one record per dropped action. */
-  private async backupDroppedInSim(dropped: RequestWithExpiry[]): Promise<void> {
+  private async backupDroppedInSim(dropped: DroppedRequest[]): Promise<void> {
     if (dropped.length === 0) {
       return;
     }
     const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-    for (const req of dropped) {
+    for (const { request: req } of dropped) {
       this.backupFailedTx({
         id: keccak256(req.request.data!),
         failureType: 'simulation',

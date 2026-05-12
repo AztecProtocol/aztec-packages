@@ -10,6 +10,13 @@ import type { Hex, StateOverride } from 'viem';
 
 import type { RequestWithExpiry } from './sequencer-publisher.js';
 
+/** A request that was dropped by bundle simulation, with the decoded revert reason. */
+export type DroppedRequest = {
+  request: RequestWithExpiry;
+  revertReason: string | undefined;
+  returnData: Hex | undefined;
+};
+
 /**
  * Result of {@link SequencerBundleSimulator.simulate}.
  *
@@ -25,14 +32,14 @@ import type { RequestWithExpiry } from './sequencer-publisher.js';
  *   when the abort was caused by an empty input bundle.
  */
 export type BundleSimulateResult =
-  | { kind: 'success'; requests: RequestWithExpiry[]; gasLimit: bigint; droppedRequests: RequestWithExpiry[] }
-  | { kind: 'fallback'; requests: RequestWithExpiry[]; droppedRequests: RequestWithExpiry[] }
-  | { kind: 'aborted'; reason: AbortReason; droppedRequests: RequestWithExpiry[] };
+  | { kind: 'success'; requests: RequestWithExpiry[]; gasLimit: bigint; droppedRequests: DroppedRequest[] }
+  | { kind: 'fallback'; requests: RequestWithExpiry[]; droppedRequests: DroppedRequest[] }
+  | { kind: 'aborted'; reason: AbortReason; droppedRequests: DroppedRequest[] };
 
 export type AbortReason = 'empty-bundle' | 'all-reverted' | 'second-pass-reverts';
 
 type SimulatePassResult =
-  | { kind: 'decoded'; survivors: RequestWithExpiry[]; droppedRequests: RequestWithExpiry[]; gasUsed: bigint }
+  | { kind: 'decoded'; survivors: RequestWithExpiry[]; droppedRequests: DroppedRequest[]; gasUsed: bigint }
   | { kind: 'fallback' };
 
 /**
@@ -103,7 +110,7 @@ export class SequencerBundleSimulator {
       this.log.warn('All bundle entries dropped in simulation; aborting send', {
         actions: validRequests.map(r => r.action),
       });
-      return { kind: 'aborted', reason: 'all-reverted', droppedRequests: validRequests };
+      return { kind: 'aborted', reason: 'all-reverted', droppedRequests: firstPass.droppedRequests };
     }
 
     if (firstPass.droppedRequests.length === 0) {
@@ -111,7 +118,7 @@ export class SequencerBundleSimulator {
     }
 
     this.log.warn('Some bundle entries reverted; re-simulating reduced bundle', {
-      droppedActions: firstPass.droppedRequests.map(r => r.action),
+      droppedActions: firstPass.droppedRequests.map(d => d.request.action),
       remainingActions: firstPass.survivors.map(r => r.action),
     });
 
@@ -130,7 +137,7 @@ export class SequencerBundleSimulator {
         'Bundle simulate errored on second pass (eth_simulateV1 unavailable); sending first-pass survivors as-is',
         {
           actions: firstPass.survivors.map(r => r.action),
-          droppedActions: firstPass.droppedRequests.map(r => r.action),
+          droppedActions: firstPass.droppedRequests.map(d => d.request.action),
         },
       );
       return { kind: 'fallback', requests: firstPass.survivors, droppedRequests: firstPass.droppedRequests };
@@ -139,7 +146,7 @@ export class SequencerBundleSimulator {
     // We refuse to chase reverts through repeated trimming: anything other than a clean second pass aborts the whole send
     if (secondPass.droppedRequests.length > 0) {
       this.log.error('Re-simulate surfaced reverts; aborting send', {
-        secondPassDroppedActions: secondPass.droppedRequests.map(r => r.action),
+        secondPassDroppedActions: secondPass.droppedRequests.map(d => d.request.action),
       });
       return {
         kind: 'aborted',
@@ -160,7 +167,7 @@ export class SequencerBundleSimulator {
   private buildSuccessResult(
     l1TxUtils: L1TxUtils,
     survivors: RequestWithExpiry[],
-    droppedRequests: RequestWithExpiry[],
+    droppedRequests: DroppedRequest[],
     bundleGasUsed: bigint,
     proposeRequest: RequestWithExpiry | undefined,
   ): BundleSimulateResult {
@@ -228,17 +235,16 @@ export class SequencerBundleSimulator {
     }
 
     const survivors: RequestWithExpiry[] = [];
-    const droppedRequests: RequestWithExpiry[] = [];
+    const droppedRequests: DroppedRequest[] = [];
     for (let i = 0; i < requests.length; i++) {
       const entry = simResult.entries[i];
       if (entry.success) {
         survivors.push(requests[i]);
         continue;
       }
-      droppedRequests.push(requests[i]);
-      this.log.warn('Bundle entry dropped: action reverted in sim', {
-        action: requests[i].action,
-        revertReason: entry.revertReason ?? entry.returnData,
+      droppedRequests.push({
+        request: requests[i],
+        revertReason: entry.revertReason,
         returnData: entry.returnData,
       });
     }
