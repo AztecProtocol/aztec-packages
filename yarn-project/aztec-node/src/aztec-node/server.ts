@@ -39,7 +39,7 @@ import {
   SequencerClient,
   type SequencerPublisher,
 } from '@aztec/sequencer-client';
-import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   EpochPruneWatcher,
@@ -1496,7 +1496,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
         }),
       });
-      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
+      const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
+      if (overrides?.contracts) {
+        contractsDB.addContracts(Object.values(overrides.contracts).map(({ instance }) => instance));
+      }
+      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config, contractsDB);
 
       // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
       const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);

@@ -29,7 +29,10 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
     virtual SelectorType& q_memory() { return this->zero_selectors[5]; };
     virtual SelectorType& q_nnf() { return this->zero_selectors[6]; };
     virtual SelectorType& q_poseidon2_external() { return this->zero_selectors[7]; };
-    virtual SelectorType& q_poseidon2_internal() { return this->zero_selectors[8]; };
+    virtual SelectorType& q_poseidon2_external_initial() { return this->zero_selectors[8]; };
+    virtual SelectorType& q_poseidon2_quad_internal() { return this->zero_selectors[9]; };
+    virtual SelectorType& q_poseidon2_quad_internal_terminal() { return this->zero_selectors[10]; };
+    virtual SelectorType& q_poseidon2_transition_entry() { return this->zero_selectors[11]; };
 
     virtual const SelectorType& q_busread() const { return this->zero_selectors[0]; };
     virtual const SelectorType& q_lookup() const { return this->zero_selectors[1]; };
@@ -39,7 +42,10 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
     virtual const SelectorType& q_memory() const { return this->zero_selectors[5]; };
     virtual const SelectorType& q_nnf() const { return this->zero_selectors[6]; };
     virtual const SelectorType& q_poseidon2_external() const { return this->zero_selectors[7]; };
-    virtual const SelectorType& q_poseidon2_internal() const { return this->zero_selectors[8]; };
+    virtual const SelectorType& q_poseidon2_external_initial() const { return this->zero_selectors[8]; };
+    virtual const SelectorType& q_poseidon2_quad_internal() const { return this->zero_selectors[9]; };
+    virtual const SelectorType& q_poseidon2_quad_internal_terminal() const { return this->zero_selectors[10]; };
+    virtual const SelectorType& q_poseidon2_transition_entry() const { return this->zero_selectors[11]; };
 
     RefVector<SelectorType> get_gate_selectors()
     {
@@ -52,7 +58,10 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
             q_memory(),
             q_nnf(),
             q_poseidon2_external(),
-            q_poseidon2_internal(),
+            q_poseidon2_external_initial(),
+            q_poseidon2_quad_internal(),
+            q_poseidon2_quad_internal_terminal(),
+            q_poseidon2_transition_entry(),
         };
     }
 
@@ -65,6 +74,7 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
             q_2(),
             q_3(),
             q_4(),
+            q_5(),
             q_busread(),
             q_lookup(),
             q_arith(),
@@ -73,7 +83,10 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
             q_memory(),
             q_nnf(),
             q_poseidon2_external(),
-            q_poseidon2_internal(),
+            q_poseidon2_external_initial(),
+            q_poseidon2_quad_internal(),
+            q_poseidon2_quad_internal_terminal(),
+            q_poseidon2_transition_entry(),
         };
     }
 
@@ -99,7 +112,7 @@ class MegaTraceBlock : public ExecutionTraceBlock<fr, /*NUM_WIRES_ */ 4> {
     virtual void set_gate_selector([[maybe_unused]] const fr& value) {}
 
   private:
-    std::array<ZeroSelector<fr>, 9> zero_selectors;
+    std::array<ZeroSelector<fr>, 12> zero_selectors;
 };
 
 class MegaTracePublicInputBlock : public MegaTraceBlock {};
@@ -118,7 +131,10 @@ class MegaTraceBusReadBlock : public MegaTraceBlock {
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
         q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
+        q_poseidon2_external_initial().emplace_back(0);
+        q_poseidon2_quad_internal().emplace_back(0);
+        q_poseidon2_quad_internal_terminal().emplace_back(0);
+        q_poseidon2_transition_entry().emplace_back(0);
     }
 
   private:
@@ -139,7 +155,10 @@ class MegaTraceLookupBlock : public MegaTraceBlock {
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
         q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
+        q_poseidon2_external_initial().emplace_back(0);
+        q_poseidon2_quad_internal().emplace_back(0);
+        q_poseidon2_quad_internal_terminal().emplace_back(0);
+        q_poseidon2_transition_entry().emplace_back(0);
     }
 
   private:
@@ -160,7 +179,10 @@ class MegaTraceArithmeticBlock : public MegaTraceBlock {
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
         q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
+        q_poseidon2_external_initial().emplace_back(0);
+        q_poseidon2_quad_internal().emplace_back(0);
+        q_poseidon2_quad_internal_terminal().emplace_back(0);
+        q_poseidon2_transition_entry().emplace_back(0);
     }
 
   private:
@@ -181,7 +203,10 @@ class MegaTraceDeltaRangeBlock : public MegaTraceBlock {
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
         q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
+        q_poseidon2_external_initial().emplace_back(0);
+        q_poseidon2_quad_internal().emplace_back(0);
+        q_poseidon2_quad_internal_terminal().emplace_back(0);
+        q_poseidon2_transition_entry().emplace_back(0);
     }
 
   private:
@@ -202,7 +227,10 @@ class MegaTraceEllipticBlock : public MegaTraceBlock {
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
         q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
+        q_poseidon2_external_initial().emplace_back(0);
+        q_poseidon2_quad_internal().emplace_back(0);
+        q_poseidon2_quad_internal_terminal().emplace_back(0);
+        q_poseidon2_transition_entry().emplace_back(0);
     }
 
   private:
@@ -223,7 +251,10 @@ class MegaTraceMemoryBlock : public MegaTraceBlock {
         gate_selector.emplace_back(value);
         q_nnf().emplace_back(0);
         q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
+        q_poseidon2_external_initial().emplace_back(0);
+        q_poseidon2_quad_internal().emplace_back(0);
+        q_poseidon2_quad_internal_terminal().emplace_back(0);
+        q_poseidon2_transition_entry().emplace_back(0);
     }
 
   private:
@@ -244,7 +275,10 @@ class MegaTraceNonNativeFieldBlock : public MegaTraceBlock {
         q_memory().emplace_back(0);
         gate_selector.emplace_back(value);
         q_poseidon2_external().emplace_back(0);
-        q_poseidon2_internal().emplace_back(0);
+        q_poseidon2_external_initial().emplace_back(0);
+        q_poseidon2_quad_internal().emplace_back(0);
+        q_poseidon2_quad_internal_terminal().emplace_back(0);
+        q_poseidon2_transition_entry().emplace_back(0);
     }
 
   private:
@@ -254,7 +288,11 @@ class MegaTraceNonNativeFieldBlock : public MegaTraceBlock {
 class MegaTracePoseidon2ExternalBlock : public MegaTraceBlock {
   public:
     SelectorType& q_poseidon2_external() override { return gate_selector; }
+    SelectorType& q_poseidon2_external_initial() override { return initial_selector; }
+    const SelectorType& q_poseidon2_external() const override { return gate_selector; }
+    const SelectorType& q_poseidon2_external_initial() const override { return initial_selector; }
 
+    // Activates q_poseidon2_external on the row; used for ordinary external-round rows.
     void set_gate_selector(const fr& value) override
     {
         q_busread().emplace_back(0);
@@ -265,17 +303,45 @@ class MegaTracePoseidon2ExternalBlock : public MegaTraceBlock {
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
         gate_selector.emplace_back(value);
-        q_poseidon2_internal().emplace_back(0);
+        initial_selector.emplace_back(0);
+        q_poseidon2_quad_internal().emplace_back(0);
+        q_poseidon2_quad_internal_terminal().emplace_back(0);
+        q_poseidon2_transition_entry().emplace_back(0);
+    }
+
+    // Activates q_poseidon2_external_initial on the row; used for the initial-linear-layer row
+    // sitting immediately before the first external-round row of each Poseidon2 hash.
+    void set_initial_gate_selector(const fr& value)
+    {
+        q_busread().emplace_back(0);
+        q_lookup().emplace_back(0);
+        q_arith().emplace_back(0);
+        q_delta_range().emplace_back(0);
+        q_elliptic().emplace_back(0);
+        q_memory().emplace_back(0);
+        q_nnf().emplace_back(0);
+        gate_selector.emplace_back(0);
+        initial_selector.emplace_back(value);
+        q_poseidon2_quad_internal().emplace_back(0);
+        q_poseidon2_quad_internal_terminal().emplace_back(0);
+        q_poseidon2_transition_entry().emplace_back(0);
     }
 
   private:
     SlabVectorSelector<fr> gate_selector;
+    SlabVectorSelector<fr> initial_selector;
 };
 
-class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
+class MegaTracePoseidon2QuadInternalBlock : public MegaTraceBlock {
   public:
-    SelectorType& q_poseidon2_internal() override { return gate_selector; }
+    SelectorType& q_poseidon2_quad_internal() override { return interior_selector; }
+    SelectorType& q_poseidon2_quad_internal_terminal() override { return terminal_selector; }
+    SelectorType& q_poseidon2_transition_entry() override { return entry_selector; }
+    const SelectorType& q_poseidon2_quad_internal() const override { return interior_selector; }
+    const SelectorType& q_poseidon2_quad_internal_terminal() const override { return terminal_selector; }
+    const SelectorType& q_poseidon2_transition_entry() const override { return entry_selector; }
 
+    // Activates q_poseidon2_quad_internal on the row; used for interior compressed rows.
     void set_gate_selector(const fr& value) override
     {
         q_busread().emplace_back(0);
@@ -286,11 +352,50 @@ class MegaTracePoseidon2InternalBlock : public MegaTraceBlock {
         q_memory().emplace_back(0);
         q_nnf().emplace_back(0);
         q_poseidon2_external().emplace_back(0);
-        gate_selector.emplace_back(value);
+        q_poseidon2_external_initial().emplace_back(0);
+        interior_selector.emplace_back(value);
+        terminal_selector.emplace_back(0);
+        entry_selector.emplace_back(0);
+    }
+
+    // Activates q_poseidon2_quad_internal_terminal on the row; used for the terminal compressed row.
+    void set_terminal_gate_selector(const fr& value)
+    {
+        q_busread().emplace_back(0);
+        q_lookup().emplace_back(0);
+        q_arith().emplace_back(0);
+        q_delta_range().emplace_back(0);
+        q_elliptic().emplace_back(0);
+        q_memory().emplace_back(0);
+        q_nnf().emplace_back(0);
+        q_poseidon2_external().emplace_back(0);
+        q_poseidon2_external_initial().emplace_back(0);
+        interior_selector.emplace_back(0);
+        terminal_selector.emplace_back(value);
+        entry_selector.emplace_back(0);
+    }
+
+    // Activates q_poseidon2_transition_entry on the row; used for the standard->compressed entry row.
+    void set_entry_gate_selector(const fr& value)
+    {
+        q_busread().emplace_back(0);
+        q_lookup().emplace_back(0);
+        q_arith().emplace_back(0);
+        q_delta_range().emplace_back(0);
+        q_elliptic().emplace_back(0);
+        q_memory().emplace_back(0);
+        q_nnf().emplace_back(0);
+        q_poseidon2_external().emplace_back(0);
+        q_poseidon2_external_initial().emplace_back(0);
+        interior_selector.emplace_back(0);
+        terminal_selector.emplace_back(0);
+        entry_selector.emplace_back(value);
     }
 
   private:
-    SlabVectorSelector<fr> gate_selector;
+    SlabVectorSelector<fr> interior_selector;
+    SlabVectorSelector<fr> terminal_selector;
+    SlabVectorSelector<fr> entry_selector;
 };
 
 /**
@@ -318,14 +423,23 @@ struct MegaTraceBlockData {
     MegaTraceMemoryBlock memory;
     MegaTraceNonNativeFieldBlock nnf;
     MegaTracePoseidon2ExternalBlock poseidon2_external;
-    MegaTracePoseidon2InternalBlock poseidon2_internal;
+    MegaTracePoseidon2QuadInternalBlock poseidon2_quad_internal;
 
     static constexpr size_t NUM_BLOCKS = 11;
 
     std::vector<std::string_view> get_labels() const
     {
-        return { "ecc_op",   "busread", "lookup", "pub_inputs",         "arithmetic",        "delta_range",
-                 "elliptic", "memory",  "nnf",    "poseidon2_external", "poseidon2_internal" };
+        return { "ecc_op",
+                 "busread",
+                 "lookup",
+                 "pub_inputs",
+                 "arithmetic",
+                 "delta_range",
+                 "elliptic",
+                 "memory",
+                 "nnf",
+                 "poseidon2_external",
+                 "poseidon2_quad_internal" };
     }
 
     auto get()
@@ -340,7 +454,7 @@ struct MegaTraceBlockData {
                                                                  &memory,
                                                                  &nnf,
                                                                  &poseidon2_external,
-                                                                 &poseidon2_internal });
+                                                                 &poseidon2_quad_internal });
     }
 
     auto get() const
@@ -355,12 +469,15 @@ struct MegaTraceBlockData {
                                                                        &memory,
                                                                        &nnf,
                                                                        &poseidon2_external,
-                                                                       &poseidon2_internal });
+                                                                       &poseidon2_quad_internal });
     }
 
     auto get_gate_blocks() const
     {
-        return RefArray(std::array<const MegaTraceBlock*, 9>{
+        // Order must match get_gate_selectors() in MegaFlavor: poseidon2_external appears twice
+        // (regular + initial) and poseidon2_quad_internal appears three times (interior /
+        // terminal / entry).
+        return RefArray(std::array<const MegaTraceBlock*, 12>{
             &busread,
             &lookup,
             &arithmetic,
@@ -368,8 +485,11 @@ struct MegaTraceBlockData {
             &elliptic,
             &memory,
             &nnf,
-            &poseidon2_external,
-            &poseidon2_internal,
+            &poseidon2_external,      // q_poseidon2_external
+            &poseidon2_external,      // q_poseidon2_external_initial
+            &poseidon2_quad_internal, // q_poseidon2_quad_internal
+            &poseidon2_quad_internal, // q_poseidon2_quad_internal_terminal
+            &poseidon2_quad_internal, // q_poseidon2_transition_entry
         });
     }
 
@@ -406,7 +526,7 @@ class MegaExecutionTraceBlocks : public MegaTraceBlockData {
         info("memory        :\t", this->memory.size());
         info("nnf           :\t", this->nnf.size());
         info("poseidon ext  :\t", this->poseidon2_external.size());
-        info("poseidon int  :\t", this->poseidon2_internal.size());
+        info("poseidon quad :\t", this->poseidon2_quad_internal.size());
         info("");
         info("Total size: ", get_total_size());
     }

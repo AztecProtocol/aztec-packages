@@ -83,6 +83,24 @@ const result = await contract.methods.read_balance(account).simulate({
 
 Use this to set up state preconditions, reproduce production bugs against pinned storage, or exercise rare value branches without orchestrating the contract calls that produce them.
 
+### Fast-forwarding a contract update
+
+`fastForwardContractUpdate` returns a `SimulationOverrides` object that simulates a deployed instance as if it had already been upgraded to a new contract class. The new class must already be registered on chain. The cheat mirrors a real `pxe.updateContract` followed by waiting out the upgrade delay: the instance's `currentContractClassId` is bumped, and the `ContractInstanceRegistry`'s delayed-public-mutable storage is rewritten to look like the upgrade was scheduled in the past.
+
+```typescript
+import { fastForwardContractUpdate } from '@aztec/aztec.js';
+
+const overrides = await fastForwardContractUpdate({
+  instanceAddress: contract.address,
+  newClassId: upgradedClass.id,
+  node,
+});
+
+const result = await contract.methods.upgraded_method().simulate({ overrides });
+```
+
+Use this to test code paths that only execute after an upgrade, without orchestrating the full delayed-mutable upgrade flow.
+
 ## Further reading
 
 - [How to read contract data](./how_to_read_data.md)
