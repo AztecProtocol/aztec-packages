@@ -32,6 +32,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import {
   type GetCodeReturnType,
   type GetTransactionReceiptReturnType,
+  type Hex,
   type PrivateKeyAccount,
   type TransactionReceipt,
   encodeFunctionData,
@@ -239,6 +240,7 @@ describe('SequencerPublisher', () => {
     forwardSpy.mockResolvedValue({
       receipt: proposeTxReceipt,
       errorMsg: undefined,
+      multicallData: '0x',
     });
 
     await publisher.sendRequests();
@@ -301,6 +303,7 @@ describe('SequencerPublisher', () => {
     forwardSpy.mockRejectedValueOnce(new Error()).mockResolvedValueOnce({
       receipt: proposeTxReceipt,
       errorMsg: undefined,
+      multicallData: '0x',
     });
 
     await publisher.enqueueProposeCheckpoint(
@@ -368,7 +371,7 @@ describe('SequencerPublisher', () => {
     it('rotates to next publisher when forward throws and retries successfully', async () => {
       forwardSpy
         .mockRejectedValueOnce(new Error('RPC error'))
-        .mockResolvedValueOnce({ receipt: proposeTxReceipt, errorMsg: undefined });
+        .mockResolvedValueOnce({ receipt: proposeTxReceipt, errorMsg: undefined, multicallData: '0x' });
       getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
 
       await rotatingPublisher.enqueueProposeCheckpoint(
@@ -482,7 +485,11 @@ describe('SequencerPublisher', () => {
     });
 
     it('does not rotate when forward returns a revert (on-chain failure)', async () => {
-      forwardSpy.mockResolvedValue({ receipt: { ...proposeTxReceipt, status: 'reverted' }, errorMsg: 'revert reason' });
+      forwardSpy.mockResolvedValue({
+        receipt: { ...proposeTxReceipt, status: 'reverted' },
+        errorMsg: 'revert reason',
+        multicallData: '0x',
+      });
 
       await rotatingPublisher.enqueueProposeCheckpoint(
         new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
@@ -600,7 +607,7 @@ describe('SequencerPublisher', () => {
         .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
         .mockResolvedValueOnce({ gasUsed: 300_000n, result: secondResult });
 
-      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, errorMsg: undefined });
+      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, errorMsg: undefined, multicallData: '0x' });
 
       const result = await publisher.sendRequests();
 
@@ -611,7 +618,7 @@ describe('SequencerPublisher', () => {
       expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
     });
 
-    it('aborts the send when second-pass simulate returns fallback', async () => {
+    it('sends the full bundle blindly when second-pass simulate returns fallback', async () => {
       addTwoRequests();
 
       // First simulate: propose fails.
@@ -623,15 +630,20 @@ describe('SequencerPublisher', () => {
           { success: false, returnData: '0x' },
         ],
       });
-      // Second simulate: fallback (eth_simulateV1 not supported).
+      // Second simulate: fallback (eth_simulateV1 not supported on the reduced bundle).
       (l1TxUtils as any).simulate
         .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
         .mockResolvedValueOnce({ gasUsed: 1_000_000n, result: '0x' });
 
+      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, errorMsg: undefined, multicallData: '0x' });
+
       const result = await publisher.sendRequests();
 
-      expect(result).toBeUndefined();
-      expect(forwardSpy).not.toHaveBeenCalled();
+      // Fallback → caller sends the whole validRequests set with MAX_L1_TX_LIMIT.
+      expect(result).toBeDefined();
+      expect(result?.sentActions).toEqual(['invalidate-by-invalid-attestation', 'propose']);
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+      expect(forwardSpy.mock.calls[0][2]?.gasLimit).toEqual(MAX_L1_TX_LIMIT);
       expect(l1TxUtils.simulate).toHaveBeenCalledTimes(2);
     });
   });
@@ -640,6 +652,7 @@ describe('SequencerPublisher', () => {
     forwardSpy.mockResolvedValue({
       receipt: { ...proposeTxReceipt, status: 'reverted' },
       errorMsg: 'Test error',
+      multicallData: '0x',
     });
 
     await publisher.enqueueProposeCheckpoint(
@@ -660,10 +673,16 @@ describe('SequencerPublisher', () => {
   it('does not send requests if interrupted', async () => {
     forwardSpy.mockImplementationOnce(
       () =>
-        sleep(10, { receipt: proposeTxReceipt, gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n } }) as Promise<{
+        sleep(10, {
+          receipt: proposeTxReceipt,
+          gasPrice: { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n },
+          errorMsg: undefined,
+          multicallData: '0x',
+        }) as Promise<{
           receipt: TransactionReceipt;
           gasPrice: GasPrice;
           errorMsg: undefined;
+          multicallData: Hex;
         }>,
     );
     await publisher.enqueueProposeCheckpoint(
@@ -741,6 +760,7 @@ describe('SequencerPublisher', () => {
     forwardSpy.mockResolvedValue({
       receipt: proposeTxReceipt,
       errorMsg: undefined,
+      multicallData: '0x',
     });
 
     await publisher.sendRequests();

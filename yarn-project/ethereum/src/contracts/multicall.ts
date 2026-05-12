@@ -219,7 +219,7 @@ export class Multicall3 {
 
       if (receipt.status === 'success') {
         const stats = await l1TxUtils.getTransactionStats(receipt.transactionHash);
-        return { receipt, stats };
+        return { receipt, stats, multicallData: encodedForwarderData };
       } else {
         logger.error('Forwarder transaction failed', undefined, { receipt });
 
@@ -262,7 +262,7 @@ export class Multicall3 {
           errorMsg = await l1TxUtils.tryGetErrorFromRevertedTx(encodedForwarderData, args, undefined, []);
         }
 
-        return { receipt, errorMsg };
+        return { receipt, errorMsg, multicallData: encodedForwarderData };
       }
     } catch (err) {
       if (err instanceof TimeoutError) {
@@ -291,7 +291,10 @@ export class Multicall3 {
             data: request.data,
           });
 
-          return result;
+          // Attach multicallData so the publisher's failure-backup path has the same context as
+          // the success/revert paths. FormattedViemError is the only non-thrown error return.
+          (result as FormattedViemError & { multicallData: Hex }).multicallData = encodedForwarderData;
+          return result as FormattedViemError & { multicallData: Hex };
         }
       }
       logger.warn('Failed to get error from reverted tx', { err });

@@ -695,6 +695,7 @@ describe('CheckpointVoter HA Integration', () => {
           logs: [],
         } as any,
         errorMsg: undefined,
+        multicallData: '0x',
       });
 
       // Each node enqueues their respective votes

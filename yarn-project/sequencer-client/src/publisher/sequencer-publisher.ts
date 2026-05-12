@@ -50,7 +50,6 @@ import {
   type TypedDataDefinition,
   encodeFunctionData,
   keccak256,
-  multicall3Abi,
   toHex,
 } from 'viem';
 
@@ -155,9 +154,6 @@ export class SequencerPublisher {
   public epochCache: EpochCache;
   private failedTxStore?: Promise<L1TxFailedStore | undefined>;
 
-  protected governanceLog = createLogger('sequencer:publisher:governance');
-  protected slashingLog = createLogger('sequencer:publisher:slashing');
-
   protected lastActions: Partial<Record<Action, SlotNumber>> = {};
 
   protected log: Logger;
@@ -239,7 +235,7 @@ export class SequencerPublisher {
       this.l1FeeAnalyzer = new L1FeeAnalyzer(
         this.l1TxUtils.client,
         deps.dateProvider,
-        createLogger('sequencer:publisher:fee-analyzer'),
+        this.log.createChild('fee-analyzer'),
       );
     }
 
@@ -247,7 +243,7 @@ export class SequencerPublisher {
     this.feeAssetPriceOracle = new FeeAssetPriceOracle(
       this.l1TxUtils.client,
       this.rollupContract,
-      createLogger('sequencer:publisher:price-oracle'),
+      this.log.createChild('price-oracle'),
     );
 
     // Initialize failed L1 tx store (optional, for test networks)
@@ -257,7 +253,7 @@ export class SequencerPublisher {
       getL1TxUtils: () => this.l1TxUtils,
       rollupContract: this.rollupContract,
       epochCache: this.epochCache,
-      log: createLogger('sequencer:publisher:bundle-simulator'),
+      log: this.log.createChild('bundle-simulator'),
     });
   }
 
@@ -447,66 +443,42 @@ export class SequencerPublisher {
         return undefined;
       }
 
-      let survivingRequests: RequestWithExpiry[];
-      let gasLimit: bigint;
-      let droppedInSim: RequestWithExpiry[];
-
-      if (bundleResult.kind === 'fallback') {
-        // eth_simulateV1 unavailable — send the full bundle as-is with a safe gas limit.
-        survivingRequests = validRequests;
-        gasLimit = MAX_L1_TX_LIMIT;
-        droppedInSim = [];
-      } else {
-        survivingRequests = bundleResult.requests;
-        gasLimit = bundleResult.gasLimit;
-        droppedInSim = bundleResult.droppedRequests;
-        void this.backupDroppedInSim(droppedInSim);
-      }
-
-      const sentActions = survivingRequests.map(x => x.action);
+      const { requests, droppedRequests, gasLimit } =
+        bundleResult.kind === 'fallback'
+          ? { requests: [...validRequests], droppedRequests: [], gasLimit: MAX_L1_TX_LIMIT }
+          : bundleResult;
 
       // Compute blobConfig from survivors (not original validRequests) so that if the propose
       // entry was dropped by bundleSimulate we don't attach a blob-typed config to a non-blob tx.
-      const survivorBlobConfigs = survivingRequests.filter(r => r.blobConfig).map(r => r.blobConfig);
-      if (survivorBlobConfigs.length > 1) {
-        throw new Error('Multiple blob configs found');
-      }
-      const blobConfig = survivorBlobConfigs[0];
-
+      const [blobConfig] = requests.filter(r => r.blobConfig).map(r => r.blobConfig);
       const txConfig: RequestWithExpiry['gasConfig'] = { gasLimit, txTimeoutAt };
 
-      // Capture context for failed tx backup before sending
+      // Capture L1 block number for failed-tx backup context before sending.
       const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-      const multicallData = encodeFunctionData({
-        abi: multicall3Abi,
-        functionName: 'aggregate3',
-        args: [
-          survivingRequests.map(r => ({
-            target: r.request.to!,
-            callData: r.request.data!,
-            allowFailure: true,
-          })),
-        ],
-      });
       const blobDataHex = blobConfig?.blobs?.map(b => toHex(b)) as Hex[] | undefined;
 
-      const txContext = { multicallData, blobData: blobDataHex, l1BlockNumber };
-
       this.log.debug('Forwarding transactions', {
-        survivingRequests: survivingRequests.map(request => request.action),
+        requests: requests.map(request => request.action),
         txConfig,
       });
-      const result = await this.forwardWithPublisherRotation(survivingRequests, txConfig, blobConfig);
+      const result = await this.forwardWithPublisherRotation(requests, txConfig, blobConfig);
       if (result === undefined) {
         return undefined;
       }
+      const txContext = { multicallData: result.multicallData, blobData: blobDataHex, l1BlockNumber };
       const { successfulActions = [], failedActions = [] } = this.callbackBundledTransactions(
-        survivingRequests,
+        requests,
         result,
         txContext,
       );
-      const allFailedActions = [...failedActions, ...droppedInSim.map(r => r.action)];
-      return { result, expiredActions, sentActions, successfulActions, failedActions: allFailedActions };
+      const allFailedActions = [...failedActions, ...droppedRequests.map(r => r.action)];
+      return {
+        result,
+        expiredActions,
+        sentActions: requests.map(x => x.action),
+        successfulActions,
+        failedActions: allFailedActions,
+      };
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
@@ -637,7 +609,10 @@ export class SequencerPublisher {
 
   private callbackBundledTransactions(
     requests: RequestWithExpiry[],
-    result: { receipt: TransactionReceipt; errorMsg?: string } | FormattedViemError | undefined,
+    result:
+      | { receipt: TransactionReceipt; errorMsg?: string; multicallData: Hex }
+      | (FormattedViemError & { multicallData: Hex })
+      | undefined,
     txContext: { multicallData: Hex; blobData?: Hex[]; l1BlockNumber: bigint },
   ) {
     const actionsListStr = requests.map(r => r.action).join(', ');
