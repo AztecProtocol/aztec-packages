@@ -16,14 +16,15 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
-// TODO(kill-non-pipelined): the fee-snapshot race scenarios drive an L1 fee spike via
-// `cheatCodes.rollup.bumpProvingCostPerMana`, but under pipelined proposing the sequencer has
-// already pre-built a checkpoint against the old provingCostPerMana. The bump invalidates the
-// in-flight proposal with `Rollup__InvalidManaMinFee(expected, actual)` (the block's declared
-// `gasFees.feePerL2Gas` no longer matches the L1 mana min fee), and the test's own txs get
-// dropped by P2P when the failed checkpoint is rolled back. The wallet's padding logic is
-// covered by unit tests; re-skip until we have a non-racing way to deterministically spike
-// L2 min fees mid-test.
+// TODO(kill-non-pipelined): even before the test's bumpProvingCostPerMana call, just running
+// FeesTest.setup with pipelining on triggers Rollup__InvalidManaMinFee(...) reverts on the
+// pipelined propose simulation. The natural L1 base-fee drift during the long setup chain causes
+// the predicted minFeePerL2Gas in the proposed block header to disagree with what L1 sees at the
+// moment of submission. waitForSequencerIdle before bumpProvingCostPerMana (as in
+// e2e_fees/gas_estimation) doesn't address this because the failure happens during normal setup,
+// not at the bump. The fee-asset price prediction in GlobalVariableBuilder needs to factor in the
+// pipelined parent's L1 fee header more aggressively, or the propose preCheck needs to allow a
+// short tolerance window on the min-fee. Source-level fix required.
 describe.skip('e2e_fees fee settings', () => {
   // FeesTest.setup chains many dependent txs which run at the ~24s/tx pipelined cadence,
   // exceeding the default 5 min hook window.
