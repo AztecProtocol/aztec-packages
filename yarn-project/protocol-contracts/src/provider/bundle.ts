@@ -4,7 +4,6 @@ import { ContractClassRegistryArtifact } from '../class-registry/index.js';
 import { FeeJuiceArtifact } from '../fee-juice/index.js';
 import { ContractInstanceRegistryArtifact } from '../instance-registry/index.js';
 import { makeProtocolContract } from '../make_protocol_contract.js';
-import { MultiCallEntrypointArtifact } from '../multi-call-entrypoint/index.js';
 import type { ProtocolContract } from '../protocol_contract.js';
 import type { ProtocolContractName } from '../protocol_contract_data.js';
 import type { ProtocolContractsProvider } from './protocol_contracts_provider.js';
@@ -12,7 +11,6 @@ import type { ProtocolContractsProvider } from './protocol_contracts_provider.js
 export const ProtocolContractArtifact: Record<ProtocolContractName, ContractArtifact> = {
   ContractInstanceRegistry: ContractInstanceRegistryArtifact,
   ContractClassRegistry: ContractClassRegistryArtifact,
-  MultiCallEntrypoint: MultiCallEntrypointArtifact,
   FeeJuice: FeeJuiceArtifact,
 };
 

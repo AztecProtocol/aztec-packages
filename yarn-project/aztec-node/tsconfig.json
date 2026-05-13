@@ -19,6 +19,9 @@
       "path": "../blob-lib"
     },
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../constants"
     },
     {

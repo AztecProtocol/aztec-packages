@@ -7,6 +7,9 @@
   },
   "references": [
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../constants"
     },
     {
