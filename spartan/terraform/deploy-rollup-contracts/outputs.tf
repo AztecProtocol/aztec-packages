@@ -101,16 +101,13 @@ output "zk_passport_verifier_address" {
 
 output "docker_image_used" {
   description = "Docker image that was used for the deployment"
-  value       = var.AZTEC_DOCKER_IMAGE
+  value       = var.deploy.AZTEC_DOCKER_IMAGE
 }
 
 output "deployment_command" {
   description = "The full command that was executed"
   sensitive   = true
-  value = concat(
-    ["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"],
-    local.deploy_args
-  )
+  value       = concat(["node", "--no-warnings", "/usr/src/yarn-project/aztec/dest/bin/index.js"], local.deploy_args)
 }
 
 output "deployment_successful" {

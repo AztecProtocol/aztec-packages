@@ -23,7 +23,8 @@ networks=$(yq -o json '.networks | keys' spartan/environments/network-defaults.y
 
 for network in $networks; do
   echo "export const ${network}Config = {" >> yarn-project/cli/src/config/generated/networks.ts
-  yq -o json "explode(.) | .networks.$network // {}" spartan/environments/network-defaults.yml | \
+  # Read from .networks.<name>.env (flat env baseline; was .networks.<name> pre-refactor).
+  yq -o json "explode(.) | .networks.$network.env // {}" spartan/environments/network-defaults.yml | \
     jq -r "to_entries | .[] | \"  \\(.key): \\(.value | if type == \"string\" then \"'\\(.)'\" else . end),\"" \
     >> yarn-project/cli/src/config/generated/networks.ts
   echo "} as const;" >> yarn-project/cli/src/config/generated/networks.ts

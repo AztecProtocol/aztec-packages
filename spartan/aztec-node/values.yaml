@@ -48,6 +48,14 @@ global:
 # -- Use host network - this will disable nodePort service and use host networking instead
 hostNetwork: false
 
+# -- Pod environment variables. Keys here become env vars on the pod via a
+# generated ConfigMap (envFrom). Use UPPER_SNAKE_CASE keys matching the actual
+# env var names, e.g. PROVER_REAL_PROOFS, LOG_LEVEL, SLASH_PRUNE_PENALTY.
+# This is the single source of truth for runtime config; populated by
+# spartan/scripts/load_network_config.sh from per-network YAMLs.
+env:
+  P2P_ENABLED: "true"
+
 # -- Number of replicas
 replicaCount: 1
 
@@ -69,11 +77,11 @@ affinity: null
 tolerations: []
 topologySpreadConstraints: []
 
-# -- Aztec node configuration
+# -- Aztec node configuration. This block holds k8s-shape and chart-internal
+# configuration. All pod runtime env vars (LOG_LEVEL, PROVER_REAL_PROOFS,
+# SENTINEL_ENABLED, SLASH_*, etc.) belong in the top-level `env:` map above,
+# not here.
 node:
-  # -- Log level - info, verbose, debug, trace
-  logLevel: "info"
-
   preStartScript: null
 
   startCmd:
@@ -82,12 +90,6 @@ node:
   image:
     repository: ""
     tag: ""
-
-  env: {}
-
-  envFrom:
-    configMapEnabled: false
-    secretEnabled: false
 
   configMap:
     envEnabled: false
@@ -109,17 +111,9 @@ node:
   # the address that will receive block or proof rewards
   coinbase:
 
-  # -- Exclude metrics - comma separated list of metrics to exclude
-  otelExcludeMetrics: null
-  otelIncludeMetrics: null
-
   storage:
     # -- Data directory
     dataDirectory: /data
-    # -- Data store map size in kB. (per database)
-    dataStoreMapSize: "134217728" # 128 GB
-    # -- World state map size in kB (per merkle tree)
-    worldStateMapSize: "134217728" # 128 GB
 
   nodeJsOptions:
     - --no-warnings
@@ -137,28 +131,6 @@ node:
     failureThreshold: 40
 
   resources: {}
-
-  proverRealProofs: true
-
-  sentinel:
-    enabled: true
-  slash:
-    # Validator allowlists/denylists
-    validatorsAlways: []
-    validatorsNever: []
-    # Penalty amounts for different offense types
-    prunePenalty: ""
-    dataWithholdingPenalty: ""
-    inactivityPenalty: ""
-    inactivityTargetPercentage: ""
-    invalidBlockPenalty: ""
-    proposeInvalidAttestationsPenalty: ""
-    attestDescendantOfInvalidPenalty: ""
-    unknownPenalty: ""
-    # Slasher behavior configuration
-    gracePeriodL2Slots: ""
-    offenseExpirationRounds: ""
-    maxPayloadSize: ""
 
 persistence:
   # -- Uses an emptyDir when not enabled

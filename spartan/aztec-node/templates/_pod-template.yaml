@@ -137,6 +137,14 @@ spec:
           mountPath: {{ .Values.node.storage.dataDirectory }}
         {{- end }}
       envFrom:
+        {{- /*
+          Pod env vars come from the env ConfigMap built from .Values.env (single
+          source of truth, populated from per-network YAMLs by the loader).
+        */}}
+        {{- if .Values.env }}
+        - configMapRef:
+            name: {{ include "chart.fullname" . }}-env-from-values
+        {{- end }}
         {{- if .Values.node.configMap.envEnabled }}
         - configMapRef:
             name: {{ include "chart.fullname" . }}-env
@@ -146,6 +154,11 @@ spec:
             name: {{ include "chart.fullname" . }}-env
         {{- end }}
       env:
+        {{- /*
+          Only env vars that depend on k8s pod metadata or chart-shape (service
+          ports, paths derived from storage volumes, JS runtime flags, admin API
+          key auth) live here. Everything else flows from .Values.env above.
+        */}}
         - name: POD_IP
           valueFrom:
             fieldRef:
@@ -166,22 +179,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        {{- if .Values.global.customAztecNetwork.l1ChainId }}
-        - name: L1_CHAIN_ID
-          value: "{{ .Values.global.customAztecNetwork.l1ChainId }}"
-        {{- end }}
-        {{- if .Values.global.customAztecNetwork.registryContractAddress }}
-        - name: REGISTRY_CONTRACT_ADDRESS
-          value: "{{ .Values.global.customAztecNetwork.registryContractAddress }}"
-        {{- end }}
-        {{- if .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}
-        - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
-          value: "{{ .Values.global.customAztecNetwork.feeAssetHandlerContractAddress }}"
-        {{- end }}
-        {{- if .Values.global.aztecNetwork }}
-        - name: NETWORK
-          value: "{{ .Values.global.aztecNetwork }}"
-        {{- end }}
         - name: NODE_OPTIONS
           value: {{ join " " .Values.node.nodeJsOptions | quote }}
         - name: AZTEC_PORT
@@ -195,128 +192,28 @@ spec:
         - name: AZTEC_DISABLE_ADMIN_API_KEY
           value: "true"
         {{- end }}
-        - name: LOG_LEVEL
-          value: "{{ .Values.node.logLevel }}"
-        - name: LOG_JSON
-          value: "1"
-        - name: P2P_ENABLED
-          value: "{{ .Values.service.p2p.enabled }}"
         - name: P2P_PORT
           value: "{{ .Values.service.p2p.port }}"
         - name: P2P_BROADCAST_PORT
           value: "{{ .Values.service.p2p.announcePort }}"
-        - name: PROVER_REAL_PROOFS
-          value: "{{ .Values.node.proverRealProofs }}"
-        - name: SENTINEL_ENABLED
-          value: "{{ .Values.node.sentinel.enabled }}"
-        {{- if .Values.node.slash.validatorsAlways }}
-        - name: SLASH_VALIDATORS_ALWAYS
-          value: {{ join "," .Values.node.slash.validatorsAlways | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.validatorsNever }}
-        - name: SLASH_VALIDATORS_NEVER
-          value: {{ join "," .Values.node.slash.validatorsNever | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.prunePenalty }}
-        - name: SLASH_PRUNE_PENALTY
-          value: {{ .Values.node.slash.prunePenalty | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.dataWithholdingPenalty }}
-        - name: SLASH_DATA_WITHHOLDING_PENALTY
-          value: {{ .Values.node.slash.dataWithholdingPenalty | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.inactivityPenalty }}
-        - name: SLASH_INACTIVITY_PENALTY
-          value: {{ .Values.node.slash.inactivityPenalty | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.inactivityTargetPercentage }}
-        - name: SLASH_INACTIVITY_TARGET_PERCENTAGE
-          value: {{ .Values.node.slash.inactivityTargetPercentage | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.invalidBlockPenalty }}
-        - name: SLASH_INVALID_BLOCK_PENALTY
-          value: {{ .Values.node.slash.invalidBlockPenalty | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.proposeInvalidAttestationsPenalty }}
-        - name: SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
-          value: {{ .Values.node.slash.proposeInvalidAttestationsPenalty | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.duplicateProposalPenalty }}
-        - name: SLASH_DUPLICATE_PROPOSAL_PENALTY
-          value: {{ .Values.node.slash.duplicateProposalPenalty | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.duplicateAttestationPenalty }}
-        - name: SLASH_DUPLICATE_ATTESTATION_PENALTY
-          value: {{ .Values.node.slash.duplicateAttestationPenalty | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.attestDescendantOfInvalidPenalty }}
-        - name: SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY
-          value: {{ .Values.node.slash.attestDescendantOfInvalidPenalty | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.unknownPenalty }}
-        - name: SLASH_UNKNOWN_PENALTY
-          value: {{ .Values.node.slash.unknownPenalty | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.gracePeriodL2Slots }}
-        - name: SLASH_GRACE_PERIOD_L2_SLOTS
-          value: {{ .Values.node.slash.gracePeriodL2Slots | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.offenseExpirationRounds }}
-        - name: SLASH_OFFENSE_EXPIRATION_ROUNDS
-          value: {{ .Values.node.slash.offenseExpirationRounds | quote }}
-        {{- end }}
-        {{- if .Values.node.slash.maxPayloadSize }}
-        - name: SLASH_MAX_PAYLOAD_SIZE
-          value: {{ .Values.node.slash.maxPayloadSize | quote }}
-        {{- end }}
-        {{- if gt (len .Values.global.l1ExecutionUrls) 0 }}
-        - name: ETHEREUM_HOSTS
-          value: {{ join "," .Values.global.l1ExecutionUrls | quote }}
-        {{- end }}
-        {{- if gt (len .Values.global.l1ConsensusUrls) 0 }}
-        - name: L1_CONSENSUS_HOST_URLS
-          value: {{ join "," .Values.global.l1ConsensusUrls | quote }}
-        - name: L1_CONSENSUS_HOST_API_KEYS
-          value: {{ .Values.global.l1ConsensusHostApiKeys | quote }}
-        - name: L1_CONSENSUS_HOST_API_KEY_HEADERS
-          value: {{ .Values.global.l1ConsensusHostApiKeyHeaders | quote }}
-        {{- end }}
         - name: DATA_DIRECTORY
           value: "{{ .Values.node.storage.dataDirectory }}/data"
         - name: CRS_PATH
           value: "{{ .Values.node.storage.dataDirectory }}/crs"
-        - name: DATA_STORE_MAP_SIZE_KB
-          value: {{ .Values.node.storage.dataStoreMapSize | quote }}
-        - name: WS_DB_MAP_SIZE_KB
-          value: {{ .Values.node.storage.worldStateMapSize | quote }}
-        - name: USE_GCLOUD_LOGGING
-          value: {{ .Values.global.useGcloudLogging | quote }}
-        - name: SPONSORED_FPC
-          value: {{ .Values.global.sponsoredFPC | quote }}
-        - name: TEST_ACCOUNTS
-          value: {{ .Values.global.testAccounts | quote }}
-        {{- if .Values.global.otelCollectorEndpoint }}
-        {{- if .Values.node.otelIncludeMetrics }}
-        - name: OTEL_INCLUDE_METRICS
-          value: {{ .Values.node.otelIncludeMetrics | quote }}
-        {{- end }}
-        {{- if .Values.node.otelExcludeMetrics }}
-        - name: OTEL_EXCLUDE_METRICS
-          value: {{ .Values.node.otelExcludeMetrics | quote }}
-        {{- end }}
-        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
-          value: "{{ .Values.global.otelCollectorEndpoint }}/v1/metrics"
-        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-          value: "{{ .Values.global.otelCollectorEndpoint }}/v1/traces"
-        - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
-          value: "{{ .Values.global.otelCollectorEndpoint }}/v1/logs"
-        {{- end }}
         {{- if .Values.node.coinbase }}
         - name: COINBASE
           value: {{ .Values.node.coinbase | quote }}
         - name: PROVER_ID
           value: {{ .Values.node.coinbase | quote }}
         {{- end }}
+        {{- /*
+          Per-release env vars set via Terraform `set` blocks (deploy-time
+          computed values: PUBLISHER_KEY_INDEX_START, VALIDATOR_HA_*, etc.)
+          flow through .Values.node.env. These are inline (not via the env
+          ConfigMap) so per-release computed values can differ across
+          validators-* / validators-ha-N releases without colliding on a
+          shared ConfigMap name.
+        */}}
         {{- range $key, $value := .Values.node.env }}
         - name: {{ $key }}
           value: {{ $value | quote }}

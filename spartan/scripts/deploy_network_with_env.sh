@@ -1,4 +1,22 @@
 #!/usr/bin/env bash
+# Outer entrypoint for deploying an Aztec network from a per-network YAML.
+#
+# Usage: deploy_network_with_env.sh <network>
+#   <network>: bare name (resolved to spartan/environments/networks/<name>.yml)
+#              or absolute path to a YAML file.
+#
+# Steps:
+#   1. Loads basic env from YAML (CLUSTER, NAMESPACE, ...) without secrets.
+#   2. Performs GCP auth (skipped on kind).
+#   3. Runs the loader once with --format=tfvars (resolves GCP secrets), sources
+#      shell env from its deploy+env blocks, and caches the JSON for step 5.
+#   4. Optionally provisions network-frontend (RPC ingress IP + SSL cert + DNS).
+#   5. Calls deploy_network.sh, which overlays deploy-time values and runs the
+#      eth-devnet / rollup-contracts / aztec-infra Terraform modules.
+#      deploy_network.sh reads NETWORK_TFVARS_JSON instead of re-running the loader.
+#
+# For kind tests (test_kind.sh) and direct calls that have already populated
+# the environment, deploy_network.sh can be invoked directly.
 
 set -euo pipefail
 
@@ -8,7 +26,6 @@ scripts_dir=$spartan/scripts
 
 # Source the required scripts
 source "$scripts_dir/source_env_basic.sh"
-source "$scripts_dir/source_network_env.sh"
 source "$scripts_dir/gcp_auth.sh"
 
 # Main execution
@@ -19,14 +36,30 @@ fi
 
 env_file="$1"
 
-# First pass: source environment for basic variables like CLUSTER (skip GCP secret processing)
+# First pass: source basic variables (CLUSTER, NAMESPACE, ...) without secret resolution.
+# Needed before gcp_auth so we know whether we're on kind.
 source_env_basic "$env_file"
 
 # Perform GCP auth (needs CLUSTER and other basic vars)
 gcp_auth
 
-# Second pass: source environment with GCP secret processing
-source_network_env "$env_file"
+# Single loader run that resolves GCP secrets, produces the structured
+# {deploy, env, releases} tfvars JSON, and sources shell env from it.
+# The cached file is passed to deploy_network.sh via NETWORK_TFVARS_JSON
+# so the loader is not invoked again there.
+echo "Loading network environment from: $env_file"
+_NETWORK_TFVARS_TMP=$(mktemp /tmp/network_tfvars.XXXXXX.json)
+trap 'rm -f "$_NETWORK_TFVARS_TMP"' EXIT
+"$spartan/scripts/load_network_config.sh" "$env_file" --format=tfvars > "$_NETWORK_TFVARS_TMP"
+set -a
+# shellcheck disable=SC1090
+source <(jq -r '
+  ((.deploy // {}) | to_entries[] | select(.value != null) | "export \(.key)=\(.value | tostring | @sh)"),
+  ((.env   // {}) | to_entries[] | select(.value != null) | "export \(.key)=\(.value | tostring | @sh)")
+' "$_NETWORK_TFVARS_TMP")
+set +a
+echo "Loaded network config $(basename "$env_file")"
+export NETWORK_TFVARS_JSON="$_NETWORK_TFVARS_TMP"
 
 # Optional: provision per-network IP + managed cert (+ DNS record in the delegated
 # rpc.aztec-labs.com zone) via the network-frontend terraform module. The module's
@@ -77,5 +110,5 @@ if [[ "$CREATE_RPC_INGRESS" == "true" ]]; then
   echo "network-frontend: ip=$RPC_INGRESS_STATIC_IP_NAME cert=$RPC_INGRESS_SSL_CERT_NAMES hosts=$RPC_INGRESS_HOSTS"
 fi
 
-$scripts_dir/deploy_network.sh
+$scripts_dir/deploy_network.sh "$env_file"
 echo "Deployed network"

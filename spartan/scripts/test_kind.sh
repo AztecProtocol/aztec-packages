@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Usage: source environments/kind-provers.env && ./test_kind.sh <test_file> [namespace]
+# Usage: NETWORK=<name> ./test_kind.sh <test_file> [namespace]
 # Deploys a network to KIND and runs the specified test.
 #
-# Prerequisites:
-#   Source the appropriate env file before running:
-#   - kind-minimal.env: Fast testing with fake provers
-#   - kind-provers.env: Real provers (slower, matches next-scenario.env)
+# NETWORK selects spartan/environments/networks/<name>.yml. Common choices:
+#   - kind-minimal: Fast testing with fake provers
+#   - kind-provers: Real provers (slower)
 #
 # Environment variables:
-#   OVERRIDES (default: "") - Helm value overrides
-#   INSTALL_METRICS (default: "false") - Install metrics stack
+#   NETWORK          (default: "kind-minimal") - YAML config to load
+#   OVERRIDES        (default: "") - Helm value overrides
+#   INSTALL_METRICS  (default: "false") - Install metrics stack
 
 set -euo pipefail
 
@@ -19,11 +19,16 @@ test_file="${1:?test_file is required}"
 namespace="${2:-upgrade-test}"
 
 install_metrics="${INSTALL_METRICS:-false}"
+network="${NETWORK:-kind-minimal}"
 
 # Ensure KIND cluster is running
 ../bootstrap.sh kind
 
-# Set up namespace (override NAMESPACE from env file with specific test namespace)
+# Load env from per-network YAML (skip GCP secrets; KIND has no gcloud auth).
+source ./source_env_basic.sh
+source_env_basic "$network"
+
+# Override NAMESPACE / CLUSTER for this specific test invocation.
 export NAMESPACE="$namespace"
 export CLUSTER="kind"
 
@@ -54,7 +59,7 @@ trap 'handle_interrupt' INT TERM
 
 # Deploy the network
 echo "Deploying network to KIND namespace: $namespace"
-./deploy_network.sh
+./deploy_network.sh "$network"
 
 export DENOISE=1
 # Wait for L2 blocks with k8s context injection

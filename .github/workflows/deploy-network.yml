@@ -112,11 +112,10 @@ jobs:
 
       - name: Validate inputs
         run: |
-          # Validate network
-          if [[ ! -f "spartan/environments/${{ inputs.network }}.env" ]]; then
-            echo "Error: Environment file not found for network '${{ inputs.network }}'"
+          if [[ ! -f "spartan/environments/networks/${{ inputs.network }}.yml" ]]; then
+            echo "Error: Network YAML not found: spartan/environments/networks/${{ inputs.network }}.yml"
             echo "Available networks:"
-            ls -1 spartan/environments/ | grep -v '\.local\.env$' || echo "No environment files found"
+            ls -1 spartan/environments/networks/
             exit 1
           fi
 
@@ -206,10 +205,11 @@ jobs:
 
           cd spartan
           ./scripts/install_deps.sh
-          ./scripts/network_deploy.sh "${{ inputs.network }}"
+          ./scripts/deploy_network_with_env.sh "${{ inputs.network }}"
 
-          # need to source this for CLUSTER
-          source "./environments/${{ inputs.network }}.env"
+          # Source for CLUSTER (prefers YAML loader, falls back to legacy .env).
+          source "./scripts/source_env_basic.sh"
+          source_env_basic "${{ inputs.network }}"
 
           if [ -n "$CLUSTER" ]; then
             echo "cluster=$CLUSTER" >> $GITHUB_OUTPUT
@@ -234,7 +234,9 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure()
+        # Only alert on the canonical `next` branch -- avoids paging on
+        # ad-hoc deploys from feature branches or release tags.
+        if: failure() && steps.checkout-ref.outputs.ref == 'refs/heads/next'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}

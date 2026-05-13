@@ -6,10 +6,10 @@ podDisruptionBudget:
   enabled: true
   minAvailable: 1
 
-node:
-  env:
-    OTEL_SERVICE_NAME: "boot-node"
+env:
+  OTEL_SERVICE_NAME: "boot-node"
 
+node:
   startCmd:
     - --p2p-bootstrap
 

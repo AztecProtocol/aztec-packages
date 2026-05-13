@@ -15,15 +15,17 @@ fi
 
 spartan=$(git rev-parse --show-toplevel)/spartan
 
-ENVIRONMENT_FILE="$spartan/environments/$1.env"
+YAML_FILE="$spartan/environments/networks/$1.yml"
 
-if [ ! -f "$ENVIRONMENT_FILE" ]; then
-    echo "Error: Environment file not found: $ENVIRONMENT_FILE"
+if [ ! -f "$YAML_FILE" ]; then
+    echo "Error: Network YAML not found: $YAML_FILE"
     exit 1
 fi
 
-# Source the environment file to get configuration
-source "$ENVIRONMENT_FILE"
+set -a
+# shellcheck disable=SC1091
+source <("$spartan/scripts/load_network_config.sh" "$1" --format=env --skip-secrets)
+set +a
 
 # Set defaults (same as deploy_network.sh)
 VALIDATOR_REPLICAS=${VALIDATOR_REPLICAS:-4}

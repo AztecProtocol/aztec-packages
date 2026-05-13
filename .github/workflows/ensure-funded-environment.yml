@@ -53,7 +53,7 @@ on:
 
 concurrency:
   group: ensure-funded-environment-${{ inputs.environment }}
-  cancel-in-progress: false  # Don't cancel funding operations
+  cancel-in-progress: false # Don't cancel funding operations
 
 jobs:
   ensure-funded:
@@ -71,10 +71,10 @@ jobs:
       - name: Validate inputs
         run: |
           # Validate environment
-          if [[ ! -f "spartan/environments/${{ inputs.environment }}.env" ]]; then
-            echo "Error: Environment file not found for environment '${{ inputs.environment }}'"
+          if [[ ! -f "spartan/environments/networks/${{ inputs.environment }}.yml" ]]; then
+            echo "Error: Network YAML not found: spartan/environments/networks/${{ inputs.environment }}.yml"
             echo "Available environments:"
-            ls -1 spartan/environments/ | grep -v '\.local\.env$' || echo "No environment files found"
+            ls -1 spartan/environments/networks/
             exit 1
           fi
 

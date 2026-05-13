@@ -1,19 +1,19 @@
 # Network Configuration Defaults
 #
-# This file is used for CODE GENERATION, not runtime configuration.
-# It centralizes "baked-in" defaults used by yarn-project packages.
+# This file is the JOINT source of truth for:
+#   - Code generation: TypeScript / JSON artifacts shipped with packages.
+#   - Runtime deployment: defaults consumed by spartan/scripts/load_network_config.sh
+#     and merged with per-network YAMLs at spartan/environments/networks/<name>.yml.
 #
-# These defaults affect:
-#   - End-to-end tests
-#   - CLI usage without environment variables
-#   - Default values in TypeScript config mappings
+# Codegen consumers read:
+#   - `l1-contracts:` block (top-level anchor) -- L1 contract defaults
+#   - `slasher:` block (top-level anchor) -- slasher node defaults
+#   - `networks.<name>.env` block -- per-network env baseline
 #
-# They are NOT read at runtime from this file. To override values for
-# an existing deployment, use environment variables or a .env file.
-#
-# The network sections (devnet, testnet, mainnet) define presets for
-# the NETWORK env var. You can target them via runtime injection and
-# still override individual values.
+# Runtime consumers read:
+#   - `_release_defaults` -- per-release helm-shape baselines (image, replicaCount, resources)
+#   - `networks.<name>.env` -- per-network env baseline (same as codegen)
+#   - `networks.<name>.<release>` -- optional per-release overrides
 #
 # Generated outputs:
 #   - yarn-project/ethereum/src/generated/l1-contracts-defaults.ts
@@ -112,8 +112,7 @@ l1-contracts: &l1-contracts-defaults
 # These configure the slasher node's operational behavior.
 # Used by yarn-project/slasher for penalty calculation and offense tracking.
 
-slasher: &slasher
-  # Rounds after which an offense expires.
+slasher: &slasher # Rounds after which an offense expires.
   SLASH_OFFENSE_EXPIRATION_ROUNDS: 4
   # Maximum size of slashing payload.
   SLASH_MAX_PAYLOAD_SIZE: 80
@@ -161,6 +160,26 @@ _prodlike: &prodlike
   P2P_ENABLED: true
   # Comma-separated list of bootstrap node multiaddrs.
   BOOTSTRAP_NODES: ""
+  # Gossipsub mesh degree (target / lower / upper bounds).
+  P2P_GOSSIPSUB_D: 6
+  P2P_GOSSIPSUB_DLO: 4
+  P2P_GOSSIPSUB_DHI: 12
+  # Probability of dropping outgoing TXs (0-1); used in chaos tests.
+  P2P_DROP_TX_CHANCE: 0
+  # Whether to delete TXs from the pool after a reorg.
+  P2P_TX_POOL_DELETE_TXS_AFTER_REORG: false
+
+  #---------------------------------------------------------------------------
+  # Debug / Test
+  #---------------------------------------------------------------------------
+  # Force pod to verify TX proofs even when the chain doesn't require it.
+  DEBUG_FORCE_TX_PROOF_VERIFICATION: false
+  # Instrument P2P messages with extra metrics.
+  DEBUG_P2P_INSTRUMENT_MESSAGES: false
+  # Delay (ms) injected during fake proof verification.
+  PROVER_TEST_VERIFICATION_DELAY_MS: 10
+  # Allow blob sources to be empty (set true for prod where some slots have no blobs).
+  BLOB_ALLOW_EMPTY_SOURCES: false
 
   #---------------------------------------------------------------------------
   # Sequencer Configuration
@@ -201,151 +220,338 @@ _prodlike: &prodlike
   # Enable sentinel monitoring.
   SENTINEL_ENABLED: true
 
-# Network presets selected via NETWORK env var; individual values can still be overridden.
+#===============================================================================
+# DEPLOY DEFAULTS
+#===============================================================================
+# Defaults for the deploy: block consumed by spartan/scripts/deploy_network.sh.
+# These are NOT pod env vars; they configure the deploy script and Terraform
+# inputs (cluster targeting, replica counts, mnemonic indices, ingress, bots).
+# Per-network YAMLs override these via their own `deploy:` block.
+# Loader (load_network_config.sh) seeds the deploy: baseline from this block.
+
+_deploy_defaults:
+  # Cluster / GCP targeting
+  CLUSTER: kind
+  GCP_PROJECT_ID: testnet-440309
+  GCP_REGION: us-west1-a
+  USE_NETWORK_CONFIG: "false"
+
+  # Lifecycle flags
+  CREATE_ETH_DEVNET: "false"
+  DESTROY_ETH_DEVNET: "false"
+  CREATE_ROLLUP_CONTRACTS: "true"
+  CREATE_AZTEC_INFRA: "true"
+  DESTROY_AZTEC_INFRA: "false"
+  DEPLOY_INTERNAL_BOOTNODE: "true"
+  DEPLOY_ARCHIVAL_NODE: "false"
+
+  # Ethereum (devnet)
+  ETHEREUM_CHAIN_ID: "1337"
+  ETHEREUM_BLOCK_TIME: "12"
+  ETHEREUM_GAS_LIMIT: "100000000"
+  LABS_INFRA_MNEMONIC: "test test test test test test test test test test test junk"
+  # Default prefunded indices: 0..48 + 1000 (admin)
+  LABS_INFRA_INDICES: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,1000"
+
+  # Rollup
+  REAL_VERIFIER: "true"
+  SPONSORED_FPC: "false"
+  TEST_ACCOUNTS: "false"
+
+  # Validator
+  VALIDATOR_MNEMONIC_START_INDEX: "1"
+  VALIDATORS_PER_NODE: "12"
+  VALIDATOR_REPLICAS: "4"
+  VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX: "5000"
+  VALIDATOR_PUBLISHERS_PER_REPLICA: "4"
+  VALIDATOR_HA_REPLICAS: "0"
+  VALIDATOR_HA_OLD_DUTIES_MAX_AGE_H: "24"
+
+  # Prover
+  PROVER_PUBLISHER_MNEMONIC_START_INDEX: "8000"
+  PUBLISHERS_PER_PROVER: "1"
+  PROVER_REPLICAS: "4"
+  PROVER_AGENTS_PER_PROVER: "1"
+  PROVER_AGENT_POLL_INTERVAL_MS: "1000"
+  PROVER_NODE_DISABLE_PROOF_PUBLISH: "false"
+  PROVER_TEST_DELAY_TYPE: "fixed"
+  PROVER_TEST_VERIFICATION_DELAY_MS: "10"
+
+  # Sequencer
+  SEQ_MIN_TX_PER_BLOCK: "1"
+  SEQ_MAX_TX_PER_CHECKPOINT: "8"
+  SEQ_ENABLE_PROPOSER_PIPELINING: "false"
+  SEQ_SKIP_CHECKPOINT_PUBLISH_PERCENT: "0"
+
+  # Bots
+  BOT_TRANSFERS_MNEMONIC_START_INDEX: "7000"
+  BOT_SWAPS_MNEMONIC_START_INDEX: "7100"
+  BOT_CROSS_CHAIN_MNEMONIC_START_INDEX: "7200"
+  BOT_TRANSFERS_REPLICAS: "0"
+  BOT_SWAPS_REPLICAS: "0"
+  BOT_CROSS_CHAIN_REPLICAS: "0"
+
+  # RPC ingress
+  RPC_INGRESS_ENABLED: "false"
+  # Real YAML lists (var.deploy is type=any in Terraform); per-network YAMLs
+  # set actual hostnames / cert names. yq's *+ deep-merge concatenates with the
+  # empty defaults, so per-network values pass through unchanged.
+  RPC_INGRESS_HOSTS: []
+  RPC_INGRESS_SSL_CERT_NAMES: []
+  RPC_REPLICAS: "1"
+  FISHERMAN_REPLICAS: "0"
+  FISHERMAN_MNEMONIC_START_INDEX: "1"
+  FULL_NODE_REPLICAS: "0"
+
+  # P2P
+  P2P_TX_POOL_DELETE_TXS_AFTER_REORG: "false"
+  P2P_GOSSIPSUB_D: "6"
+  P2P_GOSSIPSUB_DLO: "4"
+  P2P_GOSSIPSUB_DHI: "12"
+  P2P_DROP_TX_CHANCE: "0"
+
+  # Filestore: TX_FILE_STORE_ENABLED is read by per-network YAMLs to gate
+  # filestore-related features; everything else here is set per-network.
+  TX_FILE_STORE_ENABLED: "false"
+
+  # RPC ingress: only RPC_INGRESS_STATIC_IP_NAME needs a default. main.tf
+  # references it directly in the rpc release's ingress block, which terraform
+  # validates eagerly even when local.rpc_ingress_enabled is false. The other
+  # ingress / cloud-armor / session-affinity / OTEL / R2 secret fields are
+  # read via try(local.d.X, "") in main.tf or only consumed at runtime, so an
+  # empty default would just be redundant.
+  RPC_INGRESS_STATIC_IP_NAME: ""
+
+  # Logging / debug
+  LOG_LEVEL: "info"
+  DEBUG_P2P_INSTRUMENT_MESSAGES: "false"
+
+#===============================================================================
+# RELEASE DEFAULTS
+#===============================================================================
+# Per-release helm-shape baselines (image, replicaCount, resources).
+# Each block mirrors the Helm values shape for the corresponding chart release.
+# Per-network YAMLs (spartan/environments/networks/<name>.yml) override these.
+# Consumed by spartan/scripts/load_network_config.sh; not used by codegen.
+
+_release_defaults:
+  validator:
+    validator: # subchart alias in aztec-validator (mirrors prover.{node,broker,agent} convention)
+      replicaCount: 0
+      env: {}
+  prover:
+    node:
+      replicaCount: 1
+      env: {}
+    broker:
+      replicaCount: 1
+      env: {}
+    agent:
+      replicaCount: 4
+      env:
+        CRS_PATH: "/usr/src/crs"
+  rpc:
+    replicaCount: 1
+    env: {}
+  archive:
+    replicaCount: 0
+    env:
+      # Archive nodes hold a much larger TX pool than regular nodes.
+      P2P_ARCHIVED_TX_LIMIT: "10000000"
+  full_node:
+    replicaCount: 0
+    env: {}
+  fisherman:
+    replicaCount: 0
+    env:
+      # Fishermen run a sequencer-like role to detect invalid blocks.
+      FISHERMAN_MODE: "true"
+      SEQ_BUILD_CHECKPOINT_IF_EMPTY: "true"
+      VALIDATORS_PER_NODE: "1"
+  blob_sink:
+    replicaCount: 1
+    env: {}
+  p2p_bootstrap:
+    replicaCount: 1
+    env: {}
+  bot_transfers:
+    bot: # subchart alias in aztec-bot
+      replicaCount: 0
+      env:
+        BOT_TX_INTERVAL_SECONDS: "60"
+        BOT_FOLLOW_CHAIN: "NONE"
+        PXE_SYNC_CHAIN_TIP: "checkpointed"
+  bot_swaps:
+    bot:
+      replicaCount: 0
+      env:
+        BOT_TX_INTERVAL_SECONDS: "60"
+        BOT_FOLLOW_CHAIN: "NONE"
+        PXE_SYNC_CHAIN_TIP: "checkpointed"
+  bot_cross_chain:
+    bot:
+      replicaCount: 0
+      env:
+        BOT_TX_INTERVAL_SECONDS: "10"
+        BOT_FOLLOW_CHAIN: "PENDING"
+        PXE_SYNC_CHAIN_TIP: "checkpointed"
+
+#===============================================================================
+# NETWORK PRESETS
+#===============================================================================
+# Selected via the `network:` field at the top of a per-deployment YAML, or
+# via the NETWORK env var when consumed by the CLI / Solidity scripts.
+# `<name>.env` is the joint source of truth for codegen and runtime baseline env.
+# Optional `<name>.<release>` blocks add per-release overrides for runtime only.
+
 networks:
   devnet:
-    <<: *prodlike
-    # L1 contract overrides - faster epochs for development
-    AZTEC_EPOCH_DURATION: 8
-    AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET: 1
-    AZTEC_LAG_IN_EPOCHS_FOR_RANDAO: 1
-    AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: 1
-    # Network identity
-    L1_CHAIN_ID: 11155111  # Sepolia
-    # Genesis state
-    TEST_ACCOUNTS: true     # Fund test accounts with fee juice
-    SPONSORED_FPC: true     # Fund sponsored FPC with fee juice
-    TRANSACTIONS_DISABLED: false
-    # Sequencer
-    SEQ_MAX_TX_PER_BLOCK: 18
-    # Prover
-    PROVER_REAL_PROOFS: false   # Use mock proofs
-    PXE_PROVER_ENABLED: false   # Disable PXE proving
-    # Sync
-    SYNC_SNAPSHOTS_URLS: ""
-    SKIP_ARCHIVER_INITIAL_SYNC: false
-    BLOB_ALLOW_EMPTY_SOURCES: false
-    # P2P
-    P2P_MAX_PENDING_TX_COUNT: 1000
-    P2P_TX_POOL_DELETE_TXS_AFTER_REORG: false
-    # Telemetry
-    PUBLIC_OTEL_OPT_OUT: true
-    PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ""
-    PUBLIC_OTEL_COLLECT_FROM: ""
-    # Slasher penalties
-    SLASH_PRUNE_PENALTY: 10e18
-    SLASH_DATA_WITHHOLDING_PENALTY: 10e18
-    SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.9
-    SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: 1
-    SLASH_INACTIVITY_PENALTY: 10e18
-    SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY: 10e18
-    SLASH_DUPLICATE_PROPOSAL_PENALTY: 10e18
-    SLASH_DUPLICATE_ATTESTATION_PENALTY: 10e18
-    SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY: 10e18
-    SLASH_UNKNOWN_PENALTY: 10e18
-    SLASH_INVALID_BLOCK_PENALTY: 10e18
-    SLASH_GRACE_PERIOD_L2_SLOTS: 0
-    ENABLE_VERSION_CHECK: true
+    env:
+      <<: *prodlike
+      # L1 contract overrides - faster epochs for development
+      AZTEC_EPOCH_DURATION: 8
+      AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET: 1
+      AZTEC_LAG_IN_EPOCHS_FOR_RANDAO: 1
+      AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: 1
+      # Network identity
+      L1_CHAIN_ID: 11155111 # Sepolia
+      # Genesis state
+      TEST_ACCOUNTS: true # Fund test accounts with fee juice
+      SPONSORED_FPC: true # Fund sponsored FPC with fee juice
+      TRANSACTIONS_DISABLED: false
+      # Sequencer
+      SEQ_MAX_TX_PER_BLOCK: 18
+      # Prover
+      PROVER_REAL_PROOFS: false # Use mock proofs
+      PXE_PROVER_ENABLED: false # Disable PXE proving
+      # Sync
+      SYNC_SNAPSHOTS_URLS: ""
+      SKIP_ARCHIVER_INITIAL_SYNC: false
+      BLOB_ALLOW_EMPTY_SOURCES: false
+      # P2P
+      P2P_MAX_PENDING_TX_COUNT: 1000
+      P2P_TX_POOL_DELETE_TXS_AFTER_REORG: false
+      # Telemetry
+      PUBLIC_OTEL_OPT_OUT: true
+      PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ""
+      PUBLIC_OTEL_COLLECT_FROM: ""
+      # Slasher penalties
+      SLASH_PRUNE_PENALTY: 10e18
+      SLASH_DATA_WITHHOLDING_PENALTY: 10e18
+      SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.9
+      SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: 1
+      SLASH_INACTIVITY_PENALTY: 10e18
+      SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY: 10e18
+      SLASH_DUPLICATE_PROPOSAL_PENALTY: 10e18
+      SLASH_DUPLICATE_ATTESTATION_PENALTY: 10e18
+      SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY: 10e18
+      SLASH_UNKNOWN_PENALTY: 10e18
+      SLASH_INVALID_BLOCK_PENALTY: 10e18
+      SLASH_GRACE_PERIOD_L2_SLOTS: 0
+      ENABLE_VERSION_CHECK: true
 
   testnet:
-    <<: *prodlike
-    # L1 contract overrides - longer slots, higher stakes
-    AZTEC_SLOT_DURATION: 72
-    AZTEC_ACTIVATION_THRESHOLD: 200000e18
-    AZTEC_EJECTION_THRESHOLD: 100000e18
-    AZTEC_LOCAL_EJECTION_THRESHOLD: 199000e18
-    AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: 2
-    AZTEC_SLASHING_VETOER: "0xdfe19Da6a717b7088621d8bBB66be59F2d78e924"
-    AZTEC_SLASHING_QUORUM: 33
-    AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: 100
-    AZTEC_GOVERNANCE_PROPOSER_QUORUM: 60
-    AZTEC_MANA_TARGET: 75000000
-    AZTEC_PROVING_COST_PER_MANA: 25000000
-    AZTEC_SLASH_AMOUNT_SMALL: 100000e18
-    AZTEC_SLASH_AMOUNT_MEDIUM: 100000e18
-    AZTEC_SLASH_AMOUNT_LARGE: 100000e18
-    # Network identity
-    L1_CHAIN_ID: 11155111  # Sepolia
-    # Genesis state
-    TEST_ACCOUNTS: false
-    SPONSORED_FPC: false
-    TRANSACTIONS_DISABLED: false
-    # Sequencer
-    SEQ_MAX_TX_PER_CHECKPOINT: 72 # 1 TPS
-    # Prover
-    PROVER_REAL_PROOFS: true
-    # P2P
-    P2P_MAX_PENDING_TX_COUNT: 1000
-    P2P_TX_POOL_DELETE_TXS_AFTER_REORG: true
-    # Slasher penalties
-    SLASH_PRUNE_PENALTY: 10e18
-    SLASH_DATA_WITHHOLDING_PENALTY: 10e18
-    SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.9
-    SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: 1
-    SLASH_INACTIVITY_PENALTY: 10e18
-    SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY: 10e18
-    SLASH_DUPLICATE_PROPOSAL_PENALTY: 10e18
-    SLASH_DUPLICATE_ATTESTATION_PENALTY: 10e18
-    SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY: 10e18
-    SLASH_UNKNOWN_PENALTY: 10e18
-    SLASH_INVALID_BLOCK_PENALTY: 10e18
-    SLASH_GRACE_PERIOD_L2_SLOTS: 64
-    ENABLE_VERSION_CHECK: true
+    env:
+      <<: *prodlike
+      # L1 contract overrides - longer slots, higher stakes
+      AZTEC_SLOT_DURATION: 72
+      AZTEC_ACTIVATION_THRESHOLD: 200000e18
+      AZTEC_EJECTION_THRESHOLD: 100000e18
+      AZTEC_LOCAL_EJECTION_THRESHOLD: 199000e18
+      AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS: 2
+      AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: 2
+      AZTEC_SLASHING_VETOER: "0xdfe19Da6a717b7088621d8bBB66be59F2d78e924"
+      AZTEC_SLASHING_QUORUM: 33
+      AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: 100
+      AZTEC_GOVERNANCE_PROPOSER_QUORUM: 60
+      AZTEC_MANA_TARGET: 75000000
+      AZTEC_PROVING_COST_PER_MANA: 25000000
+      AZTEC_SLASH_AMOUNT_SMALL: 100000e18
+      AZTEC_SLASH_AMOUNT_MEDIUM: 100000e18
+      AZTEC_SLASH_AMOUNT_LARGE: 100000e18
+      # Network identity
+      L1_CHAIN_ID: 11155111 # Sepolia
+      # Genesis state
+      TEST_ACCOUNTS: false
+      SPONSORED_FPC: false
+      TRANSACTIONS_DISABLED: false
+      # Sequencer
+      SEQ_MAX_TX_PER_CHECKPOINT: 72 # 1 TPS
+      # Prover
+      PROVER_REAL_PROOFS: true
+      # P2P
+      P2P_MAX_PENDING_TX_COUNT: 1000
+      P2P_TX_POOL_DELETE_TXS_AFTER_REORG: true
+      # Slasher penalties
+      SLASH_PRUNE_PENALTY: 10e18
+      SLASH_DATA_WITHHOLDING_PENALTY: 10e18
+      SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.9
+      SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: 1
+      SLASH_INACTIVITY_PENALTY: 10e18
+      SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY: 10e18
+      SLASH_DUPLICATE_PROPOSAL_PENALTY: 10e18
+      SLASH_DUPLICATE_ATTESTATION_PENALTY: 10e18
+      SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY: 10e18
+      SLASH_UNKNOWN_PENALTY: 10e18
+      SLASH_INVALID_BLOCK_PENALTY: 10e18
+      SLASH_GRACE_PERIOD_L2_SLOTS: 64
+      ENABLE_VERSION_CHECK: true
 
   mainnet:
-    <<: *prodlike
-    # L1 contract overrides - production parameters
-    AZTEC_SLOT_DURATION: 72
-    AZTEC_ACTIVATION_THRESHOLD: 200000e18
-    AZTEC_EJECTION_THRESHOLD: 100000e18
-    AZTEC_LOCAL_EJECTION_THRESHOLD: 190000e18
-    AZTEC_SLASH_AMOUNT_SMALL: 2000e18
-    AZTEC_SLASH_AMOUNT_MEDIUM: 2000e18
-    AZTEC_SLASH_AMOUNT_LARGE: 2000e18
-    AZTEC_SLASHING_LIFETIME_IN_ROUNDS: 34
-    AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: 28
-    AZTEC_SLASHING_VETOER: "0xBbB4aF368d02827945748b28CD4b2D42e4A37480"
-    AZTEC_SLASHING_QUORUM: 65
-    AZTEC_GOVERNANCE_PROPOSER_QUORUM: 600
-    AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: 1000
-    AZTEC_MANA_TARGET: 75000000
-    AZTEC_PROVING_COST_PER_MANA: 25000000
-    AZTEC_EXIT_DELAY_SECONDS: 345600  # 4 days
-    AZTEC_SLASHING_DISABLE_DURATION: 259200  # 3 days
-    AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE: 500
-    AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE: 500
-    AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN: 1
-    AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT: 400
-    AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE: 4
-    # Network identity
-    L1_CHAIN_ID: 1  # Ethereum mainnet
-    # Genesis state - no test accounts, no sponsored FPC
-    TEST_ACCOUNTS: false
-    SPONSORED_FPC: false
-    TRANSACTIONS_DISABLED: false
-    # Sequencer
-    SEQ_MAX_TX_PER_CHECKPOINT: 72
-    # Prover
-    PROVER_REAL_PROOFS: true
-    # Sync
-    BLOB_ALLOW_EMPTY_SOURCES: true
-    # P2P
-    P2P_MAX_PENDING_TX_COUNT: 1000
-    P2P_TX_POOL_DELETE_TXS_AFTER_REORG: true
-    # Telemetry
-    PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ""
-    PUBLIC_OTEL_COLLECT_FROM: ""
-    ENABLE_VERSION_CHECK: false
-    # Slasher penalties - more lenient initially
-    SLASH_PRUNE_PENALTY: 0
-    SLASH_DATA_WITHHOLDING_PENALTY: 0
-    SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.8
-    SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: 2
-    SLASH_INACTIVITY_PENALTY: 2000e18
-    SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY: 2000e18
-    SLASH_DUPLICATE_PROPOSAL_PENALTY: 2000e18
-    SLASH_DUPLICATE_ATTESTATION_PENALTY: 2000e18
-    SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY: 2000e18
-    SLASH_UNKNOWN_PENALTY: 2000e18
-    SLASH_INVALID_BLOCK_PENALTY: 2000e18
-    SLASH_GRACE_PERIOD_L2_SLOTS: 1200
+    env:
+      <<: *prodlike
+      # L1 contract overrides - production parameters
+      AZTEC_SLOT_DURATION: 72
+      AZTEC_ACTIVATION_THRESHOLD: 200000e18
+      AZTEC_EJECTION_THRESHOLD: 100000e18
+      AZTEC_LOCAL_EJECTION_THRESHOLD: 190000e18
+      AZTEC_SLASH_AMOUNT_SMALL: 2000e18
+      AZTEC_SLASH_AMOUNT_MEDIUM: 2000e18
+      AZTEC_SLASH_AMOUNT_LARGE: 2000e18
+      AZTEC_SLASHING_LIFETIME_IN_ROUNDS: 34
+      AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS: 28
+      AZTEC_SLASHING_VETOER: "0xBbB4aF368d02827945748b28CD4b2D42e4A37480"
+      AZTEC_SLASHING_QUORUM: 65
+      AZTEC_GOVERNANCE_PROPOSER_QUORUM: 600
+      AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE: 1000
+      AZTEC_MANA_TARGET: 75000000
+      AZTEC_PROVING_COST_PER_MANA: 25000000
+      AZTEC_EXIT_DELAY_SECONDS: 345600 # 4 days
+      AZTEC_SLASHING_DISABLE_DURATION: 259200 # 3 days
+      AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE: 500
+      AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE: 500
+      AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN: 1
+      AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT: 400
+      AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE: 4
+      # Network identity
+      L1_CHAIN_ID: 1 # Ethereum mainnet
+      # Genesis state - no test accounts, no sponsored FPC
+      TEST_ACCOUNTS: false
+      SPONSORED_FPC: false
+      TRANSACTIONS_DISABLED: false
+      # Sequencer
+      SEQ_MAX_TX_PER_CHECKPOINT: 72
+      # Prover
+      PROVER_REAL_PROOFS: true
+      # Sync
+      BLOB_ALLOW_EMPTY_SOURCES: true
+      # P2P
+      P2P_MAX_PENDING_TX_COUNT: 1000
+      P2P_TX_POOL_DELETE_TXS_AFTER_REORG: true
+      # Telemetry
+      PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ""
+      PUBLIC_OTEL_COLLECT_FROM: ""
+      ENABLE_VERSION_CHECK: false
+      # Slasher penalties - more lenient initially
+      SLASH_PRUNE_PENALTY: 0
+      SLASH_DATA_WITHHOLDING_PENALTY: 0
+      SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.8
+      SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD: 2
+      SLASH_INACTIVITY_PENALTY: 2000e18
+      SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY: 2000e18
+      SLASH_DUPLICATE_PROPOSAL_PENALTY: 2000e18
+      SLASH_DUPLICATE_ATTESTATION_PENALTY: 2000e18
+      SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY: 2000e18
+      SLASH_UNKNOWN_PENALTY: 2000e18
+      SLASH_INVALID_BLOCK_PENALTY: 2000e18
+      SLASH_GRACE_PERIOD_L2_SLOTS: 1200

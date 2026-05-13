@@ -14,61 +14,41 @@ terraform {
 provider "kubernetes" {
   alias          = "cluster"
   config_path    = "~/.kube/config"
-  config_context = var.K8S_CLUSTER_CONTEXT
+  config_context = var.deploy.K8S_CLUSTER_CONTEXT
 }
 
 locals {
-  # Build the command arguments for deploy-l1-contracts
+  d = var.deploy
+
+  # For genesis-affecting flags, var.env (pod runtime baseline) wins over var.deploy
+  # (deployment defaults) because network YAMLs often define them under env: so that
+  # both the contract deployment and pod runtime use the same value.
+  sponsored_fpc = try(tobool(var.env["SPONSORED_FPC"]), tobool(local.d.SPONSORED_FPC))
+  test_accounts = try(tobool(var.env["TEST_ACCOUNTS"]), tobool(local.d.TEST_ACCOUNTS))
+  real_verifier = try(tobool(var.env["REAL_VERIFIER"]), tobool(local.d.REAL_VERIFIER))
+
   deploy_args = concat(
     ["deploy-l1-contracts"],
-    ["--l1-rpc-urls", var.L1_RPC_URLS],
-    ["--private-key", var.PRIVATE_KEY],
-    ["--l1-chain-id", tostring(var.L1_CHAIN_ID)],
-    ["--validators", var.VALIDATORS],
+    ["--l1-rpc-urls", local.d.L1_RPC_URLS],
+    ["--private-key", local.d.PRIVATE_KEY],
+    ["--l1-chain-id", tostring(tonumber(try(local.d.ETHEREUM_CHAIN_ID, "31337")))],
+    ["--validators", local.d.VALIDATORS],
     ["--json"], # Always output JSON for easier parsing
-    var.SPONSORED_FPC ? ["--sponsored-fpc"] : [],
-    var.TEST_ACCOUNTS ? ["--test-accounts"] : [],
-    var.REAL_VERIFIER ? ["--real-verifier"] : [],
-    var.VERIFY_CONTRACTS ? ["--verify-contracts"] : []
+    local.sponsored_fpc ? ["--sponsored-fpc"] : [],
+    local.test_accounts ? ["--test-accounts"] : [],
+    local.real_verifier ? ["--real-verifier"] : [],
+    tobool(try(local.d.VERIFY_CONTRACTS, "false")) ? ["--verify-contracts"] : []
   )
 
+  # Environment variables for the container (omit keys with null values).
+  # Merge all env vars from the YAML loader plus NETWORK from the deploy block
+  # (NETWORK lives under deploy: in network YAMLs, not env:).
+  env_vars = { for k, v in merge(
+    var.env,
+    { NETWORK = try(local.d.NETWORK, null) }
+  ) : k => v if v != null }
 
-
-  # Environment variables for the container (omit keys with null values)
-  env_vars = { for k, v in {
-    NETWORK                                  = var.NETWORK
-    AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET    = var.AZTEC_LAG_IN_EPOCHS_FOR_VALIDATOR_SET
-    AZTEC_LAG_IN_EPOCHS_FOR_RANDAO           = var.AZTEC_LAG_IN_EPOCHS_FOR_RANDAO
-    AZTEC_SLOT_DURATION                      = var.AZTEC_SLOT_DURATION
-    AZTEC_EPOCH_DURATION                     = var.AZTEC_EPOCH_DURATION
-    AZTEC_TARGET_COMMITTEE_SIZE              = var.AZTEC_TARGET_COMMITTEE_SIZE
-    AZTEC_INBOX_LAG                          = var.AZTEC_INBOX_LAG
-    AZTEC_PROOF_SUBMISSION_EPOCHS            = var.AZTEC_PROOF_SUBMISSION_EPOCHS
-    AZTEC_ACTIVATION_THRESHOLD               = var.AZTEC_ACTIVATION_THRESHOLD
-    AZTEC_EJECTION_THRESHOLD                 = var.AZTEC_EJECTION_THRESHOLD
-    AZTEC_LOCAL_EJECTION_THRESHOLD           = var.AZTEC_LOCAL_EJECTION_THRESHOLD
-    AZTEC_SLASHING_QUORUM                    = var.AZTEC_SLASHING_QUORUM
-    AZTEC_SLASHING_ROUND_SIZE                = var.AZTEC_SLASHING_ROUND_SIZE
-    AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS      = var.AZTEC_SLASHING_ROUND_SIZE_IN_EPOCHS
-    AZTEC_SLASHING_LIFETIME_IN_ROUNDS        = var.AZTEC_SLASHING_LIFETIME_IN_ROUNDS
-    AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS = var.AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS
-    AZTEC_SLASHING_VETOER                    = var.AZTEC_SLASHING_VETOER
-    AZTEC_SLASHING_OFFSET_IN_ROUNDS          = var.AZTEC_SLASHING_OFFSET_IN_ROUNDS
-    AZTEC_SLASH_AMOUNT_SMALL                 = var.AZTEC_SLASH_AMOUNT_SMALL
-    AZTEC_SLASH_AMOUNT_MEDIUM                = var.AZTEC_SLASH_AMOUNT_MEDIUM
-    AZTEC_SLASH_AMOUNT_LARGE                 = var.AZTEC_SLASH_AMOUNT_LARGE
-    AZTEC_SLASHER_ENABLED                    = var.AZTEC_SLASHER_ENABLED
-    AZTEC_GOVERNANCE_PROPOSER_QUORUM         = var.AZTEC_GOVERNANCE_PROPOSER_QUORUM
-    AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE     = var.AZTEC_GOVERNANCE_PROPOSER_ROUND_SIZE
-    AZTEC_GOVERNANCE_VOTING_DURATION         = var.AZTEC_GOVERNANCE_VOTING_DURATION
-    AZTEC_MANA_TARGET                        = var.AZTEC_MANA_TARGET
-    AZTEC_PROVING_COST_PER_MANA              = var.AZTEC_PROVING_COST_PER_MANA
-    AZTEC_EXIT_DELAY_SECONDS                 = var.AZTEC_EXIT_DELAY_SECONDS
-    LOG_LEVEL                                = "debug"
-  } : k => v if v != null }
-
-  # Generate a unique job name with timestamp to avoid conflicts
-  job_name = "${var.JOB_NAME}-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
+  job_name = "${try(local.d.JOB_NAME, "deploy-rollup-contracts")}-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
 }
 
 
@@ -78,22 +58,22 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
 
   metadata {
     name      = local.job_name
-    namespace = var.NAMESPACE
+    namespace = local.d.NAMESPACE
     labels = {
       app     = "deploy-rollup-contracts"
-      version = split(":", var.AZTEC_DOCKER_IMAGE)[1]
+      version = split(":", local.d.AZTEC_DOCKER_IMAGE)[1]
     }
   }
 
   spec {
-    backoff_limit              = var.JOB_BACKOFF_LIMIT
-    ttl_seconds_after_finished = var.JOB_TTL_SECONDS_AFTER_FINISHED
+    backoff_limit              = tonumber(try(local.d.JOB_BACKOFF_LIMIT, "3"))
+    ttl_seconds_after_finished = tonumber(try(local.d.JOB_TTL_SECONDS_AFTER_FINISHED, "3600"))
 
     template {
       metadata {
         labels = {
           app     = "deploy-rollup-contracts"
-          version = split(":", var.AZTEC_DOCKER_IMAGE)[1]
+          version = split(":", local.d.AZTEC_DOCKER_IMAGE)[1]
         }
       }
 
@@ -102,8 +82,8 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
 
         container {
           name              = "deploy-rollup-contracts"
-          image             = var.AZTEC_DOCKER_IMAGE
-          image_pull_policy = can(regex("^kind-", var.K8S_CLUSTER_CONTEXT)) ? "IfNotPresent" : "Always"
+          image             = local.d.AZTEC_DOCKER_IMAGE
+          image_pull_policy = can(regex("^kind-", local.d.K8S_CLUSTER_CONTEXT)) ? "IfNotPresent" : "Always"
           command           = ["/bin/sh"]
           args = concat(
             [
@@ -125,7 +105,7 @@ resource "kubernetes_job_v1" "deploy_rollup_contracts" {
 
           env {
             name  = "ETHERSCAN_API_KEY"
-            value = var.ETHERSCAN_API_KEY
+            value = try(local.d.ETHERSCAN_API_KEY, null)
           }
 
           # Resource limits
@@ -175,7 +155,7 @@ data "external" "contract_addresses" {
 
     # Get the most recent successfully completed pod for the job
     # Filter by Succeeded phase and sort by creation timestamp to get the latest
-    POD_NAME=$(kubectl get pods -n ${var.NAMESPACE} \
+    POD_NAME=$(kubectl get pods -n ${local.d.NAMESPACE} \
       -l job-name=${kubernetes_job_v1.deploy_rollup_contracts.metadata[0].name} \
       --field-selector=status.phase=Succeeded \
       --sort-by=.metadata.creationTimestamp \
@@ -187,7 +167,7 @@ data "external" "contract_addresses" {
     fi
 
     # Extract logs from the pod
-    LOGS=$(kubectl logs $POD_NAME -n ${var.NAMESPACE} 2>/dev/null || echo "{}")
+    LOGS=$(kubectl logs $POD_NAME -n ${local.d.NAMESPACE} 2>/dev/null || echo "{}")
 
     # Consider only logs BEFORE the verification JSON markers (if present)
     BEFORE=$(echo "$LOGS" | sed -n '1,/\[VERIFICATION_JSON_BEGIN\]/p' | sed '$d' || true)
@@ -208,7 +188,7 @@ data "external" "verification_json" {
 
     # Get the most recent successfully completed pod for the job
     # Filter by Succeeded phase and sort by creation timestamp to get the latest
-    POD_NAME=$(kubectl get pods -n ${var.NAMESPACE} \
+    POD_NAME=$(kubectl get pods -n ${local.d.NAMESPACE} \
       -l job-name=${kubernetes_job_v1.deploy_rollup_contracts.metadata[0].name} \
       --field-selector=status.phase=Succeeded \
       --sort-by=.metadata.creationTimestamp \
@@ -219,7 +199,7 @@ data "external" "verification_json" {
       exit 0
     fi
 
-    LOGS=$(kubectl logs $POD_NAME -n ${var.NAMESPACE} 2>/dev/null || echo "")
+    LOGS=$(kubectl logs $POD_NAME -n ${local.d.NAMESPACE} 2>/dev/null || echo "")
 
     CONTENT=$(echo "$LOGS" | sed -n '/\[VERIFICATION_JSON_BEGIN\]/,/\[VERIFICATION_JSON_END\]/p' | sed '1d;$d')
 

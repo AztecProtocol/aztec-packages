@@ -1,8 +1,8 @@
 node:
+  env:
+    L1_PRIORITY_FEE_BUMP_PERCENTAGE: "30"
+    L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE: "80"
   node:
-    env:
-      L1_PRIORITY_FEE_BUMP_PERCENTAGE: 30
-      L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE: 80
     preStartScript: |
       export TX_COLLECTION_NODE_RPC_URLS=$(bash /scripts/resolve-node-hosts.sh $NODE_HOSTS)
       source /scripts/setup-prover-keystore.sh

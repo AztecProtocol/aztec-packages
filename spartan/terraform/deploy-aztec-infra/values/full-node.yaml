@@ -1,7 +1,8 @@
+env:
+  OTEL_SERVICE_NAME: "full-node"
+
 node:
   nodeType: "full-node"
-  env:
-    OTEL_SERVICE_NAME: "full-node"
 
   preStartScript: |
     if [ -n "${BOOT_NODE_HOST:-}" ]; then
