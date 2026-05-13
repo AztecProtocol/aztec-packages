@@ -94,7 +94,19 @@ describe('e2e_p2p_data_withholding_slash', () => {
     await t.ctx.cheatCodes.rollup.debugRollup();
   };
 
-  // TODO(kill-non-pipelined): pipelined parallel publish races create non-sequential proposals to peer validators; needs validator/archiver-level fix.
+  // TODO(kill-non-pipelined): Under pipelining + `aztecProofSubmissionEpochs: 0`, phase 1 publishes
+  // checkpoint 1 to L1 (txCount=1), the test stops nodes, the unproven epoch instantly prunes the
+  // chain on L1, then phase 2 validators come up to an empty L1 chain (`checkpointedCheckpointNumber=0`)
+  // and start building fresh empty checkpoints. The original data-withholding scenario (phase 2 sees
+  // the unproven phase-1 blocks on L1 and fails to fetch their tx data) no longer triggers — by the
+  // time phase 2 syncs, L1 has nothing to fetch. The watcher does fire, but as VALID_EPOCH_PRUNED on
+  // the new empty checkpoint phase 2 built, not DATA_WITHHOLDING on the phase-1 epoch. This is not
+  // B6 (out-of-order proposals); it's a deeper timing interaction between pipelined L1 publish,
+  // instant-prune-after-shutdown, and the phase-2 cold-start race. Rewriting requires either
+  // (a) waiting for phase-1's checkpoint to be *proven* before shutdown (not currently possible with
+  // `aztecProofSubmissionEpochs: 0`) or (b) source-level work to retain unproven-block data through
+  // the prune so the data-withholding offense can still be detected after restart. See §B6 in
+  // PIPELINING_TEST_STATUS.md.
   it.skip('slashes the committee when data is unavailable for the pruned epoch', async () => {
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
