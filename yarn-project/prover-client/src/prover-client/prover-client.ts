@@ -62,40 +62,6 @@ export interface EpochProverFactory {
   createTopTreeOrchestrator(): TopTreeOrchestrator;
 }
 
-/**
- * The factory surface that `EpochProvingJob` (in `prover-node`) depends on. Implemented
- * by `ProverClient`. Defined here rather than in stdlib because the return types
- * (`CheckpointSubTreeOrchestrator`, `TopTreeOrchestrator`) are concrete classes from
- * this package.
- *
- * A single `BrokerCircuitProverFacade` is owned by `ProverClient` and shared across
- * every orchestrator (every sub-tree and every top-tree across every concurrent epoch
- * job). The broker delivers each completed-job notification exactly once (drained on
- * the first `getCompletedJobs` poll), so multiple facades polling the same broker
- * race and lose notifications
- *
- * The facade's job map cleans up entries on resolve/reject, and the prover-node
- * keeps `ProverClient` alive for its whole lifetime
- */
-export interface EpochProverFactory {
-  getProverId(): EthAddress;
-  /**
-   * Constructs a per-epoch shared context for the caching of e.g. chonk verifier results
-   */
-  createEpochProvingContext(epochNumber: EpochNumber): EpochProvingContext;
-  /**
-   * Constructs and starts a `CheckpointSubTreeOrchestrator` for a single checkpoint.
-   */
-  createCheckpointSubTreeOrchestrator(
-    epochContext: EpochProvingContext,
-    checkpointConstants: CheckpointConstantData,
-    l1ToL2Messages: Fr[],
-    totalNumBlocks: number,
-    headerOfLastBlockInPreviousCheckpoint: BlockHeader,
-  ): Promise<CheckpointSubTreeOrchestrator>;
-  createTopTreeOrchestrator(): TopTreeOrchestrator;
-}
-
 /** Manages proving of epochs by orchestrating the proving of individual blocks relying on a pool of prover agents. */
 export class ProverClient implements EpochProverManager, EpochProverFactory {
   private running = false;
