@@ -11,6 +11,7 @@ on:
       - synchronize
 
 permissions:
+  contents: read
   pull-requests: read
 
 jobs:
@@ -41,6 +42,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           sparse-checkout: .github/pull_request_template.md
           sparse-checkout-cone-mode: false
       - name: Check PR description
