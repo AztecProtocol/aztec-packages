@@ -12,7 +12,7 @@ import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { captureProfile } from './benchmark.js';
+import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(900_000);
@@ -184,18 +184,16 @@ describe('AMM benchmark', () => {
               `${accountType}+amm_add_liquidity_1_recursions+${benchmarkingPaymentMethod}`,
               addLiquidityInteraction,
               options,
-              1 + // Account entrypoint
-                1 + // Kernel init
-                paymentMethod.circuits + // Payment method circuits
-                2 + // AMM add_liquidity + kernel inner
-                2 + // Token transfer_to_public_and_prepare_private_balance_increase + kernel inner (token0)
-                2 + // Account verify_private_authwit + kernel inner
-                2 + // Token transfer_to_public_and_prepare_private_balance_increase + kernel inner (token1)
-                2 + // Account verify_private_authwit + kernel inner
-                2 + // Token prepare_private_balance_increase + kernel inner (liquidity token mint)
-                1 + // Kernel reset
-                1 + // Kernel tail
-                1, // Kernel hiding
+              expectedExecutionSteps(
+                1 + // Account entrypoint
+                  paymentMethod.apps + // Payment method apps
+                  1 + // AMM add_liquidity
+                  1 + // Token transfer_to_public_and_prepare_private_balance_increase (token0)
+                  1 + // Account verify_private_authwit
+                  1 + // Token transfer_to_public_and_prepare_private_balance_increase (token1)
+                  1 + // Account verify_private_authwit
+                  1, // Token prepare_private_balance_increase (liquidity token mint)
+              ),
             );
 
             if (process.env.SANITY_CHECKS) {
