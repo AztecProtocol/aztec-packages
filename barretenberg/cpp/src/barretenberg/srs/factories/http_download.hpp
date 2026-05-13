@@ -77,7 +77,7 @@ inline std::vector<uint8_t> http_download([[maybe_unused]] const std::string& ur
         headers.emplace("Range", "bytes=" + std::to_string(start_byte) + "-" + std::to_string(end_byte));
     }
 
-    constexpr int max_attempts = 5;
+    constexpr int max_attempts = 3;
     std::chrono::milliseconds backoff{ 1000 };
     std::string last_error;
     for (int attempt = 1; attempt <= max_attempts; ++attempt) {
