@@ -160,7 +160,17 @@ export const smvp_batch_affine_gpu = async (
   // allocator round-trips at N=2^16; collapsing those to one-time gives a
   // measurable wall-time win.
   const ws_byte_len = total_buckets * limb_byte_length;
-  const ws_key = `bn254:ba:${num_subtasks}:${num_columns}:${num_words}`;
+  // `input_size` must be part of the key. The workspace buffers
+  // themselves are sized by (num_subtasks, num_columns, num_words), but
+  // the bind groups under this key also capture `point_x_sb`/`point_y_sb`
+  // from the caller's CachedBases plus the per-call transpose outputs —
+  // both of which are recreated as fresh GPUBuffer objects when
+  // `input_size` changes (CachedBases is regenerated, transpose uses a
+  // size-keyed pool). Without `input_size` here, a bind group cached at
+  // logN=16 stays bound to logN=16's CachedBases and CSR buffers, which
+  // are destroyed when the harness moves to logN=17 — kernels then
+  // dispatch against dead/zero buffers and the MSM returns identity.
+  const ws_key = `bn254:ba:${num_subtasks}:${num_columns}:${num_words}:${input_size}`;
   const acquire_ws = (suffix: string, size: number): GPUBuffer =>
     context !== undefined
       ? context.acquirePersistentBuffer(`${ws_key}:${suffix}`, size)

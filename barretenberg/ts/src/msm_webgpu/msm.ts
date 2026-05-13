@@ -221,8 +221,10 @@ export const compute_bn254_msm_cached = async (
 ): Promise<{ x: bigint; y: bigint }> =>
   compute_curve_msm(
     // The `baseAffinePoints` argument is ignored on the cached path;
-    // passing an empty Buffer keeps the type signature happy.
-    Buffer.alloc(0),
+    // passing an empty Uint8Array (cast through to Buffer) keeps the
+    // type signature happy without requiring a Node `Buffer` global,
+    // which the browser does not provide.
+    new Uint8Array(0) as unknown as Buffer,
     scalars,
     BN254_CURVE_CONFIG,
     log_result,
@@ -274,7 +276,9 @@ export const compute_bn254_msm_batch_affine = async (
   bpr_inner_loop: "legacy" | "mixed_safe" | "assume_affine" = "legacy",
 ): Promise<{ x: bigint; y: bigint }> =>
   compute_curve_msm(
-    Buffer.alloc(0),
+    // Cached path: `baseAffinePoints` is ignored. Uint8Array cast keeps
+    // the call browser-safe (no Node `Buffer` global).
+    new Uint8Array(0) as unknown as Buffer,
     scalars,
     BN254_CURVE_CONFIG,
     log_result,
@@ -1115,6 +1119,7 @@ const compute_curve_msm = async (
       bpr_assume_affine,
       bpr_mixed_safe,
       bpr_bench_key,
+      input_size,
     );
   }
 
@@ -1165,6 +1170,7 @@ const compute_curve_msm = async (
       bpr_assume_affine,
       bpr_mixed_safe,
       bpr_bench_key,
+      input_size,
     );
   }
   cpu_timer.phaseFrom("bpr_host_total", "bpr_host_begin");
@@ -2615,6 +2621,15 @@ const bpr_1 = async (
   // produced from these flags is built upstream and passed in
   // as `shaderCode`.
   bench_flags_key = "",
+  // Identifies the per-call workspace buffer set the bind group is being
+  // bound against. Sizes of bucket_sum_*_sb and g_points_*_sb are
+  // independent of `input_size` (they're driven by num_columns,
+  // num_subtasks, num_words), so without this, two MSM calls at
+  // different `input_size` produce identical `bpr1_key`s but different
+  // GPUBuffer objects — the cached bind group would still reference the
+  // first call's buffers, BPR would read stale data, and downstream
+  // Horner would read an unwritten g_points buffer and return identity.
+  input_size_key = 0,
 ) => {
   let original_bucket_sum_x_sb;
   let original_bucket_sum_y_sb;
@@ -2655,7 +2670,7 @@ const bpr_1 = async (
   const params_bytes = numbers_to_u8s_for_gpu([
     subtask_idx, num_columns, num_x_workgroups
   ]);
-  const bpr1_key = `${curveId ?? "x"}:bpr1:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}`;
+  const bpr1_key = `${curveId ?? "x"}:bpr1:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
   let params_ub: GPUBuffer;
   if (context !== undefined && !debug && !debug_capture_sb) {
     const got = context.acquirePersistentUniform(
@@ -2861,12 +2876,16 @@ const bpr_2 = async (
   // returned for V1's compile request and the bench-flag changes to
   // stage_1 would never take effect on the GPU.
   bench_flags_key = "",
+  // See bpr_1 for the rationale: disambiguates the persistent bind
+  // group across MSM calls with different `input_size`, whose
+  // workspace buffers are equally sized but distinct GPUBuffer objects.
+  input_size_key = 0,
 ) => {
   // Parameters as a uniform buffer (cached on context when not debug).
   const params_bytes = numbers_to_u8s_for_gpu([
     subtask_idx, num_columns, num_x_workgroups
   ]);
-  const bpr2_key = `${curveId ?? "x"}:bpr2:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}`;
+  const bpr2_key = `${curveId ?? "x"}:bpr2:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
   let params_ub: GPUBuffer;
   if (context !== undefined && !debug && !debug_capture_sb) {
     const got = context.acquirePersistentUniform(

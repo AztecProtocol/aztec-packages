@@ -1,6 +1,10 @@
 // In-browser MSM comparison harness for the BN254 WebGPU port.
 //   Compares, for sizes 2^16..2^20 over a real prefix of the public SRS:
-//     - WebGPU MSM via `compute_bn254_msm` (this repo's WGSL port)
+//     - WebGPU MSM via `compute_bn254_msm_batch_affine` (this repo's
+//       WGSL port; runs on the warm path with a persistent GpuContext,
+//       precomputed Montgomery-form SRS bases per logN, and one warm-up
+//       dispatch before timed measurements — matches the tal-webgpu
+//       Bn254Grid measurement protocol)
 //     - Barretenberg WASM Pippenger, single-threaded (numThreads = 1)
 //     - Barretenberg WASM Pippenger, multi-threaded (numThreads = hw)
 //   The WASM path uses `bb_native_pippenger_bn254`, a direct WASM export
@@ -22,7 +26,12 @@
 
 import { bn254 } from "@noble/curves/bn254";
 
-import { compute_bn254_msm } from "../../src/msm_webgpu/index.js";
+import {
+  CachedBases,
+  compute_bn254_msm_batch_affine,
+  GpuContext,
+  precompute_bn254_bases,
+} from "../../src/msm_webgpu/index.js";
 import {
   createWasmPippenger,
   parseAffineLE,
@@ -108,6 +117,19 @@ let wasmStPippenger: WasmPippengerHandle | null = null;
 let wasmMtPippenger: WasmPippengerHandle | null = null;
 let wasmStBootInFlight: Promise<WasmPippengerHandle> | null = null;
 let wasmMtBootInFlight: Promise<WasmPippengerHandle> | null = null;
+// Persistent WebGPU state. One GpuContext (one GPUDevice + pipeline +
+// shader caches) is reused across every WebGPU dispatch on the page; one
+// CachedBases (Montgomery-form SRS sized to the current logN) is held
+// alongside it and regenerated when logN changes. Without this, every
+// dispatch re-acquires a device, recompiles all six pipelines, re-uploads
+// the SRS, and re-runs Stage-1 Barrett/Montgomery convert — the per-call
+// floor on Dawn/Tint is >100 ms even before the MSM begins. We also do
+// one warm-up dispatch per (context, bases) so the first timed dispatch
+// doesn't pay shader JIT.
+let gpuContext: GpuContext | null = null;
+let cachedBases: CachedBases | null = null;
+let cachedBasesLogN: number | null = null;
+let webgpuWarmedUp = false;
 // Cooperative cancellation flag for in-flight sweeps. The actual MSM
 // call inside the WASM worker can't be preempted from JS, but we check
 // this between reps / sizes so Stop becomes effective at the next yield.
@@ -184,8 +206,13 @@ function setBusy(busy: boolean, text = ""): void {
   $run.disabled = busy || !ready || !WASM_AVAILABLE;
   $runBench.disabled = busy || !ready || !WASM_AVAILABLE;
   $runSweep.disabled = busy || !ready || !WASM_AVAILABLE;
-  // Stop is only meaningful while something is in flight OR WASM is booted.
-  $stop.disabled = !busy && wasmStPippenger === null && wasmMtPippenger === null;
+  // Stop is only meaningful while something is in flight, WASM is booted,
+  // or a GPU context is alive (so the user can free GPU memory on demand).
+  $stop.disabled =
+    !busy &&
+    wasmStPippenger === null &&
+    wasmMtPippenger === null &&
+    gpuContext === null;
   $status.textContent = text;
 }
 
@@ -282,6 +309,33 @@ async function stopAndDestroyWasm(reason: string): Promise<void> {
   }
   $mtThreads.disabled = false;
   log("info", `[stop] WASM workers terminated`);
+  // Tear down persistent WebGPU state too. Destroying the GpuContext
+  // invalidates the device and every cached pipeline / buffer (including
+  // CachedBases — `cached.destroy()` on top is belt-and-braces). Next
+  // run lazily re-creates everything via ensureWebGpuWarmed.
+  if (cachedBases !== null || gpuContext !== null) {
+    try {
+      cachedBases?.destroy();
+    } catch (err) {
+      log(
+        "warn",
+        `[stop/gpu] cachedBases.destroy threw: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    try {
+      gpuContext?.destroy();
+    } catch (err) {
+      log(
+        "warn",
+        `[stop/gpu] gpuContext.destroy threw: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+    cachedBases = null;
+    cachedBasesLogN = null;
+    gpuContext = null;
+    webgpuWarmedUp = false;
+    log("info", `[stop] GPU context destroyed`);
+  }
 }
 
 $stop.addEventListener("click", async () => {
@@ -417,14 +471,86 @@ function pointsEqual(
   return a.x === b.x && a.y === b.y;
 }
 
+/**
+ * Lazily bring the WebGPU side to a warmed-up state for `inputs.n`:
+ *   1. Create a `GpuContext` on first call (caches device + pipelines +
+ *      shader code across every subsequent dispatch).
+ *   2. Run `precompute_bn254_bases` over the SRS slice when n changes
+ *      (Stage-1 Barrett/Montgomery convert; output lives on the device).
+ *   3. Fire one warm-up `compute_bn254_msm_batch_affine` so the next
+ *      dispatch doesn't eat Dawn/Tint shader JIT.
+ *
+ * Each step is logged with its own timing so the user can see what the
+ * cold tal-webgpu-style ~90 ms target is being amortised against.
+ */
+async function ensureWebGpuWarmed(
+  inputs: TestInputs,
+): Promise<{ ctx: GpuContext; bases: CachedBases }> {
+  const logN = Math.log2(inputs.n);
+  if (gpuContext === null) {
+    log("info", "[gpu-warm] creating persistent GpuContext (one-time)");
+    const t0 = performance.now();
+    gpuContext = await GpuContext.create();
+    log(
+      "ok",
+      `[gpu-warm] context ready in ${(performance.now() - t0).toFixed(0)} ms`,
+    );
+  }
+  if (cachedBases === null || cachedBasesLogN !== logN) {
+    if (cachedBases !== null) {
+      log(
+        "info",
+        `[gpu-warm] logN changed (${cachedBasesLogN} → ${logN}); freeing old bases`,
+      );
+      cachedBases.destroy();
+      cachedBases = null;
+      cachedBasesLogN = null;
+      webgpuWarmedUp = false;
+    }
+    log(
+      "info",
+      `[gpu-warm] precomputing Montgomery-form SRS bases for ${inputs.n.toLocaleString()} points`,
+    );
+    const t0 = performance.now();
+    cachedBases = await precompute_bn254_bases(
+      gpuContext,
+      inputs.pointsBuf as unknown as Buffer,
+      false,
+    );
+    cachedBasesLogN = logN;
+    log(
+      "ok",
+      `[gpu-warm] precompute done in ${(performance.now() - t0).toFixed(0)} ms`,
+    );
+  }
+  if (!webgpuWarmedUp) {
+    log("info", "[gpu-warm] warm-up dispatch (shader JIT, command buffer)…");
+    const t0 = performance.now();
+    await compute_bn254_msm_batch_affine(
+      gpuContext,
+      cachedBases,
+      inputs.scalarsBuf as unknown as Buffer,
+      false,
+    );
+    webgpuWarmedUp = true;
+    log(
+      "ok",
+      `[gpu-warm] warm-up done in ${(performance.now() - t0).toFixed(0)} ms`,
+    );
+  }
+  return { ctx: gpuContext, bases: cachedBases };
+}
+
 async function runWebGpuOnce(inputs: TestInputs): Promise<{ ms: number; xy: { x: bigint; y: bigint } }> {
   if (!("gpu" in navigator)) {
     throw new Error("navigator.gpu is undefined — no WebGPU in this browser");
   }
+  const { ctx, bases } = await ensureWebGpuWarmed(inputs);
   log("info", `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
   const t0 = performance.now();
-  const gpu = await compute_bn254_msm(
-    inputs.pointsBuf as unknown as Buffer,
+  const gpu = await compute_bn254_msm_batch_affine(
+    ctx,
+    bases,
     inputs.scalarsBuf as unknown as Buffer,
     false,
   );
@@ -840,11 +966,13 @@ $probeGpu?.addEventListener("click", async () => {
  * the threaded WASM. Always the first thing to try after a fresh reload.
  *
  * The pre-flight logs every input invariant we depend on (n, byte
- * counts, byte offsets) before touching the GPU, so a crash inside
- * `compute_bn254_msm` leaves an audit trail. Several recent crashes
- * have been "right after `[gpu] dispatch`" with no further detail —
- * checking the input shape here separates "we sent garbage" from
- * "GPU went sideways on a valid input".
+ * counts, byte offsets) before touching the GPU, so a crash inside the
+ * WebGPU pipeline leaves an audit trail. Several recent crashes have
+ * been "right after `[gpu] dispatch`" with no further detail — checking
+ * the input shape here separates "we sent garbage" from "GPU went
+ * sideways on a valid input". On the warm path, the sanity check also
+ * exercises `GpuContext.create` and `precompute_bn254_bases` — a hang
+ * during context creation will show up in the `[gpu-warm]` lines.
  */
 $runSanity.addEventListener("click", async () => {
   $log.innerHTML = "";
