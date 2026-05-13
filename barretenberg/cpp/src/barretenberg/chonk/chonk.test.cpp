@@ -113,7 +113,7 @@ class ChonkTests : public ::testing::Test {
 
     /**
      * @brief Helper function to test tampering with AppIO pairing inputs
-     * @details Accumulates circuits, doubles the app pairing points (creating valid but different points),
+     * @details Accumulates circuits, changes the app pairing points (creating valid but different points),
      * and verifies that the final Chonk proof fails verification.
      */
     static void test_app_io_tampering()
@@ -122,9 +122,7 @@ class ChonkTests : public ::testing::Test {
 
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
         auto [proof, vk] = run_ivc(/*num_app_circuits=*/2, settings, [](Chonk& ivc, size_t idx) {
-            if (idx == 2) {
-                EXPECT_EQ(ivc.verification_queue.size(), 2);
-
+            if (idx == 1) {
                 auto& app_entry = ivc.verification_queue[1];
                 ASSERT_FALSE(app_entry.is_kernel) << "Expected second queue entry to be an app";
 
@@ -154,10 +152,8 @@ class ChonkTests : public ::testing::Test {
         BB_DISABLE_ASSERTS();
 
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-        auto [proof, vk] = run_ivc(/*num_app_circuits=*/2, settings, [field_to_tamper](Chonk& ivc, size_t idx) {
-            if (idx == 2) {
-                EXPECT_EQ(ivc.verification_queue.size(), 2);
-
+        auto [proof, vk] = run_ivc(/*num_app_circuits=*/4, settings, [field_to_tamper](Chonk& ivc, size_t idx) {
+            if (idx == 3) {
                 auto& kernel_entry = ivc.verification_queue[0];
                 ASSERT_TRUE(kernel_entry.is_kernel) << "Expected first queue entry to be a kernel";
 
@@ -212,13 +208,15 @@ class ChonkTests : public ::testing::Test {
         using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
 
         const size_t NUM_APP_CIRCUITS = 2;
-        const size_t NUM_TOTAL_CIRCUITS = NUM_APP_CIRCUITS * 2 + /*num_trailing_kernels*/ 3;
+        const size_t NUM_TOTAL_CIRCUITS =
+            NUM_APP_CIRCUITS + static_cast<size_t>(ceil(static_cast<double>(NUM_APP_CIRCUITS) / MAX_APPS_PER_KERNEL)) +
+            /*num_trailing_kernels*/ 3;
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
         // Extract tail kernel IO before the hiding kernel consumes the verification queue.
         KernelIOSerde tail_io;
-        auto [proof, vk_and_hash] =
-            run_ivc(/*num_app_circuits=*/NUM_APP_CIRCUITS, settings, [&tail_io](Chonk& ivc, size_t idx) {
+        auto [proof, vk_and_hash] = run_ivc(
+            /*num_app_circuits=*/NUM_APP_CIRCUITS, settings, [&tail_io, &NUM_TOTAL_CIRCUITS](Chonk& ivc, size_t idx) {
                 // With 2 apps the layout is [app, kernel, app, kernel, reset, tail, hiding].
                 if (idx == NUM_TOTAL_CIRCUITS - 2) {
                     for (auto& it : std::ranges::reverse_view(ivc.verification_queue)) {
@@ -351,7 +349,6 @@ TEST_F(ChonkTests, BadProofFailure)
             }
 
             if (idx == 2) {
-                EXPECT_EQ(ivc.verification_queue.size(), 2); // two proofs after 3 calls to accumulation
                 tamper_with_proof(ivc.verification_queue[0].proof,
                                   num_public_inputs); // tamper with first proof
             }
@@ -372,8 +369,7 @@ TEST_F(ChonkTests, BadProofFailure)
                 circuit_producer.create_next_circuit_and_vk(ivc, { .log2_num_gates = SMALL_LOG_2_NUM_GATES });
             ivc.accumulate(circuit, vk);
 
-            if (idx == 2) {
-                EXPECT_EQ(ivc.verification_queue.size(), 2); // two proofs after 3 calls to accumulation
+            if (idx == 1) {
                 tamper_with_proof(ivc.verification_queue[1].proof,
                                   circuit.num_public_inputs()); // tamper with second proof
             }
@@ -428,8 +424,7 @@ HEAVY_TEST(ChonkKernelCapacity, MaxCapacityPassing)
 {
     bb::srs::init_file_crs_factory(bb::srs::bb_crs_path());
 
-    const size_t NUM_APP_CIRCUITS = (CHONK_MAX_NUM_CIRCUITS - /*trailing kernels*/ 3) / 2;
-    auto [proof, vk] = ChonkTests::accumulate_and_prove_ivc(NUM_APP_CIRCUITS);
+    auto [proof, vk] = ChonkTests::accumulate_and_prove_ivc(CHONK_MAX_NUM_APPS);
 
     bool verified = ChonkTests::verify_chonk(proof, vk);
     EXPECT_TRUE(verified);

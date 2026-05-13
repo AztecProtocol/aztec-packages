@@ -95,11 +95,15 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         // Case 1: if the input point is constant, it is cheaper to fix the point as a witness and then derive the
         // table, than it is to derive the table and fix its witnesses to be constant! (due to group additions = 1 gate,
         // and fixing x/y coords to be constant = 2 gates)
+
+        // base_point == offset_generator collapses the first table add into a degenerate G + G ecc_add gate;
+        // the non-doubling relation is identically zero when operands match, so is satisfied by any result coordinates.
+        BB_ASSERT(base_point.get_value() != offset_generator.get_value(),
+                  "straus_lookup_table case-1: base_point must not coincide with offset_generator");
+
         modded_base_point = cycle_group<Builder>::from_constant_witness(_context, modded_base_point.get_value());
         point_table[0] = cycle_group<Builder>::from_constant_witness(_context, offset_generator.get_value());
         for (size_t i = 1; i < table_size; ++i) {
-            // Safe to use unconditional_add without collision checking due to constant points and inclusion of offset
-            // generator in table entries
             point_table[i] = point_table[i - 1].unconditional_add(modded_base_point, get_hint(i - 1));
         }
     } else {

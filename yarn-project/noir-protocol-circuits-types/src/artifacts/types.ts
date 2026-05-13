@@ -6,7 +6,11 @@ import type { PrivateResetArtifact } from '../private_kernel_reset_types.js';
 
 export type ClientProtocolArtifact =
   | 'PrivateKernelInitArtifact'
+  | 'PrivateKernelInit2Artifact'
+  | 'PrivateKernelInit3Artifact'
   | 'PrivateKernelInnerArtifact'
+  | 'PrivateKernelInner2Artifact'
+  | 'PrivateKernelInner3Artifact'
   | 'PrivateKernelTailArtifact'
   | 'PrivateKernelTailToPublicArtifact'
   | 'HidingKernelToRollup'
@@ -83,8 +87,16 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'rollup-root';
     case 'PrivateKernelInitArtifact':
       return 'private-kernel-init';
+    case 'PrivateKernelInit2Artifact':
+      return 'private-kernel-init-2';
+    case 'PrivateKernelInit3Artifact':
+      return 'private-kernel-init-3';
     case 'PrivateKernelInnerArtifact':
       return 'private-kernel-inner';
+    case 'PrivateKernelInner2Artifact':
+      return 'private-kernel-inner-2';
+    case 'PrivateKernelInner3Artifact':
+      return 'private-kernel-inner-3';
     case 'PrivateKernelTailArtifact':
       return 'private-kernel-tail';
     case 'PrivateKernelTailToPublicArtifact':

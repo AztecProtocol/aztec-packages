@@ -1,4 +1,5 @@
 #pragma once
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
@@ -65,7 +66,13 @@ static constexpr size_t NUM_ZERO_ROWS = 1;
 // The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
 static constexpr uint8_t MAX_APPS_PER_KERNEL = 3;
 
-static constexpr size_t CHONK_MAX_NUM_CIRCUITS = 48 + /*trailing kernels*/ 3;
+static constexpr size_t CHONK_MAX_NUM_APPS = 36;
+static constexpr size_t compute_chonk_max_num_circuits()
+{
+    return CHONK_MAX_NUM_APPS + ((CHONK_MAX_NUM_APPS + MAX_APPS_PER_KERNEL - 1) / MAX_APPS_PER_KERNEL) +
+           /*trailing kernels*/ 3;
+}
+static constexpr size_t CHONK_MAX_NUM_CIRCUITS = compute_chonk_max_num_circuits();
 
 static constexpr size_t BATCH_MERGE_PROOF_SIZE =
     /*num subtables*/ 1 +
