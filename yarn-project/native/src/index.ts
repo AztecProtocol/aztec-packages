@@ -1,2 +1,1 @@
-export * from './native_module.js';
-export { type RoundtripDuration, MsgpackChannel } from './msgpack_channel.js';
+export { type MessageReceiver, type RoundtripDuration, MsgpackChannel } from './msgpack_channel.js';

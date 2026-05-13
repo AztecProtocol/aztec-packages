@@ -15,7 +15,6 @@
     "../package.common.json"
   ],
   "dependencies": {
-    "@aztec/bb.js": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "msgpackr": "^1.11.2"
   },
