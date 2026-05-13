@@ -318,7 +318,9 @@ describe('syncSenderTaggingIndexes', () => {
 
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(pendingIndex);
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(pendingIndex);
-    // Receipt is fetched in parallel with the logs query for this single known-pending entry.
+    // Window 1 finalizes the seeded entry; window 2 finds nothing and breaks → 2 logs calls.
+    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+    // Single receipt call, issued in parallel with window 1's logs query.
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
     expect(aztecNode.getTxReceipt).toHaveBeenCalledWith(pendingTxHash);
   });
@@ -336,6 +338,8 @@ describe('syncSenderTaggingIndexes', () => {
 
     await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
+    // Single window iteration: empty result breaks the loop immediately.
+    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(1);
     expect(aztecNode.getTxReceipt).not.toHaveBeenCalled();
   });
 
@@ -387,6 +391,10 @@ describe('syncSenderTaggingIndexes', () => {
 
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(newlyDiscoveredIndex);
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(newlyDiscoveredIndex);
+    // Window 1 reconciles both pendings; window 2 finds nothing and breaks → 2 logs calls.
+    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+    // One parallel receipt call for the known pending, one sequential follow-up for the newly discovered.
+    expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
     expect(aztecNode.getTxReceipt).toHaveBeenCalledWith(preExistingTxHash);
     expect(aztecNode.getTxReceipt).toHaveBeenCalledWith(newlyDiscoveredTxHash);
   });
@@ -430,6 +438,9 @@ describe('syncSenderTaggingIndexes', () => {
     await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(pendingIndex);
+    // Window 1 finalizes the rediscovered entry; window 2 finds nothing and breaks → 2 logs calls.
+    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+    // Only the parallel receipt call fires — the rediscovered hash is filtered out of the second-pass query.
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
     expect(aztecNode.getTxReceipt).toHaveBeenCalledWith(pendingTxHash);
   });
