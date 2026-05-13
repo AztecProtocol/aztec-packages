@@ -33,5 +33,6 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           SOURCE_BRANCH: public-next
           TARGET_BRANCH: next
-          CONFLICT_EXIT_CODE: 0
+          CONFLICT_EXIT_CODE: 1
+          REAPPLY_PRIVATE_PATCHES: 1
         run: ./scripts/merge-train/merge-public-next.sh
