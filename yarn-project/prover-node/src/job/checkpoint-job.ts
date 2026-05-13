@@ -1,4 +1,4 @@
-import { type ARCHIVE_HEIGHT } from '@aztec/constants';
+import type { ARCHIVE_HEIGHT } from '@aztec/constants';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
