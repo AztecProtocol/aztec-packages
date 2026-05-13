@@ -1,9 +1,11 @@
 use crate::{
-    abis::log::Log, address::AztecAddress, constants::CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
-    traits::Empty,
+    abis::log::Log,
+    address::AztecAddress,
+    constants::CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
+    traits::{Deserialize, Empty, Serialize},
 };
 
-#[derive(Eq)]
+#[derive(Eq, Serialize, Deserialize)]
 pub struct ContractClassLog {
     pub log: Log<CONTRACT_CLASS_LOG_SIZE_IN_FIELDS>,
     pub contract_address: AztecAddress,

@@ -6,7 +6,7 @@ name: Deploy Next Net
 on:
   schedule:
     # Run every night at 4:00 AM UTC, after the nightly tag has been created
-    - cron: "0 4 * * *"
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       image_tag:

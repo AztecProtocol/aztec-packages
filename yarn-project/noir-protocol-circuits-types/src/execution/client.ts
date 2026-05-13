@@ -7,7 +7,11 @@ import type {
   HidingKernelToPublicPrivateInputs,
   HidingKernelToRollupPrivateInputs,
   PrivateKernelCircuitPublicInputs,
+  PrivateKernelInit2CircuitPrivateInputs,
+  PrivateKernelInit3CircuitPrivateInputs,
   PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInner2CircuitPrivateInputs,
+  PrivateKernelInner3CircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelResetCircuitPrivateInputsVariants,
   PrivateKernelTailCircuitPrivateInputs,
@@ -39,8 +43,16 @@ import {
 import type {
   HidingKernelToPublicInputType,
   HidingKernelToRollupInputType,
+  PrivateKernelInit2InputType,
+  PrivateKernelInit2ReturnType,
+  PrivateKernelInit3InputType,
+  PrivateKernelInit3ReturnType,
   PrivateKernelInitInputType,
   PrivateKernelInitReturnType,
+  PrivateKernelInner2InputType,
+  PrivateKernelInner2ReturnType,
+  PrivateKernelInner3InputType,
+  PrivateKernelInner3ReturnType,
   PrivateKernelInnerInputType,
   PrivateKernelInnerReturnType,
   PrivateKernelResetReturnType,
@@ -80,6 +92,58 @@ export function convertPrivateKernelInitInputsToWitnessMapWithAbi(
 }
 
 /**
+ * Converts the inputs of the batched private kernel init-2 circuit (two app calls) into a witness map.
+ * @param inputs - The batched private kernel inputs.
+ * @returns The witness map
+ */
+export function convertPrivateKernelInit2InputsToWitnessMapWithAbi(
+  inputs: PrivateKernelInit2CircuitPrivateInputs,
+  privateKernelInit2Abi: Abi,
+): WitnessMap {
+  const mapped: PrivateKernelInit2InputType = {
+    tx_request: mapTxRequestToNoir(inputs.txRequest),
+    vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
+    protocol_contracts: mapProtocolContractsToNoir(inputs.protocolContracts),
+    private_call_0: mapPrivateCallDataToNoir(inputs.privateCall0),
+    private_call_1: mapPrivateCallDataToNoir(inputs.privateCall1),
+    is_private_only: inputs.isPrivateOnly,
+    first_nullifier_hint: mapFieldToNoir(inputs.firstNullifierHint),
+    revertible_counter_hint: mapNumberToNoir(inputs.revertibleCounterHint),
+    app_public_inputs_0: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall0.publicInputs),
+    app_public_inputs_1: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall1.publicInputs),
+  };
+  pushTestData('private-kernel-init-2', mapped);
+  return abiEncode(privateKernelInit2Abi, mapped);
+}
+
+/**
+ * Converts the inputs of the batched private kernel init-3 circuit (three app calls) into a witness map.
+ * @param inputs - The batched private kernel inputs.
+ * @returns The witness map
+ */
+export function convertPrivateKernelInit3InputsToWitnessMapWithAbi(
+  inputs: PrivateKernelInit3CircuitPrivateInputs,
+  privateKernelInit3Abi: Abi,
+): WitnessMap {
+  const mapped: PrivateKernelInit3InputType = {
+    tx_request: mapTxRequestToNoir(inputs.txRequest),
+    vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
+    protocol_contracts: mapProtocolContractsToNoir(inputs.protocolContracts),
+    private_call_0: mapPrivateCallDataToNoir(inputs.privateCall0),
+    private_call_1: mapPrivateCallDataToNoir(inputs.privateCall1),
+    private_call_2: mapPrivateCallDataToNoir(inputs.privateCall2),
+    is_private_only: inputs.isPrivateOnly,
+    first_nullifier_hint: mapFieldToNoir(inputs.firstNullifierHint),
+    revertible_counter_hint: mapNumberToNoir(inputs.revertibleCounterHint),
+    app_public_inputs_0: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall0.publicInputs),
+    app_public_inputs_1: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall1.publicInputs),
+    app_public_inputs_2: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall2.publicInputs),
+  };
+  pushTestData('private-kernel-init-3', mapped);
+  return abiEncode(privateKernelInit3Abi, mapped);
+}
+
+/**
  * Converts the inputs of the private kernel inner circuit into a witness map
  * @param inputs - The private kernel inputs.
  * @returns The witness map
@@ -101,6 +165,50 @@ export function convertPrivateKernelInnerInputsToWitnessMapWithAbi(
   pushTestData('private-kernel-inner', mapped);
   const initialWitnessMap = abiEncode(privateKernelInnerAbi, mapped);
   return initialWitnessMap;
+}
+
+/**
+ * Converts the inputs of the batched private kernel inner-2 circuit (two app calls) into a witness map.
+ * @param inputs - The batched private kernel inputs.
+ * @returns The witness map
+ */
+export function convertPrivateKernelInner2InputsToWitnessMapWithAbi(
+  inputs: PrivateKernelInner2CircuitPrivateInputs,
+  privateKernelInner2Abi: Abi,
+): WitnessMap {
+  const mapped: PrivateKernelInner2InputType = {
+    previous_kernel: mapPrivateKernelDataToNoir(inputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(inputs.previousKernel.publicInputs),
+    private_call_0: mapPrivateCallDataToNoir(inputs.privateCall0),
+    private_call_1: mapPrivateCallDataToNoir(inputs.privateCall1),
+    app_public_inputs_0: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall0.publicInputs),
+    app_public_inputs_1: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall1.publicInputs),
+  };
+  pushTestData('private-kernel-inner-2', mapped);
+  return abiEncode(privateKernelInner2Abi, mapped);
+}
+
+/**
+ * Converts the inputs of the batched private kernel inner-3 circuit (three app calls) into a witness map.
+ * @param inputs - The batched private kernel inputs.
+ * @returns The witness map
+ */
+export function convertPrivateKernelInner3InputsToWitnessMapWithAbi(
+  inputs: PrivateKernelInner3CircuitPrivateInputs,
+  privateKernelInner3Abi: Abi,
+): WitnessMap {
+  const mapped: PrivateKernelInner3InputType = {
+    previous_kernel: mapPrivateKernelDataToNoir(inputs.previousKernel),
+    previous_kernel_public_inputs: mapPrivateKernelCircuitPublicInputsToNoir(inputs.previousKernel.publicInputs),
+    private_call_0: mapPrivateCallDataToNoir(inputs.privateCall0),
+    private_call_1: mapPrivateCallDataToNoir(inputs.privateCall1),
+    private_call_2: mapPrivateCallDataToNoir(inputs.privateCall2),
+    app_public_inputs_0: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall0.publicInputs),
+    app_public_inputs_1: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall1.publicInputs),
+    app_public_inputs_2: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall2.publicInputs),
+  };
+  pushTestData('private-kernel-inner-3', mapped);
+  return abiEncode(privateKernelInner3Abi, mapped);
 }
 
 /**
@@ -226,6 +334,34 @@ export function convertPrivateKernelInitOutputsFromWitnessMapWithAbi(
 }
 
 /**
+ * Converts the outputs of the batched private kernel init-2 circuit from a witness map.
+ * @param outputs - The private kernel outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertPrivateKernelInit2OutputsFromWitnessMapWithAbi(
+  outputs: WitnessMap,
+  privateKernelInit2Abi: Abi,
+): PrivateKernelCircuitPublicInputs {
+  const decodedInputs: DecodedInputs = abiDecode(privateKernelInit2Abi, outputs);
+  const returnType = decodedInputs.return_value as PrivateKernelInit2ReturnType;
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs of the batched private kernel init-3 circuit from a witness map.
+ * @param outputs - The private kernel outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertPrivateKernelInit3OutputsFromWitnessMapWithAbi(
+  outputs: WitnessMap,
+  privateKernelInit3Abi: Abi,
+): PrivateKernelCircuitPublicInputs {
+  const decodedInputs: DecodedInputs = abiDecode(privateKernelInit3Abi, outputs);
+  const returnType = decodedInputs.return_value as PrivateKernelInit3ReturnType;
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
  * Converts the outputs of the private kernel inner circuit from a witness map.
  * @param outputs - The private kernel outputs as a witness map.
  * @returns The public inputs.
@@ -240,6 +376,34 @@ export function convertPrivateKernelInnerOutputsFromWitnessMapWithAbi(
   // Cast the inputs as the return type
   const returnType = decodedInputs.return_value as PrivateKernelInnerReturnType;
 
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs of the batched private kernel inner-2 circuit from a witness map.
+ * @param outputs - The private kernel outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertPrivateKernelInner2OutputsFromWitnessMapWithAbi(
+  outputs: WitnessMap,
+  privateKernelInner2Abi: Abi,
+): PrivateKernelCircuitPublicInputs {
+  const decodedInputs: DecodedInputs = abiDecode(privateKernelInner2Abi, outputs);
+  const returnType = decodedInputs.return_value as PrivateKernelInner2ReturnType;
+  return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
+}
+
+/**
+ * Converts the outputs of the batched private kernel inner-3 circuit from a witness map.
+ * @param outputs - The private kernel outputs as a witness map.
+ * @returns The public inputs.
+ */
+export function convertPrivateKernelInner3OutputsFromWitnessMapWithAbi(
+  outputs: WitnessMap,
+  privateKernelInner3Abi: Abi,
+): PrivateKernelCircuitPublicInputs {
+  const decodedInputs: DecodedInputs = abiDecode(privateKernelInner3Abi, outputs);
+  const returnType = decodedInputs.return_value as PrivateKernelInner3ReturnType;
   return mapPrivateKernelCircuitPublicInputsFromNoir(returnType);
 }
 
