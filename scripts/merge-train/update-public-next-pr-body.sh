@@ -96,7 +96,7 @@ function patch_still_present {
     return 1
   fi
 
-  if (cd "$verify_worktree" && git apply --reverse --check "$patch_file" >/dev/null 2>&1); then
+  if (cd "$verify_worktree" && git apply --reverse --3way --check "$patch_file" >/dev/null 2>&1); then
     rm -f "$patch_file"
     return 0
   fi
