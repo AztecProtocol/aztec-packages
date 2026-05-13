@@ -5,6 +5,7 @@ noir-contracts.js/**/*.json
 noir-contracts.js/src
 noir-test-contracts.js/**/*.json
 noir-test-contracts.js/src
+standard-contracts/src/**/pinned/*.json
 noir-protocol-circuits-types/src/target/*
 *.md
 end-to-end/src/fixtures/dumps/*.json
