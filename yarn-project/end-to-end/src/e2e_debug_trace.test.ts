@@ -18,8 +18,7 @@ import { type Hex, decodeFunctionData, encodeFunctionData, multicall3Abi } from 
 
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
-// TODO(kill-non-pipelined): mocking sendAndMonitorTransaction to forward via a proxy contract causes L1 tx timeouts and "Failed to publish bundled transactions" under pipelined parallel publish; revisit once pipelined publisher pool handling stabilizes.
-describe.skip('e2e_debug_trace_transaction', () => {
+describe('e2e_debug_trace_transaction', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
   let logger: Logger;
@@ -141,7 +140,13 @@ describe.skip('e2e_debug_trace_transaction', () => {
     l1Utils[0].sendAndMonitorTransaction = originalSendAndMonitor;
   });
 
-  it('can process blocks with a failing call followed by a successful call', async () => {
+  // TODO(kill-non-pipelined): the corrupted+duplicated propose call in this mock wedges the L1
+  // publisher under pipelining — the first L1 propose tx fails (propose_action_not_successful) and
+  // times out before the publisher can move on. The pipelined publisher state-machine doesn't
+  // recover within the test's window. The companion test above (forward-via-proxy, no corruption)
+  // exercises the same debug-trace plumbing and passes — re-enable when the publisher cleanup
+  // path is more robust to failed propose actions under pipelining.
+  it.skip('can process blocks with a failing call followed by a successful call', async () => {
     // We intercept calls to sendAndMonitorTransaction to:
     // 1. Decode the Multicall3 aggregate3 call
     // 2. Duplicate the inner call to the rollup
