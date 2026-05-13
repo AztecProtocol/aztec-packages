@@ -6,7 +6,6 @@ if(NOT(FUZZING) AND NOT(WASM))
         aztec-kvdb
         main.cpp
         cli.cpp
-        kvdb_execute.cpp
         kvdb_ipc_server.cpp
     )
     target_link_libraries(

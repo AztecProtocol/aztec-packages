@@ -193,6 +193,39 @@ export function findAvmBinary(customPath?: string): string | null {
   return null;
 }
 
+/**
+ * Find the aztec-kvdb binary used by the standalone key-value store IPC server.
+ *
+ * @param customPath Optional custom path to aztec-kvdb binary (overrides automatic detection)
+ * @returns Absolute path to aztec-kvdb binary, or null if not found
+ */
+export function findKvdbBinary(customPath?: string): string | null {
+  const envPath = customPath ?? process.env.KVDB_BINARY_PATH;
+  if (envPath) {
+    if (fs.existsSync(envPath)) {
+      return path.resolve(envPath);
+    }
+    return null;
+  }
+
+  const platform = detectPlatform();
+  if (!platform) {
+    return null;
+  }
+
+  const buildDir = PLATFORM_TO_BUILD_DIR[platform];
+  const packageRoot = findPackageRoot();
+  if (!packageRoot) {
+    return null;
+  }
+
+  const kvdbPath = path.join(packageRoot, 'build', buildDir, 'aztec-kvdb');
+  if (fs.existsSync(kvdbPath)) {
+    return kvdbPath;
+  }
+  return null;
+}
+
 export function findNapiBinary(customPath?: string): string | null {
   // Check custom path first if provided
   if (customPath) {

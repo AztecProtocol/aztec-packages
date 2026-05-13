@@ -1,10 +1,7 @@
 #include "barretenberg/kvdb/cli.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
-#include "barretenberg/common/try_catch_shim.hpp"
-#include "barretenberg/kvdb/kvdb_execute.hpp"
 #include "barretenberg/kvdb/kvdb_ipc_server.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
 
 #include <cstdint>
 #include <iostream>
@@ -12,29 +9,12 @@
 
 namespace bb::kvdb {
 
-namespace {
-
-struct KvdbApi {
-    KvdbCommand commands;
-    KvdbCommandResponse responses;
-    SERIALIZATION_FIELDS(commands, responses);
-};
-
-std::string get_kvdb_schema_as_json()
-{
-    return msgpack_schema_to_string(KvdbApi{});
-}
-
-} // namespace
-
 int parse_and_run_kvdb(int argc, char* argv[])
 {
     CLI::App app{ "aztec-kvdb: Standalone LMDB-backed key-value store server" };
     app.require_subcommand(1);
 
     CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
-    CLI::App* msgpack_schema_command =
-        msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
     CLI::App* msgpack_run_command = msgpack_command->add_subcommand("run", "Start the kvdb IPC server.");
 
     std::string input_path;
@@ -44,8 +24,6 @@ int parse_and_run_kvdb(int argc, char* argv[])
     std::string data_dir;
     msgpack_run_command->add_option("-d,--data-dir", data_dir, "Data directory for LMDB store")->required();
 
-    // Default to 1 MiB (same default as the NAPI wrapper had). Production callers
-    // override per-consumer.
     uint64_t map_size_bytes = 1024UL * 1024;
     msgpack_run_command->add_option("--map-size", map_size_bytes, "LMDB map size in bytes (default: 1 MiB)")
         ->check(CLI::PositiveNumber);
@@ -74,10 +52,6 @@ int parse_and_run_kvdb(int argc, char* argv[])
     }
 
     try {
-        if (msgpack_schema_command->parsed()) {
-            std::cout << get_kvdb_schema_as_json() << std::endl;
-            return 0;
-        }
         if (msgpack_run_command->parsed()) {
             return execute_kvdb_server(
                 input_path, data_dir, map_size_bytes, max_readers, request_ring_size, response_ring_size);

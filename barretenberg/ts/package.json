@@ -18,6 +18,9 @@
     "./aztec-avm": {
       "default": "./dest/node/aztec-avm/index.js"
     },
+    "./aztec-kvdb": {
+      "default": "./dest/node/aztec-kvdb/index.js"
+    },
     "./platform": {
       "default": "./dest/node/bb_backends/node/platform.js"
     }

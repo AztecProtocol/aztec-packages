@@ -1,7 +1,7 @@
 #include "barretenberg/nodejs_module/lmdb_store/lmdb_store_wrapper.hpp"
+#include "barretenberg/kvdb/kvdb_messages.hpp"
 #include "barretenberg/lmdblib/lmdb_store.hpp"
 #include "barretenberg/lmdblib/types.hpp"
-#include "barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp"
 #include "napi.h"
 #include <chrono>
 #include <cstdint>
@@ -58,25 +58,25 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
 
     _store = std::make_unique<lmdblib::LMDBStore>(data_dir, map_size, max_readers, 2);
 
-    _msg_processor.register_handler(LMDBStoreMessageType::OPEN_DATABASE, this, &LMDBStoreWrapper::open_database);
+    _msg_processor.register_handler(KvdbMessageType::OPEN_DATABASE, this, &LMDBStoreWrapper::open_database);
 
-    _msg_processor.register_handler(LMDBStoreMessageType::GET, this, &LMDBStoreWrapper::get);
-    _msg_processor.register_handler(LMDBStoreMessageType::HAS, this, &LMDBStoreWrapper::has);
+    _msg_processor.register_handler(KvdbMessageType::GET, this, &LMDBStoreWrapper::get);
+    _msg_processor.register_handler(KvdbMessageType::HAS, this, &LMDBStoreWrapper::has);
 
-    _msg_processor.register_handler(LMDBStoreMessageType::START_CURSOR, this, &LMDBStoreWrapper::start_cursor);
-    _msg_processor.register_handler(LMDBStoreMessageType::ADVANCE_CURSOR, this, &LMDBStoreWrapper::advance_cursor);
+    _msg_processor.register_handler(KvdbMessageType::START_CURSOR, this, &LMDBStoreWrapper::start_cursor);
+    _msg_processor.register_handler(KvdbMessageType::ADVANCE_CURSOR, this, &LMDBStoreWrapper::advance_cursor);
     _msg_processor.register_handler(
-        LMDBStoreMessageType::ADVANCE_CURSOR_COUNT, this, &LMDBStoreWrapper::advance_cursor_count);
-    _msg_processor.register_handler(LMDBStoreMessageType::CLOSE_CURSOR, this, &LMDBStoreWrapper::close_cursor);
+        KvdbMessageType::ADVANCE_CURSOR_COUNT, this, &LMDBStoreWrapper::advance_cursor_count);
+    _msg_processor.register_handler(KvdbMessageType::CLOSE_CURSOR, this, &LMDBStoreWrapper::close_cursor);
 
-    _msg_processor.register_handler(LMDBStoreMessageType::BATCH, this, &LMDBStoreWrapper::batch);
+    _msg_processor.register_handler(KvdbMessageType::BATCH, this, &LMDBStoreWrapper::batch);
 
-    _msg_processor.register_handler(LMDBStoreMessageType::STATS, this, &LMDBStoreWrapper::get_stats);
+    _msg_processor.register_handler(KvdbMessageType::STATS, this, &LMDBStoreWrapper::get_stats);
 
     // The close operation requires exclusive execution, no other operations can be run concurrently with it
-    _msg_processor.register_handler(LMDBStoreMessageType::CLOSE, this, &LMDBStoreWrapper::close, true);
+    _msg_processor.register_handler(KvdbMessageType::CLOSE, this, &LMDBStoreWrapper::close, true);
 
-    _msg_processor.register_handler(LMDBStoreMessageType::COPY_STORE, this, &LMDBStoreWrapper::copy_store, true);
+    _msg_processor.register_handler(KvdbMessageType::COPY_STORE, this, &LMDBStoreWrapper::copy_store, true);
 }
 
 Napi::Value LMDBStoreWrapper::call(const Napi::CallbackInfo& info)

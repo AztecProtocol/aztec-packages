@@ -1,17 +1,30 @@
 #pragma once
+/**
+ * @file kvdb_messages.hpp
+ * @brief Wire schema for the aztec-kvdb IPC server.
+ *
+ * Lifted verbatim from nodejs_module/lmdb_store/lmdb_store_message.hpp (renamed
+ * here once the NAPI wrapper is deleted). The schema matches the wire format
+ * that `yarn-project/native/MsgpackChannel` already speaks — `TypedMessage<P>`
+ * with a uint32_t `msgType` from this enum — so AztecLMDBStoreV2 swaps from
+ * NAPI to UDS/SHM IPC without changing the message types.
+ */
+#include "barretenberg/common/try_catch_shim.hpp"
 #include "barretenberg/lmdblib/types.hpp"
 #include "barretenberg/messaging/header.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "msgpack/adaptor/define_decl.hpp"
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
+#include <vector>
 
-namespace bb::nodejs::lmdb_store {
+namespace bb::kvdb {
 
 using namespace bb::messaging;
 
-enum LMDBStoreMessageType {
+enum KvdbMessageType {
     OPEN_DATABASE = FIRST_APP_MSG_TYPE,
 
     GET,
@@ -139,6 +152,6 @@ struct CopyStoreRequest {
     SERIALIZATION_FIELDS(dstPath, compact);
 };
 
-} // namespace bb::nodejs::lmdb_store
+} // namespace bb::kvdb
 
-MSGPACK_ADD_ENUM(bb::nodejs::lmdb_store::LMDBStoreMessageType)
+MSGPACK_ADD_ENUM(bb::kvdb::KvdbMessageType)

@@ -1,11 +1,11 @@
 #pragma once
 
+#include "barretenberg/kvdb/kvdb_messages.hpp"
 #include "barretenberg/lmdblib/lmdb_cursor.hpp"
 #include "barretenberg/lmdblib/lmdb_store.hpp"
 #include "barretenberg/lmdblib/types.hpp"
 #include "barretenberg/messaging/dispatcher.hpp"
 #include "barretenberg/messaging/header.hpp"
-#include "barretenberg/nodejs_module/lmdb_store/lmdb_store_message.hpp"
 #include "barretenberg/nodejs_module/util/message_processor.hpp"
 #include <cstdint>
 #include <map>
@@ -13,6 +13,8 @@
 #include <napi.h>
 
 namespace bb::nodejs::lmdb_store {
+
+using namespace bb::kvdb;
 
 struct CursorData {
     lmdblib::LMDBCursor::SharedPtr cursor;
