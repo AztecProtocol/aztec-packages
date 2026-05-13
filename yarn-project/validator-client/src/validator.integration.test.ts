@@ -130,23 +130,11 @@ describe('ValidatorClient Integration', () => {
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
     await synchronizer.start();
 
-    // Spawn AVM backend for IPC simulation
-    const wsdbSocketPath = worldStateDb.getSocketPath();
-    const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
-    const { findAvmBinary } = await import('@aztec/bb.js/platform');
-    const avmBinaryPath = findAvmBinary();
-    if (!avmBinaryPath) {
-      throw new Error('aztec-avm binary not found');
-    }
-
-    const { CdbIpcServer, PublicContractsDB } = await import('@aztec/simulator/server');
+    const { AvmSimulatorPool, CdbIpcServer, PublicContractsDB } = await import('@aztec/simulator/server');
     const cdbServer = new CdbIpcServer();
-    const contractsDB = new PublicContractsDB(archiver);
-    cdbServer.registerFork(0, contractsDB, 0n);
-
-    const avmBackend: AvmIpcBackend = new AvmBackend({
-      binaryPath: avmBinaryPath,
-      wsdbSocketPath,
+    cdbServer.registerFork(0, new PublicContractsDB(archiver), 0n);
+    const avmBackend = await AvmSimulatorPool.spawn({
+      wsdbSocketPath: worldStateDb.getSocketPath(),
       cdbSocketPath: cdbServer.socketPath,
     });
 

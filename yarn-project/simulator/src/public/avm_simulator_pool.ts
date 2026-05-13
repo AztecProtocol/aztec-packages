@@ -1,6 +1,11 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
-import type { AvmIpcBackend } from './public_tx_simulator/cpp_public_tx_simulator.js';
+/** Msgpack IPC backend interface (matches bb.js IMsgpackBackendAsync). */
+export interface AvmIpcBackend {
+  call(inputBuffer: Uint8Array): Promise<Uint8Array>;
+  cancel?(): Promise<void>;
+  destroy?(): Promise<void>;
+}
 
 export interface AvmSimulatorPoolOptions {
   /** Maximum number of concurrent AVM processes. If not set, defaults to AVM_MAX_CONCURRENT_SIMULATIONS env var or 4. */

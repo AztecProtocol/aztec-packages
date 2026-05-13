@@ -5,9 +5,10 @@ import type { GlobalVariables, StateReference, Tx } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 
+import type { AvmIpcBackend } from '../avm_simulator_pool.js';
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
 import type { PublicContractsDB } from '../public_db_sources.js';
-import { type AvmIpcBackend, CppPublicTxSimulator } from './cpp_public_tx_simulator.js';
+import { CppPublicTxSimulator } from './cpp_public_tx_simulator.js';
 import { PublicTxSimulator } from './public_tx_simulator.js';
 import type {
   MeasuredPublicTxSimulatorInterface,

@@ -3,7 +3,8 @@ import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { type AvmIpcBackend, TelemetryCppPublicTxSimulator } from './cpp_public_tx_simulator.js';
+import type { AvmIpcBackend } from '../avm_simulator_pool.js';
+import { TelemetryCppPublicTxSimulator } from './cpp_public_tx_simulator.js';
 import { DumpingCppPublicTxSimulator } from './dumping_cpp_public_tx_simulator.js';
 
 /**

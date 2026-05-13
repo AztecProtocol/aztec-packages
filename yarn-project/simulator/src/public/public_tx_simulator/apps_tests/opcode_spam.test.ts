@@ -5,6 +5,7 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 import { mkdirSync, writeFileSync } from 'fs';
 import path from 'path';
 
+import { type AvmIpcBackend, AvmSimulatorPool } from '../../avm_simulator_pool.js';
 import { CdbIpcServer } from '../../cdb_ipc_server.js';
 import { getSpamConfigsPerOpcode, testOpcodeSpamCase } from '../../fixtures/opcode_spammer.js';
 import {
@@ -15,7 +16,7 @@ import {
 import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
 import { PublicContractsDB } from '../../public_db_sources.js';
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
-import { type AvmIpcBackend, MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
+import { MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
 import { MeasuredPublicTxSimulator } from '../measured_public_tx_simulator.js';
 
 // NOTE: This test is meant to be run for benchmarking. Set RUN_AVM_OPCODE_SPAM=1 to enable.
@@ -88,23 +89,11 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
 
       let simulatorFactory: MeasuredSimulatorFactory;
       if (useCppSimulator) {
-        // IPC: spawn aztec-avm + CDB server
-        const wsdbSocketPath = worldStateService.getSocketPath();
-        const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
-        const { findAvmBinary } = await import('@aztec/bb.js/platform');
-        const avmBinaryPath = findAvmBinary();
-        if (!avmBinaryPath) {
-          throw new Error('aztec-avm binary not found');
-        }
-
-        const contractsDB = new PublicContractsDB(contractDataSource);
-        cdbServer = new CdbIpcServer();
         const forkId = merkleTree.getRevision().forkId;
-        cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
-
-        avmBackend = new AvmBackend({
-          binaryPath: avmBinaryPath,
-          wsdbSocketPath,
+        cdbServer = new CdbIpcServer();
+        cdbServer.registerFork(forkId, new PublicContractsDB(contractDataSource), globals.timestamp);
+        avmBackend = await AvmSimulatorPool.spawn({
+          wsdbSocketPath: worldStateService.getSocketPath(),
           cdbSocketPath: cdbServer.socketPath,
         });
         simulatorFactory = (_mt, _cdb, g, m, c) =>

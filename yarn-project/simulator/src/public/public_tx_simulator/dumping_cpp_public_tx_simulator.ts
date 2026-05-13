@@ -13,7 +13,8 @@ import { strict as assert } from 'assert';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-import { type AvmIpcBackend, CppPublicTxSimulator } from './cpp_public_tx_simulator.js';
+import type { AvmIpcBackend } from '../avm_simulator_pool.js';
+import { CppPublicTxSimulator } from './cpp_public_tx_simulator.js';
 import type { SimulationHandle } from './public_tx_simulator_interface.js';
 
 /**

@@ -1,7 +1,7 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type AvmIpcBackend, CdbIpcServer } from '@aztec/simulator/server';
+import { type AvmIpcBackend, AvmSimulatorPool, CdbIpcServer } from '@aztec/simulator/server';
 import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type {
   MerkleTreeReadOperations,
@@ -28,19 +28,9 @@ export class TXESynchronizer implements WorldStateSynchronizer {
 
     const synchronizer = new this(nativeWorldStateService);
 
-    // Spawn IPC backends for C++ public simulation
-    const wsdbSocketPath = nativeWorldStateService.getSocketPath();
-    const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
-    const { findAvmBinary } = await import('@aztec/bb.js/platform');
-    const avmBinaryPath = findAvmBinary();
-    if (!avmBinaryPath) {
-      throw new Error('aztec-avm binary not found — required for TXE public simulation');
-    }
-
     synchronizer.cdbServer = new CdbIpcServer();
-    synchronizer.avmBackend = new AvmBackend({
-      binaryPath: avmBinaryPath,
-      wsdbSocketPath,
+    synchronizer.avmBackend = await AvmSimulatorPool.spawn({
+      wsdbSocketPath: nativeWorldStateService.getSocketPath(),
       cdbSocketPath: synchronizer.cdbServer.socketPath,
     });
 

@@ -598,13 +598,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     // Set up IPC backends for world state and AVM simulation.
     const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
-    const { findWsdbBinary, findAvmBinary } = await import('@aztec/bb.js/platform');
+    const { findWsdbBinary } = await import('@aztec/bb.js/platform');
 
     const wsdbBinaryPath = findWsdbBinary();
-    const avmBinaryPath = findAvmBinary();
-
-    if (!wsdbBinaryPath || !avmBinaryPath) {
-      throw new Error(`Missing required binaries: wsdb=${wsdbBinaryPath}, avm=${avmBinaryPath}`);
+    if (!wsdbBinaryPath) {
+      throw new Error('aztec-wsdb binary not found');
     }
 
     const configuredDataDir = config.worldStateDataDirectory ?? config.dataDirectory;
@@ -622,11 +620,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
     );
 
-    log.info('Starting IPC backends', {
-      wsdbBinary: wsdbBinaryPath,
-      avmBinary: avmBinaryPath,
-      dataDir: dataDirectory,
-    });
+    log.info('Starting IPC backends', { wsdbBinary: wsdbBinaryPath, dataDir: dataDirectory });
 
     const wsdbBackend = new WsdbBackend({
       binaryPath: wsdbBinaryPath,
@@ -644,8 +638,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await wsdbBackend.waitUntilReady();
 
     log.info('WSDB ready, creating AVM simulator pool');
-    const avmPool = new AvmSimulatorPool({
-      avmBinaryPath,
+    const avmPool = await AvmSimulatorPool.spawn({
       wsdbSocketPath: wsdbBackend.getSocketPath(),
       cdbSocketPath: cdbServer.socketPath,
       logger: (msg: string) => log.debug(msg),

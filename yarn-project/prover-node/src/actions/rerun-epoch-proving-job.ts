@@ -33,23 +33,12 @@ export async function rerunEpochProvingJob(
   const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
   const worldState = await createWorldState(config, genesis);
   const archiver = await createArchiverStore(config);
-
-  // Spawn IPC backends for C++ simulation
-  const wsdbSocketPath = worldState.getSocketPath();
-  const { findAvmBinary } = await import('@aztec/bb.js/platform');
-  const avmBinaryPath = findAvmBinary();
-  if (!avmBinaryPath) {
-    throw new Error('aztec-avm binary not found');
-  }
-
   const contractDataSource = createContractDataSource(archiver);
-  const cdbServer = new CdbIpcServer();
-  const contractsDB = new PublicContractsDB(contractDataSource);
-  cdbServer.registerFork(0, contractsDB, 0n);
 
-  const avmPool = new AvmSimulatorPool({
-    avmBinaryPath,
-    wsdbSocketPath,
+  const cdbServer = new CdbIpcServer();
+  cdbServer.registerFork(0, new PublicContractsDB(contractDataSource), 0n);
+  const avmPool = await AvmSimulatorPool.spawn({
+    wsdbSocketPath: worldState.getSocketPath(),
     cdbSocketPath: cdbServer.socketPath,
   });
 

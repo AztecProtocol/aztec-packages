@@ -16,6 +16,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'fs';
 import path, { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
+import { type AvmIpcBackend, AvmSimulatorPool } from '../../avm_simulator_pool.js';
 import { CdbIpcServer } from '../../cdb_ipc_server.js';
 import { ammTest } from '../../fixtures/amm_test.js';
 import { bulkTest, megaBulkTest } from '../../fixtures/bulk_test.js';
@@ -28,7 +29,7 @@ import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_so
 import { tokenTest } from '../../fixtures/token_test.js';
 import { PublicContractsDB } from '../../public_db_sources.js';
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
-import { type AvmIpcBackend, MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
+import { MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
 import { MeasuredPublicTxSimulator } from '../measured_public_tx_simulator.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -77,30 +78,16 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
         let simulatorFactory: MeasuredSimulatorFactory;
         if (useCppSimulator) {
-          // IPC: spawn aztec-avm + CDB server
-          const wsdbSocketPath = worldStateService.getSocketPath();
-          const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
-          const { findAvmBinary } = await import('@aztec/bb.js/platform');
-          const avmBinaryPath = findAvmBinary();
-          if (!avmBinaryPath) {
-            throw new Error('aztec-avm binary not found');
-          }
-
-          const contractsDB = new PublicContractsDB(contractDataSource);
+          const forkId = merkleTree.getRevision().forkId;
           cdbServer = new CdbIpcServer();
-
-          avmBackend = new AvmBackend({
-            binaryPath: avmBinaryPath,
-            wsdbSocketPath,
+          cdbServer.registerFork(forkId, new PublicContractsDB(contractDataSource), globals.timestamp);
+          avmBackend = await AvmSimulatorPool.spawn({
+            wsdbSocketPath: worldStateService.getSocketPath(),
             cdbSocketPath: cdbServer.socketPath,
           });
-
-          const forkId = merkleTree.getRevision().forkId;
-          cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
           simulatorFactory = (_mt, _cdb, g, m, c) =>
             new MeasuredCppPublicTxSimulator(avmBackend!, g, m, c, undefined, forkId);
         } else {
-          // TS simulator (same as on next)
           simulatorFactory = (mt, cdb, g, m, c) => new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
         }
 
@@ -255,25 +242,13 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
         let simulatorFactory: MeasuredSimulatorFactory;
         if (useCppSimulator) {
-          const wsdbSocketPath = worldStateService.getSocketPath();
-          const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
-          const { findAvmBinary } = await import('@aztec/bb.js/platform');
-          const avmBinaryPath = findAvmBinary();
-          if (!avmBinaryPath) {
-            throw new Error('aztec-avm binary not found');
-          }
-
-          const contractsDB = new PublicContractsDB(contractDataSource);
+          const forkId = merkleTree.getRevision().forkId;
           cdbServer = new CdbIpcServer();
-
-          avmBackend = new AvmBackend({
-            binaryPath: avmBinaryPath,
-            wsdbSocketPath,
+          cdbServer.registerFork(forkId, new PublicContractsDB(contractDataSource), globals.timestamp);
+          avmBackend = await AvmSimulatorPool.spawn({
+            wsdbSocketPath: worldStateService.getSocketPath(),
             cdbSocketPath: cdbServer.socketPath,
           });
-
-          const forkId = merkleTree.getRevision().forkId;
-          cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
           simulatorFactory = (_mt, _cdb, g, m, c) =>
             new MeasuredCppPublicTxSimulator(avmBackend!, g, m, c, undefined, forkId);
         } else {

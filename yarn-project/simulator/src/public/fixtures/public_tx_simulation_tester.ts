@@ -18,9 +18,10 @@ import {
   getContractFunctionAbi,
   getFunctionSelector,
 } from '../avm/fixtures/utils.js';
+import { type AvmIpcBackend, AvmSimulatorPool } from '../avm_simulator_pool.js';
 import { CdbIpcServer } from '../cdb_ipc_server.js';
 import { PublicContractsDB } from '../public_db_sources.js';
-import { type AvmIpcBackend, MeasuredCppPublicTxSimulator } from '../public_tx_simulator/cpp_public_tx_simulator.js';
+import { MeasuredCppPublicTxSimulator } from '../public_tx_simulator/cpp_public_tx_simulator.js';
 import type { MeasuredPublicTxSimulatorInterface } from '../public_tx_simulator/public_tx_simulator_interface.js';
 import { TestExecutorMetrics } from '../test_executor_metrics.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';
@@ -99,24 +100,11 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTree = await worldStateService.fork();
 
-    // Spawn AVM backend for IPC simulation
-    const wsdbSocketPath = worldStateService.getSocketPath();
-    const { AvmBackend } = await import('@aztec/bb.js/aztec-avm');
-    const { findAvmBinary } = await import('@aztec/bb.js/platform');
-    const avmBinaryPath = findAvmBinary();
-    if (!avmBinaryPath) {
-      throw new Error('aztec-avm binary not found');
-    }
-
-    // Create CDB server backed by the test contract data source
     const cdbServer = new CdbIpcServer();
-    const contractsDB = new PublicContractsDB(contractDataSource);
     const forkId = merkleTree.getRevision().forkId;
-    cdbServer.registerFork(forkId, contractsDB, globals.timestamp);
-
-    const avmBackend: AvmIpcBackend = new AvmBackend({
-      binaryPath: avmBinaryPath,
-      wsdbSocketPath,
+    cdbServer.registerFork(forkId, new PublicContractsDB(contractDataSource), globals.timestamp);
+    const avmBackend = await AvmSimulatorPool.spawn({
+      wsdbSocketPath: worldStateService.getSocketPath(),
       cdbSocketPath: cdbServer.socketPath,
     });
     const simulatorFactory: MeasuredSimulatorFactory = (_mt, _cdb, g, m, c) =>
