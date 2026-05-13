@@ -8,13 +8,13 @@ mod test;
 
 #[aztec]
 pub contract NestedUtility {
+    use crate::pow_note::PowNote;
     use aztec::macros::{functions::external, storage::storage};
     use aztec::{
         messages::message_delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable},
     };
-    use crate::pow_note::PowNote;
 
     #[storage]
     struct Storage<Context> {
@@ -53,10 +53,7 @@ pub contract NestedUtility {
 
     /// Cross-contract version: calls pow_from_storage on the target contract.
     #[external("utility")]
-    unconstrained fn delegate_pow_from_storage(
-        target: AztecAddress,
-        owner: AztecAddress,
-    ) -> Field {
+    unconstrained fn delegate_pow_from_storage(target: AztecAddress, owner: AztecAddress) -> Field {
         self.call(NestedUtility::at(target).pow_from_storage(owner))
     }
 
