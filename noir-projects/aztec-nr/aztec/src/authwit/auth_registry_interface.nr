@@ -1,15 +1,18 @@
+// GENERATED FILE - DO NOT EDIT
+//
+// Written by `yarn-project/standard-contracts/src/scripts/generate_interfaces.ts` from the compiled
+// `AuthRegistry` artifact. Regenerate with
+// `yarn workspace @aztec/standard-contracts run regen:standard-interfaces`.
+//
+// The selectors below are derived via `comptime { FunctionSelector::from_signature(...) }` at
+// Noir compile time, with the signature string emitted from the artifact's parameter list. This
+// keeps the wrapper in lockstep with whatever the `#[aztec]` macro generates for the real
+// contract; any drift between the contract's external signatures and this file fails the
+// `generate_interfaces.test.ts` freshness gate.
+
 use crate::context::calls::{PublicCall, PublicStaticCall};
 use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::ToField};
 
-/// Hand-written interface stub for the `AuthRegistry` canonical contract.
-///
-/// The `AuthRegistry` contract records public authentication witnesses
-/// (`set_authorized`, `set_reject_all`) and atomically consumes them at
-/// the consumer (`consume`). Consumer code in aztec-nr's `authwit::public`
-/// module calls into the registry via this interface.
-///
-/// The selectors are derived with `comptime { FunctionSelector::from_signature(...) }`,
-/// which matches exactly what the `#[aztec]` macro generates for the real contract.
 pub struct AuthRegistryInterface {
     pub target_contract: AztecAddress,
 }
