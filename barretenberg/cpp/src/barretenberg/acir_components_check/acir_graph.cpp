@@ -132,119 +132,124 @@ void AcirGraph::process_acir_circuit(const Acir::Circuit& circuit)
                                   add_constraint(witnesses);
                               },
                                [&](const Acir::Opcode::BlackBoxFuncCall& black_box) {
-                                   std::visit(
-                                       overloaded{ [&](const Acir::BlackBoxFuncCall::AND& call) {
+                                   std::visit(overloaded{
+                                                  [&](const Acir::BlackBoxFuncCall::AND& call) {
                                                       std::vector<uint32_t> witnesses;
                                                       collect_function_input_witness(witnesses, call.lhs);
                                                       collect_function_input_witness(witnesses, call.rhs);
                                                       witnesses.push_back(call.output.value);
                                                       add_constraint(witnesses);
                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::XOR& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_input_witness(witnesses, call.lhs);
-                                                       collect_function_input_witness(witnesses, call.rhs);
-                                                       witnesses.push_back(call.output.value);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::RANGE& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_input_witness(witnesses, call.input);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::AES128Encrypt& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, call.inputs);
-                                                       collect_function_inputs(witnesses, *call.iv);
-                                                       collect_function_inputs(witnesses, *call.key);
-                                                       collect_witnesses(witnesses, call.outputs);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::Sha256Compression& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, *call.inputs);
-                                                       collect_function_inputs(witnesses, *call.hash_values);
-                                                       collect_witnesses(witnesses, *call.outputs);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::Blake2s& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, call.inputs);
-                                                       collect_witnesses(witnesses, *call.outputs);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::Blake3& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, call.inputs);
-                                                       collect_witnesses(witnesses, *call.outputs);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::EcdsaSecp256k1& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, *call.hashed_message);
-                                                       collect_function_inputs(witnesses, *call.signature);
-                                                       collect_function_inputs(witnesses, *call.public_key_x);
-                                                       collect_function_inputs(witnesses, *call.public_key_y);
-                                                       collect_function_input_witness(witnesses, call.predicate);
-                                                       witnesses.push_back(call.output.value);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::EcdsaSecp256r1& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, *call.hashed_message);
-                                                       collect_function_inputs(witnesses, *call.signature);
-                                                       collect_function_inputs(witnesses, *call.public_key_x);
-                                                       collect_function_inputs(witnesses, *call.public_key_y);
-                                                       collect_function_input_witness(witnesses, call.predicate);
-                                                       witnesses.push_back(call.output.value);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::MultiScalarMul& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, call.points);
-                                                       collect_function_inputs(witnesses, call.scalars);
-                                                       collect_function_input_witness(witnesses, call.predicate);
-                                                       // skipping output is_infinite, it's unused (known)
-                                                       witnesses.push_back((*call.outputs)[0].value);
-                                                       witnesses.push_back((*call.outputs)[1].value);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::EmbeddedCurveAdd& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, *call.input1);
-                                                       collect_function_inputs(witnesses, *call.input2);
-                                                       collect_function_input_witness(witnesses, call.predicate);
-                                                       // skipping output is_infinite, it's unused (known)
-                                                       witnesses.push_back((*call.outputs)[0].value);
-                                                       witnesses.push_back((*call.outputs)[1].value);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::Keccakf1600& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, *call.inputs);
-                                                       collect_witnesses(witnesses, *call.outputs);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::RecursiveAggregation& call) {
-                                                       if (is_disabled_recursive_aggregation(call)) {
-                                                           return;
-                                                       }
+                                                  [&](const Acir::BlackBoxFuncCall::XOR& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_input_witness(witnesses, call.lhs);
+                                                      collect_function_input_witness(witnesses, call.rhs);
+                                                      witnesses.push_back(call.output.value);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::RANGE& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_input_witness(witnesses, call.input);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::AES128Encrypt& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_inputs(witnesses, call.inputs);
+                                                      collect_function_inputs(witnesses, *call.iv);
+                                                      collect_function_inputs(witnesses, *call.key);
+                                                      collect_witnesses(witnesses, call.outputs);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::Sha256Compression& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_inputs(witnesses, *call.inputs);
+                                                      collect_function_inputs(witnesses, *call.hash_values);
+                                                      collect_witnesses(witnesses, *call.outputs);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::Blake2s& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_inputs(witnesses, call.inputs);
+                                                      collect_witnesses(witnesses, *call.outputs);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::Blake3& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_inputs(witnesses, call.inputs);
+                                                      collect_witnesses(witnesses, *call.outputs);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::EcdsaSecp256k1& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_inputs(witnesses, *call.hashed_message);
+                                                      collect_function_inputs(witnesses, *call.signature);
+                                                      collect_function_inputs(witnesses, *call.public_key_x);
+                                                      collect_function_inputs(witnesses, *call.public_key_y);
+                                                      collect_function_input_witness(witnesses, call.predicate);
+                                                      witnesses.push_back(call.output.value);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::EcdsaSecp256r1& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_inputs(witnesses, *call.hashed_message);
+                                                      collect_function_inputs(witnesses, *call.signature);
+                                                      collect_function_inputs(witnesses, *call.public_key_x);
+                                                      collect_function_inputs(witnesses, *call.public_key_y);
+                                                      collect_function_input_witness(witnesses, call.predicate);
+                                                      witnesses.push_back(call.output.value);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::MultiScalarMul& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      for (size_t i = 0; i + 1 < call.points.size(); i += 3) {
+                                                          collect_function_input_witness(witnesses, call.points[i]);
+                                                          collect_function_input_witness(witnesses, call.points[i + 1]);
+                                                      }
+                                                      collect_function_inputs(witnesses, call.scalars);
+                                                      collect_function_input_witness(witnesses, call.predicate);
+                                                      // skipping input/output is_infinite, it's unused (known)
+                                                      witnesses.push_back((*call.outputs)[0].value);
+                                                      witnesses.push_back((*call.outputs)[1].value);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::EmbeddedCurveAdd& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_input_witness(witnesses, (*call.input1)[0]);
+                                                      collect_function_input_witness(witnesses, (*call.input1)[1]);
+                                                      collect_function_input_witness(witnesses, (*call.input2)[0]);
+                                                      collect_function_input_witness(witnesses, (*call.input2)[1]);
+                                                      collect_function_input_witness(witnesses, call.predicate);
+                                                      // skipping input/output is_infinite, it's unused (known)
+                                                      witnesses.push_back((*call.outputs)[0].value);
+                                                      witnesses.push_back((*call.outputs)[1].value);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::Keccakf1600& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_inputs(witnesses, *call.inputs);
+                                                      collect_witnesses(witnesses, *call.outputs);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::RecursiveAggregation& call) {
+                                                      if (is_disabled_recursive_aggregation(call)) {
+                                                          return;
+                                                      }
 
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, call.verification_key);
-                                                       collect_function_inputs(witnesses, call.proof);
-                                                       collect_function_inputs(witnesses, call.public_inputs);
-                                                       collect_function_input_witness(witnesses, call.key_hash);
-                                                       collect_function_input_witness(witnesses, call.predicate);
-                                                       add_constraint(witnesses);
-                                                   },
-                                                   [&](const Acir::BlackBoxFuncCall::Poseidon2Permutation& call) {
-                                                       std::vector<uint32_t> witnesses;
-                                                       collect_function_inputs(witnesses, call.inputs);
-                                                       collect_witnesses(witnesses, call.outputs);
-                                                       add_constraint(witnesses);
-                                                   } },
-                                       black_box.value.value);
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_inputs(witnesses, call.verification_key);
+                                                      collect_function_inputs(witnesses, call.proof);
+                                                      collect_function_inputs(witnesses, call.public_inputs);
+                                                      collect_function_input_witness(witnesses, call.key_hash);
+                                                      collect_function_input_witness(witnesses, call.predicate);
+                                                      add_constraint(witnesses);
+                                                  },
+                                                  [&](const Acir::BlackBoxFuncCall::Poseidon2Permutation& call) {
+                                                      std::vector<uint32_t> witnesses;
+                                                      collect_function_inputs(witnesses, call.inputs);
+                                                      collect_witnesses(witnesses, call.outputs);
+                                                      add_constraint(witnesses);
+                                                  } },
+                                              black_box.value.value);
                                },
                                [&](const Acir::Opcode::MemoryInit& memory_init) {
                                    auto& witnesses = block_witnesses[memory_init.block_id.value];

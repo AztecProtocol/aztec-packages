@@ -11,24 +11,24 @@ namespace acir_components_check {
  *  not a recognized singleton/range-list variable). Compare step emits UNCONSTRAINED for these. */
 static constexpr size_t NO_CIRCUIT_CC = SIZE_MAX;
 
-std::vector<Error> ComponentsChecker::check()
+template <typename Builder> std::vector<Error> ComponentsChecker_<Builder>::check()
 {
     build_acir_component_map();
     build_circuit_component_map();
     return compare_components();
 }
 
-void ComponentsChecker::build_acir_component_map()
+template <typename Builder> void ComponentsChecker_<Builder>::build_acir_component_map()
 {
     AcirGraph acir_graph;
     acir_graph.process_acir_circuit(acir_circuit_);
     acir_witness_map_ = acir_graph.get_witness_component_map();
 }
 
-void ComponentsChecker::build_circuit_component_map()
+template <typename Builder> void ComponentsChecker_<Builder>::build_circuit_component_map()
 {
     // Real CCs: variables that share arithmetic gates form connected components.
-    cdg::UltraStaticAnalyzer analyzer(builder_);
+    cdg::StaticAnalyzer_<bb::fr, Builder> analyzer(builder_);
     auto circuit_cc = analyzer.find_connected_components();
 
     // Map each circuit CC variable to its CC index
@@ -97,7 +97,7 @@ void ComponentsChecker::build_circuit_component_map()
     }
 }
 
-std::vector<Error> ComponentsChecker::compare_components() const
+template <typename Builder> std::vector<Error> ComponentsChecker_<Builder>::compare_components() const
 {
     std::vector<Error> errors;
 
@@ -149,7 +149,7 @@ std::vector<Error> ComponentsChecker::compare_components() const
     return errors;
 }
 
-std::string ComponentsChecker::format_witness_debug(uint32_t w) const
+template <typename Builder> std::string ComponentsChecker_<Builder>::format_witness_debug(uint32_t w) const
 {
     if (w >= builder_.real_variable_index.size()) {
         return "w" + std::to_string(w) + "(real=missing,const=false,cc=false,gates=false,rl=false)";
@@ -164,5 +164,10 @@ std::string ComponentsChecker::format_witness_debug(uint32_t w) const
     return "w" + std::to_string(w) + "(real=" + std::to_string(real_idx) + ",const=" + b(is_const) + ",cc=" + b(in_cc) +
            ",gates=" + b(has_gates) + ",rl=" + b(in_rl) + ")";
 }
+
+// Explicit instantiations. Both UltraCircuitBuilder and MegaCircuitBuilder satisfy the field
+// requirements (MegaCircuitBuilder_ inherits from UltraCircuitBuilder_).
+template class ComponentsChecker_<bb::UltraCircuitBuilder>;
+template class ComponentsChecker_<bb::MegaCircuitBuilder>;
 
 } // namespace acir_components_check
