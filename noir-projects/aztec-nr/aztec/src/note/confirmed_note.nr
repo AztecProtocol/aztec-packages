@@ -33,7 +33,7 @@ pub struct ConfirmedNote<Note> {
     /// The note hash used to prove existence.
     ///
     /// Whether this note hash is unsiloed or unique depends on the note's metadata.
-    pub(crate) proven_note_hash: Field,
+    pub proven_note_hash: Field,
 }
 
 impl<Note> ConfirmedNote<Note> {
