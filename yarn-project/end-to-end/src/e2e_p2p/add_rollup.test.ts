@@ -63,8 +63,7 @@ jest.setTimeout(1000 * 60 * 20);
  * The nodes are then updated to use the new rollup and we send transactions to try cross-chain in both directions
  * ensuring that it also works on the new rollup.
  */
-// TODO(kill-non-pipelined): AttestationTimeoutError under pipelined proposer; governance round timing needs revisit
-describe.skip('e2e_p2p_add_rollup', () => {
+describe('e2e_p2p_add_rollup', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
   let proverAztecNode: AztecNodeService;
