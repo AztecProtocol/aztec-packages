@@ -2,10 +2,17 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 
 import { BlacklistTokenContractTest, Role } from './blacklist_token_contract_test.js';
 
-// TODO(kill-non-pipelined): each test body calls crossTimestampOfChange (86400s warp), so the suite warps the chain
-// 4+ times. Under pipelining, after ~3 cumulative warps the L1-sync/snapshot path resets the L2 block index back to 1,
-// breaking mineBlock's monotonic `newBlockNumber > currentBlockNumber` wait condition with a TimeoutError. Other
-// blacklist suites warp at most twice (setup + applyMint) and are unaffected.
+// TODO(kill-non-pipelined): each test body calls crossTimestampOfChange (86400s = 7200 slots at
+// aztecSlotDuration=12s). The shared warpL2TimeAtLeastBy helper warps L1 then loops mineBlock to
+// catch L2 up — under pipelining the cascading in-flight publishers across 7200 slots stall the
+// build loop and on subsequent tests we see "Fork not found"/"Block hash not found" reorg errors
+// because the world-state forks built against pre-warp anchor blocks get orphaned. A pure L1-only
+// warp was tried (resetBlockInterval: true, no L2 mineBlock) but fails identically — the in-flight
+// pipelined proposal references a slot that's now ancient history and the wallet's
+// expiration_timestamp anchored to pre-warp time is rejected as "Invalid expiration timestamp".
+// Other blacklist suites only warp 1-2× (setup + applyMint) and survive; access_control warps 4+×
+// and accumulates fork-orphaning. Needs sequencer-pipeline-aware huge-warp coordination (stop
+// sequencer, warp, re-sync PXE/world-state, restart) which is out of scope for the test-side fix.
 describe.skip('e2e_blacklist_token_contract access control', () => {
   const t = new BlacklistTokenContractTest('access_control');
 
