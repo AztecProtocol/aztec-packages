@@ -287,6 +287,10 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     }
   }
 
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
+  }
+
   private async buildInitialHeader(): Promise<BlockHeader> {
     const state = await this.getInitialStateReference();
     return BlockHeader.empty({
