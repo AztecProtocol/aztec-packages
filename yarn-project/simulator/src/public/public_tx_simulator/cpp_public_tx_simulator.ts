@@ -13,7 +13,7 @@ import { SimulationError } from '@aztec/stdlib/errors';
 import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { type AvmIpcBackend, type AvmSimulatorPool } from '../avm_simulator_pool.js';
+import type { AvmIpcBackend, AvmSimulatorPool } from '../avm_simulator_pool.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
 import type {

@@ -7,6 +7,12 @@ import {
   type TestExecutorMetrics,
   type TestPrivateInsertions,
 } from '@aztec/simulator/public/fixtures';
+import {
+  AvmSimulatorPool,
+  CdbIpcServer,
+  MeasuredCppPublicTxSimulator,
+  PublicContractsDB,
+} from '@aztec/simulator/server';
 import type { PublicTxResult } from '@aztec/simulator/server';
 import { AvmCircuitInputs, AvmCircuitPublicInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
