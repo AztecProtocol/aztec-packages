@@ -113,4 +113,20 @@ export class SchnorrSignature implements Signature {
 
     return mapTuple([buf1, buf2, buf3], Fr.fromBuffer);
   }
+
+  /**
+   * Splits the signature into the four 128-bit limbs that Noir's `EmbeddedCurveScalar` consumes:
+   * `[s.lo, s.hi, e.lo, e.hi]`, where each component scalar is encoded as `lo + hi * 2^128`.
+   *
+   * Each 32-byte big-endian component is sliced into its top 16 bytes (`hi`) and bottom 16 bytes
+   * (`lo`); each half is zero-padded into a 32-byte buffer and decoded as `Fr` (big-endian).
+   */
+  toLimbFields(): [Fr, Fr, Fr, Fr] {
+    const limb = (start: number) => {
+      const buf = Buffer.alloc(32);
+      this.buffer.copy(buf, 16, start, start + 16);
+      return Fr.fromBuffer(buf);
+    };
+    return [limb(16), limb(0), limb(48), limb(32)];
+  }
 }
