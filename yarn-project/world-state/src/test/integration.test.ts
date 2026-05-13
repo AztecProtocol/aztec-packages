@@ -35,7 +35,7 @@ describe('world-state integration', () => {
   beforeAll(async () => {
     log = createLogger('world-state:test:integration');
     rollupAddress = EthAddress.random();
-    const db = await NativeWorldStateService.tmp(rollupAddress);
+    const db = await NativeWorldStateService.tmp();
     try {
       const fork = await db.fork(BlockNumber(0));
       log.info(`Generating ${MAX_CHECKPOINT_COUNT} mock checkpoints`);

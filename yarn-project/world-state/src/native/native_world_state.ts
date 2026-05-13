@@ -25,7 +25,7 @@ import { join } from 'path';
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import type { MerkleTreeAdminDatabase as MerkleTreeDatabase } from '../world-state-db/merkle_tree_db.js';
-import { IpcWorldState, type WsdbIpcBackend, getWsdbOptions } from './ipc_world_state_instance.js';
+import { IpcWorldState } from './ipc_world_state_instance.js';
 import { MerkleTreesFacade, MerkleTreesForkFacade, serializeLeaf } from './merkle_trees_facade.js';
 import {
   WorldStateMessageType,
@@ -77,46 +77,19 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const log = createLogger('world-state:database', bindings);
     const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
 
-    const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
-    const { findWsdbBinary } = await import('@aztec/bb.js/platform');
-    const wsdbBinaryPath = findWsdbBinary();
-    if (!wsdbBinaryPath) {
-      throw new Error('aztec-wsdb binary not found');
-    }
-
-    // Factory to create a fresh IpcWorldState from a data directory.
-    // Used by both initial open and clear() to recreate from scratch.
-    const createInstance = async (dir: string) => {
-      const wsdbOpts = getWsdbOptions(dir, wsTreeMapSizes);
-      const prefilledData = genesis.prefilledPublicData.map(
-        d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
-      );
-      const backend = new WsdbBackend({
-        binaryPath: wsdbBinaryPath,
-        dataDir: dir,
-        ...wsdbOpts,
-        prefilledPublicData: prefilledData,
-        genesisTimestamp: Number(genesis.genesisTimestamp),
-      });
-      await backend.waitUntilReady();
-      return new IpcWorldState(backend, instrumentation, bindings);
-    };
-
-    // Create a version manager to handle versioning
     const versionManager = new DatabaseVersionManager({
       schemaVersion: WORLD_STATE_DB_VERSION,
       rollupAddress,
       dataDirectory: worldStateDirectory,
-      onOpen: createInstance,
+      onOpen: dir => IpcWorldState.spawn(dir, wsTreeMapSizes, genesis, instrumentation, bindings),
     });
 
     const [instance] = await versionManager.open();
 
-    // Recreate closure: delete data dir, recreate it, spawn fresh WSDB
     const recreateInstance = async () => {
       await rm(worldStateDirectory, { recursive: true, force: true, maxRetries: 3 });
       await mkdir(worldStateDirectory, { recursive: true });
-      return createInstance(worldStateDirectory);
+      return IpcWorldState.spawn(worldStateDirectory, wsTreeMapSizes, genesis, instrumentation, bindings);
     };
 
     const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
@@ -131,7 +104,6 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   }
 
   static async tmp(
-    _rollupAddress = EthAddress.ZERO,
     cleanupTmpDir = true,
     genesis: GenesisData = EMPTY_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
@@ -149,35 +121,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     };
     log.debug(`Created temporary world state database at: ${dataDir} with tree map size: ${dbMapSizeKb}`);
 
-    const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
-    const { findWsdbBinary } = await import('@aztec/bb.js/platform');
-    const wsdbBinaryPath = findWsdbBinary();
-    if (!wsdbBinaryPath) {
-      throw new Error('aztec-wsdb binary not found');
-    }
-
-    const wsdbOpts = getWsdbOptions(dataDir, worldStateTreeMapSizes);
-    const prefilledData = genesis.prefilledPublicData.map(
-      d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
-    );
-
-    const createInstance = async () => {
-      const backend = new WsdbBackend({
-        binaryPath: wsdbBinaryPath,
-        dataDir,
-        ...wsdbOpts,
-        prefilledPublicData: prefilledData,
-        genesisTimestamp: Number(genesis.genesisTimestamp),
-      });
-      await backend.waitUntilReady();
-      return new IpcWorldState(backend, instrumentation, bindings);
-    };
-
-    const instance = await createInstance();
+    const instance = await IpcWorldState.spawn(dataDir, worldStateTreeMapSizes, genesis, instrumentation, bindings);
 
     const cleanup = async () => {
-      // Note: wsdbBackend.destroy() is already called by IpcWorldState.close()
-      // so we only clean up the data directory here.
       if (cleanupTmpDir) {
         await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
         log.debug(`Deleted temporary world state database: ${dataDir}`);
@@ -189,7 +135,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const recreateInstance = async () => {
       await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
       await mkdir(dataDir, { recursive: true });
-      return createInstance();
+      return IpcWorldState.spawn(dataDir, worldStateTreeMapSizes, genesis, instrumentation, bindings);
     };
 
     const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
@@ -197,30 +143,6 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       await worldState.init();
     } catch (e) {
       log.error(`Error initializing tmp world state: ${e}`);
-      throw e;
-    }
-    return worldState;
-  }
-
-  /**
-   * Creates a NativeWorldStateService backed by an IPC connection to a running aztec-wsdb process.
-   * The WsdbBackend manages the process lifecycle; we wrap it in IpcWorldState for the msgpack protocol.
-   */
-  static async fromIpc(
-    wsdbBackend: WsdbIpcBackend,
-    instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
-    bindings?: LoggerBindings,
-    genesis: GenesisData = EMPTY_GENESIS_DATA,
-    cleanup = () => Promise.resolve(),
-    recreateInstance?: () => Promise<NativeWorldStateInstance>,
-  ): Promise<NativeWorldStateService> {
-    const log = createLogger('world-state:database', bindings);
-    const instance = new IpcWorldState(wsdbBackend, instrumentation, bindings);
-    const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
-    try {
-      await worldState.init();
-    } catch (e) {
-      log.error(`Error initializing IPC world state: ${e}`);
       throw e;
     }
     return worldState;
