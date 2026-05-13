@@ -266,9 +266,12 @@ function test_cmds_native {
   done
 
   # The pinned IVC inputs / VKs live in the public repo; the private fork
-  # carries divergent circuits so the check is expected to fail there.
+  # carries divergent circuits so the check is expected to fail there. Also
+  # skip when we are deliberately refreshing the pinned inputs — the VK
+  # mismatch is what triggered the refresh in the first place.
   local github_repository="${GITHUB_REPOSITORY:-}"
-  if [[ "${github_repository,,}" != "aztecprotocol/aztec-packages-private" ]]; then
+  if [[ "${github_repository,,}" != "aztecprotocol/aztec-packages-private" ]] \
+     && [[ "${UPDATE_CHONK_INPUTS:-0}" != "1" ]]; then
     echo "$hash barretenberg/cpp/scripts/test_chonk_standalone_vks_havent_changed.sh"
   fi
 }

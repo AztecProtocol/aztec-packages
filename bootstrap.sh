@@ -643,6 +643,30 @@ case "$cmd" in
     build_and_test full
     bench
     ;;
+  "ci-update-chonk-inputs")
+    # Regenerate the pinned chonk IVC inputs by running the full e2e capture
+    # path, upload the result to S3, and rewrite pinned_chonk_inputs_hash in
+    # barretenberg/cpp/scripts/pinned_chonk_inputs.sh. Persists the rewritten
+    # script + the new hash to the CI cache so the calling workflow can pull
+    # them back and commit + push to the PR with [skip ci]. Triggered by the
+    # /update-chonk-inputs comment or the update-chonk-inputs label; see
+    # .github/workflows/update-chonk-inputs.yml.
+    export CI=1
+    export USE_TEST_CACHE=1
+    export CI_FULL=1
+    export UPDATE_CHONK_INPUTS=1
+    build_and_test full
+    source $root/barretenberg/cpp/scripts/pinned_chonk_inputs.sh
+    new_hash="${pinned_chonk_inputs_hash}"
+    cd "$root"
+    rm -rf chonk-inputs-pin-update
+    mkdir -p chonk-inputs-pin-update
+    cp "$PINNED_CHONK_INPUTS_SCRIPT" chonk-inputs-pin-update/pinned_chonk_inputs.sh
+    echo "$new_hash" > chonk-inputs-pin-update/new_hash.txt
+    cache_upload "chonk-inputs-pin-update-$(git rev-parse HEAD).tar.gz" \
+      chonk-inputs-pin-update
+    echo "Refreshed pinned chonk inputs to $new_hash and uploaded artifact."
+    ;;
   "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0

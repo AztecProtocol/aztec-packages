@@ -1,0 +1,161 @@
+name: Update pinned chonk inputs
+
+# Refreshes the pinned chonk IVC inputs (see
+# barretenberg/cpp/scripts/pinned_chonk_inputs.sh) by running the heavy e2e
+# capture path on a CI EC2 spot instance, uploading the new tarball to S3,
+# rewriting the pin in this repo, and pushing the change back to the PR head
+# with [skip ci] so subsequent CI runs against the same PR use the new pin.
+#
+# Triggered by:
+#   - PR comment `/update-chonk-inputs` (write-access users only)
+#   - Adding the `update-chonk-inputs` label to a PR
+#
+# While this workflow is running, ordinary ci3 runs that detect a chonk VK
+# mismatch will fail loudly — this is intentional, the developer signals
+# "please regenerate" by triggering this workflow, and the failing run is
+# replaced by the post-push CI run on the new pin.
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: update-chonk-inputs-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  update-chonk-inputs:
+    if: >-
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        startsWith(github.event.comment.body, '/update-chonk-inputs')) ||
+      (github.event_name == 'pull_request' &&
+        github.event.label.name == 'update-chonk-inputs')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # OIDC assume-role for AWS
+      contents: write   # push the pin update back to the PR head
+      pull-requests: write
+    steps:
+      - name: Check write access (comment trigger)
+        if: github.event_name == 'issue_comment'
+        env:
+          ASSOCIATION: ${{ github.event.comment.author_association }}
+        run: |
+          echo "Comment author association: $ASSOCIATION"
+          case "$ASSOCIATION" in
+            OWNER|MEMBER|COLLABORATOR) echo "Access granted." ;;
+            *) echo "ERROR: comment author lacks write access." >&2; exit 1 ;;
+          esac
+
+      - name: React to comment
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          gh api repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}/reactions \
+            -f content='eyes' || true
+
+      - name: Resolve PR head ref
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number || github.event.issue.number }}"
+          HEAD_REF=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER --jq '.head.ref')
+          HEAD_REPO=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER --jq '.head.repo.full_name')
+          if [[ "$HEAD_REPO" != "${{ github.repository }}" ]]; then
+            echo "ERROR: cross-repo PRs are not supported (head is $HEAD_REPO)." >&2
+            exit 1
+          fi
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR head
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ steps.pr.outputs.head_ref }}
+          fetch-depth: 0
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: update-chonk-inputs-${{ github.run_id }}
+          role-duration-seconds: 7200
+
+      - name: Setup SSH key
+        env:
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "${BUILD_INSTANCE_SSH_KEY}" | base64 --decode > ~/.ssh/build_instance_key
+          chmod 600 ~/.ssh/build_instance_key
+
+      - name: Run update-chonk-inputs on EC2
+        env:
+          CI_USE_SSH: ${{ vars.CI_USE_SSH == '1' && '1' || '0' }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          CI3_INSTANCE_PROFILE_NAME: ${{ secrets.CI3_INSTANCE_PROFILE_NAME }}
+          CI3_SECURITY_GROUP_ID: ${{ secrets.CI3_SECURITY_GROUP_ID }}
+          AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+        run: ./ci.sh update-chonk-inputs
+
+      - name: Fetch refreshed pin from cache
+        run: |
+          set -euxo pipefail
+          rm -rf /tmp/chonk-pin
+          mkdir -p /tmp/chonk-pin
+          ./ci3/cache_download "chonk-inputs-pin-update-$(git rev-parse HEAD).tar.gz" /tmp/chonk-pin
+          ls -la /tmp/chonk-pin/chonk-inputs-pin-update/
+          new_hash=$(cat /tmp/chonk-pin/chonk-inputs-pin-update/new_hash.txt)
+          echo "new_hash=$new_hash" >> "$GITHUB_ENV"
+          cp /tmp/chonk-pin/chonk-inputs-pin-update/pinned_chonk_inputs.sh \
+            barretenberg/cpp/scripts/pinned_chonk_inputs.sh
+
+      - name: Commit, rebase on latest PR head, and push
+        env:
+          HEAD_REF: ${{ steps.pr.outputs.head_ref }}
+        run: |
+          set -euxo pipefail
+          if git diff --quiet -- barretenberg/cpp/scripts/pinned_chonk_inputs.sh; then
+            echo "Regenerated inputs match the current pin — no commit needed."
+            exit 0
+          fi
+          git -c user.name='AztecBot' -c user.email='aztec-bot@aztecprotocol.com' \
+              commit -m "chore: refresh pinned chonk inputs to ${new_hash} [skip ci]" \
+              -- barretenberg/cpp/scripts/pinned_chonk_inputs.sh
+          # Pick up anything pushed to the PR head while we were regenerating.
+          git fetch origin "$HEAD_REF"
+          git rebase "origin/$HEAD_REF"
+          git push origin "HEAD:$HEAD_REF" --force-with-lease
+
+      - name: Comment on PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          STATUS: ${{ job.status }}
+          NEW_HASH: ${{ env.new_hash }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [[ "$STATUS" == "success" ]]; then
+            BODY="Pinned chonk inputs refreshed to \`${NEW_HASH}\` and pushed with \`[skip ci]\`. ([run]($RUN_URL))"
+          else
+            BODY="\`/update-chonk-inputs\` failed. ([run]($RUN_URL))"
+          fi
+          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body "$BODY" || true
+
+      - name: Remove trigger label
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ steps.pr.outputs.pr_number }} \
+            --repo "${{ github.repository }}" \
+            --remove-label "update-chonk-inputs" || true
