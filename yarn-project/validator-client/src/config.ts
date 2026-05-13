@@ -3,10 +3,11 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
-  optionalNumberConfigHelper,
+  pickConfigMappings,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { chainConfigMappings, validatorConstraintsConfigMappings } from '@aztec/stdlib/config';
 import { localSignerConfigMappings, validatorHASignerConfigMappings } from '@aztec/stdlib/ha-signing';
 import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
 
@@ -31,12 +32,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
         .map(address => EthAddress.fromString(address.trim())),
     defaultValue: [],
   },
-  l1ChainId: {
-    env: 'L1_CHAIN_ID',
-    description: 'The chain ID of the ethereum host.',
-    parseEnv: (val: string) => +val,
-    defaultValue: 31337,
-  },
+  ...pickConfigMappings(chainConfigMappings, ['l1ChainId']),
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Do not run the validator',
@@ -61,12 +57,6 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
       'Whether to always reexecute block proposals, even for non-validator nodes (useful for monitoring network status).',
     defaultValue: true,
   },
-  fishermanMode: {
-    env: 'FISHERMAN_MODE',
-    description:
-      'Whether to run in fisherman mode: validates all proposals and attestations but does not broadcast attestations or participate in consensus.',
-    ...booleanConfigHelper(false),
-  },
   skipCheckpointProposalValidation: {
     description: 'Skip checkpoint proposal validation and always attest (default: false)',
     defaultValue: false,
@@ -79,26 +69,7 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
     ...booleanConfigHelper(false),
   },
-  validateMaxL2BlockGas: {
-    env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
-    description: 'Maximum L2 block gas for validation. Proposals exceeding this limit are rejected.',
-    ...optionalNumberConfigHelper(),
-  },
-  validateMaxDABlockGas: {
-    env: 'VALIDATOR_MAX_DA_BLOCK_GAS',
-    description: 'Maximum DA block gas for validation. Proposals exceeding this limit are rejected.',
-    ...optionalNumberConfigHelper(),
-  },
-  validateMaxTxsPerBlock: {
-    env: 'VALIDATOR_MAX_TX_PER_BLOCK',
-    description: 'Maximum transactions per block for validation. Proposals exceeding this limit are rejected.',
-    ...optionalNumberConfigHelper(),
-  },
-  validateMaxTxsPerCheckpoint: {
-    env: 'VALIDATOR_MAX_TX_PER_CHECKPOINT',
-    description: 'Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected.',
-    ...optionalNumberConfigHelper(),
-  },
+  ...validatorConstraintsConfigMappings,
   ...localSignerConfigMappings,
   ...validatorHASignerConfigMappings,
 };

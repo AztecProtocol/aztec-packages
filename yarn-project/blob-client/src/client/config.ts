@@ -1,9 +1,11 @@
+import { l1ReaderConfigMappings, l1RpcUrlsConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
   getConfigFromMappings,
   optionalNumberConfigHelper,
+  pickConfigMappings,
 } from '@aztec/foundation/config';
 
 import { type BlobArchiveApiConfig, blobArchiveApiConfigMappings } from '../archive/config.js';
@@ -68,11 +70,7 @@ export interface BlobClientConfig extends BlobArchiveApiConfig {
 }
 
 export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
-  l1RpcUrls: {
-    env: 'ETHEREUM_HOSTS',
-    description: 'List of URLs for L1 RPC Execution clients',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
-  },
+  ...l1RpcUrlsConfigMappings,
   l1ConsensusHostUrls: {
     env: 'L1_CONSENSUS_HOST_URLS',
     description: 'List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)',
@@ -118,11 +116,7 @@ export const blobClientConfigMapping: ConfigMappingsType<BlobClientConfig> = {
     description: 'Interval in minutes for uploading healthcheck file to file store (default: 60 = 1 hour)',
     ...optionalNumberConfigHelper(),
   },
-  l1HttpTimeoutMS: {
-    env: 'ETHEREUM_HTTP_TIMEOUT_MS',
-    description: 'Timeout for HTTP requests to the L1 RPC node in ms.',
-    ...optionalNumberConfigHelper(),
-  },
+  ...pickConfigMappings(l1ReaderConfigMappings, ['l1HttpTimeoutMS']),
   blobPreferFilestores: {
     env: 'BLOB_PREFER_FILESTORES',
     description: 'Whether to prefer filestores over consensus clients when fetching blobs. Default: false.',

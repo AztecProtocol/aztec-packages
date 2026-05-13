@@ -52,12 +52,8 @@ export type AztecNodeConfig = ArchiverConfig &
   NodeRPCConfig &
   SlasherConfig &
   ProverNodeConfig & {
-    /** Whether the validator is disabled for this node */
-    disableValidator: boolean;
     /** Whether to skip waiting for the archiver to be fully synced before starting other services */
     skipArchiverInitialSync: boolean;
-    /** A flag to force verification of tx Chonk proofs. Only used for testnet */
-    debugForceTxProofVerification: boolean;
     /** Whether to enable the prover node as a subsystem. */
     enableProverNode: boolean;
   };
@@ -78,18 +74,8 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...nodeRpcConfigMappings,
   ...slasherConfigMappings,
   ...specificProverNodeConfigMappings,
-  disableValidator: {
-    env: 'VALIDATOR_DISABLED',
-    description: 'Whether the validator is disabled for this node.',
-    ...booleanConfigHelper(),
-  },
   skipArchiverInitialSync: {
     env: 'SKIP_ARCHIVER_INITIAL_SYNC',
-    description: 'Whether to skip waiting for the archiver to be fully synced before starting other services.',
-    ...booleanConfigHelper(false),
-  },
-  debugForceTxProofVerification: {
-    env: 'DEBUG_FORCE_TX_PROOF_VERIFICATION',
     description: 'Whether to skip waiting for the archiver to be fully synced before starting other services.',
     ...booleanConfigHelper(false),
   },

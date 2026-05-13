@@ -1,3 +1,4 @@
+import { l1RpcUrlsConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
   SecretValue,
@@ -13,6 +14,7 @@ import {
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
+import { nodeUrlConfigMappings } from '@aztec/stdlib/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { schemas, zodFor } from '@aztec/stdlib/schemas';
 import type { ComponentsVersions } from '@aztec/stdlib/versioning';
@@ -136,19 +138,11 @@ export const BotConfigSchema = zodFor<BotConfig>()(
 );
 
 export const botConfigMappings: ConfigMappingsType<BotConfig> = {
-  nodeUrl: {
-    env: 'AZTEC_NODE_URL',
-    description: 'The URL to the Aztec node to check for tx pool status.',
-  },
   nodeAdminUrl: {
     env: 'AZTEC_NODE_ADMIN_URL',
     description: 'The URL to the Aztec node admin API to force-flush txs if configured.',
   },
-  l1RpcUrls: {
-    env: 'ETHEREUM_HOSTS',
-    description: 'URL of the ethereum host.',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
-  },
+  ...l1RpcUrlsConfigMappings,
   l1Mnemonic: {
     env: 'BOT_L1_MNEMONIC',
     description: 'The mnemonic for the account to bridge fee juice from L1.',
@@ -297,6 +291,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
     description: 'Max L1→L2 messages to keep in-flight (crosschain mode)',
     ...numberConfigHelper(1),
   },
+  ...nodeUrlConfigMappings,
   ...pickConfigMappings(dataConfigMappings, ['dataStoreMapSizeKb', 'dataDirectory']),
 };
 

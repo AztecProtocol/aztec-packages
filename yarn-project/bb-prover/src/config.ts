@@ -1,3 +1,5 @@
+import type { ConfigMappingsType } from '@aztec/foundation/config';
+
 export interface BBConfig {
   bbBinaryPath: string;
   bbWorkingDirectory: string;
@@ -29,3 +31,14 @@ export interface ACVMConfig {
   /** The working directory to use for simulation/proving */
   acvmWorkingDirectory: string;
 }
+
+export const acvmConfigMappings: ConfigMappingsType<ACVMConfig> = {
+  acvmWorkingDirectory: {
+    env: 'ACVM_WORKING_DIRECTORY',
+    description: 'The working directory to use for simulation/proving',
+  },
+  acvmBinaryPath: {
+    env: 'ACVM_BINARY_PATH',
+    description: 'The path to the ACVM binary',
+  },
+};
