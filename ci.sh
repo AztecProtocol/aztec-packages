@@ -344,8 +344,8 @@ case "$cmd" in
     export -f run
 
     parallel --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered --halt now,fail=1 ::: \
-      'run x-release-publish amd64' \
-      'run a-release-publish arm64' | DUP=1 cache_log "Release Publish CI run" $RUN_ID
+      'run x-release amd64' \
+      'run a-release arm64' | DUP=1 cache_log "Release Publish CI run" $RUN_ID
     ;;
 
   ##################
