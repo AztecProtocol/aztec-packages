@@ -136,7 +136,7 @@ describe('public_processor', () => {
     it('runs a tx with reverted enqueued public calls', async function () {
       const tx = await mockTxWithPublicCalls();
 
-      mockedEnqueuedCallsResult.revertCode = RevertCode.APP_LOGIC_REVERTED;
+      mockedEnqueuedCallsResult.revertCode = RevertCode.REVERTED;
 
       const [processed, failed] = await processor.process([tx]);
 

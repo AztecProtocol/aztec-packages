@@ -46,7 +46,7 @@ describe('e2e_double_spend', () => {
       // tx will be included in a block but with app logic reverted
       await expect(
         contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress }),
-      ).rejects.toThrow(TxExecutionResult.APP_LOGIC_REVERTED);
+      ).rejects.toThrow(TxExecutionResult.REVERTED);
     });
   });
 });
