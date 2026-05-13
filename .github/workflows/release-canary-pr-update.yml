@@ -148,6 +148,8 @@ jobs:
               labels="$labels --add-label ci-network-kind"
             fi
             if [[ -n "$labels" ]]; then
+              gh label create ci-release-pr --color 5319e7 --description "Run release PR canary CI" >/dev/null 2>&1 || true
+              gh label create ci-network-kind --color 0e8a16 --description "Run network kind canary CI" >/dev/null 2>&1 || true
               gh pr edit "$pr_number" $labels
               echo "Added labels to PR #$pr_number: $labels"
             fi
