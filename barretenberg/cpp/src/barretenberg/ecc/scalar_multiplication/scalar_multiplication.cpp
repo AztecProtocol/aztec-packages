@@ -10,6 +10,7 @@
 
 #include "./process_buckets.hpp"
 #include "./scalar_multiplication.hpp"
+#include "./webgpu_msm_hook.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -501,6 +502,22 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 {
     BB_BENCH_NAME("MSM::batch_multi_scalar_mul");
     BB_ASSERT_EQ(points.size(), scalars.size());
+#ifdef BBERG_WEBGPU_MSM_HOOK
+    // WebGPU hook: when built with BBERG_WEBGPU_MSM_HOOK, the BN254
+    // SRS-safe path delegates to a JS-side WebGPU MSM via the bb.js
+    // bridge. handle_edge_cases==true keeps the C++ Jacobian path
+    // (rare callers: tests and a handful of unbatched commits with
+    // potentially equal points). Grumpkin always stays on C++.
+    //
+    // The batch is only delegated when at least one MSM in it meets
+    // the BBERG_WEBGPU_MSM_MIN_N threshold; for small batches the
+    // bridge round-trip and GPU warmup dominate the wall time.
+    if constexpr (std::is_same_v<Curve, curve::BN254>) {
+        if (!handle_edge_cases && webgpu_msm_batch_should_delegate(scalars)) {
+            return batch_multi_scalar_mul_webgpu_bn254(points, scalars);
+        }
+    }
+#endif
     const size_t num_msms = points.size();
 
     std::vector<std::vector<uint32_t>> msm_scalar_indices;

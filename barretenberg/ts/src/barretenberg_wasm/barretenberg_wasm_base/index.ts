@@ -10,6 +10,17 @@ export class BarretenbergWasmBase {
   protected instance!: WebAssembly.Instance;
   protected logger: (msg: string) => void = () => {};
 
+  // Extra entries to merge into the `env` import object. The WebGPU MSM
+  // bridge uses this to inject `bb_external_msm_bn254` and
+  // `bb_publish_srs_bn254` into a `BBERG_WEBGPU_MSM_HOOK`-built WASM
+  // without the base class needing to know about WebGPU. Set this
+  // before calling `init` / `WebAssembly.instantiate`.
+  protected extraEnvImports: Record<string, unknown> = {};
+
+  public setExtraEnvImports(imports: Record<string, unknown>): void {
+    this.extraEnvImports = { ...this.extraEnvImports, ...imports };
+  }
+
   protected getImportObj(memory: WebAssembly.Memory) {
     /* eslint-disable camelcase */
     const importObj = {
@@ -56,6 +67,11 @@ export class BarretenbergWasmBase {
         },
 
         memory,
+
+        // Merge in caller-provided extra env imports (e.g. the WebGPU
+        // MSM bridge's `bb_external_msm_bn254`). Listed last so the
+        // built-in entries take precedence on name collision.
+        ...this.extraEnvImports,
       },
     };
     /* eslint-enable camelcase */
