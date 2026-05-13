@@ -2,10 +2,7 @@ import type { CheckpointNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
 /**
- * Tracks checkpoints we have successfully re-executed locally. Consumed by the
- * data-withholding watcher as a short-circuit: if we re-executed a checkpoint, we know
- * its data was available to us at the time, so there's no need to probe the mempool
- * later.
+ * Tracks checkpoints we have successfully re-executed locally.
  *
  * Entries are keyed by (checkpoint number, archive root) so two competing checkpoints at
  * the same number (e.g. equivocation) are tracked independently.

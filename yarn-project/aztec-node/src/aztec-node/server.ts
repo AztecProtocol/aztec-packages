@@ -664,10 +664,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       let validatorClient: ValidatorClient | undefined;
 
-      // Shared by the (validator's or non-validator's) ProposalHandler and the
-      // DataWithholdingWatcher: the proposal handler records every checkpoint it
-      // successfully re-executes, and the watcher short-circuits its mempool probe for
-      // those entries.
+      // Tracks successful checkpoint re-execution by a checkpoint proposal handler.
       const reexecutionTracker = new InMemoryCheckpointReexecutionTracker();
 
       if (!config.disableValidator) {
