@@ -67,7 +67,10 @@ export const schemas = {
   ),
 
   /** Accepts a hex string as a Buffer32 type. */
-  Buffer32: z.string().refine(isHex, 'Not a valid hex string').transform(Buffer32.fromString),
+  Buffer32: z
+    .string()
+    .refine(isHex, 'Not a valid hex string')
+    .transform(s => Buffer32.fromString(s)),
 
   /** Accepts a base64 string or an object `{ type: 'Buffer', data: [byte, byte...] }` as a buffer. */
   Buffer: bufferSchema,
