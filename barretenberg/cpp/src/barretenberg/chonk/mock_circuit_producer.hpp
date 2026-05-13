@@ -121,17 +121,23 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
     PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits, bool large_first_app = true)
         : large_first_app(large_first_app)
-        , total_num_circuits(num_app_circuits * 2 +
-                             NUM_TRAILING_KERNELS) /*One kernel per app, plus a fixed number of final kernels*/
     {
-        // Set flags indicating which circuits are kernels vs apps
-        for (size_t i = 0; i < num_app_circuits; ++i) {
-            is_kernel_flags.emplace_back(false); // every other circuit is an app
-            is_kernel_flags.emplace_back(true);  // every other circuit is a kernel
+        for (size_t i = 0; i < num_app_circuits / MAX_APPS_PER_KERNEL; ++i) {
+            for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+                is_kernel_flags.emplace_back(false);
+            }
+            is_kernel_flags.emplace_back(true);
+        }
+        if (num_app_circuits % MAX_APPS_PER_KERNEL != 0) {
+            for (size_t idx = 0; idx < num_app_circuits % MAX_APPS_PER_KERNEL; ++idx) {
+                is_kernel_flags.emplace_back(false);
+            }
+            is_kernel_flags.emplace_back(true);
         }
         for (size_t i = 0; i < NUM_TRAILING_KERNELS; ++i) {
             is_kernel_flags.emplace_back(true);
         }
+        total_num_circuits = is_kernel_flags.size();
     }
 
     PrivateFunctionExecutionMockCircuitProducer(std::vector<bool> leading_is_kernel_flags, bool large_first_app = false)

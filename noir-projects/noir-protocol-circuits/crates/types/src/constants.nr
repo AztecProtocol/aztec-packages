@@ -127,7 +127,14 @@ pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
 pub global PARITY_BASE_VK_INDEX: u32 = 21;
 pub global PARITY_ROOT_VK_INDEX: u32 = 22;
 pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
-// Important: Do not define indexes after the PRIVATE_KERNEL_RESET_VK_INDEX. They are allocated for the variants of private kernel reset.
+// Important: Do not define indexes between 24 and 64. They are allocated for the variants of private kernel reset. Add new non-reset kernel indices at 65+.
+pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 65;
+pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 66;
+pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 67;
+pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 68;
+
+// Maximum number of apps absorbed by a single private kernel iteration.
+pub global MAX_APPS_PER_KERNEL: u32 = 3;
 
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs

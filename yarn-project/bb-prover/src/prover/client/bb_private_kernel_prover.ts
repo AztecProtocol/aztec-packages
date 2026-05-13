@@ -5,8 +5,16 @@ import { serializeWitness } from '@aztec/noir-noirc_abi';
 import {
   convertHidingKernelPublicInputsToWitnessMapWithAbi,
   convertHidingKernelToRollupInputsToWitnessMapWithAbi,
+  convertPrivateKernelInit2InputsToWitnessMapWithAbi,
+  convertPrivateKernelInit2OutputsFromWitnessMapWithAbi,
+  convertPrivateKernelInit3InputsToWitnessMapWithAbi,
+  convertPrivateKernelInit3OutputsFromWitnessMapWithAbi,
   convertPrivateKernelInitInputsToWitnessMapWithAbi,
   convertPrivateKernelInitOutputsFromWitnessMapWithAbi,
+  convertPrivateKernelInner2InputsToWitnessMapWithAbi,
+  convertPrivateKernelInner2OutputsFromWitnessMapWithAbi,
+  convertPrivateKernelInner3InputsToWitnessMapWithAbi,
+  convertPrivateKernelInner3OutputsFromWitnessMapWithAbi,
   convertPrivateKernelInnerInputsToWitnessMapWithAbi,
   convertPrivateKernelInnerOutputsFromWitnessMapWithAbi,
   convertPrivateKernelResetInputsToWitnessMapWithAbi,
@@ -32,7 +40,11 @@ import type {
   HidingKernelToRollupPrivateInputs,
   PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
+  PrivateKernelInit2CircuitPrivateInputs,
+  PrivateKernelInit3CircuitPrivateInputs,
   PrivateKernelInitCircuitPrivateInputs,
+  PrivateKernelInner2CircuitPrivateInputs,
+  PrivateKernelInner3CircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelResetCircuitPrivateInputs,
   PrivateKernelSimulateOutput,
@@ -79,6 +91,50 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     );
   }
 
+  public async generateInit2Output(
+    inputs: PrivateKernelInit2CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'PrivateKernelInit2Artifact',
+      convertPrivateKernelInit2InputsToWitnessMapWithAbi,
+      convertPrivateKernelInit2OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async simulateInit2(
+    inputs: PrivateKernelInit2CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInit2Artifact',
+      convertPrivateKernelInit2InputsToWitnessMapWithAbi,
+      convertPrivateKernelInit2OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateInit3Output(
+    inputs: PrivateKernelInit3CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'PrivateKernelInit3Artifact',
+      convertPrivateKernelInit3InputsToWitnessMapWithAbi,
+      convertPrivateKernelInit3OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async simulateInit3(
+    inputs: PrivateKernelInit3CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInit3Artifact',
+      convertPrivateKernelInit3InputsToWitnessMapWithAbi,
+      convertPrivateKernelInit3OutputsFromWitnessMapWithAbi,
+    );
+  }
+
   public async generateInnerOutput(
     inputs: PrivateKernelInnerCircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
@@ -98,6 +154,50 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
       'PrivateKernelInnerArtifact',
       convertPrivateKernelInnerInputsToWitnessMapWithAbi,
       convertPrivateKernelInnerOutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateInner2Output(
+    inputs: PrivateKernelInner2CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'PrivateKernelInner2Artifact',
+      convertPrivateKernelInner2InputsToWitnessMapWithAbi,
+      convertPrivateKernelInner2OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async simulateInner2(
+    inputs: PrivateKernelInner2CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInner2Artifact',
+      convertPrivateKernelInner2InputsToWitnessMapWithAbi,
+      convertPrivateKernelInner2OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async generateInner3Output(
+    inputs: PrivateKernelInner3CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.generateCircuitOutput(
+      inputs,
+      'PrivateKernelInner3Artifact',
+      convertPrivateKernelInner3InputsToWitnessMapWithAbi,
+      convertPrivateKernelInner3OutputsFromWitnessMapWithAbi,
+    );
+  }
+
+  public async simulateInner3(
+    inputs: PrivateKernelInner3CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>> {
+    return await this.simulateCircuitOutput(
+      inputs,
+      'PrivateKernelInner3Artifact',
+      convertPrivateKernelInner3InputsToWitnessMapWithAbi,
+      convertPrivateKernelInner3OutputsFromWitnessMapWithAbi,
     );
   }
 

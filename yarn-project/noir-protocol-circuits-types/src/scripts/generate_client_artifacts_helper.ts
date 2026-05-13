@@ -11,7 +11,11 @@ const outputFilename = './src/client_artifacts_helper.ts';
 
 const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
   PrivateKernelInitArtifact: 'private_kernel_init',
+  PrivateKernelInit2Artifact: 'private_kernel_init_2',
+  PrivateKernelInit3Artifact: 'private_kernel_init_3',
   PrivateKernelInnerArtifact: 'private_kernel_inner',
+  PrivateKernelInner2Artifact: 'private_kernel_inner_2',
+  PrivateKernelInner3Artifact: 'private_kernel_inner_3',
   PrivateKernelTailArtifact: 'private_kernel_tail',
   PrivateKernelTailToPublicArtifact: 'private_kernel_tail_to_public',
   HidingKernelToRollup: 'hiding_kernel_to_rollup',
@@ -19,7 +23,14 @@ const ClientCircuitArtifactNames: Record<ClientProtocolArtifact, string> = {
   ...PrivateKernelResetArtifactFileNames,
 };
 
-const artifactsWithoutSimulatedVersions = ['hiding_kernel_to_rollup', 'hiding_kernel_to_public'];
+const artifactsWithoutSimulatedVersions = [
+  'hiding_kernel_to_rollup',
+  'hiding_kernel_to_public',
+  'private_kernel_init_2',
+  'private_kernel_init_3',
+  'private_kernel_inner_2',
+  'private_kernel_inner_3',
+];
 
 function generateImports() {
   return `
@@ -66,6 +77,17 @@ function generateCircuitArtifactImportFunction() {
       }`;
     });
 
+  // For artifacts without a separate `_simulated` crate, route the simulated lookup to the
+  // constrained artifact instead of throwing.
+  const simulatedFallbackCases = Object.values(ClientCircuitArtifactNames)
+    .filter(artifactName => artifactsWithoutSimulatedVersions.includes(artifactName))
+    .map(
+      artifactName => `case '${generateSimulatedArtifactName(artifactName)}': {
+        const { default: compiledCircuit } = await import("../artifacts/${artifactName}.json");
+        return { ...(compiledCircuit as NoirCompiledCircuit), name: '${artifactName}' };
+      }`,
+    );
+
   return `
     export async function getClientCircuitArtifact(artifactName: string, simulated: boolean): Promise<NoirCompiledCircuitWithName> {
       const isReset = artifactName.includes('private_kernel_reset');
@@ -73,7 +95,7 @@ function generateCircuitArtifactImportFunction() {
         ? \`\${simulated ? artifactName.replace('private_kernel_reset', 'private_kernel_reset_simulated') : artifactName}\`
         : \`\${artifactName}\${simulated ? '_simulated' : ''}\`;
       switch(normalizedArtifactName) {
-        ${cases.join('\n')}
+        ${[...cases, ...simulatedFallbackCases].join('\n')}
         default: throw new Error(\`Unknown artifact: \${artifactName}\`);
       }
     }
