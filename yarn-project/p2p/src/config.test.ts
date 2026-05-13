@@ -79,8 +79,13 @@ describe('config', () => {
     expect(allowList).toEqual([instanceFunction]);
   });
 
-  it('defaults missing txs collector type to new', () => {
+  it('defaults public IP service URLs', () => {
     const config = getP2PDefaultConfig();
-    expect(config.txCollectionMissingTxsCollectorType).toBe('new');
+    expect(config.publicIpServices).toEqual([
+      'https://api.ipify.org/',
+      'https://checkip.amazonaws.com/',
+      'https://ifconfig.me/ip',
+      'https://icanhazip.com/',
+    ]);
   });
 });

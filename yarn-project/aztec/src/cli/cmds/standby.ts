@@ -67,7 +67,7 @@ export async function waitForCompatibleRollup(
   config: {
     l1RpcUrls: string[];
     l1ChainId: number;
-    l1Contracts: { registryAddress: EthAddress };
+    registryAddress: EthAddress;
     rollupVersion?: number;
   },
   expected: { genesisArchiveRoot: Fr; vkTreeRoot: Fr; protocolContractsHash: Fr },
@@ -77,7 +77,7 @@ export async function waitForCompatibleRollup(
   const publicClient = getPublicClient(config);
   const rollupVersion: number | 'canonical' = config.rollupVersion ?? 'canonical';
 
-  const registry = new RegistryContract(publicClient, config.l1Contracts.registryAddress);
+  const registry = new RegistryContract(publicClient, config.registryAddress);
   const rollupAddress = await registry.getRollupAddress(rollupVersion);
   const rollup = new RollupContract(publicClient, rollupAddress.toString());
 

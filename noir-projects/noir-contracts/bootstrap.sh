@@ -103,7 +103,8 @@ function stamp_aztec_version {
   semver check "$REF_NAME" 2>/dev/null && version="${REF_NAME#v}"
   local tmp=$(mktemp)
   jq --arg v "$version" '.aztec_version = $v' "$json_path" > "$tmp"
-  mv "$tmp" "$json_path"
+  cat "$tmp" > "$json_path"
+  rm "$tmp"
 }
 export -f stamp_aztec_version
 

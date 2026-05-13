@@ -71,7 +71,7 @@ describe('e2e_snapshot_sync', () => {
   };
 
   const expectNodeSyncedToL2Block = async (node: AztecNode, blockNumber: number) => {
-    const tips = await node.getL2Tips();
+    const tips = await node.getChainTips();
     expect(tips.proposed.number).toBeGreaterThanOrEqual(blockNumber);
     const worldState = await node.getWorldStateSyncStatus();
     expect(worldState.latestBlockNumber).toBeGreaterThanOrEqual(blockNumber);

@@ -113,10 +113,7 @@ export type L2ToL1MembershipWitness = {
  * @returns The membership witness and epoch number, or undefined if the tx is not yet in a block/epoch.
  */
 export async function computeL2ToL1MembershipWitness(
-  node: Pick<
-    AztecNode,
-    'getL2ToL1Messages' | 'getTxReceipt' | 'getTxEffect' | 'getBlock' | 'getCheckpointsDataForEpoch'
-  >,
+  node: Pick<AztecNode, 'getL2ToL1Messages' | 'getTxReceipt' | 'getTxEffect' | 'getBlock' | 'getCheckpointsData'>,
   message: Fr,
   txHash: TxHash,
   messageIndexInTx?: number,
@@ -130,7 +127,7 @@ export async function computeL2ToL1MembershipWitness(
     node.getL2ToL1Messages(epochNumber),
     node.getBlock(blockNumber),
     node.getTxEffect(txHash),
-    node.getCheckpointsDataForEpoch(epochNumber),
+    node.getCheckpointsData({ epoch: epochNumber }),
   ]);
 
   if (messagesInEpoch.length === 0 || !block || !txEffect) {
