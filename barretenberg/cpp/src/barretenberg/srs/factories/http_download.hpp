@@ -78,9 +78,19 @@ inline std::vector<uint8_t> http_download([[maybe_unused]] const std::string& ur
     }
 
     constexpr int max_attempts = 3;
+    // Bound retry-induced latency: each retry attempt uses tighter timeouts than the first try
+    // so the worst-case extra time (backoffs + retry attempts) stays under ~15s.
+    // Math: backoff 1s + 2s + 2 retries * 5s timeout = 13s.
+    constexpr int retry_timeout_seconds = 5;
+
     std::chrono::milliseconds backoff{ 1000 };
     std::string last_error;
     for (int attempt = 1; attempt <= max_attempts; ++attempt) {
+        if (attempt == 2) {
+            cli.set_connection_timeout(retry_timeout_seconds);
+            cli.set_read_timeout(retry_timeout_seconds);
+        }
+
         auto res = cli.Get(path.c_str(), headers);
 
         if (res && (res->status == 200 || res->status == 206)) {
