@@ -40,8 +40,11 @@ const toPrivateKeyHex = (index: number): Hex => {
 const FUNDING_THRESHOLD = parseEther('2');
 const FUNDING_AMOUNT = parseEther('2.1');
 
-// TODO(kill-non-pipelined): publisher funding cadence test is wired to the legacy slot timing and
-// can't keep up with pipelining's faster L1 tx rate without configuration changes.
+// TODO(kill-non-pipelined): first funding round passes, but the second round never triggers within
+// 6+ min under pipelining despite publisher balances dropping below threshold. The funding loop
+// (PublisherManager.triggerFundingIfNeeded) runs on a 2-min interval but only one funder tx is ever
+// sent. Suspect interaction with pipelined publisher state cycling that keeps lowBalance.length=0
+// across cycles, or RunningPromise getting stuck. Needs deeper investigation.
 describe.skip('e2e_publisher_funding_multi', () => {
   jest.setTimeout(5 * 60 * 1000);
 
