@@ -23,15 +23,22 @@ interface ConfigData {
   [key: string]: unknown;
 }
 
+const GCP_SECRET_PLACEHOLDER = "REPLACE_WITH_GCP_SECRET";
+
 function applyEnvSpread(data: ConfigData) {
   for (const blockKey of ["deploy", "env"] as const) {
     const block = data[blockKey];
     if (!block) continue;
     for (const key of Object.keys(block)) {
       const envVal = process.env[key];
-      // Only override scalar string values. Arrays/objects in deploy: are Helm-shaped
-      // config that should not be clobbered by a string env var representation.
-      if (envVal !== undefined && typeof block[key] === "string") {
+      // Only override plain string values. Skip:
+      //   - arrays/objects (Helm-shaped config, not scalar overrides)
+      //   - GCP secret placeholders (must be resolved by resolve_secrets.ts)
+      if (
+        envVal !== undefined &&
+        typeof block[key] === "string" &&
+        block[key] !== GCP_SECRET_PLACEHOLDER
+      ) {
         block[key] = envVal;
       }
     }
