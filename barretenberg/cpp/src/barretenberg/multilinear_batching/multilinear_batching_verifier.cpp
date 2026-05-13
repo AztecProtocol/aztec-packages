@@ -116,9 +116,26 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
     Flavor_>::verify_proof(SumcheckOutput<InstanceFlavor>& instance_sumcheck,
                            InstanceCommitments& verifier_commitments,
                            const std::vector<InstanceFF>& unshifted_challenges,
-                           const std::vector<InstanceFF>& shifted_challenges,
-                           const VerifierClaim& accumulator)
+                           const std::vector<InstanceFF>& shifted_challenges)
 {
+    // Receive commitments
+    auto non_shifted_accumulator_commitment =
+        transcript->template receive_from_prover<Commitment>("non_shifted_accumulator_commitment");
+    auto shifted_accumulator_commitment =
+        transcript->template receive_from_prover<Commitment>("shifted_accumulator_commitment");
+
+    // Receive challenges and evaluations
+    std::vector<FF> accumulator_challenges(Flavor::VIRTUAL_LOG_N);
+    std::vector<FF> accumulator_evaluations(Flavor::NUM_ACCUMULATOR_EVALUATIONS);
+    for (size_t i = 0; i < Flavor::VIRTUAL_LOG_N; i++) {
+        accumulator_challenges[i] =
+            transcript->template receive_from_prover<FF>("accumulator_challenge_" + std::to_string(i));
+    }
+    for (size_t i = 0; i < Flavor::NUM_ACCUMULATOR_EVALUATIONS; i++) {
+        accumulator_evaluations[i] =
+            transcript->template receive_from_prover<FF>("accumulator_evaluation_" + std::to_string(i));
+    }
+
     // Run sumcheck
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
 
@@ -126,8 +143,8 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
                                            instance_sumcheck,
                                            unshifted_challenges,
                                            shifted_challenges,
-                                           accumulator.non_shifted_evaluation,
-                                           accumulator.shifted_evaluation);
+                                           accumulator_evaluations[0],
+                                           accumulator_evaluations[1]);
 
     Sumcheck sumcheck(transcript, alpha, Flavor::VIRTUAL_LOG_N, target_sum);
     // MultilinearBatchingFlavor doesn't use gate challenges
@@ -139,11 +156,11 @@ std::pair<bool, typename MultilinearBatchingVerifier<Flavor_>::VerifierClaim> Mu
                                                      verifier_commitments,
                                                      unshifted_challenges,
                                                      shifted_challenges,
-                                                     accumulator.non_shifted_commitment,
-                                                     accumulator.shifted_commitment,
+                                                     non_shifted_accumulator_commitment,
+                                                     shifted_accumulator_commitment,
                                                      claim_batching_challenge);
 
-    bool eq_consistent = check_eq_consistency(sumcheck_result, accumulator.challenge, instance_sumcheck.challenge);
+    bool eq_consistent = check_eq_consistency(sumcheck_result, accumulator_challenges, instance_sumcheck.challenge);
     bool verified = sumcheck_result.verified && eq_consistent;
 
     return { verified, verifier_claim };

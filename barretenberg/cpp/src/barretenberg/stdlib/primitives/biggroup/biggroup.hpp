@@ -475,13 +475,12 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
      * @brief Mask points for batch multiplication to handle edge cases
      * @param _points The points to be masked
      * @param _scalars The corresponding scalars
-     * @return A tuple of (masked points, masked scalars, offset generator element used for masking).
-     *         The offset generator is exposed primarily for testing purposes.
+     * @return A pair of vectors containing the masked points and scalars
      *
      * @details Only used internally in biggroup_edgecase_handling.hpp
      */
-    static std::tuple<std::vector<element>, std::vector<Fr>, element> mask_points(const std::vector<element>& _points,
-                                                                                  const std::vector<Fr>& _scalars);
+    static std::pair<std::vector<element>, std::vector<Fr>> mask_points(const std::vector<element>& _points,
+                                                                        const std::vector<Fr>& _scalars);
 
     /**
      * @brief Handle points at infinity in batch operations, replaces (∞, scalar) pairs by (G, 0)
@@ -972,12 +971,6 @@ class element_test_accessor {
     static auto checked_unconditional_add_sub(const element<C, Fq, Fr, G>& elem1, const element<C, Fq, Fr, G>& elem2)
     {
         return elem1.checked_unconditional_add_sub(elem2);
-    }
-
-    template <typename C, typename Fq, typename Fr, typename G>
-    static auto mask_points(const std::vector<element<C, Fq, Fr, G>>& points, const std::vector<Fr>& scalars)
-    {
-        return element<C, Fq, Fr, G>::mask_points(points, scalars);
     }
 
     // Overload for goblin_element

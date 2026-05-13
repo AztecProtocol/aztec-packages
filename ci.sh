@@ -288,7 +288,6 @@ case "$cmd" in
   network-tests-kind)
     # Runs KIND-based spartan tests on a 192 CPU instance.
     export CI_DASHBOARD="network"
-    export JOB_ID="x-network-kind"
     export AWS_SHUTDOWN_TIME=180 # 3 hours for KIND tests
     export CPUS=192
     export INSTANCE_POSTFIX="n-kind"

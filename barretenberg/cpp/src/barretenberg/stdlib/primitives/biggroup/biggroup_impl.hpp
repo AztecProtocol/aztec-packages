@@ -1004,9 +1004,7 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul_internal(const std::vecto
         // If points are linearly dependent, we randomise them using a free-witness offset generator.
         // We do this to ensure that the x-coordinates of the points are all distinct. This is required
         // while creating the ROM lookup table with the points.
-        auto [masked_points, masked_scalars, _offset_generator] = mask_points(points, scalars);
-        points = std::move(masked_points);
-        scalars = std::move(masked_scalars);
+        std::tie(points, scalars) = mask_points(points, scalars);
     }
 
     BB_ASSERT_EQ(

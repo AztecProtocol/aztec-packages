@@ -180,6 +180,10 @@ MergeProver::MergeProof MergeProver::construct_proof()
     transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES",
                                  pcs_commitment_key.commit(reversed_batched_left_tables));
 
+    // Compute batching challenges
+    std::vector<FF> shplonk_batching_challenges =
+        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
+
     // Compute evaluation challenge
     const FF kappa = transcript->template get_challenge<FF>("kappa");
     const FF kappa_inv = kappa.invert();
@@ -203,10 +207,6 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Send evaluation of G at 1/κ
     evals.emplace_back(reversed_batched_left_tables.evaluate(kappa_inv));
     transcript->send_to_verifier("REVERSED_BATCHED_LEFT_TABLES_EVAL", evals.back());
-
-    // Compute batching challenges
-    std::vector<FF> shplonk_batching_challenges =
-        transcript->template get_challenges<FF>(labels_shplonk_batching_challenges);
 
     // Compute Shplonk batched quotient
     Polynomial shplonk_batched_quotient = compute_shplonk_batched_quotient(left_table,
