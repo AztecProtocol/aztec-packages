@@ -279,9 +279,6 @@ export class CdbIpcServer {
       case 'CdbAddContracts': {
         const { db } = this.getFork(forkId);
         const contractDeploymentData = ContractDeploymentData.fromPlainObject(payload.contractDeploymentData);
-        // PublicContractsDB API was split: addContracts() takes typed
-        // ContractInstanceWithAddress[]; addContractsFromLogs() takes the
-        // ContractDeploymentData wrapper and parses the logs internally.
         db.addContractsFromLogs(contractDeploymentData);
         return ['CdbAddContractsResponse', {}];
       }
