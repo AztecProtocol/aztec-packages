@@ -48,7 +48,7 @@ export type SentinelRuntimeConfig = Pick<
   SlasherConfig,
   'slashInactivityTargetPercentage' | 'slashInactivityPenalty' | 'slashInactivityConsecutiveEpochThreshold'
 > &
-  Pick<ChainConfig, 'l1ChainId' | 'l1Contracts'>;
+  Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>;
 
 /** Maps a validator status to its category: proposer or attestation. */
 function statusToCategory(status: ValidatorStatusInSlot): ValidatorStatusType {
@@ -96,7 +96,7 @@ export class Sentinel extends (EventEmitter as new () => WatcherEmitter) impleme
   private getSignatureContext(): CoordinationSignatureContext {
     return {
       chainId: this.config.l1ChainId,
-      rollupAddress: this.config.l1Contracts.rollupAddress,
+      rollupAddress: this.config.rollupAddress,
     };
   }
 

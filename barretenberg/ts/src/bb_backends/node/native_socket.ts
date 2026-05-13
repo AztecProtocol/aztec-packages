@@ -173,52 +173,75 @@ export class BarretenbergNativeSocketAsyncBackend implements IMsgpackBackendAsyn
       throw new Error(`Path exists but is not a socket: ${this.socketPath}`);
     }
 
-    // Connect to bb's socket server as a client
-    return new Promise<void>((resolve, reject) => {
-      this.socket = net.connect(this.socketPath);
+    // Connect with retry on ECONNREFUSED. The socket file appears after bb's bind() but
+    // before its listen(); a connect() landing in that window gets ECONNREFUSED. Retry
+    // briefly until bb is listening or we hit the 5s budget.
+    const socket = await this.connectWithRetry(startTime);
+    this.socket = socket;
 
-      // Disable Nagle's algorithm for lower latency
-      this.socket.setNoDelay(true);
+    // Clear connection timeout on successful connection
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
 
-      // Set up event handlers
-      this.socket.once('connect', () => {
-        // Socket starts referenced - will be unreferenced when no callbacks pending
+    // Set up persistent handlers now that we're connected.
+    socket.on('data', (chunk: Buffer) => {
+      this.handleData(chunk);
+    });
 
-        // Clear connection timeout on successful connection
-        if (this.connectionTimeout) {
-          clearTimeout(this.connectionTimeout);
-          this.connectionTimeout = null;
+    socket.on('error', err => {
+      const error = new Error(`Socket error: ${err.message}`);
+      for (const callback of this.pendingCallbacks) {
+        callback.reject(error);
+      }
+      this.pendingCallbacks = [];
+    });
+
+    socket.on('end', () => {
+      const error = new Error('Socket connection ended unexpectedly');
+      for (const callback of this.pendingCallbacks) {
+        callback.reject(error);
+      }
+      this.pendingCallbacks = [];
+    });
+  }
+
+  private async connectWithRetry(startTime: number): Promise<net.Socket> {
+    let attempt = 0;
+    let lastErr: Error | undefined;
+    while (Date.now() - startTime < 5000) {
+      try {
+        return await this.attemptConnect();
+      } catch (err) {
+        lastErr = err as Error;
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code !== 'ECONNREFUSED') {
+          throw new Error(`Failed to connect to bb socket: ${lastErr.message}`);
         }
-        resolve();
-      });
+        // bb has bound the path but not yet called listen(); back off and retry.
+        const delay = Math.min(50, 5 * 2 ** attempt++);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    throw new Error(`Timeout connecting to bb socket: ${lastErr?.message ?? 'unknown'}`);
+  }
 
-      this.socket.once('error', err => {
-        reject(new Error(`Failed to connect to bb socket: ${err.message}`));
-      });
-
-      // Set up data handler after connection is established
-      this.socket.on('data', (chunk: Buffer) => {
-        this.handleData(chunk);
-      });
-
-      // Handle ongoing errors after initial connection
-      this.socket.on('error', err => {
-        // Reject all pending callbacks
-        const error = new Error(`Socket error: ${err.message}`);
-        for (const callback of this.pendingCallbacks) {
-          callback.reject(error);
-        }
-        this.pendingCallbacks = [];
-      });
-
-      this.socket.on('end', () => {
-        // Reject all pending callbacks
-        const error = new Error('Socket connection ended unexpectedly');
-        for (const callback of this.pendingCallbacks) {
-          callback.reject(error);
-        }
-        this.pendingCallbacks = [];
-      });
+  private attemptConnect(): Promise<net.Socket> {
+    return new Promise<net.Socket>((resolve, reject) => {
+      const socket = net.connect(this.socketPath);
+      socket.setNoDelay(true);
+      const onConnect = () => {
+        socket.removeListener('error', onError);
+        resolve(socket);
+      };
+      const onError = (err: Error) => {
+        socket.removeListener('connect', onConnect);
+        socket.destroy();
+        reject(err);
+      };
+      socket.once('connect', onConnect);
+      socket.once('error', onError);
     });
   }
 

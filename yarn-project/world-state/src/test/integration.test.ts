@@ -49,7 +49,7 @@ describe('world-state integration', () => {
     config = {
       dataDirectory: undefined,
       dataStoreMapSizeKb: 1024 * 1024,
-      l1Contracts: { rollupAddress },
+      rollupAddress,
       worldStateBlockCheckIntervalMS: 20,
       worldStateBlockRequestBatchSize: 5,
       worldStateDbMapSizeKb: 1024 * 1024,

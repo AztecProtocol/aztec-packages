@@ -343,7 +343,12 @@ describe('HA Full Setup', () => {
     logger.info(`Contract deployed in block ${receipt.blockNumber}`);
 
     // Get the block with attestations
-    const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+    const [block] = await aztecNode.getBlocks(receipt.blockNumber!, 1, {
+      includeL1PublishInfo: true,
+      includeAttestations: true,
+      includeTransactions: true,
+      onlyCheckpointed: true,
+    });
     if (!block) {
       throw new Error(`Block ${receipt.blockNumber} not found`);
     }
@@ -455,7 +460,12 @@ describe('HA Full Setup', () => {
     logger.info(`Transaction mined in block ${receipt.blockNumber}`);
 
     // Get the slot of the block that was just built
-    const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+    const [block] = await aztecNode.getBlocks(receipt.blockNumber!, 1, {
+      includeL1PublishInfo: true,
+      includeAttestations: true,
+      includeTransactions: true,
+      onlyCheckpointed: true,
+    });
     if (!block) {
       throw new Error(`Block ${receipt.blockNumber} not found`);
     }
@@ -608,7 +618,12 @@ describe('HA Full Setup', () => {
         from: ownerAddress,
       });
       expect(receipt.receipt.blockNumber).toBeDefined();
-      const [block] = await aztecNode.getCheckpointedBlocks(receipt.receipt.blockNumber!, 1);
+      const [block] = await aztecNode.getBlocks(receipt.receipt.blockNumber!, 1, {
+        includeL1PublishInfo: true,
+        includeAttestations: true,
+        includeTransactions: true,
+        onlyCheckpointed: true,
+      });
       const [cp] = await aztecNode.getCheckpoints(block!.checkpointNumber, 1, { includeAttestations: true });
       const att = (cp.attestations ?? []).filter(a => !a.signature.isEmpty());
       expect(att.length).toBeGreaterThanOrEqual(quorum);
@@ -660,7 +675,12 @@ describe('HA Full Setup', () => {
       receipts.push(receipt);
 
       // Find which node produced this block
-      const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+      const [block] = await aztecNode.getBlocks(receipt.blockNumber!, 1, {
+        includeL1PublishInfo: true,
+        includeAttestations: true,
+        includeTransactions: true,
+        onlyCheckpointed: true,
+      });
       if (!block) {
         throw new Error(`Block ${receipt.blockNumber} not found`);
       }
@@ -723,7 +743,12 @@ describe('HA Full Setup', () => {
     // Verify no double-signing occurred across all blocks
     const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
     for (const receipt of receipts) {
-      const [block] = await aztecNode.getCheckpointedBlocks(receipt.blockNumber!, 1);
+      const [block] = await aztecNode.getBlocks(receipt.blockNumber!, 1, {
+        includeL1PublishInfo: true,
+        includeAttestations: true,
+        includeTransactions: true,
+        onlyCheckpointed: true,
+      });
       if (!block) {
         throw new Error(`Block ${receipt.blockNumber} not found`);
       }

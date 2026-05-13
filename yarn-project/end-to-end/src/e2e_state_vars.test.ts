@@ -387,7 +387,7 @@ describe('e2e_state_vars', () => {
       // can happen at the anchor timestamp itself. For this reason, the latest timestamp at which a change is
       // guaranteed to not have happened is the anchor timestamp + the new delay - 1.
       const expectedModifiedExpirationTimestamp =
-        (await aztecNode.getBlockHeader('latest'))!.globalVariables.timestamp + newDelay - 1n;
+        (await aztecNode.getBlockData('latest'))!.header.globalVariables.timestamp + newDelay - 1n;
 
       // We now call our AuthContract to see if the change in expiration timestamp has reflected our delay change
       const tx = await proveInteraction(wallet, authContract.methods.get_authorized_in_private(), {

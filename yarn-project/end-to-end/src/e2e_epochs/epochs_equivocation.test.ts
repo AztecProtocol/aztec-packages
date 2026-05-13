@@ -261,7 +261,7 @@ describe('e2e_epochs/epochs_equivocation', () => {
       [nodeB, nodeC, nodeD].map((node, idx) =>
         retryUntil(
           async () => {
-            const tips = await node.getL2Tips();
+            const tips = await node.getChainTips();
             return tips.checkpointed.checkpoint.number >= healTarget;
           },
           `${'BCD'[idx]} synced to checkpoint ${healTarget}`,

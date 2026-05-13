@@ -78,7 +78,6 @@ node:
 
   startCmd:
     - --node
-    - --archiver
 
   image:
     repository: ""
@@ -155,6 +154,7 @@ node:
     invalidBlockPenalty: ""
     proposeInvalidAttestationsPenalty: ""
     attestDescendantOfInvalidPenalty: ""
+    attestInvalidCheckpointProposalPenalty: ""
     unknownPenalty: ""
     # Slasher behavior configuration
     gracePeriodL2Slots: ""

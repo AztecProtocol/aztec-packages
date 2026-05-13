@@ -97,7 +97,7 @@ export class BatchTxRequester {
   }
 
   /*
-   * Fetches all missing transactions and yields them  one by one
+   * Fetches all missing transactions and yields them one by one
    * */
   public async *run(): AsyncGenerator<Tx, Tx | undefined, unknown> {
     try {

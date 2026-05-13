@@ -236,7 +236,7 @@ describe('CheckpointVoter HA Integration', () => {
       disabledValidators: [],
       haSigningEnabled: true,
       l1ChainId: 1,
-      l1Contracts: { rollupAddress: EthAddress.fromString(rollupContract.address.toString()) },
+      rollupAddress: EthAddress.fromString(rollupContract.address.toString()),
       nodeId: config.nodeId || 'ha-node-1',
       pollingIntervalMs: 100,
       signingTimeoutMs: 3000,

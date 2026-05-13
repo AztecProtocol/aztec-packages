@@ -224,11 +224,6 @@ export class PublicProcessor implements Traceable {
           failed.push({ tx, error: new Error(`Tx failed preprocess validation: ${reason}`) });
           returns.push(new NestedProcessReturnValues([]));
           continue;
-        } else if (result.result === 'skipped') {
-          const reason = result.reason.join(', ');
-          this.log.debug(`Skipping tx ${txHash.toString()} due to pre-process validation: ${reason}`);
-          returns.push(new NestedProcessReturnValues([]));
-          continue;
         } else {
           this.log.trace(`Tx ${txHash.toString()} is valid before processing.`);
         }

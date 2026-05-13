@@ -51,7 +51,7 @@ describe('SlasherOffensesStore', () => {
     it('should add and retrieve a single offense', async () => {
       const offense = createOffense();
 
-      await store.addOffense(offense);
+      await expect(store.addOffense(offense)).resolves.toBe(true);
 
       const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
@@ -254,12 +254,63 @@ describe('SlasherOffensesStore', () => {
     });
   });
 
+  describe('clearOffenses', () => {
+    it('clears matching offenses and keeps unrelated offenses', async () => {
+      const validator1 = EthAddress.random();
+      const validator2 = EthAddress.random();
+      const matching1 = createOffense(validator1, 1000n, OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, 150n);
+      const matching2 = createOffense(validator2, 1000n, OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, 150n);
+      const otherSlot = createOffense(validator1, 1000n, OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, 151n);
+      const otherType = createOffense(validator1, 1000n, OffenseType.DUPLICATE_PROPOSAL, 150n);
+
+      await store.addOffense(matching1);
+      await store.addOffense(matching2);
+      await store.addOffense(otherSlot);
+      await store.addOffense(otherType);
+
+      const cleared = await store.clearOffenses({
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 150n,
+      });
+
+      expect(cleared).toBe(2);
+      expect(await store.hasOffense(matching1)).toBe(false);
+      expect(await store.hasOffense(matching2)).toBe(false);
+      expect(await store.hasOffense(otherSlot)).toBe(true);
+      expect(await store.hasOffense(otherType)).toBe(true);
+      const roundOffenses = await store.getOffensesForRound(1n);
+      expect(roundOffenses).toHaveLength(2);
+      expect(roundOffenses).toContainEqual(otherSlot);
+      expect(roundOffenses).toContainEqual(otherType);
+    });
+
+    it('can clear only selected validators', async () => {
+      const validator1 = EthAddress.random();
+      const validator2 = EthAddress.random();
+      const matching1 = createOffense(validator1, 1000n, OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, 150n);
+      const matching2 = createOffense(validator2, 1000n, OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, 150n);
+
+      await store.addOffense(matching1);
+      await store.addOffense(matching2);
+
+      const cleared = await store.clearOffenses({
+        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 150n,
+        validators: [validator1],
+      });
+
+      expect(cleared).toBe(1);
+      expect(await store.hasOffense(matching1)).toBe(false);
+      expect(await store.hasOffense(matching2)).toBe(true);
+    });
+  });
+
   describe('edge cases', () => {
     it('should handle duplicate offense additions', async () => {
       const offense = createOffense();
 
-      await store.addOffense(offense);
-      await store.addOffense(offense); // Duplicate
+      await expect(store.addOffense(offense)).resolves.toBe(true);
+      await expect(store.addOffense(offense)).resolves.toBe(false);
 
       const pendingOffenses = await store.getOffenses();
       expect(pendingOffenses).toHaveLength(1);
