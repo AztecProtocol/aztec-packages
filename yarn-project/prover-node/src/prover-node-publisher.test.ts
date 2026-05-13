@@ -1,5 +1,6 @@
 import { BatchedBlob } from '@aztec/blob-lib/types';
 import type { RollupContract } from '@aztec/ethereum/contracts';
+import { randomL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -35,19 +36,7 @@ describe('prover-node-publisher', () => {
       l1DebugRpcUrls: [],
       publisherPrivateKeys: [new SecretValue('0x1234')],
       viemPollingIntervalMS: 1000,
-      l1Contracts: {
-        rollupAddress: EthAddress.random(),
-        registryAddress: EthAddress.random(),
-        inboxAddress: EthAddress.random(),
-        outboxAddress: EthAddress.random(),
-        rewardDistributorAddress: EthAddress.random(),
-        feeJuicePortalAddress: EthAddress.random(),
-        coinIssuerAddress: EthAddress.random(),
-        governanceAddress: EthAddress.random(),
-        governanceProposerAddress: EthAddress.random(),
-        feeJuiceAddress: EthAddress.random(),
-        stakingAssetAddress: EthAddress.random(),
-      },
+      ...randomL1ContractAddresses(),
     };
   });
 

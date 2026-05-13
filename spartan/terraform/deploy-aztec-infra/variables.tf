@@ -502,6 +502,12 @@ variable "SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY" {
   nullable    = true
 }
 
+variable "SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY" {
+  description = "The slash attest invalid checkpoint proposal penalty"
+  type        = string
+  nullable    = true
+}
+
 variable "SLASH_UNKNOWN_PENALTY" {
   description = "The slash unknown penalty"
   type        = string

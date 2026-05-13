@@ -234,7 +234,7 @@ function createTxValidatorForMinimumTxIntegrityChecks(
  * are invalid against current state. State-dependent checks happen when the tx
  * enters the pending pool or during block building.
  */
-export function createTxValidatorForReqResponseReceivedTxs(
+export function createTxValidatorForOnDemandReceivedTxs(
   verifier: ClientProtocolCircuitVerifier,
   {
     l1ChainId,

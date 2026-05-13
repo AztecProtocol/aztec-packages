@@ -152,11 +152,11 @@ export class ArchiverL1Synchronizer implements Traceable {
       return;
     }
 
-    // Warn if the latest L1 block timestamp is too old
+    // Log at error if the latest L1 block timestamp is too old
     const maxAllowedDelay = this.config.maxAllowedEthClientDriftSeconds;
     const now = this.dateProvider.nowInSeconds();
     if (maxAllowedDelay > 0 && Number(currentL1Timestamp) <= now - maxAllowedDelay) {
-      this.log.warn(
+      this.log.error(
         `Latest L1 block ${currentL1BlockNumber} timestamp ${currentL1Timestamp} is too old. Make sure your Ethereum node is synced.`,
         { currentL1BlockNumber, currentL1Timestamp, now, maxAllowedDelay },
       );
@@ -973,10 +973,10 @@ export class ArchiverL1Synchronizer implements Traceable {
           ),
         );
 
-        if (checkpointsToAdd.length > 0) {
+        if (validCheckpoints.length > 0) {
           this.instrumentation.processNewCheckpointedBlocks(
-            processDuration / checkpointsToAdd.length,
-            checkpointsToAdd.flatMap(c => c.checkpoint.blocks),
+            processDuration / validCheckpoints.length,
+            validCheckpoints.flatMap(c => c.checkpoint.blocks),
           );
         }
 

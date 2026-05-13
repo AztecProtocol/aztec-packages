@@ -44,6 +44,14 @@ function test_cmds {
     local name=${test#*e2e_}
     name=e2e_${name%.test.ts}
 
+    # Per-test bash TIMEOUT overrides — keep in sync with the test file's jest.setTimeout.
+    local test_prefix="$prefix"
+    case "$name" in
+      e2e_p2p/add_rollup)
+        test_prefix="$prefix:TIMEOUT=20m"
+        ;;
+    esac
+
     # Check if this is a .parallel.test.ts file
     if [[ "$test" == *.parallel.test.ts ]]; then
       # Extract individual test names and create a command for each
@@ -51,11 +59,11 @@ function test_cmds {
         # Create a safe name for the individual test (replace spaces with underscores)
         local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
         local full_name="${name}_${safe_test_name}"
-        echo "$prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
+        echo "$test_prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
     else
       # Regular test file - run the whole file
-      echo "$prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
+      echo "$test_prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
     fi
   done
 

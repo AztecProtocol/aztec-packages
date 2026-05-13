@@ -24,6 +24,8 @@ export enum OffenseType {
   DUPLICATE_PROPOSAL = 8,
   /** A validator signed attestations for different proposals at the same slot (equivocation) */
   DUPLICATE_ATTESTATION = 9,
+  /** A committee member attested to a checkpoint proposal in a slot with an invalid block proposal */
+  ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL = 10,
 }
 
 export function getOffenseTypeName(offense: OffenseType) {
@@ -48,6 +50,8 @@ export function getOffenseTypeName(offense: OffenseType) {
       return 'duplicate_proposal';
     case OffenseType.DUPLICATE_ATTESTATION:
       return 'duplicate_attestation';
+    case OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL:
+      return 'attested_to_invalid_checkpoint_proposal';
     default:
       throw new Error(`Unknown offense type: ${offense}`);
   }
@@ -66,6 +70,7 @@ export const OffenseToBigInt: Record<OffenseType, bigint> = {
   [OffenseType.ATTESTED_DESCENDANT_OF_INVALID]: 7n,
   [OffenseType.DUPLICATE_PROPOSAL]: 8n,
   [OffenseType.DUPLICATE_ATTESTATION]: 9n,
+  [OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL]: 10n,
 };
 
 export function bigIntToOffense(offense: bigint): OffenseType {
@@ -90,6 +95,8 @@ export function bigIntToOffense(offense: bigint): OffenseType {
       return OffenseType.DUPLICATE_PROPOSAL;
     case 9n:
       return OffenseType.DUPLICATE_ATTESTATION;
+    case 10n:
+      return OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL;
     default:
       throw new Error(`Unknown offense: ${offense}`);
   }

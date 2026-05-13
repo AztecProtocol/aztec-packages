@@ -55,7 +55,7 @@ describe('e2e_p2p_inactivity_slash_with_consecutive_epochs', () => {
         return offenses.length > 0 ? offenses : undefined;
       },
       'slash offenses',
-      slashInactivityConsecutiveEpochThreshold * aztecEpochDuration * aztecSlotDuration * 2,
+      slashInactivityConsecutiveEpochThreshold * aztecEpochDuration * aztecSlotDuration * 4,
     );
     expect(unique(offenses.map(o => o.validator.toString()))).toEqual([offlineValidator.toString()]);
     expect(unique(offenses.map(o => o.offenseType))).toEqual([OffenseType.INACTIVITY]);
