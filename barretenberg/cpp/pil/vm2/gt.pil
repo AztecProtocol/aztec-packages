@@ -17,7 +17,7 @@ include "range_check.pil";
  *
  * - Inputs: Integer values a and b, each bounded by 2^128.
  * - Output: `res` is 1 if input_a > input_b, 0 otherwise.
- * - Selector: sel_XXX is one of: sel_sha256, sel_addressing, sel_alu, sel_gas, sel_others.
+ * - Selector: sel_XXX is one of: sel_addressing, sel_alu, sel_gas, sel_others.
  *   All five sub-selectors are functionally identical; they exist solely to decouple
  *   inverse computation for performance. Each caller trace should use the selector
  *   assigned to it. If no dedicated selector exists for your trace, use sel_others.
@@ -42,19 +42,17 @@ namespace gt;
     // ==== LOOKUP SUB-SELECTORS ====
 
     // These decouple generation of inverses for lookups into this trace.
-    pol commit sel_sha256; // @boolean
     pol commit sel_addressing; // @boolean
     pol commit sel_alu; // @boolean
     pol commit sel_gas; // @boolean
     // Any other lookup into this trace
     pol commit sel_others; // @boolean
-    sel_sha256 * (1 - sel_sha256) = 0;
     sel_addressing * (1 - sel_addressing) = 0;
     sel_alu * (1 - sel_alu) = 0;
     sel_gas * (1 - sel_gas) = 0;
     sel_others * (1 - sel_others) = 0;
     // If any of the above selectors is 1, then sel must be 1.
-    (sel_sha256 + sel_addressing + sel_alu + sel_gas + sel_others) * (1 - sel) = 0;
+    (sel_addressing + sel_alu + sel_gas + sel_others) * (1 - sel) = 0;
 
     // ==== INPUTS AND OUTPUT ====
 
