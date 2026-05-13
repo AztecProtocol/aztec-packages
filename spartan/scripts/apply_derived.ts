@@ -29,7 +29,9 @@ function applyEnvSpread(data: ConfigData) {
     if (!block) continue;
     for (const key of Object.keys(block)) {
       const envVal = process.env[key];
-      if (envVal !== undefined) {
+      // Only override scalar string values. Arrays/objects in deploy: are Helm-shaped
+      // config that should not be clobbered by a string env var representation.
+      if (envVal !== undefined && typeof block[key] === "string") {
         block[key] = envVal;
       }
     }
