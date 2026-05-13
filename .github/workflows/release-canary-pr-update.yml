@@ -125,10 +125,10 @@ jobs:
 
             # Add labels based on what changed
             labels=""
-            if [[ "${{ steps.detect.outputs.release_pr }}" == "true" ]]; then
+            if [[ "${{ github.repository }}" != "AztecProtocol/aztec-packages-private" && "${{ steps.detect.outputs.release_pr }}" == "true" ]]; then
               labels="$labels --add-label ci-release-pr"
             fi
-            if [[ "${{ steps.detect.outputs.network_kind }}" == "true" ]]; then
+            if [[ "${{ github.repository }}" != "AztecProtocol/aztec-packages-private" && "${{ steps.detect.outputs.network_kind }}" == "true" ]]; then
               labels="$labels --add-label ci-network-kind"
             fi
             if [[ -n "$labels" ]]; then
