@@ -11,7 +11,7 @@ import {
 } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 
-import { jestExpect as expect } from '@jest/expect';
+import { expect } from 'vitest';
 
 import type { L2TipsStore } from '../l2_block_stream/index.js';
 
