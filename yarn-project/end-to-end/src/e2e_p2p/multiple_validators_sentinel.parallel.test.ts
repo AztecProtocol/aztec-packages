@@ -110,13 +110,16 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
 
     // Wait until validator nodes have advanced past their first proposed slot so that the
     // pipelining warm-up period (where some attestations may be missed) is behind us.
+    // Bumped from +1 to +2 because a single slot of warmup occasionally still catches
+    // the first proposer slot with only 3/5 attestations collected (p2p mesh not fully
+    // populated yet), even with waitForP2PMeshConnectivity above.
     await t.monitor.run();
-    const warmupSlot = Number(t.monitor.l2SlotNumber) + 1;
+    const warmupSlot = Number(t.monitor.l2SlotNumber) + 2;
     t.logger.info(`Waiting for warmup slot ${warmupSlot} before establishing initial slot`);
     await retryUntil(
       async () => (await t.monitor.run()).l2SlotNumber >= warmupSlot,
       'warmup slot',
-      AZTEC_SLOT_DURATION * 3,
+      AZTEC_SLOT_DURATION * 4,
     );
 
     const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = t.monitor;
@@ -159,7 +162,17 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     // Stop the second node, this means the first node won't be able to propose since won't achieve quorum
     await tryStop(nodes[1]);
 
+    // Warmup: skip the first 2 slots after stopping the second node so the p2p mesh
+    // stabilizes and the first node's slot doesn't get caught with only 3/5 attestations.
     await t.monitor.run();
+    const warmupSlot = Number(t.monitor.l2SlotNumber) + 2;
+    t.logger.info(`Waiting for warmup slot ${warmupSlot} before establishing initial slot`);
+    await retryUntil(
+      async () => (await t.monitor.run()).l2SlotNumber >= warmupSlot,
+      'warmup slot',
+      AZTEC_SLOT_DURATION * 4,
+    );
+
     const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = t.monitor;
 
     const timeout = AZTEC_SLOT_DURATION * SLOT_COUNT * 4;
