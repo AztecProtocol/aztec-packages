@@ -9,7 +9,7 @@ use aztec::macros::aztec;
 pub contract NFT {
     use crate::types::nft_note::{NFTNote, PartialNFTNote};
     use aztec::{
-        authwit::auth::compute_authwit_nullifier,
+        authwit::utils::compute_authwit_nullifier,
         macros::{functions::{authorize_once, external, initializer, internal, only_self, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
         note::{

@@ -3,7 +3,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract AuthWitTest {
     use aztec::{
-        authwit::auth::{assert_inner_hash_valid_authwit, assert_inner_hash_valid_authwit_public},
+        authwit::{private::assert_inner_hash_valid_authwit, public::assert_inner_hash_valid_authwit_public},
         macros::functions::{authorize_once, external},
         protocol::{address::AztecAddress, traits::{Deserialize, Serialize}},
     };

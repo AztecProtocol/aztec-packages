@@ -21,7 +21,7 @@ The `aztec` library includes authwit functionality. Import the necessary compone
 
 ```rust
 use aztec::{
-    authwit::auth::{compute_authwit_message_hash_from_call, set_authorized},
+    authwit::{utils::compute_authwit_message_hash_from_call, public::set_authorized},
     macros::functions::authorize_once,
 };
 ```

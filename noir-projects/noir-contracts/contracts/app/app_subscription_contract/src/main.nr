@@ -44,7 +44,7 @@ pub contract AppSubscription {
     use crate::{config::Config, dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
     use aztec::{
-        authwit::auth::assert_current_call_valid_authwit,
+        authwit::private::assert_current_call_valid_authwit,
         macros::{functions::{allow_phase_change, external, initializer}, storage::storage},
         messages::message_delivery::MessageDelivery,
         oracle::notes::set_sender_for_tags,
@@ -52,7 +52,7 @@ pub contract AppSubscription {
         state_vars::{Owned, PrivateMutable, PublicImmutable},
         utils::comparison::Comparator,
     };
-    use aztec::public_checks::privately_check_block_number;
+    use public_checks::utils::privately_check_block_number;
     use token::Token;
 
     #[storage]
@@ -78,7 +78,7 @@ pub contract AppSubscription {
         unsafe { set_sender_for_tags(user_address) };
 
         // This function takes a generic argument that corresponds to the number of params
-        // the parent takes. See aztec-nr/src/authwit/auth.nr for more details.
+        // the parent takes. See aztec-nr/src/authwit/private.nr for more details.
         assert_current_call_valid_authwit::<2>(self.context, user_address);
 
         let user_expiry_block_number = &mut 0;

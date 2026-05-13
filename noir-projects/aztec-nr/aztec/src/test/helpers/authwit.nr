@@ -1,5 +1,5 @@
 use crate::{
-    authwit::auth::{compute_authwit_message_hash, compute_inner_authwit_hash},
+    authwit::utils::{compute_authwit_message_hash, compute_inner_authwit_hash},
     context::{PrivateCall, PublicCall},
     hash::hash_args,
     test::helpers::{test_environment::TestEnvironment, txe_oracles},
