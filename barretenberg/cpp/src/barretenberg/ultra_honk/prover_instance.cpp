@@ -292,14 +292,11 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     // Used by the read-count locality subrelation to force read_counts to vanish outside the
     // column's data range, so the lookup table multi-set can only contain entries from rows the
     // indicator marks as belonging to this column.
-    polynomials.kernel_calldata_indicator =
-        Polynomial(offset_size(circuit.get_bus_vector(0).size()), dyadic_size());
-    polynomials.first_app_calldata_indicator =
-        Polynomial(offset_size(circuit.get_bus_vector(1).size()), dyadic_size());
+    polynomials.kernel_calldata_indicator = Polynomial(offset_size(circuit.get_bus_vector(0).size()), dyadic_size());
+    polynomials.first_app_calldata_indicator = Polynomial(offset_size(circuit.get_bus_vector(1).size()), dyadic_size());
     polynomials.second_app_calldata_indicator =
         Polynomial(offset_size(circuit.get_bus_vector(2).size()), dyadic_size());
-    polynomials.third_app_calldata_indicator =
-        Polynomial(offset_size(circuit.get_bus_vector(3).size()), dyadic_size());
+    polynomials.third_app_calldata_indicator = Polynomial(offset_size(circuit.get_bus_vector(3).size()), dyadic_size());
     polynomials.return_data_indicator = Polynomial(offset_size(circuit.get_bus_vector(4).size()), dyadic_size());
 }
 
@@ -345,10 +342,8 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
 
     // Populate per-column indicators: 1 on the column's data rows, 0 elsewhere (default).
     std::array<std::reference_wrapper<Polynomial>, NUM_BUS_COLUMNS> indicators{
-        polynomials.kernel_calldata_indicator,
-        polynomials.first_app_calldata_indicator,
-        polynomials.second_app_calldata_indicator,
-        polynomials.third_app_calldata_indicator,
+        polynomials.kernel_calldata_indicator,     polynomials.first_app_calldata_indicator,
+        polynomials.second_app_calldata_indicator, polynomials.third_app_calldata_indicator,
         polynomials.return_data_indicator,
     };
     for (size_t bus_idx = 0; bus_idx < NUM_BUS_COLUMNS; ++bus_idx) {

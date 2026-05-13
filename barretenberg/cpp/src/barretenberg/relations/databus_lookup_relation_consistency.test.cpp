@@ -233,12 +233,8 @@ static std::array<FF, DatabusLookupRelationConsistency::NUM_SUBRELATIONS> comput
                                 in.third_app_calldata_indicator);
 
     // Bus column 4 (return_data)
-    compute_column_subrelations(4,
-                                in.q_m,
-                                in.return_data,
-                                in.return_data_read_counts,
-                                in.return_data_inverses,
-                                in.return_data_indicator);
+    compute_column_subrelations(
+        4, in.q_m, in.return_data, in.return_data_read_counts, in.return_data_inverses, in.return_data_indicator);
 
     return expected_values;
 }

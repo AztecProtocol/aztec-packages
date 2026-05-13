@@ -522,7 +522,8 @@ TYPED_TEST(UltraHonkTests, RomMaliciousFieldWrap)
     auto& mem = circuit_builder.blocks.memory;
     size_t sorted_0 = std::numeric_limits<size_t>::max();
     for (size_t i = 0; i < mem.size(); ++i) {
-        if (mem.gate_selector_for(GateKind::Memory)[i] == 1 && mem.q_1()[i] == 1 && mem.q_2()[i] == 1 && mem.q_m()[i] == 0) {
+        if (mem.gate_selector_for(GateKind::Memory)[i] == 1 && mem.q_1()[i] == 1 && mem.q_2()[i] == 1 &&
+            mem.q_m()[i] == 0) {
             sorted_0 = i;
             break;
         }
@@ -584,8 +585,8 @@ TYPED_TEST(UltraHonkTests, RamMaliciousFieldWrap)
     auto& mem = circuit_builder.blocks.memory;
     size_t sorted_0 = std::numeric_limits<size_t>::max();
     for (size_t i = 0; i < mem.size(); ++i) {
-        if (mem.gate_selector_for(GateKind::Memory)[i] == 1 && mem.q_3()[i] == 1 && mem.q_1()[i] == 0 && mem.q_2()[i] == 0 &&
-            mem.q_m()[i] == 0) {
+        if (mem.gate_selector_for(GateKind::Memory)[i] == 1 && mem.q_3()[i] == 1 && mem.q_1()[i] == 0 &&
+            mem.q_2()[i] == 0 && mem.q_m()[i] == 0) {
             sorted_0 = i;
             break;
         }
