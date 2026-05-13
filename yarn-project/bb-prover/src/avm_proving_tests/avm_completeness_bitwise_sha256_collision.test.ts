@@ -4,14 +4,7 @@ import { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import fs from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'path';
-
-import { BB_RESULT, generateAvmProof } from '../bb/execute.js';
 import { AvmProvingTester } from './avm_proving_tester.js';
-
-const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
 
 describe('AVM completeness — bitwise/sha256 error row collision (regression guard)', () => {
   let tester: AvmProvingTester;
@@ -47,22 +40,8 @@ describe('AVM completeness — bitwise/sha256 error row collision (regression gu
     );
     expect(simRes.revertCode.isOK()).toBe(true);
 
-    // Call generateAvmProof directly (AvmProvingTester.prove() asserts SUCCESS internally,
-    // which would work here, but calling directly keeps this test symmetric with the
-    // original bug-reproducer and lets us log the failure reason on regression).
-    const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
     const avmCircuitInputs = new AvmCircuitInputs(simRes.hints!, simRes.publicInputs!);
-    const proofRes = await generateAvmProof(
-      BB_PATH,
-      bbWorkingDirectory,
-      avmCircuitInputs,
-      logger,
-      /*checkCircuitOnly=*/ true,
-    );
-
-    if (proofRes.status === BB_RESULT.FAILURE) {
-      logger.error(`Proving FAILED — completeness regression: ${proofRes.reason}`);
-    }
-    expect(proofRes.status).toBe(BB_RESULT.SUCCESS);
+    logger.info('Checking AVM circuit for bitwise/sha256 collision regression');
+    await tester.prove(avmCircuitInputs, 'bitwise-sha256-collision');
   }, 180_000);
 });
