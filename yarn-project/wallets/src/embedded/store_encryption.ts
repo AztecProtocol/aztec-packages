@@ -1,17 +1,11 @@
 /**
- * Wallet-layer helpers for opening the embedded wallet's two encrypted stores
- * (PXE state + walletDB) as a cohesive unit.
+ * Wallet-layer helpers for opening the embedded wallet's two encrypted stores (PXE + walletDB) as a cohesive unit.
  *
- * Sits on top of `@aztec/kv-store/sqlite-opfs`'s typed `SqliteEncryptionError`
- * (which knows about the cipher but not about wallet topology) and adds:
+ * Sits on top of `@aztec/kv-store/sqlite-opfs`'s typed `SqliteEncryptionError` and adds:
  *
- *   - `storeName: 'pxe' | 'wallet'` — telling callers WHICH store failed, which
- *     matters for recovery UX (PXE state is more disposable than walletDB).
- *   - Cleanup-on-second-failure — when the wallet store fails to open, the
- *     already-opened PXE store is closed before the error surfaces, so callers
- *     don't leak the SAH Pool's OPFS lock.
- *
- * Without this helper, every consumer reinvents the same two-store dance.
+ *   - `storeName: 'pxe' | 'wallet'`, telling callers WHICH store failed.
+ *   - Cleanup: when the wallet store fails to open, ensures the already-opened PXE store is closed before the error
+ *     surfaces, so callers don't leak the SAH Pool's OPFS lock.
  */
 import type { Logger } from '@aztec/foundation/log';
 import { AztecSQLiteOPFSStore, SqliteEncryptionError } from '@aztec/kv-store/sqlite-opfs';
@@ -20,14 +14,8 @@ import { AztecSQLiteOPFSStore, SqliteEncryptionError } from '@aztec/kv-store/sql
 export type EmbeddedStoreName = 'pxe' | 'wallet';
 
 /**
- * Thrown by {@link openEncryptedEmbeddedStores} when one of the two stores
- * cannot be decrypted with the supplied key. The original
- * {@link SqliteEncryptionError} is preserved as `cause`. Use the `storeName`
- * field to drive recovery decisions:
- *
- *   - `'pxe'`  — typically safe to wipe-and-rebuild from L1 events.
- *   - `'wallet'` — wiping discards the user's account/sender list; prompt the
- *     user before doing so.
+ * Thrown by {@link openEncryptedEmbeddedStores} when one of the two stores cannot be decrypted with the supplied
+ * key. The original {@link SqliteEncryptionError} is preserved as `cause`.
  */
 export class EmbeddedWalletEncryptionError extends Error {
   readonly storeName: EmbeddedStoreName;
@@ -46,8 +34,8 @@ export interface OpenEncryptedEmbeddedStoresOptions {
 }
 
 /**
- * Internal seam for tests to inject a fake store opener. Defaults to
- * `AztecSQLiteOPFSStore.open`. Not part of the public API.
+ * Internal seam for tests to inject a fake store opener. Defaults to `AztecSQLiteOPFSStore.open`. Not part of the
+ * public API.
  *
  * @internal
  */
@@ -62,23 +50,19 @@ const defaultOpenStore: OpenSqliteEncryptedStoreFn = (log, name, poolDirectory, 
   AztecSQLiteOPFSStore.open(log, name, false, poolDirectory, encryptionKey);
 
 /**
- * Opens the PXE and wallet stores in sequence, both encrypted with keys
- * obtained from `getEncryptionKey`. The callback is invoked once per store
- * (twice total per call) because `AztecSQLiteOPFSStore.open` *transfers* the
- * key buffer to its worker — a single buffer would detach between the two
- * opens.
+ * Opens the PXE and wallet stores in sequence, both encrypted with keys obtained from `getEncryptionKey`.
+ *
+ * The callback is invoked once per store (twice total per call) because `AztecSQLiteOPFSStore.open` *transfers*
+ * the key buffer to its worker. A single buffer would detach between the two opens.
  *
  * Failure modes:
  *
- *   - PXE store fails to decrypt → throws
- *     `EmbeddedWalletEncryptionError({ storeName: 'pxe', cause })`. No cleanup
+ *   - PXE store fails to decrypt → throws `EmbeddedWalletEncryptionError({ storeName: 'pxe', cause })`. No cleanup
  *     needed (nothing was opened).
- *   - Wallet store fails to decrypt → closes the already-opened PXE store
- *     (best-effort), then throws
+ *   - Wallet store fails to decrypt → closes the already-opened PXE store then throws
  *     `EmbeddedWalletEncryptionError({ storeName: 'wallet', cause })`.
- *   - Any non-decrypt error during the wallet open → still closes PXE, then
- *     re-throws the original error unwrapped (preserves callers' existing
- *     untyped error handling for non-encryption faults).
+ *   - Any non-decrypt error during the wallet open → still closes PXE, then re-throws the original error unwrapped
+ *     (preserves callers' existing untyped error handling for non-encryption faults).
  *
  * @param config           - Per-store name/poolDirectory.
  * @param getEncryptionKey - Returns a fresh 32-byte key per call (the buffer
@@ -92,19 +76,19 @@ export async function openEncryptedEmbeddedStores(
   log: Logger,
   openStore: OpenSqliteEncryptedStoreFn = defaultOpenStore,
 ): Promise<{ pxeStore: AztecSQLiteOPFSStore; walletStore: AztecSQLiteOPFSStore }> {
-  const pxeStore = await openOne('pxe', config.pxe, getEncryptionKey, log, openStore);
+  const pxeStore = await openOneStore('pxe', config.pxe, getEncryptionKey, log, openStore);
   try {
-    const walletStore = await openOne('wallet', config.wallet, getEncryptionKey, log, openStore);
+    const walletStore = await openOneStore('wallet', config.wallet, getEncryptionKey, log, openStore);
     return { pxeStore, walletStore };
   } catch (err) {
-    // Cleanup is best-effort — if close() itself throws (e.g. worker already
-    // dead), swallow it so the original error surfaces unobstructed.
+    // Cleanup is best-effort — if close() itself throws (e.g. worker already dead), swallow it so the original error
+    // surfaces unobstructed.
     await pxeStore.close().catch(() => {});
     throw err;
   }
 }
 
-async function openOne(
+async function openOneStore(
   storeName: EmbeddedStoreName,
   { name, poolDirectory }: { name: string; poolDirectory?: string },
   getEncryptionKey: () => Promise<Uint8Array>,
