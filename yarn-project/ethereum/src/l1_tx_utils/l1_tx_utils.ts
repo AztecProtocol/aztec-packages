@@ -229,6 +229,15 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
       throw new InterruptError(`Transaction sending is interrupted`);
     }
 
+    // Fail fast before doing any work (gas estimation, balance check) if the caller's deadline
+    // has already passed. The same check is repeated after gas estimation in case it took long
+    // enough to push us past the deadline.
+    if (gasConfigOverrides?.txTimeoutAt && new Date() > gasConfigOverrides.txTimeoutAt) {
+      throw new TimeoutError(
+        `Transaction timed out before sending (now ${new Date().toISOString()} > timeoutAt ${gasConfigOverrides.txTimeoutAt.toISOString()})`,
+      );
+    }
+
     try {
       const gasConfig = merge(this.config, gasConfigOverrides);
       const account = this.getSenderAddress().toString();
