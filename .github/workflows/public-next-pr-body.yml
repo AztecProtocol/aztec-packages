@@ -1,7 +1,15 @@
 name: Public Next PR Body
 
 on:
+  push:
+    branches:
+      - next
+      - public-next
   workflow_dispatch:
+
+concurrency:
+  group: public-next-pr-body
+  cancel-in-progress: true
 
 jobs:
   update-public-next-pr-body:
