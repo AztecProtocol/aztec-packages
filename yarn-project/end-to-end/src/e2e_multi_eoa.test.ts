@@ -184,7 +184,13 @@ describe('e2e_multi_eoa', () => {
       spies.forEach(spy => spy.mockRestore());
     };
 
-    // TODO(kill-non-pipelined): publisher rotation timing under pipelining does not match this test's blocking pattern; the L2 deploy tx never mines.
+    // TODO(kill-non-pipelined): mock returns a fake-but-valid tx hash so L1TxUtils thinks the send
+    // succeeded; this never triggers forwardWithPublisherRotation. Publisher 3 stays in SENT until
+    // txTimeoutMs (120s) elapses while pipelined slot 7 was already building on top of slot 6's
+    // checkpoint that won't land, so its work is discarded (pipelined-checkpoint-discarded). The
+    // proposed chain prunes blocks 5 and 6, removing the deploy tx from the mempool. To revive this
+    // test under pipelining: switch the mock to throw an error (so rotation kicks in within the
+    // slot) or rewrite the assertion to span multiple slots while the chain keeps progressing.
     it.skip('publishers are rotated by the sequencer', async () => {
       // Helpers to identify which accounts are expected to be used
       const getSortedAddressesByBalance = async (addressAndKeys: { address: `0x${string}` }[]) => {
