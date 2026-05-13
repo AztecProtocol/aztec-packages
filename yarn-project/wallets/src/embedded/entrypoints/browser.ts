@@ -79,3 +79,13 @@ export { BrowserEmbeddedWallet as EmbeddedWallet };
 export type { EmbeddedWalletOptions, EmbeddedWalletPXEOptions } from '../embedded_wallet.js';
 export { WalletDB } from '../wallet_db.js';
 export type { AccountType } from '../wallet_db.js';
+
+// At-rest encryption is browser-only (sqlite3mc requires Web Workers + OPFS),
+// so the helper is re-exported from this entrypoint only — `entrypoints/node.ts`
+// uses LMDB and does not expose it.
+export { EmbeddedWalletEncryptionError, openEncryptedEmbeddedStores } from '../store_encryption.js';
+export type {
+  EmbeddedStoreName,
+  OpenEncryptedEmbeddedStoresOptions,
+  OpenSqliteEncryptedStoreFn,
+} from '../store_encryption.js';
