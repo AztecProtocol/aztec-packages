@@ -149,6 +149,10 @@ export class CdbIpcServer {
     });
   }
 
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.close();
+  }
+
   private handleConnection(socket: net.Socket) {
     this.log.debug('C++ AVM connected to CDB server');
     this.connections.add(socket);

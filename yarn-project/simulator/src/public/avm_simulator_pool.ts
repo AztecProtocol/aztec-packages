@@ -47,6 +47,23 @@ export class AvmSimulatorPool implements AvmIpcBackend {
     this.maxSize = options.maxSize ?? parseInt(process.env.AVM_MAX_CONCURRENT_SIMULATIONS ?? '4', 10);
   }
 
+  /**
+   * Resolve the aztec-avm binary path via {@link findAvmBinary} and return a ready-to-use
+   * pool. Encapsulates the dynamic bb.js import that callers would otherwise repeat.
+   */
+  static async spawn(options: Omit<AvmSimulatorPoolOptions, 'avmBinaryPath'>): Promise<AvmSimulatorPool> {
+    const { findAvmBinary } = await import('@aztec/bb.js/platform');
+    const avmBinaryPath = findAvmBinary();
+    if (!avmBinaryPath) {
+      throw new Error('aztec-avm binary not found');
+    }
+    return new AvmSimulatorPool({ ...options, avmBinaryPath });
+  }
+
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.destroy();
+  }
+
   /** Send a request to any available AVM process. Blocks if all are busy. */
   async call(inputBuffer: Uint8Array): Promise<Uint8Array> {
     const backend = await this.checkout();
