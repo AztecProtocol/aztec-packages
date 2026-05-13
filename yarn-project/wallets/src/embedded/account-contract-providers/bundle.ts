@@ -3,8 +3,8 @@ import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
 import { StubEcdsaAccountContractArtifact, createStubEcdsaAccount } from '@aztec/accounts/stub/ecdsa';
 import { StubSchnorrAccountContractArtifact, createStubSchnorrAccount } from '@aztec/accounts/stub/schnorr';
 import type { Account, AccountContract } from '@aztec/aztec.js/account';
+import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint';
 import type { Fq } from '@aztec/foundation/curves/bn254';
-import { getCanonicalMultiCallEntrypoint } from '@aztec/protocol-contracts/multi-call-entrypoint';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
@@ -37,6 +37,6 @@ export class BundleAccountContractsProvider implements AccountContractsProvider 
   }
 
   getMulticallContract(): Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }> {
-    return getCanonicalMultiCallEntrypoint();
+    return getStandardMultiCallEntrypoint();
   }
 }

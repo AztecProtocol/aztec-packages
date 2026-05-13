@@ -67,6 +67,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/standard-contracts": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",

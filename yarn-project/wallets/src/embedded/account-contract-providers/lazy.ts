@@ -1,6 +1,6 @@
 import type { Account, AccountContract } from '@aztec/aztec.js/account';
+import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint/lazy';
 import type { Fq } from '@aztec/foundation/curves/bn254';
-import { getCanonicalMultiCallEntrypoint } from '@aztec/protocol-contracts/multi-call-entrypoint/lazy';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { CompleteAddress, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
@@ -48,6 +48,6 @@ export class LazyAccountContractsProvider implements AccountContractsProvider {
   }
 
   getMulticallContract(): Promise<{ instance: ContractInstanceWithAddress; artifact: ContractArtifact }> {
-    return getCanonicalMultiCallEntrypoint();
+    return getStandardMultiCallEntrypoint();
   }
 }

@@ -13,6 +13,9 @@
       "path": "../aztec.js"
     },
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../entrypoints"
     },
     {
