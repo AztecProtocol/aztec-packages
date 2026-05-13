@@ -85,10 +85,6 @@ export function renderNoirLib(stamp: AuthRegistryStamp): string {
 // \`auth_registry_contract\` has been compiled. Regenerate with
 // \`yarn workspace @aztec/canonical-contracts run regen:auth-registry-address\`.
 //
-// Auth registry MUST NOT depend on this crate. The aztec-nr authwit module is split into
-// \`common\` / \`private\` / \`public\` so that auth_registry can import only the address-free
-// halves, structurally preventing the cycle.
-//
 // artifactHash    = ${stamp.artifactHash.toString()}
 // srcContentHash  = ${stamp.srcContentHash}
 
