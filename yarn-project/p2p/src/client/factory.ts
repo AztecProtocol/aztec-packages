@@ -20,7 +20,7 @@ import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import { AztecKVTxPoolV2 } from '../mem_pools/tx_pool_v2/tx_pool_v2.js';
 import {
   createCheckAllowedSetupCalls,
-  createTxValidatorForReqResponseReceivedTxs,
+  createTxValidatorForOnDemandReceivedTxs,
   createTxValidatorForTransactionsEnteringPendingTxPool,
   getDefaultAllowedSetupFunctions,
 } from '../msg_validators/index.js';
@@ -80,7 +80,7 @@ export async function createP2PClient(
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 2, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
-  const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
+  const rollupAddress = inputConfig.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
   const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
 
   const allowedInSetup = [
@@ -153,7 +153,7 @@ export async function createP2PClient(
     telemetry,
   );
 
-  const txValidatorForTxCollection = createTxValidatorForReqResponseReceivedTxs(proofVerifier, config);
+  const txValidatorForTxCollection = createTxValidatorForOnDemandReceivedTxs(proofVerifier, config);
   const nodeSources = [
     ...createNodeRpcTxSources(config.txCollectionNodeRpcUrls, txValidatorForTxCollection, config),
     ...(deps.rpcTxProviders ?? []).map(

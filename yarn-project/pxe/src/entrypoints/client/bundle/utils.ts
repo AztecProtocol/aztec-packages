@@ -28,10 +28,10 @@ export async function createPXE(
   const actor = options.loggerActorLabel;
   const loggers = options.loggers ?? {};
 
-  const l1Contracts = await aztecNode.getL1ContractAddresses();
+  const l1ContractAddresses = await aztecNode.getL1ContractAddresses();
   const configWithContracts = {
     ...config,
-    l1Contracts,
+    ...l1ContractAddresses,
   } as PXEConfig;
 
   const storeLogger = loggers.store ?? createLogger('pxe:data:idb', { actor });

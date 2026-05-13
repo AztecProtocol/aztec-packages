@@ -35,7 +35,6 @@ services:
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --node
-      --archiver
       --network #release_network
     networks:
       - aztec

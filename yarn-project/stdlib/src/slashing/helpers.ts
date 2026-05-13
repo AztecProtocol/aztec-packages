@@ -52,6 +52,7 @@ export function getPenaltyForOffense(
     | 'slashBroadcastedInvalidBlockPenalty'
     | 'slashDuplicateProposalPenalty'
     | 'slashDuplicateAttestationPenalty'
+    | 'slashAttestInvalidCheckpointProposalPenalty'
     | 'slashPrunePenalty'
     | 'slashDataWithholdingPenalty'
     | 'slashUnknownPenalty'
@@ -77,6 +78,8 @@ export function getPenaltyForOffense(
       return config.slashDuplicateProposalPenalty;
     case OffenseType.DUPLICATE_ATTESTATION:
       return config.slashDuplicateAttestationPenalty;
+    case OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL:
+      return config.slashAttestInvalidCheckpointProposalPenalty;
     case OffenseType.UNKNOWN:
       return config.slashUnknownPenalty;
     default: {
@@ -93,6 +96,7 @@ export function getTimeUnitForOffense(offense: OffenseType): 'epoch' | 'slot' {
     case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
     case OffenseType.DUPLICATE_PROPOSAL:
     case OffenseType.DUPLICATE_ATTESTATION:
+    case OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL:
     case OffenseType.PROPOSED_INCORRECT_ATTESTATIONS:
     case OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS:
       return 'slot';

@@ -1,3 +1,4 @@
+export * from './append_l1_to_l2_messages.js';
 export * from './in_hash.js';
 export * from './inbox_leaf.js';
 export * from './l1_to_l2_message.js';

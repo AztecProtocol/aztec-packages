@@ -79,7 +79,7 @@ describe('p2p client integration message propagation', () => {
     worldState.getSnapshot.mockReturnValue(mockMerkleTreeOps);
 
     txPool.isEmpty.mockResolvedValue(true);
-    txPool.hasTxs.mockResolvedValue([]);
+    txPool.hasTxs.mockImplementation(txHashes => Promise.resolve(txHashes.map(() => true)));
     txPool.addPendingTxs.mockImplementation((txs: Tx[]) =>
       Promise.resolve({
         accepted: txs.map(tx => tx.getTxHash()),

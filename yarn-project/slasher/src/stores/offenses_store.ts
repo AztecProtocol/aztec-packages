@@ -10,6 +10,10 @@ import {
 
 export const SCHEMA_VERSION = 1;
 
+type ClearOffensesFilter = Pick<Offense, 'offenseType' | 'epochOrSlot'> & {
+  validators?: Offense['validator'][];
+};
+
 export class SlasherOffensesStore {
   /** Map from offense key to offense data */
   private offenses: AztecAsyncMap<string, Buffer>;
@@ -59,15 +63,63 @@ export class SlasherOffensesStore {
     return (await this.offenses.getAsync(key)) !== undefined;
   }
 
-  /** Adds a new offense */
-  public async addOffense(offense: Offense): Promise<void> {
+  /** Adds a new offense. Returns false if the offense is already pending. */
+  public async addOffense(offense: Offense): Promise<boolean> {
     const key = this.getOffenseKey(offense);
     const round = getRoundForOffense(offense, this.settings);
-    await this.kvStore.transactionAsync(async () => {
+    const added = await this.kvStore.transactionAsync(async () => {
+      if ((await this.offenses.getAsync(key)) !== undefined) {
+        return false;
+      }
+
       await this.offenses.set(key, serializeOffense(offense));
       await this.roundsOffenses.set(this.getRoundKey(round), key);
+      return true;
     });
-    this.log.trace(`Adding pending offense ${key} for round ${round}`);
+
+    if (added) {
+      this.log.trace(`Adding pending offense ${key} for round ${round}`);
+    }
+
+    return added;
+  }
+
+  /** Removes pending offenses matching the given offense type, epoch/slot, and optional validators. */
+  public async clearOffenses(filter: ClearOffensesFilter): Promise<number> {
+    return await this.kvStore.transactionAsync(async () => {
+      const offensesToClear = new Map<string, Offense>();
+
+      if (filter.validators && filter.validators.length > 0) {
+        for (const validator of filter.validators) {
+          const identifier = { validator, offenseType: filter.offenseType, epochOrSlot: filter.epochOrSlot };
+          const key = this.getOffenseKey(identifier);
+          const buffer = await this.offenses.getAsync(key);
+          if (buffer) {
+            offensesToClear.set(key, deserializeOffense(buffer));
+          }
+        }
+      } else {
+        for await (const [key, buffer] of this.offenses.entriesAsync()) {
+          const offense = deserializeOffense(buffer);
+          if (offense.offenseType === filter.offenseType && offense.epochOrSlot === filter.epochOrSlot) {
+            offensesToClear.set(key, offense);
+          }
+        }
+      }
+
+      if (offensesToClear.size === 0) {
+        return 0;
+      }
+
+      for (const [key, offense] of offensesToClear) {
+        const round = getRoundForOffense(offense, this.settings);
+        await this.offenses.delete(key);
+        await this.roundsOffenses.deleteValue(this.getRoundKey(round), key);
+        this.log.trace(`Cleared pending offense ${key} for round ${round}`);
+      }
+
+      return offensesToClear.size;
+    });
   }
 
   /** Prunes all offenses expired from the store */
@@ -82,22 +134,21 @@ export class SlasherOffensesStore {
       return 0; // Not enough rounds have passed to expire anything
     }
 
-    // Collect expired offenses and rounds
-    const expiredRoundKeys = new Set<string>();
-    const expiredOffenseKeys = new Set<string>();
-    for await (const [roundKey, offenseKey] of this.roundsOffenses.entriesAsync({
-      end: this.getRoundKey(expiredBefore),
-    })) {
-      expiredOffenseKeys.add(offenseKey);
-      expiredRoundKeys.add(roundKey);
-    }
+    return await this.kvStore.transactionAsync(async () => {
+      // Collect expired offenses and rounds
+      const expiredRoundKeys = new Set<string>();
+      const expiredOffenseKeys = new Set<string>();
+      for await (const [roundKey, offenseKey] of this.roundsOffenses.entriesAsync({
+        end: this.getRoundKey(expiredBefore),
+      })) {
+        expiredOffenseKeys.add(offenseKey);
+        expiredRoundKeys.add(roundKey);
+      }
 
-    if (expiredOffenseKeys.size === 0 && expiredRoundKeys.size === 0) {
-      return 0; // Nothing to clean up
-    }
+      if (expiredOffenseKeys.size === 0 && expiredRoundKeys.size === 0) {
+        return 0; // Nothing to clean up
+      }
 
-    // Remove expired stuff in a transaction
-    await this.kvStore.transactionAsync(async () => {
       for (const key of expiredOffenseKeys) {
         this.log.trace(`Deleting offense ${key}`);
         await this.offenses.delete(key);
@@ -106,9 +157,9 @@ export class SlasherOffensesStore {
         this.log.trace(`Deleting round info for ${roundKey}`);
         await this.roundsOffenses.delete(roundKey);
       }
-    });
 
-    return expiredOffenseKeys.size;
+      return expiredOffenseKeys.size;
+    });
   }
 
   /** Generate a unique key for an offense */

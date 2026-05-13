@@ -81,7 +81,11 @@ export class Delayer {
 
   public maxInclusionTimeIntoSlot: number | undefined = undefined;
   public ethereumSlotDuration: bigint;
-  public nextWait: { l1Timestamp: bigint } | { l1BlockNumber: bigint } | { indefinitely: true } | undefined = undefined;
+  public nextWait:
+    | { l1Timestamp: bigint; timeoutSeconds?: number }
+    | { l1BlockNumber: bigint; timeoutSeconds?: number }
+    | { indefinitely: true }
+    | undefined = undefined;
   public sentTxHashes: Hex[] = [];
   public cancelledTxs: Hex[] = [];
 
@@ -110,13 +114,13 @@ export class Delayer {
   }
 
   /** Delays the next tx to be sent so it lands on the given L1 block number. */
-  pauseNextTxUntilBlock(l1BlockNumber: number | bigint) {
-    this.nextWait = { l1BlockNumber: BigInt(l1BlockNumber) };
+  pauseNextTxUntilBlock(l1BlockNumber: number | bigint, timeoutSeconds?: number) {
+    this.nextWait = { l1BlockNumber: BigInt(l1BlockNumber), timeoutSeconds };
   }
 
   /** Delays the next tx to be sent so it lands on the given timestamp. */
-  pauseNextTxUntilTimestamp(l1Timestamp: number | bigint) {
-    this.nextWait = { l1Timestamp: BigInt(l1Timestamp) };
+  pauseNextTxUntilTimestamp(l1Timestamp: number | bigint, timeoutSeconds?: number) {
+    this.nextWait = { l1Timestamp: BigInt(l1Timestamp), timeoutSeconds };
   }
 
   /** Delays the next tx to be sent indefinitely. */
@@ -198,9 +202,14 @@ export function wrapClientWithDelayer<T extends ViemClient>(client: T, delayer: 
           // Or wait until the desired block number or timestamp
           wait =
             'l1BlockNumber' in waitUntil
-              ? waitUntilBlock(publicClient, waitUntil.l1BlockNumber - 1n, logger)
+              ? waitUntilBlock(publicClient, waitUntil.l1BlockNumber - 1n, logger, waitUntil.timeoutSeconds)
               : 'l1Timestamp' in waitUntil
-                ? waitUntilL1Timestamp(publicClient, waitUntil.l1Timestamp - delayer.ethereumSlotDuration, logger)
+                ? waitUntilL1Timestamp(
+                    publicClient,
+                    waitUntil.l1Timestamp - delayer.ethereumSlotDuration,
+                    logger,
+                    waitUntil.timeoutSeconds,
+                  )
                 : undefined;
 
           logger.info(`Delaying tx ${txHash} until ${inspect(waitUntil)}`, {

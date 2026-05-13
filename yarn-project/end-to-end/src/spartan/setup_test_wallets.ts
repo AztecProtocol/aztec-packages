@@ -6,6 +6,7 @@ import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';
+import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { type AztecNode, createAztecNodeClient, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { createEthereumChain } from '@aztec/ethereum/chain';
@@ -332,9 +333,7 @@ async function bridgeL1FeeJuice(
   const portal = await L1FeeJuicePortalManager.new(aztecNode, l1Client, log);
   const claim = await portal.bridgeTokensPublic(recipient, amount, true /* mint */);
 
-  const isSynced = async () =>
-    (await aztecNode.getL1ToL2MessageCheckpoint(Fr.fromHexString(claim.messageHash))) !== undefined;
-  await retryUntil(isSynced, `message ${claim.messageHash} sync`, 24, 0.5);
+  await waitForL1ToL2MessageReady(aztecNode, Fr.fromHexString(claim.messageHash), { timeoutSeconds: 24 });
 
   log.info(`Created a claim for ${amount} L1 fee juice to ${recipient}.`, claim);
   return claim;

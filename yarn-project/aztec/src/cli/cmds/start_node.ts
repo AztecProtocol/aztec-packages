@@ -88,7 +88,7 @@ export async function startNode(
   const followsCanonicalRollup =
     typeof nodeConfig.rollupVersion !== 'number' || (nodeConfig.rollupVersion as unknown as string) === 'canonical';
 
-  if (!nodeConfig.l1Contracts.registryAddress || nodeConfig.l1Contracts.registryAddress.isZero()) {
+  if (!nodeConfig.registryAddress || nodeConfig.registryAddress.isZero()) {
     throw new Error('L1 registry address is required to start Aztec Node');
   }
 
@@ -102,7 +102,7 @@ export async function startNode(
   );
 
   const { addresses, config } = await getL1Config(
-    nodeConfig.l1Contracts.registryAddress,
+    nodeConfig.registryAddress,
     nodeConfig.l1RpcUrls,
     nodeConfig.l1ChainId,
     nodeConfig.rollupVersion,
@@ -118,9 +118,7 @@ export async function startNode(
 
   nodeConfig = {
     ...nodeConfig,
-    l1Contracts: {
-      ...addresses,
-    },
+    ...addresses,
     ...config,
   };
 

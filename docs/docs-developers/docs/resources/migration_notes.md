@@ -273,7 +273,7 @@ The Aztec Node JSON-RPC surface for fetching blocks and checkpoints has been con
 | `getProvenBlockNumber()`           | `getBlockNumber('proven')`                   |
 | `getCheckpointedBlockNumber()`     | `getBlockNumber('checkpointed')`             |
 
-**Deprecated but still present** (scheduled for removal once internal consumers of the archiver shape are rewired): `getL2Tips` (use `getChainTips`), `getBlockHeader` (use `getBlock(param).then(r => r?.header)`), `getCheckpointedBlocks` (use `getBlocks(from, limit, { includeL1PublishInfo: true, includeAttestations: true })`), `getCheckpointsDataForEpoch` (use `getCheckpoints(from, limit)` over the epoch's checkpoint range). Do not adopt these in new code.
+**Deprecated but still present** (scheduled for removal once internal consumers of the archiver shape are rewired): `getL2Tips` (use `getChainTips`), `getBlockHeader` (use `getBlock(param).then(r => r?.header)`), `getCheckpointedBlocks` (use `getBlocks(from, limit, { includeL1PublishInfo: true, includeAttestations: true })`). Do not adopt these in new code. (`getCheckpointsDataForEpoch` was previously listed here; see the dedicated checkpoint-API entry below for its removal.)
 
 **New response shapes:** `BlockResponse` always carries `header`, `archive`, `hash`, `number`, `checkpointNumber`, and `indexWithinCheckpoint`. `body`, `l1` (an `L1PublishInfo` discriminated union), and `attestations` are present only when the matching include option is set. `CheckpointResponse` mirrors this for checkpoints, with `blocks` gated on `includeBlocks`, and always carries `feeAssetPriceModifier` as a base field. The response types are generic over the options object, so passing a literal `{ includeTransactions: true }` narrows the return type and `response.body` becomes non-optional.
 
@@ -302,11 +302,64 @@ The Aztec Node JSON-RPC surface for fetching blocks and checkpoints has been con
 
 `getBlockHeader`, `getCheckpointedBlocks`, `getCheckpointsDataForEpoch`, and `getL2Tips` continue to work in this release but are deprecated; migrate to the replacements above.
 
-**Chain-tip selectors:** `getBlockNumber` and `getCheckpointNumber` now accept an optional `ChainTip` argument (`'proposed' | 'checkpointed' | 'proven' | 'finalized'`). Note the semantic difference: on the block side `'proposed'` means the latest proposed block (chain head), whereas on the checkpoint side `'proposed'` resolves to the latest L1-confirmed checkpoint. Pre-L1-confirmation checkpoints are not exposed over RPC.
+**Chain-tip selectors:** `getBlockNumber` and `getCheckpointNumber` now accept an optional `ChainTip` argument (`'proposed' | 'checkpointed' | 'proven' | 'finalized'`). The `'proposed'` semantics are described in the dedicated checkpoint-API entry below — they were tightened in this release to mean "the proposed-tip checkpoint" rather than "the latest L1-confirmed checkpoint."
 
 **Block parameter variants:** `BlockParameter` now also accepts a block hash, an archive root, and chain-tip names. The existing `number | 'latest'` forms continue to work — `'latest'` is an alias for `'proposed'`.
 
 **Impact**: Source changes are required anywhere the removed methods are called. Type changes are required anywhere `L2Block` / `BlockHeader` / `CheckpointedL2Block` were consumed from the RPC — those call sites now receive `BlockResponse` / `CheckpointResponse` and must request the fields they need via `options`. Production nodes will reject JSON-RPC calls to the removed method names.
+
+### [Aztec Node] Checkpoint RPC: `'proposed'` is now strictly proposed; `'latest'` removed; `getCheckpointsData` takes a query
+
+Follow-up to the unified-RPC change above. Tightens the checkpoint-side API surface: removes the old positional / per-shape entrypoints, drops the wire-level alias that conflated proposed and confirmed checkpoints, and replaces the deprecated epoch-only `getCheckpointsDataForEpoch` method with a unified query-shaped `getCheckpointsData` that mirrors the block-side API.
+
+**`getCheckpointsDataForEpoch(epoch)` removed.** The previously-deprecated method is gone. Use `getCheckpointsData({ epoch })` instead. The new `getCheckpointsData` also accepts a contiguous range:
+
+```diff
+- const cps = await node.getCheckpointsDataForEpoch(epoch);
++ const cps = await node.getCheckpointsData({ epoch });
+
+  // New: contiguous range
++ const cps = await node.getCheckpointsData({ from: 1, limit: 5 });
+```
+
+**`'latest'` removed from `CheckpointParameter`.** The `'latest'` literal previously accepted by `getCheckpoint('latest', options)` is no longer valid. Use `'checkpointed'` to address the latest confirmed checkpoint, or `'proposed'` for the proposed-tip semantics described below. (Block-side `'latest'` in `BlockParameter` is unaffected.)
+
+```diff
+- await node.getCheckpoint('latest');
++ await node.getCheckpoint('checkpointed');
+```
+
+**`'proposed'` semantics changed.** Previously `'proposed'` on the checkpoint side aliased to "latest L1-confirmed checkpoint" — a documented foot-gun. After this release:
+
+- `getCheckpoint('proposed')` resolves to the proposed-tip checkpoint number and looks it up confirmed-first, then falls back to the proposed-checkpoint store. When a proposed entry exists at that number it is returned; when none exists, the proposed-tip falls back to the confirmed tip and the call returns the latest confirmed checkpoint. Returns `undefined` only when neither store has the resolved number.
+- `getCheckpointNumber('proposed')` returns the proposed-tip checkpoint number, falling back to the latest confirmed checkpoint number when no proposed entry exists. Return type stays `Promise<CheckpointNumber>`.
+
+If you want the latest L1-confirmed checkpoint regardless of proposed state, switch the call to `'checkpointed'`:
+
+```diff
+- const cp = await node.getCheckpoint('proposed');
+- const n  = await node.getCheckpointNumber('proposed');
++ const cp = await node.getCheckpoint('checkpointed');
++ const n  = await node.getCheckpointNumber('checkpointed');
+```
+
+**By-number / by-slot lookups gain a confirmed→proposed fallback.** `getCheckpoint({ number: N })` and `getCheckpoint({ slot: S })` now check the confirmed store first, then fall back to the proposed store. Tag-based lookups (`'checkpointed'`, `'proven'`, `'finalized'`) do not fall back — those tags name confirmed-only positions.
+
+**Throws on a proposed match + L1/attestations.** Proposed checkpoints have no L1 publish info or committee attestations (those data points only exist after L1 confirmation). The throw fires only when the lookup actually lands on a proposed entry — i.e. the confirmed store missed and the proposed store hit. When the proposed-tip falls back to the confirmed tip (no proposed entry exists), `'proposed' + includeAttestations` returns the latest confirmed checkpoint with attestations rather than throwing:
+
+```ts
+// Throws BadRequestError when a proposed entry exists at the resolved number:
+await node.getCheckpoint('proposed', { includeAttestations: true });
+await node.getCheckpoint('proposed', { includeL1PublishInfo: true });
+
+// And when a by-number / by-slot lookup falls back to a proposed entry:
+await node.getCheckpoint({ number: N }, { includeAttestations: true });
+// → throws if N is matched only in the proposed store
+```
+
+If your code asks for `includeAttestations` / `includeL1PublishInfo` and might land on a proposed entry, gate the call on `getCheckpoint(param)` first, then re-issue with the include flags only after confirming the result is from the confirmed store (e.g. by checking that the tag-based equivalent returns the same checkpoint number).
+
+**Impact**: Wallet, indexer, and tooling code that called `node.getCheckpoint('proposed')` or `node.getCheckpoint('latest')` will need to update their tag. Any code relying on the old "proposed = latest confirmed" alias should switch to `'checkpointed'`. Code that combined `'proposed'` (or by-number/by-slot fallbacks) with `includeAttestations` / `includeL1PublishInfo` will now throw at runtime; gate those flags as described above.
 
 ### [Aztec Node] `feeAssetPriceModifier` now correctly populated on confirmed checkpoints
 
