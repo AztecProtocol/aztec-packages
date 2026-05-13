@@ -115,7 +115,7 @@ describe('ValidatorClient Integration', () => {
       worldStateDbMapSizeKb: 1024 * 1024,
       worldStateCheckpointHistory: 0,
     };
-    const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, genesis);
+    const worldStateDb = await NativeWorldStateService.tmp(true, genesis);
     const archiver = await createNoopL1Archiver(
       archiverStore,
       { ...l1Constants, genesisArchiveRoot },

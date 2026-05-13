@@ -21,7 +21,7 @@ import {
 } from '@aztec/constants';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { WorldStateRevision } from '@aztec/stdlib/world-state';
+import type { GenesisData, WorldStateRevision } from '@aztec/stdlib/world-state';
 
 import assert from 'assert';
 import { Decoder, Encoder } from 'msgpackr';
@@ -236,6 +236,38 @@ export class IpcWorldState implements NativeWorldStateInstance {
     this.api = new AsyncApi(wsdbBackend as any);
     this.queues.set(0, new WorldStateOpsQueue());
     this.log.info('Created IPC-backed world state instance');
+  }
+
+  /**
+   * Spawn an `aztec-wsdb` subprocess and return an IPC-backed world state wrapping it.
+   * Encapsulates the bb.js binary discovery, WsdbBackend construction, and readiness wait.
+   */
+  static async spawn(
+    dataDir: string,
+    wsTreeMapSizes: WorldStateTreeMapSizes,
+    genesis: GenesisData,
+    instrumentation: WorldStateInstrumentation,
+    bindings?: LoggerBindings,
+  ): Promise<IpcWorldState> {
+    const { WsdbBackend } = await import('@aztec/bb.js/aztec-wsdb');
+    const { findWsdbBinary } = await import('@aztec/bb.js/platform');
+    const wsdbBinaryPath = findWsdbBinary();
+    if (!wsdbBinaryPath) {
+      throw new Error('aztec-wsdb binary not found');
+    }
+    const wsdbOpts = getWsdbOptions(dataDir, wsTreeMapSizes);
+    const prefilledPublicData = genesis.prefilledPublicData.map(
+      d => [d.slot.toBuffer(), d.value.toBuffer()] as [Buffer, Buffer],
+    );
+    const backend = new WsdbBackend({
+      binaryPath: wsdbBinaryPath,
+      dataDir,
+      ...wsdbOpts,
+      prefilledPublicData,
+      genesisTimestamp: Number(genesis.genesisTimestamp),
+    });
+    await backend.waitUntilReady();
+    return new IpcWorldState(backend, instrumentation, bindings);
   }
 
   /** Returns the socket path of the underlying wsdb server. */

@@ -91,7 +91,7 @@ export class TestContext {
     };
 
     // Separated dbs for public processor and prover - see public_processor for context
-    const ws = await NativeWorldStateService.tmp(/*rollupAddress=*/ undefined, /*cleanupTmpDir=*/ true, genesis);
+    const ws = await NativeWorldStateService.tmp(/*cleanupTmpDir=*/ true, genesis);
 
     let localProver: ServerCircuitProver;
     const config = await getEnvironmentConfig(logger);
