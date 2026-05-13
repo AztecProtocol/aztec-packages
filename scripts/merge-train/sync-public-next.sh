@@ -16,6 +16,7 @@ PRESERVE_PATHS=(
   ".github/workflows/avm-circuit-inputs.yml"
   ".github/workflows/fuzzing-docker-avm-build-private.yml"
   ".github/workflows/fuzzing-docker-build-private.yml"
+  ".github/workflows/pull-request-title.yml"
   "scripts/merge-train/merge-public-next.sh"
   "scripts/merge-train/sync-public-next.sh"
   "scripts/merge-train/update-public-next-pr-body.sh"
