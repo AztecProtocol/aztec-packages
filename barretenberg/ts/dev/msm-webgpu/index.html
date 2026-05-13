@@ -30,6 +30,21 @@
       .ok { color: #6ee7b7; }
       .err { color: #fca5a5; }
       .warn { color: #fde68a; }
+      #srs-progress {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        margin: 0.5rem 0;
+        padding: 0.4rem 0.75rem;
+        background: #111827;
+        color: #e6e6e6;
+        border-radius: 6px;
+        white-space: pre;
+        overflow-x: auto;
+        display: none;
+      }
+      #srs-progress.visible { display: block; }
+      #srs-progress .bar-fill { color: #6ee7b7; }
+      #srs-progress .bar-empty { color: #4b5563; }
       details { margin: 0.75rem 0; }
       code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; }
     </style>
@@ -37,19 +52,22 @@
   <body>
     <h1>BN254 WebGPU MSM — correctness vs <code>@noble/curves</code></h1>
     <p>
-      Generates <em>n</em> = 2<sup>log₂(n)</sup> random affine BN254 G1
-      points and Fr scalars, runs the MSM on the GPU via
-      <code>compute_bn254_msm</code>, then cross-checks against a CPU
-      reference computed with <code>bn254.G1.ProjectivePoint.msm</code>
-      (Pippenger) from <code>@noble/curves</code>. A failure here means
-      the WGSL shaders or the Montgomery marshalling are wrong — i.e.
-      nothing downstream of the WebGPU port can be trusted. Default
-      log₂(n) = 16 matches the C++ <code>BBERG_WEBGPU_MSM_MIN_N</code>
+      Runs an MSM of the first <em>n</em> = 2<sup>log₂(n)</sup> points
+      of the public BN254 G1 SRS against fresh random Fr scalars. Calls
+      <code>compute_bn254_msm</code> on the GPU and cross-checks against
+      <code>bn254.G1.ProjectivePoint.msm</code> from
+      <code>@noble/curves</code>. A failure here means the WGSL shaders
+      or the Montgomery marshalling are wrong — nothing downstream of
+      the WebGPU port can be trusted. The SRS (up to 2<sup>20</sup>
+      points) is fetched from <code>crs.aztec-cdn.foundation</code> on
+      first page load, decompressed in JS, and cached in IndexedDB —
+      cold pull is slow (~2.5 min); reloads are instant. Default log₂(n)
+      = 16 matches the C++ <code>BBERG_WEBGPU_MSM_MIN_N</code>
       threshold, so the prove-path delegation is exercised.
     </p>
     <div class="controls">
       <label>log<sub>2</sub>(n) =
-        <input id="logn" type="number" min="16" max="22" step="1" value="16" />
+        <input id="logn" type="number" min="16" max="20" step="1" value="16" />
       </label>
       <span id="n-display">(n = 65536)</span>
       <button id="run">Run</button>
@@ -57,12 +75,14 @@
       <button id="run-unit-tests">WGSL unit tests</button>
       <span id="status"></span>
     </div>
+    <div id="srs-progress"></div>
     <div id="log"></div>
     <details>
       <summary>What this is testing</summary>
       <p>
-        <strong>Inputs</strong>: <em>n</em> random G1 points generated as
-        <code>BASE.multiply(random_fr)</code> via noble, and <em>n</em>
+        <strong>Inputs</strong>: the first <em>n</em> G1 points of the
+        public BN254 SRS (real prover bases — same source that
+        <code>bb.js</code> hands to the WASM prover), and <em>n</em>
         random Fr scalars from <code>crypto.getRandomValues</code>.
       </p>
       <p>
