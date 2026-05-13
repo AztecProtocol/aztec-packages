@@ -20,7 +20,10 @@ export function blockStreamSourceFromAztecNode(
   node: AztecNode,
 ): Pick<L2BlockSource, 'getBlocks' | 'getBlockData' | 'getL2Tips' | 'getCheckpoints'> {
   return {
-    getL2Tips: () => node.getL2Tips(),
+    getL2Tips: async () => {
+      const tips = await node.getChainTips();
+      return { ...tips, proposedCheckpoint: tips.checkpointed };
+    },
 
     async getBlockData(query: BlockQuery): Promise<BlockData | undefined> {
       const response = await node.getBlock(query);

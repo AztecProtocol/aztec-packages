@@ -29,9 +29,7 @@ const tsconfigPath = path.join(p2pRoot, 'tsconfig.json');
 const testChainConfig: ChainConfig = {
   l1ChainId: 31337,
   rollupVersion: 1,
-  l1Contracts: {
-    rollupAddress: EthAddress.random(),
-  },
+  rollupAddress: EthAddress.random(),
 };
 
 export interface ReqRespBenchmarkConfig {

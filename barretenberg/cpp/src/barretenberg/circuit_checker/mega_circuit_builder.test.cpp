@@ -164,53 +164,6 @@ TEST(MegaCircuitBuilder, GoblinEccOpQueueUltraOps)
 }
 
 /**
- * @brief Check that the selector partitioning is correct for the mega circuit builder
- * @details We check that for the arithmetic, delta_range, elliptic, memory, nnf, lookup, busread, poseidon2_external,
- * poseidon2_internal blocks, and the other selectors are zero on that block.
- */
-TEST(MegaCircuitBuilder, CompleteSelectorPartitioningCheck)
-{
-    auto builder = MegaCircuitBuilder();
-    GoblinMockCircuits::construct_simple_circuit(builder);
-    bool result = CircuitChecker::check(builder);
-    EXPECT_EQ(result, true);
-
-    // For each block, we want to check that all of the other selectors are zero on that block besides the one
-    // corresponding to the current block
-    for (auto& block : builder.blocks.get()) {
-        for (size_t i = 0; i < block.size(); ++i) {
-            if (&block != &builder.blocks.arithmetic) {
-                EXPECT_EQ(block.q_arith()[i], 0);
-            }
-            if (&block != &builder.blocks.delta_range) {
-                EXPECT_EQ(block.q_delta_range()[i], 0);
-            }
-            if (&block != &builder.blocks.elliptic) {
-                EXPECT_EQ(block.q_elliptic()[i], 0);
-            }
-            if (&block != &builder.blocks.memory) {
-                EXPECT_EQ(block.q_memory()[i], 0);
-            }
-            if (&block != &builder.blocks.nnf) {
-                EXPECT_EQ(block.q_nnf()[i], 0);
-            }
-            if (&block != &builder.blocks.lookup) {
-                EXPECT_EQ(block.q_lookup()[i], 0);
-            }
-            if (&block != &builder.blocks.busread) {
-                EXPECT_EQ(block.q_busread()[i], 0);
-            }
-            if (&block != &builder.blocks.poseidon2_external) {
-                EXPECT_EQ(block.q_poseidon2_external()[i], 0);
-            }
-            if (&block != &builder.blocks.poseidon2_internal) {
-                EXPECT_EQ(block.q_poseidon2_internal()[i], 0);
-            }
-        }
-    }
-}
-
-/**
  * @brief Verify that the ecc_op block is first in the trace and starts at offset 1 (after the zero row)
  */
 TEST(MegaCircuitBuilder, EccOpBlockIsFirstInTrace)
@@ -272,9 +225,8 @@ TEST(MegaCircuitBuilder, EmptyCircuitFinalization)
     EXPECT_EQ(builder.blocks.memory.size(), 0);
     EXPECT_EQ(builder.blocks.nnf.size(), 0);
     EXPECT_EQ(builder.blocks.poseidon2_external.size(), 0);
-    EXPECT_EQ(builder.blocks.poseidon2_internal.size(), 0);
-    EXPECT_EQ(builder.get_calldata().size(), 0);
-    EXPECT_EQ(builder.get_secondary_calldata().size(), 0);
+    EXPECT_EQ(builder.get_calldata(BusId::KERNEL_CALLDATA).size(), 0);
+    EXPECT_EQ(builder.get_calldata(BusId::APP_CALLDATA).size(), 0);
     EXPECT_EQ(builder.get_return_data().size(), 0);
 
     EXPECT_TRUE(CircuitChecker::check(builder));
@@ -289,13 +241,13 @@ TEST(MegaCircuitBuilder, DatabusOutOfBoundsReadFails)
 
     // Add single entry to calldata
     auto val = builder.add_variable(fr(42));
-    builder.add_public_calldata(val);
+    builder.add_public_calldata(BusId::KERNEL_CALLDATA, val);
 
     // Try to read at index 1 (out of bounds - only index 0 exists)
     auto bad_idx = builder.add_variable(fr(1));
 
     // This should trigger an assertion in read_calldata
-    EXPECT_THROW(builder.read_calldata(bad_idx), std::runtime_error);
+    EXPECT_THROW(builder.read_calldata(BusId::KERNEL_CALLDATA, bad_idx), std::runtime_error);
 }
 
 } // namespace bb

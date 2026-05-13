@@ -813,3 +813,8 @@
     # PXE: capsule operation attempted with a scope not in the allowed scopes list
     from = "/errors/10"
     to = "/developers/docs/aztec-nr/framework-description/advanced/how_to_use_capsules"
+
+[[redirects]]
+    # PXE: cross-contract utility call denied by execution hook
+    from = "/errors/11"
+    to = "/developers/docs/aztec-nr/debugging#cross-contract-utility-call-denied"

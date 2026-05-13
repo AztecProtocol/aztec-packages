@@ -293,9 +293,6 @@ describe('L1Publisher integration', () => {
       getBlockNumber(): Promise<BlockNumber> {
         return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
       },
-      getProvenBlockNumber(): Promise<BlockNumber> {
-        return Promise.resolve(BlockNumber(blocks.at(-1)?.number ?? BlockNumber.ZERO));
-      },
     });
 
     const worldStateConfig: WorldStateConfig = {
@@ -788,7 +785,7 @@ describe('L1Publisher integration', () => {
       const forcePendingCheckpointNumber = invalidateRequest?.forcePendingCheckpointNumber;
       expect(forcePendingCheckpointNumber).toEqual(0);
       const invalidationSimulationOverridesPlan = new SimulationOverridesBuilder()
-        .forPendingCheckpoint(forcePendingCheckpointNumber ?? CheckpointNumber.ZERO)
+        .withChainTips({ pending: forcePendingCheckpointNumber ?? CheckpointNumber.ZERO })
         .build();
 
       // We cannot propose directly, we need to assume the previous checkpoint is invalidated

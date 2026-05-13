@@ -96,7 +96,7 @@ export class EpochMonitor implements Traceable {
   }
 
   private async getEpochNumberToProve() {
-    const lastBlockProven = await this.l2BlockSource.getProvenBlockNumber();
+    const lastBlockProven = (await this.l2BlockSource.getBlockNumber({ tag: 'proven' })) ?? BlockNumber.ZERO;
     const firstBlockToProve = BlockNumber(lastBlockProven + 1);
     const firstBlockHeaderToProve = (await this.l2BlockSource.getBlockData({ number: firstBlockToProve }))?.header;
     if (!firstBlockHeaderToProve) {

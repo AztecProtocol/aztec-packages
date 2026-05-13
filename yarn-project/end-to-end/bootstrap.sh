@@ -46,6 +46,14 @@ function test_cmds {
     local name=${test#*e2e_}
     name=e2e_${name%.test.ts}
 
+    # Per-test bash TIMEOUT overrides — keep in sync with the test file's jest.setTimeout.
+    local test_prefix="$prefix"
+    case "$name" in
+      e2e_p2p/add_rollup)
+        test_prefix="$prefix:TIMEOUT=20m"
+        ;;
+    esac
+
     # Check if this is a .parallel.test.ts file
     if [[ "$test" == *.parallel.test.ts ]]; then
       # Extract individual test names and create a command for each
@@ -53,11 +61,11 @@ function test_cmds {
         # Create a safe name for the individual test (replace spaces with underscores)
         local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
         local full_name="${name}_${safe_test_name}"
-        echo "$prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
+        echo "$test_prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
     else
       # Regular test file - run the whole file
-      echo "$prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
+      echo "$test_prefix:NAME=$name $(set_dump_avm $name) $run_test_script simple $test"
     fi
   done
 
@@ -251,7 +259,9 @@ function avm_check_circuit {
 # Generates e2e test commands using contract artifacts from a prior release version.
 # Only includes simple (jest-based) tests since compose/docker tests don't use the legacy jest resolver.
 # Excludes prover, block_building, and epochs tests (not relevant for contract artifact compat; epochs
-# tests are known-flaky and provide no additional backwards-compat coverage).
+# tests are known-flaky and provide no additional backwards-compat coverage). Also excludes
+# kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks whenever
+# contracts add/remove nullifier emissions across versions (unrelated to the compat contract surface).
 function compat_test_cmds {
   local version=${1:?version is required}
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
@@ -261,7 +271,7 @@ function compat_test_cmds {
   local tests=(
     src/e2e_!(prover|block_building|epochs)/*.test.ts
     src/e2e_p2p/reqresp/*.test.ts
-    src/e2e_!(block_building|prover_*).test.ts
+    src/e2e_!(block_building|prover_*|kernelless_simulation).test.ts
   )
   for test in "${tests[@]}"; do
     local name=${test#*e2e_}

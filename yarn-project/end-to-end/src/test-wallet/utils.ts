@@ -65,12 +65,7 @@ export async function proveInteraction(
   interaction: ContractFunctionInteraction | DeployMethod,
   options: SendInteractionOptions | DeployOptions,
 ) {
-  let execPayload;
-  if (interaction instanceof DeployMethod) {
-    execPayload = await interaction.request(interaction.convertDeployOptionsToRequestOptions(options));
-  } else {
-    execPayload = await interaction.request(options);
-  }
+  const execPayload = await interaction.request(options);
   return wallet.proveTx(execPayload, toSendOptions(options));
 }
 

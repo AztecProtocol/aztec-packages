@@ -12,8 +12,7 @@ unconstrained fn passes_public_optional_struct_parameter() {
 
     let option_param = OptionParam::at(env.deploy("OptionParam").without_initializer());
 
-    let none_value =
-        env.call_public(sender, option_param.return_public_optional_struct(Option::none()));
+    let none_value = env.call_public(sender, option_param.return_public_optional_struct(Option::none()));
     assert_eq(none_value, Option::none());
 
     let some_value = env.call_public(
@@ -36,8 +35,7 @@ unconstrained fn passes_utility_optional_struct_parameter() {
 
     let option_param = OptionParam::at(env.deploy("OptionParam").without_initializer());
 
-    let none_value =
-        env.execute_utility(option_param.return_utility_optional_struct(Option::none()));
+    let none_value = env.execute_utility(option_param.return_utility_optional_struct(Option::none()));
     assert_eq(none_value, Option::none());
 
     let some_value = env.execute_utility(option_param.return_utility_optional_struct(Option::some(
@@ -58,8 +56,7 @@ unconstrained fn passes_private_optional_struct_parameter() {
 
     let option_param = OptionParam::at(env.deploy("OptionParam").without_initializer());
 
-    let none_value =
-        env.call_private(sender, option_param.return_private_optional_struct(Option::none()));
+    let none_value = env.call_private(sender, option_param.return_private_optional_struct(Option::none()));
     assert_eq(none_value, Option::none());
 
     let some_value = env.call_private(

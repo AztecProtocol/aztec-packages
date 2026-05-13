@@ -27,7 +27,7 @@ import {
   type TxProvider,
   createSecp256k1PeerId,
 } from '@aztec/p2p';
-import { OffenseType, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
+import { OffenseType, WANT_TO_CLEAR_SLASH_EVENT, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type BlockData, BlockHash, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
 import { type getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
@@ -88,7 +88,10 @@ describe('ValidatorClient', () => {
   let config: ValidatorClientConfig &
     Pick<
       SlasherConfig,
-      'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+      | 'slashBroadcastedInvalidBlockPenalty'
+      | 'slashDuplicateProposalPenalty'
+      | 'slashDuplicateAttestationPenalty'
+      | 'slashAttestInvalidCheckpointProposalPenalty'
     > & {
       disableTransactions: boolean;
     };
@@ -181,10 +184,11 @@ describe('ValidatorClient', () => {
       slashBroadcastedInvalidBlockPenalty: 1n,
       slashDuplicateProposalPenalty: 1n,
       slashDuplicateAttestationPenalty: 1n,
+      slashAttestInvalidCheckpointProposalPenalty: 1n,
       disableTransactions: false,
       haSigningEnabled: false,
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
-      l1Contracts: { rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress },
+      rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
       nodeId: 'test-node-id',
       pollingIntervalMs: 1000,
       signingTimeoutMs: 1000,
@@ -712,6 +716,107 @@ describe('ValidatorClient', () => {
       blockBuildResult.block.archive.root = Fr.random();
 
       const isValid = await validatorClient.validateBlockProposal(proposal, sender);
+      expect(isValid).toBe(false);
+      expect(emitSpy).not.toHaveBeenCalled();
+    });
+
+    it('slashes checkpoint attestations received after an invalid proposal slot is marked only once', async () => {
+      await validatorClient.registerHandlers();
+      const attestationCallback = p2pClient.registerCheckpointAttestationCallback.mock.calls[0][0];
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+      blockBuildResult.block.archive.root = Fr.random();
+
+      await validatorClient.validateBlockProposal(proposal, sender);
+
+      const attesterSigner = Secp256k1Signer.random();
+      const attestation = makeCheckpointAttestation({
+        header: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber }),
+        attesterSigner,
+      });
+      attestationCallback(attestation);
+      attestationCallback(attestation);
+
+      const badAttestationEvents = emitSpy.mock.calls.filter(
+        ([event, args]) =>
+          event === WANT_TO_SLASH_EVENT &&
+          Array.isArray(args) &&
+          args[0]?.offenseType === OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+      );
+      expect(badAttestationEvents).toHaveLength(1);
+      expect(badAttestationEvents[0][1]).toEqual([
+        {
+          validator: attesterSigner.address,
+          amount: config.slashAttestInvalidCheckpointProposalPenalty,
+          offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+          epochOrSlot: BigInt(proposal.slotNumber),
+        },
+      ]);
+    });
+
+    it('clears and suppresses bad attestation offenses when proposal equivocation is detected', async () => {
+      await validatorClient.registerHandlers();
+      const attestationCallback = p2pClient.registerCheckpointAttestationCallback.mock.calls[0][0];
+      const duplicateProposalCallback = p2pClient.registerDuplicateProposalCallback.mock.calls[0][0];
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+      blockBuildResult.block.archive.root = Fr.random();
+
+      await validatorClient.validateBlockProposal(proposal, sender);
+      duplicateProposalCallback({
+        slot: proposal.slotNumber,
+        proposer: proposal.getSender()!,
+        type: 'block',
+      });
+
+      const attestation = makeCheckpointAttestation({
+        header: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber }),
+        attesterSigner: Secp256k1Signer.random(),
+      });
+      attestationCallback(attestation);
+
+      expect(emitSpy).toHaveBeenCalledWith(WANT_TO_CLEAR_SLASH_EVENT, [
+        {
+          offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+          epochOrSlot: BigInt(proposal.slotNumber),
+        },
+      ]);
+      expect(
+        emitSpy.mock.calls.some(
+          ([event, args]) =>
+            event === WANT_TO_SLASH_EVENT &&
+            Array.isArray(args) &&
+            args[0]?.offenseType === OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        ),
+      ).toBe(false);
+    });
+
+    it('reexecutes for bad attestation slashing when invalid block proposer slashing is disabled', async () => {
+      validatorClient.updateConfig({ slashBroadcastedInvalidBlockPenalty: 0n });
+      epochCache.filterInCommittee.mockResolvedValue([]);
+      blockBuildResult.block.archive.root = Fr.random();
+
+      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
+
+      expect(isValid).toBe(false);
+      expect(checkpointsBuilder.openCheckpoint).toHaveBeenCalled();
+    });
+
+    it('does not emit bad attestation offenses when the bad attestation penalty is disabled', async () => {
+      await validatorClient.registerHandlers();
+      const attestationCallback = p2pClient.registerCheckpointAttestationCallback.mock.calls[0][0];
+      validatorClient.updateConfig({
+        slashBroadcastedInvalidBlockPenalty: 0n,
+        slashAttestInvalidCheckpointProposalPenalty: 0n,
+      });
+      const emitSpy = jest.spyOn(validatorClient, 'emit');
+      const attestation = makeCheckpointAttestation({
+        header: makeCheckpointHeader(1, { slotNumber: proposal.slotNumber }),
+        attesterSigner: Secp256k1Signer.random(),
+      });
+      blockBuildResult.block.archive.root = Fr.random();
+
+      const isValid = await validatorClient.validateBlockProposal(proposal, sender);
+      attestationCallback(attestation);
+
       expect(isValid).toBe(false);
       expect(emitSpy).not.toHaveBeenCalled();
     });

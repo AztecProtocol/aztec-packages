@@ -18,13 +18,7 @@ export class TxCollectionInstrumentation {
     const meter = client.getMeter(name);
 
     this.txsCollected = createUpDownCounterWithDefault(meter, Metrics.TX_COLLECTOR_COUNT, {
-      [Attributes.TX_COLLECTION_METHOD]: [
-        'fast-req-resp',
-        'fast-node-rpc',
-        'slow-req-resp',
-        'slow-node-rpc',
-        'file-store',
-      ],
+      [Attributes.TX_COLLECTION_METHOD]: ['fast-req-resp', 'fast-node-rpc', 'file-store'],
     });
 
     this.collectionDurationPerTx = meter.createHistogram(Metrics.TX_COLLECTOR_DURATION_PER_TX);

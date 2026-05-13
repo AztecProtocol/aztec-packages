@@ -9,9 +9,7 @@ pub contract CalldataLimitTest {
     // Each call contributes MAX/3 args + 1 function-selector field. Three such calls total MAX + 3, over the limit.
     #[external("public")]
     #[only_self]
-    fn public_call_with_third_of_max_args(
-        _args: [Field; MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 3],
-    ) {}
+    fn public_call_with_third_of_max_args(_args: [Field; MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 3]) {}
 
     // Enqueues three public calls split across a parent/nested-private-call boundary: one from the parent, one from
     // the nested call, and one more from the parent after the nested call returns. Expected to fail during private

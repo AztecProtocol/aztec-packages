@@ -12,7 +12,7 @@ import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { ContractClassLog, Tag } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -144,6 +144,7 @@ export interface IUtilityExecutionOracle {
   ): Promise<void>;
   getLogsByTagV2(requestArrayBaseSlot: Fr): Promise<Fr>;
   getMessageContextsByTxHashV2(requestArrayBaseSlot: Fr): Promise<Fr>;
+  getTxEffect(txHash: TxHash): Promise<TxEffect | null>;
   getMessageContextsByTxHash(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,

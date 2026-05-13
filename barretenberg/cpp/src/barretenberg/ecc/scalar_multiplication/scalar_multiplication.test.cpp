@@ -23,7 +23,27 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
     using AffineElement = typename Curve::AffineElement;
     using ScalarField = typename Curve::ScalarField;
 
-    static constexpr size_t num_points = 201123;
+    static constexpr size_t num_points = 31013;
+
+    // Bounds used by test_batch_multi_scalar_mul. Kept small so num_points (and therefore
+    // SetUpTestSuite, which builds num_points random EC points) stays cheap — especially under wasm,
+    // where the fixture build previously dominated the whole ecc_tests run.
+    static constexpr size_t kMaxBatchMSMs = 32;
+    static constexpr size_t kMaxBatchPointsPerMSM = 400;
+
+    // Used by test_consume_point_batch{,_and_accumulate}, which read generators[0..kMaxBucketTestPoints).
+    static constexpr size_t kMaxBucketTestPoints = 30071;
+
+    // Pinning invariants: these tests walk generators[]/scalars[] without bounds checks beyond an
+    // occasional runtime ASSERT_LT. Pin the relationships at compile time so changing any one of
+    // these constants in isolation cannot regress into an out-of-bounds walk.
+    static_assert(kMaxBatchMSMs * kMaxBatchPointsPerMSM < num_points,
+                  "test_batch_multi_scalar_mul can exceed num_points; "
+                  "raise num_points or lower kMaxBatchMSMs / kMaxBatchPointsPerMSM");
+    static_assert(kMaxBucketTestPoints <= num_points,
+                  "test_consume_point_batch* reads past end of generators; "
+                  "raise num_points or lower kMaxBucketTestPoints");
+
     static inline std::vector<AffineElement> generators{};
     static inline std::vector<ScalarField> scalars{};
 
@@ -117,7 +137,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
 
     void test_consume_point_batch()
     {
-        const size_t total_points = 30071;
+        const size_t total_points = kMaxBucketTestPoints;
         const size_t num_buckets = 128;
 
         std::vector<uint64_t> input_point_schedule;
@@ -152,7 +172,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
 
     void test_consume_point_batch_and_accumulate()
     {
-        const size_t total_points = 30071;
+        const size_t total_points = kMaxBucketTestPoints;
         const size_t num_buckets = 128;
 
         std::vector<uint64_t> input_point_schedule;
@@ -298,7 +318,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
     {
         BB_BENCH_NAME("BatchMultiScalarMul");
 
-        const size_t num_msms = static_cast<size_t>(engine.get_random_uint8());
+        const size_t num_msms = static_cast<size_t>(engine.get_random_uint8()) % kMaxBatchMSMs;
         std::vector<AffineElement> expected(num_msms);
 
         std::vector<std::vector<ScalarField>> batch_scalars_copies(num_msms);
@@ -307,7 +327,7 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
 
         size_t vector_offset = 0;
         for (size_t k = 0; k < num_msms; ++k) {
-            const size_t num_pts = static_cast<size_t>(engine.get_random_uint16()) % 400;
+            const size_t num_pts = static_cast<size_t>(engine.get_random_uint16()) % kMaxBatchPointsPerMSM;
 
             ASSERT_LT(vector_offset + num_pts, num_points);
             std::span<const AffineElement> batch_points(&generators[vector_offset], num_pts);

@@ -80,7 +80,7 @@ export async function createP2PClient(
   const attestationStore = await createStore(P2P_ATTESTATION_STORE_NAME, 2, config, bindings);
   const l1Constants = await archiver.getL1Constants();
 
-  const rollupAddress = inputConfig.l1Contracts.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
+  const rollupAddress = inputConfig.rollupAddress.toString().toLowerCase().replace(/^0x/, '');
   const txFileStoreBasePath = `aztec-${inputConfig.l1ChainId}-${inputConfig.rollupVersion}-0x${rollupAddress}`;
 
   const allowedInSetup = [

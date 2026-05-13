@@ -13,6 +13,7 @@ import {
 } from './private_execution_result.js';
 import { type ProvingStats, ProvingTimingsSchema } from './profiling.js';
 import { Tx } from './tx.js';
+import type { TxHash } from './tx_hash.js';
 
 export class TxProvingResult {
   constructor(
@@ -21,6 +22,11 @@ export class TxProvingResult {
     public chonkProof: ChonkProof,
     public stats?: ProvingStats,
   ) {}
+
+  getTxHash(): Promise<TxHash> {
+    // Equivalent to `(await this.toTx()).txHash` but skips walking the execution result tree to collect logs.
+    return Tx.computeTxHash({ data: this.publicInputs });
+  }
 
   async toTx(): Promise<Tx> {
     const contractClassLogs = collectSortedContractClassLogs(this.privateExecutionResult);

@@ -19,6 +19,7 @@
 #include "barretenberg/translator_vm/translator_proving_key.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
+#include <array>
 
 namespace bb {
 
@@ -164,21 +165,25 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
 
         // Kernel return data
         bool kernel_return_data_match =
-            kernel_input.kernel_return_data.get_value() == witness_commitments.calldata.get_value();
+            kernel_input.kernel_return_data.get_value() == witness_commitments.kernel_calldata.get_value();
         BB_ASSERT_DEBUG(kernel_return_data_match,
-                        "kernel_return_data mismatch: proof contains " << kernel_input.kernel_return_data.get_value()
-                                                                       << " but calldata commitment is "
-                                                                       << witness_commitments.calldata.get_value());
-        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.calldata);
+                        "kernel_return_data mismatch: proof contains "
+                            << kernel_input.kernel_return_data.get_value() << " but kernel_calldata commitment is "
+                            << witness_commitments.kernel_calldata.get_value());
+        kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata);
 
-        // App return data
-        bool app_return_data_match =
-            kernel_input.app_return_data.get_value() == witness_commitments.secondary_calldata.get_value();
-        BB_ASSERT_DEBUG(app_return_data_match,
-                        "app_return_data mismatch: proof contains "
-                            << kernel_input.app_return_data.get_value() << " but secondary_calldata commitment is "
-                            << witness_commitments.secondary_calldata.get_value());
-        kernel_input.app_return_data.incomplete_assert_equal(witness_commitments.secondary_calldata);
+        const std::array app_calldata_commitments{ &witness_commitments.first_app_calldata,
+                                                   &witness_commitments.second_app_calldata,
+                                                   &witness_commitments.third_app_calldata };
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+            bool app_return_data_match =
+                kernel_input.app_return_data[idx].get_value() == app_calldata_commitments[idx]->get_value();
+            BB_ASSERT_DEBUG(app_return_data_match,
+                            "app_return_data mismatch: proof contains "
+                                << kernel_input.app_return_data[idx].get_value() << " but app calldata commitment "
+                                << idx << " is " << app_calldata_commitments[idx]->get_value());
+            kernel_input.app_return_data[idx].incomplete_assert_equal(*app_calldata_commitments[idx]);
+        }
 
         // ============= Perform accumulator hash consistency check =========================
 
@@ -202,7 +207,7 @@ Chonk::PublicInputsResult Chonk::process_public_inputs_and_consistency_checks(
     AppIO app_input; // pairing points
     app_input.reconstruct_from_public(public_inputs);
 
-    // Set the app return data commitment to be propagated via the public inputs
+    // Set the app return data commitment to be propagated via the public inputs. The depot owns slot allocation.
     bus_depot.set_app_return_data_commitment(witness_commitments.return_data);
 
     return { std::move(app_input.pairing_inputs), std::nullopt };
@@ -306,8 +311,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Determine kernel type from queue contents
-    bool is_init_kernel =
-        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::OINK);
+    bool is_init_kernel = stdlib_verification_queue.front().type == QUEUE_TYPE::OINK;
 
     bool is_hiding_kernel =
         stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);
@@ -317,6 +321,9 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     circuit.queue_ecc_eq();
 
     // Step 2: VERIFICATION LOOP - Recursively verify each proof in the queue
+
+    BB_ASSERT(bus_depot.app_return_data_slots_are_empty(),
+              "DataBusDepot has stale app return-data slots at kernel-completion boundary");
 
     std::vector<PairingPoints> points_accumulator;
     std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
@@ -376,9 +383,11 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Extract native verifier accumulator from the stdlib accum to use it in the next round
         recursive_verifier_native_accum = current_stdlib_verifier_accumulator->get_value<VerifierAccumulator>();
 
-        // Get databus commitments
         auto kernel_return_data_commitment = bus_depot.get_kernel_return_data_commitment(circuit);
-        auto app_return_data_commitment = bus_depot.get_app_return_data_commitment(circuit);
+        KernelIO::AppReturnDataCommitments app_return_data_commitments;
+        for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+            app_return_data_commitments[idx] = bus_depot.get_app_return_data_commitment(circuit, idx);
+        }
 
         // Compute hash of output accumulator
         RecursiveTranscript hash_transcript;
@@ -394,7 +403,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         // Propagate public inputs
         KernelIO kernel_output{ pairing_points_aggregator,
                                 kernel_return_data_commitment,
-                                app_return_data_commitment,
+                                app_return_data_commitments,
                                 running_hash.value(),
                                 current_verifier_accum_hash };
         kernel_output.set_public();

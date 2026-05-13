@@ -68,6 +68,8 @@ describe('e2e_p2p_network', () => {
         // Without this, no blocks are built until txs arrive, and a failed checkpoint during tx
         // submission causes block pruning that invalidates tx references.
         minTxsPerBlock: 0,
+        enableProposerPipelining: true,
+        inboxLag: 2,
       },
     });
 

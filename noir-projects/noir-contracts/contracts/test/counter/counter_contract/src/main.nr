@@ -20,9 +20,7 @@ pub contract Counter {
     #[external("private")]
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize(headstart: u64, owner: AztecAddress) {
-        self.storage.counters.at(owner).add(headstart as u128).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        self.storage.counters.at(owner).add(headstart as u128).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
     }
 
     #[external("private")]

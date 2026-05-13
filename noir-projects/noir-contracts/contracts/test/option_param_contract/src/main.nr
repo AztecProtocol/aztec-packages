@@ -25,9 +25,7 @@ pub contract OptionParam {
     }
 
     #[external("utility")]
-    unconstrained fn return_utility_optional_struct(
-        value: Option<SomeStruct>,
-    ) -> Option<SomeStruct> {
+    unconstrained fn return_utility_optional_struct(value: Option<SomeStruct>) -> Option<SomeStruct> {
         value
     }
 }

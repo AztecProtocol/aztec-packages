@@ -1,3 +1,4 @@
+import { type SlotNumber, SlotNumberSchema } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Prettify } from '@aztec/foundation/types';
 
@@ -87,6 +88,8 @@ export interface SequencerConfig {
   skipPublishingCheckpointsPercent?: number;
   /** Skip broadcasting checkpoint and block proposals via gossipsub when proposer (for testing only) */
   skipBroadcastProposals?: boolean;
+  /** List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected. */
+  pauseProposingForSlots?: SlotNumber[];
 }
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
@@ -130,6 +133,7 @@ export const SequencerConfigSchema = zodFor<SequencerConfig>()(
     minBlocksForCheckpoint: z.number().positive().optional(),
     skipPublishingCheckpointsPercent: z.number().gte(0).lte(100).optional(),
     skipBroadcastProposals: z.boolean().optional(),
+    pauseProposingForSlots: z.array(SlotNumberSchema).optional(),
   }),
 );
 
@@ -152,7 +156,8 @@ type SequencerConfigOptionalKeys =
   | 'maxL2BlockGas'
   | 'maxDABlockGas'
   | 'redistributeCheckpointBudget'
-  | 'skipBroadcastProposals';
+  | 'skipBroadcastProposals'
+  | 'pauseProposingForSlots';
 
 export type ResolvedSequencerConfig = Prettify<
   Required<Omit<SequencerConfig, SequencerConfigOptionalKeys>> & Pick<SequencerConfig, SequencerConfigOptionalKeys>

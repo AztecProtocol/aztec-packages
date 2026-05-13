@@ -40,7 +40,6 @@ node:
 
   startCmd:
     - --node
-    - --archiver
 
   startupProbe:
     # -- Period seconds
@@ -91,7 +90,6 @@ node:
 
   startCmd:
     - --node
-    - --archiver
     - --sequencer
 
   startupProbe:
@@ -144,7 +142,7 @@ service:
 | node.l1ConsensusUrls | [] | L1 consensus host URLs (comma-separated list) |
 | node.l1ConsensusHostApiKeys | [] | API keys for L1 consensus hosts |
 | node.l1ConsensusHostApiKeyHeaders | [] | API key headers for L1 consensus hosts |
-| node.startCmd | ["--node", "--archiver"] | Startup command for the node |
+| node.startCmd | ["--node"] | Startup command for the node |
 | node.remoteUrl.archiver | - | Remote URL for archiver |
 | node.remoteUrl.proverBroker | - | Remote URL for prover broker |
 | node.remoteUrl.proverCoordinationNodes | [] | Remote URLs for prover coordination nodes |

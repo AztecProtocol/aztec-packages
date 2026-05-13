@@ -13,8 +13,8 @@ namespace {
 /**
  * @brief Test utility for coordinating passing of databus data between mocked private function execution circuits
  * @details Facilitates testing of the databus consistency checks that establish the correct passing of databus data
- * between circuits. Generates arbitrary return data for each app/kernel. Sets the kernel calldata and
- * secondary_calldata based respectively on the previous kernel return data and app return data.
+ * between circuits. Generates arbitrary return data for each app/kernel. Sets the kernel calldata and app calldata
+ * columns based respectively on the previous kernel return data and each app return data.
  */
 class MockDatabusProducer {
   private:
@@ -24,7 +24,7 @@ class MockDatabusProducer {
     using BusDataArray = std::vector<FF>;
 
     static constexpr size_t BUS_ARRAY_SIZE = 3; // arbitrary length of mock bus inputs
-    BusDataArray app_return_data;
+    std::array<BusDataArray, MAX_APPS_PER_KERNEL> app_return_data;
     BusDataArray kernel_return_data;
 
     FF dummy_return_val = 1; // use simple return val for easier test debugging
@@ -41,31 +41,38 @@ class MockDatabusProducer {
 
   public:
     /**
-     * @brief Update the app return data and populate it in the app circuit
+     * @brief Update the next app return data and populate it in the app circuit. App slots are processed in order.
      */
     void populate_app_databus(ClientCircuit& circuit)
     {
-        app_return_data = generate_random_bus_array();
-        for (auto& val : app_return_data) {
-            circuit.add_public_return_data(circuit.add_variable(val));
+        for (auto& app_data : app_return_data) {
+            if (app_data.empty()) {
+                app_data = generate_random_bus_array();
+                for (auto& val : app_data) {
+                    circuit.add_public_return_data(circuit.add_variable(val));
+                }
+                return;
+            }
         }
     };
 
     /**
-     * @brief Populate the calldata and secondary calldata in the kernel from respectively the previous kernel and app
-     * return data. Update and populate the return data for the present kernel.
+     * @brief Populate the kernel calldata and app calldata columns from respectively the previous kernel and app return
+     * data. Update and populate the return data for the present kernel.
      */
     void populate_kernel_databus(ClientCircuit& circuit)
     {
-        // Populate calldata from previous kernel return data (if it exists)
+        // Populate kernel calldata from previous kernel return data (if it exists)
         for (auto& val : kernel_return_data) {
-            circuit.add_public_calldata(circuit.add_variable(val));
+            circuit.add_public_calldata(BusId::KERNEL_CALLDATA, circuit.add_variable(val));
         }
-        // Populate secondary_calldata from app return data (if it exists), then clear the app return data
-        for (auto& val : app_return_data) {
-            circuit.add_public_secondary_calldata(circuit.add_variable(val));
+        // Populate app calldata from app return data (if it exists), then clear the app return data
+        for (size_t idx = 0; idx < app_return_data.size(); ++idx) {
+            for (auto& val : app_return_data[idx]) {
+                circuit.add_public_calldata(static_cast<BusId>(idx + 1), circuit.add_variable(val));
+            }
+            app_return_data[idx].clear();
         }
-        app_return_data.clear();
 
         // Mock the return data for the present kernel circuit
         kernel_return_data = generate_random_bus_array();
@@ -73,12 +80,6 @@ class MockDatabusProducer {
             circuit.add_public_return_data(circuit.add_variable(val));
         }
     };
-
-    /**
-     * @brief Add an arbitrary value to the app return data. This leads to a descrepency between the values used by the
-     * app itself and the secondary_calldata values in the kernel that will be set based on these tampered values.
-     */
-    void tamper_with_app_return_data() { app_return_data.emplace_back(17); }
 };
 
 /**
@@ -120,17 +121,35 @@ class PrivateFunctionExecutionMockCircuitProducer {
 
     PrivateFunctionExecutionMockCircuitProducer(size_t num_app_circuits, bool large_first_app = true)
         : large_first_app(large_first_app)
-        , total_num_circuits(num_app_circuits * 2 +
-                             NUM_TRAILING_KERNELS) /*One kernel per app, plus a fixed number of final kernels*/
     {
-        // Set flags indicating which circuits are kernels vs apps
-        for (size_t i = 0; i < num_app_circuits; ++i) {
-            is_kernel_flags.emplace_back(false); // every other circuit is an app
-            is_kernel_flags.emplace_back(true);  // every other circuit is a kernel
+        for (size_t i = 0; i < num_app_circuits / MAX_APPS_PER_KERNEL; ++i) {
+            for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+                is_kernel_flags.emplace_back(false);
+            }
+            is_kernel_flags.emplace_back(true);
+        }
+        if (num_app_circuits % MAX_APPS_PER_KERNEL != 0) {
+            for (size_t idx = 0; idx < num_app_circuits % MAX_APPS_PER_KERNEL; ++idx) {
+                is_kernel_flags.emplace_back(false);
+            }
+            is_kernel_flags.emplace_back(true);
         }
         for (size_t i = 0; i < NUM_TRAILING_KERNELS; ++i) {
             is_kernel_flags.emplace_back(true);
         }
+        total_num_circuits = is_kernel_flags.size();
+    }
+
+    PrivateFunctionExecutionMockCircuitProducer(std::vector<bool> leading_is_kernel_flags, bool large_first_app = false)
+        : is_kernel_flags(std::move(leading_is_kernel_flags))
+        , large_first_app(large_first_app)
+    {
+        BB_ASSERT(!is_kernel_flags.empty(), "Mock circuit layout must contain at least one leading circuit");
+        BB_ASSERT_EQ(is_kernel_flags[0], false, "Mock circuit layout must start with an app circuit");
+        for (size_t i = 0; i < NUM_TRAILING_KERNELS; ++i) {
+            is_kernel_flags.emplace_back(true);
+        }
+        total_num_circuits = is_kernel_flags.size();
     }
 
     /**
@@ -229,8 +248,10 @@ class PrivateFunctionExecutionMockCircuitProducer {
                                       "Trailing kernel circuit size has exceeded expected bound (should be <= 2^16).");
                         vinfo("Log number of gates in a trailing kernel circuit is: ", log2_dyadic_size);
                     } else {
+                        const bool is_init_kernel = circuit_counter == 2;
+                        const size_t expected_log2_dyadic_size = is_init_kernel ? 17UL : 18UL;
                         BB_ASSERT_EQ(log2_dyadic_size,
-                                     18UL,
+                                     expected_log2_dyadic_size,
                                      "There has been a change in the number of gates of a mock kernel circuit.");
                     }
                 } else {
@@ -264,11 +285,6 @@ class PrivateFunctionExecutionMockCircuitProducer {
         auto [circuit, vk] = create_next_circuit_and_vk(ivc, settings, check_circuit_sizes);
         ivc.accumulate(circuit, vk);
     }
-
-    /**
-     * @brief Tamper with databus data to facilitate failure testing
-     */
-    void tamper_with_databus() { mock_databus.tamper_with_app_return_data(); }
 };
 
 } // namespace

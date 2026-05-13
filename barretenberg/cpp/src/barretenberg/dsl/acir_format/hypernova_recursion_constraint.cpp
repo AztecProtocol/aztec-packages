@@ -31,51 +31,60 @@ using namespace bb;
  */
 std::shared_ptr<Chonk> create_mock_chonk_from_constraints(const std::vector<RecursionConstraint>& constraints)
 {
-    auto ivc = std::make_shared<Chonk>(std::max(constraints.size(), static_cast<size_t>(4)));
-
+    auto ivc = std::make_shared<Chonk>(std::max(constraints.size(), static_cast<size_t>(MAX_APPS_PER_KERNEL + 1)));
     // Check constraint proof type. Throws if proof_type is not a valid HyperNova type
     auto constraint_has_type = [](const RecursionConstraint& c, Chonk::QUEUE_TYPE expected) {
         return proof_type_to_chonk_queue_type(c.proof_type) == expected;
     };
 
+    BB_ASSERT(!constraints.empty(), "At least one recursion constraint is required to determine Chonk state");
+    const bool is_init = constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::OINK);
+    const bool is_reset = (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN));
+    const bool is_tail = (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN_TAIL));
+    const bool is_hiding =
+        (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN_FINAL));
+    const size_t upper_bound = is_init ? MAX_APPS_PER_KERNEL : MAX_APPS_PER_KERNEL + 1;
+    BB_ASSERT_LTE(constraints.size(), upper_bound, "Too many recursion constraints encountered when mocking IVC state");
+
     // Match constraint patterns to kernel types and populate appropriate mock data:
 
     // INIT kernel: Verifies first app circuit (no prior accumulator exists)
-    if (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::OINK)) {
+    if (is_init) {
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::OINK, /*is_kernel=*/false);
+        for (size_t idx = 1; idx < constraints.size(); idx++) {
+            BB_ASSERT(constraint_has_type(constraints[idx], Chonk::QUEUE_TYPE::HN),
+                      "Subsequent constraints in init kernel must be HN type");
+            mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
+        }
         return ivc;
     }
 
     // RESET kernel: Verifies only a previous kernel (resets the IVC accumulation)
-    if (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN)) {
+    if (is_reset) {
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
         return ivc;
     }
 
-    // TAIL kernel: Final kernel in the chain before generating tube proof
-    if (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN_TAIL)) {
+    // TAIL kernel: Final kernel in the chain before hiding kernel
+    if (is_tail) {
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_TAIL, /*is_kernel=*/true);
         return ivc;
     }
 
-    // INNER kernel: Verifies previous kernel + new app circuit
-    if (constraints.size() == 2) {
-        BB_ASSERT(constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN),
-                  "Inner kernel first constraint must be HN type");
-        BB_ASSERT(constraint_has_type(constraints[1], Chonk::QUEUE_TYPE::HN),
-                  "Inner kernel second constraint must be HN type");
-        mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/true);
-        mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/false);
-        return ivc;
-    }
-
     // HIDING kernel: Adds zero-knowledge hiding to the final proof
-    if (constraints.size() == 1 && constraint_has_type(constraints[0], Chonk::QUEUE_TYPE::HN_FINAL)) {
+    if (is_hiding) {
         mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
         return ivc;
     }
 
-    throw_or_abort("Invalid set of IVC recursion constraints!");
+    // INNER kernel: Verifies previous kernel + app circuits
+    bool is_kernel = true;
+    for (const auto& constraint : constraints) {
+        BB_ASSERT(constraint_has_type(constraint, Chonk::QUEUE_TYPE::HN),
+                  "All constraints in inner kernel must be HN type");
+        mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN, /*is_kernel=*/is_kernel);
+        is_kernel = false; // First constraint verifies previous kernel, subsequent constraints verify apps
+    }
     return ivc;
 }
 

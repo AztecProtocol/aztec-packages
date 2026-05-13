@@ -154,12 +154,14 @@ template <typename Flavor> void ProverInstance_<Flavor>::allocate_permutation_ar
 {
     BB_BENCH_NAME("allocate_permutation_argument_polynomials");
 
-    // Sigma and ID polynomials are zero outside the active trace range
+    // Sigma and ID polynomials are zero outside the active trace range. Inside the active range,
+    // compute_permutation_argument_polynomials writes every cell (identity init + cycle linkages),
+    // so the backing memory can be left uninitialized.
     for (auto& sigma : polynomials.get_sigmas()) {
-        sigma = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+        sigma = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Polynomial::DontZeroMemory::FLAG);
     }
     for (auto& id : polynomials.get_ids()) {
-        id = Polynomial::shiftable(trace_active_range_size(), dyadic_size());
+        id = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Polynomial::DontZeroMemory::FLAG);
     }
 
     polynomials.z_perm = Polynomial::shiftable(trace_active_range_size(), dyadic_size(), Flavor::HasZK);
@@ -248,7 +250,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
 
     // Databus data uses NUM_DISABLED_ROWS_IN_SUMCHECK as its offset rather than Flavor::TRACE_OFFSET so that
     // commitments match across the IVC boundary (a non-ZK kernel's return_data is copy-constrained to a MegaZK
-    // hiding kernel's calldata). MegaZK additionally requires this offset to clear the masking region
+    // hiding kernel's kernel_calldata). MegaZK additionally requires this offset to clear the masking region
     // [1, NUM_DISABLED_ROWS_IN_SUMCHECK); non-ZK Mega mirrors the layout even though it has no masking.
     const auto offset_size = [](size_t content) -> size_t { return NUM_DISABLED_ROWS_IN_SUMCHECK + content; };
 
@@ -272,7 +274,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
         inverse_ref[0] = Polynomial(std::max(offset_size(bus_size), q_busread_end), dyadic_size());
 
         if constexpr (Flavor::HasZK) {
-            // Mask databus witness polynomials. The calldata values column (bus_idx == 0) is NOT
+            // Mask databus witness polynomials. The kernel_calldata values column (bus_idx == 0) is NOT
             // masked; its read_counts column is.
             auto& values_poly = entities[0];
             auto& read_counts_poly = entities[1];

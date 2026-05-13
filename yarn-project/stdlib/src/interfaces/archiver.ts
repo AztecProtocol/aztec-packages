@@ -1,4 +1,3 @@
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumberSchema, CheckpointNumberSchema, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import type { ApiSchemaFor } from '@aztec/foundation/schemas';
 
@@ -49,9 +48,6 @@ export type ArchiverSpecificConfig = {
   /** The polling interval viem uses in ms */
   viemPollingIntervalMS?: number;
 
-  /** The deployed L1 contract addresses */
-  l1Contracts: L1ContractAddresses;
-
   /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
 
@@ -96,10 +92,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getRollupAddress: z.function().args().returns(schemas.EthAddress),
   getRegistryAddress: z.function().args().returns(schemas.EthAddress),
   getBlockNumber: z.function().args(optional(BlockQuerySchema)).returns(BlockNumberSchema.optional()),
-  getProvenBlockNumber: z.function().args().returns(BlockNumberSchema),
-  getCheckpointedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
   getCheckpointNumber: z.function().args().returns(CheckpointNumberSchema),
-  getFinalizedL2BlockNumber: z.function().args().returns(BlockNumberSchema),
   getCheckpoint: z.function().args(CheckpointQuerySchema).returns(PublishedCheckpoint.schema.optional()),
   getCheckpoints: z.function().args(CheckpointsQuerySchema).returns(z.array(PublishedCheckpoint.schema)),
   getCheckpointData: z.function().args(CheckpointQuerySchema).returns(CheckpointDataSchema.optional()),
@@ -133,6 +126,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getL1ToL2MessageIndex: z.function().args(schemas.Fr).returns(schemas.BigInt.optional()),
   getDebugFunctionName: z.function().args(schemas.AztecAddress, schemas.FunctionSelector).returns(optional(z.string())),
   getL1Constants: z.function().args().returns(L1RollupConstantsSchema),
+  isPruneDueAtSlot: z.function().args(schemas.SlotNumber).returns(z.boolean()),
   getGenesisValues: z
     .function()
     .args()

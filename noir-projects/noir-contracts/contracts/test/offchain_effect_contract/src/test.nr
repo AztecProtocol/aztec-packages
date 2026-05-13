@@ -27,18 +27,12 @@ unconstrained fn static_call_offchain_message_has_no_tx_hash() {
     let ciphertext = dummy_ciphertext();
 
     // Baseline: a non-static call that mines a block. This ensures TXE world state captures a real tx hash.
-    env.call_private(
-        caller,
-        OffchainEffect::at(contract_address).call_deliver_offchain_message(ciphertext, caller),
-    );
+    env.call_private(caller, OffchainEffect::at(contract_address).call_deliver_offchain_message(ciphertext, caller));
     let baseline = env.offchain_messages();
     assert(baseline.len() == 1);
     assert(baseline.get(0).tx_hash.is_some());
 
-    env.view_private(
-        caller,
-        OffchainEffect::at(contract_address).view_deliver_offchain_message(ciphertext, caller),
-    );
+    env.view_private(caller, OffchainEffect::at(contract_address).view_deliver_offchain_message(ciphertext, caller));
     let view_messages = env.offchain_messages();
     assert(view_messages.len() == 1);
 
@@ -64,10 +58,9 @@ unconstrained fn private_context_offchain_message_uses_anchor_block_timestamp() 
     let latest_timestamp = env.last_block_timestamp();
     assert(latest_timestamp != anchor_timestamp);
 
-    env.private_context_opts(
-        PrivateContextOptions::new().at_anchor_block_number(anchor_block_number),
-        |_context| deliver_offchain_message(dummy_ciphertext(), caller),
-    );
+    env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(anchor_block_number), |_context| {
+        deliver_offchain_message(dummy_ciphertext(), caller)
+    });
 
     let messages = env.offchain_messages();
     assert(messages.len() == 1);
