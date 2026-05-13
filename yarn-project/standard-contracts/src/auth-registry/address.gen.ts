@@ -1,5 +1,5 @@
 // GENERATED FILE - DO NOT EDIT.
-// Written by `yarn-project/canonical-contracts/src/scripts/derive_auth_registry.ts`.
+// Written by `yarn-project/standard-contracts/src/scripts/derive_auth_registry.ts`.
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 

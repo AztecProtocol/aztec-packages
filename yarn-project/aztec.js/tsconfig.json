@@ -7,7 +7,7 @@
   },
   "references": [
     {
-      "path": "../canonical-contracts"
+      "path": "../standard-contracts"
     },
     {
       "path": "../constants"

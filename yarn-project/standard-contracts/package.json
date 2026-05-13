@@ -1,7 +1,7 @@
 {
-  "name": "@aztec/canonical-contracts",
-  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/canonical-contracts",
-  "description": "Canonical non-protocol contracts for the Aztec Network",
+  "name": "@aztec/standard-contracts",
+  "homepage": "https://github.com/AztecProtocol/aztec-packages/tree/master/yarn-project/standard-contracts",
+  "description": "Standard non-protocol contracts for the Aztec Network",
   "version": "0.1.0",
   "type": "module",
   "exports": {

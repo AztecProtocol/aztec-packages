@@ -2,13 +2,13 @@
 //
 // Reads the compiled auth_registry artifact (produced by phase 1 of
 // `noir-projects/noir-contracts/bootstrap.sh`), derives its contract class id and
-// canonical address (salt = Fr(1), deployer = AztecAddress::zero(), public_keys = default),
+// artifact-derived address (salt = Fr(1), deployer = AztecAddress::zero(), public_keys = default),
 // and writes two artefacts:
 //
-//   1. noir-projects/aztec-nr/canonical_addresses/src/auth_registry.nr
+//   1. noir-projects/aztec-nr/standard_addresses/src/auth_registry.nr
 //      — Noir twin consumed by phase 2 of the contract build.
-//   2. yarn-project/canonical-contracts/src/auth-registry/address.gen.ts
-//      — TypeScript twin consumed by `getCanonicalAuthRegistry()` and friends.
+//   2. yarn-project/standard-contracts/src/auth-registry/address.gen.ts
+//      — TypeScript twin consumed by `getStandardAuthRegistry()` and friends.
 //
 // Both outputs are byte-identical for byte-identical inputs (no wall-clock or
 // random salts). The CI determinism check builds twice and diffs these files.

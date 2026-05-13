@@ -3,7 +3,7 @@ members = [
   "address-note",
   "aztec",
   "balance-set",
-  "canonical_addresses",
+  "standard_addresses",
   "compressed-string",
   "field-note",
   "uint-note",

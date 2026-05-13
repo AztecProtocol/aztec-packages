@@ -16,7 +16,7 @@ import {
 } from './derive_auth_registry.js';
 
 const REGEN_HINT =
-  'auth_registry stamp is stale; run `yarn workspace @aztec/canonical-contracts run regen:auth-registry-address` and commit the result.';
+  'auth_registry stamp is stale; run `yarn workspace @aztec/standard-contracts run regen:auth-registry-address` and commit the result.';
 
 describe('derive_auth_registry renderers', () => {
   const stamp: AuthRegistryStamp = {

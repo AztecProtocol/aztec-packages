@@ -27,7 +27,7 @@ members = [
     "contracts/fees/fpc_contract",
     "contracts/fees/sponsored_fpc_contract",
     "contracts/message_discovery/handshake_registry_contract",
-    "contracts/canonical/auth_registry_contract",
+    "contracts/standard/auth_registry_contract",
     "contracts/protocol/contract_class_registry_contract",
     "contracts/protocol/contract_instance_registry_contract",
     "contracts/protocol/fee_juice_contract",

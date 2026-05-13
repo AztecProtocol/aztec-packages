@@ -6,7 +6,7 @@ use crate::protocol::{
     hash::poseidon2_hash_with_separator,
     traits::ToField,
 };
-use canonical_addresses::AUTH_REGISTRY_ADDRESS;
+use standard_addresses::AUTH_REGISTRY_ADDRESS;
 
 /// Success indicator for authwit - 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
 pub global IS_VALID_SELECTOR: Field = 0x47dacd73;

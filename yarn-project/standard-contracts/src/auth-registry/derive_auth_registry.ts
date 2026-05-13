@@ -29,12 +29,12 @@ export const ARTIFACT_PATH = path.join(
   REPO_ROOT,
   'noir-projects/noir-contracts/target/auth_registry_contract-AuthRegistry.json',
 );
-export const NR_CRATE_DIR = path.join(REPO_ROOT, 'noir-projects/aztec-nr/canonical_addresses');
+export const NR_CRATE_DIR = path.join(REPO_ROOT, 'noir-projects/aztec-nr/standard_addresses');
 export const NR_LIB_PATH = path.join(NR_CRATE_DIR, 'src/auth_registry.nr');
-export const TS_TWIN_PATH = path.join(REPO_ROOT, 'yarn-project/canonical-contracts/src/auth-registry/address.gen.ts');
+export const TS_TWIN_PATH = path.join(REPO_ROOT, 'yarn-project/standard-contracts/src/auth-registry/address.gen.ts');
 export const AUTH_REGISTRY_SRC_DIR = path.join(
   REPO_ROOT,
-  'noir-projects/noir-contracts/contracts/canonical/auth_registry_contract/src',
+  'noir-projects/noir-contracts/contracts/standard/auth_registry_contract/src',
 );
 
 export type AuthRegistryStamp = {
@@ -81,9 +81,9 @@ export function renderNoirLib(stamp: AuthRegistryStamp): string {
   // formatter.
   return `// GENERATED FILE - DO NOT EDIT
 //
-// Written by \`yarn-project/canonical-contracts/src/scripts/derive_auth_registry.ts\` once
+// Written by \`yarn-project/standard-contracts/src/scripts/derive_auth_registry.ts\` once
 // \`auth_registry_contract\` has been compiled. Regenerate with
-// \`yarn workspace @aztec/canonical-contracts run regen:auth-registry-address\`.
+// \`yarn workspace @aztec/standard-contracts run regen:auth-registry-address\`.
 //
 // artifactHash    = ${stamp.artifactHash.toString()}
 // srcContentHash  = ${stamp.srcContentHash}
@@ -101,7 +101,7 @@ export function renderTsTwin(stamp: AuthRegistryStamp): string {
   // print-width (120), and the pre-commit hook re-wraps any inline `.ts` file. The renderer matches
   // that wrap eagerly so the freshness test's byte-equality assertion survives the formatter.
   return `// GENERATED FILE - DO NOT EDIT.
-// Written by \`yarn-project/canonical-contracts/src/scripts/derive_auth_registry.ts\`.
+// Written by \`yarn-project/standard-contracts/src/scripts/derive_auth_registry.ts\`.
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 

@@ -1,5 +1,5 @@
 [package]
-name = "canonical_addresses"
+name = "standard_addresses"
 authors = ["aztec-labs"]
 compiler_version = ">=0.18.0"
 type = "lib"

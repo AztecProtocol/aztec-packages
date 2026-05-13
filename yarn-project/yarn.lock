@@ -797,7 +797,7 @@ __metadata:
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
     "@aztec/builder": "workspace:^"
-    "@aztec/canonical-contracts": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -862,7 +862,7 @@ __metadata:
     "@aztec/blob-client": "workspace:^"
     "@aztec/bot": "workspace:^"
     "@aztec/builder": "workspace:^"
-    "@aztec/canonical-contracts": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/cli": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
@@ -1062,9 +1062,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/canonical-contracts@workspace:^, @aztec/canonical-contracts@workspace:canonical-contracts":
+"@aztec/standard-contracts@workspace:^, @aztec/standard-contracts@workspace:standard-contracts":
   version: 0.0.0-use.local
-  resolution: "@aztec/canonical-contracts@workspace:canonical-contracts"
+  resolution: "@aztec/standard-contracts@workspace:standard-contracts"
   dependencies:
     "@aztec/foundation": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
@@ -1740,7 +1740,7 @@ __metadata:
   resolution: "@aztec/p2p@workspace:p2p"
   dependencies:
     "@aztec/archiver": "workspace:^"
-    "@aztec/canonical-contracts": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/ethereum": "workspace:^"
@@ -2012,7 +2012,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/simulator@workspace:simulator"
   dependencies:
-    "@aztec/canonical-contracts": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"

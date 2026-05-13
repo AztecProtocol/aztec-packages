@@ -18,7 +18,6 @@ import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AnvilTestWatcher, type AnvilTestWatcherOpts, CheatCodes } from '@aztec/aztec/testing';
-import { AuthRegistryArtifact, getCanonicalAuthRegistry } from '@aztec/canonical-contracts/auth-registry';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { isAnvilTestChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
@@ -51,6 +50,7 @@ import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { ProverNodeConfig } from '@aztec/prover-node';
 import { type PXEConfig, type PXECreationOptions, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import { ARTIFACT_VERSION_BEFORE_INJECTION } from '@aztec/stdlib/abi';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
@@ -894,7 +894,7 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 }
 
 /**
- * Registers the auth_registry contract class and publishes its canonical instance on first call.
+ * Registers the auth_registry contract class and publishes its standard instance on first call.
  * Idempotent: subsequent calls are no-ops once both are published.
  *
  * auth_registry was previously a protocol contract whose deployment was implicit at genesis. Once
@@ -904,7 +904,7 @@ export async function expectMappingDelta<K, V extends number | bigint>(
  * testnet chain operators publish auth_registry as a normal transaction in early blocks.
  */
 export async function ensureAuthRegistryPublished(wallet: Wallet, from: AztecAddress) {
-  const { instance, contractClass } = await getCanonicalAuthRegistry();
+  const { instance, contractClass } = await getStandardAuthRegistry();
   if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
     await (await publishContractClass(wallet, AuthRegistryArtifact)).send({ from });
   }

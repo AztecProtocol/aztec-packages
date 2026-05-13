@@ -1,5 +1,5 @@
 // Copies the compiled AuthRegistry artifact from the noir-contracts build output into
-// the canonical-contracts artifacts directory, making it available for static imports.
+// the standard-contracts artifacts directory, making it available for static imports.
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -24,12 +24,12 @@ async function main() {
   await fs.mkdir(destDir, { recursive: true });
   await fs.copyFile(srcArtifact, destArtifact);
   await generateDeclarationFile('AuthRegistry');
-  process.stdout.write('canonical-contracts: copied AuthRegistry artifact\n');
+  process.stdout.write('standard-contracts: copied AuthRegistry artifact\n');
 }
 
 try {
   await main();
 } catch (err: unknown) {
-  process.stderr.write(`Error copying canonical contract artifacts: ${err}\n`);
+  process.stderr.write(`Error copying standard contract artifacts: ${err}\n`);
   process.exit(1);
 }

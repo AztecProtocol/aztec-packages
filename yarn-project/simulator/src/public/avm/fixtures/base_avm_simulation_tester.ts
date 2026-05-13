@@ -1,10 +1,10 @@
-import { getCanonicalAuthRegistry } from '@aztec/canonical-contracts/auth-registry';
 import { CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceStorageSlot, getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { getCanonicalInstanceRegistry } from '@aztec/protocol-contracts/instance-registry';
+import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -91,7 +91,7 @@ export abstract class BaseAvmSimulationTester {
   }
 
   async registerAuthContract(): Promise<ContractInstanceWithAddress> {
-    const authRegistry = await getCanonicalAuthRegistry();
+    const authRegistry = await getStandardAuthRegistry();
     const authRegistryContractClassPublic = {
       ...authRegistry.contractClass,
       privateFunctions: [],

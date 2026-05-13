@@ -1,8 +1,8 @@
 // GENERATED FILE - DO NOT EDIT
 //
-// Written by `yarn-project/canonical-contracts/src/scripts/derive_auth_registry.ts` once
+// Written by `yarn-project/standard-contracts/src/scripts/derive_auth_registry.ts` once
 // `auth_registry_contract` has been compiled. Regenerate with
-// `yarn workspace @aztec/canonical-contracts run regen:auth-registry-address`.
+// `yarn workspace @aztec/standard-contracts run regen:auth-registry-address`.
 //
 // artifactHash    = 0x13192473b15a8948fe7e71feaf18bc7db9140e94dc8c4653515a6207b01a47df
 // srcContentHash  = 0x267faec9d0c4564d594fb46b2481348b8c24896dd3edf3f1d3db07789ba65e95

@@ -33,8 +33,8 @@ pub contract AvmTest {
     use aztec::state_vars::Map;
     use aztec::state_vars::PublicMutable;
     use aztec::state_vars::StateVariable;
-    use canonical_addresses::AUTH_REGISTRY_ADDRESS;
     use compressed_string::CompressedString;
+    use standard_addresses::AUTH_REGISTRY_ADDRESS;
     use std::embedded_curve_ops::multi_scalar_mul;
 
     use auth_contract::AuthRegistry;

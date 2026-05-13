@@ -23,8 +23,8 @@ export async function getAuthRegistryArtifact(): Promise<ContractArtifact> {
   return protocolContractArtifact;
 }
 
-/** Returns the canonical deployment of the auth registry. */
-export async function getCanonicalAuthRegistry(): Promise<ProtocolContract> {
+/** Returns the standard deployment of the auth registry. */
+export async function getStandardAuthRegistry(): Promise<ProtocolContract> {
   if (!protocolContract) {
     const authRegistryArtifact = await getAuthRegistryArtifact();
     const contractClass = await getContractClassFromArtifact(authRegistryArtifact);
@@ -32,7 +32,7 @@ export async function getCanonicalAuthRegistry(): Promise<ProtocolContract> {
       throw new Error(
         `auth_registry artifact class id ${contractClass.id.toString()} does not match committed ` +
           `AUTH_REGISTRY_CLASS_ID ${AUTH_REGISTRY_CLASS_ID.toString()}; regenerate via ` +
-          `\`yarn workspace @aztec/canonical-contracts run regen:auth-registry-address\`.`,
+          `\`yarn workspace @aztec/standard-contracts run regen:auth-registry-address\`.`,
       );
     }
     const constructorArtifact = authRegistryArtifact.functions.find(f => f.name === 'constructor');
