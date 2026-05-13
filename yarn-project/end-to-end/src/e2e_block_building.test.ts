@@ -81,6 +81,7 @@ describe('e2e_block_building', () => {
         minTxsPerBlock: 1,
         maxTxsPerBlock: undefined, // reset to default
         enforceTimeTable: false, // reset to false (as it is in setup())
+        blockDurationMs: undefined, // reset to single-block-per-slot mode
       });
       // Clean up any mocks
       jest.restoreAllMocks();
@@ -88,44 +89,41 @@ describe('e2e_block_building', () => {
 
     afterAll(() => teardown());
 
-    // TODO(kill-non-pipelined): timetable mocking and enforceTimeTable assumptions don't apply under pipelining
-    it.skip('processes txs until hitting timetable', async () => {
-      const DEADLINE_S = 0.5; // half a second of building per block
-      const DEADLINE_MS = DEADLINE_S * 1000;
-      const MAX_TXS_FIT_IN_DEADLINE = 5; // via deadline and fake delay, we force this maximum to be true
-      const FAKE_DELAY_PER_TX_MS = DEADLINE_MS / MAX_TXS_FIT_IN_DEADLINE; // e.g. 100ms if 5 txs per 0.5s
+    // Under pipelining, the proposer divides each slot into fixed sub-slots of length `blockDurationMs`.
+    // Each sub-slot owns the budget for exactly one L2 block; the block builder enforces the sub-slot
+    // deadline as a hard cap on tx execution. The invariant this test protects: if there are far more txs
+    // than fit in one sub-slot, the proposer must cut the block off at the deadline and roll the excess
+    // txs into the next sub-slot (and the next checkpoint when the slot ends). It must NOT pack everything
+    // into a single block and burn the whole slot on it.
+    it('processes txs until hitting timetable', async () => {
+      // Fixture defaults under pipelining: aztecSlotDuration=12s, ethereumSlotDuration=4s. With
+      // ethereumSlotDuration<8 the timing model uses checkpointInitializationTime=0.5s,
+      // checkpointAssembleTime=0.5s, p2pPropagationTime=0, minExecutionTime=1s. Picking a 2s sub-slot
+      // gives floor((12 - 0.5 - (0.5 + 2)) / 2) = 4 sub-slots per slot.
+      const BLOCK_DURATION_MS = 2000;
+      // Fake delay per tx, sized so ~3 txs fit in a 2s sub-slot before the builder cuts at the deadline.
+      const FAKE_DELAY_PER_TX_MS = 500;
+      // Send substantially more than fits in one sub-slot so the proposer must span multiple blocks.
+      const TX_COUNT = 10;
 
-      // the minimum number of blocks we want to see
-      const EXPECTED_BLOCKS = 3;
-      // choose a tx count should ensure that we use EXPECTED_BLOCKS or more
-      // Note that we don't need to ensure that last block is _full_
-      const TX_COUNT = MAX_TXS_FIT_IN_DEADLINE * (EXPECTED_BLOCKS - 1) + 1;
-
-      // print out the test parameters
-      logger.info(`multi-block timetable test parameters:`);
-      logger.info(`  Deadline per block: ${DEADLINE_MS} ms`);
-      logger.info(`  Fake delay per tx: ${FAKE_DELAY_PER_TX_MS} ms`);
-      logger.info(`  Max txs that should fit in deadline: ${MAX_TXS_FIT_IN_DEADLINE}`);
-      logger.info(`  Total txs to send: ${TX_COUNT}`);
-      logger.info(`  Expected minimum blocks: ${EXPECTED_BLOCKS}`);
+      logger.info(`multi-block timetable test parameters:`, {
+        blockDurationMs: BLOCK_DURATION_MS,
+        fakeDelayPerTxMs: FAKE_DELAY_PER_TX_MS,
+        txCount: TX_COUNT,
+      });
 
       const { contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
       logger.info(`Deployed stateful test contract at ${contract.address}`);
 
-      // Configure sequencer with a small delay per tx and enforce timetable
+      // Configure sequencer for multi-block-per-slot mode with a per-tx delay long enough that the
+      // builder must cut blocks off at each sub-slot deadline.
       await aztecNodeAdmin.setConfig({
-        fakeProcessingDelayPerTxMs: FAKE_DELAY_PER_TX_MS, // ensure that each tx takes at least this long
+        fakeProcessingDelayPerTxMs: FAKE_DELAY_PER_TX_MS,
         minTxsPerBlock: 1,
-        maxTxsPerBlock: TX_COUNT, // intentionally large because we want to flex deadline, not this max
+        maxTxsPerBlock: TX_COUNT, // intentionally large; we want to flex the sub-slot deadline, not this cap
         enforceTimeTable: true,
+        blockDurationMs: BLOCK_DURATION_MS,
       });
-
-      // Mock the timetable to limit time for block building.
-      jest.spyOn(sequencer.sequencer.timetable, 'canStartNextBlock').mockImplementation((secondsIntoSlot: number) => ({
-        canStart: true,
-        deadline: secondsIntoSlot + DEADLINE_S, // limit block-building time
-        isLastBlock: true,
-      }));
 
       // Flood the mempool with TX_COUNT simultaneous txs
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
@@ -140,7 +138,11 @@ describe('e2e_block_building', () => {
       const receipts = await Promise.all(txHashes.map(txHash => waitForTx(aztecNode, txHash)));
       const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
       logger.info(`Txs mined on blocks: ${unique(blockNumbers)}`);
-      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThanOrEqual(EXPECTED_BLOCKS - 1);
+      // Spread must be at least 1 — i.e. txs are split across at least 2 distinct blocks. This fails
+      // (and the test catches a regression) if the proposer reverts to single-block-per-slot behavior
+      // or if sub-slot deadlines stop being enforced.
+      expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThanOrEqual(1);
+      expect(unique(blockNumbers).length).toBeGreaterThanOrEqual(2);
     });
 
     it('assembles a block with multiple txs', async () => {
@@ -497,13 +499,15 @@ describe('e2e_block_building', () => {
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
-    // TODO(kill-non-pipelined): pipelining changes empty-block cadence so the third empty block is not produced in time.
-    it.skip('publishes two empty blocks', async () => {
+    it('publishes two empty blocks', async () => {
       ({ teardown, wallet, logger, aztecNode } = await setup(0, {
         minTxsPerBlock: 0,
+        buildCheckpointIfEmpty: true,
       }));
 
-      await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 10, 1);
+      // Under pipelining, with `aztecSlotDuration=12s`, each empty checkpoint contains one empty
+      // block and lands roughly every 12s. Allow up to 60s for three empty blocks to appear.
+      await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 60, 1);
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
@@ -561,7 +565,10 @@ describe('e2e_block_building', () => {
     // The culprit is a nullifier not being cleared up from world state during block building if a tx fails processing,
     // which translates in an incorrect end state for world state. We can easily detect this by checking whether the nullifier
     // tree next available leaf index is a multiple of 64.
-    // TODO(kill-non-pipelined): reorg path triggers DELETE_FORK failed: Fork not found loop in world-state, hangs to wallclock.
+    // TODO(kill-non-pipelined): under pipelining, an AVM failure mid-block triggers a
+    // `DELETE_FORK failed: Fork not found` loop in world-state and the sequencer's publisher
+    // is left in `Transaction sending is interrupted`. This needs a source-level fix in the
+    // pipelined checkpoint job's fork-cleanup path; the test invariant is still relevant.
     it.skip('clears up all nullifiers if tx processing fails', async () => {
       const context = await setup(1, {
         minTxsPerBlock: 1,
@@ -609,7 +616,10 @@ describe('e2e_block_building', () => {
     });
   });
 
-  // TODO(kill-non-pipelined): reorg path under pipelined sequencer hangs after advanceToNextEpoch/markAsProven (PXE catch-up stuck).
+  // TODO(kill-non-pipelined): reorg path under pipelined sequencer hangs to wallclock after
+  // `advanceToNextEpoch` + `markAsProven`. The world-state hits a `DELETE_FORK failed: Fork not
+  // found` loop and PXE catch-up never completes. Needs source-level fix in the pipelined
+  // checkpoint job's fork-cleanup path on prune.
   describe.skip('reorgs', () => {
     let contract: StatefulTestContract;
     let cheatCodes: CheatCodes;
