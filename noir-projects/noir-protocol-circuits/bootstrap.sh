@@ -149,6 +149,10 @@ export -f hex_to_fields_json compile
 function build {
   set -eu
 
+  # Pre-clone external nargo git deps with retry, to survive transient DNS
+  # hiccups that otherwise fail a single merge-queue-heavy shard.
+  ../scripts/prefetch_nargo_git_deps.sh
+
   # If pinned-build.tar.gz exists, use it instead of compiling.
   if [ -f pinned-build.tar.gz ]; then
     echo_stderr "Using pinned-build.tar.gz instead of compiling."

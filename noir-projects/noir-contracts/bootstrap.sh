@@ -137,6 +137,10 @@ export -f compile
 # If given an argument, it's the contract to compile.
 # Otherwise parse out all relevant contracts from the root Nargo.toml and process them in parallel.
 function build {
+  # Pre-clone external nargo git deps with retry, to survive transient DNS
+  # hiccups that otherwise fail a single merge-queue-heavy shard.
+  ../scripts/prefetch_nargo_git_deps.sh
+
   echo_stderr "Compiling contracts (bb-hash: $BB_HASH)..."
   local folder_name
   if [ -n "${DOCS_WORKING_DIR:-}" ]; then

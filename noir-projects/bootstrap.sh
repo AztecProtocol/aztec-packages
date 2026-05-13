@@ -9,6 +9,7 @@ function build {
   # Also doubles up as our formatting check.
   function prep {
     set -eu
+    ./scripts/prefetch_nargo_git_deps.sh
     (cd noir-protocol-circuits && yarn && node ./scripts/generate_variants.js)
     for dir in noir-contracts noir-protocol-circuits mock-protocol-circuits aztec-nr; do
       (cd $dir && ../../noir/noir-repo/target/release/nargo fmt --check)
