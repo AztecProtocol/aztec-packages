@@ -88,7 +88,9 @@ describe('openEncryptedEmbeddedStores', () => {
     let walletOpenAttempted = false;
     const decryptError = new SqliteEncryptionError('decrypt_failed', 'file is not a database');
     const openStore: OpenSqliteEncryptedStoreFn = (_log, name) => {
-      if (name === 'pxe_data') return Promise.reject(decryptError);
+      if (name === 'pxe_data') {
+        return Promise.reject(decryptError);
+      }
       walletOpenAttempted = true;
       return Promise.resolve(wallet.store);
     };
@@ -132,7 +134,9 @@ describe('openEncryptedEmbeddedStores', () => {
     const otherError = new Error('disk full');
     let walletAttempts = 0;
     const openStore: OpenSqliteEncryptedStoreFn = (_log, name) => {
-      if (name === 'pxe_data') return Promise.resolve(pxe.store);
+      if (name === 'pxe_data') {
+        return Promise.resolve(pxe.store);
+      }
       walletAttempts++;
       // Use the side-effect to suppress the unused warning on `wallet` below.
       void wallet;
