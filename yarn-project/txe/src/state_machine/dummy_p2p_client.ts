@@ -18,7 +18,13 @@ import type {
 } from '@aztec/p2p';
 import type { EthAddress, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
 import type { ITxProvider, PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposal, TopicType } from '@aztec/stdlib/p2p';
+import type {
+  BlockProposal,
+  CheckpointAttestation,
+  CheckpointProposal,
+  CheckpointProposalCore,
+  TopicType,
+} from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {
@@ -157,6 +163,13 @@ export class DummyP2P implements P2P {
 
   public addOwnCheckpointAttestations(_attestations: CheckpointAttestation[]): Promise<void> {
     throw new Error('DummyP2P does not implement "addOwnCheckpointAttestations"');
+  }
+
+  public getProposalsForSlot(_slot: SlotNumber): Promise<{
+    blockProposals: BlockProposal[];
+    checkpointProposals: CheckpointProposalCore[];
+  }> {
+    return Promise.resolve({ blockProposals: [], checkpointProposals: [] });
   }
 
   public getL2BlockHash(_number: number): Promise<string | undefined> {

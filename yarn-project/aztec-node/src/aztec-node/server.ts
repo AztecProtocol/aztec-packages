@@ -42,6 +42,7 @@ import {
 import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
+  BroadcastedInvalidCheckpointProposalWatcher,
   EpochPruneWatcher,
   type SlasherClientInterface,
   type Watcher,
@@ -720,6 +721,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       let validatorsSentinel: Awaited<ReturnType<typeof createSentinel>> | undefined;
       let epochPruneWatcher: EpochPruneWatcher | undefined;
       let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
+      let broadcastedInvalidCheckpointProposalWatcher: BroadcastedInvalidCheckpointProposalWatcher | undefined;
 
       if (!proverOnly) {
         validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
@@ -737,6 +739,15 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
             config,
           );
           watchers.push(epochPruneWatcher);
+        }
+
+        if (config.slashBroadcastedInvalidCheckpointProposalPenalty > 0n) {
+          broadcastedInvalidCheckpointProposalWatcher = new BroadcastedInvalidCheckpointProposalWatcher(
+            p2pClient,
+            epochCache,
+            config,
+          );
+          watchers.push(broadcastedInvalidCheckpointProposalWatcher);
         }
 
         // We assume we want to slash for invalid attestations unless all max penalties are set to 0
@@ -761,6 +772,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           if (attestationsBlockWatcher) {
             await attestationsBlockWatcher.start();
             started.push(attestationsBlockWatcher);
+          }
+          if (broadcastedInvalidCheckpointProposalWatcher) {
+            await broadcastedInvalidCheckpointProposalWatcher.start();
+            started.push(broadcastedInvalidCheckpointProposalWatcher);
           }
           log.info(`All p2p services started`);
         })

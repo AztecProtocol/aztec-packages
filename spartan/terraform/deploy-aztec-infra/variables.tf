@@ -520,6 +520,12 @@ variable "SLASH_INVALID_BLOCK_PENALTY" {
   nullable    = true
 }
 
+variable "SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY" {
+  description = "The slash invalid checkpoint proposal penalty"
+  type        = string
+  nullable    = true
+}
+
 variable "SLASH_OFFENSE_EXPIRATION_ROUNDS" {
   description = "The slash offense expiration rounds"
   type        = string
