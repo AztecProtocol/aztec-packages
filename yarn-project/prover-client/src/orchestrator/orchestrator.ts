@@ -3,11 +3,9 @@ import {
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LoggerBindings } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -24,6 +22,7 @@ import type {
   ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
+import { appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { Proof } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
@@ -576,13 +575,6 @@ export class ProvingOrchestrator extends TopTreeProvingScheduler implements Epoc
   }
 
   private async updateL1ToL2MessageTree(l1ToL2Messages: Fr[], db: MerkleTreeWriteOperations) {
-    const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
-      l1ToL2Messages,
-      Fr.ZERO,
-      NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-      'Too many L1 to L2 messages',
-    );
-
     const lastL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
     const lastL1ToL2MessageSubtreeRootSiblingPath = assertLength(
       await getSubtreeSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_SUBTREE_HEIGHT, db),
@@ -590,7 +582,7 @@ export class ProvingOrchestrator extends TopTreeProvingScheduler implements Epoc
     );
 
     // Update the local trees to include the new l1 to l2 messages
-    await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+    await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
 
     const newL1ToL2MessageTreeSnapshot = await getTreeSnapshot(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, db);
     const newL1ToL2MessageSubtreeRootSiblingPath = assertLength(
