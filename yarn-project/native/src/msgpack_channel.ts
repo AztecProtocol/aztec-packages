@@ -69,13 +69,16 @@ export class MsgpackChannel<
 
     const buf = Buffer.isBuffer(encodedResponse)
       ? encodedResponse
-      : isAnyArrayBuffer(encodedResponse)
-        ? Buffer.from(encodedResponse)
-        : encodedResponse;
+      : encodedResponse instanceof Uint8Array
+        ? // Buffer.from on a Uint8Array shares its backing ArrayBuffer; cheap zero-copy view.
+          Buffer.from(encodedResponse.buffer, encodedResponse.byteOffset, encodedResponse.byteLength)
+        : isAnyArrayBuffer(encodedResponse)
+          ? Buffer.from(encodedResponse)
+          : encodedResponse;
 
     if (!Buffer.isBuffer(buf)) {
       throw new TypeError(
-        'Invalid encoded response: expected Buffer or ArrayBuffer, got ' +
+        'Invalid encoded response: expected Buffer, Uint8Array, or ArrayBuffer, got ' +
           (encodedResponse === null ? 'null' : typeof encodedResponse),
       );
     }

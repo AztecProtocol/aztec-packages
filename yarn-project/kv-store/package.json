@@ -36,6 +36,7 @@
     "./package.local.json"
   ],
   "dependencies": {
+    "@aztec/bb.js": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",

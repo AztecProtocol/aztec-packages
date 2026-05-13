@@ -1,6 +1,7 @@
+import { KvdbBackend } from '@aztec/bb.js/aztec-kvdb';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
-import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
+import { MsgpackChannel } from '@aztec/native';
 
 import { AsyncLocalStorage } from 'async_hooks';
 import { mkdir, rm } from 'fs/promises';
@@ -39,13 +40,13 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   private constructor(
     private dataDir: string,
-    mapSize: number,
+    private kvdbBackend: KvdbBackend,
     maxReaders: number,
     private log: Logger,
     private cleanup?: () => Promise<void>,
   ) {
     this.log.info(`Starting data store with maxReaders ${maxReaders}`);
-    this.channel = new MsgpackChannel(new NativeLMDBStore(dataDir, mapSize, maxReaders));
+    this.channel = new MsgpackChannel(kvdbBackend);
     // leave one reader to always be available for regular, atomic, reads
     this.availableCursors = new Semaphore(maxReaders - 1);
   }
@@ -56,6 +57,8 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   private async start() {
     this.writerQueue.start();
+
+    await this.kvdbBackend.waitUntilReady();
 
     await this.channel.sendMessage(LMDBMessageType.OPEN_DATABASE, {
       db: Database.DATA,
@@ -78,7 +81,31 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     bindings?: LoggerBindings,
   ) {
     const log = createLogger('kv-store:lmdb-v2', bindings);
-    const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders, log, cleanup);
+    // Map size validation: keep the synchronous behavior the old NAPI wrapper
+    // had so tests / callers see the same error before a subprocess is spawned.
+    if (!Number.isFinite(dbMapSizeKb) || dbMapSizeKb <= 0) {
+      throw new TypeError('Map size must be a positive number');
+    }
+    const { findKvdbBinary } = await import('@aztec/bb.js/platform');
+    const binaryPath = findKvdbBinary();
+    if (!binaryPath) {
+      throw new Error('aztec-kvdb binary not found; rebuild bb.js with copy_native.sh');
+    }
+    await mkdir(dataDir, { recursive: true });
+    // dbMapSizeKb is the legacy parameter name from the NAPI LMDBStore; it is
+    // actually a byte count (see callers and the lmdb-v2 NAPI tests).
+    const mapSizeBytes = dbMapSizeKb;
+    const kvdbBackend = new KvdbBackend({
+      binaryPath,
+      dataDir,
+      mapSizeBytes,
+      maxReaders,
+      // SHM is the production transport; UDS is the dev/test fallback. Override
+      // via KVDB_USE_UDS=1 for repro-friendly tests.
+      useShm: process.env.KVDB_USE_UDS !== '1',
+      logger: msg => log.verbose(msg),
+    });
+    const db = new AztecLMDBStoreV2(dataDir, kvdbBackend, maxReaders, log, cleanup);
     await db.start();
     return db;
   }
@@ -175,7 +202,13 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     }
     this.open = false;
     await this.writerQueue.cancel();
-    await this.channel.sendMessage(LMDBMessageType.CLOSE, undefined);
+    // Tell the server to flush + close cursors before the process exits.
+    try {
+      await this.channel.sendMessage(LMDBMessageType.CLOSE, undefined);
+    } catch {
+      // Suppress: the child may have already exited.
+    }
+    await this.kvdbBackend.destroy();
   }
 
   public async sendMessage<T extends LMDBMessageType>(
