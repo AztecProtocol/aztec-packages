@@ -20,9 +20,15 @@ function build {
   echo
 
   # Create Verdaccio config.
+  # publish.allow_offline lets us publish local @aztec/@noir-lang packages even
+  # if the npmjs uplink is temporarily unreachable; otherwise verdaccio refuses
+  # with a 503 ("one of the uplinks is down") and bricks the aztec-up build.
   cat > /tmp/verdaccio-config.yaml <<EOF
 storage: $PWD/verdaccio-storage
 max_body_size: 1000mb
+
+publish:
+  allow_offline: true
 
 uplinks:
   npmjs:
