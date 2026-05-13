@@ -9,6 +9,7 @@ export {
   createAndSyncProverNode,
   deployAccounts,
   ensureAccountContractsPublished,
+  ensureAuthRegistryPublished,
   expectMapping,
   expectMappingDelta,
   getBalancesFn,

@@ -94,6 +94,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/canonical-contracts": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",

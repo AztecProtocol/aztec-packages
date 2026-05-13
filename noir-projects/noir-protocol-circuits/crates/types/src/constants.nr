@@ -127,14 +127,7 @@ pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
 pub global PARITY_BASE_VK_INDEX: u32 = 21;
 pub global PARITY_ROOT_VK_INDEX: u32 = 22;
 pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
-// Important: Do not define indexes between 24 and 64. They are allocated for the variants of private kernel reset. Add new non-reset kernel indices at 65+.
-pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 65;
-pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 66;
-pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 67;
-pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 68;
-
-// Maximum number of apps absorbed by a single private kernel iteration.
-pub global MAX_APPS_PER_KERNEL: u32 = 3;
+// Important: Do not define indexes after the PRIVATE_KERNEL_RESET_VK_INDEX. They are allocated for the variants of private kernel reset.
 
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
@@ -228,7 +221,9 @@ pub global CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
 // Chosen to be a multiple of 3 (-1 to account for the separator), to optimize the poseidon2 hash.
 pub global MAX_PROTOCOL_CONTRACTS: u32 = 11;
 // Address 0 is not a protocol contract.
-pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
+// Address 1 is reserved (auth_registry was previously published here as a protocol contract; it is
+// now deployed as a regular contract at an artifact-derived address, see
+// `noir-projects/aztec-nr/canonical_addresses`).
 pub global CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(2);
 pub global CONTRACT_CLASS_REGISTRY_CONTRACT_ADDRESS: AztecAddress = AztecAddress::from_field(3);
 pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(4);
