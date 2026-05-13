@@ -272,7 +272,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
             expect(block!.checkpointNumber).toEqual(msgCheckpointNumber);
             expect(block!.indexWithinCheckpoint).toEqual(IndexWithinCheckpoint.ZERO);
           } else {
-            expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
+            expect(receipt.executionResult).toEqual(TxExecutionResult.REVERTED);
           }
         }
         await t.context.watcher.markAsProven();
