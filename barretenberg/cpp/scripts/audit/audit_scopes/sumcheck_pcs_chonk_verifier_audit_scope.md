@@ -95,6 +95,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 | `sumcheck/partial_evaluation.test.cpp` | Partial evaluation of polynomials |
 | `sumcheck/row_disabling_polynomial.test.cpp` | Disabling mechanism for rows containing randomness |
 | `polynomials/gate_separator.test.cpp` | pow_beta polynomial operations |
+| `stdlib/primitives/padding_indicator_array/*.test.cpp` | Padding indicator array generation |
 
 ### PCS Tests
 | File | Description |
