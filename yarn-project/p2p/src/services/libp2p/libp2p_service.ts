@@ -74,7 +74,7 @@ import {
   createFirstStageTxValidationsForGossipedTransactions,
   createSecondStageTxValidationsForGossipedTransactions,
   createTxValidatorForBlockProposalReceivedTxs,
-  createTxValidatorForReqResponseReceivedTxs,
+  createTxValidatorForOnDemandReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
 import { GossipSubEvent } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
@@ -1680,7 +1680,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   protected createRequestedTxValidator(): TxValidator {
-    return createTxValidatorForReqResponseReceivedTxs(this.proofVerifier, {
+    return createTxValidatorForOnDemandReceivedTxs(this.proofVerifier, {
       l1ChainId: this.config.l1ChainId,
       rollupVersion: this.config.rollupVersion,
     });

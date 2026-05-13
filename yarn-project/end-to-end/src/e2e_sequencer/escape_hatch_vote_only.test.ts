@@ -161,6 +161,7 @@ describe('e2e_escape_hatch_vote_only', () => {
       'checkpoint-publish-failed',
       'proposer-rollup-check-failed',
       'checkpoint-error',
+      'header-validation-failed',
     ];
 
     failEventTypes.forEach(eventType => {

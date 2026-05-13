@@ -499,6 +499,9 @@ jobs:
   ci-release-publish:
     runs-on: ubuntu-latest
     environment: master
+    permissions:
+      id-token: write
+      contents: read
     needs: [ci, ci-compat-e2e]
     if: |
       startsWith(github.ref, 'refs/tags/v')
@@ -514,10 +517,16 @@ jobs:
         with:
           ref: ${{ github.sha }}
 
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-2
+          role-session-name: ci3-release-publish-${{ github.run_id }}
+          role-duration-seconds: 21600
+
       - name: Run Release Publish
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}

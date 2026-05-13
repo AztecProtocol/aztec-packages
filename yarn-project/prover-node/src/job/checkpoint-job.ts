@@ -1,6 +1,5 @@
-import { type ARCHIVE_HEIGHT, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { type ARCHIVE_HEIGHT } from '@aztec/constants';
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
@@ -20,8 +19,8 @@ import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import type { ForkMerkleTreeOperations } from '@aztec/stdlib/interfaces/server';
+import { appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { BlockHeader, ProcessedTx, Tx } from '@aztec/stdlib/tx';
 
 import type { ProverNodeJobMetrics } from '../metrics.js';
@@ -438,13 +437,11 @@ export class CheckpointJob {
     const db = await this.deps.dbProvider.fork(blockNumber);
 
     if (l1ToL2Messages !== undefined) {
-      const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
-        l1ToL2Messages,
-        Fr.ZERO,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        'Too many L1 to L2 messages',
-      );
-      await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+      this.deps.log.verbose(`Inserting ${l1ToL2Messages.length} L1 to L2 messages in fork`, {
+        blockNumber,
+        l1ToL2Messages: l1ToL2Messages.map(m => m.toString()),
+      });
+      await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
     }
 
     return db;

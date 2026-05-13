@@ -269,7 +269,6 @@ export class P2PClient extends WithTracer implements P2P {
       throw new Error('Block stream not initialized');
     }
     this.blockStream.start();
-    await this.txCollection.start();
     this.txFileStore?.start();
 
     // Start slot monitor to call prepareForSlot when the slot changes
