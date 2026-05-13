@@ -591,7 +591,7 @@ describe('e2e_block_building', () => {
       await Promise.race(txHashes.map(txHash => waitForTx(aztecNode, txHash, { timeout: 60 })));
 
       logger.warn(`At least one tx has been mined`);
-      const lastBlock = await context.aztecNode.getBlockHeader('latest');
+      const lastBlock = (await context.aztecNode.getBlockData('latest'))?.header;
       expect(lastBlock).toBeDefined();
 
       logger.warn(`Latest block is ${lastBlock!.getBlockNumber()}`, { state: lastBlock?.state.partial });

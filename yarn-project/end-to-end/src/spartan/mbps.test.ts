@@ -178,7 +178,7 @@ describe('multi-blocks-per-slot network test', () => {
       config.AZTEC_SLOT_DURATION * 10,
       2,
     );
-    const tipsAtReceipts = await aztecNode.getL2Tips();
+    const tipsAtReceipts = await aztecNode.getChainTips();
     logger.info(
       `Tips after receipts: proposed=${tipsAtReceipts.proposed.number}, checkpointed=${tipsAtReceipts.checkpointed.block.number}`,
     );
@@ -194,7 +194,7 @@ describe('multi-blocks-per-slot network test', () => {
       (_, i) => minTxBlockNumber + i,
     );
     const allHeaders = await Promise.all(
-      allBlockNumbers.map(blockNumber => aztecNode.getBlockHeader(BlockNumber(blockNumber))),
+      allBlockNumbers.map(blockNumber => aztecNode.getBlockData(BlockNumber(blockNumber)).then(b => b?.header)),
     );
     if (allHeaders.some(header => !header)) {
       throw new Error('Failed to load block headers for block range');
@@ -237,7 +237,7 @@ describe('multi-blocks-per-slot network test', () => {
     expect(blocksInSlotCount).toBeGreaterThanOrEqual(2);
     await retryUntil(
       async () => {
-        const tips = await aztecNode.getL2Tips();
+        const tips = await aztecNode.getChainTips();
         return Number(tips.checkpointed.block.number) >= maxTxBlockNumber;
       },
       'checkpointed tip to reach multi-block slot',

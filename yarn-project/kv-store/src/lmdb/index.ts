@@ -26,8 +26,8 @@ export function createStore(
   );
 
   const store = AztecLmdbStore.open(dataDirectory, config.dataStoreMapSizeKb, false);
-  if (config.l1Contracts?.rollupAddress) {
-    return initStoreForRollupAndSchemaVersion(store, schemaVersion, config.l1Contracts.rollupAddress, log);
+  if (config.rollupAddress) {
+    return initStoreForRollupAndSchemaVersion(store, schemaVersion, config.rollupAddress, log);
   }
   return store;
 }

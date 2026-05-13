@@ -38,7 +38,7 @@ export class InboxContract {
 
   static getFromConfig(config: L1ReaderConfig) {
     const client = getPublicClient(config);
-    const address = config.l1Contracts.inboxAddress.toString();
+    const address = config.inboxAddress.toString();
     return new InboxContract(client, address);
   }
 

@@ -7,12 +7,15 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import '@aztec/stdlib/testing/jest';
+import { BlockHeader } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
 import { type ArchiverDataStores, createArchiverDataStores } from '../store/data_stores.js';
+import { L2TipsCache } from '../store/l2_tips_cache.js';
 import { makeCheckpoint, makePublishedCheckpoint } from '../test/mock_structs.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 
@@ -213,6 +216,31 @@ describe('ArchiverDataStoreUpdater', () => {
       // Verify logs are removed
       const publicLogsAfter = await store.logs.getPublicLogs({});
       expect(publicLogsAfter.logs.length).toBe(0);
+    });
+  });
+
+  describe('l2 tips cache refresh', () => {
+    it('does not refresh the cache when the writer transaction aborts', async () => {
+      const initialBlockHash = await BlockHeader.empty().hash();
+      const tipsCache = new L2TipsCache(store.blocks, initialBlockHash);
+      const updaterWithCache = new ArchiverDataStoreUpdater(store, tipsCache);
+
+      const tipsBefore = await tipsCache.getL2Tips();
+
+      const block = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+
+      const failure = new Error('forced failure inside writer transaction');
+      const addProposedBlockSpy = jest.spyOn(store.blocks, 'addProposedBlock').mockRejectedValueOnce(failure);
+
+      await expect(updaterWithCache.addProposedBlock(block)).rejects.toBe(failure);
+
+      const tipsAfter = await tipsCache.getL2Tips();
+      expect(tipsAfter).toEqual(tipsBefore);
+
+      addProposedBlockSpy.mockRestore();
     });
   });
 });

@@ -19,7 +19,7 @@ export async function createStore(
       : `Creating ${name} ephemeral SQLite-OPFS data store with map size ${config.dataStoreMapSizeKb} KB`,
   );
   const store = await AztecSQLiteOPFSStore.open(createLogger('kv-store:sqlite-opfs'), name, false);
-  return initStoreForRollupAndSchemaVersion(store, schemaVersion, config.l1Contracts?.rollupAddress, log);
+  return initStoreForRollupAndSchemaVersion(store, schemaVersion, config.rollupAddress, log);
 }
 
 export function openTmpStore(ephemeral: boolean = false): Promise<AztecSQLiteOPFSStore> {

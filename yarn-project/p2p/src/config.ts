@@ -118,6 +118,11 @@ export interface P2PConfig
   /** If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false. */
   queryForIp: boolean;
 
+  /**
+   * HTTPS URLs that return plain-text public IPv4, tried in order when resolving the announce IP (e.g. when `queryForIp` is true and `p2pIp` is unset).
+   */
+  publicIpServices: string[];
+
   /** The interval of the gossipsub heartbeat to perform maintenance tasks. */
   gossipsubInterval: number;
 
@@ -216,6 +221,9 @@ export interface P2PConfig
   /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
   minTxPoolAgeMs: number;
 
+  /** Deadline in ms used when collecting missing txs for unproven mined blocks. */
+  p2pMissingTxCollectionDeadlineMs: number;
+
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
 
@@ -224,6 +232,14 @@ export interface P2PConfig
 }
 
 export const DEFAULT_P2P_PORT = 40400;
+
+/** Default endpoints used to discover this machine's public IPv4 when `queryForIp` is enabled. */
+export const DEFAULT_PUBLIC_IP_SERVICES: string[] = [
+  'https://api.ipify.org/',
+  'https://checkip.amazonaws.com/',
+  'https://ifconfig.me/ip',
+  'https://icanhazip.com/',
+];
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   validateMaxTxsPerBlock: {
@@ -342,6 +358,17 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'If announceUdpAddress or announceTcpAddress are not provided, query for the IP address of the machine. Default is false.',
     ...booleanConfigHelper(),
+  },
+  publicIpServices: {
+    env: 'P2P_PUBLIC_IP_SERVICES',
+    parseEnv: (val: string) =>
+      val
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean),
+    description:
+      'Comma-separated HTTPS URLs that return plain-text public IPv4. Used when P2P_QUERY_FOR_IP is true and P2P_IP is unset. Tried in order until one succeeds.',
+    defaultValue: DEFAULT_PUBLIC_IP_SERVICES,
   },
   gossipsubInterval: {
     env: 'P2P_GOSSIPSUB_INTERVAL_MS',
@@ -532,6 +559,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
   },
+  p2pMissingTxCollectionDeadlineMs: {
+    env: 'P2P_MISSING_TX_COLLECTION_DEADLINE_MS',
+    description: 'Deadline in ms used when collecting missing txs for unproven mined blocks.',
+    ...numberConfigHelper(72_000),
+  },
   priceBumpPercentage: {
     env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',
     description:
@@ -571,6 +603,7 @@ export type BootnodeConfig = Pick<
   | 'bootstrapNodes'
   | 'listenAddress'
   | 'queryForIp'
+  | 'publicIpServices'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKb'> &
@@ -588,6 +621,7 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'bootstrapNodes',
   'l1ChainId',
   'queryForIp',
+  'publicIpServices',
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(
