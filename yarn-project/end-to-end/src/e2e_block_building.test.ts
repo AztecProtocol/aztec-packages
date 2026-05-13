@@ -143,11 +143,16 @@ describe('e2e_block_building', () => {
       expect(blockNumbers.at(-1)! - blockNumbers[0]).toBeGreaterThanOrEqual(EXPECTED_BLOCKS - 1);
     });
 
-    // TODO(kill-non-pipelined): pipelining re-pools txs into empty initial checkpoint block, causing nullifier conflicts on resubmit.
-    it.skip('assembles a block with multiple txs', async () => {
+    it('assembles a block with multiple txs', async () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 8;
+
+      // Publish the contract class up front so that the N deploys below do not each include a
+      // ContractClassRegistry.publish call. Without this, every parallel deploy shares the same
+      // class-publication nullifier and only the first one is admitted to the mempool.
+      await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
+
       await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
 
       // Need to have value > 0, so adding + 1
@@ -162,7 +167,7 @@ describe('e2e_block_building', () => {
       const provenTxs = [];
       const addresses = [];
       for (let i = 0; i < TX_COUNT; i++) {
-        const options: DeployOptions = { from: ownerAddress };
+        const options: DeployOptions = { from: ownerAddress, skipClassPublication: true };
         const instance = await methods[i].getInstance();
         addresses.push(instance.address);
         provenTxs.push(await proveInteraction(wallet, methods[i], options));
@@ -186,8 +191,7 @@ describe('e2e_block_building', () => {
       expect(areInitialized).toEqual(times(TX_COUNT, () => ContractInitializationStatus.INITIALIZED));
     });
 
-    // TODO(kill-non-pipelined): pipelining re-pools txs into empty initial checkpoint block, causing nullifier conflicts on resubmit.
-    it.skip('assembles a block with multiple txs with public fns', async () => {
+    it('assembles a block with multiple txs with public fns', async () => {
       // First deploy the contract
       const { contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress });
 
