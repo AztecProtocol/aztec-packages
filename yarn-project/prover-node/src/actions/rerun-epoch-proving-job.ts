@@ -31,47 +31,43 @@ export async function rerunEpochProvingJob(
 
   const telemetry = getTelemetryClient();
   const metrics = new ProverNodeJobMetrics(telemetry.getMeter('prover-job'), telemetry.getTracer('prover-job'));
-  const worldState = await createWorldState(config, genesis);
-  try {
-    const archiver = await createArchiverStore(config);
-    const publicProcessorFactory = new PublicProcessorFactory(
-      createContractDataSource(archiver),
-      undefined,
-      undefined,
-      log.getBindings(),
-    );
+  await using worldState = await createWorldState(config, genesis);
+  const archiver = await createArchiverStore(config);
+  const publicProcessorFactory = new PublicProcessorFactory(
+    createContractDataSource(archiver),
+    undefined,
+    undefined,
+    log.getBindings(),
+  );
 
-    const publisher = {
-      submitEpochProof: () => Promise.resolve(true),
-      analyzeEpochProofSubmission: () => Promise.resolve(),
-    };
-    const l2BlockSourceForReorgDetection = undefined;
-    const deadline = undefined;
+  const publisher = {
+    submitEpochProof: () => Promise.resolve(true),
+    analyzeEpochProofSubmission: () => Promise.resolve(),
+  };
+  const l2BlockSourceForReorgDetection = undefined;
+  const deadline = undefined;
 
-    // This starts a local proving broker that does not get exposed as a service. This should be good enough for
-    // smallish epochs to be proven if we run on a large machine, but as epochs grow larger, we may want to switch
-    // this out for a live proving broker with multiple agents that we can connect to.
-    const broker = await createAndStartProvingBroker(config, telemetry);
-    const prover = await createProverClient(config, worldState, broker, telemetry);
+  // This starts a local proving broker that does not get exposed as a service. This should be good enough for
+  // smallish epochs to be proven if we run on a large machine, but as epochs grow larger, we may want to switch
+  // this out for a live proving broker with multiple agents that we can connect to.
+  const broker = await createAndStartProvingBroker(config, telemetry);
+  const prover = await createProverClient(config, worldState, broker, telemetry);
 
-    const provingJob = new EpochProvingJob(
-      jobData,
-      worldState,
-      prover.createEpochProver(),
-      publicProcessorFactory,
-      publisher,
-      l2BlockSourceForReorgDetection,
-      metrics,
-      deadline,
-      { skipEpochCheck: true },
-      log.getBindings(),
-    );
+  const provingJob = new EpochProvingJob(
+    jobData,
+    worldState,
+    prover.createEpochProver(),
+    publicProcessorFactory,
+    publisher,
+    l2BlockSourceForReorgDetection,
+    metrics,
+    deadline,
+    { skipEpochCheck: true },
+    log.getBindings(),
+  );
 
-    log.info(`Rerunning epoch proving job for epoch ${jobData.epochNumber}`);
-    await provingJob.run();
-    log.info(`Completed job for epoch ${jobData.epochNumber} with status ${provingJob.getState()}`);
-    return provingJob.getState();
-  } finally {
-    await worldState.close();
-  }
+  log.info(`Rerunning epoch proving job for epoch ${jobData.epochNumber}`);
+  await provingJob.run();
+  log.info(`Completed job for epoch ${jobData.epochNumber} with status ${provingJob.getState()}`);
+  return provingJob.getState();
 }

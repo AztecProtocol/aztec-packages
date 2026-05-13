@@ -338,25 +338,21 @@ describe('NativeWorldState', () => {
     });
 
     it('manually clears the database', async () => {
-      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
-      try {
-        const initialStatus = await ws.getStatusSummary();
-        expect(initialStatus.unfinalizedBlockNumber).toBe(0);
+      await using ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+      const initialStatus = await ws.getStatusSummary();
+      expect(initialStatus.unfinalizedBlockNumber).toBe(0);
 
-        // Populate the db
-        const fork = await ws.fork();
-        ({ block, messages } = await mockBlock(BlockNumber(1), 2, fork));
-        await fork.close();
-        const status = await ws.handleL2BlockAndMessages(block, messages);
-        expect(status.summary.unfinalizedBlockNumber).toBe(1);
+      // Populate the db
+      const fork = await ws.fork();
+      ({ block, messages } = await mockBlock(BlockNumber(1), 2, fork));
+      await fork.close();
+      const status = await ws.handleL2BlockAndMessages(block, messages);
+      expect(status.summary.unfinalizedBlockNumber).toBe(1);
 
-        // Clear it
-        await ws.clear();
-        const emptyStatus = await ws.getStatusSummary();
-        expect(emptyStatus.unfinalizedBlockNumber).toBe(0);
-      } finally {
-        await ws.close();
-      }
+      // Clear it
+      await ws.clear();
+      const emptyStatus = await ws.getStatusSummary();
+      expect(emptyStatus.unfinalizedBlockNumber).toBe(0);
     });
   });
 
@@ -810,110 +806,105 @@ describe('NativeWorldState', () => {
         (blockNumber: number, fork: MerkleTreeWriteOperations) => mockEmptyBlock(BlockNumber(blockNumber), fork),
       ],
     ])('can re-org %s', async (_, genBlock) => {
-      const nonReorgState = await NativeWorldStateService.tmp();
-      const sequentialReorgState = await NativeWorldStateService.tmp();
-      try {
-        let fork = await ws.fork();
+      await using nonReorgState = await NativeWorldStateService.tmp();
+      await using sequentialReorgState = await NativeWorldStateService.tmp();
+      let fork = await ws.fork();
 
-        const blockForks = [];
-        const blockTreeInfos = [];
-        const blockStats = [];
-        const siblingPaths = [];
+      const blockForks = [];
+      const blockTreeInfos = [];
+      const blockStats = [];
+      const siblingPaths = [];
 
-        // advance 3 chains by 8 blocks, 2 of the chains go to 16 blocks
-        for (let i = 0; i < 16; i++) {
-          const blockNumber = i + 1;
-          const { block, messages } = await genBlock(blockNumber, fork);
-          const status = await ws.handleL2BlockAndMessages(block, messages);
-          blockStats.push(status);
-          const blockFork = await ws.fork();
-          blockForks.push(blockFork);
-          const treeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-          blockTreeInfos.push(treeInfo);
-          const siblingPath = await ws.getCommitted().getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n);
-          siblingPaths.push(siblingPath);
+      // advance 3 chains by 8 blocks, 2 of the chains go to 16 blocks
+      for (let i = 0; i < 16; i++) {
+        const blockNumber = i + 1;
+        const { block, messages } = await genBlock(blockNumber, fork);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+        blockStats.push(status);
+        const blockFork = await ws.fork();
+        blockForks.push(blockFork);
+        const treeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+        blockTreeInfos.push(treeInfo);
+        const siblingPath = await ws.getCommitted().getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n);
+        siblingPaths.push(siblingPath);
 
-          if (blockNumber < 9) {
-            const statusNonReorg = await nonReorgState.handleL2BlockAndMessages(block, messages);
-            expect(status.summary).toEqual(statusNonReorg.summary);
-
-            const treeInfoNonReorg = await nonReorgState.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-            expect(treeInfo).toEqual(treeInfoNonReorg);
-          }
-
-          await sequentialReorgState.handleL2BlockAndMessages(block, messages);
-        }
-
-        // unwind 1 chain by a single block at a time
-        for (let blockNumber = 16; blockNumber > 8; blockNumber--) {
-          const unwindStatus = await sequentialReorgState.unwindBlocks(BlockNumber(blockNumber - 1));
-          const unwindFork = await sequentialReorgState.fork();
-          const unwindTreeInfo = await sequentialReorgState.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-          const unwindSiblingPath = await sequentialReorgState
-            .getCommitted()
-            .getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n);
-
-          expect(unwindTreeInfo).toEqual(blockTreeInfos[blockNumber - 2]);
-          expect(unwindStatus.summary).toEqual(blockStats[blockNumber - 2].summary);
-          expect(await unwindFork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).toEqual(
-            await blockForks[blockNumber - 2].getTreeInfo(MerkleTreeId.NULLIFIER_TREE),
-          );
-          expect(unwindSiblingPath).toEqual(siblingPaths[blockNumber - 2]);
-        }
-
-        // unwind the other 16 block chain by a full 8 blocks in one go
-        await ws.unwindBlocks(BlockNumber.fromBigInt(8n));
-
-        // check that it is not possible to re-org blocks that were already reorged.
-        await expect(ws.unwindBlocks(BlockNumber.fromBigInt(10n))).rejects.toThrow(
-          'Unable to unwind blocks to block number 10, current pending block 8',
-        );
-
-        await compareChains(ws.getCommitted(), sequentialReorgState.getCommitted());
-
-        const unwoundFork = await ws.fork();
-        const unwoundTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-        const unwoundStatus = await ws.getStatusSummary();
-        const unwoundSiblingPath = await ws.getCommitted().getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n);
-
-        expect(unwoundStatus).toEqual(blockStats[7].summary);
-        expect(unwoundTreeInfo).toEqual(blockTreeInfos[7]);
-        expect(await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).toEqual(blockTreeInfos[7]);
-        expect(await unwoundFork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).toEqual(blockTreeInfos[7]);
-        expect(unwoundSiblingPath).toEqual(siblingPaths[7]);
-
-        fork = await ws.fork();
-
-        // now advance both the un-reorged chain and one of the reorged chains to 16 blocks
-        for (let i = 8; i < 16; i++) {
-          const blockNumber = i + 1;
-          const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
-          const status = await ws.handleL2BlockAndMessages(block, messages);
-          blockStats[i] = status;
-          const blockFork = await ws.fork();
-          blockForks[i] = blockFork;
-          const treeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-          blockTreeInfos[i] = treeInfo;
-          const siblingPath = await ws.getCommitted().getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n);
-          siblingPaths[i] = siblingPath;
-
+        if (blockNumber < 9) {
           const statusNonReorg = await nonReorgState.handleL2BlockAndMessages(block, messages);
           expect(status.summary).toEqual(statusNonReorg.summary);
+
+          const treeInfoNonReorg = await nonReorgState.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+          expect(treeInfo).toEqual(treeInfoNonReorg);
         }
 
-        // compare snapshot across the chains
-        for (let i = 0; i < 16; i++) {
-          const blockNumber = i + 1;
-          const nonReorgSnapshot = nonReorgState.getSnapshot(BlockNumber(blockNumber));
-          const reorgSnapshot = ws.getSnapshot(BlockNumber(blockNumber));
-          await compareChains(reorgSnapshot, nonReorgSnapshot);
-        }
-
-        await compareChains(ws.getCommitted(), nonReorgState.getCommitted());
-      } finally {
-        await nonReorgState.close();
-        await sequentialReorgState.close();
+        await sequentialReorgState.handleL2BlockAndMessages(block, messages);
       }
+
+      // unwind 1 chain by a single block at a time
+      for (let blockNumber = 16; blockNumber > 8; blockNumber--) {
+        const unwindStatus = await sequentialReorgState.unwindBlocks(BlockNumber(blockNumber - 1));
+        const unwindFork = await sequentialReorgState.fork();
+        const unwindTreeInfo = await sequentialReorgState.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+        const unwindSiblingPath = await sequentialReorgState
+          .getCommitted()
+          .getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n);
+
+        expect(unwindTreeInfo).toEqual(blockTreeInfos[blockNumber - 2]);
+        expect(unwindStatus.summary).toEqual(blockStats[blockNumber - 2].summary);
+        expect(await unwindFork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).toEqual(
+          await blockForks[blockNumber - 2].getTreeInfo(MerkleTreeId.NULLIFIER_TREE),
+        );
+        expect(unwindSiblingPath).toEqual(siblingPaths[blockNumber - 2]);
+      }
+
+      // unwind the other 16 block chain by a full 8 blocks in one go
+      await ws.unwindBlocks(BlockNumber.fromBigInt(8n));
+
+      // check that it is not possible to re-org blocks that were already reorged.
+      await expect(ws.unwindBlocks(BlockNumber.fromBigInt(10n))).rejects.toThrow(
+        'Unable to unwind blocks to block number 10, current pending block 8',
+      );
+
+      await compareChains(ws.getCommitted(), sequentialReorgState.getCommitted());
+
+      const unwoundFork = await ws.fork();
+      const unwoundTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      const unwoundStatus = await ws.getStatusSummary();
+      const unwoundSiblingPath = await ws.getCommitted().getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n);
+
+      expect(unwoundStatus).toEqual(blockStats[7].summary);
+      expect(unwoundTreeInfo).toEqual(blockTreeInfos[7]);
+      expect(await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).toEqual(blockTreeInfos[7]);
+      expect(await unwoundFork.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).toEqual(blockTreeInfos[7]);
+      expect(unwoundSiblingPath).toEqual(siblingPaths[7]);
+
+      fork = await ws.fork();
+
+      // now advance both the un-reorged chain and one of the reorged chains to 16 blocks
+      for (let i = 8; i < 16; i++) {
+        const blockNumber = i + 1;
+        const { block, messages } = await mockBlock(BlockNumber(blockNumber), 1, fork);
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+        blockStats[i] = status;
+        const blockFork = await ws.fork();
+        blockForks[i] = blockFork;
+        const treeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+        blockTreeInfos[i] = treeInfo;
+        const siblingPath = await ws.getCommitted().getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n);
+        siblingPaths[i] = siblingPath;
+
+        const statusNonReorg = await nonReorgState.handleL2BlockAndMessages(block, messages);
+        expect(status.summary).toEqual(statusNonReorg.summary);
+      }
+
+      // compare snapshot across the chains
+      for (let i = 0; i < 16; i++) {
+        const blockNumber = i + 1;
+        const nonReorgSnapshot = nonReorgState.getSnapshot(BlockNumber(blockNumber));
+        const reorgSnapshot = ws.getSnapshot(BlockNumber(blockNumber));
+        await compareChains(reorgSnapshot, nonReorgSnapshot);
+      }
+
+      await compareChains(ws.getCommitted(), nonReorgState.getCommitted());
     });
 
     it('forks are deleted during a re-org', async () => {
@@ -1058,64 +1049,60 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     it('retrieves leaf indices', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
-      try {
-        const numBlocks = 2;
-        const txsPerBlock = 2;
-        const noteHashes: Fr[] = [];
-        const nullifiers: Buffer[] = [];
-        const publicWrites: Buffer[] = [];
-        const initialNullifierTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
-        const initialNoteHashTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
-        const initialPublicTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
-        for (let i = 0; i < numBlocks; i++) {
-          const fork = await ws.fork();
-          ({ block, messages } = await mockBlock(BlockNumber(1), txsPerBlock, fork));
-          noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
-          nullifiers.push(...block.body.txEffects.flatMap(x => x.nullifiers.flatMap(x => x.toBuffer())));
-          publicWrites.push(...block.body.txEffects.flatMap(x => x.publicDataWrites.flatMap(x => x.toBuffer())));
-          await fork.close();
-          await ws.handleL2BlockAndMessages(block, messages);
-        }
-
-        const testQuery = async (
-          initialTreeSize: bigint,
-          leaves: MerkleTreeLeafType<MerkleTreeId>[],
-          treeId: MerkleTreeId,
-          makeRandom: () => MerkleTreeLeafType<MerkleTreeId>,
-        ) => {
-          const leavesToRequest: MerkleTreeLeafType<MerkleTreeId>[] = [
-            leaves[0],
-            makeRandom(),
-            leaves[45],
-            leaves[89],
-            makeRandom(),
-            leaves[102],
-          ];
-          const expectedIndices = [0n, undefined, 45n, 89n, undefined, 102n].map(x =>
-            x === undefined ? undefined : x + initialTreeSize,
-          );
-          const indices = await ws.getCommitted().findLeafIndices(treeId, leavesToRequest);
-          expect(indices).toEqual(expectedIndices);
-
-          const expectedIndicesAfter = [undefined, undefined, undefined, 89n, undefined, 102n].map(x =>
-            x === undefined ? undefined : x + initialTreeSize,
-          );
-          const indicesAfter = await ws
-            .getCommitted()
-            .findLeafIndicesAfter(treeId, leavesToRequest, 89n + initialTreeSize);
-          expect(indicesAfter).toEqual(expectedIndicesAfter);
-        };
-        await testQuery(initialNoteHashTreeInfo.size, noteHashes, MerkleTreeId.NOTE_HASH_TREE, Fr.random);
-        await testQuery(initialNullifierTreeInfo.size, nullifiers, MerkleTreeId.NULLIFIER_TREE, () =>
-          Fr.random().toBuffer(),
-        );
-        await testQuery(initialPublicTreeInfo.size, publicWrites, MerkleTreeId.PUBLIC_DATA_TREE, () =>
-          PublicDataWrite.random().toBuffer(),
-        );
-      } finally {
-        await ws.close();
+      await using ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const numBlocks = 2;
+      const txsPerBlock = 2;
+      const noteHashes: Fr[] = [];
+      const nullifiers: Buffer[] = [];
+      const publicWrites: Buffer[] = [];
+      const initialNullifierTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NULLIFIER_TREE);
+      const initialNoteHashTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
+      const initialPublicTreeInfo = await ws.getCommitted().getTreeInfo(MerkleTreeId.PUBLIC_DATA_TREE);
+      for (let i = 0; i < numBlocks; i++) {
+        const fork = await ws.fork();
+        ({ block, messages } = await mockBlock(BlockNumber(1), txsPerBlock, fork));
+        noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
+        nullifiers.push(...block.body.txEffects.flatMap(x => x.nullifiers.flatMap(x => x.toBuffer())));
+        publicWrites.push(...block.body.txEffects.flatMap(x => x.publicDataWrites.flatMap(x => x.toBuffer())));
+        await fork.close();
+        await ws.handleL2BlockAndMessages(block, messages);
       }
+
+      const testQuery = async (
+        initialTreeSize: bigint,
+        leaves: MerkleTreeLeafType<MerkleTreeId>[],
+        treeId: MerkleTreeId,
+        makeRandom: () => MerkleTreeLeafType<MerkleTreeId>,
+      ) => {
+        const leavesToRequest: MerkleTreeLeafType<MerkleTreeId>[] = [
+          leaves[0],
+          makeRandom(),
+          leaves[45],
+          leaves[89],
+          makeRandom(),
+          leaves[102],
+        ];
+        const expectedIndices = [0n, undefined, 45n, 89n, undefined, 102n].map(x =>
+          x === undefined ? undefined : x + initialTreeSize,
+        );
+        const indices = await ws.getCommitted().findLeafIndices(treeId, leavesToRequest);
+        expect(indices).toEqual(expectedIndices);
+
+        const expectedIndicesAfter = [undefined, undefined, undefined, 89n, undefined, 102n].map(x =>
+          x === undefined ? undefined : x + initialTreeSize,
+        );
+        const indicesAfter = await ws
+          .getCommitted()
+          .findLeafIndicesAfter(treeId, leavesToRequest, 89n + initialTreeSize);
+        expect(indicesAfter).toEqual(expectedIndicesAfter);
+      };
+      await testQuery(initialNoteHashTreeInfo.size, noteHashes, MerkleTreeId.NOTE_HASH_TREE, Fr.random);
+      await testQuery(initialNullifierTreeInfo.size, nullifiers, MerkleTreeId.NULLIFIER_TREE, () =>
+        Fr.random().toBuffer(),
+      );
+      await testQuery(initialPublicTreeInfo.size, publicWrites, MerkleTreeId.PUBLIC_DATA_TREE, () =>
+        PublicDataWrite.random().toBuffer(),
+      );
     });
   });
 
@@ -1124,60 +1111,56 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     it('retrieves leaf sibling paths', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
-      try {
-        const numBlocks = 2;
-        const txsPerBlock = 2;
-        const noteHashes: Fr[] = [];
-        const nullifiers: Buffer[] = [];
-        const publicWrites: Buffer[] = [];
-        for (let i = 0; i < numBlocks; i++) {
-          const fork = await ws.fork();
-          ({ block, messages } = await mockBlock(BlockNumber(1), txsPerBlock, fork));
-          noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
-          nullifiers.push(...block.body.txEffects.flatMap(x => x.nullifiers.flatMap(x => x.toBuffer())));
-          publicWrites.push(...block.body.txEffects.flatMap(x => x.publicDataWrites.flatMap(x => x.toBuffer())));
-          await fork.close();
-          await ws.handleL2BlockAndMessages(block, messages);
-        }
-
-        const testQuery = async (
-          leaves: MerkleTreeLeafType<MerkleTreeId>[],
-          treeId: MerkleTreeId,
-          makeRandom: () => MerkleTreeLeafType<MerkleTreeId>,
-        ) => {
-          const leavesToRequest: MerkleTreeLeafType<MerkleTreeId>[] = [
-            leaves[0],
-            makeRandom(),
-            leaves[45],
-            leaves[89],
-            makeRandom(),
-            leaves[102],
-          ];
-          const indices = await ws.getCommitted().findLeafIndices(treeId, leavesToRequest);
-          const readOps = ws.getCommitted();
-          const expectedPaths = [
-            await readOps.getSiblingPath(treeId, indices[0]!),
-            undefined,
-            await readOps.getSiblingPath(treeId, indices[2]!),
-            await readOps.getSiblingPath(treeId, indices[3]!),
-            undefined,
-            await readOps.getSiblingPath(treeId, indices[5]!),
-          ];
-          const expectedIndices = [indices[0], undefined, indices[2], indices[3], undefined, indices[5]];
-          const paths = await readOps.findSiblingPaths(treeId, leavesToRequest);
-          expect(paths.length).toBe(expectedPaths.length);
-          for (let i = 0; i < paths.length; i++) {
-            expect(paths[i]?.path).toEqual(expectedPaths[i]);
-            expect(paths[i]?.index).toEqual(expectedIndices[i]);
-          }
-        };
-        await testQuery(noteHashes, MerkleTreeId.NOTE_HASH_TREE, Fr.random);
-        await testQuery(nullifiers, MerkleTreeId.NULLIFIER_TREE, () => Fr.random().toBuffer());
-        await testQuery(publicWrites, MerkleTreeId.PUBLIC_DATA_TREE, () => PublicDataWrite.random().toBuffer());
-      } finally {
-        await ws.close();
+      await using ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const numBlocks = 2;
+      const txsPerBlock = 2;
+      const noteHashes: Fr[] = [];
+      const nullifiers: Buffer[] = [];
+      const publicWrites: Buffer[] = [];
+      for (let i = 0; i < numBlocks; i++) {
+        const fork = await ws.fork();
+        ({ block, messages } = await mockBlock(BlockNumber(1), txsPerBlock, fork));
+        noteHashes.push(...block.body.txEffects.flatMap(x => x.noteHashes.flatMap(x => x)));
+        nullifiers.push(...block.body.txEffects.flatMap(x => x.nullifiers.flatMap(x => x.toBuffer())));
+        publicWrites.push(...block.body.txEffects.flatMap(x => x.publicDataWrites.flatMap(x => x.toBuffer())));
+        await fork.close();
+        await ws.handleL2BlockAndMessages(block, messages);
       }
+
+      const testQuery = async (
+        leaves: MerkleTreeLeafType<MerkleTreeId>[],
+        treeId: MerkleTreeId,
+        makeRandom: () => MerkleTreeLeafType<MerkleTreeId>,
+      ) => {
+        const leavesToRequest: MerkleTreeLeafType<MerkleTreeId>[] = [
+          leaves[0],
+          makeRandom(),
+          leaves[45],
+          leaves[89],
+          makeRandom(),
+          leaves[102],
+        ];
+        const indices = await ws.getCommitted().findLeafIndices(treeId, leavesToRequest);
+        const readOps = ws.getCommitted();
+        const expectedPaths = [
+          await readOps.getSiblingPath(treeId, indices[0]!),
+          undefined,
+          await readOps.getSiblingPath(treeId, indices[2]!),
+          await readOps.getSiblingPath(treeId, indices[3]!),
+          undefined,
+          await readOps.getSiblingPath(treeId, indices[5]!),
+        ];
+        const expectedIndices = [indices[0], undefined, indices[2], indices[3], undefined, indices[5]];
+        const paths = await readOps.findSiblingPaths(treeId, leavesToRequest);
+        expect(paths.length).toBe(expectedPaths.length);
+        for (let i = 0; i < paths.length; i++) {
+          expect(paths[i]?.path).toEqual(expectedPaths[i]);
+          expect(paths[i]?.index).toEqual(expectedIndices[i]);
+        }
+      };
+      await testQuery(noteHashes, MerkleTreeId.NOTE_HASH_TREE, Fr.random);
+      await testQuery(nullifiers, MerkleTreeId.NULLIFIER_TREE, () => Fr.random().toBuffer());
+      await testQuery(publicWrites, MerkleTreeId.PUBLIC_DATA_TREE, () => PublicDataWrite.random().toBuffer());
     });
   });
 
@@ -1193,56 +1176,52 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly reports block numbers', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
-      try {
-        const statuses = [];
-        const numBlocks = 2;
-        const txsPerBlock = 2;
-        for (let i = 0; i < numBlocks; i++) {
-          const fork = await ws.fork();
-          ({ block, messages } = await mockBlock(BlockNumber(1), txsPerBlock, fork));
-          noteHashes = block.body.txEffects[0].noteHashes.length;
-          nullifiers = block.body.txEffects[0].nullifiers.length;
-          publicTree = block.body.txEffects[0].publicDataWrites.length;
-          await fork.close();
-          const status = await ws.handleL2BlockAndMessages(block, messages);
-          statuses.push(status);
-        }
-
-        const checkTree = async (
-          treeId: MerkleTreeId,
-          itemsLength: number,
-          blockNumber: number,
-          initialSize: number,
-          numPerBlock: number,
-        ) => {
-          const before = initialSize + itemsLength * blockNumber * numPerBlock - 2;
-          const on = before + 1;
-          const after = on + 1;
-          const blockNumbers = await ws.getCommitted().getBlockNumbersForLeafIndices(
-            treeId,
-            [before, on, after].map(x => BigInt(x)),
-          );
-          expect(blockNumbers).toEqual([blockNumber, blockNumber, blockNumber + 1].map(x => BlockNumber(x)));
-        };
-
-        for (let i = 0; i < numBlocks - 1; i++) {
-          await checkTree(MerkleTreeId.NOTE_HASH_TREE, noteHashes, i + 1, 0, 2);
-          await checkTree(MerkleTreeId.NULLIFIER_TREE, nullifiers, i + 1, 128, 2);
-          await checkTree(MerkleTreeId.PUBLIC_DATA_TREE, publicTree, i + 1, 128, 2);
-          await checkTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messages.length, i + 1, 0, 1);
-        }
-
-        const lastStatus = statuses[statuses.length - 1];
-        const before = Number(lastStatus.meta.noteHashTreeMeta.committedSize) - 2;
-        const blockNumbers = await ws.getCommitted().getBlockNumbersForLeafIndices(
-          MerkleTreeId.NOTE_HASH_TREE,
-          [before, before + 1, before + 2].map(x => BigInt(x)),
-        );
-        expect(blockNumbers).toEqual([2, 2, undefined].map(x => (x == undefined ? x : BlockNumber(x))));
-      } finally {
-        await ws.close();
+      await using ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      const statuses = [];
+      const numBlocks = 2;
+      const txsPerBlock = 2;
+      for (let i = 0; i < numBlocks; i++) {
+        const fork = await ws.fork();
+        ({ block, messages } = await mockBlock(BlockNumber(1), txsPerBlock, fork));
+        noteHashes = block.body.txEffects[0].noteHashes.length;
+        nullifiers = block.body.txEffects[0].nullifiers.length;
+        publicTree = block.body.txEffects[0].publicDataWrites.length;
+        await fork.close();
+        const status = await ws.handleL2BlockAndMessages(block, messages);
+        statuses.push(status);
       }
+
+      const checkTree = async (
+        treeId: MerkleTreeId,
+        itemsLength: number,
+        blockNumber: number,
+        initialSize: number,
+        numPerBlock: number,
+      ) => {
+        const before = initialSize + itemsLength * blockNumber * numPerBlock - 2;
+        const on = before + 1;
+        const after = on + 1;
+        const blockNumbers = await ws.getCommitted().getBlockNumbersForLeafIndices(
+          treeId,
+          [before, on, after].map(x => BigInt(x)),
+        );
+        expect(blockNumbers).toEqual([blockNumber, blockNumber, blockNumber + 1].map(x => BlockNumber(x)));
+      };
+
+      for (let i = 0; i < numBlocks - 1; i++) {
+        await checkTree(MerkleTreeId.NOTE_HASH_TREE, noteHashes, i + 1, 0, 2);
+        await checkTree(MerkleTreeId.NULLIFIER_TREE, nullifiers, i + 1, 128, 2);
+        await checkTree(MerkleTreeId.PUBLIC_DATA_TREE, publicTree, i + 1, 128, 2);
+        await checkTree(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, messages.length, i + 1, 0, 1);
+      }
+
+      const lastStatus = statuses[statuses.length - 1];
+      const before = Number(lastStatus.meta.noteHashTreeMeta.committedSize) - 2;
+      const blockNumbers = await ws.getCommitted().getBlockNumbersForLeafIndices(
+        MerkleTreeId.NOTE_HASH_TREE,
+        [before, before + 1, before + 2].map(x => BigInt(x)),
+      );
+      expect(blockNumbers).toEqual([2, 2, undefined].map(x => (x == undefined ? x : BlockNumber(x))));
     });
   });
 
