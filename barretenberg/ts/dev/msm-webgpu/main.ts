@@ -59,13 +59,14 @@ const SWEEP_LOGN: number[] = [16, 17, 18, 19, 20];
 const NOBLE_REFERENCE_LOGN = 16;
 const SWEEP_REPS = 5;
 
-// Conservative default. We deliberately don't auto-pick hardwareConcurrency:
-// on machines with high core counts (or browsers that report logical
-// threads), spinning up that many pthread workers at once has been observed
-// to pin the machine while the workers boot. The user can bump the input
-// up before clicking Run.
+// Default to the machine's reported logical thread count, capped at
+// MT_THREADS_MAX. Falls back to 4 if `navigator.hardwareConcurrency`
+// is undefined.
 const MT_THREADS_MAX = 32;
-const MT_THREADS_DEFAULT = 4;
+const MT_THREADS_DEFAULT = Math.min(
+  MT_THREADS_MAX,
+  navigator.hardwareConcurrency ?? 4,
+);
 
 // Cap the WASM heap maximum. bb.js's default is 4 GiB; at this dev page's
 // peak (log₂(n)=20, ~96 MiB of points+scalars in the WASM heap) we never
@@ -133,6 +134,7 @@ function updateNDisplay(): void {
 $logn.addEventListener("input", updateNDisplay);
 updateNDisplay();
 $hwThreads.textContent = String(navigator.hardwareConcurrency ?? "?");
+$mtThreads.value = String(MT_THREADS_DEFAULT);
 
 function log(level: LogLevel, msg: string): void {
   const span = document.createElement("span");
@@ -510,39 +512,73 @@ function fmtCheck(v: boolean | null): string {
 }
 
 function renderSweepTable(rows: SweepRow[]): void {
+  // Two tables: a consistency check at log₂n = NOBLE_REFERENCE_LOGN
+  // (cross-checks WebGPU / WASM-ST / WASM-MT / Noble pairwise), and a
+  // perf comparison of WebGPU vs WASM MT across every sweep size.
+  // WASM ST is omitted from the perf table — it's strictly slower at
+  // these sizes and not the production path; noble lives in the
+  // consistency table only because it's too slow to run at larger n.
+  const refRow = rows.find((r) => r.logN === NOBLE_REFERENCE_LOGN);
+  $results.innerHTML =
+    renderConsistencyTable(refRow) + renderPerfTable(rows);
+  $results.classList.add("visible");
+}
+
+function renderConsistencyTable(row: SweepRow | undefined): string {
+  // Re-derive pairwise outcomes from the first rep's stored xy values
+  // so each cell can be FAIL-pinpointed individually. Cells stay as
+  // "—" until the reference row has run at least one rep.
+  const gpu = row?.webgpu[0]?.xy;
+  const st = row?.wasmSt[0]?.xy;
+  const mt = row?.wasmMt[0]?.xy;
+  const eq = (
+    a: { x: bigint; y: bigint } | undefined,
+    b: { x: bigint; y: bigint } | undefined,
+  ): boolean | null => (!a || !b ? null : pointsEqual(a, b));
+  return `
+  <h3>Consistency (log₂n = ${NOBLE_REFERENCE_LOGN}, n = ${(1 << NOBLE_REFERENCE_LOGN).toLocaleString()})</h3>
+  <table>
+    <tr>
+      <th>WebGPU vs WASM ST</th>
+      <th>WebGPU vs WASM MT</th>
+      <th>WASM ST vs WASM MT</th>
+      <th>Noble vs WebGPU</th>
+    </tr>
+    <tr>
+      <td>${fmtCheck(eq(gpu, st))}</td>
+      <td>${fmtCheck(eq(gpu, mt))}</td>
+      <td>${fmtCheck(eq(st, mt))}</td>
+      <td>${fmtCheck(row?.nobleOk ?? null)}</td>
+    </tr>
+  </table>`;
+}
+
+function renderPerfTable(rows: SweepRow[]): string {
   const head = `
     <tr>
       <th>log₂(n)</th>
       <th>n</th>
       <th>WebGPU<br/>median ms</th>
-      <th>WASM ST<br/>median ms</th>
       <th>WASM MT (${readMtThreads()}t)<br/>median ms</th>
-      <th>GPU vs<br/>WASM MT</th>
-      <th>WASM MT<br/>vs ST</th>
-      <th>Cross-check<br/>WebGPU vs WASM</th>
-      <th>Noble check<br/>(log₂n = ${NOBLE_REFERENCE_LOGN} only)</th>
+      <th>WebGPU vs<br/>WASM MT</th>
     </tr>`;
   const body = rows
     .map((r) => {
       const webgpuMs = median(r.webgpu.map((s) => s.ms));
-      const stMs = median(r.wasmSt.map((s) => s.ms));
       const mtMs = median(r.wasmMt.map((s) => s.ms));
       return `
     <tr>
       <td>${r.logN}</td>
       <td>${(1 << r.logN).toLocaleString()}</td>
       <td>${fmtMs(r.webgpu)}<br/><span class="samples">${fmtSamples(r.webgpu)}</span></td>
-      <td>${fmtMs(r.wasmSt)}<br/><span class="samples">${fmtSamples(r.wasmSt)}</span></td>
       <td>${fmtMs(r.wasmMt)}<br/><span class="samples">${fmtSamples(r.wasmMt)}</span></td>
       <td>${fmtSpeedup(webgpuMs, mtMs)}</td>
-      <td>${fmtSpeedup(mtMs, stMs)}</td>
-      <td>${fmtCheck(r.crossOk)}</td>
-      <td>${fmtCheck(r.nobleOk)}</td>
     </tr>`;
     })
     .join("");
-  $results.innerHTML = `<table>${head}${body}</table>`;
-  $results.classList.add("visible");
+  return `
+  <h3>Performance — WebGPU vs Barretenberg WASM MT</h3>
+  <table>${head}${body}</table>`;
 }
 
 $run.addEventListener("click", async () => {
