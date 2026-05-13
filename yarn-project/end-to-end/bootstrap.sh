@@ -123,25 +123,43 @@ function bench_cmds {
   done
 }
 
-# Builds all benchmark fixtures (chonk IVC captures + UltraHonk circuit inputs).
-function build_bench {
-  rm -rf bench-out && mkdir -p bench-out
-
-  # Build chonk IVC captures
+# Generate chonk IVC captures from scratch by running the e2e client-flow tests
+# with CAPTURE_IVC_FOLDER set. This is the slow path: it requires the full TS +
+# protocol-circuits build to already be in place. Only invoked when explicitly
+# regenerating the pinned tarball (BUILD_BENCH_REGEN=1).
+function regen_chonk_captures {
   export CAPTURE_IVC_FOLDER=$bench_fixtures_dir
   export BENCHMARK_CONFIG=key_flows
   export LOG_LEVEL=error
   export ENV_VARS_TO_INJECT="BENCHMARK_CONFIG CAPTURE_IVC_FOLDER LOG_LEVEL"
-  rm -rf $CAPTURE_IVC_FOLDER && mkdir -p $CAPTURE_IVC_FOLDER
-  if ! cache_download bb-chonk-captures-$hash.tar.gz; then
-    parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
-      client_flows/account_deployments \
-      client_flows/deployments \
-      client_flows/bridging \
-      client_flows/transfers \
-      client_flows/amm \
-      client_flows/storage_proof
-    cache_upload bb-chonk-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
+  rm -rf "$CAPTURE_IVC_FOLDER" && mkdir -p "$CAPTURE_IVC_FOLDER"
+  parallel --tag --line-buffer --halt now,fail=1 'docker_isolate "scripts/run_test.sh simple {}"' ::: \
+    client_flows/account_deployments \
+    client_flows/deployments \
+    client_flows/bridging \
+    client_flows/transfers \
+    client_flows/amm \
+    client_flows/storage_proof
+}
+
+# Builds all benchmark fixtures (chonk IVC captures + UltraHonk circuit inputs).
+#
+# Chonk IVC captures are sourced from the pinned-tarball single source of truth
+# (barretenberg/cpp/scripts/chonk-inputs.hash) by default. Set
+# BUILD_BENCH_REGEN=1 to regenerate them from scratch via the e2e client-flow
+# tests — this path is used by `regenerate_chonk_inputs.sh` and by developers
+# who explicitly want to re-pin.
+function build_bench {
+  rm -rf bench-out && mkdir -p bench-out
+
+  if [[ "${BUILD_BENCH_REGEN:-0}" == "1" ]]; then
+    echo_header "build_bench: regenerating chonk IVC inputs from scratch"
+    regen_chonk_captures
+  else
+    echo_header "build_bench: fetching pinned chonk IVC inputs"
+    # shellcheck source=../../barretenberg/cpp/scripts/chonk_inputs_lib.sh
+    source "$root/barretenberg/cpp/scripts/chonk_inputs_lib.sh"
+    chonk_inputs_download "$bench_fixtures_dir"
   fi
 
   # Build UltraHonk circuit benchmark inputs (bytecode + witness pairs)

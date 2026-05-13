@@ -634,13 +634,19 @@ case "$cmd" in
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=0
-    build_and_test fast
+    if ! build_and_test fast; then
+      scripts/ci_vk_update.sh
+      exit 1
+    fi
     ;;
   "ci-full")
     export CI=1
     export USE_TEST_CACHE=1
     export CI_FULL=1
-    build_and_test full
+    if ! build_and_test full; then
+      scripts/ci_vk_update.sh
+      exit 1
+    fi
     bench
     ;;
   "ci-full-no-test-cache")
