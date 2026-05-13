@@ -2,7 +2,7 @@ name: Nightly Spartan Benchmarks
 
 on:
   schedule:
-    - cron: "0 4 * * *"
+    - cron: "30 7 * * *"
   workflow_dispatch:
     inputs:
       nightly_tag:
