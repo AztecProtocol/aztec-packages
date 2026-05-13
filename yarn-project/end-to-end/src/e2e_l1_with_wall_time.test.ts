@@ -2,7 +2,6 @@ import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { SecretValue } from '@aztec/foundation/config';
 
 import { jest } from '@jest/globals';
@@ -14,8 +13,7 @@ import type { TestWallet } from './test-wallet/test_wallet.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
-// TODO(kill-non-pipelined): setup() throws under pipelining with custom initialValidators/ethereumSlotDuration, leaving teardown undefined; needs deeper investigation into custom-validator setup compatibility with pipelined flow.
-describe.skip('e2e_l1_with_wall_time', () => {
+describe('e2e_l1_with_wall_time', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
   let wallet: TestWallet;
@@ -36,8 +34,11 @@ describe.skip('e2e_l1_with_wall_time', () => {
         bn254SecretKey: new SecretValue(Fr.random().toBigInt()),
       },
     ];
-    const { ethereumSlotDuration } = getL1ContractsConfigEnvVars();
 
+    // Don't pass ethereumSlotDuration explicitly — the env default is 12s, which would clash with
+    // the fixture's pipelining override (aztecSlotDuration=12, ethereumSlotDuration=4). With both at
+    // 12s the pipelined timing model can't fit propose+attest+publish in one Aztec slot and txs
+    // get dropped from the mempool. Let the fixture pick its pipelining-aware defaults.
     ({
       teardown,
       logger,
@@ -46,11 +47,10 @@ describe.skip('e2e_l1_with_wall_time', () => {
       accounts: [defaultAccountAddress],
     } = await setup(1, {
       initialValidators,
-      ethereumSlotDuration,
     }));
   });
 
-  afterEach(() => teardown());
+  afterEach(() => teardown?.());
 
   it('should produce blocks with a bunch of transactions', async () => {
     for (let i = 0; i < numberOfBlocks; i++) {
