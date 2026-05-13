@@ -14,7 +14,7 @@ template <typename FF_> class gtImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 4 };
+    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 4 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -35,7 +35,7 @@ template <typename FF> class gt : public Relation<gtImpl<FF>> {
     static constexpr const std::string_view NAME = "gt";
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_GT_RESULT = 7;
+    static constexpr size_t SR_GT_RESULT = 8;
 
     static std::string get_subrelation_label(size_t index)
     {
