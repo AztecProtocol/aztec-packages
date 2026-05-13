@@ -66,22 +66,18 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::process_gate_variables(std::vec
  * @return Vector of real variable indices constrained by this gate
  */
 template <typename FF, typename CircuitBuilder>
-template <typename Block, typename GateSelectorColumn>
+template <typename Block>
 std::vector<uint32_t> StaticAnalyzer_<FF, CircuitBuilder>::extract_gate_variables(
-    size_t index,
-    Block& blk,
-    const bb::gate_patterns::GatePattern& pattern,
-    const GateSelectorColumn& gate_selector_column)
+    size_t index, Block& blk, const bb::gate_patterns::GatePattern& pattern, bb::GateKind kind)
 {
     using namespace bb::gate_patterns;
 
-    // Check if gate selector is active
-    if (gate_selector_column[index].is_zero()) {
+    if (read_gate_selector(blk, kind, index).is_zero()) {
         return {};
     }
 
     // Read selectors and extract wire indices using the pattern
-    Selectors selectors = read_selectors(blk, index, gate_selector_column);
+    Selectors selectors = read_selectors(blk, index, kind);
     std::vector<uint32_t> gate_variables = extract_wires(blk, index, pattern, selectors);
 
     // Convert to real indices and process
@@ -262,28 +258,28 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
         for (size_t gate_idx = 0; gate_idx < blk.size(); gate_idx++) {
             // Try each pattern until one matches (returns non-empty)
             std::vector<uint32_t> cc;
-            auto try_pattern = [&](const GatePattern& pattern, const auto& selector) {
+            auto try_pattern = [&](const GatePattern& pattern, GateKind kind) {
                 if (cc.empty()) {
-                    cc = extract_gate_variables(gate_idx, blk, pattern, selector);
+                    cc = extract_gate_variables(gate_idx, blk, pattern, kind);
                 }
             };
 
             // Standard gate patterns (mutually exclusive - at most one will match)
-            try_pattern(ARITHMETIC, blk.q_arith());
-            try_pattern(ELLIPTIC, blk.q_elliptic());
-            try_pattern(LOOKUP, blk.q_lookup());
-            try_pattern(POSEIDON2_EXTERNAL, blk.q_poseidon2_external());
+            try_pattern(ARITHMETIC, GateKind::Arith);
+            try_pattern(ELLIPTIC, GateKind::Elliptic);
+            try_pattern(LOOKUP, GateKind::Lookup);
+            try_pattern(POSEIDON2_EXTERNAL, GateKind::Poseidon2Ext);
             if constexpr (IsMegaBuilder<CircuitBuilder>) {
-                try_pattern(POSEIDON2_QUAD_INTERNAL, blk.q_poseidon2_quad_internal());
-                try_pattern(POSEIDON2_QUAD_INTERNAL_TERMINAL, blk.q_poseidon2_quad_internal_terminal());
-                try_pattern(POSEIDON2_TRANSITION_ENTRY, blk.q_poseidon2_transition_entry());
-                try_pattern(POSEIDON2_INITIAL_EXTERNAL, blk.q_poseidon2_external_initial());
+                try_pattern(POSEIDON2_QUAD_INTERNAL, GateKind::Poseidon2QuadInt);
+                try_pattern(POSEIDON2_QUAD_INTERNAL_TERMINAL, GateKind::Poseidon2QuadIntTerminal);
+                try_pattern(POSEIDON2_TRANSITION_ENTRY, GateKind::Poseidon2TransitionEntry);
+                try_pattern(POSEIDON2_INITIAL_EXTERNAL, GateKind::Poseidon2ExtInitial);
             } else {
-                try_pattern(POSEIDON2_INTERNAL, blk.q_poseidon2_internal());
+                try_pattern(POSEIDON2_INTERNAL, GateKind::Poseidon2Int);
             }
-            try_pattern(NON_NATIVE_FIELD, blk.q_nnf());
-            try_pattern(MEMORY, blk.q_memory()); // consistency gates only; access gates via ROM/RAM transcripts
-            try_pattern(DELTA_RANGE, blk.q_delta_range());
+            try_pattern(NON_NATIVE_FIELD, GateKind::Nnf);
+            try_pattern(MEMORY, GateKind::Memory); // consistency gates only; access gates via ROM/RAM transcripts
+            try_pattern(DELTA_RANGE, GateKind::DeltaRange);
 
             if (!cc.empty() && connect_variables) {
                 connect_all_variables_in_vector(cc);
@@ -291,7 +287,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
 
             // MegaBuilder-specific patterns
             if constexpr (IsMegaBuilder<CircuitBuilder>) {
-                auto databus_cc = extract_gate_variables(gate_idx, blk, DATABUS, blk.q_busread());
+                auto databus_cc = extract_gate_variables(gate_idx, blk, DATABUS, GateKind::BusRead);
                 if (!databus_cc.empty() && connect_variables) {
                     connect_all_variables_in_vector(databus_cc);
                 }
@@ -529,8 +525,8 @@ std::vector<ConnectedComponent> StaticAnalyzer_<FF, CircuitBuilder>::find_connec
 template <typename FF, typename CircuitBuilder>
 bool StaticAnalyzer_<FF, CircuitBuilder>::is_gate_sorted_rom(auto& memory_block, size_t gate_idx) const
 {
-    return memory_block.q_memory()[gate_idx] == FF::one() && memory_block.q_1()[gate_idx] == FF::one() &&
-           memory_block.q_2()[gate_idx] == FF::one();
+    return memory_block.gate_selector_for(GateKind::Memory)[gate_idx] == FF::one() &&
+           memory_block.q_1()[gate_idx] == FF::one() && memory_block.q_2()[gate_idx] == FF::one();
 }
 
 /**
@@ -666,7 +662,7 @@ inline size_t StaticAnalyzer_<FF, CircuitBuilder>::process_current_decompose_cha
         if (out_idx != zero_idx) {
             variables_in_one_gate.erase(this->to_real(out_idx));
         }
-        auto q_arith = arithmetic_block.q_arith()[current_index];
+        auto q_arith = arithmetic_block.gate_selector_for(GateKind::Arith)[current_index];
         if (q_arith == 1 || current_index == arithmetic_block.size() - 1) {
             // this is the last gate in this chain, or we can't go next, so we have to stop a loop
             break;
@@ -1000,7 +996,7 @@ inline void StaticAnalyzer_<FF, CircuitBuilder>::remove_record_witness_variables
             auto q_3 = memory_block.q_3()[gate_idx];
             auto q_4 = memory_block.q_4()[gate_idx];
             auto q_m = memory_block.q_m()[gate_idx];
-            auto q_arith = memory_block.q_arith()[gate_idx];
+            auto q_arith = read_gate_selector(memory_block, GateKind::Arith, gate_idx);
             if (q_1 == FF::one() && q_m == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() &&
                 q_arith.is_zero()) {
                 // record witness can be in both ROM and RAM gates, so we can ignore q_c
@@ -1125,7 +1121,7 @@ template <typename FF, typename CircuitBuilder> void StaticAnalyzer_<FF, Circuit
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_arithmetic_gate_info(size_t gate_index, auto& block)
 {
-    auto q_arith = block.q_arith()[gate_index];
+    auto q_arith = read_gate_selector(block, GateKind::Arith, gate_index);
     if (!q_arith.is_zero()) {
         info("q_arith == ", q_arith);
         // fisrtly, print selectors for standard plonk gate
@@ -1160,7 +1156,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_arithmetic_gate_info(size_t gate
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_elliptic_gate_info(size_t gate_index, auto& block)
 {
-    auto q_elliptic = block.q_elliptic()[gate_index];
+    auto q_elliptic = read_gate_selector(block, GateKind::Elliptic, gate_index);
     if (!q_elliptic.is_zero()) {
         info("q_elliptic == ", q_elliptic);
         info("q_1 == ", block.q_1()[gate_index]);
@@ -1193,7 +1189,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_elliptic_gate_info(size_t gate_i
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_plookup_gate_info(size_t gate_index, auto& block)
 {
-    auto q_lookup = block.q_lookup()[gate_index];
+    auto q_lookup = read_gate_selector(block, GateKind::Lookup, gate_index);
     if (!q_lookup.is_zero()) {
         info("q_lookup == ", q_lookup);
         auto q_2 = block.q_2()[gate_index];
@@ -1227,7 +1223,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_plookup_gate_info(size_t gate_in
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_delta_range_gate_info(size_t gate_index, auto& block)
 {
-    auto q_delta_range = block.q_delta_range()[gate_index];
+    auto q_delta_range = read_gate_selector(block, GateKind::DeltaRange, gate_index);
     if (!q_delta_range.is_zero()) {
         info("q_delta_range == ", q_delta_range);
         info("w_1 == ", block.w_l()[gate_index]);
@@ -1251,21 +1247,22 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_delta_range_gate_info(size_t gat
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_poseidon2s_gate_info(size_t gate_index, auto& block)
 {
-    auto external_selector = block.q_poseidon2_external()[gate_index];
+    auto external_selector = read_gate_selector(block, GateKind::Poseidon2Ext, gate_index);
     bool nonzero = !external_selector.is_zero();
     if constexpr (IsMegaBuilder<CircuitBuilder>) {
-        nonzero = nonzero || !block.q_poseidon2_external_initial()[gate_index].is_zero() ||
-                  !block.q_poseidon2_quad_internal()[gate_index].is_zero();
+        nonzero = nonzero || !read_gate_selector(block, GateKind::Poseidon2ExtInitial, gate_index).is_zero() ||
+                  !read_gate_selector(block, GateKind::Poseidon2QuadInt, gate_index).is_zero();
     } else {
-        nonzero = nonzero || !block.q_poseidon2_internal()[gate_index].is_zero();
+        nonzero = nonzero || !read_gate_selector(block, GateKind::Poseidon2Int, gate_index).is_zero();
     }
     if (nonzero) {
         info("q_poseidon2_external == ", external_selector);
         if constexpr (IsMegaBuilder<CircuitBuilder>) {
-            info("q_poseidon2_external_initial == ", block.q_poseidon2_external_initial()[gate_index]);
-            info("q_poseidon2_quad_internal == ", block.q_poseidon2_quad_internal()[gate_index]);
+            info("q_poseidon2_external_initial == ",
+                 read_gate_selector(block, GateKind::Poseidon2ExtInitial, gate_index));
+            info("q_poseidon2_quad_internal == ", read_gate_selector(block, GateKind::Poseidon2QuadInt, gate_index));
         } else {
-            info("q_poseidon2_internal == ", block.q_poseidon2_internal()[gate_index]);
+            info("q_poseidon2_internal == ", read_gate_selector(block, GateKind::Poseidon2Int, gate_index));
         }
         info("w_1 == ", block.w_l()[gate_index]);
         info("w_2 == ", block.w_r()[gate_index]);
@@ -1291,7 +1288,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_poseidon2s_gate_info(size_t gate
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_nnf_gate_info(size_t gate_idx, auto& block)
 {
-    auto q_nnf = block.q_nnf()[gate_idx];
+    auto q_nnf = read_gate_selector(block, GateKind::Nnf, gate_idx);
     if (!q_nnf.is_zero()) {
         info("q_nnf == ", q_nnf);
         auto q_2 = block.q_2()[gate_idx];
@@ -1331,7 +1328,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_nnf_gate_info(size_t gate_idx, a
 template <typename FF, typename CircuitBuilder>
 void StaticAnalyzer_<FF, CircuitBuilder>::print_memory_gate_info(size_t gate_index, auto& block)
 {
-    auto q_memory = block.q_memory()[gate_index];
+    auto q_memory = read_gate_selector(block, GateKind::Memory, gate_index);
     if (!q_memory.is_zero()) {
         info("q_memory == ", q_memory);
         auto q_1 = block.q_1()[gate_index];
@@ -1395,7 +1392,7 @@ void StaticAnalyzer_<FF, CircuitBuilder>::print_variable_info(const uint32_t rea
                 print_nnf_gate_info(gate_index, block);
                 print_memory_gate_info(gate_index, block);
                 if constexpr (IsMegaBuilder<CircuitBuilder>) {
-                    auto q_databus = block.q_busread()[gate_index];
+                    auto q_databus = read_gate_selector(block, GateKind::BusRead, gate_index);
                     if (!q_databus.is_zero()) {
                         info("q_databus == ", q_databus);
                     }
