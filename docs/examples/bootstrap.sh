@@ -96,20 +96,33 @@ function compile-solidity {
 
   mkdir -p "$OUTPUT_DIR"
 
-  # Compile using the local foundry.toml with proper remappings
+  # Compile using the local foundry.toml with proper remappings.
+  # Surface per-subdir forge failures so the outer run_step can retry on a
+  # transient error (e.g. solc download DNS hiccup): without this the loop
+  # would silently swallow individual failures and leave TS validation to
+  # fail with opaque "Cannot find module .../target/solidity/.../X.json"
+  # errors. Subshell exit propagates as the function's return code.
   (
     cd "$SOLIDITY_DIR"
+    local failed_subdirs=()
     for subdir in */; do
       if [ -d "$subdir" ] && ls "$subdir"/*.sol >/dev/null 2>&1; then
         local subdir_name=$(basename "$subdir")
         echo_stderr "Compiling $subdir_name..."
-        forge build \
-          --contracts "$subdir" \
-          --out "$OUTPUT_DIR/$subdir_name" \
-          --no-cache
+        if ! forge build \
+            --contracts "$subdir" \
+            --out "$OUTPUT_DIR/$subdir_name" \
+            --no-cache; then
+          echo_stderr "ERROR: forge build failed for $subdir_name"
+          failed_subdirs+=("$subdir_name")
+        fi
       fi
     done
-  )
+    if [ ${#failed_subdirs[@]} -gt 0 ]; then
+      echo_stderr "Solidity compilation failed for: ${failed_subdirs[*]}"
+      exit 1
+    fi
+  ) || return 1
 
   echo_stderr "Solidity artifacts written to $OUTPUT_DIR"
 }
