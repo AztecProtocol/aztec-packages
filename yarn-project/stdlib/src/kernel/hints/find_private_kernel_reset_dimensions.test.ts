@@ -20,7 +20,7 @@ import {
 } from '../private_kernel_reset_dimensions.js';
 import { findPrivateKernelResetDimensions } from './find_private_kernel_reset_dimensions.js';
 
-const v3InnerCatalog: ResetCatalogEntry[] = [
+const sampleInnerCatalog: ResetCatalogEntry[] = [
   { name: 'inner_settled_reads_lg', dimensions: [0, 64, 0, 0, 0, 0, 0, 0, 0] },
   { name: 'inner_pending_reads_lg', dimensions: [32, 0, 32, 0, 0, 0, 0, 0, 0] },
   { name: 'inner_read_combo_md', dimensions: [8, 8, 8, 8, 4, 0, 0, 0, 0] },
@@ -29,7 +29,7 @@ const v3InnerCatalog: ResetCatalogEntry[] = [
   { name: 'inner_universal_lg', dimensions: [32, 16, 32, 16, 16, 16, 0, 0, 0] },
 ];
 
-const v3FinalCatalog: ResetCatalogEntry[] = [
+const sampleFinalCatalog: ResetCatalogEntry[] = [
   { name: 'final_xs_bare', dimensions: [0, 2, 0, 2, 0, 0, 1, 2, 1] },
   { name: 'final_xs_pay', dimensions: [2, 2, 0, 1, 1, 0, 2, 3, 3] },
   { name: 'final_xs_pfee', dimensions: [2, 4, 0, 2, 2, 0, 2, 6, 4] },
@@ -42,7 +42,7 @@ const v3FinalCatalog: ResetCatalogEntry[] = [
   { name: 'final_xl_universal', dimensions: [16, 32, 16, 16, 16, 16, 16, 32, 16] },
 ];
 
-const v3Costs: { [K in DimensionName]: number } = {
+const sampleCosts: { [K in DimensionName]: number } = {
   NOTE_HASH_PENDING_READ: 100,
   NOTE_HASH_SETTLED_READ: 3000,
   NULLIFIER_PENDING_READ: 100,
@@ -164,18 +164,18 @@ describe('findPrivateKernelResetDimensions', () => {
   describe('with named-entry catalog', () => {
     const config: PrivateKernelResetDimensionsConfig = {
       dimensions: {
-        NOTE_HASH_PENDING_READ: { cost: v3Costs.NOTE_HASH_PENDING_READ },
-        NOTE_HASH_SETTLED_READ: { cost: v3Costs.NOTE_HASH_SETTLED_READ },
-        NULLIFIER_PENDING_READ: { cost: v3Costs.NULLIFIER_PENDING_READ },
-        NULLIFIER_SETTLED_READ: { cost: v3Costs.NULLIFIER_SETTLED_READ },
-        KEY_VALIDATION: { cost: v3Costs.KEY_VALIDATION },
-        TRANSIENT_DATA_SQUASHING: { cost: v3Costs.TRANSIENT_DATA_SQUASHING },
-        NOTE_HASH_SILOING: { cost: v3Costs.NOTE_HASH_SILOING },
-        NULLIFIER_SILOING: { cost: v3Costs.NULLIFIER_SILOING },
-        PRIVATE_LOG_SILOING: { cost: v3Costs.PRIVATE_LOG_SILOING },
+        NOTE_HASH_PENDING_READ: { cost: sampleCosts.NOTE_HASH_PENDING_READ },
+        NOTE_HASH_SETTLED_READ: { cost: sampleCosts.NOTE_HASH_SETTLED_READ },
+        NULLIFIER_PENDING_READ: { cost: sampleCosts.NULLIFIER_PENDING_READ },
+        NULLIFIER_SETTLED_READ: { cost: sampleCosts.NULLIFIER_SETTLED_READ },
+        KEY_VALIDATION: { cost: sampleCosts.KEY_VALIDATION },
+        TRANSIENT_DATA_SQUASHING: { cost: sampleCosts.TRANSIENT_DATA_SQUASHING },
+        NOTE_HASH_SILOING: { cost: sampleCosts.NOTE_HASH_SILOING },
+        NULLIFIER_SILOING: { cost: sampleCosts.NULLIFIER_SILOING },
+        PRIVATE_LOG_SILOING: { cost: sampleCosts.PRIVATE_LOG_SILOING },
       },
-      inner: v3InnerCatalog,
-      final: v3FinalCatalog,
+      inner: sampleInnerCatalog,
+      final: sampleFinalCatalog,
     };
 
     const pickFinal = (request: Partial<FieldsOf<PrivateKernelResetDimensions>>) =>
@@ -185,7 +185,7 @@ describe('findPrivateKernelResetDimensions', () => {
       findPrivateKernelResetDimensions(PrivateKernelResetDimensions.from(request), config, true, true);
 
     const entry = (name: string) => {
-      const all = [...v3InnerCatalog, ...v3FinalCatalog];
+      const all = [...sampleInnerCatalog, ...sampleFinalCatalog];
       return all.find(e => e.name === name)!;
     };
 
