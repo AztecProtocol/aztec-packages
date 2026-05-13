@@ -307,7 +307,8 @@ function simplifyZodType(expr: string): string {
   if (e === 'BlockParameterSchema') return 'BlockHash | number | "latest"';
 
   // Known schema objects
-  if (e === 'L2TipsSchema') return 'L2Tips';
+  if (e === 'ChainTipsSchema') return 'ChainTips';
+  if (e === 'ChainTipSchema') return 'ChainTip';
   if (e === 'WorldStateSyncStatusSchema') return 'WorldStateSyncStatus';
   if (e === 'NodeInfoSchema') return 'NodeInfo';
   if (e === 'L1ContractAddressesSchema') return 'L1ContractAddresses';
@@ -419,19 +420,14 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
     namespace: 'node',
     methods: [
       'getBlockNumber',
-      'getProvenBlockNumber',
-      'getCheckpointedBlockNumber',
       'getCheckpointNumber',
-      'getL2Tips',
+      'getChainTips',
       'getBlock',
-      'getBlockByHash',
-      'getBlockByArchive',
+      'getBlockData',
       'getBlocks',
-      'getBlockHeader',
-      'getBlockHeaderByArchive',
+      'getCheckpoint',
       'getCheckpoints',
-      'getCheckpointedBlocks',
-      'getCheckpointsDataForEpoch',
+      'getCheckpointsData',
     ],
   },
   {
@@ -472,7 +468,6 @@ const METHOD_GROUPS: { heading: string; namespace: string; methods: string[] }[]
     methods: [
       'getL1ToL2MessageMembershipWitness',
       'getL1ToL2MessageCheckpoint',
-      'isL1ToL2MessageSynced',
       'getL2ToL1Messages',
     ],
   },

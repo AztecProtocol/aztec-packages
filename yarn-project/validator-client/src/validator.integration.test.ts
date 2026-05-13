@@ -109,7 +109,7 @@ describe('ValidatorClient Integration', () => {
     // production wiring (see aztec-node/server.ts). Both sides must agree on the genesis hash for
     // L2BlockStream's `areBlockHashesEqualAt` check to succeed at block 0.
     const wsConfig = {
-      l1Contracts: { rollupAddress },
+      rollupAddress,
       worldStateBlockCheckIntervalMS: 20,
       worldStateBlockRequestBatchSize: 10,
       worldStateDbMapSizeKb: 1024 * 1024,
@@ -170,7 +170,7 @@ describe('ValidatorClient Integration', () => {
     // Create and start validator
     const validator = await ValidatorClient.new(
       {
-        l1Contracts: { rollupAddress },
+        rollupAddress,
         l1ChainId: chainId.toNumber(),
         validatorPrivateKeys: new SecretValue([privateKey]),
         attestationPollingIntervalMs: 100,
@@ -179,6 +179,7 @@ describe('ValidatorClient Integration', () => {
         slashBroadcastedInvalidBlockPenalty: 10n,
         slashDuplicateProposalPenalty: 10n,
         slashDuplicateAttestationPenalty: 10n,
+        slashAttestInvalidCheckpointProposalPenalty: 10n,
         haSigningEnabled: false,
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,

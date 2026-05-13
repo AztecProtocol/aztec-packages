@@ -56,7 +56,7 @@ describe('sentinel', () => {
     slashInactivityTargetPercentage: 0.8,
     slashInactivityConsecutiveEpochThreshold: 1,
     l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
-    l1Contracts: { rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress },
+    rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
   };
 
   beforeEach(async () => {

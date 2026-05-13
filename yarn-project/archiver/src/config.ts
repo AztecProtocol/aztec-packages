@@ -1,6 +1,5 @@
 import { type BlobClientConfig, blobClientConfigMapping } from '@aztec/blob-client/client/config';
 import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
-import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
   type ConfigMappingsType,
@@ -87,10 +86,6 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     ...numberConfigHelper(1000),
   },
   ...l1ContractsConfigMappings,
-  l1Contracts: {
-    description: 'The deployed L1 contract addresses',
-    nested: l1ContractAddressesMapping,
-  },
 };
 
 /**

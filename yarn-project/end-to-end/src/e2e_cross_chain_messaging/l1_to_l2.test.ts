@@ -67,7 +67,11 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         if (!isCheckpointed) {
           return undefined;
         }
-        const [checkpointedBlock] = await aztecNode.getCheckpointedBlocks(blockNumber, 1);
+        const [checkpointedBlock] = await aztecNode.getBlocks(blockNumber, 1, {
+          includeL1PublishInfo: true,
+          includeAttestations: true,
+          onlyCheckpointed: true,
+        });
         return checkpointedBlock.checkpointNumber;
       },
       'wait for block to checkpoint',
@@ -162,13 +166,16 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       const [message1Index] = (await aztecNode.getL1ToL2MessageMembershipWitness('latest', message1Hash))!;
       expect(actualMessage1Index.toBigInt()).toBe(message1Index);
 
+      const sendConsumeMsgTx = async (index: Fr) => {
+        const call = getConsumeMethod(scope)(message.content, secret, crossChainTestHarness.ethAccount, index);
+        if (scope === 'public') {
+          await call.simulate({ from: user1Address });
+        }
+        await call.send({ from: user1Address });
+      };
+
       // We consume the L1 to L2 message using the test contract either from private or public
-      await getConsumeMethod(scope)(
-        message.content,
-        secret,
-        crossChainTestHarness.ethAccount,
-        actualMessage1Index,
-      ).send({ from: user1Address });
+      await sendConsumeMsgTx(actualMessage1Index);
 
       // We send and consume the exact same message the second time to test that oracles correctly return the new
       // non-nullified message
@@ -187,12 +194,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
 
       // Now we consume the message again. Everything should pass because oracle should return the duplicate message
       // which is not nullified
-      await getConsumeMethod(scope)(
-        message.content,
-        secret,
-        crossChainTestHarness.ethAccount,
-        actualMessage2Index,
-      ).send({ from: user1Address });
+      await sendConsumeMsgTx(actualMessage2Index);
     },
     120_000,
   );
@@ -206,7 +208,11 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     async (scope: 'private' | 'public') => {
       // Stop proving
       const lastProven = await aztecNode.getBlockNumber();
-      const [checkpointedProvenBlock] = await aztecNode.getCheckpointedBlocks(lastProven, 1);
+      const [checkpointedProvenBlock] = await aztecNode.getBlocks(lastProven, 1, {
+        includeL1PublishInfo: true,
+        includeAttestations: true,
+        onlyCheckpointed: true,
+      });
       log.warn(`Stopping proof submission at checkpoint ${checkpointedProvenBlock.checkpointNumber} to allow drift`);
       t.context.watcher.setIsMarkingAsProven(false);
 

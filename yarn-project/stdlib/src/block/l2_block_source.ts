@@ -6,6 +6,7 @@ import {
   type EpochNumber,
   EpochNumberSchema,
   type SlotNumber,
+  SlotNumberSchema,
 } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
@@ -14,8 +15,7 @@ import type { TypedEventEmitter } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
-import type { Checkpoint } from '../checkpoint/checkpoint.js';
-import type { CheckpointData, CommonCheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
+import type { CheckpointData, ProposedCheckpointData } from '../checkpoint/checkpoint_data.js';
 import type { PublishedCheckpoint } from '../checkpoint/published_checkpoint.js';
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -56,6 +56,39 @@ export const BlocksQuerySchema: z.ZodType<BlocksQuery, z.ZodTypeDef, unknown> = 
   z.object({ epoch: EpochNumberSchema, onlyCheckpointed: z.literal(true) }).strict(),
 ]);
 
+/** Lookup a single confirmed checkpoint by checkpoint number, slot, or chain-tip tag. */
+export type CheckpointQuery =
+  | { number: CheckpointNumber }
+  | { slot: SlotNumber }
+  | { tag: 'checkpointed' | 'proven' | 'finalized' };
+
+/** Query a range of confirmed checkpoints by start/limit or by epoch. */
+export type CheckpointsQuery = { from: CheckpointNumber; limit: number } | { epoch: EpochNumber };
+
+/**
+ * Lookup a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint.
+ * Distinct from CheckpointQuery because proposed checkpoints have a different shape
+ * (no l1, no attestations, but carries totalManaUsed) and live in their own LMDB map.
+ */
+export type ProposedCheckpointQuery = { number: CheckpointNumber } | { slot: SlotNumber } | { tag: 'proposed' };
+
+export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, z.ZodTypeDef, unknown> = z.union([
+  z.object({ number: CheckpointNumberSchema }).strict(),
+  z.object({ slot: SlotNumberSchema }).strict(),
+  z.object({ tag: z.union([z.literal('checkpointed'), z.literal('proven'), z.literal('finalized')]) }).strict(),
+]);
+
+export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, z.ZodTypeDef, unknown> = z.union([
+  z.object({ from: CheckpointNumberSchema, limit: z.number().int().min(1) }).strict(),
+  z.object({ epoch: EpochNumberSchema }).strict(),
+]);
+
+export const ProposedCheckpointQuerySchema: z.ZodType<ProposedCheckpointQuery, z.ZodTypeDef, unknown> = z.union([
+  z.object({ number: CheckpointNumberSchema }).strict(),
+  z.object({ slot: SlotNumberSchema }).strict(),
+  z.object({ tag: z.literal('proposed') }).strict(),
+]);
+
 /**
  * Interface of classes allowing for the retrieval of L2 blocks.
  */
@@ -93,66 +126,32 @@ export interface L2BlockSource {
   getCheckpointNumber(): Promise<CheckpointNumber>;
 
   /**
-   * Gets the number of the latest L2 block proven seen by the block source implementation.
-   * @returns The number of the latest L2 block proven seen by the block source implementation.
+   * Gets a single confirmed checkpoint matching the given query.
+   * Heavy shape: includes nested full `L2Block`s with transaction bodies.
+   * @param query - Lookup by checkpoint number, slot, or chain-tip tag.
    */
-  getProvenBlockNumber(): Promise<BlockNumber>;
+  getCheckpoint(query: CheckpointQuery): Promise<PublishedCheckpoint | undefined>;
 
   /**
-   * Gets the number of the latest L2 block checkpointed seen by the block source implementation.
-   * @returns The number of the latest L2 block checkpointed seen by the block source implementation.
+   * Gets a collection of confirmed checkpoints matching the given query.
+   * Heavy shape: includes nested full `L2Block`s with transaction bodies.
+   * @param query - Range by start/limit or by epoch.
    */
-  getCheckpointedL2BlockNumber(): Promise<BlockNumber>;
-
-  /**
-   * Returns the finalized L2 block number. A block is finalized when it was proven
-   * in an L1 block that has itself been finalized on Ethereum.
-   * @returns The finalized block number.
-   */
-  getFinalizedL2BlockNumber(): Promise<BlockNumber>;
-
-  /**
-   * Retrieves a collection of checkpoints.
-   * @param checkpointNumber The first checkpoint to be retrieved.
-   * @param limit The number of checkpoints to be retrieved.
-   * @returns The collection of complete checkpoints.
-   */
-  getCheckpoints(checkpointNumber: CheckpointNumber, limit: number): Promise<PublishedCheckpoint[]>;
-
-  /**
-   * Gets the checkpoints for a given epoch
-   * @param epochNumber - Epoch for which we want checkpoint data
-   */
-  getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]>;
-
-  /**
-   * Gets lightweight checkpoint metadata for a given epoch, without fetching full block data.
-   * @param epochNumber - Epoch for which we want checkpoint data
-   */
-  getCheckpointsDataForEpoch(epochNumber: EpochNumber): Promise<CheckpointData[]>;
+  getCheckpoints(query: CheckpointsQuery): Promise<PublishedCheckpoint[]>;
 
   /**
    * Gets lightweight checkpoint metadata for a single checkpoint.
    * Cheap passthrough for metadata-only queries (no block body reads).
-   * @param checkpointNumber - The checkpoint number to retrieve.
-   * @returns The requested checkpoint data (or undefined if not found).
+   * @param query - Lookup by checkpoint number, slot, or chain-tip tag.
    */
-  getCheckpointData(checkpointNumber: CheckpointNumber): Promise<CheckpointData | undefined>;
+  getCheckpointData(query: CheckpointQuery): Promise<CheckpointData | undefined>;
 
   /**
-   * Gets up to `limit` amount of checkpoint metadata entries starting from `from`.
+   * Gets a collection of lightweight checkpoint metadata entries matching the given query.
    * Cheap passthrough for metadata-only queries (no block body reads).
-   * @param from - The first checkpoint number to return (inclusive).
-   * @param limit - The maximum number of checkpoints to return.
+   * @param query - Range by start/limit or by epoch.
    */
-  getCheckpointDataRange(from: CheckpointNumber, limit: number): Promise<CheckpointData[]>;
-
-  /**
-   * Looks up the checkpoint number that contains the given slot.
-   * @param slot - The slot number to look up.
-   * @returns The checkpoint number (or undefined if not found).
-   */
-  getCheckpointNumberBySlot(slot: SlotNumber): Promise<CheckpointNumber | undefined>;
+  getCheckpointsData(query: CheckpointsQuery): Promise<CheckpointData[]>;
 
   /**
    * Gets a tx effect.
@@ -198,6 +197,13 @@ export interface L2BlockSource {
    */
   getL1Constants(): Promise<L1RollupConstants>;
 
+  /**
+   * Returns true iff `canPruneAtTime` would be true at the latest L1 timestamp inside
+   * the L2 slot's window. Computed entirely from local archiver state (no L1 RPC).
+   * @param slot - The L2 slot to check.
+   */
+  isPruneDueAtSlot(slot: SlotNumber): Promise<boolean>;
+
   /** Returns values for the genesis block */
   getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }>;
 
@@ -222,11 +228,13 @@ export interface L2BlockSource {
    */
   getPendingChainValidationStatus(): Promise<ValidateCheckpointResult>;
 
-  /** Returns the checkpoint at the proposed chain tip. */
-  getLastCheckpoint(): Promise<CommonCheckpointData | undefined>;
-
-  /** Returns proposed checkpoint, if set, undefined if not*/
-  getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined>;
+  /**
+   * Looks up a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint.
+   * Returns the latest proposed entry when called with no args or `{ tag: 'proposed' }`.
+   * With `{ number }` or `{ slot }`, returns the matching entry or undefined.
+   * Never falls back to confirmed checkpoints.
+   */
+  getProposedCheckpointData(query?: ProposedCheckpointQuery): Promise<ProposedCheckpointData | undefined>;
 
   /** Force a sync. */
   syncImmediate(): Promise<void>;

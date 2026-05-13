@@ -268,11 +268,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       env: undefined,
     },
-    ...getOptions(
-      'proverBroker',
-      // filter out archiver options from prover node options as they're passed separately in --archiver
-      proverBrokerConfigMappings,
-    ),
+    ...getOptions('proverBroker', proverBrokerConfigMappings),
   ],
   'PROVER AGENT': [
     {

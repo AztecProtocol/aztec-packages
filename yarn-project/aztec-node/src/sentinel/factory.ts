@@ -15,7 +15,7 @@ export async function createSentinel(
   epochCache: EpochCache,
   archiver: L2BlockSource,
   p2p: P2PClient,
-  config: SentinelConfig & DataStoreConfig & SlasherConfig & Pick<ChainConfig, 'l1ChainId' | 'l1Contracts'>,
+  config: SentinelConfig & DataStoreConfig & SlasherConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>,
   logger = createLogger('node:sentinel'),
 ): Promise<Sentinel | undefined> {
   if (!config.sentinelEnabled) {

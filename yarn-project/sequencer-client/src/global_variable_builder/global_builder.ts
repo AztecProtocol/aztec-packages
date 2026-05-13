@@ -3,7 +3,6 @@ import {
   type SimulationOverridesPlan,
   buildSimulationOverridesStateOverride,
 } from '@aztec/ethereum/contracts';
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -20,7 +19,7 @@ import { GlobalVariables } from '@aztec/stdlib/tx';
 
 /** Configuration for the GlobalVariableBuilder (excludes L1 client config). */
 export type GlobalVariableBuilderConfig = {
-  l1Contracts: Pick<L1ContractAddresses, 'rollupAddress'>;
+  rollupAddress: EthAddress;
   ethereumSlotDuration: number;
   rollupVersion: bigint;
 } & Pick<L1RollupConstants, 'slotDuration' | 'l1GenesisTime'>;
@@ -49,7 +48,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     this.aztecSlotDuration = config.slotDuration;
     this.l1GenesisTime = config.l1GenesisTime;
 
-    this.rollupContract = new RollupContract(this.publicClient, config.l1Contracts.rollupAddress);
+    this.rollupContract = new RollupContract(this.publicClient, config.rollupAddress);
   }
 
   /**
