@@ -45,8 +45,8 @@ typename G::affine_element element<C, Fq, Fr, G>::compute_table_offset_generator
  * a special case) would cause the final MSM output to be wrong, failing the verifier's checks.
  */
 template <typename C, class Fq, class Fr, class G>
-std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr, G>::mask_points(
-    const std::vector<element>& _points, const std::vector<Fr>& _scalars)
+std::tuple<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>, element<C, Fq, Fr, G>> element<C, Fq, Fr, G>::
+    mask_points(const std::vector<element>& _points, const std::vector<Fr>& _scalars)
 {
     std::vector<element> points;
     std::vector<Fr> scalars;
@@ -57,6 +57,13 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     C* builder = validate_context<C>(validate_context<C>(_points), validate_context<C>(_scalars));
     const typename G::affine_element native_offset_generator = typename G::affine_element(G::element::random_element());
     const element offset_generator_element = element::from_witness(builder, native_offset_generator);
+
+    // Disallow offset generator G = ∞ (point at infinity) because the downstream ROM table logic relies on
+    // none of the points being at infinity. If we allow any point to be at infinity in ROM table construction,
+    // a malicious prover can cause the output of the MSM to be wrong.
+    offset_generator_element.is_point_at_infinity().assert_equal(
+        false, "mask_points: offset generator must not be the point at infinity");
+
     auto empty_tag = OriginTag::constant(); // Disable origin checking during intermediate operations
     offset_generator_element.set_origin_tag(empty_tag);
 
@@ -71,7 +78,11 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
         scalars.push_back(_scalars[i]);
 
         // Convert point into point + (2ⁱ)⋅G_offset
-        points.push_back(_points[i].add_internal(running_point));
+        element masked = _points[i].add_internal(running_point);
+        // Each masked point must also be finite, for the same ROM table reason as the offset generator above.
+        masked.is_point_at_infinity().assert_equal(false,
+                                                   "mask_points: masked point must not be the point at infinity");
+        points.push_back(masked);
 
         // Add 2ⁱ⋅scalar_i to the last scalar
         last_scalar += _scalars[i] * running_scalar;
@@ -93,7 +104,7 @@ std::pair<std::vector<element<C, Fq, Fr, G>>, std::vector<Fr>> element<C, Fq, Fr
     // Add in-circuit 2ⁿ·G_offset to points
     points.push_back(running_point);
 
-    return { points, scalars };
+    return { points, scalars, offset_generator_element };
 }
 
 /**

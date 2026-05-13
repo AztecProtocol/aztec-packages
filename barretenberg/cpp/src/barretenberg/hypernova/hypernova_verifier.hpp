@@ -57,6 +57,7 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
      * @brief Verify folding proof. Return the new accumulator and the results of the two sumchecks.
      *
      * @param instance The verifier instance for the incoming circuit
+     * @param accumulator The current accumulator
      * @param proof The folding proof to verify
      * @return std::tuple<instance_sumcheck_verified, batching_sumcheck_verified, new_accumulator>
      *         - instance_sumcheck_verified: Did the Sumcheck on the incoming instance pass?
@@ -64,7 +65,9 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
      *         - new_accumulator: The combined accumulator (valid only if both checks pass)
      */
     std::tuple<bool, bool, Accumulator> verify_folding_proof(
-        const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance, const Proof& proof);
+        const std::shared_ptr<typename HypernovaFoldingVerifier::VerifierInstance>& instance,
+        const Accumulator& accumulator,
+        const Proof& proof);
 
   private:
     std::shared_ptr<Transcript> transcript;

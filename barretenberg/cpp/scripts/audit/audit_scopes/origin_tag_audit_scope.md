@@ -1,6 +1,6 @@
 # External Audit Scope: Origin Tag Security Mechanism
 
-Repository: https://github.com/AztecProtocol/aztec-packages
+Repository: https://github.com/AztecProtocol/aztec-packages-private
 Commit hash: Most recent commit on branch 'next'
 
 ## Files to Audit
@@ -32,7 +32,7 @@ Note: Paths relative to `aztec-packages/barretenberg/cpp/src/barretenberg`
 
 The Origin Tag security mechanism tracks the provenance of values in recursive verification circuits to detect Fiat-Shamir protocol violations. Each in-circuit value carries metadata identifying its source transcript (`transcript_index`) and protocol rounds (`round_provenance` bitmask). When values combine through arithmetic operations, their tags merge and security checks enforce: (1) values from different transcripts cannot interact, (2) submitted values from different rounds require intervening challenges, (3) free witnesses cannot mix with transcript-derived values, and (4) poisoned values abort immediately. The mechanism is only active in DEBUG builds.
 
-For detailed documentation, see [`transcript/README.md`](https://github.com/AztecProtocol/aztec-packages/blob/5824b41fac25d588f13c08578e179d1c4f37f27d/barretenberg/cpp/src/barretenberg/transcript/README.md) (sections "Origin Tag Security Mechanism" and "In-Circuit Transcript Flow").
+For detailed documentation, see [`transcript/README.md`](https://github.com/AztecProtocol/aztec-packages-private/blob/5824b41fac25d588f13c08578e179d1c4f37f27d/barretenberg/cpp/src/barretenberg/transcript/README.md) (sections "Origin Tag Security Mechanism" and "In-Circuit Transcript Flow").
 
 ## Test Files
 

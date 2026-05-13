@@ -1,8 +1,10 @@
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+
 import { strict as assert } from 'assert';
 
 import { TypeTag } from '../avm/avm_memory_types.js';
 import { Addressing, AddressingMode } from '../avm/opcodes/addressing_mode.js';
-import { Add, CalldataCopy, Cast, Jump, Return, Set } from '../avm/opcodes/index.js';
+import { Add, Call, CalldataCopy, Cast, Jump, Return, Set, Sha256Compression, Xor } from '../avm/opcodes/index.js';
 import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
 import {
   MAX_OPCODE_VALUE,
@@ -10,7 +12,7 @@ import {
   OperandType,
   getOperandSize,
 } from '../avm/serialization/instruction_serialization.js';
-import { deployAndExecuteCustomBytecode } from './custom_bytecode_tester.js';
+import { deployAndExecuteCustomBytecode, deployCustomBytecode } from './custom_bytecode_tester.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
 // First instruction resolved a base address (offset 0) which is uninitialized and therefore
@@ -363,4 +365,71 @@ function getTagOffsetInInstruction(wireFormat: OperandType[]): number {
     offset += getOperandSize(operand);
   }
   return offset;
+}
+
+export async function deployBitwiseSha256ErrorRowCollisionContracts(
+  tester: PublicTxSimulationTester,
+): Promise<{ innerContract: ContractInstanceWithAddress; outerContract: ContractInstanceWithAddress }> {
+  const innerBytecode = encodeToBytecode([
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT16, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+    new Xor(/*addressing_mode=*/ 0, /*aOffset=*/ 0, /*bOffset=*/ 1, /*dstOffset=*/ 2).as(Opcode.XOR_8, Xor.wireFormat8),
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  ]);
+
+  const outerInstructions = [
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, TypeTag.UINT32, /*value=*/ 1).as(Opcode.SET_8, Set.wireFormat8),
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 2, TypeTag.UINT32, /*value=*/ 100_000).as(
+      Opcode.SET_32,
+      Set.wireFormat32,
+    ),
+    new CalldataCopy(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 1, /*cdStartOffset=*/ 0, /*dstOffset=*/ 3),
+    new Call(
+      /*addressing_mode=*/ 0,
+      /*l2GasOffset=*/ 2,
+      /*daGasOffset=*/ 2,
+      /*addrOffset=*/ 3,
+      /*argsSizeOffset=*/ 0,
+      /*argsOffset=*/ 0,
+    ),
+  ];
+
+  for (let i = 0; i < 8; i++) {
+    outerInstructions.push(
+      new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 10 + i, TypeTag.UINT32, /*value=*/ 0).as(
+        Opcode.SET_8,
+        Set.wireFormat8,
+      ),
+    );
+  }
+
+  outerInstructions.push(
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 18, TypeTag.UINT32, /*value=*/ 0x61626364).as(
+      Opcode.SET_32,
+      Set.wireFormat32,
+    ),
+  );
+
+  for (let i = 0; i < 15; i++) {
+    outerInstructions.push(
+      new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 19 + i, TypeTag.UINT32, /*value=*/ 0).as(
+        Opcode.SET_8,
+        Set.wireFormat8,
+      ),
+    );
+  }
+
+  outerInstructions.push(
+    new Sha256Compression(/*addressing_mode=*/ 0, /*outputOffset=*/ 34, /*stateOffset=*/ 10, /*inputsOffset=*/ 18),
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  );
+
+  const innerContract = await deployCustomBytecode(innerBytecode, tester, 'BitwiseSha256CollisionInner');
+  const outerContract = await deployCustomBytecode(
+    encodeToBytecode(outerInstructions),
+    tester,
+    'BitwiseSha256CollisionOuter',
+  );
+  return { innerContract, outerContract };
 }

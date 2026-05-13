@@ -203,12 +203,35 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
     std::sort(std::execution::par_unseq, rom_array.records.begin(), rom_array.records.end());
 #endif
 
-    for (const RomRecord& record : rom_array.records) {
+    // The index-delta sub-relation has roots {0,-1} in the field, so a sorted chain starting at
+    // p-1 satisfies the delta=1 check when transitioning to 0.  We symbolically pin the chain at
+    // both ends:
+    //   - first sorted record's index_witness = zero_idx()                  (start of chain)
+    //   - last  sorted record's index_witness = put_constant_variable(N-1)  (end   of chain)
+    // Combined with the index-delta sub-relation, every sorted index is symbolically bounded in
+    // [0, state.size() - 1] without relying on the multiset / Schwartz-Zippel argument.
+    //
+    // We use put_constant_variable rather than emitting a separate big_add_gate so the cost is
+    // amortized: put_constant_variable caches by value, and the wire's value is bound via the
+    // permutation argument's copy constraint to the cached fix_witness gate.  In the typical
+    // case where the constant N-1 is already used elsewhere in the circuit (as a bound, count,
+    // index, etc.), no new gate is emitted at all.
+    for (size_t i = 0; i < rom_array.records.size(); ++i) {
+        const RomRecord& record = rom_array.records[i];
         const auto index = record.index;
         const auto value1 = builder->get_variable(record.value_column1_witness);
         const auto value2 = builder->get_variable(record.value_column2_witness);
-        const auto index_witness = builder->add_variable(FF((uint64_t)index));
-        builder->update_used_witnesses(index_witness);
+        uint32_t index_witness;
+        if (i == 0) {
+            // Start-of-chain pin: bound to the circuit's constant zero.
+            index_witness = builder->zero_idx();
+        } else if (i == rom_array.records.size() - 1) {
+            // End-of-chain pin: bound to the circuit constant state.size() - 1 via copy constraint.
+            index_witness = builder->put_constant_variable(static_cast<uint64_t>(rom_array.state.size()) - 1);
+        } else {
+            index_witness = builder->add_variable(FF((uint64_t)index));
+            builder->update_used_witnesses(index_witness);
+        }
         const auto value1_witness = builder->add_variable(value1);
         const auto value2_witness = builder->add_variable(value2);
         // (the real values in) `sorted_record` will be identical to (those in) `record`, except with a different
@@ -245,6 +268,14 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
     // sorted list, where we set the first wire to equal `m + 1`, where `m` is the maximum allowed index in the sorted
     // list. Moreover, as `m + 1` is a circuit constant, this ensures that the checks correctly constrain the sorted ROM
     // gate chunks.
+    //
+    // N.B. We deliberately set max_index = state.size() (not state.size() - 1).  The ROM consistency sub-relation
+    //     adjacent_values_match_if_adjacent_indices_match = index_delta_is_zero * record_delta
+    // is gated on the *current* row's q_memory * q_1 * q_2, so it is active for the last sorted record.  When the
+    // delta from last.index (= state.size() - 1, pinned above) to dummy.index (= state.size()) is -1,
+    // index_delta_is_zero evaluates to 0 and the values-match constraint is vacuous, as desired.  If we instead set
+    // max_index = state.size() - 1, the delta would be 0 and the relation would force last.w4 == dummy.w4 = 0, which
+    // fails for any non-trivial ROM read.
     FF max_index_value((uint64_t)rom_array.state.size());
     uint32_t max_index = builder->add_variable(max_index_value);
 
@@ -263,8 +294,6 @@ void RomRamLogic_<ExecutionTrace>::process_ROM_array(CircuitBuilder* builder, co
             -max_index_value,
         },
         false);
-    // N.B. If the above check holds, we know the sorted list begins with an index value of 0,
-    // because the first cell is explicitly initialized using zero_idx as the index field.
 }
 
 template <typename ExecutionTrace> void RomRamLogic_<ExecutionTrace>::process_ROM_arrays(CircuitBuilder* builder)
@@ -508,12 +537,19 @@ void RomRamLogic_<ExecutionTrace>::process_RAM_array(CircuitBuilder* builder, co
 
     // Iterate over all but final RAM record. This is because one of the checks for the "interior" RAM gates is that the
     // next gate is also a RAM gate. We therfore apply a simplified check for the last gate.
+    //
+    // The index-delta sub-relation has roots {0,-1} in the field, so a sorted chain starting at
+    // p-1 satisfies the delta=1 check when transitioning to 0.  Pin the first sorted gate's
+    // index_witness to zero_idx() so that a malicious prover cannot start the chain at p-1.
     for (size_t i = 0; i < ram_array.records.size(); ++i) {
         const RamRecord& record = ram_array.records[i];
 
         const auto index = record.index;
         const auto value = builder->get_variable(record.value_witness);
-        const auto index_witness = builder->add_variable(FF((uint64_t)index));
+        // For the first sorted record (i==0, index must be 0 after sorting), bind to zero_idx()
+        // rather than a fresh add_variable so the witness is copy-constrained to the constant zero.
+        const uint32_t index_witness =
+            (i == 0) ? builder->zero_idx() : builder->add_variable(FF(static_cast<uint64_t>(index)));
         const auto timestamp_witess = builder->add_variable(FF(record.timestamp));
         const auto value_witness = builder->add_variable(value);
         // (the values in) `sorted_record` will be identical to (the values in) `record`, except with a different
