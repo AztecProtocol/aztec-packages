@@ -49,8 +49,9 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           export CI=1
-          ./ci3/slack_notify "#team-fairies" \
-            "Aztec CLI Acceptance Test passed for version ${VERSION} :white_check_mark:"
+          ./ci3/slack_notify \
+            "Aztec CLI Acceptance Test passed for version ${VERSION} :white_check_mark:" \
+            "#team-fairies"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
         if: failure() && github.event_name != 'workflow_dispatch'
