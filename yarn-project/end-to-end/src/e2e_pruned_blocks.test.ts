@@ -3,6 +3,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
@@ -23,6 +24,7 @@ describe('e2e_pruned_blocks', () => {
 
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
+  let cheatCodes: CheatCodes;
 
   let wallet: Wallet;
 
@@ -43,6 +45,7 @@ describe('e2e_pruned_blocks', () => {
     ({
       aztecNode,
       aztecNodeAdmin,
+      cheatCodes,
       logger,
       teardown,
       wallet,
@@ -68,12 +71,7 @@ describe('e2e_pruned_blocks', () => {
     }
   }
 
-  // TODO(kill-non-pipelined): mining the 5 dependent txs is fine (~24s/tx pipelined), but the
-  // node never observes the expected `unable to find leaf` error from pruned history within
-  // 15 min — the archiver/world-state pruning cadence under pipelining differs from the
-  // legacy flow this test was tuned for. Needs the pruning interaction with the auto-prove
-  // watcher validated under pipelining before re-enabling.
-  it.skip('can discover and use notes created in both pruned and available blocks', async () => {
+  it('can discover and use notes created in both pruned and available blocks', async () => {
     // This is the only test in this suite so it doesn't seem worthwhile to worry too much about reusable setup etc. For
     // simplicity's sake I just did the entire thing here.
 
@@ -98,13 +96,18 @@ describe('e2e_pruned_blocks', () => {
         .data,
     ).toBeGreaterThan(0);
 
-    // Mine enough blocks so the first mint block gets pruned. The test infrastructure auto-proves every
-    // checkpoint as it lands, and with slotsInAnEpoch=1 Anvil reports finalized = latest - 2, so
-    // finalization lags proving by just 2 L1 blocks. We mine WORLD_STATE_CHECKPOINT_HISTORY + 3 blocks:
-    // WORLD_STATE_CHECKPOINT_HISTORY to push the first mint block far enough back in history, and 3 to
-    // account for the 2-block finality lag plus one buffer.
+    // Mine enough blocks past the first mint block so it becomes eligible for pruning, then mark
+    // the chain as proven (the AnvilTestWatcher's automatic markAsProven loop only runs under
+    // automine, but this fixture uses interval mining — so we mark it explicitly here, the same
+    // way the test did before PR #21156 dropped the explicit call). World-state prunes on the
+    // chain-finalized event; with Anvil's `finalized = latest - 2` heuristic, we need a couple
+    // of additional L1 blocks after markAsProven so the archiver's `getFinalizedL1Block` query
+    // resolves to a block that already sees the new proven tip — so we mine a small buffer of
+    // empty checkpoints afterwards.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
-    await waitBlocks(WORLD_STATE_CHECKPOINT_HISTORY + 3);
+    await waitBlocks(WORLD_STATE_CHECKPOINT_HISTORY + 1);
+    await cheatCodes.rollup.markAsProven();
+    await waitBlocks(2);
 
     // The same historical query we performed before should now fail since this block is not available anymore. We poll
     // the node for a bit until it processes the blocks we marked as proven, causing the historical query to fail.
@@ -119,8 +122,8 @@ describe('e2e_pruned_blocks', () => {
         }
       },
       'waiting for pruning',
-      (WORLD_STATE_CHECK_INTERVAL_MS + ARCHIVER_POLLING_INTERVAL_MS) * 5,
-      0.2,
+      60,
+      0.5,
     );
 
     // We've completed the setup we were interested in, and can now simply mint the second half of the amount, transfer
