@@ -421,6 +421,10 @@ export class P2PClient extends WithTracer implements P2P {
     this.p2pService.registerDuplicateAttestationCallback(callback);
   }
 
+  public registerCheckpointAttestationCallback(callback: (attestation: CheckpointAttestation) => void): void {
+    this.p2pService.registerCheckpointAttestationCallback(callback);
+  }
+
   public async getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
     if (limit !== undefined && limit <= 0) {
       throw new TypeError('limit must be greater than 0');

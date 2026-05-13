@@ -179,6 +179,7 @@ describe('ValidatorClient Integration', () => {
         slashBroadcastedInvalidBlockPenalty: 10n,
         slashDuplicateProposalPenalty: 10n,
         slashDuplicateAttestationPenalty: 10n,
+        slashAttestInvalidCheckpointProposalPenalty: 10n,
         haSigningEnabled: false,
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,

@@ -169,6 +169,7 @@ describe('slashing/serialization', () => {
         OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS,
         OffenseType.PROPOSED_INCORRECT_ATTESTATIONS,
         OffenseType.ATTESTED_DESCENDANT_OF_INVALID,
+        OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
         OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
       ];
 

@@ -26,6 +26,9 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashInactivityPenalty: BigInt(slasherDefaultEnv.SLASH_INACTIVITY_PENALTY),
   slashProposeInvalidAttestationsPenalty: BigInt(slasherDefaultEnv.SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY),
   slashAttestDescendantOfInvalidPenalty: BigInt(slasherDefaultEnv.SLASH_ATTEST_DESCENDANT_OF_INVALID_PENALTY),
+  slashAttestInvalidCheckpointProposalPenalty: BigInt(
+    slasherDefaultEnv.SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY,
+  ),
   slashUnknownPenalty: BigInt(slasherDefaultEnv.SLASH_UNKNOWN_PENALTY),
   slashOffenseExpirationRounds: slasherDefaultEnv.SLASH_OFFENSE_EXPIRATION_ROUNDS,
   slashMaxPayloadSize: slasherDefaultEnv.SLASH_MAX_PAYLOAD_SIZE,
@@ -126,6 +129,12 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     description:
       'Penalty amount for slashing a validator that attested to a descendant of an invalid block (set to 0 to disable).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashAttestDescendantOfInvalidPenalty),
+  },
+  slashAttestInvalidCheckpointProposalPenalty: {
+    env: 'SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY',
+    description:
+      'Penalty amount for slashing a validator that attested to an invalid checkpoint proposal (set to 0 to disable).',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashAttestInvalidCheckpointProposalPenalty),
   },
   slashUnknownPenalty: {
     env: 'SLASH_UNKNOWN_PENALTY',
