@@ -1,5 +1,5 @@
 deploy:
-  NAMESPACE: "${NAMESPACE:-scenario}"
+  NAMESPACE: "scenario"
   CLUSTER: "aztec-gke-private"
   GCP_REGION: "us-west1-a"
   DESTROY_NAMESPACE: "true"

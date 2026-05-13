@@ -3,7 +3,7 @@ deploy:
   GCP_REGION: "us-west1-a"
   CLUSTER: "aztec-gke-private"
   NETWORK: "next-net"
-  NAMESPACE: "${NAMESPACE:-next-net-clone}"
+  NAMESPACE: "next-net-clone"
   DESTROY_NAMESPACE: "true"
   ETHEREUM_CHAIN_ID: "11155111"
   VERIFY_CONTRACTS: "false"

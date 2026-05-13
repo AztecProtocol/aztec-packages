@@ -1,5 +1,5 @@
 deploy:
-  NAMESPACE: "${NAMESPACE:-block-capacity}"
+  NAMESPACE: "block-capacity"
   CLUSTER: "aztec-gke-private"
   GCP_REGION: "us-west1-a"
   CREATE_ETH_DEVNET: "true"

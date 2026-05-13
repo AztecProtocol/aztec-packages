@@ -5,7 +5,7 @@
 # No `network:` baseline -- KIND uses local L1 (chain id 1337), not a public preset.
 
 deploy:
-  NAMESPACE: ${NAMESPACE:-kind}
+  NAMESPACE: kind
   CLUSTER: kind
   CREATE_ETH_DEVNET: true
   CREATE_ROLLUP_CONTRACTS: true
@@ -46,11 +46,10 @@ env:
 
   OTEL_COLLECTOR_ENDPOINT: "http://metrics-opentelemetry-collector.metrics:4318"
 
-# Image: AZTEC_DOCKER_IMAGE may be pre-set by CI; loader resolves ${VAR} placeholders
 shared:
   image:
     repository: aztecprotocol/aztec
-    tag: ${AZTEC_DOCKER_IMAGE_TAG:-latest}
+    tag: latest
 
 # Validators - minimal setup for upgrade test
 validator:

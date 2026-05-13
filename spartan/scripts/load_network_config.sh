@@ -45,11 +45,9 @@ merge_to_json() {
 }
 
 # JSON tree transforms live in sibling .ts files; each reads JSON on stdin and
-# writes JSON on stdout. See expand_placeholders.ts, apply_derived.ts,
-# resolve_secrets.ts for details.
-expand_placeholders() { "$script_dir/expand_placeholders.ts"; }
-apply_derived()       { "$script_dir/apply_derived.ts"; }
-resolve_secrets()     { "$script_dir/resolve_secrets.ts"; }
+# writes JSON on stdout. See apply_derived.ts, resolve_secrets.ts for details.
+apply_derived()  { "$script_dir/apply_derived.ts"; }
+resolve_secrets(){ "$script_dir/resolve_secrets.ts"; }
 
 # Strip leading underscore-prefixed keys (anchors-only keys like _defaults, _shared_image)
 # from a JSON object. Operates at the top level only.
@@ -133,10 +131,7 @@ main() {
   # Strip top-level keys we never want to export (network selector).
   merged_json="$(echo "$merged_json" | jq 'del(.network)')"
 
-  # Expand ${VAR} placeholders from current shell env.
-  merged_json="$(echo "$merged_json" | expand_placeholders)"
-
-  # Apply derived computations (e.g. devnet's MNEMONIC_INDEX_OFFSET from NAMESPACE).
+  # Apply env overrides and derived computations (env spread, devnet offsets, compositions).
   merged_json="$(echo "$merged_json" | apply_derived)"
 
   # Optionally fetch GCP secrets if any REPLACE_WITH_GCP_SECRET placeholders remain.

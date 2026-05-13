@@ -1,5 +1,5 @@
 deploy:
-  NAMESPACE: "${NAMESPACE:-prove-n-tps-real}"
+  NAMESPACE: "prove-n-tps-real"
   CLUSTER: "aztec-gke-private"
   GCP_REGION: "us-west1-a"
   CREATE_ETH_DEVNET: "true"

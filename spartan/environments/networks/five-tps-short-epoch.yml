@@ -1,10 +1,10 @@
 deploy:
-  NAMESPACE: "${NAMESPACE:-five-tps}"
+  NAMESPACE: "five-tps"
   CLUSTER: "aztec-gke-private"
   GCP_REGION: "us-west1-a"
   DESTROY_NAMESPACE: "true"
   DESTROY_ETH_DEVNET: "true"
-  CREATE_ETH_DEVNET: "${CREATE_ETH_DEVNET:-true}"
+  CREATE_ETH_DEVNET: "true"
   ETHEREUM_CHAIN_ID: "1337"
   CREATE_ROLLUP_CONTRACTS: "true"
   VERIFY_CONTRACTS: "false"
