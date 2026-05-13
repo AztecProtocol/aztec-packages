@@ -220,6 +220,18 @@ template <typename Curve> class MSM {
                                                              std::span<std::span<ScalarField>> scalars,
                                                              bool handle_edge_cases = true) noexcept;
 
+    /**
+     * @brief In-tree multi-threaded batch MSM, bypassing the BBERG_WEBGPU_MSM_HOOK delegation.
+     *
+     * Identical algorithmically to `batch_multi_scalar_mul`, but never routes through the WebGPU
+     * bridge when built with `BBERG_WEBGPU_MSM_HOOK`. Only the dev-page in-browser comparison harness
+     * should call this directly — production code paths should keep going through
+     * `batch_multi_scalar_mul` so the hook can take over for large BN254 batches.
+     */
+    static std::vector<AffineElement> batch_multi_scalar_mul_native(std::span<std::span<const AffineElement>> points,
+                                                                    std::span<std::span<ScalarField>> scalars,
+                                                                    bool handle_edge_cases = true) noexcept;
+
     // ======================= Test-Visible Methods =======================
     // Exposed for unit testing; not part of the public API.
 

@@ -518,6 +518,16 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
         }
     }
 #endif
+    return batch_multi_scalar_mul_native(points, scalars, handle_edge_cases);
+}
+
+template <typename Curve>
+std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul_native(
+    std::span<std::span<const typename Curve::AffineElement>> points,
+    std::span<std::span<ScalarField>> scalars,
+    bool handle_edge_cases) noexcept
+{
+    BB_ASSERT_EQ(points.size(), scalars.size());
     const size_t num_msms = points.size();
 
     std::vector<std::vector<uint32_t>> msm_scalar_indices;

@@ -4,6 +4,9 @@
 
 #include <atomic>
 
+#include "barretenberg/common/thread.hpp"
+#include "barretenberg/common/wasm_export.hpp"
+#include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 #include "webgpu_msm_marshalling.hpp"
 
 namespace bb::scalar_multiplication {
@@ -71,5 +74,64 @@ std::vector<curve::BN254::AffineElement> batch_multi_scalar_mul_webgpu_bn254(
 }
 
 } // namespace bb::scalar_multiplication
+
+// ---------------------------------------------------------------------------
+// In-browser comparison harness export.
+//
+// Direct WASM entry point that runs the in-tree multi-threaded Pippenger on
+// a BN254 G1 MSM without going through `MSM::batch_multi_scalar_mul`'s WebGPU
+// hook delegation (calling the regular entry point from a hooked WASM would
+// recurse into the JS bridge). Lives next to the bridge so the marshalling
+// helpers and the native MSM path are reachable from one place.
+//
+// Layout contract (matches `webgpu_msm_marshalling.hpp` and the JS dev page):
+//   points  — n × 64 LE non-Montgomery bytes  `[x_0[32] || y_0[32] || ...]`
+//   scalars — n × 32 LE non-Montgomery bytes  (Fr)
+//   result  — 64 LE non-Montgomery bytes      `[x[32] || y[32]]`
+//
+// `num_threads == 0` means "use the runtime default" (`bb::get_num_cpus()`).
+// Any non-zero value temporarily overrides the global concurrency for the
+// duration of the call so the dev page can sweep `threads=1` (single-threaded)
+// and `threads=N` (multi-threaded) on the same WASM instance.
+WASM_EXPORT void bb_native_pippenger_bn254(
+    const uint8_t* points, const uint8_t* scalars, uint32_t n, uint32_t num_threads, uint8_t* result)
+{
+    using Curve = bb::curve::BN254;
+    namespace marshalling = bb::scalar_multiplication::webgpu_marshalling;
+
+    std::memset(result, 0, 64);
+    if (n == 0) {
+        return;
+    }
+
+    std::vector<Curve::AffineElement> point_vec(n);
+    for (uint32_t i = 0; i < n; ++i) {
+        point_vec[i] = marshalling::read_affine_le(&points[i * 64]);
+    }
+    std::vector<Curve::ScalarField> scalar_vec(n);
+    for (uint32_t i = 0; i < n; ++i) {
+        scalar_vec[i] = Curve::ScalarField(marshalling::read_uint256_le(&scalars[i * 32]));
+    }
+
+    std::array<std::span<const Curve::AffineElement>, 1> point_spans{ std::span<const Curve::AffineElement>(
+        point_vec) };
+    std::array<std::span<Curve::ScalarField>, 1> scalar_spans{ std::span<Curve::ScalarField>(scalar_vec) };
+
+    const size_t saved_concurrency = bb::get_num_cpus();
+    if (num_threads != 0) {
+        bb::set_parallel_for_concurrency(num_threads);
+    }
+    auto results =
+        bb::scalar_multiplication::MSM<Curve>::batch_multi_scalar_mul_native(point_spans, scalar_spans, false);
+    if (num_threads != 0) {
+        bb::set_parallel_for_concurrency(saved_concurrency);
+    }
+
+    const Curve::AffineElement& aff = results[0];
+    if (!aff.is_point_at_infinity()) {
+        marshalling::write_uint256_le(&result[0], static_cast<bb::numeric::uint256_t>(aff.x));
+        marshalling::write_uint256_le(&result[32], static_cast<bb::numeric::uint256_t>(aff.y));
+    }
+}
 
 #endif // BBERG_WEBGPU_MSM_HOOK
