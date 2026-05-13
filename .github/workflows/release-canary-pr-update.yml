@@ -69,22 +69,6 @@ jobs:
           pr_number=$(gh pr list --state open --head "$CANARY_BRANCH" --json number --jq '.[0].number')
 
           if [[ -z "$pr_number" ]]; then
-            git fetch origin "$CANARY_BRANCH" next
-            if git merge-base --is-ancestor "origin/$CANARY_BRANCH" origin/next; then
-              echo "Canary branch has no commits ahead of next; adding marker commit"
-              git checkout -B "$CANARY_BRANCH" origin/next
-              mkdir -p .github
-              cat > .github/alpha-canary-pr.md <<'EOF'
-          # Alpha canary PR
-
-          This file exists only on the alpha canary branch so GitHub can keep an open PR
-          for exercising CI labels.
-          EOF
-              git add .github/alpha-canary-pr.md
-              git commit -m "chore: keep alpha canary PR diff"
-              git push --force-with-lease origin "$CANARY_BRANCH"
-            fi
-
             echo "Creating canary PR"
             pr_url=$(gh pr create \
               --head "$CANARY_BRANCH" \
@@ -148,8 +132,6 @@ jobs:
               labels="$labels --add-label ci-network-kind"
             fi
             if [[ -n "$labels" ]]; then
-              gh label create ci-release-pr --color 5319e7 --description "Run release PR canary CI" >/dev/null 2>&1 || true
-              gh label create ci-network-kind --color 0e8a16 --description "Run network kind canary CI" >/dev/null 2>&1 || true
               gh pr edit "$pr_number" $labels
               echo "Added labels to PR #$pr_number: $labels"
             fi
