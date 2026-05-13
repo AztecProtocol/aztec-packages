@@ -16,7 +16,15 @@ import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
-// TODO(kill-non-pipelined): P2P-mempool race under pipelined proposer drops txs in advanceBlock.
+// TODO(kill-non-pipelined): the test relies on `advanceBlock` (send empty tx, wait, assert chain
+// advanced) inside long retryUntil loops. Under pipelining we see (a) "Tx dropped by P2P node"
+// when the wallet's anchor block expires faster than the tx can be included (a single retry-on-drop
+// helps but isn't sufficient), and (b) repeated pipelined-parent invalidations that cascade into
+// a PXE-side chain reorg ("Reorg detected. Pruning blocks from 1 to 8.") together with
+// `Rollup__InvalidArchive` failures on the canProposeAt simulation. The combination tears the
+// chain down faster than the cross-chain message-ready loop can catch up. A real fix needs
+// either deeper retry/resync coordination in advanceBlock, or a buildCheckpointIfEmpty=true
+// fixture variant so the chain advances even when our noop txs get dropped.
 describe.skip('e2e_cross_chain_messaging l1_to_l2', () => {
   let t: CrossChainMessagingTest;
   let log: Logger;
