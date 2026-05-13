@@ -166,6 +166,10 @@ function checkVariantsCovered(dimensionsList: number[][]) {
       );
     }
   });
+  // Guarantee that the selector can always find a fall-through for any input within protocol maxima.
+  if (!dimensionsList.some(dimensions => dimensions.every((v, i) => v === maxDimensions[i]))) {
+    throw new Error(`Catalog must contain a variant matching protocol maxima: [${maxDimensions.join(',')}]`);
+  }
 }
 
 function checkVkTreeSize(numResetCircuits: number) {

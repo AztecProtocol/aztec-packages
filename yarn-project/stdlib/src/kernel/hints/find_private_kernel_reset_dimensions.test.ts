@@ -1,4 +1,16 @@
+import {
+  MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+  MAX_NOTE_HASHES_PER_TX,
+  MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+  MAX_NULLIFIERS_PER_TX,
+  MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
+} from '@aztec/constants';
 import type { FieldsOf } from '@aztec/foundation/types';
+
+import { readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 import {
   type DimensionName,
@@ -149,7 +161,7 @@ describe('findPrivateKernelResetDimensions', () => {
     });
   });
 
-  describe('with v3 catalog', () => {
+  describe('with named-entry catalog', () => {
     const config: PrivateKernelResetDimensionsConfig = {
       dimensions: {
         NOTE_HASH_PENDING_READ: { cost: v3Costs.NOTE_HASH_PENDING_READ },
@@ -247,6 +259,45 @@ describe('findPrivateKernelResetDimensions', () => {
         KEY_VALIDATION: 4,
       });
       expect(dimensions.toValues()).toEqual(entry('inner_read_combo_md').dimensions);
+    });
+  });
+
+  describe('shipped catalog', () => {
+    const configPath = resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      '../../../../../noir-projects/noir-protocol-circuits/private_kernel_reset_config.json',
+    );
+    const shipped = JSON.parse(readFileSync(configPath, 'utf8')) as PrivateKernelResetDimensionsConfig;
+    const allEntries: ResetCatalogEntry[] = [...shipped.inner, ...shipped.final];
+    const allowed = new Set([0, 1, 2, 4, 8, 16, 32, 64]);
+
+    it('every dimension value is a power of 2 in {0,1,2,4,8,16,32,64}', () => {
+      const offenders = allEntries
+        .flatMap(e => e.dimensions.map(v => ({ name: e.name, v })))
+        .filter(({ v }) => !allowed.has(v));
+      expect(offenders).toEqual([]);
+    });
+
+    it('inner entries have zero in all three siloing dimensions', () => {
+      // Last three slots are NOTE_HASH_SILOING, NULLIFIER_SILOING, PRIVATE_LOG_SILOING.
+      const offenders = shipped.inner.filter(e => e.dimensions.slice(6).some(v => v !== 0));
+      expect(offenders).toEqual([]);
+    });
+
+    it('final family contains a variant matching protocol maxima as the catch-all', () => {
+      const protocolMaxima = [
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+        MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+        MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+        MAX_KEY_VALIDATION_REQUESTS_PER_TX,
+        MAX_NULLIFIERS_PER_TX,
+        MAX_NOTE_HASHES_PER_TX,
+        MAX_NULLIFIERS_PER_TX,
+        MAX_PRIVATE_LOGS_PER_TX,
+      ];
+      const hasCatchAll = shipped.final.some(e => e.dimensions.every((v, i) => v === protocolMaxima[i]));
+      expect(hasCatchAll).toBe(true);
     });
   });
 });
