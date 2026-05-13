@@ -44,12 +44,12 @@ merge_to_json() {
   yq eval-all --output-format=json '. as $item ireduce ({}; . *+ $item)' "$@"
 }
 
-# JSON tree transforms live in sibling .py files; each reads JSON on stdin and
-# writes JSON on stdout. See expand_placeholders.py, apply_derived.py,
-# resolve_secrets.py for details.
-expand_placeholders() { python3 "$script_dir/expand_placeholders.py"; }
-apply_derived()       { python3 "$script_dir/apply_derived.py"; }
-resolve_secrets()     { python3 "$script_dir/resolve_secrets.py"; }
+# JSON tree transforms live in sibling .ts files; each reads JSON on stdin and
+# writes JSON on stdout. See expand_placeholders.ts, apply_derived.ts,
+# resolve_secrets.ts for details.
+expand_placeholders() { "$script_dir/expand_placeholders.ts"; }
+apply_derived()       { "$script_dir/apply_derived.ts"; }
+resolve_secrets()     { "$script_dir/resolve_secrets.ts"; }
 
 # Strip leading underscore-prefixed keys (anchors-only keys like _defaults, _shared_image)
 # from a JSON object. Operates at the top level only.
