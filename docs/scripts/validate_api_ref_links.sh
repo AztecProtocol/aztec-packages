@@ -211,7 +211,7 @@ get_pr_context() {
   fi
 }
 
-# Send a Slack message to #devrel-docs-updates
+# Send a Slack message to #docs-alerts
 # Args: $1 = message text
 send_slack_message() {
   local message=$1
@@ -221,7 +221,7 @@ send_slack_message() {
   fi
 
   local data
-  data=$(jq -n --arg channel "#devrel-docs-updates" --arg text "$message" \
+  data=$(jq -n --arg channel "#docs-alerts" --arg text "$message" \
     '{channel: $channel, text: $text}')
 
   local response
@@ -292,7 +292,7 @@ send_alert() {
   message+=$'\n'"*Action required:* Run \`yarn generate:aztec-nr-api\` and/or \`yarn generate:typescript-api\` to regenerate the API docs."
 
   if send_slack_message "$message"; then
-    echo "Slack notification sent to #devrel-docs-updates."
+    echo "Slack notification sent to #docs-alerts."
   else
     echo "WARNING: Failed to send Slack notification." >&2
   fi

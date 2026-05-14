@@ -7,7 +7,7 @@ set -euo pipefail
 # 1. Extracts all 'references' fields from documentation markdown frontmatter
 # 2. Checks if any referenced files were changed in the current PR
 # 3. Requests AztecProtocol/devrel team as reviewers if files changed and PR is not draft
-# 4. Sends a Slack message to #devrel-docs-updates showing which changed files are referenced by which docs
+# 4. Sends a Slack message to #docs-alerts showing which changed files are referenced by which docs
 # 5. Dispatches ClaudeBox to analyze changes and update documentation
 # 6. Skips reviewer request if devrel team is already requested or a member has approved
 #
@@ -44,7 +44,7 @@ send_slack_message() {
 
   local data=$(cat <<EOF
 {
-  "channel": "#devrel-docs-updates",
+  "channel": "#docs-alerts",
   "text": "$message"
 }
 EOF
@@ -352,7 +352,7 @@ else
 fi
 
 # Send or update Slack notification (one message per PR, updated on each run)
-SLACK_CHANNEL="${SLACK_DOC_UPDATE_CHANNEL:-devrel-docs-updates}"
+SLACK_CHANNEL="${SLACK_DOC_UPDATE_CHANNEL:-docs-alerts}"
 TS=""
 CHANNEL_ID=""
 

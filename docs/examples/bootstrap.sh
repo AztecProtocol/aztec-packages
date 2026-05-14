@@ -237,7 +237,7 @@ function get_pr_number {
 
 function send_slack_message {
   local message=$1
-  local channel=${2:-"#devrel-docs-updates"}
+  local channel=${2:-"#docs-alerts"}
   if [[ -z "${SLACK_BOT_TOKEN:-}" ]]; then
     echo "SLACK_BOT_TOKEN not set, skipping Slack notification"
     return 0

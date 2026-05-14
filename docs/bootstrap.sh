@@ -65,7 +65,7 @@ function check_references {
       curl -s -X POST https://slack.com/api/chat.postMessage \
         -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
         -H "Content-type: application/json" \
-        -d "{\"channel\": \"#devrel-docs-updates\", \"text\": \"⚠️ Doc reference check script failed for ref \`${GITHUB_REF_NAME:-unknown}\`. Check CI logs.\"}" \
+        -d "{\"channel\": \"#docs-alerts\", \"text\": \"⚠️ Doc reference check script failed for ref \`${GITHUB_REF_NAME:-unknown}\`. Check CI logs.\"}" \
         > /dev/null 2>&1 || true
     fi
   fi
