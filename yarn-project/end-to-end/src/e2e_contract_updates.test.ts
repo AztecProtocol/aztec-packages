@@ -22,6 +22,7 @@ import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 // Set the update delay in genesis data so it's feasible to test in an e2e test
@@ -97,6 +98,7 @@ describe('e2e_contract_updates', () => {
       accounts: [defaultAccountAddress],
       cheatCodes,
     } = await setup(1, {
+      ...PIPELINING_SETUP_OPTS,
       genesisPublicData,
       initialFundedAccounts,
     }));
