@@ -119,19 +119,6 @@ export class DummyP2PService implements P2PService {
     return Promise.resolve(undefined);
   }
 
-  /**
-   * Sends a batch request to a peer.
-   * @param _protocol - The protocol to send the request on.
-   * @param _requests - The requests to send.
-   * @returns The responses from the peer, otherwise undefined.
-   */
-  public sendBatchRequest<Protocol extends ReqRespSubProtocol>(
-    _protocol: Protocol,
-    _requests: InstanceType<SubProtocolMap[Protocol]['request']>[],
-  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']>[]> {
-    return Promise.resolve([]);
-  }
-
   public sendRequestToPeer(
     _peerId: PeerId,
     _subProtocol: ReqRespSubProtocol,
@@ -305,16 +292,6 @@ export class DummyReqResp implements ReqRespInterface {
     _request: InstanceType<SubProtocolMap[SubProtocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']> | undefined> {
     return Promise.resolve(undefined);
-  }
-  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    _subProtocol: SubProtocol,
-    _requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    _pinnedPeer: PeerId | undefined,
-    _timeoutMs?: number,
-    _maxPeers?: number,
-    _maxRetryAttempts?: number,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
-    return Promise.resolve([]);
   }
   public sendRequestToPeer(
     _peerId: PeerId,
