@@ -11,7 +11,7 @@ use standard_addresses::PUBLIC_CHECKS_ADDRESS;
 /// address.
 pub fn privately_check_timestamp(operation: u8, value: u64, context: &mut PrivateContext) {
     let selector = comptime { FunctionSelector::from_signature("check_timestamp(u8,u64)") };
-    PublicStaticCall::new(
+    PublicStaticCall::<15, 2, ()>::new(
         PUBLIC_CHECKS_ADDRESS,
         selector,
         "check_timestamp",
@@ -28,7 +28,7 @@ pub fn privately_check_timestamp(operation: u8, value: u64, context: &mut Privat
 pub fn privately_check_block_number(operation: u8, value: u32, context: &mut PrivateContext) {
     // docs:start:enqueueing
     let selector = comptime { FunctionSelector::from_signature("check_block_number(u8,u32)") };
-    PublicStaticCall::new(
+    PublicStaticCall::<18, 2, ()>::new(
         PUBLIC_CHECKS_ADDRESS,
         selector,
         "check_block_number",
