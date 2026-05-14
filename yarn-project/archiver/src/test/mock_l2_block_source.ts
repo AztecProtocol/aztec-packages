@@ -176,12 +176,19 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   }
 
   public setProvenBlockNumber(provenBlockNumber: number) {
+    // Proving requires the enclosing checkpoint to have been published first, so the
+    // checkpointed tip must always be at least as advanced as proven. Cascading here keeps
+    // the mock consistent with the production `finalized ≤ proven ≤ checkpointed ≤ ...`
+    // invariant enforced at producers and the RPC boundary.
+    if (provenBlockNumber > this.checkpointedBlockNumber) {
+      this.setCheckpointedBlockNumber(provenBlockNumber);
+    }
     this.provenBlockNumber = provenBlockNumber;
   }
 
   public setFinalizedBlockNumber(finalizedBlockNumber: number) {
     if (finalizedBlockNumber > this.provenBlockNumber) {
-      this.provenBlockNumber = finalizedBlockNumber;
+      this.setProvenBlockNumber(finalizedBlockNumber);
     }
     this.finalizedBlockNumber = finalizedBlockNumber;
   }

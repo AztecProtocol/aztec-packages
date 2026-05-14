@@ -4,7 +4,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import type { PublishedCheckpoint } from '../../checkpoint/published_checkpoint.js';
-import { type L2BlockId, type L2BlockSource, makeL2BlockId } from '../l2_block_source.js';
+import { type L2BlockId, type L2BlockSource, type L2TipId, makeL2BlockId } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 
 /** Maximum number of checkpoints to prefetch at once during sync. Matches MAX_RPC_CHECKPOINTS_LEN. */
@@ -132,6 +132,16 @@ export class L2BlockStream {
       ) {
         if (startingBlock > sourceTips.checkpointed.block.number) {
           // startingBlock is past all checkpointed blocks; skip Loop 1 entirely.
+          // Reconcile local.checkpointed to source.checkpointed in a single catch-up event so
+          // subsequent chain-proven / chain-finalized advances in this poll cycle preserve the
+          // local ordering invariant (`checkpointed ≥ proven ≥ finalized`). Without this, a
+          // chain-proven event at or below source.checkpointed.block.number would leave the
+          // local store with `proven > checkpointed`, which the cross-tier clamp in
+          // `getL2Tips()` would then mask by reporting proven=local.checkpointed — making the
+          // block stream re-emit chain-proven on every poll.
+          if (!this.opts.ignoreCheckpoints) {
+            await this.emitCatchUpCheckpointEvent(sourceTips.checkpointed);
+          }
           nextCheckpointToEmit = CheckpointNumber(sourceTips.checkpointed.checkpoint.number + 1);
         } else {
           const startingBlockData = await this.l2BlockSource.getBlockData({ number: startingBlock });
@@ -305,6 +315,41 @@ export class L2BlockStream {
       .getBlockData({ number: blockNumber })
       .then(d => d?.header.hash())
       .then(hash => hash?.toString());
+  }
+
+  /**
+   * Emits a single `chain-checkpointed` event for the source's current `checkpointed` tip.
+   * Used by the startingBlock fast-forward path to reconcile local.checkpointed when historical
+   * chain-checkpointed emission is skipped. Validates that the fetched checkpoint matches the
+   * source's reported tip (same checkpoint number, same last-block hash) before emitting.
+   */
+  private async emitCatchUpCheckpointEvent(sourceCheckpointed: L2TipId): Promise<void> {
+    const [checkpoint] = await this.l2BlockSource.getCheckpoints({
+      from: sourceCheckpointed.checkpoint.number,
+      limit: 1,
+    });
+    if (!checkpoint || checkpoint.checkpoint.number !== sourceCheckpointed.checkpoint.number) {
+      this.log.warn(`Could not fetch source-checkpointed checkpoint for catch-up`, {
+        requestedCheckpointNumber: sourceCheckpointed.checkpoint.number,
+        fetchedCheckpointNumber: checkpoint?.checkpoint.number,
+      });
+      return;
+    }
+    const lastBlock = checkpoint.checkpoint.blocks.at(-1)!;
+    if (lastBlock.number !== sourceCheckpointed.block.number) {
+      this.log.warn(`Catch-up checkpoint last block does not match source-checkpointed tip`, {
+        checkpointNumber: checkpoint.checkpoint.number,
+        lastBlockInCheckpoint: lastBlock.number,
+        sourceCheckpointedBlock: sourceCheckpointed.block.number,
+      });
+      return;
+    }
+    const lastBlockHash = (await lastBlock.hash()).toString();
+    await this.emitEvent({
+      type: 'chain-checkpointed',
+      checkpoint,
+      block: makeL2BlockId(lastBlock.number, lastBlockHash),
+    });
   }
 
   private async emitEvent(event: L2BlockStreamEvent) {

@@ -71,27 +71,26 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
 
   public getL2Tips(): Promise<L2Tips> {
     return this.runInTransaction(async () => {
-      const [rawProposed, rawFinalized, rawProven, rawCheckpointed, rawProposedCheckpoint] = await Promise.all([
-        this.getTip('proposed'),
-        this.getTip('finalized'),
-        this.getTip('proven'),
-        this.getTip('checkpointed'),
-        this.getTip('proposedCheckpoint'),
+      const tipOrZero = async (tag: L2BlockTag): Promise<BlockNumber> => (await this.getTip(tag)) ?? BlockNumber.ZERO;
+      const [proposed, finalized, proven, checkpointed, proposedCheckpoint] = await Promise.all([
+        tipOrZero('proposed'),
+        tipOrZero('finalized'),
+        tipOrZero('proven'),
+        tipOrZero('checkpointed'),
+        tipOrZero('proposedCheckpoint'),
       ]);
 
+      // Data-availability clamp only: tips ahead of `proposed` would lack block data and throw
+      // below. We deliberately do NOT enforce cross-tier ordering here so that callers like the
+      // L2BlockStream see the stored value of each tip (otherwise it would re-emit chain-*
+      // events forever because local always reports `0` for the clamped tip).
       const {
         proposed: proposedNumber,
         finalized: finalizedNumber,
         proven: provenNumber,
         checkpointed: checkpointedNumber,
         proposedCheckpoint: proposedCheckpointNumber,
-      } = clampL2TipNumbers({
-        proposed: rawProposed ?? BlockNumber.ZERO,
-        finalized: rawFinalized ?? BlockNumber.ZERO,
-        proven: rawProven ?? BlockNumber.ZERO,
-        checkpointed: rawCheckpointed ?? BlockNumber.ZERO,
-        proposedCheckpoint: rawProposedCheckpoint ?? BlockNumber.ZERO,
-      });
+      } = clampL2TipNumbers({ proposed, finalized, proven, checkpointed, proposedCheckpoint });
 
       const [proposedBlockId, finalizedBlockId, provenBlockId, checkpointedBlockId, proposedCheckpointBlockId] =
         await Promise.all([

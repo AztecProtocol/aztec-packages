@@ -843,9 +843,12 @@ describe('L2BlockStream', () => {
         expect(checkpointEvents).toHaveLength(5);
       });
 
-      it('skips Loop 1 entirely when startingBlock is past the checkpointed tip', async () => {
+      it('emits a single catch-up checkpoint when startingBlock is past the checkpointed tip', async () => {
         // proposed=15, checkpointed=9 (ckpt 3 covers blocks 7-9). startingBlock=12 is past the
-        // checkpointed tip, in the proposed range. Loop 1 must skip without an RPC for block 12.
+        // checkpointed tip, in the proposed range. Loop 1 must skip without an RPC for block 12,
+        // but the stream still emits one chain-checkpointed for the latest source-checkpointed
+        // so local.checkpointed catches up — otherwise a later chain-proven event would leave
+        // local state with `proven > checkpointed`.
         setRemoteTipsMultiBlock(15, 9);
         blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
           batchSize: 10,
@@ -854,9 +857,9 @@ describe('L2BlockStream', () => {
 
         await blockStream.work();
 
-        // No chain-checkpointed events because startingBlock is past the checkpointed tip.
         const checkpointEvents = handler.events.filter(e => e.type === 'chain-checkpointed');
-        expect(checkpointEvents).toHaveLength(0);
+        expect(checkpointEvents).toHaveLength(1);
+        expect(checkpointEvents[0]).toEqual(expectCheckpointed(3));
         // Loop 1 must not query block 12 — past-the-tip is decided from sourceTips alone.
         const loop1Calls = blockSource.getBlockData.mock.calls.filter(
           c => 'number' in c[0] && (c[0] as { number: number }).number === 12,

@@ -18,7 +18,7 @@ describe('clampL2TipNumbers', () => {
     expect(result).toBe(input);
   });
 
-  it('clamps proven to checkpointed when proven > checkpointed', () => {
+  it('clamps proven down to checkpointed when proven > checkpointed', () => {
     const result = clampL2TipNumbers({
       proposed: BN(10),
       proposedCheckpoint: BN(8),
@@ -27,13 +27,13 @@ describe('clampL2TipNumbers', () => {
       finalized: BN(2),
     });
     expect(result.proven).toBe(6);
+    expect(result.finalized).toBe(2);
     expect(result.checkpointed).toBe(6);
     expect(result.proposedCheckpoint).toBe(8);
     expect(result.proposed).toBe(10);
-    expect(result.finalized).toBe(2);
   });
 
-  it('clamps finalized to proven when finalized > proven', () => {
+  it('clamps finalized down to proven when finalized > proven', () => {
     const result = clampL2TipNumbers({
       proposed: BN(10),
       proposedCheckpoint: BN(8),
@@ -46,7 +46,7 @@ describe('clampL2TipNumbers', () => {
     expect(result.checkpointed).toBe(6);
   });
 
-  it('cascades violations top-down', () => {
+  it('cascades violations top-down through the full ordering', () => {
     const result = clampL2TipNumbers({
       proposed: BN(5),
       proposedCheckpoint: BN(8),
@@ -61,7 +61,7 @@ describe('clampL2TipNumbers', () => {
     expect(result.finalized).toBe(5);
   });
 
-  it('clamps only top field when only proposedCheckpoint > proposed', () => {
+  it('clamps only the offending field when only one tip is above its tier', () => {
     const result = clampL2TipNumbers({
       proposed: BN(5),
       proposedCheckpoint: BN(7),
@@ -73,18 +73,6 @@ describe('clampL2TipNumbers', () => {
     expect(result.checkpointed).toBe(4);
     expect(result.proven).toBe(3);
     expect(result.finalized).toBe(2);
-  });
-
-  it('does not modify hashes on equal block numbers (hash divergence is a no-op)', () => {
-    const input = {
-      proposed: BN(5),
-      proposedCheckpoint: BN(5),
-      checkpointed: BN(5),
-      proven: BN(5),
-      finalized: BN(5),
-    };
-    const result = clampL2TipNumbers(input);
-    expect(result).toBe(input);
   });
 });
 

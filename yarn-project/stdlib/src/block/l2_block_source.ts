@@ -336,9 +336,10 @@ const L2_TIP_TAGS_DESCENDING: readonly L2BlockTag[] = [
 
 /**
  * Clamps each tip's block number to the next-higher tier to enforce
- * `finalized ≤ proven ≤ checkpointed ≤ proposedCheckpoint ≤ proposed`.
- * Call this *before* resolving block/checkpoint data so producers don't
- * throw when they look up data for a tip whose blocks haven't been synced yet.
+ * `finalized ≤ proven ≤ checkpointed ≤ proposedCheckpoint ≤ proposed`. Call this *before*
+ * resolving block/checkpoint data so producers don't throw when they look up data for a tip
+ * whose blocks haven't been synced yet. Acts as a safety net on top of producer-side ordering:
+ * sources / event handlers should keep tips ordered; this guards against transient races.
  */
 export function clampL2TipNumbers<T extends L2TipNumbers>(numbers: T): T {
   let bound = numbers.proposed;
