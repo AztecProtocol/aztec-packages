@@ -41,7 +41,7 @@ class AvmRecursiveVerifier {
      * have been verified.
      *
      */
-    FF hash_avm_transcript(const StdlibProof& stdlib_proof);
+    FF hash_avm_transcript();
 
   private:
     Builder& builder;

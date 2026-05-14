@@ -138,7 +138,7 @@ Regenerate via the e2e prover full test with fake proofs:
 
 ```bash
 cd yarn-project
-AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test full.test
+AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn workspace @aztec/end-to-end test e2e_prover/full.test
 ```
 
 `FAKE_PROOFS=1` skips real proving — runs in ~2 min (orchestrator + witness generation only). Writes 12 `Prover.toml` files under `noir-projects/noir-protocol-circuits/crates/<circuit>/Prover.toml`.

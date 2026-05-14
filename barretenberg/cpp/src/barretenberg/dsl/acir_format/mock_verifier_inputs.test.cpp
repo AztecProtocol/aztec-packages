@@ -1,4 +1,5 @@
 #include "barretenberg/dsl/acir_format/mock_verifier_inputs.hpp"
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
@@ -189,17 +190,10 @@ TEST_F(MockVerifierInputsTest, MockUltraHonkProofSize)
     }
 }
 
-// TODO(@fcarreiro): Re-enable this test once proof size is fixed.
-TEST_F(MockVerifierInputsTest, DISABLED_MockAVMProofSize)
+TEST_F(MockVerifierInputsTest, MockAVMProofSize)
 {
-    const HonkProof avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/false);
-    EXPECT_EQ(avm_proof.size(), 16040);
-}
-
-TEST_F(MockVerifierInputsTest, MockAVMProofSizePadded)
-{
-    const HonkProof padded_avm_proof = create_mock_avm_proof_without_pub_inputs(/*add_padding=*/true);
-    EXPECT_EQ(padded_avm_proof.size(), 16400);
+    const HonkProof avm_proof = create_mock_avm_proof_without_pub_inputs();
+    EXPECT_EQ(avm_proof.size(), AVM_V2_PROOF_LENGTH_IN_FIELDS);
 }
 
 /**

@@ -6,7 +6,7 @@ import {
   SpongeBlob,
 } from '@aztec/blob-lib/types';
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   BLS12_FQ_LIMBS,
   BLS12_FR_LIMBS,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
@@ -457,7 +457,7 @@ function mapProofDataToNoir<T extends Bufferable, TN, PROOF_LENGTH extends numbe
 
 // Not generic since only one type exists on noir.
 export function mapAvmProofDataToNoir(
-  proofData: ProofDataForFixedVk<AvmCircuitPublicInputs, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>,
+  proofData: ProofDataForFixedVk<AvmCircuitPublicInputs, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>,
 ): ProofDataForFixedVkNoir {
   return {
     public_inputs: mapAvmCircuitPublicInputsToNoir(proofData.publicInputs),

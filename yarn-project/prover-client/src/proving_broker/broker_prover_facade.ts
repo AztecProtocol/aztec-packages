@@ -1,5 +1,5 @@
 import type {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -394,7 +394,7 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     inputs: AvmCircuitInputs,
     signal?: AbortSignal,
     epochNumber?: EpochNumber,
-  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>> {
     return this.enqueueJob(
       this.generateId(ProvingRequestType.PUBLIC_VM, inputs, epochNumber),
       ProvingRequestType.PUBLIC_VM,

@@ -13,6 +13,7 @@
 
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
@@ -90,6 +91,10 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     using Challenges = Flavor::NativeFlavor::AllEntities<FF>;
 
     RelationParams relation_parameters;
+
+    BB_ASSERT_EQ(stdlib_proof.size(),
+                 static_cast<size_t>(AVM_V2_PROOF_LENGTH_IN_FIELDS),
+                 "AVM recursive verifier proof length mismatch");
 
     transcript->load_proof(stdlib_proof);
 
@@ -231,12 +236,13 @@ AvmRecursiveVerifier::PairingPoints AvmRecursiveVerifier::verify_proof(
     return pairing_points;
 }
 
-AvmRecursiveVerifier::FF AvmRecursiveVerifier::hash_avm_transcript(const stdlib::Proof<Builder>& stdlib_proof)
+AvmRecursiveVerifier::FF AvmRecursiveVerifier::hash_avm_transcript()
 {
     if (!is_verification_complete) {
         throw_or_abort("Transcript can only be hashed after verification is complete");
     }
-    return Transcript::hash_avm_transcript(transcript, stdlib_proof);
+    // Finalise AVM transcript
+    return transcript->template get_challenge<FF>("final_transcript_state");
 };
 
 } // namespace bb::avm2

@@ -1,6 +1,6 @@
 import { BBJsFactory, type UltraHonkFlavor, constructRecursiveProofFromBuffers } from '@aztec/bb-prover';
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   CHONK_PROOF_LENGTH,
   HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE,
   NESTED_RECURSIVE_PROOF_LENGTH,
@@ -150,11 +150,8 @@ export async function proveAvm(
     // Convert Uint8Array field elements → Fr[]
     const proof: Fr[] = proofFields.map(f => Fr.fromBuffer(Buffer.from(f)));
 
-    // Extend to a fixed-size padded proof — any new AVM circuit column changes the proof length and we
-    // don't have a mechanism to feed a cpp constant into noir/TS.
-    // TODO(#13390): Revive a non-padded AVM proof
-    while (proof.length < AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-      proof.push(new Fr(0));
+    if (proof.length !== AVM_V2_PROOF_LENGTH_IN_FIELDS) {
+      throw new Error(`AVM V2 proof has ${proof.length} fields, expected exactly ${AVM_V2_PROOF_LENGTH_IN_FIELDS}.`);
     }
 
     // Explicit verify pass against the serialized public inputs (matches the legacy binary flow).
