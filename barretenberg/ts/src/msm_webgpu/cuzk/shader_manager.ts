@@ -1,4 +1,4 @@
-import mustache from "mustache";
+import mustache from 'mustache';
 import {
   barrett as barrett_funcs,
   batch_affine_apply as batch_affine_apply_shader,
@@ -16,6 +16,7 @@ import {
   convert_point_coords_and_decompose_scalars,
   convert_points_only as convert_points_only_shader,
   decompose_scalars_signed_only as decompose_scalars_signed_only_shader,
+  decompress_g1_bn254 as decompress_g1_bn254_shader,
   ec_bn254 as ec_bn254_funcs,
   extract_word_from_bytes_le as extract_word_from_bytes_le_funcs,
   field as field_funcs,
@@ -28,7 +29,7 @@ import {
   transpose_parallel_scan as transpose_parallel_scan_shader,
   transpose_parallel_scatter as transpose_parallel_scatter_shader,
   transpose_serial as transpose_serial_shader,
-} from "../wgsl/_generated/shaders.js";
+} from '../wgsl/_generated/shaders.js';
 import {
   compute_misc_params,
   compute_mod_inverse_pow2,
@@ -36,8 +37,8 @@ import {
   gen_r_limbs,
   gen_mu_limbs,
   gen_wgsl_limbs_code,
-} from "./utils.js";
-import { BN254_CURVE_CONFIG, CurveConfig } from "./curve_config.js";
+} from './utils.js';
+import { BN254_CURVE_CONFIG, CurveConfig } from './curve_config.js';
 
 // Generates parameterised WGSL shader sources for the BN254 MSM
 // pipeline. Pre-computes Montgomery / Barrett constants for the
@@ -62,10 +63,12 @@ export class ShaderManager {
   public p_limbs: string;
   public r_limbs: string;
   public r_cubed_limbs: string;
+  public b3_mont_limbs: string;
+  public sqrt_exp_limbs: string;
   public p_inv_mod_2w: number;
   public mu_limbs: string;
   public curveConfig: CurveConfig;
-  public recompile = "";
+  public recompile = '';
 
   constructor(
     chunk_size: number,
@@ -90,12 +93,13 @@ export class ShaderManager {
     this.p_limbs = gen_p_limbs(this.p, this.num_words, this.word_size);
     this.r_limbs = gen_r_limbs(this.r, this.num_words, this.word_size);
     const r_cubed = (this.r * this.r * this.r) % this.p;
-    this.r_cubed_limbs = gen_wgsl_limbs_code(
-      r_cubed,
-      "r3",
-      this.num_words,
-      this.word_size,
-    );
+    this.r_cubed_limbs = gen_wgsl_limbs_code(r_cubed, 'r3', this.num_words, this.word_size);
+    // Montgomery form of 3 = 3·R mod p (b parameter for BN254 y² = x³ + 3).
+    const b3_mont = (3n * this.r) % this.p;
+    this.b3_mont_limbs = gen_wgsl_limbs_code(b3_mont, 'b3', this.num_words, this.word_size);
+    // (q + 1) / 4: closed-form sqrt exponent for q ≡ 3 (mod 4).
+    const sqrt_exp = (this.p + 1n) / 4n;
+    this.sqrt_exp_limbs = gen_wgsl_limbs_code(sqrt_exp, 'e', this.num_words, this.word_size);
     this.p_inv_mod_2w = compute_mod_inverse_pow2(this.p, this.word_size);
     this.mu_limbs = gen_mu_limbs(this.p, this.num_words, this.word_size);
     this.p_bitlength = this.p.toString(2).length;
@@ -119,14 +123,10 @@ export class ShaderManager {
     scalar_bit_length_override?: number,
     scalar_byte_length_override?: number,
   ): string {
-    const num_16_bit_words_per_coord = Math.ceil(
-      (this.num_words * this.word_size) / 16,
-    );
+    const num_16_bit_words_per_coord = Math.ceil((this.num_words * this.word_size) / 16);
     const coord_u32_words = this.curveConfig.coordinateByteLength / 4;
-    const scalar_byte_length =
-      scalar_byte_length_override ?? this.curveConfig.scalarByteLength;
-    const scalar_bit_length =
-      scalar_bit_length_override ?? this.curveConfig.scalarBitLength;
+    const scalar_byte_length = scalar_byte_length_override ?? this.curveConfig.scalarByteLength;
+    const scalar_bit_length = scalar_bit_length_override ?? this.curveConfig.scalarBitLength;
     const scalar_u32_words = scalar_byte_length / 4;
     const use_top_chunk_override = scalar_bit_length % this.chunk_size !== 0;
     return mustache.render(
@@ -172,13 +172,8 @@ export class ShaderManager {
     );
   }
 
-  public gen_convert_points_only_shader(
-    workgroup_size: number,
-    num_y_workgroups: number,
-  ): string {
-    const num_16_bit_words_per_coord = Math.ceil(
-      (this.num_words * this.word_size) / 16,
-    );
+  public gen_convert_points_only_shader(workgroup_size: number, num_y_workgroups: number): string {
+    const num_16_bit_words_per_coord = Math.ceil((this.num_words * this.word_size) / 16);
     const coord_u32_words = this.curveConfig.coordinateByteLength / 4;
     return mustache.render(
       convert_points_only_shader,
@@ -214,6 +209,38 @@ export class ShaderManager {
     );
   }
 
+  public gen_decompress_g1_bn254_shader(workgroup_size: number): string {
+    return mustache.render(
+      decompress_g1_bn254_shader,
+      {
+        workgroup_size,
+        num_words: this.num_words,
+        word_size: this.word_size,
+        n0: this.n0,
+        mask: this.mask,
+        two_pow_word_size: this.two_pow_word_size,
+        p_inv_mod_2w: this.p_inv_mod_2w,
+        p_limbs: this.p_limbs,
+        r_limbs: this.r_limbs,
+        mu_limbs: this.mu_limbs,
+        b3_mont_limbs: this.b3_mont_limbs,
+        sqrt_exp_limbs: this.sqrt_exp_limbs,
+        w_mask: this.w_mask,
+        slack: this.slack,
+        num_words_mul_two: this.num_words * 2,
+        recompile: this.recompile,
+      },
+      {
+        structs,
+        bigint_funcs,
+        field_funcs,
+        barrett_funcs,
+        montgomery_product_funcs,
+        fr_pow_funcs,
+      },
+    );
+  }
+
   public gen_decompose_scalars_signed_only_shader(
     workgroup_size: number,
     num_y_workgroups: number,
@@ -223,15 +250,11 @@ export class ShaderManager {
     scalar_byte_length_override?: number,
     count_into_col_ptr = false,
   ): string {
-    const scalar_byte_length =
-      scalar_byte_length_override ?? this.curveConfig.scalarByteLength;
-    const scalar_bit_length =
-      scalar_bit_length_override ?? this.curveConfig.scalarBitLength;
+    const scalar_byte_length = scalar_byte_length_override ?? this.curveConfig.scalarByteLength;
+    const scalar_bit_length = scalar_bit_length_override ?? this.curveConfig.scalarBitLength;
     const scalar_u32_words = scalar_byte_length / 4;
     const use_top_chunk_override = scalar_bit_length % this.chunk_size !== 0;
-    const num_16_bit_words_per_coord = Math.ceil(
-      (this.num_words * this.word_size) / 16,
-    );
+    const num_16_bit_words_per_coord = Math.ceil((this.num_words * this.word_size) / 16);
     return mustache.render(
       decompose_scalars_signed_only_shader,
       {
@@ -253,11 +276,7 @@ export class ShaderManager {
   }
 
   public gen_transpose_shader(workgroup_size: number) {
-    return mustache.render(
-      transpose_serial_shader,
-      { workgroup_size, recompile: this.recompile },
-      {},
-    );
+    return mustache.render(transpose_serial_shader, { workgroup_size, recompile: this.recompile }, {});
   }
 
   public gen_transpose_count_shader(workgroup_size: number): string {
@@ -400,9 +419,7 @@ export class ShaderManager {
     );
   }
 
-  public gen_batch_affine_apply_scatter_shader(
-    workgroup_size: number,
-  ): string {
+  public gen_batch_affine_apply_scatter_shader(workgroup_size: number): string {
     return mustache.render(
       batch_affine_apply_scatter_shader,
       {
@@ -426,10 +443,7 @@ export class ShaderManager {
     );
   }
 
-  public gen_batch_affine_finalize_shader(
-    workgroup_size: number,
-    num_csr_cols: number,
-  ): string {
+  public gen_batch_affine_finalize_shader(workgroup_size: number, num_csr_cols: number): string {
     return mustache.render(
       batch_affine_finalize_shader,
       {
@@ -458,10 +472,7 @@ export class ShaderManager {
     );
   }
 
-  public gen_batch_affine_finalize_collect_shader(
-    workgroup_size: number,
-    num_csr_cols: number,
-  ): string {
+  public gen_batch_affine_finalize_collect_shader(workgroup_size: number, num_csr_cols: number): string {
     return mustache.render(
       batch_affine_finalize_collect_shader,
       {
@@ -487,10 +498,7 @@ export class ShaderManager {
     );
   }
 
-  public gen_batch_affine_finalize_apply_shader(
-    workgroup_size: number,
-    num_csr_cols: number,
-  ): string {
+  public gen_batch_affine_finalize_apply_shader(workgroup_size: number, num_csr_cols: number): string {
     return mustache.render(
       batch_affine_finalize_apply_shader,
       {
@@ -557,14 +565,9 @@ export class ShaderManager {
     const bench_compute_only = !!bench_flags.bench_compute_only;
     const bench_memory_only = !!bench_flags.bench_memory_only;
     const bench_no_store = !!bench_flags.bench_no_store;
-    const exclusive_count =
-      Number(bench_null) +
-      Number(bench_compute_only) +
-      Number(bench_memory_only);
+    const exclusive_count = Number(bench_null) + Number(bench_compute_only) + Number(bench_memory_only);
     if (exclusive_count > 1) {
-      throw new Error(
-        "gen_bpr_shader: bench_null, bench_compute_only, bench_memory_only are mutually exclusive",
-      );
+      throw new Error('gen_bpr_shader: bench_null, bench_compute_only, bench_memory_only are mutually exclusive');
     }
     const bench_skip_writes = bench_null || bench_no_store;
 
@@ -601,11 +604,7 @@ export class ShaderManager {
     );
   }
 
-  public gen_horner_reduce_shader(
-    num_subtasks: number,
-    b_workgroup_size: number,
-    chunk_size: number,
-  ): string {
+  public gen_horner_reduce_shader(num_subtasks: number, b_workgroup_size: number, chunk_size: number): string {
     return mustache.render(
       horner_reduce_bn254_shader,
       {
