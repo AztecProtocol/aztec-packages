@@ -34,28 +34,23 @@ We use `forge fmt` to format. But follow a few general guidelines beyond the sta
 
 ## Gas Reports
 
-You can run `./bootstrap.sh gas_report` to generate a detailed gas report for the current state and update the gas_report.md file.
+There are two gas surfaces in this folder, with different purposes.
 
-If you want something more manageble you should be using the `./boostrap.sh gas_benchmark` which will give you some "happy path" gas numbers for set with and without validators in a format that might be slightly simpler to figure out. The values outputted from this can also be seen over time at https://aztecprotocol.github.io/benchmark-page-data/dev/l1-gas-bench/.
+### Rollup hot-path benchmark (`gas_benchmark`)
 
-When running CI or tests with `./bootstrap.sh test`, the script will automatically check if gas usage has changed by running `./bootstrap.sh gas_report check`. If gas usage has changed, the test will fail and show a diff of the changes.
+`./bootstrap.sh gas_benchmark` (or `python3 scripts/bench.py` directly) runs `BenchmarkRollupTest` under three scenarios (no validators, 100 validators, 100 validators with slashing) and reports median gas for `setupEpoch`, `propose`, `proposeAndVote`, and `submitEpochRootProof`. `happy.t.sol` records `gasleft()` deltas to `bench-out/raw_<scenario>.jsonl`; `scripts/bench.py` aggregates those into:
 
-If the changes in gas usage are expected and desired:
+- `gas_benchmark.md` — human-readable report (committed)
+- `gas_benchmark_results.json` — structured summary (committed)
+- `bench-out/l1-gas.bench.json` — flat list for the dashboard at https://aztecprotocol.github.io/benchmark-page-data/dev/l1-gas-bench/
 
-1. Review the diff shown in the output
-2. Run `./bootstrap.sh gas_report` to update the gas report file
-3. Commit the updated gas_report.md file
+`FORGE_GAS_REPORT` is deliberately unset, since the tracer inflates `gasleft()`. The benchmark also calls `skipBlobCheck` before each `propose`, so reported gas excludes the live `blobhash()` work (~50k gas per blob × 3 blobs in production).
 
-NOTE: Our gas reporting excludes certain tests due to Forge limitations:
+CI runs `./bootstrap.sh gas_benchmark check` and fails if the committed `gas_benchmark.md` / `gas_benchmark_results.json` are stale; regenerate locally and commit.
 
-- FeeRollupTest and MinimalFeeModelTest test suites are excluded
-- testInvalidBlobHash and testInvalidBlobProof test cases are excluded
+### Forge unit-test gas snapshot (`gas_report`)
 
-This is related to [this Foundry issue](https://github.com/foundry-rs/foundry/issues/10074).
-
-This means that we don't report gas for blob validation (currently 50k gas per blob, and we use 3 blobs per propose in production).
-
-If you want to run gas reports directly with `forge`, you must use the environment variable `FORGE_GAS_REPORT=true` instead of the `--gas-report` flag. The `./bootstrap.sh gas_report` command does this for you automatically.
+`./bootstrap.sh gas_report` is a separate `FORGE_GAS_REPORT=true` snapshot of `RollupTest` (excluding `testInvalidBlobHash` / `testInvalidBlobProof` due to [foundry-rs/foundry#10074](https://github.com/foundry-rs/foundry/issues/10074)), written to `gas_report.json`. It's a per-function unit-test table — use it to spot function-level regressions, not to estimate L1 cost, and don't compare its numbers to `gas_benchmark` (different methodology).
 
 ## Contracts:
 

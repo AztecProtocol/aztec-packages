@@ -62,7 +62,9 @@ fs_permissions = [
   { access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json" },
   { access = "read", path = "./script/registration_data.json" },
   # Network defaults - copied from spartan/environments/default.json by bootstrap.sh
-  { access = "read", path = "./generated/default.json" }
+  { access = "read", path = "./generated/default.json" },
+  # Gas benchmark writes raw samples + config under bench-out/ (see test/benchmark/happy.t.sol).
+  { access = "read-write", path = "./bench-out" },
 ]
 no_match_contract = "(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
 
