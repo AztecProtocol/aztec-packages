@@ -1131,14 +1131,6 @@ pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 =
 // Run barretenberg/cpp/scripts/bump_avm_proof_length.sh, to regenerate the constants
 pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 15535;
 
-// VK is composed of
-// - circuit size encoded as a fr field element (32 bytes)
-// - num of inputs encoded as a fr field element (32 bytes)
-// - 45 affine elements (curve base field fq) encoded as fr elements takes (45 * 4 * 32 bytes)
-// 45 above refers to the constant AvmFlavorVariables::NUM_PRECOMPUTED_ENTITIES
-//pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 45 * 4;
-pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
-
 // GAS DEFAULTS
 pub global DA_BYTES_PER_FIELD: u32 = 32;
 pub global DA_GAS_PER_BYTE: u32 = 1; // Arbitrary.

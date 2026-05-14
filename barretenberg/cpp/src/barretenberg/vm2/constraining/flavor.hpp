@@ -110,14 +110,6 @@ class AvmFlavor {
                   "Update AVM_V2_PROOF_LENGTH_IN_FIELDS in constants.nr to the computed value and "
                   "run barretenberg/cpp/scripts/bump_avm_proof_length.sh.");
 
-    // VK is composed of
-    // - NUM_PRECOMPUTED_ENTITIES commitments
-    // TODO(#13390): Revive the following code once we freeze the number of colums in AVM.
-    // static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == NUM_PRECOMPUTED_ENTITIES * NUM_FRS_COM,
-    //               "\nUnexpected AVM V2 VK length. This might be due to some changes in the\n"
-    //               "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
-    //               "in constants.nr accordingly.");
-
   public:
     template <typename DataType_> class AllEntities {
       public:
