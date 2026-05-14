@@ -12,11 +12,10 @@ use aztec::{
 ///
 /// # Field order
 ///
-/// `secret: Point` is declared **last**. The `#[note]` macro generates `HandshakeNote::properties()` with
-/// `PropertySelector.index` set to each field's *declaration index*, not its packed-Field offset.
-/// That's fine for scalar-packed fields that precede a composite-packed field (`Point` packs to 3
-/// fields), but a reorder that places `secret` before any otok couher field would silently break the `select`
-/// filters used by `validate_handshake` / `get_app_siloed_secret`.
+/// TODO(https://linear.app/aztec-labs/issue/F-665): `secret: Point` is declared last because generated `#[note]`
+/// property selectors currently use declaration indexes
+/// rather than packed-field indexes for composite/custom-packed fields. Selecting a field declared after `secret`
+/// would use the wrong packed index.
 #[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
 pub struct HandshakeNote {
