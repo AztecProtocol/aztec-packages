@@ -175,19 +175,14 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
             "ram_table: Performing a read operation without providing a context. We cannot initialize the table.");
     }
 
+    const auto native_index = uint256_t(index.get_value());
+    BB_ASSERT_LT(native_index, length, "ram_table: RAM array access out of bounds");
+
     // When we perform the first read operation, we initialize the table
     initialize_table();
 
-    const auto native_index = uint256_t(index.get_value());
-    if (native_index >= length) {
-        // Set a failure when the index is out of bounds. Return early to avoid OOB vector access.
-        context->failure("ram_table: RAM array access out of bounds");
-        return field_pt::from_witness_index(context, context->zero_idx());
-    }
-
-    if (!check_indices_initialized()) {
-        context->failure("ram_table must have initialized every RAM entry before the table can be read");
-    }
+    BB_ASSERT(check_indices_initialized(),
+              "ram_table must have initialized every RAM entry before the table can be read");
 
     field_pt index_wire = index;
     if (index.is_constant()) {
@@ -197,6 +192,7 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
     uint32_t output_idx = context->read_RAM_array(ram_id, index_wire.get_witness_index());
     auto element = field_pt::from_witness_index(context, output_idx);
 
+    // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
     // If the index is legitimate, restore the tag
     if (native_index < length) {
@@ -224,33 +220,28 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
             "ram_table: Performing a write operation without providing a context. We cannot initialize the table.");
     }
 
+    const auto native_index = uint256_t(index.get_value());
+    BB_ASSERT_LT(native_index, length, "ram_table: RAM array access out of bounds");
+
     // When we perform the first read operation, we initialize the table
     initialize_table();
 
-    if (uint256_t(index.get_value()) >= length) {
-        // set a failure when the index is out of bounds. Return early to avoid OOB vector access.
-        context->failure("ram_table: RAM array access out of bounds");
-        return;
-    }
-
     field_pt index_wire = index;
-    const auto native_index = uint256_t(index.get_value());
     if (index.is_constant()) {
-        // need to write/process every array element at constant indicies before doing reads/writes at prover-defined
+        // need to write/process every array element at constant indices before doing reads/writes at prover-defined
         // indices
-        index_wire.convert_constant_to_fixed_witness(context);
+        index_wire = field_pt::from_witness_index(context, context->put_constant_variable(index.get_value()));
     } else {
-        if (!check_indices_initialized()) {
-            context->failure("ram_table must have initialized every RAM entry before a write can be performed");
-        }
+        BB_ASSERT(check_indices_initialized(),
+                  "ram_table must have initialized every RAM entry before a write can be performed");
     }
 
     field_pt value_wire = value;
-    auto native_value = value.get_value();
     if (value.is_constant()) {
-        value_wire = field_pt::from_witness_index(context, context->put_constant_variable(native_value));
+        value_wire = field_pt::from_witness_index(context, context->put_constant_variable(value.get_value()));
     }
 
+    // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
     if (index.is_constant() && !index_initialized[cast_index]) {
         context->init_RAM_element(ram_id, cast_index, value_wire.get_witness_index());
@@ -259,8 +250,8 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
     } else {
         context->write_RAM_array(ram_id, index_wire.get_witness_index(), value_wire.get_witness_index());
     }
-    // Update the value of the stored tag, if index is legitimate
 
+    // Update the value of the stored tag, if index is legitimate
     if (native_index < length) {
         _tags[cast_index] = value.get_origin_tag();
     }
