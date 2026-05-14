@@ -53,6 +53,7 @@ import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.
 import { RPCTranslator } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
+import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './txe_oracle_version.js';
 import type { ForeignCallArgs, ForeignCallResult } from './util/encoding.js';
 import { TXEAccountStore } from './util/txe_account_store.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
@@ -109,6 +110,9 @@ export type TXEOracleFunctionName = Exclude<
 >;
 
 export interface TXESessionStateHandler {
+  /** Records the TXE oracle version reported by the Noir test code for diagnostics. */
+  setTxeOracleVersion(version: { major: number; minor: number }): void;
+
   enterTopLevelState(): Promise<void>;
   enterPublicState(contractAddress?: AztecAddress): Promise<void>;
   enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: BlockNumber): Promise<PrivateContextInputs>;
@@ -186,6 +190,7 @@ export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
   private lastCallInfo: LastCallState = emptyLastCallState();
+  private txeOracleVersion: { major: number; minor: number } | undefined;
 
   constructor(
     private logger: Logger,
@@ -306,7 +311,28 @@ export class TXESession implements TXESessionStateHandler {
       return translator[validatedFunctionName](...inputs);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        throw new Error(`${functionName} does not correspond to any oracle handler available on RPCTranslator`);
+        let versionHint: string;
+        if (!this.txeOracleVersion) {
+          versionHint =
+            ' The test appears to use an older version of Aztec.nr that does not' +
+            ' support test environment oracle versioning. Update Aztec.nr to a compatible version.' +
+            ' See https://docs.aztec.network/errors/12';
+        } else if (this.txeOracleVersion.minor > TXE_ORACLE_VERSION_MINOR) {
+          versionHint =
+            ` The test uses Aztec.nr test oracle version` +
+            ` ${this.txeOracleVersion.major}.${this.txeOracleVersion.minor}, but this test environment` +
+            ` only supports up to ${TXE_ORACLE_VERSION_MAJOR}.${TXE_ORACLE_VERSION_MINOR}.` +
+            ` Upgrade the Aztec CLI to a compatible version.` +
+            ` See https://docs.aztec.network/errors/12`;
+        } else {
+          versionHint =
+            ` The test's oracle version (${this.txeOracleVersion.major}.${this.txeOracleVersion.minor})` +
+            ` is compatible with this test environment` +
+            ` (${TXE_ORACLE_VERSION_MAJOR}.${TXE_ORACLE_VERSION_MINOR}), so this oracle should be` +
+            ` available. This is an unexpected error, please report it.` +
+            ` See https://docs.aztec.network/errors/13`;
+        }
+        throw new Error(`Unknown oracle '${functionName}'.${versionHint}`);
       } else if (error instanceof Error) {
         throw new Error(
           `Execution error while processing function ${functionName} in state ${this.state.name}: ${error.message}`,
@@ -372,6 +398,11 @@ export class TXESession implements TXESessionStateHandler {
   getLastCallContext(): { txHash: Fr; anchorBlockTimestamp: bigint } {
     const { txHash, anchorBlockTimestamp } = this.lastCallInfo;
     return { txHash, anchorBlockTimestamp };
+  }
+
+  setTxeOracleVersion(version: { major: number; minor: number }): void {
+    this.txeOracleVersion = version;
+    this.logger.debug(`Test compiled with test oracle version ${version.major}.${version.minor}`);
   }
 
   async enterTopLevelState() {
