@@ -6,7 +6,7 @@ use aztec::{
 
 /// A record of a handshake established by the note's owner (the sender).
 ///
-/// Stored in [`crate::HandshakeRegistry`]'s `handshakes` set. Holds the raw ECDH shared-secret point `S`. App
+/// Stored in [`crate::HandshakeRegistry`]'s `handshakes` state. Holds the raw ECDH shared-secret point `S`. App
 /// contracts never see `S` directly: they call the registry's private surface, which
 /// silos `S` against the calling contract's address and hands back the app-siloed `Field`.
 ///

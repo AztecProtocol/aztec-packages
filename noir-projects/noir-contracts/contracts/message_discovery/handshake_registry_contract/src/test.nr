@@ -1,15 +1,13 @@
 use crate::HandshakeRegistry;
 
 use aztec::{
-    keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
     protocol::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         hash::{compute_log_tag, compute_siloed_private_log_first_field},
-        point::Point,
         traits::{FromField, ToField},
     },
-    test::helpers::{test_environment::{CallPrivateOptions, TestEnvironment, ViewPrivateOptions}, txe_oracles},
+    test::helpers::{test_environment::{CallPrivateOptions, TestEnvironment}, txe_oracles},
 };
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
@@ -43,7 +41,7 @@ unconstrained fn non_interactive_handshake_stores_handshake_for_sender_and_recip
 
     let returned_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    let retrieved_secret = env.view_private(sender, registry.get_app_siloed_secret(sender, recipient)).expect(
+    let retrieved_secret = env.execute_utility(registry.get_app_siloed_secret(sender, recipient, sender)).expect(
         f"handshake secret should be present",
     );
     assert_eq(retrieved_secret, returned_secret);
@@ -122,11 +120,11 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
     assert(eph_pk_x_0 != eph_pk_x_1, "ephemeral keys should differ in handshakes from different senders");
 }
 
-// Two handshakes from the same sender to the same `(recipient, type)` are not deduplicated, and produce
+// Re-handshaking for the same `(sender, recipient)` replaces the prior current handshake and produces
 // distinct `S` (hence distinct app-siloed secrets when siloed against the same caller). Each call emits a
 // distinct ephemeral key in its log.
 #[test]
-unconstrained fn duplicate_handshake_accumulates_distinct_secrets_and_returns_latest() {
+unconstrained fn rehandshake_replaces_previous_secret_and_returns_latest() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
@@ -154,13 +152,23 @@ unconstrained fn duplicate_handshake_accumulates_distinct_secrets_and_returns_la
     // Same caller and same `(sender, recipient)`, but two distinct raw `S` produce two distinct silos
     assert(secret_first != secret_second, "successive handshakes should produce distinct app-siloed secrets");
 
-    let retrieved = env.view_private(sender, registry.get_app_siloed_secret(sender, recipient)).expect(
+    let retrieved = env.execute_utility(registry.get_app_siloed_secret(sender, recipient, sender)).expect(
         f"handshake secret should be present",
     );
     assert_eq(retrieved, secret_second);
 
-    env.call_private(sender, registry.validate_handshake(sender, recipient, secret_first));
     env.call_private(sender, registry.validate_handshake(sender, recipient, secret_second));
+}
+
+#[test(should_fail_with = "no matching handshake")]
+unconstrained fn rehandshake_revokes_previous_secret() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let secret_first = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+
+    env.call_private(sender, registry.validate_handshake(sender, recipient, secret_first));
 }
 
 #[test]
@@ -190,13 +198,37 @@ unconstrained fn different_recipients_have_different_tags() {
 }
 
 #[test]
+unconstrained fn one_sender_can_have_active_handshakes_with_many_recipients() {
+    let (env, registry_address, sender, recipient_a, recipient_b) = setup_with_two_recipients();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let secret_a = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
+    let secret_b = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_b));
+
+    assert(secret_a != secret_b, "separate recipient handshakes should produce distinct secrets");
+
+    let retrieved_a = env.execute_utility(registry.get_app_siloed_secret(sender, recipient_a, sender)).expect(
+        f"handshake secret should be present for recipient A",
+    );
+    let retrieved_b = env.execute_utility(registry.get_app_siloed_secret(sender, recipient_b, sender)).expect(
+        f"handshake secret should be present for recipient B",
+    );
+
+    assert_eq(retrieved_a, secret_a);
+    assert_eq(retrieved_b, secret_b);
+
+    env.call_private(sender, registry.validate_handshake(sender, recipient_a, secret_a));
+    env.call_private(sender, registry.validate_handshake(sender, recipient_b, secret_b));
+}
+
+#[test]
 unconstrained fn get_app_siloed_secret_returns_none_for_wrong_sender() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    assert(env.view_private(sender, registry.get_app_siloed_secret(other_sender, recipient)).is_none());
+    assert(env.execute_utility(registry.get_app_siloed_secret(other_sender, recipient, sender)).is_none());
 }
 
 #[test]
@@ -206,7 +238,7 @@ unconstrained fn get_app_siloed_secret_returns_none_for_wrong_recipient() {
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
 
-    assert(env.view_private(sender, registry.get_app_siloed_secret(sender, recipient_b)).is_none());
+    assert(env.execute_utility(registry.get_app_siloed_secret(sender, recipient_b, sender)).is_none());
 }
 
 #[test(should_fail_with = "no matching handshake")]
@@ -215,8 +247,13 @@ unconstrained fn validate_handshake_rejects_wrong_sender() {
     let registry = HandshakeRegistry::at(registry_address);
 
     let secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let _ = env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
 
-    env.call_private(sender, registry.validate_handshake(other_sender, recipient, secret));
+    env.call_private_opts(
+        sender,
+        CallPrivateOptions::new().with_additional_scopes([other_sender]),
+        registry.validate_handshake(other_sender, recipient, secret),
+    );
 }
 
 #[test(should_fail_with = "no matching handshake")]
@@ -225,14 +262,13 @@ unconstrained fn validate_handshake_rejects_wrong_recipient() {
     let registry = HandshakeRegistry::at(registry_address);
 
     let secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_b));
 
     env.call_private(sender, registry.validate_handshake(sender, recipient_b, secret));
 }
 
-// Round-trip: the secret returned by `non_interactive_handshake` is exactly what retrieval returns and what
-// `validate_handshake` accepts from the same `msg_sender`. `msg_sender()` inside the registry equals the `from`
-// of `call_private` / `view_private` (execution begins directly in the called function with no entrypoint in
-// between).
+// Round-trip: the secret returned by `non_interactive_handshake` is exactly what utility retrieval returns when
+// explicitly siloed to the same caller, and what `validate_handshake` accepts from that caller.
 #[test]
 unconstrained fn non_interactive_handshake_returned_secret_round_trips_through_validate() {
     let (env, registry_address, sender, _, recipient) = setup();
@@ -240,7 +276,7 @@ unconstrained fn non_interactive_handshake_returned_secret_round_trips_through_v
 
     let secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    let retrieved = env.view_private(sender, registry.get_app_siloed_secret(sender, recipient)).expect(
+    let retrieved = env.execute_utility(registry.get_app_siloed_secret(sender, recipient, sender)).expect(
         f"handshake secret should be present",
     );
     assert_eq(retrieved, secret);
@@ -248,7 +284,6 @@ unconstrained fn non_interactive_handshake_returned_secret_round_trips_through_v
     env.call_private(sender, registry.validate_handshake(sender, recipient, secret));
 }
 
-// Test-only PXE/TXE scope plumbing: other_sender remains msg_sender, but needs visibility into sender-owned notes.
 #[test]
 unconstrained fn get_app_siloed_secret_differs_per_msg_sender() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
@@ -256,11 +291,7 @@ unconstrained fn get_app_siloed_secret_differs_per_msg_sender() {
 
     let sender_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let other_sender_secret = env
-        .view_private_opts(
-            other_sender,
-            ViewPrivateOptions::new().with_additional_scopes([sender]),
-            registry.get_app_siloed_secret(sender, recipient),
-        )
+        .execute_utility(registry.get_app_siloed_secret(sender, recipient, other_sender))
         .expect(f"handshake secret should be present for other caller");
 
     assert(sender_secret != other_sender_secret, "different callers should receive different siloed secrets");
@@ -273,11 +304,7 @@ unconstrained fn validate_handshake_accepts_secret_siloed_for_msg_sender() {
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let other_sender_secret = env
-        .view_private_opts(
-            other_sender,
-            ViewPrivateOptions::new().with_additional_scopes([sender]),
-            registry.get_app_siloed_secret(sender, recipient),
-        )
+        .execute_utility(registry.get_app_siloed_secret(sender, recipient, other_sender))
         .expect(f"handshake secret should be present for other caller");
 
     env.call_private_opts(
@@ -313,7 +340,7 @@ unconstrained fn validate_handshake_rejects_wrong_secret() {
     env.call_private(sender, registry.validate_handshake(sender, recipient, secret + 1));
 }
 
-#[test(should_fail_with = "no matching handshake")]
+#[test(should_fail_with = "Failed to get a note")]
 unconstrained fn validate_handshake_panics_when_no_handshake() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
@@ -321,20 +348,9 @@ unconstrained fn validate_handshake_panics_when_no_handshake() {
     env.call_private(sender, registry.validate_handshake(sender, recipient, 1));
 }
 
-#[test(should_fail_with = "no matching handshake")]
-unconstrained fn validate_handshake_rejects_zero_padded_secret_without_matching_note() {
-    let (env, registry_address, sender, _, recipient) = setup();
-    let registry = HandshakeRegistry::at(registry_address);
-    let zero_padded_secret = compute_app_siloed_shared_secret(Point { x: 0, y: 0, is_infinite: false }, sender);
-
-    env.call_private(sender, registry.validate_handshake(sender, recipient, zero_padded_secret));
-}
-
-// Regression for the unfiltered-page bug: insert 16 unrelated handshakes (different recipients) before
-// the target. Without DB-side `select`, the matching note for `target_recipient` falls outside the 16-note
-// page returned to `validate_handshake` and validation spuriously fails.
+// Recipient-keyed storage must isolate handshakes for the same sender across many recipients.
 #[test]
-unconstrained fn validate_handshake_finds_match_past_first_page() {
+unconstrained fn validate_handshake_finds_recipient_after_many_other_recipients() {
     let mut env = TestEnvironment::new();
     let sender = env.create_light_account();
     let registry_address = env.deploy("HandshakeRegistry").without_initializer();
@@ -351,10 +367,9 @@ unconstrained fn validate_handshake_finds_match_past_first_page() {
     env.call_private(sender, registry.validate_handshake(sender, target_recipient, target_secret));
 }
 
-// Regression for unfiltered-page retrieval. Without DB-side `select`, the matching note for `target_recipient`
-// falls outside the 16-note page returned to `get_app_siloed_secret`.
+// Utility retrieval should use the exact `(recipient, sender)` storage slot.
 #[test]
-unconstrained fn get_app_siloed_secret_finds_match_past_first_page() {
+unconstrained fn get_app_siloed_secret_finds_recipient_after_many_other_recipients() {
     let mut env = TestEnvironment::new();
     let sender = env.create_light_account();
     let registry_address = env.deploy("HandshakeRegistry").without_initializer();
@@ -368,5 +383,5 @@ unconstrained fn get_app_siloed_secret_finds_match_past_first_page() {
     let target_recipient = env.create_light_account();
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, target_recipient));
 
-    assert(env.view_private(sender, registry.get_app_siloed_secret(sender, target_recipient)).is_some());
+    assert(env.execute_utility(registry.get_app_siloed_secret(sender, target_recipient, sender)).is_some());
 }
