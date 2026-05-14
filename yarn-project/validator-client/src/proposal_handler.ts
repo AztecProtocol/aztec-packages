@@ -959,8 +959,7 @@ export class ProposalHandler {
 
     this.log.verbose(`Checkpoint proposal validation successful for slot ${slot}`, proposalInfo);
 
-    // We successfully re-executed every block in this checkpoint locally, record for any observers
-    this.reexecutionTracker.recordReexecuted(checkpointNumber, proposal.archive);
+    // Maintain re-execution tracker for any obsevers
 
     // Drop tracker entries for checkpoints that have reached L1 finality.
     try {
@@ -972,6 +971,9 @@ export class ProposalHandler {
     } catch (err) {
       this.log.error(`Error pruning reexecution tracker`, err, proposalInfo);
     }
+
+    // We successfully re-executed every block in this checkpoint locally, record for any observers
+    this.reexecutionTracker.recordReexecuted(checkpointNumber, proposal.archive);
 
     return { isValid: true, checkpointNumber };
   }
