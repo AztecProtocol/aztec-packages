@@ -26,6 +26,10 @@ export default function Panel({
   expanded,
   onToggleExpanded,
   scrollRef,
+  feedbackByIndex,
+  feedbackErrorsByIndex,
+  onFeedback,
+  conversationId,
 }) {
   const {
     isInk,
@@ -224,16 +228,28 @@ export default function Panel({
                 const text = isLast && streaming ? streamText : m.response;
                 const sources = isLast && streaming ? streamSources : m.sources;
                 const isStreamingLast = isLast && streaming;
+                const error = isStreamingLast ? null : m.error;
+                const showFeedback =
+                  !isStreamingLast && !!m.response && !!conversationId;
                 return (
                   <React.Fragment key={i}>
                     <UserBubble text={m.prompt} tokens={tokens} />
-                    {(text || isStreamingLast) && (
+                    {(text || isStreamingLast || error) && (
                       <AssistantBody
                         text={text}
                         sources={sources}
                         thinking={isStreamingLast}
+                        error={error}
                         tokens={tokens}
                         mdComponents={mdComponents}
+                        showFeedback={showFeedback}
+                        feedback={feedbackByIndex?.[i]}
+                        feedbackError={feedbackErrorsByIndex?.[i]}
+                        onFeedback={
+                          showFeedback
+                            ? (kind) => onFeedback?.(i, kind)
+                            : undefined
+                        }
                       />
                     )}
                   </React.Fragment>

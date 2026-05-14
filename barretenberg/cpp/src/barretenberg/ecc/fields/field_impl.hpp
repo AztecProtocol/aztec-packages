@@ -752,8 +752,13 @@ template <class T> constexpr uint64_t field<T>::is_msb_set_word() const noexcept
 
 template <class T> constexpr bool field<T>::is_zero() const noexcept
 {
-    return ((data[0] | data[1] | data[2] | data[3]) == 0) ||
-           (data[0] == T::modulus_0 && data[1] == T::modulus_1 && data[2] == T::modulus_2 && data[3] == T::modulus_3);
+    // Use bitwise OR (not || or && operator) so neither chain short-circuits: the running time must not depend on
+    // whether the value is zero, on which limb of the modulus first matches/diverges, or on which form
+    // (raw 0 vs the modulus) is being tested.
+    const uint64_t raw_zero = data[0] | data[1] | data[2] | data[3];
+    const uint64_t mod_zero =
+        (data[0] ^ T::modulus_0) | (data[1] ^ T::modulus_1) | (data[2] ^ T::modulus_2) | (data[3] ^ T::modulus_3);
+    return static_cast<bool>(static_cast<uint64_t>(raw_zero == 0) | static_cast<uint64_t>(mod_zero == 0));
 }
 
 template <class T> constexpr field<T> field<T>::get_root_of_unity(size_t subgroup_size) noexcept
