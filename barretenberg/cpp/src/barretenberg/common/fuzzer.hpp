@@ -137,16 +137,16 @@ template <typename... Args> inline void debug_log(Args&&... args)
  * @brief Formatted debug output arguments for fuzzer logging.
  * Each ExecutionHandler must provide `bool is_circuit_constant() const` for the format helpers to work.
  */
-/**
- * @brief Format stack element references for debug logging.
- * Returns labeled strings (c/w + index) for up to N input arguments plus an output.
- */
 struct FormattedArgs {
     std::string lhs;
     std::string rhs;
     std::string out;
 };
 
+/**
+ * @brief Format stack element references for debug logging.
+ * Returns labeled strings (c/w + index) for up to N input arguments plus an output.
+ */
 struct FormattedArgsN {
     std::vector<std::string> inputs;
     std::string out;
@@ -165,10 +165,9 @@ template <typename Stack> inline FormattedArgs format_self_arg(const Stack& stac
 template <typename Stack>
 inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, size_t output_index)
 {
-    std::string rhs = stack[first_index].is_circuit_constant() ? "c" : "w";
-    std::string out = rhs;
-    rhs += std::to_string(first_index);
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+    std::string rhs = format_element(stack, first_index);
+    bool c = stack[first_index].is_circuit_constant();
+    std::string out = (c ? "c" : "w") + std::to_string(output_index >= stack.size() ? stack.size() : output_index);
     out = (output_index >= stack.size() ? "auto " : "") + out;
     return { .lhs = "", .rhs = rhs, .out = out };
 }
@@ -176,13 +175,10 @@ inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, s
 template <typename Stack>
 inline FormattedArgs format_two_arg(const Stack& stack, size_t first_index, size_t second_index, size_t output_index)
 {
-    std::string lhs = stack[first_index].is_circuit_constant() ? "c" : "w";
-    std::string rhs = stack[second_index].is_circuit_constant() ? "c" : "w";
-    std::string out =
-        (stack[first_index].is_circuit_constant() && stack[second_index].is_circuit_constant()) ? "c" : "w";
-    lhs += std::to_string(first_index);
-    rhs += std::to_string(second_index);
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+    std::string lhs = format_element(stack, first_index);
+    std::string rhs = format_element(stack, second_index);
+    bool all_c = stack[first_index].is_circuit_constant() && stack[second_index].is_circuit_constant();
+    std::string out = (all_c ? "c" : "w") + std::to_string(output_index >= stack.size() ? stack.size() : output_index);
     out = (output_index >= stack.size() ? "auto " : "") + out;
     return { .lhs = lhs, .rhs = rhs, .out = out };
 }
