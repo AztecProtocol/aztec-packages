@@ -15,8 +15,6 @@ template <typename Builder> class RomTableTests : public ::testing::Test {
     using field_ct = stdlib::field_t<Builder>;
     using witness_ct = stdlib::witness_t<Builder>;
     using rom_table_ct = stdlib::rom_table<Builder>;
-
-    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 };
 using BuilderTypes = testing::Types<UltraCircuitBuilder, MegaCircuitBuilder>;
 namespace {
