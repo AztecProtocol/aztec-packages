@@ -11,6 +11,7 @@ export {
   compute_bn254_msm_batch_affine,
   compute_bn254_msm_debug_trace,
 } from "./msm.js";
+export type { ProfileCapture } from "./msm.js";
 
 export { GpuContext } from "./cuzk/gpu_context.js";
 export { CachedBases, precompute_bn254_bases } from "./cuzk/cached_bases.js";

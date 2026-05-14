@@ -31,6 +31,7 @@ import {
   compute_bn254_msm_batch_affine,
   GpuContext,
   precompute_bn254_bases,
+  type ProfileCapture,
 } from "../../src/msm_webgpu/index.js";
 import {
   createWasmPippenger,
@@ -541,22 +542,32 @@ async function ensureWebGpuWarmed(
   return { ctx: gpuContext, bases: cachedBases };
 }
 
-async function runWebGpuOnce(inputs: TestInputs): Promise<{ ms: number; xy: { x: bigint; y: bigint } }> {
+async function runWebGpuOnce(
+  inputs: TestInputs,
+): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture }> {
   if (!("gpu" in navigator)) {
     throw new Error("navigator.gpu is undefined — no WebGPU in this browser");
   }
   const { ctx, bases } = await ensureWebGpuWarmed(inputs);
   log("info", `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
+  // Pre-allocate the profile_capture out-param. The library writes
+  // `.profile` (per-pass GPU times), `.cpu_phases` (CPU phase totals,
+  // populated whenever capture is present), and `.gpu_readback`
+  // (GPU wall vs. profiled-sum vs. readback overhead) into this object
+  // before the await resolves.
+  const capture: ProfileCapture = { profile: null };
   const t0 = performance.now();
   const gpu = await compute_bn254_msm_batch_affine(
     ctx,
     bases,
     inputs.scalarsBuf as unknown as Buffer,
     false,
+    {},
+    capture,
   );
   const ms = performance.now() - t0;
   log("info", `[gpu] returned in ${ms.toFixed(1)} ms`);
-  return { ms, xy: gpu };
+  return { ms, xy: gpu, capture };
 }
 
 async function runWasmOnce(
@@ -599,6 +610,11 @@ interface BackendSample {
   // against the WebGPU result (at all sizes, so a regression in any one
   // backend is visible without paying for noble).
   xy: { x: bigint; y: bigint };
+  // Populated only for the WebGPU backend — the library writes per-pass
+  // GPU times, CPU phase totals, and a readback decomposition into this
+  // out-param when `profile_capture` is passed. Used to render the
+  // per-stage breakdown table.
+  capture?: ProfileCapture;
 }
 
 interface SweepRow {
@@ -637,6 +653,204 @@ function fmtCheck(v: boolean | null): string {
   return v ? '<span class="ok">pass</span>' : '<span class="err">FAIL</span>';
 }
 
+// Pipeline-execution order so breakdown rows read top-to-bottom along
+// the dataflow. Stages not in this list (future labels, fallbacks) are
+// appended at the end. Labels match the `profiler.stage(...)` calls in
+// msm.ts and batch_affine.ts after `[…]` rollup (subtasks/rounds are
+// summed within a rep, then medianised across reps).
+const STAGE_ORDER = [
+  "decompose_scalars_only",
+  "convert_points",
+  "transpose_count",
+  "transpose_scan",
+  "transpose_scatter",
+  "transpose",
+  "ba_init",
+  "ba_schedule",
+  "ba_inverse",
+  "ba_apply",
+  "ba_finalize_collect",
+  "ba_finalize_inverse",
+  "ba_finalize_apply",
+  "smvp",
+  "bpr_1",
+  "bpr_2",
+  "subtask_reduce",
+];
+
+function rollupLabel(label: string): string {
+  const idx = label.indexOf("[");
+  return idx >= 0 ? label.substring(0, idx) : label;
+}
+
+interface AggregatedProfile {
+  perStage: Map<string, number>;
+  gpuWallMs: number | null;
+  profiledSumMs: number | null;
+  untimestampedMs: number | null;
+  readbackMs: number | null;
+  mapasyncMs: number | null;
+  cpuTotalWallMs: number | null;
+  cpuPhases: Map<string, number>;
+}
+
+function aggregateCaptures(captures: ProfileCapture[]): AggregatedProfile | null {
+  if (captures.length === 0) return null;
+  // Per-rep stage sums (rolled up across subtasks/rounds), medianised
+  // across reps.
+  const perRepByStage = new Map<string, number[]>();
+  for (const c of captures) {
+    if (!c.profile) continue;
+    const repTotals = new Map<string, number>();
+    for (const { label, ms } of c.profile) {
+      const k = rollupLabel(label);
+      repTotals.set(k, (repTotals.get(k) ?? 0) + ms);
+    }
+    for (const [k, v] of repTotals) {
+      if (!perRepByStage.has(k)) perRepByStage.set(k, []);
+      perRepByStage.get(k)!.push(v);
+    }
+  }
+  const perStage = new Map<string, number>();
+  for (const [k, samples] of perRepByStage) perStage.set(k, median(samples));
+
+  const fld = (pick: (c: ProfileCapture) => number | undefined): number | null => {
+    const xs: number[] = [];
+    for (const c of captures) {
+      const v = pick(c);
+      if (v !== undefined && Number.isFinite(v)) xs.push(v);
+    }
+    return xs.length ? median(xs) : null;
+  };
+
+  const cpuByPhase = new Map<string, number[]>();
+  for (const c of captures) {
+    if (!c.cpu_phases) continue;
+    for (const { label, ms } of c.cpu_phases.phases) {
+      if (!cpuByPhase.has(label)) cpuByPhase.set(label, []);
+      cpuByPhase.get(label)!.push(ms);
+    }
+  }
+  const cpuPhases = new Map<string, number>();
+  for (const [k, samples] of cpuByPhase) cpuPhases.set(k, median(samples));
+
+  return {
+    perStage,
+    gpuWallMs: fld((c) => c.gpu_readback?.gpu_compute_wall),
+    profiledSumMs: fld((c) => c.gpu_readback?.profiled_passes_sum),
+    untimestampedMs: fld((c) => c.gpu_readback?.untimestamped),
+    readbackMs: fld((c) => c.gpu_readback?.readback_total),
+    mapasyncMs: fld((c) => c.gpu_readback?.mapasync_overhead),
+    cpuTotalWallMs: fld((c) => c.cpu_phases?.total_wall_ms),
+    cpuPhases,
+  };
+}
+
+function fmtCell(v: number | null | undefined): string {
+  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  return v.toFixed(1);
+}
+
+function fmtPctCell(v: number | null | undefined, total: number | null): string {
+  if (v === null || v === undefined || total === null || !total) return fmtCell(v);
+  if (!Number.isFinite(v) || !Number.isFinite(total)) return fmtCell(v);
+  return `${fmtCell(v)}<span class="samples"> (${((100 * v) / total).toFixed(0)}%)</span>`;
+}
+
+function renderBreakdownTable(
+  entries: { logN: number; captures: ProfileCapture[] }[],
+): string {
+  const aggregates = entries.map((e) => ({
+    logN: e.logN,
+    agg: aggregateCaptures(e.captures),
+  }));
+  if (aggregates.every(({ agg }) => agg === null)) return "";
+
+  const seenStages = new Set<string>();
+  const seenCpuPhases = new Set<string>();
+  for (const { agg } of aggregates) {
+    if (!agg) continue;
+    for (const k of agg.perStage.keys()) seenStages.add(k);
+    for (const k of agg.cpuPhases.keys()) seenCpuPhases.add(k);
+  }
+  const orderedStages: string[] = [
+    ...STAGE_ORDER.filter((k) => seenStages.has(k)),
+    ...Array.from(seenStages).filter((k) => !STAGE_ORDER.includes(k)),
+  ];
+
+  const headCells = aggregates
+    .map(({ logN }) => `<th>2^${logN}<br/><span class="samples">n=${(1 << logN).toLocaleString()}</span></th>`)
+    .join("");
+
+  const stageRows = orderedStages
+    .map((stage) => {
+      const cells = aggregates
+        .map(({ agg }) => {
+          if (!agg) return `<td>—</td>`;
+          return `<td>${fmtPctCell(agg.perStage.get(stage), agg.gpuWallMs)}</td>`;
+        })
+        .join("");
+      return `<tr><td>${stage}</td>${cells}</tr>`;
+    })
+    .join("");
+
+  const sumRow = (
+    label: string,
+    pick: (a: AggregatedProfile) => number | null,
+    withPct = false,
+  ): string => {
+    const cells = aggregates
+      .map(({ agg }) => {
+        if (!agg) return `<td>—</td>`;
+        const v = pick(agg);
+        return `<td>${withPct ? fmtPctCell(v, agg.gpuWallMs) : fmtCell(v)}</td>`;
+      })
+      .join("");
+    return `<tr><td><b>${label}</b></td>${cells}</tr>`;
+  };
+
+  const cpuRows = Array.from(seenCpuPhases)
+    .map((phase) => {
+      const cells = aggregates
+        .map(({ agg }) => {
+          if (!agg) return `<td>—</td>`;
+          return `<td>${fmtCell(agg.cpuPhases.get(phase))}</td>`;
+        })
+        .join("");
+      return `<tr><td>${phase}</td>${cells}</tr>`;
+    })
+    .join("");
+
+  return `
+  <h3>GPU per-pass breakdown (median ms; subtasks/rounds summed within each rep)</h3>
+  <table>
+    <tr><th>Stage</th>${headCells}</tr>
+    ${stageRows}
+    ${sumRow("profiled passes (Σ)", (a) => a.profiledSumMs, true)}
+    ${sumRow("untimestamped", (a) => a.untimestampedMs, true)}
+    ${sumRow("GPU compute wall", (a) => a.gpuWallMs)}
+    ${sumRow("readback_total", (a) => a.readbackMs)}
+    ${sumRow("mapasync_overhead", (a) => a.mapasyncMs)}
+  </table>
+  <h3>CPU host phases (median ms)</h3>
+  <table>
+    <tr><th>Phase</th>${headCells}</tr>
+    ${cpuRows}
+    ${sumRow("total wall (CPU)", (a) => a.cpuTotalWallMs)}
+  </table>`;
+}
+
+function captureEntriesFromRows(
+  rows: SweepRow[],
+): { logN: number; captures: ProfileCapture[] }[] {
+  return rows.map((r) => ({
+    logN: r.logN,
+    captures: r.webgpu
+      .map((s) => s.capture)
+      .filter((c): c is ProfileCapture => c !== undefined),
+  }));
+}
+
 function renderSweepTable(rows: SweepRow[]): void {
   // Two tables: a consistency check at log₂n = NOBLE_REFERENCE_LOGN
   // (cross-checks WebGPU / WASM-ST / WASM-MT / Noble pairwise), and a
@@ -644,9 +858,13 @@ function renderSweepTable(rows: SweepRow[]): void {
   // WASM ST is omitted from the perf table — it's strictly slower at
   // these sizes and not the production path; noble lives in the
   // consistency table only because it's too slow to run at larger n.
+  // Followed by a per-pass GPU/CPU breakdown built from the
+  // `profile_capture` out-params collected on every WebGPU rep.
   const refRow = rows.find((r) => r.logN === NOBLE_REFERENCE_LOGN);
   $results.innerHTML =
-    renderConsistencyTable(refRow) + renderPerfTable(rows);
+    renderConsistencyTable(refRow) +
+    renderPerfTable(rows) +
+    renderBreakdownTable(captureEntriesFromRows(rows));
   $results.classList.add("visible");
 }
 
@@ -754,6 +972,7 @@ $run.addEventListener("click", async () => {
 
 $runBench.addEventListener("click", async () => {
   $log.innerHTML = "";
+  $results.classList.remove("visible");
   abortRequested = false;
   setBusy(true, "benchmarking…");
   try {
@@ -762,6 +981,7 @@ $runBench.addEventListener("click", async () => {
     const gpuSamples: number[] = [];
     const stSamples: number[] = [];
     const mtSamples: number[] = [];
+    const gpuCaptures: ProfileCapture[] = [];
     for (let i = 0; i < SWEEP_REPS; i++) {
       throwIfAborted();
       log("info", `[bench] iter ${i + 1}/${SWEEP_REPS}`);
@@ -771,6 +991,7 @@ $runBench.addEventListener("click", async () => {
       throwIfAborted();
       const mt = await runWasmOnce(inputs, "mt");
       gpuSamples.push(gpu.ms);
+      gpuCaptures.push(gpu.capture);
       stSamples.push(st.ms);
       mtSamples.push(mt.ms);
       log(
@@ -783,6 +1004,10 @@ $runBench.addEventListener("click", async () => {
       `[bench] medians: gpu=${median(gpuSamples).toFixed(1)}, ` +
         `st=${median(stSamples).toFixed(1)}, mt=${median(mtSamples).toFixed(1)} ms`,
     );
+    // Surface the per-pass GPU/CPU breakdown for the single logN
+    // benched. Same renderer the sweep uses, just with one column.
+    $results.innerHTML = renderBreakdownTable([{ logN, captures: gpuCaptures }]);
+    $results.classList.add("visible");
   } catch (err) {
     log(abortRequested ? "warn" : "err", `[bench] ${err instanceof Error ? err.message : String(err)}`);
     if (!abortRequested && err instanceof Error && err.stack) log("err", err.stack);
@@ -1038,6 +1263,11 @@ $runSanity.addEventListener("click", async () => {
     log("info", `[sanity] gpu.x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
     logMemSnapshot("sanity-end");
     log("ok", `[sanity] PASS in ${gpu.ms.toFixed(0)} ms`);
+    // Single-capture breakdown — same renderer the sweep / bench use,
+    // with one column. Useful as a one-click "where is my time going"
+    // view after a fresh page reload.
+    $results.innerHTML = renderBreakdownTable([{ logN: 16, captures: [gpu.capture] }]);
+    $results.classList.add("visible");
   } catch (err) {
     log(abortRequested ? "warn" : "err", `[sanity] ${err instanceof Error ? err.message : String(err)}`);
     if (!abortRequested && err instanceof Error && err.stack) log("err", err.stack);
