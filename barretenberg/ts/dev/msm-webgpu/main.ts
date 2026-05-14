@@ -24,7 +24,7 @@
 //     non-Montgomery, interleaved per point.
 //   - `scalarsBuf` is `n × 32` LE bytes, non-Montgomery Fr.
 
-import { bn254 } from "@noble/curves/bn254";
+import { bn254 } from '@noble/curves/bn254';
 
 import {
   CachedBases,
@@ -32,32 +32,28 @@ import {
   GpuContext,
   precompute_bn254_bases,
   type ProfileCapture,
-} from "../../src/msm_webgpu/index.js";
-import {
-  createWasmPippenger,
-  parseAffineLE,
-  type WasmPippengerHandle,
-} from "./pippenger_wasm.js";
-import { loadSrsPoints, type SrsEvent } from "./srs.js";
-import { runAllWgslUnitTests } from "./wgsl_unit_tests.js";
+} from '../../src/msm_webgpu/index.js';
+import { createWasmPippenger, parseAffineLE, type WasmPippengerHandle } from './pippenger_wasm.js';
+import { loadSrsPoints, type SrsEvent } from './srs.js';
+import { runAllWgslUnitTests } from './wgsl_unit_tests.js';
 
-type LogLevel = "info" | "ok" | "err" | "warn";
+type LogLevel = 'info' | 'ok' | 'err' | 'warn';
 
-const $log = document.getElementById("log") as HTMLDivElement;
-const $progress = document.getElementById("srs-progress") as HTMLDivElement;
-const $status = document.getElementById("status") as HTMLSpanElement;
-const $run = document.getElementById("run") as HTMLButtonElement;
-const $runBench = document.getElementById("run-bench") as HTMLButtonElement;
-const $runSweep = document.getElementById("run-sweep") as HTMLButtonElement;
-const $runSanity = document.getElementById("run-sanity") as HTMLButtonElement;
-const $runUnitTests = document.getElementById("run-unit-tests") as HTMLButtonElement;
-const $stop = document.getElementById("stop") as HTMLButtonElement;
-const $logn = document.getElementById("logn") as HTMLInputElement;
-const $nDisplay = document.getElementById("n-display") as HTMLSpanElement;
-const $mtThreads = document.getElementById("mt-threads") as HTMLInputElement;
-const $hwThreads = document.getElementById("hw-threads") as HTMLSpanElement;
-const $noble = document.getElementById("noble") as HTMLInputElement;
-const $results = document.getElementById("results") as HTMLDivElement;
+const $log = document.getElementById('log') as HTMLDivElement;
+const $progress = document.getElementById('srs-progress') as HTMLDivElement;
+const $status = document.getElementById('status') as HTMLSpanElement;
+const $run = document.getElementById('run') as HTMLButtonElement;
+const $runBench = document.getElementById('run-bench') as HTMLButtonElement;
+const $runSweep = document.getElementById('run-sweep') as HTMLButtonElement;
+const $runSanity = document.getElementById('run-sanity') as HTMLButtonElement;
+const $runUnitTests = document.getElementById('run-unit-tests') as HTMLButtonElement;
+const $stop = document.getElementById('stop') as HTMLButtonElement;
+const $logn = document.getElementById('logn') as HTMLInputElement;
+const $nDisplay = document.getElementById('n-display') as HTMLSpanElement;
+const $mtThreads = document.getElementById('mt-threads') as HTMLInputElement;
+const $hwThreads = document.getElementById('hw-threads') as HTMLSpanElement;
+const $noble = document.getElementById('noble') as HTMLInputElement;
+const $results = document.getElementById('results') as HTMLDivElement;
 
 // See pippenger_wasm.ts header for why the WebGPU floor (2^16) is also
 // the floor here.
@@ -73,10 +69,7 @@ const SWEEP_REPS = 5;
 // MT_THREADS_MAX. Falls back to 4 if `navigator.hardwareConcurrency`
 // is undefined.
 const MT_THREADS_MAX = 32;
-const MT_THREADS_DEFAULT = Math.min(
-  MT_THREADS_MAX,
-  navigator.hardwareConcurrency ?? 4,
-);
+const MT_THREADS_DEFAULT = Math.min(MT_THREADS_MAX, navigator.hardwareConcurrency ?? 4);
 
 // Cap the WASM heap maximum. bb.js's default is 4 GiB; at this dev page's
 // peak (log₂(n)=20, ~96 MiB of points+scalars in the WASM heap) we never
@@ -154,15 +147,15 @@ function updateNDisplay(): void {
   $nDisplay.textContent = `(n = ${n.toLocaleString()})`;
 }
 
-$logn.addEventListener("input", updateNDisplay);
+$logn.addEventListener('input', updateNDisplay);
 updateNDisplay();
-$hwThreads.textContent = String(navigator.hardwareConcurrency ?? "?");
+$hwThreads.textContent = String(navigator.hardwareConcurrency ?? '?');
 $mtThreads.value = String(MT_THREADS_DEFAULT);
 
 function log(level: LogLevel, msg: string): void {
-  const span = document.createElement("span");
-  if (level !== "info") span.className = level;
-  span.textContent = msg + "\n";
+  const span = document.createElement('span');
+  if (level !== 'info') span.className = level;
+  span.textContent = msg + '\n';
   $log.appendChild(span);
   $log.scrollTop = $log.scrollHeight;
 }
@@ -174,7 +167,7 @@ function log(level: LogLevel, msg: string): void {
  * 16 ms (one frame) when we expect a long pause coming up.
  */
 async function yieldToBrowser(ms: number = 0): Promise<void> {
-  await new Promise<void>((resolve) => setTimeout(resolve, ms));
+  await new Promise<void>(resolve => setTimeout(resolve, ms));
 }
 
 /** Log a memory-pressure snapshot if the browser exposes it (Chrome-only). */
@@ -186,14 +179,14 @@ function logMemSnapshot(label: string): void {
   if (!mem) return;
   const mib = (b: number) => (b / 1024 / 1024).toFixed(0);
   log(
-    "info",
+    'info',
     `[mem] ${label}: used=${mib(mem.usedJSHeapSize)} MiB, ` +
       `total=${mib(mem.totalJSHeapSize)} MiB, ` +
       `limit=${mib(mem.jsHeapSizeLimit)} MiB`,
   );
 }
 
-function setBusy(busy: boolean, text = ""): void {
+function setBusy(busy: boolean, text = ''): void {
   // SRS load gates everything (we slice from it). WASM boot is lazy —
   // buttons are enabled even before WASM exists; the first click triggers
   // the boot via ensureWasmBooted().
@@ -209,15 +202,11 @@ function setBusy(busy: boolean, text = ""): void {
   $runSweep.disabled = busy || !ready || !WASM_AVAILABLE;
   // Stop is only meaningful while something is in flight, WASM is booted,
   // or a GPU context is alive (so the user can free GPU memory on demand).
-  $stop.disabled =
-    !busy &&
-    wasmStPippenger === null &&
-    wasmMtPippenger === null &&
-    gpuContext === null;
+  $stop.disabled = !busy && wasmStPippenger === null && wasmMtPippenger === null && gpuContext === null;
   $status.textContent = text;
 }
 
-type WasmRole = "st" | "mt";
+type WasmRole = 'st' | 'mt';
 
 /**
  * Boots a bb.js WASM worker lazily on first use for the given role.
@@ -229,55 +218,49 @@ type WasmRole = "st" | "mt";
 async function ensureWasmBooted(role: WasmRole): Promise<WasmPippengerHandle> {
   if (!WASM_AVAILABLE) {
     throw new Error(
-      "WASM paths are disabled: page is not cross-origin isolated. " +
+      'WASM paths are disabled: page is not cross-origin isolated. ' +
         "Click 'Enable WASM (reload with COI)' to reload with COOP/COEP headers.",
     );
   }
-  const cached = role === "st" ? wasmStPippenger : wasmMtPippenger;
+  const cached = role === 'st' ? wasmStPippenger : wasmMtPippenger;
   if (cached !== null) return cached;
-  const inFlight = role === "st" ? wasmStBootInFlight : wasmMtBootInFlight;
+  const inFlight = role === 'st' ? wasmStBootInFlight : wasmMtBootInFlight;
   if (inFlight !== null) return inFlight;
-  const threads = role === "st" ? 1 : readMtThreads();
+  const threads = role === 'st' ? 1 : readMtThreads();
   // The MT thread count is captured at boot time; lock the input
   // until the MT handle is torn down so the displayed value matches
   // what's actually live in the worker.
-  if (role === "mt") $mtThreads.disabled = true;
+  if (role === 'mt') $mtThreads.disabled = true;
   log(
-    "info",
-    `[wasm-boot/${role}] starting (threads=${threads}, ` +
-      `max-mem=${(WASM_MEM_MAX_PAGES * 64) / 1024} MiB)`,
+    'info',
+    `[wasm-boot/${role}] starting (threads=${threads}, ` + `max-mem=${(WASM_MEM_MAX_PAGES * 64) / 1024} MiB)`,
   );
   logMemSnapshot(`pre-wasm-boot/${role}`);
   const t0 = performance.now();
-  const boot = createWasmPippenger(
-    threads,
-    (m) => log("info", `[wasm-boot/${role}] ${m}`),
-    { initialPages: WASM_MEM_INITIAL_PAGES, maxPages: WASM_MEM_MAX_PAGES },
-  )
-    .then((handle) => {
-      if (role === "st") wasmStPippenger = handle;
+  const boot = createWasmPippenger(threads, m => log('info', `[wasm-boot/${role}] ${m}`), {
+    initialPages: WASM_MEM_INITIAL_PAGES,
+    maxPages: WASM_MEM_MAX_PAGES,
+  })
+    .then(handle => {
+      if (role === 'st') wasmStPippenger = handle;
       else wasmMtPippenger = handle;
       log(
-        "ok",
-        `[wasm-boot/${role}] ready (${handle.threads} threads, ` +
-          `${(performance.now() - t0).toFixed(0)} ms)`,
+        'ok',
+        `[wasm-boot/${role}] ready (${handle.threads} threads, ` + `${(performance.now() - t0).toFixed(0)} ms)`,
       );
       logMemSnapshot(`post-wasm-boot/${role}`);
       return handle;
     })
-    .catch((err) => {
-      log(
-        "err",
-        `[wasm-boot/${role}] failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      if (role === "mt") $mtThreads.disabled = false;
+    .catch(err => {
+      log('err', `[wasm-boot/${role}] failed: ${err instanceof Error ? err.message : String(err)}`);
+      if (role === 'mt') $mtThreads.disabled = false;
       throw err;
     })
     .finally(() => {
-      if (role === "st") wasmStBootInFlight = null;
+      if (role === 'st') wasmStBootInFlight = null;
       else wasmMtBootInFlight = null;
     });
-  if (role === "st") wasmStBootInFlight = boot;
+  if (role === 'st') wasmStBootInFlight = boot;
   else wasmMtBootInFlight = boot;
   return boot;
 }
@@ -292,8 +275,8 @@ async function stopAndDestroyWasm(reason: string): Promise<void> {
   abortRequested = true;
   $status.textContent = `${reason}; stopping…`;
   const handles: Array<[WasmRole, WasmPippengerHandle | null]> = [
-    ["st", wasmStPippenger],
-    ["mt", wasmMtPippenger],
+    ['st', wasmStPippenger],
+    ['mt', wasmMtPippenger],
   ];
   wasmStPippenger = null;
   wasmMtPippenger = null;
@@ -302,14 +285,11 @@ async function stopAndDestroyWasm(reason: string): Promise<void> {
     try {
       await handle.destroy();
     } catch (err) {
-      log(
-        "warn",
-        `[stop/${role}] destroy threw: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      log('warn', `[stop/${role}] destroy threw: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
   $mtThreads.disabled = false;
-  log("info", `[stop] WASM workers terminated`);
+  log('info', `[stop] WASM workers terminated`);
   // Tear down persistent WebGPU state too. Destroying the GpuContext
   // invalidates the device and every cached pipeline / buffer (including
   // CachedBases — `cached.destroy()` on top is belt-and-braces). Next
@@ -318,53 +298,45 @@ async function stopAndDestroyWasm(reason: string): Promise<void> {
     try {
       cachedBases?.destroy();
     } catch (err) {
-      log(
-        "warn",
-        `[stop/gpu] cachedBases.destroy threw: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      log('warn', `[stop/gpu] cachedBases.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
     }
     try {
       gpuContext?.destroy();
     } catch (err) {
-      log(
-        "warn",
-        `[stop/gpu] gpuContext.destroy threw: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      log('warn', `[stop/gpu] gpuContext.destroy threw: ${err instanceof Error ? err.message : String(err)}`);
     }
     cachedBases = null;
     cachedBasesLogN = null;
     gpuContext = null;
     webgpuWarmedUp = false;
-    log("info", `[stop] GPU context destroyed`);
+    log('info', `[stop] GPU context destroyed`);
   }
 }
 
-$stop.addEventListener("click", async () => {
+$stop.addEventListener('click', async () => {
   $stop.disabled = true;
-  await stopAndDestroyWasm("user clicked Stop");
+  await stopAndDestroyWasm('user clicked Stop');
   setBusy(false);
 });
 
 // Toggle between COI-on / COI-off by reloading with a different URL.
 // Implemented as a reload because the COOP/COEP headers are only
 // honoured by the browser at the moment the document is fetched.
-const $toggleCoi = document.getElementById("toggle-coi") as HTMLButtonElement;
-$toggleCoi.textContent = COI_ACTIVE
-  ? "Disable WASM (reload without COI)"
-  : "Enable WASM (reload with COI)";
-$toggleCoi.addEventListener("click", () => {
+const $toggleCoi = document.getElementById('toggle-coi') as HTMLButtonElement;
+$toggleCoi.textContent = COI_ACTIVE ? 'Disable WASM (reload without COI)' : 'Enable WASM (reload with COI)';
+$toggleCoi.addEventListener('click', () => {
   const url = new URL(window.location.href);
   if (COI_ACTIVE) {
-    url.searchParams.delete("coi");
+    url.searchParams.delete('coi');
   } else {
-    url.searchParams.set("coi", "1");
+    url.searchParams.set('coi', '1');
   }
   window.location.href = url.toString();
 });
 
 function throwIfAborted(): void {
   if (abortRequested) {
-    throw new Error("aborted by Stop");
+    throw new Error('aborted by Stop');
   }
 }
 
@@ -418,19 +390,17 @@ function readSrsPointAt(buf: Uint8Array, i: number): { x: bigint; y: bigint } {
 // small MSMs that crash the WebGPU pipeline (it requires n ≥ 2^16).
 async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<TestInputs> {
   if (srsBuf === null) {
-    throw new Error("[gen] SRS not loaded yet — wait for the [srs] ready line");
+    throw new Error('[gen] SRS not loaded yet — wait for the [srs] ready line');
   }
   if (logN < LOGN_MIN || logN > LOGN_MAX) {
     throw new Error(`[gen] logN=${logN} outside the supported [${LOGN_MIN}, ${LOGN_MAX}] range`);
   }
   const n = 1 << logN;
   if (n * 64 > srsBuf.length) {
-    throw new Error(
-      `[gen] requested ${n} points but SRS only has ${srsBuf.length / 64}; bump LOGN_MAX`,
-    );
+    throw new Error(`[gen] requested ${n} points but SRS only has ${srsBuf.length / 64}; bump LOGN_MAX`);
   }
 
-  log("info", `[gen] preparing ${n} SRS points + ${n} random scalars…`);
+  log('info', `[gen] preparing ${n} SRS points + ${n} random scalars…`);
   const t0 = performance.now();
 
   const pointsBuf = new Uint8Array(srsBuf.buffer, srsBuf.byteOffset, n * 64);
@@ -448,27 +418,21 @@ async function generateInputs(logN: number, mirrorForNoble: boolean): Promise<Te
     scalarBytes.set(biToLe32(s, `scalar[${i}]`), i * 32);
   }
 
-  log("info", `[gen] done in ${(performance.now() - t0).toFixed(0)} ms`);
+  log('info', `[gen] done in ${(performance.now() - t0).toFixed(0)} ms`);
   return { n, points, scalars, pointsBuf, scalarsBuf: scalarBytes };
 }
 
-function referenceMsm(
-  points: { x: bigint; y: bigint }[],
-  scalars: bigint[],
-): { x: bigint; y: bigint } {
-  log("info", `[noble] computing reference MSM on CPU (noble pippenger)…`);
+function referenceMsm(points: { x: bigint; y: bigint }[], scalars: bigint[]): { x: bigint; y: bigint } {
+  log('info', `[noble] computing reference MSM on CPU (noble pippenger)…`);
   const t0 = performance.now();
-  const projPoints = points.map((p) => bn254.G1.ProjectivePoint.fromAffine(p));
+  const projPoints = points.map(p => bn254.G1.ProjectivePoint.fromAffine(p));
   const result = bn254.G1.ProjectivePoint.msm(projPoints, scalars);
   const aff = result.toAffine();
-  log("info", `[noble] done in ${(performance.now() - t0).toFixed(0)} ms`);
+  log('info', `[noble] done in ${(performance.now() - t0).toFixed(0)} ms`);
   return aff;
 }
 
-function pointsEqual(
-  a: { x: bigint; y: bigint },
-  b: { x: bigint; y: bigint },
-): boolean {
+function pointsEqual(a: { x: bigint; y: bigint }, b: { x: bigint; y: bigint }): boolean {
   return a.x === b.x && a.y === b.y;
 }
 
@@ -484,60 +448,34 @@ function pointsEqual(
  * Each step is logged with its own timing so the user can see what the
  * cold tal-webgpu-style ~90 ms target is being amortised against.
  */
-async function ensureWebGpuWarmed(
-  inputs: TestInputs,
-): Promise<{ ctx: GpuContext; bases: CachedBases }> {
+async function ensureWebGpuWarmed(inputs: TestInputs): Promise<{ ctx: GpuContext; bases: CachedBases }> {
   const logN = Math.log2(inputs.n);
   if (gpuContext === null) {
-    log("info", "[gpu-warm] creating persistent GpuContext (one-time)");
+    log('info', '[gpu-warm] creating persistent GpuContext (one-time)');
     const t0 = performance.now();
     gpuContext = await GpuContext.create();
-    log(
-      "ok",
-      `[gpu-warm] context ready in ${(performance.now() - t0).toFixed(0)} ms`,
-    );
+    log('ok', `[gpu-warm] context ready in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   if (cachedBases === null || cachedBasesLogN !== logN) {
     if (cachedBases !== null) {
-      log(
-        "info",
-        `[gpu-warm] logN changed (${cachedBasesLogN} → ${logN}); freeing old bases`,
-      );
+      log('info', `[gpu-warm] logN changed (${cachedBasesLogN} → ${logN}); freeing old bases`);
       cachedBases.destroy();
       cachedBases = null;
       cachedBasesLogN = null;
       webgpuWarmedUp = false;
     }
-    log(
-      "info",
-      `[gpu-warm] precomputing Montgomery-form SRS bases for ${inputs.n.toLocaleString()} points`,
-    );
+    log('info', `[gpu-warm] precomputing Montgomery-form SRS bases for ${inputs.n.toLocaleString()} points`);
     const t0 = performance.now();
-    cachedBases = await precompute_bn254_bases(
-      gpuContext,
-      inputs.pointsBuf as unknown as Buffer,
-      false,
-    );
+    cachedBases = await precompute_bn254_bases(gpuContext, inputs.pointsBuf as unknown as Buffer, false);
     cachedBasesLogN = logN;
-    log(
-      "ok",
-      `[gpu-warm] precompute done in ${(performance.now() - t0).toFixed(0)} ms`,
-    );
+    log('ok', `[gpu-warm] precompute done in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   if (!webgpuWarmedUp) {
-    log("info", "[gpu-warm] warm-up dispatch (shader JIT, command buffer)…");
+    log('info', '[gpu-warm] warm-up dispatch (shader JIT, command buffer)…');
     const t0 = performance.now();
-    await compute_bn254_msm_batch_affine(
-      gpuContext,
-      cachedBases,
-      inputs.scalarsBuf as unknown as Buffer,
-      false,
-    );
+    await compute_bn254_msm_batch_affine(gpuContext, cachedBases, inputs.scalarsBuf as unknown as Buffer, false);
     webgpuWarmedUp = true;
-    log(
-      "ok",
-      `[gpu-warm] warm-up done in ${(performance.now() - t0).toFixed(0)} ms`,
-    );
+    log('ok', `[gpu-warm] warm-up done in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   return { ctx: gpuContext, bases: cachedBases };
 }
@@ -545,11 +483,11 @@ async function ensureWebGpuWarmed(
 async function runWebGpuOnce(
   inputs: TestInputs,
 ): Promise<{ ms: number; xy: { x: bigint; y: bigint }; capture: ProfileCapture }> {
-  if (!("gpu" in navigator)) {
-    throw new Error("navigator.gpu is undefined — no WebGPU in this browser");
+  if (!('gpu' in navigator)) {
+    throw new Error('navigator.gpu is undefined — no WebGPU in this browser');
   }
   const { ctx, bases } = await ensureWebGpuWarmed(inputs);
-  log("info", `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
+  log('info', `[gpu] dispatch n=${inputs.n.toLocaleString()}`);
   // Pre-allocate the profile_capture out-param. The library writes
   // `.profile` (per-pass GPU times), `.cpu_phases` (CPU phase totals,
   // populated whenever capture is present), and `.gpu_readback`
@@ -566,14 +504,11 @@ async function runWebGpuOnce(
     capture,
   );
   const ms = performance.now() - t0;
-  log("info", `[gpu] returned in ${ms.toFixed(1)} ms`);
+  log('info', `[gpu] returned in ${ms.toFixed(1)} ms`);
   return { ms, xy: gpu, capture };
 }
 
-async function runWasmOnce(
-  inputs: TestInputs,
-  role: WasmRole,
-): Promise<{ ms: number; xy: { x: bigint; y: bigint } }> {
+async function runWasmOnce(inputs: TestInputs, role: WasmRole): Promise<{ ms: number; xy: { x: bigint; y: bigint } }> {
   const handle = await ensureWasmBooted(role);
   // If Stop destroyed the handle while ensureWasmBooted was already
   // resolved (e.g. for the previous rep), the next call would crash
@@ -588,18 +523,14 @@ async function runWasmOnce(
   // user may have changed it since boot.
   const numThreads = handle.threads;
   log(
-    "info",
+    'info',
     `[wasm/${role}] dispatch n=${inputs.n.toLocaleString()} ` +
       `(${((inputs.pointsBuf.length + inputs.scalarsBuf.length) / 1024 / 1024).toFixed(1)} MiB in)`,
   );
   const t0 = performance.now();
-  const resultBytes = await handle.runMsm(
-    inputs.pointsBuf,
-    inputs.scalarsBuf,
-    numThreads,
-  );
+  const resultBytes = await handle.runMsm(inputs.pointsBuf, inputs.scalarsBuf, numThreads);
   const ms = performance.now() - t0;
-  log("info", `[wasm/${role}] returned in ${ms.toFixed(1)} ms`);
+  log('info', `[wasm/${role}] returned in ${ms.toFixed(1)} ms`);
   return { ms, xy: parseAffineLE(resultBytes) };
 }
 
@@ -633,23 +564,23 @@ function median(samples: number[]): number {
 }
 
 function fmtMs(samples: BackendSample[]): string {
-  if (samples.length === 0) return "—";
-  return median(samples.map((s) => s.ms)).toFixed(1);
+  if (samples.length === 0) return '—';
+  return median(samples.map(s => s.ms)).toFixed(1);
 }
 
 function fmtSamples(samples: BackendSample[]): string {
-  if (samples.length === 0) return "—";
-  return `[${samples.map((s) => s.ms.toFixed(0)).join(", ")}]`;
+  if (samples.length === 0) return '—';
+  return `[${samples.map(s => s.ms.toFixed(0)).join(', ')}]`;
 }
 
 function fmtSpeedup(ms: number, baseline: number): string {
-  if (!Number.isFinite(ms) || !Number.isFinite(baseline) || baseline === 0) return "—";
+  if (!Number.isFinite(ms) || !Number.isFinite(baseline) || baseline === 0) return '—';
   const ratio = baseline / ms;
   return ratio >= 1 ? `${ratio.toFixed(2)}× faster` : `${(1 / ratio).toFixed(2)}× slower`;
 }
 
 function fmtCheck(v: boolean | null): string {
-  if (v === null) return "—";
+  if (v === null) return '—';
   return v ? '<span class="ok">pass</span>' : '<span class="err">FAIL</span>';
 }
 
@@ -659,27 +590,27 @@ function fmtCheck(v: boolean | null): string {
 // msm.ts and batch_affine.ts after `[…]` rollup (subtasks/rounds are
 // summed within a rep, then medianised across reps).
 const STAGE_ORDER = [
-  "decompose_scalars_only",
-  "convert_points",
-  "transpose_count",
-  "transpose_scan",
-  "transpose_scatter",
-  "transpose",
-  "ba_init",
-  "ba_schedule",
-  "ba_inverse",
-  "ba_apply",
-  "ba_finalize_collect",
-  "ba_finalize_inverse",
-  "ba_finalize_apply",
-  "smvp",
-  "bpr_1",
-  "bpr_2",
-  "subtask_reduce",
+  'decompose_scalars_only',
+  'convert_points',
+  'transpose_count',
+  'transpose_scan',
+  'transpose_scatter',
+  'transpose',
+  'ba_init',
+  'ba_schedule',
+  'ba_inverse',
+  'ba_apply',
+  'ba_finalize_collect',
+  'ba_finalize_inverse',
+  'ba_finalize_apply',
+  'smvp',
+  'bpr_1',
+  'bpr_2',
+  'subtask_reduce',
 ];
 
 function rollupLabel(label: string): string {
-  const idx = label.indexOf("[");
+  const idx = label.indexOf('[');
   return idx >= 0 ? label.substring(0, idx) : label;
 }
 
@@ -736,18 +667,18 @@ function aggregateCaptures(captures: ProfileCapture[]): AggregatedProfile | null
 
   return {
     perStage,
-    gpuWallMs: fld((c) => c.gpu_readback?.gpu_compute_wall),
-    profiledSumMs: fld((c) => c.gpu_readback?.profiled_passes_sum),
-    untimestampedMs: fld((c) => c.gpu_readback?.untimestamped),
-    readbackMs: fld((c) => c.gpu_readback?.readback_total),
-    mapasyncMs: fld((c) => c.gpu_readback?.mapasync_overhead),
-    cpuTotalWallMs: fld((c) => c.cpu_phases?.total_wall_ms),
+    gpuWallMs: fld(c => c.gpu_readback?.gpu_compute_wall),
+    profiledSumMs: fld(c => c.gpu_readback?.profiled_passes_sum),
+    untimestampedMs: fld(c => c.gpu_readback?.untimestamped),
+    readbackMs: fld(c => c.gpu_readback?.readback_total),
+    mapasyncMs: fld(c => c.gpu_readback?.mapasync_overhead),
+    cpuTotalWallMs: fld(c => c.cpu_phases?.total_wall_ms),
     cpuPhases,
   };
 }
 
 function fmtCell(v: number | null | undefined): string {
-  if (v === null || v === undefined || !Number.isFinite(v)) return "—";
+  if (v === null || v === undefined || !Number.isFinite(v)) return '—';
   return v.toFixed(1);
 }
 
@@ -757,14 +688,12 @@ function fmtPctCell(v: number | null | undefined, total: number | null): string 
   return `${fmtCell(v)}<span class="samples"> (${((100 * v) / total).toFixed(0)}%)</span>`;
 }
 
-function renderBreakdownTable(
-  entries: { logN: number; captures: ProfileCapture[] }[],
-): string {
-  const aggregates = entries.map((e) => ({
+function renderBreakdownTable(entries: { logN: number; captures: ProfileCapture[] }[]): string {
+  const aggregates = entries.map(e => ({
     logN: e.logN,
     agg: aggregateCaptures(e.captures),
   }));
-  if (aggregates.every(({ agg }) => agg === null)) return "";
+  if (aggregates.every(({ agg }) => agg === null)) return '';
 
   const seenStages = new Set<string>();
   const seenCpuPhases = new Set<string>();
@@ -774,80 +703,72 @@ function renderBreakdownTable(
     for (const k of agg.cpuPhases.keys()) seenCpuPhases.add(k);
   }
   const orderedStages: string[] = [
-    ...STAGE_ORDER.filter((k) => seenStages.has(k)),
-    ...Array.from(seenStages).filter((k) => !STAGE_ORDER.includes(k)),
+    ...STAGE_ORDER.filter(k => seenStages.has(k)),
+    ...Array.from(seenStages).filter(k => !STAGE_ORDER.includes(k)),
   ];
 
   const headCells = aggregates
     .map(({ logN }) => `<th>2^${logN}<br/><span class="samples">n=${(1 << logN).toLocaleString()}</span></th>`)
-    .join("");
+    .join('');
 
   const stageRows = orderedStages
-    .map((stage) => {
+    .map(stage => {
       const cells = aggregates
         .map(({ agg }) => {
           if (!agg) return `<td>—</td>`;
           return `<td>${fmtPctCell(agg.perStage.get(stage), agg.gpuWallMs)}</td>`;
         })
-        .join("");
+        .join('');
       return `<tr><td>${stage}</td>${cells}</tr>`;
     })
-    .join("");
+    .join('');
 
-  const sumRow = (
-    label: string,
-    pick: (a: AggregatedProfile) => number | null,
-    withPct = false,
-  ): string => {
+  const sumRow = (label: string, pick: (a: AggregatedProfile) => number | null, withPct = false): string => {
     const cells = aggregates
       .map(({ agg }) => {
         if (!agg) return `<td>—</td>`;
         const v = pick(agg);
         return `<td>${withPct ? fmtPctCell(v, agg.gpuWallMs) : fmtCell(v)}</td>`;
       })
-      .join("");
+      .join('');
     return `<tr><td><b>${label}</b></td>${cells}</tr>`;
   };
 
   const cpuRows = Array.from(seenCpuPhases)
-    .map((phase) => {
+    .map(phase => {
       const cells = aggregates
         .map(({ agg }) => {
           if (!agg) return `<td>—</td>`;
           return `<td>${fmtCell(agg.cpuPhases.get(phase))}</td>`;
         })
-        .join("");
+        .join('');
       return `<tr><td>${phase}</td>${cells}</tr>`;
     })
-    .join("");
+    .join('');
 
   return `
   <h3>GPU per-pass breakdown (median ms; subtasks/rounds summed within each rep)</h3>
   <table>
     <tr><th>Stage</th>${headCells}</tr>
     ${stageRows}
-    ${sumRow("profiled passes (Σ)", (a) => a.profiledSumMs, true)}
-    ${sumRow("untimestamped", (a) => a.untimestampedMs, true)}
-    ${sumRow("GPU compute wall", (a) => a.gpuWallMs)}
-    ${sumRow("readback_total", (a) => a.readbackMs)}
-    ${sumRow("mapasync_overhead", (a) => a.mapasyncMs)}
+    ${sumRow('profiled passes (Σ)', a => a.profiledSumMs, true)}
+    ${sumRow('untimestamped', a => a.untimestampedMs, true)}
+    ${sumRow('GPU compute wall', a => a.gpuWallMs)}
+    ${sumRow('readback_total', a => a.readbackMs)}
+    ${sumRow('mapasync_overhead', a => a.mapasyncMs)}
   </table>
   <h3>CPU host phases (median ms)</h3>
   <table>
     <tr><th>Phase</th>${headCells}</tr>
     ${cpuRows}
-    ${sumRow("total wall (CPU)", (a) => a.cpuTotalWallMs)}
+    ${sumRow('total wall (CPU)', a => a.cpuTotalWallMs)}
   </table>`;
 }
 
-function captureEntriesFromRows(
-  rows: SweepRow[],
-): { logN: number; captures: ProfileCapture[] }[] {
-  return rows.map((r) => ({
+function captureEntriesFromRows(rows: SweepRow[]): { logN: number; captures: ProfileCapture[] }[] {
+  return rows.map(r => ({
     logN: r.logN,
-    captures: r.webgpu
-      .map((s) => s.capture)
-      .filter((c): c is ProfileCapture => c !== undefined),
+    captures: r.webgpu.map(s => s.capture).filter((c): c is ProfileCapture => c !== undefined),
   }));
 }
 
@@ -860,12 +781,10 @@ function renderSweepTable(rows: SweepRow[]): void {
   // consistency table only because it's too slow to run at larger n.
   // Followed by a per-pass GPU/CPU breakdown built from the
   // `profile_capture` out-params collected on every WebGPU rep.
-  const refRow = rows.find((r) => r.logN === NOBLE_REFERENCE_LOGN);
+  const refRow = rows.find(r => r.logN === NOBLE_REFERENCE_LOGN);
   $results.innerHTML =
-    renderConsistencyTable(refRow) +
-    renderPerfTable(rows) +
-    renderBreakdownTable(captureEntriesFromRows(rows));
-  $results.classList.add("visible");
+    renderConsistencyTable(refRow) + renderPerfTable(rows) + renderBreakdownTable(captureEntriesFromRows(rows));
+  $results.classList.add('visible');
 }
 
 function renderConsistencyTable(row: SweepRow | undefined): string {
@@ -875,10 +794,8 @@ function renderConsistencyTable(row: SweepRow | undefined): string {
   const gpu = row?.webgpu[0]?.xy;
   const st = row?.wasmSt[0]?.xy;
   const mt = row?.wasmMt[0]?.xy;
-  const eq = (
-    a: { x: bigint; y: bigint } | undefined,
-    b: { x: bigint; y: bigint } | undefined,
-  ): boolean | null => (!a || !b ? null : pointsEqual(a, b));
+  const eq = (a: { x: bigint; y: bigint } | undefined, b: { x: bigint; y: bigint } | undefined): boolean | null =>
+    !a || !b ? null : pointsEqual(a, b);
   return `
   <h3>Consistency (log₂n = ${NOBLE_REFERENCE_LOGN}, n = ${(1 << NOBLE_REFERENCE_LOGN).toLocaleString()})</h3>
   <table>
@@ -897,6 +814,18 @@ function renderConsistencyTable(row: SweepRow | undefined): string {
   </table>`;
 }
 
+// Per-row correctness badge for the perf table: WebGPU output xy vs
+// WASM MT output xy at the same logN. Returns "" until both backends
+// have a stored result. The check is symmetric, so we render the same
+// badge on both the WebGPU and WASM MT cells — each cell advertises
+// that its MSM output has been cross-verified.
+function fmtMatchBadge(match: boolean | null): string {
+  if (match === null) return '';
+  return match
+    ? ' <span class="ok" title="WebGPU output matches WASM MT">✓</span>'
+    : ' <span class="err" title="WebGPU output disagrees with WASM MT">✗</span>';
+}
+
 function renderPerfTable(rows: SweepRow[]): string {
   const head = `
     <tr>
@@ -907,28 +836,32 @@ function renderPerfTable(rows: SweepRow[]): string {
       <th>WebGPU vs<br/>WASM MT</th>
     </tr>`;
   const body = rows
-    .map((r) => {
-      const webgpuMs = median(r.webgpu.map((s) => s.ms));
-      const mtMs = median(r.wasmMt.map((s) => s.ms));
+    .map(r => {
+      const webgpuMs = median(r.webgpu.map(s => s.ms));
+      const mtMs = median(r.wasmMt.map(s => s.ms));
+      const gpuXy = r.webgpu[0]?.xy;
+      const mtXy = r.wasmMt[0]?.xy;
+      const match: boolean | null = gpuXy && mtXy ? pointsEqual(gpuXy, mtXy) : null;
+      const badge = fmtMatchBadge(match);
       return `
     <tr>
       <td>${r.logN}</td>
       <td>${(1 << r.logN).toLocaleString()}</td>
-      <td>${fmtMs(r.webgpu)}<br/><span class="samples">${fmtSamples(r.webgpu)}</span></td>
-      <td>${fmtMs(r.wasmMt)}<br/><span class="samples">${fmtSamples(r.wasmMt)}</span></td>
+      <td>${fmtMs(r.webgpu)}${badge}<br/><span class="samples">${fmtSamples(r.webgpu)}</span></td>
+      <td>${fmtMs(r.wasmMt)}${badge}<br/><span class="samples">${fmtSamples(r.wasmMt)}</span></td>
       <td>${fmtSpeedup(webgpuMs, mtMs)}</td>
     </tr>`;
     })
-    .join("");
+    .join('');
   return `
   <h3>Performance — WebGPU vs Barretenberg WASM MT</h3>
   <table>${head}${body}</table>`;
 }
 
-$run.addEventListener("click", async () => {
-  $log.innerHTML = "";
+$run.addEventListener('click', async () => {
+  $log.innerHTML = '';
   abortRequested = false;
-  setBusy(true, "running…");
+  setBusy(true, 'running…');
   try {
     const logN = readLogN();
     const checkNoble = $noble.checked && logN === NOBLE_REFERENCE_LOGN;
@@ -936,45 +869,45 @@ $run.addEventListener("click", async () => {
     await yieldToBrowser();
 
     const gpu = await runWebGpuOnce(inputs);
-    log("info", `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
+    log('info', `[gpu] x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
     await yieldToBrowser();
 
     throwIfAborted();
-    const st = await runWasmOnce(inputs, "st");
+    const st = await runWasmOnce(inputs, 'st');
     await yieldToBrowser();
 
     throwIfAborted();
-    const mt = await runWasmOnce(inputs, "mt");
+    const mt = await runWasmOnce(inputs, 'mt');
     await yieldToBrowser();
 
     const cross = pointsEqual(gpu.xy, st.xy) && pointsEqual(gpu.xy, mt.xy);
     if (cross) {
-      log("ok", `[cross-check] WebGPU, WASM ST, WASM MT all agree`);
+      log('ok', `[cross-check] WebGPU, WASM ST, WASM MT all agree`);
     } else {
-      log("err", `[cross-check] disagreement: gpu=${gpu.xy.x}, st=${st.xy.x}, mt=${mt.xy.x}`);
+      log('err', `[cross-check] disagreement: gpu=${gpu.xy.x}, st=${st.xy.x}, mt=${mt.xy.x}`);
     }
     if (checkNoble && inputs.points && inputs.scalars) {
       const noble = referenceMsm(inputs.points, inputs.scalars);
       const nobleOk = pointsEqual(noble, gpu.xy);
       if (nobleOk) {
-        log("ok", `[noble] matches GPU at log₂(n) = ${logN}`);
+        log('ok', `[noble] matches GPU at log₂(n) = ${logN}`);
       } else {
-        log("err", `[noble] mismatch: noble.x=${noble.x}, gpu.x=${gpu.xy.x}`);
+        log('err', `[noble] mismatch: noble.x=${noble.x}, gpu.x=${gpu.xy.x}`);
       }
     }
   } catch (err) {
-    log(abortRequested ? "warn" : "err", `[run] ${err instanceof Error ? err.message : String(err)}`);
-    if (!abortRequested && err instanceof Error && err.stack) log("err", err.stack);
+    log(abortRequested ? 'warn' : 'err', `[run] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
   } finally {
     setBusy(false);
   }
 });
 
-$runBench.addEventListener("click", async () => {
-  $log.innerHTML = "";
-  $results.classList.remove("visible");
+$runBench.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  $results.classList.remove('visible');
   abortRequested = false;
-  setBusy(true, "benchmarking…");
+  setBusy(true, 'benchmarking…');
   try {
     const logN = readLogN();
     const inputs = await generateInputs(logN, false);
@@ -984,53 +917,47 @@ $runBench.addEventListener("click", async () => {
     const gpuCaptures: ProfileCapture[] = [];
     for (let i = 0; i < SWEEP_REPS; i++) {
       throwIfAborted();
-      log("info", `[bench] iter ${i + 1}/${SWEEP_REPS}`);
+      log('info', `[bench] iter ${i + 1}/${SWEEP_REPS}`);
       const gpu = await runWebGpuOnce(inputs);
       throwIfAborted();
-      const st = await runWasmOnce(inputs, "st");
+      const st = await runWasmOnce(inputs, 'st');
       throwIfAborted();
-      const mt = await runWasmOnce(inputs, "mt");
+      const mt = await runWasmOnce(inputs, 'mt');
       gpuSamples.push(gpu.ms);
       gpuCaptures.push(gpu.capture);
       stSamples.push(st.ms);
       mtSamples.push(mt.ms);
-      log(
-        "info",
-        `  gpu=${gpu.ms.toFixed(1)}, st=${st.ms.toFixed(1)}, mt=${mt.ms.toFixed(1)}`,
-      );
+      log('info', `  gpu=${gpu.ms.toFixed(1)}, st=${st.ms.toFixed(1)}, mt=${mt.ms.toFixed(1)}`);
     }
     log(
-      "ok",
+      'ok',
       `[bench] medians: gpu=${median(gpuSamples).toFixed(1)}, ` +
         `st=${median(stSamples).toFixed(1)}, mt=${median(mtSamples).toFixed(1)} ms`,
     );
     // Surface the per-pass GPU/CPU breakdown for the single logN
     // benched. Same renderer the sweep uses, just with one column.
     $results.innerHTML = renderBreakdownTable([{ logN, captures: gpuCaptures }]);
-    $results.classList.add("visible");
+    $results.classList.add('visible');
   } catch (err) {
-    log(abortRequested ? "warn" : "err", `[bench] ${err instanceof Error ? err.message : String(err)}`);
-    if (!abortRequested && err instanceof Error && err.stack) log("err", err.stack);
+    log(abortRequested ? 'warn' : 'err', `[bench] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
   } finally {
     setBusy(false);
   }
 });
 
-$runSweep.addEventListener("click", async () => {
-  $log.innerHTML = "";
-  $results.classList.remove("visible");
+$runSweep.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  $results.classList.remove('visible');
   abortRequested = false;
-  setBusy(true, "sweeping…");
+  setBusy(true, 'sweeping…');
 
   const mtThreads = readMtThreads();
   const nobleEnabled = $noble.checked;
-  log(
-    "info",
-    `[sweep] start: mt-threads=${mtThreads}, noble=${nobleEnabled ? "on" : "off"}`,
-  );
-  logMemSnapshot("sweep-start");
+  log('info', `[sweep] start: mt-threads=${mtThreads}, noble=${nobleEnabled ? 'on' : 'off'}`);
+  logMemSnapshot('sweep-start');
 
-  const rows: SweepRow[] = SWEEP_LOGN.map((logN) => ({
+  const rows: SweepRow[] = SWEEP_LOGN.map(logN => ({
     logN,
     webgpu: [],
     wasmSt: [],
@@ -1044,91 +971,84 @@ $runSweep.addEventListener("click", async () => {
     for (const row of rows) {
       throwIfAborted();
       const checkNoble = nobleEnabled && row.logN === NOBLE_REFERENCE_LOGN;
-      log("info", "");
-      log(
-        "info",
-        `[sweep] === log₂(n) = ${row.logN} (n = ${(1 << row.logN).toLocaleString()}) ===`,
-      );
+      log('info', '');
+      log('info', `[sweep] === log₂(n) = ${row.logN} (n = ${(1 << row.logN).toLocaleString()}) ===`);
 
-      log("info", `[sweep] step 1/4: generateInputs (mirrorForNoble=${checkNoble})`);
+      log('info', `[sweep] step 1/4: generateInputs (mirrorForNoble=${checkNoble})`);
       await yieldToBrowser();
       const tGen = performance.now();
       const inputs = await generateInputs(row.logN, checkNoble);
-      log("info", `[sweep] step 1/4 done in ${(performance.now() - tGen).toFixed(0)} ms`);
+      log('info', `[sweep] step 1/4 done in ${(performance.now() - tGen).toFixed(0)} ms`);
       logMemSnapshot(`after generateInputs(${row.logN})`);
       await yieldToBrowser();
 
       let noble: { x: bigint; y: bigint } | null = null;
       if (checkNoble && inputs.points && inputs.scalars) {
-        log("info", `[sweep] step 2/4: noble reference (blocking ~10s)`);
+        log('info', `[sweep] step 2/4: noble reference (blocking ~10s)`);
         await yieldToBrowser(16); // let the warning render before we block
         const tNoble = performance.now();
         noble = referenceMsm(inputs.points, inputs.scalars);
-        log("info", `[sweep] step 2/4 done in ${(performance.now() - tNoble).toFixed(0)} ms`);
+        log('info', `[sweep] step 2/4 done in ${(performance.now() - tNoble).toFixed(0)} ms`);
         await yieldToBrowser();
       } else {
-        log("info", `[sweep] step 2/4: noble skipped`);
+        log('info', `[sweep] step 2/4: noble skipped`);
       }
 
-      log(
-        "info",
-        `[sweep] step 3/4: ensure both WASM workers booted (lazy — fires on first rep)`,
-      );
+      log('info', `[sweep] step 3/4: ensure both WASM workers booted (lazy — fires on first rep)`);
       // Pre-warm both WASM boots before the timed reps so we don't fold
       // the spawn time into the first rep's wall clock. Also if Stop
       // hits during boot we abort here cleanly rather than mid-MSM.
-      await ensureWasmBooted("st");
+      await ensureWasmBooted('st');
       throwIfAborted();
-      await ensureWasmBooted("mt");
+      await ensureWasmBooted('mt');
       throwIfAborted();
       await yieldToBrowser();
-      log("info", `[sweep] step 3/4 done`);
+      log('info', `[sweep] step 3/4 done`);
 
-      log("info", `[sweep] step 4/4: ${SWEEP_REPS} reps × {gpu, wasm-st, wasm-mt}`);
+      log('info', `[sweep] step 4/4: ${SWEEP_REPS} reps × {gpu, wasm-st, wasm-mt}`);
       for (let i = 0; i < SWEEP_REPS; i++) {
         throwIfAborted();
         setBusy(true, `sweeping log₂(n)=${row.logN} (rep ${i + 1}/${SWEEP_REPS})…`);
-        log("info", `[sweep]   rep ${i + 1}/${SWEEP_REPS}`);
+        log('info', `[sweep]   rep ${i + 1}/${SWEEP_REPS}`);
 
         const gpu = await runWebGpuOnce(inputs);
         await yieldToBrowser();
         throwIfAborted();
 
-        const st = await runWasmOnce(inputs, "st");
+        const st = await runWasmOnce(inputs, 'st');
         await yieldToBrowser();
         throwIfAborted();
 
-        const mt = await runWasmOnce(inputs, "mt");
+        const mt = await runWasmOnce(inputs, 'mt');
         await yieldToBrowser();
 
         row.webgpu.push(gpu);
         row.wasmSt.push(st);
         row.wasmMt.push(mt);
         if (i === 0) {
-          row.crossOk =
-            pointsEqual(gpu.xy, st.xy) && pointsEqual(gpu.xy, mt.xy);
+          row.crossOk = pointsEqual(gpu.xy, st.xy) && pointsEqual(gpu.xy, mt.xy);
           if (noble !== null) row.nobleOk = pointsEqual(noble, gpu.xy);
           if (!row.crossOk) {
-            log("err", `[sweep]   cross-check FAILED at log₂(n)=${row.logN}`);
-            log("err", `         gpu.x=${gpu.xy.x.toString(16)}`);
-            log("err", `         st.x =${st.xy.x.toString(16)}`);
-            log("err", `         mt.x =${mt.xy.x.toString(16)}`);
+            log('err', `[sweep]   cross-check FAILED at log₂(n)=${row.logN}`);
+            log('err', `         gpu.x=${gpu.xy.x.toString(16)}`);
+            log('err', `         st.x =${st.xy.x.toString(16)}`);
+            log('err', `         mt.x =${mt.xy.x.toString(16)}`);
           }
         }
         renderSweepTable(rows);
       }
       log(
-        "info",
-        `[sweep]   medians: gpu=${median(row.webgpu.map((s) => s.ms)).toFixed(1)}, ` +
-          `st=${median(row.wasmSt.map((s) => s.ms)).toFixed(1)}, ` +
-          `mt=${median(row.wasmMt.map((s) => s.ms)).toFixed(1)} ms`,
+        'info',
+        `[sweep]   medians: gpu=${median(row.webgpu.map(s => s.ms)).toFixed(1)}, ` +
+          `st=${median(row.wasmSt.map(s => s.ms)).toFixed(1)}, ` +
+          `mt=${median(row.wasmMt.map(s => s.ms)).toFixed(1)} ms`,
       );
       logMemSnapshot(`after log₂(n)=${row.logN}`);
     }
-    log("ok", `[sweep] done — see comparison table above.`);
+    log('ok', `[sweep] done — see comparison table above.`);
   } catch (err) {
-    log(abortRequested ? "warn" : "err", `[sweep] ${err instanceof Error ? err.message : String(err)}`);
-    if (!abortRequested && err instanceof Error && err.stack) log("err", err.stack);
+    log(abortRequested ? 'warn' : 'err', `[sweep] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
   } finally {
     setBusy(false);
   }
@@ -1143,42 +1063,42 @@ $runSweep.addEventListener("click", async () => {
  * before retrying — the macOS Metal driver has been observed to hold
  * a wedged state across page reloads.
  */
-const $probeGpu = document.getElementById("probe-gpu") as HTMLButtonElement;
-$probeGpu?.addEventListener("click", async () => {
-  $log.innerHTML = "";
-  setBusy(true, "probing GPU…");
+const $probeGpu = document.getElementById('probe-gpu') as HTMLButtonElement;
+$probeGpu?.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  setBusy(true, 'probing GPU…');
   try {
-    log("info", "[probe] navigator.gpu in?: " + ("gpu" in navigator));
-    if (!("gpu" in navigator)) {
-      log("err", "[probe] no WebGPU available — stop here");
+    log('info', '[probe] navigator.gpu in?: ' + ('gpu' in navigator));
+    if (!('gpu' in navigator)) {
+      log('err', '[probe] no WebGPU available — stop here');
       return;
     }
     await yieldToBrowser();
-    log("info", "[probe] requesting adapter…");
+    log('info', '[probe] requesting adapter…');
     const t0 = performance.now();
     const adapter = await navigator.gpu.requestAdapter();
-    log("info", `[probe] requestAdapter returned in ${(performance.now() - t0).toFixed(0)} ms`);
+    log('info', `[probe] requestAdapter returned in ${(performance.now() - t0).toFixed(0)} ms`);
     if (adapter === null) {
-      log("err", "[probe] adapter is null — GPU not usable from this page");
+      log('err', '[probe] adapter is null — GPU not usable from this page');
       return;
     }
     // @ts-expect-error adapter.info is non-standard but widely available
     const info = adapter.info ?? (await adapter.requestAdapterInfo?.()) ?? {};
     log(
-      "info",
-      `[probe] adapter: vendor=${info.vendor ?? "?"} arch=${info.architecture ?? "?"} ` +
-        `device=${info.device ?? "?"} description=${info.description ?? "?"}`,
+      'info',
+      `[probe] adapter: vendor=${info.vendor ?? '?'} arch=${info.architecture ?? '?'} ` +
+        `device=${info.device ?? '?'} description=${info.description ?? '?'}`,
     );
-    log("info", "[probe] requesting device…");
+    log('info', '[probe] requesting device…');
     const t1 = performance.now();
     const device = await adapter.requestDevice();
-    log("info", `[probe] requestDevice returned in ${(performance.now() - t1).toFixed(0)} ms`);
-    log("info", "[probe] destroying device immediately…");
+    log('info', `[probe] requestDevice returned in ${(performance.now() - t1).toFixed(0)} ms`);
+    log('info', '[probe] destroying device immediately…');
     device.destroy();
-    log("ok", "[probe] PASS — basic WebGPU access is healthy");
+    log('ok', '[probe] PASS — basic WebGPU access is healthy');
   } catch (err) {
-    log("err", `[probe] FAIL: ${err instanceof Error ? err.message : String(err)}`);
-    if (err instanceof Error && err.stack) log("err", err.stack);
+    log('err', `[probe] FAIL: ${err instanceof Error ? err.message : String(err)}`);
+    if (err instanceof Error && err.stack) log('err', err.stack);
   } finally {
     setBusy(false);
   }
@@ -1199,33 +1119,33 @@ $probeGpu?.addEventListener("click", async () => {
  * exercises `GpuContext.create` and `precompute_bn254_bases` — a hang
  * during context creation will show up in the `[gpu-warm]` lines.
  */
-$runSanity.addEventListener("click", async () => {
-  $log.innerHTML = "";
+$runSanity.addEventListener('click', async () => {
+  $log.innerHTML = '';
   abortRequested = false;
-  setBusy(true, "sanity check…");
+  setBusy(true, 'sanity check…');
   try {
-    log("info", "[sanity] WebGPU-only smoke test, log₂(n)=16, no WASM, no noble");
-    logMemSnapshot("sanity-start");
+    log('info', '[sanity] WebGPU-only smoke test, log₂(n)=16, no WASM, no noble');
+    logMemSnapshot('sanity-start');
 
-    log("info", "[sanity] step 1/3: generateInputs (no noble mirror)");
+    log('info', '[sanity] step 1/3: generateInputs (no noble mirror)');
     await yieldToBrowser();
     const tGen = performance.now();
     const inputs = await generateInputs(16, false);
-    log("info", `[sanity] step 1/3 done in ${(performance.now() - tGen).toFixed(0)} ms`);
-    logMemSnapshot("after generateInputs");
+    log('info', `[sanity] step 1/3 done in ${(performance.now() - tGen).toFixed(0)} ms`);
+    logMemSnapshot('after generateInputs');
     await yieldToBrowser();
 
-    log("info", "[sanity] step 2/3: input invariant checks (pre-GPU)");
+    log('info', '[sanity] step 2/3: input invariant checks (pre-GPU)');
     const expectedPointBytes = inputs.n * 64;
     const expectedScalarBytes = inputs.n * 32;
-    log("info", `[sanity]   inputs.n = ${inputs.n} (must be ≥ ${1 << LOGN_MIN})`);
+    log('info', `[sanity]   inputs.n = ${inputs.n} (must be ≥ ${1 << LOGN_MIN})`);
     log(
-      "info",
+      'info',
       `[sanity]   pointsBuf:  length=${inputs.pointsBuf.byteLength} (expected ${expectedPointBytes}), ` +
         `offset=${inputs.pointsBuf.byteOffset}, buffer.byteLength=${inputs.pointsBuf.buffer.byteLength}`,
     );
     log(
-      "info",
+      'info',
       `[sanity]   scalarsBuf: length=${inputs.scalarsBuf.byteLength} (expected ${expectedScalarBytes}), ` +
         `offset=${inputs.scalarsBuf.byteOffset}, buffer.byteLength=${inputs.scalarsBuf.buffer.byteLength}`,
     );
@@ -1233,98 +1153,85 @@ $runSanity.addEventListener("click", async () => {
       throw new Error(`[sanity] n=${inputs.n} is below LOGN_MIN (WebGPU MSM is known to crash below 2^16)`);
     }
     if (inputs.pointsBuf.byteLength !== expectedPointBytes) {
-      throw new Error(
-        `[sanity] pointsBuf has ${inputs.pointsBuf.byteLength} bytes, expected ${expectedPointBytes}`,
-      );
+      throw new Error(`[sanity] pointsBuf has ${inputs.pointsBuf.byteLength} bytes, expected ${expectedPointBytes}`);
     }
     if (inputs.scalarsBuf.byteLength !== expectedScalarBytes) {
-      throw new Error(
-        `[sanity] scalarsBuf has ${inputs.scalarsBuf.byteLength} bytes, expected ${expectedScalarBytes}`,
-      );
+      throw new Error(`[sanity] scalarsBuf has ${inputs.scalarsBuf.byteLength} bytes, expected ${expectedScalarBytes}`);
     }
     // Spot-check the first point's bytes aren't all-zero (would indicate
     // an uninitialised slice). The SRS first point is the BN254 generator
     // (1, 2) in non-Montgomery LE — x[0] = 1.
     const firstByte = inputs.pointsBuf[0];
     log(
-      "info",
-      `[sanity]   pointsBuf[0..3] = ${Array.from(inputs.pointsBuf.subarray(0, 4)).join(",")} ` +
+      'info',
+      `[sanity]   pointsBuf[0..3] = ${Array.from(inputs.pointsBuf.subarray(0, 4)).join(',')} ` +
         `(should be "1,0,0,0" for the SRS generator)`,
     );
     if (firstByte === 0) {
-      log("warn", `[sanity]   first SRS byte is 0 — SRS may be uninitialised`);
+      log('warn', `[sanity]   first SRS byte is 0 — SRS may be uninitialised`);
     }
-    log("ok", `[sanity] step 2/3 input invariants OK`);
+    log('ok', `[sanity] step 2/3 input invariants OK`);
     await yieldToBrowser();
 
-    log("info", "[sanity] step 3/3: WebGPU MSM (here we go)");
+    log('info', '[sanity] step 3/3: WebGPU MSM (here we go)');
     throwIfAborted();
     const gpu = await runWebGpuOnce(inputs);
-    log("info", `[sanity] gpu.x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
-    logMemSnapshot("sanity-end");
-    log("ok", `[sanity] PASS in ${gpu.ms.toFixed(0)} ms`);
+    log('info', `[sanity] gpu.x=0x${gpu.xy.x.toString(16).slice(0, 16)}…`);
+    logMemSnapshot('sanity-end');
+    log('ok', `[sanity] PASS in ${gpu.ms.toFixed(0)} ms`);
     // Single-capture breakdown — same renderer the sweep / bench use,
     // with one column. Useful as a one-click "where is my time going"
     // view after a fresh page reload.
     $results.innerHTML = renderBreakdownTable([{ logN: 16, captures: [gpu.capture] }]);
-    $results.classList.add("visible");
+    $results.classList.add('visible');
   } catch (err) {
-    log(abortRequested ? "warn" : "err", `[sanity] ${err instanceof Error ? err.message : String(err)}`);
-    if (!abortRequested && err instanceof Error && err.stack) log("err", err.stack);
+    log(abortRequested ? 'warn' : 'err', `[sanity] ${err instanceof Error ? err.message : String(err)}`);
+    if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
   } finally {
     setBusy(false);
   }
 });
 
-$runUnitTests.addEventListener("click", async () => {
-  $log.innerHTML = "";
-  setBusy(true, "running unit tests…");
+$runUnitTests.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  setBusy(true, 'running unit tests…');
   try {
-    log("info", "[wgsl-unit-tests] running primitive shader tests…");
+    log('info', '[wgsl-unit-tests] running primitive shader tests…');
     const results = await runAllWgslUnitTests();
     let allOk = true;
     for (const r of results) {
       if (r.ok) {
-        log("ok", `[pass] ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
+        log('ok', `[pass] ${r.name}${r.detail ? ` — ${r.detail}` : ''}`);
       } else {
         allOk = false;
-        log("err", `[fail] ${r.name}`);
+        log('err', `[fail] ${r.name}`);
         if (r.detail) {
-          for (const line of r.detail.split("\n")) log("err", `       ${line}`);
+          for (const line of r.detail.split('\n')) log('err', `       ${line}`);
         }
       }
     }
-    log(
-      allOk ? "ok" : "err",
-      `[wgsl-unit-tests] ${results.filter((r) => r.ok).length}/${results.length} passed`,
-    );
+    log(allOk ? 'ok' : 'err', `[wgsl-unit-tests] ${results.filter(r => r.ok).length}/${results.length} passed`);
   } catch (err) {
-    log("err", `[exception] ${err instanceof Error ? err.message : String(err)}`);
-    if (err instanceof Error && err.stack) log("err", err.stack);
+    log('err', `[exception] ${err instanceof Error ? err.message : String(err)}`);
+    if (err instanceof Error && err.stack) log('err', err.stack);
   } finally {
     setBusy(false);
   }
 });
 
 // Boot-time diagnostics so we have context for any crash report.
-log("info", `Boot diagnostics:`);
-log("info", `  webgpu: ${"gpu" in navigator ? "available" : "MISSING"}`);
-log("info", `  COI requested: ${COI_REQUESTED ? "yes (?coi=1)" : "no"}`);
-log(
-  "info",
-  `  crossOriginIsolated: ${COI_ACTIVE ? "yes" : "no — WASM paths disabled"}`,
-);
-log("info", `  hardwareConcurrency: ${navigator.hardwareConcurrency ?? "?"}`);
-log("info", `  user-agent: ${navigator.userAgent}`);
-log(
-  "info",
-  `  SharedArrayBuffer: ${typeof SharedArrayBuffer !== "undefined" ? "yes" : "NO"}`,
-);
-logMemSnapshot("page-load");
+log('info', `Boot diagnostics:`);
+log('info', `  webgpu: ${'gpu' in navigator ? 'available' : 'MISSING'}`);
+log('info', `  COI requested: ${COI_REQUESTED ? 'yes (?coi=1)' : 'no'}`);
+log('info', `  crossOriginIsolated: ${COI_ACTIVE ? 'yes' : 'no — WASM paths disabled'}`);
+log('info', `  hardwareConcurrency: ${navigator.hardwareConcurrency ?? '?'}`);
+log('info', `  user-agent: ${navigator.userAgent}`);
+log('info', `  SharedArrayBuffer: ${typeof SharedArrayBuffer !== 'undefined' ? 'yes' : 'NO'}`);
+logMemSnapshot('page-load');
 
 if (COI_REQUESTED && !COI_ACTIVE) {
   log(
-    "warn",
+    'warn',
     `[boot] ?coi=1 was requested but crossOriginIsolated is still false. ` +
       `Restart the dev server or hard-reload (Cmd+Shift+R) so the new ` +
       `COOP/COEP headers take effect.`,
@@ -1350,18 +1257,18 @@ function formatCount(n: number): string {
   return `${n}`;
 }
 function formatDuration(secs: number): string {
-  if (!Number.isFinite(secs) || secs < 0) return "--:--";
+  if (!Number.isFinite(secs) || secs < 0) return '--:--';
   const s = Math.round(secs);
   const m = Math.floor(s / 60);
   const r = s % 60;
   if (m >= 60) {
     const h = Math.floor(m / 60);
-    return `${h}:${String(m % 60).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+    return `${h}:${String(m % 60).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
   }
-  return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+  return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
 }
 function renderProgress(event: SrsEvent): void {
-  if (event.kind !== "phase") return;
+  if (event.kind !== 'phase') return;
   const { phase, current, total, elapsedMs } = event;
   const frac = total > 0 ? Math.min(1, current / total) : 0;
   const filledCells = Math.round(frac * BAR_WIDTH);
@@ -1370,20 +1277,19 @@ function renderProgress(event: SrsEvent): void {
   const elapsedSec = elapsedMs / 1000;
   const rate = elapsedSec > 0 ? current / elapsedSec : 0;
   const remaining = rate > 0 ? (total - current) / rate : Infinity;
-  const fmt = event.unit === "B" ? formatBytes : formatCount;
-  const rateStr =
-    event.unit === "B" ? `${formatBytes(rate)}/s` : `${formatCount(rate)} pt/s`;
+  const fmt = event.unit === 'B' ? formatBytes : formatCount;
+  const rateStr = event.unit === 'B' ? `${formatBytes(rate)}/s` : `${formatCount(rate)} pt/s`;
 
-  $progress.classList.add("visible");
-  $progress.innerHTML = "";
+  $progress.classList.add('visible');
+  $progress.innerHTML = '';
   const phaseLabel = phase.padEnd(11);
   const head = document.createTextNode(`${phaseLabel} ${pct}% [`);
-  const filled = document.createElement("span");
-  filled.className = "bar-fill";
-  filled.textContent = "█".repeat(filledCells);
-  const empty = document.createElement("span");
-  empty.className = "bar-empty";
-  empty.textContent = "░".repeat(emptyCells);
+  const filled = document.createElement('span');
+  filled.className = 'bar-fill';
+  filled.textContent = '█'.repeat(filledCells);
+  const empty = document.createElement('span');
+  empty.className = 'bar-empty';
+  empty.textContent = '░'.repeat(emptyCells);
   const tail = document.createTextNode(
     `] ${fmt(current)}/${fmt(total)} [${formatDuration(elapsedSec)}<${formatDuration(remaining)}, ${rateStr}]`,
   );
@@ -1393,7 +1299,7 @@ function renderProgress(event: SrsEvent): void {
   $progress.appendChild(tail);
 }
 function hideProgress(): void {
-  $progress.classList.remove("visible");
+  $progress.classList.remove('visible');
 }
 
 // Page-load boot: load the SRS only. The barretenberg WASM (which forks
@@ -1402,26 +1308,26 @@ function hideProgress(): void {
 // fetch is just a download + JS-side decompression (no native workers),
 // so it's safe to run unconditionally at page load.
 (async () => {
-  setBusy(true, "loading SRS…");
+  setBusy(true, 'loading SRS…');
   try {
-    srsBuf = await loadSrsPoints(SRS_NUM_POINTS, (event) => {
-      if (event.kind === "info") {
-        log("info", event.msg);
-      } else if (event.kind === "phase") {
+    srsBuf = await loadSrsPoints(SRS_NUM_POINTS, event => {
+      if (event.kind === 'info') {
+        log('info', event.msg);
+      } else if (event.kind === 'phase') {
         renderProgress(event);
-      } else if (event.kind === "done") {
+      } else if (event.kind === 'done') {
         hideProgress();
       }
     });
-    log("ok", `SRS loaded: ${SRS_NUM_POINTS.toLocaleString()} points available.`);
+    log('ok', `SRS loaded: ${SRS_NUM_POINTS.toLocaleString()} points available.`);
     log(
-      "info",
+      'info',
       `WASM not booted yet (lazy). Click Run / Sweep — it'll spin up ` +
         `${readMtThreads()} pthread workers. Stop tears them down.`,
     );
   } catch (err) {
-    log("err", `[boot] ${err instanceof Error ? err.message : String(err)}`);
-    if (err instanceof Error && err.stack) log("err", err.stack);
+    log('err', `[boot] ${err instanceof Error ? err.message : String(err)}`);
+    if (err instanceof Error && err.stack) log('err', err.stack);
     hideProgress();
   } finally {
     setBusy(false);
