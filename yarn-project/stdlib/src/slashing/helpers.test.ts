@@ -220,7 +220,6 @@ describe('SlashingHelpers', () => {
         slashDuplicateProposalPenalty: 3n,
         slashDuplicateAttestationPenalty: 4n,
         slashAttestInvalidCheckpointProposalPenalty: 5n,
-        slashPrunePenalty: 6n,
         slashDataWithholdingPenalty: 7n,
         slashUnknownPenalty: 8n,
         slashInactivityPenalty: 9n,
