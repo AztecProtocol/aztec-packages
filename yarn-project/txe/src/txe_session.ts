@@ -403,7 +403,7 @@ export class TXESession implements TXESessionStateHandler {
 
   setTxeOracleVersion(version: { major: number; minor: number }): void {
     this.txeOracleVersion = version;
-    this.log.debug(`Test compiled with test oracle version ${version.major}.${version.minor}`);
+    this.logger.debug(`Test compiled with test oracle version ${version.major}.${version.minor}`);
   }
 
   async enterTopLevelState() {
