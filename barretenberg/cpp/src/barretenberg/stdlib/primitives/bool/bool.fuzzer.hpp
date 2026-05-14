@@ -15,7 +15,7 @@
 bool circuit_should_fail = false;
 
 #define HAVOC_TESTING
-#define HAVOC_CALIBRATION
+// #define HAVOC_CALIBRATION
 
 #include "barretenberg/common/fuzzer.hpp"
 FastRandom VarianceRNG(0);
