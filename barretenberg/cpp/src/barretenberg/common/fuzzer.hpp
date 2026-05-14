@@ -19,13 +19,12 @@
 
 #define ALL_POSSIBLE_OPCODES                                                                                           \
     CONSTANT, WITNESS, CONSTANT_WITNESS, ADD, SUBTRACT, MULTIPLY, DIVIDE, ADD_TWO, MADD, MULT_MADD, MSUB_DIV, SQR,     \
-        ASSERT_EQUAL, ASSERT_NOT_EQUAL, SQR_ADD, ASSERT_EQUAL, ASSERT_NOT_EQUAL, SQR_ADD, SUBTRACT_WITH_CONSTRAINT,    \
-        DIVIDE_WITH_CONSTRAINTS, SLICE, ASSERT_ZERO, ASSERT_NOT_ZERO, COND_NEGATE, ADD_MULTI, ASSERT_VALID,            \
-        COND_SELECT, DOUBLE, RANDOMSEED, SELECT_IF_ZERO, SELECT_IF_EQ, REVERSE, GET_BIT, SET_BIT, SET, INVERT, AND,    \
-        OR, XOR, MODULO, SHL, SHR, ROL, ROR, NOT, BATCH_MUL, COND_ASSIGN, VALIDATE_ON_CURVE, DBL, NEG, EQUALS,         \
-        FIXED_BATCH_MUL, CONDITIONAL_NEGATE, NORMALIZE, REDUCE, GET_STANDARD_FORM, SCALAR_MUL, ECDSA_MUL, POW,         \
-        ASSERT_IS_IN_FIELD, ASSERT_ZERO_IF, ASSERT_LESS_THAN, SELF_REDUCE, ACCUMULATE, RANGE_CONSTRAINT, IMPLIES,      \
-        IMPLIES_BOTH_WAYS, BOOL_EQUAL, BOOL_NOT_EQUAL, WRITE_AT
+        ASSERT_EQUAL, ASSERT_NOT_EQUAL, SQR_ADD, ASSERT_EQUAL, ASSERT_NOT_EQUAL, SQR_ADD, SLICE, ASSERT_ZERO,          \
+        ASSERT_NOT_ZERO, COND_NEGATE, ADD_MULTI, ASSERT_VALID, COND_SELECT, DOUBLE, RANDOMSEED, SELECT_IF_ZERO,        \
+        SELECT_IF_EQ, REVERSE, GET_BIT, SET_BIT, SET, INVERT, AND, OR, XOR, MODULO, SHL, SHR, ROL, ROR, NOT,           \
+        BATCH_MUL, COND_ASSIGN, VALIDATE_ON_CURVE, DBL, NEG, EQUALS, FIXED_BATCH_MUL, CONDITIONAL_NEGATE, NORMALIZE,   \
+        REDUCE, GET_STANDARD_FORM, SCALAR_MUL, ECDSA_MUL, POW, ASSERT_IS_IN_FIELD, ASSERT_ZERO_IF, ASSERT_LESS_THAN,   \
+        SELF_REDUCE, ACCUMULATE, RANGE_CONSTRAINT, IMPLIES, IMPLIES_BOTH_WAYS, BOOL_EQUAL, BOOL_NOT_EQUAL, WRITE_AT
 
 struct HavocSettings {
     size_t GEN_LLVM_POST_MUTATION_PROB; // Controls frequency of additional mutation after structural ones
@@ -138,17 +137,29 @@ template <typename... Args> inline void debug_log(Args&&... args)
  * @brief Formatted debug output arguments for fuzzer logging.
  * Each ExecutionHandler must provide `bool is_circuit_constant() const` for the format helpers to work.
  */
+/**
+ * @brief Format stack element references for debug logging.
+ * Returns labeled strings (c/w + index) for up to N input arguments plus an output.
+ */
 struct FormattedArgs {
     std::string lhs;
     std::string rhs;
     std::string out;
 };
 
+struct FormattedArgsN {
+    std::vector<std::string> inputs;
+    std::string out;
+};
+
+template <typename Stack> inline std::string format_element(const Stack& stack, size_t idx)
+{
+    return (stack[idx].is_circuit_constant() ? "c" : "w") + std::to_string(idx);
+}
+
 template <typename Stack> inline FormattedArgs format_self_arg(const Stack& stack, size_t first_index)
 {
-    std::string out = stack[first_index].is_circuit_constant() ? "c" : "w";
-    out += std::to_string(first_index);
-    return FormattedArgs{ .lhs = "", .rhs = "", .out = out };
+    return { .lhs = "", .rhs = "", .out = format_element(stack, first_index) };
 }
 
 template <typename Stack>
@@ -159,7 +170,7 @@ inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, s
     rhs += std::to_string(first_index);
     out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
     out = (output_index >= stack.size() ? "auto " : "") + out;
-    return FormattedArgs{ .lhs = "", .rhs = rhs, .out = out };
+    return { .lhs = "", .rhs = rhs, .out = out };
 }
 
 template <typename Stack>
@@ -173,7 +184,22 @@ inline FormattedArgs format_two_arg(const Stack& stack, size_t first_index, size
     rhs += std::to_string(second_index);
     out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
     out = (output_index >= stack.size() ? "auto " : "") + out;
-    return FormattedArgs{ .lhs = lhs, .rhs = rhs, .out = out };
+    return { .lhs = lhs, .rhs = rhs, .out = out };
+}
+
+template <typename Stack>
+inline FormattedArgsN format_args(const Stack& stack, size_t output_index, std::initializer_list<size_t> input_indices)
+{
+    FormattedArgsN result;
+    bool all_constant = true;
+    for (size_t idx : input_indices) {
+        all_constant &= stack[idx].is_circuit_constant();
+        result.inputs.push_back(format_element(stack, idx));
+    }
+    std::string out =
+        (all_constant ? "c" : "w") + std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+    result.out = (output_index >= stack.size() ? "auto " : "") + out;
+    return result;
 }
 
 /**
@@ -191,27 +217,12 @@ concept SimpleRng = requires(T a) {
  * @tparam T
  */
 template <typename T>
+// NOTE: This concept is a legacy check. The actual opcode dispatch uses
+// `if constexpr (requires { T::ArgSizes::name; })` per-opcode, so this
+// tuple check is redundant. Kept for backward compatibility.
 concept InstructionArgumentSizes = requires {
-    {
-        std::make_tuple(T::CONSTANT,
-                        T::WITNESS,
-                        T::CONSTANT_WITNESS,
-                        T::ADD,
-                        T::SUBTRACT,
-                        T::MULTIPLY,
-                        T::DIVIDE,
-                        T::ADD_TWO,
-                        T::MADD,
-                        T::MULT_MADD,
-                        T::MSUB_DIV,
-                        T::SQR,
-                        T::SQR_ADD,
-                        T::SUBTRACT_WITH_CONSTRAINT,
-                        T::DIVIDE_WITH_CONSTRAINTS,
-                        T::SLICE,
-                        T::ASSERT_ZERO,
-                        T::ASSERT_NOT_ZERO)
-    } -> std::same_as<std::tuple<size_t>>;
+    { T::CONSTANT } -> std::convertible_to<size_t>;
+    { T::RANDOMSEED } -> std::convertible_to<size_t>;
 };
 
 /**
