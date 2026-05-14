@@ -6,12 +6,16 @@
 
 #include "barretenberg/numeric/random/engine.hpp"
 #pragma clang diagnostic push
+// -Wc99-designator prevents us from using designators and nested designators
+// in struct initializations, since it's not a part of c++17 standard.
+// However the use of them in this file heavily increases readability.
 #pragma clang diagnostic ignored "-Wc99-designator"
 // This is a global variable, so that the execution handling class could alter it and signal to the input tester that
 // the input should fail
 bool circuit_should_fail = false;
 
 #define HAVOC_TESTING
+#define HAVOC_CALIBRATION
 
 #include "barretenberg/common/fuzzer.hpp"
 FastRandom VarianceRNG(0);
@@ -42,7 +46,23 @@ template <typename Builder> class BoolFuzzBase {
      */
     class Instruction {
       public:
-        enum OPCODE { CONSTANT, WITNESS, AND, OR, XOR, NOT, ASSERT_EQUAL, SELECT_IF_EQ, SET, RANDOMSEED, _LAST };
+        enum OPCODE {
+            CONSTANT,
+            WITNESS,
+            AND,
+            OR,
+            XOR,
+            NOT,
+            ASSERT_EQUAL,
+            SELECT_IF_EQ,
+            SET,
+            IMPLIES,
+            IMPLIES_BOTH_WAYS,
+            BOOL_EQUAL,
+            BOOL_NOT_EQUAL,
+            RANDOMSEED,
+            _LAST
+        };
         struct TwoArgs {
             uint8_t in;
             uint8_t out;
@@ -94,6 +114,10 @@ template <typename Builder> class BoolFuzzBase {
             case OPCODE::AND:
             case OPCODE::OR:
             case OPCODE::XOR:
+            case OPCODE::IMPLIES:
+            case OPCODE::IMPLIES_BOTH_WAYS:
+            case OPCODE::BOOL_EQUAL:
+            case OPCODE::BOOL_NOT_EQUAL:
                 // For two-input-one-output instructions we just randomly pick each argument and generate an instruction
                 // accordingly
                 in1 = static_cast<uint8_t>(rng.next() & 0xff);
@@ -145,14 +169,6 @@ template <typename Builder> class BoolFuzzBase {
     if (rng.next() & 1) {                                                                                              \
         variable = rng.next() & 0xff;                                                                                  \
     }
-#define PUT_RANDOM_TWO_BYTES_IF_LUCKY(variable)                                                                        \
-    if (rng.next() & 1) {                                                                                              \
-        variable = rng.next() & 0xffff;                                                                                \
-    }
-#define PUT_RANDOM_FOUR_BYTES_IF_LUCKY(variable)                                                                       \
-    if (rng.next() & 1) {                                                                                              \
-        variable = rng.next() & 0xffffffff;                                                                            \
-    }
             // Depending on instruction type...
             switch (instruction.id) {
             case OPCODE::CONSTANT:
@@ -161,6 +177,10 @@ template <typename Builder> class BoolFuzzBase {
             case OPCODE::AND:
             case OPCODE::OR:
             case OPCODE::XOR:
+            case OPCODE::IMPLIES:
+            case OPCODE::IMPLIES_BOTH_WAYS:
+            case OPCODE::BOOL_EQUAL:
+            case OPCODE::BOOL_NOT_EQUAL:
                 // Randomly sample each of the arguments with 50% probability
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.threeArgs.in1)
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.threeArgs.in2)
@@ -203,7 +223,29 @@ template <typename Builder> class BoolFuzzBase {
         static constexpr size_t NOT = 2;
         static constexpr size_t ASSERT_EQUAL = 2;
         static constexpr size_t SET = 2;
+        static constexpr size_t IMPLIES = 3;
+        static constexpr size_t IMPLIES_BOTH_WAYS = 3;
+        static constexpr size_t BOOL_EQUAL = 3;
+        static constexpr size_t BOOL_NOT_EQUAL = 3;
         static constexpr size_t RANDOMSEED = sizeof(uint32_t);
+    };
+    class InstructionWeights {
+      public:
+        static constexpr size_t CONSTANT = 1;
+        static constexpr size_t WITNESS = 1;
+        static constexpr size_t AND = 2;
+        static constexpr size_t OR = 2;
+        static constexpr size_t XOR = 2;
+        static constexpr size_t SELECT_IF_EQ = 3;
+        static constexpr size_t NOT = 1;
+        static constexpr size_t ASSERT_EQUAL = 2;
+        static constexpr size_t SET = 1;
+        static constexpr size_t IMPLIES = 3;
+        static constexpr size_t IMPLIES_BOTH_WAYS = 1;
+        static constexpr size_t BOOL_EQUAL = 1;
+        static constexpr size_t BOOL_NOT_EQUAL = 1;
+        static constexpr size_t RANDOMSEED = 0;
+        static constexpr size_t _LIMIT = 64;
     };
     /**
      * @brief Parser class handles the parsing and writing the instructions back to data buffer
@@ -225,7 +267,9 @@ template <typename Builder> class BoolFuzzBase {
                                     .arguments.element = static_cast<bool>(*Data) };
             }
             if constexpr (opcode == Instruction::OPCODE::AND || opcode == Instruction::OPCODE::OR ||
-                          opcode == Instruction::OPCODE::XOR) {
+                          opcode == Instruction::OPCODE::XOR || opcode == Instruction::OPCODE::IMPLIES ||
+                          opcode == Instruction::OPCODE::IMPLIES_BOTH_WAYS ||
+                          opcode == Instruction::OPCODE::BOOL_EQUAL || opcode == Instruction::OPCODE::BOOL_NOT_EQUAL) {
                 return { .id = static_cast<typename Instruction::OPCODE>(opcode),
                          .arguments.threeArgs = { .in1 = *Data, .in2 = *(Data + 1), .out = *(Data + 2) } };
             }
@@ -264,7 +308,11 @@ template <typename Builder> class BoolFuzzBase {
             }
             if constexpr (instruction_opcode == Instruction::OPCODE::AND ||
                           instruction_opcode == Instruction::OPCODE::OR ||
-                          instruction_opcode == Instruction::OPCODE::XOR) {
+                          instruction_opcode == Instruction::OPCODE::XOR ||
+                          instruction_opcode == Instruction::OPCODE::IMPLIES ||
+                          instruction_opcode == Instruction::OPCODE::IMPLIES_BOTH_WAYS ||
+                          instruction_opcode == Instruction::OPCODE::BOOL_EQUAL ||
+                          instruction_opcode == Instruction::OPCODE::BOOL_NOT_EQUAL) {
                 *Data = instruction.id;
                 *(Data + 1) = instruction.arguments.threeArgs.in1;
                 *(Data + 2) = instruction.arguments.threeArgs.in2;
@@ -309,6 +357,7 @@ template <typename Builder> class BoolFuzzBase {
             : reference_value(b.get_value())
             , b(b)
         {}
+        bool is_circuit_constant() const { return b.is_constant(); }
 
         ExecutionHandler operator&(const ExecutionHandler& other) const
         {
@@ -335,10 +384,10 @@ template <typename Builder> class BoolFuzzBase {
 
             switch (VarianceRNG.next() % 2) {
             case 0:
-                /* ^ operator */
+                /* | operator */
                 return ExecutionHandler(ref_result, bool_t(this->b | other.b));
             case 1:
-                /* ^= operator */
+                /* |= operator */
                 {
                     bool_t b = this->b;
                     b |= other.b;
@@ -371,19 +420,9 @@ template <typename Builder> class BoolFuzzBase {
         ExecutionHandler not_() const { return ExecutionHandler(!this->reference_value, bool_t(!this->b)); }
         void assert_equal(ExecutionHandler& other) const
         {
-            /* TODO */
-            return;
-
-            if (this->b.is_constant() && other.b.is_constant()) {
-                return;
-            }
-            if (!this->b.is_constant() && !other.b.is_constant()) {
-                return;
-            }
-            if (this->reference_value != other.reference_value) {
-                circuit_should_fail = true;
-            }
-            this->b.assert_equal(other.b);
+            auto lhs = this->b ^ other.b;
+            auto rhs = other.b ^ this->b;
+            lhs.assert_equal(rhs);
         }
         ExecutionHandler select_if_eq(ExecutionHandler& other1, ExecutionHandler& other2)
         {
@@ -405,6 +444,26 @@ template <typename Builder> class BoolFuzzBase {
             }
         }
 
+        ExecutionHandler implies(const ExecutionHandler& other) const
+        {
+            return ExecutionHandler(!this->reference_value || other.reference_value, this->b.implies(other.b));
+        }
+
+        ExecutionHandler implies_both_ways(const ExecutionHandler& other) const
+        {
+            return ExecutionHandler(this->reference_value == other.reference_value, this->b.implies_both_ways(other.b));
+        }
+
+        ExecutionHandler bool_equal(const ExecutionHandler& other) const
+        {
+            return ExecutionHandler(this->reference_value == other.reference_value, this->b == other.b);
+        }
+
+        ExecutionHandler bool_not_equal(const ExecutionHandler& other) const
+        {
+            return ExecutionHandler(this->reference_value != other.reference_value, this->b != other.b);
+        }
+
         /**
          * @brief Execute the constant instruction (push constant bool_t to the stack)
          *
@@ -419,6 +478,9 @@ template <typename Builder> class BoolFuzzBase {
         {
             (void)builder;
             stack.push_back(bool_t(builder, instruction.arguments.element));
+            if constexpr (SHOW_FUZZING_INFO) {
+                debug_log("auto c", stack.size() - 1, " = bool_t(", instruction.arguments.element, ");\n");
+            }
             return 0;
         }
         /**
@@ -436,6 +498,9 @@ template <typename Builder> class BoolFuzzBase {
 
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element, witness_t(builder, instruction.arguments.element)));
+            if constexpr (SHOW_FUZZING_INFO) {
+                debug_log("auto w", stack.size() - 1, " = witness_t(", instruction.arguments.element, ");\n");
+            }
             return 0;
         }
         /**
@@ -458,6 +523,10 @@ template <typename Builder> class BoolFuzzBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " & ", args.rhs, ";\n");
+            }
             ExecutionHandler result;
             result = stack[first_index] & stack[second_index];
             // If the output index is larger than the number of elements in stack, append
@@ -488,6 +557,10 @@ template <typename Builder> class BoolFuzzBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " | ", args.rhs, ";\n");
+            }
             ExecutionHandler result;
             result = stack[first_index] | stack[second_index];
             // If the output index is larger than the number of elements in stack, append
@@ -518,6 +591,10 @@ template <typename Builder> class BoolFuzzBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " ^ ", args.rhs, ";\n");
+            }
             ExecutionHandler result;
             result = stack[first_index] ^ stack[second_index];
             // If the output index is larger than the number of elements in stack, append
@@ -547,6 +624,10 @@ template <typename Builder> class BoolFuzzBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
 
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = !", args.rhs, ";\n");
+            }
             ExecutionHandler result;
             result = stack[first_index].not_();
             // If the output index is larger than the number of elements in stack, append
@@ -578,6 +659,10 @@ template <typename Builder> class BoolFuzzBase {
             size_t third_index = instruction.arguments.fourArgs.in3 % stack.size();
             size_t output_index = instruction.arguments.fourArgs.out % stack.size();
 
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, second_index, third_index, output_index);
+                debug_log(args.out, " = select_if_eq(", args.lhs, ", ", args.rhs, ");\n");
+            }
             ExecutionHandler result;
             result = stack[first_index].select_if_eq(stack[second_index], stack[third_index]);
             // If the output index is larger than the number of elements in stack, append
@@ -607,6 +692,10 @@ template <typename Builder> class BoolFuzzBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
 
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, 0);
+                debug_log("assert_equal(", args.lhs, " ^ ", args.rhs, ", ", args.rhs, " ^ ", args.lhs, ");\n");
+            }
             stack[first_index].assert_equal(stack[second_index]);
             return 0;
         };
@@ -628,9 +717,111 @@ template <typename Builder> class BoolFuzzBase {
             }
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = set(", args.rhs, ");\n");
+            }
             ExecutionHandler result;
             result = stack[first_index].set(builder);
             // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+
+        static inline size_t execute_IMPLIES(Builder* builder,
+                                             std::vector<ExecutionHandler>& stack,
+                                             Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
+            size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
+            size_t output_index = instruction.arguments.threeArgs.out;
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, ".implies(", args.rhs, ");\n");
+            }
+            ExecutionHandler result = stack[first_index].implies(stack[second_index]);
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+        static inline size_t execute_IMPLIES_BOTH_WAYS(Builder* builder,
+                                                       std::vector<ExecutionHandler>& stack,
+                                                       Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
+            size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
+            size_t output_index = instruction.arguments.threeArgs.out;
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, ".implies_both_ways(", args.rhs, ");\n");
+            }
+            ExecutionHandler result = stack[first_index].implies_both_ways(stack[second_index]);
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+        static inline size_t execute_BOOL_EQUAL(Builder* builder,
+                                                std::vector<ExecutionHandler>& stack,
+                                                Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
+            size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
+            size_t output_index = instruction.arguments.threeArgs.out;
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " == ", args.rhs, ";\n");
+            }
+            ExecutionHandler result = stack[first_index].bool_equal(stack[second_index]);
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+        static inline size_t execute_BOOL_NOT_EQUAL(Builder* builder,
+                                                    std::vector<ExecutionHandler>& stack,
+                                                    Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.threeArgs.in1 % stack.size();
+            size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
+            size_t output_index = instruction.arguments.threeArgs.out;
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " != ", args.rhs, ";\n");
+            }
+            ExecutionHandler result = stack[first_index].bool_not_equal(stack[second_index]);
             if (output_index >= stack.size()) {
                 stack.push_back(result);
             } else {
@@ -674,8 +865,8 @@ template <typename Builder> class BoolFuzzBase {
         for (size_t i = 0; i < stack.size(); i++) {
             auto element = stack[i];
             if (element.b.get_value() != element.reference_value) {
-                printf("Other: %d", element.b.get_value());
-                printf("Reference value: %d\n", element.reference_value);
+                std::cerr << "Other: " << element.b.get_value() << std::endl;
+                std::cerr << "Reference value: " << element.reference_value << std::endl;
                 return false;
             }
         }
@@ -689,37 +880,14 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
 {
     (void)argc;
     (void)argv;
-    // These are the settings, optimized for the safeuint class (under them, fuzzer reaches maximum expected coverage in
-    // 40 seconds)
-    fuzzer_havoc_settings = HavocSettings{
-        .GEN_LLVM_POST_MUTATION_PROB = 30,          // Out of 200
-        .GEN_MUTATION_COUNT_LOG = 5,                // Fully checked
-        .GEN_STRUCTURAL_MUTATION_PROBABILITY = 300, // Fully  checked
-        .GEN_VALUE_MUTATION_PROBABILITY = 700,      // Fully checked
-        .ST_MUT_DELETION_PROBABILITY = 100,         // Fully checked
-        .ST_MUT_DUPLICATION_PROBABILITY = 80,       // Fully checked
-        .ST_MUT_INSERTION_PROBABILITY = 120,        // Fully checked
-        .ST_MUT_MAXIMUM_DELETION_LOG = 6,           // Fully checked
-        .ST_MUT_MAXIMUM_DUPLICATION_LOG = 2,        // Fully checked
-        .ST_MUT_SWAP_PROBABILITY = 50,              // Fully checked
-        .VAL_MUT_LLVM_MUTATE_PROBABILITY = 250,     // Fully checked
-        .VAL_MUT_MONTGOMERY_PROBABILITY = 130,      // Fully checked
-        .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 50,   // Fully checked
-        .VAL_MUT_SMALL_ADDITION_PROBABILITY = 110,  // Fully checked
-        .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 130    // Fully checked
-
-    };
-    /**
-     * @brief This is used, when we need to determine the probabilities of various mutations. Left here for posterity
-     *
-     */
-    /*
+#ifdef HAVOC_CALIBRATION
     std::random_device rd;
     std::uniform_int_distribution<uint64_t> dist(0, ~(uint64_t)(0));
     srandom(static_cast<unsigned int>(dist(rd)));
 
     fuzzer_havoc_settings =
-        HavocSettings{ .GEN_MUTATION_COUNT_LOG = static_cast<size_t>((random() % 8) + 1),
+        HavocSettings{ .GEN_LLVM_POST_MUTATION_PROB = static_cast<size_t>(((random() % (20 - 1)) + 1) * 10),
+                       .GEN_MUTATION_COUNT_LOG = static_cast<size_t>((random() % 8) + 1),
                        .GEN_STRUCTURAL_MUTATION_PROBABILITY = static_cast<size_t>(random() % 100),
                        .GEN_VALUE_MUTATION_PROBABILITY = static_cast<size_t>(random() % 100),
                        .ST_MUT_DELETION_PROBABILITY = static_cast<size_t>(random() % 100),
@@ -732,47 +900,49 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
                        .VAL_MUT_MONTGOMERY_PROBABILITY = static_cast<size_t>(random() % 100),
                        .VAL_MUT_NON_MONTGOMERY_PROBABILITY = static_cast<size_t>(random() % 100),
                        .VAL_MUT_SMALL_ADDITION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_SPECIAL_VALUE_PROBABILITY = static_cast<size_t>(random() % 100)
-
-        };
+                       .VAL_MUT_SPECIAL_VALUE_PROBABILITY = static_cast<size_t>(random() % 100) };
     while (fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY == 0 &&
            fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY == 0) {
         fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY = static_cast<size_t>(random() % 8);
         fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY = static_cast<size_t>(random() % 8);
     }
-    */
-
-    // fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB = static_cast<size_t>(((random() % (20 - 1)) + 1) * 10);
-    /**
-     * @brief Write mutation settings to log
-     *
-     */
-    /*
-    std::cerr << "CUSTOM MUTATOR SETTINGS:" << std::endl
-              << "################################################################" << std::endl
-              << "GEN_LLVM_POST_MUTATION_PROB: " << fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB << std::endl
-              << "GEN_MUTATION_COUNT_LOG: " << fuzzer_havoc_settings.GEN_MUTATION_COUNT_LOG << std::endl
-              << "GEN_STRUCTURAL_MUTATION_PROBABILITY: " << fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY
-              << std::endl
-              << "GEN_VALUE_MUTATION_PROBABILITY: " << fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY << std::endl
-              << "ST_MUT_DELETION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_DELETION_PROBABILITY << std::endl
-              << "ST_MUT_DUPLICATION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_DUPLICATION_PROBABILITY << std::endl
-              << "ST_MUT_INSERTION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_INSERTION_PROBABILITY << std::endl
-              << "ST_MUT_MAXIMUM_DELETION_LOG: " << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DELETION_LOG << std::endl
-              << "ST_MUT_MAXIMUM_DUPLICATION_LOG: " << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DUPLICATION_LOG << std::endl
-              << "ST_MUT_SWAP_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_SWAP_PROBABILITY << std::endl
-              << "VAL_MUT_LLVM_MUTATE_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_LLVM_MUTATE_PROBABILITY
-              << std::endl
-              << "VAL_MUT_MONTGOMERY_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_MONTGOMERY_PROBABILITY << std::endl
-              << "VAL_MUT_NON_MONTGOMERY_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_NON_MONTGOMERY_PROBABILITY
-              << std::endl
-              << "VAL_MUT_SMALL_ADDITION_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_SMALL_ADDITION_PROBABILITY
-              << std::endl
-              << "VAL_MUT_SMALL_MULTIPLICATION_PROBABILITY: "
-              << fuzzer_havoc_settings.VAL_MUT_SMALL_MULTIPLICATION_PROBABILITY << std::endl
-              << "VAL_MUT_SPECIAL_VALUE_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_SPECIAL_VALUE_PROBABILITY
-              << std::endl;
-    */
+    std::cerr << "SETTINGS:" << fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB << ":"
+              << fuzzer_havoc_settings.GEN_MUTATION_COUNT_LOG << ":"
+              << fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY << ":"
+              << fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY << ":"
+              << fuzzer_havoc_settings.ST_MUT_DELETION_PROBABILITY << ":"
+              << fuzzer_havoc_settings.ST_MUT_DUPLICATION_PROBABILITY << ":"
+              << fuzzer_havoc_settings.ST_MUT_INSERTION_PROBABILITY << ":"
+              << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DELETION_LOG << ":"
+              << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DUPLICATION_LOG << ":"
+              << fuzzer_havoc_settings.ST_MUT_SWAP_PROBABILITY << ":"
+              << fuzzer_havoc_settings.VAL_MUT_LLVM_MUTATE_PROBABILITY << ":"
+              << fuzzer_havoc_settings.VAL_MUT_MONTGOMERY_PROBABILITY << ":"
+              << fuzzer_havoc_settings.VAL_MUT_NON_MONTGOMERY_PROBABILITY << ":"
+              << fuzzer_havoc_settings.VAL_MUT_SMALL_ADDITION_PROBABILITY << ":"
+              << fuzzer_havoc_settings.VAL_MUT_SPECIAL_VALUE_PROBABILITY << std::endl;
+#else
+    // Calibrated 2026-05-14: 200 runs * 1200s, 20 parallel, scored by ft * new_units / 1000
+    fuzzer_havoc_settings = HavocSettings{
+        .GEN_LLVM_POST_MUTATION_PROB = 10,
+        .GEN_MUTATION_COUNT_LOG = 7,
+        .GEN_STRUCTURAL_MUTATION_PROBABILITY = 56,
+        .GEN_VALUE_MUTATION_PROBABILITY = 52,
+        .ST_MUT_DELETION_PROBABILITY = 28,
+        .ST_MUT_DUPLICATION_PROBABILITY = 15,
+        .ST_MUT_INSERTION_PROBABILITY = 41,
+        .ST_MUT_MAXIMUM_DELETION_LOG = 4,
+        .ST_MUT_MAXIMUM_DUPLICATION_LOG = 5,
+        .ST_MUT_SWAP_PROBABILITY = 14,
+        .VAL_MUT_LLVM_MUTATE_PROBABILITY = 98,
+        .VAL_MUT_MONTGOMERY_PROBABILITY = 45,
+        .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 27,
+        .VAL_MUT_SMALL_ADDITION_PROBABILITY = 15,
+        .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 13,
+        .structural_mutation_distribution = {},
+        .value_mutation_distribution = {},
+    };
+#endif
     std::vector<size_t> structural_mutation_distribution;
     std::vector<size_t> value_mutation_distribution;
     size_t temp = 0;
