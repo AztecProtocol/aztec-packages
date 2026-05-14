@@ -44,7 +44,7 @@ import { ReqRespStatus, ReqRespStatusError, parseStatusChunk } from './status.js
  * The Request Response Service
  *
  * It allows nodes to request specific information from their peers, its use case covers recovering
- * information that was missed during a syncronisation or a gossip event.
+ * information that was missed during a synchronisation or a gossip event.
  *
  * This service implements the request response sub protocol, it is heavily inspired from
  * ethereum implementations of the same name.
@@ -126,7 +126,8 @@ export class ReqResp implements ReqRespInterface {
     Object.assign(this.subProtocolHandlers, subProtocolHandlers);
     Object.assign(this.subProtocolValidators, subProtocolValidators);
 
-    // Register all protocol handlers
+    // Register streamHandler with libp2p.
+    // The streamHandler is responsible for reading the incoming stream, determining the protocol, then triggering the appropriate handler.
     for (const subProtocol of Object.keys(subProtocolHandlers)) {
       this.logger.debug(`Registering handler for sub protocol ${subProtocol}`);
       await this.libp2p.handle(
@@ -530,13 +531,13 @@ export class ReqResp implements ReqRespInterface {
   ): PeerErrorSeverity | undefined {
     const logTags = { peerId: peerId.toString(), subProtocol };
 
-    //Punishable error - peer should never send badly formed request
+    // Punishable error - peer should never send badly formed request
     if (e instanceof ReqRespStatusError && e.status === ReqRespStatus.BADLY_FORMED_REQUEST) {
       this.logger.debug(`Punishable error in ${subProtocol}: ${e.cause}`, logTags);
       return PeerErrorSeverity.LowToleranceError;
     }
 
-    //TODO: (mralj): think if we should penalize peer here based on connection errors
+    // TODO: (mralj): think if we should penalize peer here based on connection errors
     return undefined;
   }
 
@@ -577,7 +578,8 @@ export class ReqResp implements ReqRespInterface {
 
   /*
    * Errors specific to connection  handling
-   * These can happen  both when sending request and response*/
+   * These can happen  both when sending request and response.
+   */
   private categorizeConnectionErrors(
     e: any,
     peerId: PeerId,
