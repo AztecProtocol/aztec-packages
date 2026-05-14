@@ -1,5 +1,5 @@
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -402,13 +402,11 @@ export class TestCircuitProver implements ServerCircuitProver {
     );
   }
 
-  public getAvmProof(_inputs: AvmCircuitInputs): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+  public getAvmProof(_inputs: AvmCircuitInputs): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>> {
     // We can't simulate the AVM because we don't have enough context to do so (e.g., DBs).
     // We just return an empty proof.
     this.logger.debug('Skipping AVM simulation in TestCircuitProver.');
-    return this.applyDelay(ProvingRequestType.PUBLIC_VM, () =>
-      makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
-    );
+    return this.applyDelay(ProvingRequestType.PUBLIC_VM, () => makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS));
   }
 
   private async applyDelay<F extends () => any>(type: ProvingRequestType, fn: F): Promise<Awaited<ReturnType<F>>> {

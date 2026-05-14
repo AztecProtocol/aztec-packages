@@ -1,5 +1,5 @@
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   RECURSIVE_PROOF_LENGTH,
@@ -104,7 +104,7 @@ export class MockProver implements ServerCircuitProver {
   constructor() {}
 
   getAvmProof(_inputs: AvmCircuitInputs, _signal?: AbortSignal, _epochNumber?: number) {
-    return Promise.resolve(makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED));
+    return Promise.resolve(makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS));
   }
 
   getBaseParityProof(_inputs: ParityBasePrivateInputs, _signal?: AbortSignal, _epochNumber?: number) {

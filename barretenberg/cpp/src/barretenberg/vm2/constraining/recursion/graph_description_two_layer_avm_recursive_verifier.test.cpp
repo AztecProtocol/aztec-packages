@@ -34,7 +34,6 @@ class BoomerangTwoLayerAvmRecursiveVerifierTests : public ::testing::Test {
 
         AvmProver prover;
         auto proof = prover.prove(std::move(trace));
-        proof.resize(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, FF::zero()); // Pad proof
 
         const bool verified = prover.verify(proof, public_inputs);
         EXPECT_TRUE(verified) << "native proof verification failed";
@@ -69,7 +68,7 @@ TEST_F(BoomerangTwoLayerAvmRecursiveVerifierTests, graph_description_basic)
         stdlib_public_inputs_flat.back().fix_witness();
     }
     stdlib::Proof<Builder> stdlib_proof;
-    stdlib_proof.reserve(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+    stdlib_proof.reserve(AVM_V2_PROOF_LENGTH_IN_FIELDS);
     for (const auto proof_element : proof) {
         stdlib_proof.emplace_back(field_t<Builder>::from_witness(&builder, proof_element));
         // We need to fix this witness because it is only used in Poseidon, and as part of Poseidon it only appears in

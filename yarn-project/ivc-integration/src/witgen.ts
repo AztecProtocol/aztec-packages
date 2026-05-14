@@ -1,6 +1,6 @@
 import {
   AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH,
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   MEGA_VK_LENGTH_IN_FIELDS,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
@@ -391,11 +391,11 @@ export function mapRecursiveProofToNoir<N extends number>(proof: RecursiveProof<
   return proof.proof.map(field => field.toString()) as FixedLengthArray<string, N>;
 }
 
-export function mapAvmProofToNoir(proof: Fr[]): FixedLengthArray<string, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED> {
-  if (proof.length != AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+export function mapAvmProofToNoir(proof: Fr[]): FixedLengthArray<string, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS> {
+  if (proof.length != AVM_V2_PROOF_LENGTH_IN_FIELDS) {
     throw new Error('Invalid number of AVM proof fields');
   }
-  return proof.map(field => field.toString()) as FixedLengthArray<string, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>;
+  return proof.map(field => field.toString()) as FixedLengthArray<string, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>;
 }
 
 export function mapVerificationKeyToNoir<N extends number>(
