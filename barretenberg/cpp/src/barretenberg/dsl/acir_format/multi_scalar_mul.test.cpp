@@ -69,8 +69,7 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         // Points are encoded as (x, y); the point at infinity is encoded as (0, 0).
         auto construct_points = [&]() -> std::vector<WitnessOrConstant<FF>> {
             if constexpr (points_are_constant) {
-                return { WitnessOrConstant<FF>::from_constant(point.x),
-                         WitnessOrConstant<FF>::from_constant(point.y) };
+                return { WitnessOrConstant<FF>::from_constant(point.x), WitnessOrConstant<FF>::from_constant(point.y) };
             }
             std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
             return { WitnessOrConstant<FF>::from_index(point_indices[0]),
