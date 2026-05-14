@@ -30,7 +30,7 @@ import { L1Metrics, type TelemetryClient, getTelemetryClient } from '@aztec/tele
 
 import { createPublicClient } from 'viem';
 
-import type { SpecificProverNodeConfig } from './config.js';
+import type { OwnProverNodeConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { ProverNode } from './prover-node.js';
 import { ProverPublisherFactory } from './prover-publisher-factory.js';
@@ -52,7 +52,7 @@ export type ProverNodeDeps = {
 
 /** Creates a new prover node subsystem given a config and dependencies */
 export async function createProverNode(
-  userConfig: SpecificProverNodeConfig &
+  userConfig: OwnProverNodeConfig &
     ProverConfig &
     ProverClientUserConfig &
     ProverPublisherConfig &

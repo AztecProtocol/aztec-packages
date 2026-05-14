@@ -1,4 +1,9 @@
-import { type ConfigMappingsType, booleanConfigHelper, optionalNumberConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  booleanConfigHelper,
+  composeConfigMappings,
+  optionalNumberConfigHelper,
+} from '@aztec/foundation/config';
 
 /** Config for fisherman mode, shared across validator-client, sequencer-client, p2p, and node-lib. */
 export interface FishermanModeConfig {
@@ -16,7 +21,7 @@ export const fishermanModeConfigMappings: ConfigMappingsType<FishermanModeConfig
 };
 
 /** Validator block constraint config shared across validator-client and p2p. */
-export interface ValidatorConstraintsConfig extends FishermanModeConfig {
+type OwnValidatorConstraintsConfig = {
   /** Maximum L2 block gas for validation. Proposals exceeding this limit are rejected. */
   validateMaxL2BlockGas?: number;
   /** Maximum DA block gas for validation. Proposals exceeding this limit are rejected. */
@@ -25,10 +30,11 @@ export interface ValidatorConstraintsConfig extends FishermanModeConfig {
   validateMaxTxsPerBlock?: number;
   /** Maximum transactions per checkpoint for validation. Proposals exceeding this limit are rejected. */
   validateMaxTxsPerCheckpoint?: number;
-}
+};
 
-export const validatorConstraintsConfigMappings: ConfigMappingsType<ValidatorConstraintsConfig> = {
-  ...fishermanModeConfigMappings,
+export type ValidatorConstraintsConfig = OwnValidatorConstraintsConfig & FishermanModeConfig;
+
+const ownValidatorConstraintsConfigMappings: ConfigMappingsType<OwnValidatorConstraintsConfig> = {
   validateMaxL2BlockGas: {
     env: 'VALIDATOR_MAX_L2_BLOCK_GAS',
     description: 'Maximum L2 block gas for validation. Proposals exceeding this limit are rejected.',
@@ -50,3 +56,8 @@ export const validatorConstraintsConfigMappings: ConfigMappingsType<ValidatorCon
     ...optionalNumberConfigHelper(),
   },
 };
+
+export const validatorConstraintsConfigMappings: ConfigMappingsType<ValidatorConstraintsConfig> = composeConfigMappings(
+  fishermanModeConfigMappings,
+  ownValidatorConstraintsConfigMappings,
+);

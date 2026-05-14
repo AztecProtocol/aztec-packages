@@ -2,6 +2,7 @@ import {
   type ConfigMappingsType,
   bigintConfigHelper,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -22,7 +23,7 @@ export type GenesisStateConfig = {
   prefundAddresses: string[];
 };
 
-export type L1ContractsConfig = {
+type OwnL1ContractsConfig = {
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: number;
   /** How many seconds an L2 slots lasts (must be multiple of ethereum slot duration). */
@@ -81,14 +82,15 @@ export type L1ContractsConfig = {
   initialEthPerFeeAsset: bigint;
   /** The number of seconds to wait for an exit */
   exitDelaySeconds: number;
-} & L1TxUtilsConfig;
+};
+export type L1ContractsConfig = OwnL1ContractsConfig & L1TxUtilsConfig;
 
 /**
  * Config mappings for L1ContractsConfig.
  * Default values come from generated l1-contracts-defaults.json (source: defaults.yml).
  * Real deployments use forge scripts which require explicit env vars (vm.envUint).
  */
-export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
+const ownL1ContractsConfigMappings: ConfigMappingsType<OwnL1ContractsConfig> = {
   ethereumSlotDuration: {
     env: 'ETHEREUM_SLOT_DURATION',
     description: 'How many seconds an L1 slot lasts.',
@@ -237,8 +239,12 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The delay before a validator can exit the set',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_EXIT_DELAY_SECONDS),
   },
-  ...omitConfigMappings(l1TxUtilsConfigMappings, ['ethereumSlotDuration']),
 };
+
+export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = composeConfigMappings(
+  ownL1ContractsConfigMappings,
+  omitConfigMappings(l1TxUtilsConfigMappings, ['ethereumSlotDuration']),
+);
 
 /**
  * Default L1 contracts configuration derived from l1ContractsConfigMappings.

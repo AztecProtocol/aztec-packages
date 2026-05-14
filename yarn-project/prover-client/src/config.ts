@@ -2,6 +2,7 @@ import { type ACVMConfig, type BBConfig, acvmConfigMappings } from '@aztec/bb-pr
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   numberConfigHelper,
 } from '@aztec/foundation/config';
@@ -20,7 +21,18 @@ export type ProverClientUserConfig = ProverConfig & ProverAgentConfig & ProverBr
 /** The prover configuration with all missing fields resolved. */
 export type ProverClientConfig = ProverClientUserConfig & Required<Pick<ProverClientUserConfig, 'proverId'>>;
 
-export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
+type OwnBBConfig = {
+  bbWorkingDirectory: string;
+  bbBinaryPath: string;
+  bbSkipCleanup: boolean;
+  numConcurrentIVCVerifiers: number;
+  bbIVCConcurrency: number;
+  bbChonkVerifyMaxBatch: number;
+  bbChonkVerifyConcurrency: number;
+  bbDebugOutputDir?: string;
+};
+
+const ownBBConfigMappings: ConfigMappingsType<OwnBBConfig> = {
   bbWorkingDirectory: {
     env: 'BB_WORKING_DIRECTORY',
     description: 'The working directory to use for proving',
@@ -60,15 +72,19 @@ export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
     description:
       'When set, bb.js operations write input/output files and log equivalent CLI commands to this directory',
   },
-  ...acvmConfigMappings,
 };
 
-export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = {
-  ...bbConfigMappings,
-  ...proverConfigMappings,
-  ...proverAgentConfigMappings,
-  ...proverBrokerConfigMappings,
-};
+export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = composeConfigMappings(
+  ownBBConfigMappings,
+  acvmConfigMappings,
+);
+
+export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = composeConfigMappings(
+  bbConfigMappings,
+  proverConfigMappings,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+);
 
 /**
  * Returns the prover configuration from the environment variables.

@@ -1,19 +1,19 @@
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   numberConfigHelper,
-  pickConfigMappings,
   secretValueConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { chainConfigMappings, validatorConstraintsConfigMappings } from '@aztec/stdlib/config';
+import { l1ChainIdConfigMapping, validatorConstraintsConfigMappings } from '@aztec/stdlib/config';
 import { localSignerConfigMappings, validatorHASignerConfigMappings } from '@aztec/stdlib/ha-signing';
-import type { ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
+import type { OwnValidatorClientConfig, ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
 
 export type { ValidatorClientConfig };
 
-export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
+const ownValidatorClientConfigMappings: ConfigMappingsType<OwnValidatorClientConfig> = {
   validatorPrivateKeys: {
     env: 'VALIDATOR_PRIVATE_KEYS',
     description: 'List of private keys of the validators participating in attestation duties',
@@ -32,7 +32,6 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
         .map(address => EthAddress.fromString(address.trim())),
     defaultValue: [],
   },
-  ...pickConfigMappings(chainConfigMappings, ['l1ChainId']),
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Do not run the validator',
@@ -69,10 +68,15 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
     ...booleanConfigHelper(false),
   },
-  ...validatorConstraintsConfigMappings,
-  ...localSignerConfigMappings,
-  ...validatorHASignerConfigMappings,
 };
+
+export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = composeConfigMappings(
+  ownValidatorClientConfigMappings,
+  l1ChainIdConfigMapping,
+  validatorConstraintsConfigMappings,
+  localSignerConfigMappings,
+  validatorHASignerConfigMappings,
+);
 
 /**
  * Returns the prover configuration from the environment variables.

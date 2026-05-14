@@ -3,6 +3,7 @@ import {
   SecretValue,
   bigintConfigHelper,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -33,25 +34,7 @@ import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqr
 import { type TxCollectionConfig, txCollectionConfigMappings } from './services/tx_collection/config.js';
 import { type TxFileStoreConfig, txFileStoreConfigMappings } from './services/tx_file_store/config.js';
 
-/**
- * P2P client configuration values.
- */
-export interface P2PConfig
-  extends P2PReqRespConfig,
-    BatchTxRequesterConfig,
-    ChainConfig,
-    TxCollectionConfig,
-    TxFileStoreConfig,
-    ValidatorConstraintsConfig,
-    Pick<
-      SequencerConfig,
-      | 'blockDurationMs'
-      | 'expectedBlockProposalsPerSlot'
-      | 'l1PublishingTime'
-      | 'maxTxsPerBlock'
-      | 'attestationPropagationTime'
-      | 'maxBlocksPerCheckpoint'
-    > {
+type OwnP2PConfig = {
   /** A flag dictating whether the P2P subsystem should be enabled. */
   p2pEnabled: boolean;
 
@@ -188,6 +171,7 @@ export interface P2PConfig
 
   /** True to disable participating in discovery */
   p2pDiscoveryDisabled?: boolean;
+
   /** Number of auth attempts to allow before peer is banned. Number is inclusive*/
   p2pMaxFailedAuthAttemptsAllowed: number;
 
@@ -217,7 +201,25 @@ export interface P2PConfig
 
   /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
   skipIncomingProposals?: boolean;
-}
+};
+
+/** P2P client configuration values. */
+export type P2PConfig = OwnP2PConfig &
+  P2PReqRespConfig &
+  BatchTxRequesterConfig &
+  ChainConfig &
+  TxCollectionConfig &
+  TxFileStoreConfig &
+  ValidatorConstraintsConfig &
+  Pick<
+    SequencerConfig,
+    | 'blockDurationMs'
+    | 'expectedBlockProposalsPerSlot'
+    | 'l1PublishingTime'
+    | 'maxTxsPerBlock'
+    | 'attestationPropagationTime'
+    | 'maxBlocksPerCheckpoint'
+  >;
 
 export const DEFAULT_P2P_PORT = 40400;
 
@@ -229,7 +231,7 @@ export const DEFAULT_PUBLIC_IP_SERVICES: string[] = [
   'https://icanhazip.com/',
 ];
 
-export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
+const ownP2PConfigMappings: ConfigMappingsType<OwnP2PConfig> = {
   p2pEnabled: {
     env: 'P2P_ENABLED',
     description: 'A flag dictating whether the P2P subsystem should be enabled.',
@@ -525,14 +527,18 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.',
     ...bigintConfigHelper(10n),
   },
-  ...sharedSequencerConfigMappings,
-  ...p2pReqRespConfigMappings,
-  ...batchTxRequesterConfigMappings,
-  ...chainConfigMappings,
-  ...txCollectionConfigMappings,
-  ...txFileStoreConfigMappings,
-  ...validatorConstraintsConfigMappings,
 };
+
+export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = composeConfigMappings(
+  ownP2PConfigMappings,
+  sharedSequencerConfigMappings,
+  p2pReqRespConfigMappings,
+  batchTxRequesterConfigMappings,
+  chainConfigMappings,
+  txCollectionConfigMappings,
+  txFileStoreConfigMappings,
+  validatorConstraintsConfigMappings,
+);
 
 /**
  * Gets the config values for p2p client from environment variables.
@@ -581,7 +587,7 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
 ];
 
 export const bootnodeConfigMappings = pickConfigMappings(
-  { ...p2pConfigMappings, ...dataConfigMappings, ...chainConfigMappings },
+  composeConfigMappings(p2pConfigMappings, dataConfigMappings),
   bootnodeConfigKeys,
 );
 

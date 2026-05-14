@@ -4,6 +4,7 @@ import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
@@ -30,9 +31,7 @@ export type ArchiverConfig = ArchiverSpecificConfig &
   BlobClientConfig &
   ChainConfig;
 
-export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
-  ...blobClientConfigMapping,
-  ...pipelineConfigMappings,
+const ownArchiverConfigMappings: ConfigMappingsType<ArchiverSpecificConfig> = {
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
     description: 'The polling interval in ms for retrieving new L2 blocks and encrypted logs.',
@@ -78,15 +77,21 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
       'Set to true to bypass the check when the connected RPC node is known to prune old logs.',
     ...booleanConfigHelper(false),
   },
-  ...chainConfigMappings,
-  ...l1ReaderConfigMappings,
   viemPollingIntervalMS: {
     env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS',
     description: 'The polling interval viem uses in ms',
     ...numberConfigHelper(1000),
   },
-  ...l1ContractsConfigMappings,
 };
+
+export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = composeConfigMappings(
+  ownArchiverConfigMappings,
+  blobClientConfigMapping,
+  pipelineConfigMappings,
+  chainConfigMappings,
+  l1ReaderConfigMappings,
+  l1ContractsConfigMappings,
+);
 
 /**
  * Returns the archiver configuration from the environment variables.

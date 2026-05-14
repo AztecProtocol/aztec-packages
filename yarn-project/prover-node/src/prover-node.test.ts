@@ -29,7 +29,7 @@ import { L1Metrics } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { SpecificProverNodeConfig } from './config.js';
+import type { OwnProverNodeConfig } from './config.js';
 import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
 import type { EpochProvingJob } from './job/epoch-proving-job.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
@@ -48,7 +48,7 @@ describe('prover-node', () => {
   let p2p: MockProxy<P2PClient>;
   let txProvider: MockProxy<TxProvider>;
   let epochMonitor: MockProxy<EpochMonitor>;
-  let config: SpecificProverNodeConfig;
+  let config: OwnProverNodeConfig;
   let rollupContract: MockProxy<RollupContract>;
   let publisherFactory: MockProxy<ProverPublisherFactory>;
   let l1Metrics: MockProxy<L1Metrics>;

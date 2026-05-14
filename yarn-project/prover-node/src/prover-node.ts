@@ -37,7 +37,7 @@ import {
 } from '@aztec/telemetry-client';
 
 import { uploadEpochProofFailure } from './actions/upload-epoch-proof-failure.js';
-import type { SpecificProverNodeConfig } from './config.js';
+import type { OwnProverNodeConfig } from './config.js';
 import type { EpochProvingJobData } from './job/epoch-proving-job-data.js';
 import { EpochProvingJob, type EpochProvingJobState } from './job/epoch-proving-job.js';
 import { ProverNodeJobMetrics, ProverNodeRewardsMetrics } from './metrics.js';
@@ -45,7 +45,7 @@ import type { EpochMonitor, EpochMonitorHandler } from './monitors/epoch-monitor
 import type { ProverNodePublisher } from './prover-node-publisher.js';
 import type { ProverPublisherFactory } from './prover-publisher-factory.js';
 
-type ProverNodeOptions = SpecificProverNodeConfig & Partial<DataStoreOptions>;
+type ProverNodeOptions = OwnProverNodeConfig & Partial<DataStoreOptions>;
 type DataStoreOptions = Pick<DataStoreConfig, 'dataDirectory'> & Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'>;
 
 /**

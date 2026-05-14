@@ -9,16 +9,12 @@ import type { FishermanModeConfig } from '../config/validator-config.js';
 import { schemas, zodFor } from '../schemas/index.js';
 import { type AllowedElement, AllowedElementSchema } from './allowed_element.js';
 
-/** Sequencer configuration */
-export interface SequencerConfig extends FishermanModeConfig {
+/** Fields owned exclusively by the sequencer-client (mapped by ownSequencerConfigMappings). */
+export interface OwnSequencerConfig {
   /** The number of ms to wait between polling for pending txs. */
   sequencerPollingIntervalMS?: number;
-  /** The maximum number of txs to include in a block. */
-  maxTxsPerBlock?: number;
   /** The maximum number of txs across all blocks in a checkpoint. */
   maxTxsPerCheckpoint?: number;
-  /** Maximum number of blocks the sequencer packs into a single checkpoint, and the highest indexWithinCheckpoint accepted on a block proposal. */
-  maxBlocksPerCheckpoint?: number;
   /** The minimum number of txs to include in a block. */
   minTxsPerBlock?: number;
   /** The minimum number of valid txs (after execution) to include in a block. If not set, falls back to minTxsPerBlock. */
@@ -37,24 +33,14 @@ export interface SequencerConfig extends FishermanModeConfig {
   coinbase?: EthAddress;
   /** Address to receive fees. */
   feeRecipient?: AztecAddress;
-  /** The working directory to use for simulation/proving */
-  acvmWorkingDirectory?: string;
-  /** The path to the ACVM binary */
-  acvmBinaryPath?: string;
-  /** Additional entries to extend the default setup allow list. */
-  txPublicSetupAllowListExtend?: AllowedElement[];
   /** Payload address to vote for */
   governanceProposerPayload?: EthAddress;
   /** Whether to enforce the time table when building blocks */
   enforceTimeTable?: boolean;
-  /** How much time (in seconds) we allow in the slot for publishing the L1 tx. */
-  l1PublishingTime?: number;
   /** Used for testing to introduce a fake delay after processing each tx */
   fakeProcessingDelayPerTxMs?: number;
   /** Used for testing to throw an error after processing N txs */
   fakeThrowAfterProcessingTxCount?: number;
-  /** How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way) */
-  attestationPropagationTime?: number;
   /** How many seconds before invalidating a block as a committee member (zero to never invalidate) */
   secondsBeforeInvalidatingBlockAsCommitteeMember?: number;
   /** How many seconds before invalidating a block as a non-committee member (zero to never invalidate) */
@@ -73,10 +59,6 @@ export interface SequencerConfig extends FishermanModeConfig {
   injectUnrecoverableSignatureAttestation?: boolean;
   /** Shuffle attestation ordering to create invalid ordering (for testing only) */
   shuffleAttestationOrdering?: boolean;
-  /** Duration per block in milliseconds when building multiple blocks per slot (default: undefined = single block per slot) */
-  blockDurationMs?: number;
-  /** Expected number of block proposals per slot for P2P peer scoring. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
-  expectedBlockProposalsPerSlot?: number;
   /** Have sequencer build and publish an empty checkpoint if there are no txs */
   buildCheckpointIfEmpty?: boolean;
   /** Skip pushing proposed blocks to archiver (default: false) */
@@ -90,6 +72,32 @@ export interface SequencerConfig extends FishermanModeConfig {
   /** List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected. */
   pauseProposingForSlots?: SlotNumber[];
 }
+
+/**
+ * Sequencer configuration.
+ * Composed from OwnSequencerConfig plus fields mapped by shared mapping objects in sequencer-client.
+ */
+export type SequencerConfig = OwnSequencerConfig &
+  FishermanModeConfig & {
+    /** The maximum number of txs to include in a block. */
+    maxTxsPerBlock?: number;
+    /** Maximum number of blocks the sequencer packs into a single checkpoint, and the highest indexWithinCheckpoint accepted on a block proposal. */
+    maxBlocksPerCheckpoint?: number;
+    /** Duration per block in milliseconds when building multiple blocks per slot (default: undefined = single block per slot) */
+    blockDurationMs?: number;
+    /** Expected number of block proposals per slot for P2P peer scoring. 0 disables scoring, undefined falls back to blocksPerSlot - 1. */
+    expectedBlockProposalsPerSlot?: number;
+    /** How much time (in seconds) we allow in the slot for publishing the L1 tx. */
+    l1PublishingTime?: number;
+    /** How many seconds it takes for proposals and attestations to travel across the p2p layer (one-way) */
+    attestationPropagationTime?: number;
+    /** The working directory to use for simulation/proving */
+    acvmWorkingDirectory?: string;
+    /** The path to the ACVM binary */
+    acvmBinaryPath?: string;
+    /** Additional entries to extend the default setup allow list. */
+    txPublicSetupAllowListExtend?: AllowedElement[];
+  };
 
 export const SequencerConfigSchema = zodFor<SequencerConfig>()(
   z.object({

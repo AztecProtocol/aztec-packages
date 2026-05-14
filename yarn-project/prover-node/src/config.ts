@@ -2,6 +2,7 @@ import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   numberConfigHelper,
   pickConfigMappings,
@@ -30,10 +31,10 @@ export type ProverNodeConfig = ProverClientUserConfig &
   ProverTxSenderConfig &
   DataStoreConfig &
   KeyStoreConfig &
-  SpecificProverNodeConfig &
+  OwnProverNodeConfig &
   Pick<SharedNodeConfig, 'web3SignerUrl'>;
 
-export type SpecificProverNodeConfig = {
+export type OwnProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
   proverNodePollingIntervalMs: number;
   proverNodeMaxParallelBlocksPerEpoch: number;
@@ -46,7 +47,7 @@ export type SpecificProverNodeConfig = {
   txGatheringMaxParallelRequestsPerNode: number;
 };
 
-export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
+export const ownProverNodeConfigMappings: ConfigMappingsType<OwnProverNodeConfig> = {
   proverNodeMaxPendingJobs: {
     env: 'PROVER_NODE_MAX_PENDING_JOBS',
     description: 'The maximum number of pending jobs for the prover node',
@@ -98,15 +99,15 @@ export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProver
   },
 };
 
-export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
-  ...dataConfigMappings,
-  ...keyStoreConfigMappings,
-  ...proverClientConfigMappings,
-  ...proverPublisherConfigMappings,
-  ...proverTxSenderConfigMappings,
-  ...specificProverNodeConfigMappings,
-  ...pickConfigMappings(sharedNodeConfigMappings, ['web3SignerUrl']),
-};
+export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = composeConfigMappings(
+  ownProverNodeConfigMappings,
+  dataConfigMappings,
+  keyStoreConfigMappings,
+  proverClientConfigMappings,
+  proverPublisherConfigMappings,
+  proverTxSenderConfigMappings,
+  pickConfigMappings(sharedNodeConfigMappings, ['web3SignerUrl']),
+);
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {
   return getConfigFromMappings(proverNodeConfigMappings);

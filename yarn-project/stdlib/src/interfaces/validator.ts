@@ -29,42 +29,44 @@ import {
 } from '../ha-signing/index.js';
 import { AllowedElementSchema } from './allowed_element.js';
 
+/** Own fields of the validator client configuration (excludes shared signer and constraint configs). */
+export type OwnValidatorClientConfig = {
+  /** The private keys of the validators participating in attestation duties */
+  validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
+
+  /** The addresses of the validators to use with remote signers */
+  validatorAddresses?: EthAddress[];
+
+  /** Do not run the validator */
+  disableValidator: boolean;
+
+  /** Temporarily disable these specific validator addresses */
+  disabledValidators: EthAddress[];
+
+  /** Interval between polling for new attestations from peers */
+  attestationPollingIntervalMs: number;
+
+  /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the current committee */
+  alwaysReexecuteBlockProposals?: boolean;
+
+  /** Skip checkpoint proposal validation and always attest (default: false) */
+  skipCheckpointProposalValidation?: boolean;
+
+  /** Skip pushing re-executed blocks to archiver (default: false) */
+  skipPushProposedBlocksToArchiver?: boolean;
+
+  /** Agree to attest to equivocated checkpoint proposals (for testing purposes only) */
+  attestToEquivocatedProposals?: boolean;
+};
+
 /**
  * Validator client configuration
  */
 export type ValidatorClientConfig = ValidatorHASignerConfig &
   LocalSignerConfig &
-  ValidatorConstraintsConfig & {
-    /** The L1 chain id used for EIP-712 proposal-path signing. */
-    l1ChainId: ChainConfig['l1ChainId'];
-
-    /** The private keys of the validators participating in attestation duties */
-    validatorPrivateKeys?: SecretValue<`0x${string}`[]>;
-
-    /** The addresses of the validators to use with remote signers */
-    validatorAddresses?: EthAddress[];
-
-    /** Do not run the validator */
-    disableValidator: boolean;
-
-    /** Temporarily disable these specific validator addresses */
-    disabledValidators: EthAddress[];
-
-    /** Interval between polling for new attestations from peers */
-    attestationPollingIntervalMs: number;
-
-    /** Whether to always reexecute block proposals, even for non-validator nodes or when out of the current committee */
-    alwaysReexecuteBlockProposals?: boolean;
-
-    /** Skip checkpoint proposal validation and always attest (default: false) */
-    skipCheckpointProposalValidation?: boolean;
-
-    /** Skip pushing re-executed blocks to archiver (default: false) */
-    skipPushProposedBlocksToArchiver?: boolean;
-
-    /** Agree to attest to equivocated checkpoint proposals (for testing purposes only) */
-    attestToEquivocatedProposals?: boolean;
-  };
+  ValidatorConstraintsConfig &
+  Pick<ChainConfig, 'l1ChainId'> &
+  OwnValidatorClientConfig;
 
 export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<SequencerConfig, 'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal' | 'maxBlocksPerCheckpoint'> &

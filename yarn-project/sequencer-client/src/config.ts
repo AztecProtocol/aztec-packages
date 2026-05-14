@@ -4,6 +4,7 @@ import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
+  composeConfigMappings,
   getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
@@ -23,7 +24,7 @@ import {
   pipelineConfigMappings,
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
-import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
+import type { OwnSequencerConfig, ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
 import { DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/stdlib/timetable';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 
@@ -79,7 +80,7 @@ export type SequencerClientConfig = SequencerPublisherConfig &
   Pick<P2PConfig, 'txPublicSetupAllowListExtend'> &
   Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
-export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
+const ownSequencerConfigMappings: ConfigMappingsType<OwnSequencerConfig> = {
   sequencerPollingIntervalMS: {
     env: 'SEQ_POLLING_INTERVAL_MS',
     description: 'The number of ms to wait between polling for checking to build on the next slot.',
@@ -192,12 +193,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Inject an attestation with an unrecoverable signature (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.injectUnrecoverableSignatureAttestation),
   },
-  ...fishermanModeConfigMappings,
   shuffleAttestationOrdering: {
     description: 'Shuffle attestation ordering to create invalid ordering (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.shuffleAttestationOrdering),
   },
-  ...sharedSequencerConfigMappings,
   buildCheckpointIfEmpty: {
     env: 'SEQ_BUILD_CHECKPOINT_IF_EMPTY',
     description: 'Have sequencer build and publish an empty checkpoint if there are no txs',
@@ -223,21 +222,27 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description:
       'List of slots for which the sequencer will not produce a proposal (for testing only). Attestation paths are unaffected.',
   },
-  ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
-  ...acvmConfigMappings,
 };
 
-export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
-  ...chainConfigMappings,
-  ...validatorClientConfigMappings,
-  ...sequencerConfigMappings,
-  ...keyStoreConfigMappings,
-  ...l1ReaderConfigMappings,
-  ...sequencerTxSenderConfigMappings,
-  ...sequencerPublisherConfigMappings,
-  ...pipelineConfigMappings,
-  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
-};
+export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = composeConfigMappings(
+  ownSequencerConfigMappings,
+  fishermanModeConfigMappings,
+  sharedSequencerConfigMappings,
+  pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowListExtend']),
+  acvmConfigMappings,
+);
+
+export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = composeConfigMappings(
+  chainConfigMappings,
+  validatorClientConfigMappings,
+  sequencerConfigMappings,
+  keyStoreConfigMappings,
+  l1ReaderConfigMappings,
+  sequencerTxSenderConfigMappings,
+  sequencerPublisherConfigMappings,
+  pipelineConfigMappings,
+  pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
+);
 
 /**
  * Creates an instance of SequencerClientConfig out of environment variables using sensible defaults for integration testing if not set.

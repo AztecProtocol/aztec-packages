@@ -1,11 +1,25 @@
 import {
   type ConfigMappingsType,
+  composeConfigMappings,
   getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 
 import { type L1ContractAddresses, l1ContractAddressesMapping } from './l1_contract_addresses.js';
+
+export type L1ChainIdConfig = {
+  /** The chain ID of the ethereum host. */
+  l1ChainId: number;
+};
+
+export const l1ChainIdConfigMappings: ConfigMappingsType<L1ChainIdConfig> = {
+  l1ChainId: {
+    env: 'L1_CHAIN_ID',
+    ...numberConfigHelper(31337),
+    description: 'The chain ID of the ethereum host.',
+  },
+};
 
 export type L1RpcUrlsConfig = {
   /** List of URLs of Ethereum RPC nodes that services will connect to (comma separated). */
@@ -22,24 +36,17 @@ export const l1RpcUrlsConfigMappings: ConfigMappingsType<L1RpcUrlsConfig> = {
 };
 
 /** Configuration of the L1GlobalReader. */
-export type L1ReaderConfig = L1RpcUrlsConfig & {
+export type OwnL1ReaderConfig = {
   /** The RPC Url of the ethereum debug host for trace and debug methods. */
   l1DebugRpcUrls: string[];
-  /** The chain ID of the ethereum host. */
-  l1ChainId: number;
   /** The polling interval viem uses in ms */
   viemPollingIntervalMS: number;
   /** Timeout for HTTP requests to the L1 RPC node in ms. */
   l1HttpTimeoutMS?: number;
-} & L1ContractAddresses;
+};
+export type L1ReaderConfig = OwnL1ReaderConfig & L1ChainIdConfig & L1RpcUrlsConfig & L1ContractAddresses;
 
-export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
-  l1ChainId: {
-    env: 'L1_CHAIN_ID',
-    ...numberConfigHelper(31337),
-    description: 'The chain ID of the ethereum host.',
-  },
-  ...l1RpcUrlsConfigMappings,
+const ownL1ReaderConfigMappings: ConfigMappingsType<OwnL1ReaderConfig> = {
   l1DebugRpcUrls: {
     env: 'ETHEREUM_DEBUG_HOSTS',
     description: 'The RPC Url of the ethereum debug host for trace and debug methods.',
@@ -56,8 +63,14 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
     description: 'Timeout for HTTP requests to the L1 RPC node in ms.',
     ...optionalNumberConfigHelper(),
   },
-  ...l1ContractAddressesMapping,
 };
+
+export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = composeConfigMappings(
+  ownL1ReaderConfigMappings,
+  l1ChainIdConfigMappings,
+  l1RpcUrlsConfigMappings,
+  l1ContractAddressesMapping,
+);
 
 export function getL1ReaderConfigFromEnv(): L1ReaderConfig {
   return getConfigFromMappings<L1ReaderConfig>(l1ReaderConfigMappings);
