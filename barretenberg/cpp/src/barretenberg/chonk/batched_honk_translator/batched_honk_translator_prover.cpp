@@ -56,8 +56,8 @@ void BatchedHonkTranslatorProver::execute_translator_oink()
  *   U_joint(x) = U_MZK(x) + α^{K_H} · U_translator(x) + L(x)
  * where L(x) is the joint Libra masking univariate.
  *
- * For rounds 0..mega_zk_log_n-1 ("real rounds"), the MegaZK contribution is computed via standard
- * compute_univariate minus compute_disabled_contribution (row-disabling for ZK).
+ * For rounds 0..mega_zk_log_n-1 ("real rounds"), the MegaZK contribution is computed via the
+ * standard sumcheck prover (see `SumcheckProverRound`).
  *
  * For rounds mega_zk_log_n..JOINT_LOG_N-1 ("virtual rounds"), the MegaZK polynomials are treated as
  * zero-padded to 2^JOINT_LOG_N. The contribution is computed via compute_virtual_contribution
@@ -155,7 +155,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         U_joint = SumcheckRoundUnivariate::zero();
 
         auto U_H = mega_zk_round.compute_univariate(hpolys, mega_zk_params, gate_sep, mega_zk_alphas);
-        U_H += mega_zk_round.compute_disabled_contribution(hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
+        U_H += mega_zk_round.compute_offset_area_contribution(hpolys, mega_zk_params, gate_sep, mega_zk_alphas, rdp);
         U_joint += U_H;
 
         auto U_T =

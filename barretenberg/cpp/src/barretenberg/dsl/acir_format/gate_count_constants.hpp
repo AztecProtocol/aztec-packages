@@ -76,10 +76,10 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(703410, 0);
+            return std::make_tuple(703438, 0);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(704563, 0);
+            return std::make_tuple(704591, 0);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
@@ -92,16 +92,16 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(14506, 77);
+            return std::make_tuple(14534, 77);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(15659, 77);
+            return std::make_tuple(15687, 77);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         if (mode != PredicateTestCase::ConstantTrue) {
             bb::assert_failure("Unhandled mode in MegaZKRecursiveFlavor.");
         }
-        return std::make_tuple(900855, 0);
+        return std::make_tuple(900942, 0);
     } else {
         bb::assert_failure("Unhandled recursive flavor.");
     }
@@ -114,7 +114,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
-inline constexpr size_t CHONK_RECURSION_GATES = 1609253;
+inline constexpr size_t CHONK_RECURSION_GATES = 1615748;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -148,8 +148,7 @@ inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 339;
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
-// Trigger rebuild
-inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 222172;
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 228576;
 
 // ========================================
 // Goblin AVM Recursive Verifier Constants

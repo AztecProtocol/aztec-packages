@@ -149,25 +149,43 @@ so the relation sum is unaffected. This adds +1 to the round univariate degree f
 The layout is **uniform across ZK and non-ZK** — non-ZK flavors have zeros in these rows, so
 relations are trivially satisfied there without row disabling.
 
-**`excluded_head_size` invariant**: Must be non-zero ONLY when `Flavor::HasZK && UseRowDisablingPolynomial<Flavor>`:
+**`excluded_head_size` invariant**: Non-zero only when the flavor needs the offset-area path —
+currently this is `Flavor::HasZK`:
 ```cpp
-size_t excluded_head_size = (Flavor::HasZK && UseRowDisablingPolynomial<Flavor>) ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+size_t excluded_head_size = Flavor::HasZK ? Flavor::TRACE_OFFSET : 0;
 ```
-The main sumcheck loop skips the first `excluded_head_size` edge pairs; `compute_disabled_contribution`
-handles them separately, multiplied by `(1-L)`, and added to the active contribution. For non-ZK
-flavors, the head rows are all zeros and are processed by the main loop (no exclusion needed).
+The main sumcheck loop skips the first `excluded_head_size` edge pairs; `compute_offset_area_contribution`
+handles them separately, applying per-relation row-disabling factors (`(1-L)` for main-domain rels,
+`L` for offset-only rels — see below), and adds the result to the main-loop contribution. Non-ZK
+flavors keep `excluded_head_size = 0` in round 0 (head rows are all zeros, processed uniformly by
+the main loop); after round 0 it flips to 2 for the partially-evaluated head-edge pair (harmless
+for non-ZK since those rows remain zero).
 
 ### 3. Witness Masking in PCS
 Masking values are written directly into the polynomials (in-place), so `commit(poly)` produces the
 correct masked commitment directly. A Gemini masking polynomial ensures PCS opening proofs remain
 zero-knowledge.
 
+### Offset-Only Relations (boundary constraints on rows 0..3)
+
+A relation tagged `static constexpr bool IS_OFFSET_ONLY = true` (detected by the
+`IsOffsetOnlyRelation` concept) has its round-univariate contribution scaled by `L(X)`
+instead of `(1 - L)(X)`, so it fires only on the offset area (rows 0..`TRACE_OFFSET-1`).
+The sumcheck dispatch (`extend_and_batch_univariates` and
+`scale_and_batch_elements`) picks the factor per relation at compile time.
+
+Used by `MegaEccOpBoundaryRelation` (in `ecc_op_queue_relation.hpp`) to enforce
+`ecc_op_wire_j = 0` on rows 0..3 for MegaZK, making the boundary verifier-visible.
+The `has_any_offset_only_relation_v<Flavor>` trait checks whether any relation in the
+flavor's `Relations` tuple opts in. Not compatible with ZK flavors whose masked rows
+overlap with the constrained entities.
+
 ### Batched Honk Translator Integration
 
 The batched translator combines MegaZK and Translator into a joint sumcheck/PCS.
-MegaZK uses `+= compute_disabled_contribution(... rdp)` for the disabled head rows.
-Translator has no disabled contribution (it uses tail masking independently).
-After round 0, `excluded_head_size = 2` for the MegaZK round (disabled head collapses to 1 edge pair).
+MegaZK uses `+= compute_offset_area_contribution(... rdp)` for the head rows.
+Translator has no offset-area contribution (it uses tail masking independently).
+After round 0, `excluded_head_size = 2` for the MegaZK round (the offset area collapses to 1 edge pair).
 
 ## Virtual Rounds and Padding
 
@@ -227,12 +245,11 @@ The Fiat-Shamir transcript is the backbone of non-interactive soundness. Any inc
 
 ### excluded_head_size and Flavor Guards
 
-- **`excluded_head_size` must match whether `compute_disabled_contribution` is called.** If edges are
-  excluded from the main loop but no disabled contribution adds them back, they're silently lost.
-- **Guard `excluded_head_size` on BOTH `HasZK` AND `UseRowDisablingPolynomial`.** Non-ZK flavors
-  have zeros in the head rows (harmless in the main loop), and ZK flavors without row disabling
-  (Translator) must have `excluded_head_size = 0`. Getting this wrong causes a segfault (non-ZK)
-  or corrupts the sumcheck (Translator).
+- **`excluded_head_size` must match whether `compute_offset_area_contribution` is called.** If edges are
+  excluded from the main loop but no offset-area contribution adds them back, they're silently lost.
+- **Non-ZK flavors use `excluded_head_size = 0` in round 0** (head rows hold zeros, processed by the
+  main loop). The `compute_offset_area_contribution` call is still issued and returns zero — a no-op.
+  Flipping `excluded_head_size` to 2 after round 0 is safe regardless of flavor.
 
 ### Merge and Refactoring Safety
 
