@@ -55,14 +55,6 @@ To check current AVM setting: `grep "AVM:" build/CMakeCache.txt`
 
 Note: Once you enable AVM, subsequent `ninja` calls will include AVM targets until you reconfigure.
 
-## Running the full bb test suite
-
-`./bootstrap.sh test` runs every native bb test binary; it takes 5+ minutes and burns significant CPU. Run it (asking the user before kicking it off, unless they explicitly told you to test) whenever a change plausibly affects more than one bb module, and ALWAYS run it when a change rotates verification keys or shifts a widely-included constant (`barretenberg/cpp/src/barretenberg/constants.hpp`, `gate_count_constants.hpp`, public-input formulas, etc.).
-
-Two operational rules for an honest signal:
-- **Build all targets first.** Run plain `ninja` (no target) before `./bootstrap.sh test`. `ninja <one_target>` leaves other test binaries stale and the suite will pass against out-of-date code.
-- **Use `NO_FAIL_FAST=1` for multi-failure passes.** The default halts on the first failure, so a constants-update with several drifts forces a fix → 5-minute rerun → next failure loop. `NO_FAIL_FAST=1 ./bootstrap.sh test` enumerates every failure in one pass.
-
 ### Barretenberg module components:
 
 - **commitment_schemes/** - Polynomial commitment schemes (KZG, IPA)

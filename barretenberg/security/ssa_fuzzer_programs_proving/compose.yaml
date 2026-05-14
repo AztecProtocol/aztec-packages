@@ -2,7 +2,7 @@ services:
   redis:
     image: redis:latest
     ports:
-      - "15233:6379"
+      - "6379:6379"
 
   prover:
     build:

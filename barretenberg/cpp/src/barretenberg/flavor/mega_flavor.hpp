@@ -151,12 +151,7 @@ class MegaFlavor {
                               lagrange_first,                     // column 31
                               lagrange_last,                      // column 32
                               lagrange_ecc_op,                    // column 33 // indicator poly for ecc op gates
-                              databus_id,                         // column 34 // id polynomial, i.e. id_i = i
-                              kernel_calldata_indicator,          // column 35 // 1 on kernel_calldata rows
-                              first_app_calldata_indicator,       // column 36 // 1 on first_app_calldata rows
-                              second_app_calldata_indicator,      // column 37 // 1 on second_app_calldata rows
-                              third_app_calldata_indicator,       // column 38 // 1 on third_app_calldata rows
-                              return_data_indicator               // column 39 // 1 on return_data rows
+                              databus_id                          // column 34 // id polynomial, i.e. id_i = i
         )
 
         auto get_non_gate_selectors() { return RefArray{ q_m, q_c, q_l, q_r, q_o, q_4, q_5 }; };
@@ -473,11 +468,6 @@ class MegaFlavor {
             lagrange_first = "LAGRANGE_FIRST";
             lagrange_last = "LAGRANGE_LAST";
             lagrange_ecc_op = "Q_ECC_OP_QUEUE";
-            kernel_calldata_indicator = "KERNEL_CALLDATA_INDICATOR";
-            first_app_calldata_indicator = "FIRST_APP_CALLDATA_INDICATOR";
-            second_app_calldata_indicator = "SECOND_APP_CALLDATA_INDICATOR";
-            third_app_calldata_indicator = "THIRD_APP_CALLDATA_INDICATOR";
-            return_data_indicator = "RETURN_DATA_INDICATOR";
         };
     };
 

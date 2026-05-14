@@ -238,16 +238,14 @@ class Chonk : public IVCBase {
     void update_native_verifier_accumulator(const VerifierInputs& queue_entry,
                                             const std::shared_ptr<Transcript>& verifier_transcript);
 
-    template <typename Flavor>
     void debug_incoming_circuit(ClientCircuit& circuit,
-                                const std::shared_ptr<ProverInstance_<Flavor>>& prover_instance,
+                                const std::shared_ptr<ProverInstance>& prover_instance,
                                 const std::shared_ptr<MegaVerificationKey>& precomputed_vk);
 #endif
 
     FoldingResult verify_folding(ClientCircuit& circuit,
                                  const StdlibVerifierInputs& verifier_inputs,
                                  const std::shared_ptr<RecursiveVerifierInstance>& verifier_instance,
-                                 const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
                                  const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript) const;
 
     PublicInputsResult process_public_inputs_and_consistency_checks(const StdlibVerifierInputs& verifier_inputs,

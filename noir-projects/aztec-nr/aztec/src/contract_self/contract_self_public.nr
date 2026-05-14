@@ -118,7 +118,7 @@ impl<Storage, CallSelf, CallSelfStatic, CallInternal> ContractSelfPublic<Storage
     ///
     /// Public event emission is achieved by emitting public transaction logs. A total of `N+1` fields are emitted,
     /// where `N` is the serialization length of the event.
-    pub fn emit<Event>(&mut self, event: Event)
+    pub unconstrained fn emit<Event>(&mut self, event: Event)
     where
         Event: EventInterface + Serialize,
     {

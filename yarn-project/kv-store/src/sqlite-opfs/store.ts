@@ -10,6 +10,7 @@ import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 import { SQLiteOPFSAztecArray } from './array.js';
+import { SqliteEncryptionError } from './errors.js';
 import { SQLiteOPFSAztecMap } from './map.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 import { SQLiteOPFSAztecMultiMap } from './multi_map.js';
@@ -86,10 +87,16 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     encryptionKey?: Uint8Array,
   ): Promise<AztecSQLiteOPFSStore> {
     if (encryptionKey !== undefined && encryptionKey.length !== 32) {
-      throw new Error(`encryptionKey must be 32 bytes (got ${encryptionKey.length})`);
+      throw new SqliteEncryptionError(
+        'invalid_key_length',
+        `encryptionKey must be 32 bytes (got ${encryptionKey.length})`,
+      );
     }
     if (encryptionKey !== undefined && ephemeral) {
-      throw new Error('encryptionKey is not supported for ephemeral (:memory:) stores');
+      throw new SqliteEncryptionError(
+        'encryption_not_supported_for_ephemeral',
+        'encryptionKey is not supported for ephemeral (:memory:) stores',
+      );
     }
     const dbName = name && !ephemeral ? name : `tmp-${globalThis.crypto.getRandomValues(new Uint8Array(8)).join('')}`;
     log.debug(
@@ -265,7 +272,14 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
       this.#pending.set(req.id, {
         resolve: resp => {
           if (resp.type === 'err') {
-            reject(new Error(resp.message));
+            // Re-hydrate encryption-shaped errors as the typed class so consumers
+            // can pattern-match on `instanceof SqliteEncryptionError`. Plain
+            // errors stay plain — the wire protocol only tags encryption paths.
+            if (resp.encryptionCode !== undefined) {
+              reject(new SqliteEncryptionError(resp.encryptionCode, resp.message));
+            } else {
+              reject(new Error(resp.message));
+            }
           } else {
             resolve(resp);
           }
