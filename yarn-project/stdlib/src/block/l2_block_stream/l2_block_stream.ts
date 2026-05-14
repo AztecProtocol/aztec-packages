@@ -140,7 +140,14 @@ export class L2BlockStream {
           // `getL2Tips()` would then mask by reporting proven=local.checkpointed — making the
           // block stream re-emit chain-proven on every poll.
           if (!this.opts.ignoreCheckpoints) {
-            await this.emitCatchUpCheckpointEvent(sourceTips.checkpointed);
+            const caughtUp = await this.emitCatchUpCheckpointEvent(sourceTips.checkpointed);
+            if (!caughtUp) {
+              // Validation failed (mismatch between source.checkpointed tip and the fetched
+              // checkpoint, likely a transient source-side reorg/race). Abort this poll cycle
+              // rather than continuing on to proven/finalized emission, which would create the
+              // very invariant break we're trying to prevent. Next poll will retry.
+              return;
+            }
           }
           nextCheckpointToEmit = CheckpointNumber(sourceTips.checkpointed.checkpoint.number + 1);
         } else {
@@ -321,9 +328,11 @@ export class L2BlockStream {
    * Emits a single `chain-checkpointed` event for the source's current `checkpointed` tip.
    * Used by the startingBlock fast-forward path to reconcile local.checkpointed when historical
    * chain-checkpointed emission is skipped. Validates that the fetched checkpoint matches the
-   * source's reported tip (same checkpoint number, same last-block hash) before emitting.
+   * source's reported tip (same checkpoint number, same last-block number and hash) before
+   * emitting. Returns true if the catch-up event was emitted, false if validation failed and
+   * the caller should abort this poll cycle.
    */
-  private async emitCatchUpCheckpointEvent(sourceCheckpointed: L2TipId): Promise<void> {
+  private async emitCatchUpCheckpointEvent(sourceCheckpointed: L2TipId): Promise<boolean> {
     const [checkpoint] = await this.l2BlockSource.getCheckpoints({
       from: sourceCheckpointed.checkpoint.number,
       limit: 1,
@@ -333,7 +342,7 @@ export class L2BlockStream {
         requestedCheckpointNumber: sourceCheckpointed.checkpoint.number,
         fetchedCheckpointNumber: checkpoint?.checkpoint.number,
       });
-      return;
+      return false;
     }
     const lastBlock = checkpoint.checkpoint.blocks.at(-1)!;
     if (lastBlock.number !== sourceCheckpointed.block.number) {
@@ -342,14 +351,28 @@ export class L2BlockStream {
         lastBlockInCheckpoint: lastBlock.number,
         sourceCheckpointedBlock: sourceCheckpointed.block.number,
       });
-      return;
+      return false;
     }
     const lastBlockHash = (await lastBlock.hash()).toString();
+    if (lastBlockHash !== sourceCheckpointed.block.hash) {
+      // getL2Tips() and getCheckpoints() are separate reads on the source; during a source-side
+      // reorg/cache race the two views can disagree on the block hash at the same number.
+      // Emitting an event with a hash the source doesn't agree with would plant inconsistent
+      // state in the local store. Bail and let the next poll re-resolve.
+      this.log.warn(`Catch-up checkpoint last block hash does not match source-checkpointed tip`, {
+        checkpointNumber: checkpoint.checkpoint.number,
+        lastBlockNumber: lastBlock.number,
+        fetchedHash: lastBlockHash,
+        sourceCheckpointedHash: sourceCheckpointed.block.hash,
+      });
+      return false;
+    }
     await this.emitEvent({
       type: 'chain-checkpointed',
       checkpoint,
       block: makeL2BlockId(lastBlock.number, lastBlockHash),
     });
+    return true;
   }
 
   private async emitEvent(event: L2BlockStreamEvent) {
