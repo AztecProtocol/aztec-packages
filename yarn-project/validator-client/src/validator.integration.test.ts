@@ -177,6 +177,7 @@ describe('ValidatorClient Integration', () => {
         disableValidator: false,
         disabledValidators: [],
         slashBroadcastedInvalidBlockPenalty: 10n,
+        slashBroadcastedInvalidCheckpointProposalPenalty: 10n,
         slashDuplicateProposalPenalty: 10n,
         slashDuplicateAttestationPenalty: 10n,
         slashAttestInvalidCheckpointProposalPenalty: 10n,

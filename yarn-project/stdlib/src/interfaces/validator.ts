@@ -87,6 +87,7 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<
     SlasherConfig,
     | 'slashBroadcastedInvalidBlockPenalty'
+    | 'slashBroadcastedInvalidCheckpointProposalPenalty'
     | 'slashDuplicateProposalPenalty'
     | 'slashDuplicateAttestationPenalty'
     | 'slashAttestInvalidCheckpointProposalPenalty'
@@ -124,6 +125,7 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
     broadcastInvalidBlockProposal: z.boolean().optional(),
     maxBlocksPerCheckpoint: z.number().positive().optional(),
     slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
+    slashBroadcastedInvalidCheckpointProposalPenalty: schemas.BigInt,
     slashDuplicateProposalPenalty: schemas.BigInt,
     slashDuplicateAttestationPenalty: schemas.BigInt,
     slashAttestInvalidCheckpointProposalPenalty: schemas.BigInt,

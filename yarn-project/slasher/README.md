@@ -129,9 +129,9 @@ List of all slashable offenses in the system:
 **Time Unit**: Slot-based offense.
 
 ### BROADCASTED_INVALID_CHECKPOINT_PROPOSAL
-**Description**: A proposer broadcast a checkpoint proposal that terminates before a higher-index block proposal signed by the same proposer in the same slot.
-**Detection**: BroadcastedInvalidCheckpointProposalWatcher scans retained P2P proposals and compares checkpoint archive roots to signed block proposals from the same slot and signer.
-**Target**: Proposer who broadcast the truncated checkpoint proposal.
+**Description**: A proposer broadcast an invalid checkpoint proposal, either one that terminates before a higher-index block proposal signed by the same proposer in the same slot, one whose signed header does not match deterministic validator recomputation, or one with a malformed fee asset price modifier.
+**Detection**: BroadcastedInvalidCheckpointProposalWatcher scans retained P2P proposal evidence and compares checkpoint archive roots to signed block proposals from the same slot and signer. ValidatorClient also validates checkpoint proposals during the all-nodes callback and emits this offense when checkpoint header recomputation fails or the signed fee asset price modifier is malformed.
+**Target**: Proposer who broadcast the invalid checkpoint proposal.
 **Time Unit**: Slot-based offense.
 
 ## Configuration
@@ -156,6 +156,10 @@ Considerations:
 ### Local Node Configuration (SlasherConfig)
 
 These settings are configured locally on each validator node:
+
+Block and checkpoint validation settings are expected to be the same across all validators. Slashing relies on
+validators making the same deterministic validity decisions for block and checkpoint proposals; operators should not run
+with divergent validation limits.
 
 - `slashGracePeriodL2Slots`: Number of initial L2 slots where slashing is disabled
 - `slashOffenseExpirationRounds`: Number of rounds after which pending offenses expire

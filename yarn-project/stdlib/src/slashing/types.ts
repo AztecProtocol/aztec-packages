@@ -24,7 +24,7 @@ export enum OffenseType {
   DUPLICATE_ATTESTATION = 9,
   /** A committee member attested to a checkpoint proposal in a slot with an invalid block proposal */
   ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL = 10,
-  /** A proposer broadcast a checkpoint proposal truncated before a higher-index block proposal in the same slot */
+  /** A proposer broadcast an invalid checkpoint proposal, detected by retained evidence or deterministic recomputation */
   BROADCASTED_INVALID_CHECKPOINT_PROPOSAL = 11,
 }
 

@@ -60,12 +60,18 @@ import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
 import { NodeKeystoreAdapter } from './key_store/node_keystore_adapter.js';
 import { ValidatorMetrics } from './metrics.js';
-import { type BlockProposalValidationFailureReason, ProposalHandler } from './proposal_handler.js';
+import {
+  type BlockProposalValidationFailureReason,
+  type CheckpointProposalValidationFailureReason,
+  type CheckpointProposalValidationFailureResult,
+  ProposalHandler,
+} from './proposal_handler.js';
 
 // We maintain a set of proposers who have proposed invalid blocks.
 // Just cap the set to avoid unbounded growth.
 const MAX_PROPOSERS_OF_INVALID_BLOCKS = 1000;
 const MAX_TRACKED_INVALID_PROPOSAL_SLOTS = 1000;
+const MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS = 1000;
 const MAX_TRACKED_BAD_ATTESTATIONS = 10_000;
 
 // What errors from the block proposal handler result in slashing
@@ -73,6 +79,26 @@ const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailure
   'state_mismatch',
   'failed_txs',
 ];
+
+const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<CheckpointProposalValidationFailureReason, boolean> = {
+  // enabled
+  ['invalid_fee_asset_price_modifier']: true,
+  ['checkpoint_header_mismatch']: true,
+  // These late mismatches should normally be caught by earlier checks, but if reached after validating the local
+  // checkpoint inputs, the proposer-signed payload disagrees with deterministic recomputation.
+  ['archive_mismatch']: true,
+  ['out_hash_mismatch']: true,
+  ['no_blocks_for_slot']: true,
+  ['too_many_blocks_in_checkpoint']: true,
+  ['checkpoint_validation_failed']: true,
+  ['last_block_archive_mismatch']: true,
+
+  // disabled
+  ['invalid_signature']: false,
+  ['last_block_not_found']: false,
+  ['block_fetch_error']: false,
+  ['checkpoint_already_published']: false,
+};
 
 /**
  * Validator Client
@@ -98,6 +124,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private proposersOfInvalidBlocks: Set<string> = new Set();
   private slotsWithInvalidBlockProposals: Set<string> = new Set();
+  private invalidCheckpointProposalOffenseKeys: Set<string> = new Set();
   private slotsWithProposalEquivocation: Set<string> = new Set();
   private badAttestationOffenseKeys: Set<string> = new Set();
 
@@ -132,6 +159,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       keyStore,
       this.getSignatureContext(),
       this.log.createChild('validation-service'),
+    );
+    this.proposalHandler.setCheckpointProposalValidationFailureCallback((proposal, result, proposalInfo) =>
+      this.handleInvalidCheckpointProposal(proposal, result, proposalInfo),
     );
 
     // Refresh epoch cache every second to trigger alert if participation in committee changes
@@ -321,6 +351,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   public updateConfig(config: Partial<ValidatorClientFullConfig>) {
     this.config = { ...this.config, ...config };
+    this.proposalHandler.updateConfig(config);
   }
 
   public reloadKeystore(newManager: KeystoreManager): void {
@@ -727,6 +758,60 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         epochOrSlot: BigInt(proposal.slotNumber),
       },
     ]);
+  }
+
+  private handleInvalidCheckpointProposal(
+    proposal: CheckpointProposalCore,
+    result: CheckpointProposalValidationFailureResult,
+    proposalInfo: LogData,
+  ): void {
+    if (!SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[result.reason]) {
+      return;
+    }
+
+    if (this.slashInvalidCheckpointProposal(proposal)) {
+      this.log.warn(`Slashing proposer for invalid checkpoint proposal`, {
+        ...proposalInfo,
+        reason: result.reason,
+      });
+    }
+  }
+
+  private slashInvalidCheckpointProposal(proposal: CheckpointProposalCore): boolean {
+    if (this.config.slashBroadcastedInvalidCheckpointProposalPenalty <= 0n) {
+      return false;
+    }
+
+    const proposer = proposal.getSender();
+    if (!proposer) {
+      this.log.warn(`Cannot slash checkpoint proposal with invalid signature`, {
+        slotNumber: proposal.slotNumber,
+        archive: proposal.archive.toString(),
+      });
+      return false;
+    }
+
+    const offenseType = OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL;
+    const offenseKey = `${proposer.toString()}:${offenseType}:${this.getSlotKey(proposal.slotNumber)}`;
+    if (
+      !this.addToBoundedSet(
+        this.invalidCheckpointProposalOffenseKeys,
+        offenseKey,
+        MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS,
+      )
+    ) {
+      return false;
+    }
+
+    this.emit(WANT_TO_SLASH_EVENT, [
+      {
+        validator: proposer,
+        amount: this.config.slashBroadcastedInvalidCheckpointProposalPenalty,
+        offenseType,
+        epochOrSlot: BigInt(proposal.slotNumber),
+      },
+    ]);
+    return true;
   }
 
   private markInvalidProposalSlot(slotNumber: SlotNumber): void {
