@@ -385,13 +385,16 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
 
       const result2 = await ap.tryAddCheckpointProposal(proposal2);
       // The second distinct payload is tracked as an equivocation, count goes to 2,
-      // but its bytes are not retained — the first proposal stays in the main store.
+      // and both accepted payloads are retained by payload hash.
       expect(result2.added).toBe(true);
       expect(result2.alreadyExists).toBe(false);
       expect(result2.count).toBe(2);
 
       const retrievedProposal = await ap.getCheckpointProposal(SlotNumber(slotNumber));
-      expect(retrievedProposal!.toBuffer()).toEqual(proposal1.toBuffer());
+      const expectedProposal = [proposal1, proposal2].sort((a, b) =>
+        a.getPayloadHash().localeCompare(b.getPayloadHash()),
+      )[0];
+      expect(retrievedProposal!.toBuffer()).toEqual(expectedProposal.toBuffer());
 
       const proposals = await ap.getProposalsForSlot(SlotNumber(slotNumber));
       expect(proposals.checkpointProposals.map(proposal => proposal.toBuffer())).toEqual(

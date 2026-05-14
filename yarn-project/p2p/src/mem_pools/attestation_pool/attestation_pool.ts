@@ -14,7 +14,7 @@ import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instru
 
 /** Result of trying to add an item (proposal or attestation) to the pool */
 export type TryAddResult = {
-  /** Whether the item was added to a main store. False when the slot/position/(slot,signer) already had a stored entry, even if a new equivocation hash was tracked. */
+  /** Whether the item was accepted into pool state. False when it already existed, was invalid, or hit a cap. */
   added: boolean;
   /** Whether the exact signed payload (matched by payload hash) already existed in the pool. */
   alreadyExists: boolean;
@@ -58,13 +58,11 @@ export type AttestationPoolApi = Pick<
  * Attestations and proposals observed via the p2p network are stored for requests
  * from the validator to produce a block, or to serve to other peers.
  *
- * Equivocation detection: each main store holds at most one entry per equivocation
- * position (one checkpoint proposal per slot, one block proposal per (slot, position),
- * one attestation per (slot, signer)). Distinct *signed payload hashes* arriving at
- * the same position are tracked in the matching index multimap so the equivocation
- * count reaches 2 even when archive collides on `feeAssetPriceModifier` variants.
- * Proposal bytes are retained per accepted payload hash, up to the same
- * equivocation caps, for slashing watchers that need signed P2P proposals.
+ * Equivocation detection: distinct *signed payload hashes* arriving at the same
+ * position are tracked in the matching index multimap so the equivocation count
+ * reaches 2 even when archive collides on `feeAssetPriceModifier` variants.
+ * Proposal bytes are retained per accepted payload hash, up to the same equivocation
+ * caps, for slashing watchers that need signed P2P proposals.
  */
 export class AttestationPool {
   private metrics: PoolInstrumentation<CheckpointAttestation>;
@@ -78,10 +76,6 @@ export class AttestationPool {
   // Distinct payload hashes seen per (slot, signer) for tracking attestation equivocations.
   // Key: `${paddedSlot}-${signerAddress}`, Value: CheckpointProposalHash (`0x`-prefixed hex)
   private attestationHashesPerSlotAndSigner: AztecAsyncMultiMap<string, CheckpointProposalHash>;
-
-  // Checkpoint proposals from slot number to serialized CheckpointProposal.
-  // Stores the first proposal seen per slot.
-  private checkpointProposalPerSlot: AztecAsyncMap<number, Buffer>;
 
   // Checkpoint proposals from `${paddedSlot}-${payloadHash}` to serialized CheckpointProposalCore.
   // Stores every accepted distinct payload up to MAX_CHECKPOINT_PROPOSALS_PER_SLOT.
@@ -118,7 +112,6 @@ export class AttestationPool {
     this.attestationHashesPerSlotAndSigner = store.openMultiMap('checkpoint_attestations_per_slot_and_signer');
 
     // Initialize checkpoint proposal storage
-    this.checkpointProposalPerSlot = store.openMap('checkpoint_proposals');
     this.checkpointProposalsPerSlotAndHash = store.openMap('checkpoint_proposals_by_slot_and_hash');
     this.checkpointProposalHashesPerSlot = store.openMultiMap('checkpoint_proposals_for_slot');
 
@@ -133,13 +126,13 @@ export class AttestationPool {
 
   /** Returns whether the pool is empty. */
   public async isEmpty(): Promise<boolean> {
-    for await (const _ of this.attestationPerSlotAndSigner.entriesAsync()) {
-      return false;
-    }
-    for await (const _ of this.blockProposalsPerSlotIndexAndHash.entriesAsync()) {
-      return false;
-    }
-    return true;
+    const [attestationCount, blockProposalCount, checkpointProposalCount] = await Promise.all([
+      this.attestationPerSlotAndSigner.sizeAsync(),
+      this.blockProposalsPerSlotIndexAndHash.sizeAsync(),
+      this.checkpointProposalsPerSlotAndHash.sizeAsync(),
+    ]);
+
+    return attestationCount === 0 && blockProposalCount === 0 && checkpointProposalCount === 0;
   }
 
   /** Number of bits reserved for indexWithinCheckpoint in position keys. */
@@ -373,18 +366,10 @@ export class AttestationPool {
         proposal.toBuffer(),
       );
 
-      // Only the first distinct payload at this slot is stored; later equivocations
-      // are retained in `checkpointProposalsPerSlotAndHash`.
-      const alreadyHasStored = await this.checkpointProposalPerSlot.hasAsync(slot);
-      if (!alreadyHasStored) {
-        await this.checkpointProposalPerSlot.set(slot, proposal.toBuffer());
-      }
-
       this.log.debug(`Added checkpoint proposal for slot ${slot}`, {
         archive: proposal.archive.toString(),
         payloadHash,
         slotNumber: slot,
-        stored: !alreadyHasStored,
       });
 
       return { added: true, alreadyExists: false, count: count + 1 };
@@ -392,7 +377,9 @@ export class AttestationPool {
   }
 
   /**
-   * Get the (first) checkpoint proposal stored for the given slot.
+   * Get a retained checkpoint proposal stored for the given slot.
+   * If multiple proposals were retained for an equivocation, returns the lowest
+   * payload hash deterministically.
    *
    * Returns a CheckpointProposalCore (without lastBlock info) since the lastBlock
    * is extracted and stored separately as a BlockProposal when added.
@@ -401,13 +388,16 @@ export class AttestationPool {
    * @return The checkpoint proposal core if one is stored, otherwise undefined.
    */
   public async getCheckpointProposal(slot: SlotNumber): Promise<CheckpointProposalCore | undefined> {
-    const buffer = await this.checkpointProposalPerSlot.getAsync(slot);
-    try {
-      if (buffer && buffer.length > 0) {
-        return CheckpointProposal.fromBuffer(buffer);
+    for await (const [_, buffer] of this.checkpointProposalsPerSlotAndHash.entriesAsync(
+      this.getCheckpointProposalKeyRangeForSlot(slot),
+    )) {
+      try {
+        if (buffer && buffer.length > 0) {
+          return CheckpointProposal.fromBuffer(buffer);
+        }
+      } catch {
+        continue;
       }
-    } catch {
-      return undefined;
     }
 
     return undefined;
@@ -524,16 +514,13 @@ export class AttestationPool {
       // Delete checkpoint proposals for slots < oldestSlot.
       for await (const slot of this.checkpointProposalHashesPerSlot.keysAsync({ end: oldestSlot })) {
         await this.checkpointProposalHashesPerSlot.delete(slot);
-        if (await this.checkpointProposalPerSlot.hasAsync(slot)) {
-          await this.checkpointProposalPerSlot.delete(slot);
-          numberOfCheckpointProposals++;
-        }
       }
 
       for await (const key of this.checkpointProposalsPerSlotAndHash.keysAsync({
         end: `${oldestSlotPadded}-`,
       })) {
         await this.checkpointProposalsPerSlotAndHash.delete(key);
+        numberOfCheckpointProposals++;
       }
 
       // Delete block proposals for slots < oldestSlot, using blockProposalHashesPerSlotAndIndex as index.
