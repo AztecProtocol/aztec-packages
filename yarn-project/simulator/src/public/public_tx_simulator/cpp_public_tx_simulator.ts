@@ -11,6 +11,7 @@ import {
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
+import { WorldStateRevision } from '@aztec/stdlib/world-state';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { AvmIpcBackend, AvmSimulatorPool } from '../avm_simulator_pool.js';
@@ -80,7 +81,11 @@ export class CppPublicTxSimulator implements PublicTxSimulatorInterface {
     const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees);
     const protocolContracts = ProtocolContractsList;
     const fastSimInputs = new AvmFastSimulationInputs(
-      { forkId: this.wsdbForkId ?? 0, blockNumber: 0, includeUncommitted: true },
+      // blockNumber: WorldStateRevision.LATEST sentinel so the WSDB walks the fork's current
+      // uncommitted state. Using 0 here makes WSDB treat this as a historical query against
+      // the empty genesis tree and miss any in-fork uncommitted leaves (deployed contracts,
+      // etc.) from earlier txs in the same block.
+      { forkId: this.wsdbForkId ?? 0, blockNumber: WorldStateRevision.LATEST, includeUncommitted: true },
       PublicSimulatorConfig.from(this.config ?? {}),
       txHint,
       this.globalVariables,
