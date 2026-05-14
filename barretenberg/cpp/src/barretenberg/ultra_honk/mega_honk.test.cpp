@@ -383,3 +383,46 @@ TYPED_TEST(MegaHonkTests, RepeatedCommitmentsIndicesCorrect)
             << "REPEATED_COMMITMENTS commitment mismatch at index " << i;
     }
 }
+
+// =============================================================================
+// MegaZkOffsetBoundaryTest
+// Two-phase test isolating the offset-boundary relation's role in MegaZK:
+//   1. Honest prover — confirms the baseline verifies.
+//   2. Same setup, but `ecc_op_wire_1[2]` tampered to a non-zero value — confirms
+//      sumcheck rejects. Row 2 is strictly in the offset area (rows
+//      0..TRACE_OFFSET-1 = 0..3), where honest construction places zero.
+// =============================================================================
+TYPED_TEST(MegaHonkTests, MaliciousEccOpWireInOffsetAreaRejected)
+{
+    using Flavor = TypeParam;
+    if constexpr (!std::is_same_v<Flavor, MegaZKFlavor>) {
+        GTEST_SKIP() << "Offset-boundary relation applies only to MegaZKFlavor.";
+    } else {
+        using Builder = Flavor::CircuitBuilder;
+        using FF = Flavor::FF;
+
+        auto prove_and_verify = [](bool tamper) {
+            Builder builder;
+            GoblinMockCircuits::construct_simple_circuit(builder);
+
+            auto prover_instance = std::make_shared<typename TestFixture::ProverInstance>(builder);
+            if (tamper) {
+                prover_instance->polynomials.ecc_op_wire_1.at(2) = FF(42);
+            }
+            auto verification_key =
+                std::make_shared<typename TestFixture::VerificationKey>(prover_instance->get_precomputed());
+            auto vk_and_hash = std::make_shared<typename Flavor::VKAndHash>(verification_key);
+
+            typename TestFixture::Prover prover(prover_instance, verification_key);
+            typename TestFixture::Verifier verifier(vk_and_hash);
+            auto proof = prover.construct_proof();
+            return verifier.verify_proof(proof).result;
+        };
+
+        // Phase 1: honest — baseline must pass.
+        ASSERT_TRUE(prove_and_verify(/*tamper=*/false));
+
+        // Phase 2: tamper — the boundary relation picks up the non-zero contribution.
+        EXPECT_FALSE(prove_and_verify(/*tamper=*/true));
+    }
+}

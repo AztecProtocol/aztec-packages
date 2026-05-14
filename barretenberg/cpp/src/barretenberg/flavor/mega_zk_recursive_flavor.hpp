@@ -26,6 +26,11 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ : public MegaRecurs
     static constexpr bool HasGeminiMasking = false;
 
     static constexpr size_t VIRTUAL_LOG_N = NativeFlavor::VIRTUAL_LOG_N;
+    using Relations = MegaZKFlavor::Relations_<FF>;
+    static constexpr size_t NUM_RELATIONS = NativeFlavor::NUM_RELATIONS;
+    static constexpr size_t NUM_SUBRELATIONS = NativeFlavor::NUM_SUBRELATIONS;
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = NativeFlavor::MAX_PARTIAL_RELATION_LENGTH;
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
 
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = NativeFlavor::BATCHED_RELATION_PARTIAL_LENGTH;
 

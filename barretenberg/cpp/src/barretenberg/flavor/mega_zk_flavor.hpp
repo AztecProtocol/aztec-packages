@@ -34,8 +34,19 @@ class MegaZKFlavor : public bb::MegaFlavor {
     // at the correct joint circuit size in the batched Chonk flow.
     static constexpr bool HasGeminiMasking = false;
 
-    // The degree has to be increased because the relation is multiplied by the Row Disabling Polynomial
-    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MegaFlavor::BATCHED_RELATION_PARTIAL_LENGTH + 1;
+    // Extend MegaFlavor's relation set with `MegaEccOpBoundaryRelation` to enforce `ecc_op_wire_j(x) = 0` on rows 0..3.
+    template <typename FF>
+    using Relations_ = decltype(std::tuple_cat(std::declval<MegaFlavor::Relations_<FF>>(),
+                                               std::declval<std::tuple<MegaEccOpBoundaryRelation<FF>>>()));
+    using Relations = Relations_<FF>;
+
+    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+
+    // +1 for the pow-β factor, +1 for the Row Disabling Polynomial.
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
     static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH,
                   "LIBRA_UNIVARIATES_LENGTH must be equal to MegaZKFlavor::BATCHED_RELATION_PARTIAL_LENGTH");
 
