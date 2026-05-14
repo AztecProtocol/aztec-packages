@@ -450,27 +450,55 @@ describe('SequencerPublisher', () => {
     });
 
     it('stops rotating once txTimeoutAt elapses mid-rotation', async () => {
-      // First forward throws; getNextPublisher rotates to a new publisher; but by then the
-      // deadline has elapsed and the rotation loop should bail before the second forward call.
-      const futureTimeout = new Date(Date.now() + 100); // will elapse during the await below
-      forwardSpy.mockImplementationOnce(async () => {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        throw new Error('RPC error on first');
+      // Fake the wall clock (Date only — keep timers/microtasks real) so the deadline
+      // check is deterministic. Without this, CI scheduling jitter can elapse the timeout
+      // before the first forward call is even reached, masking the behavior we want to test.
+      jest.useFakeTimers({
+        doNotFake: [
+          'nextTick',
+          'queueMicrotask',
+          'setImmediate',
+          'clearImmediate',
+          'setTimeout',
+          'clearTimeout',
+          'setInterval',
+          'clearInterval',
+          'performance',
+          'hrtime',
+          'requestAnimationFrame',
+          'cancelAnimationFrame',
+          'requestIdleCallback',
+          'cancelIdleCallback',
+        ],
       });
-      getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
+      try {
+        const baseTime = Date.now();
+        jest.setSystemTime(baseTime);
+        const futureTimeout = new Date(baseTime + 100);
 
-      await rotatingPublisher.enqueueProposeCheckpoint(
-        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
-        CommitteeAttestationsAndSigners.empty(testSignatureContext),
-        Signature.empty(),
-        { txTimeoutAt: futureTimeout },
-      );
-      const result = await rotatingPublisher.sendRequests();
+        // First forward throws; before throwing, advance the (fake) clock past the deadline
+        // so that the rotation loop bails on the next iteration before calling forward again.
+        forwardSpy.mockImplementationOnce(() => {
+          jest.setSystemTime(baseTime + 200);
+          return Promise.reject(new Error('RPC error on first'));
+        });
+        getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
 
-      expect(result).toBeUndefined();
-      // forward was attempted exactly once (the first publisher); rotation was aborted before
-      // the second attempt because the deadline had passed.
-      expect(forwardSpy).toHaveBeenCalledTimes(1);
+        await rotatingPublisher.enqueueProposeCheckpoint(
+          new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+          CommitteeAttestationsAndSigners.empty(testSignatureContext),
+          Signature.empty(),
+          { txTimeoutAt: futureTimeout },
+        );
+        const result = await rotatingPublisher.sendRequests();
+
+        expect(result).toBeUndefined();
+        // forward was attempted exactly once (the first publisher); rotation was aborted
+        // before the second attempt because the deadline had passed.
+        expect(forwardSpy).toHaveBeenCalledTimes(1);
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('does not rotate when forward throws MulticallForwarderRevertedError (on-chain failure)', async () => {
