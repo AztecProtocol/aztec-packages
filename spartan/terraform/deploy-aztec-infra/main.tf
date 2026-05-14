@@ -209,6 +209,7 @@ locals {
     "validator.slash.attestInvalidCheckpointProposalPenalty"       = var.SLASH_ATTEST_INVALID_CHECKPOINT_PROPOSAL_PENALTY
     "validator.slash.unknownPenalty"                              = var.SLASH_UNKNOWN_PENALTY
     "validator.slash.invalidBlockPenalty"                         = var.SLASH_INVALID_BLOCK_PENALTY
+    "validator.slash.invalidCheckpointProposalPenalty"             = var.SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY
     "validator.slash.offenseExpirationRounds"                     = var.SLASH_OFFENSE_EXPIRATION_ROUNDS
     "validator.slash.maxPayloadSize"                              = var.SLASH_MAX_PAYLOAD_SIZE
     "validator.node.env.TRANSACTIONS_DISABLED"                    = var.TRANSACTIONS_DISABLED

@@ -134,6 +134,12 @@ List of all slashable offenses in the system:
 **Target**: Committee members who attested in the invalid proposal slot.
 **Time Unit**: Slot-based offense.
 
+### BROADCASTED_INVALID_CHECKPOINT_PROPOSAL
+**Description**: A proposer broadcast a checkpoint proposal that terminates before a higher-index block proposal signed by the same proposer in the same slot.
+**Detection**: BroadcastedInvalidCheckpointProposalWatcher scans retained P2P proposals and compares checkpoint archive roots to signed block proposals from the same slot and signer.
+**Target**: Proposer who broadcast the truncated checkpoint proposal.
+**Time Unit**: Slot-based offense.
+
 ## Configuration
 
 ### L1 System Settings (L1ContractsConfig)
@@ -167,6 +173,7 @@ These settings are configured locally on each validator node:
 - `slashDataWithholdingPenalty`: Penalty for DATA_WITHHOLDING
 - `slashInactivityPenalty`: Penalty for INACTIVITY
 - `slashBroadcastedInvalidBlockPenalty`: Penalty for BROADCASTED_INVALID_BLOCK_PROPOSAL
+- `slashBroadcastedInvalidCheckpointProposalPenalty`: Penalty for BROADCASTED_INVALID_CHECKPOINT_PROPOSAL
 - `slashDuplicateProposalPenalty`: Penalty for DUPLICATE_PROPOSAL
 - `slashProposeInvalidAttestationsPenalty`: Penalty for PROPOSED_INSUFFICIENT_ATTESTATIONS and PROPOSED_INCORRECT_ATTESTATIONS
 - `slashAttestDescendantOfInvalidPenalty`: Penalty for ATTESTED_DESCENDANT_OF_INVALID

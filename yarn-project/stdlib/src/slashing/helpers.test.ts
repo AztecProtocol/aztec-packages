@@ -199,6 +199,7 @@ describe('SlashingHelpers', () => {
       const penalty = getPenaltyForOffense(OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL, {
         slashAttestDescendantOfInvalidPenalty: 1n,
         slashBroadcastedInvalidBlockPenalty: 2n,
+        slashBroadcastedInvalidCheckpointProposalPenalty: 11n,
         slashDuplicateProposalPenalty: 3n,
         slashDuplicateAttestationPenalty: 4n,
         slashAttestInvalidCheckpointProposalPenalty: 5n,
@@ -210,6 +211,24 @@ describe('SlashingHelpers', () => {
       });
 
       expect(penalty).toBe(5n);
+    });
+
+    it('returns the configured penalty for broadcasting invalid checkpoint proposal', () => {
+      const penalty = getPenaltyForOffense(OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL, {
+        slashAttestDescendantOfInvalidPenalty: 1n,
+        slashBroadcastedInvalidBlockPenalty: 2n,
+        slashBroadcastedInvalidCheckpointProposalPenalty: 11n,
+        slashDuplicateProposalPenalty: 3n,
+        slashDuplicateAttestationPenalty: 4n,
+        slashAttestInvalidCheckpointProposalPenalty: 5n,
+        slashPrunePenalty: 6n,
+        slashDataWithholdingPenalty: 7n,
+        slashUnknownPenalty: 8n,
+        slashInactivityPenalty: 9n,
+        slashProposeInvalidAttestationsPenalty: 10n,
+      });
+
+      expect(penalty).toBe(11n);
     });
   });
 });
