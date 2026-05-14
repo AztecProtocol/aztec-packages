@@ -9,6 +9,11 @@
 
 namespace bb {
 
+// Index of the final addition round in the Straus algorithm (rounds 0..LAST_ADDITION_ROUND are
+// addition rounds; round LAST_ADDITION_ROUND + 1 is the skew round). Used both by the MSM
+// relation (e.g. the round_minus_31_inv witness gate) and by the flavor's witness population.
+inline constexpr size_t LAST_ADDITION_ROUND = 31;
+
 /**
  * @brief MSM relations that evaluate the Strauss multiscalar multiplication algorithm.
  *
@@ -43,7 +48,6 @@ namespace bb {
 template <typename FF_> class ECCVMMSMRelationImpl {
   public:
     using FF = FF_;
-
     // Named subrelation indices — matches SUBRELATION_PARTIAL_LENGTHS ordering.
     // Grouped by logical function within the Strauss MSM algorithm.
     enum SubrelationIndex : size_t {
@@ -122,12 +126,17 @@ template <typename FF_> class ECCVMMSMRelationImpl {
         // Idle row: accumulator preserved when no phase selector is active
         IDLE_ROW_PRESERVES_ACC_X = 45,
         IDLE_ROW_PRESERVES_ACC_Y = 46,
+        // If q_double_shift = 1, the current row cannot be the final addition round (round 31)
+        DOUBLE_SHIFT_FORBIDS_ROUND_31 = 47,
+        // MSM-start anchor: msm_transition must be 1 at the first row of every MSM block
+        MSM_TRANSITION_AT_ACTIVE_START = 48,
         NUM_SUBRELATIONS,
     };
 
-    static constexpr std::array<size_t, 47> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
+    static constexpr std::array<size_t, 49> SUBRELATION_PARTIAL_LENGTHS{ 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+                                                                         8, 8, 8, 8, 8, 8, 8, 8, 8, 8 };
     static_assert(NUM_SUBRELATIONS == SUBRELATION_PARTIAL_LENGTHS.size());
 
     template <typename ContainerOverSubrelations, typename AllEntities, typename Parameters>

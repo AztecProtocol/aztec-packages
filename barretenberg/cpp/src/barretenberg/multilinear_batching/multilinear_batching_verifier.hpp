@@ -47,7 +47,8 @@ template <typename Flavor_> class MultilinearBatchingVerifier {
     std::pair<bool, VerifierClaim> verify_proof(SumcheckOutput<InstanceFlavor>& instance_sumcheck,
                                                 InstanceCommitments& verifier_commitments,
                                                 const std::vector<InstanceFF>& unshifted_challenges,
-                                                const std::vector<InstanceFF>& shifted_challenges);
+                                                const std::vector<InstanceFF>& shifted_challenges,
+                                                const VerifierClaim& accumulator);
 
   private:
     std::shared_ptr<Transcript> transcript;

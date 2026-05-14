@@ -16,6 +16,9 @@ COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt --break-system-packages
 COPY . .
 
+# Optional: acir_components_check binary (copy via prepare_binaries.sh before build)
+RUN chmod +x /app/proving/acir_components_check 2>/dev/null || true
+
 WORKDIR /app/proving/src
 ENV PYTHONUNBUFFERED=1
 CMD ["python3", "main.py"] 
