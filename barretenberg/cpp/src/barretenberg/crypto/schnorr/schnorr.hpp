@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <memory.h>
 
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
@@ -15,23 +14,15 @@ template <typename Fr, typename G1> struct schnorr_key_pair {
     typename G1::affine_element public_key;
 };
 
-// Raw representation of a Schnorr signature (s, e). We use the short variant of Schnorr
-// where we include the challenge `e` instead of the group element R.
+// Short-Schnorr signature (s, e): include the challenge `e` instead of the group element R.
 //
-// We do not enforce that `s` or `e` are canonical: `Fr::serialize_from_buffer` reduces the input mod
-// the field order, so multiple byte representations decode to the same field element and all verify.
-// This is fine when signatures are private inputs to a circuit (the in-circuit deserializer enforces
-// canonicity), but consumers who hash the raw signature bytes for replay prevention or equality must
-// canonicalize first.
+// `s` is the prover's response to the challenge, a scalar in the grumpkin scalar field.
+// `e` is the Fiat-Shamir challenge. Conceptually a Poseidon2 output (which lives in the grumpkin base
+// field = `bb::fr`); since `bb::fr modulus < bb::fq modulus`, every challenge value embeds losslessly
+// into the grumpkin scalar field, so we store it as the same scalar type as `s`.
 struct schnorr_signature {
-
-    // `s` is a serialized grumpkin scalar (bb::fq, 32 bytes), the prover's response to the challenge `e`.
-    std::array<uint8_t, 32> s;
-    // `e` is the Fiat-Shamir challenge. Conceptually a Poseidon2 output, which lives in bb::fr (the
-    // grumpkin base field). We store its bytes in a 32-byte slot sized for bb::fq (the grumpkin scalar
-    // field): because bb::fr modulus < bb::fq modulus, every bb::fr value embeds into bb::fq with no
-    // reduction or bias, and the in-signature byte representation is the canonical bb::fr form.
-    std::array<uint8_t, 32> e;
+    grumpkin::fr s;
+    grumpkin::fr e;
     SERIALIZATION_FIELDS(s, e);
 };
 

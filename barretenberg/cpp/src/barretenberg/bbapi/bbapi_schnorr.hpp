@@ -11,8 +11,6 @@
 #include "barretenberg/crypto/schnorr/schnorr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include <array>
-#include <cstdint>
 
 namespace bb::bbapi {
 
@@ -45,8 +43,8 @@ struct SchnorrConstructSignature {
 
     struct Response {
         static constexpr const char MSGPACK_SCHEMA_NAME[] = "SchnorrConstructSignatureResponse";
-        std::array<uint8_t, 32> s;
-        std::array<uint8_t, 32> e;
+        grumpkin::fr s;
+        grumpkin::fr e;
         SERIALIZATION_FIELDS(s, e);
         bool operator==(const Response&) const = default;
     };
@@ -74,8 +72,8 @@ struct SchnorrVerifySignature {
 
     grumpkin::fq message_field;
     grumpkin::g1::affine_element public_key;
-    std::array<uint8_t, 32> s;
-    std::array<uint8_t, 32> e;
+    grumpkin::fr s;
+    grumpkin::fr e;
     Response execute(BBApiRequest& request) &&;
     SERIALIZATION_FIELDS(message_field, public_key, s, e);
     bool operator==(const SchnorrVerifySignature&) const = default;

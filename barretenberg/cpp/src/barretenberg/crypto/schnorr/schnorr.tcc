@@ -67,10 +67,7 @@ schnorr_signature schnorr_construct_signature(const typename G1::Fq& message_fie
     Fr s = k - (private_key * e_fr);
     secure_erase_bytes(&k, sizeof(k));
 
-    schnorr_signature sig;
-    Fr::serialize_to_buffer(s, &sig.s[0]);
-    Fr::serialize_to_buffer(e_fr, &sig.e[0]);
-    return sig;
+    return { s, e_fr };
 }
 
 /**
@@ -88,15 +85,12 @@ bool schnorr_verify_signature(const typename G1::Fq& message_field,
         return false;
     }
 
-    Fr e = Fr::serialize_from_buffer(&sig.e[0]);
-    Fr s = Fr::serialize_from_buffer(&sig.s[0]);
-
-    if (s == 0 || e == 0) {
+    if (sig.s == 0 || sig.e == 0) {
         return false;
     }
 
     // R = g^s * pub^e
-    affine_element R(element(public_key) * e + G1::one * s);
+    affine_element R(element(public_key) * sig.e + G1::one * sig.s);
     if (R.is_point_at_infinity()) {
         return false;
     }
@@ -107,6 +101,6 @@ bool schnorr_verify_signature(const typename G1::Fq& message_field,
     std::array<uint8_t, 32> target_e_buf;
     Fq::serialize_to_buffer(target_e, target_e_buf.data());
     Fr target_e_fr = Fr::serialize_from_buffer(target_e_buf.data());
-    return (e == target_e_fr);
+    return (sig.e == target_e_fr);
 }
 } // namespace bb::crypto

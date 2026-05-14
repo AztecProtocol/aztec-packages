@@ -95,12 +95,8 @@ TEST(schnorr, signature_internals_consistency)
 
     auto sig = schnorr_construct_signature<Fr, G1>(message_field, account);
 
-    // Deserialize s and e from the signature
-    Fr s = Fr::serialize_from_buffer(&sig.s[0]);
-    Fr e_fr = Fr::serialize_from_buffer(&sig.e[0]);
-
     // Reconstruct R = g^s * pub^e (this is what the verifier does)
-    G1::affine_element R(G1::element(public_key) * e_fr + G1::one * s);
+    G1::affine_element R(G1::element(public_key) * sig.e + G1::one * sig.s);
 
     // Independently compute the Poseidon2 challenge from R, pubkey, message
     Fq expected_e_fq =
@@ -112,7 +108,7 @@ TEST(schnorr, signature_internals_consistency)
     Fr expected_e_fr = Fr::serialize_from_buffer(expected_e_buf.data());
 
     // The challenge in the signature must match the independently computed one
-    EXPECT_EQ(e_fr, expected_e_fr);
+    EXPECT_EQ(sig.e, expected_e_fr);
 
     // Also verify that R is not the point at infinity (would indicate k=0)
     EXPECT_FALSE(R.is_point_at_infinity());
@@ -201,8 +197,8 @@ DeterministicSig build_deterministic_sig(const Fr& private_key, const Fr& nonce_
     Fq::serialize_to_buffer(out.e_fq, e_buf.data());
     out.e_fr = Fr::serialize_from_buffer(e_buf.data());
     out.s = nonce_k - private_key * out.e_fr;
-    Fr::serialize_to_buffer(out.s, &out.sig.s[0]);
-    Fr::serialize_to_buffer(out.e_fr, &out.sig.e[0]);
+    out.sig.s = out.s;
+    out.sig.e = out.e_fr;
     return out;
 }
 
