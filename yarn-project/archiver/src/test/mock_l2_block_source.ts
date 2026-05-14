@@ -20,11 +20,14 @@ import {
   type BlockTag,
   type BlocksQuery,
   Body,
+  type CheckpointQuery,
+  type CheckpointsQuery,
   GENESIS_BLOCK_HEADER_HASH,
   GENESIS_CHECKPOINT_HEADER_HASH,
   L2Block,
   type L2BlockSource,
   type L2Tips,
+  type ProposedCheckpointQuery,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
 import {
@@ -257,24 +260,20 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return block ? block.header.globalVariables.blockNumber : undefined;
   }
 
-  public getProvenBlockNumber() {
-    return Promise.resolve(BlockNumber(this.provenBlockNumber));
-  }
-
-  public getCheckpointedL2BlockNumber() {
-    return Promise.resolve(BlockNumber(this.checkpointedBlockNumber));
-  }
-
-  public getFinalizedL2BlockNumber() {
-    return Promise.resolve(BlockNumber(this.finalizedBlockNumber));
-  }
-
   public getProposedCheckpointL2BlockNumber() {
     return Promise.resolve(BlockNumber(this.proposedCheckpointBlockNumber));
   }
 
-  public getCheckpoints(from: CheckpointNumber, limit: number) {
-    const checkpoints = this.checkpointList.slice(from - 1, from - 1 + limit);
+  public getCheckpoint(query: CheckpointQuery): Promise<PublishedCheckpoint | undefined> {
+    const checkpoint = this.resolveCheckpointQuery(query);
+    if (!checkpoint) {
+      return Promise.resolve(undefined);
+    }
+    return Promise.resolve(new PublishedCheckpoint(checkpoint, this.mockL1DataForCheckpoint(checkpoint), []));
+  }
+
+  public getCheckpoints(query: CheckpointsQuery): Promise<PublishedCheckpoint[]> {
+    const checkpoints = this.resolveCheckpointsQuery(query);
     return Promise.resolve(
       checkpoints.map(checkpoint => new PublishedCheckpoint(checkpoint, this.mockL1DataForCheckpoint(checkpoint), [])),
     );
@@ -285,41 +284,65 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve(checkpoint);
   }
 
-  public getCheckpointData(_n: CheckpointNumber): Promise<CheckpointData | undefined> {
-    return Promise.resolve(undefined);
+  public getCheckpointData(query: CheckpointQuery): Promise<CheckpointData | undefined> {
+    const checkpoint = this.resolveCheckpointQuery(query);
+    if (!checkpoint) {
+      return Promise.resolve(undefined);
+    }
+    return Promise.resolve(this.checkpointToData(checkpoint));
   }
 
-  public getCheckpointDataRange(_from: CheckpointNumber, _limit: number): Promise<CheckpointData[]> {
-    return Promise.resolve([]);
+  public getCheckpointsData(query: CheckpointsQuery): Promise<CheckpointData[]> {
+    const checkpoints = this.resolveCheckpointsQuery(query);
+    return Promise.resolve(checkpoints.map(c => this.checkpointToData(c)));
   }
 
-  public getCheckpointNumberBySlot(_slot: SlotNumber): Promise<CheckpointNumber | undefined> {
-    return Promise.resolve(undefined);
-  }
-
-  getCheckpointsForEpoch(epochNumber: EpochNumber): Promise<Checkpoint[]> {
-    return Promise.resolve(this.getCheckpointsInEpoch(epochNumber));
-  }
-
-  getCheckpointsDataForEpoch(epochNumber: EpochNumber): Promise<CheckpointData[]> {
-    const checkpoints = this.getCheckpointsInEpoch(epochNumber);
-    return Promise.resolve(
-      checkpoints.map(
-        (checkpoint): CheckpointData => ({
-          checkpointNumber: checkpoint.number,
-          header: checkpoint.header,
-          archive: checkpoint.archive,
-          checkpointOutHash: computeCheckpointOutHash(
-            checkpoint.blocks.map(b => b.body.txEffects.map(tx => tx.l2ToL1Msgs)),
-          ),
-          startBlock: checkpoint.blocks[0].number,
-          blockCount: checkpoint.blocks.length,
-          feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
-          attestations: [],
-          l1: this.mockL1DataForCheckpoint(checkpoint),
-        }),
+  private checkpointToData(checkpoint: Checkpoint): CheckpointData {
+    return {
+      checkpointNumber: checkpoint.number,
+      header: checkpoint.header,
+      archive: checkpoint.archive,
+      checkpointOutHash: computeCheckpointOutHash(
+        checkpoint.blocks.map(b => b.body.txEffects.map(tx => tx.l2ToL1Msgs)),
       ),
-    );
+      startBlock: checkpoint.blocks[0].number,
+      blockCount: checkpoint.blocks.length,
+      feeAssetPriceModifier: checkpoint.feeAssetPriceModifier,
+      attestations: [],
+      l1: this.mockL1DataForCheckpoint(checkpoint),
+    };
+  }
+
+  private resolveCheckpointQuery(query: CheckpointQuery): Checkpoint | undefined {
+    if ('number' in query) {
+      return this.checkpointList[query.number - 1];
+    }
+    if ('slot' in query) {
+      return this.checkpointList.find(c => c.header.slotNumber === query.slot);
+    }
+    switch (query.tag) {
+      case 'checkpointed':
+        return this.checkpointList[this.checkpointList.length - 1];
+      case 'proven': {
+        const provenCheckpoint = this.checkpointList.filter(c =>
+          c.blocks.some(b => b.number <= this.provenBlockNumber),
+        );
+        return provenCheckpoint.at(-1);
+      }
+      case 'finalized': {
+        const finalizedCheckpoint = this.checkpointList.filter(c =>
+          c.blocks.some(b => b.number <= this.finalizedBlockNumber),
+        );
+        return finalizedCheckpoint.at(-1);
+      }
+    }
+  }
+
+  private resolveCheckpointsQuery(query: CheckpointsQuery): Checkpoint[] {
+    if ('from' in query) {
+      return this.checkpointList.slice(query.from - 1, query.from - 1 + query.limit);
+    }
+    return this.getCheckpointsInEpoch(query.epoch);
   }
 
   getBlocksForSlot(slotNumber: SlotNumber): Promise<L2Block[]> {
@@ -377,7 +400,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   async getL2Tips(): Promise<L2Tips> {
     const [latest, proven, finalized, checkpointed, proposedCheckpoint] = [
       await this.getBlockNumber(),
-      await this.getProvenBlockNumber(),
+      this.provenBlockNumber,
       this.finalizedBlockNumber,
       this.checkpointedBlockNumber,
       await this.getProposedCheckpointL2BlockNumber(),
@@ -455,6 +478,10 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   getL1Constants(): Promise<L1RollupConstants> {
     return Promise.resolve(EmptyL1RollupConstants);
+  }
+
+  isPruneDueAtSlot(_slot: SlotNumber): Promise<boolean> {
+    return Promise.resolve(false);
   }
 
   getGenesisValues(): Promise<{ genesisArchiveRoot: Fr }> {
@@ -608,11 +635,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     return Promise.resolve({ valid: true });
   }
 
-  getLastCheckpoint(): Promise<ProposedCheckpointData | undefined> {
-    return Promise.resolve(undefined);
-  }
-
-  getLastProposedCheckpoint(): Promise<ProposedCheckpointData | undefined> {
+  getProposedCheckpointData(_query?: ProposedCheckpointQuery): Promise<ProposedCheckpointData | undefined> {
     return Promise.resolve(undefined);
   }
 

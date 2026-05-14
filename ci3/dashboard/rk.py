@@ -403,7 +403,11 @@ def show_section(section):
         follow='top'
     )
 
-@app.route('/list/<key>')
+# <path:key> (not <key>) so branch-qualified history keys like
+# `history_<hash>_merge-train/spartan` route correctly. WSGI decodes %2F to /
+# in PATH_INFO before Flask routes, so percent-encoding can't rescue a plain
+# <key> converter — only <path:key> matches segments containing /.
+@app.route('/list/<path:key>')
 @optional_auth
 def get_list(key):
     value = get_list_as_string(key)

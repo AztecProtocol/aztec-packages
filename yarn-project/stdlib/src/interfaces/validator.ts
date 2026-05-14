@@ -83,7 +83,10 @@ export type ValidatorClientFullConfig = ValidatorClientConfig &
   Pick<SequencerConfig, 'txPublicSetupAllowListExtend' | 'broadcastInvalidBlockProposal' | 'maxBlocksPerCheckpoint'> &
   Pick<
     SlasherConfig,
-    'slashBroadcastedInvalidBlockPenalty' | 'slashDuplicateProposalPenalty' | 'slashDuplicateAttestationPenalty'
+    | 'slashBroadcastedInvalidBlockPenalty'
+    | 'slashDuplicateProposalPenalty'
+    | 'slashDuplicateAttestationPenalty'
+    | 'slashAttestInvalidCheckpointProposalPenalty'
   > & {
     /**
      * Whether transactions are disabled for this node
@@ -119,6 +122,7 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
     slashBroadcastedInvalidBlockPenalty: schemas.BigInt,
     slashDuplicateProposalPenalty: schemas.BigInt,
     slashDuplicateAttestationPenalty: schemas.BigInt,
+    slashAttestInvalidCheckpointProposalPenalty: schemas.BigInt,
     disableTransactions: z.boolean().optional(),
   }),
 );

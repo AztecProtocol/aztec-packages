@@ -160,7 +160,7 @@ export class L2BlockStream {
       if (!this.opts.ignoreCheckpoints) {
         let loop1Iterations = 0;
         while (nextCheckpointToEmit <= sourceTips.checkpointed.checkpoint.number) {
-          const checkpoints = await this.l2BlockSource.getCheckpoints(nextCheckpointToEmit, 1);
+          const checkpoints = await this.l2BlockSource.getCheckpoints({ from: nextCheckpointToEmit, limit: 1 });
           if (checkpoints.length === 0) {
             break;
           }
@@ -205,7 +205,10 @@ export class L2BlockStream {
         // Refill the prefetch buffer when exhausted
         if (prefetchIdx >= prefetchedCheckpoints.length) {
           const prefetchLimit = this.opts.checkpointPrefetchLimit ?? CHECKPOINT_PREFETCH_LIMIT;
-          prefetchedCheckpoints = await this.l2BlockSource.getCheckpoints(nextCheckpointNumber, prefetchLimit);
+          prefetchedCheckpoints = await this.l2BlockSource.getCheckpoints({
+            from: nextCheckpointNumber,
+            limit: prefetchLimit,
+          });
           prefetchIdx = 0;
           if (prefetchedCheckpoints.length === 0) {
             break;

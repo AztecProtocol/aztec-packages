@@ -65,19 +65,16 @@ template <typename Builder_, InputConstancy Constancy> class MultiScalarMulTesti
         constexpr bool scalars_are_constant =
             (Constancy == InputConstancy::Scalars || Constancy == InputConstancy::Both);
 
-        // Helper to add points: either as witnesses or constants based on Constancy
+        // Helper to add points: either as witnesses or constants based on Constancy.
+        // Points are encoded as (x, y); the point at infinity is encoded as (0, 0).
         auto construct_points = [&]() -> std::vector<WitnessOrConstant<FF>> {
             if constexpr (points_are_constant) {
-                // Points are constants
                 return { WitnessOrConstant<FF>::from_constant(point.x),
-                         WitnessOrConstant<FF>::from_constant(point.y),
-                         WitnessOrConstant<FF>::from_constant(point.is_point_at_infinity() ? FF(1) : FF(0)) };
+                         WitnessOrConstant<FF>::from_constant(point.y) };
             }
-            // Points are witnesses
             std::vector<uint32_t> point_indices = add_to_witness_and_track_indices(witness_values, point);
             return { WitnessOrConstant<FF>::from_index(point_indices[0]),
-                     WitnessOrConstant<FF>::from_index(point_indices[1]),
-                     WitnessOrConstant<FF>::from_index(point_indices[2]) };
+                     WitnessOrConstant<FF>::from_index(point_indices[1]) };
         };
 
         // Helper to add scalars: either as witnesses or constants based on Constancy

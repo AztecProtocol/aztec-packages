@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import sqlite3InitModule, { type Database, type SAHPoolUtil, type Sqlite3Static } from '@aztec/sqlite3mc-wasm';
 
+import { SqliteEncryptionError, type SqliteEncryptionErrorCode, isDecryptFailureMessage } from './errors.js';
 import type { ResultRow, SqlValue, WorkerRequest, WorkerResponse } from './messages.js';
 
 const SCHEMA_SQL = `
@@ -70,7 +71,10 @@ async function handleInit(
   sqlite3 ??= await sqlite3InitModule();
   const s = sqlite3;
   if (encryptionKey !== undefined && ephemeral) {
-    throw new Error('encryptionKey is not supported for ephemeral (:memory:) stores');
+    throw new SqliteEncryptionError(
+      'encryption_not_supported_for_ephemeral',
+      'encryptionKey is not supported for ephemeral (:memory:) stores',
+    );
   }
   if (ephemeral) {
     db = new s.oo1.DB(':memory:', 'c');
@@ -194,6 +198,34 @@ function respond(msg: WorkerResponse): void {
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    respond({ type: 'err', id: req.id, message });
+    respond({ type: 'err', id: req.id, message, encryptionCode: detectEncryptionCode(req, err, message) });
   }
 };
+
+/**
+ * Maps a thrown error during request handling to a typed encryption code, so the
+ * main thread can re-hydrate it as a {@link SqliteEncryptionError}. Returns
+ * `undefined` for non-encryption errors (preserves the existing untyped path).
+ *
+ * Two sources:
+ *   - The error was already a `SqliteEncryptionError` (pre-flight throws inside
+ *     this worker — e.g. ephemeral + encryptionKey). Forward its code as-is.
+ *   - The error came from SQLite/sqlite3mc with a known decrypt-failure message
+ *     during an `init` request. Both "wrong key supplied" and "no key supplied
+ *     to an encrypted DB" surface as SQLITE_NOTADB ("file is not a database") —
+ *     we don't constrain on `req.encryptionKey` because the no-key-on-encrypted-DB
+ *     case is exactly when the caller most needs the typed signal.
+ */
+function detectEncryptionCode(
+  req: WorkerRequest,
+  err: unknown,
+  message: string,
+): SqliteEncryptionErrorCode | undefined {
+  if (err instanceof SqliteEncryptionError) {
+    return err.code;
+  }
+  if (req.type === 'init' && isDecryptFailureMessage(message)) {
+    return 'decrypt_failed';
+  }
+  return undefined;
+}

@@ -358,7 +358,8 @@ export class TXESession implements TXESessionStateHandler {
     this.resetLastCall();
     // Capture the anchor *before* `work` runs: private/public executor calls mine a new block as a
     // side effect, and that block's timestamp should not be attributed to this call's anchor.
-    const anchorBlockTimestamp = (await this.stateMachine.node.getBlockHeader('latest'))!.globalVariables.timestamp;
+    const anchorBlockTimestamp = (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables
+      .timestamp;
     const { result, txHash } = await work();
     this.setLastCallContext(txHash ?? Fr.ZERO, anchorBlockTimestamp);
     return result;
@@ -431,13 +432,13 @@ export class TXESession implements TXESessionStateHandler {
     // Private execution has two associated block numbers: the anchor block (i.e. the historical block that is used to
     // build the proof), and the *next* block, i.e. the one we'll create once the execution ends, and which will contain
     // a single transaction with the effects of what was done in the test.
-    const anchorBlock = await this.stateMachine.node.getBlockHeader(anchorBlockNumber ?? 'latest');
+    const anchorBlock = await this.stateMachine.node.getBlock(anchorBlockNumber ?? 'latest').then(b => b?.header);
 
     await new NoteService(this.noteStore, this.stateMachine.node, anchorBlock!, this.currentJobId).syncNoteNullifiers(
       contractAddress,
       await this.keyStore.getAccounts(),
     );
-    const latestBlock = await this.stateMachine.node.getBlockHeader('latest');
+    const latestBlock = await this.stateMachine.node.getBlock('latest').then(b => b?.header);
 
     const nextBlockGlobalVariables = makeGlobalVariables(undefined, {
       blockNumber: BlockNumber(latestBlock!.globalVariables.blockNumber + 1),
@@ -474,7 +475,7 @@ export class TXESession implements TXESessionStateHandler {
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
-      l2TipsStore: this.stateMachine.node,
+      l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
       messageContextService: this.stateMachine.messageContextService,
@@ -502,7 +503,7 @@ export class TXESession implements TXESessionStateHandler {
 
     // The PublicContext will create a block with a single transaction in it, containing the effects of what was done in
     // the test. The block therefore gets the *next* block number and timestamp.
-    const latestHeader = (await this.stateMachine.node.getBlockHeader('latest'))!;
+    const latestHeader = (await this.stateMachine.node.getBlockData('latest'))!.header;
     const globalVariables = makeGlobalVariables(undefined, {
       blockNumber: BlockNumber(latestHeader.globalVariables.blockNumber + 1),
       timestamp: this.nextBlockTimestamp,
@@ -558,10 +559,11 @@ export class TXESession implements TXESessionStateHandler {
       privateEventStore: this.privateEventStore,
       messageContextService: this.stateMachine.messageContextService,
       contractSyncService: this.stateMachine.contractSyncService,
-      l2TipsStore: this.stateMachine.node,
+      l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
       simulator: new WASMSimulator(),
+      utilityExecutor: this.utilityExecutorForContractSync(anchorBlockHeader),
     });
 
     this.state = { name: 'UTILITY' };
@@ -657,10 +659,11 @@ export class TXESession implements TXESessionStateHandler {
           privateEventStore: this.privateEventStore,
           messageContextService: this.stateMachine.messageContextService,
           contractSyncService: this.stateMachine.contractSyncService,
-          l2TipsStore: this.stateMachine.node,
+          l2TipsStore: this.stateMachine.l2TipsProvider,
           jobId: this.currentJobId,
           scopes,
           simulator,
+          utilityExecutor: this.utilityExecutorForContractSync(anchorBlock),
         });
         await simulator
           .executeUserCircuit(toACVMWitness(0, call.args), entryPointArtifact, new Oracle(oracle).toACIRCallback())

@@ -2,7 +2,7 @@ name: Nightly Bench 10 TPS
 
 on:
   schedule:
-    - cron: "30 4 * * *"
+    - cron: "30 6 * * *"
   workflow_dispatch:
     inputs:
       nightly_tag:

@@ -1,0 +1,22 @@
+name: Merge-Train Stale Check
+
+on:
+  schedule:
+    # Daily at 09:15 UTC — once per day, off the round-minute mark.
+    - cron: "15 9 * * *"
+  workflow_dispatch:
+
+jobs:
+  spartan:
+    name: Check merge-train/spartan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Run stale check
+        env:
+          GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: ./ci3/merge_train_stale_check merge-train/spartan '#team-alpha'

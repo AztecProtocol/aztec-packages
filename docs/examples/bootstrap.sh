@@ -172,7 +172,9 @@ function validate-webapp-tutorial {
 
     # Fresh yarn setup for linking
     yarn config set nodeLinker node-modules 2>/dev/null || true
-    yarn install
+    # Yarn 4 auto-enables --immutable when CI is set; we intentionally start
+    # with an empty yarn.lock that this install populates, so disable that.
+    YARN_ENABLE_IMMUTABLE_INSTALLS=false yarn install
 
     # yarn's `link:` protocol creates portals into yarn-project/*, which require
     # --preserve-symlinks for Node's ESM loader to resolve dependencies correctly

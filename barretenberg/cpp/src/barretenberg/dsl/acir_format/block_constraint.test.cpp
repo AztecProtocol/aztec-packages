@@ -38,21 +38,21 @@ TEST(BlockConstraintMemOpEncoding, ReadFlagFalseDecodesAsRead)
 
     ASSERT_EQ(block.trace.size(), 1);
     EXPECT_EQ(block.trace[0].access_type, AccessType::Read);
-    EXPECT_EQ(block.trace[0].index.index, 1);
-    EXPECT_EQ(block.trace[0].value.index, 2);
+    EXPECT_EQ(block.trace[0].index, 1);
+    EXPECT_EQ(block.trace[0].value, 2);
 }
 
 TEST(BlockConstraintMemOpEncoding, AccessTypeEncodesToReadFlag)
 {
     const MemOp read_op{
         .access_type = AccessType::Read,
-        .index = WitnessOrConstant<bb::fr>::from_index(1),
-        .value = WitnessOrConstant<bb::fr>::from_index(2),
+        .index = 1,
+        .value = 2,
     };
     const MemOp write_op{
         .access_type = AccessType::Write,
-        .index = WitnessOrConstant<bb::fr>::from_index(3),
-        .value = WitnessOrConstant<bb::fr>::from_index(4),
+        .index = 3,
+        .value = 4,
     };
 
     EXPECT_FALSE(mem_op_to_acir_mem_op(read_op).read);
@@ -119,10 +119,9 @@ template <typename Builder_, size_t table_size, size_t num_reads> class ROMTesti
                 // Add value witness
                 bb::fr read_value = table_values[rom_index_to_read];
 
-                WitnessOrConstant<bb::fr> index_for_read = WitnessOrConstant<bb::fr>::from_index(
-                    add_to_witness_and_track_indices(witness_values, bb::fr(rom_index_to_read)));
-                WitnessOrConstant<bb::fr> value_for_read =
-                    WitnessOrConstant<bb::fr>::from_index(add_to_witness_and_track_indices(witness_values, read_value));
+                const uint32_t index_for_read =
+                    add_to_witness_and_track_indices(witness_values, bb::fr(rom_index_to_read));
+                const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
                 const MemOp read_op = { .access_type = AccessType::Read,
                                         .index = index_for_read,
@@ -278,9 +277,7 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
                     bb::fr read_value = table_values[ram_index_to_read];
                     const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
-                    mem_op = { .access_type = AccessType::Read,
-                               .index = WitnessOrConstant<bb::fr>::from_index(index_for_read),
-                               .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
+                    mem_op = { .access_type = AccessType::Read, .index = index_for_read, .value = value_for_read };
                     trace.push_back(mem_op);
                     break;
                 }
@@ -294,9 +291,7 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
                     // Update the table_values to reflect this write
                     table_values[ram_index_to_write] = write_value;
 
-                    mem_op = { .access_type = AccessType::Write,
-                               .index = WitnessOrConstant<bb::fr>::from_index(index_to_write),
-                               .value = WitnessOrConstant<bb::fr>::from_index(value_to_write) };
+                    mem_op = { .access_type = AccessType::Write, .index = index_to_write, .value = value_to_write };
                     trace.push_back(mem_op);
                     break;
                 }
@@ -324,7 +319,7 @@ template <typename Builder_, size_t table_size, size_t num_reads, size_t num_wri
                     // Find a read operation
                     random_read_idx = static_cast<size_t>(engine.get_random_uint32() % (num_reads + num_writes));
                 }
-                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].value.index;
+                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].value;
                 witness_values[witness_idx] += bb::fr(1);
             }
             break;
@@ -348,10 +343,12 @@ using RAMTestConfigs = testing::Types<RAMTestParams<UltraCircuitBuilder, 0, 0, 0
                                       RAMTestParams<UltraCircuitBuilder, 10, 0, 0>,
                                       RAMTestParams<UltraCircuitBuilder, 10, 0, 10>,
                                       RAMTestParams<UltraCircuitBuilder, 10, 10, 0>,
+                                      RAMTestParams<UltraCircuitBuilder, 10, 20, 10>,
                                       RAMTestParams<MegaCircuitBuilder, 0, 0, 0>,
                                       RAMTestParams<MegaCircuitBuilder, 10, 0, 0>,
                                       RAMTestParams<MegaCircuitBuilder, 10, 0, 10>,
-                                      RAMTestParams<MegaCircuitBuilder, 10, 10, 0>>;
+                                      RAMTestParams<MegaCircuitBuilder, 10, 10, 0>,
+                                      RAMTestParams<MegaCircuitBuilder, 10, 20, 10>>;
 
 TYPED_TEST_SUITE(RAMTest, RAMTestConfigs);
 
@@ -430,9 +427,7 @@ template <CallDataType calldata_type, size_t calldata_size, size_t num_reads> cl
                 bb::fr read_value = calldata_values[calldata_idx_to_read];
                 const uint32_t value_for_read = add_to_witness_and_track_indices(witness_values, read_value);
 
-                mem_op = { .access_type = AccessType::Read,
-                           .index = WitnessOrConstant<bb::fr>::from_index(index_for_read),
-                           .value = WitnessOrConstant<bb::fr>::from_index(value_for_read) };
+                mem_op = { .access_type = AccessType::Read, .index = index_for_read, .value = value_for_read };
                 trace.push_back(mem_op);
             }
         }
@@ -455,7 +450,7 @@ template <CallDataType calldata_type, size_t calldata_size, size_t num_reads> cl
             // Tamper with a random read value using the recorded witness index
             if constexpr (num_reads > 0) {
                 const size_t random_read_idx = static_cast<size_t>(engine.get_random_uint32() % num_reads);
-                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].index.index;
+                const uint32_t witness_idx = memory_constraint.trace[random_read_idx].index;
                 witness_values[witness_idx] += bb::fr(1);
             }
             break;

@@ -16,7 +16,7 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
-import { FunctionSelector } from '@aztec/stdlib/abi';
+import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
@@ -29,7 +29,7 @@ import { MessageContext, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs'
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule, IndexedTxEffect, OffchainEffect, TxHash } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule, IndexedTxEffect, OffchainEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
@@ -81,6 +81,8 @@ export type UtilityExecutionOracleArgs = {
   scopes: AztecAddress[];
   simulator: CircuitSimulator;
   hooks?: ExecutionHooks;
+  /** Needed to trigger contract synchronization before nested cross-contract calls. */
+  utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
 };
 
 /**
@@ -119,6 +121,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly scopes: AztecAddress[];
   protected readonly simulator: CircuitSimulator;
   protected readonly hooks: ExecutionHooks | undefined;
+  protected readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
 
   constructor(args: UtilityExecutionOracleArgs) {
     this.contractAddress = args.contractAddress;
@@ -142,6 +145,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.scopes = args.scopes;
     this.simulator = args.simulator;
     this.hooks = args.hooks;
+    this.utilityExecutor = args.utilityExecutor;
   }
 
   public assertCompatibleOracleVersion(major: number, minor: number): void {
@@ -790,6 +794,23 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return this.ephemeralArrayService.newArray(maybeMessageContexts.map(MessageContext.toSerializedOption));
   }
 
+  /**
+   * Fetches the effects of a transaction by its hash. Returns null if the tx is not found or is beyond the anchor
+   * block.
+   */
+  public async getTxEffect(txHash: TxHash): Promise<TxEffect | null> {
+    if (txHash.hash.isZero()) {
+      throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
+    }
+
+    const txEffect = await this.aztecNode.getTxEffect(txHash);
+    if (!txEffect || txEffect.l2BlockNumber > this.anchorBlockHeader.getBlockNumber()) {
+      return null;
+    }
+
+    return txEffect.data;
+  }
+
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
       // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
@@ -932,6 +953,15 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
             `See https://docs.aztec.network/errors/11`,
         );
       }
+
+      await this.contractSyncService.ensureContractSynced(
+        targetContractAddress,
+        functionSelector,
+        this.utilityExecutor,
+        this.anchorBlockHeader,
+        this.jobId,
+        this.scopes,
+      );
     }
 
     this.logger.debug(
@@ -959,6 +989,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       scopes: this.scopes,
       simulator: this.simulator,
       hooks: this.hooks,
+      utilityExecutor: this.utilityExecutor,
       log: this.logger,
     });
 

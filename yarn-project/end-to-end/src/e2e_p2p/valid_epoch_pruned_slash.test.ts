@@ -69,6 +69,8 @@ describe('e2e_p2p_valid_epoch_pruned_slash', () => {
         slashAmountMedium: slashingUnit * 2n,
         slashAmountLarge: slashingUnit * 3n,
         aztecTargetCommitteeSize: COMMITTEE_SIZE,
+        enableProposerPipelining: true,
+        inboxLag: 2,
       },
     });
 
