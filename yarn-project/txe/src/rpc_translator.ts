@@ -18,6 +18,7 @@ import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } 
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
+import { TXE_ORACLE_VERSION_MAJOR } from './txe_oracle_version.js';
 import type { TXESessionStateHandler } from './txe_session.js';
 import {
   type ForeignCallArray,
@@ -106,6 +107,26 @@ export class RPCTranslator {
     }
 
     return this.oracleHandler;
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_txe_assertCompatibleOracleVersion(foreignMajor: ForeignCallSingle, foreignMinor: ForeignCallSingle) {
+    const major = fromSingle(foreignMajor).toNumber();
+    const minor = fromSingle(foreignMinor).toNumber();
+
+    if (major !== TXE_ORACLE_VERSION_MAJOR) {
+      const hint =
+        major > TXE_ORACLE_VERSION_MAJOR
+          ? 'The test was compiled with a newer version of Aztec.nr than your test environment supports. Upgrade your test environment to a compatible version.'
+          : 'The test was compiled with an older version of Aztec.nr than your test environment supports. Recompile the test with a compatible version of Aztec.nr.';
+      throw new Error(
+        `Incompatible test environment version: ${hint} See https://docs.aztec.network/errors/11 (expected test oracle major version ${TXE_ORACLE_VERSION_MAJOR}, got ${major})`,
+      );
+    }
+
+    this.stateHandler.setTxeOracleVersion({ major, minor });
+
+    return toForeignCallResult([]);
   }
 
   // TXE session state transition functions - these get handled by the state handler

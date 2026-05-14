@@ -813,3 +813,9 @@
     # PXE: capsule operation attempted with a scope not in the allowed scopes list
     from = "/errors/10"
     to = "/developers/docs/aztec-nr/framework-description/advanced/how_to_use_capsules"
+
+[[redirects]]
+    # Incompatible oracle version between test and test environment
+    from = "/errors/11"
+    to = "/developers/docs/aztec-nr/testing_contracts#test-environment-oracle-versioning"
+

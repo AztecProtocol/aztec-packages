@@ -169,6 +169,7 @@ impl TestEnvironment {
     /// Creates a new `TestEnvironment`. This function should only be called once per test.
     pub unconstrained fn new() -> Self {
         assert_compatible_oracle_version();
+        txe_oracles::assert_compatible_txe_oracle_version();
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when
             // deploying multiple contracts and creating accounts, they could end up with identical

@@ -14,6 +14,22 @@ use crate::protocol::{
     traits::{Deserialize, ToField},
 };
 
+/// The TXE oracle version constants are used to check that the oracle interface used for tests is in sync between
+/// TXE and Aztec.nr. This is separate from the contract oracle version in
+/// [`oracle::version`](crate::oracle::version), which covers oracles used during contract execution by PXE.
+///
+/// The TypeScript counterparts are in `yarn-project/txe/src/txe_oracle_version.ts`.
+pub global TXE_ORACLE_VERSION_MAJOR: Field = 1;
+pub global TXE_ORACLE_VERSION_MINOR: Field = 0;
+
+/// Asserts that the TXE oracle interface version is compatible.
+pub unconstrained fn assert_compatible_txe_oracle_version() {
+    assert_compatible_txe_oracle_version_oracle_call(TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR);
+}
+
+#[oracle(aztec_txe_assertCompatibleOracleVersion)]
+unconstrained fn assert_compatible_txe_oracle_version_oracle_call(major: Field, minor: Field) {}
+
 /// Upper bound on the number of raw offchain effects the TXE test environment will surface
 /// to Noir in a single `get_last_call_offchain_effects` query.
 pub(crate) global MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY: u32 = 64;
