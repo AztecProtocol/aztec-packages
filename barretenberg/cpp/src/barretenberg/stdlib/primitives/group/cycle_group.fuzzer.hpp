@@ -46,59 +46,8 @@
 // the readability and conciseness of the CycleGroupBase::Instruction initializations
 #pragma clang diagnostic ignored "-Wc99-designator"
 
-#ifdef FUZZING_SHOW_INFORMATION
-/**
- * @brief Formatted strings for debugging output
- * Used to generate readable C++ code showing operation being performed
- */
-struct FormattedArgs {
-    std::string lhs;
-    std::string rhs;
-    std::string out;
-};
-
-/**
- * @brief Format a single-argument operation for debug output
- * @param stack The execution stack
- * @param first_index Index of the input argument
- * @param output_index Index where result will be written
- * @return FormattedArgs with rhs (input) and out (output) populated
- */
-template <typename Stack>
-inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, size_t output_index)
-{
-    std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
-    std::string out = rhs;
-    rhs += std::to_string(first_index);
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
-    out = (output_index >= stack.size() ? "auto " : "") + out;
-    return FormattedArgs{ .lhs = "", .rhs = rhs, .out = out };
-}
-
-/**
- * @brief Format a two-argument operation for debug output
- * @param stack The execution stack
- * @param first_index Index of the first argument
- * @param second_index Index of the second argument
- * @param output_index Index where result will be written
- * @return FormattedArgs with lhs, rhs (inputs) and out (output) populated
- */
-template <typename Stack>
-inline FormattedArgs format_two_arg(const Stack& stack, size_t first_index, size_t second_index, size_t output_index)
-{
-    std::string lhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";
-    std::string rhs = stack[second_index].cycle_group.is_constant() ? "c" : "w";
-    std::string out =
-        (stack[first_index].cycle_group.is_constant() && stack[second_index].cycle_group.is_constant()) ? "c" : "w";
-    lhs += std::to_string(first_index);
-    rhs += std::to_string(second_index);
-    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
-    out = (output_index >= stack.size() ? "auto " : "") + out;
-    return FormattedArgs{ .lhs = lhs, .rhs = rhs, .out = out };
-}
-#endif
-
 #define HAVOC_TESTING
+// #define HAVOC_CALIBRATION
 
 // This is a global variable, so that the execution handling class could alter it and signal to the input tester
 // that the input should fail
@@ -112,7 +61,7 @@ bool circuit_should_fail = false;
 // #define DISABLE_BATCH_MUL
 FastRandom VarianceRNG(0);
 
-constexpr size_t MINIMUM_MUL_ELEMENTS = 0;
+constexpr size_t MINIMUM_MUL_ELEMENTS = 1;
 constexpr size_t MAXIMUM_MUL_ELEMENTS = 8;
 
 // This is an external function in Libfuzzer used internally by custom mutators
@@ -199,6 +148,8 @@ template <typename Builder> class CycleGroupBase {
             WITNESS,
             CONSTANT_WITNESS,
             ASSERT_EQUAL,
+            EQUALS,
+            VALIDATE_ON_CURVE,
             COND_ASSIGN,
             SET,
             ADD,
@@ -210,6 +161,7 @@ template <typename Builder> class CycleGroupBase {
 #endif
 #ifndef DISABLE_BATCH_MUL
             BATCH_MUL,
+            FIXED_BATCH_MUL,
 #endif
             RANDOMSEED,
             _LAST
@@ -298,6 +250,8 @@ template <typename Builder> class CycleGroupBase {
             case OPCODE::DBL:
             case OPCODE::NEG:
             case OPCODE::ASSERT_EQUAL:
+            case OPCODE::EQUALS:
+            case OPCODE::VALIDATE_ON_CURVE:
             case OPCODE::SET:
                 in = static_cast<uint8_t>(rng.next() & 0xff);
                 out = static_cast<uint8_t>(rng.next() & 0xff);
@@ -331,7 +285,8 @@ template <typename Builder> class CycleGroupBase {
                          .arguments.mulArgs.out = out };
 #endif
 #ifndef DISABLE_BATCH_MUL
-            case OPCODE::BATCH_MUL: {
+            case OPCODE::BATCH_MUL:
+            case OPCODE::FIXED_BATCH_MUL: {
                 uint8_t mult_size0 =
                     MINIMUM_MUL_ELEMENTS +
                     static_cast<uint8_t>(rng.next() % ((MAXIMUM_MUL_ELEMENTS - MINIMUM_MUL_ELEMENTS) / 2));
@@ -565,6 +520,8 @@ template <typename Builder> class CycleGroupBase {
             case OPCODE::DBL:
             case OPCODE::NEG:
             case OPCODE::ASSERT_EQUAL:
+            case OPCODE::EQUALS:
+            case OPCODE::VALIDATE_ON_CURVE:
             case OPCODE::SET:
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.in);
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.out);
@@ -593,6 +550,7 @@ template <typename Builder> class CycleGroupBase {
                 break;
 #ifndef DISABLE_BATCH_MUL
             case OPCODE::BATCH_MUL:
+            case OPCODE::FIXED_BATCH_MUL:
                 if (rng.next() & 1) {
                     uint8_t mult_size0 =
                         MINIMUM_MUL_ELEMENTS +
@@ -647,6 +605,8 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t DBL = 2;
         static constexpr size_t NEG = 2;
         static constexpr size_t ASSERT_EQUAL = 2;
+        static constexpr size_t EQUALS = 2;
+        static constexpr size_t VALIDATE_ON_CURVE = 2;
         static constexpr size_t SET = 2;
         static constexpr size_t ADD = 3;
         static constexpr size_t SUBTRACT = 3;
@@ -656,6 +616,7 @@ template <typename Builder> class CycleGroupBase {
 #endif
 #ifndef DISABLE_BATCH_MUL
         static constexpr size_t BATCH_MUL = sizeof(typename Instruction::BatchMulArgs);
+        static constexpr size_t FIXED_BATCH_MUL = sizeof(typename Instruction::BatchMulArgs);
 #endif
         static constexpr size_t RANDOMSEED = sizeof(uint32_t);
     };
@@ -677,15 +638,18 @@ template <typename Builder> class CycleGroupBase {
         static constexpr size_t SUBTRACT = 1;
         static constexpr size_t DBL = 1;
         static constexpr size_t NEG = 1;
-        static constexpr size_t COND_ASSIGN = 1;
+        static constexpr size_t COND_ASSIGN = 2;
 
 #ifndef DISABLE_MULTIPLICATION
-        static constexpr size_t MULTIPLY = 2;
+        static constexpr size_t MULTIPLY = 4;
 #endif
         static constexpr size_t ASSERT_EQUAL = 2;
+        static constexpr size_t EQUALS = 2;
+        static constexpr size_t VALIDATE_ON_CURVE = 2;
 
 #ifndef DISABLE_BATCH_MUL
-        static constexpr size_t BATCH_MUL = 4;
+        static constexpr size_t BATCH_MUL = 6;
+        static constexpr size_t FIXED_BATCH_MUL = 6;
 #endif
         static constexpr size_t _LIMIT = 64;
     };
@@ -718,6 +682,8 @@ template <typename Builder> class CycleGroupBase {
             case Instruction::OPCODE::DBL:
             case Instruction::OPCODE::NEG:
             case Instruction::OPCODE::ASSERT_EQUAL:
+            case Instruction::OPCODE::EQUALS:
+            case Instruction::OPCODE::VALIDATE_ON_CURVE:
             case Instruction::OPCODE::SET:
                 instr.arguments.twoArgs = { .in = *Data, .out = *(Data + 1) };
                 break;
@@ -737,7 +703,8 @@ template <typename Builder> class CycleGroupBase {
                 break;
 #endif
 #ifndef DISABLE_BATCH_MUL
-            case Instruction::OPCODE::BATCH_MUL: {
+            case Instruction::OPCODE::BATCH_MUL:
+            case Instruction::OPCODE::FIXED_BATCH_MUL: {
                 // In case of LLVM native instruction mutator
                 instr.arguments.batchMulArgs.add_elements_count = *Data % MAXIMUM_MUL_ELEMENTS;
                 if (instr.arguments.batchMulArgs.add_elements_count < MINIMUM_MUL_ELEMENTS) {
@@ -784,6 +751,8 @@ template <typename Builder> class CycleGroupBase {
             case Instruction::OPCODE::DBL:
             case Instruction::OPCODE::NEG:
             case Instruction::OPCODE::ASSERT_EQUAL:
+            case Instruction::OPCODE::EQUALS:
+            case Instruction::OPCODE::VALIDATE_ON_CURVE:
             case Instruction::OPCODE::SET:
                 *(Data + 1) = instruction.arguments.twoArgs.in;
                 *(Data + 2) = instruction.arguments.twoArgs.out;
@@ -808,7 +777,8 @@ template <typename Builder> class CycleGroupBase {
                 break;
 #endif
 #ifndef DISABLE_BATCH_MUL
-            case Instruction::OPCODE::BATCH_MUL: {
+            case Instruction::OPCODE::BATCH_MUL:
+            case Instruction::OPCODE::FIXED_BATCH_MUL: {
                 *(Data + 1) = instruction.arguments.batchMulArgs.add_elements_count;
                 *(Data + 2) = instruction.arguments.batchMulArgs.output_index;
 
@@ -874,6 +844,7 @@ template <typename Builder> class CycleGroupBase {
             , base(g)
             , cycle_group(w_g)
         {}
+        bool is_circuit_constant() const { return cycle_group.is_constant(); }
 
       private:
         /**
@@ -898,8 +869,10 @@ template <typename Builder> class CycleGroupBase {
                 debug_log("right.dbl", "\n");
                 return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
             case 2:
+                debug_log("left + right; // doubling (equal points)\n");
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
             case 3:
+                debug_log("right + left; // doubling (equal points)\n");
                 return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
             }
             return {};
@@ -921,8 +894,10 @@ template <typename Builder> class CycleGroupBase {
             cycle_group_t res;
             switch (inf_path) {
             case 0:
+                debug_log("left + right; // cancellation (negation points)\n");
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
             case 1:
+                debug_log("right + left; // cancellation (negation points)\n");
                 return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
             }
             return {};
@@ -957,8 +932,10 @@ template <typename Builder> class CycleGroupBase {
                 debug_log("right.checked_unconditional_add(left);", "\n");
                 return ExecutionHandler(base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
             case 4:
+                debug_log("left + right;\n");
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
             case 5:
+                debug_log("right + left;\n");
                 return ExecutionHandler(base_scalar_res, base_res, other.cg() + this->cg());
             }
             return {};
@@ -1003,6 +980,7 @@ template <typename Builder> class CycleGroupBase {
                 debug_log("-right.dbl();", "\n");
                 return ExecutionHandler(base_scalar_res, base_res, -other.cg().dbl());
             case 2:
+                debug_log("left - right; // sub-doubling (negation points)\n");
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
             }
             return {};
@@ -1015,6 +993,7 @@ template <typename Builder> class CycleGroupBase {
                                                   const ScalarField& base_scalar_res,
                                                   const GroupElement& base_res)
         {
+            debug_log("left - right; // cancellation (equal points)\n");
             return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
         }
 
@@ -1038,6 +1017,7 @@ template <typename Builder> class CycleGroupBase {
                 return ExecutionHandler(
                     base_scalar_res, base_res, this->cg().checked_unconditional_subtract(other.cg()));
             case 2:
+                debug_log("left - right;\n");
                 return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
             }
             return {};
@@ -1144,6 +1124,74 @@ template <typename Builder> class CycleGroupBase {
             this->cg().assert_equal(to_ae);
         }
 
+        /**
+         * @brief Test operator== between two cycle_group elements
+         * @details Calls operator== which produces a bool_t circuit constraint,
+         * then verifies the result matches the native comparison.
+         */
+        void equals(ExecutionHandler& other)
+        {
+            bool_t result = (this->cycle_group == other.cycle_group);
+            bool native_result = AffineElement(this->base) == AffineElement(other.base);
+
+            if (result.get_value() != native_result) {
+                std::cerr << "operator== mismatch: circuit says " << (result.get_value() ? "true" : "false")
+                          << " but native says " << (native_result ? "true" : "false") << std::endl;
+                abort();
+            }
+        }
+
+        /**
+         * @brief Call validate_on_curve() to add on-curve circuit constraints
+         */
+        void validate_on_curve() { this->cg().validate_on_curve(); }
+
+        /**
+         * @brief Perform fixed_batch_mul with constant base points and witness scalars
+         */
+        static ExecutionHandler fixed_batch_mul(Builder* builder,
+                                                const std::vector<ExecutionHandler>& to_add,
+                                                const std::vector<ScalarField>& to_mul)
+        {
+            std::vector<cycle_group_t> constant_points;
+            std::vector<cycle_scalar_t> to_mul_cs;
+
+            GroupElement accumulator_cg = GroupElement::infinity();
+            ScalarField accumulator_cs = ScalarField::zero();
+
+            for (size_t i = 0; i < to_add.size(); i++) {
+                AffineElement point = AffineElement(to_add[i].base);
+                if (point.is_point_at_infinity()) {
+                    // fixed_batch_mul doesn't handle infinity base points
+                    continue;
+                }
+                // Create constant cycle_group (required for fixed_batch_mul)
+                constant_points.push_back(cycle_group_t(point));
+
+                bool is_witness = VarianceRNG.next() & 1;
+                debug_log("cycle_scalar_t",
+                          (is_witness ? "::from_witness(&builder, " : "("),
+                          "ScalarField(\"",
+                          to_mul[i],
+                          "\")), ");
+                auto scalar = is_witness ? cycle_scalar_t::from_witness(builder, to_mul[i]) : cycle_scalar_t(to_mul[i]);
+                to_mul_cs.push_back(scalar);
+
+                accumulator_cg += to_add[i].base * to_mul[i];
+                accumulator_cs += to_add[i].base_scalar * to_mul[i];
+            }
+
+            // Need at least 1 point for fixed_batch_mul
+            if (constant_points.empty()) {
+                // Return identity
+                return ExecutionHandler(
+                    ScalarField::zero(), GroupElement::infinity(), cycle_group_t::constant_infinity(builder));
+            }
+
+            auto result_cg = cycle_group_t::fixed_batch_mul(constant_points, to_mul_cs);
+            return ExecutionHandler(accumulator_cs, accumulator_cg, result_cg);
+        }
+
         /* Explicit re-instantiation using the various cycle_group_t constructors */
         ExecutionHandler set(Builder* builder)
         {
@@ -1196,6 +1244,13 @@ template <typename Builder> class CycleGroupBase {
                                               std::vector<ExecutionHandler>& stack,
                                               Instruction& instruction)
         {
+            // With probability 1/1024, push point at infinity instead
+            if ((VarianceRNG.next() & 0x3ff) == 0) {
+                stack.push_back(ExecutionHandler(
+                    ScalarField::zero(), GroupElement::infinity(), cycle_group_t::constant_infinity(builder)));
+                debug_log("auto c", stack.size() - 1, " = cycle_group_t::constant_infinity(&builder);\n");
+                return 0;
+            }
             (void)builder;
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element.scalar,
@@ -1219,6 +1274,14 @@ template <typename Builder> class CycleGroupBase {
                                              std::vector<ExecutionHandler>& stack,
                                              Instruction& instruction)
         {
+            // With probability 1/1024, push witness point at infinity instead
+            if ((VarianceRNG.next() & 0x3ff) == 0) {
+                stack.push_back(ExecutionHandler(ScalarField::zero(),
+                                                 GroupElement::infinity(),
+                                                 cycle_group_t::from_witness(builder, AffineElement::infinity())));
+                debug_log("auto w", stack.size() - 1, " = cycle_group_t::from_witness(&builder, infinity);\n");
+                return 0;
+            }
             stack.push_back(ExecutionHandler(
                 instruction.arguments.element.scalar,
                 instruction.arguments.element.value,
@@ -1245,6 +1308,16 @@ template <typename Builder> class CycleGroupBase {
                                                       std::vector<ExecutionHandler>& stack,
                                                       Instruction& instruction)
         {
+            // With probability 1/1024, push constant_witness point at infinity instead
+            if ((VarianceRNG.next() & 0x3ff) == 0) {
+                stack.push_back(
+                    ExecutionHandler(ScalarField::zero(),
+                                     GroupElement::infinity(),
+                                     cycle_group_t::from_constant_witness(builder, AffineElement::infinity())));
+                debug_log(
+                    "auto cw", stack.size() - 1, " = cycle_group_t::from_constant_witness(&builder, infinity);\n");
+                return 0;
+            }
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element.scalar,
                                  instruction.arguments.element.value,
@@ -1348,6 +1421,60 @@ template <typename Builder> class CycleGroupBase {
                 debug_log("assert_equal(", args.lhs, ", ", args.rhs, ", builder);", "\n");
             }
             stack[first_index].assert_equal(builder, stack[second_index]);
+            return 0;
+        };
+
+        /**
+         * @brief Execute the EQUALS instruction (operator==)
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return 0 to continue, 1 to stop
+         */
+        static inline size_t execute_EQUALS(Builder* builder,
+                                            std::vector<ExecutionHandler>& stack,
+                                            Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.twoArgs.in % stack.size();
+            size_t second_index = instruction.arguments.twoArgs.out % stack.size();
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, 0);
+                debug_log(args.lhs, " == ", args.rhs, ";\n");
+            }
+
+            stack[first_index].equals(stack[second_index]);
+            return 0;
+        };
+
+        /**
+         * @brief Execute the VALIDATE_ON_CURVE instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return 0 to continue, 1 to stop
+         */
+        static inline size_t execute_VALIDATE_ON_CURVE(Builder* builder,
+                                                       std::vector<ExecutionHandler>& stack,
+                                                       Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.twoArgs.in % stack.size();
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, 0);
+                debug_log(args.rhs, ".validate_on_curve();\n");
+            }
+            stack[first_index].validate_on_curve();
             return 0;
         };
 
@@ -1587,6 +1714,56 @@ template <typename Builder> class CycleGroupBase {
         };
 
         /**
+         * @brief Execute the FIXED_BATCH_MUL instruction (uses fixed_batch_mul for constant base points)
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return 0 to continue, 1 to stop
+         */
+        static inline size_t execute_FIXED_BATCH_MUL(Builder* builder,
+                                                     std::vector<ExecutionHandler>& stack,
+                                                     Instruction& instruction)
+        {
+            if (stack.size() == 0) {
+                return 1;
+            }
+            std::vector<ExecutionHandler> to_add;
+            std::vector<ScalarField> to_mul;
+            for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
+                to_add.push_back(stack[(size_t)instruction.arguments.batchMulArgs.inputs[i] % stack.size()]);
+                to_mul.push_back(instruction.arguments.batchMulArgs.scalars[i]);
+            }
+            size_t output_index = (size_t)instruction.arguments.batchMulArgs.output_index;
+
+            ExecutionHandler result;
+            if constexpr (SHOW_FUZZING_INFO) {
+                std::string res = "";
+                for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
+                    size_t idx = instruction.arguments.batchMulArgs.inputs[i] % stack.size();
+                    std::string el = stack[idx].cycle_group.is_constant() ? "c" : "w";
+                    el += std::to_string(idx);
+                    res += el + ", ";
+                }
+                std::string out = "c"; // fixed_batch_mul always uses constant base points
+                out = ((output_index >= stack.size()) ? "auto " : "") + out;
+                out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+                debug_log(out, " = cycle_group_t::fixed_batch_mul({", res, "}, {");
+                result = ExecutionHandler::fixed_batch_mul(builder, to_add, to_mul);
+                debug_log("});\n");
+            } else {
+                result = ExecutionHandler::fixed_batch_mul(builder, to_add, to_mul);
+            }
+            // If the output index is larger than the number of elements in stack, append
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+
+        /**
          * @brief Execute the RANDOMSEED instruction
          *
          * @param builder
@@ -1647,95 +1824,69 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
 {
     (void)argc;
     (void)argv;
-    // These are the settings, optimized for the cycle group class (under them, fuzzer reaches maximum expected
-    // coverage in 40 seconds)
-    fuzzer_havoc_settings = HavocSettings{ .GEN_LLVM_POST_MUTATION_PROB = 30,          // Out of 200
-                                           .GEN_MUTATION_COUNT_LOG = 5,                // -Fully checked
-                                           .GEN_STRUCTURAL_MUTATION_PROBABILITY = 300, // Fully  checked
-                                           .GEN_VALUE_MUTATION_PROBABILITY = 700,      // Fully checked
-                                           .ST_MUT_DELETION_PROBABILITY = 100,         // Fully checked
-                                           .ST_MUT_DUPLICATION_PROBABILITY = 80,       // Fully checked
-                                           .ST_MUT_INSERTION_PROBABILITY = 120,        // Fully checked
-                                           .ST_MUT_MAXIMUM_DELETION_LOG = 6,           // 2 because of limit
-                                           .ST_MUT_MAXIMUM_DUPLICATION_LOG = 2,        // -Fully checked
-                                           .ST_MUT_SWAP_PROBABILITY = 50,              // Fully checked
-                                           .VAL_MUT_LLVM_MUTATE_PROBABILITY = 250,     // Fully checked
-                                           .VAL_MUT_MONTGOMERY_PROBABILITY = 130,      // Fully checked
-                                           .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 50,   // Fully checked
-                                           .VAL_MUT_SMALL_ADDITION_PROBABILITY = 110,  // Fully checked
-                                           .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 130,   // Fully checked
-                                           .structural_mutation_distribution = {},
-                                           .value_mutation_distribution = {} };
-    /**
-     * @brief This is used, when we need to determine the probabilities of various mutations. Left here for
-     * posterity
-     *
-     */
-    /*
+    // Calibration mode: randomize settings to find optimal configuration
+    // To use fixed settings, comment out the random block and uncomment the fixed block below
+#ifdef HAVOC_CALIBRATION
     std::random_device rd;
     std::uniform_int_distribution<uint64_t> dist(0, ~(uint64_t)(0));
     srandom(static_cast<unsigned int>(dist(rd)));
 
     fuzzer_havoc_settings =
-        HavocSettings{ .GEN_MUTATION_COUNT_LOG = static_cast<size_t>((random() % 8) + 1),
-                       .GEN_STRUCTURAL_MUTATION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .GEN_VALUE_MUTATION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .ST_MUT_DELETION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .ST_MUT_DUPLICATION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .ST_MUT_INSERTION_PROBABILITY = static_cast<size_t>((random() % 99) + 1),
-                       .ST_MUT_MAXIMUM_DELETION_LOG = static_cast<size_t>((random() % 8) + 1),
-                       .ST_MUT_MAXIMUM_DUPLICATION_LOG = static_cast<size_t>((random() % 8) + 1),
-                       .ST_MUT_SWAP_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_LLVM_MUTATE_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_MONTGOMERY_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_NON_MONTGOMERY_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_SMALL_ADDITION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_SPECIAL_VALUE_PROBABILITY = static_cast<size_t>(random() % 100)
+        HavocSettings{ .GEN_LLVM_POST_MUTATION_PROB = static_cast<size_t>(((random() % 20) + 1) * 10),
+                       .GEN_MUTATION_COUNT_LOG = static_cast<size_t>((random() % 6) + 2),
+                       .GEN_STRUCTURAL_MUTATION_PROBABILITY = static_cast<size_t>((random() % 900) + 100),
+                       .GEN_VALUE_MUTATION_PROBABILITY = static_cast<size_t>((random() % 900) + 100),
+                       .ST_MUT_DELETION_PROBABILITY = static_cast<size_t>((random() % 150) + 10),
+                       .ST_MUT_DUPLICATION_PROBABILITY = static_cast<size_t>((random() % 150) + 10),
+                       .ST_MUT_INSERTION_PROBABILITY = static_cast<size_t>((random() % 150) + 10),
+                       .ST_MUT_MAXIMUM_DELETION_LOG = static_cast<size_t>((random() % 6) + 1),
+                       .ST_MUT_MAXIMUM_DUPLICATION_LOG = static_cast<size_t>((random() % 4) + 1),
+                       .ST_MUT_SWAP_PROBABILITY = static_cast<size_t>((random() % 100) + 10),
+                       .VAL_MUT_LLVM_MUTATE_PROBABILITY = static_cast<size_t>((random() % 300) + 50),
+                       .VAL_MUT_MONTGOMERY_PROBABILITY = static_cast<size_t>((random() % 200) + 20),
+                       .VAL_MUT_NON_MONTGOMERY_PROBABILITY = static_cast<size_t>((random() % 100) + 10),
+                       .VAL_MUT_SMALL_ADDITION_PROBABILITY = static_cast<size_t>((random() % 200) + 20),
+                       .VAL_MUT_SPECIAL_VALUE_PROBABILITY = static_cast<size_t>((random() % 200) + 20),
+                       .structural_mutation_distribution = {},
+                       .value_mutation_distribution = {} };
 
-        };
-    while (fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY == 0 &&
-           fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY == 0) {
-        fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY = static_cast<size_t>(random() % 8);
-        fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY = static_cast<size_t>(random() % 8);
-    }
-    */
+    std::cerr << "SETTINGS:"
+              << " GEN_LLVM_POST=" << fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB
+              << " MUT_LOG=" << fuzzer_havoc_settings.GEN_MUTATION_COUNT_LOG
+              << " STRUCT=" << fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY
+              << " VAL=" << fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY
+              << " DEL=" << fuzzer_havoc_settings.ST_MUT_DELETION_PROBABILITY
+              << " DUP=" << fuzzer_havoc_settings.ST_MUT_DUPLICATION_PROBABILITY
+              << " INS=" << fuzzer_havoc_settings.ST_MUT_INSERTION_PROBABILITY
+              << " MAX_DEL_LOG=" << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DELETION_LOG
+              << " MAX_DUP_LOG=" << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DUPLICATION_LOG
+              << " SWAP=" << fuzzer_havoc_settings.ST_MUT_SWAP_PROBABILITY
+              << " LLVM_MUT=" << fuzzer_havoc_settings.VAL_MUT_LLVM_MUTATE_PROBABILITY
+              << " MONT=" << fuzzer_havoc_settings.VAL_MUT_MONTGOMERY_PROBABILITY
+              << " NON_MONT=" << fuzzer_havoc_settings.VAL_MUT_NON_MONTGOMERY_PROBABILITY
+              << " SMALL_ADD=" << fuzzer_havoc_settings.VAL_MUT_SMALL_ADDITION_PROBABILITY
+              << " SPECIAL=" << fuzzer_havoc_settings.VAL_MUT_SPECIAL_VALUE_PROBABILITY << std::endl;
+#else
+    // Calibrated 2026-05-14: 200 runs * 1200s, 20 parallel, scored by ft * new_units / 1000
+    fuzzer_havoc_settings = HavocSettings{ .GEN_LLVM_POST_MUTATION_PROB = 90,
+                                           .GEN_MUTATION_COUNT_LOG = 5,
+                                           .GEN_STRUCTURAL_MUTATION_PROBABILITY = 136,
+                                           .GEN_VALUE_MUTATION_PROBABILITY = 612,
+                                           .ST_MUT_DELETION_PROBABILITY = 143,
+                                           .ST_MUT_DUPLICATION_PROBABILITY = 19,
+                                           .ST_MUT_INSERTION_PROBABILITY = 113,
+                                           .ST_MUT_MAXIMUM_DELETION_LOG = 2,
+                                           .ST_MUT_MAXIMUM_DUPLICATION_LOG = 2,
+                                           .ST_MUT_SWAP_PROBABILITY = 92,
+                                           .VAL_MUT_LLVM_MUTATE_PROBABILITY = 67,
+                                           .VAL_MUT_MONTGOMERY_PROBABILITY = 103,
+                                           .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 40,
+                                           .VAL_MUT_SMALL_ADDITION_PROBABILITY = 190,
+                                           .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 215,
+                                           .structural_mutation_distribution = {},
+                                           .value_mutation_distribution = {} };
+#endif
 
-    // fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB = static_cast<size_t>(((random() % (20 - 1)) + 1) * 10);
-    /**
-     * @brief Write mutation settings to log
-     *
-     */
-    /*
-    std::cerr << "CUSTOM MUTATOR SETTINGS:" << std::endl
-              << "################################################################" << std::endl
-              << "GEN_LLVM_POST_MUTATION_PROB: " << fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB << std::endl
-              << "GEN_MUTATION_COUNT_LOG: " << fuzzer_havoc_settings.GEN_MUTATION_COUNT_LOG << std::endl
-              << "GEN_STRUCTURAL_MUTATION_PROBABILITY: " <<
-    fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY
-              << std::endl
-              << "GEN_VALUE_MUTATION_PROBABILITY: " << fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY <<
-    std::endl
-              << "ST_MUT_DELETION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_DELETION_PROBABILITY << std::endl
-              << "ST_MUT_DUPLICATION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_DUPLICATION_PROBABILITY <<
-    std::endl
-              << "ST_MUT_INSERTION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_INSERTION_PROBABILITY << std::endl
-              << "ST_MUT_MAXIMUM_DELETION_LOG: " << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DELETION_LOG << std::endl
-              << "ST_MUT_MAXIMUM_DUPLICATION_LOG: " << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DUPLICATION_LOG <<
-    std::endl
-              << "ST_MUT_SWAP_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_SWAP_PROBABILITY << std::endl
-              << "VAL_MUT_LLVM_MUTATE_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_LLVM_MUTATE_PROBABILITY
-              << std::endl
-              << "VAL_MUT_MONTGOMERY_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_MONTGOMERY_PROBABILITY <<
-    std::endl
-              << "VAL_MUT_NON_MONTGOMERY_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_NON_MONTGOMERY_PROBABILITY
-              << std::endl
-              << "VAL_MUT_SMALL_ADDITION_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_SMALL_ADDITION_PROBABILITY
-              << std::endl
-              << "VAL_MUT_SMALL_MULTIPLICATION_PROBABILITY: "
-              << fuzzer_havoc_settings.VAL_MUT_SMALL_MULTIPLICATION_PROBABILITY << std::endl
-              << "VAL_MUT_SPECIAL_VALUE_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_SPECIAL_VALUE_PROBABILITY
-              << std::endl;
-    */
     std::vector<size_t> structural_mutation_distribution;
     std::vector<size_t> value_mutation_distribution;
     size_t temp = 0;
