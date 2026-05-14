@@ -106,7 +106,7 @@ EOF
 }
 
 function test_cmds {
-  for test in amm_flow bridge_and_claim basic_install counter_contract default_scaffold; do
+  for test in amm_flow bridge_and_claim basic_install counter_contract default_scaffold no_shadow_user_bins; do
     echo "$hash:TIMEOUT=15m aztec-up/scripts/run_test.sh $test"
   done
 }
@@ -236,8 +236,8 @@ function install_on_mac_vm {
     . "\$HOME/.nvm/nvm.sh"
 
     # Verify installation.
-    nargo --version
-    bb --version
+    aztec-nargo --version
+    aztec-bb --version
     aztec --version
 REMOTE_EOF
 }

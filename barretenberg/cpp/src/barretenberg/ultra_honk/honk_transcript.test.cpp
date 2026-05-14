@@ -106,10 +106,14 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "ECC_OP_WIRE_2", data_types_per_G);
             manifest_expected.add_entry(round, "ECC_OP_WIRE_3", data_types_per_G);
             manifest_expected.add_entry(round, "ECC_OP_WIRE_4", data_types_per_G);
-            manifest_expected.add_entry(round, "CALLDATA", data_types_per_G);
-            manifest_expected.add_entry(round, "CALLDATA_READ_COUNTS", data_types_per_G);
-            manifest_expected.add_entry(round, "SECONDARY_CALLDATA", data_types_per_G);
-            manifest_expected.add_entry(round, "SECONDARY_CALLDATA_READ_COUNTS", data_types_per_G);
+            manifest_expected.add_entry(round, "KERNEL_CALLDATA", data_types_per_G);
+            manifest_expected.add_entry(round, "KERNEL_CALLDATA_READ_COUNTS", data_types_per_G);
+            manifest_expected.add_entry(round, "FIRST_APP_CALLDATA", data_types_per_G);
+            manifest_expected.add_entry(round, "FIRST_APP_CALLDATA_READ_COUNTS", data_types_per_G);
+            manifest_expected.add_entry(round, "SECOND_APP_CALLDATA", data_types_per_G);
+            manifest_expected.add_entry(round, "SECOND_APP_CALLDATA_READ_COUNTS", data_types_per_G);
+            manifest_expected.add_entry(round, "THIRD_APP_CALLDATA", data_types_per_G);
+            manifest_expected.add_entry(round, "THIRD_APP_CALLDATA_READ_COUNTS", data_types_per_G);
             manifest_expected.add_entry(round, "RETURN_DATA", data_types_per_G);
             manifest_expected.add_entry(round, "RETURN_DATA_READ_COUNTS", data_types_per_G);
         }
@@ -126,8 +130,10 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "LOOKUP_INVERSES", data_types_per_G);
         // Mega-specific databus inverse commitments
         if constexpr (IsMegaFlavor<Flavor>) {
-            manifest_expected.add_entry(round, "CALLDATA_INVERSES", data_types_per_G);
-            manifest_expected.add_entry(round, "SECONDARY_CALLDATA_INVERSES", data_types_per_G);
+            manifest_expected.add_entry(round, "KERNEL_CALLDATA_INVERSES", data_types_per_G);
+            manifest_expected.add_entry(round, "FIRST_APP_CALLDATA_INVERSES", data_types_per_G);
+            manifest_expected.add_entry(round, "SECOND_APP_CALLDATA_INVERSES", data_types_per_G);
+            manifest_expected.add_entry(round, "THIRD_APP_CALLDATA_INVERSES", data_types_per_G);
             manifest_expected.add_entry(round, "RETURN_DATA_INVERSES", data_types_per_G);
         }
         manifest_expected.add_entry(round, "Z_PERM", data_types_per_G);

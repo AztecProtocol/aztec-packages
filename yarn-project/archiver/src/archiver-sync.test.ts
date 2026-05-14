@@ -20,6 +20,7 @@ import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -123,7 +124,9 @@ describe('Archiver Sync', () => {
     const events = new EventEmitter() as ArchiverEmitter;
 
     // Create L2 tips cache shared by archiver and synchronizer
-    const l2TipsCache = new L2TipsCache(archiverStore.blocks);
+    const initialHeader = BlockHeader.empty();
+    const initialBlockHash = await initialHeader.hash();
+    const l2TipsCache = new L2TipsCache(archiverStore.blocks, initialBlockHash);
 
     // Create the L1 synchronizer
     synchronizer = new ArchiverL1Synchronizer(
@@ -156,6 +159,8 @@ describe('Archiver Sync', () => {
       l1Constants,
       synchronizer,
       events,
+      initialHeader,
+      initialBlockHash,
       l2TipsCache,
     );
   });
@@ -166,7 +171,7 @@ describe('Archiver Sync', () => {
 
   describe('basic sync', () => {
     it('syncs l1 to l2 messages and checkpoints', async () => {
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(0));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(0));
 
       // Add first checkpoint (creates messages automatically, L1 block 98 for messages, 101 for checkpoint)
       const { checkpoint: cp1, messages: msgs1 } = await fake.addCheckpoint(CheckpointNumber(1), {
@@ -195,7 +200,7 @@ describe('Archiver Sync', () => {
 
       logger.warn('Expecting checkpoint 1');
       await archiver.syncImmediate();
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Verify messages for checkpoint 1
       expect(await archiver.getL1ToL2Messages(CheckpointNumber(1))).toEqual(msgs1);
@@ -224,7 +229,7 @@ describe('Archiver Sync', () => {
           const expectedTotalNumLogs = (name: 'private' | 'public' | 'contractClass') =>
             sum(block.body.txEffects.map(txEffect => txEffect[`${name}Logs`].length));
 
-          const privateLogs = (await archiver.getBlock(blockNumber))!.getPrivateLogs();
+          const privateLogs = (await archiver.getBlock({ number: blockNumber }))!.getPrivateLogs();
           expect(privateLogs.length).toBe(expectedTotalNumLogs('private'));
 
           const publicLogs = (await archiver.getPublicLogs({ fromBlock: blockNumber, toBlock: blockNumber + 1 })).logs;
@@ -242,9 +247,9 @@ describe('Archiver Sync', () => {
       expect(await archiver.getProvenCheckpointNumber()).toBe(CheckpointNumber(1));
 
       // Get published checkpoints
-      expect((await archiver.getCheckpoints(CheckpointNumber(1), 100)).map(b => b.checkpoint.number)).toEqual([
-        1, 2, 3,
-      ]);
+      expect(
+        (await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 100 })).map(b => b.checkpoint.number),
+      ).toEqual([1, 2, 3]);
     }, 30_000);
 
     it('ignores checkpoint 3 because it has been pruned', async () => {
@@ -426,7 +431,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Verify the checkpoint was synced successfully
-      const syncedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(1), 1);
+      const syncedCheckpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 1 });
       expect(syncedCheckpoints).toBeDefined();
       expect(syncedCheckpoints.length).toBeGreaterThan(0);
       expect(syncedCheckpoints[0]).toBeDefined();
@@ -479,7 +484,7 @@ describe('Archiver Sync', () => {
       await archiver.syncImmediate();
 
       // Should have processed the checkpoint without attempting to fetch any messages
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
       expect(inboxContract.getMessageSentEvents).not.toHaveBeenCalled();
     });
   });
@@ -818,7 +823,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
 
       // And checkpoint 2 should return the proper one
-      const [checkpoint2] = await archiver.getCheckpoints(CheckpointNumber(2), 1);
+      const [checkpoint2] = await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 });
       expect(checkpoint2.checkpoint.number).toEqual(2);
       expect(checkpoint2.checkpoint.archive.root.toString()).toEqual(goodCp2.archive.root.toString());
       expect(checkpoint2.attestations.length).toEqual(3);
@@ -887,7 +892,7 @@ describe('Archiver Sync', () => {
       // Verify data from checkpoint 2 is removed
       const txHash = cp2.blocks[0].body.txEffects[0].txHash;
       expect(await archiver.getTxEffect(txHash)).resolves.toBeUndefined;
-      expect(await archiver.getCheckpoints(CheckpointNumber(2), 1)).toEqual([]);
+      expect(await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 })).toEqual([]);
 
       expect((await archiver.getPublicLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
       expect((await archiver.getContractClassLogs({ fromBlock: 2, toBlock: 3 })).logs).toEqual([]);
@@ -1159,8 +1164,8 @@ describe('Archiver Sync', () => {
       expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
 
       // Data from checkpoints 2 and 3 should be removed
-      expect(await archiver.getCheckpoints(CheckpointNumber(2), 1)).toEqual([]);
-      expect(await archiver.getCheckpoints(CheckpointNumber(3), 1)).toEqual([]);
+      expect(await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 })).toEqual([]);
+      expect(await archiver.getCheckpoints({ from: CheckpointNumber(3), limit: 1 })).toEqual([]);
 
       archiver.events.off(L2BlockSourceEvents.L2PruneUnproven, pruneSpy);
     }, 15_000);
@@ -1502,7 +1507,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(100n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
       const lastBlockInCheckpoint1 = cp1.blocks[cp1.blocks.length - 1].number;
 
       // Verify L2Tips after syncing checkpoint 1: proposed and checkpointed should both be at checkpoint 1
@@ -1526,8 +1531,8 @@ describe('Archiver Sync', () => {
       // Verify blocks are retrievable but not yet checkpointed
       const lastBlockInCheckpoint2 = cp2.blocks[cp2.blocks.length - 1].number;
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint2);
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
-      expect((await archiver.getL2Block(cp2.blocks[0].number))!.equals(cp2.blocks[0])).toBe(true);
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect((await archiver.getBlock({ number: cp2.blocks[0].number }))!.equals(cp2.blocks[0])).toBe(true);
 
       // Verify L2Tips after adding blocks: proposed advances but checkpointed stays at checkpoint 1
       const tipsAfterAddBlock = await archiver.getL2Tips();
@@ -1535,13 +1540,17 @@ describe('Archiver Sync', () => {
       expect(tipsAfterAddBlock.checkpointed.block.number).toEqual(lastBlockInCheckpoint1);
       expect(tipsAfterAddBlock.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
 
-      // getCheckpointedBlock should return undefined for the new blocks since checkpoint 2 hasn't synced
+      // getBlocks with onlyCheckpointed should return empty for the new blocks since checkpoint 2 hasn't synced
       const firstNewBlockNumber = BlockNumber(lastBlockInCheckpoint1 + 1);
-      const uncheckpointedBlock = await archiver.getCheckpointedBlock(firstNewBlockNumber);
-      expect(uncheckpointedBlock).toBeUndefined();
+      const uncheckpointedBlocks = await archiver.getBlocks({
+        from: firstNewBlockNumber,
+        limit: 1,
+        onlyCheckpointed: true,
+      });
+      expect(uncheckpointedBlocks).toHaveLength(0);
 
-      // But getL2Block should work (it retrieves both checkpointed and uncheckpointed blocks)
-      const block = await archiver.getL2Block(firstNewBlockNumber);
+      // But getBlock should work (it retrieves both checkpointed and uncheckpointed blocks)
+      const block = await archiver.getBlock({ number: firstNewBlockNumber });
       expect(block).toBeDefined();
 
       // Now advance L1 so checkpoint 2 becomes visible
@@ -1553,7 +1562,7 @@ describe('Archiver Sync', () => {
       expect(pruneSpy).not.toHaveBeenCalled();
 
       // Now the blocks should be checkpointed
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(2));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(2));
 
       // Verify L2Tips after syncing checkpoint 2: proposed and checkpointed should both be at checkpoint 2
       const tipsAfterCheckpoint2 = await archiver.getL2Tips();
@@ -1561,10 +1570,14 @@ describe('Archiver Sync', () => {
       expect(tipsAfterCheckpoint2.checkpointed.block.number).toEqual(lastBlockInCheckpoint2);
       expect(tipsAfterCheckpoint2.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
 
-      // getCheckpointedBlock should now work for the new blocks
-      const checkpointedBlock = await archiver.getCheckpointedBlock(firstNewBlockNumber);
-      expect(checkpointedBlock).toBeDefined();
-      expect(checkpointedBlock!.checkpointNumber).toEqual(2);
+      // getBlocks with onlyCheckpointed should now include the new blocks
+      const checkpointedBlocks = await archiver.getBlocks({
+        from: firstNewBlockNumber,
+        limit: 1,
+        onlyCheckpointed: true,
+      });
+      expect(checkpointedBlocks).toHaveLength(1);
+      expect(checkpointedBlocks[0].checkpointNumber).toEqual(2);
     }, 10_000);
 
     it('rejects adding blocks that are already checkpointed', async () => {
@@ -1578,7 +1591,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(100n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
       const blockAlreadySyncedFromCheckpoint = cp1.blocks[cp1.blocks.length - 1];
 
       // Now try and add one of the blocks via the addProposedBlock method. It should throw
@@ -1602,7 +1615,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(4n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Now advance L1 significantly to slot 10 (L1 block 20)
       // Current slot = floor(20 / 2) = 10
@@ -1632,7 +1645,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(100n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Create checkpoint 2 on L1 with 2 blocks (not yet visible)
       const { checkpoint: cp2 } = await fake.addCheckpoint(CheckpointNumber(2), {
@@ -1663,7 +1676,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint2);
 
       // Verify we can retrieve both blocks
-      const syncedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(2), 1);
+      const syncedCheckpoints = await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 });
       expect(syncedCheckpoints[0].checkpoint.blocks.length).toEqual(2);
     }, 15_000);
 
@@ -1673,7 +1686,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(100n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Create checkpoint 2 on L1 (NOT visible yet - L1 block is far in the future)
       const { checkpoint: cp2 } = await fake.addCheckpoint(CheckpointNumber(2), { l1BlockNumber: 5000n });
@@ -1694,7 +1707,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint3);
 
       // Still at checkpoint 1 (checkpoints 2 and 3 not synced yet)
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Advance L1 to make BOTH checkpoints visible at once
       fake.setL1BlockNumber(5010n);
@@ -1709,7 +1722,7 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint3);
 
       // Assert: Both checkpoints are synced
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(3));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(3));
     }, 15_000);
 
     it('prunes and replaces local blocks when checkpoint has different blocks', async () => {
@@ -1720,7 +1733,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(80n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Create blocks for checkpoint 2 locally (not yet on L1)
       const provisionalBlocks = await fake.makeBlocks(CheckpointNumber(2), {
@@ -1736,7 +1749,7 @@ describe('Archiver Sync', () => {
       // Verify blocks are visible but not checkpointed
       const lastBlockInCheckpoint2 = provisionalBlocks[provisionalBlocks.length - 1].number;
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint2);
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Now create a DIFFERENT checkpoint 2 on L1 (different blocks)
       const { checkpoint: differentCp2 } = await fake.addCheckpoint(CheckpointNumber(2), {
@@ -1764,7 +1777,7 @@ describe('Archiver Sync', () => {
       );
 
       // Verify blocks were replaced with L1 checkpoint's blocks
-      const syncedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(2), 1);
+      const syncedCheckpoints = await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 });
       expect(syncedCheckpoints[0].checkpoint.archive.root.toString()).toEqual(differentCp2.archive.root.toString());
     }, 15_000);
 
@@ -1776,7 +1789,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(80n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Create 2 provisional blocks locally (not on L1)
       const provisionalBlocks = await fake.makeBlocks(CheckpointNumber(2), {
@@ -1817,7 +1830,7 @@ describe('Archiver Sync', () => {
       );
 
       // Verify only the L1 checkpoint's single block is now present
-      const syncedCheckpoints = await archiver.getCheckpoints(CheckpointNumber(2), 1);
+      const syncedCheckpoints = await archiver.getCheckpoints({ from: CheckpointNumber(2), limit: 1 });
       expect(syncedCheckpoints[0].checkpoint.blocks.length).toEqual(1);
       expect(syncedCheckpoints[0].checkpoint.archive.root.toString()).toEqual(differentCp2.archive.root.toString());
     }, 15_000);
@@ -1837,7 +1850,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(1n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       const lastBlockInCheckpoint1 = cp1.blocks[cp1.blocks.length - 1].number;
 
@@ -1886,7 +1899,7 @@ describe('Archiver Sync', () => {
 
       // Block number should revert to last checkpointed block
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint1);
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
     }, 15_000);
 
     it('does nothing when slot ends without local blocks', async () => {
@@ -1904,7 +1917,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(1n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
       const lastBlockInCheckpoint1 = cp1.blocks[cp1.blocks.length - 1].number;
 
       // Do NOT add any provisional blocks for slot 1
@@ -1919,7 +1932,7 @@ describe('Archiver Sync', () => {
 
       // Block number should remain at last checkpointed block
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint1);
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
     }, 15_000);
 
     it('does not prune blocks covered by a pending checkpoint in current slot', async () => {
@@ -1937,7 +1950,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(1n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
       const lastBlockInCheckpoint1 = cp1.blocks[cp1.blocks.length - 1].number;
 
       // Create provisional blocks for slot 1
@@ -1998,7 +2011,7 @@ describe('Archiver Sync', () => {
       fake.setL1BlockNumber(1n);
       await archiver.syncImmediate();
 
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
       const lastBlockInCheckpoint1 = cp1.blocks[cp1.blocks.length - 1].number;
 
       // Create provisional blocks for slot 1
@@ -2041,7 +2054,7 @@ describe('Archiver Sync', () => {
 
       // Block number should revert to last checkpointed block
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint1);
-      expect(await archiver.getSynchedCheckpointNumber()).toEqual(CheckpointNumber(1));
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
       // Proposed checkpoint should be cleared, so proposed tip falls back to checkpointed tip
       expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeUndefined();

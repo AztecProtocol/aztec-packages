@@ -59,14 +59,7 @@ unconstrained fn multiple_private_logs_with_varying_lengths() {
 
     env.call_private(
         sender,
-        test_log.emit_three_raw_private_logs_diff_lengths(
-            tag1,
-            payload1,
-            tag2,
-            payload2,
-            tag3,
-            payload3,
-        ),
+        test_log.emit_three_raw_private_logs_diff_lengths(tag1, payload1, tag2, payload2, tag3, payload3),
     );
 
     let private_logs = txe_oracles::get_last_tx_effects().private_logs;

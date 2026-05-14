@@ -18,7 +18,8 @@
     "build": "yarn clean && ../scripts/tsc.sh",
     "clean": "rm -rf ./dest .tsbuildinfo",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",
-    "build:dev": "../scripts/tsc.sh --watch"
+    "build:dev": "../scripts/tsc.sh --watch",
+    "prepublishOnly": "./scripts/verify-pack.sh"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",

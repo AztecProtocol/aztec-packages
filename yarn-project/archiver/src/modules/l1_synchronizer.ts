@@ -152,11 +152,11 @@ export class ArchiverL1Synchronizer implements Traceable {
       return;
     }
 
-    // Warn if the latest L1 block timestamp is too old
+    // Log at error if the latest L1 block timestamp is too old
     const maxAllowedDelay = this.config.maxAllowedEthClientDriftSeconds;
     const now = this.dateProvider.nowInSeconds();
     if (maxAllowedDelay > 0 && Number(currentL1Timestamp) <= now - maxAllowedDelay) {
-      this.log.warn(
+      this.log.error(
         `Latest L1 block ${currentL1BlockNumber} timestamp ${currentL1Timestamp} is too old. Make sure your Ethereum node is synced.`,
         { currentL1BlockNumber, currentL1Timestamp, now, maxAllowedDelay },
       );
@@ -283,11 +283,10 @@ export class ArchiverL1Synchronizer implements Traceable {
     const firstUncheckpointedBlockNumber = BlockNumber(lastCheckpointedBlockNumber + 1);
 
     // What's the slot of the first uncheckpointed block?
-    const [firstUncheckpointedBlockHeader] = await this.stores.blocks.getBlockHeaders(
-      firstUncheckpointedBlockNumber,
-      1,
-    );
-    const firstUncheckpointedBlockSlot = firstUncheckpointedBlockHeader?.getSlot();
+    const firstUncheckpointedBlockData = await this.stores.blocks.getBlockData({
+      number: firstUncheckpointedBlockNumber,
+    });
+    const firstUncheckpointedBlockSlot = firstUncheckpointedBlockData?.header.getSlot();
 
     if (firstUncheckpointedBlockSlot === undefined || firstUncheckpointedBlockSlot >= slotAtNextL1Block) {
       return;
@@ -297,7 +296,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     // This also clears any proposed checkpoint whose blocks are being pruned.
     this.log.warn(
       `Pruning blocks after block ${lastCheckpointedBlockNumber} due to slot ${firstUncheckpointedBlockSlot} not being checkpointed`,
-      { firstUncheckpointedBlockHeader: firstUncheckpointedBlockHeader.toInspect(), slotAtNextL1Block },
+      { firstUncheckpointedBlockHeader: firstUncheckpointedBlockData?.header.toInspect(), slotAtNextL1Block },
     );
 
     const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
@@ -974,10 +973,10 @@ export class ArchiverL1Synchronizer implements Traceable {
           ),
         );
 
-        if (checkpointsToAdd.length > 0) {
+        if (validCheckpoints.length > 0) {
           this.instrumentation.processNewCheckpointedBlocks(
-            processDuration / checkpointsToAdd.length,
-            checkpointsToAdd.flatMap(c => c.checkpoint.blocks),
+            processDuration / validCheckpoints.length,
+            validCheckpoints.flatMap(c => c.checkpoint.blocks),
           );
         }
 
@@ -1086,7 +1085,10 @@ export class ArchiverL1Synchronizer implements Traceable {
       { proposedHeader: proposed.header.toInspect(), proposedArchiveRoot: proposed.archive.root.toString() },
     );
 
-    const blocks = await this.stores.blocks.getBlocks(BlockNumber(proposed.startBlock), proposed.blockCount);
+    const blocks = await this.stores.blocks.getBlocks({
+      from: BlockNumber(proposed.startBlock),
+      limit: proposed.blockCount,
+    });
     if (blocks.length !== proposed.blockCount) {
       this.log.warn(
         `Local proposed checkpoint ${proposed.checkpointNumber} has wrong block count (expected ${proposed.blockCount} blocks starting at ${proposed.startBlock} but got ${blocks.length})`,

@@ -18,6 +18,7 @@ import {
   TxSimulationResult,
   UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
+import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 
 import {
   type InteractionWaitOptions,
@@ -126,6 +127,7 @@ describe('WalletSchema', () => {
   it('registerContract', async () => {
     const mockArtifact: ContractArtifact = {
       name: 'TestContract',
+      aztecVersion: DEV_VERSION,
       functions: [],
       nonDispatchPublicFunctions: [],
       outputs: { structs: {}, globals: {} },
@@ -155,6 +157,19 @@ describe('WalletSchema', () => {
     });
   });
 
+  it('registerContractClass', async () => {
+    const mockArtifact: ContractArtifact = {
+      name: 'TestContract',
+      aztecVersion: DEV_VERSION,
+      functions: [],
+      nonDispatchPublicFunctions: [],
+      outputs: { structs: {}, globals: {} },
+      fileMap: {},
+      storageLayout: {},
+    };
+    await context.client.registerContractClass(mockArtifact);
+  });
+
   it('simulateTx', async () => {
     const exec: ExecutionPayload = {
       calls: [],
@@ -163,11 +178,15 @@ describe('WalletSchema', () => {
       extraHashedArgs: [],
       feePayer: undefined,
     };
+    const sendMessagesAs = await AztecAddress.random();
     const opts: SimulateOptions = {
       from: await AztecAddress.random(),
+      sendMessagesAs,
     };
     const result = await context.client.simulateTx(exec, opts);
     expect(result).toBeInstanceOf(TxSimulationResultWithAppOffset);
+    expect(handler.lastSimulateOpts?.sendMessagesAs).toBeInstanceOf(AztecAddress);
+    expect(handler.lastSimulateOpts?.sendMessagesAs?.equals(sendMessagesAs)).toBe(true);
   });
 
   it('executeUtility', async () => {
@@ -196,12 +215,16 @@ describe('WalletSchema', () => {
       extraHashedArgs: [],
       feePayer: undefined,
     };
+    const sendMessagesAs = await AztecAddress.random();
     const opts: ProfileOptions = {
       from: await AztecAddress.random(),
       profileMode: 'gates',
+      sendMessagesAs,
     };
     const result = await context.client.profileTx(exec, opts);
     expect(result).toBeInstanceOf(TxProfileResult);
+    expect(handler.lastProfileOpts?.sendMessagesAs).toBeInstanceOf(AztecAddress);
+    expect(handler.lastProfileOpts?.sendMessagesAs?.equals(sendMessagesAs)).toBe(true);
   });
 
   it('sendTx', async () => {
@@ -213,11 +236,16 @@ describe('WalletSchema', () => {
       feePayer: undefined,
     };
 
+    const sendMessagesAs = await AztecAddress.random();
     const resultWithWait = await context.client.sendTx(exec, {
       from: await AztecAddress.random(),
+      sendMessagesAs,
     });
     expect(resultWithWait.receipt).toBeInstanceOf(TxReceipt);
     expect(resultWithWait.offchainEffects).toEqual([]);
+    expect(handler.lastSendOpts?.sendMessagesAs).toBeInstanceOf(AztecAddress);
+    expect(handler.lastSendOpts?.sendMessagesAs?.equals(sendMessagesAs)).toBe(true);
+
     const resultWithoutWait = await context.client.sendTx(exec, {
       from: await AztecAddress.random(),
       wait: NO_WAIT,
@@ -318,6 +346,7 @@ describe('WalletSchema', () => {
 
     const mockArtifact: ContractArtifact = {
       name: 'TestContract',
+      aztecVersion: DEV_VERSION,
       functions: [],
       nonDispatchPublicFunctions: [],
       outputs: { structs: {}, globals: {} },
@@ -381,6 +410,10 @@ describe('WalletSchema', () => {
 });
 
 class MockWallet implements Wallet {
+  lastSimulateOpts?: SimulateOptions;
+  lastProfileOpts?: ProfileOptions;
+  lastSendOpts?: SendOptions;
+
   getChainInfo(): Promise<ChainInfo> {
     return Promise.resolve({
       chainId: Fr.random(),
@@ -448,7 +481,10 @@ class MockWallet implements Wallet {
     };
   }
 
-  async simulateTx(_exec: ExecutionPayload, _opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset> {
+  async registerContractClass(_artifact: any): Promise<void> {}
+
+  async simulateTx(_exec: ExecutionPayload, opts: SimulateOptions): Promise<TxSimulationResultWithAppOffset> {
+    this.lastSimulateOpts = opts;
     return TxSimulationResultWithAppOffset.fromResultAndOffset(await TxSimulationResult.random(), 0);
   }
 
@@ -459,7 +495,8 @@ class MockWallet implements Wallet {
     return Promise.resolve(UtilityExecutionResult.random());
   }
 
-  profileTx(_exec: ExecutionPayload, _opts: ProfileOptions): Promise<TxProfileResult> {
+  profileTx(_exec: ExecutionPayload, opts: ProfileOptions): Promise<TxProfileResult> {
+    this.lastProfileOpts = opts;
     return Promise.resolve(TxProfileResult.random());
   }
 
@@ -467,6 +504,7 @@ class MockWallet implements Wallet {
     _exec: ExecutionPayload,
     opts: SendOptions<W>,
   ): Promise<SendReturn<W>> {
+    this.lastSendOpts = opts as SendOptions;
     if (opts.wait === NO_WAIT) {
       return Promise.resolve({
         txHash: TxHash.random(),

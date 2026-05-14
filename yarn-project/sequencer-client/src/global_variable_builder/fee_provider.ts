@@ -27,7 +27,7 @@ export class FeeProviderImpl implements FeeProvider {
     this.ethereumSlotDuration = config.ethereumSlotDuration;
     this.l1GenesisTime = config.l1GenesisTime;
 
-    this.rollupContract = new RollupContract(this.publicClient, config.l1Contracts.rollupAddress);
+    this.rollupContract = new RollupContract(this.publicClient, config.rollupAddress);
     this.feePredictor = new FeePredictor(this.rollupContract, this.publicClient, this.dateProvider, {
       slotDuration: config.slotDuration,
       l1GenesisTime: config.l1GenesisTime,

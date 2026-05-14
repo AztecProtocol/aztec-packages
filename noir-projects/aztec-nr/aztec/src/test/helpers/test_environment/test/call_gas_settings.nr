@@ -2,7 +2,7 @@ use crate::context::{PrivateCall, PublicCall};
 use crate::protocol::abis::{function_selector::FunctionSelector, gas::Gas, gas_settings::GasSettings};
 use crate::protocol::address::AztecAddress;
 use crate::protocol::constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS};
-use crate::test::helpers::test_environment::{CallOptions, TestEnvironment};
+use crate::test::helpers::test_environment::{CallPrivateOptions, CallPublicOptions, TestEnvironment};
 
 /// Path to the GasSettingsReader contract artifact in the noir-contracts workspace. Defined as a global because we
 /// reference it from multiple tests; manual call construction (instead of importing the contract type and using
@@ -32,8 +32,8 @@ unconstrained fn call_private_opts_propagates_gas_settings() {
 
     let returned = env.call_private_opts(
         caller,
+        CallPrivateOptions::new().with_gas_limits(gas_limits).with_teardown_gas_limits(teardown_gas_limits),
         call,
-        CallOptions::new().with_gas_limits(gas_limits).with_teardown_gas_limits(teardown_gas_limits),
     );
 
     assert_eq(returned.gas_limits, gas_limits);
@@ -60,8 +60,8 @@ unconstrained fn call_public_opts_propagates_l2_gas_limit() {
 
     let (_, l2_gas_left) = env.call_public_opts(
         caller,
+        CallPublicOptions::new().with_gas_limits(Gas::new(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, l2_gas_limit)),
         read_public_gas_left_call(contract_addr),
-        CallOptions::new().with_gas_limits(Gas::new(MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, l2_gas_limit)),
     );
 
     // The contract observes its remaining L2 gas after the AVM has charged for entering the function. That value must
@@ -80,8 +80,8 @@ unconstrained fn call_public_opts_propagates_da_gas_limit() {
 
     let (da_gas_left, _) = env.call_public_opts(
         caller,
+        CallPublicOptions::new().with_gas_limits(Gas::new(da_gas_limit, MAX_PROCESSABLE_L2_GAS)),
         read_public_gas_left_call(contract_addr),
-        CallOptions::new().with_gas_limits(Gas::new(da_gas_limit, MAX_PROCESSABLE_L2_GAS)),
     );
 
     // The function consumes zero DA gas (it only reads a counter), so we only verify the configured limit was

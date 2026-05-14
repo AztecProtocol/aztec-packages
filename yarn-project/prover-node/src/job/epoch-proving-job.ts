@@ -1,7 +1,5 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
@@ -20,8 +18,8 @@ import {
   EpochProvingJobTerminalState,
   type ForkMerkleTreeOperations,
 } from '@aztec/stdlib/interfaces/server';
+import { appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
 import { Attributes, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
@@ -191,11 +189,12 @@ export class EpochProvingJob implements Traceable {
         const previousHeader = previousBlockHeaders[checkpointIndex];
         const l1ToL2Messages = this.getL1ToL2Messages(checkpoint);
 
-        this.log.verbose(`Starting processing checkpoint ${checkpoint.number}`, {
+        this.log.debug(`Starting processing checkpoint ${checkpoint.number}`, {
           number: checkpoint.number,
           checkpointHash: checkpoint.hash().toString(),
-          lastArchive: checkpoint.header.lastArchiveRoot,
-          previousHeader: previousHeader.hash(),
+          headerHash: checkpoint.header.hash().toString(),
+          numL1ToL2Messages: l1ToL2Messages.length,
+          previousBlockNumber: previousHeader.globalVariables.blockNumber,
           uuid: this.uuid,
         });
 
@@ -345,13 +344,7 @@ export class EpochProvingJob implements Traceable {
         blockNumber,
         l1ToL2Messages: l1ToL2Messages.map(m => m.toString()),
       });
-      const l1ToL2MessagesPadded = padArrayEnd<Fr, number>(
-        l1ToL2Messages,
-        Fr.ZERO,
-        NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-        'Too many L1 to L2 messages',
-      );
-      await db.appendLeaves(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, l1ToL2MessagesPadded);
+      await appendL1ToL2MessagesToTree(db, l1ToL2Messages);
     }
 
     return db;
@@ -410,7 +403,9 @@ export class EpochProvingJob implements Traceable {
     const intervalMs = Math.ceil((await l2BlockSource.getL1Constants()).ethereumSlotDuration / 2) * 1000;
     this.epochCheckPromise = new RunningPromise(
       async () => {
-        const blockHeaders = await l2BlockSource.getCheckpointedBlockHeadersForEpoch(this.epochNumber);
+        const blockHeaders = (
+          await l2BlockSource.getBlocksData({ epoch: this.epochNumber, onlyCheckpointed: true })
+        ).map(d => d.header);
         const blockHashes = await Promise.all(blockHeaders.map(header => header.hash()));
         const thisBlocks = this.checkpoints.flatMap(checkpoint => checkpoint.blocks);
         const thisBlockHashes = await Promise.all(thisBlocks.map(block => block.hash()));

@@ -1,9 +1,10 @@
-import type { SlotNumber } from '@aztec/foundation/branded-types';
+import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/branded-types';
 import type {
   AuthRequest,
   ENR,
   P2P,
   P2PBlockReceivedCallback,
+  P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
   P2PConfig,
   P2PDuplicateAttestationCallback,
@@ -147,7 +148,10 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getTxsByHash"');
   }
 
-  public getCheckpointAttestationsForSlot(_slot: SlotNumber, _proposalId?: string): Promise<CheckpointAttestation[]> {
+  public getCheckpointAttestationsForSlot(
+    _slot: SlotNumber,
+    _proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]> {
     throw new Error('DummyP2P does not implement "getCheckpointAttestationsForSlot"');
   }
 
@@ -223,6 +227,10 @@ export class DummyP2P implements P2P {
 
   public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {
     throw new Error('DummyP2P does not implement "registerDuplicateAttestationCallback"');
+  }
+
+  public registerCheckpointAttestationCallback(_callback: P2PCheckpointAttestationCallback): void {
+    throw new Error('DummyP2P does not implement "registerCheckpointAttestationCallback"');
   }
 
   public hasBlockProposalsForSlot(_slot: SlotNumber): Promise<boolean> {

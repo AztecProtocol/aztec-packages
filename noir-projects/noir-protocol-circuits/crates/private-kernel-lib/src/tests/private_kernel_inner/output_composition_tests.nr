@@ -3,7 +3,7 @@ use protocol_test_utils::assert_claimed_length_array_eq;
 use types::{
     address::{AztecAddress, EthAddress},
     constants::{
-        MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_CONTRACT_CLASS_LOGS_PER_TX,
+        DEFAULT_UPDATE_DELAY, MAX_CONTRACT_CLASS_LOGS_PER_CALL, MAX_CONTRACT_CLASS_LOGS_PER_TX,
         MAX_ENQUEUED_CALLS_PER_CALL, MAX_ENQUEUED_CALLS_PER_TX,
         MAX_KEY_VALIDATION_REQUESTS_PER_CALL, MAX_KEY_VALIDATION_REQUESTS_PER_TX,
         MAX_L2_TO_L1_MSGS_PER_CALL, MAX_L2_TO_L1_MSGS_PER_TX, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
@@ -271,6 +271,26 @@ fn expiration_timestamp_pick_private_call() {
     let pi = builder.execute();
 
     assert_eq(pi.expiration_timestamp, 78);
+}
+
+#[test]
+fn expiration_timestamp_pick_contract_update_horizon() {
+    let mut builder = TestBuilder::new();
+
+    let contract_update_horizon = builder
+        .private_call
+        .anchor_block_header
+        .global_variables
+        .timestamp
+        + DEFAULT_UPDATE_DELAY
+        - 1;
+
+    builder.previous_kernel.expiration_timestamp = contract_update_horizon + 1000;
+    builder.private_call.expiration_timestamp = contract_update_horizon + 1000;
+
+    let pi = builder.execute();
+
+    assert_eq(pi.expiration_timestamp, contract_update_horizon);
 }
 
 #[test]

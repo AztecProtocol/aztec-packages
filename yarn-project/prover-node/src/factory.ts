@@ -100,7 +100,7 @@ export async function createProverNode(
     pollingInterval: config.viemPollingIntervalMS,
   });
 
-  const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+  const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
 
   const l1TxUtils = deps.l1TxUtils
     ? [deps.l1TxUtils]

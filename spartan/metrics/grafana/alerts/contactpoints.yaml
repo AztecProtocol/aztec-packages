@@ -7,6 +7,7 @@ contactPoints:
         type: slack
         settings:
           url: $SLACK_WEBHOOK_URL
+          mentionUsers: $SLACK_ALERT_MENTION_USER_IDS
           text: |-
             {{ template "aztec.slack.by_namespace" . }}
         disableResolveMessage: false
@@ -18,6 +19,7 @@ contactPoints:
         type: slack
         settings:
           url: $SLACK_WEBHOOK_NEXT_SCENARIO_URL
+          mentionUsers: $SLACK_ALERT_MENTION_USER_IDS
           text: |-
             {{ template "aztec.slack.by_namespace" . }}
         disableResolveMessage: false
@@ -29,6 +31,7 @@ contactPoints:
         type: slack
         settings:
           url: $SLACK_WEBHOOK_NEXT_NET_URL
+          mentionUsers: $SLACK_ALERT_MENTION_USER_IDS
           text: |-
             {{ template "aztec.slack.by_namespace" . }}
         disableResolveMessage: false
@@ -40,6 +43,7 @@ contactPoints:
         type: slack
         settings:
           url: $SLACK_WEBHOOK_TESTNET_URL
+          mentionUsers: $SLACK_ALERT_MENTION_USER_IDS
           text: |-
             {{ template "aztec.slack.by_namespace" . }}
         disableResolveMessage: false
@@ -51,6 +55,7 @@ contactPoints:
         type: slack
         settings:
           url: $SLACK_WEBHOOK_MAINNET_URL
+          mentionUsers: $SLACK_ALERT_MENTION_USER_IDS
           text: |-
             {{ template "aztec.slack.by_namespace" . }}
         disableResolveMessage: false
@@ -62,6 +67,7 @@ contactPoints:
         type: slack
         settings:
           url: $SLACK_WEBHOOK_TESTNET_URL
+          mentionUsers: $SLACK_ALERT_MENTION_USER_IDS
           text: |-
             {{ template "aztec.slack.by_network" . }}
         disableResolveMessage: false
@@ -73,6 +79,7 @@ contactPoints:
         type: slack
         settings:
           url: $SLACK_WEBHOOK_MAINNET_URL
+          mentionUsers: $SLACK_ALERT_MENTION_USER_IDS
           text: |-
             {{ template "aztec.slack.by_network" . }}
         disableResolveMessage: false
@@ -84,6 +91,7 @@ contactPoints:
         type: slack
         settings:
           url: $SLACK_WEBHOOK_DEVNET_URL
+          mentionUsers: $SLACK_ALERT_MENTION_USER_IDS
           text: |-
             {{ template "aztec.slack.by_namespace" . }}
         disableResolveMessage: false

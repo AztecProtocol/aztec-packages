@@ -55,7 +55,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::OinkResult BatchedHonkTranslator
 
     return OinkResult{
         .public_inputs = mega_zk_verifier_instance->public_inputs,
-        .calldata_commitment = mega_zk_verifier_instance->witness_commitments.calldata,
+        .kernel_calldata_commitment = mega_zk_verifier_instance->witness_commitments.kernel_calldata,
         .ecc_op_wires = mega_zk_verifier_instance->witness_commitments.get_ecc_op_wires().get_copy(),
     };
 }

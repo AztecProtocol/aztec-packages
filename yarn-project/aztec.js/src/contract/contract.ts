@@ -1,11 +1,10 @@
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { PublicKeys } from '@aztec/stdlib/keys';
 
 import type { Wallet } from '../wallet/wallet.js';
 import { ContractBase } from './contract_base.js';
-import { DeployMethod } from './deploy_method.js';
+import { type DeployInstantiationOptions, DeployMethod } from './deploy_method.js';
 
 /**
  * The Contract class represents a contract and provides utility methods for interacting with it.
@@ -28,35 +27,26 @@ export class Contract extends ContractBase {
 
   /**
    * Creates a tx to deploy (initialize and/or publish) a new instance of a contract.
+   *
    * @param wallet - The wallet for executing the deployment.
    * @param artifact - Build artifact of the contract to deploy
    * @param args - Arguments for the constructor.
    * @param constructorName - The name of the constructor function to call.
+   * @param instantiation - Other address-affecting parameters (salt, deployer / universalDeploy, publicKeys).
    */
-  public static deploy(wallet: Wallet, artifact: ContractArtifact, args: any[], constructorName?: string) {
-    const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
-      Contract.at(instance.address, artifact, wallet);
-    return new DeployMethod(PublicKeys.default(), wallet, artifact, postDeployCtor, args, constructorName);
-  }
-
-  /**
-   * Creates a tx to deploy (initialize and/or publish) a new instance of a contract
-   * using the specified public keys hash to derive the address.
-   * @param publicKeys - Hash of public keys to use for deriving the address.
-   * @param wallet - The wallet for executing the deployment.
-   * @param artifact - Build artifact of the contract.
-   * @param args - Arguments for the constructor.
-   * @param constructorName - The name of the constructor function to call.
-   */
-  public static deployWithPublicKeys(
-    publicKeys: PublicKeys,
+  public static deploy(
     wallet: Wallet,
     artifact: ContractArtifact,
     args: any[],
     constructorName?: string,
+    instantiation?: DeployInstantiationOptions,
   ) {
     const postDeployCtor = (instance: ContractInstanceWithAddress, wallet: Wallet) =>
       Contract.at(instance.address, artifact, wallet);
-    return new DeployMethod(publicKeys, wallet, artifact, postDeployCtor, args, constructorName);
+    return DeployMethod.create(
+      wallet,
+      { artifact, postDeployCtor, args, constructorNameOrArtifact: constructorName },
+      instantiation,
+    );
   }
 }

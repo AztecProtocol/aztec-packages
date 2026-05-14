@@ -11,6 +11,7 @@ import { waitForPublicClient } from '@aztec/ethereum/client';
 import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { NULL_KEY } from '@aztec/ethereum/constants';
 import { deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { EthCheatCodes } from '@aztec/ethereum/test';
 import { SecretValue } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -59,7 +60,7 @@ export async function deployContractsToL1(
     genesisArchiveRoot?: Fr;
     feeJuicePortalInitialBalance?: bigint;
   } = {},
-) {
+): Promise<L1ContractAddresses> {
   await waitForPublicClient(aztecNodeConfig);
 
   const l1Contracts = await deployAztecL1Contracts(aztecNodeConfig.l1RpcUrls[0], privateKey, foundry.id, {
@@ -74,10 +75,10 @@ export async function deployContractsToL1(
     realVerifier: false,
   });
 
-  aztecNodeConfig.l1Contracts = l1Contracts.l1ContractAddresses;
+  Object.assign(aztecNodeConfig, l1Contracts.l1ContractAddresses);
   aztecNodeConfig.rollupVersion = l1Contracts.rollupVersion;
 
-  return aztecNodeConfig.l1Contracts;
+  return l1Contracts.l1ContractAddresses;
 }
 
 /** Local network settings. */
@@ -262,11 +263,10 @@ export async function createAztecNode(
   options: { genesis?: GenesisData } = {},
 ) {
   // TODO(#12272): will clean this up. This is criminal.
-  const { l1Contracts, ...rest } = getConfigEnvVars();
+  // Not sure why this was ever done. Will be fixed in A-989, A-991, A-990.
   const aztecNodeConfig: AztecNodeConfig = {
-    ...rest,
+    ...getConfigEnvVars(),
     ...config,
-    l1Contracts: { ...l1Contracts, ...config.l1Contracts },
   };
   const node = await AztecNodeService.createAndSync(
     aztecNodeConfig,

@@ -83,14 +83,26 @@ inline Acir::Expression access_type_to_expression(AccessType access_type)
 }
 
 /**
+ * @brief Convert a witness index to an Acir::Expression representing a single unscaled witness term.
+ */
+inline Acir::Expression witness_to_expression(uint32_t witness_index)
+{
+    return Acir::Expression{
+        .mul_terms = {},
+        .linear_combinations = { std::make_tuple(bb::fr::one().to_buffer(), Acir::Witness{ .value = witness_index }) },
+        .q_c = bb::fr::zero().to_buffer(),
+    };
+}
+
+/**
  * @brief Convert an acir_format::MemOp to an Acir::MemOp.
  */
 inline Acir::MemOp mem_op_to_acir_mem_op(const MemOp& mem_op)
 {
     return Acir::MemOp{
         .operation = access_type_to_expression(mem_op.access_type),
-        .index = witness_or_constant_to_expression(mem_op.index),
-        .value = witness_or_constant_to_expression(mem_op.value),
+        .index = witness_to_expression(mem_op.index),
+        .value = witness_to_expression(mem_op.value),
     };
 }
 
@@ -105,7 +117,7 @@ inline Acir::BlockType block_type_to_acir_block_type(BlockType type, CallDataTyp
         // ROM and RAM both map to Memory in ACIR
         return Acir::BlockType{ .value = Acir::BlockType::Memory{} };
     case BlockType::CallData: {
-        uint32_t id = (calldata_id == CallDataType::Primary) ? 0 : 1;
+        uint32_t id = static_cast<uint32_t>(calldata_id);
         return Acir::BlockType{ .value = Acir::BlockType::CallData{ .value = id } };
     }
     case BlockType::ReturnData:

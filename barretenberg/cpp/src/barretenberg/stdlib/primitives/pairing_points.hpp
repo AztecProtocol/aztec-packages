@@ -96,7 +96,10 @@ template <typename Curve> struct PairingPoints {
     static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points, bool handle_edge_cases = true)
     {
         size_t num_points = pairing_points.size();
-        BB_ASSERT_GT(num_points, 1UL, "This method should be used only with more than one pairing point.");
+        BB_ASSERT_GT(num_points, 0UL, "Must provide at least one PairingPoints for aggregation");
+        if (num_points == 1) {
+            return pairing_points[0];
+        }
 
         std::vector<Group> first_components;
         first_components.reserve(num_points);

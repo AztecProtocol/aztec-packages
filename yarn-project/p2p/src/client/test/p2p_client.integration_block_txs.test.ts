@@ -108,7 +108,7 @@ describe('p2p client integration block txs protocol ', () => {
     txs = await Promise.all(times(5, i => createMockTxWithMetadata(p2pBaseConfig, i)));
     txHashes = await Promise.all(txs.map(tx => tx.getTxHash()));
     blockProposal = await createBlockProposal(BlockNumber(blockNumber), archiveRoot, txHashes);
-    attestationPool.getBlockProposal.mockResolvedValue(blockProposal);
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(blockProposal);
   });
 
   afterEach(async () => {
@@ -153,7 +153,7 @@ describe('p2p client integration block txs protocol ', () => {
   };
 
   it('responds with NOT_FOUND when peer does not have the requested block proposal', async () => {
-    attestationPool.getBlockProposal.mockResolvedValue(undefined);
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
     const missing = new TxHashArray(...Array.from({ length: 4 }, () => TxHash.random()));
 
     const blockProposal = await createBlockProposal(blockNumber, Fr.random(), missing);
@@ -326,7 +326,7 @@ describe('p2p client integration block txs protocol ', () => {
 
   it('responds with txs when peer does not have proposal but has txs (includeFullTxHashes=true)', async () => {
     // Peer doesn't have the block proposal
-    attestationPool.getBlockProposal.mockResolvedValue(undefined);
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
 
     // But peer has some of the requested txs in their pool
     const availableTxs = [txs[1], txs[3]];
@@ -355,7 +355,7 @@ describe('p2p client integration block txs protocol ', () => {
 
   it('responds with partial txs when peer does not have proposal (includeFullTxHashes=true)', async () => {
     // Peer doesn't have the block proposal
-    attestationPool.getBlockProposal.mockResolvedValue(undefined);
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
 
     // Peer has only one of the requested txs
     const availableTx = txs[2];
@@ -384,7 +384,7 @@ describe('p2p client integration block txs protocol ', () => {
 
   it('responds with empty txs when peer does not have proposal or txs (includeFullTxHashes=true)', async () => {
     // Peer doesn't have the block proposal
-    attestationPool.getBlockProposal.mockResolvedValue(undefined);
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
 
     // Peer also doesn't have any of the requested txs
     txPool.getTxsByHash.mockResolvedValue([]);
@@ -403,7 +403,7 @@ describe('p2p client integration block txs protocol ', () => {
 
   it('still responds with NOT_FOUND when peer does not have proposal and includeFullTxHashes=false', async () => {
     // Peer doesn't have the block proposal
-    attestationPool.getBlockProposal.mockResolvedValue(undefined);
+    attestationPool.getBlockProposalByArchive.mockResolvedValue(undefined);
 
     // Even if peer has the txs in pool
     const hashToTx = new Map(txs.map((tx, i) => [txHashes[i].toString(), tx]));

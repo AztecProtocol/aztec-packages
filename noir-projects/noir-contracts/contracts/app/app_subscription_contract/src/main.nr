@@ -32,7 +32,8 @@ use aztec::macros::aztec;
 ///
 /// ## Usage Pattern
 ///
-/// 1. **Contract Deployment**: Deploy with target contract address, recipient address, token address, price, and gas limits
+/// 1. **Contract Deployment**: Deploy with target contract address, recipient address, token address, price, and gas
+/// limits
 /// 2. **User Subscription**: Users call `subscribe()` with payment and subscription parameters
 /// 3. **DApp Interface**: Users interact with target contracts through `DefaultDappInterface`
 /// 4. **Entrypoint Validation**: Each call goes through `entrypoint()` which validates subscription status
@@ -133,12 +134,7 @@ pub contract AppSubscription {
     }
 
     #[external("private")]
-    fn subscribe(
-        subscriber: AztecAddress,
-        authwit_nonce: Field,
-        expiry_block_number: u32,
-        tx_count: u32,
-    ) {
+    fn subscribe(subscriber: AztecAddress, authwit_nonce: Field, expiry_block_number: u32, tx_count: u32) {
         assert(tx_count <= SUBSCRIPTION_TXS);
 
         let config = self.storage.config.read();
@@ -162,9 +158,7 @@ pub contract AppSubscription {
             .storage
             .subscriptions
             .at(subscriber)
-            .initialize_or_replace(|_| {
-                SubscriptionNote { expiry_block_number, remaining_txs: tx_count }
-            })
+            .initialize_or_replace(|_| SubscriptionNote { expiry_block_number, remaining_txs: tx_count })
             .deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
         // docs:end:owned_private_mutable_initialize
     }

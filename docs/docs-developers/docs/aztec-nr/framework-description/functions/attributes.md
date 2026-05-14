@@ -42,10 +42,10 @@ A private function operates on private information, and is executed by the user 
 
 `#[external("private")]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../foundational-topics/advanced/circuits/private_kernel.md).
 
-If you are interested in what exactly the macros are doing we encourage you to run `nargo expand` on your contract.
+If you are interested in what exactly the macros are doing we encourage you to run `aztec-nargo expand` on your contract.
 This will display your contract's code after the transformations are performed.
 
-(If you are using VSCode you can display the expanded code by pressing `CMD + Shift + P` and typing `nargo expand` and selecting `Noir: nargo expand on current package`.)
+(If you are using VSCode you can display the expanded code by pressing `CMD + Shift + P` and typing `nargo expand` and selecting `Noir: nargo expand on current package`. Make sure the Noir extension's `Nargo Path` is set to `aztec-nargo` — see the [Noir VSCode extension guide](../../installation.md) for setup.)
 
 Under the hood, the macro:
 
@@ -85,7 +85,7 @@ Under the hood, the macro:
 - Wraps the function body in a scope that handles context setup and return values
 - Marks the function as `pub` and `unconstrained`, meaning it doesn't generate proofs and is executed directly by the sequencer
 
-To see the exact generated code, run `nargo expand` on your contract.
+To see the exact generated code, run `aztec-nargo expand` on your contract.
 
 ## Constrained `view` Functions #[view]
 
@@ -213,7 +213,7 @@ struct CustomNote {
 
 The `owner` is passed as a runtime parameter to the `compute_note_hash` and `compute_nullifier` functions, not stored as a field on the note.
 
-To see the exact generated code, run `nargo expand` on your contract.
+To see the exact generated code, run `aztec-nargo expand` on your contract.
 
 Key things to keep in mind:
 
@@ -246,7 +246,7 @@ struct Storage {
 }
 ```
 
-To see the exact generated code, run `nargo expand` on your contract. Alternatively, use `#[storage_no_init]` if you need manual control over storage slot allocation.
+To see the exact generated code, run `aztec-nargo expand` on your contract. Alternatively, use `#[storage_no_init]` if you need manual control over storage slot allocation.
 
 Key things to keep in mind:
 

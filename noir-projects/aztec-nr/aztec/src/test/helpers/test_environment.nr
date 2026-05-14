@@ -193,12 +193,224 @@ struct UtilityContextOptions {
     contract_address: Option<AztecAddress>,
 }
 
+/// Configuration for [`TestEnvironment::call_private_opts`].
+///
+/// Constructed by calling [`CallPrivateOptions::new`] and then chaining methods setting each value:
+///
+/// ```noir
+/// env.call_private_opts(from, CallPrivateOptions::new().with_additional_scopes([other]), call);
+/// ```
+pub struct CallPrivateOptions<let N: u32, let T: u32> {
+    additional_scopes: [AztecAddress; N],
+    authorized_utility_call_targets: [AztecAddress; T],
+    gas_limits: Option<Gas>,
+    teardown_gas_limits: Option<Gas>,
+    max_fees_per_gas: Option<GasFees>,
+    max_priority_fees_per_gas: Option<GasFees>,
+}
+
+impl CallPrivateOptions<0, 0> {
+    /// Creates default `CallPrivateOptions`.
+    ///
+    /// The default values are the same as if using [`TestEnvironment::call_private`] instead of
+    /// [`TestEnvironment::call_private_opts`].
+    pub fn new() -> Self {
+        CallPrivateOptions {
+            additional_scopes: [],
+            authorized_utility_call_targets: [],
+            gas_limits: Option::none(),
+            teardown_gas_limits: Option::none(),
+            max_fees_per_gas: Option::none(),
+            max_priority_fees_per_gas: Option::none(),
+        }
+    }
+}
+
+impl<let N: u32, let T: u32> CallPrivateOptions<N, T> {
+    /// Grants access to secrets of additional accounts.
+    ///
+    /// By default only the secrets that belong to the `from` account can be accessed: this function lets contracts
+    /// retrieve private information from other accounts during execution.
+    ///
+    /// Example usage includes accounts withdrawing from an escrow, which may require accessing the escrow's own notes
+    /// and secrets.
+    pub fn with_additional_scopes<let N_2: u32>(
+        self,
+        additional_scopes: [AztecAddress; N_2],
+    ) -> CallPrivateOptions<N_2, T> {
+        CallPrivateOptions {
+            additional_scopes,
+            authorized_utility_call_targets: self.authorized_utility_call_targets,
+            gas_limits: self.gas_limits,
+            teardown_gas_limits: self.teardown_gas_limits,
+            max_fees_per_gas: self.max_fees_per_gas,
+            max_priority_fees_per_gas: self.max_priority_fees_per_gas,
+        }
+    }
+
+    /// Authorizes cross-contract utility calls to the given target contracts during this call.
+    ///
+    /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
+    /// contracts are allowed to be called via utility functions during execution.
+    pub fn with_authorized_utility_call_targets<let T_2: u32>(
+        self,
+        targets: [AztecAddress; T_2],
+    ) -> CallPrivateOptions<N, T_2> {
+        CallPrivateOptions {
+            additional_scopes: self.additional_scopes,
+            authorized_utility_call_targets: targets,
+            gas_limits: self.gas_limits,
+            teardown_gas_limits: self.teardown_gas_limits,
+            max_fees_per_gas: self.max_fees_per_gas,
+            max_priority_fees_per_gas: self.max_priority_fees_per_gas,
+        }
+    }
+
+    /// Sets the gas limits for the transaction.
+    ///
+    /// If not set, defaults to the maximum the protocol allows.
+    pub fn with_gas_limits(mut self, gas_limits: Gas) -> Self {
+        self.gas_limits = Option::some(gas_limits);
+        self
+    }
+
+    /// Sets the teardown gas limits for the transaction.
+    ///
+    /// If not set, defaults to 1/8 of the protocol maximum.
+    pub fn with_teardown_gas_limits(mut self, teardown_gas_limits: Gas) -> Self {
+        self.teardown_gas_limits = Option::some(teardown_gas_limits);
+        self
+    }
+
+    /// Sets the maximum fees per gas unit the sender is willing to pay.
+    ///
+    /// If not set, defaults to zero.
+    pub fn with_max_fees_per_gas(mut self, max_fees_per_gas: GasFees) -> Self {
+        self.max_fees_per_gas = Option::some(max_fees_per_gas);
+        self
+    }
+
+    /// Sets the maximum priority fees per gas unit.
+    ///
+    /// If not set, defaults to zero.
+    pub fn with_max_priority_fees_per_gas(mut self, max_priority_fees_per_gas: GasFees) -> Self {
+        self.max_priority_fees_per_gas = Option::some(max_priority_fees_per_gas);
+        self
+    }
+
+    /// Convenience method to set all four gas settings fields at once.
+    ///
+    /// Equivalent to calling [`with_gas_limits`](CallPrivateOptions::with_gas_limits),
+    /// [`with_teardown_gas_limits`](CallPrivateOptions::with_teardown_gas_limits),
+    /// [`with_max_fees_per_gas`](CallPrivateOptions::with_max_fees_per_gas), and
+    /// [`with_max_priority_fees_per_gas`](CallPrivateOptions::with_max_priority_fees_per_gas) individually.
+    pub fn with_gas_settings(mut self, gas_settings: GasSettings) -> Self {
+        self.gas_limits = Option::some(gas_settings.gas_limits);
+        self.teardown_gas_limits = Option::some(gas_settings.teardown_gas_limits);
+        self.max_fees_per_gas = Option::some(gas_settings.max_fees_per_gas);
+        self.max_priority_fees_per_gas = Option::some(gas_settings.max_priority_fees_per_gas);
+        self
+    }
+
+    fn resolve_gas_settings(self) -> GasSettings {
+        resolve_gas_settings(
+            self.gas_limits,
+            self.teardown_gas_limits,
+            self.max_fees_per_gas,
+            self.max_priority_fees_per_gas,
+        )
+    }
+}
+
+/// Configuration for [`TestEnvironment::view_private_opts`].
+///
+/// Constructed by calling [`ViewPrivateOptions::new`] and then chaining methods setting each value:
+///
+/// ```noir
+/// env.view_private_opts(from, ViewPrivateOptions::new().with_additional_scopes([other]), call);
+/// ```
+pub struct ViewPrivateOptions<let S: u32, let T: u32> {
+    additional_scopes: [AztecAddress; S],
+    authorized_utility_call_targets: [AztecAddress; T],
+}
+
+impl ViewPrivateOptions<0, 0> {
+    /// Creates default `ViewPrivateOptions`.
+    ///
+    /// The default values are the same as if using [`TestEnvironment::view_private`] instead of
+    /// [`TestEnvironment::view_private_opts`].
+    pub fn new() -> Self {
+        ViewPrivateOptions { additional_scopes: [], authorized_utility_call_targets: [] }
+    }
+}
+
+impl<let S: u32, let T: u32> ViewPrivateOptions<S, T> {
+    /// Grants access to secrets of additional accounts.
+    ///
+    /// By default only the secrets that belong to the `from` account can be accessed: this function lets contracts
+    /// retrieve private information from other accounts during execution.
+    ///
+    /// Example usage includes accounts querying an escrow's balance, which may require accessing the escrow's own
+    /// notes.
+    pub fn with_additional_scopes<let S2: u32>(
+        self,
+        additional_scopes: [AztecAddress; S2],
+    ) -> ViewPrivateOptions<S2, T> {
+        ViewPrivateOptions { additional_scopes, authorized_utility_call_targets: self.authorized_utility_call_targets }
+    }
+
+    /// Authorizes cross-contract utility calls to the given target contracts during this call.
+    ///
+    /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
+    /// contracts are allowed to be called via utility functions during execution.
+    pub fn with_authorized_utility_call_targets<let T_2: u32>(
+        self,
+        targets: [AztecAddress; T_2],
+    ) -> ViewPrivateOptions<S, T_2> {
+        ViewPrivateOptions { additional_scopes: self.additional_scopes, authorized_utility_call_targets: targets }
+    }
+}
+
 struct NoteDiscoveryOptions {
     contract_address: Option<AztecAddress>,
 }
 
 struct EventDiscoveryOptions {
     contract_address: Option<AztecAddress>,
+}
+
+/// Configuration for [`TestEnvironment::execute_utility_opts`].
+///
+/// Constructed by calling [`ExecuteUtilityOptions::new`] and then chaining methods:
+///
+/// ```noir
+/// env.execute_utility_opts(
+///     ExecuteUtilityOptions::new().with_authorized_utility_call_targets([target]),
+///     SomeContract::at(addr).some_utility_function(),
+/// );
+/// ```
+pub struct ExecuteUtilityOptions<let T: u32> {
+    authorized_utility_call_targets: [AztecAddress; T],
+}
+
+impl ExecuteUtilityOptions<0> {
+    /// Creates default `ExecuteUtilityOptions`.
+    pub fn new() -> Self {
+        ExecuteUtilityOptions { authorized_utility_call_targets: [] }
+    }
+}
+
+impl<let T: u32> ExecuteUtilityOptions<T> {
+    /// Authorizes cross-contract utility calls to the given target contracts during this call.
+    ///
+    /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
+    /// contracts are allowed to be called via utility functions during execution.
+    pub fn with_authorized_utility_call_targets<let T_2: u32>(
+        _self: Self,
+        targets: [AztecAddress; T_2],
+    ) -> ExecuteUtilityOptions<T_2> {
+        ExecuteUtilityOptions { authorized_utility_call_targets: targets }
+    }
 }
 
 /// Configuration values for [`TestEnvironment::deploy_opts`]. Meant to be used by calling `new` and then chaining
@@ -233,24 +445,24 @@ impl DeployOptions {
     }
 }
 
-/// Configuration values for [`TestEnvironment::call_private_opts`] and [`TestEnvironment::call_public_opts`]. Meant
-/// to be used by calling `new` and then chaining methods setting each value, e.g.:
+/// Configuration values for [`TestEnvironment::call_public_opts`]. Meant to be used by calling `new` and then chaining
+/// methods setting each value, e.g.:
 /// ```noir
-/// env.call_private_opts(CallOptions::new().with_max_fees_per_gas(GasFees::new(1, 1)), caller,
+/// env.call_public_opts(caller, CallPublicOptions::new().with_max_fees_per_gas(GasFees::new(1, 1)),
 /// MyContract::at(addr).fn());
 /// ```
 ///
 /// Gas settings fields are not cross-validated - nonsense combinations (e.g. `teardown_gas_limits` larger than
 /// `gas_limits`) will be forwarded as-is and may be rejected by simulation.
-pub struct CallOptions {
+pub struct CallPublicOptions {
     gas_limits: Option<Gas>,
     teardown_gas_limits: Option<Gas>,
     max_fees_per_gas: Option<GasFees>,
     max_priority_fees_per_gas: Option<GasFees>,
 }
 
-impl CallOptions {
-    /// Creates a new `CallOptions` with default values, i.e. the same as if using
+impl CallPublicOptions {
+    /// Creates a new `CallPublicOptions` with default values, i.e. the same as if using
     /// [`TestEnvironment::call_private`] or [`TestEnvironment::call_public`] without the `_opts` variant.
     pub fn new() -> Self {
         Self {
@@ -295,10 +507,10 @@ impl CallOptions {
 
     /// Convenience method to set all four gas settings fields at once.
     ///
-    /// Equivalent to calling [`with_gas_limits`](CallOptions::with_gas_limits),
-    /// [`with_teardown_gas_limits`](CallOptions::with_teardown_gas_limits),
-    /// [`with_max_fees_per_gas`](CallOptions::with_max_fees_per_gas), and
-    /// [`with_max_priority_fees_per_gas`](CallOptions::with_max_priority_fees_per_gas) individually.
+    /// Equivalent to calling [`with_gas_limits`](CallPublicOptions::with_gas_limits),
+    /// [`with_teardown_gas_limits`](CallPublicOptions::with_teardown_gas_limits),
+    /// [`with_max_fees_per_gas`](CallPublicOptions::with_max_fees_per_gas), and
+    /// [`with_max_priority_fees_per_gas`](CallPublicOptions::with_max_priority_fees_per_gas) individually.
     pub fn with_gas_settings(&mut self, gas_settings: GasSettings) -> Self {
         self.gas_limits = Option::some(gas_settings.gas_limits);
         self.teardown_gas_limits = Option::some(gas_settings.teardown_gas_limits);
@@ -723,33 +935,36 @@ impl TestEnvironment {
     /// let return_value = env.call_private(caller, SampleContract::at(contract_addr).sample_private_function());
     /// ```
     pub unconstrained fn call_private<let M: u32, let N: u32, T>(
-        _self: Self,
+        self: Self,
         from: AztecAddress,
         call: PrivateCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
     {
-        _self.call_private_opts(from, call, CallOptions::new())
+        self.call_private_opts(from, CallPrivateOptions::new(), call)
     }
 
-    /// Variant of [`TestEnvironment::call_private`] which allows specifying gas settings via [`CallOptions`].
-    pub unconstrained fn call_private_opts<let M: u32, let N: u32, T>(
+    /// Variant of [`TestEnvironment::call_private`] which allows specifying multiple configuration values via
+    /// [`CallPrivateOptions`], including additional account scopes, authorized utility call targets, and gas settings.
+    pub unconstrained fn call_private_opts<let M: u32, let N: u32, let S: u32, let U: u32, T>(
         _self: Self,
         from: AztecAddress,
+        opts: CallPrivateOptions<S, U>,
         call: PrivateCall<M, N, T>,
-        opts: CallOptions,
     ) -> T
     where
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::private_call_new_flow(
-            from,
+            Option::some(from),
             call.target_contract,
             call.selector,
             call.args,
             hash_args(call.args),
             /*is_static=*/ false,
+            opts.additional_scopes,
+            opts.authorized_utility_call_targets,
             opts.resolve_gas_settings(),
         );
 
@@ -764,21 +979,42 @@ impl TestEnvironment {
     /// The `from` parameter specifies the account from whose perspective the view is executed. This affects
     /// scope isolation - only notes scoped to this account will be visible during execution.
     pub unconstrained fn view_private<let M: u32, let N: u32, T>(
-        _self: Self,
+        self: Self,
         from: AztecAddress,
         call: PrivateStaticCall<M, N, T>,
     ) -> T
     where
         T: Deserialize,
     {
+        self.view_private_opts(from, ViewPrivateOptions::new(), call)
+    }
+
+    /// Variant of `view_private` which allows specifying multiple configuration values via `ViewPrivateOptions`.
+    pub unconstrained fn view_private_opts<let M: u32, let N: u32, let S: u32, let U: u32, T>(
+        _self: Self,
+        from: AztecAddress,
+        opts: ViewPrivateOptions<S, U>,
+        call: PrivateStaticCall<M, N, T>,
+    ) -> T
+    where
+        T: Deserialize,
+    {
         let serialized_return_values = txe_oracles::private_call_new_flow(
-            from,
+            Option::some(from),
             call.target_contract,
             call.selector,
             call.args,
             hash_args(call.args),
             /*is_static=*/ true,
-            CallOptions::new().resolve_gas_settings(),
+            opts.additional_scopes,
+            opts.authorized_utility_call_targets,
+            // Views never produce a tx, so gas settings don't influence behaviour - we pass defaults.
+            resolve_gas_settings(
+                Option::none(),
+                Option::none(),
+                Option::none(),
+                Option::none(),
+            ),
         );
 
         T::deserialize(serialized_return_values)
@@ -793,12 +1029,29 @@ impl TestEnvironment {
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
-    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
+    pub unconstrained fn execute_utility<let M: u32, let N: u32, T>(self: Self, call: UtilityCall<M, N, T>) -> T
     where
         T: Deserialize,
     {
-        let serialized_return_values =
-            txe_oracles::execute_utility_function(call.target_contract, call.selector, call.args);
+        self.execute_utility_opts(ExecuteUtilityOptions::new(), call)
+    }
+
+    /// Variant of `execute_utility` which allows specifying configuration values via `ExecuteUtilityOptions`, such as
+    /// authorizing cross-contract utility calls.
+    pub unconstrained fn execute_utility_opts<let M: u32, let N: u32, let U: u32, T>(
+        _self: Self,
+        opts: ExecuteUtilityOptions<U>,
+        call: UtilityCall<M, N, T>,
+    ) -> T
+    where
+        T: Deserialize,
+    {
+        let serialized_return_values = txe_oracles::execute_utility_function(
+            call.target_contract,
+            call.selector,
+            call.args,
+            opts.authorized_utility_call_targets,
+        );
 
         T::deserialize(serialized_return_values)
     }
@@ -886,15 +1139,15 @@ impl TestEnvironment {
     where
         T: Deserialize,
     {
-        _self.call_public_opts(from, call, CallOptions::new())
+        _self.call_public_opts(from, CallPublicOptions::new(), call)
     }
 
-    /// Variant of [`TestEnvironment::call_public`] which allows specifying gas settings via [`CallOptions`].
+    /// Variant of [`TestEnvironment::call_public`] which allows specifying gas settings via [`CallPublicOptions`].
     pub unconstrained fn call_public_opts<let M: u32, let N: u32, T>(
         _self: Self,
         from: AztecAddress,
+        opts: CallPublicOptions,
         call: PublicCall<M, N, T>,
-        opts: CallOptions,
     ) -> T
     where
         T: Deserialize,
@@ -913,21 +1166,23 @@ impl TestEnvironment {
     /// Performs a public contract function call, including the processing of any nested public calls. Returns the
     /// result of the called function. Variant of `call_public`, but the `from` address (`msg_sender`) is set to
     /// "null".
-    pub unconstrained fn call_public_incognito<let M: u32, let N: u32, T>(
-        _self: Self,
-        from: AztecAddress,
-        call: PublicCall<M, N, T>,
-    ) -> T
+    pub unconstrained fn call_public_incognito<let M: u32, let N: u32, T>(_self: Self, call: PublicCall<M, N, T>) -> T
     where
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::public_call_new_flow(
-            Option::some(from),
+            Option::none(),
             call.target_contract,
             call.selector,
             call.args,
             false,
-            CallOptions::new().resolve_gas_settings(),
+            // Incognito calls bypass the standard sender pathway; gas defaults are fine here.
+            resolve_gas_settings(
+                Option::none(),
+                Option::none(),
+                Option::none(),
+                Option::none(),
+            ),
         );
         T::deserialize(serialized_return_values)
     }
@@ -935,31 +1190,9 @@ impl TestEnvironment {
     /// Variant of `call_public` for public `#[view]` functions.
     ///
     /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
-    /// executable in a static context, and these produce no side effects).
+    /// executable in a static context, and these produce no side effects). The `msg_sender` is set to "null", since
+    /// view calls have no real caller.
     pub unconstrained fn view_public<let M: u32, let N: u32, T>(_self: Self, call: PublicStaticCall<M, N, T>) -> T
-    where
-        T: Deserialize,
-    {
-        let serialized_return_values = txe_oracles::public_call_new_flow(
-            Option::some(AztecAddress::zero()),
-            call.target_contract,
-            call.selector,
-            call.args,
-            true,
-            CallOptions::new().resolve_gas_settings(),
-        );
-
-        T::deserialize(serialized_return_values)
-    }
-
-    /// Variant of `view_public`, but the `from` address (`msg_sender`) is set to "null"
-    ///
-    /// Unlike `call_public`, no transaction is created and no block is mined (since `#[view]` functions are only
-    /// executable in a static context, and these produce no side effects).
-    pub unconstrained fn view_public_incognito<let M: u32, let N: u32, T>(
-        _self: Self,
-        call: PublicStaticCall<M, N, T>,
-    ) -> T
     where
         T: Deserialize,
     {
@@ -969,10 +1202,27 @@ impl TestEnvironment {
             call.selector,
             call.args,
             true,
-            CallOptions::new().resolve_gas_settings(),
+            // Views never produce a tx, so gas settings don't influence behaviour - we pass defaults.
+            resolve_gas_settings(
+                Option::none(),
+                Option::none(),
+                Option::none(),
+                Option::none(),
+            ),
         );
 
         T::deserialize(serialized_return_values)
+    }
+
+    #[deprecated("use `TestEnvironment::view_public` instead")]
+    pub unconstrained fn view_public_incognito<let M: u32, let N: u32, T>(
+        self: Self,
+        call: PublicStaticCall<M, N, T>,
+    ) -> T
+    where
+        T: Deserialize,
+    {
+        self.view_public(call)
     }
 
     /// Discovers a note from a [`NoteMessage`], which is expected to have been created in the last transaction
