@@ -551,7 +551,7 @@ describe(`prove ${TARGET_TPS}TPS test`, () => {
     const maxBlockPerEpoch = new Map<number, number>();
 
     for (const [blockNum, txCount] of txsPerBlock) {
-      const header = await aztecNode.getBlockHeader(BlockNumber(blockNum));
+      const header = (await aztecNode.getBlockData(BlockNumber(blockNum)))?.header;
       const epoch = Math.floor(Number(header!.getSlot()) / epochDurationSlots);
       txsPerEpoch.set(epoch, (txsPerEpoch.get(epoch) ?? 0) + txCount);
       maxBlockPerEpoch.set(epoch, Math.max(maxBlockPerEpoch.get(epoch) ?? 0, blockNum));

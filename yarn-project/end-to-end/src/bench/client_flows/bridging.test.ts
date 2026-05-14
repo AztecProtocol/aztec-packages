@@ -8,7 +8,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { jest } from '@jest/globals';
 
 import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
-import { captureProfile } from './benchmark.js';
+import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
@@ -94,14 +94,12 @@ describe('Bridging benchmark', () => {
             `${accountType}+token_bridge_claim_private+${benchmarkingPaymentMethod}`,
             claimInteraction,
             options,
-            1 + // Account entrypoint
-              1 + // Kernel init
-              paymentMethod.circuits + // Payment method circuits
-              2 + // TokenBridge claim_private + kernel inner
-              2 + // BridgedAsset mint_to_private + kernel inner
-              1 + // Kernel reset
-              1 + // Kernel tail
-              1, // Kernel hiding
+            expectedExecutionSteps(
+              1 + // Account entrypoint
+                paymentMethod.apps + // Payment method apps
+                1 + // TokenBridge claim_private
+                1, // BridgedAsset mint_to_private
+            ),
           );
 
           if (process.env.SANITY_CHECKS) {

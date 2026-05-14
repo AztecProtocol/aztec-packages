@@ -13,9 +13,11 @@ import times from 'lodash.times';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
+import type { BlockData } from '../block/block_data.js';
 import type { DataInBlock } from '../block/in_block.js';
 import { BlockHash, type BlockParameter } from '../block/index.js';
-import type { L2Tips } from '../block/l2_block_source.js';
+import type { CheckpointsQuery } from '../block/l2_block_source.js';
+import type { CheckpointData } from '../checkpoint/checkpoint_data.js';
 import {
   type ContractClassPublic,
   type ContractInstanceWithAddress,
@@ -37,7 +39,6 @@ import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
-import { BlockHeader } from '../tx/block_header.js';
 import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
@@ -49,7 +50,7 @@ import type { SingleValidatorStats, ValidatorsStats } from '../validators/types.
 import type { AllowedElement } from './allowed_element.js';
 import { MAX_RPC_LEN } from './api_limit.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
-import type { BlockIncludeOptions, BlockResponse } from './block_response.js';
+import type { BlockIncludeOptions, BlockResponse, BlocksIncludeOptions } from './block_response.js';
 import type { ChainTip, ChainTips } from './chain_tips.js';
 import type { CheckpointParameter } from './checkpoint_parameter.js';
 import type { CheckpointIncludeOptions, CheckpointResponse } from './checkpoint_response.js';
@@ -98,21 +99,6 @@ describe('AztecNodeApiSchema', () => {
     });
   });
 
-  it('getL2Tips', async () => {
-    const result = await context.client.getL2Tips();
-    const expectedTipId = {
-      block: { number: 1, hash: `0x01` },
-      checkpoint: { number: 1, hash: `0x01` },
-    };
-    expect(result).toEqual({
-      proposed: { number: 1, hash: `0x01` },
-      checkpointed: expectedTipId,
-      proposedCheckpoint: expectedTipId,
-      proven: expectedTipId,
-      finalized: expectedTipId,
-    });
-  });
-
   it('findLeavesIndexes', async () => {
     const response = await context.client.findLeavesIndexes(BlockNumber(1), MerkleTreeId.ARCHIVE, [
       Fr.random(),
@@ -133,11 +119,6 @@ describe('AztecNodeApiSchema', () => {
   it('getL1ToL2MessageCheckpoint', async () => {
     const response = await context.client.getL1ToL2MessageCheckpoint(Fr.random());
     expect(response).toEqual(5);
-  });
-
-  it('isL1ToL2MessageSynced', async () => {
-    const response = await context.client.isL1ToL2MessageSynced(Fr.random());
-    expect(response).toBe(true);
   });
 
   it('getL2ToL1Messages', async () => {
@@ -179,14 +160,9 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeUndefined();
   });
 
-  it('getBlockHeader', async () => {
-    const response = await context.client.getBlockHeader(BlockNumber(1));
-    expect(response).toBeInstanceOf(BlockHeader);
-  });
-
-  it('getCheckpointedBlocks', async () => {
-    const response = await context.client.getCheckpointedBlocks(BlockNumber(1), 10);
-    expect(response).toEqual([]);
+  it('getBlockData', async () => {
+    const response = await context.client.getBlockData(BlockNumber(1));
+    expect(response).toBeUndefined();
   });
 
   it('getCheckpoint', async () => {
@@ -253,8 +229,13 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([]);
   });
 
-  it('getCheckpointsDataForEpoch', async () => {
-    const response = await context.client.getCheckpointsDataForEpoch(EpochNumber(1));
+  it('getCheckpointsData (epoch)', async () => {
+    const response = await context.client.getCheckpointsData({ epoch: EpochNumber(1) });
+    expect(response).toEqual([]);
+  });
+
+  it('getCheckpointsData (range)', async () => {
+    const response = await context.client.getCheckpointsData({ from: CheckpointNumber(1), limit: 1 });
     expect(response).toEqual([]);
   });
 
@@ -555,7 +536,11 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve(undefined);
   }
 
-  getBlocks<Opts extends BlockIncludeOptions = {}>(
+  getBlockData(_param: BlockParameter): Promise<BlockData | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getBlocks<Opts extends BlocksIncludeOptions = {}>(
     _from: BlockNumber,
     _limit: number,
     _options?: Opts,
@@ -578,29 +563,7 @@ class MockAztecNode implements AztecNode {
     return Promise.resolve([]);
   }
 
-  getCheckpointsDataForEpoch(_epochNumber: EpochNumber) {
-    return Promise.resolve([]);
-  }
-
-  getL2Tips(): Promise<L2Tips> {
-    const tipId = {
-      block: { number: BlockNumber(1), hash: `0x01` },
-      checkpoint: { number: CheckpointNumber(1), hash: `0x01` },
-    };
-    return Promise.resolve({
-      proposed: { number: BlockNumber(1), hash: `0x01` },
-      checkpointed: tipId,
-      proposedCheckpoint: tipId,
-      proven: tipId,
-      finalized: tipId,
-    });
-  }
-
-  getBlockHeader(_number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
-    return Promise.resolve(BlockHeader.empty());
-  }
-
-  getCheckpointedBlocks(_from: BlockNumber, _limit: number): Promise<BlockResponse[]> {
+  getCheckpointsData(_query: CheckpointsQuery): Promise<CheckpointData[]> {
     return Promise.resolve([]);
   }
 
@@ -653,10 +616,6 @@ class MockAztecNode implements AztecNode {
   getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     expect(l1ToL2Message).toBeInstanceOf(Fr);
     return Promise.resolve(CheckpointNumber(5));
-  }
-  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    expect(l1ToL2Message).toBeInstanceOf(Fr);
-    return Promise.resolve(true);
   }
   getL2ToL1Messages(_epoch: EpochNumber): Promise<Fr[][][][]> {
     return Promise.resolve(

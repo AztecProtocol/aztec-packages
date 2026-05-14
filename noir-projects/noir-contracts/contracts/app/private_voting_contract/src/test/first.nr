@@ -58,15 +58,9 @@ unconstrained fn test_cast_vote() {
     env.call_public(admin, PrivateVoting::at(voting_contract_address).start_vote(election_id));
 
     let candidate = 1;
-    env.call_private(
-        alice,
-        PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate),
-    );
+    env.call_private(alice, PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate));
 
-    let tally = env.view_public(PrivateVoting::at(voting_contract_address).get_tally(
-        election_id,
-        candidate,
-    ));
+    let tally = env.view_public(PrivateVoting::at(voting_contract_address).get_tally(election_id, candidate));
     assert_eq(tally, 1);
 }
 
@@ -80,20 +74,11 @@ unconstrained fn test_cast_vote_with_separate_accounts() {
     env.call_public(admin, PrivateVoting::at(voting_contract_address).start_vote(election_id));
 
     let candidate = 101;
-    env.call_private(
-        alice,
-        PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate),
-    );
+    env.call_private(alice, PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate));
 
-    let _ = env.call_private(
-        bob,
-        PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate),
-    );
+    let _ = env.call_private(bob, PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate));
 
-    let tally = env.view_public(PrivateVoting::at(voting_contract_address).get_tally(
-        election_id,
-        candidate,
-    ));
+    let tally = env.view_public(PrivateVoting::at(voting_contract_address).get_tally(election_id, candidate));
     assert_eq(tally, 2);
 }
 
@@ -107,14 +92,8 @@ unconstrained fn test_fail_vote_twice() {
 
     let candidate = 101;
 
-    env.call_private(
-        alice,
-        PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate),
-    );
-    env.call_private(
-        alice,
-        PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate),
-    );
+    env.call_private(alice, PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate));
+    env.call_private(alice, PrivateVoting::at(voting_contract_address).cast_vote(election_id, candidate));
 }
 
 #[test]
@@ -130,23 +109,13 @@ unconstrained fn test_vote_in_two_different_elections() {
 
     let candidate = 101;
 
-    env.call_private(
-        alice,
-        PrivateVoting::at(voting_contract_address).cast_vote(election_id_42, candidate),
-    );
-    env.call_private(
-        alice,
-        PrivateVoting::at(voting_contract_address).cast_vote(election_id_54, candidate),
-    );
+    env.call_private(alice, PrivateVoting::at(voting_contract_address).cast_vote(election_id_42, candidate));
+    env.call_private(alice, PrivateVoting::at(voting_contract_address).cast_vote(election_id_54, candidate));
 
-    let vote_count_42 = env.view_public(PrivateVoting::at(voting_contract_address).get_tally(
-        election_id_42,
-        candidate,
-    ));
-    let vote_count_54 = env.view_public(PrivateVoting::at(voting_contract_address).get_tally(
-        election_id_54,
-        candidate,
-    ));
+    let vote_count_42 =
+        env.view_public(PrivateVoting::at(voting_contract_address).get_tally(election_id_42, candidate));
+    let vote_count_54 =
+        env.view_public(PrivateVoting::at(voting_contract_address).get_tally(election_id_54, candidate));
 
     assert_eq(vote_count_42, 1);
     assert_eq(vote_count_54, 1);

@@ -38,7 +38,7 @@ export class OutboxContract {
 
   static getFromConfig(config: L1ReaderConfig) {
     const client = getPublicClient(config);
-    const address = config.l1Contracts.outboxAddress.toString();
+    const address = config.outboxAddress.toString();
     return new OutboxContract(client, address);
   }
 

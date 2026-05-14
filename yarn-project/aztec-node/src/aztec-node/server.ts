@@ -8,7 +8,7 @@ import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
-import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
@@ -39,7 +39,7 @@ import {
   SequencerClient,
   type SequencerPublisher,
 } from '@aztec/sequencer-client';
-import { PublicProcessorFactory } from '@aztec/simulator/server';
+import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   EpochPruneWatcher,
@@ -50,16 +50,18 @@ import {
 import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type BlockData,
   BlockHash,
   type BlockParameter,
   BlockTag,
+  type CheckpointsQuery,
   type CommitteeAttestation,
   type DataInBlock,
   type L2BlockSource,
   type NormalizedBlockParameter,
   inspectBlockParameter,
 } from '@aztec/stdlib/block';
-import { L1PublishedData } from '@aztec/stdlib/checkpoint';
+import { type CheckpointData, L1PublishedData, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -76,6 +78,7 @@ import type {
   AztecNodeDebug,
   BlockIncludeOptions,
   BlockResponse,
+  BlocksIncludeOptions,
   ChainTip,
   ChainTips,
   CheckpointIncludeOptions,
@@ -96,16 +99,16 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { DebugLogStore, LogFilter, SiloedTag, Tag, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
-import { InboxLeaf, type L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { InboxLeaf, type L1ToL2MessageSource, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { Offense } from '@aztec/stdlib/slashing';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
-  type BlockHeader,
   type FeeProvider,
   type GlobalVariableBuilder as GlobalVariableBuilderInterface,
   type IndexedTxEffect,
   PublicSimulationOutput,
+  type SimulationOverrides,
   Tx,
   type TxHash,
   TxReceipt,
@@ -143,9 +146,11 @@ import {
   blockResponseFromL2Block,
   checkpointResponseFromCheckpointData,
   checkpointResponseFromPublishedCheckpoint,
+  projectProposedToCheckpointResponse,
 } from './block_response_helpers.js';
 import { type AztecNodeConfig, createKeyStoreForValidator } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
+import { applyPublicDataOverrides } from './public_data_overrides.js';
 
 /**
  * The aztec node.
@@ -190,7 +195,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     this.tracer = telemetry.getTracer('AztecNodeService');
 
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
-    this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, config.l1Contracts);
+    this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, pickL1ContractAddresses(config));
 
     // A defensive check that protects us against introducing a bug in the complex `createAndSync` function. We must
     // never have debugLogStore enabled when not in test mode because then we would be accumulating debug logs in
@@ -215,60 +220,29 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return { proposed, checkpointed, proven, finalized };
   }
 
-  public getL2Tips() {
-    return this.blockSource.getL2Tips();
+  public getCheckpointsData(query: CheckpointsQuery) {
+    return this.blockSource.getCheckpointsData(query);
   }
 
-  public async getBlockHeader(number: BlockNumber | 'latest'): Promise<BlockHeader | undefined> {
-    if (number === 'latest') {
-      return (await this.blockSource.getBlockData({ tag: 'proposed' }))?.header;
+  public async getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
+    if (tip === undefined || tip === 'proposed') {
+      return this.blockSource.getBlockNumber();
     }
-    return (await this.blockSource.getBlockData({ number }))?.header;
-  }
-
-  public async getCheckpointedBlocks(from: BlockNumber, limit: number): Promise<BlockResponse[]> {
-    const blocks = await this.blockSource.getBlocks({ from, limit, onlyCheckpointed: true });
-    const ctxByCheckpoint = await this.#getCheckpointContextsForBlocks(blocks);
-    return Promise.all(
-      blocks.map(block =>
-        blockResponseFromL2Block(
-          block,
-          { includeTransactions: true, includeL1PublishInfo: true, includeAttestations: true },
-          ctxByCheckpoint.get(block.checkpointNumber),
-        ),
-      ),
-    );
-  }
-
-  public getCheckpointsDataForEpoch(epoch: EpochNumber) {
-    return this.blockSource.getCheckpointsDataForEpoch(epoch);
-  }
-
-  public getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
-    switch (tip) {
-      case undefined:
-      case 'proposed':
-        return this.blockSource.getBlockNumber();
-      case 'checkpointed':
-        return this.blockSource.getCheckpointedL2BlockNumber();
-      case 'proven':
-        return this.blockSource.getProvenBlockNumber();
-      case 'finalized':
-        return this.blockSource.getFinalizedL2BlockNumber();
-    }
+    return (await this.blockSource.getBlockNumber({ tag: tip })) ?? BlockNumber.ZERO;
   }
 
   public async getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber> {
+    const tips = await this.blockSource.getL2Tips();
     switch (tip) {
       case undefined:
-      case 'proposed':
       case 'checkpointed':
-        return await this.blockSource.getCheckpointNumber();
+        return tips.checkpointed.checkpoint.number;
+      case 'proposed':
+        return tips.proposedCheckpoint.checkpoint.number;
       case 'proven':
-      case 'finalized': {
-        const tips = await this.blockSource.getL2Tips();
-        return tip === 'proven' ? tips.proven.checkpoint.number : tips.finalized.checkpoint.number;
-      }
+        return tips.proven.checkpoint.number;
+      case 'finalized':
+        return tips.finalized.checkpoint.number;
     }
   }
 
@@ -318,17 +292,32 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return BlockTag.includes(value as BlockTag);
   }
 
+  /**
+   * Resolves a {@link CheckpointParameter} into a concrete `{ number }` or `{ slot }` query.
+   *
+   * Tag-based parameters (`'proposed'`, `'checkpointed'`, `'proven'`, `'finalized'`) are
+   * translated up-front to the corresponding tip's checkpoint number via {@link L2BlockSource.getL2Tips}.
+   * After resolution the unified {@link getCheckpoint} flow can perform a single
+   * confirmed→proposed lookup against either store.
+   */
   private async resolveCheckpointParameter(
     param: CheckpointParameter,
-  ): Promise<{ number?: CheckpointNumber; slot?: SlotNumber }> {
+  ): Promise<{ number: CheckpointNumber } | { slot: SlotNumber }> {
     if (typeof param === 'number') {
       return { number: param as CheckpointNumber };
     }
-    if (param === 'latest') {
-      return { number: await this.blockSource.getCheckpointNumber() };
-    }
     if (this.isChainTip(param)) {
-      return { number: await this.getCheckpointNumber(param) };
+      const tips = await this.blockSource.getL2Tips();
+      switch (param) {
+        case 'proposed':
+          return { number: tips.proposedCheckpoint.checkpoint.number };
+        case 'checkpointed':
+          return { number: tips.checkpointed.checkpoint.number };
+        case 'proven':
+          return { number: tips.proven.checkpoint.number };
+        case 'finalized':
+          return { number: tips.finalized.checkpoint.number };
+      }
     }
     if (typeof param === 'object' && param !== null) {
       if ('number' in param) {
@@ -345,7 +334,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   async #getCheckpointContext(
     checkpointNumber: CheckpointNumber,
   ): Promise<{ l1?: L1PublishedData; attestations?: CommitteeAttestation[] } | undefined> {
-    const checkpoint = await this.blockSource.getCheckpointData(checkpointNumber);
+    const checkpoint = await this.blockSource.getCheckpointData({ number: checkpointNumber });
     if (!checkpoint) {
       return undefined;
     }
@@ -376,21 +365,27 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return blockResponseFromBlockData(data, options, ctx) as BlockResponse<Opts>;
   }
 
-  public async getBlocks<Opts extends BlockIncludeOptions = {}>(
+  public getBlockData(param: BlockParameter): Promise<BlockData | undefined> {
+    const query = this.normalizeBlockParameter(param);
+    return this.blockSource.getBlockData(query);
+  }
+
+  public async getBlocks<Opts extends BlocksIncludeOptions = {}>(
     from: BlockNumber,
     limit: number,
     options: Opts = {} as Opts,
   ): Promise<BlockResponse<Opts>[]> {
     const wantTxs = !!options.includeTransactions;
     const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
+    const onlyCheckpointed = !!options.onlyCheckpointed;
     if (wantTxs) {
-      const blocks = await this.blockSource.getBlocks({ from, limit });
+      const blocks = await this.blockSource.getBlocks({ from, limit, onlyCheckpointed });
       const ctxByCheckpoint = await this.#getCheckpointContextsForBlocks(wantContext ? blocks : []);
       return (await Promise.all(
         blocks.map(block => blockResponseFromL2Block(block, options, ctxByCheckpoint.get(block.checkpointNumber))),
       )) as BlockResponse<Opts>[];
     }
-    const dataItems = await this.blockSource.getBlocksData({ from, limit });
+    const dataItems = await this.blockSource.getBlocksData({ from, limit, onlyCheckpointed });
     const ctxByCheckpoint = await this.#getCheckpointContextsForBlocks(wantContext ? dataItems : []);
     return (await Promise.all(
       dataItems.map(data => blockResponseFromBlockData(data, options, ctxByCheckpoint.get(data.checkpointNumber))),
@@ -401,7 +396,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   async #getCheckpointContextsForBlocks(
     blocks: { checkpointNumber: CheckpointNumber }[],
     // TODO(palla): CheckpointNumber should be accepted by this lint rule
-    // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
   ): Promise<Map<CheckpointNumber, { l1?: L1PublishedData; attestations?: CommitteeAttestation[] } | undefined>> {
     const unique = Array.from(new Set(blocks.map(b => b.checkpointNumber)));
     const entries = await Promise.all(unique.map(async n => [n, await this.#getCheckpointContext(n)] as const));
@@ -412,26 +406,33 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     param: CheckpointParameter,
     options: Opts = {} as Opts,
   ): Promise<CheckpointResponse<Opts> | undefined> {
-    const resolved = await this.resolveCheckpointParameter(param);
-    let checkpointNumber = resolved.number;
-    if (checkpointNumber === undefined && resolved.slot !== undefined) {
-      checkpointNumber = await this.blockSource.getCheckpointNumberBySlot(resolved.slot);
+    const query = await this.resolveCheckpointParameter(param);
+
+    // Try the confirmed store first.
+    const confirmed = options.includeBlocks
+      ? await this.blockSource.getCheckpoint(query)
+      : await this.blockSource.getCheckpointData(query);
+    if (confirmed) {
+      return (await (options.includeBlocks
+        ? checkpointResponseFromPublishedCheckpoint(confirmed as PublishedCheckpoint, options)
+        : checkpointResponseFromCheckpointData(confirmed as CheckpointData, options))) as CheckpointResponse<Opts>;
     }
-    if (checkpointNumber === undefined) {
-      return undefined;
-    }
-    if (options.includeBlocks) {
-      const [checkpoint] = await this.blockSource.getCheckpoints(checkpointNumber, 1);
-      if (!checkpoint) {
-        return undefined;
+
+    // Fall back to the proposed store.
+    const proposed = await this.blockSource.getProposedCheckpointData(query);
+    if (proposed) {
+      if (options.includeAttestations || options.includeL1PublishInfo) {
+        throw new BadRequestError(
+          `Options includeL1PublishInfo or includeAttestations cannot be satisfied for a proposed checkpoint`,
+        );
       }
-      return (await checkpointResponseFromPublishedCheckpoint(checkpoint, options)) as CheckpointResponse<Opts>;
+      const blocks = options.includeBlocks
+        ? await this.blockSource.getBlocks({ from: proposed.startBlock, limit: proposed.blockCount })
+        : undefined;
+      return (await projectProposedToCheckpointResponse(proposed, options, blocks)) as CheckpointResponse<Opts>;
     }
-    const data = await this.blockSource.getCheckpointData(checkpointNumber);
-    if (!data) {
-      return undefined;
-    }
-    return checkpointResponseFromCheckpointData(data, options) as CheckpointResponse<Opts>;
+
+    return undefined;
   }
 
   public async getCheckpoints<Opts extends CheckpointIncludeOptions = {}>(
@@ -440,12 +441,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     options: Opts = {} as Opts,
   ): Promise<CheckpointResponse<Opts>[]> {
     if (options.includeBlocks) {
-      const checkpoints = await this.blockSource.getCheckpoints(from, limit);
+      const checkpoints = await this.blockSource.getCheckpoints({ from, limit });
       return (await Promise.all(
         checkpoints.map(cp => checkpointResponseFromPublishedCheckpoint(cp, options)),
       )) as CheckpointResponse<Opts>[];
     }
-    const datas = await this.blockSource.getCheckpointDataRange(from, limit);
+    const datas = await this.blockSource.getCheckpointsData({ from, limit });
     return datas.map(d => checkpointResponseFromCheckpointData(d, options)) as CheckpointResponse<Opts>[];
   }
 
@@ -473,7 +474,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   ): Promise<AztecNodeService> {
     const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
     const log = deps.logger ?? createLogger('node');
-    const packageVersion = getPackageVersion() ?? '';
+    const packageVersion = getPackageVersion();
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
@@ -532,14 +533,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     const l1ContractsAddresses = await RegistryContract.collectAddresses(
       publicClient,
-      config.l1Contracts.registryAddress,
+      config.registryAddress,
       config.rollupVersion ?? 'canonical',
     );
 
-    // Overwrite the passed in vars.
-    config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
+    Object.assign(config, l1ContractsAddresses);
 
-    const rollupContract = new RollupContract(publicClient, config.l1Contracts.rollupAddress.toString());
+    const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
     const [l1GenesisTime, slotDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
@@ -560,7 +560,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // attempt snapshot sync if possible
     await trySnapshotSync(config, log);
 
-    const epochCache = await EpochCache.create(config.l1Contracts.rollupAddress, config, { dateProvider });
+    const epochCache = await EpochCache.create(config.rollupAddress, config, { dateProvider });
 
     // Track started resources so we can clean up on partial failure during node creation.
     const started: { stop?(): Promise<void> | void }[] = [];
@@ -607,7 +607,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       }
 
       const globalVariableBuilderConfig = {
-        l1Contracts: config.l1Contracts,
+        rollupAddress: config.rollupAddress,
         ethereumSlotDuration: config.ethereumSlotDuration,
         rollupVersion: BigInt(config.rollupVersion),
         l1GenesisTime,
@@ -778,7 +778,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
         slasherClient = await createSlasher(
           config,
-          config.l1Contracts,
+          pickL1ContractAddresses(config),
           getPublicClient(config),
           watchers,
           dateProvider,
@@ -949,7 +949,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @returns - The currently deployed L1 contract addresses.
    */
   public getL1ContractAddresses(): Promise<L1ContractAddresses> {
-    return Promise.resolve(this.config.l1Contracts);
+    return Promise.resolve(pickL1ContractAddresses(this.config));
   }
 
   public getEncodedEnr(): Promise<string | undefined> {
@@ -1341,17 +1341,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
   public async getL1ToL2MessageCheckpoint(l1ToL2Message: Fr): Promise<CheckpointNumber | undefined> {
     const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
-  }
-
-  /**
-   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
-   * @param l1ToL2Message - The L1 to L2 message to check.
-   * @returns Whether the message is synced and ready to be included in a block.
-   */
-  public async isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    const messageIndex = await this.l1ToL2MessageSource.getL1ToL2MessageIndex(l1ToL2Message);
-    return messageIndex !== undefined;
+    return messageIndex !== undefined ? InboxLeaf.checkpointNumberFromIndex(messageIndex) : undefined;
   }
 
   /**
@@ -1440,11 +1430,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   /**
    * Simulates the public part of a transaction with the current state.
    * @param tx - The transaction to simulate.
+   * @param skipFeeEnforcement - If true, fee enforcement is skipped.
+   * @param overrides - Optional pre-simulation overrides applied to the ephemeral fork and contract DB.
    **/
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  public async simulatePublicCalls(tx: Tx, skipFeeEnforcement = false): Promise<PublicSimulationOutput> {
+  public async simulatePublicCalls(
+    tx: Tx,
+    skipFeeEnforcement = false,
+    overrides?: SimulationOverrides,
+  ): Promise<PublicSimulationOutput> {
     // Check total gas limit for simulation
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const txGasLimit = gasSettings.gasLimits.l2Gas;
@@ -1460,7 +1456,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
 
     const txHash = tx.getTxHash();
-    const latestBlockNumber = await this.blockSource.getBlockNumber();
+    const l2Tips = await this.blockSource.getL2Tips();
+    const latestBlockNumber = l2Tips.proposed.number;
     const blockNumber = BlockNumber.add(latestBlockNumber, 1);
 
     // If sequencer is not initialized, we just set these values to zero for simulation.
@@ -1472,6 +1469,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       coinbase,
       feeRecipient,
     );
+
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
       new DateProvider(),
@@ -1487,40 +1485,64 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     // Ensure world-state has caught up with the latest block we loaded from the archiver
     await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
-    const merkleTreeFork = await this.worldStateSynchronizer.fork();
-    try {
-      const config = PublicSimulatorConfig.from({
-        skipFeeEnforcement,
-        collectDebugLogs: true,
-        collectHints: false,
-        collectCallMetadata: true,
-        collectStatistics: false,
-        collectionLimits: CollectionLimitsConfig.from({
-          maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
-        }),
-      });
-      const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config);
 
-      // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-      const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
-      // REFACTOR: Consider returning the error rather than throwing
-      if (failedTxs.length) {
-        this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
-        throw failedTxs[0].error;
-      }
+    // If we detect the next block would start a new checkpoint, then insert L1-to-L2 messages into
+    // the world state tree so simulation can take them into account. We detect if the next block would
+    // start a new checkpoint by checking if the proposed checkpoint's block number matches the latest block number,
+    // which means the next block would be the first block of the next checkpoint.
+    const nextCheckpointMessages: Fr[] | undefined =
+      l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number
+        ? await this.l1ToL2MessageSource.getL1ToL2Messages(
+            CheckpointNumber((l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1),
+          )
+        : undefined;
 
-      const [processedTx] = processedTxs;
-      return new PublicSimulationOutput(
-        processedTx.revertReason,
-        processedTx.globalVariables,
-        processedTx.txEffect,
-        returns,
-        processedTx.gasUsed,
-        debugLogs,
+    // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
+    await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
+
+    if (nextCheckpointMessages !== undefined) {
+      this.log.debug(
+        `Appending ${nextCheckpointMessages.length} L1-to-L2 messages to the world state tree for the next checkpoint`,
+        { checkpointNumber: l2Tips.proposedCheckpoint.checkpoint.number + 1 },
       );
-    } finally {
-      await merkleTreeFork.close();
+      await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
     }
+    await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
+
+    const config = PublicSimulatorConfig.from({
+      skipFeeEnforcement,
+      collectDebugLogs: true,
+      collectHints: false,
+      collectCallMetadata: true,
+      collectStatistics: false,
+      collectionLimits: CollectionLimitsConfig.from({
+        maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
+      }),
+    });
+
+    const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
+    if (overrides?.contracts) {
+      contractsDB.addContracts(Object.values(overrides.contracts).map(({ instance }) => instance));
+    }
+    const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config, contractsDB);
+
+    // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
+    const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
+    // REFACTOR: Consider returning the error rather than throwing
+    if (failedTxs.length) {
+      this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
+      throw failedTxs[0].error;
+    }
+
+    const [processedTx] = processedTxs;
+    return new PublicSimulationOutput(
+      processedTx.revertReason,
+      processedTx.globalVariables,
+      processedTx.txEffect,
+      returns,
+      processedTx.gasUsed,
+      debugLogs,
+    );
   }
 
   public async isValidTx(

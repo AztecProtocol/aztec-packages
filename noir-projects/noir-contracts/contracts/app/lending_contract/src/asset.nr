@@ -1,7 +1,4 @@
-use aztec::protocol::{
-    address::AztecAddress,
-    traits::{Deserialize, FromField, Packable, Serialize, ToField},
-};
+use aztec::protocol::{address::AztecAddress, traits::{Deserialize, FromField, Packable, Serialize, ToField}};
 use std::meta::derive;
 
 /// Struct to be used to represent "totals". Generally, there should be one per Asset.

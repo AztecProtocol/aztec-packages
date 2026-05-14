@@ -155,7 +155,6 @@ services:
       /usr/src/yarn-project/aztec/dest/bin/index.js
       start
       --prover-node
-      --archiver
       --network #release_network
     depends_on:
       prover-broker:

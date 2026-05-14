@@ -15,7 +15,7 @@ import {
 import type { L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ViemClient } from '../types.js';
 import { type IEmpireBase, encodeSignal, encodeSignalWithSignature, signSignalWithSig } from './empire_base.js';
-import { extractProposalIdFromLogs } from './governance.js';
+import { ReadOnlyGovernanceContract, extractProposalIdFromLogs } from './governance.js';
 
 export class GovernanceProposerContract implements IEmpireBase {
   private readonly proposer: GetContractReturnType<typeof GovernanceProposerAbi, ViemClient>;
@@ -110,10 +110,27 @@ export class GovernanceProposerContract implements IEmpireBase {
     };
   }
 
-  /** Checks if a payload was ever submitted to governance via submitRoundWinner. */
-  public async hasPayloadBeenProposed(payload: Hex, fromBlock: bigint): Promise<boolean> {
-    const events = await this.proposer.getEvents.PayloadSubmitted({ payload }, { fromBlock, strict: true });
-    return events.length > 0;
+  /**
+   * Resolves the Governance contract this proposer submits winners to. Lazily reads
+   * `GovernanceProposer.getGovernance()` (which itself looks the address up via the registry) and
+   * memoizes the resulting wrapper.
+   */
+  @memoize
+  public async getGovernance(): Promise<ReadOnlyGovernanceContract> {
+    const address = await this.proposer.read.getGovernance();
+    return new ReadOnlyGovernanceContract(address, this.client);
+  }
+
+  /**
+   * Returns true iff the given original payload is currently the subject of a live (non-terminal)
+   * Governance proposal. Delegates to `ReadOnlyGovernanceContract.hasActiveProposalWithPayload`, which
+   * implements the actual sweep against the Governance contract -- this method exists only as a
+   * convenience wrapper so callers that already hold a GovernanceProposer reference don't have to
+   * resolve the Governance address themselves.
+   */
+  public async hasActiveProposalWithPayload(payload: Hex): Promise<boolean> {
+    const governance = await this.getGovernance();
+    return governance.hasActiveProposalWithPayload(payload);
   }
 
   public async submitRoundWinner(

@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { MessageContext } from '@aztec/stdlib/logs';
-import { TxHash } from '@aztec/stdlib/tx';
+import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
@@ -122,5 +122,27 @@ describe('MessageContextService', () => {
 
     // Zero hash should not trigger getTxEffect
     expect(aztecNode.getTxEffect).toHaveBeenCalledTimes(3);
+  });
+
+  it('deduplicates repeated tx hashes so each is fetched only once', async () => {
+    const txEffect = TxEffect.from({
+      ...(await TxEffect.random({ numNoteHashes: 1, numNullifiers: 1 })),
+    });
+
+    aztecNode.getTxEffect.mockResolvedValue({
+      l2BlockNumber: BlockNumber(anchorBlockNumber - 1),
+      l2BlockHash: BlockHash.random(),
+      txIndexInBlock: 0,
+      data: txEffect,
+    });
+
+    const results = await service.getMessageContextsByTxHash(
+      [txEffect.txHash.hash, txEffect.txHash.hash, txEffect.txHash.hash],
+      anchorBlockNumber,
+    );
+
+    const expected = new MessageContext(txEffect.txHash, txEffect.noteHashes, txEffect.nullifiers[0]);
+    expect(results).toEqual([expected, expected, expected]);
+    expect(aztecNode.getTxEffect).toHaveBeenCalledTimes(1);
   });
 });

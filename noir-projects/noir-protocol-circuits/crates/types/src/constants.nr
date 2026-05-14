@@ -127,7 +127,14 @@ pub global ROOT_ROLLUP_VK_INDEX: u32 = 20;
 pub global PARITY_BASE_VK_INDEX: u32 = 21;
 pub global PARITY_ROOT_VK_INDEX: u32 = 22;
 pub global PRIVATE_KERNEL_RESET_VK_INDEX: u32 = 23;
-// Important: Do not define indexes after the PRIVATE_KERNEL_RESET_VK_INDEX. They are allocated for the variants of private kernel reset.
+// Important: Do not define indexes between 24 and 64. They are allocated for the variants of private kernel reset. Add new non-reset kernel indices at 65+.
+pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 65;
+pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 66;
+pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 67;
+pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 68;
+
+// Maximum number of apps absorbed by a single private kernel iteration.
+pub global MAX_APPS_PER_KERNEL: u32 = 3;
 
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
@@ -610,10 +617,20 @@ pub global ULTRA_KECCAK_PROOF_LENGTH: u32 = 331; // See UltraKeccakFlavor for fo
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_SIZE + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
-pub global CHONK_PROOF_LENGTH: u32 = 1315;
+// Chonk sub-proof lengths; pinned to bb via static_asserts in mock_verifier_inputs.test.cpp.
+pub global CHONK_HIDING_OINK_LENGTH: u32 = 108;
+pub global CHONK_MERGE_PROOF_SIZE: u32 = 42;
+pub global CHONK_ECCVM_PROOF_LENGTH: u32 = 608;
+pub global CHONK_JOINT_PROOF_LENGTH: u32 = 499;
+pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
+    + HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE
+    + CHONK_MERGE_PROOF_SIZE
+    + CHONK_ECCVM_PROOF_LENGTH
+    + IPA_PROOF_LENGTH
+    + CHONK_JOINT_PROOF_LENGTH;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
-pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 127; // size of a Mega verification key
+pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 143; // size of a Mega verification key
 // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
 // VK is composed of
@@ -689,6 +706,9 @@ pub global DOM_SEP__EVENT_LOG_TAG: u32 = 926040838;
 pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
 /// Domain separator for unconstrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
+/// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
+/// [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG: u32 = 4046403018;
 /// Domain separator for private log tags.
 ///
 /// Used by [`crate::hash::compute_siloed_private_log_first_field`].
@@ -784,6 +804,10 @@ pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
 
 /// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
+
+/// Domain separator for the secret hash stored in handshake notes produced by the handshake registry contract.
+/// Kept distinct from [`DOM_SEP__SECRET_HASH`] (which is specifically for L1 to L2 messages).
+pub global DOM_SEP__HANDSHAKE_SECRET_HASH: u32 = 3596796143;
 
 /// Domain separator for transaction nullifiers.
 ///

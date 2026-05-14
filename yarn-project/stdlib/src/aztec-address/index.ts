@@ -1,3 +1,4 @@
+import { NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
 import { Fr, fromBuffer } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { type ZodFor, bufferSchemaFor, hexSchemaFor } from '@aztec/foundation/schemas';
@@ -40,6 +41,9 @@ export class AztecAddress {
   static SIZE_IN_BYTES = Fr.SIZE_IN_BYTES;
 
   static ZERO = new AztecAddress(Buffer.alloc(32, 0));
+
+  /** Null msg sender address. Not part of the protocol contracts tree. */
+  static NULL_MSG_SENDER = AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS);
 
   static zero(): AztecAddress {
     return AztecAddress.ZERO;

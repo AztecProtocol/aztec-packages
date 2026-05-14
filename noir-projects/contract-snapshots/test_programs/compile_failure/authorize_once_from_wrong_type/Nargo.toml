@@ -1,0 +1,7 @@
+[package]
+name = "authorize_once_from_wrong_type"
+type = "contract"
+authors = [""]
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }

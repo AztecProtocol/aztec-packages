@@ -2611,6 +2611,65 @@ describe('BlockStore', () => {
     });
   });
 
+  describe('getProposedCheckpointBySlot', () => {
+    async function addBlocksForProposed(
+      startBlock: number,
+      blockCount: number,
+      checkpointNumber: number,
+      previousArchive?: AppendOnlyTreeSnapshot,
+    ): Promise<void> {
+      for (let i = 0; i < blockCount; i++) {
+        const opts: Parameters<typeof L2Block.random>[1] = {
+          checkpointNumber: CheckpointNumber(checkpointNumber),
+          indexWithinCheckpoint: IndexWithinCheckpoint(i),
+        };
+        if (i === 0 && previousArchive) {
+          (opts as any).lastArchive = previousArchive;
+        }
+        const block = await L2Block.random(BlockNumber(startBlock + i), opts);
+        await blockStore.addProposedBlock(block, { force: true });
+      }
+    }
+
+    it('returns the proposed entry whose header slot matches', async () => {
+      await addBlocksForProposed(1, 1, 1);
+      const targetSlot = SlotNumber(42);
+      await blockStore.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.random({ slotNumber: targetSlot }),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 0n,
+      });
+
+      const result = await blockStore.getProposedCheckpointBySlot(targetSlot);
+      expect(result).toBeDefined();
+      expect(result!.checkpointNumber).toBe(1);
+      expect(result!.header.slotNumber).toBe(targetSlot);
+    });
+
+    it('returns undefined if no proposed entry has that slot', async () => {
+      await addBlocksForProposed(1, 1, 1);
+      await blockStore.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(1),
+        header: CheckpointHeader.random({ slotNumber: SlotNumber(10) }),
+        startBlock: BlockNumber(1),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 0n,
+      });
+
+      const result = await blockStore.getProposedCheckpointBySlot(SlotNumber(999));
+      expect(result).toBeUndefined();
+    });
+
+    it('returns undefined when no proposed checkpoints exist', async () => {
+      const result = await blockStore.getProposedCheckpointBySlot(SlotNumber(1));
+      expect(result).toBeUndefined();
+    });
+  });
+
   describe('removeBlocksAfterBlock', () => {
     it('removes blocks with number > given blockNumber', async () => {
       // Create blocks for initial checkpoint

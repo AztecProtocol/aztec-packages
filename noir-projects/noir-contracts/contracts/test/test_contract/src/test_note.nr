@@ -13,12 +13,7 @@ pub struct TestNote {
 }
 
 impl NoteHash for TestNote {
-    fn compute_note_hash(
-        self,
-        _owner: AztecAddress,
-        storage_slot: Field,
-        randomness: Field,
-    ) -> Field {
+    fn compute_note_hash(self, _owner: AztecAddress, storage_slot: Field, randomness: Field) -> Field {
         // The note is inserted into the state in the Test contract so we provide a real compute_note_hash
         // implementation.
         let data = self.pack().concat([randomness]);

@@ -70,13 +70,15 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
             {
               dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
               dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-              l1Contracts,
+              rollupAddress: l1Contracts.rollupAddress,
             },
             rootLogger.createChild('wallet:data').getBindings(),
           ));
-    const walletDB = WalletDB.init(walletDBStore, rootLogger.createChild('wallet:db').info);
+    const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
-    return new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
+    const wallet = new this(pxe, aztecNode, walletDB, new BundleAccountContractsProvider(), rootLogger) as T;
+    await wallet.initStubClasses();
+    return wallet;
   }
 }
 

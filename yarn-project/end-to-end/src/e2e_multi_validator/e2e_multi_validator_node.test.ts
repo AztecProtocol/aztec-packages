@@ -113,10 +113,9 @@ describe('e2e_multi_validator_node', () => {
     const deployer = new ContractDeployer(artifact, wallet);
 
     logger.info(`Deploying contract from ${ownerAddress}`);
-    const { receipt: tx } = await deployer.deploy(ownerAddress, 1).send({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
-    });
+    const { receipt: tx } = await deployer
+      .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
+      .send({ from: ownerAddress });
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
@@ -124,7 +123,7 @@ describe('e2e_multi_validator_node', () => {
 
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const blockData = await dataStore.getBlockData({ number: BlockNumber(tx.blockNumber!) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(blockData!.checkpointNumber, 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
     const signatureContext = {
       chainId: config.l1ChainId,
       rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
@@ -175,10 +174,9 @@ describe('e2e_multi_validator_node', () => {
     // new aztec transaction
     logger.info(`Deploying contract from ${ownerAddress}`);
     const deployer = new ContractDeployer(artifact, wallet);
-    const { receipt: tx } = await deployer.deploy(ownerAddress, 1).send({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(BigInt(1)),
-    });
+    const { receipt: tx } = await deployer
+      .deploy([ownerAddress, 1], { salt: new Fr(BigInt(1)) })
+      .send({ from: ownerAddress });
     await waitForProven(aztecNode, tx, {
       provenTimeout: (config.aztecProofSubmissionEpochs + 1) * config.aztecEpochDuration * config.aztecSlotDuration,
     });
@@ -186,7 +184,7 @@ describe('e2e_multi_validator_node', () => {
 
     const dataStore = (aztecNode as AztecNodeService).getBlockSource() as Archiver;
     const blockData = await dataStore.getBlockData({ number: BlockNumber(tx.blockNumber!) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints(blockData!.checkpointNumber, 1);
+    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
     const signatureContext = {
       chainId: config.l1ChainId,
       rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,

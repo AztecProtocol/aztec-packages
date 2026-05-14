@@ -1,1 +1,0 @@
-The #[noinitcheck] attribute cannot be applied to #[external("utility")] functions - foo

@@ -1,6 +1,7 @@
 import type { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import {
+  ARCHIVE_HEIGHT,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
@@ -8,6 +9,7 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
@@ -16,6 +18,7 @@ import {
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { BlockHash } from '@aztec/stdlib/block';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXE_ORACLE_VERSION_MAJOR } from './txe_oracle_version.js';
@@ -120,7 +123,7 @@ export class RPCTranslator {
           ? 'The test was compiled with a newer version of Aztec.nr than your test environment supports. Upgrade your test environment to a compatible version.'
           : 'The test was compiled with an older version of Aztec.nr than your test environment supports. Recompile the test with a compatible version of Aztec.nr.';
       throw new Error(
-        `Incompatible test environment version: ${hint} See https://docs.aztec.network/errors/11 (expected test oracle major version ${TXE_ORACLE_VERSION_MAJOR}, got ${major})`,
+        `Incompatible test environment version: ${hint} See https://docs.aztec.network/errors/12 (expected test oracle major version ${TXE_ORACLE_VERSION_MAJOR}, got ${major})`,
       );
     }
 
@@ -797,6 +800,7 @@ export class RPCTranslator {
     return toForeignCallResult(witness.toNoirRepresentation());
   }
 
+  // TODO(https://linear.app/aztec-labs/issue/F-651): drop this
   // eslint-disable-next-line camelcase
   async aztec_utl_getBlockHashMembershipWitness(
     foreignAnchorBlockHash: ForeignCallSingle,
@@ -813,6 +817,20 @@ export class RPCTranslator {
       );
     }
     return toForeignCallResult(witness.toNoirRepresentation());
+  }
+
+  // TODO(https://linear.app/aztec-labs/issue/F-651): rename to aztec_utl_getBlockHashMembershipWitness
+  // eslint-disable-next-line camelcase
+  async aztec_utl_getBlockHashMembershipWitnessV2(
+    foreignAnchorBlockHash: ForeignCallSingle,
+    foreignBlockHash: ForeignCallSingle,
+  ) {
+    const anchorBlockHash = new BlockHash(fromSingle(foreignAnchorBlockHash));
+    const blockHash = new BlockHash(fromSingle(foreignBlockHash));
+
+    const witness = await this.handlerAsUtility().getBlockHashMembershipWitness(anchorBlockHash, blockHash);
+    const effective = witness ?? MembershipWitness.empty(ARCHIVE_HEIGHT);
+    return toForeignCallResult([toSingle(new Fr(witness !== undefined ? 1 : 0)), ...effective.toNoirRepresentation()]);
   }
 
   // eslint-disable-next-line camelcase
@@ -1365,19 +1383,26 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_txe_privateCallNewFlow(
-    foreignFrom: ForeignCallSingle,
+    foreignFromIsSome: ForeignCallSingle,
+    foreignFromValue: ForeignCallSingle,
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
     foreignArgsHash: ForeignCallSingle,
     foreignIsStaticCall: ForeignCallSingle,
+    foreignAdditionalScopes: ForeignCallArray,
+    foreignAuthorizedUtilityCallTargets: ForeignCallArray,
   ) {
-    const from = addressFromSingle(foreignFrom);
+    const from = fromSingle(foreignFromIsSome).toBool() ? addressFromSingle(foreignFromValue) : undefined;
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
+    const additionalScopes = fromArray(foreignAdditionalScopes).map(field => AztecAddress.fromField(field));
+    const authorizedUtilityCallTargets = fromArray(foreignAuthorizedUtilityCallTargets).map(field =>
+      AztecAddress.fromField(field),
+    );
 
     const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
@@ -1387,7 +1412,9 @@ export class RPCTranslator {
         args,
         argsHash,
         isStaticCall,
+        additionalScopes,
         this.stateHandler.getCurrentJob(),
+        authorizedUtilityCallTargets,
       );
 
       // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than
@@ -1419,10 +1446,14 @@ export class RPCTranslator {
     foreignTargetContractAddress: ForeignCallSingle,
     foreignFunctionSelector: ForeignCallSingle,
     foreignArgs: ForeignCallArray,
+    foreignAuthorizedUtilityCallTargets: ForeignCallArray,
   ) {
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
     const functionSelector = FunctionSelector.fromField(fromSingle(foreignFunctionSelector));
     const args = fromArray(foreignArgs);
+    const authorizedUtilityCallTargets = fromArray(foreignAuthorizedUtilityCallTargets).map(field =>
+      AztecAddress.fromField(field),
+    );
 
     const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const returnValues = await this.handlerAsTxe().executeUtilityFunction(
@@ -1430,6 +1461,7 @@ export class RPCTranslator {
         functionSelector,
         args,
         this.stateHandler.getCurrentJob(),
+        authorizedUtilityCallTargets,
       );
 
       // TODO(F-335): Avoid doing the following call here.
@@ -1443,12 +1475,13 @@ export class RPCTranslator {
 
   // eslint-disable-next-line camelcase
   async aztec_txe_publicCallNewFlow(
-    foreignFrom: ForeignCallSingle,
+    foreignFromIsSome: ForeignCallSingle,
+    foreignFromValue: ForeignCallSingle,
     foreignAddress: ForeignCallSingle,
     foreignCalldata: ForeignCallArray,
     foreignIsStaticCall: ForeignCallSingle,
   ) {
-    const from = addressFromSingle(foreignFrom);
+    const from = fromSingle(foreignFromIsSome).toBool() ? addressFromSingle(foreignFromValue) : undefined;
     const address = addressFromSingle(foreignAddress);
     const calldata = fromArray(foreignCalldata);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();

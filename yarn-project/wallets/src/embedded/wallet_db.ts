@@ -12,16 +12,15 @@ function accountKey(field: string, address: AztecAddress | string): string {
 }
 
 export class WalletDB {
-  private constructor(
-    private accounts: AztecAsyncMap<string, Buffer>,
-    private aliases: AztecAsyncMap<string, Buffer>,
-    private userLog: LogFn,
-  ) {}
+  private accounts: AztecAsyncMap<string, Buffer>;
+  private aliases: AztecAsyncMap<string, Buffer>;
 
-  static init(store: AztecAsyncKVStore, userLog: LogFn) {
-    const accounts = store.openMap<string, Buffer>('accounts');
-    const aliases = store.openMap<string, Buffer>('aliases');
-    return new WalletDB(accounts, aliases, userLog);
+  constructor(
+    private store: AztecAsyncKVStore,
+    private userLog: LogFn,
+  ) {
+    this.accounts = store.openMap<string, Buffer>('accounts');
+    this.aliases = store.openMap<string, Buffer>('aliases');
   }
 
   async storeAccount(
@@ -130,5 +129,9 @@ export class WalletDB {
     if (alias) {
       await this.aliases.delete(`accounts:${alias}`);
     }
+  }
+
+  async close() {
+    await this.store.close();
   }
 }

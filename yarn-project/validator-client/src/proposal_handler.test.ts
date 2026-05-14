@@ -55,7 +55,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
   beforeEach(() => {
     blockSource = mock<L2BlockSource & L2BlockSink>();
-    blockSource.getCheckpointsDataForEpoch.mockResolvedValue([]);
+    blockSource.getCheckpointsData.mockResolvedValue([]);
     blockSource.getBlocksForSlot.mockResolvedValue([]);
     blockSource.syncImmediate.mockResolvedValue(undefined);
 
@@ -85,7 +85,7 @@ describe('ProposalHandler checkpoint validation', () => {
 
     config = {
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
-      l1Contracts: { rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress },
+      rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
     } as ValidatorClientFullConfig;
 
     handler = new ProposalHandler(

@@ -1,4 +1,4 @@
-import { DomainSeparator, NULL_MSG_SENDER_CONTRACT_ADDRESS } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
@@ -53,7 +53,7 @@ import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-ex
 import { toFunctionSelector } from 'viem';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import { syncState } from '../../contract_sync/helpers.js';
+import { syncScope } from '../../contract_sync/helpers.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -173,7 +173,7 @@ describe('Private Execution test suite', () => {
     anchorBlockHeader,
     args = [],
     /** Notice that we're defaulting to the "null" msg_sender, which many public functions will fail to unwrap, and will revert. */
-    msgSender = AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS),
+    msgSender = AztecAddress.NULL_MSG_SENDER,
     contractAddress = undefined,
     txContext = {},
   }: {
@@ -293,19 +293,9 @@ describe('Private Execution test suite', () => {
     messageContextService.getMessageContextsByTxHash.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
-      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, anchorBlockHeader, jobId, scopes) => {
+      async (contractAddress, functionToInvokeAfterSync, utilityExecutor, _anchorBlockHeader, _jobId, scopes) => {
         for (const scope of scopes) {
-          await syncState(
-            contractAddress,
-            contractStore,
-            functionToInvokeAfterSync,
-            utilityExecutor,
-            noteStore,
-            aztecNode,
-            anchorBlockHeader,
-            jobId,
-            scope,
-          );
+          await syncScope(contractAddress, contractStore, functionToInvokeAfterSync, utilityExecutor, scope);
         }
       },
     );
@@ -325,7 +315,7 @@ describe('Private Execution test suite', () => {
     // on the input.
     aztecNode.getPrivateLogsByTags.mockImplementation((tags: SiloedTag[]) => Promise.resolve(tags.map(() => [])));
 
-    // Mock getL2Tips and getBlockHeader for loadPrivateLogsForSenderRecipientPair
+    // Mock getL2Tips and getBlockHeader for syncTaggedPrivateLogs
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
 
     // TODO: refactor. Maybe it's worth stubbing a key store

@@ -16,18 +16,9 @@ unconstrained fn pass_public_parameters() {
 
     let min_range_return_values = env.call_public(
         sender,
-        abi_types.return_public_parameters(
-            false,
-            0,
-            0,
-            I64_MIN,
-            CustomStruct { w: 0, x: false, y: 0, z: I64_MIN },
-        ),
+        abi_types.return_public_parameters(false, 0, 0, I64_MIN, CustomStruct { w: 0, x: false, y: 0, z: I64_MIN }),
     );
-    assert_eq(
-        min_range_return_values,
-        (false, 0, 0, I64_MIN, CustomStruct { w: 0, x: false, y: 0, z: I64_MIN }),
-    );
+    assert_eq(min_range_return_values, (false, 0, 0, I64_MIN, CustomStruct { w: 0, x: false, y: 0, z: I64_MIN }));
 
     let max_range_return_values = env.call_public(
         sender,
@@ -41,10 +32,7 @@ unconstrained fn pass_public_parameters() {
     );
     assert_eq(
         max_range_return_values,
-        (
-            true, MAX_FIELD_VALUE, U64_MAX, I64_MAX,
-            CustomStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
-        ),
+        (true, MAX_FIELD_VALUE, U64_MAX, I64_MAX, CustomStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX }),
     );
 }
 
@@ -57,18 +45,9 @@ unconstrained fn pass_private_parameters() {
 
     let min_range_return_values = env.call_private(
         sender,
-        abi_types.return_private_parameters(
-            false,
-            0,
-            0,
-            I64_MIN,
-            CustomStruct { w: 0, x: false, y: 0, z: I64_MIN },
-        ),
+        abi_types.return_private_parameters(false, 0, 0, I64_MIN, CustomStruct { w: 0, x: false, y: 0, z: I64_MIN }),
     );
-    assert_eq(
-        min_range_return_values,
-        (false, 0, 0, I64_MIN, CustomStruct { w: 0, x: false, y: 0, z: I64_MIN }),
-    );
+    assert_eq(min_range_return_values, (false, 0, 0, I64_MIN, CustomStruct { w: 0, x: false, y: 0, z: I64_MIN }));
 
     let max_range_return_values = env.call_private(
         sender,
@@ -82,10 +61,7 @@ unconstrained fn pass_private_parameters() {
     );
     assert_eq(
         max_range_return_values,
-        (
-            true, MAX_FIELD_VALUE, U64_MAX, I64_MAX,
-            CustomStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
-        ),
+        (true, MAX_FIELD_VALUE, U64_MAX, I64_MAX, CustomStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX }),
     );
 }
 
@@ -102,10 +78,7 @@ unconstrained fn pass_utility_parameters() {
         I64_MIN,
         CustomStruct { w: 0, x: false, y: 0, z: I64_MIN },
     ));
-    assert_eq(
-        min_range_return_values,
-        (false, 0, 0, I64_MIN, CustomStruct { w: 0, x: false, y: 0, z: I64_MIN }),
-    );
+    assert_eq(min_range_return_values, (false, 0, 0, I64_MIN, CustomStruct { w: 0, x: false, y: 0, z: I64_MIN }));
 
     let max_range_return_values = env.execute_utility(abi_types.return_utility_parameters(
         true,
@@ -116,9 +89,6 @@ unconstrained fn pass_utility_parameters() {
     ));
     assert_eq(
         max_range_return_values,
-        (
-            true, MAX_FIELD_VALUE, U64_MAX, I64_MAX,
-            CustomStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX },
-        ),
+        (true, MAX_FIELD_VALUE, U64_MAX, I64_MAX, CustomStruct { w: MAX_FIELD_VALUE, x: true, y: U64_MAX, z: I64_MAX }),
     );
 }
