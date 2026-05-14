@@ -150,7 +150,15 @@ class ParallelForPool {
             std::this_thread::yield();
         }
         while (!pred()) {
+#ifdef __wasm__
+            // sleep_for(microseconds) traps under wasi-threads from a worker
+            // context (libc++'s wrapper hits an unsupported wasi call). Keep
+            // yielding — workers in the prover workload are rarely idle long
+            // enough for the back-off to matter.
+            std::this_thread::yield();
+#else
             std::this_thread::sleep_for(std::chrono::microseconds(100));
+#endif
         }
     }
 };
@@ -190,7 +198,14 @@ void ParallelForPool::worker_loop()
             ++idle_spins;
             std::this_thread::yield();
         } else {
+#ifdef __wasm__
+            // sleep_for(microseconds) traps under wasi-threads from a worker
+            // context (libc++'s wrapper hits an unsupported wasi call). Keep
+            // yielding — see idle_wait_until() for the same rationale.
+            std::this_thread::yield();
+#else
             std::this_thread::sleep_for(std::chrono::microseconds(100));
+#endif
         }
     }
 }
