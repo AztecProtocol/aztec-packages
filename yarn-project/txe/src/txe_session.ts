@@ -314,23 +314,23 @@ export class TXESession implements TXESessionStateHandler {
         let versionHint: string;
         if (!this.txeOracleVersion) {
           versionHint =
-            ' The test appears to have been compiled with an older version of Aztec.nr that does not' +
-            ' support test environment oracle versioning. Recompile the test with a compatible version of Aztec.nr.' +
+            ' The test appears to use an older version of Aztec.nr that does not' +
+            ' support test environment oracle versioning. Update Aztec.nr to a compatible version.' +
             ' See https://docs.aztec.network/errors/12';
         } else if (this.txeOracleVersion.minor > TXE_ORACLE_VERSION_MINOR) {
           versionHint =
-            ` The test was compiled with Aztec.nr test oracle version` +
+            ` The test uses Aztec.nr test oracle version` +
             ` ${this.txeOracleVersion.major}.${this.txeOracleVersion.minor}, but this test environment` +
             ` only supports up to ${TXE_ORACLE_VERSION_MAJOR}.${TXE_ORACLE_VERSION_MINOR}.` +
-            ` Upgrade your test environment to a compatible version.` +
+            ` Upgrade the Aztec CLI to a compatible version.` +
             ` See https://docs.aztec.network/errors/12`;
         } else {
           versionHint =
             ` The test's oracle version (${this.txeOracleVersion.major}.${this.txeOracleVersion.minor})` +
             ` is compatible with this test environment` +
-            ` (${TXE_ORACLE_VERSION_MAJOR}.${TXE_ORACLE_VERSION_MINOR}), so all standard oracles should` +
-            ` be available. This could mean the test was compiled against a modified version of Aztec.nr,` +
-            ` or that it references an oracle that does not exist.`;
+            ` (${TXE_ORACLE_VERSION_MAJOR}.${TXE_ORACLE_VERSION_MINOR}), so this oracle should be` +
+            ` available. This is an unexpected error, please report it.` +
+            ` See https://docs.aztec.network/errors/13`;
         }
         throw new Error(`Unknown oracle '${functionName}'.${versionHint}`);
       } else if (error instanceof Error) {
