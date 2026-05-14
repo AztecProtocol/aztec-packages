@@ -3,6 +3,7 @@ import "./styles.css";
 import { DEFAULT_SUGGESTED, getTheme } from "./theme";
 import { makeMarkdownComponents } from "./markdown";
 import { streamAnswer } from "./streamAnswer";
+import { sendFeedback } from "./sendFeedback";
 import LauncherButton from "./LauncherButton";
 import Panel from "./Panel";
 
@@ -28,6 +29,8 @@ export default function AztecDocsWidget({
   const [streamText, setStreamText] = useState("");
   const [streamSources, setStreamSources] = useState([]);
   const [conversationId, setConversationId] = useState(null);
+  const [feedbackByIndex, setFeedbackByIndex] = useState({});
+  const [feedbackErrorsByIndex, setFeedbackErrorsByIndex] = useState({});
   const scrollRef = useRef(null);
   const abortRef = useRef(null);
 
@@ -70,6 +73,7 @@ export default function AztecDocsWidget({
 
     let acc = "";
     let sources = [];
+    let errorMessage = null;
     try {
       await streamAnswer({
         apiHost,
@@ -87,18 +91,27 @@ export default function AztecDocsWidget({
           setStreamSources(sources);
         },
         onConversationId: (id) => setConversationId(id),
+        onError: (message) => {
+          errorMessage = message;
+        },
         onDone: () => {},
       });
     } catch (err) {
       if (err.name !== "AbortError") {
-        acc =
-          acc || "Something went wrong fetching an answer. Please try again.";
+        errorMessage =
+          errorMessage ||
+          "Something went wrong fetching an answer. Please try again.";
       }
     }
 
     setMessages((prev) => {
       const copy = [...prev];
-      copy[copy.length - 1] = { prompt: question, response: acc, sources };
+      copy[copy.length - 1] = {
+        prompt: question,
+        response: acc,
+        sources,
+        error: errorMessage,
+      };
       return copy;
     });
     setStreaming(false);
@@ -113,6 +126,36 @@ export default function AztecDocsWidget({
     setStreamText("");
     setStreamSources([]);
     setConversationId(null);
+    setFeedbackByIndex({});
+    setFeedbackErrorsByIndex({});
+  }
+
+  async function handleFeedback(messageIndex, kind) {
+    if (!conversationId) return;
+    if (feedbackByIndex[messageIndex]) return;
+    setFeedbackByIndex((prev) => ({ ...prev, [messageIndex]: kind }));
+    setFeedbackErrorsByIndex((prev) => {
+      if (!prev[messageIndex]) return prev;
+      const copy = { ...prev };
+      delete copy[messageIndex];
+      return copy;
+    });
+    try {
+      await sendFeedback({
+        apiHost,
+        apiKey,
+        conversationId,
+        questionIndex: messageIndex,
+        feedback: kind,
+      });
+    } catch (err) {
+      setFeedbackByIndex((prev) => {
+        const copy = { ...prev };
+        delete copy[messageIndex];
+        return copy;
+      });
+      setFeedbackErrorsByIndex((prev) => ({ ...prev, [messageIndex]: true }));
+    }
   }
 
   return (
@@ -148,6 +191,10 @@ export default function AztecDocsWidget({
           expanded={expanded}
           onToggleExpanded={() => setExpanded((v) => !v)}
           scrollRef={scrollRef}
+          conversationId={conversationId}
+          feedbackByIndex={feedbackByIndex}
+          feedbackErrorsByIndex={feedbackErrorsByIndex}
+          onFeedback={handleFeedback}
         />
       )}
     </div>

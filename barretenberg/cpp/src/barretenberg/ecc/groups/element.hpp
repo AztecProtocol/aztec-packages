@@ -85,6 +85,29 @@ template <class Fq, class Fr, class Params> class alignas(32) element {
     element operator*(const Fr& exponent) const noexcept;
     element operator*=(const Fr& exponent) noexcept;
 
+    /**
+     * @brief Constant-time scalar multiplication intended for secret scalars (e.g. ECDSA / Schnorr nonces).
+     *
+     * Implementation: Montgomery ladder (Montgomery 1987 [1]; SCA-regular form: Joye & Yen,
+     * CHES 2002 [2]) over a fixed iteration count, with Coron's first DPA countermeasure
+     * (CHES 1999 [3]) applied to the scalar: k' = k + r * n for a fresh random 64-bit r sampled
+     * per call. Since n * P = O in the prime-order subgroup, k' * P = k * P; the randomization
+     * decorrelates the per-bit timing trace across signings with the same k.
+     *
+     * [1] P. L. Montgomery, "Speeding the Pollard and Elliptic Curve Methods of Factorization",
+     *     Mathematics of Computation 48 (1987), pp. 243-264.
+     * [2] M. Joye and S.-M. Yen, "The Montgomery Powering Ladder", CHES 2002, LNCS 2523,
+     *     pp. 291-302.
+     * [3] J.-S. Coron, "Resistance against Differential Power Analysis for Elliptic Curve
+     *     Cryptosystems", CHES 1999, LNCS 1717, pp. 292-302.
+     *
+     * @param engine Optional RNG for the blinding factor. If nullptr, uses the global RNG.
+     *
+     * @warning Slower than operator*. Use only when the scalar is secret. For public scalars (MSM,
+     *          public arithmetic), prefer operator*.
+     */
+    element mul_const_time(const Fr& scalar, numeric::RNG* engine = nullptr) const noexcept;
+
     // If you end up implementing this, congrats, you've solved the DL problem!
     // P.S. This is a joke, don't even attempt! 😂
     // constexpr Fr operator/(const element& other) noexcept {}
