@@ -9,7 +9,7 @@ import {
   type DistributionPattern,
   WorkerClientManager,
   testChainConfig,
-} from '../../../testbench/worker_client_manager.js';
+} from '../../testbench/worker_client_manager.js';
 
 const TEST_TIMEOUT_MS = 600_000; // 10 minutes
 jest.setTimeout(TEST_TIMEOUT_MS);
@@ -75,7 +75,7 @@ const CASES: readonly BenchmarkCase[] = BASE_SCENARIOS.flatMap(base =>
   })),
 );
 
-describe('ProposalTxCollector Benchmarks', () => {
+describe('BatchTxRequester Benchmarks', () => {
   const results: BenchmarkResult[] = [];
 
   let logger: Logger;
@@ -181,7 +181,7 @@ function toPrettyString(benchResults: BenchmarkResult[]): string {
 
   lines.push('');
   lines.push('='.repeat(80));
-  lines.push('ProposalTxCollector Benchmark Results');
+  lines.push('BatchTxRequester Benchmark Results');
   lines.push('='.repeat(80));
   lines.push('');
   lines.push('| Distribution | Missing | Duration (ms) | Fetched | Success |');
@@ -212,7 +212,7 @@ function toBenchmarkJSON(benchResults: BenchmarkResult[], indent = 2): string {
   const metrics: JsonBenchmarkResult[] = [];
 
   for (const result of benchResults) {
-    const baseName = `ProposalTxCollector/${result.distribution}/missing_${result.missingTxCount}`;
+    const baseName = `BatchTxRequester/${result.distribution}/missing_${result.missingTxCount}`;
     metrics.push(
       {
         name: `${baseName}/duration`,
