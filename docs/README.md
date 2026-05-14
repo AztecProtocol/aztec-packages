@@ -577,7 +577,7 @@ Building on the DevRel review automation, the docs CI can analyze PRs and notify
    - Generate suggested documentation changes
 
 3. **Slack Notification**: If documentation updates are suggested:
-   - A message is sent to the configured Slack channel (default: `#devrel`)
+   - A message is sent to the configured Slack channel (default: `#docs-alerts`)
    - The message includes the PR details, affected docs, and suggested changes
    - The DevRel team can review and apply the changes manually
 
@@ -590,7 +590,7 @@ Building on the DevRel review automation, the docs CI can analyze PRs and notify
 
 **Environment Variables**:
 
-- `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#devrel`)
+- `SLACK_DOC_UPDATE_CHANNEL` - Slack channel for notifications (default: `#docs-alerts`)
 - `DRY_RUN=1` - Skip Slack notification, just print what would be sent
 
 **Implementation**: The automation is handled by `scripts/check_doc_references.sh`, which detects changed references, requests devrel review, sends a Slack notification, and dispatches ClaudeBox — all in a single pass.
