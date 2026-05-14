@@ -20,7 +20,6 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
 
 const OPEN_THE_HATCH = true;
@@ -61,8 +60,10 @@ describe('e2e_escape_hatch_vote_only', () => {
       return { attester: address, withdrawer: address, privateKey };
     });
 
+    // TODO(kill-non-pipelined): re-opt-in to PIPELINING_SETUP_OPTS once the B5 fix
+    // (escape-hatch slot targeting under pipelining, sequencer.ts::tryVoteWhenEscapeHatchOpen)
+    // is re-implemented on top of buildCheckpointSimulationOverridesPlan. See PIPELINING_GOTCHAS.md §6 B5.
     const context = await setup(1, {
-      ...PIPELINING_SETUP_OPTS,
       anvilAccounts: 10,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
