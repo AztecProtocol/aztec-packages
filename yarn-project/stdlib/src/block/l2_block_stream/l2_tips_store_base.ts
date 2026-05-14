@@ -80,10 +80,10 @@ export abstract class L2TipsStoreBase implements L2BlockStreamEventHandler, L2Bl
         tipOrZero('proposedCheckpoint'),
       ]);
 
-      // Data-availability clamp only: tips ahead of `proposed` would lack block data and throw
-      // below. We deliberately do NOT enforce cross-tier ordering here so that callers like the
-      // L2BlockStream see the stored value of each tip (otherwise it would re-emit chain-*
-      // events forever because local always reports `0` for the clamped tip).
+      // Enforce `finalized ≤ proven ≤ checkpointed ≤ proposedCheckpoint ≤ proposed` before
+      // resolving block/checkpoint data. Tips ahead of `proposed` would lack block data and
+      // throw in `getBlockId` below; tips violating cross-tier ordering would leak through to
+      // RPC consumers and fail schema validation.
       const {
         proposed: proposedNumber,
         finalized: finalizedNumber,
