@@ -83,7 +83,9 @@ pub contract HandshakeRegistry {
             recipient.to_field(),
             DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         );
-        // TODO(https://linear.app/aztec-labs/issue/F-653/route-handshake-log-through-do-private-message-delivery-to-preserve): Encrypt `eph_ph.x` to keep the log private
+        //
+        // TODO(https://linear.app/aztec-labs/issue/F-653/route-handshake-log-through-do-private-message-delivery-to-preserve):
+        // Encrypt `eph_ph.x` to keep the log private
         self.context.emit_private_log_vec_unsafe(log_tag, BoundedVec::from_array([eph_pk.x]));
 
         note.siloed_for(self.msg_sender())
@@ -100,24 +102,14 @@ pub contract HandshakeRegistry {
     /// If no stored `NON_INTERACTIVE_HANDSHAKE` for `(sender, recipient)` silos to `app_siloed_secret` under the
     /// calling contract's address.
     #[external("private")]
-    fn validate_handshake(
-        sender: AztecAddress,
-        recipient: AztecAddress,
-        app_siloed_secret: Field,
-    ) {
+    fn validate_handshake(sender: AztecAddress, recipient: AztecAddress, app_siloed_secret: Field) {
         let caller = self.msg_sender();
         // Push `(recipient, handshake_type)` into the oracle query so PXE returns only matching notes. Without
         // this, the 16-note page (`MAX_NOTE_HASH_READ_REQUESTS_PER_CALL`) applies across all of `sender`'s
         // handshakes and a matching note can fall outside the page.
-        let notes = self.storage.handshakes.at(sender).get_notes(
-            NoteGetterOptions::new()
-                .select(HandshakeNote::properties().recipient, Comparator.EQ, recipient)
-                .select(
-                    HandshakeNote::properties().handshake_type,
-                    Comparator.EQ,
-                    NON_INTERACTIVE_HANDSHAKE as Field,
-                ),
-        );
+        let notes = self.storage.handshakes.at(sender).get_notes(NoteGetterOptions::new()
+            .select(HandshakeNote::properties().recipient, Comparator.EQ, recipient)
+            .select(HandshakeNote::properties().handshake_type, Comparator.EQ, NON_INTERACTIVE_HANDSHAKE as Field));
 
         // `notes.len()` is a runtime value, so the constrained loop needs a constant upper bound. We walk the
         // BoundedVec's full `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` capacity, gating against `notes.len()` so
@@ -145,21 +137,12 @@ pub contract HandshakeRegistry {
     /// in chronological order (oldest first), so repeated handshakes resolve to the latest inserted handshake.
     #[external("private")]
     #[view]
-    fn get_app_siloed_secret(
-        sender: AztecAddress,
-        recipient: AztecAddress,
-    ) -> Option<Field> {
+    fn get_app_siloed_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
         // Same DB-side filtering rationale as `validate_handshake`. Without the filter, the 16-note page
         // (`MAX_NOTE_HASH_READ_REQUESTS_PER_CALL`) could shadow a matching note among unrelated handshakes.
-        let notes = self.storage.handshakes.at(sender).get_notes(
-            NoteGetterOptions::new()
-                .select(HandshakeNote::properties().recipient, Comparator.EQ, recipient)
-                .select(
-                    HandshakeNote::properties().handshake_type,
-                    Comparator.EQ,
-                    NON_INTERACTIVE_HANDSHAKE as Field,
-                ),
-        );
+        let notes = self.storage.handshakes.at(sender).get_notes(NoteGetterOptions::new()
+            .select(HandshakeNote::properties().recipient, Comparator.EQ, recipient)
+            .select(HandshakeNote::properties().handshake_type, Comparator.EQ, NON_INTERACTIVE_HANDSHAKE as Field));
 
         let caller = self.msg_sender();
         let len = notes.len();

@@ -1,11 +1,7 @@
 use aztec::{
     keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
     macros::notes::note,
-    protocol::{
-        address::AztecAddress,
-        point::Point,
-        traits::{Deserialize, Packable, Serialize},
-    },
+    protocol::{address::AztecAddress, point::Point, traits::{Deserialize, Packable, Serialize}},
 };
 
 /// A record of a handshake established by the note's owner (the sender).
@@ -17,9 +13,9 @@ use aztec::{
 /// # Field order
 ///
 /// `secret: Point` is declared **last**. The `#[note]` macro generates `HandshakeNote::properties()` with
-/// `PropertySelector.index` set to each field's *declaration index*, not its packed-Field offset. 
+/// `PropertySelector.index` set to each field's *declaration index*, not its packed-Field offset.
 /// That's fine for scalar-packed fields that precede a composite-packed field (`Point` packs to 3
-/// fields), but a reorder that places `secret` before any other field would silently break the `select`
+/// fields), but a reorder that places `secret` before any otok couher field would silently break the `select`
 /// filters used by `validate_handshake` / `get_app_siloed_secret`.
 #[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
