@@ -176,7 +176,7 @@ template <typename Builder> field_t<Builder> ram_table<Builder>::read(const fiel
     }
 
     const auto native_index = uint256_t(index.get_value());
-    BB_ASSERT_LT(native_index, length, "rom_table: ROM array access out of bounds");
+    BB_ASSERT_LT(native_index, length, "ram_table: RAM array access out of bounds");
 
     // When we perform the first read operation, we initialize the table
     initialize_table();
@@ -221,7 +221,7 @@ template <typename Builder> void ram_table<Builder>::write(const field_pt& index
     }
 
     const auto native_index = uint256_t(index.get_value());
-    BB_ASSERT_LT(native_index, length, "rom_table: ROM array access out of bounds");
+    BB_ASSERT_LT(native_index, length, "ram_table: RAM array access out of bounds");
 
     // When we perform the first read operation, we initialize the table
     initialize_table();
