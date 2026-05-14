@@ -894,14 +894,9 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 }
 
 /**
- * Registers the auth_registry contract class and publishes its standard instance on first call.
- * Idempotent: subsequent calls are no-ops once both are published.
- *
- * auth_registry was previously a protocol contract whose deployment was implicit at genesis. Once
- * demoted to a regular contract, anything exercising the public authwit path (which relies on the
- * AVM's deployment-nullifier check at `contract_instance_manager.cpp:83-95`) must ensure the
- * registry is publicly published before use. Test harnesses invoke this from `setup()`; mainnet/
- * testnet chain operators publish auth_registry as a normal transaction in early blocks.
+ * Registers the auth_registry contract class and publishes its standard instance if not already
+ * present. Required before exercising the public authwit path, which relies on the AVM's
+ * deployment-nullifier check.
  */
 export async function ensureAuthRegistryPublished(wallet: Wallet, from: AztecAddress) {
   const { instance, contractClass } = await getStandardAuthRegistry();
