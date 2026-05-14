@@ -142,10 +142,18 @@ jobs:
           fi
           echo "AZTEC_DOCKER_IMAGE=$AZTEC_DOCKER_IMAGE" >> $GITHUB_ENV
 
-          # Only use the separate prover-agent image for official semver builds;
-          # for custom images, let the deploy script fall back to AZTEC_DOCKER_IMAGE
+          # Use the CRS-baked prover-agent image when it exists; otherwise let the
+          # deploy script fall back to AZTEC_DOCKER_IMAGE and download CRS on startup.
           if [[ -n "${{ inputs.semver }}" ]]; then
-            echo "PROVER_AGENT_DOCKER_IMAGE=aztecprotocol/aztec-prover-agent:${{ inputs.semver }}" >> $GITHUB_ENV
+            PROVER_AGENT_DOCKER_IMAGE="aztecprotocol/aztec-prover-agent:${{ inputs.semver }}"
+
+            echo "Checking if prover agent image exists: $PROVER_AGENT_DOCKER_IMAGE"
+            if docker manifest inspect "$PROVER_AGENT_DOCKER_IMAGE" > /dev/null 2>&1; then
+              echo "PROVER_AGENT_DOCKER_IMAGE=$PROVER_AGENT_DOCKER_IMAGE" >> $GITHUB_ENV
+            else
+              echo "Prover agent image does not exist: $PROVER_AGENT_DOCKER_IMAGE"
+              echo "Falling back to AZTEC_DOCKER_IMAGE for prover agents."
+            fi
           fi
 
       - name: Store the GCP key in a file
