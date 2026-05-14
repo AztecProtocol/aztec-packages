@@ -222,7 +222,7 @@ describe('sequencer', () => {
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
     publisher.sendRequestsAt.mockResolvedValue({
-      result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+      result: { receipt: { status: 'success' } as any },
       successfulActions: ['propose'],
       failedActions: [],
       sentActions: ['propose'],
@@ -242,6 +242,11 @@ describe('sequencer', () => {
 
     rollupContract = mockDeep<RollupContract>();
     rollupContract.isEscapeHatchOpen.mockResolvedValue(false);
+    // Default rollup reads used by pipelined fee-header derivation.
+    rollupContract.getCheckpoint.mockResolvedValue({
+      feeHeader: { manaUsed: 0n, excessMana: 0n, ethPerFeeAsset: 1n, congestionCost: 0n, proverCost: 0n },
+    } as any);
+    rollupContract.getManaTarget.mockResolvedValue(10_000n);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
@@ -563,7 +568,7 @@ describe('sequencer', () => {
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
         pub.sendRequestsAt.mockResolvedValue({
-          result: { receipt: { status: 'success' } as any, errorMsg: undefined },
+          result: { receipt: { status: 'success' } as any },
           successfulActions: ['propose'],
           failedActions: [],
           sentActions: ['propose'],
@@ -671,7 +676,10 @@ describe('sequencer', () => {
       expect(slasherClient.getProposerActions).toHaveBeenCalledWith(SlotNumber(1));
       expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
       expect(publisher.enqueueGovernanceCastSignal).toHaveBeenCalled();
-      expect(publisher.sendRequests).toHaveBeenCalled();
+      // Submission goes through sendRequestsAt so the bundle simulate's block.timestamp
+      // override matches the slot the EIP-712 signatures were generated for.
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
+      expect(publisher.sendRequests).not.toHaveBeenCalled();
 
       // But checkpoint proposal must not start
       expect(publisher.enqueueProposeCheckpoint).not.toHaveBeenCalled();
@@ -694,16 +702,16 @@ describe('sequencer', () => {
 
       await sequencer.work();
       expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
-      expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequestsAt).toHaveBeenCalledTimes(1);
 
       publisher.enqueueSlashingActions.mockClear();
-      publisher.sendRequests.mockClear();
+      publisher.sendRequestsAt.mockClear();
       slasherClient.getProposerActions.mockClear();
 
       await sequencer.work();
       expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
-      expect(publisher.sendRequests).not.toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
     });
   });
 
@@ -757,7 +765,8 @@ describe('sequencer', () => {
         expect.any(EthAddress),
         expect.any(Function),
       );
-      expect(publisher.sendRequests).toHaveBeenCalled();
+      // Votes are submitted via sendRequestsAt (fire-and-forget, scheduled at target slot start).
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
     });
 
     it('should not vote when sync fails and within time limit', async () => {
@@ -817,18 +826,19 @@ describe('sequencer', () => {
       // First attempt should succeed
       await sequencer.work();
       expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
-      expect(publisher.sendRequests).toHaveBeenCalledTimes(1);
+      // Votes are submitted via sendRequestsAt (fire-and-forget, scheduled at target slot start).
+      expect(publisher.sendRequestsAt).toHaveBeenCalledTimes(1);
 
       // Reset mocks
       publisher.enqueueSlashingActions.mockClear();
-      publisher.sendRequests.mockClear();
+      publisher.sendRequestsAt.mockClear();
       slasherClient.getProposerActions.mockClear();
 
       // Second attempt in the same slot should be skipped
       await sequencer.work();
       expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
-      expect(publisher.sendRequests).not.toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
     });
   });
 
@@ -1114,7 +1124,7 @@ describe('sequencer', () => {
 
       const simulationOverridesPlan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
       expect(simulationOverridesPlan?.chainTipsOverride?.pending).toEqual(CheckpointNumber(1));
-      expect(simulationOverridesPlan?.pendingCheckpointState?.archive).toEqual(expect.anything());
+      // The archive root is passed directly as the first arg to canProposeAt (not inside the plan).
     });
 
     it('skips proposal when checkpoint exceeds pipeline depth', async () => {
@@ -1177,15 +1187,19 @@ describe('sequencer', () => {
       expect(publisher.canProposeAt).not.toHaveBeenCalled();
     });
 
-    it('calls L1 check without archive override when no proposed checkpoint', async () => {
+    it('pins both chain tips to the on-chain pending snapshot when no proposed checkpoint applies', async () => {
       await setupSingleTxBlock();
 
       await sequencer.work();
 
-      expect(publisher.canProposeAt.mock.calls.at(-1)?.[2]).toBeUndefined();
+      // The default `getL2Tips` mock has checkpointed.checkpoint.number == CheckpointNumber.ZERO.
+      const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber.ZERO);
+      expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber.ZERO);
+      expect(plan?.pendingCheckpointState).toBeUndefined();
     });
 
-    it('calls L1 check without overrides when not pipelining', async () => {
+    it('pins both chain tips to the on-chain pending snapshot when not pipelining', async () => {
       await setupSingleTxBlock();
 
       // Override back to non-pipelining
@@ -1204,23 +1218,13 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      expect(publisher.canProposeAt.mock.calls.at(-1)?.[2]).toBeUndefined();
-    });
-
-    it('attaches proven override equal to real pending when isPruneDueAtSlot returns true', async () => {
-      await setupSingleTxBlock();
-
-      // No proposed checkpoint, so we exercise the standalone proven override path.
-      // The default `getL2Tips` mock has checkpointed.checkpoint.number == CheckpointNumber.ZERO.
-      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(true);
-
-      await sequencer.work();
-
       const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
+      expect(plan?.chainTipsOverride?.pending).toEqual(CheckpointNumber.ZERO);
       expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber.ZERO);
+      expect(plan?.pendingCheckpointState).toBeUndefined();
     });
 
-    it('uses the simulated pending as the proven override when the caller overrides pending', async () => {
+    it('mirrors pending onto proven when the caller overrides pending via pipelining', async () => {
       await setupSingleTxBlock();
 
       // Set up a pipelined parent (pending override = parentCheckpointNumber = 1).
@@ -1278,9 +1282,6 @@ describe('sequencer', () => {
         feeAssetPriceModifier: 0n,
       } satisfies ProposedCheckpointData);
 
-      // The sequencer sets proven == simulated pending so canPruneAtTime short-circuits to false.
-      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(true);
-
       await sequencer.work();
 
       const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
@@ -1288,21 +1289,8 @@ describe('sequencer', () => {
       expect(plan?.chainTipsOverride?.proven).toEqual(CheckpointNumber(1));
     });
 
-    it('does not attach proven override when isPruneDueAtSlot returns false', async () => {
+    it('emits preparing-checkpoint with snapshot-pinned tips when no override applies', async () => {
       await setupSingleTxBlock();
-
-      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(false);
-
-      await sequencer.work();
-
-      const plan = publisher.canProposeAt.mock.calls.at(-1)?.[2];
-      expect(plan?.chainTipsOverride?.proven).toBeUndefined();
-    });
-
-    it('emits preparing-checkpoint with provenOverride when prune is due', async () => {
-      await setupSingleTxBlock();
-
-      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(true);
 
       const events: any[] = [];
       sequencer.on('preparing-checkpoint', args => events.push(args));
@@ -1310,30 +1298,16 @@ describe('sequencer', () => {
       await sequencer.work();
 
       expect(events).toHaveLength(1);
+      // With no pipelined or invalidation override, both `pending` and `proven` are pinned to the
+      // on-chain pending snapshot (checkpointedCheckpointNumber) so `canPruneAtTime` short-circuits
+      // and a live re-read inside `makeChainTipsOverride` can't reintroduce a phantom prune.
+      // `provenOverride` mirrors the pinned proven tip whenever a plan was built.
       expect(events[0]).toEqual({
         targetSlot: SlotNumber(2),
         checkpointNumber: expect.anything(),
         hadProposedParent: false,
         provenOverride: CheckpointNumber.ZERO,
-        simulatedPending: undefined,
-      });
-    });
-
-    it('emits preparing-checkpoint without provenOverride when no prune is due', async () => {
-      await setupSingleTxBlock();
-
-      l2BlockSource.isPruneDueAtSlot.mockResolvedValue(false);
-
-      const events: any[] = [];
-      sequencer.on('preparing-checkpoint', args => events.push(args));
-
-      await sequencer.work();
-
-      expect(events).toHaveLength(1);
-      expect(events[0]).toMatchObject({
-        targetSlot: SlotNumber(2),
-        hadProposedParent: false,
-        provenOverride: undefined,
+        simulatedPending: CheckpointNumber.ZERO,
       });
     });
   });

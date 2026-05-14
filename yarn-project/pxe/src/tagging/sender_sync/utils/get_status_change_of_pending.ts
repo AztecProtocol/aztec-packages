@@ -1,18 +1,33 @@
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { TxHash, TxStatus } from '@aztec/stdlib/tx';
 
+/** Classification of a batch of pending tx hashes by the status change implied by their receipts. */
+export type StatusChange = {
+  txHashesToFinalize: TxHash[];
+  txHashesToDrop: TxHash[];
+  txHashesWithExecutionReverted: TxHash[];
+};
+
+export const EMPTY_STATUS_CHANGE: StatusChange = {
+  txHashesToFinalize: [],
+  txHashesToDrop: [],
+  txHashesWithExecutionReverted: [],
+};
+
+/** Concatenates two status changes field-by-field. */
+export function mergeStatusChanges(a: StatusChange, b: StatusChange): StatusChange {
+  return {
+    txHashesToFinalize: [...a.txHashesToFinalize, ...b.txHashesToFinalize],
+    txHashesToDrop: [...a.txHashesToDrop, ...b.txHashesToDrop],
+    txHashesWithExecutionReverted: [...a.txHashesWithExecutionReverted, ...b.txHashesWithExecutionReverted],
+  };
+}
+
 /**
  * Based on receipts obtained from `aztecNode` returns which pending transactions changed their status to finalized,
  * dropped, or execution-reverted (but mined).
  */
-export async function getStatusChangeOfPending(
-  pending: TxHash[],
-  aztecNode: AztecNode,
-): Promise<{
-  txHashesToFinalize: TxHash[];
-  txHashesToDrop: TxHash[];
-  txHashesWithExecutionReverted: TxHash[];
-}> {
+export async function getStatusChangeOfPending(pending: TxHash[], aztecNode: AztecNode): Promise<StatusChange> {
   // Get receipts for all pending tx hashes.
   const receipts = await Promise.all(pending.map(pendingTxHash => aztecNode.getTxReceipt(pendingTxHash)));
 

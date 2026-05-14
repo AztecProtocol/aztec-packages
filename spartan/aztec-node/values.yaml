@@ -152,6 +152,7 @@ node:
     inactivityPenalty: ""
     inactivityTargetPercentage: ""
     invalidBlockPenalty: ""
+    invalidCheckpointProposalPenalty: ""
     proposeInvalidAttestationsPenalty: ""
     attestDescendantOfInvalidPenalty: ""
     attestInvalidCheckpointProposalPenalty: ""

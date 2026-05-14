@@ -21,6 +21,7 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashInactivityTargetPercentage: slasherDefaultEnv.SLASH_INACTIVITY_TARGET_PERCENTAGE,
   slashInactivityConsecutiveEpochThreshold: slasherDefaultEnv.SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD,
   slashBroadcastedInvalidBlockPenalty: BigInt(slasherDefaultEnv.SLASH_INVALID_BLOCK_PENALTY),
+  slashBroadcastedInvalidCheckpointProposalPenalty: BigInt(slasherDefaultEnv.SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY),
   slashDuplicateProposalPenalty: BigInt(slasherDefaultEnv.SLASH_DUPLICATE_PROPOSAL_PENALTY),
   slashDuplicateAttestationPenalty: BigInt(slasherDefaultEnv.SLASH_DUPLICATE_ATTESTATION_PENALTY),
   slashInactivityPenalty: BigInt(slasherDefaultEnv.SLASH_INACTIVITY_PENALTY),
@@ -81,6 +82,11 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
     env: 'SLASH_INVALID_BLOCK_PENALTY',
     description: 'Penalty amount for slashing a validator for an invalid block proposed via p2p.',
     ...bigintConfigHelper(DefaultSlasherConfig.slashBroadcastedInvalidBlockPenalty),
+  },
+  slashBroadcastedInvalidCheckpointProposalPenalty: {
+    env: 'SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY',
+    description: 'Penalty amount for slashing a validator for an invalid checkpoint proposal proposed via p2p.',
+    ...bigintConfigHelper(DefaultSlasherConfig.slashBroadcastedInvalidCheckpointProposalPenalty),
   },
   slashDuplicateProposalPenalty: {
     env: 'SLASH_DUPLICATE_PROPOSAL_PENALTY',

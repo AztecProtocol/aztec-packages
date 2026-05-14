@@ -50,6 +50,7 @@ export function getPenaltyForOffense(
     SlasherConfig,
     | 'slashAttestDescendantOfInvalidPenalty'
     | 'slashBroadcastedInvalidBlockPenalty'
+    | 'slashBroadcastedInvalidCheckpointProposalPenalty'
     | 'slashDuplicateProposalPenalty'
     | 'slashDuplicateAttestationPenalty'
     | 'slashAttestInvalidCheckpointProposalPenalty'
@@ -71,6 +72,8 @@ export function getPenaltyForOffense(
       return config.slashAttestDescendantOfInvalidPenalty;
     case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
       return config.slashBroadcastedInvalidBlockPenalty;
+    case OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL:
+      return config.slashBroadcastedInvalidCheckpointProposalPenalty;
     case OffenseType.DUPLICATE_PROPOSAL:
       return config.slashDuplicateProposalPenalty;
     case OffenseType.DUPLICATE_ATTESTATION:
@@ -92,6 +95,7 @@ export function getTimeUnitForOffense(offense: OffenseType): 'epoch' | 'slot' {
     case OffenseType.ATTESTED_DESCENDANT_OF_INVALID:
     case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
     case OffenseType.DATA_WITHHOLDING:
+    case OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL:
     case OffenseType.DUPLICATE_PROPOSAL:
     case OffenseType.DUPLICATE_ATTESTATION:
     case OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL:

@@ -35,7 +35,7 @@ import type { ENR } from '@nethermindeth/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { TxPoolError } from '../errors/tx-pool.error.js';
-import type { AttestationPoolApi } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { AttestationPoolApi, ProposalsForSlot } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
 import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
@@ -270,7 +270,6 @@ export class P2PClient extends WithTracer implements P2P {
       throw new Error('Block stream not initialized');
     }
     this.blockStream.start();
-    await this.txCollection.start();
     this.txFileStore?.start();
 
     // Start slot monitor to call prepareForSlot when the slot changes
@@ -373,8 +372,21 @@ export class P2PClient extends WithTracer implements P2P {
       // Store our own last-block proposal so we can respond to req/resp requests for it.
       await this.attestationPool.tryAddBlockProposal(blockProposal);
     }
+    const checkpointCore = proposal.toCore();
+    const { count } = await this.attestationPool.tryAddCheckpointProposal(checkpointCore);
+    if (count > 1) {
+      if (this.config.broadcastEquivocatedProposals) {
+        this.log.warn(`Broadcasting equivocated checkpoint proposal for slot ${proposal.slotNumber}`, {
+          slot: proposal.slotNumber,
+          archive: proposal.archive.toString(),
+          count,
+        });
+      } else {
+        throw new Error(`Attempted to broadcast a duplicate checkpoint proposal for slot ${proposal.slotNumber}`);
+      }
+    }
     // Gossipsub doesn't deliver own messages, so fire the all-nodes handler locally
-    await this.p2pService.notifyOwnCheckpointProposal(proposal.toCore());
+    await this.p2pService.notifyOwnCheckpointProposal(checkpointCore);
     return this.p2pService.propagate(proposal);
   }
 
@@ -394,6 +406,10 @@ export class P2PClient extends WithTracer implements P2P {
 
   public addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
     return this.attestationPool.addOwnCheckpointAttestations(attestations);
+  }
+
+  public getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot> {
+    return this.attestationPool.getProposalsForSlot(slot);
   }
 
   public hasBlockProposalsForSlot(slot: SlotNumber): Promise<boolean> {

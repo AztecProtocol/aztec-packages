@@ -237,6 +237,10 @@ spec:
         - name: SLASH_INVALID_BLOCK_PENALTY
           value: {{ .Values.node.slash.invalidBlockPenalty | quote }}
         {{- end }}
+        {{- if .Values.node.slash.invalidCheckpointProposalPenalty }}
+        - name: SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY
+          value: {{ .Values.node.slash.invalidCheckpointProposalPenalty | quote }}
+        {{- end }}
         {{- if .Values.node.slash.proposeInvalidAttestationsPenalty }}
         - name: SLASH_PROPOSE_INVALID_ATTESTATIONS_PENALTY
           value: {{ .Values.node.slash.proposeInvalidAttestationsPenalty | quote }}

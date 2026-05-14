@@ -19,6 +19,7 @@ export interface SlasherConfig {
   slashDataWithholdingToleranceSlots: number;
   slashInactivityPenalty: bigint;
   slashBroadcastedInvalidBlockPenalty: bigint;
+  slashBroadcastedInvalidCheckpointProposalPenalty: bigint;
   slashDuplicateProposalPenalty: bigint;
   slashDuplicateAttestationPenalty: bigint;
   slashProposeInvalidAttestationsPenalty: bigint;
@@ -42,6 +43,7 @@ export const SlasherConfigSchema = zodFor<SlasherConfig>()(
     slashInactivityConsecutiveEpochThreshold: z.number(),
     slashInactivityPenalty: schemas.BigInt,
     slashProposeInvalidAttestationsPenalty: schemas.BigInt,
+    slashBroadcastedInvalidCheckpointProposalPenalty: schemas.BigInt,
     slashDuplicateProposalPenalty: schemas.BigInt,
     slashDuplicateAttestationPenalty: schemas.BigInt,
     slashAttestDescendantOfInvalidPenalty: schemas.BigInt,

@@ -98,7 +98,7 @@ describe('e2e_fees failures', () => {
         wait: { dontThrowOnRevert: true },
       });
 
-    expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
+    expect(txReceipt.executionResult).toBe(TxExecutionResult.REVERTED);
 
     const { sequencerBlockRewards } = await t.getBlockRewards();
 
@@ -201,7 +201,7 @@ describe('e2e_fees failures', () => {
         wait: { dontThrowOnRevert: true },
       });
 
-    expect(txReceipt.executionResult).toBe(TxExecutionResult.APP_LOGIC_REVERTED);
+    expect(txReceipt.executionResult).toBe(TxExecutionResult.REVERTED);
     const feeAmount = txReceipt.transactionFee!;
 
     // and thus we paid the fee
@@ -298,7 +298,7 @@ describe('e2e_fees failures', () => {
         },
         wait: { dontThrowOnRevert: true },
       });
-    expect(receipt.executionResult).toEqual(TxExecutionResult.TEARDOWN_REVERTED);
+    expect(receipt.executionResult).toEqual(TxExecutionResult.REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
     await expectMapping(
@@ -346,7 +346,7 @@ describe('e2e_fees failures', () => {
         wait: { dontThrowOnRevert: true },
       });
 
-    expect(receipt.executionResult).toBe(TxExecutionResult.BOTH_REVERTED);
+    expect(receipt.executionResult).toBe(TxExecutionResult.REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
     await t.context.watcher.trigger();

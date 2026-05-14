@@ -161,7 +161,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           const { receipt } = await contract.methods
             .increment_public_value(whom, 10)
             .send({ from: defaultAccountAddress, wait: { dontThrowOnRevert: true } });
-          expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
+          expect(receipt.executionResult).toEqual(TxExecutionResult.REVERTED);
 
           // Meanwhile we check we didn't increment the value
           expect(
@@ -205,7 +205,7 @@ describe('e2e_deploy_contract contract class registration', () => {
           const { receipt } = await contract.methods
             .public_constructor(whom, 43)
             .send({ from: defaultAccountAddress, wait: { dontThrowOnRevert: true } });
-          expect(receipt.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
+          expect(receipt.executionResult).toEqual(TxExecutionResult.REVERTED);
           expect(
             (await contract.methods.get_public_value(whom).simulate({ from: defaultAccountAddress })).result,
           ).toEqual(0n);
@@ -256,7 +256,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       const { receipt: tx } = await instance.methods
         .increment_public_value_no_init_check(whom, 10)
         .send({ from: defaultAccountAddress, wait: { dontThrowOnRevert: true } });
-      expect(tx.executionResult).toEqual(TxExecutionResult.APP_LOGIC_REVERTED);
+      expect(tx.executionResult).toEqual(TxExecutionResult.REVERTED);
     });
   });
 });

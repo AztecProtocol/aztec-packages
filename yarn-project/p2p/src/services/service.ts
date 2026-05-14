@@ -21,7 +21,6 @@ import type {
   ReqRespSubProtocol,
   ReqRespSubProtocolHandler,
   ReqRespSubProtocolValidators,
-  SubProtocolMap,
 } from './reqresp/interface.js';
 import type { AuthRequest, AuthResponse } from './reqresp/protocols/auth.js';
 
@@ -99,22 +98,6 @@ export interface P2PService {
    * @param message - The message to be propagated.
    */
   propagate<T extends Gossipable>(message: T): Promise<void>;
-
-  /**
-   * Send a batch of requests to peers, and return the responses
-   *
-   * @param protocol - The request response protocol to use
-   * @param requests - The requests to send to the peers
-   * @returns The responses to the requests
-   */
-  sendBatchRequest<Protocol extends ReqRespSubProtocol>(
-    protocol: Protocol,
-    requests: InstanceType<SubProtocolMap[Protocol]['request']>[],
-    pinnedPeerId?: PeerId,
-    timeoutMs?: number,
-    maxPeers?: number,
-    maxRetryAttempts?: number,
-  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']>[]>;
 
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: P2PBlockReceivedCallback): void;

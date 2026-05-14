@@ -1,0 +1,237 @@
+import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import type { P2PClient } from '@aztec/stdlib/interfaces/server';
+import type { BlockProposal, CheckpointProposalCore } from '@aztec/stdlib/p2p';
+import { OffenseType } from '@aztec/stdlib/slashing';
+import {
+  makeBlockHeader,
+  makeBlockProposal,
+  makeCheckpointHeader,
+  makeCheckpointProposal,
+} from '@aztec/stdlib/testing';
+
+import { jest } from '@jest/globals';
+import { type MockProxy, mock } from 'jest-mock-extended';
+
+import { DefaultSlasherConfig, type SlasherConfig } from '../config.js';
+import { WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '../watcher.js';
+import { BroadcastedInvalidCheckpointProposalWatcher } from './broadcasted_invalid_checkpoint_proposal_watcher.js';
+
+describe('BroadcastedInvalidCheckpointProposalWatcher', () => {
+  let p2pClient: MockProxy<Pick<P2PClient, 'getProposalsForSlot'>>;
+  let epochCache: MockProxy<Pick<EpochCacheInterface, 'getCurrentAndNextSlot' | 'getL1Constants'>>;
+  let config: SlasherConfig;
+  let watcher: BroadcastedInvalidCheckpointProposalWatcher;
+  let handler: jest.MockedFunction<(args: WantToSlashArgs[]) => void>;
+
+  beforeEach(() => {
+    p2pClient = mock<Pick<P2PClient, 'getProposalsForSlot'>>();
+    epochCache = mock<Pick<EpochCacheInterface, 'getCurrentAndNextSlot' | 'getL1Constants'>>();
+    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(12), nextSlot: SlotNumber(13) });
+    epochCache.getL1Constants.mockReturnValue({
+      ...EmptyL1RollupConstants,
+      epochDuration: 8,
+      ethereumSlotDuration: 12,
+    });
+    config = {
+      ...DefaultSlasherConfig,
+      slashBroadcastedInvalidCheckpointProposalPenalty: 11n,
+    };
+    watcher = new BroadcastedInvalidCheckpointProposalWatcher(p2pClient, epochCache, config, 4);
+    handler = jest.fn();
+    watcher.on(WANT_TO_SLASH_EVENT, handler);
+  });
+
+  const makeBlocks = async (signer: Secp256k1Signer, slot: SlotNumber, count: number): Promise<BlockProposal[]> =>
+    await Promise.all(
+      Array.from({ length: count }, (_, index) =>
+        makeBlockProposal({
+          signer,
+          blockHeader: makeBlockHeader(index + 1, { slotNumber: slot }),
+          archiveRoot: Fr.random(),
+          indexWithinCheckpoint: IndexWithinCheckpoint(index),
+        }),
+      ),
+    );
+
+  const makeCheckpointCore = async (
+    signer: Secp256k1Signer,
+    slot: SlotNumber,
+    terminalBlock: BlockProposal,
+    includeLastBlock = false,
+  ): Promise<CheckpointProposalCore> => {
+    const checkpoint = await makeCheckpointProposal({
+      signer,
+      checkpointHeader: makeCheckpointHeader(1, { slotNumber: slot }),
+      archiveRoot: terminalBlock.archive,
+      lastBlock: includeLastBlock
+        ? {
+            blockHeader: terminalBlock.blockHeader,
+            indexWithinCheckpoint: terminalBlock.indexWithinCheckpoint,
+            txHashes: terminalBlock.txHashes,
+          }
+        : undefined,
+    });
+    return checkpoint.toCore();
+  };
+
+  const mockProposals = (
+    slot: SlotNumber,
+    blockProposals: BlockProposal[],
+    checkpointProposals: CheckpointProposalCore[],
+  ) =>
+    p2pClient.getProposalsForSlot.mockImplementation(querySlot =>
+      Promise.resolve(
+        querySlot === slot ? { blockProposals, checkpointProposals } : { blockProposals: [], checkpointProposals: [] },
+      ),
+    );
+
+  it('slashes when higher-index block proposals arrive before a truncated checkpoint proposal', async () => {
+    const signer = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    mockProposals(slot, blocks, [checkpoint]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).toHaveBeenCalledWith([
+      {
+        validator: signer.address,
+        amount: 11n,
+        offenseType: OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 10n,
+      },
+    ]);
+  });
+
+  it('slashes when a higher-index proposal arrives after an earlier non-slashing scan', async () => {
+    const signer = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    mockProposals(slot, blocks.slice(0, 2), [checkpoint]);
+
+    await watcher.scanSlot(slot);
+    expect(handler).not.toHaveBeenCalled();
+
+    mockProposals(slot, blocks, [checkpoint]);
+    await watcher.scanSlot(slot);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0][0].validator).toEqual(signer.address);
+  });
+
+  it('infers the terminal proposal from a retained block reconstructed out of embedded lastBlock', async () => {
+    const signer = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const checkpointWithLastBlock = await makeCheckpointProposal({
+      signer,
+      checkpointHeader: makeCheckpointHeader(1, { slotNumber: slot }),
+      archiveRoot: blocks[1].archive,
+      lastBlock: {
+        blockHeader: blocks[1].blockHeader,
+        indexWithinCheckpoint: blocks[1].indexWithinCheckpoint,
+        txHashes: blocks[1].txHashes,
+      },
+    });
+    mockProposals(slot, [checkpointWithLastBlock.getBlockProposal()!, blocks[2]], [checkpointWithLastBlock.toCore()]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+    expect(handler.mock.calls[0][0][0].validator).toEqual(signer.address);
+  });
+
+  it('does not slash when the checkpoint terminates at the highest known block', async () => {
+    const signer = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[3]);
+    mockProposals(slot, blocks, [checkpoint]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('does not slash without a matching signed terminal block proposal', async () => {
+    const signer = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const missingTerminal = await makeBlockProposal({
+      signer,
+      blockHeader: makeBlockHeader(99, { slotNumber: slot }),
+      archiveRoot: Fr.random(),
+      indexWithinCheckpoint: IndexWithinCheckpoint(1),
+    });
+    const checkpoint = await makeCheckpointCore(signer, slot, missingTerminal);
+    mockProposals(slot, blocks, [checkpoint]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('does not slash when the higher-index block is signed by a different validator', async () => {
+    const signer = Secp256k1Signer.random();
+    const otherSigner = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 2);
+    const higherBlock = (await makeBlocks(otherSigner, slot, 3))[2];
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    mockProposals(slot, [...blocks, higherBlock], [checkpoint]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('does not emit duplicate offenses on repeated scans', async () => {
+    const signer = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    mockProposals(slot, blocks, [checkpoint]);
+
+    await watcher.scanSlot(slot);
+    await watcher.scanSlot(slot);
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('scans a lookback of closed slots', async () => {
+    const signer = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    mockProposals(slot, blocks, [checkpoint]);
+
+    await watcher.scan();
+
+    expect(p2pClient.getProposalsForSlot).toHaveBeenCalledWith(SlotNumber(7));
+    expect(p2pClient.getProposalsForSlot).toHaveBeenCalledWith(SlotNumber(10));
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it('only expands beyond the lookback for newly closed slots', async () => {
+    p2pClient.getProposalsForSlot.mockResolvedValue({ blockProposals: [], checkpointProposals: [] });
+
+    await watcher.scan();
+    p2pClient.getProposalsForSlot.mockClear();
+    epochCache.getCurrentAndNextSlot.mockReturnValue({ currentSlot: SlotNumber(13), nextSlot: SlotNumber(14) });
+
+    await watcher.scan();
+
+    expect(p2pClient.getProposalsForSlot.mock.calls.map(([slot]) => slot)).toEqual([
+      SlotNumber(8),
+      SlotNumber(9),
+      SlotNumber(10),
+      SlotNumber(11),
+    ]);
+  });
+});

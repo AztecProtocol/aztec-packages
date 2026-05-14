@@ -46,7 +46,6 @@ Per-protocol size limits checked via preamble before decompression.
 | Error Type | Severity |
 |------------|----------|
 | GOODBYE subprotocol errors | None |
-| `CollectiveReqRespTimeoutError` / `InvalidResponseError` | None |
 | `AbortError` / connection close / muxer closed | None |
 | `ECONNRESET` / `EPIPE` / `ECONNREFUSED` / `ERR_UNEXPECTED_EOF` | HighToleranceError |
 | `ERR_UNSUPPORTED_PROTOCOL` | HighToleranceError |
@@ -182,19 +181,6 @@ Protected peers (private/trusted/preferred) are always considered "authenticated
 | Internal error during lookup | Unhandled exception -> stream abort (no `INTERNAL_ERROR` status, unlike BLOCK) | handler |
 
 Conditional registration: BLOCK_TXS handler only registered when `config.disableTransactions` is false. Otherwise peers get `ERR_UNSUPPORTED_PROTOCOL`.
-
-**Requester side via `sendBatchRequest`** (Snappy limit: `max(N, 1) * 512 + 1` KB):
-
-| Rule | Consequence | File |
-|------|-------------|------|
-| Archive root must match request | MidToleranceError | `libp2p_service.ts` (`validateRequestedBlockTxs`) |
-| BitVector length must match request | MidToleranceError | same |
-| No duplicate tx hashes | MidToleranceError | same |
-| Tx count within bounds | MidToleranceError | same |
-| Local block proposal must exist for archive root | Rejected (no penalty) | same |
-| All tx hashes must be in proposal's tx list at allowed indices | LowToleranceError | same |
-| Txs in strictly increasing index order | LowToleranceError | same |
-| Each tx passes well-formedness (Metadata [4 fields], Size, Data, Proof) | LowToleranceError | same |
 
 **Requester side via `BatchTxRequester`** (separate validation path):
 

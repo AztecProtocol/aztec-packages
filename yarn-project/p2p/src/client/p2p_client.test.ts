@@ -41,7 +41,6 @@ describe('P2P Client', () => {
     txPool.addPendingTxs.mockResolvedValue({ accepted: [], ignored: [], rejected: [] });
 
     p2pService = mock<P2PService>();
-    p2pService.sendBatchRequest.mockResolvedValue([]);
 
     l1Constants = EmptyL1RollupConstants;
     txCollection = mock<TxCollection>();

@@ -517,6 +517,7 @@ export class EpochsTestContext {
       'proposer-rollup-check-failed',
       'checkpoint-error',
       'checkpoint-publish-failed',
+      'header-validation-failed',
       'pipelined-checkpoint-discarded',
       ...additionalFailEventKeys,
     ];
