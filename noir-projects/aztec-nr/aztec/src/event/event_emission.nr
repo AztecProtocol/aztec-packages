@@ -35,7 +35,8 @@ where
 }
 
 /// Equivalent to `self.emit(event)`: see [`crate::contract_self::ContractSelfPublic::emit`].
-pub fn emit_event_in_public<Event>(context: PublicContext, event: Event)
+#[inline_never]
+pub unconstrained fn emit_event_in_public<Event>(context: PublicContext, event: Event)
 where
     Event: EventInterface + Serialize,
 {
