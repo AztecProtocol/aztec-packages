@@ -1,9 +1,9 @@
 #include "sha256.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include <array>
-#include <cassert>
 #include <cstdint>
 
 using namespace bb;
@@ -72,12 +72,12 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size)
     auto circuit_output = SHA256<UltraCircuitBuilder>::sha256_block(h_init, block);
 
     // Verify circuit correctness
-    assert(CircuitChecker::check(builder));
+    BB_ASSERT(CircuitChecker::check(builder));
 
     // Compare outputs
     for (size_t i = 0; i < 8; i++) {
         [[maybe_unused]] uint32_t circuit_val = static_cast<uint32_t>(uint256_t(circuit_output[i].get_value()));
-        assert(circuit_val == expected_output[i]);
+        BB_ASSERT(circuit_val == expected_output[i]);
     }
 
     return 0;
