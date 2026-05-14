@@ -17,7 +17,7 @@ describe('schnorr', () => {
       0xda, 0x31, 0x29, 0x1a, 0x5e, 0x96, 0xbb, 0x7a, 0x56, 0x63, 0x9e, 0x17, 0x7d, 0x30, 0x1b, 0xeb,
     ]));
     const pubKey = await schnorr.computePublicKey(privateKey);
-    const msg = Fr.random().toBuffer();
+    const msg = Fr.random();
     const signature = await schnorr.constructSignature(msg, privateKey);
     const verified = await schnorr.verifySignature(msg, pubKey, signature);
 
@@ -31,7 +31,7 @@ describe('schnorr', () => {
       0xda, 0x31, 0x29, 0x1a, 0x5e, 0x96, 0xbb, 0x7a, 0x56, 0x63, 0x9e, 0x17, 0x7d, 0x30, 0x1b, 0xeb,
     ]));
     const pubKey = await schnorr.computePublicKey(privateKey);
-    const msg = Fr.random().toBuffer();
+    const msg = Fr.random();
     const signature = await schnorr.constructSignature(msg, GrumpkinScalar.random());
     const verified = await schnorr.verifySignature(msg, pubKey, signature);
 

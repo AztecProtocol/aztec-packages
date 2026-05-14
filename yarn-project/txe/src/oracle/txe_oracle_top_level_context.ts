@@ -287,7 +287,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const privateKey = await this.keyStore.getMasterSecretKey(account.publicKeys.masterIncomingViewingPublicKey);
 
     const schnorr = new Schnorr();
-    const signature = await schnorr.constructSignature(messageHash.toBuffer(), privateKey);
+    const signature = await schnorr.constructSignature(messageHash, privateKey);
 
     const authWitness = new AuthWitness(messageHash, signature.toLimbFields());
 

@@ -63,11 +63,11 @@ schnorr_signature schnorr_construct_signature(const typename G1::Fq& message_fie
     // for the signature equation s = k - priv * e. Lossless because bb::fr modulus < bb::fq modulus.
     std::array<uint8_t, 32> e_buf;
     Fq::serialize_to_buffer(e, e_buf.data());
-    Fr e_fr = Fr::serialize_from_buffer(e_buf.data());
-    Fr s = k - (private_key * e_fr);
+    Fr e_scalar = Fr::serialize_from_buffer(e_buf.data());
+    Fr s = k - (private_key * e_scalar);
     secure_erase_bytes(&k, sizeof(k));
 
-    return { s, e_fr };
+    return { s, e_scalar };
 }
 
 /**
@@ -100,7 +100,7 @@ bool schnorr_verify_signature(const typename G1::Fq& message_field,
     Fq target_e = schnorr_generate_challenge<G1>(message_field, public_key, R);
     std::array<uint8_t, 32> target_e_buf;
     Fq::serialize_to_buffer(target_e, target_e_buf.data());
-    Fr target_e_fr = Fr::serialize_from_buffer(target_e_buf.data());
-    return (sig.e == target_e_fr);
+    Fr target_e_scalar = Fr::serialize_from_buffer(target_e_buf.data());
+    return (sig.e == target_e_scalar);
 }
 } // namespace bb::crypto

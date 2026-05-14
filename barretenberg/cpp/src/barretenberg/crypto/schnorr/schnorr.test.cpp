@@ -99,16 +99,16 @@ TEST(schnorr, signature_internals_consistency)
     G1::affine_element R(G1::element(public_key) * sig.e + G1::one * sig.s);
 
     // Independently compute the Poseidon2 challenge from R, pubkey, message
-    Fq expected_e_fq =
+    Fq expected_e_base =
         Poseidon2<Poseidon2Bn254ScalarFieldParams>::hash({ R.x, public_key.x, public_key.y, message_field });
 
-    // Convert to Fr via proper serialization (the same path the implementation uses)
+    // Convert to the grumpkin scalar field via byte round-trip (the same path the implementation uses)
     std::array<uint8_t, 32> expected_e_buf;
-    Fq::serialize_to_buffer(expected_e_fq, expected_e_buf.data());
-    Fr expected_e_fr = Fr::serialize_from_buffer(expected_e_buf.data());
+    Fq::serialize_to_buffer(expected_e_base, expected_e_buf.data());
+    Fr expected_e_scalar = Fr::serialize_from_buffer(expected_e_buf.data());
 
     // The challenge in the signature must match the independently computed one
-    EXPECT_EQ(sig.e, expected_e_fr);
+    EXPECT_EQ(sig.e, expected_e_scalar);
 
     // Also verify that R is not the point at infinity (would indicate k=0)
     EXPECT_FALSE(R.is_point_at_infinity());
@@ -173,16 +173,16 @@ namespace {
 
 /**
  * @brief Build a fully-deterministic Schnorr signature by inlining the construction logic with a fixed
- * nonce k. Mirrors schnorr_construct_signature exactly but exposes (R, e, e_fr, s) for pinning.
+ * nonce k. Mirrors schnorr_construct_signature exactly but exposes (R, e_base, e_scalar, s) for pinning.
  *
  * Used to produce hardcoded test vectors that the noir circuit can match against.
  */
 struct DeterministicSig {
     G1::affine_element public_key;
     G1::affine_element R;
-    Fq e_fq; // raw Poseidon2 output (grumpkin base = bb::fr)
-    Fr e_fr; // serialized into grumpkin scalar (bb::fq)
-    Fr s;    // s = k - priv * e_fr
+    Fq e_base;   // raw Poseidon2 output, lives in the grumpkin base field (bb::fr)
+    Fr e_scalar; // re-encoded into the grumpkin scalar field (bb::fq) for the signature equation
+    Fr s;        // s = k - priv * e_scalar
     schnorr_signature sig;
 };
 
@@ -191,14 +191,14 @@ DeterministicSig build_deterministic_sig(const Fr& private_key, const Fr& nonce_
     DeterministicSig out;
     out.public_key = G1::affine_element(G1::one * private_key);
     out.R = G1::affine_element(G1::one * nonce_k);
-    out.e_fq = Poseidon2<Poseidon2Bn254ScalarFieldParams>::hash(
+    out.e_base = Poseidon2<Poseidon2Bn254ScalarFieldParams>::hash(
         { out.R.x, out.public_key.x, out.public_key.y, message_field });
     std::array<uint8_t, 32> e_buf;
-    Fq::serialize_to_buffer(out.e_fq, e_buf.data());
-    out.e_fr = Fr::serialize_from_buffer(e_buf.data());
-    out.s = nonce_k - private_key * out.e_fr;
+    Fq::serialize_to_buffer(out.e_base, e_buf.data());
+    out.e_scalar = Fr::serialize_from_buffer(e_buf.data());
+    out.s = nonce_k - private_key * out.e_scalar;
     out.sig.s = out.s;
-    out.sig.e = out.e_fr;
+    out.sig.e = out.e_scalar;
     return out;
 }
 
@@ -214,7 +214,7 @@ void dump_vector(const char* label, const Fr& private_key, const Fr& nonce_k, co
     info("  R.x          = ", v.R.x);
     info("  R.y          = ", v.R.y);
     info("  s            = ", v.s);
-    info("  e            = ", v.e_fr);
+    info("  e            = ", v.e_scalar);
 }
 
 } // namespace
@@ -242,7 +242,7 @@ TEST(schnorr, pinned_test_vector_small)
     EXPECT_EQ(v.public_key.y, Fq(std::string("0x2b9c81935298af5ebe22f1a7279bb76781e6cadba3fb6c5c41ed942392dc687c")));
     EXPECT_EQ(v.R.x, Fq(std::string("0x2f410c5089a00d9a4664f262272dbc091b121acf58abdf919c1bc8b974fb720e")));
     EXPECT_EQ(v.s, Fr(std::string("0x2e5369edb9c537abb7009429f27005e428a5278efa70b5bed7a1a00db7874926")));
-    EXPECT_EQ(v.e_fr, Fr(std::string("0x0aa3af2d0820967a929db740196db453f8885875459c1bfb37a446223a323f52")));
+    EXPECT_EQ(v.e_scalar, Fr(std::string("0x0aa3af2d0820967a929db740196db453f8885875459c1bfb37a446223a323f52")));
 }
 
 /**
@@ -264,5 +264,5 @@ TEST(schnorr, pinned_test_vector_large)
     EXPECT_EQ(v.public_key.y, Fq(std::string("0x1a915003e8ec534f9a15d926a7ded478e178468ccc4f28e236e67450a55ac622")));
     EXPECT_EQ(v.R.x, Fq(std::string("0x04e780bc3d2b86b5f41f3b8d2820c1f2c3164cd5efc607cd48c428495a8f47b7")));
     EXPECT_EQ(v.s, Fr(std::string("0x079b7d2ee637567708798f1fc5d1d9b9daf71612d4c3e50e9166fce768e6fa9a")));
-    EXPECT_EQ(v.e_fr, Fr(std::string("0x02371e738a5ae0234b416beb3903d9ab4aba6c0ac04353fb9fd87a6b03067106")));
+    EXPECT_EQ(v.e_scalar, Fr(std::string("0x02371e738a5ae0234b416beb3903d9ab4aba6c0ac04353fb9fd87a6b03067106")));
 }
