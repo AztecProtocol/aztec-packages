@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { type L2BlockTag, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { type L2BlockTag, type L2Tips, L2TipsBaseSchema, isL2TipsOrdered } from '../block/l2_block_source.js';
 
 /**
  * Public chain-tip selectors usable in RPC requests.
@@ -21,4 +21,6 @@ export const ChainTipSchema = z.union([
  */
 export type ChainTips = Omit<L2Tips, 'proposedCheckpoint'>;
 
-export const ChainTipsSchema = L2TipsSchema.omit({ proposedCheckpoint: true });
+export const ChainTipsSchema = L2TipsBaseSchema.omit({ proposedCheckpoint: true }).refine(isL2TipsOrdered, {
+  message: 'Incorrect ordering for chain tip numbers',
+});

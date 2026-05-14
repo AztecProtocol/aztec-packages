@@ -2833,4 +2833,72 @@ describe('BlockStore', () => {
       expect(await blockStore.getBlock({ number: BlockNumber(2) })).toBeUndefined();
     });
   });
+
+  describe('L2TipsCache clamping regression', () => {
+    it('does not throw when provenBlockNumber > latestBlockNumber and returns clamped tips', async () => {
+      // Seed a checkpoint with block 2, then remove the block data to simulate
+      // the transient window where proven > latest (L1-derived proven vs block-data sync lag).
+      const checkpoint = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 2, startBlockNumber: 1 }),
+        10,
+      );
+      await blockStore.addCheckpoints([checkpoint]);
+      await blockStore.setProvenCheckpointNumber(CheckpointNumber(1));
+
+      // Remove all block data — proven checkpoint still says block 2 but #blocks is empty.
+      await blockStore.removeBlocksAfter(BlockNumber(0));
+
+      expect(await blockStore.getLatestL2BlockNumber()).toBe(0);
+      expect(await blockStore.getProvenBlockNumber()).toBe(2);
+
+      const cache = new L2TipsCache(blockStore, GENESIS_BLOCK_HEADER_HASH);
+      const resolved = await cache.getL2Tips();
+
+      expect(resolved.proposed.number).toBe(0);
+      expect(resolved.proven.block.number).toBe(0);
+      expect(resolved.finalized.block.number).toBe(0);
+      expect(resolved.checkpointed.block.number).toBe(0);
+      expect(resolved.proposedCheckpoint.block.number).toBe(0);
+      expect(resolved.proven.block.number).toBeLessThanOrEqual(resolved.proposed.number);
+      expect(resolved.finalized.block.number).toBeLessThanOrEqual(resolved.proven.block.number);
+    });
+
+    it('falls back proposedCheckpoint to checkpointed when its block number is past proposed', async () => {
+      // Seed: a confirmed checkpoint at block 1, a proposed block 2, and a pending
+      // proposed checkpoint covering block 2. Then remove block 2 so the pending
+      // proposed checkpoint's block number is past the latest available block.
+      const checkpoint1 = makePublishedCheckpoint(
+        await Checkpoint.random(CheckpointNumber(1), { numBlocks: 1, startBlockNumber: 1 }),
+        10,
+      );
+      await blockStore.addCheckpoints([checkpoint1]);
+
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: checkpoint1.checkpoint.blocks[0].archive,
+      });
+      await blockStore.addProposedBlock(block2, { force: true });
+      await blockStore.addProposedCheckpoint({
+        checkpointNumber: CheckpointNumber(2),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(2),
+        blockCount: 1,
+        totalManaUsed: 100n,
+        feeAssetPriceModifier: 50n,
+      });
+      await blockStore.removeBlocksAfter(BlockNumber(1));
+
+      expect(await blockStore.getLatestL2BlockNumber()).toBe(1);
+      expect(await blockStore.getProposedCheckpointL2BlockNumber()).toBe(2);
+
+      const cache = new L2TipsCache(blockStore, GENESIS_BLOCK_HEADER_HASH);
+      const resolved = await cache.getL2Tips();
+
+      // Whole proposedCheckpoint tip falls back to checkpointed (no mixed pair of
+      // proposed block + stale pending checkpoint identity).
+      expect(resolved.proposed.number).toBe(1);
+      expect(resolved.proposedCheckpoint).toEqual(resolved.checkpointed);
+    });
+  });
 });

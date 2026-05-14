@@ -323,6 +323,69 @@ export type L2Tips = {
   finalized: L2TipId;
 };
 
+/** Block numbers for each tip of the L2 chain. */
+export type L2TipNumbers = Record<L2BlockTag, BlockNumber>;
+
+const L2_TIP_TAGS_DESCENDING: readonly L2BlockTag[] = [
+  'proposed',
+  'proposedCheckpoint',
+  'checkpointed',
+  'proven',
+  'finalized',
+] as const;
+
+/**
+ * Clamps each tip's block number to the next-higher tier to enforce
+ * `finalized ≤ proven ≤ checkpointed ≤ proposedCheckpoint ≤ proposed`.
+ * Call this *before* resolving block/checkpoint data so producers don't
+ * throw when they look up data for a tip whose blocks haven't been synced yet.
+ */
+export function clampL2TipNumbers<T extends L2TipNumbers>(numbers: T): T {
+  let bound = numbers.proposed;
+  let clamped: T | undefined;
+  for (const tag of L2_TIP_TAGS_DESCENDING) {
+    if (numbers[tag] > bound) {
+      (clamped ??= { ...numbers })[tag] = bound;
+    } else {
+      bound = numbers[tag];
+    }
+  }
+  return clamped ?? numbers;
+}
+
+/**
+ * Returns true iff `tips` satisfies the descending-tip ordering invariant on both block
+ * numbers and (when present) checkpoint numbers.
+ */
+export function isL2TipsOrdered(tips: {
+  [K in L2BlockTag]?:
+    | { number: BlockNumber }
+    | { block: { number: BlockNumber }; checkpoint?: { number: CheckpointNumber } };
+}): boolean {
+  let blockBound: BlockNumber | undefined;
+  let checkpointBound: CheckpointNumber | undefined;
+  for (const tag of L2_TIP_TAGS_DESCENDING) {
+    const tip = tips[tag];
+    if (!tip) {
+      continue;
+    }
+    const blockNumber = 'number' in tip ? tip.number : tip.block.number;
+    if (blockBound !== undefined && blockNumber > blockBound) {
+      return false;
+    }
+    blockBound = blockNumber;
+
+    const checkpointNumber = 'block' in tip ? tip.checkpoint?.number : undefined;
+    if (checkpointNumber !== undefined) {
+      if (checkpointBound !== undefined && checkpointNumber > checkpointBound) {
+        return false;
+      }
+      checkpointBound = checkpointNumber;
+    }
+  }
+  return true;
+}
+
 export const GENESIS_CHECKPOINT_HEADER_HASH = CheckpointHeader.empty().hash();
 
 /** Identifies a block by number and hash. */
@@ -360,12 +423,17 @@ const L2TipIdSchema = z.object({
   checkpoint: L2CheckpointIdSchema,
 });
 
-export const L2TipsSchema = z.object({
+/** Base Zod object for `L2Tips` without ordering refinement. Exported so derived schemas can call `.omit()`. */
+export const L2TipsBaseSchema = z.object({
   proposed: L2BlockIdSchema,
   checkpointed: L2TipIdSchema,
   proposedCheckpoint: L2TipIdSchema,
   proven: L2TipIdSchema,
   finalized: L2TipIdSchema,
+});
+
+export const L2TipsSchema = L2TipsBaseSchema.refine(isL2TipsOrdered, {
+  message: 'L2Tips ordering violated: finalized ≤ proven ≤ checkpointed ≤ proposedCheckpoint ≤ proposed',
 });
 
 export enum L2BlockSourceEvents {

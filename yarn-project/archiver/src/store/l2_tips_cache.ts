@@ -5,7 +5,10 @@ import {
   type BlockHash,
   type CheckpointId,
   GENESIS_CHECKPOINT_HEADER_HASH,
+  type L2BlockId,
+  type L2TipId,
   type L2Tips,
+  clampL2TipNumbers,
 } from '@aztec/stdlib/block';
 
 import type { BlockStore } from './block_store.js';
@@ -42,13 +45,7 @@ export class L2TipsCache {
   }
 
   private async loadFromStore(): Promise<L2Tips> {
-    const [
-      latestBlockNumber,
-      provenBlockNumber,
-      proposedCheckpointBlockNumber,
-      checkpointedBlockNumber,
-      finalizedBlockNumber,
-    ] = await Promise.all([
+    const [rawProposed, rawProven, rawProposedCheckpoint, rawCheckpointed, rawFinalized] = await Promise.all([
       this.blockStore.getLatestL2BlockNumber(),
       this.blockStore.getProvenBlockNumber(),
       this.blockStore.getProposedCheckpointL2BlockNumber(),
@@ -56,91 +53,78 @@ export class L2TipsCache {
       this.blockStore.getFinalizedL2BlockNumber(),
     ]);
 
-    const genesisBlockHeader = {
-      blockHash: this.initialBlockHash,
-      checkpointNumber: CheckpointNumber.ZERO,
-    } as const;
-    const beforeInitialBlockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
+    // Tip block numbers are populated from independent sources, so during sync they can violate
+    // `finalized ≤ ... ≤ proposed`. Clamp before resolving block data to avoid 'block not found'.
+    const clamped = clampL2TipNumbers({
+      proposed: rawProposed,
+      proposedCheckpoint: rawProposedCheckpoint,
+      checkpointed: rawCheckpointed,
+      proven: rawProven,
+      finalized: rawFinalized,
+    });
 
-    const getBlockData = (blockNumber: BlockNumber) =>
-      blockNumber > beforeInitialBlockNumber
-        ? this.blockStore.getBlockData({ number: blockNumber })
-        : genesisBlockHeader;
+    const [proposed, proven, checkpointed, finalized] = await Promise.all([
+      this.resolveBlockId(clamped.proposed),
+      this.resolveTipId(clamped.proven),
+      this.resolveTipId(clamped.checkpointed),
+      this.resolveTipId(clamped.finalized),
+    ]);
 
-    const [latestBlockData, provenBlockData, proposedCheckpointBlockData, checkpointedBlockData, finalizedBlockData] =
-      await Promise.all(
-        [
-          latestBlockNumber,
-          provenBlockNumber,
-          proposedCheckpointBlockNumber,
-          checkpointedBlockNumber,
-          finalizedBlockNumber,
-        ].map(getBlockData),
-      );
+    // If the pending proposed checkpoint pointed past the latest proposed block, its stored
+    // checkpoint identity references a block we haven't synced. Fall back to `checkpointed`
+    // entirely rather than emitting a mixed (proposed block, stale checkpoint identity) pair.
+    const proposedCheckpoint: L2TipId =
+      rawProposedCheckpoint > rawProposed
+        ? checkpointed
+        : {
+            block: await this.resolveBlockId(clamped.proposedCheckpoint),
+            checkpoint: await this.resolveProposedCheckpointId(checkpointed.checkpoint),
+          };
 
-    if (
-      !latestBlockData ||
-      !provenBlockData ||
-      !finalizedBlockData ||
-      !checkpointedBlockData ||
-      !proposedCheckpointBlockData
-    ) {
-      throw new Error('Failed to load block data for L2 tips');
+    return { proposed, proven, checkpointed, finalized, proposedCheckpoint };
+  }
+
+  private async resolveBlockId(blockNumber: BlockNumber): Promise<L2BlockId> {
+    if (blockNumber < INITIAL_L2_BLOCK_NUM) {
+      return { number: BlockNumber.ZERO, hash: this.initialBlockHash.toString() };
     }
+    const blockData = await this.blockStore.getBlockData({ number: blockNumber });
+    if (!blockData) {
+      throw new Error(`Failed to load block data for L2 tip at block ${blockNumber}`);
+    }
+    return { number: blockNumber, hash: blockData.blockHash.toString() };
+  }
 
-    const [provenCheckpointId, finalizedCheckpointId, proposedCheckpointId, checkpointedCheckpointId] =
-      await Promise.all([
-        this.getCheckpointIdForBlock(provenBlockData),
-        this.getCheckpointIdForBlock(finalizedBlockData),
-        this.getCheckpointIdForProposedCheckpoint(checkpointedBlockData),
-        this.getCheckpointIdForBlock(checkpointedBlockData),
-      ]);
-
+  private async resolveTipId(blockNumber: BlockNumber): Promise<L2TipId> {
+    if (blockNumber < INITIAL_L2_BLOCK_NUM) {
+      return {
+        block: { number: BlockNumber.ZERO, hash: this.initialBlockHash.toString() },
+        checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      };
+    }
+    const blockData = await this.blockStore.getBlockData({ number: blockNumber });
+    if (!blockData) {
+      throw new Error(`Failed to load block data for L2 tip at block ${blockNumber}`);
+    }
     return {
-      proposed: { number: latestBlockNumber, hash: latestBlockData.blockHash.toString() },
-      proven: {
-        block: { number: provenBlockNumber, hash: provenBlockData.blockHash.toString() },
-        checkpoint: provenCheckpointId,
-      },
-      proposedCheckpoint: {
-        block: { number: proposedCheckpointBlockNumber, hash: proposedCheckpointBlockData.blockHash.toString() },
-        checkpoint: proposedCheckpointId,
-      },
-      finalized: {
-        block: { number: finalizedBlockNumber, hash: finalizedBlockData.blockHash.toString() },
-        checkpoint: finalizedCheckpointId,
-      },
-      checkpointed: {
-        block: { number: checkpointedBlockNumber, hash: checkpointedBlockData.blockHash.toString() },
-        checkpoint: checkpointedCheckpointId,
-      },
+      block: { number: blockNumber, hash: blockData.blockHash.toString() },
+      checkpoint: await this.getCheckpointIdForBlock(blockData),
     };
   }
 
-  private async getCheckpointIdForProposedCheckpoint(
-    checkpointedBlockData: Pick<BlockData, 'checkpointNumber'>,
-  ): Promise<CheckpointId> {
-    const checkpointData = await this.blockStore.getLastProposedCheckpoint();
-    if (!checkpointData) {
-      return this.getCheckpointIdForBlock(checkpointedBlockData);
+  private async resolveProposedCheckpointId(checkpointedFallback: CheckpointId): Promise<CheckpointId> {
+    const proposed = await this.blockStore.getLastProposedCheckpoint();
+    if (!proposed) {
+      return checkpointedFallback;
     }
-    return {
-      number: checkpointData.checkpointNumber,
-      hash: checkpointData.header.hash().toString(),
-    };
+    return { number: proposed.checkpointNumber, hash: proposed.header.hash().toString() };
   }
 
   private async getCheckpointIdForBlock(blockData: Pick<BlockData, 'checkpointNumber'>): Promise<CheckpointId> {
     const checkpointData = await this.blockStore.getCheckpointData(blockData.checkpointNumber);
     if (!checkpointData) {
-      return {
-        number: CheckpointNumber.ZERO,
-        hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
-      };
+      return { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() };
     }
-    return {
-      number: checkpointData.checkpointNumber,
-      hash: checkpointData.header.hash().toString(),
-    };
+    return { number: checkpointData.checkpointNumber, hash: checkpointData.header.hash().toString() };
   }
 }
