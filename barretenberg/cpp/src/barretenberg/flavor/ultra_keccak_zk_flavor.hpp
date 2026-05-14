@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 
@@ -36,10 +37,10 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     static constexpr size_t NUM_UNSHIFTED_ENTITIES =
         UltraKeccakFlavor::NUM_UNSHIFTED_ENTITIES + NUM_MASKING_POLYNOMIALS;
 
-    // Size of the final PCS MSM for ZK = non-ZK size + NUM_LIBRA_COMMITMENTS (3)
+    // Size of the final PCS MSM for ZK = non-ZK size + NUM_SMALL_IPA_COMMITMENTS (3)
     static constexpr size_t FINAL_PCS_MSM_SIZE(size_t log_n = VIRTUAL_LOG_N)
     {
-        return NUM_UNSHIFTED_ENTITIES + log_n + 2 + NUM_LIBRA_COMMITMENTS;
+        return NUM_UNSHIFTED_ENTITIES + log_n + 2 + NUM_SMALL_IPA_COMMITMENTS;
     }
 
     using AllValues = UltraFlavor::AllValues_<HasZK>;

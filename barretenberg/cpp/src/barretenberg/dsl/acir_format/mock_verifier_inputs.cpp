@@ -1,4 +1,5 @@
 #include "mock_verifier_inputs.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
@@ -114,8 +115,8 @@ template <typename Flavor> HonkProof create_mock_pcs_proof()
     populate_field_elements<FF>(proof, NUM_GEMINI_FOLD_EVALUATIONS);
 
     if constexpr (Flavor::HasZK) {
-        // NUM_SMALL_IPA_EVALUATIONS libra evals
-        populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
+        // NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals
+        populate_field_elements<FF>(proof, NUM_SMALL_IPA_TRANSCRIPT_EVALS);
     }
 
     // Shplonk batched quotient commitment
@@ -175,8 +176,8 @@ template <typename Flavor> HonkProof create_mock_decider_proof()
     populate_field_elements<FF>(proof, NUM_GEMINI_FOLD_EVALUATIONS);
 
     if constexpr (Flavor::HasZK) {
-        // NUM_SMALL_IPA_EVALUATIONS libra evals
-        populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
+        // NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals
+        populate_field_elements<FF>(proof, NUM_SMALL_IPA_TRANSCRIPT_EVALS);
     }
 
     // Shplonk batched quotient commitment
@@ -373,8 +374,8 @@ HonkProof create_mock_eccvm_proof()
     // 11. Gemini evaluations
     populate_field_elements<FF>(proof, CONST_ECCVM_LOG_N);
 
-    // 12. NUM_SMALL_IPA_EVALUATIONS libra evals
-    populate_field_elements<FF>(proof, NUM_SMALL_IPA_EVALUATIONS);
+    // 12. NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals
+    populate_field_elements<FF>(proof, NUM_SMALL_IPA_TRANSCRIPT_EVALS);
 
     // 13. Shplonk
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);

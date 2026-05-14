@@ -5131,50 +5131,63 @@ contract BlakeOptZKHonkVerifier is IVerifier {
                 }
             }
 
-            // Libra polynomial batching (ZK addition)
-            // denominators[0] = 1/(shplonkZ - geminiR) = POS_INVERTED_DENOM_0 (already computed)
-            // denominators[1] = 1/(shplonkZ - SUBGROUP_GENERATOR * geminiR) (new, compute inline)
-            // denominators[2] = denominators[0]
-            // denominators[3] = denominators[0]
+            // Libra polynomial batching: five opening claims for (G, A, A, A, Q) at points {r, g*r, r, 1, r}.
             {
                 let shplonk_nu := mload(SHPLONK_NU_CHALLENGE)
 
-                let libra_denom_0 := mload(POS_INVERTED_DENOM_0_LOC)
+                let libra_denom_0 := mload(POS_INVERTED_DENOM_0_LOC)        // 1/(z - r)
+                let libra_denom_1 := mload(LIBRA_SUBGROUP_DENOM_LOC)        // 1/(z - g*r)
 
-                // 1/(shplonkZ - SUBGROUP_GENERATOR * geminiR)
-                // Already batch-inverted in the shplemini batch inversion above
-                let libra_denom_1 := mload(LIBRA_SUBGROUP_DENOM_LOC)
+                // 1/(z - 1): boundary denominator, computed inline via the modexp precompile.
+                let shplonk_z := mload(SHPLONK_Z_CHALLENGE)
+                mstore(0x00, 0x20)
+                mstore(0x20, 0x20)
+                mstore(0x40, 0x20)
+                mstore(0x60, addmod(shplonk_z, sub(p, 1), p))
+                mstore(0x80, sub(p, 2))
+                mstore(0xa0, p)
+                if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
+                    mstore(0x00, MODEXP_FAILED_SELECTOR)
+                    revert(0x00, 0x04)
+                }
+                let libra_denom_3 := mload(0x00)
+                if iszero(libra_denom_3) {
+                    mstore(0x00, MODEXP_FAILED_SELECTOR)
+                    revert(0x00, 0x04)
+                }
 
-                // i=0: denom[0], libraPolyEvals[0]
+                // i=0: G(r)
                 let scaling_factor := mulmod(libra_denom_0, batching_challenge, p)
                 let libra_scalar_0 := sub(p, scaling_factor)
                 constant_term_acc := addmod(constant_term_acc, mulmod(scaling_factor, mload(LIBRA_POLY_EVAL_0_LOC), p), p)
                 batching_challenge := mulmod(batching_challenge, shplonk_nu, p)
 
-                // i=1: denom[1], libraPolyEvals[1]
+                // i=1: A(g*r)
                 scaling_factor := mulmod(libra_denom_1, batching_challenge, p)
                 let libra_scalar_1 := sub(p, scaling_factor)
                 constant_term_acc := addmod(constant_term_acc, mulmod(scaling_factor, mload(LIBRA_POLY_EVAL_1_LOC), p), p)
                 batching_challenge := mulmod(batching_challenge, shplonk_nu, p)
 
-                // i=2: denom[0], libraPolyEvals[2]
+                // i=2: A(r)
                 scaling_factor := mulmod(libra_denom_0, batching_challenge, p)
                 let libra_scalar_2 := sub(p, scaling_factor)
                 constant_term_acc := addmod(constant_term_acc, mulmod(scaling_factor, mload(LIBRA_POLY_EVAL_2_LOC), p), p)
                 batching_challenge := mulmod(batching_challenge, shplonk_nu, p)
 
-                // i=3: denom[0], libraPolyEvals[3]
-                scaling_factor := mulmod(libra_denom_0, batching_challenge, p)
+                // i=3: A(1), boundary opening with hardcoded value 0.
+                scaling_factor := mulmod(libra_denom_3, batching_challenge, p)
                 let libra_scalar_3 := sub(p, scaling_factor)
+                batching_challenge := mulmod(batching_challenge, shplonk_nu, p)
+
+                // i=4: Q(r)
+                scaling_factor := mulmod(libra_denom_0, batching_challenge, p)
+                let libra_scalar_4 := sub(p, scaling_factor)
                 constant_term_acc := addmod(constant_term_acc, mulmod(scaling_factor, mload(LIBRA_POLY_EVAL_3_LOC), p), p)
 
-                // Store commitment scalars:
-                // scalars[52] = batchingScalars[0] (for libraCommitments[0] = libraConcat)
+                // Group scalars by underlying commitment: [G], [A] (sum of three openings), [Q].
                 mstore(BATCH_SCALAR_52_LOC, libra_scalar_0)
-                // scalars[53] = batchingScalars[1] + batchingScalars[2] (for libraCommitments[1] = libraGrandProduct)
-                mstore(BATCH_SCALAR_53_LOC, addmod(libra_scalar_1, libra_scalar_2, p))
-                // scalars[54] = batchingScalars[3] (for libraCommitments[2] = libraQuotient)
-                mstore(BATCH_SCALAR_54_LOC, libra_scalar_3)
+                mstore(BATCH_SCALAR_53_LOC, addmod(addmod(libra_scalar_1, libra_scalar_2, p), libra_scalar_3, p))
+                mstore(BATCH_SCALAR_54_LOC, libra_scalar_4)
             }
 
             /*´:°•.°+.*•´.*:˚.°*.˚•´.°:°•.°•.*•´.*:˚.°*.˚•´.°:°•.°+.*•´.*:*/

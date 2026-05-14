@@ -161,7 +161,7 @@ template <typename Curve> class BatchedHonkTranslatorVerifier_ {
     std::vector<FF> joint_challenge;
     typename MegaZKFlavorT::AllValues mega_zk_evals;
     typename TransFlavor::AllValues trans_evals;
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments;
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments;
     FF libra_evaluation;
     FF libra_challenge;
 

@@ -60,6 +60,12 @@ Fr constant SUBGROUP_GENERATOR_INVERSE = Fr.wrap(0x204bd3277422fad364751ad938e2b
 Fr constant MINUS_ONE = Fr.wrap(MODULUS - 1);
 Fr constant ONE = Fr.wrap(1);
 Fr constant ZERO = Fr.wrap(0);
+
+// SmallSubgroupIPA opening-claim layout — mirrors SMALL_IPA_CLAIMS in
+// barretenberg/cpp/src/barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp.
+uint256 constant NUM_SMALL_IPA_OPENING_CLAIMS = 5;
+uint256 constant SMALL_IPA_BOUNDARY_OPENING_IDX = 3;
+uint256 constant NUM_SMALL_IPA_TRANSCRIPT_EVALS = 4;
 // Instantiation
 
 library FrLib {
@@ -1415,8 +1421,8 @@ library CommitmentSchemeLib {
         Fr batchingChallenge;
         // Linear combination of multilinear (sumcheck) evaluations and powers of rho
         Fr batchedEvaluation;
-        Fr[4] denominators;
-        Fr[4] batchingScalars;
+        Fr[NUM_SMALL_IPA_OPENING_CLAIMS] denominators;
+        Fr[NUM_SMALL_IPA_OPENING_CLAIMS] batchingScalars;
         // 1/(z - r^{2^i}) for i = 0, ..., logSize, dynamically updated
         Fr posInvertedDenominator;
         // 1/(z + r^{2^i}) for i = 0, ..., logSize, dynamically updated

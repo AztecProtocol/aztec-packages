@@ -61,9 +61,9 @@ This allows the verifier to compute the correction term without learning the unm
 
 ### Why This Approach?
 
-There is no direct way of comitting to $H$ unless a multivariate polynomial commitment scheme is used. This would not allow us to batch the opennings of this commitment with the rest of the commitments required in the protocol.
+There is no direct way of committing to $H$ unless a multivariate polynomial commitment scheme is used. This would not allow us to batch the openings of this commitment with the rest of the commitments required in the protocol.
 
-We could convert each univariate component to a multilinear polynomial of $\log(\textsf{deg}(H_i))$ variables (with similar tricks as in Gemini) and have $\log(d)$ variables to concatinate them together and use Gemini for the opennings.
+We could convert each univariate component to a multilinear polynomial of $\log(\textsf{deg}(H_i))$ variables (with similar tricks as in Gemini) and have $\log(d)$ variables to concatenate them together and use Gemini for the openings.
 
 This is quite wasteful as we are not benefiting from the $\textsf{deg}(H_i)$'s being smooth.
 
@@ -75,7 +75,7 @@ This will lead to a linear time verifier. But since $L$ is small, this is not an
 
 ## Protocol Description
 
-Now we dscribe a zero-knowledge inner products protocol using KZG with linear time verifier.
+Now we describe a zero-knowledge inner product protocol using KZG with a linear time verifier.
 
 ## Setting:
 Fix integer parameter $m$.
@@ -127,7 +127,9 @@ This is done by showing that $C$ is divisible by $Z_H$. So $P$ computes the quot
 
 3. P sends $[Q]$.
 4. $V$ sends random evaluation challenge $r \in \mathbb{F}$.
-5. $P$ sends $A(gr), A(r), G(r), Q(r)$ with opening proofs.
+5. $P$ produces five opening proofs against the committed $[G], [A], [Q]$:
+   - $G(r)$, $A(gr)$, $A(r)$, $Q(r)$ — values transmitted via the transcript.
+   - $A(1) = 0$ — the boundary opening. The evaluation is hardcoded on both sides (not transmitted), so the prover only contributes the opening proof itself; the verifier reconstructs the opening claim locally with the fixed value $0$.
 6. $V$ computes $F(r)$, $L_1(r)$, $L_{|H|}(r)$, and $Z_H(r)$ (This is where the linear complexity of the verifier comes from), then checks:
 
 $$\begin{aligned}
@@ -136,20 +138,32 @@ Z_H(r) \cdot Q(r) =\; & L_1(r) A(r) \\
 & + L_{|H|}(r)(A(r) - s)
 \end{aligned}$$
 
+**Why the fifth opening is required.** The Schwartz–Zippel check of the identity at random $r$ is equivalent to divisibility of the LHS by $Z_H$, i.e. the LHS vanishing on $H$ point-wise. At interior points $X = g^j$ ($0 < j < m$) only the $(X - g^{-1})$ term contributes, enforcing the recurrence $A(g^{j+1}) = A(g^j) + F(g^j)G(g^j)$. At $X = g^m$ only the $L_{|H|}$ term contributes, enforcing $A(g^m) = s$. At $X = 1$, however, both $L_1 \cdot A$ and the recurrence term contribute simultaneously, collapsing the initial boundary and the recurrence at $j = 0$ into a *single* linear equation
+
+$$A(1) + (1 - g^{-1})\bigl(A(g) - A(1) - F(1)G(1)\bigr) = 0$$
+
+with one-dimensional kernel. A homogeneous perturbation $\delta_A(1) = \delta$, $\delta_A(g^j) = c = -\delta/(g - 1)$ for $j \geq 1$, $\delta_s = c$ (with $\delta_G = 0$ and $\delta_Q$ determined by the identity) lives in this kernel, satisfies the identity at $r$, and forges $s' = s + \delta_s$. The fifth opening $A(1) = 0$ supplies the missing rank-1 constraint that separates the two superposed equations at $X = 1$, eliminating the kernel and pinning $A$ on $H$ uniquely given $G$ and $s$.
+
 ### Implementation:
 Similar to Gemini, in small subgroup IPA, the verifier checks the correctness of the algebraic identity provided above for the claimed evaluations.
-The correctness of the openning claims and commitments (the concatination $G$, the grand-sum polynomial $A$ and the quotient $Q$) are deffered to Shplemini, where adds them to the containers for computing the final MSM.
+The correctness of the opening claims and commitments (the concatenation $G$, the grand-sum polynomial $A$, and the quotient $Q$) is deferred to Shplemini, where they are added to the containers for computing the final MSM.
+
+Two distinct soundness checks are deferred to Shplemini:
+1. The four transmitted openings $G(r), A(gr), A(r), Q(r)$ — verified against $[G], [A], [Q]$ via the Shplonk batched opening.
+2. The boundary opening $A(1) = 0$ — verified against $[A]$ via the same batched opening. Without this opening, the algebraic identity at $r$ leaves one degree of freedom in $(A, Q)$ that a malicious prover can exploit (see "Why the fifth opening is required" above).
+
+Because both checks ride on the same Shplonk batched opening, soundness of SmallSubgroupIPA is *not* fully captured by the local algebraic-identity check in `SmallSubgroupIPAVerifier::check_consistency` alone — a unit-level invocation that bypasses Shplemini will accept the homogeneous perturbation. Production callers must always feed the opening claims through Shplemini.
 
 
 ### zk simulator sketch:
 
 The main point is the simulator doesn't need $u$
 The transcript consists of
-$cm(G),cm(A),cm(T),\alpha,A(\alpha),G(\alpha),F(\alpha),A(\omega \alpha),T(\alpha)$
+$cm(G),cm(A),cm(Q),\alpha,A(\alpha),G(\alpha),F(\alpha),A(\omega \alpha),Q(\alpha)$
 
+The protocol also contributes a fifth opening at $(X=1, 0)$ — fixed on both sides, so the simulator has nothing extra to choose.
 
 The simulator has access to the srs secret $\tau$.
-It chooses all transcript values besides $cm(T)=T(\tau)$ and $T(\alpha)$ randomly and independently.
-And then deterministically computes these two values to satisfy the quotient equation (as written in step 7 for $\alpha$) at $\tau,\alpha$ respectively.
-
+It chooses all transcript values besides $cm(Q)=Q(\tau)$ and $Q(\alpha)$ randomly and independently.
+And then deterministically computes these two values to satisfy the quotient equation at $\tau,\alpha$ respectively.
 

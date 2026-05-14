@@ -204,7 +204,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
 
         round++;
         manifest_expected.add_entry(round, "Translation:concatenation_eval", frs_per_Fq);
-        manifest_expected.add_entry(round, "Translation:grand_sum_shift_eval", frs_per_Fq);
+        manifest_expected.add_entry(round, "Translation:shifted_grand_sum_eval", frs_per_Fq);
         manifest_expected.add_entry(round, "Translation:grand_sum_eval", frs_per_Fq);
         manifest_expected.add_entry(round, "Translation:quotient_eval", frs_per_Fq);
         manifest_expected.add_challenge(round, "Shplonk:nu");

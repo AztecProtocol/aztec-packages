@@ -136,7 +136,7 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     // Construct the sumcheck verifier
     SumcheckVerifier<Flavor> sumcheck(transcript, verifier_instance->alpha, log_n);
     // Receive commitments to Libra masking polynomials for ZKFlavors
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
 
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");

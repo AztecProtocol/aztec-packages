@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/ipa/ipa.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/std_array.hpp"
@@ -161,7 +162,8 @@ class ECCVMFlavor {
         ((CONST_ECCVM_LOG_N - 1) * num_frs_comm) +
         /* 11. CONST_ECCVM_LOG_N Gemini a evaluations */
         (CONST_ECCVM_LOG_N * num_frs_fq) +
-        /* 12. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fq) +
+        /* 12. NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals */
+        (NUM_SMALL_IPA_TRANSCRIPT_EVALS * num_frs_fq) +
         /* 13. Shplonk Q commitment */ (num_frs_comm) +
         /* 14. Translator concatenated masking term commitment */ (num_frs_comm) +
         /* 15 Translator op evaluation */ (num_frs_fq) +
@@ -181,7 +183,7 @@ class ECCVMFlavor {
     // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
     // SmallSubgroupIPA witness polynomials.
-    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_EVALUATIONS + 1;
+    static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_OPENING_CLAIMS + 1;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually

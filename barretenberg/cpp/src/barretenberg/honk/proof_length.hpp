@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/fields/field_conversion.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -84,8 +85,8 @@ template <typename Flavor> struct Shplemini : CodecConstants<Flavor> {
             /* KZG:W */ num_frs_in_comm;
 
         if constexpr (Flavor::HasZK) {
-            // ZK adds: Libra evaluations (concatenation, shifted_grand_sum, grand_sum, quotient)
-            return base_length + (NUM_SMALL_IPA_EVALUATIONS * num_frs_in_scalar);
+            // ZK adds: Libra evaluations (concatenation, shifted_grand_sum, grand_sum, quotient).
+            return base_length + (NUM_SMALL_IPA_TRANSCRIPT_EVALS * num_frs_in_scalar);
         } else {
             return base_length;
         }
