@@ -22,7 +22,10 @@
         ASSERT_EQUAL, ASSERT_NOT_EQUAL, SQR_ADD, ASSERT_EQUAL, ASSERT_NOT_EQUAL, SQR_ADD, SUBTRACT_WITH_CONSTRAINT,    \
         DIVIDE_WITH_CONSTRAINTS, SLICE, ASSERT_ZERO, ASSERT_NOT_ZERO, COND_NEGATE, ADD_MULTI, ASSERT_VALID,            \
         COND_SELECT, DOUBLE, RANDOMSEED, SELECT_IF_ZERO, SELECT_IF_EQ, REVERSE, GET_BIT, SET_BIT, SET, INVERT, AND,    \
-        OR, XOR, MODULO, SHL, SHR, ROL, ROR, NOT, BATCH_MUL, COND_ASSIGN, VALIDATE_ON_CURVE
+        OR, XOR, MODULO, SHL, SHR, ROL, ROR, NOT, BATCH_MUL, COND_ASSIGN, VALIDATE_ON_CURVE, DBL, NEG, EQUALS,         \
+        FIXED_BATCH_MUL, CONDITIONAL_NEGATE, NORMALIZE, REDUCE, GET_STANDARD_FORM, SCALAR_MUL, ECDSA_MUL, POW,         \
+        ASSERT_IS_IN_FIELD, ASSERT_ZERO_IF, ASSERT_LESS_THAN, SELF_REDUCE, ACCUMULATE, RANGE_CONSTRAINT, IMPLIES,      \
+        IMPLIES_BOTH_WAYS, BOOL_EQUAL, BOOL_NOT_EQUAL, WRITE_AT
 
 struct HavocSettings {
     size_t GEN_LLVM_POST_MUTATION_PROB; // Controls frequency of additional mutation after structural ones
@@ -129,6 +132,48 @@ template <typename... Args> inline void debug_log(Args&&... args)
     if constexpr (SHOW_FUZZING_INFO) {
         (std::cout << ... << std::forward<Args>(args));
     }
+}
+
+/**
+ * @brief Formatted debug output arguments for fuzzer logging.
+ * Each ExecutionHandler must provide `bool is_circuit_constant() const` for the format helpers to work.
+ */
+struct FormattedArgs {
+    std::string lhs;
+    std::string rhs;
+    std::string out;
+};
+
+template <typename Stack> inline FormattedArgs format_self_arg(const Stack& stack, size_t first_index)
+{
+    std::string out = stack[first_index].is_circuit_constant() ? "c" : "w";
+    out += std::to_string(first_index);
+    return FormattedArgs{ .lhs = "", .rhs = "", .out = out };
+}
+
+template <typename Stack>
+inline FormattedArgs format_single_arg(const Stack& stack, size_t first_index, size_t output_index)
+{
+    std::string rhs = stack[first_index].is_circuit_constant() ? "c" : "w";
+    std::string out = rhs;
+    rhs += std::to_string(first_index);
+    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+    out = (output_index >= stack.size() ? "auto " : "") + out;
+    return FormattedArgs{ .lhs = "", .rhs = rhs, .out = out };
+}
+
+template <typename Stack>
+inline FormattedArgs format_two_arg(const Stack& stack, size_t first_index, size_t second_index, size_t output_index)
+{
+    std::string lhs = stack[first_index].is_circuit_constant() ? "c" : "w";
+    std::string rhs = stack[second_index].is_circuit_constant() ? "c" : "w";
+    std::string out =
+        (stack[first_index].is_circuit_constant() && stack[second_index].is_circuit_constant()) ? "c" : "w";
+    lhs += std::to_string(first_index);
+    rhs += std::to_string(second_index);
+    out += std::to_string(output_index >= stack.size() ? stack.size() : output_index);
+    out = (output_index >= stack.size() ? "auto " : "") + out;
+    return FormattedArgs{ .lhs = lhs, .rhs = rhs, .out = out };
 }
 
 /**
@@ -470,9 +515,10 @@ class ArithmeticFuzzHelper {
         // If we are testing which havoc settings are best, then we use global parameters
         const size_t mutation_count = 1 << fuzzer_havoc_settings.GEN_MUTATION_COUNT_LOG;
 #else
+        // Dead code: this path was never finished. T::HavocConfig doesn't exist in any fuzzer,
+        // and fuzzer_havoc_settings is uninitialized. All fuzzers define HAVOC_TESTING.
         const size_t mutation_count = 1 << T::HavocConfig::MUTATION_COUNT_LOG;
         HavocSettings fuzzer_havoc_settings;
-        // FILL the values
 #endif
         for (size_t i = 0; i < mutation_count; i++) {
             uint32_t val = rng.next();
