@@ -16,11 +16,14 @@ import * as fs from 'node:fs';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { threadId } from 'node:worker_threads';
 
 import type { PublicContractsDB } from './public_db_sources.js';
 
 const encoder = new Encoder({ useRecords: false });
 const decoder = new Decoder({ useRecords: false });
+
+let instanceCounter = 0;
 
 /** Convert a Fr/AztecAddress to a 32-byte Buffer. */
 function toFieldBuffer(field: Fr | AztecAddress): Buffer {
@@ -104,7 +107,7 @@ export class CdbIpcServer {
 
   constructor() {
     this.log = createLogger('cdb-ipc-server');
-    this.socketPath = path.join(os.tmpdir(), `cdb-ts-${process.pid}-${Date.now()}.sock`);
+    this.socketPath = path.join(os.tmpdir(), `cdb-ts-${process.pid}-${threadId}-${instanceCounter++}.sock`);
 
     // Clean up stale socket file
     if (fs.existsSync(this.socketPath)) {
@@ -244,7 +247,10 @@ export class CdbIpcServer {
   private getFork(forkId: number): { db: PublicContractsDB; timestamp: bigint } {
     const fork = this.forks.get(forkId);
     if (!fork) {
-      throw new Error(`CDB server: no contracts DB registered for forkId ${forkId}`);
+      const registered = Array.from(this.forks.keys()).sort((a, b) => a - b);
+      throw new Error(
+        `CDB server: no contracts DB registered for forkId ${forkId} (registered=[${registered.join(',')}])`,
+      );
     }
     return fork;
   }
