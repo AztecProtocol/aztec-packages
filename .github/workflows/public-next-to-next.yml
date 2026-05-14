@@ -1,6 +1,9 @@
 name: Public Next Auto-Pull
 
 on:
+  push:
+    branches:
+      - public-next
   workflow_dispatch:
 
 concurrency:
