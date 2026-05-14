@@ -375,7 +375,6 @@ template <class Builder_, class Fq, class Fr, class NativeGroup> class element {
         bool_ct positive_skew;
         bool_ct negative_skew;
         field_t<Builder> least_significant_wnaf_fragment;
-        bool has_wnaf_fragment = false;
     };
 
     // Internal struct to represent a pair of secp256k1 wNAFs
