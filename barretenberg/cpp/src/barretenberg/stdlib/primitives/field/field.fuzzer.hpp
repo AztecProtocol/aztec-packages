@@ -12,6 +12,11 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "cstring"
 #pragma clang diagnostic push
+// -Wc99-designator prevents us from using designators and nested designators
+// in struct initializations
+// such as {.in.first = a, .out = b}, since it's not a part of c++17 standard
+// However the use of them in this particular file heavily increases
+// the readability and conciseness of the Instruction initializations
 #pragma clang diagnostic ignored "-Wc99-designator"
 
 // This is a global variable, so that the execution handling class could alter it and signal to the input tester
@@ -19,79 +24,54 @@
 bool circuit_should_fail = false;
 
 #define HAVOC_TESTING
-// #define DISABLE_DIVISION 1
+// #define HAVOC_CALIBRATION
+
 #include "barretenberg/common/fuzzer.hpp"
 FastRandom VarianceRNG(0);
+
+enum class SpecialFrValue : uint8_t {
+    One = 0,
+    MinusOne,
+    SquareRootOfOne,
+    InverseSquareRootOfOne,
+    RootOfUnity8,
+    Two,
+    HalfModulus,
+    Zero,
+    COUNT
+};
+
+constexpr uint8_t SPECIAL_FR_VALUE_COUNT_NO_ZERO = static_cast<uint8_t>(SpecialFrValue::Zero);
+constexpr uint8_t SPECIAL_FR_VALUE_COUNT = static_cast<uint8_t>(SpecialFrValue::COUNT);
+
+inline bb::fr get_special_fr_value(SpecialFrValue type)
+{
+    switch (type) {
+    case SpecialFrValue::One:
+        return bb::fr::one();
+    case SpecialFrValue::MinusOne:
+        return -bb::fr::one();
+    case SpecialFrValue::SquareRootOfOne:
+        return bb::fr::one().sqrt().second;
+    case SpecialFrValue::InverseSquareRootOfOne:
+        return bb::fr::one().sqrt().second.invert();
+    case SpecialFrValue::RootOfUnity8:
+        return bb::fr::get_root_of_unity(8);
+    case SpecialFrValue::Two:
+        return bb::fr(2);
+    case SpecialFrValue::HalfModulus:
+        return bb::fr((bb::fr::modulus - 1) / 2);
+    case SpecialFrValue::Zero:
+        return bb::fr::zero();
+    case SpecialFrValue::COUNT:
+    default:
+        abort();
+    }
+}
 
 // #define DISABLE_DIVISION
 //  Enable this definition, when you want to find out the instructions that caused a failure
 // #define FUZZING_SHOW_INFORMATION 1
-
-#ifdef FUZZING_SHOW_INFORMATION
-#define PRINT_SINGLE_ARG_INSTRUCTION(first_index, vector, operation_name, preposition)                                 \
-    {                                                                                                                  \
-        std::cout << operation_name << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")     \
-                  << vector[first_index].field.get_value() << ") at " << first_index << " " << preposition             \
-                  << std::flush;                                                                                       \
-    }
-
-#define PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, vector, operation_name, preposition)                      \
-    {                                                                                                                  \
-        std::cout << operation_name << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")     \
-                  << vector[first_index].field.get_value() << ") at " << first_index << " " << preposition << " "      \
-                  << (vector[second_index].field.is_constant() ? "constant(" : "witness(")                             \
-                  << vector[second_index].field.get_value() << ") at " << second_index << std::flush;                  \
-    }
-
-#define PRINT_THREE_ARG_INSTRUCTION(                                                                                   \
-    first_index, second_index, third_index, vector, operation_name, preposition1, preposition2)                        \
-    {                                                                                                                  \
-        std::cout << operation_name << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")     \
-                  << vector[first_index].field.get_value() << ") at " << first_index << " " << preposition1 << " "     \
-                  << (vector[second_index].field.is_constant() ? "constant(" : "witness(")                             \
-                  << vector[second_index].field.get_value() << ") at " << second_index << " " << preposition2 << " "   \
-                  << (vector[third_index].field.is_constant() ? "constant(" : "witness(")                              \
-                  << vector[third_index].field.get_value() << ") at " << third_index << std::flush;                    \
-    }
-#define PRINT_TWO_ARG_ONE_VALUE_INSTRUCTION(                                                                           \
-    first_index, second_index, third_index, vector, operation_name, preposition1, preposition2)                        \
-    {                                                                                                                  \
-        std::cout << operation_name << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")     \
-                  << vector[first_index].field.get_value() << ") at " << first_index << " " << preposition1 << " "     \
-                  << (vector[second_index].field.is_constant() ? "constant(" : "witness(")                             \
-                  << vector[second_index].field.get_value() << ") at " << second_index << " " << preposition2 << " "   \
-                  << third_index << std::flush;                                                                        \
-    }
-
-#define PRINT_TWO_ARG_TWO_VALUES_INSTRUCTION(                                                                          \
-    first_index, second_index, value1, value2, vector, operation_name, preposition1, preposition2, preposition3)       \
-    {                                                                                                                  \
-        std::cout << operation_name << " " << (vector[first_index].field.is_constant() ? "constant(" : "witness(")     \
-                  << vector[first_index].field.get_value() << ") at " << first_index << " " << preposition1 << " "     \
-                  << (vector[second_index].field.is_constant() ? "constant(" : "witness(")                             \
-                  << vector[second_index].field.get_value() << ") at " << second_index << " " << preposition2 << " "   \
-                  << value1 << preposition3 << value2 << std::flush;                                                   \
-    }
-
-#define PRINT_RESULT(prefix, action, index, value)                                                                     \
-    {                                                                                                                  \
-        std::cout << "  result(" << value.field.get_value() << ")" << action << index << std::endl << std::flush;      \
-    }
-
-#else
-
-#define PRINT_SINGLE_ARG_INSTRUCTION(first_index, vector, operation_name, preposition)
-#define PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, vector, operation_name, preposition)
-
-#define PRINT_TWO_ARG_ONE_VALUE_INSTRUCTION(                                                                           \
-    first_index, second_index, third_index, vector, operation_name, preposition1, preposition2)
-#define PRINT_TWO_ARG_TWO_VALUES_INSTRUCTION(                                                                          \
-    first_index, second_index, value1, value2, vector, operation_name, preposition1, preposition2, preposition3)
-
-#define PRINT_THREE_ARG_INSTRUCTION(                                                                                   \
-    first_index, second_index, third_index, vector, operation_name, preposition1, preposition2)
-#define PRINT_RESULT(prefix, action, index, value)
-#endif
 
 #define OPERATION_TYPE_SIZE 1
 
@@ -109,6 +89,7 @@ FastRandom VarianceRNG(0);
 #define MULT_MADD_MAXIMUM_ADDED_ELEMENTS 8
 #define SQR_ADD_MINIMUM_ADDED_ELEMENTS 0
 #define SQR_ADD_MAXIMUM_ADDED_ELEMENTS 8
+#define ACCUMULATE_MAXIMUM_ELEMENTS 8
 /**
  * @brief The class parametrizing Field fuzzing instructions, execution, etc
  *
@@ -144,6 +125,9 @@ template <typename Builder> class FieldBase {
             ASSERT_NOT_EQUAL,
             ASSERT_ZERO,
             ASSERT_NOT_ZERO,
+            POW,
+            ACCUMULATE,
+            RANGE_CONSTRAINT,
             RANDOMSEED,
             COND_NEGATE,
             COND_SELECT,
@@ -189,6 +173,11 @@ template <typename Builder> class FieldBase {
             uint8_t output_index;
         };
 
+        struct PowArgs {
+            uint8_t in;
+            uint8_t out;
+            uint32_t exponent;
+        };
         struct SliceArgs {
             uint8_t in1;
             uint8_t lsb;
@@ -205,6 +194,7 @@ template <typename Builder> class FieldBase {
             ThreeArgs threeArgs;
             FourArgs fourArgs;
             FiveArgs fiveArgs;
+            PowArgs powArgs;
             SliceArgs sliceArgs;
             MultOpArgs multOpArgs;
             MultAddArgs multAddArgs;
@@ -227,8 +217,7 @@ template <typename Builder> class FieldBase {
         {
             // Choose which instruction we are going to generate
             OPCODE instruction_opcode = static_cast<OPCODE>(rng.next() % (OPCODE::_LAST));
-            uint8_t in1, in2, in3, out, mask_size;
-            uint256_t mask, temp;
+            uint8_t in1, in2, in3, out;
 
             // Depending on instruction
             switch (instruction_opcode) {
@@ -236,17 +225,7 @@ template <typename Builder> class FieldBase {
             case OPCODE::WITNESS:
             case OPCODE::CONSTANT_WITNESS:
                 // If it's a constant or witness, it just pushes data onto the stack to be acted upon
-                // Generate a random field element
-                for (size_t i = 0; i < (sizeof(uint256_t) >> 1); i++) {
-                    *(((uint16_t*)&temp) + i) = static_cast<uint16_t>(rng.next() & 0xffff);
-                }
-                // We want small values, too. If we generate randomly, we aren't going to have them, so we also
-                // apply a random mask, which randomizes the logarithm of maximum value
-                mask_size = static_cast<uint8_t>(rng.next() & 0xff);
-                mask = (uint256_t(1) << mask_size) - 1;
-                // Choose the bit range
-                // Return instruction
-                return { .id = instruction_opcode, .arguments.element = Element(temp & mask) };
+                return { .id = instruction_opcode, .arguments.element = Element(fast_log_distributed_uint256(rng)) };
                 break;
             case OPCODE::ASSERT_ZERO:
             case OPCODE::ASSERT_NOT_ZERO:
@@ -258,9 +237,17 @@ template <typename Builder> class FieldBase {
             case OPCODE::ASSERT_NOT_EQUAL:
             case OPCODE::SET:
             case OPCODE::INVERT:
+            case OPCODE::ACCUMULATE:
+            case OPCODE::RANGE_CONSTRAINT:
                 in1 = static_cast<uint8_t>(rng.next() & 0xff);
                 out = static_cast<uint8_t>(rng.next() & 0xff);
                 return { .id = instruction_opcode, .arguments.twoArgs = { .in = in1, .out = out } };
+                break;
+            case OPCODE::POW:
+                in1 = static_cast<uint8_t>(rng.next() & 0xff);
+                out = static_cast<uint8_t>(rng.next() & 0xff);
+                return { .id = instruction_opcode,
+                         .arguments.powArgs = { .in = in1, .out = out, .exponent = rng.next() } };
                 break;
             case OPCODE::ADD:
             case OPCODE::SUBTRACT:
@@ -357,39 +344,8 @@ template <typename Builder> class FieldBase {
                     e = e.from_montgomery_form();
                 }
             } else {
-                // Substitute field element with a special value
-                switch (rng.next() % 9) {
-                case 0:
-                    e = bb::fr::zero();
-                    break;
-                case 1:
-                    e = bb::fr::one();
-                    break;
-                case 2:
-                    e = -bb::fr::one();
-                    break;
-                case 3:
-                    e = bb::fr::one().sqrt().second;
-                    break;
-                case 4:
-                    e = bb::fr::one().sqrt().second.invert();
-                    break;
-                case 5:
-                    e = bb::fr::get_root_of_unity(8);
-                    break;
-                case 6:
-                    e = bb::fr(2);
-                    break;
-                case 7:
-                    e = bb::fr((bb::fr::modulus - 1) / 2);
-                    break;
-                case 8:
-                    e = bb::fr((bb::fr::modulus));
-                    break;
-                default:
-                    abort();
-                    break;
-                }
+                auto special_value = static_cast<SpecialFrValue>(rng.next() % SPECIAL_FR_VALUE_COUNT);
+                e = get_special_fr_value(special_value);
                 if (convert_to_montgomery) {
                     e = e.from_montgomery_form();
                 }
@@ -435,8 +391,17 @@ template <typename Builder> class FieldBase {
             case OPCODE::ASSERT_NOT_EQUAL:
             case OPCODE::SET:
             case OPCODE::INVERT:
+            case OPCODE::ACCUMULATE:
+            case OPCODE::RANGE_CONSTRAINT:
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.in)
                 PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.twoArgs.out)
+                break;
+            case OPCODE::POW:
+                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.powArgs.in)
+                PUT_RANDOM_BYTE_IF_LUCKY(instruction.arguments.powArgs.out)
+                if (rng.next() & 1) {
+                    instruction.arguments.powArgs.exponent = rng.next();
+                }
                 break;
             case OPCODE::ADD:
 #ifndef DISABLE_DIVISION
@@ -494,8 +459,9 @@ template <typename Builder> class FieldBase {
         static constexpr size_t DIVIDE = static_cast<size_t>(-1);
 #endif
         static constexpr size_t MADD = 4;
-        static constexpr size_t SUBTRACT_WITH_CONSTRAINT = static_cast<size_t>(-1);
-        static constexpr size_t DIVIDE_WITH_CONSTRAINTS = static_cast<size_t>(-1);
+        static constexpr size_t POW = sizeof(typename Instruction::PowArgs);
+        static constexpr size_t ACCUMULATE = 2;
+        static constexpr size_t RANGE_CONSTRAINT = 2;
         static constexpr size_t RANDOMSEED = sizeof(uint32_t);
         static constexpr size_t COND_NEGATE = 3;
         static constexpr size_t COND_SELECT = 4;
@@ -525,18 +491,19 @@ template <typename Builder> class FieldBase {
         static constexpr size_t ASSERT_NOT_ZERO = 2;
         static constexpr size_t ADD_TWO = 1;
 #ifndef DISABLE_DIVISION
-        static constexpr size_t DIVIDE = 16;
+        static constexpr size_t DIVIDE = 2;
 #endif
         static constexpr size_t MADD = 2;
-        static constexpr size_t SUBTRACT_WITH_CONSTRAINT = 0;
-        static constexpr size_t DIVIDE_WITH_CONSTRAINTS = 0;
+        static constexpr size_t POW = 8;
+        static constexpr size_t ACCUMULATE = 1;
+        static constexpr size_t RANGE_CONSTRAINT = 10;
         static constexpr size_t RANDOMSEED = 0;
-        static constexpr size_t COND_NEGATE = 0;
-        static constexpr size_t COND_SELECT = 0;
-        static constexpr size_t SELECT_IF_ZERO = 0;
-        static constexpr size_t SELECT_IF_EQ = 0;
-        static constexpr size_t SET = 0;
-        static constexpr size_t INVERT = 0;
+        static constexpr size_t COND_NEGATE = 2;
+        static constexpr size_t COND_SELECT = 2;
+        static constexpr size_t SELECT_IF_ZERO = 2;
+        static constexpr size_t SELECT_IF_EQ = 2;
+        static constexpr size_t SET = 2;
+        static constexpr size_t INVERT = 2;
         static constexpr size_t _LIMIT = 64;
     };
     /**
@@ -569,9 +536,18 @@ template <typename Builder> class FieldBase {
             }
             if constexpr (opcode == Instruction::OPCODE::SQR || opcode == Instruction::OPCODE::ASSERT_EQUAL ||
                           opcode == Instruction::OPCODE::ASSERT_NOT_EQUAL || opcode == Instruction::OPCODE::SET ||
-                          opcode == Instruction::OPCODE::INVERT) {
+                          opcode == Instruction::OPCODE::INVERT || opcode == Instruction::OPCODE::ACCUMULATE ||
+                          opcode == Instruction::OPCODE::RANGE_CONSTRAINT) {
                 return { .id = static_cast<typename Instruction::OPCODE>(opcode),
                          .arguments.twoArgs = { .in = *Data, .out = *(Data + 1) } };
+            }
+            if constexpr (opcode == Instruction::OPCODE::POW) {
+                Instruction instr;
+                instr.id = static_cast<typename Instruction::OPCODE>(opcode);
+                instr.arguments.powArgs.in = *Data;
+                instr.arguments.powArgs.out = *(Data + 1);
+                memcpy(&instr.arguments.powArgs.exponent, Data + 2, sizeof(uint32_t));
+                return instr;
             }
             if constexpr (opcode == Instruction::OPCODE::ADD || opcode == Instruction::OPCODE::MULTIPLY ||
 #ifndef DISABLE_DIVISION
@@ -622,10 +598,18 @@ template <typename Builder> class FieldBase {
                           instruction_opcode == Instruction::OPCODE::ASSERT_EQUAL ||
                           instruction_opcode == Instruction::OPCODE::ASSERT_NOT_EQUAL ||
                           instruction_opcode == Instruction::OPCODE::SET ||
-                          instruction_opcode == Instruction::OPCODE::INVERT) {
+                          instruction_opcode == Instruction::OPCODE::INVERT ||
+                          instruction_opcode == Instruction::OPCODE::ACCUMULATE ||
+                          instruction_opcode == Instruction::OPCODE::RANGE_CONSTRAINT) {
                 *Data = instruction.id;
                 *(Data + 1) = instruction.arguments.twoArgs.in;
                 *(Data + 2) = instruction.arguments.twoArgs.out;
+            }
+            if constexpr (instruction_opcode == Instruction::OPCODE::POW) {
+                *Data = instruction.id;
+                *(Data + 1) = instruction.arguments.powArgs.in;
+                *(Data + 2) = instruction.arguments.powArgs.out;
+                memcpy(Data + 3, &instruction.arguments.powArgs.exponent, sizeof(uint32_t));
             }
             if constexpr (instruction_opcode == Instruction::OPCODE::ADD ||
 #ifndef DISABLE_DIVISION
@@ -692,9 +676,14 @@ template <typename Builder> class FieldBase {
              * in that case, the function that handles the predicate
              * will use the context of another input parameter
              */
-            const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
-
-            return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
+            const bool predicate_is_const = static_cast<bool>(VarianceRNG.next() & 1);
+            if (predicate_is_const) {
+                const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
+                debug_log("bool_t(", (predicate_has_ctx ? "&builder," : "nullptr,"), (predicate ? "true)" : "false)"));
+                return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
+            }
+            debug_log("bool_t(witness_t(&builder, ", (predicate ? "true));" : "false))"));
+            return bool_t(witness_t(builder, predicate));
         }
         field_t f() const
         {
@@ -710,9 +699,11 @@ template <typename Builder> class FieldBase {
         {
             switch (VarianceRNG.next() % 2) {
             case 0:
+                debug_log("  via assert_equal\n");
                 this->f().assert_equal(f);
                 break;
             case 1:
+                debug_log("  via assert_is_in_set\n");
                 this->f().assert_is_in_set({ f });
                 break;
             default:
@@ -736,6 +727,7 @@ template <typename Builder> class FieldBase {
             : base(a)
             , field(b)
         {}
+        bool is_circuit_constant() const { return field.is_constant(); }
         ExecutionHandler operator+(const ExecutionHandler& other)
         {
             const auto b = this->base + other.base;
@@ -865,8 +857,10 @@ template <typename Builder> class FieldBase {
         void assert_not_equal(ExecutionHandler& other)
         {
             if (this->base == other.base) {
+                debug_log("  skipped (equal values)\n");
                 return;
             } else {
+                debug_log("  via assert_not_equal\n");
                 this->f().assert_not_equal(other.f());
             }
         }
@@ -874,15 +868,19 @@ template <typename Builder> class FieldBase {
         void assert_zero()
         {
             if (!this->base.is_zero()) {
+                debug_log("  circuit_should_fail (non-zero value)\n");
                 circuit_should_fail = true;
             }
+            debug_log("  assert_is_zero()\n");
             this->f().assert_is_zero();
         }
         void assert_not_zero()
         {
             if (this->base.is_zero()) {
+                debug_log("  circuit_should_fail (zero value)\n");
                 circuit_should_fail = true;
             }
+            debug_log("  assert_is_not_zero()\n");
             this->f().assert_is_not_zero();
         }
 
@@ -918,34 +916,34 @@ template <typename Builder> class FieldBase {
 
             switch (VarianceRNG.next() % 8) {
             case 0:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "Construct via field_t" << std::endl;
-#endif
+                if constexpr (SHOW_FUZZING_INFO) {
+                    debug_log("Construct via field_t\n");
+                }
                 return ExecutionHandler(this->base, field_t(this->field));
             case 1:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "Construct via int" << std::endl;
-#endif
+                if constexpr (SHOW_FUZZING_INFO) {
+                    debug_log("Construct via int\n");
+                }
                 return construct_via_cast<int>(std::numeric_limits<int>::max());
             case 2:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "Construct via unsigned int" << std::endl;
-#endif
+                if constexpr (SHOW_FUZZING_INFO) {
+                    debug_log("Construct via unsigned int\n");
+                }
                 return construct_via_cast<unsigned int>(std::numeric_limits<unsigned int>::max());
             case 3:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "Construct via unsigned long" << std::endl;
-#endif
+                if constexpr (SHOW_FUZZING_INFO) {
+                    debug_log("Construct via unsigned long\n");
+                }
                 return construct_via_cast<unsigned long>(std::numeric_limits<unsigned long>::max());
             case 4:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "Construct via uint256_t" << std::endl;
-#endif
+                if constexpr (SHOW_FUZZING_INFO) {
+                    debug_log("Construct via uint256_t\n");
+                }
                 return construct_via_cast<uint256_t>();
             case 5:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "Construct via fr" << std::endl;
-#endif
+                if constexpr (SHOW_FUZZING_INFO) {
+                    debug_log("Construct via fr\n");
+                }
                 return construct_via_cast<bb::fr>(bb::fr::modulus - 1);
             case 6:
 #if 1
@@ -970,17 +968,17 @@ template <typename Builder> class FieldBase {
                 if (static_cast<uint256_t>(this->base) > 1) {
                     return ExecutionHandler(this->base, field_t(this->field));
                 } else {
-#ifdef FUZZING_SHOW_INFORMATION
-                    std::cout << "Construct via bool_t" << std::endl;
-#endif
+                    if constexpr (SHOW_FUZZING_INFO) {
+                        debug_log("Construct via bool_t\n");
+                    }
                     /* Construct via bool_t */
                     return ExecutionHandler(this->base, field_t(static_cast<bool_t>(this->field)));
                 }
 #endif
             case 7:
-#ifdef FUZZING_SHOW_INFORMATION
-                std::cout << "Reproduce via accumulate()" << std::endl;
-#endif
+                if constexpr (SHOW_FUZZING_INFO) {
+                    debug_log("Reproduce via accumulate()\n");
+                }
                 return ExecutionHandler(this->base, field_t::accumulate({ this->f() }));
             default:
                 abort();
@@ -993,6 +991,11 @@ template <typename Builder> class FieldBase {
             } else {
                 return ExecutionHandler(bb::fr(1) / this->base, this->f().invert());
             }
+        }
+
+        ExecutionHandler pow(uint32_t exponent)
+        {
+            return ExecutionHandler(this->base.pow(exponent), this->f().pow(exponent));
         }
 
         /**
@@ -1010,10 +1013,10 @@ template <typename Builder> class FieldBase {
             (void)builder;
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element, field_t(builder, instruction.arguments.element)));
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << "Pushed constant value " << instruction.arguments.element << " to position "
-                      << stack.size() - 1 << std::endl;
-#endif
+            if constexpr (SHOW_FUZZING_INFO) {
+                debug_log(
+                    "Pushed constant value ", instruction.arguments.element, " to position ", stack.size() - 1, "\n");
+            }
             return 0;
         }
 
@@ -1034,10 +1037,10 @@ template <typename Builder> class FieldBase {
             stack.push_back(
                 ExecutionHandler(instruction.arguments.element, witness_t(builder, instruction.arguments.element)));
 
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << "Pushed witness value " << instruction.arguments.element << " to position " << stack.size() - 1
-                      << std::endl;
-#endif
+            if constexpr (SHOW_FUZZING_INFO) {
+                debug_log(
+                    "Pushed witness value ", instruction.arguments.element, " to position ", stack.size() - 1, "\n");
+            }
             return 0;
         }
 
@@ -1058,10 +1061,13 @@ template <typename Builder> class FieldBase {
             auto v = field_t(instruction.arguments.element);
             v.convert_constant_to_fixed_witness(builder);
             stack.push_back(ExecutionHandler(instruction.arguments.element, std::move(v)));
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << "Pushed constant witness value " << instruction.arguments.element << " to position "
-                      << stack.size() - 1 << std::endl;
-#endif
+            if constexpr (SHOW_FUZZING_INFO) {
+                debug_log("Pushed constant witness value ",
+                          instruction.arguments.element,
+                          " to position ",
+                          stack.size() - 1,
+                          "\n");
+            }
             return 0;
         }
         /**
@@ -1085,17 +1091,17 @@ template <typename Builder> class FieldBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Multiplying", "*")
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " * ", args.rhs, ";\n");
+            }
 
             ExecutionHandler result;
             result = stack[first_index] * stack[second_index];
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1120,17 +1126,17 @@ template <typename Builder> class FieldBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Adding", "+")
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " + ", args.rhs, ";\n");
+            }
 
             ExecutionHandler result;
             result = stack[first_index] + stack[second_index];
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1155,17 +1161,17 @@ template <typename Builder> class FieldBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
 
-            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "Squaring", "squared")
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = ", args.rhs, ".sqr();\n");
+            }
 
             ExecutionHandler result;
             result = stack[first_index].sqr();
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1190,10 +1196,10 @@ template <typename Builder> class FieldBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "ASSERT_EQUAL", "== something + ")
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << std::endl;
-#endif
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, second_index);
+                debug_log("assert_equal(", args.lhs, ", ", args.rhs, ");\n");
+            }
 
             stack[first_index].assert_equal(stack[second_index]);
             return 0;
@@ -1218,10 +1224,10 @@ template <typename Builder> class FieldBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "ASSERT_NOT_EQUAL", "!=")
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << std::endl;
-#endif
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, second_index);
+                debug_log("assert_not_equal(", args.lhs, ", ", args.rhs, ");\n");
+            }
 
             stack[first_index].assert_not_equal(stack[second_index]);
             return 0;
@@ -1249,10 +1255,10 @@ template <typename Builder> class FieldBase {
             if (stack[index].f().is_constant() && !stack[index].base.is_zero()) {
                 return 0;
             }
-            PRINT_SINGLE_ARG_INSTRUCTION(index, stack, "ASSERT_ZERO", "!")
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << std::endl;
-#endif
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_self_arg(stack, index);
+                debug_log("assert_zero(", args.out, ");\n");
+            }
 
             stack[index].assert_zero();
             return 0;
@@ -1280,10 +1286,10 @@ template <typename Builder> class FieldBase {
                 return 0;
             }
 
-            PRINT_SINGLE_ARG_INSTRUCTION(index, stack, "ASSERT_NOT_ZERO", "!!")
-#ifdef FUZZING_SHOW_INFORMATION
-            std::cout << std::endl;
-#endif
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_self_arg(stack, index);
+                debug_log("assert_not_zero(", args.out, ");\n");
+            }
             stack[index].assert_not_zero();
             return 0;
         };
@@ -1308,17 +1314,17 @@ template <typename Builder> class FieldBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Subtracting", "-")
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " - ", args.rhs, ";\n");
+            }
 
             ExecutionHandler result;
             result = stack[first_index] - stack[second_index];
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1343,7 +1349,10 @@ template <typename Builder> class FieldBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Dividing", "/")
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out, " = ", args.lhs, " / ", args.rhs, ";\n");
+            }
 
             ExecutionHandler result;
             if (bb::fr((uint256_t(stack[second_index].f().get_value()) % bb::fr::modulus)) == 0) {
@@ -1356,11 +1365,8 @@ template <typename Builder> class FieldBase {
             result = stack[first_index] / stack[second_index];
             // If the output index is larger than the number of elements .in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1386,17 +1392,18 @@ template <typename Builder> class FieldBase {
             size_t second_index = instruction.arguments.fourArgs.in2 % stack.size();
             size_t third_index = instruction.arguments.fourArgs.in3 % stack.size();
             size_t output_index = instruction.arguments.fourArgs.out;
-            PRINT_THREE_ARG_INSTRUCTION(first_index, second_index, third_index, stack, "ADD_TWO:", "+", "+")
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_args(stack, output_index, { first_index, second_index, third_index });
+                debug_log(args.out, " = ", args.inputs[0], ".add_two(", args.inputs[1], ", ", args.inputs[2], ");\n");
+            }
 
             ExecutionHandler result;
             result = stack[first_index].add_two(stack[second_index], stack[third_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1422,17 +1429,18 @@ template <typename Builder> class FieldBase {
             size_t second_index = instruction.arguments.fourArgs.in2 % stack.size();
             size_t third_index = instruction.arguments.fourArgs.in3 % stack.size();
             size_t output_index = instruction.arguments.fourArgs.out;
-            PRINT_THREE_ARG_INSTRUCTION(first_index, second_index, third_index, stack, "MADD:", "*", "+")
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_args(stack, output_index, { first_index, second_index, third_index });
+                debug_log(args.out, " = ", args.inputs[0], ".madd(", args.inputs[1], ", ", args.inputs[2], ");\n");
+            }
 
             ExecutionHandler result;
             result = stack[first_index].madd(stack[second_index], stack[third_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1476,15 +1484,16 @@ template <typename Builder> class FieldBase {
             size_t output_index = instruction.arguments.threeArgs.out % stack.size();
             bool predicate = instruction.arguments.threeArgs.in2 % 2;
 
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = ", args.rhs, ".conditional_negate(", predicate ? "true" : "false", ");\n");
+            }
             ExecutionHandler result;
             result = stack[first_index].conditional_negate(builder, predicate);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1511,15 +1520,23 @@ template <typename Builder> class FieldBase {
             size_t output_index = instruction.arguments.fourArgs.out % stack.size();
             bool predicate = instruction.arguments.fourArgs.in3 % 2;
 
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_two_arg(stack, first_index, second_index, output_index);
+                debug_log(args.out,
+                          " = conditional_select(",
+                          args.lhs,
+                          ", ",
+                          args.rhs,
+                          ", ",
+                          predicate ? "true" : "false",
+                          ");\n");
+            }
             ExecutionHandler result;
             result = stack[first_index].conditional_select(builder, stack[second_index], predicate);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1545,15 +1562,17 @@ template <typename Builder> class FieldBase {
             size_t third_index = instruction.arguments.fourArgs.in3 % stack.size();
             size_t output_index = instruction.arguments.fourArgs.out % stack.size();
 
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_args(stack, output_index, { first_index, second_index, third_index });
+                debug_log(
+                    args.out, " = select_if_zero(", args.inputs[0], ", ", args.inputs[1], ", ", args.inputs[2], ");\n");
+            }
             ExecutionHandler result;
             result = stack[first_index].select_if_zero(builder, stack[second_index], stack[third_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1579,15 +1598,17 @@ template <typename Builder> class FieldBase {
             size_t third_index = instruction.arguments.fourArgs.in3 % stack.size();
             size_t output_index = instruction.arguments.fourArgs.out % stack.size();
 
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_args(stack, output_index, { first_index, second_index, third_index });
+                debug_log(
+                    args.out, " = select_if_eq(", args.inputs[0], ", ", args.inputs[1], ", ", args.inputs[2], ");\n");
+            }
             ExecutionHandler result;
             result = stack[first_index].select_if_eq(builder, stack[second_index], stack[third_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1611,16 +1632,17 @@ template <typename Builder> class FieldBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
 
-            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "Instantiating", "")
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = ", args.rhs, ".set();\n");
+            }
 
             ExecutionHandler result;
             result = stack[first_index].set(builder);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1644,18 +1666,136 @@ template <typename Builder> class FieldBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
 
-            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "invert", "")
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = ", args.rhs, ".invert();\n");
+            }
 
             ExecutionHandler result;
             result = stack[first_index].invert();
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
+            return 0;
+        };
+
+        /**
+         * @brief Execute the POW instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         */
+        static inline size_t execute_POW(Builder* builder,
+                                         std::vector<ExecutionHandler>& stack,
+                                         Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.powArgs.in % stack.size();
+            size_t output_index = instruction.arguments.powArgs.out;
+            uint32_t exponent = instruction.arguments.powArgs.exponent;
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_single_arg(stack, first_index, output_index);
+                debug_log(args.out, " = ", args.rhs, ".pow(", exponent, ");\n");
+            }
+            ExecutionHandler result = stack[first_index].pow(exponent);
+            if (output_index >= stack.size()) {
+                stack.push_back(result);
+            } else {
+                stack[output_index] = result;
+            }
+            return 0;
+        };
+
+        /**
+         * @brief Execute the ACCUMULATE instruction
+         *
+         * @param builder
+         * @param stack
+         * @param instruction
+         * @return if everything is ok, 1 if we should stop execution, since an expected error was encountered
+         */
+        static inline size_t execute_ACCUMULATE(Builder* builder,
+                                                std::vector<ExecutionHandler>& stack,
+                                                Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.twoArgs.in % stack.size();
+            size_t count =
+                (instruction.arguments.twoArgs.out % std::min(stack.size(), size_t(ACCUMULATE_MAXIMUM_ELEMENTS))) + 1;
+
+            std::vector<field_t> to_accumulate;
+            bb::fr native_acc = bb::fr::zero();
+            if constexpr (SHOW_FUZZING_INFO) {
+                debug_log("auto w", stack.size(), " = field_t::accumulate({");
+            }
+            for (size_t i = 0; i < count; i++) {
+                size_t idx = (first_index + i) % stack.size();
+                to_accumulate.push_back(stack[idx].field);
+                native_acc += stack[idx].base;
+                if constexpr (SHOW_FUZZING_INFO) {
+                    debug_log(format_element(stack, idx), (i < count - 1 ? ", " : ""));
+                }
+            }
+            if constexpr (SHOW_FUZZING_INFO) {
+                debug_log("});\n");
+            }
+            auto result_field = field_t::accumulate(to_accumulate);
+            bb::fr result_base = native_acc;
+            stack.push_back(ExecutionHandler(std::move(result_base), std::move(result_field)));
+            return 0;
+        };
+
+        /**
+         * @brief Execute the RANGE_CONSTRAINT instruction
+         * @details Constrains the element to fit within num_bits bits. The bit count is derived
+         * from the raw instruction byte, capped to the element's actual bit width (so the constraint
+         * always passes). Skips elements wider than 253 bits (MAX_NUM_BITS_RANGE_CONSTRAINT).
+         */
+        static inline size_t execute_RANGE_CONSTRAINT(Builder* builder,
+                                                      std::vector<ExecutionHandler>& stack,
+                                                      Instruction& instruction)
+        {
+            (void)builder;
+            if (stack.size() == 0) {
+                return 1;
+            }
+            size_t first_index = instruction.arguments.twoArgs.in % stack.size();
+            uint8_t raw_bits = instruction.arguments.twoArgs.out;
+
+            auto value = uint256_t(stack[first_index].field.get_value());
+            size_t value_bits = (value == 0) ? 0 : static_cast<size_t>(value.get_msb()) + 1;
+
+            if (value_bits > 253) {
+                return 0;
+            }
+            size_t num_bits = static_cast<size_t>(raw_bits);
+            if (num_bits < value_bits) {
+                num_bits = value_bits;
+            }
+            if (num_bits > 253) {
+                num_bits = 253;
+            }
+            if (num_bits == 0) {
+                num_bits = 1;
+            }
+
+            if constexpr (SHOW_FUZZING_INFO) {
+                auto args = format_self_arg(stack, first_index);
+                debug_log(args.out, ".create_range_constraint(", num_bits, ");\n");
+            }
+            stack[first_index].f().create_range_constraint(num_bits);
             return 0;
         };
     };
@@ -1694,96 +1834,69 @@ extern "C" int LLVMFuzzerInitialize(int* argc, char*** argv)
 {
     (void)argc;
     (void)argv;
-    // These are the settings, optimized for the safeuint class (under them, fuzzer reaches maximum expected
-    // coverage in 40 seconds)
-    fuzzer_havoc_settings = HavocSettings{
-        .GEN_LLVM_POST_MUTATION_PROB = 30,          // Out of 200
-        .GEN_MUTATION_COUNT_LOG = 5,                // -Fully checked
-        .GEN_STRUCTURAL_MUTATION_PROBABILITY = 300, // Fully  checked
-        .GEN_VALUE_MUTATION_PROBABILITY = 700,      // Fully checked
-        .ST_MUT_DELETION_PROBABILITY = 100,         // Fully checked
-        .ST_MUT_DUPLICATION_PROBABILITY = 80,       // Fully checked
-        .ST_MUT_INSERTION_PROBABILITY = 120,        // Fully checked
-        .ST_MUT_MAXIMUM_DELETION_LOG = 6,           // 2 because of limit
-        .ST_MUT_MAXIMUM_DUPLICATION_LOG = 2,        // -Fully checked
-        .ST_MUT_SWAP_PROBABILITY = 50,              // Fully checked
-        .VAL_MUT_LLVM_MUTATE_PROBABILITY = 250,     // Fully checked
-        .VAL_MUT_MONTGOMERY_PROBABILITY = 130,      // Fully checked
-        .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 50,   // Fully checked
-        .VAL_MUT_SMALL_ADDITION_PROBABILITY = 110,  // Fully checked
-        .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 130    // Fully checked
-
-    };
-    /**
-     * @brief This is used, when we need to determine the probabilities of various mutations. Left here for
-     * posterity
-     *
-     */
-    /*
+#ifdef HAVOC_CALIBRATION
     std::random_device rd;
     std::uniform_int_distribution<uint64_t> dist(0, ~(uint64_t)(0));
     srandom(static_cast<unsigned int>(dist(rd)));
 
     fuzzer_havoc_settings =
-        HavocSettings{ .GEN_MUTATION_COUNT_LOG = static_cast<size_t>((random() % 8) + 1),
-                       .GEN_STRUCTURAL_MUTATION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .GEN_VALUE_MUTATION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .ST_MUT_DELETION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .ST_MUT_DUPLICATION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .ST_MUT_INSERTION_PROBABILITY = static_cast<size_t>((random() % 99) + 1),
-                       .ST_MUT_MAXIMUM_DELETION_LOG = static_cast<size_t>((random() % 8) + 1),
-                       .ST_MUT_MAXIMUM_DUPLICATION_LOG = static_cast<size_t>((random() % 8) + 1),
-                       .ST_MUT_SWAP_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_LLVM_MUTATE_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_MONTGOMERY_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_NON_MONTGOMERY_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_SMALL_ADDITION_PROBABILITY = static_cast<size_t>(random() % 100),
-                       .VAL_MUT_SPECIAL_VALUE_PROBABILITY = static_cast<size_t>(random() % 100)
+        HavocSettings{ .GEN_LLVM_POST_MUTATION_PROB = static_cast<size_t>(((random() % 20) + 1) * 10),
+                       .GEN_MUTATION_COUNT_LOG = static_cast<size_t>((random() % 6) + 2),
+                       .GEN_STRUCTURAL_MUTATION_PROBABILITY = static_cast<size_t>((random() % 900) + 100),
+                       .GEN_VALUE_MUTATION_PROBABILITY = static_cast<size_t>((random() % 900) + 100),
+                       .ST_MUT_DELETION_PROBABILITY = static_cast<size_t>((random() % 100) + 1),
+                       .ST_MUT_DUPLICATION_PROBABILITY = static_cast<size_t>((random() % 100) + 1),
+                       .ST_MUT_INSERTION_PROBABILITY = static_cast<size_t>((random() % 100) + 1),
+                       .ST_MUT_MAXIMUM_DELETION_LOG = static_cast<size_t>((random() % 6) + 1),
+                       .ST_MUT_MAXIMUM_DUPLICATION_LOG = static_cast<size_t>((random() % 4) + 1),
+                       .ST_MUT_SWAP_PROBABILITY = static_cast<size_t>((random() % 100) + 1),
+                       .VAL_MUT_LLVM_MUTATE_PROBABILITY = static_cast<size_t>((random() % 500) + 1),
+                       .VAL_MUT_MONTGOMERY_PROBABILITY = static_cast<size_t>((random() % 200) + 1),
+                       .VAL_MUT_NON_MONTGOMERY_PROBABILITY = static_cast<size_t>((random() % 200) + 1),
+                       .VAL_MUT_SMALL_ADDITION_PROBABILITY = static_cast<size_t>((random() % 200) + 1),
+                       .VAL_MUT_SPECIAL_VALUE_PROBABILITY = static_cast<size_t>((random() % 200) + 1),
+                       .structural_mutation_distribution = {},
+                       .value_mutation_distribution = {} };
 
-        };
-    while (fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY == 0 &&
-           fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY == 0) {
-        fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY = static_cast<size_t>(random() % 8);
-        fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY = static_cast<size_t>(random() % 8);
-    }
-    */
-
-    // fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB = static_cast<size_t>(((random() % (20 - 1)) + 1) * 10);
-    /**
-     * @brief Write mutation settings to log
-     *
-     */
-    /*
-    std::cerr << "CUSTOM MUTATOR SETTINGS:" << std::endl
-              << "################################################################" << std::endl
-              << "GEN_LLVM_POST_MUTATION_PROB: " << fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB << std::endl
-              << "GEN_MUTATION_COUNT_LOG: " << fuzzer_havoc_settings.GEN_MUTATION_COUNT_LOG << std::endl
-              << "GEN_STRUCTURAL_MUTATION_PROBABILITY: " <<
-    fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY
-              << std::endl
-              << "GEN_VALUE_MUTATION_PROBABILITY: " << fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY <<
-    std::endl
-              << "ST_MUT_DELETION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_DELETION_PROBABILITY << std::endl
-              << "ST_MUT_DUPLICATION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_DUPLICATION_PROBABILITY <<
-    std::endl
-              << "ST_MUT_INSERTION_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_INSERTION_PROBABILITY << std::endl
-              << "ST_MUT_MAXIMUM_DELETION_LOG: " << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DELETION_LOG << std::endl
-              << "ST_MUT_MAXIMUM_DUPLICATION_LOG: " << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DUPLICATION_LOG <<
-    std::endl
-              << "ST_MUT_SWAP_PROBABILITY: " << fuzzer_havoc_settings.ST_MUT_SWAP_PROBABILITY << std::endl
-              << "VAL_MUT_LLVM_MUTATE_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_LLVM_MUTATE_PROBABILITY
-              << std::endl
-              << "VAL_MUT_MONTGOMERY_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_MONTGOMERY_PROBABILITY <<
-    std::endl
-              << "VAL_MUT_NON_MONTGOMERY_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_NON_MONTGOMERY_PROBABILITY
-              << std::endl
-              << "VAL_MUT_SMALL_ADDITION_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_SMALL_ADDITION_PROBABILITY
-              << std::endl
-              << "VAL_MUT_SMALL_MULTIPLICATION_PROBABILITY: "
-              << fuzzer_havoc_settings.VAL_MUT_SMALL_MULTIPLICATION_PROBABILITY << std::endl
-              << "VAL_MUT_SPECIAL_VALUE_PROBABILITY: " << fuzzer_havoc_settings.VAL_MUT_SPECIAL_VALUE_PROBABILITY
+    std::cerr << "SETTINGS:"
+              << " GEN_LLVM_POST_MUTATION_PROB=" << fuzzer_havoc_settings.GEN_LLVM_POST_MUTATION_PROB
+              << " GEN_MUTATION_COUNT_LOG=" << fuzzer_havoc_settings.GEN_MUTATION_COUNT_LOG
+              << " GEN_STRUCTURAL_MUTATION_PROBABILITY=" << fuzzer_havoc_settings.GEN_STRUCTURAL_MUTATION_PROBABILITY
+              << " GEN_VALUE_MUTATION_PROBABILITY=" << fuzzer_havoc_settings.GEN_VALUE_MUTATION_PROBABILITY
+              << " ST_MUT_DELETION_PROBABILITY=" << fuzzer_havoc_settings.ST_MUT_DELETION_PROBABILITY
+              << " ST_MUT_DUPLICATION_PROBABILITY=" << fuzzer_havoc_settings.ST_MUT_DUPLICATION_PROBABILITY
+              << " ST_MUT_INSERTION_PROBABILITY=" << fuzzer_havoc_settings.ST_MUT_INSERTION_PROBABILITY
+              << " ST_MUT_MAXIMUM_DELETION_LOG=" << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DELETION_LOG
+              << " ST_MUT_MAXIMUM_DUPLICATION_LOG=" << fuzzer_havoc_settings.ST_MUT_MAXIMUM_DUPLICATION_LOG
+              << " ST_MUT_SWAP_PROBABILITY=" << fuzzer_havoc_settings.ST_MUT_SWAP_PROBABILITY
+              << " VAL_MUT_LLVM_MUTATE_PROBABILITY=" << fuzzer_havoc_settings.VAL_MUT_LLVM_MUTATE_PROBABILITY
+              << " VAL_MUT_MONTGOMERY_PROBABILITY=" << fuzzer_havoc_settings.VAL_MUT_MONTGOMERY_PROBABILITY
+              << " VAL_MUT_NON_MONTGOMERY_PROBABILITY=" << fuzzer_havoc_settings.VAL_MUT_NON_MONTGOMERY_PROBABILITY
+              << " VAL_MUT_SMALL_ADDITION_PROBABILITY=" << fuzzer_havoc_settings.VAL_MUT_SMALL_ADDITION_PROBABILITY
+              << " VAL_MUT_SPECIAL_VALUE_PROBABILITY=" << fuzzer_havoc_settings.VAL_MUT_SPECIAL_VALUE_PROBABILITY
               << std::endl;
-    */
+#else
+    // Calibrated 2026-05-14: 200 runs * 1200s, 20 parallel, scored by ft * new_units / 1000
+    fuzzer_havoc_settings = HavocSettings{
+        .GEN_LLVM_POST_MUTATION_PROB = 160,
+        .GEN_MUTATION_COUNT_LOG = 4,
+        .GEN_STRUCTURAL_MUTATION_PROBABILITY = 877,
+        .GEN_VALUE_MUTATION_PROBABILITY = 248,
+        .ST_MUT_DELETION_PROBABILITY = 24,
+        .ST_MUT_DUPLICATION_PROBABILITY = 94,
+        .ST_MUT_INSERTION_PROBABILITY = 35,
+        .ST_MUT_MAXIMUM_DELETION_LOG = 2,
+        .ST_MUT_MAXIMUM_DUPLICATION_LOG = 2,
+        .ST_MUT_SWAP_PROBABILITY = 92,
+        .VAL_MUT_LLVM_MUTATE_PROBABILITY = 277,
+        .VAL_MUT_MONTGOMERY_PROBABILITY = 186,
+        .VAL_MUT_NON_MONTGOMERY_PROBABILITY = 159,
+        .VAL_MUT_SMALL_ADDITION_PROBABILITY = 76,
+        .VAL_MUT_SPECIAL_VALUE_PROBABILITY = 193,
+        .structural_mutation_distribution = {},
+        .value_mutation_distribution = {},
+    };
+#endif
     std::vector<size_t> structural_mutation_distribution;
     std::vector<size_t> value_mutation_distribution;
     size_t temp = 0;
