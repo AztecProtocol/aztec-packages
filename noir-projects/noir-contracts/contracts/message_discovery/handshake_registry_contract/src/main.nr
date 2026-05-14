@@ -84,7 +84,6 @@ pub contract HandshakeRegistry {
             DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         );
         //
-        //
         // TODO(https://linear.app/aztec-labs/issue/F-653/route-handshake-log-through-do-private-message-delivery-to-preserve):
         // Encrypt `eph_ph.x` to keep the log private
         self.context.emit_private_log_vec_unsafe(log_tag, BoundedVec::from_array([eph_pk.x]));
