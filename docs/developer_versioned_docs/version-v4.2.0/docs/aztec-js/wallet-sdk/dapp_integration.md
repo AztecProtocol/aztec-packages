@@ -9,8 +9,8 @@ This guide shows how a dApp connects to an Aztec wallet extension using `@aztec/
 
 ## Prerequisites
 
-- A wallet extension installed in the browser that implements the Aztec wallet SDK protocol.
-- An Aztec node URL the wallet can connect to.
+- A wallet extension installed in the browser that implements the Aztec wallet SDK protocol, for example [Azguard](https://azguardwallet.io/).
+- An Aztec node URL the wallet can connect to. Run one locally with the [getting started on local network](../../../getting_started_on_local_network.md) guide, or use a public endpoint from [getting started on testnet](../../../getting_started_on_testnet.md).
 
 ## Install
 
@@ -35,6 +35,8 @@ import type {
 ```
 
 ## Step 1: Discover wallets
+
+`WalletManager` is the dApp-side coordinator from `@aztec/wallet-sdk/manager` for finding wallet extensions and brokering the secure-channel handshake with the one the user picks. Configure it once per page load and reuse it for the rest of the flow.
 
 `WalletManager.configure()` returns a manager configured for one or more provider types. `getAvailableWallets()` broadcasts a discovery request and returns a `DiscoverySession` that streams `WalletProvider` instances as users approve the request inside each extension.
 
@@ -112,6 +114,8 @@ const verificationEmojis = hashToEmoji(pending.verificationHash);
 `establishSecureChannel` rejects if key exchange times out (default 2 seconds) or the wallet never responds. Treat any rejection as a hard reset: call `pending.cancel()` if you held onto the value, drop any `verificationHash` you displayed, and let the user retry from Step 1.
 
 ## Step 3: Emoji verification
+
+The emoji grid is how the user confirms the dApp and the wallet completed the key exchange directly with each other, and not with an attacker in the middle. Both sides derive the grid deterministically from the shared secret, so matching emojis on the dApp screen and the wallet popup mean no third party intercepted the handshake. A mismatch means the channel is compromised and must be torn down.
 
 Both the dApp and the wallet derive the same 9-emoji grid from the verification hash. Show the emojis prominently and let the user confirm they match before calling `confirm()`:
 
@@ -211,3 +215,4 @@ await provider.disconnect();
 - API reference: [`@aztec/wallet-sdk` reference](pathname:///typescript-api/mainnet/wallet-sdk.md), [`@aztec/aztec.js/wallet` reference](pathname:///typescript-api/mainnet/aztec.js.md).
 - Capability type definitions: [`yarn-project/aztec.js/src/wallet/capabilities.ts`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/yarn-project/aztec.js/src/wallet/capabilities.ts) at v4.2.0.
 - `WalletManager` source: [`yarn-project/wallet-sdk/src/manager/wallet_manager.ts`](https://github.com/AztecProtocol/aztec-packages/blob/v4.2.0/yarn-project/wallet-sdk/src/manager/wallet_manager.ts) at v4.2.0.
+- Reference wallet implementation: [`AztecProtocol/demo-wallet`](https://github.com/AztecProtocol/demo-wallet). End-to-end open-source wallet showing the other side of the discovery, key exchange, and capability flows described above.
