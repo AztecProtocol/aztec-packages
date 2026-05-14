@@ -23,6 +23,7 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { jest } from '@jest/globals';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 describe('e2e_bot', () => {
@@ -36,7 +37,7 @@ describe('e2e_bot', () => {
 
   beforeAll(async () => {
     const [botAccount] = await getInitialTestAccountsData();
-    const setupResult = await setup(0, { initialFundedAccounts: [botAccount] });
+    const setupResult = await setup(0, { ...PIPELINING_SETUP_OPTS, initialFundedAccounts: [botAccount] });
     ({
       teardown,
       aztecNode,
@@ -292,13 +293,13 @@ describe('e2e_bot', () => {
       expect(block).toBeDefined();
       const l2ToL1Msgs = block!.body.txEffects.flatMap(e => e.l2ToL1Msgs).filter(m => !m.isZero());
       expect(l2ToL1Msgs.length).toBeGreaterThanOrEqual(1);
-    }, 120_000);
+    }, 300_000);
 
     it('replenishes the seeding pipeline across ticks', async () => {
       // Tick 2: the first tick consumed one message. This tick should seed a
       // replacement and still have a ready message to consume.
       const result = await bot.run();
       expect(result).toBeDefined();
-    }, 120_000);
+    }, 300_000);
   });
 });

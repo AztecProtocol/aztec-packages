@@ -24,7 +24,7 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 
 // Set a 3 minute timeout.
-const TIMEOUT = 180_000;
+const TIMEOUT = 300_000;
 
 describe('transaction benchmarks', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);

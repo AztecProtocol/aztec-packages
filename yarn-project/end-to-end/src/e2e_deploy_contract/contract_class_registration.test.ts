@@ -18,10 +18,16 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { ContractClassIdPreimage } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
+import { jest } from '@jest/globals';
+
 import { DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
 describe('e2e_deploy_contract contract class registration', () => {
+  // Pipelined cadence (~24s/dependent-tx) inflates the chained deploy/publish setup beyond the default 5 min
+  // hook window. Many of the publishInstance helpers serially register multiple contracts/instances per case.
+  jest.setTimeout(900_000);
+
   const t = new DeployTest('contract class');
 
   let logger: Logger;
@@ -72,7 +78,7 @@ describe('e2e_deploy_contract contract class registration', () => {
     });
   });
 
-  const testDeployingAnInstance = (how: string, deployFn: (toDeploy: ContractInstanceWithAddress) => Promise<void>) =>
+  const testDeployingAnInstance = (how: string, deployFn: (toDeploy: ContractInstanceWithAddress) => Promise<number>) =>
     describe(`deploying a contract instance ${how}`, () => {
       let instance: ContractInstanceWithAddress;
       let initArgs: StatefulContractCtorArgs;
@@ -91,7 +97,7 @@ describe('e2e_deploy_contract contract class registration', () => {
         });
         const { address, currentContractClassId: contractClassId } = instance;
         logger.info(`Deploying contract instance at ${address.toString()} class id ${contractClassId.toString()}`);
-        await deployFn(instance);
+        const publishBlockNumber = await deployFn(instance);
 
         // TODO(@spalladino) We should **not** need the whole instance, including initArgs and salt,
         // in order to interact with a public function for the contract. We may even not need
@@ -111,21 +117,25 @@ describe('e2e_deploy_contract contract class registration', () => {
         });
         expect(registered.address).toEqual(instance.address);
         const contract = StatefulTestContract.at(instance.address, wallet);
-        return { contract, initArgs, instance, publicKeys };
+        return { contract, initArgs, instance, publicKeys, publishBlockNumber };
       };
 
       describe('using a private constructor', () => {
+        let publishBlockNumber: number;
         beforeAll(async () => {
-          ({ instance, initArgs, contract } = await publishInstance());
+          const result = await publishInstance();
+          ({ instance, initArgs, contract } = result);
+          publishBlockNumber = result.publishBlockNumber;
         });
 
         it('stores contract instance in the aztec node', async () => {
-          // Contract instance deployed event is emitted via private logs.
-          const blockNumber = await aztecNode.getBlockNumber();
-
-          const logs = (await aztecNode.getBlock(blockNumber, { includeTransactions: true }))!.body.txEffects.flatMap(
-            t => t.privateLogs,
-          );
+          // Contract instance deployed event is emitted via private logs. Read the block carrying
+          // the publish tx directly — under pipelining the "latest" block at this point may be an
+          // empty pipelined block, and the publish tx's receipt blockNumber is the authoritative
+          // anchor.
+          const logs = (await aztecNode.getBlock(publishBlockNumber, {
+            includeTransactions: true,
+          }))!.body.txEffects.flatMap(t => t.privateLogs);
 
           expect(logs.length).toBe(1);
 
@@ -232,7 +242,8 @@ describe('e2e_deploy_contract contract class registration', () => {
   testDeployingAnInstance('from a wallet', async instance => {
     // Calls the deployer contract directly from a wallet
     const deployMethod = publishInstance(wallet, instance);
-    await deployMethod.send({ from: defaultAccountAddress });
+    const { receipt } = await deployMethod.send({ from: defaultAccountAddress });
+    return receipt.blockNumber!;
   });
 
   testDeployingAnInstance('from a contract', async instance => {
@@ -240,7 +251,10 @@ describe('e2e_deploy_contract contract class registration', () => {
     await wallet.registerContract(instance, artifact);
     // Set up the contract that calls the deployer (which happens to be the TestContract) and call it
     const { contract: deployer } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress });
-    await deployer.methods.publish_contract_instance(instance.address).send({ from: defaultAccountAddress });
+    const { receipt } = await deployer.methods
+      .publish_contract_instance(instance.address)
+      .send({ from: defaultAccountAddress });
+    return receipt.blockNumber!;
   });
 
   describe('error scenarios in deployment', () => {

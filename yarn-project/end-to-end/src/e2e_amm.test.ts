@@ -6,11 +6,12 @@ import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
-const TIMEOUT = 120_000;
+const TIMEOUT = 900_000;
 
 // TODO(F-560): Consider whether it makes sense to drop this
 // https://linear.app/aztec-labs/issue/F-560/add-more-tests-to-forward-compatibility-testing
@@ -45,7 +46,7 @@ describe('AMM', () => {
       wallet,
       accounts: [adminAddress, liquidityProviderAddress, otherLiquidityProviderAddress, swapperAddress],
       logger,
-    } = await setup(4));
+    } = await setup(4, { ...PIPELINING_SETUP_OPTS }));
 
     ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
     ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));

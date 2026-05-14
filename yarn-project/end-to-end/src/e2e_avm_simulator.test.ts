@@ -9,9 +9,10 @@ import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 
 import { jest } from '@jest/globals';
 
+import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { ensureAccountContractsPublished, setup } from './fixtures/utils.js';
 
-const TIMEOUT = 100_000;
+const TIMEOUT = 600_000;
 
 describe('e2e_avm_simulator', () => {
   jest.setTimeout(TIMEOUT);
@@ -27,7 +28,7 @@ describe('e2e_avm_simulator', () => {
       wallet,
       aztecNode,
       accounts: [defaultAccountAddress],
-    } = await setup(1));
+    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
     await ensureAccountContractsPublished(wallet, [defaultAccountAddress]);
   });
 
