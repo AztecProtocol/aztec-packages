@@ -4047,50 +4047,11 @@ static constexpr recursion_helpers::FunctionFingerprint LIBRA_QUOTIENT_COMMIT_NN
 
 // ── Result structs ────────────────────────────────────────────────────────────
 
-struct LibraChallengeValidationResult {
-    bool is_valid = false;
-    size_t arithmetic_gate_start_idx = SIZE_MAX;
-    size_t poseidon2_external_gate_start_idx = SIZE_MAX;
-    size_t poseidon2_internal_gate_start_idx = SIZE_MAX;
-};
-
 struct LibraCommitmentValidationResult {
     bool is_valid = false;
     size_t arithmetic_gate_start_idx = SIZE_MAX;
     size_t nnf_gate_start_idx = SIZE_MAX;
 };
-
-// ── validate_libra_challenge_generation ──────────────────────────────────────
-
-/**
- * @brief Validate the ZK correction handler Libra:Challenge stage.
- *
- * Anchored at the Libra:Challenge squeeze gate; validates arithmetic range containing
- * that gate, then follows witness links to poseidon2_ext and poseidon2_int blocks.
- * Delegates to ShpleminiVerification::validate_challenges_generation.
- */
-template <typename FF, typename CircuitBuilder>
-LibraChallengeValidationResult validate_libra_challenge_generation(CircuitBuilder& builder,
-                                                                   cdg::StaticAnalyzer_<FF, CircuitBuilder>& analyzer,
-                                                                   size_t libra_challenge_squeeze_gate)
-{
-    LibraChallengeValidationResult result;
-    auto inner = ShpleminiVerification::validate_challenges_generation<FF>(builder,
-                                                                           analyzer,
-                                                                           libra_challenge_squeeze_gate,
-                                                                           ZK_HANDLER_LIBRA_CHALLENGE_ARITHMETIC,
-                                                                           ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_EXT,
-                                                                           ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_INT);
-    if (!inner.is_valid) {
-        info("validate_libra_challenge_generation failed");
-        return result;
-    }
-    result.arithmetic_gate_start_idx = inner.arithmetic_gate_start_idx;
-    result.poseidon2_external_gate_start_idx = inner.poseidon2_external_gate_start_idx;
-    result.poseidon2_internal_gate_start_idx = inner.poseidon2_internal_gate_start_idx;
-    result.is_valid = true;
-    return result;
-}
 
 // ── validate_libra_commitment_receive ────────────────────────────────────────
 
@@ -4264,8 +4225,13 @@ SumcheckPrefixValidationResult validate_sumcheck_prefix(CircuitBuilder& builder,
     auto& arith = builder.blocks.arithmetic;
 
     // Stage 2: Libra:Challenge (anchored at squeeze gate).
-    auto ch = validate_libra_challenge_generation<FF>(builder, analyzer, libra_challenge_squeeze_gate);
+    auto ch = ShpleminiVerification::validate_challenges_generation<FF>(
+        builder, analyzer, libra_challenge_squeeze_gate,
+        ZK_HANDLER_LIBRA_CHALLENGE_ARITHMETIC,
+        ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_EXT,
+        ZK_HANDLER_LIBRA_CHALLENGE_POSEIDON2_INT);
     if (!ch.is_valid) {
+        info("validate_sumcheck_prefix failed: Libra:Challenge generation invalid");
         return result;
     }
     result.libra_challenge_arith_start = ch.arithmetic_gate_start_idx;
