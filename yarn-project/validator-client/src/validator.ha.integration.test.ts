@@ -137,6 +137,7 @@ describe('ValidatorClient HA Integration', () => {
       Pick<
         SlasherConfig,
         | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidCheckpointProposalPenalty'
         | 'slashDuplicateProposalPenalty'
         | 'slashDuplicateAttestationPenalty'
         | 'slashAttestInvalidCheckpointProposalPenalty'
@@ -146,6 +147,7 @@ describe('ValidatorClient HA Integration', () => {
       disableValidator: false,
       disabledValidators: [],
       slashBroadcastedInvalidBlockPenalty: 1n,
+      slashBroadcastedInvalidCheckpointProposalPenalty: 1n,
       rollupAddress,
       l1ChainId: TEST_COORDINATION_SIGNATURE_CONTEXT.chainId,
       slashDuplicateProposalPenalty: 1n,
@@ -194,6 +196,7 @@ describe('ValidatorClient HA Integration', () => {
       Pick<
         SlasherConfig,
         | 'slashBroadcastedInvalidBlockPenalty'
+        | 'slashBroadcastedInvalidCheckpointProposalPenalty'
         | 'slashDuplicateProposalPenalty'
         | 'slashDuplicateAttestationPenalty'
         | 'slashAttestInvalidCheckpointProposalPenalty'
