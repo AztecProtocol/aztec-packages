@@ -113,6 +113,7 @@ describe('Public TX simulator apps tests: custom bytecodes truncation', () => {
   });
 
   afterEach(async () => {
+    await tester.close();
     await worldStateService.close();
   });
 
