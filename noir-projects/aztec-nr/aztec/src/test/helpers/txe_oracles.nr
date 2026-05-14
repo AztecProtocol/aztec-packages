@@ -4,14 +4,14 @@ use crate::{
 };
 
 use crate::protocol::{
-    abis::function_selector::FunctionSelector,
+    abis::{function_selector::FunctionSelector, gas_settings::GasSettings},
     address::AztecAddress,
     constants::{
-        CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+        CONTRACT_INSTANCE_LENGTH, GAS_SETTINGS_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_LOGS_PER_TX, NULL_MSG_SENDER_CONTRACT_ADDRESS, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     contract_instance::ContractInstance,
-    traits::{Deserialize, ToField},
+    traits::{Deserialize, Serialize, ToField},
 };
 
 /// Upper bound on the number of raw offchain effects the TXE test environment will surface
@@ -43,6 +43,7 @@ pub unconstrained fn private_call_new_flow<let M: u32, let N: u32>(
     args: [Field; M],
     args_hash: Field,
     is_static_call: bool,
+    gas_settings: GasSettings,
 ) -> [Field; N] {
     private_call_new_flow_oracle(
         from,
@@ -51,6 +52,7 @@ pub unconstrained fn private_call_new_flow<let M: u32, let N: u32>(
         args,
         args_hash,
         is_static_call,
+        gas_settings.serialize(),
     )
 }
 
@@ -60,12 +62,31 @@ pub unconstrained fn public_call_new_flow<let M: u32, let N: u32>(
     function_selector: FunctionSelector,
     args: [Field; M],
     is_static_call: bool,
+    gas_settings: GasSettings,
 ) -> [Field; N] {
     let calldata = [function_selector.to_field()].concat(args);
 
     let from = from.unwrap_or(NULL_MSG_SENDER_CONTRACT_ADDRESS);
 
-    public_call_new_flow_oracle(from, contract_address, calldata, is_static_call)
+    public_call_new_flow_oracle(
+        from,
+        contract_address,
+        calldata,
+        is_static_call,
+        gas_settings.serialize(),
+    )
+}
+
+pub unconstrained fn set_private_txe_context(
+    contract_address: Option<AztecAddress>,
+    anchor_block_number: Option<u32>,
+    gas_settings: GasSettings,
+) -> PrivateContextInputs {
+    set_private_txe_context_oracle(
+        contract_address,
+        anchor_block_number,
+        gas_settings.serialize(),
+    )
 }
 
 pub unconstrained fn execute_utility_function<let M: u32, let N: u32>(
@@ -109,8 +130,7 @@ pub struct TxEffects {
 
 /// Returns the effects of the last transaction included by the TXE.
 pub unconstrained fn get_last_tx_effects() -> TxEffects {
-    let (tx_hash, note_hashes, nullifiers, raw_log_storage, log_lengths, log_count) =
-        get_last_tx_effects_oracle();
+    let (tx_hash, note_hashes, nullifiers, raw_log_storage, log_lengths, log_count) = get_last_tx_effects_oracle();
 
     let mut private_logs = BoundedVec::new();
     for i in 0..log_count {
@@ -121,14 +141,7 @@ pub unconstrained fn get_last_tx_effects() -> TxEffects {
 }
 
 #[oracle(aztec_txe_getLastTxEffects)]
-unconstrained fn get_last_tx_effects_oracle() -> (
-    Field,
-    TxNoteHashes,
-    TxNullifiers,
-    [[Field; PRIVATE_LOG_SIZE_IN_FIELDS]; MAX_PRIVATE_LOGS_PER_TX],
-    [u32; MAX_PRIVATE_LOGS_PER_TX],
-    u32,
-) {}
+unconstrained fn get_last_tx_effects_oracle() -> (Field, TxNoteHashes, TxNullifiers, [[Field; PRIVATE_LOG_SIZE_IN_FIELDS]; MAX_PRIVATE_LOGS_PER_TX], [u32; MAX_PRIVATE_LOGS_PER_TX], u32) {}
 
 /// Returns the raw offchain effect payloads emitted by the last top-level call into TXE.
 /// Each effect is a variable-length field array (e.g. offchain messages have a different size
@@ -224,6 +237,7 @@ unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32>(
     _args: [Field; M],
     _args_hash: Field,
     _is_static_call: bool,
+    _gas_settings: [Field; GAS_SETTINGS_LENGTH],
 ) -> [Field; N] {}
 
 #[oracle(aztec_txe_publicCallNewFlow)]
@@ -232,6 +246,7 @@ unconstrained fn public_call_new_flow_oracle<let M: u32, let N: u32>(
     contract_address: AztecAddress,
     calldata: [Field; M],
     is_static_call: bool,
+    gas_settings: [Field; GAS_SETTINGS_LENGTH],
 ) -> [Field; N] {}
 
 #[oracle(aztec_txe_executeUtilityFunction)]
@@ -245,9 +260,10 @@ unconstrained fn execute_utility_function_oracle<let M: u32, let N: u32>(
 pub unconstrained fn set_top_level_txe_context() {}
 
 #[oracle(aztec_txe_setPrivateTXEContext)]
-pub unconstrained fn set_private_txe_context(
-    contract_address: Option<AztecAddress>,
-    anchor_block_number: Option<u32>,
+unconstrained fn set_private_txe_context_oracle(
+    _contract_address: Option<AztecAddress>,
+    _anchor_block_number: Option<u32>,
+    _gas_settings: [Field; GAS_SETTINGS_LENGTH],
 ) -> PrivateContextInputs {}
 
 #[oracle(aztec_txe_setPublicTXEContext)]

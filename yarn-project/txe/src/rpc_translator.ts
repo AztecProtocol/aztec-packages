@@ -16,6 +16,7 @@ import {
 } from '@aztec/pxe/simulator';
 import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { GasSettings } from '@aztec/stdlib/gas';
 
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import type { TXESessionStateHandler } from './txe_session.js';
@@ -123,6 +124,7 @@ export class RPCTranslator {
     foreignContractAddressValue: ForeignCallSingle,
     foreignAnchorBlockNumberIsSome: ForeignCallSingle,
     foreignAnchorBlockNumberValue: ForeignCallSingle,
+    foreignGasSettings: ForeignCallArray,
   ) {
     const contractAddress = fromSingle(foreignContractAddressIsSome).toBool()
       ? AztecAddress.fromField(fromSingle(foreignContractAddressValue))
@@ -132,7 +134,13 @@ export class RPCTranslator {
       ? BlockNumber(fromSingle(foreignAnchorBlockNumberValue).toNumber())
       : undefined;
 
-    const privateContextInputs = await this.stateHandler.enterPrivateState(contractAddress, anchorBlockNumber);
+    const gasSettings = GasSettings.fromFields(fromArray(foreignGasSettings));
+
+    const privateContextInputs = await this.stateHandler.enterPrivateState(
+      contractAddress,
+      anchorBlockNumber,
+      gasSettings,
+    );
 
     return toForeignCallResult(privateContextInputs.toFields().map(toSingle));
   }
@@ -1350,6 +1358,7 @@ export class RPCTranslator {
     foreignArgs: ForeignCallArray,
     foreignArgsHash: ForeignCallSingle,
     foreignIsStaticCall: ForeignCallSingle,
+    foreignGasSettings: ForeignCallArray,
   ) {
     const from = addressFromSingle(foreignFrom);
     const targetContractAddress = addressFromSingle(foreignTargetContractAddress);
@@ -1357,6 +1366,7 @@ export class RPCTranslator {
     const args = fromArray(foreignArgs);
     const argsHash = fromSingle(foreignArgsHash);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
+    const gasSettings = GasSettings.fromFields(fromArray(foreignGasSettings));
 
     const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
       const { returnValues, offchainEffects } = await this.handlerAsTxe().privateCallNewFlow(
@@ -1367,6 +1377,7 @@ export class RPCTranslator {
         argsHash,
         isStaticCall,
         this.stateHandler.getCurrentJob(),
+        gasSettings,
       );
 
       // Private execution collects offchain effects inside PXE's PrivateExecutionOracle rather than
@@ -1426,14 +1437,22 @@ export class RPCTranslator {
     foreignAddress: ForeignCallSingle,
     foreignCalldata: ForeignCallArray,
     foreignIsStaticCall: ForeignCallSingle,
+    foreignGasSettings: ForeignCallArray,
   ) {
     const from = addressFromSingle(foreignFrom);
     const address = addressFromSingle(foreignAddress);
     const calldata = fromArray(foreignCalldata);
     const isStaticCall = fromSingle(foreignIsStaticCall).toBool();
+    const gasSettings = GasSettings.fromFields(fromArray(foreignGasSettings));
 
     const returnValues = await this.stateHandler.withTopLevelCallTracking(async () => {
-      const returnValues = await this.handlerAsTxe().publicCallNewFlow(from, address, calldata, isStaticCall);
+      const returnValues = await this.handlerAsTxe().publicCallNewFlow(
+        from,
+        address,
+        calldata,
+        isStaticCall,
+        gasSettings,
+      );
 
       // TODO(F-335): Avoid doing the following call here.
       await this.stateHandler.cycleJob();

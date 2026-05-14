@@ -38,7 +38,7 @@ import {
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasSettings } from '@aztec/stdlib/gas';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import { computeProtocolNullifier } from '@aztec/stdlib/hash';
 import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -111,7 +111,11 @@ export type TXEOracleFunctionName = Exclude<
 export interface TXESessionStateHandler {
   enterTopLevelState(): Promise<void>;
   enterPublicState(contractAddress?: AztecAddress): Promise<void>;
-  enterPrivateState(contractAddress?: AztecAddress, anchorBlockNumber?: BlockNumber): Promise<PrivateContextInputs>;
+  enterPrivateState(
+    contractAddress: AztecAddress | undefined,
+    anchorBlockNumber: BlockNumber | undefined,
+    gasSettings: GasSettings,
+  ): Promise<PrivateContextInputs>;
   enterUtilityState(contractAddress?: AztecAddress): Promise<void>;
 
   // TODO(F-335): Exposing the job info is abstraction breakage - drop the following 2 functions.
@@ -423,7 +427,8 @@ export class TXESession implements TXESessionStateHandler {
 
   async enterPrivateState(
     contractAddress: AztecAddress = DEFAULT_ADDRESS,
-    anchorBlockNumber?: BlockNumber,
+    anchorBlockNumber: BlockNumber | undefined,
+    gasSettings: GasSettings,
   ): Promise<PrivateContextInputs> {
     this.exitTopLevelState();
     this.resetLastCall();
@@ -454,7 +459,7 @@ export class TXESession implements TXESessionStateHandler {
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
     this.oracleHandler = new PrivateExecutionOracle({
       argsHash: Fr.ZERO,
-      txContext: new TxContext(this.chainId, this.version, GasSettings.empty()),
+      txContext: new TxContext(this.chainId, this.version, gasSettings),
       callContext: new CallContext(AztecAddress.ZERO, contractAddress, FunctionSelector.empty(), false),
       anchorBlockHeader: anchorBlock!,
       utilityExecutor,

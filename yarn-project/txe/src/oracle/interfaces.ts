@@ -6,6 +6,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PrivateLog } from '@aztec/stdlib/logs';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -70,6 +71,7 @@ export interface ITxeExecutionOracle {
     argsHash: Fr,
     isStaticCall: boolean,
     jobId: string,
+    gasSettings: GasSettings,
   ): Promise<{ returnValues: Fr[]; offchainEffects: Fr[][] }>;
   executeUtilityFunction(
     targetContractAddress: AztecAddress,
@@ -82,6 +84,7 @@ export interface ITxeExecutionOracle {
     targetContractAddress: AztecAddress,
     calldata: Fr[],
     isStaticCall: boolean,
+    gasSettings: GasSettings,
   ): Promise<Fr[]>;
   // TODO(F-335): Drop this from here as it's not a real oracle handler - it's only called from
   // RPCTranslator::txeGetPrivateEvents and never from Noir.
