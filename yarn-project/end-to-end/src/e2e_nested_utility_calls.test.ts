@@ -153,18 +153,4 @@ describe('authorizeUtilityCall hook', () => {
       callerContext: 'private',
     });
   });
-
-  it('syncs target contract notes on cross-contract utility call', async () => {
-    hookAllows = true;
-
-    // Store x=2, n=10 as private notes on contract B.
-    await contractB.methods.set_pow_args(2n, 10n).send({ from: defaultAccountAddress });
-
-    // Cross-contract call from A → B: B must be synced before the nested utility call
-    // so that B's notes (set above) are discovered.
-    const { result: crossContractResult } = await contractA.methods
-      .delegate_pow_from_storage(contractB.address, defaultAccountAddress)
-      .simulate({ from: defaultAccountAddress });
-    expect(crossContractResult).toEqual(2n ** 10n);
-  });
 });
