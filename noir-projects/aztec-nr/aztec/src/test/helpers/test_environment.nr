@@ -463,7 +463,7 @@ pub struct CallPublicOptions {
 
 impl CallPublicOptions {
     /// Creates a new `CallPublicOptions` with default values, i.e. the same as if using
-    /// [`TestEnvironment::call_private`] or [`TestEnvironment::call_public`] without the `_opts` variant.
+    /// [`TestEnvironment::call_public`] without the `_opts` variant.
     pub fn new() -> Self {
         Self {
             gas_limits: Option::none(),
