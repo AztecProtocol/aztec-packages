@@ -25,8 +25,8 @@
  * too when the device goes away.
  */
 
-import { GpuContext } from "./gpu_context.js";
-import { CurveConfig, BN254_CURVE_CONFIG } from "./curve_config.js";
+import { GpuContext } from './gpu_context.js';
+import { CurveConfig, BN254_CURVE_CONFIG } from './curve_config.js';
 import {
   create_and_write_sb,
   create_and_write_ub,
@@ -36,8 +36,8 @@ import {
   create_sb,
   execute_pipeline,
   CpuTimer,
-} from "./gpu.js";
-import { compute_misc_params, numbers_to_u8s_for_gpu } from "./utils.js";
+} from './gpu.js';
+import { compute_misc_params, numbers_to_u8s_for_gpu } from './utils.js';
 
 /**
  * Handle to pre-Montgomerised SRS bases residing on the GPU.
@@ -75,6 +75,15 @@ export class CachedBases {
   }
 
   destroy(): void {
+    // Persistent bind groups inside batch-affine SMVP reference
+    // `point_x_sb` / `point_y_sb` directly and are keyed by input_size.
+    // If the caller rotates CachedBases across the same N (e.g. dev-page
+    // sweep returning to logN=16 after running 17..20), the cached bind
+    // group from the previous CachedBases would point at the buffers
+    // we're about to destroy — kernels then read zeros and return the
+    // identity point. Drop the bind-group cache here so the next call
+    // rebuilds against the live buffers.
+    this.context.invalidateAllBindGroups();
     this.point_x_sb.destroy();
     this.point_y_sb.destroy();
   }
@@ -94,18 +103,14 @@ export const precompute_bn254_bases = async (
   log_progress = false,
   curveConfig: CurveConfig = BN254_CURVE_CONFIG,
 ): Promise<CachedBases> => {
-  const curveParams = compute_misc_params(
-    curveConfig.baseFieldModulus,
-    curveConfig.wordSize,
-  );
+  const curveParams = compute_misc_params(curveConfig.baseFieldModulus, curveConfig.wordSize);
   const num_words = curveParams.num_words;
-  const input_size =
-    points_buffer.length / (curveConfig.coordinateByteLength * 2);
+  const input_size = points_buffer.length / (curveConfig.coordinateByteLength * 2);
 
   const device = context.device;
   const commandEncoder = device.createCommandEncoder();
   const cpu_timer = new CpuTimer(log_progress);
-  cpu_timer.mark("precompute_begin");
+  cpu_timer.mark('precompute_begin');
 
   // Split the raw input across two storage buffers so we stay under
   // `maxStorageBufferBindingSize`. Same layout as the original Stage-1
@@ -114,10 +119,10 @@ export const precompute_bn254_bases = async (
   const first_half_bytes = points_buffer.slice(0, half_length);
   const second_half_bytes = points_buffer.slice(half_length);
 
-  cpu_timer.mark("upload_begin");
+  cpu_timer.mark('upload_begin');
   const first_half_sb = create_and_write_sb(device, first_half_bytes);
   const second_half_sb = create_and_write_sb(device, second_half_bytes);
-  cpu_timer.phaseFrom("upload_srs_raw", "upload_begin");
+  cpu_timer.phaseFrom('upload_srs_raw', 'upload_begin');
 
   // Output buffers — Montgomery-form x and y. Persisted on the context;
   // returned via `CachedBases`.
@@ -158,34 +163,25 @@ export const precompute_bn254_bases = async (
     num_y_workgroups = input_size / workgroup_size / num_x_workgroups;
   }
 
-  const sm = context.getShaderManager(
-    curveConfig,
-    input_size >= 65536 ? 16 : 4,
-    input_size,
-  );
+  const sm = context.getShaderManager(curveConfig, input_size >= 65536 ? 16 : 4, input_size);
   const shaderCode = context.getOrRenderShaderCode(
     `${curveConfig.id}:convert_points_only:${workgroup_size}:${num_y_workgroups}:${input_size}`,
     () => sm.gen_convert_points_only_shader(workgroup_size, num_y_workgroups),
   );
 
-  const bindLayoutTypes: Array<"read-only-storage" | "storage" | "uniform"> = [
-    "read-only-storage",
-    "read-only-storage",
-    "storage",
-    "storage",
-    "uniform",
+  const bindLayoutTypes: Array<'read-only-storage' | 'storage' | 'uniform'> = [
+    'read-only-storage',
+    'read-only-storage',
+    'storage',
+    'storage',
+    'uniform',
   ];
 
   const { pipeline, bindGroupLayout } = await context.getOrCreatePipeline(
     `${curveConfig.id}:convert_points_only:${workgroup_size}:${num_y_workgroups}:${input_size}`,
     async () => {
       const bindGroupLayout = create_bind_group_layout(device, bindLayoutTypes);
-      const pipeline = await create_compute_pipeline(
-        device,
-        [bindGroupLayout],
-        shaderCode,
-        "main",
-      );
+      const pipeline = await create_compute_pipeline(device, [bindGroupLayout], shaderCode, 'main');
       return { pipeline, bindGroupLayout };
     },
   );
@@ -198,18 +194,11 @@ export const precompute_bn254_bases = async (
     params_ub,
   ]);
 
-  execute_pipeline(
-    commandEncoder,
-    pipeline,
-    bindGroup,
-    num_x_workgroups,
-    num_y_workgroups,
-    1,
-  );
+  execute_pipeline(commandEncoder, pipeline, bindGroup, num_x_workgroups, num_y_workgroups, 1);
 
   device.queue.submit([commandEncoder.finish()]);
   await device.queue.onSubmittedWorkDone();
-  cpu_timer.phaseFrom("precompute_total", "precompute_begin");
+  cpu_timer.phaseFrom('precompute_total', 'precompute_begin');
 
   // We can release the raw-upload buffers now that the shader has
   // read them and written the Montgomery-form output. Keeping them
@@ -224,16 +213,8 @@ export const precompute_bn254_bases = async (
     for (const { label, ms } of r.phases) {
       console.log(`  ${label.padEnd(22)} ${ms.toFixed(2)} ms`);
     }
-    console.log(`  ${"wall".padEnd(22)} ${r.total_wall_ms.toFixed(2)} ms`);
+    console.log(`  ${'wall'.padEnd(22)} ${r.total_wall_ms.toFixed(2)} ms`);
   }
 
-  return new CachedBases(
-    context,
-    curveConfig,
-    input_size,
-    num_words,
-    curveConfig.wordSize,
-    point_x_sb,
-    point_y_sb,
-  );
+  return new CachedBases(context, curveConfig, input_size, num_words, curveConfig.wordSize, point_x_sb, point_y_sb);
 };

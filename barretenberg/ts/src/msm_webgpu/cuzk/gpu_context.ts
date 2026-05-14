@@ -22,9 +22,9 @@
  * scalars)`. Callers that repeatedly MSM can construct one via
  * `await GpuContext.create()` and pass it through.
  */
-import { ShaderManager } from "./shader_manager.js";
-import { CurveConfig } from "./curve_config.js";
-import { get_device, read_write_buffer_usage } from "./gpu.js";
+import { ShaderManager } from './shader_manager.js';
+import { CurveConfig } from './curve_config.js';
+import { get_device, read_write_buffer_usage } from './gpu.js';
 
 type PipelineEntry = {
   pipeline: GPUComputePipeline;
@@ -92,11 +92,7 @@ export class GpuContext {
    * on first use. The input_size parameter is included in the key because
    * it affects a handful of shader template constants (`input_size`, etc).
    */
-  getShaderManager(
-    curveConfig: CurveConfig,
-    chunk_size: number,
-    input_size: number,
-  ): ShaderManager {
+  getShaderManager(curveConfig: CurveConfig, chunk_size: number, input_size: number): ShaderManager {
     const key = `${curveConfig.id}:${chunk_size}:${input_size}`;
     let sm = this.shaderManagerCache.get(key);
     if (!sm) {
@@ -125,10 +121,7 @@ export class GpuContext {
    * `build()` and cache it. The first call can be slow (shader compile);
    * subsequent calls are a Map lookup.
    */
-  async getOrCreatePipeline(
-    key: string,
-    build: () => Promise<PipelineEntry>,
-  ): Promise<PipelineEntry> {
+  async getOrCreatePipeline(key: string, build: () => Promise<PipelineEntry>): Promise<PipelineEntry> {
     let entry = this.pipelineCache.get(key);
     if (!entry) {
       entry = await build();
@@ -190,11 +183,7 @@ export class GpuContext {
    * (e.g. atomic counters, transpose count arrays). Buffers that are
    * fully overwritten by their first writer each call don't need a clear.
    */
-  acquirePersistentBuffer(
-    cacheKey: string,
-    size: number,
-    extraUsage = 0,
-  ): GPUBuffer {
+  acquirePersistentBuffer(cacheKey: string, size: number, extraUsage = 0): GPUBuffer {
     const existing = this.persistentBuffers.get(cacheKey);
     if (existing && existing.size === size) {
       return existing;
@@ -220,10 +209,7 @@ export class GpuContext {
    * write the uniform contents; subsequent calls return the cached buffer
    * with `created === false` and the caller can skip the write.
    */
-  acquirePersistentUniform(
-    cacheKey: string,
-    size: number,
-  ): { buffer: GPUBuffer; created: boolean } {
+  acquirePersistentUniform(cacheKey: string, size: number): { buffer: GPUBuffer; created: boolean } {
     const existing = this.persistentUniforms.get(cacheKey);
     if (existing && existing.size === size) {
       return { buffer: existing, created: false };
@@ -249,10 +235,7 @@ export class GpuContext {
    * `acquirePersistentBuffer`. Bind groups built against pooled or
    * fresh-allocated buffers must NOT be cached here.
    */
-  getOrCreatePersistentBindGroup(
-    cacheKey: string,
-    build: () => GPUBindGroup,
-  ): GPUBindGroup {
+  getOrCreatePersistentBindGroup(cacheKey: string, build: () => GPUBindGroup): GPUBindGroup {
     let bg = this.persistentBindGroups.get(cacheKey);
     if (!bg) {
       bg = build();
@@ -267,14 +250,23 @@ export class GpuContext {
    * stale bind groups aren't returned.
    */
   private invalidateBindGroupsReferencing(bufferKey: string): void {
-    // Bind-group cache keys are constructed by the caller and conventionally
-    // include the buffer keys they reference. The simplest safe policy is
-    // to drop ALL bind groups when any buffer changes — buffer-size changes
-    // are rare (only when the user switches N).
+    void bufferKey;
+    this.invalidateAllBindGroups();
+  }
+
+  /**
+   * Drop every cached persistent bind group. Use when a buffer referenced
+   * by cached bind groups is destroyed but lives outside the persistent
+   * buffer cache (e.g. `CachedBases.point_x_sb` / `point_y_sb`, owned by
+   * the caller). Without this, returning to a previously-seen N after the
+   * caller has rotated CachedBases would hand back a bind group bound to
+   * destroyed buffers — the MSM dispatches against zeroed memory and
+   * returns identity. Cheap: bind groups rebuild on the next dispatch.
+   */
+  invalidateAllBindGroups(): void {
     if (this.persistentBindGroups.size > 0) {
       this.persistentBindGroups.clear();
     }
-    void bufferKey;
   }
 
   /**

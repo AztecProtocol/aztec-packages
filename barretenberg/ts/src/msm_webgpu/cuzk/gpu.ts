@@ -1,9 +1,9 @@
 // Request a high-performance GPU device. Enables the optional "timestamp-query"
 // feature when the adapter supports it, so per-pass timings can be collected.
 export const get_device = async (): Promise<GPUDevice> => {
-  const gpuErrMsg = "Please use a browser that has WebGPU enabled.";
+  const gpuErrMsg = 'Please use a browser that has WebGPU enabled.';
   const adapter = await navigator.gpu.requestAdapter({
-    powerPreference: "high-performance",
+    powerPreference: 'high-performance',
   });
   if (!adapter) {
     console.log(gpuErrMsg);
@@ -11,22 +11,18 @@ export const get_device = async (): Promise<GPUDevice> => {
   }
 
   const requiredFeatures: GPUFeatureName[] = [];
-  if (adapter.features.has("timestamp-query")) {
-    requiredFeatures.push("timestamp-query");
+  if (adapter.features.has('timestamp-query')) {
+    requiredFeatures.push('timestamp-query');
   }
 
   const device = await adapter.requestDevice({ requiredFeatures });
   return device;
 };
 
-export const read_write_buffer_usage =
-  GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
+export const read_write_buffer_usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST;
 
 // Create and write a storage buffer
-export const create_and_write_sb = (
-  device: GPUDevice,
-  buffer: Uint8Array,
-): GPUBuffer => {
+export const create_and_write_sb = (device: GPUDevice, buffer: Uint8Array): GPUBuffer => {
   const sb = device.createBuffer({
     size: buffer.length,
     usage: read_write_buffer_usage,
@@ -36,10 +32,7 @@ export const create_and_write_sb = (
 };
 
 // Create and write a uniform buffer
-export const create_and_write_ub = (
-  device: GPUDevice,
-  buffer: Uint8Array,
-): GPUBuffer => {
+export const create_and_write_ub = (device: GPUDevice, buffer: Uint8Array): GPUBuffer => {
   const ub = device.createBuffer({
     size: buffer.length,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -91,18 +84,12 @@ export const read_from_gpu = async (
       size,
       usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
     });
-    commandEncoder.copyBufferToBuffer(
-      storage_buffer,
-      source_offset,
-      staging_buffer,
-      dest_offset,
-      size,
-    );
+    commandEncoder.copyBufferToBuffer(storage_buffer, source_offset, staging_buffer, dest_offset, size);
     staging_buffers.push(staging_buffer);
   }
 
   // Finish encoding commands and submit to GPU device command queue
-  cpu_timer?.mark("gpu_compute_wall_begin");
+  cpu_timer?.mark('gpu_compute_wall_begin');
   device.queue.submit([commandEncoder.finish()]);
 
   // Wait for all queued GPU work to complete. This includes everything
@@ -111,7 +98,7 @@ export const read_from_gpu = async (
   // we measure here is therefore the ACTUAL total GPU wall time for
   // the MSM, not the under-counted sampled-stage sum.
   await device.queue.onSubmittedWorkDone();
-  cpu_timer?.phaseFrom("gpu_compute_wall", "gpu_compute_wall_begin");
+  cpu_timer?.phaseFrom('gpu_compute_wall', 'gpu_compute_wall_begin');
 
   // Kick off all mapAsync calls IN PARALLEL, then await in a Promise.all.
   // Sequential awaits would serialize the latency: each mapAsync call has
@@ -120,18 +107,14 @@ export const read_from_gpu = async (
   // and third resolve. Browsers (Chrome's Dawn in particular) batch
   // map-readiness notifications, so issuing them all at once and awaiting
   // a single Promise.all collapses three round-trips into one wait.
-  cpu_timer?.mark("mapasync_overhead_begin");
-  const map_promises = staging_buffers.map((b) =>
-    b.mapAsync(GPUMapMode.READ, 0, b.size),
-  );
+  cpu_timer?.mark('mapasync_overhead_begin');
+  const map_promises = staging_buffers.map(b => b.mapAsync(GPUMapMode.READ, 0, b.size));
   await Promise.all(map_promises);
-  cpu_timer?.phaseFrom("mapasync_overhead", "mapasync_overhead_begin");
+  cpu_timer?.phaseFrom('mapasync_overhead', 'mapasync_overhead_begin');
 
   const data: Uint8Array[] = [];
   for (let i = 0; i < staging_buffers.length; i++) {
-    const result_data = staging_buffers[i]
-      .getMappedRange(0, staging_buffers[i].size)
-      .slice(0);
+    const result_data = staging_buffers[i].getMappedRange(0, staging_buffers[i].size).slice(0);
     staging_buffers[i].unmap();
     data.push(new Uint8Array(result_data));
   }
@@ -141,10 +124,7 @@ export const read_from_gpu = async (
 // Create a GPUBindGroupLayout, which defines the order and type of buffers
 // which the shader expects. Acceptable types are "storage",
 // "read-only-storage", and "uniform".
-export const create_bind_group_layout = (
-  device: GPUDevice,
-  types: string[],
-) => {
+export const create_bind_group_layout = (device: GPUDevice, types: string[]) => {
   const entries: any[] = [];
   for (let i = 0; i < types.length; i++) {
     entries.push({
@@ -158,11 +138,7 @@ export const create_bind_group_layout = (
 
 // Create a GPUBindGroup, which specifies the storage and uniform buffers to be
 // read by a shader. The buffers must follow the order set in the layout.
-export const create_bind_group = (
-  device: GPUDevice,
-  layout: GPUBindGroupLayout,
-  buffers: GPUBuffer[],
-) => {
+export const create_bind_group = (device: GPUDevice, layout: GPUBindGroupLayout, buffers: GPUBuffer[]) => {
   const entries: any[] = [];
   for (let i = 0; i < buffers.length; i++) {
     entries.push({
@@ -209,7 +185,7 @@ export const create_compute_pipeline = async (
       const tag = `[shader ${cacheKey ?? entryPoint}]`;
       const where = `line ${msg.lineNum}, col ${msg.linePos}`;
       const line = `${tag} ${msg.type}: ${msg.message} (${where})`;
-      if (msg.type === "error") {
+      if (msg.type === 'error') {
         console.error(line);
         hasError = true;
       } else {
@@ -217,15 +193,13 @@ export const create_compute_pipeline = async (
       }
     }
     if (hasError) {
-      throw new Error(
-        `WGSL compile failed for ${cacheKey ?? entryPoint} — see DevTools console for line numbers`,
-      );
+      throw new Error(`WGSL compile failed for ${cacheKey ?? entryPoint} — see DevTools console for line numbers`);
     }
   } catch (e) {
     // Re-throw our own descriptive error; let other errors fall through
     // to the original pipeline-creation path so we don't break browsers
     // where getCompilationInfo() isn't implemented.
-    if (e instanceof Error && e.message.startsWith("WGSL compile failed")) {
+    if (e instanceof Error && e.message.startsWith('WGSL compile failed')) {
       throw e;
     }
   }
@@ -259,17 +233,11 @@ export const execute_pipeline = async (
       `execute_pipeline: refusing zero-dim dispatch (${num_x_workgroups}, ${num_y_workgroups}, ${num_z_workgroups}). This MSM pipeline is not calibrated for the current input size.`,
     );
   }
-  const descriptor: GPUComputePassDescriptor = timestampWrites
-    ? { timestampWrites }
-    : {};
+  const descriptor: GPUComputePassDescriptor = timestampWrites ? { timestampWrites } : {};
   const passEncoder = commandEncoder.beginComputePass(descriptor);
   passEncoder.setPipeline(computePipeline);
   passEncoder.setBindGroup(0, bindGroup);
-  passEncoder.dispatchWorkgroups(
-    num_x_workgroups,
-    num_y_workgroups,
-    num_z_workgroups,
-  );
+  passEncoder.dispatchWorkgroups(num_x_workgroups, num_y_workgroups, num_z_workgroups);
   passEncoder.end();
 };
 
@@ -291,9 +259,7 @@ export const execute_pipeline_indirect = (
   indirectOffset: number,
   timestampWrites?: GPUComputePassTimestampWrites,
 ) => {
-  const descriptor: GPUComputePassDescriptor = timestampWrites
-    ? { timestampWrites }
-    : {};
+  const descriptor: GPUComputePassDescriptor = timestampWrites ? { timestampWrites } : {};
   const passEncoder = commandEncoder.beginComputePass(descriptor);
   passEncoder.setPipeline(computePipeline);
   passEncoder.setBindGroup(0, bindGroup);
@@ -325,10 +291,10 @@ export class Profiler {
 
   constructor(device: GPUDevice, capacity = 64) {
     this.capacity = capacity;
-    this.enabled = device.features.has("timestamp-query");
+    this.enabled = device.features.has('timestamp-query');
     if (this.enabled) {
       this.querySet = device.createQuerySet({
-        type: "timestamp",
+        type: 'timestamp',
         count: capacity * 2,
       });
       this.resolveBuffer = device.createBuffer({
@@ -349,9 +315,7 @@ export class Profiler {
   stage(label: string): GPUComputePassTimestampWrites | undefined {
     if (!this.enabled || this.querySet === null) return undefined;
     if (this.used >= this.capacity) {
-      console.warn(
-        `Profiler capacity ${this.capacity} exceeded; skipping "${label}"`,
-      );
+      console.warn(`Profiler capacity ${this.capacity} exceeded; skipping "${label}"`);
       return undefined;
     }
     const beginIndex = this.used * 2;
@@ -363,6 +327,51 @@ export class Profiler {
       beginningOfPassWriteIndex: beginIndex,
       endOfPassWriteIndex: endIndex,
     };
+  }
+
+  /**
+   * Time a region of encoder commands that are NOT compute passes — e.g.
+   * `clearBuffer`, `copyBufferToBuffer`, `resolveQuerySet`. WebGPU only
+   * accepts `timestampWrites` on compute/render passes, so we sandwich
+   * `fn()` between two empty compute passes that each write exactly one
+   * timestamp. The slot pair (begin = end-of-first-marker,
+   * end = begin-of-second-marker) brackets `fn()`'s GPU work and
+   * `report()` picks it up like any other stage.
+   *
+   * The empty passes themselves cost ~submicrosecond per the spec, so
+   * the measured ms is dominated by `fn()`. If the device lacks
+   * `timestamp-query` or the profiler is over capacity, `fn()` still
+   * runs — only the timing is skipped.
+   */
+  bracket(commandEncoder: GPUCommandEncoder, label: string, fn: () => void): void {
+    if (!this.enabled || this.querySet === null) {
+      fn();
+      return;
+    }
+    if (this.used >= this.capacity) {
+      console.warn(`Profiler capacity ${this.capacity} exceeded; skipping bracket "${label}"`);
+      fn();
+      return;
+    }
+    const beginIndex = this.used * 2;
+    const endIndex = beginIndex + 1;
+    this.labels.push(label);
+    this.used += 1;
+    const before = commandEncoder.beginComputePass({
+      timestampWrites: {
+        querySet: this.querySet,
+        endOfPassWriteIndex: beginIndex,
+      },
+    });
+    before.end();
+    fn();
+    const after = commandEncoder.beginComputePass({
+      timestampWrites: {
+        querySet: this.querySet,
+        beginningOfPassWriteIndex: endIndex,
+      },
+    });
+    after.end();
   }
 
   // Must be called on the same command encoder as the profiled passes, before
@@ -377,20 +386,8 @@ export class Profiler {
     ) {
       return;
     }
-    commandEncoder.resolveQuerySet(
-      this.querySet,
-      0,
-      this.used * 2,
-      this.resolveBuffer,
-      0,
-    );
-    commandEncoder.copyBufferToBuffer(
-      this.resolveBuffer,
-      0,
-      this.readBuffer,
-      0,
-      this.used * 2 * 8,
-    );
+    commandEncoder.resolveQuerySet(this.querySet, 0, this.used * 2, this.resolveBuffer, 0);
+    commandEncoder.copyBufferToBuffer(this.resolveBuffer, 0, this.readBuffer, 0, this.used * 2 * 8);
   }
 
   async report(): Promise<{ label: string; ms: number }[] | null> {
@@ -508,7 +505,7 @@ export class CpuTimer {
   // fires multiple times in a loop and we want the sum, not each call).
   accumulate(label: string, ms: number): void {
     if (!this.enabled) return;
-    const existing = this.phases.find((p) => p.label === label);
+    const existing = this.phases.find(p => p.label === label);
     if (existing) existing.ms += ms;
     else this.phases.push({ label, ms });
   }

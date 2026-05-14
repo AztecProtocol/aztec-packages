@@ -13,9 +13,9 @@
  * Authors: Koh Wei Jie and Tal Derei
  */
 
-import { assert } from "./assert.js";
-import { BigIntPoint, U32ArrayPoint, readBigIntsFromBufferLE } from "./types.js";
-import { ShaderManager } from "./cuzk/shader_manager.js";
+import { assert } from './assert.js';
+import { BigIntPoint, U32ArrayPoint, readBigIntsFromBufferLE } from './types.js';
+import { ShaderManager } from './cuzk/shader_manager.js';
 import {
   get_device,
   create_and_write_sb,
@@ -27,18 +27,15 @@ import {
   execute_pipeline,
   Profiler,
   CpuTimer,
-} from "./cuzk/gpu.js";
-import { GpuContext } from "./cuzk/gpu_context.js";
-import {
-  CachedBases,
-  precompute_bn254_bases,
-} from "./cuzk/cached_bases.js";
+} from './cuzk/gpu.js';
+import { GpuContext } from './cuzk/gpu_context.js';
+import { CachedBases, precompute_bn254_bases } from './cuzk/cached_bases.js';
 import {
   smvp_batch_affine_gpu,
   PROFILE_SCHEDULE_ROUNDS,
   PROFILE_INVERSE_ROUNDS,
   PROFILE_APPLY_ROUNDS,
-} from "./cuzk/batch_affine.js";
+} from './cuzk/batch_affine.js';
 import {
   u8s_to_bigints,
   u8s_to_numbers,
@@ -47,18 +44,11 @@ import {
   compute_misc_params,
   decompose_scalars_signed,
   u8s_to_bigints_without_assertion,
-} from "./cuzk/utils.js";
-import { cpu_transpose } from "./cuzk/transpose.js";
-import { cpu_smvp_signed } from "./cuzk/smvp.js";
-import {
-  parallel_bucket_reduction_1,
-  parallel_bucket_reduction_2,
-} from "./cuzk/bpr.js";
-import {
-  BN254_CURVE_CONFIG,
-  CpuPoint,
-  CurveConfig,
-} from "./cuzk/curve_config.js";
+} from './cuzk/utils.js';
+import { cpu_transpose } from './cuzk/transpose.js';
+import { cpu_smvp_signed } from './cuzk/smvp.js';
+import { parallel_bucket_reduction_1, parallel_bucket_reduction_2 } from './cuzk/bpr.js';
+import { BN254_CURVE_CONFIG, CpuPoint, CurveConfig } from './cuzk/curve_config.js';
 import {
   createBn254AffinePointFromJacobian,
   addBn254Jacobian,
@@ -67,7 +57,7 @@ import {
   toAffineBn254Jacobian,
   BN254_JACOBIAN_ZERO,
   Bn254Jacobian,
-} from "./cuzk/bn254.js";
+} from './cuzk/bn254.js';
 
 // The original tal-webgpu submission used `G1` (from @celo/bls12377js) as a
 // debug type tag inside `log_result === true` blocks. We drop that
@@ -83,8 +73,7 @@ type G1 = any;
 // unreachable in the bb.js port (log_result defaults to false on every
 // callsite), but the references still have to typecheck. Stub returns a
 // plain bag so the debug paths compile.
-const createAffinePoint = (x: bigint, y: bigint, z: bigint): G1 =>
-  ({ x, y, z }) as G1;
+const createAffinePoint = (x: bigint, y: bigint, z: bigint): G1 => ({ x, y, z }) as G1;
 // The original module also exported a BLS12-377 `compute_msm` entry point
 // keyed by the imported `BLS12_377_CURVE_CONFIG`. The bb.js port is BN254
 // only, so `compute_msm`, `compute_atheonxyz_bn254_msm`, and the GLV cold
@@ -167,13 +156,7 @@ export const compute_bn254_msm = async (
   log_result = true,
   force_recompile = false,
 ): Promise<{ x: bigint; y: bigint }> =>
-  compute_curve_msm(
-    baseAffinePoints,
-    scalars,
-    BN254_CURVE_CONFIG,
-    log_result,
-    force_recompile,
-  );
+  compute_curve_msm(baseAffinePoints, scalars, BN254_CURVE_CONFIG, log_result, force_recompile);
 
 /**
  * BN254 MSM with a caller-provided persistent GPU context. Reuses the
@@ -190,15 +173,7 @@ export const compute_bn254_msm_with_context = async (
   scalars: bigint[] | Uint32Array[] | Buffer,
   log_result = true,
 ): Promise<{ x: bigint; y: bigint }> =>
-  compute_curve_msm(
-    baseAffinePoints,
-    scalars,
-    BN254_CURVE_CONFIG,
-    log_result,
-    false,
-    undefined,
-    context,
-  );
+  compute_curve_msm(baseAffinePoints, scalars, BN254_CURVE_CONFIG, log_result, false, undefined, context);
 
 export { GpuContext };
 export { CachedBases, precompute_bn254_bases };
@@ -273,7 +248,7 @@ export const compute_bn254_msm_batch_affine = async (
   // mixed-add for m, full add for g. 'assume_affine' = mixed-add for m
   // and no-collision Jacobian for g (saves ~13-25 ms but requires
   // batch-affine SMVP buckets and is sensitive to Tint codegen).
-  bpr_inner_loop: "legacy" | "mixed_safe" | "assume_affine" = "legacy",
+  bpr_inner_loop: 'legacy' | 'mixed_safe' | 'assume_affine' = 'legacy',
 ): Promise<{ x: bigint; y: bigint }> =>
   compute_curve_msm(
     // Cached path: `baseAffinePoints` is ignored. Uint8Array cast keeps
@@ -316,7 +291,7 @@ export const compute_bn254_msm_batch_affine = async (
  */
 const compile_pipeline_cached = async (
   device: GPUDevice,
-  bindLayoutTypes: Array<"storage" | "read-only-storage" | "uniform">,
+  bindLayoutTypes: Array<'storage' | 'read-only-storage' | 'uniform'>,
   shaderCode: string,
   entryPoint: string,
   context: GpuContext | undefined,
@@ -347,7 +322,7 @@ const compile_pipeline_cached = async (
       const tag = `[compile_pipeline_cached ${cacheKey} :: ${entryPoint}]`;
       const where = `line ${msg.lineNum}, col ${msg.linePos}`;
       const line = `${tag} ${msg.type}: ${msg.message} (${where})`;
-      if (msg.type === "error") {
+      if (msg.type === 'error') {
         console.error(line);
         errors.push(line);
       } else {
@@ -358,9 +333,7 @@ const compile_pipeline_cached = async (
       // Embed the actual error messages in the thrown error so the
       // orchestrator can surface them in the UI log without requiring
       // the user to have DevTools open.
-      throw new Error(
-        `WGSL compile failed for ${cacheKey}::${entryPoint}: ${errors.join(" | ")}`,
-      );
+      throw new Error(`WGSL compile failed for ${cacheKey}::${entryPoint}: ${errors.join(' | ')}`);
     }
     let pipeline: GPUComputePipeline;
     try {
@@ -375,9 +348,7 @@ const compile_pipeline_cached = async (
       // Re-throw with cache-key context so the failure is attributable
       // to a specific variant.
       const msg = e instanceof Error ? e.message : String(e);
-      throw new Error(
-        `Pipeline build failed for ${cacheKey}::${entryPoint}: ${msg}`,
-      );
+      throw new Error(`Pipeline build failed for ${cacheKey}::${entryPoint}: ${msg}`);
     }
     return { pipeline, bindGroupLayout };
   };
@@ -521,19 +492,13 @@ const compute_curve_msm = async (
   profile_capture?: ProfileCapture,
   // BPR stage_1 inner-loop variant. See compute_bn254_msm_batch_affine
   // for the full description. Default 'legacy' (production-stable).
-  bpr_inner_loop: "legacy" | "mixed_safe" | "assume_affine" = "legacy",
+  bpr_inner_loop: 'legacy' | 'mixed_safe' | 'assume_affine' = 'legacy',
 ): Promise<{ x: bigint; y: bigint }> => {
-  const curveParams = compute_misc_params(
-    curveConfig.baseFieldModulus,
-    curveConfig.wordSize,
-  );
+  const curveParams = compute_misc_params(curveConfig.baseFieldModulus, curveConfig.wordSize);
   const num_words = curveParams.num_words;
   const rinv = curveParams.rinv;
-  const effective_scalar_byte_length =
-    glv_override?.scalar_byte_length ?? curveConfig.scalarByteLength;
-  const input_size = cached_bases
-    ? cached_bases.input_size
-    : (scalars as Buffer).length / effective_scalar_byte_length;
+  const effective_scalar_byte_length = glv_override?.scalar_byte_length ?? curveConfig.scalarByteLength;
+  const input_size = cached_bases ? cached_bases.input_size : (scalars as Buffer).length / effective_scalar_byte_length;
 
   if (input_size === 0) {
     return { x: BigInt(0), y: BigInt(1) };
@@ -541,19 +506,14 @@ const compute_curve_msm = async (
 
   // Sanity: cached_bases forces the persistent-context path.
   if (cached_bases !== undefined && context === undefined) {
-    throw new Error(
-      "compute_curve_msm: cached_bases requires a context to share its device",
-    );
+    throw new Error('compute_curve_msm: cached_bases requires a context to share its device');
   }
   if (cached_bases !== undefined && cached_bases.context !== context) {
-    throw new Error(
-      "compute_curve_msm: cached_bases.context must equal the passed-in context",
-    );
+    throw new Error('compute_curve_msm: cached_bases.context must equal the passed-in context');
   }
   if (
     cached_bases !== undefined &&
-    (scalars as Buffer).length / effective_scalar_byte_length !==
-      cached_bases.input_size
+    (scalars as Buffer).length / effective_scalar_byte_length !== cached_bases.input_size
   ) {
     throw new Error(
       `compute_curve_msm: scalar count ${
@@ -573,7 +533,7 @@ const compute_curve_msm = async (
   // one where log_result=true. Without this, runs after i=0 produce an
   // empty phases array, which then medians-to-zero in the breakdown table.
   const cpu_timer = new CpuTimer(log_result || profile_capture !== undefined);
-  cpu_timer.mark("setup_begin");
+  cpu_timer.mark('setup_begin');
 
   // Adaptive chunk_size policy. BPR-1 cost scales with T·B = (λ/c)·2^(c-1),
   // where λ = scalar bit length. Setting d/dc [T·B] = 0 gives c ≈ λ/ln 2 ≈ 36
@@ -603,8 +563,7 @@ const compute_curve_msm = async (
 
   const num_columns = 2 ** chunk_size;
   const num_rows = Math.ceil(input_size / num_columns);
-  const effective_scalar_bit_length =
-    glv_override?.scalar_bit_length ?? curveConfig.scalarBitLength;
+  const effective_scalar_bit_length = glv_override?.scalar_bit_length ?? curveConfig.scalarBitLength;
   // Derive num_subtasks from the effective bit length and chunk size.
   // For default BN254 at large N: 256/16 = 16. For GLV: 128/16 = 8 (or
   // 128/4 = 32 when n is small enough that chunk_size drops to 4).
@@ -615,25 +574,28 @@ const compute_curve_msm = async (
 
   // Each pass must use the same GPUDevice and GPUCommandEncoder, or else
   // storage buffers can't be reused across compute passes
-  cpu_timer.mark("device_begin");
+  cpu_timer.mark('device_begin');
   const device = context !== undefined ? context.device : await get_device();
-  cpu_timer.phaseFrom("device_acquire", "device_begin");
+  cpu_timer.phaseFrom('device_acquire', 'device_begin');
 
   // Create single command encoder for device
   const commandEncoder = device.createCommandEncoder();
 
   // Per-pass GPU profiler. No-ops if "timestamp-query" isn't supported.
   //
-  // Capacity = 800 (= 1600 timestamps per QuerySet) is well below Dawn's
+  // Capacity = 1200 (= 2400 timestamps per QuerySet) is well below Dawn's
   // ~4096 cap that wedges the device when exceeded. This gives enough
   // slots to profile EVERY round of EVERY family in the batch-affine
-  // SMVP loop at worst case (MAX_ROUNDS = 256 at N=2^20).
+  // SMVP loop at worst case (MAX_ROUNDS = 256 at N=2^20), plus the
+  // per-round `ba_dispatch_args` kernel and the `bracket()` markers
+  // around the encoder's `clearBuffer` calls.
   //
   // Slot tally (worst case, N=2^20, batch-affine SMVP):
-  //   ~9 fixed (decompose, transpose_*, ba_init, ba_finalize_×3,
-  //             bpr_1, bpr_2, subtask_reduce)
+  //   ~12 fixed (decompose, transpose_*, ba_init, ba_finalize_×3,
+  //              bpr_1, bpr_2, subtask_reduce, + 3 clearBuffer brackets)
   //   + 256 ba_schedule + 256 ba_inverse + 256 ba_apply
-  //   = ~777 — under 800 with 23 slots of margin.
+  //   + 256 ba_dispatch_args
+  //   = ~1036 — under 1200 with ~160 slots of margin.
   //
   // Why every round of ba_apply / ba_schedule, not just samples:
   //   The previous PROFILE_APPLY_ROUNDS=8 / PROFILE_SCHEDULE_ROUNDS=8
@@ -642,7 +604,7 @@ const compute_curve_msm = async (
   //   family row look 30× cheaper than its true total. Sampling every
   //   round makes the family-row sums correctly reflect total cost so
   //   optimization-priority decisions stop flying blind.
-  const profiler = new Profiler(device, 800);
+  const profiler = new Profiler(device, 1200);
 
   // When debug_trace is requested, we stage-copy intermediate buffers to
   // MAP_READ-usable staging buffers. They accumulate into debug_stagings
@@ -651,8 +613,12 @@ const compute_curve_msm = async (
     convert?: { point_x: GPUBuffer; point_y: GPUBuffer };
     smvp?: { bucket_x: GPUBuffer; bucket_y: GPUBuffer; bucket_z: GPUBuffer };
     bpr1?: {
-      bucket_x: GPUBuffer; bucket_y: GPUBuffer; bucket_z: GPUBuffer;
-      g_x: GPUBuffer; g_y: GPUBuffer; g_z: GPUBuffer;
+      bucket_x: GPUBuffer;
+      bucket_y: GPUBuffer;
+      bucket_z: GPUBuffer;
+      g_x: GPUBuffer;
+      g_y: GPUBuffer;
+      g_z: GPUBuffer;
     };
     bpr2?: { g_x: GPUBuffer; g_y: GPUBuffer; g_z: GPUBuffer; debug_capture?: GPUBuffer };
   };
@@ -679,26 +645,22 @@ const compute_curve_msm = async (
   // populated separately. Saves one full scalar_chunks pass + one
   // dispatch.
   let fused_col_ptr_sb: GPUBuffer | undefined;
-  const can_fuse_count =
-    cached_bases !== undefined &&
-    context !== undefined &&
-    curveConfig.id === "bn254";
+  const can_fuse_count = cached_bases !== undefined && context !== undefined && curveConfig.id === 'bn254';
 
   if (cached_bases) {
     // Warm path: points are already Montgomery-form on the GPU. Only do
     // scalar decomposition.
-    cpu_timer.mark("convert_host_begin");
+    cpu_timer.mark('convert_host_begin');
     point_x_sb = cached_bases.point_x_sb;
     point_y_sb = cached_bases.point_y_sb;
 
     if (can_fuse_count) {
       const xpose_key = `${curveConfig.id}:xpose:${num_subtasks}:${num_columns}:${input_size}`;
-      fused_col_ptr_sb = context!.acquirePersistentBuffer(
-        `${xpose_key}:col_ptr`,
-        num_subtasks * (num_columns + 1) * 4,
-      );
+      fused_col_ptr_sb = context!.acquirePersistentBuffer(`${xpose_key}:col_ptr`, num_subtasks * (num_columns + 1) * 4);
       // Decompose kernel atomicAdds into this — must start at zero.
-      commandEncoder.clearBuffer(fused_col_ptr_sb);
+      profiler.bracket(commandEncoder, 'clear_fused_col_ptr', () => {
+        commandEncoder.clearBuffer(fused_col_ptr_sb!);
+      });
     }
 
     scalar_chunks_sb = await decompose_scalars_only_gpu(
@@ -713,12 +675,12 @@ const compute_curve_msm = async (
       num_columns,
       input_size,
       curveConfig,
-      profiler.stage("decompose_scalars_only"),
+      profiler.stage('decompose_scalars_only'),
       cpu_timer,
       context,
       fused_col_ptr_sb,
     );
-    cpu_timer.phaseFrom("convert_host_total", "convert_host_begin");
+    cpu_timer.phaseFrom('convert_host_total', 'convert_host_begin');
   } else {
     const c_shader = shaderManager.gen_convert_points_and_decomp_scalars_shader(
       workgroup.c_workgroup_size,
@@ -731,7 +693,7 @@ const compute_curve_msm = async (
 
     // Convert the affine points to Montgomery form and decompose the scalars
     // using a single shader
-    cpu_timer.mark("convert_host_begin");
+    cpu_timer.mark('convert_host_begin');
     const converted = await convert_point_coords_and_decompose_shaders(
       c_shader,
       workgroup.c_num_x_workgroups,
@@ -747,7 +709,7 @@ const compute_curve_msm = async (
       curveConfig,
       curveParams,
       false,
-      profiler.stage("convert_points"),
+      profiler.stage('convert_points'),
       cpu_timer,
       context,
       effective_scalar_byte_length,
@@ -755,7 +717,7 @@ const compute_curve_msm = async (
     point_x_sb = converted.point_x_sb;
     point_y_sb = converted.point_y_sb;
     scalar_chunks_sb = converted.scalar_chunks_sb;
-    cpu_timer.phaseFrom("convert_host_total", "convert_host_begin");
+    cpu_timer.phaseFrom('convert_host_total', 'convert_host_begin');
   }
 
   if (debug_trace) {
@@ -767,8 +729,7 @@ const compute_curve_msm = async (
   }
 
   // Buffers to  store the SMVP result (the bucket sum). They are overwritten per iteration
-  const bucket_sum_coord_bytelength =
-    (num_columns / 2) * num_words * 4 * num_subtasks;
+  const bucket_sum_coord_bytelength = (num_columns / 2) * num_words * 4 * num_subtasks;
   // When a context is provided, pull the bucket-sum scratch from the
   // persistent buffer cache. Same lifetime semantics as the workspace
   // buffers in batch_affine.ts: same buffer reused across MSM calls,
@@ -777,31 +738,20 @@ const compute_curve_msm = async (
   // call, so no clear is needed.
   const ws_key = `bn254:msm:${num_subtasks}:${num_columns}:${num_words}:${input_size}`;
   const acquire_msm_ws = (suffix: string, size: number): GPUBuffer =>
-    context !== undefined
-      ? context.acquirePersistentBuffer(`${ws_key}:${suffix}`, size)
-      : create_sb(device, size);
-  const bucket_sum_x_sb = acquire_msm_ws(
-    "bucket_sum_x",
-    bucket_sum_coord_bytelength,
-  );
-  const bucket_sum_y_sb = acquire_msm_ws(
-    "bucket_sum_y",
-    bucket_sum_coord_bytelength,
-  );
-  const bucket_sum_z_sb = acquire_msm_ws(
-    "bucket_sum_z",
-    bucket_sum_coord_bytelength,
-  );
+    context !== undefined ? context.acquirePersistentBuffer(`${ws_key}:${suffix}`, size) : create_sb(device, size);
+  const bucket_sum_x_sb = acquire_msm_ws('bucket_sum_x', bucket_sum_coord_bytelength);
+  const bucket_sum_y_sb = acquire_msm_ws('bucket_sum_y', bucket_sum_coord_bytelength);
+  const bucket_sum_z_sb = acquire_msm_ws('bucket_sum_z', bucket_sum_coord_bytelength);
 
   // Transpose. BN254 uses the three-phase parallel transpose (count + scan
   // + scatter); BLS12-377 stays on the serial-per-subtask path. The serial
   // path measured ~65 ms at N=2^16 (a quarter of total GPU time at that
   // size); the parallel path collapses the n*T count and scatter passes
   // to ~1M threads.
-  cpu_timer.mark("transpose_host_begin");
+  cpu_timer.mark('transpose_host_begin');
   let all_csc_col_ptr_sb: GPUBuffer;
   let all_csc_val_idxs_sb: GPUBuffer;
-  if (curveConfig.id === "bn254") {
+  if (curveConfig.id === 'bn254') {
     const countShader = shaderManager.gen_transpose_count_shader(64);
     const scanShader = shaderManager.gen_transpose_scan_shader(num_subtasks);
     const scatterShader = shaderManager.gen_transpose_scatter_shader(64);
@@ -823,11 +773,10 @@ const compute_curve_msm = async (
       // When fused_col_ptr_sb is set, decompose has already populated it
       // — transpose skips its standalone count dispatch.
       fused_col_ptr_sb,
-      fused_col_ptr_sb !== undefined
-        ? undefined
-        : profiler.stage("transpose_count"),
-      profiler.stage("transpose_scan"),
-      profiler.stage("transpose_scatter"),
+      fused_col_ptr_sb !== undefined ? undefined : profiler.stage('transpose_count'),
+      profiler.stage('transpose_scan'),
+      profiler.stage('transpose_scatter'),
+      profiler,
     );
     all_csc_col_ptr_sb = out.all_csc_col_ptr_sb;
     all_csc_val_idxs_sb = out.all_csc_val_idxs_sb;
@@ -843,7 +792,7 @@ const compute_curve_msm = async (
       num_subtasks,
       scalar_chunks_sb,
       false,
-      profiler.stage("transpose"),
+      profiler.stage('transpose'),
       cpu_timer,
       context,
       curveConfig.id,
@@ -852,7 +801,7 @@ const compute_curve_msm = async (
     all_csc_col_ptr_sb = out.all_csc_col_ptr_sb;
     all_csc_val_idxs_sb = out.all_csc_val_idxs_sb;
   }
-  cpu_timer.phaseFrom("transpose_host_total", "transpose_host_begin");
+  cpu_timer.phaseFrom('transpose_host_total', 'transpose_host_begin');
 
   // SMVP dispatch geometry. Per outer-loop iteration we need
   // `smvp_subtasks_per_iter * h` threads, distributed across
@@ -868,10 +817,7 @@ const compute_curve_msm = async (
   const half_num_columns = num_columns / 2;
   const default_smvp_subtasks_per_iter = 4;
   let smvp_subtasks_per_iter = default_smvp_subtasks_per_iter;
-  while (
-    smvp_subtasks_per_iter > 1 &&
-    num_subtasks % smvp_subtasks_per_iter !== 0
-  ) {
+  while (smvp_subtasks_per_iter > 1 && num_subtasks % smvp_subtasks_per_iter !== 0) {
     smvp_subtasks_per_iter--;
   }
 
@@ -885,15 +831,12 @@ const compute_curve_msm = async (
     // parallelism for occupancy on dGPU.
     s_workgroup_size = 256;
     s_num_x_workgroups = 64;
-    s_num_y_workgroups =
-      half_num_columns / s_workgroup_size / s_num_x_workgroups;
+    s_num_y_workgroups = half_num_columns / s_workgroup_size / s_num_x_workgroups;
   } else if (num_columns >= 256) {
     // chunk_size=15 / 14 path. Smaller wg, distribute over Y.
     s_workgroup_size = 32;
     s_num_x_workgroups = 1;
-    s_num_y_workgroups = Math.ceil(
-      half_num_columns / s_workgroup_size / s_num_x_workgroups,
-    );
+    s_num_y_workgroups = Math.ceil(half_num_columns / s_workgroup_size / s_num_x_workgroups);
   } else {
     // Tiny path (chunk_size ≤ 7). One thread per bucket pair.
     s_workgroup_size = 1;
@@ -901,18 +844,15 @@ const compute_curve_msm = async (
     s_num_y_workgroups = 1;
   }
 
-
-  cpu_timer.mark("smvp_host_begin");
+  cpu_timer.mark('smvp_host_begin');
 
   if (use_batch_affine_smvp) {
     // Batch-affine SMVP path. Output bucket_x/y/z layout is
     // bit-identical to the legacy SMVP, so the downstream BPR is
     // unaffected. See src/submission/implementation/cuzk/batch_affine.ts
     // for the dispatch sequence.
-    if (curveConfig.id !== "bn254") {
-      throw new Error(
-        "use_batch_affine_smvp is currently BN254-only.",
-      );
+    if (curveConfig.id !== 'bn254') {
+      throw new Error('use_batch_affine_smvp is currently BN254-only.');
     }
     await smvp_batch_affine_gpu(
       shaderManager,
@@ -939,10 +879,7 @@ const compute_curve_msm = async (
       cached_bases !== undefined && context !== undefined,
     );
   } else {
-    const smvp_shader = shaderManager.gen_smvp_shader(
-      s_workgroup_size,
-      num_columns,
-    );
+    const smvp_shader = shaderManager.gen_smvp_shader(s_workgroup_size, num_columns);
 
     // SMVP and multiplication by the bucket index.
     //
@@ -952,11 +889,7 @@ const compute_curve_msm = async (
     // (subtask_idx ∈ [0, smvp_subtasks_per_iter), bucket_pair_idx ∈ [0, h)).
     // The shader recovers subtask_idx via `id / h` and offsets into the
     // global bucket array with `bi = id + subtask_offset * h`.
-    for (
-      let offset = 0;
-      offset < num_subtasks;
-      offset += smvp_subtasks_per_iter
-    ) {
+    for (let offset = 0; offset < num_subtasks; offset += smvp_subtasks_per_iter) {
       await smvp_gpu(
         smvp_shader,
         s_num_x_workgroups,
@@ -985,7 +918,7 @@ const compute_curve_msm = async (
       );
     }
   }
-  cpu_timer.phaseFrom("smvp_host_total", "smvp_host_begin");
+  cpu_timer.phaseFrom('smvp_host_total', 'smvp_host_begin');
 
   if (debug_trace) {
     const bx = mkStaging(bucket_sum_x_sb.size);
@@ -1016,20 +949,10 @@ const compute_curve_msm = async (
   const b_workgroup_size = 256;
 
   // Output of the parallel bucket points reduction (BPR) shader
-  const g_points_coord_bytelength =
-    num_subtasks * b_workgroup_size * num_words * 4;
-  const g_points_x_sb = acquire_msm_ws(
-    "g_points_x",
-    g_points_coord_bytelength,
-  );
-  const g_points_y_sb = acquire_msm_ws(
-    "g_points_y",
-    g_points_coord_bytelength,
-  );
-  const g_points_z_sb = acquire_msm_ws(
-    "g_points_z",
-    g_points_coord_bytelength,
-  );
+  const g_points_coord_bytelength = num_subtasks * b_workgroup_size * num_words * 4;
+  const g_points_x_sb = acquire_msm_ws('g_points_x', g_points_coord_bytelength);
+  const g_points_y_sb = acquire_msm_ws('g_points_y', g_points_coord_bytelength);
+  const g_points_z_sb = acquire_msm_ws('g_points_z', g_points_coord_bytelength);
 
   // Bucket points reduction (BPR) - stage 1
   // When debug_trace is requested, compile the BPR shader with the
@@ -1038,7 +961,7 @@ const compute_curve_msm = async (
   // BigInts per thread to it. Both stage_1 and stage_2 pipelines must use
   // a bind group layout that includes this binding because they share the
   // shader source. Stage_1 just declares it (no writes).
-  cpu_timer.mark("bpr_host_begin");
+  cpu_timer.mark('bpr_host_begin');
   // BPR stage_1 optimisation flags (mutually exclusive). Both require
   // batch-affine SMVP (non-identity buckets have Z = R). Default OFF
   // for safety; the user can flip individually after re-bench.
@@ -1055,8 +978,8 @@ const compute_curve_msm = async (
   // parameter. They were previously hard-coded `false`; routing them
   // through a single tri-state argument lets callers (e.g. the
   // roofline bench) flip between variants without touching this file.
-  const bpr_assume_affine = bpr_inner_loop === "assume_affine";
-  const bpr_mixed_safe = bpr_inner_loop === "mixed_safe";
+  const bpr_assume_affine = bpr_inner_loop === 'assume_affine';
+  const bpr_mixed_safe = bpr_inner_loop === 'mixed_safe';
   // `safe_first_add_no_collision`: replaces only the FIRST add (m += b)
   // in the legacy path with `add_points_no_collision` (general — same
   // function used by stage_2's double_and_add). For batch-affine SMVP
@@ -1068,10 +991,7 @@ const compute_curve_msm = async (
   // — i.e. the warm bench path). Saves ~2-3 ms per call by skipping
   // the bigint_eq pair + the warp-divergent fallback. Disable by
   // setting `bpr_inner_loop` to anything else.
-  const bpr_safe_first =
-    use_batch_affine_smvp &&
-    curveConfig.id === "bn254" &&
-    bpr_inner_loop === "legacy";
+  const bpr_safe_first = use_batch_affine_smvp && curveConfig.id === 'bn254' && bpr_inner_loop === 'legacy';
   const bpr_shader = shaderManager.gen_bpr_shader(
     b_workgroup_size,
     /* capture_debug */ !!debug_trace,
@@ -1085,16 +1005,14 @@ const compute_curve_msm = async (
   // pipeline. Without this, V0's cached pipeline would be returned for
   // V1's compile request and the bench-variant shader would never run.
   const bpr_bench_key =
-    (bpr_bench_flags.bench_null ? "n" : "") +
-    (bpr_bench_flags.bench_compute_only ? "c" : "") +
-    (bpr_bench_flags.bench_memory_only ? "m" : "") +
-    (bpr_bench_flags.bench_no_store ? "s" : "") +
-    (bpr_safe_first ? "f" : "");
+    (bpr_bench_flags.bench_null ? 'n' : '') +
+    (bpr_bench_flags.bench_compute_only ? 'c' : '') +
+    (bpr_bench_flags.bench_memory_only ? 'm' : '') +
+    (bpr_bench_flags.bench_no_store ? 's' : '') +
+    (bpr_safe_first ? 'f' : '');
   // 8 BigInts per thread × workgroup_size threads (subtask 0 only — the
   // diagnostic only inspects subtask 0). One BigInt = num_words u32s.
-  const debug_capture_sb = debug_trace
-    ? create_sb(device, b_workgroup_size * 8 * num_words * 4)
-    : undefined;
+  const debug_capture_sb = debug_trace ? create_sb(device, b_workgroup_size * 8 * num_words * 4) : undefined;
   for (let subtask_idx = 0; subtask_idx < num_subtasks; subtask_idx += num_subtasks_per_bpr_1) {
     await bpr_1(
       bpr_shader,
@@ -1137,8 +1055,12 @@ const compute_curve_msm = async (
     copyToStaging(g_points_y_sb, gy);
     copyToStaging(g_points_z_sb, gz);
     debug_stagings.bpr1 = {
-      bucket_x: bx, bucket_y: by, bucket_z: bz,
-      g_x: gx, g_y: gy, g_z: gz,
+      bucket_x: bx,
+      bucket_y: by,
+      bucket_z: bz,
+      g_x: gx,
+      g_y: gy,
+      g_z: gz,
     };
   }
 
@@ -1173,7 +1095,7 @@ const compute_curve_msm = async (
       input_size,
     );
   }
-  cpu_timer.phaseFrom("bpr_host_total", "bpr_host_begin");
+  cpu_timer.phaseFrom('bpr_host_total', 'bpr_host_begin');
 
   // GPU-side Horner reduction. When enabled, replaces the post-BPR CPU
   // path that reads back T*b_workgroup_size partial sums (~400 KB) and
@@ -1189,7 +1111,7 @@ const compute_curve_msm = async (
   let gpu_horner_sums_x_sb: GPUBuffer | undefined;
   let gpu_horner_sums_y_sb: GPUBuffer | undefined;
   let gpu_horner_sums_z_sb: GPUBuffer | undefined;
-  if (gpu_horner_enabled && curveConfig.id === "bn254") {
+  if (gpu_horner_enabled && curveConfig.id === 'bn254') {
     // Combined scratch+result buffer: (T+1) BigInts per coordinate.
     // Slots 0..T-1 hold per-subtask partial sums (subtask_reduce writes,
     // horner_chain reads). Slot T holds the final Horner result
@@ -1201,30 +1123,26 @@ const compute_curve_msm = async (
     // because BigInt array indexing in WGSL requires homogeneous element
     // type and the existing add_points API operates on BigInt fields.
     const sums_buf_size = (num_subtasks + 1) * num_words * 4;
-    gpu_horner_sums_x_sb = acquire_msm_ws("gpu_horner_x", sums_buf_size);
-    gpu_horner_sums_y_sb = acquire_msm_ws("gpu_horner_y", sums_buf_size);
-    gpu_horner_sums_z_sb = acquire_msm_ws("gpu_horner_z", sums_buf_size);
+    gpu_horner_sums_x_sb = acquire_msm_ws('gpu_horner_x', sums_buf_size);
+    gpu_horner_sums_y_sb = acquire_msm_ws('gpu_horner_y', sums_buf_size);
+    gpu_horner_sums_z_sb = acquire_msm_ws('gpu_horner_z', sums_buf_size);
 
-    const horner_shader = shaderManager.gen_horner_reduce_shader(
-      num_subtasks,
-      b_workgroup_size,
-      chunk_size,
-    );
+    const horner_shader = shaderManager.gen_horner_reduce_shader(num_subtasks, b_workgroup_size, chunk_size);
 
     // Both entry points share the same WGSL source + bind group layout.
-    const horner_layout: Array<"storage" | "read-only-storage" | "uniform"> = [
-      "read-only-storage", // 0 g_points_x
-      "read-only-storage", // 1 g_points_y
-      "read-only-storage", // 2 g_points_z
-      "storage",           // 3 sums_x  (T scratch + 1 result slot)
-      "storage",           // 4 sums_y
-      "storage",           // 5 sums_z
+    const horner_layout: Array<'storage' | 'read-only-storage' | 'uniform'> = [
+      'read-only-storage', // 0 g_points_x
+      'read-only-storage', // 1 g_points_y
+      'read-only-storage', // 2 g_points_z
+      'storage', // 3 sums_x  (T scratch + 1 result slot)
+      'storage', // 4 sums_y
+      'storage', // 5 sums_z
     ];
     const subtask_reduce_pipe = await compile_pipeline_cached(
       device,
       horner_layout,
       horner_shader,
-      "subtask_reduce",
+      'subtask_reduce',
       context,
       `bn254:subtask_reduce:v2-packed:T=${num_subtasks}:bwg=${b_workgroup_size}`,
     );
@@ -1270,7 +1188,7 @@ const compute_curve_msm = async (
       num_subtasks,
       1,
       1,
-      profiler.stage("subtask_reduce"),
+      profiler.stage('subtask_reduce'),
     );
     // Phase B (Horner chain) runs on CPU instead of GPU. The serial
     // 240-doubling chain is inherently single-warp-bound on the GPU
@@ -1304,17 +1222,13 @@ const compute_curve_msm = async (
   // 15-segment Horner chain, which is single-warp-bound on GPU
   // (~14 ms) but cheap on CPU (~250 µs). The pipeline drain
   // dominates either way, so the extra 3 KB payload is free.
-  cpu_timer.mark("readback_begin");
+  cpu_timer.mark('readback_begin');
   const data =
-    gpu_horner_enabled && curveConfig.id === "bn254"
+    gpu_horner_enabled && curveConfig.id === 'bn254'
       ? await read_from_gpu(
           device,
           commandEncoder,
-          [
-            gpu_horner_sums_x_sb!,
-            gpu_horner_sums_y_sb!,
-            gpu_horner_sums_z_sb!,
-          ],
+          [gpu_horner_sums_x_sb!, gpu_horner_sums_y_sb!, gpu_horner_sums_z_sb!],
           /* custom_size */ num_subtasks * num_words * 4,
           /* source_offset */ 0,
           /* dest_offset */ 0,
@@ -1329,7 +1243,7 @@ const compute_curve_msm = async (
           /* dest_offset */ 0,
           cpu_timer,
         );
-  cpu_timer.phaseFrom("readback_total", "readback_begin");
+  cpu_timer.phaseFrom('readback_total', 'readback_begin');
 
   // Read profiling timings and log a per-stage breakdown before we destroy
   // the device. Must run after submit() inside read_from_gpu but before
@@ -1392,9 +1306,7 @@ const compute_curve_msm = async (
         g_points_z_mont: await mapAll(debug_stagings.bpr2.g_z),
       };
       if (debug_stagings.bpr2.debug_capture) {
-        debug_trace.bpr2.debug_capture = await mapAll(
-          debug_stagings.bpr2.debug_capture,
-        );
+        debug_trace.bpr2.debug_capture = await mapAll(debug_stagings.bpr2.debug_capture);
       }
     }
     debug_trace.params = {
@@ -1415,26 +1327,14 @@ const compute_curve_msm = async (
     device.destroy();
   }
 
-  cpu_timer.mark("cpu_horner_begin");
-  const g_points_x_mont_coords = u8s_to_bigints_without_assertion(
-    data[0],
-    num_words,
-    curveConfig.wordSize,
-  );
-  const g_points_y_mont_coords = u8s_to_bigints_without_assertion(
-    data[1],
-    num_words,
-    curveConfig.wordSize,
-  );
-  const g_points_z_mont_coords = u8s_to_bigints_without_assertion(
-    data[2],
-    num_words,
-    curveConfig.wordSize,
-  );
+  cpu_timer.mark('cpu_horner_begin');
+  const g_points_x_mont_coords = u8s_to_bigints_without_assertion(data[0], num_words, curveConfig.wordSize);
+  const g_points_y_mont_coords = u8s_to_bigints_without_assertion(data[1], num_words, curveConfig.wordSize);
+  const g_points_z_mont_coords = u8s_to_bigints_without_assertion(data[2], num_words, curveConfig.wordSize);
 
   let r: { x: bigint; y: bigint };
 
-  if (curveConfig.id === "bn254") {
+  if (curveConfig.id === 'bn254') {
     const q = curveConfig.baseFieldModulus;
     let resultJ: Bn254Jacobian;
 
@@ -1496,19 +1396,15 @@ const compute_curve_msm = async (
     // affine-add-per-thread structure. Not on the hot prover path for
     // this branch, so no refactor yet.
     const points: CpuPoint[] = [];
-    const toAffine = (x: bigint, y: bigint, z: bigint) =>
-      curveConfig.createAffinePoint(x, y, z);
+    const toAffine = (x: bigint, y: bigint, z: bigint) => curveConfig.createAffinePoint(x, y, z);
 
     for (let i = 0; i < num_subtasks; i++) {
       let point = curveConfig.zero;
       for (let j = 0; j < b_workgroup_size; j++) {
         const reduced_point = toAffine(
-          (g_points_x_mont_coords[i * b_workgroup_size + j] * rinv) %
-            curveConfig.baseFieldModulus,
-          (g_points_y_mont_coords[i * b_workgroup_size + j] * rinv) %
-            curveConfig.baseFieldModulus,
-          (g_points_z_mont_coords[i * b_workgroup_size + j] * rinv) %
-            curveConfig.baseFieldModulus,
+          (g_points_x_mont_coords[i * b_workgroup_size + j] * rinv) % curveConfig.baseFieldModulus,
+          (g_points_y_mont_coords[i * b_workgroup_size + j] * rinv) % curveConfig.baseFieldModulus,
+          (g_points_z_mont_coords[i * b_workgroup_size + j] * rinv) % curveConfig.baseFieldModulus,
         );
         point = curveConfig.addPoints(point, reduced_point);
       }
@@ -1523,7 +1419,7 @@ const compute_curve_msm = async (
     }
     r = curveConfig.getBigIntXY(curveConfig.toAffine(result));
   }
-  cpu_timer.phaseFrom("cpu_horner_total", "cpu_horner_begin");
+  cpu_timer.phaseFrom('cpu_horner_total', 'cpu_horner_begin');
 
   // Capture CPU phases + GPU readback decomposition for programmatic
   // consumers. Done unconditionally (cheap — small object copies) so
@@ -1532,35 +1428,25 @@ const compute_curve_msm = async (
   const cpu_report_for_capture = cpu_timer.report();
   if (profile_capture !== undefined) {
     profile_capture.cpu_phases = {
-      phases: cpu_report_for_capture.phases
-        .slice()
-        .sort((a, b) => b.ms - a.ms),
+      phases: cpu_report_for_capture.phases.slice().sort((a, b) => b.ms - a.ms),
       total_wall_ms: cpu_report_for_capture.total_wall_ms,
     };
     const findPhase = (label: string): number | undefined =>
-      cpu_report_for_capture.phases.find((p) => p.label === label)?.ms;
-    const gpu_compute_wall = findPhase("gpu_compute_wall");
-    if (
-      gpu_compute_wall !== undefined &&
-      gpu_profiled_total_ms !== undefined
-    ) {
+      cpu_report_for_capture.phases.find(p => p.label === label)?.ms;
+    const gpu_compute_wall = findPhase('gpu_compute_wall');
+    if (gpu_compute_wall !== undefined && gpu_profiled_total_ms !== undefined) {
       profile_capture.gpu_readback = {
         gpu_compute_wall,
         profiled_passes_sum: gpu_profiled_total_ms,
         untimestamped: Math.max(0, gpu_compute_wall - gpu_profiled_total_ms),
-        mapasync_overhead: findPhase("mapasync_overhead"),
-        readback_total: findPhase("readback_total"),
+        mapasync_overhead: findPhase('mapasync_overhead'),
+        readback_total: findPhase('readback_total'),
       };
     }
   }
 
   if (log_result) {
-    log_cpu_phase_report(
-      cpu_report_for_capture,
-      curveConfig.id,
-      input_size,
-      gpu_profiled_total_ms,
-    );
+    log_cpu_phase_report(cpu_report_for_capture, curveConfig.id, input_size, gpu_profiled_total_ms);
     console.log(r);
   }
 
@@ -1572,14 +1458,15 @@ const compute_curve_msm = async (
 // out, with % of wall time per phase.
 //
 // `gpu_profiled_total_ms` (when provided) is the sum of every
-// profiler.stage() pair the encoder produced. With it we can compute and
-// label `gpu_untimestamped` = `gpu_compute_wall − gpu_profiled_total`,
-// which is the slice of GPU work that ran but wasn't captured by
-// individual timestamps: untimestamped clearBuffer/copyBufferToBuffer
-// ops, inter-pass resource barriers, and any compute pass whose round
-// is past the profiler's first-8 sampling window. This is exactly the
-// "where is the rest of the time going?" answer that the per-stage
-// rows can't give on their own when sampling is in effect.
+// profiler.stage() / profiler.bracket() pair the encoder produced.
+// With it we can compute and label `gpu_untimestamped` =
+// `gpu_compute_wall − gpu_profiled_total`, the residual slice of GPU
+// work that wasn't captured by an individual timestamp pair. Every
+// known kernel and `clearBuffer` is now timestamped, so this row only
+// captures (a) the trailing `profiler.resolve()` (resolveQuerySet +
+// 12.8 KB copyBufferToBuffer) and `read_from_gpu`'s staging copies
+// that run after the last bracket, plus (b) Dawn/driver inter-pass
+// overhead that is invisible to WebGPU timestamps.
 const log_cpu_phase_report = (
   report: { phases: { label: string; ms: number }[]; total_wall_ms: number },
   curveId: string,
@@ -1589,52 +1476,45 @@ const log_cpu_phase_report = (
   console.log(`[cpu-phases] curve=${curveId} N=${input_size}`);
   // Pull out the OSWD-derived diagnostic phases so we can present them
   // in a structured way alongside the rest.
-  const findPhase = (label: string): number | undefined =>
-    report.phases.find((p) => p.label === label)?.ms;
-  const gpu_compute_wall = findPhase("gpu_compute_wall");
-  const mapasync_overhead = findPhase("mapasync_overhead");
-  const readback_total = findPhase("readback_total");
+  const findPhase = (label: string): number | undefined => report.phases.find(p => p.label === label)?.ms;
+  const gpu_compute_wall = findPhase('gpu_compute_wall');
+  const mapasync_overhead = findPhase('mapasync_overhead');
+  const readback_total = findPhase('readback_total');
 
   const sorted = report.phases.slice().sort((a, b) => b.ms - a.ms);
   const wall = report.total_wall_ms;
   let accounted = 0;
   for (const { label, ms } of sorted) {
     const pct = wall > 0 ? (100 * ms) / wall : 0;
-    console.log(
-      `  ${label.padEnd(24)} ${ms.toFixed(2).padStart(7)} ms  ${pct.toFixed(1).padStart(5)}%`,
-    );
+    console.log(`  ${label.padEnd(24)} ${ms.toFixed(2).padStart(7)} ms  ${pct.toFixed(1).padStart(5)}%`);
     accounted += ms;
   }
-  console.log(
-    `  ${"wall (total)".padEnd(24)} ${wall.toFixed(2).padStart(7)} ms`,
-  );
-  console.log(
-    `  ${"accounted".padEnd(24)} ${accounted.toFixed(2).padStart(7)} ms (phases may overlap / nest)`,
-  );
+  console.log(`  ${'wall (total)'.padEnd(24)} ${wall.toFixed(2).padStart(7)} ms`);
+  console.log(`  ${'accounted'.padEnd(24)} ${accounted.toFixed(2).padStart(7)} ms (phases may overlap / nest)`);
 
   // GPU time decomposition: only printable when we got a ground-truth
   // gpu_compute_wall from `device.queue.onSubmittedWorkDone()` and a
   // sum of profiled passes from the GPU profile report.
   if (gpu_compute_wall !== undefined && gpu_profiled_total_ms !== undefined) {
     const untimestamped = Math.max(0, gpu_compute_wall - gpu_profiled_total_ms);
-    console.log("[gpu-readback-decomposition]");
+    console.log('[gpu-readback-decomposition]');
     console.log(
-      `  ${"gpu_compute_wall".padEnd(28)} ${gpu_compute_wall.toFixed(2).padStart(7)} ms  (ground truth: submit -> onSubmittedWorkDone)`,
+      `  ${'gpu_compute_wall'.padEnd(28)} ${gpu_compute_wall.toFixed(2).padStart(7)} ms  (ground truth: submit -> onSubmittedWorkDone)`,
     );
     console.log(
-      `  ${"  profiled passes (sum)".padEnd(28)} ${gpu_profiled_total_ms.toFixed(2).padStart(7)} ms  (sum of every profiler.stage())`,
+      `  ${'  profiled passes (sum)'.padEnd(28)} ${gpu_profiled_total_ms.toFixed(2).padStart(7)} ms  (sum of every profiler.stage())`,
     );
     console.log(
-      `  ${"  untimestamped".padEnd(28)} ${untimestamped.toFixed(2).padStart(7)} ms  (sampled late rounds + clearBuffer + copies + barriers)`,
+      `  ${'  untimestamped'.padEnd(28)} ${untimestamped.toFixed(2).padStart(7)} ms  (post-bracket resolve + readback copies + driver barriers)`,
     );
     if (mapasync_overhead !== undefined) {
       console.log(
-        `  ${"mapasync_overhead".padEnd(28)} ${mapasync_overhead.toFixed(2).padStart(7)} ms  (DMA + Chrome event-loop polling)`,
+        `  ${'mapasync_overhead'.padEnd(28)} ${mapasync_overhead.toFixed(2).padStart(7)} ms  (DMA + Chrome event-loop polling)`,
       );
     }
     if (readback_total !== undefined) {
       console.log(
-        `  ${"readback_total".padEnd(28)} ${readback_total.toFixed(2).padStart(7)} ms  (= gpu_compute_wall + mapasync_overhead + ~staging alloc)`,
+        `  ${'readback_total'.padEnd(28)} ${readback_total.toFixed(2).padStart(7)} ms  (= gpu_compute_wall + mapasync_overhead + ~staging alloc)`,
       );
     }
   }
@@ -1658,15 +1538,11 @@ const SAMPLED_FAMILY_BUDGETS: Record<string, number> = {
 //
 // Returns the sum of all profiled-pass durations so the caller can pass
 // it into log_cpu_phase_report for the gpu_compute_wall decomposition.
-const log_profile_report = (
-  entries: { label: string; ms: number }[],
-  curveId: string,
-  input_size: number,
-): number => {
+const log_profile_report = (entries: { label: string; ms: number }[], curveId: string, input_size: number): number => {
   const groups = new Map<string, { count: number; sum: number }>();
   let total = 0;
   for (const { label, ms } of entries) {
-    const family = label.split("[", 1)[0];
+    const family = label.split('[', 1)[0];
     const g = groups.get(family) ?? { count: 0, sum: 0 };
     g.count += 1;
     g.sum += ms;
@@ -1678,16 +1554,15 @@ const log_profile_report = (
     .sort((a, b) => b.sum - a.sum);
   console.log(`[gpu-profile] curve=${curveId} N=${input_size}`);
   for (const { family, count, sum } of rows) {
-    const countStr = count > 1 ? `x${count}` : "";
+    const countStr = count > 1 ? `x${count}` : '';
     const pct = total > 0 ? (100 * sum) / total : 0;
     const budget = SAMPLED_FAMILY_BUDGETS[family];
-    const sampled =
-      budget !== undefined ? ` (sampled, first ${budget} rounds)` : "";
+    const sampled = budget !== undefined ? ` (sampled, first ${budget} rounds)` : '';
     console.log(
       `  ${family.padEnd(18)} ${countStr.padEnd(4)} ${sum.toFixed(2).padStart(7)} ms  ${pct.toFixed(1).padStart(5)}%${sampled}`,
     );
   }
-  console.log(`  ${"total (passes)".padEnd(23)} ${total.toFixed(2).padStart(7)} ms`);
+  console.log(`  ${'total (passes)'.padEnd(23)} ${total.toFixed(2).padStart(7)} ms`);
   return total;
 };
 
@@ -1778,33 +1653,26 @@ export const convert_point_coords_and_decompose_shaders = async (
   if (scalar_byte_length_override === undefined) {
     assert(num_subtasks * chunk_size === curveConfig.scalarBitLength);
   }
-  const effective_scalar_byte_length =
-    scalar_byte_length_override ?? curveConfig.scalarByteLength;
+  const effective_scalar_byte_length = scalar_byte_length_override ?? curveConfig.scalarByteLength;
   const input_size = scalars_buffer.length / effective_scalar_byte_length;
 
-  assert(
-    points_buffer.length ===
-      input_size * curveConfig.coordinateByteLength * 2,
-  );
+  assert(points_buffer.length === input_size * curveConfig.coordinateByteLength * 2);
 
   // The X and Y coordiantes are arranged in points_buffer as
   // [x, y, x, y, ...], with each coordinate using coordinateByteLength bytes.
 
-  cpu_timer?.mark("split_begin");
+  cpu_timer?.mark('split_begin');
   const half_length = points_buffer.length / 2;
   const first_half_bytes = points_buffer.slice(0, half_length);
-  const second_half_bytes = points_buffer.slice(
-    half_length,
-    points_buffer.length,
-  );
-  cpu_timer?.phaseFrom("split_host_copy", "split_begin");
+  const second_half_bytes = points_buffer.slice(half_length, points_buffer.length);
+  cpu_timer?.phaseFrom('split_host_copy', 'split_begin');
 
   // Input buffers
-  cpu_timer?.mark("upload_begin");
+  cpu_timer?.mark('upload_begin');
   const first_half_coords_sb = create_and_write_sb(device, first_half_bytes);
   const second_half_coords_sb = create_and_write_sb(device, second_half_bytes);
   const scalars_sb = create_and_write_sb(device, scalars_buffer);
-  cpu_timer?.phaseFrom("upload_inputs", "upload_begin");
+  cpu_timer?.phaseFrom('upload_inputs', 'upload_begin');
 
   // Output buffers
   const point_x_sb = create_sb(device, input_size * num_words * 4);
@@ -1815,25 +1683,16 @@ export const convert_point_coords_and_decompose_shaders = async (
   const params_bytes = numbers_to_u8s_for_gpu([input_size]);
   const params_ub = create_and_write_ub(device, params_bytes);
 
-  cpu_timer?.mark("compile_begin");
-  const { pipeline: computePipeline, bindGroupLayout } =
-    await compile_pipeline_cached(
-      device,
-      [
-        "read-only-storage",
-        "read-only-storage",
-        "read-only-storage",
-        "storage",
-        "storage",
-        "storage",
-        "uniform",
-      ],
-      shaderCode,
-      "main",
-      context,
-      `${curveConfig.id}:convert:${num_x_workgroups}:${num_y_workgroups}:${chunk_size}:${input_size}:${num_subtasks}:sbl${effective_scalar_byte_length}`,
-    );
-  cpu_timer?.phaseFrom("compile_convert_shader", "compile_begin");
+  cpu_timer?.mark('compile_begin');
+  const { pipeline: computePipeline, bindGroupLayout } = await compile_pipeline_cached(
+    device,
+    ['read-only-storage', 'read-only-storage', 'read-only-storage', 'storage', 'storage', 'storage', 'uniform'],
+    shaderCode,
+    'main',
+    context,
+    `${curveConfig.id}:convert:${num_x_workgroups}:${num_y_workgroups}:${chunk_size}:${input_size}:${num_subtasks}:sbl${effective_scalar_byte_length}`,
+  );
+  cpu_timer?.phaseFrom('compile_convert_shader', 'compile_begin');
 
   const bindGroup = create_bind_group(device, bindGroupLayout, [
     first_half_coords_sb,
@@ -1845,24 +1704,12 @@ export const convert_point_coords_and_decompose_shaders = async (
     params_ub,
   ]);
 
-  execute_pipeline(
-    commandEncoder,
-    computePipeline,
-    bindGroup,
-    num_x_workgroups,
-    num_y_workgroups,
-    1,
-    timestampWrites,
-  );
+  execute_pipeline(commandEncoder, computePipeline, bindGroup, num_x_workgroups, num_y_workgroups, 1, timestampWrites);
 
   // Debug the output of the shader. This should **not** be run in
   // production.
   if (debug) {
-    const data = await read_from_gpu(device, commandEncoder, [
-      point_x_sb,
-      point_y_sb,
-      scalar_chunks_sb,
-    ]);
+    const data = await read_from_gpu(device, commandEncoder, [point_x_sb, point_y_sb, scalar_chunks_sb]);
 
     // Verify point coords
     const computed_x_coords = u8s_to_bigints(data[0], num_words, word_size);
@@ -1871,10 +1718,7 @@ export const convert_point_coords_and_decompose_shaders = async (
     const x_coords: bigint[] = [];
     const y_coords: bigint[] = [];
 
-    const all_coords = readBigIntsFromBufferLE(
-      points_buffer,
-      curveConfig.coordinateBitLength,
-    );
+    const all_coords = readBigIntsFromBufferLE(points_buffer, curveConfig.coordinateBitLength);
     for (let i = 0; i < input_size; i++) {
       x_coords.push(all_coords[i * 2]);
       y_coords.push(all_coords[i * 2 + 1]);
@@ -1884,12 +1728,7 @@ export const convert_point_coords_and_decompose_shaders = async (
       const expected_x = (x_coords[i] * r) % curveConfig.baseFieldModulus;
       const expected_y = (y_coords[i] * r) % curveConfig.baseFieldModulus;
 
-      if (
-        !(
-          expected_x === computed_x_coords[i] &&
-          expected_y === computed_y_coords[i]
-        )
-      ) {
+      if (!(expected_x === computed_x_coords[i] && expected_y === computed_y_coords[i])) {
         throw Error(`point coord mismatch at ${i}`);
       }
     }
@@ -1897,16 +1736,9 @@ export const convert_point_coords_and_decompose_shaders = async (
     // Verify scalar chunks
     const computed_chunks = u8s_to_numbers(data[2]);
 
-    const scalars = readBigIntsFromBufferLE(
-      scalars_buffer,
-      curveConfig.scalarBitLength,
-    );
+    const scalars = readBigIntsFromBufferLE(scalars_buffer, curveConfig.scalarBitLength);
 
-    const expected = decompose_scalars_signed(
-      scalars,
-      num_subtasks,
-      chunk_size,
-    );
+    const expected = decompose_scalars_signed(scalars, num_subtasks, chunk_size);
 
     for (let j = 0; j < expected.length; j++) {
       let z = 0;
@@ -1969,65 +1801,51 @@ const decompose_scalars_only_gpu = async (
   // the buffer size is constant. Cache the buffer object on the context
   // and re-upload only the contents per call. Saves the per-call
   // device.createBuffer / GC churn on the ~2 MB scalar buffer at N=2^16.
-  cpu_timer?.mark("upload_scalars_begin");
+  cpu_timer?.mark('upload_scalars_begin');
   const decomp_key = `${curveConfig.id}:decomp:${num_subtasks}:${num_columns}:${input_size}`;
   let scalars_sb: GPUBuffer;
   if (context !== undefined) {
-    scalars_sb = context.acquirePersistentBuffer(
-      `${decomp_key}:scalars`,
-      scalars_buffer.length,
-    );
+    scalars_sb = context.acquirePersistentBuffer(`${decomp_key}:scalars`, scalars_buffer.length);
     device.queue.writeBuffer(scalars_sb, 0, scalars_buffer as unknown as BufferSource);
   } else {
     scalars_sb = create_and_write_sb(device, scalars_buffer);
   }
-  cpu_timer?.phaseFrom("upload_scalars", "upload_scalars_begin");
+  cpu_timer?.phaseFrom('upload_scalars', 'upload_scalars_begin');
 
   // Output buffer: fully written by the kernel, no clear needed. Cache
   // when context provided.
   const scalar_chunks_sb =
     context !== undefined
-      ? context.acquirePersistentBuffer(
-          `${decomp_key}:scalar_chunks`,
-          input_size * num_subtasks * 4,
-        )
+      ? context.acquirePersistentBuffer(`${decomp_key}:scalar_chunks`, input_size * num_subtasks * 4)
       : create_sb(device, input_size * num_subtasks * 4);
 
   const params_bytes = numbers_to_u8s_for_gpu([input_size]);
   let params_ub: GPUBuffer;
   if (context !== undefined) {
-    const got = context.acquirePersistentUniform(
-      `${decomp_key}:params_ub`,
-      params_bytes.length,
-    );
+    const got = context.acquirePersistentUniform(`${decomp_key}:params_ub`, params_bytes.length);
     params_ub = got.buffer;
     if (got.created) device.queue.writeBuffer(params_ub, 0, params_bytes as BufferSource);
   } else {
     params_ub = create_and_write_ub(device, params_bytes);
   }
 
-  cpu_timer?.mark("compile_scalars_only_begin");
+  cpu_timer?.mark('compile_scalars_only_begin');
   // Pipeline layout depends on whether we fuse the count phase. The
   // fused variant adds a 4th binding (col_ptr) and produces a different
   // pipeline (different cache key suffix).
-  const layoutTypes: Array<"read-only-storage" | "storage" | "uniform"> =
-    fuse_count
-      ? ["read-only-storage", "storage", "uniform", "storage"]
-      : ["read-only-storage", "storage", "uniform"];
-  const pipeKeySuffix = fuse_count ? ":fused-count" : "";
-  const { pipeline: computePipeline, bindGroupLayout } =
-    await compile_pipeline_cached(
-      device,
-      layoutTypes,
-      shaderCode,
-      "main",
-      context,
-      `${curveConfig.id}:decompose_scalars_only${pipeKeySuffix}:${workgroup_size}:${num_y_workgroups}:${num_subtasks}:${num_columns}:${input_size}`,
-    );
-  cpu_timer?.phaseFrom(
-    "compile_scalars_only_shader",
-    "compile_scalars_only_begin",
+  const layoutTypes: Array<'read-only-storage' | 'storage' | 'uniform'> = fuse_count
+    ? ['read-only-storage', 'storage', 'uniform', 'storage']
+    : ['read-only-storage', 'storage', 'uniform'];
+  const pipeKeySuffix = fuse_count ? ':fused-count' : '';
+  const { pipeline: computePipeline, bindGroupLayout } = await compile_pipeline_cached(
+    device,
+    layoutTypes,
+    shaderCode,
+    'main',
+    context,
+    `${curveConfig.id}:decompose_scalars_only${pipeKeySuffix}:${workgroup_size}:${num_y_workgroups}:${num_subtasks}:${num_columns}:${input_size}`,
   );
+  cpu_timer?.phaseFrom('compile_scalars_only_shader', 'compile_scalars_only_begin');
 
   const bgBuffers: GPUBuffer[] = fuse_count
     ? [scalars_sb, scalar_chunks_sb, params_ub, count_col_ptr_sb!]
@@ -2035,20 +1853,10 @@ const decompose_scalars_only_gpu = async (
   const bgKey = `${decomp_key}:bg${pipeKeySuffix}`;
   const bindGroup =
     context !== undefined
-      ? context.getOrCreatePersistentBindGroup(bgKey, () =>
-          create_bind_group(device, bindGroupLayout, bgBuffers),
-        )
+      ? context.getOrCreatePersistentBindGroup(bgKey, () => create_bind_group(device, bindGroupLayout, bgBuffers))
       : create_bind_group(device, bindGroupLayout, bgBuffers);
 
-  execute_pipeline(
-    commandEncoder,
-    computePipeline,
-    bindGroup,
-    num_x_workgroups,
-    num_y_workgroups,
-    1,
-    timestampWrites,
-  );
+  execute_pipeline(commandEncoder, computePipeline, bindGroup, num_x_workgroups, num_y_workgroups, 1, timestampWrites);
 
   return scalar_chunks_sb;
 };
@@ -2096,6 +1904,7 @@ export const transpose_gpu_parallel = async (
   timestampWritesCount?: GPUComputePassTimestampWrites,
   timestampWritesScan?: GPUComputePassTimestampWrites,
   timestampWritesScatter?: GPUComputePassTimestampWrites,
+  profiler?: Profiler,
 ): Promise<{
   all_csc_col_ptr_sb: GPUBuffer;
   all_csc_val_idxs_sb: GPUBuffer;
@@ -2106,17 +1915,13 @@ export const transpose_gpu_parallel = async (
   // fully overwritten by the scatter phase so no clear is needed.
   const xpose_key = `${curveId}:xpose:${num_subtasks}:${num_columns}:${input_size}`;
   const acquire_xpose = (suffix: string, size: number): GPUBuffer =>
-    context !== undefined
-      ? context.acquirePersistentBuffer(`${xpose_key}:${suffix}`, size)
-      : create_sb(device, size);
+    context !== undefined ? context.acquirePersistentBuffer(`${xpose_key}:${suffix}`, size) : create_sb(device, size);
   // When a pre-populated col_ptr is passed in, reuse it directly so the
   // fused decompose-count kernel's atomicAdd output flows straight into
   // the scan + scatter phases here.
-  const all_csc_col_ptr_sb =
-    prepopulated_col_ptr_sb ??
-    acquire_xpose("col_ptr", num_subtasks * (num_columns + 1) * 4);
-  const all_csc_val_idxs_sb = acquire_xpose("val_idxs", scalar_chunks_sb.size);
-  const all_curr_sb = acquire_xpose("curr", num_subtasks * num_columns * 4);
+  const all_csc_col_ptr_sb = prepopulated_col_ptr_sb ?? acquire_xpose('col_ptr', num_subtasks * (num_columns + 1) * 4);
+  const all_csc_val_idxs_sb = acquire_xpose('val_idxs', scalar_chunks_sb.size);
+  const all_curr_sb = acquire_xpose('curr', num_subtasks * num_columns * 4);
 
   // atomicAdd needs zero start. When the caller pre-populated col_ptr,
   // they're responsible for zeroing it before their decompose kernel
@@ -2124,24 +1929,29 @@ export const transpose_gpu_parallel = async (
   // it again here.
   if (context !== undefined) {
     if (prepopulated_col_ptr_sb === undefined) {
-      commandEncoder.clearBuffer(all_csc_col_ptr_sb);
+      if (profiler !== undefined) {
+        profiler.bracket(commandEncoder, 'clear_xpose_col_ptr', () => {
+          commandEncoder.clearBuffer(all_csc_col_ptr_sb);
+        });
+      } else {
+        commandEncoder.clearBuffer(all_csc_col_ptr_sb);
+      }
     }
-    commandEncoder.clearBuffer(all_curr_sb);
+    if (profiler !== undefined) {
+      profiler.bracket(commandEncoder, 'clear_xpose_curr', () => {
+        commandEncoder.clearBuffer(all_curr_sb);
+      });
+    } else {
+      commandEncoder.clearBuffer(all_curr_sb);
+    }
   }
 
-  const params_bytes = numbers_to_u8s_for_gpu([
-    num_rows,
-    num_columns,
-    input_size,
-  ]);
+  const params_bytes = numbers_to_u8s_for_gpu([num_rows, num_columns, input_size]);
   // Cache the params uniform too — its values are constant for a given
   // (num_rows, num_columns, input_size) tuple.
   let params_ub: GPUBuffer;
   if (context !== undefined) {
-    const got = context.acquirePersistentUniform(
-      `${xpose_key}:params_ub`,
-      params_bytes.length,
-    );
+    const got = context.acquirePersistentUniform(`${xpose_key}:params_ub`, params_bytes.length);
     params_ub = got.buffer;
     if (got.created) device.queue.writeBuffer(params_ub, 0, params_bytes as BufferSource);
   } else {
@@ -2160,36 +1970,25 @@ export const transpose_gpu_parallel = async (
   // decompose+count pass — same atomicAdd happens there, just inline
   // with the scalar decomposition.
   if (prepopulated_col_ptr_sb === undefined) {
-    cpu_timer?.mark("compile_xpose_count_begin");
+    cpu_timer?.mark('compile_xpose_count_begin');
     const count_pipe = await compile_pipeline_cached(
       device,
-      ["read-only-storage", "storage", "uniform"],
+      ['read-only-storage', 'storage', 'uniform'],
       countShader,
-      "main",
+      'main',
       context,
       `${curveId}:transpose_count:${phase_workgroup_size}:${chunk_size}:${num_subtasks}:${input_size}`,
     );
-    cpu_timer?.phaseFrom(
-      "compile_transpose_count_shader",
-      "compile_xpose_count_begin",
-    );
+    cpu_timer?.phaseFrom('compile_transpose_count_shader', 'compile_xpose_count_begin');
     // Bind groups can be cached when the underlying buffers are persistent
     // (i.e. context is provided). scalar_chunks_sb is also persistent —
     // see decompose_scalars_only_gpu — so the count_bg is fully stable.
     const count_bg =
       context !== undefined
         ? context.getOrCreatePersistentBindGroup(`${xpose_key}:count_bg`, () =>
-            create_bind_group(device, count_pipe.bindGroupLayout, [
-              scalar_chunks_sb,
-              all_csc_col_ptr_sb,
-              params_ub,
-            ]),
+            create_bind_group(device, count_pipe.bindGroupLayout, [scalar_chunks_sb, all_csc_col_ptr_sb, params_ub]),
           )
-        : create_bind_group(device, count_pipe.bindGroupLayout, [
-            scalar_chunks_sb,
-            all_csc_col_ptr_sb,
-            params_ub,
-          ]);
+        : create_bind_group(device, count_pipe.bindGroupLayout, [scalar_chunks_sb, all_csc_col_ptr_sb, params_ub]);
     execute_pipeline(
       commandEncoder,
       count_pipe.pipeline,
@@ -2206,31 +2005,22 @@ export const transpose_gpu_parallel = async (
   // (n_cols + 1)-element slice. The previous single-thread-per-subtask
   // scan measured 37 ms at N=2^16; a proper workgroup scan should drop
   // it under 5 ms.
-  cpu_timer?.mark("compile_xpose_scan_begin");
+  cpu_timer?.mark('compile_xpose_scan_begin');
   const scan_pipe = await compile_pipeline_cached(
     device,
-    ["storage", "uniform"],
+    ['storage', 'uniform'],
     scanShader,
-    "main",
+    'main',
     context,
     `${curveId}:transpose_scan_v2:${chunk_size}:${num_subtasks}:${num_columns}`,
   );
-  cpu_timer?.phaseFrom(
-    "compile_transpose_scan_shader",
-    "compile_xpose_scan_begin",
-  );
+  cpu_timer?.phaseFrom('compile_transpose_scan_shader', 'compile_xpose_scan_begin');
   const scan_bg =
     context !== undefined
       ? context.getOrCreatePersistentBindGroup(`${xpose_key}:scan_bg`, () =>
-          create_bind_group(device, scan_pipe.bindGroupLayout, [
-            all_csc_col_ptr_sb,
-            params_ub,
-          ]),
+          create_bind_group(device, scan_pipe.bindGroupLayout, [all_csc_col_ptr_sb, params_ub]),
         )
-      : create_bind_group(device, scan_pipe.bindGroupLayout, [
-          all_csc_col_ptr_sb,
-          params_ub,
-        ]);
+      : create_bind_group(device, scan_pipe.bindGroupLayout, [all_csc_col_ptr_sb, params_ub]);
   execute_pipeline(
     commandEncoder,
     scan_pipe.pipeline,
@@ -2244,25 +2034,16 @@ export const transpose_gpu_parallel = async (
   // Phase 3: scatter. n*T threads, each looks up its column's offset and
   // its slot within that column (via atomicAdd on all_curr), then writes
   // its index into all_csc_val_idxs.
-  cpu_timer?.mark("compile_xpose_scatter_begin");
+  cpu_timer?.mark('compile_xpose_scatter_begin');
   const scatter_pipe = await compile_pipeline_cached(
     device,
-    [
-      "read-only-storage",
-      "read-only-storage",
-      "storage",
-      "storage",
-      "uniform",
-    ],
+    ['read-only-storage', 'read-only-storage', 'storage', 'storage', 'uniform'],
     scatterShader,
-    "main",
+    'main',
     context,
     `${curveId}:transpose_scatter:${phase_workgroup_size}:${chunk_size}:${num_subtasks}:${input_size}`,
   );
-  cpu_timer?.phaseFrom(
-    "compile_transpose_scatter_shader",
-    "compile_xpose_scatter_begin",
-  );
+  cpu_timer?.phaseFrom('compile_transpose_scatter_shader', 'compile_xpose_scatter_begin');
   const scatter_bg =
     context !== undefined
       ? context.getOrCreatePersistentBindGroup(`${xpose_key}:scatter_bg`, () =>
@@ -2337,40 +2118,26 @@ export const transpose_gpu = async (
    *      - The cumulative sum of the number of nonzero elements per row
    */
 
-  const all_csc_col_ptr_sb = create_sb(
-    device,
-    num_subtasks * (num_columns + 1) * 4,
-  );
+  const all_csc_col_ptr_sb = create_sb(device, num_subtasks * (num_columns + 1) * 4);
   const all_csc_val_idxs_sb = create_sb(device, scalar_chunks_sb.size);
   const all_curr_sb = create_sb(device, num_subtasks * num_columns * 4);
 
-  const params_bytes = numbers_to_u8s_for_gpu([
-    num_rows,
-    num_columns,
-    input_size,
-  ]);
+  const params_bytes = numbers_to_u8s_for_gpu([num_rows, num_columns, input_size]);
   const params_ub = create_and_write_ub(device, params_bytes);
 
   const num_x_workgroups = 1;
   const num_y_workgroups = 1;
 
-  cpu_timer?.mark("compile_begin_t");
-  const { pipeline: computePipeline, bindGroupLayout } =
-    await compile_pipeline_cached(
-      device,
-      [
-        "read-only-storage",
-        "storage",
-        "storage",
-        "storage",
-        "uniform",
-      ],
-      shaderCode,
-      "main",
-      context,
-      `${curveId ?? "x"}:transpose:${chunk_size ?? 0}:${num_subtasks}:${input_size}`,
-    );
-  cpu_timer?.phaseFrom("compile_transpose_shader", "compile_begin_t");
+  cpu_timer?.mark('compile_begin_t');
+  const { pipeline: computePipeline, bindGroupLayout } = await compile_pipeline_cached(
+    device,
+    ['read-only-storage', 'storage', 'storage', 'storage', 'uniform'],
+    shaderCode,
+    'main',
+    context,
+    `${curveId ?? 'x'}:transpose:${chunk_size ?? 0}:${num_subtasks}:${input_size}`,
+  );
+  cpu_timer?.phaseFrom('compile_transpose_shader', 'compile_begin_t');
 
   const bindGroup = create_bind_group(device, bindGroupLayout, [
     scalar_chunks_sb,
@@ -2380,15 +2147,7 @@ export const transpose_gpu = async (
     params_ub,
   ]);
 
-  execute_pipeline(
-    commandEncoder,
-    computePipeline,
-    bindGroup,
-    num_x_workgroups,
-    num_y_workgroups,
-    1,
-    timestampWrites,
-  );
+  execute_pipeline(commandEncoder, computePipeline, bindGroup, num_x_workgroups, num_y_workgroups, 1, timestampWrites);
 
   // Debug the output of the shader. This should **not** be run in production
   if (debug) {
@@ -2403,22 +2162,10 @@ export const transpose_gpu = async (
     const new_scalar_chunks = u8s_to_numbers_32(data[2]);
 
     // Verify the output of the shader
-    const expected = cpu_transpose(
-      new_scalar_chunks,
-      num_columns,
-      num_rows,
-      num_subtasks,
-      input_size,
-    );
+    const expected = cpu_transpose(new_scalar_chunks, num_columns, num_rows, num_subtasks, input_size);
 
-    assert(
-      expected.all_csc_col_ptr.toString() === all_csc_col_ptr_result.toString(),
-      "all_csc_col_ptr mismatch",
-    );
-    assert(
-      expected.all_csc_vals.toString() === all_csc_val_idxs_result.toString(),
-      "all_csc_vals mismatch",
-    );
+    assert(expected.all_csc_col_ptr.toString() === all_csc_col_ptr_result.toString(), 'all_csc_col_ptr mismatch');
+    assert(expected.all_csc_vals.toString() === all_csc_val_idxs_result.toString(), 'all_csc_vals mismatch');
   }
 
   return {
@@ -2460,34 +2207,28 @@ export const smvp_gpu = async (
   const num_words = params.num_words;
   const word_size = params.word_size;
   const rinv = params.rinv;
-  const params_bytes = numbers_to_u8s_for_gpu([
-    input_size,
-    num_y_workgroups,
-    num_z_workgroups,
-    offset,
-  ]);
+  const params_bytes = numbers_to_u8s_for_gpu([input_size, num_y_workgroups, num_z_workgroups, offset]);
   const params_ub = create_and_write_ub(device, params_bytes);
 
   const _compile_t0 = performance.now();
-  const { pipeline: computePipeline, bindGroupLayout } =
-    await compile_pipeline_cached(
-      device,
-      [
-        "read-only-storage",
-        "read-only-storage",
-        "read-only-storage",
-        "read-only-storage",
-        "storage",
-        "storage",
-        "storage",
-        "uniform",
-      ],
-      shaderCode,
-      "main",
-      context,
-      `${curveId ?? "x"}:smvp:${workgroup_size ?? 0}:${num_csr_cols}:${input_size}`,
-    );
-  cpu_timer?.accumulate("compile_smvp_shader", performance.now() - _compile_t0);
+  const { pipeline: computePipeline, bindGroupLayout } = await compile_pipeline_cached(
+    device,
+    [
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'read-only-storage',
+      'storage',
+      'storage',
+      'storage',
+      'uniform',
+    ],
+    shaderCode,
+    'main',
+    context,
+    `${curveId ?? 'x'}:smvp:${workgroup_size ?? 0}:${num_csr_cols}:${input_size}`,
+  );
+  cpu_timer?.accumulate('compile_smvp_shader', performance.now() - _compile_t0);
 
   const bindGroup = create_bind_group(device, bindGroupLayout, [
     all_csc_col_ptr_sb,
@@ -2526,31 +2267,15 @@ export const smvp_gpu = async (
     const all_csc_val_idxs_result = u8s_to_numbers_32(data[1]);
     const point_x_sb_result = u8s_to_bigints(data[2], num_words, word_size);
     const point_y_sb_result = u8s_to_bigints(data[3], num_words, word_size);
-    const bucket_sum_x_sb_result = u8s_to_bigints(
-      data[4],
-      num_words,
-      word_size,
-    );
-    const bucket_sum_y_sb_result = u8s_to_bigints(
-      data[5],
-      num_words,
-      word_size,
-    );
-    const bucket_sum_z_sb_result = u8s_to_bigints(
-      data[6],
-      num_words,
-      word_size,
-    );
+    const bucket_sum_x_sb_result = u8s_to_bigints(data[4], num_words, word_size);
+    const bucket_sum_y_sb_result = u8s_to_bigints(data[5], num_words, word_size);
+    const bucket_sum_z_sb_result = u8s_to_bigints(data[6], num_words, word_size);
 
     // Assertion checks take a long time!
     for (let subtask_idx = 0; subtask_idx < num_subtasks; subtask_idx++) {
       // Convert GPU output out of Montgomery coordinates
       const output_points_gpu: G1[] = [];
-      for (
-        let i = subtask_idx * (num_csr_cols / 2);
-        i < subtask_idx * (num_csr_cols / 2) + num_csr_cols / 2;
-        i++
-      ) {
+      for (let i = subtask_idx * (num_csr_cols / 2); i < subtask_idx * (num_csr_cols / 2) + num_csr_cols / 2; i++) {
         const x = (bucket_sum_x_sb_result[i] * rinv) % p;
         const y = (bucket_sum_y_sb_result[i] * rinv) % p;
         const z = (bucket_sum_z_sb_result[i] * rinv) % p;
@@ -2579,10 +2304,7 @@ export const smvp_gpu = async (
 
       // Assert CPU and GPU output
       for (let i = 0; i < output_points_gpu.length; i++) {
-        assert(
-          output_points_gpu[i].equals(output_points_cpu[i]),
-          `failed at ${i}`,
-        );
+        assert(output_points_gpu[i].equals(output_points_cpu[i]), `failed at ${i}`);
       }
     }
   }
@@ -2620,7 +2342,7 @@ const bpr_1 = async (
   // distinguish different bench-variant shaders. The shader CODE
   // produced from these flags is built upstream and passed in
   // as `shaderCode`.
-  bench_flags_key = "",
+  bench_flags_key = '',
   // Identifies the per-call workspace buffer set the bind group is being
   // bound against. Sizes of bucket_sum_*_sb and g_points_*_sb are
   // independent of `input_size` (they're driven by num_columns,
@@ -2641,42 +2363,19 @@ const bpr_1 = async (
     original_bucket_sum_y_sb = create_sb(device, bucket_sum_y_sb.size);
     original_bucket_sum_z_sb = create_sb(device, bucket_sum_z_sb.size);
 
-    commandEncoder.copyBufferToBuffer(
-      bucket_sum_x_sb,
-      0,
-      original_bucket_sum_x_sb,
-      0,
-      bucket_sum_x_sb.size,
-    );
-    commandEncoder.copyBufferToBuffer(
-      bucket_sum_y_sb,
-      0,
-      original_bucket_sum_y_sb,
-      0,
-      bucket_sum_y_sb.size,
-    );
-    commandEncoder.copyBufferToBuffer(
-      bucket_sum_z_sb,
-      0,
-      original_bucket_sum_z_sb,
-      0,
-      bucket_sum_z_sb.size,
-    );
+    commandEncoder.copyBufferToBuffer(bucket_sum_x_sb, 0, original_bucket_sum_x_sb, 0, bucket_sum_x_sb.size);
+    commandEncoder.copyBufferToBuffer(bucket_sum_y_sb, 0, original_bucket_sum_y_sb, 0, bucket_sum_y_sb.size);
+    commandEncoder.copyBufferToBuffer(bucket_sum_z_sb, 0, original_bucket_sum_z_sb, 0, bucket_sum_z_sb.size);
   }
 
   // Parameters as a uniform buffer. Contents (subtask_idx, num_columns,
   // num_x_workgroups) are constant per (subtask_idx, layout) tuple, so
   // we cache them on the context when one is provided.
-  const params_bytes = numbers_to_u8s_for_gpu([
-    subtask_idx, num_columns, num_x_workgroups
-  ]);
-  const bpr1_key = `${curveId ?? "x"}:bpr1:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
+  const params_bytes = numbers_to_u8s_for_gpu([subtask_idx, num_columns, num_x_workgroups]);
+  const bpr1_key = `${curveId ?? 'x'}:bpr1:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
   let params_ub: GPUBuffer;
   if (context !== undefined && !debug && !debug_capture_sb) {
-    const got = context.acquirePersistentUniform(
-      `${bpr1_key}:params_ub`,
-      params_bytes.length,
-    );
+    const got = context.acquirePersistentUniform(`${bpr1_key}:params_ub`, params_bytes.length);
     params_ub = got.buffer;
     if (got.created) device.queue.writeBuffer(params_ub, 0, params_bytes as BufferSource);
   } else {
@@ -2687,34 +2386,41 @@ const bpr_1 = async (
   // capture_debug Mustache flag, which adds @binding(7) for debug_capture.
   // Both pipelines (stage_1 and stage_2) must include it in their bind
   // group layout because they share the shader source.
-  const bindLayoutTypes: Array<"storage" | "uniform" | "read-only-storage"> =
-    debug_capture_sb
-      ? ["storage", "storage", "storage", "storage", "storage", "storage", "uniform", "storage"]
-      : ["storage", "storage", "storage", "storage", "storage", "storage", "uniform"];
+  const bindLayoutTypes: Array<'storage' | 'uniform' | 'read-only-storage'> = debug_capture_sb
+    ? ['storage', 'storage', 'storage', 'storage', 'storage', 'storage', 'uniform', 'storage']
+    : ['storage', 'storage', 'storage', 'storage', 'storage', 'storage', 'uniform'];
 
   const _b1_compile_t0 = performance.now();
-  const { pipeline: computePipeline, bindGroupLayout } =
-    await compile_pipeline_cached(
-      device,
-      bindLayoutTypes,
-      shaderCode,
-      "stage_1",
-      // Debug-capture variant compiles a different shader (Mustache flag),
-      // so keys must not collide with the non-debug one.
-      context,
-      `${curveId ?? "x"}:bpr1:${workgroup_size}:${num_columns}:${debug_capture_sb ? "dbg" : "nodbg"}:${assume_affine_buckets ? "aff" : mixed_safe_buckets ? "mxs-v2" : "gen"}:bench=${bench_flags_key || "none"}`,
-    );
-  cpu_timer?.accumulate("compile_bpr1_shader", performance.now() - _b1_compile_t0);
+  const { pipeline: computePipeline, bindGroupLayout } = await compile_pipeline_cached(
+    device,
+    bindLayoutTypes,
+    shaderCode,
+    'stage_1',
+    // Debug-capture variant compiles a different shader (Mustache flag),
+    // so keys must not collide with the non-debug one.
+    context,
+    `${curveId ?? 'x'}:bpr1:${workgroup_size}:${num_columns}:${debug_capture_sb ? 'dbg' : 'nodbg'}:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs-v2' : 'gen'}:bench=${bench_flags_key || 'none'}`,
+  );
+  cpu_timer?.accumulate('compile_bpr1_shader', performance.now() - _b1_compile_t0);
 
   // Cache bind group when buffers are persistent (warm-cached path).
   // Non-debug path only — debug variants use transient copies.
   const bg_buffers = debug_capture_sb
-    ? [bucket_sum_x_sb, bucket_sum_y_sb, bucket_sum_z_sb, g_points_x_sb, g_points_y_sb, g_points_z_sb, params_ub, debug_capture_sb]
+    ? [
+        bucket_sum_x_sb,
+        bucket_sum_y_sb,
+        bucket_sum_z_sb,
+        g_points_x_sb,
+        g_points_y_sb,
+        g_points_z_sb,
+        params_ub,
+        debug_capture_sb,
+      ]
     : [bucket_sum_x_sb, bucket_sum_y_sb, bucket_sum_z_sb, g_points_x_sb, g_points_y_sb, g_points_z_sb, params_ub];
   const bindGroup =
     context !== undefined && !debug && !debug_capture_sb
       ? context.getOrCreatePersistentBindGroup(
-          `${bpr1_key}:bg:${assume_affine_buckets ? "aff" : mixed_safe_buckets ? "mxs" : "gen"}:bench=${bench_flags_key || "none"}`,
+          `${bpr1_key}:bg:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs' : 'gen'}:bench=${bench_flags_key || 'none'}`,
           () => create_bind_group(device, bindGroupLayout, bg_buffers),
         )
       : create_bind_group(device, bindGroupLayout, bg_buffers);
@@ -2756,53 +2462,17 @@ const bpr_1 = async (
     const start = subtask_idx * n * num_words * 4;
     const end = (subtask_idx * n + n) * num_words * 4;
 
-    const m_points_x_mont_coords = u8s_to_bigints(
-      data[0].slice(start, end),
-      num_words,
-      word_size,
-    );
-    const m_points_y_mont_coords = u8s_to_bigints(
-      data[1].slice(start, end),
-      num_words,
-      word_size,
-    );
-    const m_points_z_mont_coords = u8s_to_bigints(
-      data[2].slice(start, end),
-      num_words,
-      word_size,
-    );
+    const m_points_x_mont_coords = u8s_to_bigints(data[0].slice(start, end), num_words, word_size);
+    const m_points_y_mont_coords = u8s_to_bigints(data[1].slice(start, end), num_words, word_size);
+    const m_points_z_mont_coords = u8s_to_bigints(data[2].slice(start, end), num_words, word_size);
 
-    const g_points_x_mont_coords = u8s_to_bigints(
-      data[3],
-      num_words,
-      word_size,
-    );
-    const g_points_y_mont_coords = u8s_to_bigints(
-      data[4],
-      num_words,
-      word_size,
-    );
-    const g_points_z_mont_coords = u8s_to_bigints(
-      data[5],
-      num_words,
-      word_size,
-    );
+    const g_points_x_mont_coords = u8s_to_bigints(data[3], num_words, word_size);
+    const g_points_y_mont_coords = u8s_to_bigints(data[4], num_words, word_size);
+    const g_points_z_mont_coords = u8s_to_bigints(data[5], num_words, word_size);
 
-    const original_bucket_sum_x_mont_coords = u8s_to_bigints(
-      data[6].slice(start, end),
-      num_words,
-      word_size,
-    );
-    const original_bucket_sum_y_mont_coords = u8s_to_bigints(
-      data[7].slice(start, end),
-      num_words,
-      word_size,
-    );
-    const original_bucket_sum_z_mont_coords = u8s_to_bigints(
-      data[8].slice(start, end),
-      num_words,
-      word_size,
-    );
+    const original_bucket_sum_x_mont_coords = u8s_to_bigints(data[6].slice(start, end), num_words, word_size);
+    const original_bucket_sum_y_mont_coords = u8s_to_bigints(data[7].slice(start, end), num_words, word_size);
+    const original_bucket_sum_z_mont_coords = u8s_to_bigints(data[8].slice(start, end), num_words, word_size);
 
     // Convert the bucket sums out of Montgomery form
     const original_bucket_sums: G1[] = [];
@@ -2837,10 +2507,7 @@ const bpr_1 = async (
       g_points.push(pt);
     }
 
-    const expected = parallel_bucket_reduction_1(
-      original_bucket_sums,
-      num_threads,
-    );
+    const expected = parallel_bucket_reduction_1(original_bucket_sums, num_threads);
     for (let i = 0; i < expected.g_points.length; i++) {
       assert(g_points[i].equals(expected.g_points[i]), `mismatch at ${i}`);
     }
@@ -2875,54 +2542,56 @@ const bpr_2 = async (
   // bench flags here too. Otherwise a V0 stage_2 pipeline would be
   // returned for V1's compile request and the bench-flag changes to
   // stage_1 would never take effect on the GPU.
-  bench_flags_key = "",
+  bench_flags_key = '',
   // See bpr_1 for the rationale: disambiguates the persistent bind
   // group across MSM calls with different `input_size`, whose
   // workspace buffers are equally sized but distinct GPUBuffer objects.
   input_size_key = 0,
 ) => {
   // Parameters as a uniform buffer (cached on context when not debug).
-  const params_bytes = numbers_to_u8s_for_gpu([
-    subtask_idx, num_columns, num_x_workgroups
-  ]);
-  const bpr2_key = `${curveId ?? "x"}:bpr2:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
+  const params_bytes = numbers_to_u8s_for_gpu([subtask_idx, num_columns, num_x_workgroups]);
+  const bpr2_key = `${curveId ?? 'x'}:bpr2:${workgroup_size}:${num_columns}:${num_x_workgroups}:${subtask_idx}:N=${input_size_key}`;
   let params_ub: GPUBuffer;
   if (context !== undefined && !debug && !debug_capture_sb) {
-    const got = context.acquirePersistentUniform(
-      `${bpr2_key}:params_ub`,
-      params_bytes.length,
-    );
+    const got = context.acquirePersistentUniform(`${bpr2_key}:params_ub`, params_bytes.length);
     params_ub = got.buffer;
     if (got.created) device.queue.writeBuffer(params_ub, 0, params_bytes as BufferSource);
   } else {
     params_ub = create_and_write_ub(device, params_bytes);
   }
 
-  const bindLayoutTypes: Array<"storage" | "uniform" | "read-only-storage"> =
-    debug_capture_sb
-      ? ["storage", "storage", "storage", "storage", "storage", "storage", "uniform", "storage"]
-      : ["storage", "storage", "storage", "storage", "storage", "storage", "uniform"];
+  const bindLayoutTypes: Array<'storage' | 'uniform' | 'read-only-storage'> = debug_capture_sb
+    ? ['storage', 'storage', 'storage', 'storage', 'storage', 'storage', 'uniform', 'storage']
+    : ['storage', 'storage', 'storage', 'storage', 'storage', 'storage', 'uniform'];
 
   const _b2_compile_t0 = performance.now();
-  const { pipeline: computePipeline, bindGroupLayout } =
-    await compile_pipeline_cached(
-      device,
-      bindLayoutTypes,
-      shaderCode,
-      "stage_2",
-      context,
-      `${curveId ?? "x"}:bpr2:${workgroup_size}:${num_columns}:${debug_capture_sb ? "dbg" : "nodbg"}:${assume_affine_buckets ? "aff" : mixed_safe_buckets ? "mxs-v2" : "gen"}:bench=${bench_flags_key || "none"}`,
-    );
-  cpu_timer?.accumulate("compile_bpr2_shader", performance.now() - _b2_compile_t0);
+  const { pipeline: computePipeline, bindGroupLayout } = await compile_pipeline_cached(
+    device,
+    bindLayoutTypes,
+    shaderCode,
+    'stage_2',
+    context,
+    `${curveId ?? 'x'}:bpr2:${workgroup_size}:${num_columns}:${debug_capture_sb ? 'dbg' : 'nodbg'}:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs-v2' : 'gen'}:bench=${bench_flags_key || 'none'}`,
+  );
+  cpu_timer?.accumulate('compile_bpr2_shader', performance.now() - _b2_compile_t0);
 
   // Cache the bind group when buffers are persistent.
   const bg_buffers = debug_capture_sb
-    ? [bucket_sum_x_sb, bucket_sum_y_sb, bucket_sum_z_sb, g_points_x_sb, g_points_y_sb, g_points_z_sb, params_ub, debug_capture_sb]
+    ? [
+        bucket_sum_x_sb,
+        bucket_sum_y_sb,
+        bucket_sum_z_sb,
+        g_points_x_sb,
+        g_points_y_sb,
+        g_points_z_sb,
+        params_ub,
+        debug_capture_sb,
+      ]
     : [bucket_sum_x_sb, bucket_sum_y_sb, bucket_sum_z_sb, g_points_x_sb, g_points_y_sb, g_points_z_sb, params_ub];
   const bindGroup =
     context !== undefined && !debug && !debug_capture_sb
       ? context.getOrCreatePersistentBindGroup(
-          `${bpr2_key}:bg:${assume_affine_buckets ? "aff" : mixed_safe_buckets ? "mxs" : "gen"}:bench=${bench_flags_key || "none"}`,
+          `${bpr2_key}:bg:${assume_affine_buckets ? 'aff' : mixed_safe_buckets ? 'mxs' : 'gen'}:bench=${bench_flags_key || 'none'}`,
           () => create_bind_group(device, bindGroupLayout, bg_buffers),
         )
       : create_bind_group(device, bindGroupLayout, bg_buffers);
@@ -2957,37 +2626,13 @@ const bpr_2 = async (
     const start = subtask_idx * n * num_words * 4;
     const end = (subtask_idx * n + n) * num_words * 4;
 
-    const m_points_x_mont_coords = u8s_to_bigints(
-      data[0].slice(start, end),
-      num_words,
-      word_size,
-    );
-    const m_points_y_mont_coords = u8s_to_bigints(
-      data[1].slice(start, end),
-      num_words,
-      word_size,
-    );
-    const m_points_z_mont_coords = u8s_to_bigints(
-      data[2].slice(start, end),
-      num_words,
-      word_size,
-    );
+    const m_points_x_mont_coords = u8s_to_bigints(data[0].slice(start, end), num_words, word_size);
+    const m_points_y_mont_coords = u8s_to_bigints(data[1].slice(start, end), num_words, word_size);
+    const m_points_z_mont_coords = u8s_to_bigints(data[2].slice(start, end), num_words, word_size);
 
-    const g_points_x_mont_coords = u8s_to_bigints(
-      data[3],
-      num_words,
-      word_size,
-    );
-    const g_points_y_mont_coords = u8s_to_bigints(
-      data[4],
-      num_words,
-      word_size,
-    );
-    const g_points_z_mont_coords = u8s_to_bigints(
-      data[5],
-      num_words,
-      word_size,
-    );
+    const g_points_x_mont_coords = u8s_to_bigints(data[3], num_words, word_size);
+    const g_points_y_mont_coords = u8s_to_bigints(data[4], num_words, word_size);
+    const g_points_z_mont_coords = u8s_to_bigints(data[5], num_words, word_size);
 
     const m_points: G1[] = [];
     for (let i = 0; i < n; i++) {
@@ -3010,12 +2655,7 @@ const bpr_2 = async (
       g_points.push(pt);
     }
 
-    const expected = parallel_bucket_reduction_2(
-      g_points,
-      m_points,
-      n,
-      num_threads,
-    );
+    const expected = parallel_bucket_reduction_2(g_points, m_points, n, num_threads);
 
     // TODO: figure out why the following fails at index 0
     for (let i = 0; i < expected.length; i++) {

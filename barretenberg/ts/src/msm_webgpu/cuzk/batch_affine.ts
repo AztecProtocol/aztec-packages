@@ -19,20 +19,11 @@
 // collisions (delta == 0) silently, leaving the bucket "stuck"; for
 // SRS bases this never happens (collision probability ~ 2^-256).
 
-import { CpuTimer, Profiler } from "./gpu.js";
-import {
-  create_and_write_sb,
-  create_and_write_ub,
-  create_bind_group,
-  create_sb,
-} from "./gpu.js";
-import type { GpuContext } from "./gpu_context.js";
-import { ShaderManager } from "./shader_manager.js";
-import {
-  create_bind_group_layout,
-  execute_pipeline,
-  execute_pipeline_indirect,
-} from "./gpu.js";
+import { CpuTimer, Profiler } from './gpu.js';
+import { create_and_write_sb, create_and_write_ub, create_bind_group, create_sb } from './gpu.js';
+import type { GpuContext } from './gpu_context.js';
+import { ShaderManager } from './shader_manager.js';
+import { create_bind_group_layout, execute_pipeline, execute_pipeline_indirect } from './gpu.js';
 
 // Per-stage profiling budgets for the per-round loop. Sized to cover
 // every active round of every family at every benchmark size, including
@@ -71,7 +62,7 @@ const numbers_to_u8s = (values: number[]): Uint8Array => {
 // real error message + line number, then build the pipeline.
 const compile_pipeline_for = async (
   device: GPUDevice,
-  bindings: Array<"storage" | "read-only-storage" | "uniform">,
+  bindings: Array<'storage' | 'read-only-storage' | 'uniform'>,
   shaderCode: string,
   context: GpuContext | undefined,
   cacheKey: string,
@@ -91,7 +82,7 @@ const compile_pipeline_for = async (
       const tag = `[batch-affine ${cacheKey}]`;
       const where = `line ${msg.lineNum}, col ${msg.linePos}`;
       const line = `${tag} ${msg.type}: ${msg.message} (${where})`;
-      if (msg.type === "error") {
+      if (msg.type === 'error') {
         console.error(line);
         hasError = true;
       } else {
@@ -102,13 +93,11 @@ const compile_pipeline_for = async (
       // Throw with a clear message so the calling try/catch in the UI
       // surfaces it instead of swallowing into a generic
       // GPUPipelineError downstream.
-      throw new Error(
-        `WGSL compile failed for ${cacheKey} — see DevTools console`,
-      );
+      throw new Error(`WGSL compile failed for ${cacheKey} — see DevTools console`);
     }
     const pipeline = await device.createComputePipelineAsync({
       layout: device.createPipelineLayout({ bindGroupLayouts: [layout] }),
-      compute: { module: m, entryPoint: "main" },
+      compute: { module: m, entryPoint: 'main' },
     });
     console.log(`[batch-affine] compiled pipeline: ${cacheKey}`);
     return { pipeline, bindGroupLayout: layout };
@@ -172,14 +161,12 @@ export const smvp_batch_affine_gpu = async (
   // dispatch against dead/zero buffers and the MSM returns identity.
   const ws_key = `bn254:ba:${num_subtasks}:${num_columns}:${num_words}:${input_size}`;
   const acquire_ws = (suffix: string, size: number): GPUBuffer =>
-    context !== undefined
-      ? context.acquirePersistentBuffer(`${ws_key}:${suffix}`, size)
-      : create_sb(device, size);
+    context !== undefined ? context.acquirePersistentBuffer(`${ws_key}:${suffix}`, size) : create_sb(device, size);
 
-  const running_x_sb = acquire_ws("running_x", ws_byte_len);
-  const running_y_sb = acquire_ws("running_y", ws_byte_len);
-  const bucket_cursor_sb = acquire_ws("bucket_cursor", total_buckets * 4);
-  const bucket_active_sb = acquire_ws("bucket_active", total_buckets * 4);
+  const running_x_sb = acquire_ws('running_x', ws_byte_len);
+  const running_y_sb = acquire_ws('running_y', ws_byte_len);
+  const bucket_cursor_sb = acquire_ws('bucket_cursor', total_buckets * 4);
+  const bucket_active_sb = acquire_ws('bucket_active', total_buckets * 4);
 
   // Pair pool. Cross-subtask SMVP layout:
   //   - SMVP path: each subtask owns a slice of `num_columns` slots.
@@ -190,20 +177,20 @@ export const smvp_batch_affine_gpu = async (
   const MAX_PAIRS_PER_SUBTASK = num_columns; // worst-case per round
   const pool_capacity = num_subtasks * MAX_PAIRS_PER_SUBTASK;
   const pair_buf_size = pool_capacity * limb_byte_length;
-  const pair_delta_sb = acquire_ws("pair_delta", pair_buf_size);
-  const pair_inv_sb = acquire_ws("pair_inv", pair_buf_size);
-  const pair_prefix_sb = acquire_ws("pair_prefix", pair_buf_size);
-  const pair_target_meta_sb = acquire_ws("pair_target_meta", pool_capacity * 8); // vec2<u32>
+  const pair_delta_sb = acquire_ws('pair_delta', pair_buf_size);
+  const pair_inv_sb = acquire_ws('pair_inv', pair_buf_size);
+  const pair_prefix_sb = acquire_ws('pair_prefix', pair_buf_size);
+  const pair_target_meta_sb = acquire_ws('pair_target_meta', pool_capacity * 8); // vec2<u32>
   // Per-subtask atomic counters. Schedule's atomicAdd target each round.
   // dispatch_args zeroes this at the end of its T-element scan, so the
   // value is fresh-zero on entry to the NEXT round's schedule — no
   // separate clearBuffer needed.
-  const pair_counter_sb = acquire_ws("pair_counter", num_subtasks * 4);
+  const pair_counter_sb = acquire_ws('pair_counter', num_subtasks * 4);
   // Per-subtask "frozen" counts forwarded by dispatch_args. Read by
   // THIS round's inverse + apply. Decouples the schedule writer from
   // the inverse/apply readers so we can zero pair_counter in dispatch_args
   // without losing the values inverse/apply still need.
-  const round_count_sb = acquire_ws("round_count", num_subtasks * 4);
+  const round_count_sb = acquire_ws('round_count', num_subtasks * 4);
   // Indirect-dispatch arg buffer. Layout: 9 u32s (36 B):
   //   args[0..3] = schedule (X, Y, Z)   — for the *next* round
   //   args[3..6] = inverse  (X, Y, Z)   — for *this* round
@@ -215,19 +202,11 @@ export const smvp_batch_affine_gpu = async (
   // Needs INDIRECT usage in addition to the standard storage flags.
   let dispatch_args_sb: GPUBuffer;
   if (context !== undefined) {
-    dispatch_args_sb = context.acquirePersistentBuffer(
-      `${ws_key}:dispatch_args`,
-      36,
-      GPUBufferUsage.INDIRECT,
-    );
+    dispatch_args_sb = context.acquirePersistentBuffer(`${ws_key}:dispatch_args`, 36, GPUBufferUsage.INDIRECT);
   } else {
     dispatch_args_sb = device.createBuffer({
       size: 36,
-      usage:
-        GPUBufferUsage.STORAGE |
-        GPUBufferUsage.COPY_SRC |
-        GPUBufferUsage.COPY_DST |
-        GPUBufferUsage.INDIRECT,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST | GPUBufferUsage.INDIRECT,
     });
   }
   // Pre-filled count buffer for the finalize batch_inverse. T entries,
@@ -238,10 +217,7 @@ export const smvp_batch_affine_gpu = async (
   // acquisition and skip the writeBuffer thereafter.
   let finalize_count_sb: GPUBuffer;
   if (context !== undefined) {
-    finalize_count_sb = context.acquirePersistentBuffer(
-      `${ws_key}:finalize_count`,
-      num_subtasks * 4,
-    );
+    finalize_count_sb = context.acquirePersistentBuffer(`${ws_key}:finalize_count`, num_subtasks * 4);
     // Re-write the constants every time (cheap — T u32s = 64 B at T=16)
     // rather than tracking a "first call" flag. Avoids a subtle bug where
     // a bigger N then smaller N would leave stale values in the cached
@@ -250,16 +226,12 @@ export const smvp_batch_affine_gpu = async (
     device.queue.writeBuffer(
       finalize_count_sb,
       0,
-      new Uint8Array(
-        new Uint32Array(new Array(num_subtasks).fill(half_num_columns)).buffer,
-      ),
+      new Uint8Array(new Uint32Array(new Array(num_subtasks).fill(half_num_columns)).buffer),
     );
   } else {
     finalize_count_sb = create_and_write_sb(
       device,
-      new Uint8Array(
-        new Uint32Array(new Array(num_subtasks).fill(half_num_columns)).buffer,
-      ),
+      new Uint8Array(new Uint32Array(new Array(num_subtasks).fill(half_num_columns)).buffer),
     );
   }
 
@@ -293,36 +265,24 @@ export const smvp_batch_affine_gpu = async (
   // workgroups, matching RTX-class GPU SM counts).
   const NUM_SUB_WGS_PER_SUBTASK = 8;
 
-  const init_shader = shaderManager.gen_batch_affine_init_shader(
-    init_workgroup_size,
-  );
-  const schedule_shader = shaderManager.gen_batch_affine_schedule_shader(
-    schedule_workgroup_size,
-  );
-  const dispatch_args_shader =
-    shaderManager.gen_batch_affine_dispatch_args_shader();
+  const init_shader = shaderManager.gen_batch_affine_init_shader(init_workgroup_size);
+  const schedule_shader = shaderManager.gen_batch_affine_schedule_shader(schedule_workgroup_size);
+  const dispatch_args_shader = shaderManager.gen_batch_affine_dispatch_args_shader();
   // Multi-workgroup batch-inverse (W sub-WGs per subtask). See
   // batch_inverse_parallel.template.wgsl for the algorithm.
-  const inverse_shader = shaderManager.gen_batch_inverse_parallel_shader(
-    NUM_SUB_WGS_PER_SUBTASK,
-  );
-  const apply_shader = shaderManager.gen_batch_affine_apply_scatter_shader(
-    apply_workgroup_size,
-  );
+  const inverse_shader = shaderManager.gen_batch_inverse_parallel_shader(NUM_SUB_WGS_PER_SUBTASK);
+  const apply_shader = shaderManager.gen_batch_affine_apply_scatter_shader(apply_workgroup_size);
   // Finalize dispatch geometry — single dispatch covers all T·h IDs;
   // z workgroups = num_subtasks, threading inside the kernel mirrors
   // the legacy monolithic finalize layout.
   let f_workgroup_size = finalize_workgroup_size_default;
   let f_num_x_workgroups = 64;
-  let f_num_y_workgroups =
-    half_num_columns / f_workgroup_size / f_num_x_workgroups;
+  let f_num_y_workgroups = half_num_columns / f_workgroup_size / f_num_x_workgroups;
   let f_num_z_workgroups = num_subtasks;
   if (half_num_columns < 32768) {
     f_workgroup_size = 32;
     f_num_x_workgroups = 1;
-    f_num_y_workgroups = Math.ceil(
-      half_num_columns / f_workgroup_size / f_num_x_workgroups,
-    );
+    f_num_y_workgroups = Math.ceil(half_num_columns / f_workgroup_size / f_num_x_workgroups);
   }
   if (num_columns < 256) {
     f_workgroup_size = 1;
@@ -337,16 +297,8 @@ export const smvp_batch_affine_gpu = async (
   // its inv_delta and finishes the affine add. Replaces the previous
   // monolithic finalize that called fr_inv per thread (~150 ms at
   // T*h ≈ 524 K threads).
-  const finalize_collect_shader =
-    shaderManager.gen_batch_affine_finalize_collect_shader(
-      f_workgroup_size,
-      num_columns,
-    );
-  const finalize_apply_shader =
-    shaderManager.gen_batch_affine_finalize_apply_shader(
-      f_workgroup_size,
-      num_columns,
-    );
+  const finalize_collect_shader = shaderManager.gen_batch_affine_finalize_collect_shader(f_workgroup_size, num_columns);
+  const finalize_apply_shader = shaderManager.gen_batch_affine_finalize_apply_shader(f_workgroup_size, num_columns);
 
   const _compile_t0 = performance.now();
 
@@ -354,15 +306,15 @@ export const smvp_batch_affine_gpu = async (
   const init_pipe = await compile_pipeline_for(
     device,
     [
-      "read-only-storage", // 0 row_ptr
-      "read-only-storage", // 1 val_idx
-      "read-only-storage", // 2 new_point_x
-      "read-only-storage", // 3 new_point_y
-      "storage",           // 4 running_x
-      "storage",           // 5 running_y
-      "storage",           // 6 bucket_cursor
-      "storage",           // 7 bucket_active
-      "uniform",           // 8 params
+      'read-only-storage', // 0 row_ptr
+      'read-only-storage', // 1 val_idx
+      'read-only-storage', // 2 new_point_x
+      'read-only-storage', // 3 new_point_y
+      'storage', // 4 running_x
+      'storage', // 5 running_y
+      'storage', // 6 bucket_cursor
+      'storage', // 7 bucket_active
+      'uniform', // 8 params
     ],
     init_shader,
     context,
@@ -372,15 +324,15 @@ export const smvp_batch_affine_gpu = async (
   const schedule_pipe = await compile_pipeline_for(
     device,
     [
-      "read-only-storage", // 0 row_ptr
-      "read-only-storage", // 1 val_idx
-      "read-only-storage", // 2 new_point_x
-      "read-only-storage", // 3 running_x
-      "storage",           // 4 bucket_cursor
-      "storage",           // 5 pair_delta
-      "storage",           // 6 pair_target_meta
-      "storage",           // 7 pair_counter (atomic, T entries)
-      "uniform",           // 8 params
+      'read-only-storage', // 0 row_ptr
+      'read-only-storage', // 1 val_idx
+      'read-only-storage', // 2 new_point_x
+      'read-only-storage', // 3 running_x
+      'storage', // 4 bucket_cursor
+      'storage', // 5 pair_delta
+      'storage', // 6 pair_target_meta
+      'storage', // 7 pair_counter (atomic, T entries)
+      'uniform', // 8 params
     ],
     schedule_shader,
     context,
@@ -390,11 +342,11 @@ export const smvp_batch_affine_gpu = async (
   const inverse_pipe = await compile_pipeline_for(
     device,
     [
-      "read-only-storage", // 0 inputs (= pair_delta)
-      "storage",           // 1 prefix
-      "storage",           // 2 outputs (= pair_inv)
-      "storage",           // 3 count_buf (atomic, atomicLoad; per-wg)
-      "uniform",           // 4 params (pitch)
+      'read-only-storage', // 0 inputs (= pair_delta)
+      'storage', // 1 prefix
+      'storage', // 2 outputs (= pair_inv)
+      'storage', // 3 count_buf (atomic, atomicLoad; per-wg)
+      'uniform', // 4 params (pitch)
     ],
     inverse_shader,
     context,
@@ -404,15 +356,15 @@ export const smvp_batch_affine_gpu = async (
   const apply_pipe = await compile_pipeline_for(
     device,
     [
-      "read-only-storage", // 0 val_idx
-      "read-only-storage", // 1 new_point_x
-      "read-only-storage", // 2 new_point_y
-      "storage",           // 3 running_x
-      "storage",           // 4 running_y
-      "read-only-storage", // 5 pair_target_meta
-      "read-only-storage", // 6 inv_deltas
-      "storage",           // 7 count_buf (atomic, atomicLoad; per-subtask)
-      "uniform",           // 8 params
+      'read-only-storage', // 0 val_idx
+      'read-only-storage', // 1 new_point_x
+      'read-only-storage', // 2 new_point_y
+      'storage', // 3 running_x
+      'storage', // 4 running_y
+      'read-only-storage', // 5 pair_target_meta
+      'read-only-storage', // 6 inv_deltas
+      'storage', // 7 count_buf (atomic, atomicLoad; per-subtask)
+      'uniform', // 8 params
     ],
     apply_shader,
     context,
@@ -422,10 +374,10 @@ export const smvp_batch_affine_gpu = async (
   const dispatch_args_pipe = await compile_pipeline_for(
     device,
     [
-      "storage",  // 0 pair_counter (atomic; T entries; read+zero)
-      "storage",  // 1 round_count   (atomic; T entries; write)
-      "storage",  // 2 dispatch_args (9 u32s)
-      "uniform",  // 3 params
+      'storage', // 0 pair_counter (atomic; T entries; read+zero)
+      'storage', // 1 round_count   (atomic; T entries; write)
+      'storage', // 2 dispatch_args (9 u32s)
+      'uniform', // 3 params
     ],
     dispatch_args_shader,
     context,
@@ -435,14 +387,14 @@ export const smvp_batch_affine_gpu = async (
   const finalize_collect_pipe = await compile_pipeline_for(
     device,
     [
-      "read-only-storage", // 0 running_x
-      "read-only-storage", // 1 running_y
-      "read-only-storage", // 2 bucket_active
-      "storage",           // 3 bucket_x
-      "storage",           // 4 bucket_y
-      "storage",           // 5 bucket_z
-      "storage",           // 6 pair_delta
-      "uniform",           // 7 params
+      'read-only-storage', // 0 running_x
+      'read-only-storage', // 1 running_y
+      'read-only-storage', // 2 bucket_active
+      'storage', // 3 bucket_x
+      'storage', // 4 bucket_y
+      'storage', // 5 bucket_z
+      'storage', // 6 pair_delta
+      'uniform', // 7 params
     ],
     finalize_collect_shader,
     context,
@@ -452,64 +404,46 @@ export const smvp_batch_affine_gpu = async (
   const finalize_apply_pipe = await compile_pipeline_for(
     device,
     [
-      "read-only-storage", // 0 running_x
-      "read-only-storage", // 1 running_y
-      "read-only-storage", // 2 bucket_active
-      "read-only-storage", // 3 pair_inv
-      "storage",           // 4 bucket_x
-      "storage",           // 5 bucket_y
-      "storage",           // 6 bucket_z
-      "uniform",           // 7 params
+      'read-only-storage', // 0 running_x
+      'read-only-storage', // 1 running_y
+      'read-only-storage', // 2 bucket_active
+      'read-only-storage', // 3 pair_inv
+      'storage', // 4 bucket_x
+      'storage', // 5 bucket_y
+      'storage', // 6 bucket_z
+      'uniform', // 7 params
     ],
     finalize_apply_shader,
     context,
     `bn254:batch_affine_finalize_apply:v1:${num_columns}:${input_size}:${f_workgroup_size}`,
   );
 
-  cpu_timer?.accumulate(
-    "compile_smvp_batch_affine",
-    performance.now() - _compile_t0,
-  );
+  cpu_timer?.accumulate('compile_smvp_batch_affine', performance.now() - _compile_t0);
 
   // ----- Uniforms -----
   // All uniforms are constant for a given (num_subtasks, num_columns,
   // input_size) tuple. With a persistent context they're cached and the
   // contents written once on first acquisition; without one we fall back
   // to per-call create_and_write_ub.
-  const acquire_ub = (
-    suffix: string,
-    bytes: Uint8Array,
-  ): GPUBuffer => {
+  const acquire_ub = (suffix: string, bytes: Uint8Array): GPUBuffer => {
     if (context === undefined) {
       return create_and_write_ub(device, bytes);
     }
-    const { buffer, created } = context.acquirePersistentUniform(
-      `${ws_key}:${suffix}`,
-      bytes.length,
-    );
+    const { buffer, created } = context.acquirePersistentUniform(`${ws_key}:${suffix}`, bytes.length);
     if (created) device.queue.writeBuffer(buffer, 0, bytes as BufferSource);
     return buffer;
   };
 
   // Init: (total_buckets, num_columns, input_size, 0)
-  const init_ub = acquire_ub(
-    "init_ub",
-    numbers_to_u8s([total_buckets, num_columns, input_size, 0]),
-  );
+  const init_ub = acquire_ub('init_ub', numbers_to_u8s([total_buckets, num_columns, input_size, 0]));
 
   // Schedule: single uniform shared across all subtasks. Cross-subtask
   // dispatch derives the subtask index from global_id.z, so the uniform
   // only carries layout constants. Layout: (num_columns, input_size, 0, 0)
-  const schedule_ub = acquire_ub(
-    "schedule_ub",
-    numbers_to_u8s([num_columns, input_size, 0, 0]),
-  );
+  const schedule_ub = acquire_ub('schedule_ub', numbers_to_u8s([num_columns, input_size, 0, 0]));
 
   // Apply: 1 uniform (constant across subtasks). (num_columns, input_size, 0, 0)
-  const apply_ub = acquire_ub(
-    "apply_ub",
-    numbers_to_u8s([num_columns, input_size, 0, 0]),
-  );
+  const apply_ub = acquire_ub('apply_ub', numbers_to_u8s([num_columns, input_size, 0, 0]));
 
   // Dispatch-args kernel uniform: (num_subtasks, apply_workgroup_size,
   // sched_x_groups, num_sub_wgs_per_subtask). sched_x_groups is the
@@ -519,13 +453,8 @@ export const smvp_batch_affine_gpu = async (
   // dispatch's X dim (0 when no work, W otherwise).
   const sched_x_groups = Math.ceil(num_columns / schedule_workgroup_size);
   const dispatch_args_ub = acquire_ub(
-    "dispatch_args_ub",
-    numbers_to_u8s([
-      num_subtasks,
-      apply_workgroup_size,
-      sched_x_groups,
-      NUM_SUB_WGS_PER_SUBTASK,
-    ]),
+    'dispatch_args_ub',
+    numbers_to_u8s([num_subtasks, apply_workgroup_size, sched_x_groups, NUM_SUB_WGS_PER_SUBTASK]),
   );
 
   // Inverse: per-workgroup slice stride. Two clients with different
@@ -534,14 +463,8 @@ export const smvp_batch_affine_gpu = async (
   //                                       per-round pair pool slice)
   //   - Finalize: pitch = half_num_columns (T workgroups, each subtask's
   //                                          h-element slice)
-  const inverse_smvp_ub = acquire_ub(
-    "inverse_smvp_ub",
-    numbers_to_u8s([num_columns, 0, 0, 0]),
-  );
-  const inverse_finalize_ub = acquire_ub(
-    "inverse_finalize_ub",
-    numbers_to_u8s([half_num_columns, 0, 0, 0]),
-  );
+  const inverse_smvp_ub = acquire_ub('inverse_smvp_ub', numbers_to_u8s([num_columns, 0, 0, 0]));
+  const inverse_finalize_ub = acquire_ub('inverse_finalize_ub', numbers_to_u8s([half_num_columns, 0, 0, 0]));
 
   // Finalize: single uniform shared across collect and apply. Both
   // kernels run as one dispatch with z=num_subtasks, so num_z_workgroups
@@ -549,7 +472,7 @@ export const smvp_batch_affine_gpu = async (
   // derive their subtask from gidz / id-arithmetic.
   // Layout: (num_y_workgroups, num_z_workgroups, 0, num_columns)
   const finalize_ub = acquire_ub(
-    "finalize_ub",
+    'finalize_ub',
     numbers_to_u8s([f_num_y_workgroups, f_num_z_workgroups, 0, num_columns]),
   );
 
@@ -568,11 +491,7 @@ export const smvp_batch_affine_gpu = async (
   // in submission.ts. For the cold path we still create fresh bind
   // groups every call.
   const persistent_bgs = context !== undefined && externals_persistent;
-  const acquire_bg = (
-    suffix: string,
-    layout: GPUBindGroupLayout,
-    buffers: GPUBuffer[],
-  ): GPUBindGroup => {
+  const acquire_bg = (suffix: string, layout: GPUBindGroupLayout, buffers: GPUBuffer[]): GPUBindGroup => {
     if (persistent_bgs) {
       return context!.getOrCreatePersistentBindGroup(`${ws_key}:${suffix}`, () =>
         create_bind_group(device, layout, buffers),
@@ -581,7 +500,7 @@ export const smvp_batch_affine_gpu = async (
     return create_bind_group(device, layout, buffers);
   };
 
-  const init_bg = acquire_bg("init_bg", init_pipe.layout, [
+  const init_bg = acquire_bg('init_bg', init_pipe.layout, [
     all_csc_col_ptr_sb,
     all_csc_val_idxs_sb,
     point_x_sb,
@@ -595,7 +514,7 @@ export const smvp_batch_affine_gpu = async (
 
   // Single schedule bind group — cross-subtask dispatch covers all T
   // subtasks in one launch (z=T).
-  const schedule_bg = acquire_bg("schedule_bg", schedule_pipe.layout, [
+  const schedule_bg = acquire_bg('schedule_bg', schedule_pipe.layout, [
     all_csc_col_ptr_sb,
     all_csc_val_idxs_sb,
     point_x_sb,
@@ -613,7 +532,7 @@ export const smvp_batch_affine_gpu = async (
   // Cache suffix bumped to "v2" so we don't accidentally reuse a cached
   // bind group from the pre-fold v1 layout (same buffer count, different
   // semantics — the v2 suffix tags the new wiring explicitly).
-  const inverse_bg = acquire_bg("inverse_bg:v2", inverse_pipe.layout, [
+  const inverse_bg = acquire_bg('inverse_bg:v2', inverse_pipe.layout, [
     pair_delta_sb,
     pair_prefix_sb,
     pair_inv_sb,
@@ -621,7 +540,7 @@ export const smvp_batch_affine_gpu = async (
     inverse_smvp_ub,
   ]);
 
-  const apply_bg = acquire_bg("apply_bg:v2", apply_pipe.layout, [
+  const apply_bg = acquire_bg('apply_bg:v2', apply_pipe.layout, [
     all_csc_val_idxs_sb,
     point_x_sb,
     point_y_sb,
@@ -636,70 +555,51 @@ export const smvp_batch_affine_gpu = async (
   // Suffix bumped to v2 by P2-clear: bind group now binds 4 buffers
   // (pair_counter + round_count + dispatch_args + ub) instead of 3.
   // W suffix dropped along with the P1 revert.
-  const dispatch_args_bg = acquire_bg(
-    "dispatch_args_bg:v2",
-    dispatch_args_pipe.layout,
-    [pair_counter_sb, round_count_sb, dispatch_args_sb, dispatch_args_ub],
-  );
+  const dispatch_args_bg = acquire_bg('dispatch_args_bg:v2', dispatch_args_pipe.layout, [
+    pair_counter_sb,
+    round_count_sb,
+    dispatch_args_sb,
+    dispatch_args_ub,
+  ]);
 
   // Single bind groups for collect and apply — finalize runs as one
   // dispatch over T·h threads (z=num_subtasks). The inverse pass
   // dispatches T workgroups, each handling one h-slice in parallel.
-  const finalize_collect_bg = acquire_bg(
-    "finalize_collect_bg",
-    finalize_collect_pipe.layout,
-    [
-      running_x_sb,
-      running_y_sb,
-      bucket_active_sb,
-      bucket_sum_x_sb,
-      bucket_sum_y_sb,
-      bucket_sum_z_sb,
-      pair_delta_sb,
-      finalize_ub,
-    ],
-  );
+  const finalize_collect_bg = acquire_bg('finalize_collect_bg', finalize_collect_pipe.layout, [
+    running_x_sb,
+    running_y_sb,
+    bucket_active_sb,
+    bucket_sum_x_sb,
+    bucket_sum_y_sb,
+    bucket_sum_z_sb,
+    pair_delta_sb,
+    finalize_ub,
+  ]);
 
-  const finalize_inverse_bg = acquire_bg(
-    "finalize_inverse_bg",
-    inverse_pipe.layout,
-    [
-      pair_delta_sb,
-      pair_prefix_sb,
-      pair_inv_sb,
-      finalize_count_sb,
-      inverse_finalize_ub,
-    ],
-  );
+  const finalize_inverse_bg = acquire_bg('finalize_inverse_bg', inverse_pipe.layout, [
+    pair_delta_sb,
+    pair_prefix_sb,
+    pair_inv_sb,
+    finalize_count_sb,
+    inverse_finalize_ub,
+  ]);
 
-  const finalize_apply_bg = acquire_bg(
-    "finalize_apply_bg",
-    finalize_apply_pipe.layout,
-    [
-      running_x_sb,
-      running_y_sb,
-      bucket_active_sb,
-      pair_inv_sb,
-      bucket_sum_x_sb,
-      bucket_sum_y_sb,
-      bucket_sum_z_sb,
-      finalize_ub,
-    ],
-  );
+  const finalize_apply_bg = acquire_bg('finalize_apply_bg', finalize_apply_pipe.layout, [
+    running_x_sb,
+    running_y_sb,
+    bucket_active_sb,
+    pair_inv_sb,
+    bucket_sum_x_sb,
+    bucket_sum_y_sb,
+    bucket_sum_z_sb,
+    finalize_ub,
+  ]);
 
   // ----- Dispatch sequence -----
 
   // 1. Init: ceil(total_buckets / 256) workgroups in x, 1 thread per bucket.
   const init_x_groups = Math.ceil(total_buckets / init_workgroup_size);
-  await execute_pipeline(
-    commandEncoder,
-    init_pipe.pipeline,
-    init_bg,
-    init_x_groups,
-    1,
-    1,
-    profiler?.stage("ba_init"),
-  );
+  await execute_pipeline(commandEncoder, init_pipe.pipeline, init_bg, init_x_groups, 1, 1, profiler?.stage('ba_init'));
 
   // 2. Round loop, cross-subtask parallel.
   //
@@ -740,7 +640,7 @@ export const smvp_batch_affine_gpu = async (
   // The right long-term fix is indirect dispatch with early-exit on
   // `pair_counter == 0` — let the GPU itself decide. Until then, this
   // table is the per-N tuning.
-  const cs15 = num_columns === (1 << 15);
+  const cs15 = num_columns === 1 << 15;
   let MAX_ROUNDS: number;
   if (cs15) {
     if (input_size >= 1 << 20) MAX_ROUNDS = 192;
@@ -765,7 +665,13 @@ export const smvp_batch_affine_gpu = async (
   // brand-new context), that guarantee doesn't hold. One clearBuffer
   // here costs ~one dispatch's worth of latency vs MAX_ROUNDS=256
   // clears under the prior policy.
-  commandEncoder.clearBuffer(pair_counter_sb, 0, counter_clear_bytes);
+  if (profiler !== undefined) {
+    profiler.bracket(commandEncoder, 'clear_pair_counter', () => {
+      commandEncoder.clearBuffer(pair_counter_sb, 0, counter_clear_bytes);
+    });
+  } else {
+    commandEncoder.clearBuffer(pair_counter_sb, 0, counter_clear_bytes);
+  }
 
   // Pre-seed dispatch_args with round 0's schedule arg triple. Round 0
   // schedule must run full size — there's no previous round whose
@@ -777,32 +683,36 @@ export const smvp_batch_affine_gpu = async (
   // dispatch_args BEFORE inverse/apply read them in the same round,
   // so initial values don't matter.
   const initial_args = new Uint32Array([
-    sched_x_groups, 1, num_subtasks,             // schedule (read by round 0)
-    0, 0, 0,                                     // inverse  (written before read each round)
-    0, 0, 0,                                     // apply    (written before read each round)
+    sched_x_groups,
+    1,
+    num_subtasks, // schedule (read by round 0)
+    0,
+    0,
+    0, // inverse  (written before read each round)
+    0,
+    0,
+    0, // apply    (written before read each round)
   ]);
   device.queue.writeBuffer(dispatch_args_sb, 0, initial_args.buffer);
 
   // Per-stage profiling budgets (kept in sync with PROFILE_*_ROUNDS
   // exports above). The Profiler is constructed in submission.ts with
-  // capacity=320 — well below Dawn's ~4096-per-QuerySet hard cap that
+  // capacity=1200 — well below Dawn's ~4096-per-QuerySet hard cap that
   // wedges the device when exceeded.
   //
-  //   * All three round-loop families (`ba_schedule`, `ba_inverse`,
-  //     `ba_apply`) are profiled on EVERY round. The per-round labels
-  //     group under the family in the report, so the family-row sum is
-  //     the TRUE total cost. Previously schedule/apply were sampled
-  //     8/256 — the missing 248 rounds (~80-150 ms combined at N=2^20)
-  //     hid in `untimestamped`.
-  //
-  //   * `ba_dispatch_args` is not profiled — it consistently reports
-  //     0.00 ms (single-thread, single-workgroup arithmetic), so the
-  //     slot would be wasted.
+  //   * All four round-loop families (`ba_schedule`, `ba_inverse`,
+  //     `ba_apply`, `ba_dispatch_args`) are profiled on EVERY round.
+  //     The per-round labels group under the family in the report, so
+  //     the family-row sum is the TRUE total cost. Previously
+  //     schedule/apply were sampled 8/256 and `ba_dispatch_args` was
+  //     skipped entirely — the missing rounds hid in `untimestamped`.
   //
   //   * Slot tally at worst case (N=2^20): 256 ba_schedule + 256
-  //     ba_inverse + 256 ba_apply = 768 round-loop. Plus ~9 fixed
-  //     (decompose, transpose_*, ba_init, ba_finalize_×3, bpr_1, bpr_2,
-  //     subtask_reduce) = ~777. Capacity=800 leaves 23 slots of margin.
+  //     ba_inverse + 256 ba_apply + 256 ba_dispatch_args = 1024
+  //     round-loop. Plus ~12 fixed (decompose, transpose_*, ba_init,
+  //     ba_finalize_×3, bpr_1, bpr_2, subtask_reduce, + a handful of
+  //     bracket() markers for clearBuffer) = ~1036. Capacity=1200
+  //     leaves ~160 slots of margin.
   for (let round = 0; round < MAX_ROUNDS; round++) {
     // pair_counter starts each round at zero — guaranteed by the
     // previous round's dispatch_args atomicStore(pair_counter, 0u),
@@ -830,8 +740,9 @@ export const smvp_batch_affine_gpu = async (
     // 2b. Compute indirect-dispatch args from pair_counter. Single
     // workgroup of one thread; reads the per-subtask atomic counts
     // schedule just wrote and emits (X, Y, Z) triples for the next
-    // round's schedule and this round's inverse + apply. Not profiled —
-    // see budget rationale above.
+    // round's schedule and this round's inverse + apply. Per-kernel
+    // cost is small but it runs every round, so at MAX_ROUNDS=256 the
+    // sum used to be a multi-ms slice of `untimestamped`.
     await execute_pipeline(
       commandEncoder,
       dispatch_args_pipe.pipeline,
@@ -839,7 +750,7 @@ export const smvp_batch_affine_gpu = async (
       1,
       1,
       1,
-      undefined,
+      profiler?.stage(`ba_dispatch_args[r=${round}]`),
     );
 
     // 2c. Batch inverse — INDIRECT. T workgroups when any subtask has
@@ -879,7 +790,7 @@ export const smvp_batch_affine_gpu = async (
     f_num_x_workgroups,
     f_num_y_workgroups,
     f_num_z_workgroups,
-    profiler?.stage("ba_finalize_collect"),
+    profiler?.stage('ba_finalize_collect'),
   );
 
   // Pass B (batch_inverse): (W, 1, T) workgroups in parallel — each
@@ -893,7 +804,7 @@ export const smvp_batch_affine_gpu = async (
     NUM_SUB_WGS_PER_SUBTASK,
     1,
     num_subtasks,
-    profiler?.stage("ba_finalize_inverse"),
+    profiler?.stage('ba_finalize_inverse'),
   );
 
   // Pass C (apply): single dispatch over T·h threads. Cases 1-3
@@ -906,6 +817,6 @@ export const smvp_batch_affine_gpu = async (
     f_num_x_workgroups,
     f_num_y_workgroups,
     f_num_z_workgroups,
-    profiler?.stage("ba_finalize_apply"),
+    profiler?.stage('ba_finalize_apply'),
   );
 };
