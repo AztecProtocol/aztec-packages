@@ -8,12 +8,12 @@ pub(crate) global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 
 /// Registry for the constrained-delivery shared-secret handshake protocol.
 ///
-/// The registry's job is to establish a master shared secret between a sender and a recipient, and to store a
-/// per-sender note recording that the handshake happened. A contract that later wants to use this
-/// handshake retrieves the note via the [`HandshakeRegistry::get_handshake`] utility, asserts it exists in the
-/// registry,
-/// and uses the kernel key-validation mechanism to derive its own app-siloed shared secret from the master hash stored
-/// in the note.
+/// The registry establishes a master shared-secret point `S` between a sender and a recipient and stores a
+/// per-sender note recording the handshake. The raw `S` never leaves the registry: app contracts call
+/// [`HandshakeRegistry::non_interactive_handshake`] or [`HandshakeRegistry::get_app_siloed_secret`] to receive the
+/// secret already siloed to the caller, and [`HandshakeRegistry::validate_handshake`] to check an app-siloed secret
+/// against the stored handshake. The siloing is bound to `msg_sender()`, so a contract can only obtain or validate
+/// secrets siloed to itself.
 ///
 /// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
 #[aztec]
@@ -22,15 +22,18 @@ pub contract HandshakeRegistry {
     use crate::NON_INTERACTIVE_HANDSHAKE;
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
-        macros::{functions::external, storage::storage},
+        macros::{functions::{external, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        note::note_viewer_options::NoteViewerOptions,
+        note::{note_getter_options::NoteGetterOptions, note_interface::NoteProperties},
         oracle::notes::set_sender_for_tags,
         protocol::{
-            address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
+            address::AztecAddress,
+            constants::{DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
+            hash::compute_log_tag,
             traits::ToField,
         },
         state_vars::{Owned, PrivateSet},
+        utils::comparison::Comparator,
     };
 
     #[storage]
@@ -40,23 +43,26 @@ pub contract HandshakeRegistry {
         handshakes: Owned<PrivateSet<HandshakeNote, Context>, Context>,
     }
 
-    /// Performs a non-interactive handshake from `sender` to `recipient`.
+    /// Performs a non-interactive handshake from `sender` to `recipient` and returns the app-siloed shared secret
+    /// for the calling contract.
     ///
     /// Generates a fresh ephemeral key pair `(eph_sk, eph_pk)`, computes the raw ECDH shared secret point
-    /// `S = eph_sk * recipient_address_point`, and produces two effects:
+    /// `S = eph_sk * recipient_address_point`, and produces three effects:
     ///
-    /// 1. Inserts a [`HandshakeNote`] owned by `sender`.
+    /// 1. Inserts a [`HandshakeNote`] owned by `sender`, holding the raw point `S`.
     /// 2. Emits a 1-field private log under a recipient-keyed tag with payload `[eph_pk.x]`. The recipient
-    ///    discovers handshakes addressed to them by scanning their tag and recovers the master shared secret
-    ///    from `eph_pk` via their own ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
+    ///    discovers handshakes addressed to them by scanning their tag and recovers `S` from `eph_pk` via their own
+    ///    ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
     ///    [`generate_positive_ephemeral_key_pair`] convention, so only `eph_pk.x` is transmitted.
+    /// 3. Returns the app-siloed shared secret for `msg_sender()`, allowing the caller to fold "handshake + first
+    ///    tag" into one call without a second hop into the registry.
     ///
     /// # Panics
     /// If `recipient` is not a valid curve point. There are no upstream side effects in this call frame to
     /// protect, and a fallback would insert a permanent note recording a handshake with an invalid recipient,
     /// polluting registry state.
     #[external("private")]
-    fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress) {
+    fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress) -> Field {
         let recipient_point = recipient.to_address_point().expect(f"recipient address is not on the curve");
 
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
@@ -77,33 +83,90 @@ pub contract HandshakeRegistry {
             recipient.to_field(),
             DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         );
+        // TODO(https://linear.app/aztec-labs/issue/F-653/route-handshake-log-through-do-private-message-delivery-to-preserve): Encrypt `eph_ph.x` to keep the log private
         self.context.emit_private_log_vec_unsafe(log_tag, BoundedVec::from_array([eph_pk.x]));
+
+        note.siloed_for(self.msg_sender())
     }
 
-    /// Returns the most recently inserted [`HandshakeNote`] held for `sender` matching
-    /// `(recipient, handshake_type)`, or `None` if no such note exists.
+    /// Asserts that `app_siloed_secret` is the silo of a stored `NON_INTERACTIVE_HANDSHAKE` from `sender` to
+    /// `recipient`, bound to the caller (`msg_sender()`).
     ///
-    /// Returning the latest (rather than the first) lets a sender re-initiate by issuing a fresh handshake; e.g.
-    /// if the previous secret was leaked.
+    /// Apps that receive an `app_siloed_secret` from an untrusted source (e.g. a PXE oracle) call this once to
+    /// bind that secret to the registry's stored handshake. Subsequent uses can rely on the prior-nullifier chain
+    /// instead of re-validating against the registry.
     ///
-    /// This is the discovery surface a contract uses to obtain a note hint before asserting existence
-    /// of the note at this registry's address.
-    #[external("utility")]
-    unconstrained fn get_handshake(
+    /// # Panics
+    /// If no stored `NON_INTERACTIVE_HANDSHAKE` for `(sender, recipient)` silos to `app_siloed_secret` under the
+    /// calling contract's address.
+    #[external("private")]
+    fn validate_handshake(
         sender: AztecAddress,
         recipient: AztecAddress,
-        handshake_type: u8,
-    ) -> Option<HandshakeNote> {
-        // We pull all notes for `sender` and filter (recipient, handshake_type) below, walking from the end so the
-        // first hit is the most recently inserted match.
-        let notes = self.storage.handshakes.at(sender).view_notes(NoteViewerOptions::new());
-        let mut found = Option::none();
+        app_siloed_secret: Field,
+    ) {
+        let caller = self.msg_sender();
+        // Push `(recipient, handshake_type)` into the oracle query so PXE returns only matching notes. Without
+        // this, the 16-note page (`MAX_NOTE_HASH_READ_REQUESTS_PER_CALL`) applies across all of `sender`'s
+        // handshakes and a matching note can fall outside the page.
+        let notes = self.storage.handshakes.at(sender).get_notes(
+            NoteGetterOptions::new()
+                .select(HandshakeNote::properties().recipient, Comparator.EQ, recipient)
+                .select(
+                    HandshakeNote::properties().handshake_type,
+                    Comparator.EQ,
+                    NON_INTERACTIVE_HANDSHAKE as Field,
+                ),
+        );
+
+        // `notes.len()` is a runtime value, so the constrained loop needs a constant upper bound. We walk the
+        // BoundedVec's full `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` capacity, gating against `notes.len()` so
+        // zero-padded slots cannot produce a false positive (an adversary who knows the calling contract
+        // address could otherwise pass `silo(Point::zero, caller)` and validate against a non-existent
+        // handshake).
         let len = notes.len();
-        for i in 0..len {
-            let note = notes.get(len - 1 - i);
-            if (note.recipient == recipient) & (note.handshake_type == handshake_type) {
-                found = Option::some(note);
-                break;
+        let mut found = false;
+        for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+            let note = notes.get_unchecked(i).note;
+            if (i < len) & (note.siloed_for(caller) == app_siloed_secret) {
+                found = true;
+            }
+        }
+        assert(found, "no matching handshake");
+    }
+
+    /// Returns the app-siloed shared secret for an existing non-interactive handshake.
+    ///
+    /// This is the existing-handshake retrieval surface for constrained delivery. It returns only
+    /// `silo(S, msg_sender())`, never raw `S`; a different calling app receives a different app-siloed value for the
+    /// same registry note.
+    ///
+    /// If multiple matching handshakes exist, the last note in the returned note list wins. PXE returns matching notes
+    /// in chronological order (oldest first), so repeated handshakes resolve to the latest inserted handshake.
+    #[external("private")]
+    #[view]
+    fn get_app_siloed_secret(
+        sender: AztecAddress,
+        recipient: AztecAddress,
+    ) -> Option<Field> {
+        // Same DB-side filtering rationale as `validate_handshake`. Without the filter, the 16-note page
+        // (`MAX_NOTE_HASH_READ_REQUESTS_PER_CALL`) could shadow a matching note among unrelated handshakes.
+        let notes = self.storage.handshakes.at(sender).get_notes(
+            NoteGetterOptions::new()
+                .select(HandshakeNote::properties().recipient, Comparator.EQ, recipient)
+                .select(
+                    HandshakeNote::properties().handshake_type,
+                    Comparator.EQ,
+                    NON_INTERACTIVE_HANDSHAKE as Field,
+                ),
+        );
+
+        let caller = self.msg_sender();
+        let len = notes.len();
+        let mut found = Option::none();
+        for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+            if i < len {
+                found = Option::some(notes.get_unchecked(i).note.siloed_for(caller));
             }
         }
         found

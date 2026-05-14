@@ -1,13 +1,18 @@
-use crate::{HandshakeRegistry, NON_INTERACTIVE_HANDSHAKE};
+use crate::HandshakeRegistry;
 
 use aztec::{
+    keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
     protocol::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         hash::{compute_log_tag, compute_siloed_private_log_first_field},
+        point::Point,
         traits::{FromField, ToField},
     },
-    test::helpers::{test_environment::TestEnvironment, txe_oracles},
+    test::helpers::{
+        test_environment::{CallPrivateOptions, TestEnvironment, ViewPrivateOptions},
+        txe_oracles,
+    },
 };
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
@@ -22,7 +27,13 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
     (env, registry_address, sender, other_sender, recipient)
 }
 
-unconstrained fn setup_with_two_recipients() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
+unconstrained fn setup_with_two_recipients() -> (
+    TestEnvironment,
+    AztecAddress,
+    AztecAddress,
+    AztecAddress,
+    AztecAddress,
+) {
     let mut env = TestEnvironment::new();
 
     let sender = env.create_light_account();
@@ -35,47 +46,18 @@ unconstrained fn setup_with_two_recipients() -> (TestEnvironment, AztecAddress, 
 }
 
 #[test]
-unconstrained fn non_interactive_handshake_stores_recipient_bound_note_at_sender() {
+unconstrained fn non_interactive_handshake_stores_handshake_for_sender_and_recipient() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let returned_secret =
+        env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    let note = env.execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE)).expect(
-        f"handshake note should be present",
-    );
-    assert_eq(note.handshake_type, NON_INTERACTIVE_HANDSHAKE);
-    assert_eq(note.recipient, recipient);
-    // TODO: `secret_hash` is the hash of the raw ECDH point components. Without an storing the raw point in an oracle
-    // we
-    // can't reconstruct it from the recipient's side here, so we just check that something non-zero was stored.
-    assert(note.secret_hash != 0, "secret_hash should be set");
-}
-
-#[test]
-unconstrained fn handshakes_are_isolated_per_sender() {
-    let (env, registry_address, sender, other_sender, recipient) = setup();
-    let registry = HandshakeRegistry::at(registry_address);
-
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
-    assert(
-        env.execute_utility(registry.get_handshake(other_sender, recipient, NON_INTERACTIVE_HANDSHAKE)).is_none(),
-        "other sender should not see primary sender's handshake",
-    );
-
-    env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
-
-    let sender_note = env.execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE)).expect(
-        f"primary sender should see its handshake",
-    );
-    let other_sender_note = env
-        .execute_utility(registry.get_handshake(other_sender, recipient, NON_INTERACTIVE_HANDSHAKE))
-        .expect(f"other sender should see its handshake");
-
-    assert(
-        sender_note.secret_hash != other_sender_note.secret_hash,
-        "senders should not resolve to the same handshake",
-    );
+    let retrieved_secret = env
+        .view_private(sender, registry.get_app_siloed_secret(sender, recipient))
+        .expect(f"handshake secret should be present");
+    assert_eq(retrieved_secret, returned_secret);
+    assert(returned_secret != 0, "returned app-siloed secret should be non-zero");
 }
 
 // The DH-direct flow lifts `recipient` to a curve point and fails loud if the address has no
@@ -90,7 +72,7 @@ unconstrained fn handshake_to_invalid_recipient_panics() {
     let invalid_recipient = AztecAddress::from_field(3);
     assert(!invalid_recipient.is_valid());
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, invalid_recipient));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, invalid_recipient));
 }
 
 // A recipient who knows only their own address can compute the
@@ -100,7 +82,7 @@ unconstrained fn non_interactive_handshake_emits_recipient_discoverable_log() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
     // The function emits two private logs in order: log 0 is the encrypted note delivered via
     // `MessageDelivery.ONCHAIN_UNCONSTRAINED`, log 1 is the recipient-keyed announcement carrying
@@ -129,11 +111,11 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let logs_first = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_first.len(), 2);
 
-    env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
+    let _ = env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
     let logs_second = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_second.len(), 2);
 
@@ -150,27 +132,23 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
     assert(eph_pk_x_0 != eph_pk_x_1, "ephemeral keys should differ in handshakes from different senders");
 }
 
-// Two handshakes from the same sender to the same `(recipient, type)` are not deduplicated.
-// Each call generates a fresh ephemeral key, so the registry accumulates distinct notes and emits
-// distinct logs under the recipient's tag.
+// Two handshakes from the same sender to the same `(recipient, type)` are not deduplicated, and produce
+// distinct `S` (hence distinct app-siloed secrets when siloed against the same caller). Each call emits a
+// distinct ephemeral key in its log.
 #[test]
 unconstrained fn duplicate_handshake_accumulates_distinct_secrets_and_returns_latest() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let secret_first =
+        env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let logs_first = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_first.len(), 2);
-    let first = env.execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE)).expect(
-        f"first handshake note should be present",
-    );
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let secret_second =
+        env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let logs_second = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_second.len(), 2);
-    let latest = env.execute_utility(registry.get_handshake(sender, recipient, NON_INTERACTIVE_HANDSHAKE)).expect(
-        f"second handshake note should be present",
-    );
 
     let raw_tag = compute_log_tag(
         recipient.to_field(),
@@ -185,7 +163,16 @@ unconstrained fn duplicate_handshake_accumulates_distinct_secrets_and_returns_la
         "ephemeral keys should differ across repeated handshakes",
     );
 
-    assert(first.secret_hash != latest.secret_hash, "should return the most recent note, not the first");
+    // Same caller and same `(sender, recipient)`, but two distinct raw `S` produce two distinct silos
+    assert(secret_first != secret_second, "successive handshakes should produce distinct app-siloed secrets");
+
+    let retrieved = env
+        .view_private(sender, registry.get_app_siloed_secret(sender, recipient))
+        .expect(f"handshake secret should be present");
+    assert_eq(retrieved, secret_second);
+
+    env.call_private(sender, registry.validate_handshake(sender, recipient, secret_first));
+    env.call_private(sender, registry.validate_handshake(sender, recipient, secret_second));
 }
 
 #[test]
@@ -193,11 +180,11 @@ unconstrained fn different_recipients_have_different_tags() {
     let (env, registry_address, sender, recipient_a, recipient_b) = setup_with_two_recipients();
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
     let logs_a = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_a.len(), 2);
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient_b));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_b));
     let logs_b = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_b.len(), 2);
 
@@ -215,33 +202,199 @@ unconstrained fn different_recipients_have_different_tags() {
 }
 
 #[test]
-unconstrained fn get_handshake_returns_none_for_wrong_sender() {
+unconstrained fn get_app_siloed_secret_returns_none_for_wrong_sender() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    assert(env.execute_utility(registry.get_handshake(other_sender, recipient, NON_INTERACTIVE_HANDSHAKE)).is_none());
+    assert(
+        env.view_private(sender, registry.get_app_siloed_secret(other_sender, recipient)).is_none(),
+    );
 }
 
 #[test]
-unconstrained fn get_handshake_returns_none_for_wrong_recipient() {
+unconstrained fn get_app_siloed_secret_returns_none_for_wrong_recipient() {
     let (env, registry_address, sender, recipient_a, recipient_b) = setup_with_two_recipients();
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
 
-    assert(env.execute_utility(registry.get_handshake(sender, recipient_b, NON_INTERACTIVE_HANDSHAKE)).is_none());
+    assert(
+        env.view_private(sender, registry.get_app_siloed_secret(sender, recipient_b)).is_none(),
+    );
 }
 
+#[test(should_fail_with = "no matching handshake")]
+unconstrained fn validate_handshake_rejects_wrong_sender() {
+    let (env, registry_address, sender, other_sender, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let secret =
+        env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+
+    env.call_private(sender, registry.validate_handshake(other_sender, recipient, secret));
+}
+
+#[test(should_fail_with = "no matching handshake")]
+unconstrained fn validate_handshake_rejects_wrong_recipient() {
+    let (env, registry_address, sender, recipient_a, recipient_b) = setup_with_two_recipients();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let secret =
+        env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
+
+    env.call_private(sender, registry.validate_handshake(sender, recipient_b, secret));
+}
+
+// Round-trip: the secret returned by `non_interactive_handshake` is exactly what retrieval returns and what
+// `validate_handshake` accepts from the same `msg_sender`. `msg_sender()` inside the registry equals the `from`
+// of `call_private` / `view_private` (execution begins directly in the called function with no entrypoint in
+// between).
 #[test]
-unconstrained fn get_handshake_returns_none_for_wrong_handshake_type() {
+unconstrained fn non_interactive_handshake_returned_secret_round_trips_through_validate() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let secret =
+        env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    // Claim it was something other than the only currently-defined handshake type.
-    let unknown_handshake_type: u8 = NON_INTERACTIVE_HANDSHAKE + 1;
-    assert(env.execute_utility(registry.get_handshake(sender, recipient, unknown_handshake_type)).is_none());
+    let retrieved = env
+        .view_private(sender, registry.get_app_siloed_secret(sender, recipient))
+        .expect(f"handshake secret should be present");
+    assert_eq(retrieved, secret);
+
+    env.call_private(sender, registry.validate_handshake(sender, recipient, secret));
+}
+
+// Test-only PXE/TXE scope plumbing: other_sender remains msg_sender, but needs visibility into sender-owned notes.
+#[test]
+unconstrained fn get_app_siloed_secret_differs_per_msg_sender() {
+    let (env, registry_address, sender, other_sender, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let sender_secret =
+        env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let other_sender_secret = env
+        .view_private_opts(
+            other_sender,
+            ViewPrivateOptions::new().with_additional_scopes([sender]),
+            registry.get_app_siloed_secret(sender, recipient),
+        )
+        .expect(f"handshake secret should be present for other caller");
+
+    assert(sender_secret != other_sender_secret, "different callers should receive different siloed secrets");
+}
+
+#[test]
+unconstrained fn validate_handshake_accepts_secret_siloed_for_msg_sender() {
+    let (env, registry_address, sender, other_sender, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let other_sender_secret = env
+        .view_private_opts(
+            other_sender,
+            ViewPrivateOptions::new().with_additional_scopes([sender]),
+            registry.get_app_siloed_secret(sender, recipient),
+        )
+        .expect(f"handshake secret should be present for other caller");
+
+    env.call_private_opts(
+        other_sender,
+        CallPrivateOptions::new().with_additional_scopes([sender]),
+        registry.validate_handshake(sender, recipient, other_sender_secret),
+    );
+}
+
+#[test(should_fail_with = "no matching handshake")]
+unconstrained fn validate_handshake_rejects_secret_siloed_for_different_msg_sender() {
+    let (env, registry_address, sender, other_sender, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let sender_secret =
+        env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+
+    env.call_private_opts(
+        other_sender,
+        CallPrivateOptions::new().with_additional_scopes([sender]),
+        registry.validate_handshake(sender, recipient, sender_secret),
+    );
+}
+
+// Tampering with the returned secret must not validate. `+ 1` on a Field is guaranteed to produce a
+// different value.
+#[test(should_fail_with = "no matching handshake")]
+unconstrained fn validate_handshake_rejects_wrong_secret() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let secret =
+        env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+
+    env.call_private(sender, registry.validate_handshake(sender, recipient, secret + 1));
+}
+
+#[test(should_fail_with = "no matching handshake")]
+unconstrained fn validate_handshake_panics_when_no_handshake() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    env.call_private(sender, registry.validate_handshake(sender, recipient, 1));
+}
+
+#[test(should_fail_with = "no matching handshake")]
+unconstrained fn validate_handshake_rejects_zero_padded_secret_without_matching_note() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+    let zero_padded_secret = compute_app_siloed_shared_secret(
+        Point { x: 0, y: 0, is_infinite: false },
+        sender,
+    );
+
+    env.call_private(sender, registry.validate_handshake(sender, recipient, zero_padded_secret));
+}
+
+// Regression for the unfiltered-page bug: insert 16 unrelated handshakes (different recipients) before
+// the target. Without DB-side `select`, the matching note for `target_recipient` falls outside the 16-note
+// page returned to `validate_handshake` and validation spuriously fails.
+#[test]
+unconstrained fn validate_handshake_finds_match_past_first_page() {
+    let mut env = TestEnvironment::new();
+    let sender = env.create_light_account();
+    let registry_address = env.deploy("HandshakeRegistry").without_initializer();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    for _ in 0..16 {
+        let noise_recipient = env.create_light_account();
+        let _ = env.call_private(sender, registry.non_interactive_handshake(sender, noise_recipient));
+    }
+
+    let target_recipient = env.create_light_account();
+    let target_secret =
+        env.call_private(sender, registry.non_interactive_handshake(sender, target_recipient));
+
+    env.call_private(sender, registry.validate_handshake(sender, target_recipient, target_secret));
+}
+
+// Regression for unfiltered-page retrieval. Without DB-side `select`, the matching note for `target_recipient`
+// falls outside the 16-note page returned to `get_app_siloed_secret`.
+#[test]
+unconstrained fn get_app_siloed_secret_finds_match_past_first_page() {
+    let mut env = TestEnvironment::new();
+    let sender = env.create_light_account();
+    let registry_address = env.deploy("HandshakeRegistry").without_initializer();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    for _ in 0..16 {
+        let noise_recipient = env.create_light_account();
+        let _ = env.call_private(sender, registry.non_interactive_handshake(sender, noise_recipient));
+    }
+
+    let target_recipient = env.create_light_account();
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, target_recipient));
+
+    assert(
+        env.view_private(sender, registry.get_app_siloed_secret(sender, target_recipient)).is_some(),
+    );
 }

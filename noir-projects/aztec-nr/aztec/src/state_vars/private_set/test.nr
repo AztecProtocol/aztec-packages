@@ -1,13 +1,21 @@
 use crate::{
     context::{PrivateContext, UtilityContext},
-    note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
+    note::{
+        note_getter_options::{NoteGetterOptions, PropertySelector, SortOrder},
+        note_viewer_options::NoteViewerOptions,
+    },
+    protocol::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
     state_vars::{OwnedStateVariable, private_set::PrivateSet},
+    utils::comparison::Comparator,
 };
-use crate::protocol::address::AztecAddress;
 use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 
 global STORAGE_SLOT: Field = 17;
 global VALUE: Field = 23;
+
+fn mock_note_value_selector() -> PropertySelector {
+    PropertySelector { index: 0, offset: 0, length: 32 }
+}
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
     let mut env = TestEnvironment::new();
@@ -37,6 +45,51 @@ unconstrained fn get_empty() {
         assert_eq(notes.len(), 0);
 
         assert_eq(state_var.context.note_hash_read_requests.len(), 0);
+    });
+}
+
+#[test]
+unconstrained fn get_notes_post_query_filtering_sees_beyond_the_limited_page() {
+    let (env, owner) = setup();
+    let target = MAX_NOTE_HASH_READ_REQUESTS_PER_CALL as Field;
+
+    for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+        let note_message = env.private_context(|context| {
+            let state_var = in_private(context, owner);
+            state_var.insert(MockNote::new(i as Field).build_note())
+        });
+        env.discover_note(note_message);
+    }
+
+    let target_note_message = env.private_context(|context| {
+        let state_var = in_private(context, owner);
+        state_var.insert(MockNote::new(target).build_note())
+    });
+    env.discover_note(target_note_message);
+
+    env.private_context(|context| {
+        let state_var = in_private(context, owner);
+
+        let selected = state_var.get_notes(
+            NoteGetterOptions::new().select(mock_note_value_selector(), Comparator.EQ, target),
+        );
+        assert_eq(selected.len(), 1);
+        assert_eq(selected.get(0).note.value, target);
+    });
+
+    env.private_context(|context| {
+        let state_var = in_private(context, owner);
+        let unfiltered = state_var.get_notes(
+            NoteGetterOptions::new().sort(mock_note_value_selector(), SortOrder.ASC),
+        );
+
+        let mut found = false;
+        for i in 0..MAX_NOTE_HASH_READ_REQUESTS_PER_CALL {
+            if (i < unfiltered.len()) & (unfiltered.get_unchecked(i).note.value == target) {
+                found = true;
+            }
+        }
+        assert(found, "local filtering should find the target note");
     });
 }
 
