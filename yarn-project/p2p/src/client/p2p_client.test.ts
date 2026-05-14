@@ -454,11 +454,11 @@ describe('P2P Client', () => {
 
       txPool.hasTxs.mockResolvedValue([true, false, true]);
       blockSource.addProposedBlocks([block]);
-      txCollection.startCollecting.mockClear();
+      txCollection.collectFastForBlock.mockClear();
       await client.sync();
 
-      expect(txCollection.startCollecting).toHaveBeenCalledTimes(1);
-      const [actualBlock, actualTxHashes] = txCollection.startCollecting.mock.calls[0];
+      expect(txCollection.collectFastForBlock).toHaveBeenCalledTimes(1);
+      const [actualBlock, actualTxHashes] = txCollection.collectFastForBlock.mock.calls[0];
       expect(actualBlock.number).toEqual(block.number);
       expect(await actualBlock.hash()).toEqual(await block.hash());
       expect(actualTxHashes).toEqual([block.body.txEffects[1].txHash]);

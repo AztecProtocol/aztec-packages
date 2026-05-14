@@ -16,7 +16,7 @@ import type { TxSourceCollectionResult } from './tx_source.js';
 export type TxAddContext = { type: 'proposal'; blockHeader: BlockHeader } | { type: 'mined'; block: L2Block };
 
 /**
- * Executes collection requests from the fast and slow collection loops, and handles collected txs
+ * Executes collection requests from fast collection paths, and handles collected txs
  * by adding them to the tx pool and emitting events, as well as handling logging and metrics.
  */
 export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitter<TxPoolV2Events>) {
@@ -101,7 +101,7 @@ export class TxCollectionSink extends (EventEmitter as new () => TypedEventEmitt
     // Report metrics for the collection
     this.instrumentation.increaseTxsFor(info.method, txs.length, info.duration);
 
-    // Mark txs as found in the slow missing txs set and all fast requests
+    // Mark txs as found in all in-flight collection requests
     this.emit('txs-added', { txs });
 
     // Add the txs to the tx pool using the appropriate method based on context

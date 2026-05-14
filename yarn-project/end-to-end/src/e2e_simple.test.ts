@@ -53,7 +53,7 @@ describe('e2e_simple', () => {
     afterAll(() => teardown());
 
     it('returns initial block data', async () => {
-      const initialHeader = await aztecNode.getBlockHeader(BlockNumber.ZERO);
+      const initialHeader = (await aztecNode.getBlockData(BlockNumber.ZERO))?.header;
       expect(initialHeader).toBeDefined();
       const initialHeaderHash = await initialHeader!.hash();
       const initialBlockByHash = await aztecNode.getBlock(initialHeaderHash, { includeTransactions: true });

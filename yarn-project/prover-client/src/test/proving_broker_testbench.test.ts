@@ -3,12 +3,17 @@
  *
  * These benchmarks test the KV database (production configuration) for realistic performance metrics.
  */
-import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
+import {
+  type L1ContractAddresses,
+  L1ContractsNames,
+  randomL1ContractAddresses,
+} from '@aztec/ethereum/l1-contract-addresses';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 // import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
+import { emptyChainConfig } from '@aztec/stdlib/config';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { mkdtemp, rm } from 'fs/promises';
@@ -27,11 +32,10 @@ const benchTimer = new Timer();
 async function createKVDatabase(l1Contracts?: L1ContractAddresses) {
   const directory = await mkdtemp(join(tmpdir(), 'proving-broker-bench'));
   const database = await KVBrokerDatabase.new({
+    ...emptyChainConfig,
     ...defaultProverBrokerConfig,
     dataDirectory: directory,
-    l1Contracts:
-      l1Contracts ??
-      (Object.fromEntries(L1ContractsNames.map(name => [name, EthAddress.random()])) as L1ContractAddresses),
+    ...(l1Contracts ?? randomL1ContractAddresses()),
   });
   return { database, directory };
 }
@@ -602,9 +606,10 @@ describe('Proving Broker: Benchmarks', () => {
     const initStart = timer.ms();
 
     databaseHandle = await KVBrokerDatabase.new({
+      ...emptyChainConfig,
       ...defaultProverBrokerConfig,
       dataDirectory: tempDirectory,
-      l1Contracts: l1Contracts,
+      ...l1Contracts,
     });
 
     // Create new broker instance and measure startup time

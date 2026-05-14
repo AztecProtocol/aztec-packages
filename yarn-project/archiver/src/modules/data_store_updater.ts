@@ -74,9 +74,9 @@ export class ArchiverDataStoreUpdater {
         this.addContractDataToDb(block),
       ]);
 
-      await this.l2TipsCache?.refresh();
       return opResults.every(Boolean);
     });
+    await this.l2TipsCache?.refresh();
     return result;
   }
 
@@ -144,18 +144,17 @@ export class ArchiverDataStoreUpdater {
           : undefined,
       ]);
 
-      await this.l2TipsCache?.refresh();
       return { prunedBlocks, lastAlreadyInsertedBlockNumber };
     });
+    await this.l2TipsCache?.refresh();
     return result;
   }
 
   public async addProposedCheckpoint(proposedCheckpoint: ProposedCheckpointInput) {
     const result = await this.stores.db.transactionAsync(async () => {
       await this.stores.blocks.addProposedCheckpoint(proposedCheckpoint);
-      await this.l2TipsCache?.refresh();
     });
-
+    await this.l2TipsCache?.refresh();
     return result;
   }
 
@@ -256,9 +255,9 @@ export class ArchiverDataStoreUpdater {
       // Clear all pending proposed checkpoints since their blocks have been pruned
       await this.stores.blocks.deleteProposedCheckpoints();
 
-      await this.l2TipsCache?.refresh();
       return result;
     });
+    await this.l2TipsCache?.refresh();
     return result;
   }
 
@@ -289,7 +288,7 @@ export class ArchiverDataStoreUpdater {
    * @returns True if the operation is successful.
    */
   public async removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<boolean> {
-    return await this.stores.db.transactionAsync(async () => {
+    const result = await this.stores.db.transactionAsync(async () => {
       const { blocksRemoved = [] } = await this.stores.blocks.removeCheckpointsAfter(checkpointNumber);
 
       const opResults = await Promise.all([
@@ -300,9 +299,10 @@ export class ArchiverDataStoreUpdater {
         this.stores.logs.deleteLogs(blocksRemoved),
       ]);
 
-      await this.l2TipsCache?.refresh();
       return opResults.every(Boolean);
     });
+    await this.l2TipsCache?.refresh();
+    return result;
   }
 
   /**
@@ -312,8 +312,8 @@ export class ArchiverDataStoreUpdater {
   public async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
     await this.stores.db.transactionAsync(async () => {
       await this.stores.blocks.setProvenCheckpointNumber(checkpointNumber);
-      await this.l2TipsCache?.refresh();
     });
+    await this.l2TipsCache?.refresh();
   }
 
   /**
@@ -323,8 +323,8 @@ export class ArchiverDataStoreUpdater {
   public async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
     await this.stores.db.transactionAsync(async () => {
       await this.stores.blocks.setFinalizedCheckpointNumber(checkpointNumber);
-      await this.l2TipsCache?.refresh();
     });
+    await this.l2TipsCache?.refresh();
   }
 
   /** Extracts and stores contract data from a single block. */

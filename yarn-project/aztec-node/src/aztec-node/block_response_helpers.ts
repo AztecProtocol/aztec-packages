@@ -1,6 +1,11 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type BlockData, type CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
-import type { CheckpointData, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type {
+  CheckpointData,
+  L1PublishedData,
+  ProposedCheckpointData,
+  PublishedCheckpoint,
+} from '@aztec/stdlib/checkpoint';
 import {
   type BlockIncludeOptions,
   type BlockResponse,
@@ -111,6 +116,46 @@ export function checkpointResponseFromCheckpointData(
   }
   if (options.includeAttestations) {
     (response as CheckpointResponse).attestations = cd.attestations;
+  }
+  return response;
+}
+
+/**
+ * Projects a {@link ProposedCheckpointData} into a {@link CheckpointResponse}.
+ * Pure projection — caller pre-fetches `blocks` via `blockSource.getBlocks(...)` when
+ * `options.includeBlocks` is true. Throws if `includeL1PublishInfo` or `includeAttestations`
+ * is requested (proposed checkpoints have no L1 publish info or attestations).
+ */
+export async function projectProposedToCheckpointResponse(
+  proposed: ProposedCheckpointData,
+  options: CheckpointIncludeOptions,
+  blocks?: L2Block[],
+): Promise<CheckpointResponse> {
+  if (options.includeL1PublishInfo || options.includeAttestations) {
+    throw new Error('Proposed checkpoints have no L1 publish info or attestations');
+  }
+  const response: CheckpointResponse = {
+    number: proposed.checkpointNumber,
+    header: proposed.header,
+    archive: proposed.archive,
+    checkpointOutHash: proposed.checkpointOutHash,
+    startBlock: proposed.startBlock,
+    blockCount: proposed.blockCount,
+    feeAssetPriceModifier: proposed.feeAssetPriceModifier,
+  };
+  if (options.includeBlocks) {
+    if (!blocks) {
+      throw new Error('Blocks must be supplied when includeBlocks is true');
+    }
+    (response as CheckpointResponse).blocks = await Promise.all(
+      blocks.map(block =>
+        blockResponseFromL2Block(block, {
+          includeTransactions: options.includeTransactions,
+          includeL1PublishInfo: false,
+          includeAttestations: false,
+        }),
+      ),
+    );
   }
   return response;
 }
