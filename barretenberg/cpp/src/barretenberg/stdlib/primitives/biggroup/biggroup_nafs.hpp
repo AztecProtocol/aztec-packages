@@ -216,6 +216,12 @@ std::pair<Fr, typename element<C, Fq, Fr, G>::secp256k1_wnaf> element<C, Fq, Fr,
     // Initialize stagger witness
     field_ct stagger_fragment = witness_ct(builder, first_fragment);
 
+    // When stagger == 0 the fragment is structurally 0 (see `get_staggered_wnaf_fragment_value`) and is likely
+    // never consumed downstream.
+    if (stagger == 0) {
+        stagger_fragment.assert_equal(0, "biggroup_nafs: stagger fragment must be 0 when stagger == 0");
+    }
+
     // We only range constrain the stagger fragment if range_constrain_wnaf is set. This is because in some cases
     // we may use the stagger fragment to lookup in a ROM/regular table, which implicitly enforces the range constraint.
     if (range_constrain_wnaf) {

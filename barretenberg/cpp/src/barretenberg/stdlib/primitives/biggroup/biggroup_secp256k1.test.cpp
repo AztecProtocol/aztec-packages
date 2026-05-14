@@ -375,15 +375,17 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
     }
 
     /**
-     * @brief Pins the invariant that `secp256k1_ecdsa_mul` constrains the unused `u2_lo` stagger fragment to 0.
+     * @brief Pins the invariant that `compute_secp256k1_single_wnaf` constrains the stagger fragment to 0 whenever
+     * `stagger == 0`.
      *
-     * Mirrors the `compute_secp256k1_endo_wnaf<4, 0, 1>` + `assert_equal(0)` sequence from `secp256k1_ecdsa_mul`,
-     * confirms the honest fragment is 0, and verifies that tampering with the witness causes the circuit to be
-     * rejected by `CircuitChecker::check`.
+     * The constraint lives in `compute_secp256k1_single_wnaf` itself because for `stagger == 0`
+     * the fragment has no downstream ROM/table consumer to anchor it implicitly. Verifies
+     * both that the honest fragment is 0 across the two `stagger == 0` half-positions, and that overwriting the
+     * fragment witness post-hoc causes `CircuitChecker::check` to reject the circuit.
      */
     static void test_secp256k1_ecdsa_mul_u2_lo_stagger_fragment_constrained()
     {
-        // Honest case: the u2_lo fragment is identically 0 in all stagger configurations.
+        // Honest case: the fragment is identically 0 whenever a half has stagger == 0.
         {
             Builder builder = Builder();
             scalar_ct scalar = scalar_ct::from_witness(&builder, fr::random_element());
@@ -399,18 +401,15 @@ template <typename Curve> class stdlibBiggroupSecp256k1 : public testing::Test {
             EXPECT_CIRCUIT_CORRECTNESS(builder);
         }
 
-        // Tampering case: reproduce the exact sequence from `secp256k1_ecdsa_mul`, then overwrite the fragment
-        // witness and verify the assertion rejects it. `BB_DISABLE_ASSERTS` lets us call `set_variable` outside
-        // of vk-write mode.
+        // Tampering case: build the same wnaf as `secp256k1_ecdsa_mul` does, then overwrite the u2_lo fragment
+        // witness directly and verify the source-level assertion rejects it. `BB_DISABLE_ASSERTS` lets us call
+        // `set_variable` outside of vk-write mode.
         {
             BB_DISABLE_ASSERTS();
             Builder builder = Builder();
             scalar_ct scalar = scalar_ct::from_witness(&builder, fr::random_element());
 
             const auto pair = element_ct::template compute_secp256k1_endo_wnaf<4, 0, 1>(scalar, false);
-            pair.klo.least_significant_wnaf_fragment.assert_equal(
-                0, "secp256k1_ecdsa_mul: u2_lo stagger fragment must be 0");
-
             EXPECT_TRUE(CircuitChecker::check(builder));
 
             const uint32_t fragment_idx = pair.klo.least_significant_wnaf_fragment.get_witness_index();
