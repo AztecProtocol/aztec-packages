@@ -1,6 +1,7 @@
 import { EpochCache } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type InvalidCheckpointDetectedEvent,
@@ -8,7 +9,6 @@ import {
   L2BlockSourceEvents,
   type ValidateCheckpointNegativeResult,
 } from '@aztec/stdlib/block';
-import type { CheckpointInfo } from '@aztec/stdlib/checkpoint';
 import { OffenseType } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';
@@ -20,6 +20,7 @@ const AttestationsBlockWatcherConfigKeys = [
   'slashAttestDescendantOfInvalidPenalty',
   'slashProposeInvalidAttestationsPenalty',
 ] as const;
+const MAX_INVALID_CHECKPOINTS = 100;
 
 type AttestationsBlockWatcherConfig = Pick<SlasherConfig, (typeof AttestationsBlockWatcherConfigKeys)[number]>;
 
@@ -32,11 +33,8 @@ type AttestationsBlockWatcherConfig = Pick<SlasherConfig, (typeof AttestationsBl
 export class AttestationsBlockWatcher extends (EventEmitter as new () => WatcherEmitter) implements Watcher {
   private log: Logger = createLogger('attestations-block-watcher');
 
-  // Only keep track of the last N invalid checkpoints
-  private maxInvalidCheckpoints = 100;
-
-  // All invalid archive roots seen
-  private invalidArchiveRoots: Set<string> = new Set();
+  // Recently seen invalid archive roots.
+  private invalidArchiveRoots = FifoSet.withLimit<string>(MAX_INVALID_CHECKPOINTS);
 
   private config: AttestationsBlockWatcherConfig;
 
@@ -98,8 +96,7 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
       reason: validationResult.valid === false ? validationResult.reason : 'unknown',
     });
 
-    // Store the invalid checkpoint
-    this.addInvalidCheckpoint(event.validationResult.checkpoint);
+    this.invalidArchiveRoots.add(checkpoint.archive.toString());
 
     // Slash the proposer of the invalid checkpoint
     this.slashProposer(event.validationResult);
@@ -179,16 +176,6 @@ export class AttestationsBlockWatcher extends (EventEmitter as new () => Watcher
         const _: never = reason;
         return OffenseType.UNKNOWN;
       }
-    }
-  }
-
-  private addInvalidCheckpoint(checkpoint: CheckpointInfo) {
-    this.invalidArchiveRoots.add(checkpoint.archive.toString());
-
-    // Prune old entries if we exceed the maximum
-    if (this.invalidArchiveRoots.size > this.maxInvalidCheckpoints) {
-      const oldestKey = this.invalidArchiveRoots.keys().next().value!;
-      this.invalidArchiveRoots.delete(oldestKey);
     }
   }
 }

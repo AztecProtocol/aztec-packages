@@ -5,6 +5,7 @@ import { CheckpointNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type LogData, type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
@@ -122,11 +123,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   /** Tracks the last epoch in which each attester successfully submitted at least one attestation. */
   private lastAttestedEpochByAttester: Map<string, EpochNumber> = new Map();
 
-  private proposersOfInvalidBlocks: Set<string> = new Set();
-  private slotsWithInvalidBlockProposals: Set<string> = new Set();
-  private invalidCheckpointProposalOffenseKeys: Set<string> = new Set();
-  private slotsWithProposalEquivocation: Set<string> = new Set();
-  private badAttestationOffenseKeys: Set<string> = new Set();
+  private proposersOfInvalidBlocks = FifoSet.withLimit<string>(MAX_PROPOSERS_OF_INVALID_BLOCKS);
+  private slotsWithInvalidBlockProposals = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+  private invalidCheckpointProposalOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS);
+  private slotsWithProposalEquivocation = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+  private badAttestationOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_BAD_ATTESTATIONS);
 
   /** Tracks the last checkpoint proposal we attested to, to prevent equivocation. */
   private lastAttestedProposal?: CheckpointProposalCore;
@@ -742,12 +743,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return;
     }
 
-    // Trim the set if it's too big.
-    if (this.proposersOfInvalidBlocks.size > MAX_PROPOSERS_OF_INVALID_BLOCKS) {
-      // remove oldest proposer. `values` is guaranteed to be in insertion order.
-      this.proposersOfInvalidBlocks.delete(this.proposersOfInvalidBlocks.values().next().value!);
-    }
-
     this.proposersOfInvalidBlocks.add(proposer.toString());
 
     this.emit(WANT_TO_SLASH_EVENT, [
@@ -793,13 +788,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     const offenseType = OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL;
     const offenseKey = `${proposer.toString()}:${offenseType}:${this.getSlotKey(proposal.slotNumber)}`;
-    if (
-      !this.addToBoundedSet(
-        this.invalidCheckpointProposalOffenseKeys,
-        offenseKey,
-        MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS,
-      )
-    ) {
+    if (!this.invalidCheckpointProposalOffenseKeys.addIfAbsent(offenseKey)) {
       return false;
     }
 
@@ -816,7 +805,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private markInvalidProposalSlot(slotNumber: SlotNumber): void {
     const slotKey = this.getSlotKey(slotNumber);
-    this.addToBoundedSet(this.slotsWithInvalidBlockProposals, slotKey, MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+    this.slotsWithInvalidBlockProposals.add(slotKey);
   }
 
   private handleCheckpointAttestation(attestation: CheckpointAttestation): void {
@@ -844,7 +833,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     }
 
     const offenseKey = `${this.getSlotKey(slotNumber)}:${attester.toString()}`;
-    if (!this.addToBoundedSet(this.badAttestationOffenseKeys, offenseKey, MAX_TRACKED_BAD_ATTESTATIONS)) {
+    if (!this.badAttestationOffenseKeys.addIfAbsent(offenseKey)) {
       return;
     }
 
@@ -870,7 +859,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private handleDuplicateProposal(info: DuplicateProposalInfo): void {
     const { slot, proposer, type } = info;
     const slotKey = this.getSlotKey(slot);
-    this.addToBoundedSet(this.slotsWithProposalEquivocation, slotKey, MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+    this.slotsWithProposalEquivocation.add(slotKey);
 
     this.log.warn(`Triggering slash event for duplicate ${type} proposal from ${proposer.toString()} at slot ${slot}`, {
       proposer: proposer.toString(),
@@ -920,17 +909,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
   private getSlotKey(slot: SlotNumber): string {
     return slot.toString();
-  }
-
-  private addToBoundedSet(set: Set<string>, value: string, maxSize: number): boolean {
-    if (set.has(value)) {
-      return false;
-    }
-    if (set.size >= maxSize) {
-      set.delete(set.values().next().value!);
-    }
-    set.add(value);
-    return true;
   }
 
   async createBlockProposal(
