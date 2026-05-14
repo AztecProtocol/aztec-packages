@@ -9,6 +9,7 @@ import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
+import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { expectMapping } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
@@ -31,7 +32,7 @@ describe('e2e_fees private_payment', () => {
   const t = new FeesTest('private_payment');
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
     ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } = t);

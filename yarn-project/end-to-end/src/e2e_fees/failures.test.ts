@@ -16,7 +16,7 @@ import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { PIPELINING_SETUP_OPTS, U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
@@ -37,7 +37,7 @@ describe('e2e_fees failures', () => {
   const t = new FeesTest('failures', 3, { coinbase });
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     await t.applyFPCSetup();
     ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = t);
     aztecNode = t.aztecNode;

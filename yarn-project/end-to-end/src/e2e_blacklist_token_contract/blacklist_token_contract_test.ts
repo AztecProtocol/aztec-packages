@@ -14,7 +14,14 @@ import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
-import { type EndToEndContext, deployAccounts, publicDeployAccounts, setup, teardown } from '../fixtures/setup.js';
+import {
+  type EndToEndContext,
+  type SetupOptions,
+  deployAccounts,
+  publicDeployAccounts,
+  setup,
+  teardown,
+} from '../fixtures/setup.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
@@ -140,9 +147,10 @@ export class BlacklistTokenContractTest {
     ).toEqual(new Role().withAdmin().toNoirStruct());
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up fresh context');
     this.context = await setup(0, {
+      ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
     });

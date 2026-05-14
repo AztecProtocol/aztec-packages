@@ -104,13 +104,14 @@ export class FeesTest {
     this.logger = createLogger(`e2e:e2e_fees:${testName}`);
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.verbose('Setting up fresh context...');
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
     const tokenAllowList = await getTokenAllowedSetupFunctions();
     this.context = await setup(0, {
       startProverNode: true,
       ...this.setupOptions,
+      ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
       l1ContractsArgs: { ...this.setupOptions },

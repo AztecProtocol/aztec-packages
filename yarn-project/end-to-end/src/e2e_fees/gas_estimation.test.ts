@@ -19,7 +19,7 @@ import {
 import { jest } from '@jest/globals';
 import { inspect } from 'util';
 
-import { getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
+import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
 import { FeesTest } from './fees_test.js';
 
 /**
@@ -67,7 +67,7 @@ describe('e2e_fees gas_estimation', () => {
   const t = new FeesTest('gas_estimation');
 
   beforeAll(async () => {
-    await t.setup();
+    await t.setup({ ...PIPELINING_SETUP_OPTS });
     await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
     ({ wallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger, aztecNode } = t);

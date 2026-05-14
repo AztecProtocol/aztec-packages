@@ -9,7 +9,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { type EndToEndContext, deployAccounts, setup, teardown } from '../fixtures/setup.js';
+import { type EndToEndContext, type SetupOptions, deployAccounts, setup, teardown } from '../fixtures/setup.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 export class DeployTest {
@@ -24,9 +24,10 @@ export class DeployTest {
     this.logger = createLogger(`e2e:e2e_deploy_contract:${testName}`);
   }
 
-  async setup() {
+  async setup(opts: Partial<SetupOptions> = {}) {
     this.logger.info('Setting up test environment');
     this.context = await setup(0, {
+      ...opts,
       fundSponsoredFPC: true,
       skipAccountDeployment: true,
     });
