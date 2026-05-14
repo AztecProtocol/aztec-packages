@@ -4,14 +4,14 @@ use crate::{
 };
 
 use crate::protocol::{
-    abis::function_selector::FunctionSelector,
+    abis::{function_selector::FunctionSelector, gas_settings::GasSettings},
     address::AztecAddress,
     constants::{
-        CONTRACT_INSTANCE_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_LOGS_PER_TX,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
+        CONTRACT_INSTANCE_LENGTH, GAS_SETTINGS_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
+        MAX_PRIVATE_LOGS_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS,
     },
     contract_instance::ContractInstance,
-    traits::{Deserialize, ToField},
+    traits::{Deserialize, Serialize, ToField},
 };
 
 /// The TXE oracle version constants are used to check that the oracle interface used for tests is in sync between
@@ -61,6 +61,7 @@ pub unconstrained fn private_call_new_flow<let M: u32, let N: u32, let S: u32, l
     is_static_call: bool,
     additional_scopes: [AztecAddress; S],
     authorized_utility_call_targets: [AztecAddress; T],
+    gas_settings: GasSettings,
 ) -> [Field; N] {
     private_call_new_flow_oracle(
         from,
@@ -71,6 +72,7 @@ pub unconstrained fn private_call_new_flow<let M: u32, let N: u32, let S: u32, l
         is_static_call,
         additional_scopes,
         authorized_utility_call_targets,
+        gas_settings.serialize(),
     )
 }
 
@@ -80,10 +82,29 @@ pub unconstrained fn public_call_new_flow<let M: u32, let N: u32>(
     function_selector: FunctionSelector,
     args: [Field; M],
     is_static_call: bool,
+    gas_settings: GasSettings,
 ) -> [Field; N] {
     let calldata = [function_selector.to_field()].concat(args);
 
-    public_call_new_flow_oracle(from, contract_address, calldata, is_static_call)
+    public_call_new_flow_oracle(
+        from,
+        contract_address,
+        calldata,
+        is_static_call,
+        gas_settings.serialize(),
+    )
+}
+
+pub unconstrained fn set_private_txe_context(
+    contract_address: Option<AztecAddress>,
+    anchor_block_number: Option<u32>,
+    gas_settings: GasSettings,
+) -> PrivateContextInputs {
+    set_private_txe_context_oracle(
+        contract_address,
+        anchor_block_number,
+        gas_settings.serialize(),
+    )
 }
 
 pub unconstrained fn execute_utility_function<let M: u32, let N: u32, let T: u32>(
@@ -242,6 +263,7 @@ unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32, let S: u32
     _is_static_call: bool,
     _additional_scopes: [AztecAddress; S],
     _authorized_utility_call_targets: [AztecAddress; T],
+    _gas_settings: [Field; GAS_SETTINGS_LENGTH],
 ) -> [Field; N] {}
 
 #[oracle(aztec_txe_publicCallNewFlow)]
@@ -250,6 +272,7 @@ unconstrained fn public_call_new_flow_oracle<let M: u32, let N: u32>(
     contract_address: AztecAddress,
     calldata: [Field; M],
     is_static_call: bool,
+    gas_settings: [Field; GAS_SETTINGS_LENGTH],
 ) -> [Field; N] {}
 
 #[oracle(aztec_txe_executeUtilityFunction)]
@@ -264,9 +287,10 @@ unconstrained fn execute_utility_function_oracle<let M: u32, let N: u32, let T: 
 pub unconstrained fn set_top_level_txe_context() {}
 
 #[oracle(aztec_txe_setPrivateTXEContext)]
-pub unconstrained fn set_private_txe_context(
-    contract_address: Option<AztecAddress>,
-    anchor_block_number: Option<u32>,
+unconstrained fn set_private_txe_context_oracle(
+    _contract_address: Option<AztecAddress>,
+    _anchor_block_number: Option<u32>,
+    _gas_settings: [Field; GAS_SETTINGS_LENGTH],
 ) -> PrivateContextInputs {}
 
 #[oracle(aztec_txe_setPublicTXEContext)]

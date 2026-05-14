@@ -1,5 +1,10 @@
 use crate::oracle::nullifiers::check_nullifier_exists;
-use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField};
+use crate::protocol::{
+    abis::{function_selector::FunctionSelector, gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
+    address::AztecAddress,
+    constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS},
+    traits::FromField,
+};
 use crate::test::helpers::test_environment::{PrivateContextOptions, TestEnvironment};
 
 #[test]
@@ -34,6 +39,74 @@ unconstrained fn opts_sets_contract_address_and_anchor_block_number() {
             assert_eq(context.get_anchor_block_header().block_number(), anchor_block_number);
         },
     );
+}
+
+#[test]
+unconstrained fn default_gas_settings_match_protocol_max() {
+    let env = TestEnvironment::new();
+
+    env.private_context(|context| {
+        let gas_settings = context.gas_settings();
+        assert_eq(
+            gas_settings.gas_limits,
+            Gas::new(
+                MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
+                MAX_PROCESSABLE_L2_GAS,
+            ),
+        );
+        assert_eq(
+            gas_settings.teardown_gas_limits,
+            Gas::new(
+                MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT / 8,
+                MAX_PROCESSABLE_L2_GAS / 8,
+            ),
+        );
+        assert_eq(gas_settings.max_fees_per_gas, GasFees::new(0, 0));
+        assert_eq(gas_settings.max_priority_fees_per_gas, GasFees::new(0, 0));
+    });
+}
+
+#[test]
+unconstrained fn opts_sets_individual_gas_fields() {
+    let env = TestEnvironment::new();
+
+    let gas_limits = Gas::new(123_456, 789_012);
+    let teardown_gas_limits = Gas::new(1_111, 2_222);
+    let max_fees_per_gas = GasFees::new(7, 11);
+    let max_priority_fees_per_gas = GasFees::new(3, 5);
+
+    env.private_context_opts(PrivateContextOptions::new().with_gas_limits(gas_limits), |context| {
+        assert_eq(context.gas_settings().gas_limits, gas_limits);
+    });
+
+    env.private_context_opts(PrivateContextOptions::new().with_teardown_gas_limits(teardown_gas_limits), |context| {
+        assert_eq(context.gas_settings().teardown_gas_limits, teardown_gas_limits);
+    });
+
+    env.private_context_opts(PrivateContextOptions::new().with_max_fees_per_gas(max_fees_per_gas), |context| {
+        assert_eq(context.gas_settings().max_fees_per_gas, max_fees_per_gas);
+    });
+
+    env.private_context_opts(
+        PrivateContextOptions::new().with_max_priority_fees_per_gas(max_priority_fees_per_gas),
+        |context| { assert_eq(context.gas_settings().max_priority_fees_per_gas, max_priority_fees_per_gas); },
+    );
+}
+
+#[test]
+unconstrained fn opts_with_gas_settings_sets_all_fields() {
+    let env = TestEnvironment::new();
+
+    let gas_settings = GasSettings::new(
+        Gas::new(123_456, 789_012),
+        Gas::new(1_111, 2_222),
+        GasFees::new(7, 11),
+        GasFees::new(3, 5),
+    );
+
+    env.private_context_opts(PrivateContextOptions::new().with_gas_settings(gas_settings), |context| {
+        assert_eq(context.gas_settings(), gas_settings);
+    });
 }
 
 #[test]
