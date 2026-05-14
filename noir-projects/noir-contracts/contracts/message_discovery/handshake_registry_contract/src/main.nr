@@ -83,6 +83,7 @@ pub contract HandshakeRegistry {
         );
         //
         //
+        //
         // TODO(https://linear.app/aztec-labs/issue/F-653/route-handshake-log-through-do-private-message-delivery-to-preserve):
         // Encrypt `eph_ph.x` to keep the log private
         self.context.emit_private_log_vec_unsafe(log_tag, BoundedVec::from_array([eph_pk.x]));
@@ -118,7 +119,8 @@ pub contract HandshakeRegistry {
     ///
     /// This is the existing-handshake retrieval surface for constrained delivery. It returns only `silo(S, caller)`,
     /// never raw `S`; a different caller receives a different app-siloed value for the same registry note. This is a
-    /// utility function because it is a local read helper. Contracts should still call `validate_handshake` when they
+    /// utility function because it is a local read helper. Contracts should still call
+    /// [HandshakeRegistry::validate_handshake] when they
     /// need a constrained proof that a supplied app-siloed secret matches the current handshake.
     #[external("utility")]
     unconstrained fn get_app_siloed_secret(

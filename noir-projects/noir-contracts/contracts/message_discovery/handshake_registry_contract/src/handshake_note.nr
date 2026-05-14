@@ -9,13 +9,6 @@ use aztec::{
 /// Stored in [`crate::HandshakeRegistry`]'s `handshakes` state. Holds the raw ECDH shared-secret point `S`. App
 /// contracts never see `S` directly: they call the registry's private surface, which
 /// silos `S` against the calling contract's address and hands back the app-siloed `Field`.
-///
-/// # Field order
-///
-/// TODO(https://linear.app/aztec-labs/issue/F-665): `secret: Point` is declared last because generated `#[note]`
-/// property selectors currently use declaration indexes
-/// rather than packed-field indexes for composite/custom-packed fields. Selecting a field declared after `secret`
-/// would use the wrong packed index.
 #[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
 pub struct HandshakeNote {
@@ -26,8 +19,7 @@ pub struct HandshakeNote {
     /// existence can bind the proof to the intended recipient.
     recipient: AztecAddress,
     /// The raw ECDH shared-secret point `S = eph_sk * recipient_address_point`. Only this module can read it for
-    /// siloing, and it is never returned by an external function. **Must remain the last field**, see the struct
-    /// doc comment.
+    /// siloing, and it is never returned by an external function.
     secret: Point,
 }
 
