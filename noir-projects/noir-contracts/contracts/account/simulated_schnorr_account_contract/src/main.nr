@@ -10,7 +10,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract SimulatedSchnorrAccount {
     use aztec::{
-        authwit::{account::AccountActions, common::IS_VALID_SELECTOR, entrypoint::app::AppPayload},
+        authwit::{account::AccountActions, entrypoint::app::AppPayload, utils::IS_VALID_SELECTOR},
         context::PrivateContext,
         macros::{functions::{allow_phase_change, external, view}, storage::storage},
         messages::encoding::MESSAGE_CIPHERTEXT_LEN,

@@ -9,8 +9,8 @@ use aztec::macros::aztec;
 pub contract Uniswap {
     use aztec::{
         authwit::{
-            common::compute_authwit_message_hash_from_call,
             public::{assert_current_call_valid_authwit_public, set_authorized},
+            utils::compute_authwit_message_hash_from_call,
         },
         macros::{functions::{external, initializer, only_self}, storage::storage},
         protocol::{abis::function_selector::FunctionSelector, address::{AztecAddress, EthAddress}, traits::ToField},
