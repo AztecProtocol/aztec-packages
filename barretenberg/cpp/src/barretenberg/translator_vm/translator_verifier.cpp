@@ -210,7 +210,7 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
         "Sumcheck:gate_challenge", TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
 
     // Receive commitments to Libra masking polynomials
-    std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
     libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);

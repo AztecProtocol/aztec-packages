@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
@@ -542,7 +543,7 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
 
     // Shplonk evaluation and batching challenges are re-used in SmallSubgroupIPA.
     if (has_zk) {
-        num_powers += NUM_SMALL_IPA_EVALUATIONS;
+        num_powers += NUM_SMALL_IPA_OPENING_CLAIMS;
     }
 
     // Commited sumcheck adds 3 claims per round.

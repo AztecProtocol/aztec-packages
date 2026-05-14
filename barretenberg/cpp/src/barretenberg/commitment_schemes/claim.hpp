@@ -161,4 +161,5 @@ template <typename Curve> struct BatchOpeningClaim {
     std::vector<Scalar> scalars;
     Scalar evaluation_point;
 };
+
 } // namespace bb

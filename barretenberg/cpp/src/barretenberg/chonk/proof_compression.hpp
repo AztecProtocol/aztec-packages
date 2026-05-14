@@ -173,7 +173,7 @@ class ProofCompressor {
             process_scalar();
         }
         // Small IPA evaluations (for sumcheck libra)
-        for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
+        for (size_t i = 0; i < NUM_SMALL_IPA_TRANSCRIPT_EVALS; i++) {
             process_scalar();
         }
         // Shplonk Q
@@ -192,7 +192,7 @@ class ProofCompressor {
         process_commitment();
         process_commitment();
         // Translation SmallSubgroupIPA evaluations
-        for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
+        for (size_t i = 0; i < NUM_SMALL_IPA_TRANSCRIPT_EVALS; i++) {
             process_scalar();
         }
         // Translation Shplonk Q
@@ -283,7 +283,7 @@ class ProofCompressor {
             process_scalar();
         }
         // Small IPA evaluations
-        for (size_t i = 0; i < NUM_SMALL_IPA_EVALUATIONS; i++) {
+        for (size_t i = 0; i < NUM_SMALL_IPA_TRANSCRIPT_EVALS; i++) {
             process_scalar();
         }
         // Shplonk Q + KZG W
@@ -347,13 +347,13 @@ class ProofCompressor {
         2 * GRUMPKIN_FRS_PER_COMM +                                                                         // libra grand sum + quotient
         (CONST_ECCVM_LOG_N - 1) * GRUMPKIN_FRS_PER_COMM +                                                  // gemini folds
         CONST_ECCVM_LOG_N * GRUMPKIN_FRS_PER_SCALAR +                                                       // gemini evals
-        NUM_SMALL_IPA_EVALUATIONS * GRUMPKIN_FRS_PER_SCALAR +                                               // small IPA evals
+        NUM_SMALL_IPA_TRANSCRIPT_EVALS * GRUMPKIN_FRS_PER_SCALAR +                                               // small IPA evals
         1 * GRUMPKIN_FRS_PER_COMM +                                                                         // shplonk Q
         1 * GRUMPKIN_FRS_PER_COMM +                                                                         // translator masking comm
         NUM_TRANSLATION_EVALUATIONS * GRUMPKIN_FRS_PER_SCALAR +                                             // translation evals
         1 * GRUMPKIN_FRS_PER_SCALAR +                                                                       // masking term eval
         2 * GRUMPKIN_FRS_PER_COMM +                                                                         // translation grand sum + quotient
-        NUM_SMALL_IPA_EVALUATIONS * GRUMPKIN_FRS_PER_SCALAR +                                               // translation small IPA evals
+        NUM_SMALL_IPA_TRANSCRIPT_EVALS * GRUMPKIN_FRS_PER_SCALAR +                                               // translation small IPA evals
         1 * GRUMPKIN_FRS_PER_COMM;                                                                          // translation shplonk Q
     static_assert(EXPECTED_ECCVM_FRS == ECCVMFlavor::PROOF_LENGTH);
 
@@ -389,7 +389,7 @@ class ProofCompressor {
         // Joint PCS
         (JOINT_LOG_N - 1) * BN254_FRS_PER_COMM +                                                                  // gemini folds
         JOINT_LOG_N * BN254_FRS_PER_SCALAR +                                                                       // gemini evals
-        NUM_SMALL_IPA_EVALUATIONS * BN254_FRS_PER_SCALAR +                                                         // small IPA evals
+        NUM_SMALL_IPA_TRANSCRIPT_EVALS * BN254_FRS_PER_SCALAR +                                                         // small IPA evals
         2 * BN254_FRS_PER_COMM;                                                                                    // shplonk Q + KZG W
     // Cross-check: walk-based count must match ChonkProof's structural constants
     static_assert(EXPECTED_HIDING_OINK_FRS + EXPECTED_MERGE_FRS + EXPECTED_ECCVM_FRS + EXPECTED_IPA_FRS +

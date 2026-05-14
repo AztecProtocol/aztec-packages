@@ -60,6 +60,12 @@ Fr constant SUBGROUP_GENERATOR_INVERSE = Fr.wrap(0x204bd3277422fad364751ad938e2b
 Fr constant MINUS_ONE = Fr.wrap(MODULUS - 1);
 Fr constant ONE = Fr.wrap(1);
 Fr constant ZERO = Fr.wrap(0);
+
+// SmallSubgroupIPA opening-claim layout — mirrors SMALL_IPA_CLAIMS in
+// barretenberg/cpp/src/barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp.
+uint256 constant NUM_SMALL_IPA_OPENING_CLAIMS = 5;
+uint256 constant SMALL_IPA_BOUNDARY_OPENING_IDX = 3;
+uint256 constant NUM_SMALL_IPA_TRANSCRIPT_EVALS = 4;
 // Instantiation
 
 library FrLib {
@@ -1471,8 +1477,8 @@ library CommitmentSchemeLib {
         Fr batchingChallenge;
         // Linear combination of multilinear (sumcheck) evaluations and powers of rho
         Fr batchedEvaluation;
-        Fr[4] denominators;
-        Fr[4] batchingScalars;
+        Fr[NUM_SMALL_IPA_OPENING_CLAIMS] denominators;
+        Fr[NUM_SMALL_IPA_OPENING_CLAIMS] batchingScalars;
         // 1/(z - r^{2^i}) for i = 0, ..., logSize, dynamically updated
         Fr posInvertedDenominator;
         // 1/(z + r^{2^i}) for i = 0, ..., logSize, dynamically updated
@@ -2174,21 +2180,41 @@ abstract contract BaseZKHonkVerifier is IVerifier {
 
         boundary += $LOG_N - 1;
 
-        // Finalize the batch opening claim
-        mem.denominators[0] = Fr.wrap(1).div(tp.shplonkZ - tp.geminiR);
-        mem.denominators[1] = Fr.wrap(1).div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
+        // Denominators 1/(z - point_i) for the five opening points {r, g*r, r, 1, r}.
+        mem.denominators[0] = ONE.div(tp.shplonkZ - tp.geminiR);
+        mem.denominators[1] = ONE.div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
         mem.denominators[2] = mem.denominators[0];
-        mem.denominators[3] = mem.denominators[0];
+        mem.denominators[SMALL_IPA_BOUNDARY_OPENING_IDX] = ONE.div(tp.shplonkZ - ONE);
+        mem.denominators[NUM_SMALL_IPA_OPENING_CLAIMS - 1] = mem.denominators[0];
 
-        for (uint256 i = 0; i < LIBRA_EVALUATIONS; i++) {
+        // Iterate the opening claims in three segments — the inner loops can't be merged without an extra induction
+        // variable, which pushes us into stack-too-deep.
+        for (uint256 i = 0; i < SMALL_IPA_BOUNDARY_OPENING_IDX; i++) {
             Fr scalingFactor = mem.denominators[i] * mem.batchingChallenge;
             mem.batchingScalars[i] = scalingFactor.neg();
             mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
             mem.constantTermAccumulator = mem.constantTermAccumulator + scalingFactor * proof.libraPolyEvals[i];
         }
+
+        // Boundary slot: claimed value is hardcoded 0, so no constantTermAccumulator contribution.
+        {
+            Fr scalingFactor = mem.denominators[SMALL_IPA_BOUNDARY_OPENING_IDX] * mem.batchingChallenge;
+            mem.batchingScalars[SMALL_IPA_BOUNDARY_OPENING_IDX] = scalingFactor.neg();
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+        }
+
+        for (uint256 i = SMALL_IPA_BOUNDARY_OPENING_IDX + 1; i < NUM_SMALL_IPA_OPENING_CLAIMS; i++) {
+            Fr scalingFactor = mem.denominators[i] * mem.batchingChallenge;
+            mem.batchingScalars[i] = scalingFactor.neg();
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+            mem.constantTermAccumulator = mem.constantTermAccumulator + scalingFactor * proof.libraPolyEvals[i - 1];
+        }
+
+        // Group per-claim batching scalars by commitment: [G], [A] (three openings), [Q].
         scalars[boundary] = mem.batchingScalars[0];
-        scalars[boundary + 1] = mem.batchingScalars[1] + mem.batchingScalars[2];
-        scalars[boundary + 2] = mem.batchingScalars[3];
+        scalars[boundary + 1] =
+            mem.batchingScalars[1] + mem.batchingScalars[2] + mem.batchingScalars[SMALL_IPA_BOUNDARY_OPENING_IDX];
+        scalars[boundary + 2] = mem.batchingScalars[NUM_SMALL_IPA_OPENING_CLAIMS - 1];
 
         for (uint256 i = 0; i < LIBRA_COMMITMENTS; i++) {
             commitments[boundary++] = proof.libraCommitments[i];

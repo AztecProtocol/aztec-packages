@@ -248,7 +248,7 @@ See the ZK section of [`sumcheck/Sumcheck.md`](../sumcheck/Sumcheck.md).
 
 At the end of Sumcheck, the verifier needs to check that the Libra polynomial was evaluated correctly at the challenge point `u = (u_0, ..., u_{d-1})`. Because the Libra univariates are the prover's secret, their evaluations cannot be sent directly. Instead, the evaluation is reformulated as an inner product `⟨F, G⟩ = s` where G encodes the Libra coefficients and F encodes the challenge powers, then proved using the **SmallSubgroupIPA** protocol over a multiplicative subgroup of BN254's scalar field of size `SUBGROUP_SIZE = 256`. This size must satisfy `SUBGROUP_SIZE > CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH` (max number of Sumcheck rounds times the number of coefficients per round univariate) and divide the multiplicative group order.
 
-SmallSubgroupIPA produces 3 additional commitments (the concatenated Libra polynomial, a grand-sum accumulator, and a quotient polynomial) and 4 evaluations, all of which are batched into the Shplemini opening claim.
+SmallSubgroupIPA produces 3 additional commitments (the concatenated Libra polynomial, a grand-sum accumulator, and a quotient polynomial) and a set of opening claims that are batched into the Shplemini opening claim. See [`commitment_schemes/small_subgroup_ipa/README.md`](../commitment_schemes/small_subgroup_ipa/README.md) for the protocol details.
 
 See [`commitment_schemes/small_subgroup_ipa/README.md`](../commitment_schemes/small_subgroup_ipa/README.md).
 

@@ -47,13 +47,6 @@ static constexpr uint32_t NUM_MASKED_ROWS = 3;
 // but the gate separator vanishes there, so the first row where relations are active is TRACE_OFFSET.
 static constexpr uint32_t NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1;
 
-// For ZK Flavors: the number of the commitments required by Libra and SmallSubgroupIPA.
-static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
-
-// The SmallSubgroupIPA is a sub-protocol used in several Flavors, to prove claimed inner product, the Prover sends 4
-// extra evaluations
-static constexpr uint32_t NUM_SMALL_IPA_EVALUATIONS = 4;
-
 static constexpr uint32_t MERGE_PROOF_SIZE = 42; // used to ensure mock proofs are generated correctly
 
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between

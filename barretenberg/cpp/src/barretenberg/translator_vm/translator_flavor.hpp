@@ -8,6 +8,7 @@
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/flavor/flavor.hpp"
@@ -780,7 +781,8 @@ class TranslatorFlavor {
         ((CONST_TRANSLATOR_LOG_N - 1) * num_frs_comm) +
         /* 12. CONST_TRANSLATOR_LOG_N Gemini a evaluations */
         (CONST_TRANSLATOR_LOG_N * num_frs_fr) +
-        /* 13. NUM_SMALL_IPA_EVALUATIONS libra evals */ (NUM_SMALL_IPA_EVALUATIONS * num_frs_fr) +
+        /* 13. NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals */
+        (NUM_SMALL_IPA_TRANSCRIPT_EVALS * num_frs_fr) +
         /* 14. Shplonk Q commitment */ (num_frs_comm) +
         /* 15. KZG W commitment */ (num_frs_comm);
 
