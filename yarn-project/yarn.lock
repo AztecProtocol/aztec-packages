@@ -1067,7 +1067,6 @@ __metadata:
   resolution: "@aztec/standard-contracts@workspace:standard-contracts"
   dependencies:
     "@aztec/foundation": "workspace:^"
-    "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
