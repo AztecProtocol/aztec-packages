@@ -271,7 +271,7 @@ export class InMemoryAttestationPool {
   }
 
   isEmpty(): Promise<boolean> {
-    return Promise.resolve(this.proposals.size === 0);
+    return Promise.resolve(this.proposals.size === 0 && this.checkpoints.size === 0);
   }
 
   resetState(): void {
