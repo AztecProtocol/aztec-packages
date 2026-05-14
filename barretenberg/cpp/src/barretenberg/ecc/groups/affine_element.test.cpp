@@ -375,16 +375,11 @@ TYPED_TEST(TestAffineElement, AddAffine)
     TestFixture::test_add_affine();
 }
 
-// Regression test for element +/- affine_element when the affine operand is the infinity sentinel
-// on the large-modulus path. The small-modulus path uses a different sentinel (MSB-of-x) and was
-// not affected.
+// Regression test for `element +/- affine_element` when the affine operand is the infinity sentinel.
+// Exercises both the large-modulus and small-modulus branches of `element::operator+=(affine)`.
 TYPED_TEST(TestAffineElement, MixedAddInfinityRegression)
 {
-    if constexpr (TypeParam::Fq::modulus.data[3] >= MODULUS_TOP_LIMB_LARGE_THRESHOLD) {
-        TestFixture::test_mixed_add_infinity_regression();
-    } else {
-        GTEST_SKIP();
-    }
+    TestFixture::test_mixed_add_infinity_regression();
 }
 
 TYPED_TEST(TestAffineElement, ReadWrite)

@@ -416,9 +416,9 @@ element<Fq, Fr, T> element<Fq, Fr, T>::mul_const_time(const Fr& scalar, numeric:
     // DPA: per-bit traces of two signings with the same k decorrelate because the bit pattern of k'
     // differs across calls.
     //
-    // We force the high bit of r so that r is sampled uniformly from [2^63, 2^64). This guarantees
-    // r * n has a fixed-width range (MSB at position M+63 or M+64 for n with MSB at M), so the
-    // iteration count remains exactly NUM_BITS regardless of the sampled r.
+    // We force the high bit of r to be 1 so that r is sampled uniformly from [2^63, 2^64). This
+    // guarantees r * n has a fixed-width range (MSB at position M+63 or M+64 for n with MSB at M),
+    // so the iteration count remains exactly NUM_BITS regardless of the sampled r.
     const uint64_t r = engine->get_random_uint64() | (UINT64_C(1) << 63);
     const uint512_t r_times_n = uint512_t(uint256_t(Fr::modulus)) * uint512_t(uint256_t(r));
     const uint512_t k_blinded = uint512_t(k) + r_times_n;

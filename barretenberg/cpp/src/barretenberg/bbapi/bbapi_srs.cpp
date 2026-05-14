@@ -34,13 +34,12 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
             }
         });
     } else if (bytes_per_point == COMPRESSED_POINT_SIZE) {
-        // Verify SHA-256 of every fully-present 4 MB chunk against the in-binary pin
-        // BN254_G1_CHUNK_HASHES before decompression. This is the same defense as
-        // verify_bn254_crs_integrity used by get_bn254_g1_data on the C++ download path; without
-        // it, bb.js (which downloads g1_compressed.dat externally and forwards the bytes here)
-        // would have no cryptographic gate against a tampered or wrong-trusted-setup payload.
-        // Partial trailing data is not chunk-hash-verified — instead the post-parse generator and
-        // tau·G checks below close the small-num_points gap.
+        // Verify SHA-256 of every 4 MB chunk against the in-binary pin BN254_G1_CHUNK_HASHES.
+        // Require chunk-aligned input so every byte is covered (no partial trailing chunk).
+        if (points_buf.size() == 0 || points_buf.size() % bb::srs::SRS_CHUNK_SIZE_BYTES != 0) {
+            throw_or_abort("SrsInitSrs: compressed points_buf size " + std::to_string(points_buf.size()) +
+                           " must be a positive multiple of " + std::to_string(bb::srs::SRS_CHUNK_SIZE_BYTES));
+        }
         size_t num_full_chunks = points_buf.size() / bb::srs::SRS_CHUNK_SIZE_BYTES;
         size_t chunks_to_verify = std::min(num_full_chunks, static_cast<size_t>(bb::srs::SRS_NUM_FULL_CHUNKS));
         for (size_t i = 0; i < chunks_to_verify; ++i) {
@@ -72,10 +71,8 @@ SrsInitSrs::Response SrsInitSrs::execute(BB_UNUSED BBApiRequest& request) &&
                        std::to_string(bytes_per_point));
     }
 
-    // Parsed-form sanity check that pins the first two G1 points to their canonical trusted-setup
-    // values. Catches a wrong-SRS swap even when num_points is below one chunk (where the
-    // compressed-chunk hash loop above has nothing to verify) and runs identically for the
-    // uncompressed input path.
+    // Pin the first two G1 points to their canonical trusted-setup values. Defense in depth on the
+    // compressed path; the only gate on the uncompressed (cached) path.
     if (num_points >= 1 && g1_points[0] != bb::srs::BN254_G1_FIRST_ELEMENT) {
         throw_or_abort("SrsInitSrs: g1_points[0] is not the canonical BN254 generator");
     }
