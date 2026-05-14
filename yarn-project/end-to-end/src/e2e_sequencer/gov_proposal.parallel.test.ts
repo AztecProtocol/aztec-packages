@@ -199,11 +199,14 @@ describe('e2e_gov_proposal', () => {
     await verifyVotes(round, roundDuration);
   });
 
-  // TODO(kill-non-pipelined): re-enable once B5 (escape-hatch slot targeting under pipelining) is
-  // re-implemented on top of `buildCheckpointSimulationOverridesPlan`. The B5 sequencer.ts fix was
-  // dropped on this PR because it predates refactors on `next` (see PIPELINING_GOTCHAS.md §6 B5).
-  // The sibling "should propose blocks while voting" test goes through the normal CheckpointProposalJob
-  // vote path which is unaffected, so it stays enabled.
+  // TODO(kill-non-pipelined): the "disable blob client → tx cannot be built" premise no longer
+  // holds under pipelining — the tx gets built, checkpointed and observed before the expected
+  // TimeoutError fires (CI: http://ci.aztec-labs.com/8458d106adfcb4bd). Also depends on §6 B5
+  // (escape-hatch vote-only path signs against `targetSlot`) which is not on this PR — that fix
+  // landed on `palla/kill-non-pipelined-flow` (commit 39b64eb521) and predates refactors on
+  // merge-train/spartan, so a clean forward-port belongs in its own source PR. See
+  // PIPELINING_GOTCHAS.md §6 B5. The sibling "should propose blocks while voting" test goes
+  // through the normal CheckpointProposalJob vote path and is unaffected, so it stays enabled.
   it.skip('should vote even when unable to build blocks', async () => {
     const monitor = new ChainMonitor(rollup, dateProvider).start();
 
@@ -213,26 +216,15 @@ describe('e2e_gov_proposal', () => {
     const lastBlockSynced = await aztecNode!.getBlockNumber();
     logger.warn(`blob client is disabled (last block synced is ${lastBlockSynced})`);
 
-    // And send a tx which shouldnt be syncable but does move the block forward.
-    // Under proposer pipelining the proposer builds in slot N-1 and the L1 propose mines in slot N, so a single
-    // slot is not enough to observe the L1 checkpoint advance. Wait at least two slots before declaring the tx
-    // un-syncable and before checking that L1 has progressed.
+    // And send a tx which shouldnt be syncable but does move the block forward
     await expect(() =>
       testContract.methods
         .create_l2_to_l1_message_arbitrary_recipient_private(Fr.random(), EthAddress.random())
-        .send({ from: defaultAccountAddress, wait: { timeout: AZTEC_SLOT_DURATION * 2 + 2 } }),
+        .send({ from: defaultAccountAddress, wait: { timeout: AZTEC_SLOT_DURATION + 2 } }),
     ).rejects.toThrow(TimeoutError);
     logger.warn(`Test tx timed out as expected`);
 
-    // Check that the block number has indeed increased on L1 so sequencers cant pass the sync check.
-    // Allow another slot for any in-flight L1 propose to mine, since the work loop above hits its wait timeout the
-    // moment the tx misses L2 sync, not the moment the L1 tx lands.
-    await retryUntil(
-      async () => (await monitor.run().then(b => b.checkpointNumber)) > lastBlockSynced,
-      'L1 checkpoint to advance after disabling blob client',
-      AZTEC_SLOT_DURATION + 5,
-      1,
-    );
+    // Check that the block number has indeed increased on L1 so sequencers cant pass the sync check
     expect(await monitor.run().then(b => b.checkpointNumber)).toBeGreaterThan(lastBlockSynced);
     logger.warn(`L2 block number has increased on L1`);
 
@@ -240,11 +232,9 @@ describe('e2e_gov_proposal', () => {
     await aztecNodeAdmin!.setConfig({ governanceProposerPayload: newGovernanceProposerAddress });
     const { round, roundDuration, nextRoundBeginsAtSlot } = await setupVotingRound();
 
-    // And wait until the round is over. Add one extra slot to absorb pipelining catch-up after the L1 warp in
-    // setupVotingRound — the proposer for round_start builds during the slot before it, so the L1 chain takes
-    // an extra slot to advance past nextRoundEndsAtSlot.
+    // And wait until the round is over
     const nextRoundEndsAtSlot = SlotNumber(nextRoundBeginsAtSlot + Number(roundDuration));
-    const timeout = AZTEC_SLOT_DURATION * Number(roundDuration + 2n) + 20;
+    const timeout = AZTEC_SLOT_DURATION * Number(roundDuration + 1n) + 20;
     logger.warn(`Waiting until slot ${nextRoundEndsAtSlot} for round to end (timeout ${timeout}s)`);
     await retryUntil(() => rollup.getSlotNumber().then(s => s > nextRoundEndsAtSlot), 'round end', timeout, 1);
 
