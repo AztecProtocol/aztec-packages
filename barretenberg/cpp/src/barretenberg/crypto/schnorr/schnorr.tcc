@@ -90,7 +90,9 @@ schnorr_signature schnorr_construct_signature(const std::string& message, const 
     //
     Fr k = Fr::random_element();
 
-    typename G1::affine_element R(G1::one * k);
+    // k is a secret nonce; use the constant-time multiplication to defend against the
+    // Hamming-weight / bit-length timing leak in operator*.
+    typename G1::affine_element R(typename G1::element(G1::one).mul_const_time(k));
 
     auto e_raw = schnorr_generate_challenge<Hash, G1>(message, public_key, R);
     // the conversion from e_raw results in a biased field element e
