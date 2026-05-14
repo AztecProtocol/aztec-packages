@@ -9,19 +9,6 @@ UPSTREAM_REPO="${UPSTREAM_REPO:-https://github.com/AztecProtocol/aztec-packages.
 UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-next}"
 DRY_RUN="${DRY_RUN:-0}"
 
-PRESERVE_PATHS=(
-  ".github/workflows/public-next-pr-body.yml"
-  ".github/workflows/public-next-to-next.yml"
-  ".github/workflows/sync-upstream-next.yml"
-  ".github/workflows/avm-circuit-inputs.yml"
-  ".github/workflows/fuzzing-docker-avm-build-private.yml"
-  ".github/workflows/fuzzing-docker-build-private.yml"
-  ".github/workflows/pull-request-title.yml"
-  "scripts/merge-train/merge-public-next.sh"
-  "scripts/merge-train/sync-public-next.sh"
-  "scripts/merge-train/update-public-next-pr-body.sh"
-)
-
 function require_command {
   local command="$1"
   if ! command -v "$command" >/dev/null 2>&1; then
@@ -54,42 +41,40 @@ upstream_ref="${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}"
 public_sha=$(git rev-parse "$public_ref")
 upstream_sha=$(git rev-parse "$upstream_ref")
 
-sync_branch="${PUBLIC_BRANCH}-sync"
-git checkout --force -B "$sync_branch" "$upstream_ref"
-
-for path in "${PRESERVE_PATHS[@]}"; do
-  if git cat-file -e "${public_ref}:${path}" 2>/dev/null; then
-    git checkout "$public_ref" -- "$path"
-    git add "$path"
-  else
-    git rm --quiet --ignore-unmatch "$path"
-  fi
-done
-
-new_tree=$(git write-tree)
-old_tree=$(git rev-parse "${public_ref}^{tree}")
-
-if [[ "$new_tree" == "$old_tree" ]]; then
-  echo "$PUBLIC_BRANCH already mirrors ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} with preserved automation"
+if git merge-base --is-ancestor "$upstream_sha" "$public_ref"; then
+  echo "$PUBLIC_BRANCH already contains ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} ($upstream_sha)"
   exit 0
 fi
 
-echo "Prepared $PUBLIC_BRANCH sync:"
+git checkout --force -B "$PUBLIC_BRANCH" "$public_ref"
+
+echo "Merging ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} into $PUBLIC_BRANCH:"
 echo "  public:   $public_sha"
 echo "  upstream: $upstream_sha"
-git diff --stat "$public_ref" HEAD
 
 if [[ "$DRY_RUN" == "1" ]]; then
-  echo "DRY_RUN=1; not committing or pushing"
+  if git merge "$upstream_ref" --no-edit --no-commit; then
+    echo "DRY_RUN=1; merge applies cleanly, not committing or pushing"
+    git merge --abort >/dev/null 2>&1 || git reset --hard "$public_ref" >/dev/null
+    exit 0
+  fi
+
+  conflicts=$(git diff --name-only --diff-filter=U)
+  git merge --abort || true
+  echo "DRY_RUN=1; merge conflicts detected:"
+  echo "$conflicts"
+  exit 1
+fi
+
+if git merge "$upstream_ref" --no-edit -m "chore: sync public-next with upstream next"; then
+  git push "$REMOTE" "$PUBLIC_BRANCH"
+  echo "Pushed $PUBLIC_BRANCH sync commit $(git rev-parse HEAD)"
   exit 0
 fi
 
-new_commit=$(git commit-tree "$new_tree" \
-  -p "$public_sha" \
-  -p "$upstream_sha" \
-  -m "chore: sync public-next with upstream next")
+conflicts=$(git diff --name-only --diff-filter=U)
+git merge --abort || true
 
-git update-ref "refs/heads/${PUBLIC_BRANCH}" "$new_commit"
-git push "$REMOTE" "refs/heads/${PUBLIC_BRANCH}:refs/heads/${PUBLIC_BRANCH}"
-
-echo "Pushed $PUBLIC_BRANCH sync commit $new_commit"
+echo "Merge conflicts detected while syncing ${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH} into $PUBLIC_BRANCH:"
+echo "$conflicts"
+exit 1
