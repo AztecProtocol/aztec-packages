@@ -13,7 +13,6 @@
 #include "barretenberg/serialize/msgpack.hpp"
 #include <array>
 #include <cstdint>
-#include <vector>
 
 namespace bb::bbapi {
 
@@ -52,10 +51,10 @@ struct SchnorrConstructSignature {
         bool operator==(const Response&) const = default;
     };
 
-    std::vector<uint8_t> message; // 32 bytes, serialized field element
+    grumpkin::fq message_field;
     grumpkin::fr private_key;
     Response execute(BBApiRequest& request) &&;
-    SERIALIZATION_FIELDS(message, private_key);
+    SERIALIZATION_FIELDS(message_field, private_key);
     bool operator==(const SchnorrConstructSignature&) const = default;
 };
 
@@ -73,12 +72,12 @@ struct SchnorrVerifySignature {
         bool operator==(const Response&) const = default;
     };
 
-    std::vector<uint8_t> message;
+    grumpkin::fq message_field;
     grumpkin::g1::affine_element public_key;
     std::array<uint8_t, 32> s;
     std::array<uint8_t, 32> e;
     Response execute(BBApiRequest& request) &&;
-    SERIALIZATION_FIELDS(message, public_key, s, e);
+    SERIALIZATION_FIELDS(message_field, public_key, s, e);
     bool operator==(const SchnorrVerifySignature&) const = default;
 };
 

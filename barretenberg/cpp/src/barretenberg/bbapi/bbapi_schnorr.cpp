@@ -3,7 +3,6 @@
  * @brief Implementation of Schnorr signature command execution for the Barretenberg RPC API
  */
 #include "barretenberg/bbapi/bbapi_schnorr.hpp"
-#include "barretenberg/common/assert.hpp"
 
 namespace bb::bbapi {
 
@@ -17,8 +16,6 @@ SchnorrConstructSignature::Response SchnorrConstructSignature::execute(BB_UNUSED
     grumpkin::g1::affine_element pub_key = grumpkin::g1::one * private_key;
     crypto::schnorr_key_pair<grumpkin::fr, grumpkin::g1> key_pair = { private_key, pub_key };
 
-    BB_ASSERT(message.size() == 32, "schnorr message must be exactly 32 bytes (a serialized field element)");
-    grumpkin::fq message_field = grumpkin::fq::serialize_from_buffer(message.data());
     auto sig = crypto::schnorr_construct_signature<grumpkin::fr, grumpkin::g1>(message_field, key_pair);
     crypto::secure_erase_bytes(&key_pair.private_key, sizeof(key_pair.private_key));
 
@@ -27,8 +24,6 @@ SchnorrConstructSignature::Response SchnorrConstructSignature::execute(BB_UNUSED
 
 SchnorrVerifySignature::Response SchnorrVerifySignature::execute(BB_UNUSED BBApiRequest& request) &&
 {
-    BB_ASSERT(message.size() == 32, "schnorr message must be exactly 32 bytes (a serialized field element)");
-    grumpkin::fq message_field = grumpkin::fq::serialize_from_buffer(message.data());
     crypto::schnorr_signature sig = { s, e };
 
     bool result = crypto::schnorr_verify_signature<grumpkin::fr, grumpkin::g1>(message_field, public_key, sig);
