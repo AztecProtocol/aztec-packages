@@ -14,6 +14,7 @@
         "default": "./dest/embedded/entrypoints/node.js"
       }
     },
+    "./embedded/store-encryption": "./dest/embedded/store_encryption.js",
     "./testing": "./dest/testing.js"
   },
   "scripts": {
