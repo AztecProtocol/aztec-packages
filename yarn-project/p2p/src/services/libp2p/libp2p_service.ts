@@ -101,7 +101,6 @@ import {
   type ReqRespSubProtocolHandlers,
   type ReqRespSubProtocolValidators,
   StatusMessage,
-  type SubProtocolMap,
   ValidationError,
   pingHandler,
   reqGoodbyeHandler,
@@ -700,20 +699,6 @@ export class LibP2PService extends WithTracer implements P2PService {
       }
     };
     setImmediate(() => void safeJob());
-  }
-
-  /**
-   * Send a batch of requests to peers, and return the responses
-   * @param protocol - The request response protocol to use
-   * @param requests - The requests to send to the peers
-   * @returns The responses to the requests
-   */
-  sendBatchRequest<SubProtocol extends ReqRespSubProtocol>(
-    protocol: SubProtocol,
-    requests: InstanceType<SubProtocolMap[SubProtocol]['request']>[],
-    pinnedPeerId: PeerId | undefined,
-  ): Promise<InstanceType<SubProtocolMap[SubProtocol]['response']>[]> {
-    return this.reqresp.sendBatchRequest(protocol, requests, pinnedPeerId);
   }
 
   public sendRequestToPeer(
