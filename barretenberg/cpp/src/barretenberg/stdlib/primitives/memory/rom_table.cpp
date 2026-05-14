@@ -150,12 +150,7 @@ template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(ro
 
 template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](const size_t index) const
 {
-    if (index >= length) {
-        BB_ASSERT(context != nullptr);
-        context->failure("rom_table: ROM array access out of bounds");
-        return raw_entries[0];
-    }
-
+    BB_ASSERT_LT(index, length, "rom_table: ROM array access out of bounds");
     return raw_entries[index];
 }
 
@@ -169,23 +164,21 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
             "rom_table: Performing a read operation without providing a context. We cannot initialize the table.");
     }
 
+    const auto native_index = uint256_t(index.get_value());
+    BB_ASSERT_LT(native_index, length, "rom_table: ROM array access out of bounds");
+
     // When we perform the first read operation, we initialize the table
     initialize_table();
 
     if (index.is_constant()) {
-        return operator[](static_cast<size_t>(uint256_t(index.get_value()).data[0]));
-    }
-
-    const auto native_index = uint256_t(index.get_value());
-    if (native_index >= length) {
-        // Set a failure when the index is out of bounds. Return early to avoid OOB vector access.
-        context->failure("rom_table: ROM array access out of bounds");
-        return field_pt::from_witness_index(context, context->zero_idx());
+        // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
+        return operator[](static_cast<size_t>(static_cast<uint64_t>(native_index)));
     }
 
     uint32_t output_idx = context->read_ROM_array(rom_id, index.get_witness_index());
     auto element = field_pt::from_witness_index(context, output_idx);
 
+    // This cast is safe because native_index is uint64_t (other components are zero) and native_index < length
     const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
 
     // If the index is legitimate, restore the tag
