@@ -1,6 +1,5 @@
-import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BufferReader, mapTuple } from '@aztec/foundation/serialize';
+import { mapTuple } from '@aztec/foundation/serialize';
 
 import type { Signature } from '../signature/index.js';
 
@@ -14,44 +13,10 @@ export class SchnorrSignature implements Signature {
    */
   public static SIZE = 64;
 
-  /**
-   * An empty signature.
-   */
-  public static EMPTY = new SchnorrSignature(Buffer.alloc(64));
-
   constructor(private buffer: Buffer) {
     if (buffer.length !== SchnorrSignature.SIZE) {
       throw new Error(`Invalid signature buffer of length ${buffer.length}.`);
     }
-  }
-
-  /**
-   * Determines if the provided signature is valid or not.
-   * @param signature - The data to be checked.
-   * @returns Boolean indicating if the provided data is a valid schnorr signature.
-   */
-  public static isSignature(signature: string) {
-    return /^(0x)?[0-9a-f]{128}$/i.test(signature);
-  }
-
-  /**
-   * Constructs a SchnorrSignature from the provided string.
-   * @param signature - The string to be converted to a schnorr signature.
-   * @returns The constructed schnorr signature.
-   */
-  public static fromString(signature: string) {
-    if (!SchnorrSignature.isSignature(signature)) {
-      throw new Error(`Invalid signature string: ${signature}`);
-    }
-    return new SchnorrSignature(Buffer.from(signature.replace(/^0x/i, ''), 'hex'));
-  }
-
-  /**
-   * Generates a random schnorr signature.
-   * @returns The randomly constructed signature.
-   */
-  public static random() {
-    return new SchnorrSignature(randomBytes(64));
   }
 
   /**
@@ -76,16 +41,6 @@ export class SchnorrSignature implements Signature {
    */
   toBuffer() {
     return this.buffer;
-  }
-
-  /**
-   * Deserializes from a buffer.
-   * @param buffer - The buffer representation of the object.
-   * @returns The new object.
-   */
-  static fromBuffer(buffer: Buffer | BufferReader): SchnorrSignature {
-    const reader = BufferReader.asReader(buffer);
-    return new SchnorrSignature(reader.readBytes(SchnorrSignature.SIZE));
   }
 
   /**
