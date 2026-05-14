@@ -9,6 +9,7 @@ import {
   StandardContractClassIdPreimage,
   StandardContractInitializationHash,
   type StandardContractName,
+  StandardContractPrivateFunctions,
   StandardContractSalt,
 } from './standard_contract_data.js';
 
@@ -30,7 +31,7 @@ export function makeStandardContract(name: StandardContractName, artifact: Contr
     privateFunctionsRoot,
     publicBytecodeCommitment,
     packedBytecode: artifact.functions.find(f => f.name === 'public_dispatch')?.bytecode ?? Buffer.alloc(0),
-    privateFunctions: [],
+    privateFunctions: StandardContractPrivateFunctions[name],
   };
 
   const instance = {
