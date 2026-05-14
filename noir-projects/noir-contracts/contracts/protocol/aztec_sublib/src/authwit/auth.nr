@@ -127,7 +127,7 @@ pub fn compute_authwit_message_hash(
 /// @param authorize True if the message should be authorized, false if it should be revoked
 pub unconstrained fn set_authorized(context: PublicContext, message_hash: Field, authorize: bool) {
     let res = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        AUTH_REGISTRY_ADDRESS,
         comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
         [message_hash, authorize as Field],
         GasOpts::default(),
@@ -140,7 +140,7 @@ pub unconstrained fn set_authorized(context: PublicContext, message_hash: Field,
 /// @param reject True if all authwits should be rejected, false otherwise
 pub unconstrained fn set_reject_all(context: PublicContext, reject: bool) {
     let res = context.call_public_function(
-        CANONICAL_AUTH_REGISTRY_ADDRESS,
+        AUTH_REGISTRY_ADDRESS,
         comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
         [reject as Field],
         GasOpts::default(),
