@@ -6,6 +6,10 @@
       "kind": "map"
     },
     {
+      "name": "canonical_chain",
+      "kind": "map"
+    },
+    {
       "name": "capsules",
       "kind": "map"
     },
