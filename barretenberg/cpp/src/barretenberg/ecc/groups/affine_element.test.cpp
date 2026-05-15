@@ -330,11 +330,185 @@ template <typename G1> class TestAffineElement : public testing::Test {
     {
         const affine_element P = affine_element::one();
         const std::vector<affine_element> points(4, P);
-        for (const Fr scalar : { Fr(0), Fr(2), Fr(4), Fr(6) }) {
+        for (const Fr scalar : { Fr(0), Fr(2), Fr(4), Fr(6), Fr(8) }) {
             const auto result = element::batch_mul_with_endomorphism(points, scalar);
             const affine_element expected(element(P) * scalar);
             for (size_t i = 0; i < points.size(); ++i) {
                 EXPECT_EQ(result[i], expected);
+            }
+        }
+    }
+
+    // === helpers for K2-bit-width coverage of batch_mul_with_endomorphism ===
+
+    // bit_length of the K2 half of the GLV split of `scalar` (0 for zero).
+    static size_t k2_bit_length(const Fr& scalar)
+    {
+        const Fr conv = scalar.from_montgomery_form();
+        if (conv.is_zero()) {
+            return 0;
+        }
+        const auto endo = Fr::split_into_endomorphism_scalars(conv);
+        const auto& k2 = endo.second;
+        if (k2[1] != 0) {
+            return 128 - static_cast<size_t>(__builtin_clzll(k2[1]));
+        }
+        if (k2[0] != 0) {
+            return 64 - static_cast<size_t>(__builtin_clzll(k2[0]));
+        }
+        return 0;
+    }
+
+    // Search random scalars until one decomposes to K2 of exactly `target_bits` bits.
+    // K2 ≤ 127 bits is proven, so any target in [0, 127] is reachable; populations:
+    // 127 bits ≈ 50%, 126 bits ≈ 25%, 125 bits ≈ 12.5% — all easily found.
+    static Fr find_scalar_with_k2_bits(size_t target_bits, size_t max_attempts = 2000)
+    {
+        for (size_t i = 0; i < max_attempts; ++i) {
+            const Fr s = Fr::random_element();
+            if (k2_bit_length(s) == target_bits) {
+                return s;
+            }
+        }
+        throw_or_abort("could not find scalar with desired K2 bit-width");
+    }
+
+    // Run batch_mul_with_endomorphism on `num_points` independent random generators
+    // and assert it matches per-point projective multiplication.
+    static void check_batch_mul_against_naive(size_t num_points, const Fr& scalar)
+    {
+        std::vector<affine_element> points;
+        points.reserve(num_points);
+        for (size_t i = 0; i < num_points; ++i) {
+            points.push_back(affine_element(element::random_element()));
+        }
+        std::vector<affine_element> expected;
+        expected.reserve(num_points);
+        for (const auto& p : points) {
+            expected.push_back(affine_element(element(p) * scalar));
+        }
+        const std::vector<affine_element> result = element::batch_mul_with_endomorphism(points, scalar);
+        ASSERT_EQ(result.size(), expected.size());
+        EXPECT_THAT(result, ElementsAreArray(expected));
+    }
+
+    // === 9 coverage tests for batch_mul_with_endomorphism ===
+
+    // (0) scalar = 0 ⇒ every output is the point at infinity.
+    static void test_batch_mul_zero_scalar()
+    {
+        constexpr size_t num_points = 64;
+        std::vector<affine_element> points;
+        points.reserve(num_points);
+        for (size_t i = 0; i < num_points; ++i) {
+            points.push_back(affine_element(element::random_element()));
+        }
+        const std::vector<affine_element> result = element::batch_mul_with_endomorphism(points, Fr(0));
+        ASSERT_EQ(result.size(), num_points);
+        for (const auto& r : result) {
+            EXPECT_TRUE(r.is_point_at_infinity());
+        }
+    }
+
+    // (1) num_points coprime to typical num_threads.
+    static void test_batch_mul_num_points_not_multiple_of_threads()
+    {
+        check_batch_mul_against_naive(17, Fr::random_element());
+    }
+
+    // (2) scalar < 2^127 ⇒ GLV gives k1 = scalar, k2 = 0 (proven: c1=c2=0 when k<r/|b1|).
+    static void test_batch_mul_scalar_under_127_bits()
+    {
+        // Top nibble of the upper 64-bit limb is 0x3 ⇒ bit 127 = 0 and bit_length(scalar) = 126.
+        const Fr scalar(uint256_t{ 0xdeadbeefcafef00dULL, 0x3edcba98765432f1ULL, 0, 0 });
+        ASSERT_EQ(k2_bit_length(scalar), 0U);
+        check_batch_mul_against_naive(64, scalar);
+    }
+
+    // (3) scalar's bottom 127 bits all zero (= 2^127).
+    static void test_batch_mul_scalar_low_127_bits_zero()
+    {
+        const Fr scalar(uint256_t{ 0, 0, 1, 0 });
+        check_batch_mul_against_naive(64, scalar);
+    }
+
+    // (4) K2 = 128 bits — must never occur (K2 < 2^127 proven for BN254/Grumpkin GLV).
+    static void test_batch_mul_k2_128_bits_never_occurs()
+    {
+        for (size_t i = 0; i < 10000; ++i) {
+            const Fr s = Fr::random_element();
+            const size_t bits = k2_bit_length(s);
+            ASSERT_LE(bits, 127U) << "GLV split must produce K2 ≤ 127 bits; got " << bits << " bits on sample " << i;
+        }
+    }
+
+    // (5) K2 = 127 bits — init from pos-126 K2 window (top window magnitude ≥ 1).
+    static void test_batch_mul_k2_127_bits()
+    {
+        const Fr scalar = find_scalar_with_k2_bits(127);
+        ASSERT_EQ(k2_bit_length(scalar), 127U);
+        check_batch_mul_against_naive(64, scalar);
+    }
+
+    // (6) K2 = 126 bits — Booth carry from bit-125 lookback still gives top-window magnitude 1.
+    static void test_batch_mul_k2_126_bits()
+    {
+        const Fr scalar = find_scalar_with_k2_bits(126);
+        ASSERT_EQ(k2_bit_length(scalar), 126U);
+        check_batch_mul_against_naive(64, scalar);
+    }
+
+    // (7) K2 = 125 bits — top K2 window is empty; init falls through to pos-124 K1 window.
+    static void test_batch_mul_k2_125_bits()
+    {
+        const Fr scalar = find_scalar_with_k2_bits(125);
+        ASSERT_EQ(k2_bit_length(scalar), 125U);
+        check_batch_mul_against_naive(64, scalar);
+    }
+
+    // (8) empty points span.
+    static void test_batch_mul_empty_input()
+    {
+        const std::vector<affine_element> points;
+        const std::vector<affine_element> result = element::batch_mul_with_endomorphism(points, Fr::random_element());
+        EXPECT_TRUE(result.empty());
+    }
+
+    // (9) num_points < num_threads.
+    static void test_batch_mul_size_less_than_num_threads()
+    {
+        for (size_t sz : { size_t{ 1 }, size_t{ 2 }, size_t{ 3 } }) {
+            check_batch_mul_against_naive(sz, Fr::random_element());
+        }
+    }
+
+    // (10) Small scalars exercise the predicate-true path. The hoisted edge mask
+    //      replaces the run-time `x == x` / `2·A + B == O` probes with a precomputed
+    //      uint64; a regression here would either falsely set or falsely clear a bit
+    //      and produce a wrong result against naive multiplication. Sweeping scalars
+    //      with K2 = 0 hits all (a, b) recurrence states where |b| stays 0 — exactly
+    //      the regime where Edge 1 / Edge 2 fire.
+    static void test_batch_mul_small_scalars_edge_predicate()
+    {
+        constexpr size_t num_points = 8;
+        std::vector<affine_element> points;
+        points.reserve(num_points);
+        for (size_t i = 0; i < num_points; ++i) {
+            points.push_back(affine_element(element::random_element()));
+        }
+        // Cover [-32, 32] (Booth digits range ±1..±8 per window, so small scalars
+        // exercise every magnitude-comparison branch of edge_for_combined/_add).
+        for (int64_t s = -32; s <= 32; ++s) {
+            const Fr scalar = (s >= 0) ? Fr(static_cast<uint64_t>(s)) : -Fr(static_cast<uint64_t>(-s));
+            std::vector<affine_element> expected;
+            expected.reserve(num_points);
+            for (const auto& p : points) {
+                expected.push_back(affine_element(element(p) * scalar));
+            }
+            const std::vector<affine_element> result = element::batch_mul_with_endomorphism(points, scalar);
+            ASSERT_EQ(result.size(), expected.size());
+            for (size_t i = 0; i < num_points; ++i) {
+                EXPECT_EQ(result[i], expected[i]) << "scalar = " << s << ", point index = " << i;
             }
         }
     }
@@ -538,6 +712,108 @@ TYPED_TEST(TestAffineElement, BatchEndomoprhismByMinusOne)
         TestFixture::test_batch_endomorphism_by_minus_one();
     } else {
         GTEST_SKIP();
+    }
+}
+
+// Coverage of batch_mul_with_endomorphism — exercises the K1/K2-interleaved Booth
+// main loop's accumulator-init paths and the standard edge cases (thread-divisor
+// quirks, empty inputs, tiny inputs).
+TYPED_TEST(TestAffineElement, BatchMulZeroScalar)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_zero_scalar();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulNumPointsNotMultipleOfThreads)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_num_points_not_multiple_of_threads();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulScalarUnder127Bits)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_scalar_under_127_bits();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulScalarLow127BitsZero)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_scalar_low_127_bits_zero();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulK2128BitsNeverOccurs)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_k2_128_bits_never_occurs();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulK2127Bits)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_k2_127_bits();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulK2126Bits)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_k2_126_bits();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulK2125Bits)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_k2_125_bits();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulEmptyInput)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_empty_input();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulSizeLessThanNumThreads)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_size_less_than_num_threads();
+    }
+}
+
+TYPED_TEST(TestAffineElement, BatchMulSmallScalarsEdgePredicate)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_batch_mul_small_scalars_edge_predicate();
     }
 }
 

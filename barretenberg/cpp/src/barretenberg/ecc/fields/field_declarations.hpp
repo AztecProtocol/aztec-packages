@@ -502,6 +502,15 @@ template <class Params_> struct alignas(32) field {
     static std::pair<std::array<uint64_t, 2>, std::array<uint64_t, 2>> split_into_endomorphism_scalars(const field& k)
     {
         static_assert(Params::modulus_3 < MODULUS_TOP_LIMB_LARGE_THRESHOLD);
+
+        // short-circuit the split if k is already small
+        if (k.data[2] == 0 && k.data[3] == 0 && (k.data[1] >> 63) == 0) {
+            return {
+                { k.data[0], k.data[1] },
+                { 0, 0 },
+            };
+        }
+
         field t1 = compute_endomorphism_k2(k);
 
         // k2 (= t1) can be slightly negative for ~2^{-64} of inputs.
