@@ -13,9 +13,6 @@ use crate::macros::{
 ///   `calldata_copy` and then delegates to this helper; and
 /// - public internal functions and `#[contract_library_method]` bodies, which already receive `context` as a
 ///   parameter and call this helper directly to skip the `calldata_copy` step.
-///
-/// Extracting the storage/`call_self`/`call_self_static`/`internal`/`ContractSelfPublic::new` chain into a single
-/// helper preamble
 pub(crate) comptime fn generate_public_self_builder_from_context(m: Module) -> Quoted {
     let (storage_type, storage_init) = if module_has_storage(m) {
         (quote { Storage<aztec::context::PublicContext> }, quote { let storage = Storage::init(context); })
