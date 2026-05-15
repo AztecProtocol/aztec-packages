@@ -106,6 +106,20 @@ TEST(Polynomial, EvaluateMleSingleCoefficientEmptyPoints)
     EXPECT_EQ(poly.evaluate_mle(u), FF(42));
 }
 
+// evaluate_mle({}) must be paired with virtual_size() == 1, mirroring the
+// `virtual_size == 1 << n` precondition enforced for n > 0. A multi-coefficient polynomial
+// evaluated at zero points is a dimension mismatch, not a meaningful constant.
+TEST(Polynomial, EvaluateMleEmptyPointsRejectsMultiCoefficient)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    using FF = bb::fr;
+    bb::Polynomial<FF> poly(2); // virtual_size == 2
+    poly.at(0) = FF(1);
+    poly.at(1) = FF(2);
+    std::vector<FF> u; // empty — caller incorrectly treats poly as 0-variable
+    ASSERT_THROW_OR_ABORT(poly.evaluate_mle(u), ".*");
+}
+
 // full() materializes a shifted polynomial with virtual zeros on both sides into a dense 0..virtual_size buffer;
 // coefficient values outside the original [start_index, end_index) must be zero.
 TEST(Polynomial, FullPreservesCoefficients)

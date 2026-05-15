@@ -63,7 +63,7 @@ describe('e2e_offchain_payment', () => {
     // between the retryUntil returning and pauseSync executing.
     await retryUntil(
       async () => {
-        const tips = await aztecNode.getL2Tips();
+        const tips = await aztecNode.getChainTips();
         if (tips.checkpointed.block.number >= block) {
           await aztecNodeAdmin.pauseSync();
           return true;

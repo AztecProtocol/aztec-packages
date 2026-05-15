@@ -17,7 +17,6 @@ import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -25,6 +24,7 @@ import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import { type Hex, getContract } from 'viem';
 
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
+import { waitForL1ToL2MessageSeen } from './wait_for_l1_to_l2_message.js';
 
 /**
  * Deploy L1 token and portal, initialize portal, deploy a non native l2 token contract, its L2 bridge contract and attach is to the portal.
@@ -346,8 +346,7 @@ export class CrossChainTestHarness {
    */
   async makeMessageConsumable(msgHash: Fr | Hex) {
     const frMsgHash = typeof msgHash === 'string' ? Fr.fromHexString(msgHash) : msgHash;
-    // We poll isL1ToL2MessageSynced endpoint until the message is available
-    await retryUntil(async () => await this.aztecNode.isL1ToL2MessageSynced(frMsgHash), 'message sync', 10);
+    await waitForL1ToL2MessageSeen(this.aztecNode, frMsgHash, { timeoutSeconds: 10 });
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);

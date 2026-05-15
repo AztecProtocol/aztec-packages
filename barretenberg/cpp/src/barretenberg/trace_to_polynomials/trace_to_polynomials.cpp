@@ -116,25 +116,36 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         }
     }
 
-    // Phase 2: parallel selector filling across a flattened (block_idx, selector_idx) task list.
+    // Phase 2: parallel selector filling. Each task copies one selector column into one polynomial
+    // slot. Walking blocks in declaration order then each block's `gate_selectors` in order yields
+    // polynomial gate slots in canonical order — same invariant `get_gate_blocks()` relies on.
     {
         BB_BENCH_NAME("populate_selectors");
-        std::vector<std::pair<size_t, size_t>> selector_tasks;
-        for (size_t block_idx = 0; block_idx < num_blocks; ++block_idx) {
-            const size_t num_selectors = blocks_array[block_idx].get_selectors().size();
-            for (size_t selector_idx = 0; selector_idx < num_selectors; ++selector_idx) {
-                selector_tasks.emplace_back(block_idx, selector_idx);
+        struct SelectorTask {
+            Selector<FF>* source;
+            size_t target_poly_idx;
+            uint32_t trace_offset;
+            uint32_t block_size;
+        };
+        std::vector<SelectorTask> selector_tasks;
+        const size_t num_non_gate_poly = polynomials.get_non_gate_selectors().size();
+        size_t gate_poly_idx = num_non_gate_poly;
+        for (auto& block : blocks_array) {
+            const uint32_t off = block.trace_offset();
+            const uint32_t bsz = static_cast<uint32_t>(block.size());
+            for (size_t i = 0; i < num_non_gate_poly; ++i) {
+                selector_tasks.emplace_back(SelectorTask{ &block.non_gate_selectors[i], i, off, bsz });
+            }
+            for (auto& [kind, sel] : block.gate_selectors) {
+                selector_tasks.emplace_back(SelectorTask{ &sel, gate_poly_idx, off, bsz });
+                ++gate_poly_idx;
             }
         }
         parallel_for(selector_tasks.size(), [&](size_t task_idx) {
-            const auto [block_idx, selector_idx] = selector_tasks[task_idx];
-            auto& block = blocks_array[block_idx];
-            const size_t offset = block.trace_offset();
-            const size_t block_size = block.size();
-            RefVector<Selector<FF>> block_selectors = block.get_selectors();
-            auto& selector = block_selectors[selector_idx];
-            for (size_t row_idx = 0; row_idx < block_size; ++row_idx) {
-                selectors[selector_idx].set_if_valid_index(row_idx + offset, selector[row_idx]);
+            const auto& task = selector_tasks[task_idx];
+            const auto& source = *task.source;
+            for (uint32_t row_idx = 0; row_idx < task.block_size; ++row_idx) {
+                selectors[task.target_poly_idx].set_if_valid_index(row_idx + task.trace_offset, source[row_idx]);
             }
         });
     }

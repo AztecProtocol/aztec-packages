@@ -2,6 +2,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { InboxContract, RollupContract } from '@aztec/ethereum/contracts';
+import { pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { ViemPublicDebugClient } from '@aztec/ethereum/types';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -80,8 +81,8 @@ export async function createArchiver(
   }) as ViemPublicDebugClient;
 
   // Create L1 contract instances
-  const rollup = new RollupContract(publicClient, config.l1Contracts.rollupAddress);
-  const inbox = new InboxContract(publicClient, config.l1Contracts.inboxAddress);
+  const rollup = new RollupContract(publicClient, config.rollupAddress);
+  const inbox = new InboxContract(publicClient, config.inboxAddress);
 
   // Fetch L1 constants from rollup contract
   const [
@@ -132,7 +133,7 @@ export async function createArchiver(
     mapArchiverConfig(config),
   );
 
-  const epochCache = deps.epochCache ?? (await EpochCache.create(config.l1Contracts.rollupAddress, config, deps));
+  const epochCache = deps.epochCache ?? (await EpochCache.create(config.rollupAddress, config, deps));
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const instrumentation = await ArchiverInstrumentation.new(telemetry, () => archiverStore.db.estimateSize());
 
@@ -167,7 +168,7 @@ export async function createArchiver(
     publicClient,
     debugClient,
     rollup,
-    { ...config.l1Contracts, slashingProposerAddress },
+    { ...pickL1ContractAddresses(config), slashingProposerAddress },
     archiverStore,
     archiverConfig,
     deps.blobClient,

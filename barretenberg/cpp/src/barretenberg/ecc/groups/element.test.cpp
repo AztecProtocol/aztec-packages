@@ -296,6 +296,38 @@ template <typename G_> class TestElement : public testing::Test {
         EXPECT_EQ(inf_element.is_point_at_infinity(), true);
     }
 
+    static void test_infinity_canonical_form()
+    {
+        // affine_element: infinity() (value-init then self_set_infinity) and set_infinity() applied
+        // to a random point (copy of a non-trivial state then self_set_infinity) must match.
+        const affine_element inf_from_factory = affine_element::infinity();
+        const affine_element inf_from_random = affine_element(element::random_element()).set_infinity();
+
+        EXPECT_TRUE(inf_from_factory.is_point_at_infinity());
+        EXPECT_TRUE(inf_from_random.is_point_at_infinity());
+
+        EXPECT_EQ(inf_from_factory.y, Fq::zero());
+        EXPECT_EQ(inf_from_random.y, Fq::zero());
+        EXPECT_EQ(inf_from_factory.x, inf_from_random.x);
+        EXPECT_EQ(inf_from_factory.y, inf_from_random.y);
+
+        // element: infinity() (value-init), zero() (default-init, indeterminate y/z storage), and
+        // set_infinity() applied to a random point must all match.
+        const element inf_elem_factory = element::infinity();
+        const element inf_elem_zero = element::zero();
+        const element inf_elem_set = element::random_element().set_infinity();
+
+        EXPECT_TRUE(inf_elem_factory.is_point_at_infinity());
+        EXPECT_TRUE(inf_elem_zero.is_point_at_infinity());
+        EXPECT_TRUE(inf_elem_set.is_point_at_infinity());
+
+        for (const element& e : { inf_elem_factory, inf_elem_zero, inf_elem_set }) {
+            EXPECT_EQ(e.y, Fq::zero());
+            EXPECT_EQ(e.z, Fq::zero());
+            EXPECT_EQ(e.x, inf_elem_factory.x);
+        }
+    }
+
     static void test_derive_generators()
     {
         constexpr size_t num_generators = 128;
@@ -405,6 +437,11 @@ TYPED_TEST(TestElement, GroupExponentiationConsistencyCheck)
 TYPED_TEST(TestElement, Infinity)
 {
     TestFixture::test_infinity();
+}
+
+TYPED_TEST(TestElement, InfinityCanonicalForm)
+{
+    TestFixture::test_infinity_canonical_form();
 }
 
 TYPED_TEST(TestElement, DeriveGenerators)

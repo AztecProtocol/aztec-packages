@@ -26,7 +26,7 @@ tags:
 **Configuration notes:**
 
 - The environment variable name corresponding to each flag is shown as $ENV_VAR on the right hand side.
-- If two subsystems can contain the same configuration option, only one needs to be provided. For example, `--archiver.blobSinkUrl` and `--sequencer.blobSinkUrl` point to the same value if the node is started with both the `--archiver` and `--sequencer` options.
+- If two subsystems can contain the same configuration option, only one needs to be provided. For example, `--archiver.blobSinkUrl` and `--sequencer.blobSinkUrl` point to the same value.
 
 ```bash
   MISC
@@ -118,9 +118,6 @@ tags:
           Starts Aztec Node with options
 
   ARCHIVER
-
-    --archiver
-          Starts Aztec Archiver with options
 
     --archiver.blobSinkUrl <value>                                                                                                         ($BLOB_SINK_URL)
           The URL of the blob sink

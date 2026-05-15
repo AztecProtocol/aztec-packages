@@ -54,7 +54,7 @@ services:
           fi;
         done;
 
-        node /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver
+        node /usr/src/yarn-project/aztec/dest/bin/index.js start --node
       '
     volumes:
       - aztec:/var/lib/aztec
