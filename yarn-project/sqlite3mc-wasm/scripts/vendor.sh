@@ -75,7 +75,9 @@ WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 echo "==> Downloading ${ASSET}"
-curl -fsSL -o "$WORK_DIR/$ASSET" "$URL"
+# --retry guards against transient DNS / network failures in CI (e.g. release-assets.githubusercontent.com
+# DNS resolution failing); without it a single curl error fails the whole yarn-project build.
+curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused --retry-all-errors -o "$WORK_DIR/$ASSET" "$URL"
 
 echo "==> Verifying zip SHA256"
 ACTUAL_SHA=$(sha256sum "$WORK_DIR/$ASSET" | awk '{print $1}')
