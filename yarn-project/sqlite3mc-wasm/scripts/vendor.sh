@@ -75,7 +75,9 @@ WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 echo "==> Downloading ${ASSET}"
-curl -fsSL -o "$WORK_DIR/$ASSET" "$URL"
+# --retry-all-errors covers transient DNS / connection-reset failures that
+# would otherwise break CI on the GitHub release-assets host.
+curl -fsSL --retry 5 --retry-delay 2 --retry-all-errors -o "$WORK_DIR/$ASSET" "$URL"
 
 echo "==> Verifying zip SHA256"
 ACTUAL_SHA=$(sha256sum "$WORK_DIR/$ASSET" | awk '{print $1}')
