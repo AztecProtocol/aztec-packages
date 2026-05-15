@@ -36,13 +36,6 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      # Node is only used to run the .ts harness in run-test.sh, which needs >=22.18 for TS
-      # type-stripping. The aztec CLI installer manages its own node version independently.
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Run Aztec CLI acceptance test
         timeout-minutes: 30
         run: ./aztec-up/test/aztec-cli-acceptance-test/run-test.sh
