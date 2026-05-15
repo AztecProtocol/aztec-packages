@@ -17,30 +17,9 @@ import {
   PrivateKernelResetDimensions,
   type PrivateKernelResetDimensionsConfig,
   type ResetCatalogEntry,
+  privateKernelResetDimensionNames,
 } from '../private_kernel_reset_dimensions.js';
 import { findPrivateKernelResetDimensions } from './find_private_kernel_reset_dimensions.js';
-
-const sampleInnerCatalog: ResetCatalogEntry[] = [
-  { name: 'inner_settled_reads_lg', dimensions: [0, 64, 0, 0, 0, 0, 0, 0, 0] },
-  { name: 'inner_pending_reads_lg', dimensions: [32, 0, 32, 0, 0, 0, 0, 0, 0] },
-  { name: 'inner_read_combo_md', dimensions: [8, 8, 8, 8, 4, 0, 0, 0, 0] },
-  { name: 'inner_validation_combo_md', dimensions: [0, 4, 0, 4, 16, 16, 0, 0, 0] },
-  { name: 'inner_iter_checkpoint_sm', dimensions: [4, 4, 4, 4, 4, 4, 0, 0, 0] },
-  { name: 'inner_universal_lg', dimensions: [32, 16, 32, 16, 16, 16, 0, 0, 0] },
-];
-
-const sampleFinalCatalog: ResetCatalogEntry[] = [
-  { name: 'final_xs_bare', dimensions: [0, 2, 0, 2, 0, 0, 1, 2, 1] },
-  { name: 'final_xs_pay', dimensions: [2, 2, 0, 1, 1, 0, 2, 3, 3] },
-  { name: 'final_xs_pfee', dimensions: [2, 4, 0, 2, 2, 0, 2, 6, 4] },
-  { name: 'final_s_pay', dimensions: [2, 6, 0, 2, 3, 0, 3, 8, 5] },
-  { name: 'final_s_partial', dimensions: [2, 6, 0, 3, 3, 0, 3, 9, 6] },
-  { name: 'final_md_pay', dimensions: [2, 12, 0, 3, 4, 1, 4, 13, 6] },
-  { name: 'final_md_partial', dimensions: [2, 12, 0, 4, 4, 1, 4, 16, 8] },
-  { name: 'final_lg_pay', dimensions: [4, 20, 0, 4, 5, 1, 5, 20, 8] },
-  { name: 'final_lg_partial', dimensions: [4, 24, 0, 6, 6, 2, 6, 24, 12] },
-  { name: 'final_xl_universal', dimensions: [16, 32, 16, 16, 16, 16, 16, 32, 16] },
-];
 
 const sampleCosts: { [K in DimensionName]: number } = {
   NOTE_HASH_PENDING_READ: 100,
@@ -54,6 +33,37 @@ const sampleCosts: { [K in DimensionName]: number } = {
   PRIVATE_LOG_SILOING: 150,
 };
 
+// The production catalog carries a measured `circuit_size` on each entry. In the tests we
+// synthesize a cost via the legacy linear formula (sum of dim × per-dim weight) so the
+// selector still ranks entries in the order the tests expect.
+const synthesizeCost = (dimensions: number[], weights: { [K in DimensionName]: number } = sampleCosts) =>
+  privateKernelResetDimensionNames.reduce((accum, name, i) => accum + dimensions[i] * weights[name], 0);
+
+const withCosts = (entries: { name: string; dimensions: number[] }[]): ResetCatalogEntry[] =>
+  entries.map(e => ({ ...e, cost: synthesizeCost(e.dimensions) }));
+
+const sampleInnerCatalog: ResetCatalogEntry[] = withCosts([
+  { name: 'inner_settled_reads_lg', dimensions: [0, 64, 0, 0, 0, 0, 0, 0, 0] },
+  { name: 'inner_pending_reads_lg', dimensions: [32, 0, 32, 0, 0, 0, 0, 0, 0] },
+  { name: 'inner_read_combo_md', dimensions: [8, 8, 8, 8, 4, 0, 0, 0, 0] },
+  { name: 'inner_validation_combo_md', dimensions: [0, 4, 0, 4, 16, 16, 0, 0, 0] },
+  { name: 'inner_iter_checkpoint_sm', dimensions: [4, 4, 4, 4, 4, 4, 0, 0, 0] },
+  { name: 'inner_universal_lg', dimensions: [32, 16, 32, 16, 16, 16, 0, 0, 0] },
+]);
+
+const sampleFinalCatalog: ResetCatalogEntry[] = withCosts([
+  { name: 'final_xs_bare', dimensions: [0, 2, 0, 2, 0, 0, 1, 2, 1] },
+  { name: 'final_xs_pay', dimensions: [2, 2, 0, 1, 1, 0, 2, 3, 3] },
+  { name: 'final_xs_pfee', dimensions: [2, 4, 0, 2, 2, 0, 2, 6, 4] },
+  { name: 'final_s_pay', dimensions: [2, 6, 0, 2, 3, 0, 3, 8, 5] },
+  { name: 'final_s_partial', dimensions: [2, 6, 0, 3, 3, 0, 3, 9, 6] },
+  { name: 'final_md_pay', dimensions: [2, 12, 0, 3, 4, 1, 4, 13, 6] },
+  { name: 'final_md_partial', dimensions: [2, 12, 0, 4, 4, 1, 4, 16, 8] },
+  { name: 'final_lg_pay', dimensions: [4, 20, 0, 4, 5, 1, 5, 20, 8] },
+  { name: 'final_lg_partial', dimensions: [4, 24, 0, 6, 6, 2, 6, 24, 12] },
+  { name: 'final_xl_universal', dimensions: [16, 32, 16, 16, 16, 16, 16, 32, 16] },
+]);
+
 describe('findPrivateKernelResetDimensions', () => {
   describe('selector logic', () => {
     let config: PrivateKernelResetDimensionsConfig;
@@ -61,27 +71,34 @@ describe('findPrivateKernelResetDimensions', () => {
     let allowRemainder = false;
 
     beforeEach(() => {
+      // Equal per-dim weights so the synthesized cost is just sum(dimensions).
+      const equalWeights = Object.fromEntries(privateKernelResetDimensionNames.map(name => [name, 100])) as {
+        [K in DimensionName]: number;
+      };
+      const buildEntries = (entries: { name: string; dimensions: number[] }[]): ResetCatalogEntry[] =>
+        entries.map(e => ({ ...e, cost: synthesizeCost(e.dimensions, equalWeights) }));
+
       config = {
         dimensions: {
-          NOTE_HASH_PENDING_READ: { cost: 100 },
-          NOTE_HASH_SETTLED_READ: { cost: 100 },
-          NULLIFIER_PENDING_READ: { cost: 100 },
-          NULLIFIER_SETTLED_READ: { cost: 100 },
-          KEY_VALIDATION: { cost: 100 },
-          TRANSIENT_DATA_SQUASHING: { cost: 100 },
-          NOTE_HASH_SILOING: { cost: 100 },
-          NULLIFIER_SILOING: { cost: 100 },
-          PRIVATE_LOG_SILOING: { cost: 100 },
+          NOTE_HASH_PENDING_READ: {},
+          NOTE_HASH_SETTLED_READ: {},
+          NULLIFIER_PENDING_READ: {},
+          NULLIFIER_SETTLED_READ: {},
+          KEY_VALIDATION: {},
+          TRANSIENT_DATA_SQUASHING: {},
+          NOTE_HASH_SILOING: {},
+          NULLIFIER_SILOING: {},
+          PRIVATE_LOG_SILOING: {},
         },
-        inner: [
+        inner: buildEntries([
           { name: 'inner_sm', dimensions: [4, 4, 4, 4, 4, 4, 0, 0, 0] },
           { name: 'inner_lg', dimensions: [16, 16, 16, 16, 16, 16, 0, 0, 0] },
-        ],
-        final: [
+        ]),
+        final: buildEntries([
           { name: 'final_sm', dimensions: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
           { name: 'final_lg', dimensions: [10, 10, 10, 10, 10, 10, 10, 10, 10] },
           { name: 'final_xl', dimensions: [99, 99, 99, 99, 99, 99, 99, 99, 99] },
-        ],
+        ]),
       };
 
       isInner = false;
@@ -123,7 +140,7 @@ describe('findPrivateKernelResetDimensions', () => {
     });
 
     it('throws if no final entry can cover and remainder is not allowed', () => {
-      config.final = [{ name: 'tiny', dimensions: [1, 1, 1, 1, 1, 1, 1, 1, 1] }];
+      config.final = withCosts([{ name: 'tiny', dimensions: [1, 1, 1, 1, 1, 1, 1, 1, 1] }]);
       expect(() => getDimensions({ NULLIFIER_PENDING_READ: 99 })).toThrow();
     });
 
@@ -145,15 +162,15 @@ describe('findPrivateKernelResetDimensions', () => {
       const request = { NULLIFIER_PENDING_READ: 200, KEY_VALIDATION: 200 };
 
       it('throws when allowRemainder is false and nothing covers', () => {
-        config.final = [{ name: 'tiny', dimensions: [1, 1, 1, 1, 1, 1, 1, 1, 1] }];
+        config.final = withCosts([{ name: 'tiny', dimensions: [1, 1, 1, 1, 1, 1, 1, 1, 1] }]);
         expect(() => getDimensions(request)).toThrow();
       });
 
       it('returns the entry with the smallest remainder when allowRemainder is true', () => {
-        config.final = [
+        config.final = withCosts([
           { name: 'tiny', dimensions: [1, 1, 1, 1, 1, 1, 1, 1, 1] },
           { name: 'mid', dimensions: [50, 50, 50, 50, 50, 50, 50, 50, 50] },
-        ];
+        ]);
         allowRemainder = true;
         const dimensions = getDimensions(request);
         expectMatchEntry(dimensions, config.final[1]); // mid leaves the smallest remainder
@@ -163,16 +180,8 @@ describe('findPrivateKernelResetDimensions', () => {
 
   describe('with named-entry catalog', () => {
     const config: PrivateKernelResetDimensionsConfig = {
-      dimensions: {
-        NOTE_HASH_PENDING_READ: { cost: sampleCosts.NOTE_HASH_PENDING_READ },
-        NOTE_HASH_SETTLED_READ: { cost: sampleCosts.NOTE_HASH_SETTLED_READ },
-        NULLIFIER_PENDING_READ: { cost: sampleCosts.NULLIFIER_PENDING_READ },
-        NULLIFIER_SETTLED_READ: { cost: sampleCosts.NULLIFIER_SETTLED_READ },
-        KEY_VALIDATION: { cost: sampleCosts.KEY_VALIDATION },
-        TRANSIENT_DATA_SQUASHING: { cost: sampleCosts.TRANSIENT_DATA_SQUASHING },
-        NOTE_HASH_SILOING: { cost: sampleCosts.NOTE_HASH_SILOING },
-        NULLIFIER_SILOING: { cost: sampleCosts.NULLIFIER_SILOING },
-        PRIVATE_LOG_SILOING: { cost: sampleCosts.PRIVATE_LOG_SILOING },
+      dimensions: Object.fromEntries(privateKernelResetDimensionNames.map(name => [name, {}])) as {
+        [K in DimensionName]: object;
       },
       inner: sampleInnerCatalog,
       final: sampleFinalCatalog,
@@ -263,12 +272,21 @@ describe('findPrivateKernelResetDimensions', () => {
   });
 
   describe('shipped catalog', () => {
+    // The on-disk JSON only carries the catalog *shape* (name + dimensions). Per-variant `cost`
+    // values are populated by the codegen step that runs `bb gates` on each compiled artifact,
+    // so we read the JSON with a cost-less shape here.
+    type ShippedEntry = { name: string; dimensions: number[] };
+    type ShippedConfig = {
+      dimensions: Record<string, object>;
+      inner: ShippedEntry[];
+      final: ShippedEntry[];
+    };
     const configPath = resolve(
       dirname(fileURLToPath(import.meta.url)),
       '../../../../../noir-projects/noir-protocol-circuits/private_kernel_reset_config.json',
     );
-    const shipped = JSON.parse(readFileSync(configPath, 'utf8')) as PrivateKernelResetDimensionsConfig;
-    const allEntries: ResetCatalogEntry[] = [...shipped.inner, ...shipped.final];
+    const shipped = JSON.parse(readFileSync(configPath, 'utf8')) as ShippedConfig;
+    const allEntries: ShippedEntry[] = [...shipped.inner, ...shipped.final];
     const allowed = new Set([0, 1, 2, 4, 8, 16, 32, 64]);
 
     it('every dimension value is a power of 2 in {0,1,2,4,8,16,32,64}', () => {

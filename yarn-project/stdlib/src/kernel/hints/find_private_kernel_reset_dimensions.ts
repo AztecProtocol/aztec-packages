@@ -11,13 +11,6 @@ interface DimensionOption {
   remainder?: PrivateKernelResetDimensions;
 }
 
-function computeCost(dimensions: PrivateKernelResetDimensions, config: PrivateKernelResetDimensionsConfig) {
-  return privateKernelResetDimensionNames.reduce(
-    (accum, name) => accum + dimensions[name] * config.dimensions[name].cost,
-    0,
-  );
-}
-
 function getSize(dimensions: PrivateKernelResetDimensions) {
   return privateKernelResetDimensionNames.reduce((accum, name) => accum + dimensions[name], 0);
 }
@@ -56,15 +49,11 @@ function pickBestOption(options: DimensionOption[]) {
   return pickCheapest(optionsResetAll) || pickSmallestRemainder(optionsResetPartial);
 }
 
-function buildOption(
-  entry: ResetCatalogEntry,
-  requestedDimensions: PrivateKernelResetDimensions,
-  config: PrivateKernelResetDimensionsConfig,
-): DimensionOption {
+function buildOption(entry: ResetCatalogEntry, requestedDimensions: PrivateKernelResetDimensions): DimensionOption {
   const dimensions = PrivateKernelResetDimensions.fromValues(entry.dimensions);
   return {
     dimensions,
-    cost: computeCost(dimensions, config),
+    cost: entry.cost,
     remainder: getRemainder(requestedDimensions, dimensions),
   };
 }
@@ -77,7 +66,7 @@ export function findPrivateKernelResetDimensions(
 ) {
   const catalog = isInner ? config.inner : config.final;
   const options = catalog
-    .map(entry => buildOption(entry, requestedDimensions, config))
+    .map(entry => buildOption(entry, requestedDimensions))
     .filter(option => allowRemainder || !option.remainder);
 
   if (!options.length) {
