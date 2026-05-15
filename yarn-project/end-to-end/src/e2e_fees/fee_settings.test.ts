@@ -235,8 +235,8 @@ describe('e2e_fees fee settings', () => {
       // skipped between the bump and recovery — that's the positive signal that a pipelined
       // header was actually dropped, distinguishing the A-1057 recovery path from a chain that
       // silently absorbed the governance write without exercising the failure case.
-      const checkpointBefore = await aztecNode.getBlockNumber('checkpointed');
-      const slotBefore = (await aztecNode.getCheckpoint(CheckpointNumber(checkpointBefore)))!.header.slotNumber;
+      const checkpointBefore = await aztecNode.getCheckpointNumber('checkpointed');
+      const slotBefore = (await aztecNode.getCheckpoint(checkpointBefore))!.header.slotNumber;
 
       t.logger.info(`Bumping provingCostPerMana at checkpointed=${checkpointBefore} (slot ${slotBefore})`);
       await cheatCodes.rollup.bumpProvingCostPerMana(current => (current * 120n) / 100n);
@@ -245,10 +245,10 @@ describe('e2e_fees fee settings', () => {
       // 6 slot windows before insisting the chain has made forward progress past the bump. With
       // pipelining + minTxsPerBlock=0 an idle chain still emits empty checkpoints, so the
       // `checkpointed` tip must strictly advance.
-      const RECOVERY_TARGET = CheckpointNumber(checkpointBefore + 3);
+      const RECOVERY_TARGET = CheckpointNumber.add(checkpointBefore, 3);
       const RECOVERY_BUDGET_SECONDS = AZTEC_SLOT_DURATION * 6;
       await retryUntil(
-        async () => (await aztecNode.getBlockNumber('checkpointed')) >= RECOVERY_TARGET,
+        async () => (await aztecNode.getCheckpointNumber('checkpointed')) >= RECOVERY_TARGET,
         `chain advances at least ${RECOVERY_TARGET - checkpointBefore} checkpoints past governance bump`,
         RECOVERY_BUDGET_SECONDS,
         1,
