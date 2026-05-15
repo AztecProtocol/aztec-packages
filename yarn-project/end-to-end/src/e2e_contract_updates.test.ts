@@ -22,7 +22,6 @@ import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
 // Set the update delay in genesis data so it's feasible to test in an e2e test
@@ -91,6 +90,14 @@ describe('e2e_contract_updates', () => {
     const constructorArgs = [INITIAL_UPDATABLE_CONTRACT_VALUE];
     const genesisPublicData = await setupScheduledDelay(constructorArgs, salt, initialFundedAccounts[0].address);
 
+    // TODO(kill-non-pipelined): runs under legacy until §6 B2 (proposed-chain invalidation
+    // + PXE/anchor recovery) is fixed. Under pipelining, `propose_action_not_successful`
+    // mid-test triggers an archiver prune cascade ("Pruning blocks after block 8 due to
+    // slot 10 not being checkpointed" → "Reorg detected. Pruning blocks from 1 to 8" →
+    // "Chain pruned to block 0"), wiping wallet state and wedging the sequencer; subsequent
+    // `cheatCodes.warpL2TimeAtLeastBy` then fails with "Timeout awaiting mineBlock". Same
+    // un-opt-in pattern as e2e_bot (e32ea4fb60), e2e_fees/failures (eb542676f8), and
+    // e2e_avm_simulator (a8ea0e9c36).
     ({
       aztecNode,
       teardown,
@@ -98,7 +105,6 @@ describe('e2e_contract_updates', () => {
       accounts: [defaultAccountAddress],
       cheatCodes,
     } = await setup(1, {
-      ...PIPELINING_SETUP_OPTS,
       genesisPublicData,
       initialFundedAccounts,
     }));
