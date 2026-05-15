@@ -80,6 +80,15 @@ describe('e2e_gov_proposal', () => {
       minTxsPerBlock: TXS_PER_BLOCK,
       enforceTimeTable: true,
       automineL1Setup: true, // speed up setup
+      // Force the L1 sync to fetch blobs rather than promote the locally-proposed checkpoint.
+      // The "should vote even when unable to build blocks" test relies on the blob client being the
+      // only source of truth for block sync: disabling the blob client should make the tx un-syncable.
+      // Under pipelining the proposer also enters its proposed checkpoint into the local store
+      // (proposal_handler.ts § setProposedCheckpointFromBlocks), and the L1 synchronizer would then
+      // promote that proposed checkpoint into a published one without going through the blob client
+      // (l1_synchronizer.ts § tryBuildPublishedCheckpointFromProposed). Forcing the blob path here
+      // restores the legacy assumption for both tests in this describe block.
+      skipPromoteProposedCheckpointDuringL1Sync: true,
     });
 
     ({
@@ -202,12 +211,13 @@ describe('e2e_gov_proposal', () => {
   it('should vote even when unable to build blocks', async () => {
     const monitor = new ChainMonitor(rollup, dateProvider).start();
 
-    // Break the blob client AND the in-process proposer→archiver shortcut so no new blocks are synced.
-    // Under pipelining the proposer pushes its own built block straight into the local archiver via
-    // syncProposedBlockToArchiver (checkpoint_proposal_job.ts), so disabling the blob client alone is
-    // insufficient — the tx would still be observed locally as `checkpointed` and the test's premise
-    // ("tx should time out because the node cannot sync it back") would not hold. Disabling both paths
-    // forces the node to rely on the blob client for sync, which is the legacy assumption.
+    // Disable the in-process proposer→archiver block shortcut (validator-client and
+    // checkpoint_proposal_job both push the just-built block into the local archiver) and then
+    // disable the blob client. The archiver-side `skipPromoteProposedCheckpointDuringL1Sync`
+    // shortcut is disabled at setup() — without it the L1 synchronizer would promote the locally
+    // proposed checkpoint into a published one without going through the blob client, and the
+    // tx would still be observed as `checkpointed` regardless of the disabled blob client. With
+    // all three shortcuts off the node has no choice but to rely on the blob client for sync.
     await aztecNodeAdmin!.setConfig({ skipPushProposedBlocksToArchiver: true });
     ((aztecNodeAdmin as AztecNodeService).getBlobClient() as HttpBlobClient).setDisabled(true);
     await sleep(1000);
