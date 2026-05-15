@@ -1,1 +1,1 @@
-export { AnchorBlockStore } from './anchor_block_store.js';
+export { CanonicalChainStore } from './canonical_chain_store.js';

@@ -244,6 +244,8 @@ export class PXE {
       keyStore,
       l2TipsStore,
     } = openPxeStores(store, initialBlockHash);
+    await canonicalChainStore.load();
+
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,

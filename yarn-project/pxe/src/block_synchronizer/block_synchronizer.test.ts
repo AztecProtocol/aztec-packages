@@ -182,6 +182,54 @@ describe('BlockSynchronizer', () => {
     });
   });
 
+  describe('canonical chain map', () => {
+    it('records each block hash in the canonical map on blocks-added', async () => {
+      const block = await L2Block.random(BlockNumber(5));
+      await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+
+      const stored = await canonicalChainStore.hashAt(5);
+      expect(stored).toBe((await block.hash()).toString());
+    });
+
+    it('clears entries above the common ancestor on chain-pruned', async () => {
+      const blocks = await timesParallel(5, i => L2Block.random(BlockNumber(i + 1)));
+      const block5Hash = Fr.fromString('0x5');
+
+      // Mock node so the prune handler can fetch the anchor block for the reorg point (block 3)
+      aztecNode.getBlock.mockImplementation(async (blockRef: any) => {
+        if (blockRef instanceof BlockHash && blockRef.equals(block5Hash)) {
+          const b = await L2Block.random(BlockNumber(3));
+          return {
+            header: b.header,
+            archive: b.archive,
+            hash: await b.hash(),
+            checkpointNumber: b.checkpointNumber,
+            indexWithinCheckpoint: b.indexWithinCheckpoint,
+            number: b.number,
+          } as any;
+        }
+        return undefined;
+      });
+
+      await synchronizer.handleBlockStreamEvent({ type: 'blocks-added', blocks });
+
+      // Verify block 5 is in the map before the prune
+      const block5 = blocks[4];
+      const hashBefore = await canonicalChainStore.hashAt(5);
+      expect(hashBefore).toBe((await block5.hash()).toString());
+
+      await synchronizer.handleBlockStreamEvent({
+        type: 'chain-pruned',
+        block: { number: BlockNumber(3), hash: block5Hash.toString() },
+        checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
+      });
+
+      // Block 5 (above prune point 3) should have been cleared
+      const hashAfter = await canonicalChainStore.hashAt(5);
+      expect(hashAfter).toBeUndefined();
+    });
+  });
+
   describe('syncChainTip config', () => {
     it('updates anchor on blocks-added when syncChainTip is proposed (default)', async () => {
       synchronizer = createSynchronizer({ syncChainTip: 'proposed' });

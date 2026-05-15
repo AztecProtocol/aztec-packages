@@ -66,6 +66,9 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
 
     switch (event.type) {
       case 'blocks-added': {
+        for (const block of event.blocks) {
+          await this.canonicalChainStore.set(block.number, (await block.hash()).toString());
+        }
         if (this.config.syncChainTip === undefined || this.config.syncChainTip === 'proposed') {
           const lastBlock = event.blocks.at(-1)!;
           await this.updateAnchorBlockHeader(lastBlock.header);
@@ -131,6 +134,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         await this.store.transactionAsync(async () => {
           await this.noteStore.rollback(event.block.number, currentAnchorBlockNumber);
           await this.privateEventStore.rollback(event.block.number, currentAnchorBlockNumber);
+          await this.canonicalChainStore.clearAbove(event.block.number);
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;
@@ -195,6 +199,23 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
       // REFACTOR: We should know the header of the genesis block without having to request it from the node.
       await this.canonicalChainStore.setHeader((await this.node.getBlockData(BlockNumber.ZERO))!.header);
     }
+
+    const tips = await this.node.getChainTips();
+    if (tips) {
+      const tipHeight = await this.canonicalChainStore.tipHeight();
+      const fromHeight = Math.max(tips.finalized.block.number, tipHeight + 1);
+      await this.canonicalChainStore.hydrateFromNode(
+        {
+          getBlocks: async (from, limit) => {
+            const blocks = await this.node.getBlocks(BlockNumber(from), limit);
+            return blocks.map(b => ({ number: b.number, hash: () => Promise.resolve(b.hash) }));
+          },
+        },
+        fromHeight,
+        tips.proposed.number,
+      );
+    }
+
     await this.blockStream.sync();
   }
 }
