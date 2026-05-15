@@ -879,7 +879,12 @@ export class CheckpointProposalJob implements Traceable {
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
       // Sign the block proposal. This will throw if HA signing fails.
-      const proposal = await this.createBlockProposal(block, inHash, usedTxs, blockProposalOptions);
+      const proposal = await this.createBlockProposal(block, inHash, usedTxs, {
+        ...blockProposalOptions,
+        broadcastInvalidBlockProposal:
+          blockProposalOptions.broadcastInvalidBlockProposal ||
+          block.indexWithinCheckpoint === this.config.invalidBlockProposalIndexWithinCheckpoint,
+      });
 
       // Sync the proposed block to the archiver to make it available, only after we've managed to sign the proposal,
       // so we avoid polluting our archive with a block that would fail.
@@ -1099,6 +1104,9 @@ export class CheckpointProposalJob implements Traceable {
       // `buildSlot` is the wall-clock slot during which the block was actually built.
       this.eventEmitter.emit('block-proposed', {
         blockNumber: block.number,
+        blockHash,
+        checkpointNumber: this.checkpointNumber,
+        indexWithinCheckpoint: block.indexWithinCheckpoint,
         slot: this.targetSlot,
         buildSlot: this.slotNow,
       });

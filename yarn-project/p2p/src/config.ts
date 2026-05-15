@@ -229,6 +229,9 @@ export interface P2PConfig
 
   /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
   skipIncomingProposals?: boolean;
+
+  /** Accept proposal gossip regardless of slot timing (for testing only). */
+  skipProposalSlotValidation?: boolean;
 }
 
 export const DEFAULT_P2P_PORT = 40400;
@@ -552,6 +555,10 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   skipIncomingProposals: {
     description: 'Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only)',
+    ...booleanConfigHelper(false),
+  },
+  skipProposalSlotValidation: {
+    description: 'Accept proposal gossip regardless of slot timing (for testing only)',
     ...booleanConfigHelper(false),
   },
   minTxPoolAgeMs: {
