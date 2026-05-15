@@ -30,7 +30,7 @@ import {
 import { OffenseType, WANT_TO_CLEAR_SLASH_EVENT, WANT_TO_SLASH_EVENT } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type BlockData, BlockHash, L2Block, type L2BlockSink, type L2BlockSource } from '@aztec/stdlib/block';
-import { InMemoryCheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
+import { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import { type getEpochAtSlot, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
@@ -210,7 +210,7 @@ describe('ValidatorClient', () => {
       txProvider,
       keyStoreManager,
       blobClient,
-      new InMemoryCheckpointReexecutionTracker(),
+      new CheckpointReexecutionTracker(),
       dateProvider,
     )) as ValidatorClient;
   });

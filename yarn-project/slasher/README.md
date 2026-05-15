@@ -188,25 +188,34 @@ Details about specific offenses in the system:
 
 Inactivity slashing is one of the most critical, since it allows purging validators that are not fulfilling their duties, which could potentially bring the chain to a halt. This slashing must be aggressive enough to balance out the rate of the entry queue, in case the queue is filled with inactive validators. Furthermore, if enough inactive validators join the system, it may become impossible to gather enough quorum to pass any governance proposal.
 
-Inactivity slashing is handled by the `Sentinel` which monitors performance of all validators slot-by-slot. With the multiple-blocks-per-slot model, block proposals and checkpoints are distinct concepts: proposers build multiple blocks per slot, but attestations are only for checkpoints. After each slot, the sentinel assigns one of the following to the proposer for the slot:
-- `checkpoint-mined` if the checkpoint was added to L1
-- `checkpoint-proposed` if the checkpoint received at least one attestation, but didn't make it to L1
-- `checkpoint-missed` if blocks were proposed but the checkpoint received no attestations
-- `blocks-missed` if no block proposals were sent for this slot at all
+Inactivity slashing is handled by the `Sentinel` (in `aztec-node/src/sentinel/`), which monitors performance of all validators slot-by-slot. With the multiple-blocks-per-slot model, block proposals and checkpoints are distinct concepts: proposers build multiple blocks per slot, but attestations are only for checkpoints. After each slot, the sentinel assigns one of the following to the proposer for the slot, in highest-confidence order:
 
-And assigns one of the following to each validator (these refer to checkpoint attestations):
-- `attestation-sent` if there was a `checkpoint-proposed` or `checkpoint-mined` and a checkpoint attestation from this validator was seen on either on L1 or on the P2P network
-- `attestation-missed` if there was a `checkpoint-proposed` or `checkpoint-mined` but no checkpoint attestation was seen
-- none if the slot was a `blocks-missed`
+- `checkpoint-mined` — a checkpoint covering this slot has landed on L1
+- `checkpoint-valid` — the local node re-executed a checkpoint proposal for this slot successfully
+- `checkpoint-invalid` — the local node re-executed a checkpoint proposal for this slot and rejected it (header / archive / out-hash mismatch, limit breach, etc.). Proposer-fault
+- `checkpoint-unvalidated` — a checkpoint proposal arrived but the local node could not validate it (missing blocks/txs, timeout). Treated as proposer-fault
+- `checkpoint-missed` — block proposals seen on P2P but no checkpoint proposal at all
+- `blocks-missed` — no block proposals seen for this slot at all
 
-Both `blocks-missed` and `checkpoint-missed` count as proposer inactivity.
+Re-execution outcomes are read from the `CheckpointReexecutionTracker`, which the validator client populates at every early-return in `validateCheckpointProposal`. The same tracker is consumed by the data-withholding watcher via `hasReexecuted(checkpointNumber, archiveRoot)`.
 
-Once an epoch is proven, the sentinel computes the _proven performance_ for the epoch for each validator. Note that we wait until the epoch is proven so we know that the data for all blocks in the epoch was available, and validators who did not attest were effectively inactive. Then, for each validator such that:
+Each non-proposer committee member is assigned one of:
+- `attestation-sent` if their checkpoint attestation was seen on L1 or on the P2P network
+- `attestation-missed` if the proposer status was `checkpoint-mined` or `checkpoint-valid` but no checkpoint attestation was seen
+- none in any other case
+
+`blocks-missed`, `checkpoint-missed`, `checkpoint-invalid`, and `checkpoint-unvalidated` all count as proposer inactivity for the slot.
+
+The sentinel evaluates an epoch once `sentinelEpochEndBufferSlots` (default 2) L2 slots have elapsed past the epoch's last slot AND the per-slot recorder has covered that last slot. Epoch evaluation does not wait for an L1 proof — it relies on local-state evidence (the re-execution tracker plus L1 checkpoint landings) — so inactive validators are slashed promptly regardless of prover availability.
+
+At end-of-epoch evaluation, for each validator such that:
 
 ```
-total_failures = count(blocks-missed) + count(checkpoint-missed) + count(attestation-missed)
+total_failures = count(blocks-missed) + count(checkpoint-missed)
+               + count(checkpoint-invalid) + count(checkpoint-unvalidated)
+               + count(attestation-missed)
 total = count(checkpoint-*) + count(blocks-*) + count(attestation-*)
-total_failures / total >= slash_inactivity_target_percentage
+total_failures / total >= slashInactivityTargetPercentage
 ```
 
-They are voted to be slashed for inactivity. Note that, if `slashInactivityConsecutiveEpochThreshold` is greater than one, we first check if the above is true for the last `threshold` times the given validator was part of a committee, and only then trigger the offense.
+they are voted to be slashed for inactivity. If `slashInactivityConsecutiveEpochThreshold` is greater than one, the above must also hold for the last `threshold` times the validator was part of a committee.

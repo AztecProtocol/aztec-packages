@@ -604,7 +604,8 @@ export class CheckpointProposalJob implements Traceable {
 
       const checkpointProposalOptions: CheckpointProposalOptions = {
         publishFullTxs: !!this.config.publishTxsWithProposals,
-        broadcastInvalidCheckpointProposal: this.config.broadcastInvalidBlockProposal,
+        broadcastInvalidCheckpointProposal:
+          this.config.broadcastInvalidCheckpointProposalOnly || this.config.broadcastInvalidBlockProposal,
       };
 
       let blocksInCheckpoint: L2Block[] = [];
