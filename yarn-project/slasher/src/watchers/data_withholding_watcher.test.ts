@@ -94,9 +94,9 @@ describe('DataWithholdingWatcher', () => {
     } as unknown as PublishedCheckpoint;
   };
 
-  /** Configures epochCache.getSlotNow + start() to bring the watcher to a known initial state. */
+  /** Configures the archiver's synced-slot mock and starts the watcher at a known initial state. */
   const startAtSlot = async (initialSlot: number) => {
-    epochCache.getSlotNow.mockReturnValue(SlotNumber(initialSlot));
+    l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(initialSlot));
     await watcher.start();
   };
 

@@ -57,11 +57,14 @@ export class DataWithholdingWatcher extends (EventEmitter as new () => WatcherEm
     this.log.verbose(`DataWithholdingWatcher initialized`, this.config);
   }
 
-  public start(): Promise<void> {
-    this.initialSlot = this.epochCache.getSlotNow();
+  public async start(): Promise<void> {
+    // Floor processing at the archiver's synced slot rather than the wallclock — restart-time
+    // gaps before the archiver catches up are accepted and not back-filled. Falls back to the
+    // wallclock if the archiver isn't ready yet (cold start).
+    const syncedSlot = await this.l2BlockSource.getSyncedL2SlotNumber();
+    this.initialSlot = syncedSlot ?? this.epochCache.getSlotNow();
     this.log.info(`Starting data-withholding watcher with initial slot ${this.initialSlot}`);
     this.runningPromise.start();
-    return Promise.resolve();
   }
 
   public stop(): Promise<void> {
