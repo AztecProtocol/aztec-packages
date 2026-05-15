@@ -236,6 +236,170 @@ describe('abi/encoder', () => {
     });
   });
 
+  it('throws when array is larger than declared fixed size', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'values',
+          type: { kind: 'array', length: 2, type: { kind: 'field' } },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [[Fr.random(), Fr.random(), Fr.random()]])).toThrow(
+      "Expected array of length 2 for 'values' but received length 3",
+    );
+  });
+
+  it('throws when array is smaller than declared fixed size', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'values',
+          type: { kind: 'array', length: 3, type: { kind: 'field' } },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [[Fr.random()]])).toThrow(
+      "Expected array of length 3 for 'values' but received length 1",
+    );
+  });
+
+  it('throws when too many arguments are provided', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'value',
+          type: { kind: 'field' },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [Fr.random(), Fr.random()])).toThrow(
+      "Function 'test' expects 1 argument(s) but received 2",
+    );
+  });
+
+  it('throws when too few arguments are provided', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        { name: 'a', type: { kind: 'field' }, visibility: 'private' },
+        { name: 'b', type: { kind: 'field' }, visibility: 'private' },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [Fr.random()])).toThrow("Function 'test' expects 2 argument(s) but received 1");
+  });
+
+  it('throws when string is longer than declared length', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'label',
+          type: { kind: 'string', length: 3 },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, ['abcdef'])).toThrow(
+      "Expected string of max length 3 for 'label' but received length 6",
+    );
+  });
+
+  it('throws when unsigned integer overflows declared width', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'count',
+          type: { kind: 'integer', sign: 'unsigned', width: 8 },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [256])).toThrow(
+      "Value 256 does not fit in u8 for 'count' (valid range: 0 to 255)",
+    );
+    expect(() => encodeArguments(abi, [-1])).toThrow("Value -1 does not fit in u8 for 'count' (valid range: 0 to 255)");
+    expect(encodeArguments(abi, [255])).toEqual([new Fr(255n)]);
+    expect(encodeArguments(abi, [0])).toEqual([new Fr(0n)]);
+  });
+
+  it('throws when signed integer overflows declared width', () => {
+    const abi: FunctionAbi = {
+      name: 'test',
+      isInitializer: false,
+      functionType: FunctionType.PRIVATE,
+      isOnlySelf: false,
+      isStatic: false,
+      parameters: [
+        {
+          name: 'value',
+          type: { kind: 'integer', sign: 'signed', width: 8 },
+          visibility: 'private',
+        },
+      ],
+      returnTypes: [],
+      errorTypes: {},
+    };
+
+    expect(() => encodeArguments(abi, [128])).toThrow(
+      "Value 128 does not fit in i8 for 'value' (valid range: -128 to 127)",
+    );
+    expect(() => encodeArguments(abi, [-129])).toThrow(
+      "Value -129 does not fit in i8 for 'value' (valid range: -128 to 127)",
+    );
+    expect(encodeArguments(abi, [127])).toEqual([new Fr(127n)]);
+    expect(encodeArguments(abi, [-128])).toEqual([new Fr(128n)]);
+  });
+
   it('throws when passing string argument as field', () => {
     const testFunctionAbi: FunctionAbi = {
       name: 'constructor',

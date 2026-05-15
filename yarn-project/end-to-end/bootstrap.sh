@@ -256,6 +256,41 @@ function avm_check_circuit {
   avm_check_circuit_cmds | parallelize
 }
 
+# Generates e2e test commands using contract artifacts from a prior release version.
+# Only includes simple (jest-based) tests since compose/docker tests don't use the legacy jest resolver.
+# Excludes prover, block_building, and epochs tests (not relevant for contract artifact compat; epochs
+# tests are known-flaky and provide no additional backwards-compat coverage). Also excludes
+# kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks whenever
+# contracts add/remove nullifier emissions across versions (unrelated to the compat contract surface).
+# event_logs is excluded because the new tagging-cache reconciliation test (#23044) calls a
+# TestLog method (deliver_squashed_and_surviving_notes) that does not exist in legacy artifacts.
+function compat_test_cmds {
+  local version=${1:?version is required}
+  local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
+  local prefix="$hash:ISOLATE=1"
+  local compat_env="CONTRACT_ARTIFACTS_VERSION=$version"
+
+  local tests=(
+    src/e2e_!(prover|block_building|epochs)/*.test.ts
+    src/e2e_p2p/reqresp/*.test.ts
+    src/e2e_!(block_building|prover_*|kernelless_simulation|event_logs).test.ts
+  )
+  for test in "${tests[@]}"; do
+    local name=${test#*e2e_}
+    name=e2e_${name%.test.ts}
+
+    if [[ "$test" == *.parallel.test.ts ]]; then
+      while IFS= read -r test_name; do
+        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
+        local full_name="compat_${version}_${name}_${safe_test_name}"
+        echo "$prefix:NAME=$full_name $compat_env $run_test_script simple $test \"$test_name\""
+      done < <(extract_test_names "$test")
+    else
+      echo "$prefix:NAME=compat_${version}_${name} $compat_env $run_test_script simple $test"
+    fi
+  done
+}
+
 case "$cmd" in
   "")
     build

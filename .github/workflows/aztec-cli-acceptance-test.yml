@@ -1,0 +1,67 @@
+# Validates that a published Aztec CLI release can be installed and used end-to-end.
+# Runs after CI3 completes a tag release (via workflow_run), or manually via workflow_dispatch.
+name: Aztec CLI Acceptance Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to install (e.g. latest, nightly, 4.3.0, 4.3.0-nightly.20260420)"
+        required: true
+        type: string
+  workflow_run:
+    workflows: ["CI3"]
+    types:
+      - completed
+    branches:
+      - "v*"
+
+jobs:
+  release-acceptance:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run'
+       && github.event.workflow_run.conclusion == 'success'
+       && !contains(github.event.workflow_run.head_branch, '-commit.'))
+    env:
+      VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # Node is only used to run the .ts harness in run-test.sh, which needs >=22.18 for TS
+      # type-stripping. The aztec CLI installer manages its own node version independently.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run Aztec CLI acceptance test
+        timeout-minutes: 30
+        run: ./aztec-up/test/aztec-cli-acceptance-test/run-test.sh
+
+      - name: Notify Slack on success
+        if: success() && github.event_name != 'workflow_dispatch'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        run: |
+          export CI=1
+          ./ci3/slack_notify \
+            "Aztec CLI Acceptance Test passed for version ${VERSION} :white_check_mark:" \
+            "#team-fairies"
+
+      - name: Notify Slack and dispatch ClaudeBox on failure
+        if: failure() && github.event_name != 'workflow_dispatch'
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+        run: |
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          export CI=1
+          ./ci3/slack_notify_with_claudebox_kickoff "#team-fairies" \
+            "Aztec CLI Acceptance Test FAILED (version ${VERSION}): <${RUN_URL}|View Run>" \
+            "Aztec CLI acceptance test failed for version ${VERSION}. CI run: ${RUN_URL}. Investigate the failure and explain the root cause." \
+            --link "$RUN_URL"

@@ -334,11 +334,11 @@
 # FaceID wallet redirect (page removed)
 [[redirects]]
     from = "/developers/tutorials/codealong/faceid_wallet"
-    to = "/developers/docs/tutorials"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
 
 [[redirects]]
     from = "/developers/docs/tutorials/faceid_wallet"
-    to = "/developers/docs/tutorials"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
 
 # Legacy network paths - SPECIFIC PATHS MUST COME BEFORE WILDCARDS
 # (Netlify processes redirects top-to-bottom, first match wins)
@@ -594,7 +594,7 @@
 
 [[redirects]]
     from = "/developers/docs/guides/local_env/advanced/faceid_wallet"
-    to = "/developers/docs/tutorials/faceid_wallet"
+    to = "/developers/docs/tutorials/contract_tutorials/counter_contract"
 
 [[redirects]]
     from = "/developers/docs/guides/local_env/*"
@@ -813,3 +813,18 @@
     # PXE: capsule operation attempted with a scope not in the allowed scopes list
     from = "/errors/10"
     to = "/developers/docs/aztec-nr/framework-description/advanced/how_to_use_capsules"
+
+[[redirects]]
+    # PXE: cross-contract utility call denied by execution hook
+    from = "/errors/11"
+    to = "/developers/docs/aztec-nr/debugging#cross-contract-utility-call-denied"
+
+[[redirects]]
+    # Incompatible oracle version between test and test environment
+    from = "/errors/12"
+    to = "/developers/docs/aztec-nr/testing_contracts#test-environment-oracle-versioning"
+
+[[redirects]]
+    # Unexpected error: how to report issues
+    from = "/errors/13"
+    to = "/developers/docs/aztec-nr/debugging#reporting-issues"

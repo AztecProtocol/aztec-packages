@@ -125,6 +125,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: DefaultMnemonic,
       env: 'MNEMONIC',
     },
+    {
+      flag: '--local-network.testAccounts',
+      description: 'Deploy test accounts on local network start',
+      env: 'TEST_ACCOUNTS',
+      ...booleanConfigHelper(true),
+    },
   ],
   API: [
     {
@@ -316,15 +322,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('bot', botConfigMappings),
   ],
-  PXE: [
-    {
-      flag: '--pxe',
-      description: 'Starts Aztec PXE with options',
-      defaultValue: undefined,
-      env: undefined,
-    },
-    ...getOptions('pxe', allPxeConfigMappings),
-  ],
+  PXE: [...getOptions('pxe', allPxeConfigMappings)],
   TXE: [
     {
       flag: '--txe',

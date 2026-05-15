@@ -680,6 +680,9 @@ pub global DOM_SEP__EVENT_LOG_TAG: u32 = 926040838;
 pub global DOM_SEP__NOTE_COMPLETION_LOG_TAG: u32 = 3372669888;
 /// Domain separator for unconstrained message delivery log tags. Used by [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
+/// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
+/// [`crate::hash::compute_log_tag`].
+pub global DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG: u32 = 4046403018;
 /// Domain separator for private log tags.
 ///
 /// Used by [`crate::hash::compute_siloed_private_log_first_field`].
@@ -761,6 +764,10 @@ pub global DOM_SEP__PRIVATE_INITIALIZATION_NULLIFIER: u32 = 3990889078;
 
 /// Domain separator for L1 to L2 message secret hashes.
 pub global DOM_SEP__SECRET_HASH: u32 = 4199652938;
+
+/// Domain separator for the secret hash stored in handshake notes produced by the handshake registry contract.
+/// Kept distinct from [`DOM_SEP__SECRET_HASH`] (which is specifically for L1 to L2 messages).
+pub global DOM_SEP__HANDSHAKE_SECRET_HASH: u32 = 3596796143;
 
 /// Domain separator for transaction nullifiers.
 ///

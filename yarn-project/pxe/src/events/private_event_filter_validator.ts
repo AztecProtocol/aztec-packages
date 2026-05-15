@@ -1,11 +1,14 @@
 import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { createLogger } from '@aztec/foundation/log';
 
 import type { PrivateEventStoreFilter } from '../storage/private_event_store/private_event_store.js';
 
 export class PrivateEventFilterValidator {
-  constructor(private lastBlock: BlockNumber) {}
+  private readonly log = createLogger('pxe:private_event_filter_validator');
+
+  constructor(private readonly lastBlock: BlockNumber) {}
 
   validate(filter: PrivateEventFilter): PrivateEventStoreFilter {
     let { fromBlock, toBlock } = filter;
@@ -33,6 +36,23 @@ export class PrivateEventFilterValidator {
 
     if (fromBlock >= toBlock) {
       throw new Error('toBlock must be strictly greater than fromBlock');
+    }
+
+    // Cap the requested range to the synced block range. Without this, callers that pass a large
+    // toBlock (e.g. Number.MAX_SAFE_INTEGER as a "give me everything" idiom) would silently receive
+    // only the events that happen to be synced and believe they have complete coverage.
+    // We warn + cap rather than throw so callers don't need to query the last synced block before
+    // every request (which would also be unreliable, as the block can advance between the two calls).
+    const syncedUpperBound = BlockNumber(this.lastBlock + 1);
+    if (fromBlock >= syncedUpperBound) {
+      this.log.warn(
+        `Requested fromBlock ${fromBlock} is past last synced block ${this.lastBlock}; no events will be returned until PXE syncs further.`,
+      );
+    } else if (toBlock > syncedUpperBound) {
+      this.log.warn(
+        `Requested toBlock ${toBlock} exceeds last synced block ${this.lastBlock}; capping to ${syncedUpperBound}. Retry once PXE is further synced for complete coverage.`,
+      );
+      toBlock = syncedUpperBound;
     }
 
     return {

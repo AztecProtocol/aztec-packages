@@ -12,7 +12,7 @@ import type { PublicKeys } from '@aztec/stdlib/keys';
 import type { ContractClassLog, Tag } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -144,6 +144,7 @@ export interface IUtilityExecutionOracle {
   ): Promise<void>;
   getLogsByTagV2(requestArrayBaseSlot: Fr): Promise<Fr>;
   getMessageContextsByTxHashV2(requestArrayBaseSlot: Fr): Promise<Fr>;
+  getTxEffect(txHash: TxHash): Promise<TxEffect | null>;
   getMessageContextsByTxHash(
     contractAddress: AztecAddress,
     messageContextRequestsArrayBaseSlot: Fr,
@@ -164,6 +165,11 @@ export interface IUtilityExecutionOracle {
   getSharedSecret(address: AztecAddress, ephPk: Point, contractAddress: AztecAddress): Promise<Fr>;
   setContractSyncCacheInvalid(contractAddress: AztecAddress, scopes: AztecAddress[]): void;
   emitOffchainEffect(data: Fr[]): Promise<void>;
+  callUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]>;
 
   // Ephemeral array methods
   pushEphemeral(slot: Fr, elements: Fr[]): number;
@@ -204,6 +210,11 @@ export interface IPrivateExecutionOracle {
     sideEffectCounter: number,
     isStaticCall: boolean,
   ): Promise<{ endSideEffectCounter: Fr; returnsHash: Fr }>;
+  callUtilityFunction(
+    targetContractAddress: AztecAddress,
+    functionSelector: FunctionSelector,
+    args: Fr[],
+  ): Promise<Fr[]>;
   assertValidPublicCalldata(calldataHash: Fr): Promise<void>;
   notifyRevertiblePhaseStart(minRevertibleSideEffectCounter: number): Promise<void>;
   isExecutionInRevertiblePhase(sideEffectCounter: number): Promise<boolean>;

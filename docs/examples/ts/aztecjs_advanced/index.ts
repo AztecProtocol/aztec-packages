@@ -16,14 +16,22 @@ import { getPublicEvents } from "@aztec/aztec.js/events";
 import { GasSettings } from "@aztec/stdlib/gas";
 
 // Setup: connect to network
-const node = createAztecNodeClient(process.env.AZTEC_NODE_URL ?? "http://localhost:8080");
+const node = createAztecNodeClient(
+  process.env.AZTEC_NODE_URL ?? "http://localhost:8080",
+);
 await waitForNode(node);
 const wallet = await EmbeddedWallet.create(node, { ephemeral: true });
 
 const testAccounts = await getInitialTestAccountsData();
 const [aliceAddress, bobAddress] = await Promise.all(
   testAccounts.slice(0, 2).map(async (account) => {
-    return (await wallet.createSchnorrAccount(account.secret, account.salt, account.signingKey)).address;
+    return (
+      await wallet.createSchnorrAccount(
+        account.secret,
+        account.salt,
+        account.signingKey,
+      )
+    ).address;
   }),
 );
 
@@ -45,8 +53,13 @@ const sponsoredFPCInstance = await getContractInstanceFromInstantiationParams(
   SponsoredFPCContract.artifact,
   { salt: new Fr(0) },
 );
-await wallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
-const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPCInstance.address);
+await wallet.registerContract(
+  sponsoredFPCInstance,
+  SponsoredFPCContract.artifact,
+);
+const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(
+  sponsoredFPCInstance.address,
+);
 
 // wallet is from the connection guide; sponsoredPaymentMethod is from the fees guide
 const { contract: sponsoredContract } = await TokenContract.deploy(
@@ -68,9 +81,9 @@ const { contract: saltedContract } = await TokenContract.deploy(
   "SaltedToken",
   "SALT",
   18,
+  { salt: customSalt },
 ).send({
   from: aliceAddress,
-  contractAddressSalt: customSalt,
 });
 // docs:end:deploy_custom_salt
 
@@ -84,8 +97,9 @@ const deployMethod = TokenContract.deploy(
   "PredictedToken",
   "PRED",
   18,
+  { salt: deploymentSalt, deployer: aliceAddress },
 );
-const instance = await deployMethod.getInstance({ contractAddressSalt: deploymentSalt });
+const instance = await deployMethod.getInstance();
 const predictedAddress = instance.address;
 
 console.log(`Contract will deploy at: ${predictedAddress}`);
@@ -235,15 +249,21 @@ console.log(`Derived token at: ${derivedToken.address.toString()}`);
 // docs:start:parallel_deploy
 // Deploy contracts in parallel using Promise.all
 const contracts = await Promise.all([
-  TokenContract.deploy(wallet, aliceAddress, "Token1", "T1", 18).send({
-    from: aliceAddress,
-  }).then(({ contract }) => contract),
-  TokenContract.deploy(wallet, aliceAddress, "Token2", "T2", 18).send({
-    from: aliceAddress,
-  }).then(({ contract }) => contract),
-  TokenContract.deploy(wallet, aliceAddress, "Token3", "T3", 18).send({
-    from: aliceAddress,
-  }).then(({ contract }) => contract),
+  TokenContract.deploy(wallet, aliceAddress, "Token1", "T1", 18)
+    .send({
+      from: aliceAddress,
+    })
+    .then(({ contract }) => contract),
+  TokenContract.deploy(wallet, aliceAddress, "Token2", "T2", 18)
+    .send({
+      from: aliceAddress,
+    })
+    .then(({ contract }) => contract),
+  TokenContract.deploy(wallet, aliceAddress, "Token3", "T3", 18)
+    .send({
+      from: aliceAddress,
+    })
+    .then(({ contract }) => contract),
 ]);
 
 console.log(`Contract 1 at: ${contracts[0].address}`);
@@ -293,8 +313,12 @@ async function pollForTransferEvents() {
 
     for (const { event, metadata } of events) {
       // Process each transfer event
-      console.log(`Transfer: ${event.amount} from ${event.from} to ${event.to}`);
-      console.log(`  in block ${metadata.l2BlockNumber}, tx ${metadata.txHash}`);
+      console.log(
+        `Transfer: ${event.amount} from ${event.from} to ${event.to}`,
+      );
+      console.log(
+        `  in block ${metadata.l2BlockNumber}, tx ${metadata.txHash}`,
+      );
     }
 
     lastProcessedBlock = currentBlock;
@@ -307,7 +331,11 @@ await pollForTransferEvents();
 
 // docs:start:connect_to_contract
 // wallet is from the connection guide; token is the contract deployed in the deploy guide
-const contract = await Contract.at(token.address, TokenContract.artifact, wallet);
+const contract = await Contract.at(
+  token.address,
+  TokenContract.artifact,
+  wallet,
+);
 // docs:end:connect_to_contract
 
 // docs:start:basic_send_transaction
@@ -333,7 +361,10 @@ console.log("DA gas limit:", metaResult.estimatedGas.gasLimits.daGas);
 // docs:end:simulate_with_metadata
 
 // docs:start:read_public_logs
-const publicLogs = await node.getPublicLogs({ fromBlock: 1, toBlock: await node.getBlockNumber() + 1 });
+const publicLogs = await node.getPublicLogs({
+  fromBlock: 1,
+  toBlock: (await node.getBlockNumber()) + 1,
+});
 if (publicLogs.logs.length > 0) {
   const rawFields = publicLogs.logs[0].log.getEmittedFields(); // Fr[]
   console.log("Raw log fields:", rawFields.length);
@@ -374,7 +405,7 @@ const { receipt: feeJuiceReceipt } = await token.methods
   .mint_to_public(aliceAddress, 1n)
   .send({
     from: aliceAddress,
-    // no fee payment method needed — Fee Juice is used automatically
+    // no fee payment method needed; Fee Juice is used automatically
   });
 console.log("Transaction fee:", feeJuiceReceipt.transactionFee);
 // docs:end:pay_with_fee_juice
@@ -385,16 +416,21 @@ const networkFees = await node.getCurrentMinFees();
 const gasSettings = GasSettings.from({
   gasLimits: { daGas: 100_000, l2Gas: 2_000_000 },
   teardownGasLimits: { daGas: 100_000, l2Gas: 2_000_000 },
-  maxFeesPerGas: { feePerDaGas: networkFees.feePerDaGas * 2n, feePerL2Gas: networkFees.feePerL2Gas * 2n },
+  maxFeesPerGas: {
+    feePerDaGas: networkFees.feePerDaGas * 2n,
+    feePerL2Gas: networkFees.feePerL2Gas * 2n,
+  },
   maxPriorityFeesPerGas: { feePerDaGas: 0n, feePerL2Gas: 0n },
 });
 // docs:end:custom_gas_settings
 
 // docs:start:send_with_gas_settings
-const { receipt: gsReceipt } = await token.methods.mint_to_public(aliceAddress, 1n).send({
-  from: aliceAddress,
-  fee: { gasSettings },
-});
+const { receipt: gsReceipt } = await token.methods
+  .mint_to_public(aliceAddress, 1n)
+  .send({
+    from: aliceAddress,
+    fee: { gasSettings },
+  });
 // docs:end:send_with_gas_settings
 
 // docs:start:read_logs_by_filter
@@ -402,7 +438,10 @@ const { receipt: gsReceipt } = await token.methods.mint_to_public(aliceAddress, 
 const txLogs = await node.getPublicLogs({ txHash: gsReceipt.txHash });
 
 // Get logs for a block range
-const rangeLogs = await node.getPublicLogs({ fromBlock: 1, toBlock: await node.getBlockNumber() + 1 });
+const rangeLogs = await node.getPublicLogs({
+  fromBlock: 1,
+  toBlock: (await node.getBlockNumber()) + 1,
+});
 // docs:end:read_logs_by_filter
 
 // docs:start:auto_gas_estimation
@@ -434,6 +473,5 @@ const { result: privateBalance } = await token.methods
   .balance_of_private(aliceAddress)
   .simulate({ from: aliceAddress });
 // docs:end:simulate_private_access
-
 
 console.log("All advanced examples completed successfully");

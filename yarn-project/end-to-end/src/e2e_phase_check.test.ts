@@ -36,9 +36,10 @@ describe('Phase check', () => {
     } = await setup(1, { genesisPublicData: [genesisBalanceEntry] }));
 
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
-    sponsoredFPC = await SponsoredFPCNoEndSetupContract.deploy(wallet).register({
-      contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
-    });
+    sponsoredFPC = await SponsoredFPCNoEndSetupContract.deploy(wallet, {
+      salt: new Fr(SPONSORED_FPC_SALT),
+      universalDeploy: true,
+    }).register();
 
     // If the below fails, the registration parameters are different than the instance generation parameters that we used for funding the address.
     expect(sponsorInstance.address).toEqual(sponsoredFPC.address);

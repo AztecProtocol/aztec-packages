@@ -9,7 +9,6 @@ import type {
   BlockProposal,
   BlockProposalOptions,
   CheckpointAttestation,
-  CheckpointLastBlockData,
   CheckpointProposal,
   CheckpointProposalOptions,
 } from '@aztec/stdlib/p2p';
@@ -116,8 +115,6 @@ export const ValidatorClientFullConfigSchema = zodFor<Omit<ValidatorClientFullCo
   }),
 );
 
-export type CreateCheckpointProposalLastBlockData = Omit<CheckpointLastBlockData, 'txHashes'> & { txs: Tx[] };
-
 export interface Validator {
   start(): Promise<void>;
   updateConfig(config: Partial<ValidatorClientFullConfig>): void;
@@ -138,7 +135,7 @@ export interface Validator {
     checkpointHeader: CheckpointHeader,
     archive: Fr,
     feeAssetPriceModifier: bigint,
-    lastBlockInfo: CreateCheckpointProposalLastBlockData | undefined,
+    lastBlockProposal: BlockProposal | undefined,
     proposerAddress: EthAddress | undefined,
     options: CheckpointProposalOptions,
   ): Promise<CheckpointProposal>;

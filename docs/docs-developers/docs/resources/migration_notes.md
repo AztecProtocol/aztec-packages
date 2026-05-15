@@ -9,6 +9,275 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `attempt_note_discovery` is no longer exposed; use `process_private_note_msg`
+
+`attempt_note_discovery` is now crate-private. Custom message handlers (implementations of `CustomMessageHandler`) that previously called it directly should call `process_private_note_msg` instead, which runs the standard private note message decoding and discovery pipeline.
+
+`process_private_note_msg` takes the raw `msg_metadata` and `msg_content` rather than already-decoded note fields, so it handles decoding (and silently discards undecodable messages) on your behalf:
+
+```diff
+- attempt_note_discovery(
+-     contract_address,
+-     tx_hash,
+-     unique_note_hashes_in_tx,
+-     first_nullifier_in_tx,
+-     compute_note_hash,
+-     compute_note_nullifier,
+-     owner,
+-     storage_slot,
+-     randomness,
+-     note_type_id,
+-     packed_note,
+- );
++ process_private_note_msg(
++     contract_address,
++     tx_hash,
++     unique_note_hashes_in_tx,
++     first_nullifier_in_tx,
++     compute_note_hash,
++     compute_note_nullifier,
++     msg_metadata,
++     msg_content,
++ );
+```
+
+**Impact**: Custom message handlers that reused the standard note message processing pipeline must switch to `process_private_note_msg`. Contracts using only built-in private note handling are unaffected.
+
+### [aztec-up] Bundled binaries are no longer exposed under bare names on `PATH`
+
+The Aztec installer previously placed bundled binaries directly into `$HOME/.aztec/current/bin` under bare names (`forge`, `nargo`, `bb`, `pxe`, ...). Anything with the same name in your own `PATH` was silently shadowed in unrelated projects.
+
+Every bundled binary is now exposed only under an `aztec-` prefixed name in `$HOME/.aztec/current/bin`. Bare names are not on `PATH` at all and resolve to your own install (if any).
+
+| Was on `PATH` | Now |
+|---|---|
+| `forge` | `aztec-forge` |
+| `cast` | `aztec-cast` |
+| `anvil` | `aztec-anvil` |
+| `chisel` | `aztec-chisel` |
+| `nargo` | `aztec-nargo` |
+| `noir-profiler` | `aztec-noir-profiler` |
+| `bb` | `aztec-bb` |
+| `bb-cli` | `aztec-bb-cli` |
+| `pxe` | `aztec-pxe` |
+| `txe` | `aztec-txe` |
+| `validator-client` | `aztec-validator-client` |
+| `blob-client` | `aztec-blob-client` |
+
+`aztec`, `aztec-wallet`, and `aztec-up` keep their existing names.
+
+If you relied on a bundled bare-name binary for general use:
+
+- For Aztec contract work, prefer `aztec compile` and `aztec test`.
+- For other Noir / Foundry commands, invoke the `aztec-*` symlink directly (e.g. `aztec-nargo fmt`, `aztec-forge build`).
+- Or install Foundry / nargo separately via `foundryup` / `noirup`.
+
+If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/current/bin/nargo`, change it to `$HOME/.aztec/current/bin/aztec-nargo` (the symlink is a drop-in for `nargo`). See the [Noir VSCode Extension guide](../aztec-nr/installation.md) for details.
+
+### [Aztec.js] `DeployMethod` address-affecting parameters move to construction time
+
+Salt, deployer, and public keys are now passed when the `DeployMethod` is constructed, not on every call to `send` / `simulate` / `request` / `getInstance`. This locks the contract address once it is determined and prevents the silent salt-cache poisoning bug where the address could change between calls.
+
+`contractAddressSalt`, `deployer`, and `universalDeploy` have been removed from `DeployOptions`, `RequestDeployOptions`, and `SimulateDeployOptions`. They now live on a new `DeployInstantiationOptions` argument passed at construction. `deployer` and `universalDeploy` are mutually exclusive; passing both throws. `Contract.deployWithPublicKeys` and the generated `MyContract.deployWithPublicKeys(...)` factories have been removed; pass `publicKeys` via the `instantiation` argument of `deploy(...)` instead. The buggy synchronous `address` and `partialAddress` getters have been removed and replaced with `getAddress()` and `getPartialAddress()` (both `async`).
+
+The compact form keeps working: `MyContract.deploy(wallet, ...args).send({ from: alice })` deploys with `deployer = alice` and `salt = random()`, exactly as before. The deployer is locked the first time `send` / `simulate` / `profile` is called (from `options.from`, with `NO_FROM` or undefined → universal) and cannot change after that:
+
+- Subsequent `send` / `simulate` / `profile` calls with a `from` that would imply a different deployer throw, instead of silently producing a different address.
+- A lock to universal (`AztecAddress.ZERO`) is the only one compatible with any sender, since the universal address does not depend on `from`.
+- A lock to a concrete address only accepts that exact `from` on subsequent calls.
+
+**Migration:**
+
+Universal deployment with a fixed salt:
+
+```diff
+- const deploy = MyContract.deploy(wallet, ...args);
+- await deploy.send({
+-   from: alice,
+-   contractAddressSalt: salt,
+-   universalDeploy: true,
+- });
++ const deploy = MyContract.deploy(wallet, ...args, { salt, universalDeploy: true });
++ await deploy.send({ from: alice });
+```
+
+Non-universal deploy where `from` doubles as the deployer:
+
+```diff
+- const deploy = MyContract.deploy(wallet, ...args);
+- await deploy.send({ from: alice, contractAddressSalt: salt });
++ const deploy = MyContract.deploy(wallet, ...args, { salt });
++ await deploy.send({ from: alice });
+```
+
+If you need to read the address before sending, lock the deployer at construction:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { salt, deployer: alice });
+const address = await deploy.getAddress(); // resolves; deployer was locked at construction
+await deploy.send({ from: alice }); // deploys at the address `getAddress` returned
+```
+
+Universal deploys can be sent by any account, since the universal address does not depend on `from`:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { universalDeploy: true });
+await deploy.send({ from: bob }); // OK, universal accepts any sender
+```
+
+A lock to a concrete deployer rejects sending from a different account, instead of silently deploying at a different address:
+
+```typescript
+const deploy = MyContract.deploy(wallet, ...args, { deployer: alice });
+await deploy.send({ from: bob }); // throws: deployer is locked to alice
+```
+
+`deployWithPublicKeys` is gone; pass `publicKeys` in the instantiation options instead:
+
+```diff
+- const deploy = MyContract.deployWithPublicKeys(publicKeys, wallet, ...args);
++ const deploy = MyContract.deploy(wallet, ...args, { publicKeys });
+```
+
+`ContractDeployer.deploy(...)` now takes the instantiation argument as its first parameter (pass `{}` to use defaults and rely on lazy locking from `from`):
+
+```diff
+- const cd = new ContractDeployer(artifact, wallet);
+- await cd.deploy(...ctorArgs).send({ from: alice, contractAddressSalt: salt });
++ const cd = new ContractDeployer(artifact, wallet);
++ await cd.deploy(ctorArgs, { salt }).send({ from: alice });
+```
+
+The synchronous `address` / `partialAddress` getters are gone:
+
+```diff
+- const address = deploy.address;                       // sync, possibly undefined
+- const partial = await deploy.partialAddress;          // sync getter wrapping async value
++ const address = await deploy.getAddress();            // requires the deployer to be locked
++ const partial = await deploy.getPartialAddress();     // requires the deployer to be locked
+```
+
+`getInstance()` no longer takes options; use the construction-time instantiation instead:
+
+```diff
+- const instance = await deploy.getInstance({ contractAddressSalt: salt });
++ const deploy = MyContract.deploy(wallet, ...args, { salt, deployer: alice });
++ const instance = await deploy.getInstance();
+```
+
+### [Aztec.nr] TXE `call_public_incognito` no longer takes a `from` parameter
+
+`TestEnvironment::call_public_incognito` previously accepted a `from` address that was silently ignored (the function always uses a null `msg_sender`). The `from` parameter has been removed.
+
+```diff
+- env.call_public_incognito(sender, SampleContract::at(addr).some_function());
++ env.call_public_incognito(SampleContract::at(addr).some_function());
+```
+
+If you need to call a public function *with* a sender, use `call_public` instead.
+
+### [Aztec.nr] TXE `view_public_incognito` is deprecated
+
+`TestEnvironment::view_public_incognito` is now deprecated in favor of `view_public`, which has the same behavior (null `msg_sender`, static call).
+
+```diff
+- env.view_public_incognito(SampleContract::at(addr).some_view());
++ env.view_public(SampleContract::at(addr).some_view());
+```
+
+### [PXE] `proveTx` takes an options bag
+
+`PXE.proveTx` used to accept `scopes` as a positional argument; it now takes an options bag consistent with `simulateTx` and `profileTx`, and adds an optional `senderForTags` field. Update direct callers:
+
+```diff
+- pxe.proveTx(txRequest, scopes);
++ pxe.proveTx(txRequest, { scopes });
+```
+
+The new `senderForTags` field sets the address recipients use to find private messages (notes, events, logs) emitted by this tx. Most wallets don't need to set it; the wallet SDK derives it from the tx's `from` address:
+
+```typescript
+// Most callers: just migrate scopes
+pxe.proveTx(txRequest, { scopes });
+
+// When from === NO_FROM (e.g. self-paid account deploy), supply the tag sender explicitly:
+pxe.proveTx(txRequest, { scopes, senderForTags: deployedAddress });
+```
+
+### [Aztec.nr] `set_sender_for_tags` is now scoped to the calling contract
+
+`set_sender_for_tags` previously persisted through nested calls. It is now scoped to the contract that calls it: nested calls, siblings, and parents are unaffected and always start from the initial default. This closes a silent note-discovery DoS vector where any nested callee could overwrite the tag sender for legitimate contracts called below it.
+
+The wallet SDK now supplies the default sender-for-tags from the transaction's `from` address, with an optional `sendMessagesAs` override for flows that don't have a signing account (e.g. self-paid deploys, which `DeployAccountMethod` sets automatically). Account contracts therefore no longer need to call `set_sender_for_tags(self.address)` in their entrypoints; those calls have been removed from the standard schnorr and ECDSA account contracts, and you can drop the equivalent call in any custom account contract.
+
+The save/restore idiom previously used in account-contract constructors (`get` → `set(self.address)` → work → `set(prev)`) is also no longer needed and has been removed: the override never leaks out of the constructor, so there is nothing to restore.
+
+
+### [CLI] `aztec-up` no longer exposes transitive npm bins on PATH
+
+The `aztec-up` installer used to add `$HOME/.aztec/current/node_modules/.bin` to your shell `PATH`, which put ~40 transitive npm bins (`jest`, `tsc`, `tsserver`, `semver`, `uuid`, `json5`, ...) onto your interactive shell and silently shadowed your own installed versions of those tools. Only the seven `@aztec/*`-owned bins (`aztec`, `aztec-wallet`, `bb`, `bb-cli`, `blob-client`, `noir-codegen`, `txe`) are now exposed.
+
+If you had an Aztec version installed before this release, your shell profile (`~/.bashrc` or `~/.zshrc`) still contains the old `PATH` line. Re-run the installer once (replacing `[VERSION]` with whichever toolchain version you're on, e.g. `4.2.0`) to replace it:
+
+```bash
+VERSION=[VERSION] bash -i <(curl -sL https://install.aztec.network)
+```
+
+Open a fresh shell and confirm the leak is gone:
+
+```bash
+echo $PATH
+```
+
+`$HOME/.aztec/current/node_modules/.bin` should no longer appear in the output. You'll also see your own `jest`, `tsc`, etc. again instead of the ones bundled with the Aztec toolchain.
+
+### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
+
+`emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.
+
+```diff
+- context.emit_private_log_unsafe(tag, log, length);
++ context.emit_private_log_vec_unsafe(tag, bounded_vec_log);
+- context.emit_raw_note_log_unsafe(tag, log, length, note_hash_counter);
++ context.emit_raw_note_log_vec_unsafe(tag, bounded_vec_log, note_hash_counter);
+```
+
+If you were manually padding an array and passing a shorter length, you can now create a `BoundedVec` from just the meaningful fields:
+
+```diff
+- let padded = payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 2]);
+- context.emit_private_log_unsafe(tag, padded, 2);
++ let log = BoundedVec::from_array(payload);
++ context.emit_private_log_vec_unsafe(tag, log);
+```
+
+If you were passing the full array, wrap it with `BoundedVec::from_array`:
+
+```diff
+- context.emit_private_log_unsafe(tag, ciphertext, ciphertext.len());
++ context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array(ciphertext));
+```
+
+### [aztec-nr] Nullifier membership witness oracle returns split types
+
+`get_nullifier_membership_witness` and `get_low_nullifier_membership_witness` now return `(NullifierLeafPreimage, MembershipWitness<NULLIFIER_TREE_HEIGHT>)` instead of the bundled `NullifierMembershipWitness` struct (which has been removed).
+
+If you were using these oracle functions directly (e.g. in `schnorr_account_contract`'s `lookup_validity`), update your code to destructure the tuple:
+
+```diff
+- let witness = get_low_nullifier_membership_witness(block_header, siloed_nullifier);
+- let nullifier_value = witness.leaf_preimage.nullifier;
+- let index = witness.index;
+- let path = witness.path;
++ let (leaf_preimage, witness) = get_low_nullifier_membership_witness(block_header, siloed_nullifier);
++ let nullifier_value = leaf_preimage.nullifier;
++ let index = witness.leaf_index;
++ let path = witness.sibling_path;
+```
+
+Note the field renames: `index` is now `leaf_index`, and `path` is now `sibling_path` (matching the protocol circuit's `MembershipWitness` type).
+
+This has been done because this is the format expected by the functionality in protocol circuits and given that this is sensitive security-wise it made sense to reuse that functionality in Aztec.nr.
 ### [Aztec.js] `GasSettings.default()` renamed to `GasSettings.fallback()`
 
 `GasSettings.default()` has been renamed to `GasSettings.fallback()` to clarify that these gas limits are not protocol defaults — the protocol has no concept of "default" gas settings. `fallback()` is a convenience for cases where gas estimation is not being used, but callers should prefer estimating gas via simulation for accurate limits.
@@ -69,6 +338,75 @@ Scope 0x1234... is not in the allowed scopes list: [0xabcd...].
 The zero address (`AztecAddress::zero()`) is always allowed regardless of the scopes list, preserving backwards compatibility for contracts using the global scope.
 
 **Impact**: Contracts that access capsules scoped to addresses not included in the transaction's authorized scopes will now fail at runtime. Ensure the correct scopes are passed when executing transactions.
+
+### `aztec new` and `aztec init` now create a 2-crate workspace
+
+`aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
+
+- A `contract` crate (type = "contract") for your smart contract code
+- A `test` crate (type = "lib") for Noir tests, which depends on the contract crate
+
+The new project structure looks like:
+
+```
+my_project/
+├── Nargo.toml           # [workspace] members = ["contract", "test"]
+├── contract/
+│   ├── src/main.nr
+│   └── Nargo.toml       # type = "contract"
+└── test/
+    ├── src/lib.nr
+    └── Nargo.toml       # type = "lib"
+```
+
+**What changed:**
+
+- The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
+- Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
+- The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
+- Tests should be written in the separate `test` crate (`test/src/lib.nr`) and import the contract by package name (e.g., `use my_contract::MyContract;`) instead of using `crate::`.
+
+### `aztec new` crate directories are now named after the contract
+
+`aztec new` and `aztec init` now name the generated crate directories after the contract instead of using generic `contract/` and `test/` names. For example, `aztec new counter` now creates:
+
+```
+counter/
+├── Nargo.toml                # [workspace] members = ["counter_contract", "counter_test"]
+├── counter_contract/
+│   ├── src/main.nr
+│   └── Nargo.toml            # type = "contract"
+└── counter_test/
+    ├── src/lib.nr
+    └── Nargo.toml            # type = "lib"
+```
+
+This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
+
+**What changed:**
+
+- Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
+- Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
+- Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
+- Tests import the contract by its new crate name (e.g., `use counter_contract::Main;` instead of `use counter::Main;`).
+
+### [CLI] `--name` flag removed from `aztec new` and `aztec init`
+
+The `--name` flag has been removed from both `aztec new` and `aztec init`. For `aztec new`, the positional argument now serves as both the contract name and the directory name. For `aztec init`, the directory name is always used as the contract name.
+
+**Migration:**
+
+```diff
+- aztec new my_project --name counter
++ aztec new counter
+```
+
+```diff
+- aztec init --name counter
++ aztec init
+```
+
+**Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
 
 ## 4.2.0-aztecnr-rc.2
 
@@ -514,47 +852,6 @@ If you implement the `Wallet` interface (or extend `BaseWallet`), the `sendTx()`
   }
 ```
 
-### `aztec new` crate directories are now named after the contract
-
-`aztec new` and `aztec init` now name the generated crate directories after the contract instead of using generic `contract/` and `test/` names. For example, `aztec new counter` now creates:
-
-```
-counter/
-├── Nargo.toml                # [workspace] members = ["counter_contract", "counter_test"]
-├── counter_contract/
-│   ├── src/main.nr
-│   └── Nargo.toml            # type = "contract"
-└── counter_test/
-    ├── src/lib.nr
-    └── Nargo.toml            # type = "lib"
-```
-
-This enables adding multiple contracts to a single workspace. Running `aztec new <name>` inside an existing workspace (a directory with a `Nargo.toml` containing `[workspace]`) now adds a new `<name>_contract` and `<name>_test` crate pair to the workspace instead of creating a new directory.
-
-**What changed:**
-
-- Crate directories are now `<name>_contract/` and `<name>_test/` instead of `contract/` and `test/`.
-- Contract code is now at `<name>_contract/src/main.nr` instead of `contract/src/main.nr`.
-- Contract dependencies go in `<name>_contract/Nargo.toml` instead of `contract/Nargo.toml`.
-- Tests import the contract by its new crate name (e.g., `use counter_contract::Main;` instead of `use counter::Main;`).
-
-### [CLI] `--name` flag removed from `aztec new` and `aztec init`
-
-The `--name` flag has been removed from both `aztec new` and `aztec init`. For `aztec new`, the positional argument now serves as both the contract name and the directory name. For `aztec init`, the directory name is always used as the contract name.
-
-**Migration:**
-
-```diff
-- aztec new my_project --name counter
-+ aztec new counter
-```
-
-```diff
-- aztec init --name counter
-+ aztec init
-```
-
-**Impact**: If you were using `--name` to set a contract name different from the directory name, rename your directory or use `aztec new` with the desired contract name directly.
 ### [Aztec.js] Removed `SingleKeyAccountContract`
 
 The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAccountContract` have been removed. This contract was insecure: it used `ivpk_m` (incoming viewing public key) as its Schnorr signing key, meaning anyone who received a user's viewing key could sign transactions on their behalf.
@@ -570,32 +867,6 @@ The `SchnorrSingleKeyAccount` contract and its TypeScript wrapper `SingleKeyAcco
 
 **Impact**: If you were using `@aztec/accounts/single_key`, switch to `@aztec/accounts/schnorr` which uses separate keys for encryption and authentication.
 
-### `aztec new` and `aztec init` now create a 2-crate workspace
-
-`aztec new` and `aztec init` now create a workspace with two crates instead of a single contract crate:
-
-- A `contract` crate (type = "contract") for your smart contract code
-- A `test` crate (type = "lib") for Noir tests, which depends on the contract crate
-
-The new project structure looks like:
-
-```
-my_project/
-├── Nargo.toml           # [workspace] members = ["contract", "test"]
-├── contract/
-│   ├── src/main.nr
-│   └── Nargo.toml       # type = "contract"
-└── test/
-    ├── src/lib.nr
-    └── Nargo.toml       # type = "lib"
-```
-
-**What changed:**
-
-- The `--contract` and `--lib` flags have been removed from `aztec new` and `aztec init`. These commands now always create a contract workspace.
-- Contract code is now at `contract/src/main.nr` instead of `src/main.nr`.
-- The `Nargo.toml` in the project root is now a workspace file. Contract dependencies go in `contract/Nargo.toml`.
-- Tests should be written in the separate `test` crate (`test/src/lib.nr`) and import the contract by package name (e.g., `use my_contract::MyContract;`) instead of using `crate::`.
 ### Scope enforcement for private state access (TXE and PXE)
 
 Scope enforcement is now active across both TXE (test environment) and PXE (client). Previously, private execution could implicitly access any account's keys and notes. Now, only the caller (`from`) address is in scope by default, and accessing another address's private state requires explicitly granting scope.

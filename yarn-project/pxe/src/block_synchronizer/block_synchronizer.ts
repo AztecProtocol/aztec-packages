@@ -1,5 +1,6 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
+import { SerialQueue } from '@aztec/foundation/queue';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { BlockHash, L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
@@ -20,6 +21,7 @@ import type { PrivateEventStore } from '../storage/private_event_store/private_e
 export class BlockSynchronizer implements L2BlockStreamEventHandler {
   private log: Logger;
   private isSyncing: Promise<void> | undefined;
+  private readonly eventQueue = new SerialQueue();
   protected readonly blockStream: L2BlockStream;
 
   constructor(
@@ -35,6 +37,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   ) {
     this.log = createLogger('pxe:block_synchronizer', bindings);
     this.blockStream = this.createBlockStream(config);
+    this.eventQueue.start();
   }
 
   protected createBlockStream(config: Partial<BlockSynchronizerConfig>): L2BlockStream {
@@ -52,8 +55,12 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     );
   }
 
-  /** Handle events emitted by the block stream. */
-  public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+  /** Handle events emitted by the block stream. Serialized to prevent concurrent mutations to anchor state. */
+  public handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+    return this.eventQueue.put(() => this.doHandleBlockStreamEvent(event));
+  }
+
+  private async doHandleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     await this.l2TipsStore.handleBlockStreamEvent(event);
 
     switch (event.type) {
@@ -77,6 +84,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           const blockHeader = await this.node.getBlockHeader(BlockNumber(event.block.number));
           if (blockHeader) {
             await this.updateAnchorBlockHeader(blockHeader);
+          } else {
+            this.log.warn(`Block header not found for proven block ${event.block.number}, skipping anchor update`);
           }
         }
         break;
@@ -86,6 +95,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
           const blockHeader = await this.node.getBlockHeader(BlockNumber(event.block.number));
           if (blockHeader) {
             await this.updateAnchorBlockHeader(blockHeader);
+          } else {
+            this.log.warn(`Block header not found for finalized block ${event.block.number}, skipping anchor update`);
           }
         }
         break;
@@ -152,6 +163,8 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     }
 
     this.log.debug(`Syncing PXE with the node`);
+    // Capture the promise locally so we always await the exact promise we created, even if this.isSyncing is modified
+    // between assignment and await (e.g. due to future refactors introducing a yield point).
     const isSyncing = this.doSync();
     this.isSyncing = isSyncing;
     try {
@@ -159,6 +172,13 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     } finally {
       this.isSyncing = undefined;
     }
+  }
+
+  /** Stops the block synchronizer, waiting for any in-progress sync and queued events to complete. */
+  public async stop() {
+    await this.isSyncing;
+    await this.blockStream.stop();
+    await this.eventQueue.end();
   }
 
   private async doSync() {

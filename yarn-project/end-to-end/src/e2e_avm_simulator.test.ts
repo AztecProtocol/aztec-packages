@@ -48,14 +48,19 @@ describe('e2e_avm_simulator', () => {
     describe('Assertions & error enriching', () => {
       /**
        * Expect an error like:
-       * Assertion failed: This assertion should fail! 'not_true == true'
+       * Assertion failed: This assertion should fail! 'assert(not_true == true, "This assertion should fail!")'
        * ...
-       * at not_true == true (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:16)
+       * at assert(not_true == true, "This assertion should fail!") (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:223:5)
        * at inner_helper_with_failed_assertion() (../../../../../../../home/aztec-dev/aztec-packages/noir-projects/noir-contracts/contracts/test/avm_test_contract/src/main.nr:228:9)
        * at quote { $self } (../std/meta/expr.nr:269:9)
        * at function.name();
        * let call = quote { $name($args) (/home/aztec-dev/aztec-packages/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:59:20)
        * at AvmTest.0xc3515746
+       *
+       * Older nargo (pre-#22911) recorded the assertion span as the inner boolean expression only,
+       * so legacy contract artifacts under compat-e2e emit `'not_true == true'` instead of the full
+       * `'assert(not_true == true, "This assertion should fail!")'`. The regex below accepts either
+       * form so the test passes against both current-nargo artifacts and pinned legacy artifacts.
        */
       describe('Not nested', () => {
         it('PXE processes user code assertions and recovers message (properly enriched)', async () => {
@@ -63,7 +68,7 @@ describe('e2e_avm_simulator', () => {
             avmContract.methods.assertion_failure().simulate({ from: defaultAccountAddress }),
           ).rejects.toThrow(
             expect.objectContaining({
-              message: expect.stringMatching(/Assertion failed: This assertion should fail! 'not_true == true'/),
+              message: expect.stringMatching(/Assertion failed: This assertion should fail!.*not_true == true/),
               stack: expect.stringMatching(/at inner_helper_with_failed_assertion[\s\S]*at AvmTest\..*/),
             }),
           );

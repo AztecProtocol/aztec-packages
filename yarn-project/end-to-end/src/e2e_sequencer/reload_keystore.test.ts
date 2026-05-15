@@ -130,11 +130,9 @@ describe('e2e_reload_keystore', () => {
 
     // Send a tx and verify the block uses the initial coinbase
     const deployer = new ContractDeployer(artifact, wallet);
-    const { txHash: sentTx1 } = await deployer.deploy(ownerAddress, ownerAddress, 1).send({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(1),
-      wait: NO_WAIT,
-    });
+    const { txHash: sentTx1 } = await deployer
+      .deploy([ownerAddress, 1], { salt: new Fr(1) })
+      .send({ from: ownerAddress, wait: NO_WAIT });
     const receipt1 = await waitForTx(aztecNode, sentTx1);
 
     const block1 = await aztecNode.getBlock(BlockNumber(receipt1.blockNumber!));
@@ -195,11 +193,9 @@ describe('e2e_reload_keystore', () => {
     // Whichever validator is the proposer, its coinbase must be from the reloaded keystore.
     const allNewCoinbasesLower = newCoinbases.map(c => c.toString().toLowerCase());
 
-    const { txHash: sentTx2 } = await deployer.deploy(ownerAddress, ownerAddress, 2).send({
-      from: ownerAddress,
-      contractAddressSalt: new Fr(2),
-      wait: NO_WAIT,
-    });
+    const { txHash: sentTx2 } = await deployer
+      .deploy([ownerAddress, 2], { salt: new Fr(2) })
+      .send({ from: ownerAddress, wait: NO_WAIT });
     const receipt2 = await waitForTx(aztecNode, sentTx2);
 
     const block2 = await aztecNode.getBlock(BlockNumber(receipt2.blockNumber!));

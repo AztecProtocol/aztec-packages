@@ -1,8 +1,14 @@
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { ExtendedDirectionalAppTaggingSecret, PendingTaggedLog, SiloedTag, Tag } from '@aztec/stdlib/logs';
+import {
+  ExtendedDirectionalAppTaggingSecret,
+  PendingTaggedLog,
+  SiloedTag,
+  type TxScopedL2Log,
+} from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { LogRetrievalRequest } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
@@ -13,7 +19,7 @@ import type { SenderAddressBookStore } from '../storage/tagging_store/sender_add
 import {
   getAllPrivateLogsByTags,
   getAllPublicLogsByTagsFromContract,
-  loadPrivateLogsForSenderRecipientPair,
+  syncTaggedPrivateLogs,
 } from '../tagging/index.js';
 
 export class LogService {
@@ -22,6 +28,7 @@ export class LogService {
   constructor(
     private readonly aztecNode: AztecNode,
     private readonly anchorBlockHeader: BlockHeader,
+    private readonly l2TipsStore: L2TipsProvider,
     private readonly keyStore: KeyStore,
     private readonly recipientTaggingStore: RecipientTaggingStore,
     private readonly senderAddressBookStore: SenderAddressBookStore,
@@ -42,62 +49,46 @@ export class LogService {
       }
     }
 
-    return await Promise.all(
-      logRetrievalRequests.map(async request => {
-        const [publicLog, privateLog] = await Promise.all([
-          this.#getPublicLogByTag(request.tag, request.contractAddress),
-          this.#getPrivateLogByTag(await SiloedTag.computeFromTagAndApp(request.tag, request.contractAddress)),
-        ]);
-
-        if (publicLog !== null && privateLog !== null) {
-          this.log.warn(
-            `Found both a public and private log for tag ${request.tag} from contract ${request.contractAddress}. This may indicate a contract bug. Returning the public log.`,
-          );
-        }
-
-        return publicLog ?? privateLog;
-      }),
-    );
-  }
-
-  async #getPublicLogByTag(tag: Tag, contractAddress: AztecAddress): Promise<LogRetrievalResponse | null> {
-    const anchorBlockHash = await this.anchorBlockHeader.hash();
-    const allLogsPerTag = await getAllPublicLogsByTagsFromContract(
-      this.aztecNode,
-      contractAddress,
-      [tag],
-      anchorBlockHash,
-    );
-    const logsForTag = allLogsPerTag[0];
-
-    if (logsForTag.length === 0) {
-      return null;
-    } else if (logsForTag.length > 1) {
-      this.log.warn(
-        `Expected at most 1 public log for tag ${tag} and contract ${contractAddress.toString()}, got ${logsForTag.length}. This may indicate a contract bug. Returning the first log.`,
-      );
+    if (logRetrievalRequests.length === 0) {
+      return [];
     }
 
-    const scopedLog = logsForTag[0];
-
-    return new LogRetrievalResponse(
-      scopedLog.logData.slice(1), // Skip the tag
-      scopedLog.txHash,
-      scopedLog.noteHashes,
-      scopedLog.firstNullifier,
+    const anchorBlockHash = await this.anchorBlockHeader.hash();
+    const tags = logRetrievalRequests.map(r => r.tag);
+    const siloedTags = await Promise.all(
+      logRetrievalRequests.map(r => SiloedTag.computeFromTagAndApp(r.tag, r.contractAddress)),
     );
+
+    const [allPublicLogsPerTag, allPrivateLogsPerTag] = await Promise.all([
+      getAllPublicLogsByTagsFromContract(this.aztecNode, contractAddress, tags, anchorBlockHash),
+      getAllPrivateLogsByTags(this.aztecNode, siloedTags, anchorBlockHash),
+    ]);
+
+    return logRetrievalRequests.map((request, i) => {
+      const publicLog = this.#extractSingleLog(
+        allPublicLogsPerTag[i],
+        `public log for tag ${request.tag} and contract ${request.contractAddress.toString()}`,
+      );
+      const privateLog = this.#extractSingleLog(allPrivateLogsPerTag[i], `private log for tag ${siloedTags[i]}`);
+
+      if (publicLog !== null && privateLog !== null) {
+        this.log.warn(
+          `Found both a public and private log for tag ${request.tag} from contract ${request.contractAddress}. This may indicate a contract bug. Returning the public log.`,
+        );
+      }
+
+      return publicLog ?? privateLog;
+    });
   }
 
-  async #getPrivateLogByTag(siloedTag: SiloedTag): Promise<LogRetrievalResponse | null> {
-    const anchorBlockHash = await this.anchorBlockHeader.hash();
-    const allLogsPerTag = await getAllPrivateLogsByTags(this.aztecNode, [siloedTag], anchorBlockHash);
-    const logsForTag = allLogsPerTag[0];
-
+  #extractSingleLog(logsForTag: TxScopedL2Log[], description: string): LogRetrievalResponse | null {
     if (logsForTag.length === 0) {
       return null;
-    } else if (logsForTag.length > 1) {
+    }
+
+    if (logsForTag.length > 1) {
       this.log.warn(
-        `Expected at most 1 private log for tag ${siloedTag}, got ${logsForTag.length}. This may indicate a contract bug. Returning the first log.`,
+        `Expected at most 1 ${description}, got ${logsForTag.length}. This may indicate a contract bug. Returning the first log.`,
       );
     }
 
@@ -114,33 +105,23 @@ export class LogService {
   public async fetchTaggedLogs(contractAddress: AztecAddress, recipient: AztecAddress): Promise<PendingTaggedLog[]> {
     this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
 
-    // We only load logs from block up to and including the anchor block number
-    const anchorBlockNumber = this.anchorBlockHeader.getBlockNumber();
-    const anchorBlockHash = await this.anchorBlockHeader.hash();
-
+    const l2Tips = await this.l2TipsStore.getL2Tips();
     // Get all secrets for this recipient (one per sender)
     const secrets = await this.#getSecretsForSenders(contractAddress, recipient);
 
-    // Load logs for all sender-recipient pairs in parallel
-    const logArrays = await Promise.all(
-      secrets.map(secret =>
-        loadPrivateLogsForSenderRecipientPair(
-          secret,
-          this.aztecNode,
-          this.recipientTaggingStore,
-          anchorBlockNumber,
-          anchorBlockHash,
-          this.jobId,
-        ),
-      ),
+    const logs = await syncTaggedPrivateLogs(
+      secrets,
+      this.aztecNode,
+      this.recipientTaggingStore,
+      this.anchorBlockHeader,
+      l2Tips.finalized.block.number,
+      this.jobId,
     );
 
-    return logArrays
-      .flat()
-      .map(
-        scopedLog =>
-          new PendingTaggedLog(scopedLog.logData, scopedLog.txHash, scopedLog.noteHashes, scopedLog.firstNullifier),
-      );
+    return logs.map(
+      scopedLog =>
+        new PendingTaggedLog(scopedLog.logData, scopedLog.txHash, scopedLog.noteHashes, scopedLog.firstNullifier),
+    );
   }
 
   async #getSecretsForSenders(

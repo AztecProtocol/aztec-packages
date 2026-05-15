@@ -225,6 +225,108 @@ describe('ContractSyncService', () => {
     });
   });
 
+  describe('class ID verification deduplication', () => {
+    const contract2 = AztecAddress.fromBigInt(300n);
+
+    it('verifies class ID only once per contract across scope batches', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeB]);
+      expectVerifiedContracts(contractAddress);
+    });
+
+    it('verifies class ID separately for different contracts', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      await service.ensureContractSynced(contract2, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectVerifiedContracts(contractAddress, contract2);
+    });
+
+    it('re-verifies class ID after wipe', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      service.wipe();
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeB]);
+      expectVerifiedContracts(contractAddress, contractAddress);
+    });
+
+    it('re-verifies class ID after discardStaged', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      await service.discardStaged(jobId);
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectVerifiedContracts(contractAddress, contractAddress);
+    });
+
+    it('re-verifies class ID after verification failure', async () => {
+      contractStore.getContractInstance.mockRejectedValueOnce(new Error('node unavailable'));
+      await expect(
+        service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]),
+      ).rejects.toThrow('node unavailable');
+
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectVerifiedContracts(contractAddress, contractAddress);
+    });
+
+    it('does not re-verify class ID when only scope cache is invalidated', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      service.invalidateContractForScopes(contractAddress, [scopeA]);
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expectVerifiedContracts(contractAddress);
+    });
+  });
+
+  describe('multi-scope sync batching', () => {
+    it('batches nullifier sync across all unsynced scopes', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
+      expect(noteStore.getNotes).toHaveBeenCalledWith(
+        expect.objectContaining({ contractAddress, scopes: [scopeA, scopeB] }),
+        jobId,
+      );
+    });
+
+    it('only includes unsynced scopes in nullifier sync', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
+      expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
+      expect(noteStore.getNotes).toHaveBeenCalledWith(
+        expect.objectContaining({ contractAddress, scopes: [scopeA] }),
+        jobId,
+      );
+
+      noteStore.getNotes.mockClear();
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      // scopeA is already cached, so nullifier sync only runs for scopeB
+      expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
+      expect(noteStore.getNotes).toHaveBeenCalledWith(
+        expect.objectContaining({ contractAddress, scopes: [scopeB] }),
+        jobId,
+      );
+    });
+
+    it('re-runs nullifier sync after scope invalidation', async () => {
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      noteStore.getNotes.mockClear();
+
+      service.invalidateContractForScopes(contractAddress, [scopeA]);
+      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
+        scopeA,
+        scopeB,
+      ]);
+      // Only scopeA was invalidated, so nullifier sync runs for just scopeA
+      expect(noteStore.getNotes).toHaveBeenCalledTimes(1);
+      expect(noteStore.getNotes).toHaveBeenCalledWith(
+        expect.objectContaining({ contractAddress, scopes: [scopeA] }),
+        jobId,
+      );
+    });
+  });
+
   describe('invalidateContractForScopes', () => {
     const contract2 = AztecAddress.fromBigInt(300n);
 
@@ -334,6 +436,14 @@ describe('ContractSyncService', () => {
       const [call, actualScopes] = utilityExecutor.mock.calls[i];
       expect(call.to).toEqual(expected[i][0]);
       expect(actualScopes).toEqual(expected[i][1]);
+    }
+  };
+
+  /** Asserts that class ID verification was triggered for each contract address in the given sequence. */
+  const expectVerifiedContracts = (...addresses: AztecAddress[]) => {
+    expect(contractStore.getContractInstance).toHaveBeenCalledTimes(addresses.length);
+    for (let i = 0; i < addresses.length; i++) {
+      expect(contractStore.getContractInstance).toHaveBeenNthCalledWith(i + 1, addresses[i]);
     }
   };
 

@@ -22,7 +22,7 @@ This tutorial is compatible with the Aztec version `#include_aztec_version`. Ins
 Run this to create a new contract project:
 
 ```bash
-aztec new --contract counter
+aztec new counter
 ```
 
 Your structure should look like this:
@@ -30,14 +30,20 @@ Your structure should look like this:
 ```tree
 .
 |-counter
-| |-src
-| | |-main.nr
-| |-Nargo.toml
+| |-Nargo.toml              <-- workspace root
+| |-counter_contract
+| | |-src
+| | | |-main.nr
+| | |-Nargo.toml            <-- contract package config
+| |-counter_test
+| | |-src
+| | | |-lib.nr
+| | |-Nargo.toml            <-- test package config
 ```
 
-The `aztec new` command creates a contract project with `Nargo.toml` and `src/main.nr`. The file `src/main.nr` will soon turn into our smart contract!
+The `aztec new` command creates a workspace with two crates: a `counter_contract` crate for your smart contract code and a `counter_test` crate for Noir tests. The file `counter_contract/src/main.nr` will soon turn into our smart contract!
 
-Add the following dependency to `Nargo.toml` under the existing `aztec` dependency:
+Add the following dependency to `counter_contract/Nargo.toml` under the existing `aztec` dependency:
 
 ```toml
 [dependencies]
@@ -47,7 +53,7 @@ balance_set = { git="https://github.com/AztecProtocol/aztec-nr/", tag="#include_
 
 ## Define the functions
 
-Go to `main.nr`, and replace the boilerplate code with this contract initialization:
+Go to `counter_contract/src/main.nr`, and replace the boilerplate code with this contract initialization:
 
 ```rust
 #include_code setup /docs/examples/contracts/counter_contract/src/main.nr raw
@@ -76,7 +82,7 @@ pub contract Counter {
 - `messages::message_delivery::MessageDelivery`
   Imports `MessageDelivery` for specifying how note delivery should be handled (e.g., constrained onchain delivery).
 
-- `oracle::debug_log::debug_log_format`
+- `oracle::logging::debug_log_format`
   Imports a debug logging utility for printing formatted messages during contract execution.
 
 - `protocol::{address::AztecAddress, traits::ToField}`

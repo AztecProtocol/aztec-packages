@@ -20,7 +20,8 @@ pub contract Child {
         private_values: Owned<PrivateSet<FieldNote, Context>, Context>,
     }
 
-    // Returns a sum of the input and the chain id and version of the contract in private circuit public input's return_values.
+    // Returns a sum of the input and the chain id and version of the contract in private circuit public input's
+    // return_values.
     #[external("private")]
     fn value(input: Field) -> Field {
         input + self.context.chain_id() + self.context.version()
@@ -51,17 +52,14 @@ pub contract Child {
     fn private_set_value(new_value: Field, owner: AztecAddress) -> Field {
         let note = FieldNote { value: new_value };
 
-        self.storage.private_values.at(owner).insert(note).deliver(
-            MessageDelivery.ONCHAIN_CONSTRAINED,
-        );
+        self.storage.private_values.at(owner).insert(note).deliver(MessageDelivery.ONCHAIN_CONSTRAINED);
         new_value
     }
 
     #[external("private")]
     fn private_get_value(amount: Field, owner: AztecAddress) -> Field {
-        let options = NoteGetterOptions::new()
-            .select(FieldNote::properties().value, Comparator.EQ, amount)
-            .set_limit(1);
+        let options =
+            NoteGetterOptions::new().select(FieldNote::properties().value, Comparator.EQ, amount).set_limit(1);
         let hinted_notes = self.storage.private_values.at(owner).get_notes(options);
         hinted_notes.get(0).note.value
     }

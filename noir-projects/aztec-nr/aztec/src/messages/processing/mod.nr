@@ -4,7 +4,9 @@ pub mod offchain;
 mod message_context;
 pub use message_context::MessageContext;
 
-pub(crate) mod note_validation_request;
+mod note_validation_request;
+pub use note_validation_request::NoteValidationRequest;
+
 pub(crate) mod log_retrieval_request;
 pub(crate) mod log_retrieval_response;
 pub(crate) mod pending_tagged_log;
@@ -17,10 +19,7 @@ use crate::{
         discovery::partial_notes::DeliveredPendingPartialNote,
         encoding::MESSAGE_CIPHERTEXT_LEN,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
-        processing::{
-            log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse,
-            note_validation_request::NoteValidationRequest,
-        },
+        processing::{log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse},
     },
     oracle::message_processing,
 };

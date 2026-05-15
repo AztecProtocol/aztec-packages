@@ -4,6 +4,7 @@ use crate::messages::processing::{
     pending_tagged_log::PendingTaggedLog,
 };
 use crate::protocol::address::AztecAddress;
+use crate::protocol::blob_data::TxEffect;
 
 /// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and
 /// returns them in an ephemeral array with an oracle-allocated base slot.
@@ -62,3 +63,11 @@ pub(crate) unconstrained fn get_message_contexts_by_tx_hash(
 
 #[oracle(aztec_utl_getMessageContextsByTxHash_v2)]
 unconstrained fn get_message_contexts_by_tx_hash_v2_oracle(request_array_slot: Field) -> Field {}
+
+/// Fetches all effects of a settled transaction by its hash.
+pub unconstrained fn get_tx_effect(tx_hash: Field) -> Option<TxEffect> {
+    get_tx_effect_oracle(tx_hash)
+}
+
+#[oracle(aztec_utl_getTxEffect)]
+unconstrained fn get_tx_effect_oracle(tx_hash: Field) -> Option<TxEffect> {}
