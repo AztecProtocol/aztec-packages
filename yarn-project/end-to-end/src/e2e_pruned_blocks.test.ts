@@ -104,12 +104,16 @@ describe('e2e_pruned_blocks', () => {
     // way the test did before PR #21156 dropped the explicit call). World-state prunes on the
     // chain-finalized event; with Anvil's `finalized = latest - 2` heuristic, we need a couple
     // of additional L1 blocks after markAsProven so the archiver's `getFinalizedL1Block` query
-    // resolves to a block that already sees the new proven tip — so we mine a small buffer of
-    // empty checkpoints afterwards.
+    // resolves to a block that already sees the new proven tip. Mine the buffer as raw L1 blocks
+    // rather than further L2 checkpoints: under pipelining, sending another dependent L2 tx right
+    // after the cheat code is a race against the sequencer's in-flight pipelined propose (its
+    // L1 propose for the next checkpoint can revert silently inside the multicall3 aggregator
+    // when its build-time state predates the cheat-code write, triggering an L1-side reorg that
+    // drops the in-flight L2 tx).
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 0 });
     await waitBlocks(WORLD_STATE_CHECKPOINT_HISTORY + 1);
     await cheatCodes.rollup.markAsProven();
-    await waitBlocks(2);
+    await cheatCodes.eth.mineEmptyBlock(3);
 
     // The same historical query we performed before should now fail since this block is not available anymore. We poll
     // the node for a bit until it processes the blocks we marked as proven, causing the historical query to fail.
