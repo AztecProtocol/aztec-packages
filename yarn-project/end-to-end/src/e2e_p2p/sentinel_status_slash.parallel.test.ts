@@ -135,7 +135,7 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     }
   });
 
-  it('slashes the proposer with INACTIVITY when checkpoint validation records `unvalidated`', async () => {
+  it('slashes the proposer with INACTIVITY when checkpoint validation records unvalidated', async () => {
     // One malicious node broadcasts invalid block proposals; honest observers reject them via
     // re-execution state_mismatch and therefore never push to their archivers, so the malicious
     // node's checkpoint proposals can't find their last block and observers record `unvalidated`.
@@ -147,7 +147,7 @@ describe('e2e_p2p_sentinel_status_slash', () => {
     await assertInactivityOffenseFor(targetAddress, nodes[1]);
   });
 
-  it('slashes the proposer with INACTIVITY when checkpoint validation records `invalid`', async () => {
+  it('slashes the proposer with INACTIVITY when checkpoint validation records invalid', async () => {
     // One malicious node broadcasts invalid CHECKPOINT proposals while keeping the underlying
     // block proposals valid; observers accept the blocks (so they land in the archiver) but
     // reject the checkpoint via header_mismatch, recording `invalid`.
