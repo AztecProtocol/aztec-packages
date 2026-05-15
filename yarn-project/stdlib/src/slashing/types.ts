@@ -22,7 +22,7 @@ export enum OffenseType {
   DUPLICATE_PROPOSAL = 8,
   /** A validator signed attestations for different proposals at the same slot (equivocation) */
   DUPLICATE_ATTESTATION = 9,
-  /** A committee member attested to a checkpoint proposal in a slot with an invalid block proposal */
+  /** A committee member attested to a checkpoint proposal in a slot with an invalid block or checkpoint proposal */
   ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL = 10,
   /** A proposer broadcast an invalid checkpoint proposal, detected by retained evidence or deterministic recomputation */
   BROADCASTED_INVALID_CHECKPOINT_PROPOSAL = 11,

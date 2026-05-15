@@ -123,8 +123,8 @@ List of all slashable offenses in the system:
 **Time Unit**: Slot-based offense.
 
 ### ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL
-**Description**: A committee member attested to a checkpoint proposal in a slot where this node detected a slashable invalid block proposal.
-**Detection**: ValidatorClient marks slots with invalid block proposals detected via reexecution and slashes checkpoint attesters seen for that slot. If proposal equivocation is later detected for the slot, pending bad-attestation offenses are cleared.
+**Description**: A committee member attested to a checkpoint proposal in a slot where this node detected a slashable invalid block or checkpoint proposal.
+**Detection**: ValidatorClient marks slots with invalid block proposals detected via reexecution and invalid checkpoint proposals detected via deterministic validation, then slashes checkpoint attesters seen for that slot. BroadcastedInvalidCheckpointProposalWatcher also scans retained truncated-checkpoint evidence and retained attestations for the same slot. If proposal equivocation is later detected for the slot, pending bad-attestation offenses are cleared.
 **Target**: Committee members who attested in the invalid proposal slot.
 **Time Unit**: Slot-based offense.
 

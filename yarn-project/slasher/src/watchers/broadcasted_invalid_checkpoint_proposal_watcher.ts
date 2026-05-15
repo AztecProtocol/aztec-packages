@@ -2,7 +2,6 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { merge, pick } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
@@ -16,6 +15,7 @@ import { WANT_TO_SLASH_EVENT, type WantToSlashArgs, type Watcher, type WatcherEm
 
 const BroadcastedInvalidCheckpointProposalWatcherConfigKeys = [
   'slashBroadcastedInvalidCheckpointProposalPenalty',
+  'slashAttestInvalidCheckpointProposalPenalty',
 ] as const;
 
 const SCAN_SLOT_LAG = 1;
@@ -34,14 +34,14 @@ type SignedBlockProposal = {
   signer: EthAddress;
 };
 
-/** Detects truncated-checkpoint proposal offenses from retained signed P2P proposals. */
+/** Detects truncated-checkpoint proposer offenses from retained P2P evidence. */
 export class BroadcastedInvalidCheckpointProposalWatcher
   extends (EventEmitter as new () => WatcherEmitter)
   implements Watcher
 {
   private readonly log: Logger = createLogger('broadcasted-invalid-checkpoint-proposal-watcher');
   private readonly runningPromise: RunningPromise;
-  private readonly emittedOffenses: FifoSet<string>;
+  private readonly emittedOffensesBySlot = new Map<bigint, Set<string>>();
   private readonly scanSlotLookback: number;
   private config: BroadcastedInvalidCheckpointProposalWatcherConfig;
   private lastScannedSlot: SlotNumber | undefined;
@@ -57,11 +57,6 @@ export class BroadcastedInvalidCheckpointProposalWatcher
     const constants = epochCache.getL1Constants();
     this.config = pick(config, ...BroadcastedInvalidCheckpointProposalWatcherConfigKeys);
     this.scanSlotLookback = Math.max(1, scanSlotLookback);
-
-    // Bound emitted offenses to the number of slots we rescan. This watcher currently tracks one offense type,
-    // and at most one offense of that type can be emitted per slot.
-    const offenseTypes = 1;
-    this.emittedOffenses = FifoSet.withLimit<string>(offenseTypes * this.scanSlotLookback);
 
     const intervalMs = Math.max(1000, (constants.ethereumSlotDuration * 1000) / 4);
     this.runningPromise = new RunningPromise(() => this.scan(), this.log, intervalMs);
@@ -107,6 +102,7 @@ export class BroadcastedInvalidCheckpointProposalWatcher
       await this.scanSlot(SlotNumber(slot));
     }
     this.lastScannedSlot = newestSlotToConsider;
+    this.pruneEmittedOffensesBefore(oldestLookbackSlot);
   }
 
   /** Scans a single slot. Public for tests. */
@@ -134,7 +130,10 @@ export class BroadcastedInvalidCheckpointProposalWatcher
 
   private getSlashArgsForProposals(slot: SlotNumber, proposals: ProposalsForSlot): WantToSlashArgs[] {
     const offenders = this.findOffenders(proposals.blockProposals, proposals.checkpointProposals);
-    // we expect one proposer per slot today.
+    if (offenders.size === 0) {
+      return [];
+    }
+
     return [...offenders.values()].map(validator => ({
       validator,
       amount: this.config.slashBroadcastedInvalidCheckpointProposalPenalty,
@@ -193,7 +192,23 @@ export class BroadcastedInvalidCheckpointProposalWatcher
   }
 
   private markAsNewOffense(args: WantToSlashArgs): boolean {
-    const key = `${args.validator.toString()}-${args.offenseType}-${args.epochOrSlot}`;
-    return this.emittedOffenses.addIfAbsent(key);
+    const key = `${args.validator.toString()}-${args.offenseType}`;
+    const slotOffenses = this.emittedOffensesBySlot.get(args.epochOrSlot) ?? new Set<string>();
+    if (slotOffenses.has(key)) {
+      return false;
+    }
+
+    slotOffenses.add(key);
+    this.emittedOffensesBySlot.set(args.epochOrSlot, slotOffenses);
+    return true;
+  }
+
+  private pruneEmittedOffensesBefore(slot: SlotNumber): void {
+    const oldestRetainedSlot = BigInt(slot);
+    for (const emittedSlot of this.emittedOffensesBySlot.keys()) {
+      if (emittedSlot < oldestRetainedSlot) {
+        this.emittedOffensesBySlot.delete(emittedSlot);
+      }
+    }
   }
 }

@@ -10,6 +10,7 @@ import { OffenseType } from '@aztec/stdlib/slashing';
 import {
   makeBlockHeader,
   makeBlockProposal,
+  makeCheckpointAttestation,
   makeCheckpointHeader,
   makeCheckpointProposal,
 } from '@aztec/stdlib/testing';
@@ -22,7 +23,7 @@ import { WANT_TO_SLASH_EVENT, type WantToSlashArgs } from '../watcher.js';
 import { BroadcastedInvalidCheckpointProposalWatcher } from './broadcasted_invalid_checkpoint_proposal_watcher.js';
 
 describe('BroadcastedInvalidCheckpointProposalWatcher', () => {
-  let p2pClient: MockProxy<Pick<P2PClient, 'getProposalsForSlot'>>;
+  let p2pClient: MockProxy<Pick<P2PClient, 'getCheckpointAttestationsForSlot' | 'getProposalsForSlot'>>;
   let l2BlockSource: MockProxy<Pick<L2BlockSource, 'getSyncedL2SlotNumber'>>;
   let epochCache: MockProxy<Pick<EpochCacheInterface, 'getSlotNow' | 'getL1Constants'>>;
   let config: SlasherConfig;
@@ -30,7 +31,8 @@ describe('BroadcastedInvalidCheckpointProposalWatcher', () => {
   let handler: jest.MockedFunction<(args: WantToSlashArgs[]) => void>;
 
   beforeEach(() => {
-    p2pClient = mock<Pick<P2PClient, 'getProposalsForSlot'>>();
+    p2pClient = mock<Pick<P2PClient, 'getCheckpointAttestationsForSlot' | 'getProposalsForSlot'>>();
+    p2pClient.getCheckpointAttestationsForSlot.mockResolvedValue([]);
     l2BlockSource = mock<Pick<L2BlockSource, 'getSyncedL2SlotNumber'>>();
     l2BlockSource.getSyncedL2SlotNumber.mockResolvedValue(SlotNumber(12));
     epochCache = mock<Pick<EpochCacheInterface, 'getSlotNow' | 'getL1Constants'>>();
@@ -43,6 +45,7 @@ describe('BroadcastedInvalidCheckpointProposalWatcher', () => {
     config = {
       ...DefaultSlasherConfig,
       slashBroadcastedInvalidCheckpointProposalPenalty: 11n,
+      slashAttestInvalidCheckpointProposalPenalty: 13n,
     };
     watcher = new BroadcastedInvalidCheckpointProposalWatcher(p2pClient, l2BlockSource, epochCache, config, 4);
     handler = jest.fn();
@@ -110,6 +113,121 @@ describe('BroadcastedInvalidCheckpointProposalWatcher', () => {
         epochOrSlot: 10n,
       },
     ]);
+  });
+
+  it('does not slash attesters from retained truncated-checkpoint evidence', async () => {
+    const signer = Secp256k1Signer.random();
+    const attester = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    const attestation = makeCheckpointAttestation({
+      header: makeCheckpointHeader(1, { slotNumber: slot }),
+      attesterSigner: attester,
+    });
+    mockProposals(slot, blocks, [checkpoint]);
+    p2pClient.getCheckpointAttestationsForSlot.mockResolvedValue([attestation]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).toHaveBeenCalledWith([
+      {
+        validator: signer.address,
+        amount: 11n,
+        offenseType: OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 10n,
+      },
+    ]);
+  });
+
+  it('does not emit attester offenses when proposer checkpoint slashing is disabled', async () => {
+    watcher.updateConfig({ slashBroadcastedInvalidCheckpointProposalPenalty: 0n });
+    const signer = Secp256k1Signer.random();
+    const attester = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    const attestation = makeCheckpointAttestation({
+      header: makeCheckpointHeader(1, { slotNumber: slot }),
+      attesterSigner: attester,
+    });
+    mockProposals(slot, blocks, [checkpoint]);
+    p2pClient.getCheckpointAttestationsForSlot.mockResolvedValue([attestation]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('does not slash attesters when bad attestation slashing is disabled', async () => {
+    watcher.updateConfig({ slashAttestInvalidCheckpointProposalPenalty: 0n });
+    const signer = Secp256k1Signer.random();
+    const attester = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    const attestation = makeCheckpointAttestation({
+      header: makeCheckpointHeader(1, { slotNumber: slot }),
+      attesterSigner: attester,
+    });
+    mockProposals(slot, blocks, [checkpoint]);
+    p2pClient.getCheckpointAttestationsForSlot.mockResolvedValue([attestation]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).toHaveBeenCalledWith([
+      {
+        validator: signer.address,
+        amount: 11n,
+        offenseType: OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
+        epochOrSlot: 10n,
+      },
+    ]);
+  });
+
+  it('does not emit bad attestation offenses for equivocated checkpoint proposal slots', async () => {
+    watcher.updateConfig({ slashBroadcastedInvalidCheckpointProposalPenalty: 0n });
+    const signer = Secp256k1Signer.random();
+    const attester = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const truncatedCheckpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    const otherCheckpoint = await makeCheckpointCore(signer, slot, blocks[3]);
+    const attestation = makeCheckpointAttestation({
+      header: makeCheckpointHeader(1, { slotNumber: slot }),
+      attesterSigner: attester,
+    });
+    mockProposals(slot, blocks, [truncatedCheckpoint, otherCheckpoint]);
+    p2pClient.getCheckpointAttestationsForSlot.mockResolvedValue([attestation]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('does not emit bad attestation offenses for equivocated block proposal slots', async () => {
+    watcher.updateConfig({ slashBroadcastedInvalidCheckpointProposalPenalty: 0n });
+    const signer = Secp256k1Signer.random();
+    const attester = Secp256k1Signer.random();
+    const slot = SlotNumber(10);
+    const blocks = await makeBlocks(signer, slot, 4);
+    const equivocatedBlock = await makeBlockProposal({
+      signer,
+      blockHeader: makeBlockHeader(99, { slotNumber: slot }),
+      archiveRoot: Fr.random(),
+      indexWithinCheckpoint: IndexWithinCheckpoint(2),
+    });
+    const checkpoint = await makeCheckpointCore(signer, slot, blocks[1]);
+    const attestation = makeCheckpointAttestation({
+      header: makeCheckpointHeader(1, { slotNumber: slot }),
+      attesterSigner: attester,
+    });
+    mockProposals(slot, [...blocks, equivocatedBlock], [checkpoint]);
+    p2pClient.getCheckpointAttestationsForSlot.mockResolvedValue([attestation]);
+
+    await watcher.scanSlot(slot);
+
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('slashes when a higher-index proposal arrives after an earlier non-slashing scan', async () => {

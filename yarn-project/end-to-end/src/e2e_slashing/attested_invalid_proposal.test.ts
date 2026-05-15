@@ -394,11 +394,6 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
         validator: badProposer,
         offenseType: OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL,
       },
-      {
-        description: 'lazy validator attested to invalid checkpoint proposal',
-        validator: lazyValidator,
-        offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
-      },
     ];
 
     const offensesWithExpectedSlashes = await retryUntil(
@@ -415,7 +410,7 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
           ? currentOffenses
           : undefined;
       },
-      'honest validator slash offenses for invalid proposal attestation',
+      'honest validator slash offenses for invalid block proposal',
       OFFENSE_DETECTION_TIMEOUT,
       1,
     );
@@ -425,6 +420,14 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
       expect(offense.amount).toBeGreaterThan(0n);
       t.logger.warn(`Observed expected slash offense: ${description}`, { offense });
     }
+    expect(
+      findSlashOffense(
+        offensesWithExpectedSlashes,
+        lazyValidator,
+        OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
+        targetSlot,
+      ),
+    ).toBeUndefined();
 
     return {
       rollup,
@@ -439,7 +442,7 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
     };
   }
 
-  it('slashes a lazy attester for an invalid checkpoint and clears it on delayed equivocation', async () => {
+  it('does not slash a lazy checkpoint attester for invalid block evidence', async () => {
     const {
       rollup,
       badProposerNode,
@@ -531,7 +534,7 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
     const offensesAfterClear = await retryUntil(
       async () => {
         const currentOffenses = await honestValidatorNode.getSlashOffenses('all');
-        const badAttestationOffense = findSlashOffense(
+        const lazyAttestationOffense = findSlashOffense(
           currentOffenses,
           lazyValidator,
           OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
@@ -544,16 +547,16 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
           targetSlot,
         );
 
-        t.logger.warn('Waiting for delayed equivocation to clear bad attestation slash', {
+        t.logger.warn('Waiting for delayed equivocation without a lazy attestation slash', {
           targetSlot,
-          badAttestationOffense,
+          lazyAttestationOffense,
           duplicateProposalOffense,
           currentOffenses,
         });
 
-        return !badAttestationOffense && duplicateProposalOffense ? currentOffenses : undefined;
+        return !lazyAttestationOffense && duplicateProposalOffense ? currentOffenses : undefined;
       },
-      'bad attestation slash cleared after delayed block proposal equivocation',
+      'delayed block proposal equivocation recorded without lazy attester slash',
       OFFENSE_DETECTION_TIMEOUT,
       1,
     );

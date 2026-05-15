@@ -757,7 +757,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           watchers.push(dataWithholdingWatcher);
         }
 
-        if (config.slashBroadcastedInvalidCheckpointProposalPenalty > 0n) {
+        if (
+          config.slashBroadcastedInvalidCheckpointProposalPenalty > 0n ||
+          config.slashAttestInvalidCheckpointProposalPenalty > 0n
+        ) {
           broadcastedInvalidCheckpointProposalWatcher = new BroadcastedInvalidCheckpointProposalWatcher(
             p2pClient,
             archiver,

@@ -1,7 +1,13 @@
 import type { BlobClientInterface } from '@aztec/blob-client/client';
 import { type Blob, getBlobsPerL1Block } from '@aztec/blob-lib';
 import type { EpochCache } from '@aztec/epoch-cache';
-import { CheckpointNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  CheckpointNumber,
+  type CheckpointProposalHash,
+  EpochNumber,
+  IndexWithinCheckpoint,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
@@ -128,7 +134,9 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private lastAttestedEpochByAttester: Map<string, EpochNumber> = new Map();
 
   private proposersOfInvalidBlocks = FifoSet.withLimit<string>(MAX_PROPOSERS_OF_INVALID_BLOCKS);
-  private slotsWithInvalidBlockProposals = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+  private invalidCheckpointProposalPayloadHashes = FifoSet.withLimit<CheckpointProposalHash>(
+    MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS,
+  );
   private invalidCheckpointProposalOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS);
   private slotsWithProposalEquivocation = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
   private badAttestationOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_BAD_ATTESTATIONS);
@@ -527,9 +535,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
           this.log.warn(`Slashing proposer for invalid block proposal`, proposalInfo);
           this.slashInvalidBlock(proposal);
         }
-        if (slashAttestInvalidCheckpointProposalPenalty > 0n) {
-          this.markInvalidProposalSlot(proposal.slotNumber);
-        }
       }
       return false;
     }
@@ -759,13 +764,21 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     ]);
   }
 
-  private handleInvalidCheckpointProposal(
+  private async handleInvalidCheckpointProposal(
     proposal: CheckpointProposalCore,
     result: CheckpointProposalValidationFailureResult,
     proposalInfo: LogData,
-  ): void {
+  ): Promise<void> {
     if (!SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[result.reason]) {
       return;
+    }
+
+    const proposalPayloadHash = proposal.getPayloadHash();
+    if (
+      this.config.slashAttestInvalidCheckpointProposalPenalty > 0n &&
+      this.invalidCheckpointProposalPayloadHashes.addIfAbsent(proposalPayloadHash)
+    ) {
+      await this.processRetainedCheckpointAttestations(proposal.slotNumber, proposalPayloadHash);
     }
 
     if (this.slashInvalidCheckpointProposal(proposal)) {
@@ -807,15 +820,32 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     return true;
   }
 
-  private markInvalidProposalSlot(slotNumber: SlotNumber): void {
-    const slotKey = this.getSlotKey(slotNumber);
-    this.slotsWithInvalidBlockProposals.add(slotKey);
+  private async processRetainedCheckpointAttestations(
+    slotNumber: SlotNumber,
+    proposalPayloadHash: CheckpointProposalHash,
+  ): Promise<void> {
+    try {
+      const attestations = await this.p2pClient.getCheckpointAttestationsForSlot(slotNumber, proposalPayloadHash);
+      for (const attestation of attestations) {
+        this.handleCheckpointAttestation(attestation);
+      }
+    } catch (err) {
+      this.log.warn(`Failed to process retained checkpoint attestations for invalid checkpoint proposal payload`, {
+        slotNumber,
+        proposalPayloadHash,
+        err,
+      });
+    }
   }
 
   private handleCheckpointAttestation(attestation: CheckpointAttestation): void {
     const slotNumber = attestation.slotNumber;
     const slotKey = this.getSlotKey(slotNumber);
-    if (!this.slotsWithInvalidBlockProposals.has(slotKey) || this.slotsWithProposalEquivocation.has(slotKey)) {
+    const proposalPayloadHash = attestation.getPayloadHash();
+    if (
+      !this.invalidCheckpointProposalPayloadHashes.has(proposalPayloadHash) ||
+      this.slotsWithProposalEquivocation.has(slotKey)
+    ) {
       return;
     }
 
@@ -824,14 +854,19 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.log.warn(`Cannot slash checkpoint attestation with invalid signature`, {
         slotNumber,
         archive: attestation.archive.toString(),
+        proposalPayloadHash,
       });
       return;
     }
 
-    this.slashAttestedToInvalidCheckpointProposal(slotNumber, attester);
+    this.slashAttestedToInvalidCheckpointProposal(slotNumber, proposalPayloadHash, attester);
   }
 
-  private slashAttestedToInvalidCheckpointProposal(slotNumber: SlotNumber, attester: EthAddress): void {
+  private slashAttestedToInvalidCheckpointProposal(
+    slotNumber: SlotNumber,
+    proposalPayloadHash: CheckpointProposalHash,
+    attester: EthAddress,
+  ): void {
     if (this.config.slashAttestInvalidCheckpointProposalPenalty <= 0n) {
       return;
     }
@@ -844,6 +879,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     this.log.warn(`Slashing attester for attesting to invalid checkpoint proposal`, {
       attester: attester.toString(),
       slotNumber,
+      proposalPayloadHash,
     });
 
     this.emit(WANT_TO_SLASH_EVENT, [

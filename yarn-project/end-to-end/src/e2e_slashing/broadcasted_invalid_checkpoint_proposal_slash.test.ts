@@ -77,7 +77,7 @@ async function awaitBroadcastedInvalidCheckpointOffense({
       const offenses = await node.getSlashOffenses('all');
       return findBroadcastedInvalidCheckpointOffense(offenses, validator, slot);
     },
-    `A-520 offense for slot ${slot}`,
+    `broadcasted invalid checkpoint proposal offense for slot ${slot}`,
     AZTEC_SLOT_DURATION * 3,
     1,
   );
