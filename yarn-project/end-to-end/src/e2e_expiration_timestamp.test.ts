@@ -157,14 +157,19 @@ describe('e2e_expiration_timestamp', () => {
       expect(provedExpiration).toBeGreaterThan(0n);
 
       // Warp L1 time past the tx expiration. The node's `isValidTx` uses the next L1 slot timestamp
-      // (via `epochCache.getEpochAndSlotInNextL1Slot()`), so warping L1 alone is enough — we don't
-      // need to mine an L2 block here, which avoids cascading sequencer publish delays across tests.
-      // If L1 time has already advanced past the expiration (e.g. due to a prior test's warp), skip
-      // the warp — the tx is already invalid against the current L1 slot.
+      // (via `epochCache.getEpochAndSlotInNextL1Slot()`), so warping L1 is what makes the proven tx
+      // invalid against the current L1 slot. Under proposer pipelining the sequencer may have an
+      // in-flight block for the slot we are about to warp past; a raw L1 warp leaves that block
+      // stranded (its slot never checkpoints, so L1 sync prunes it asynchronously) and the next
+      // test's PXE can capture the doomed block as its anchor before the prune lands, producing a
+      // `Block hash ... not found when querying world state` error. `warpL2TimeAtLeastTo` mines an
+      // L2 block at the post-warp slot, draining the in-flight block and ensuring subsequent txs
+      // anchor to a fresh block. If L1 has already advanced past the expiration (e.g. due to a
+      // prior test's warp), skip — the tx is already invalid against the current L1 slot.
       const currentL1Timestamp = BigInt(await cheatCodes.eth.lastBlockTimestamp());
       const targetTimestamp = provedExpiration + aztecSlotDuration;
       if (targetTimestamp > currentL1Timestamp) {
-        await cheatCodes.eth.warp(targetTimestamp, { resetBlockInterval: true });
+        await cheatCodes.warpL2TimeAtLeastTo(aztecNode, targetTimestamp);
       }
 
       await expect(provenTx.send()).rejects.toThrow(TX_ERROR_INVALID_EXPIRATION_TIMESTAMP);
