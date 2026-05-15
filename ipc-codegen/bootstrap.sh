@@ -1,46 +1,48 @@
 #!/usr/bin/env bash
-# Codegen tool: generates bindings from committed JSON schemas.
-# Zero npm dependencies — runs with just Node.js (v22+).
+# IPC codegen package.
+# Generates IPC bindings from committed JSON schemas under schemas/, in TS, C++,
+# Rust and Zig. Zero npm dependencies — runs with just Node.js (v22+).
 #
-# Usage:
-#   ./bootstrap.sh           # Run codegen (generate all bindings)
-#   ./bootstrap.sh generate  # Same
-#   ./bootstrap.sh test      # Run the cross-language wire-compat test matrix
-#   ./bootstrap.sh hash      # Print content hash
+# The build's only consumer is its own cross-language test harness under
+# examples/. Service consumers (bb, wsdb, cdb, avm) are wired up by their
+# own bootstrap scripts, which invoke `ipc-codegen/bootstrap.sh build` as
+# a build-time prerequisite.
 
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-# Hash includes codegen source AND committed schema files.
-export hash=$(cache_content_hash .rebuild_patterns)
+hash=$(cache_content_hash .rebuild_patterns)
 
 NODE_FLAGS="--experimental-strip-types --experimental-transform-types --no-warnings"
 
 gen() { node $NODE_FLAGS src/generate.ts "$@"; }
 
-function generate {
-  echo_header "codegen generate"
+function build {
+  echo_header "ipc-codegen build (generate echo example bindings)"
 
-  # In this PR, only the echo example wires up codegen output.
-  # Service consumers (bb, wsdb, cdb, avm) are added by later PRs as they migrate
-  # from the legacy cbind generator. Until then, schemas live committed under
-  # schemas/ and the only consumer of codegen output is the echo test harness.
+  # Service generation (bb, wsdb, cdb, avm) is invoked by each service's own
+  # bootstrap. The build step here only generates the echo example bindings,
+  # which the test harness consumes.
   examples/echo-schema/generate.sh
 }
 
+function test_cmds {
+  # Single test command: the 4-language echo wire-compat matrix.
+  # Needs CPUS so the cargo + zig builds inside run_cross_language_tests.sh
+  # have headroom, and TIMEOUT for the cold-cache first run.
+  echo "$hash:CPUS=4:TIMEOUT=600s ipc-codegen/examples/scripts/run_cross_language_tests.sh"
+}
+
 function test {
-  echo_header "codegen test"
-  examples/scripts/run_cross_language_tests.sh
+  echo_header "ipc-codegen test"
+  test_cmds | filter_test_cmds | parallelize
 }
 
 case "$cmd" in
-  ""|generate)
-    generate
+  "")
+    build
     ;;
-  test)
-    test
-    ;;
-  hash)
-    echo $hash
+  "hash")
+    echo "$hash"
     ;;
   *)
     default_cmd_handler "$@"
