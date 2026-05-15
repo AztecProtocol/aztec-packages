@@ -16,10 +16,15 @@ const MAX_DECODED_BYTES = 256 * 1024;
 // same-origin relative path / fragment. Source hrefs in shared payloads
 // come from untrusted hash content, so this guards the click-to-XSS path
 // in Message.jsx where `s.source / s.url / s.link` are used as anchor hrefs.
+//
+// Backslashes are rejected outright because the WHATWG URL parser
+// normalizes `\` to `/` for special schemes, so inputs like `\\host/x`
+// or `https:/\host/x` would otherwise round-trip into an external origin.
 function isSafeHref(href) {
   if (typeof href !== "string") return false;
   const trimmed = href.trim();
   if (!trimmed) return false;
+  if (trimmed.includes("\\")) return false;
   if (trimmed.startsWith("//")) return false;
   if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
     return /^https?:/i.test(trimmed);
