@@ -91,7 +91,7 @@ pub contract HandshakeRegistry {
     /// Asserts that `app_siloed_secret` is the silo of a stored `NON_INTERACTIVE_HANDSHAKE` from `sender` to
     /// `recipient`, bound to the caller (`msg_sender()`).
     ///
-    /// Apps that receive an `app_siloed_secret` from an untrusted source (e.g. a PXE oracle) call this once to
+    /// Apps that receive an `app_siloed_secret` from an untrusted source  call this once to
     /// bind that secret to the registry's stored handshake. Subsequent uses can rely on the prior-nullifier chain
     /// instead of re-validating against the registry.
     ///
