@@ -1,13 +1,18 @@
-import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
-export class AnchorBlockStore {
+export class CanonicalChainStore {
   #store: AztecAsyncKVStore;
   #synchronizedHeader: AztecAsyncSingleton<Buffer>;
+  /** Durable canonical height→hash map. Cold-start cache only; rebuildable from the node. */
+  #canonicalHashes: AztecAsyncMap<number, string>;
+  /** In-memory copy of the canonical map — the hot read path. Populated by load(). */
+  #mem: Map<number, string> = new Map();
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
     this.#synchronizedHeader = this.#store.openSingleton('header');
+    this.#canonicalHashes = store.openMap('canonical_chain');
   }
 
   /**
@@ -29,5 +34,35 @@ export class AnchorBlockStore {
     }
 
     return BlockHeader.fromBuffer(headerBuffer);
+  }
+
+  /** Load the in-memory map from KV. Call once at startup before serving reads. */
+  async load(): Promise<void> {
+    this.#mem.clear();
+    for await (const [height, hash] of this.#canonicalHashes.entriesAsync()) {
+      this.#mem.set(height, hash);
+    }
+  }
+
+  /** Record the canonical hash at a height. Writes through to KV and the in-memory map. */
+  async set(blockNumber: number, blockHash: string): Promise<void> {
+    this.#mem.set(blockNumber, blockHash);
+    await this.#canonicalHashes.set(blockNumber, blockHash);
+  }
+
+  /** The canonical hash at a height, or undefined if no entry. */
+  hashAt(blockNumber: number): Promise<string | undefined> {
+    return Promise.resolve(this.#mem.get(blockNumber));
+  }
+
+  /** The highest height present in the map (the synchronizer populates contiguously, in order). */
+  tipHeight(): Promise<number> {
+    let max = -1;
+    for (const height of this.#mem.keys()) {
+      if (height > max) {
+        max = height;
+      }
+    }
+    return Promise.resolve(max);
   }
 }
