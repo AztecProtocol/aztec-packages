@@ -201,20 +201,9 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     }
 
     const tips = await this.node.getChainTips();
-    if (tips) {
-      const tipHeight = await this.canonicalChainStore.tipHeight();
-      const fromHeight = Math.max(tips.finalized.block.number, tipHeight + 1);
-      await this.canonicalChainStore.hydrateFromNode(
-        {
-          getBlocks: async (from, limit) => {
-            const blocks = await this.node.getBlocks(BlockNumber(from), limit);
-            return blocks.map(b => ({ number: b.number, hash: () => Promise.resolve(b.hash) }));
-          },
-        },
-        fromHeight,
-        tips.proposed.number,
-      );
-    }
+    const tipHeight = await this.canonicalChainStore.tipHeight();
+    const fromHeight = Math.max(tips.finalized.block.number, tipHeight + 1);
+    await this.canonicalChainStore.hydrateFromNode(this.node, fromHeight, tips.proposed.number);
 
     await this.blockStream.sync();
   }

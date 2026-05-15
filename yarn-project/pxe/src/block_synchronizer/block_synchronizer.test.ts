@@ -158,6 +158,22 @@ describe('BlockSynchronizer', () => {
         indexWithinCheckpoint: genesisBlock.indexWithinCheckpoint,
       };
       aztecNode.getBlockData.mockResolvedValue(genesisBlockData);
+      aztecNode.getChainTips.mockResolvedValue({
+        proposed: { number: BlockNumber(0), hash: '0x0' },
+        checkpointed: {
+          block: { number: BlockNumber(0), hash: '0x0' },
+          checkpoint: { number: CheckpointNumber(0), hash: '0x0' },
+        },
+        proven: {
+          block: { number: BlockNumber(0), hash: '0x0' },
+          checkpoint: { number: CheckpointNumber(0), hash: '0x0' },
+        },
+        finalized: {
+          block: { number: BlockNumber(0), hash: '0x0' },
+          checkpoint: { number: CheckpointNumber(0), hash: '0x0' },
+        },
+      });
+      aztecNode.getBlocks.mockResolvedValue([]);
 
       // Start a sync (don't await)
       const syncPromise = synchronizer.sync();

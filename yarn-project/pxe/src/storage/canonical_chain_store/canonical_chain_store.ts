@@ -5,7 +5,7 @@ import { type Anchor } from '../foundation/anchor.js';
 
 /** The slice of the node interface CanonicalChainStore needs to rebuild its map. */
 export type CanonicalChainSource = {
-  getBlocks(from: number, limit: number): Promise<Array<{ number: number; hash(): Promise<{ toString(): string }> }>>;
+  getBlocks(from: number, limit: number): Promise<Array<{ number: number; hash: { toString(): string } }>>;
 };
 
 export class CanonicalChainStore {
@@ -112,7 +112,7 @@ export class CanonicalChainStore {
     }
     const blocks = await node.getBlocks(from, to - from + 1);
     for (const block of blocks) {
-      await this.set(block.number, (await block.hash()).toString());
+      await this.set(block.number, block.hash.toString());
     }
   }
 }

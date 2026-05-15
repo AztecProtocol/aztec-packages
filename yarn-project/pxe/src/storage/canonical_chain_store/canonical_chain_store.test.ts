@@ -106,12 +106,12 @@ describe('canonical chain map', () => {
         Promise.resolve(
           Array.from({ length: limit }, (_unused, i) => ({
             number: from + i,
-            hash: () => Promise.resolve({ toString: () => `0xhash${from + i}` }),
+            hash: { toString: () => `0xhash${from + i}` },
           })),
         ),
     };
 
-    await chain.hydrateFromNode(nodeStub as any, 10, 12);
+    await chain.hydrateFromNode(nodeStub, 10, 12);
 
     await expect(chain.hashAt(10)).resolves.toEqual('0xhash10');
     await expect(chain.hashAt(11)).resolves.toEqual('0xhash11');
