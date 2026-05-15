@@ -23,7 +23,6 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
 describe('e2e_bot', () => {
@@ -37,7 +36,15 @@ describe('e2e_bot', () => {
 
   beforeAll(async () => {
     const [botAccount] = await getInitialTestAccountsData();
-    const setupResult = await setup(0, { ...PIPELINING_SETUP_OPTS, initialFundedAccounts: [botAccount] });
+    // TODO(palla/pipelining): re-opt-in once public-call simulation handles `inboxLag`. Under
+    // pipelining with `inboxLag=2`, `AztecNodeService.simulatePublicCalls` queries
+    // `getL1ToL2Messages(proposedCheckpoint+1)` at checkpoint boundaries and throws
+    // `L1ToL2MessagesNotReadyError` because that checkpoint isn't yet sealed on L1 (see
+    // server.ts:1508 + message_store.ts:233). This breaks the bridge/amm/cross-chain bot flows.
+    // The `transaction-bot` cluster additionally needs the bot's `minFeePadding` bumped to
+    // `PIPELINED_FEE_PADDING` (the bot overrides the wallet padding via
+    // `wallet.setMinFeePadding(config.minFeePadding)` in `bot/src/factory.ts:60`).
+    const setupResult = await setup(0, { initialFundedAccounts: [botAccount] });
     ({
       teardown,
       aztecNode,
