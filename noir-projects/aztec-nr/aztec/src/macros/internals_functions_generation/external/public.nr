@@ -6,14 +6,14 @@ use crate::macros::{
     },
 };
 
-/// Emits a per-contract helper that builds the `self` value from a `PublicContext` already in scope.
+/// Emits a per-contract helper that creates the `self` value from a `PublicContext` already in scope.
 ///
-/// This is the building block used by both:
+/// This is the shared helper used by both:
 /// - public external functions, via [`generate_public_self_creator`], which constructs a fresh `PublicContext` from
 ///   `calldata_copy` and then delegates to this helper; and
 /// - public internal functions and `#[contract_library_method]` bodies, which already receive `context` as a
 ///   parameter and call this helper directly to skip the `calldata_copy` step.
-pub(crate) comptime fn generate_public_self_builder_from_context(m: Module) -> Quoted {
+pub(crate) comptime fn generate_public_self_creator_from_context(m: Module) -> Quoted {
     let (storage_type, storage_init) = if module_has_storage(m) {
         (quote { Storage<aztec::context::PublicContext> }, quote { let storage = Storage::init(context); })
     } else {
@@ -25,7 +25,7 @@ pub(crate) comptime fn generate_public_self_builder_from_context(m: Module) -> Q
 
     quote {
         #[contract_library_method]
-        unconstrained fn __aztec_nr_internals__build_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::ContractSelfPublic<$storage_type, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+        unconstrained fn __aztec_nr_internals__create_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::ContractSelfPublic<$storage_type, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
             $storage_init
             let self_address = context.this_address();
             let call_self: CallSelf<aztec::context::PublicContext> = CallSelf { address: self_address, context };
@@ -62,7 +62,7 @@ pub(crate) comptime fn generate_public_self_creator(m: Module) -> Quoted {
                 let serialized_args : [Field; N] = aztec::oracle::avm::calldata_copy(1, N);
                 aztec::hash::hash_args(serialized_args)
             });
-            __aztec_nr_internals__build_public_self_from_context(context)
+            __aztec_nr_internals__create_public_self_from_context(context)
         }
     }
 }

@@ -78,7 +78,7 @@ pub(crate) comptime fn generate_public_internal(f: FunctionDefinition) -> Quoted
         #[contract_library_method]
         unconstrained fn $fn_name($params) -> $return_type {
             #[allow(unused_variables)]
-            let mut self = __aztec_nr_internals__build_public_self_from_context(context);
+            let mut self = __aztec_nr_internals__create_public_self_from_context(context);
 
             $body
         }

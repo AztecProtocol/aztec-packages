@@ -3774,7 +3774,7 @@ pub contract Token {
     }
 
     #[contract_library_method]
-    unconstrained fn __aztec_nr_internals__build_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+    unconstrained fn __aztec_nr_internals__create_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
         let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
         let self_address: AztecAddress = context.this_address();
         let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
@@ -3789,7 +3789,7 @@ pub contract Token {
             let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
             aztec::hash::hash_args(serialized_args)
         });
-        __aztec_nr_internals__build_public_self_from_context(context)
+        __aztec_nr_internals__create_public_self_from_context(context)
     }
 
     unconstrained fn __aztec_nr_internals___finalize_mint_to_private_unsafe(minter_and_completer: AztecAddress, amount: u128, partial_note: PartialUintNote) {
@@ -4052,7 +4052,7 @@ pub contract Token {
 
     #[contract_library_method]
     unconstrained fn __aztec_nr_internals___finalize_mint_to_private(context: aztec::context::PublicContext, completer: AztecAddress, amount: u128, partial_note: PartialUintNote) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__build_public_self_from_context(context);
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self_from_context(context);
         {
             let supply: u128 = self.storage.total_supply.read().add(amount);
             self.storage.total_supply.write(supply);
@@ -4062,7 +4062,7 @@ pub contract Token {
 
     #[contract_library_method]
     unconstrained fn __aztec_nr_internals___finalize_transfer_to_private(context: aztec::context::PublicContext, from_and_completer: AztecAddress, amount: u128, partial_note: PartialUintNote) {
-        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__build_public_self_from_context(context);
+        let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> = __aztec_nr_internals__create_public_self_from_context(context);
         {
             let balance_storage: PublicMutable<u128, aztec::context::PublicContext> = self.storage.public_balances.at(from_and_completer);
             let from_balance: u128 = balance_storage.read().sub(amount);

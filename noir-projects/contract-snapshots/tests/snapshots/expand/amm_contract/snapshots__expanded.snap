@@ -2438,7 +2438,7 @@ pub contract AMM {
     }
 
     #[contract_library_method]
-    unconstrained fn __aztec_nr_internals__build_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+    unconstrained fn __aztec_nr_internals__create_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<aztec::context::PublicContext>, CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
         let storage: Storage<aztec::context::PublicContext> = Storage::<aztec::context::PublicContext>::init(context);
         let self_address: AztecAddress = context.this_address();
         let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
@@ -2453,7 +2453,7 @@ pub contract AMM {
             let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
             aztec::hash::hash_args(serialized_args)
         });
-        __aztec_nr_internals__build_public_self_from_context(context)
+        __aztec_nr_internals__create_public_self_from_context(context)
     }
 
     unconstrained fn __aztec_nr_internals___add_liquidity(config: Config, refund_token0_partial_note: PartialUintNote, refund_token1_partial_note: PartialUintNote, liquidity_partial_note: PartialUintNote, amount0_max: u128, amount1_max: u128, amount0_min: u128, amount1_min: u128) {

@@ -1220,7 +1220,7 @@ contract AvmGadgetsTest {
     }
 
     #[contract_library_method]
-    unconstrained fn __aztec_nr_internals__build_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
+    unconstrained fn __aztec_nr_internals__create_public_self_from_context(context: aztec::context::PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<(), CallSelf<aztec::context::PublicContext>, CallSelfStatic<aztec::context::PublicContext>, CallInternal<aztec::context::PublicContext>> {
         let storage: () = ();
         let self_address: aztec::protocol::address::AztecAddress = context.this_address();
         let call_self: CallSelf<aztec::context::PublicContext> = CallSelf::<aztec::context::PublicContext> { address: self_address, context: context};
@@ -1235,7 +1235,7 @@ contract AvmGadgetsTest {
             let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
             aztec::hash::hash_args(serialized_args)
         });
-        __aztec_nr_internals__build_public_self_from_context(context)
+        __aztec_nr_internals__create_public_self_from_context(context)
     }
 
     unconstrained fn __aztec_nr_internals__keccak_f1600(data: [u64; 25]) -> pub [u64; 25] {

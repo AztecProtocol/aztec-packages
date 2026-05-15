@@ -6000,7 +6000,7 @@ pub contract AvmTest {
     }
 
     #[contract_library_method]
-    unconstrained fn __aztec_nr_internals__build_public_self_from_context(context: PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<PublicContext>, CallSelf<PublicContext>, CallSelfStatic<PublicContext>, CallInternal<PublicContext>> {
+    unconstrained fn __aztec_nr_internals__create_public_self_from_context(context: PublicContext) -> aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<PublicContext>, CallSelf<PublicContext>, CallSelfStatic<PublicContext>, CallInternal<PublicContext>> {
         let storage: Storage<PublicContext> = Storage::<PublicContext>::init(context);
         let self_address: AztecAddress = context.this_address();
         let call_self: CallSelf<PublicContext> = CallSelf::<PublicContext> { address: self_address, context: context};
@@ -6015,7 +6015,7 @@ pub contract AvmTest {
             let serialized_args: [Field; N] = aztec::oracle::avm::calldata_copy(1_u32, N);
             aztec::hash::hash_args(serialized_args)
         });
-        __aztec_nr_internals__build_public_self_from_context(context)
+        __aztec_nr_internals__create_public_self_from_context(context)
     }
 
     unconstrained fn __aztec_nr_internals__add_args_return(arg_a: Field, arg_b: Field) -> pub Field {
