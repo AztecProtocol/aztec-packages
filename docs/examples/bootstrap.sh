@@ -210,7 +210,7 @@ function execute-examples {
 }
 
 function test_cmds {
-  echo "$hash:ONLY_TERM_PARENT=1 docs/examples/bootstrap.sh execute"
+  echo "$hash:ONLY_TERM_PARENT=1:TIMEOUT=20m docs/examples/bootstrap.sh execute"
 }
 
 function test {

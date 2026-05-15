@@ -178,7 +178,9 @@ cleanup_project() {
 if [ $# -eq 0 ]; then
     # aave_bridge disabled: timing out on merge queue (~600s), blocked on proving block 64.
     # See http://ci.aztec-labs.com/aabf2c7e271636a0
-    EXAMPLES=("aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "example_swap" "recursive_verification")
+    # example_swap disabled: same proven-block stall under pipelined sandbox.
+    # See http://ci.aztec-labs.com/b08ac48286302949 (PR #23253 dequeue, block 86).
+    EXAMPLES=("aztecjs_connection" "aztecjs_getting_started" "aztecjs_advanced" "aztecjs_authwit" "aztecjs_testing" "recursive_verification")
 else
     EXAMPLES=()
     for arg in "$@"; do
