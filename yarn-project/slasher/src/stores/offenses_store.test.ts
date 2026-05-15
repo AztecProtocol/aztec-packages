@@ -107,7 +107,7 @@ describe('SlasherOffensesStore', () => {
     it('should handle large amounts and epoch/slot values', async () => {
       const largeAmount = BigInt('0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF'); // Max uint128
       const largeEpochOrSlot = BigInt(1_000_000_000);
-      const offense = createOffense(EthAddress.random(), largeAmount, OffenseType.VALID_EPOCH_PRUNED, largeEpochOrSlot);
+      const offense = createOffense(EthAddress.random(), largeAmount, OffenseType.INACTIVITY, largeEpochOrSlot);
 
       await store.addOffense(offense);
 

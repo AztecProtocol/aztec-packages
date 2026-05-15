@@ -16,8 +16,8 @@ export const DefaultSlasherConfig: SlasherConfig = {
   slashOverridePayload: undefined,
   slashValidatorsAlways: [], // Empty by default
   slashValidatorsNever: [], // Empty by default
-  slashPrunePenalty: BigInt(slasherDefaultEnv.SLASH_PRUNE_PENALTY),
   slashDataWithholdingPenalty: BigInt(slasherDefaultEnv.SLASH_DATA_WITHHOLDING_PENALTY),
+  slashDataWithholdingToleranceSlots: slasherDefaultEnv.SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS,
   slashInactivityTargetPercentage: slasherDefaultEnv.SLASH_INACTIVITY_TARGET_PERCENTAGE,
   slashInactivityConsecutiveEpochThreshold: slasherDefaultEnv.SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD,
   slashBroadcastedInvalidBlockPenalty: BigInt(slasherDefaultEnv.SLASH_INVALID_BLOCK_PENALTY),
@@ -67,15 +67,16 @@ export const slasherConfigMappings: ConfigMappingsType<SlasherConfig> = {
         .map(addr => EthAddress.fromString(addr)),
     defaultValue: DefaultSlasherConfig.slashValidatorsNever,
   },
-  slashPrunePenalty: {
-    env: 'SLASH_PRUNE_PENALTY',
-    description: 'Penalty amount for slashing validators of a valid pruned epoch (set to 0 to disable).',
-    ...bigintConfigHelper(DefaultSlasherConfig.slashPrunePenalty),
-  },
   slashDataWithholdingPenalty: {
     env: 'SLASH_DATA_WITHHOLDING_PENALTY',
     description: 'Penalty amount for slashing validators for data withholding (set to 0 to disable).',
     ...bigintConfigHelper(DefaultSlasherConfig.slashDataWithholdingPenalty),
+  },
+  slashDataWithholdingToleranceSlots: {
+    env: 'SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS',
+    description:
+      'Number of full L2 slots that must elapse after a checkpoint slot before declaring its txs missing and slashing its attesters for data withholding.',
+    ...numberConfigHelper(DefaultSlasherConfig.slashDataWithholdingToleranceSlots),
   },
   slashBroadcastedInvalidBlockPenalty: {
     env: 'SLASH_INVALID_BLOCK_PENALTY',

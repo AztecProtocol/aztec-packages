@@ -17,6 +17,7 @@ import type { P2P, TxProvider } from '@aztec/p2p';
 import { BlockProposalValidator } from '@aztec/p2p';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import { InMemoryCheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { SlasherConfig, ValidatorClientFullConfig, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -226,6 +227,7 @@ describe('ValidatorClient HA Integration', () => {
       epochCache,
       config,
       blobClient,
+      new InMemoryCheckpointReexecutionTracker(),
       metrics,
       dateProvider,
       getTelemetryClient(),

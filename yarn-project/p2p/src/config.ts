@@ -221,8 +221,19 @@ export interface P2PConfig
   /** Minimum age (ms) a transaction must have been in the pool before it's eligible for block building. */
   minTxPoolAgeMs: number;
 
-  /** Deadline in ms used when collecting missing txs for unproven mined blocks. */
-  p2pMissingTxCollectionDeadlineMs: number;
+  /**
+   * Number of full L2 slots to wait after a checkpoint's slot before declaring its txs missing
+   * for data-withholding slashing.
+   */
+  slashDataWithholdingToleranceSlots: number;
+
+  /**
+   * Number of L2 slots after a mined block's slot to keep collecting its missing txs. Clamped
+   * up so that collection always runs at least until the data-withholding slash verdict is
+   * rendered (`block.slot + slashDataWithholdingToleranceSlots + 1`). Defaults to undefined,
+   * in which case the tolerance window is used directly.
+   */
+  p2pMissingTxCollectionDeadlineSlots?: number;
 
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
@@ -566,10 +577,17 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'Minimum age (ms) a transaction must have been in the pool before it is eligible for block building.',
     ...numberConfigHelper(2_000),
   },
-  p2pMissingTxCollectionDeadlineMs: {
-    env: 'P2P_MISSING_TX_COLLECTION_DEADLINE_MS',
-    description: 'Deadline in ms used when collecting missing txs for unproven mined blocks.',
-    ...numberConfigHelper(72_000),
+  slashDataWithholdingToleranceSlots: {
+    env: 'SLASH_DATA_WITHHOLDING_TOLERANCE_SLOTS',
+    description:
+      'L2 slots to wait after a checkpoint slot before declaring its txs missing. Drives both the data-withholding slasher check and the missing-tx collection deadline.',
+    ...numberConfigHelper(3),
+  },
+  p2pMissingTxCollectionDeadlineSlots: {
+    env: 'P2P_MISSING_TX_COLLECTION_DEADLINE_SLOTS',
+    description:
+      'Optional deadline (in L2 slots after the block slot) for collecting missing txs for unproven mined blocks. Clamped up to the data-withholding tolerance window so collection never gives up before the slash verdict.',
+    ...optionalNumberConfigHelper(),
   },
   priceBumpPercentage: {
     env: 'P2P_RPC_PRICE_BUMP_PERCENTAGE',

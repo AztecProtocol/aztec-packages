@@ -6,10 +6,8 @@ import { schemas, zodFor } from '../schemas/index.js';
 
 export enum OffenseType {
   UNKNOWN = 0,
-  /** The data for proving an epoch was not publicly available, we slash its committee */
+  /** The data for the txs in a published checkpoint was not available within the tolerance window, we slash the checkpoint's attesters */
   DATA_WITHHOLDING = 1,
-  /** An epoch was not successfully proven in time, we slash its committee */
-  VALID_EPOCH_PRUNED = 2,
   /** A proposer failed to attest or propose during an epoch according to the Sentinel */
   INACTIVITY = 3,
   /** A proposer sent an invalid block proposal over the p2p network to the committee */
@@ -36,8 +34,6 @@ export function getOffenseTypeName(offense: OffenseType) {
       return 'unknown';
     case OffenseType.DATA_WITHHOLDING:
       return 'data_withholding';
-    case OffenseType.VALID_EPOCH_PRUNED:
-      return 'valid_epoch_pruned';
     case OffenseType.INACTIVITY:
       return 'inactivity';
     case OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL:
@@ -66,7 +62,6 @@ export const OffenseTypeSchema = z.nativeEnum(OffenseType);
 export const OffenseToBigInt: Record<OffenseType, bigint> = {
   [OffenseType.UNKNOWN]: 0n,
   [OffenseType.DATA_WITHHOLDING]: 1n,
-  [OffenseType.VALID_EPOCH_PRUNED]: 2n,
   [OffenseType.INACTIVITY]: 3n,
   [OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL]: 4n,
   [OffenseType.PROPOSED_INSUFFICIENT_ATTESTATIONS]: 5n,
@@ -84,8 +79,6 @@ export function bigIntToOffense(offense: bigint): OffenseType {
       return OffenseType.UNKNOWN;
     case 1n:
       return OffenseType.DATA_WITHHOLDING;
-    case 2n:
-      return OffenseType.VALID_EPOCH_PRUNED;
     case 3n:
       return OffenseType.INACTIVITY;
     case 4n:

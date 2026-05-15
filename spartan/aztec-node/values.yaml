@@ -147,8 +147,8 @@ node:
     validatorsAlways: []
     validatorsNever: []
     # Penalty amounts for different offense types
-    prunePenalty: ""
     dataWithholdingPenalty: ""
+    dataWithholdingToleranceSlots: ""
     inactivityPenalty: ""
     inactivityTargetPercentage: ""
     invalidBlockPenalty: ""

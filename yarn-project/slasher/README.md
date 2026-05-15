@@ -81,16 +81,10 @@ Key features:
 List of all slashable offenses in the system:
 
 ### DATA_WITHHOLDING
-**Description**: The data required for proving an epoch was not made publicly available.
-**Detection**: EpochPruneWatcher detects when an epoch cannot be proven due to missing data.
-**Target**: Committee members of the affected epoch.
-**Time Unit**: Epoch-based offense.
-
-### VALID_EPOCH_PRUNED
-**Description**: An epoch was not successfully proven within the proof submission window.
-**Detection**: EpochPruneWatcher monitors epochs that expire without valid proofs.
-**Target**: Committee members of the unpruned epoch.
-**Time Unit**: Epoch-based offense.
+**Description**: The transaction data for a published checkpoint was not made available within the tolerance window.
+**Detection**: DataWithholdingWatcher checks each published checkpoint's txs against the local mempool once `slashDataWithholdingToleranceSlots` full slots have elapsed past the checkpoint's slot (i.e. at `slotStart(checkpoint.slot + slashDataWithholdingToleranceSlots + 1)`).
+**Target**: Validators who attested to the checkpoint.
+**Time Unit**: Slot-based offense (the checkpoint's slot).
 
 ### INACTIVITY
 **Description**: A proposer failed to attest or propose blocks during their assigned slots.
@@ -156,7 +150,7 @@ Considerations:
 
 - The `slashingQuorumSize` should be more than half and less than the total number of validators in a round, so that we require a majority to slash. The number of validators in a round is the committee size times the number of epochs in a round.
 - The bigger a `slashingRoundSizeInEpochs`, the bigger the upper bound on the quorum size. This increases security, as we need more validators to agree before slashing. However, it also makes slashing slower, and more expensive to execute in terms of gas.
-- The `slashingOffsetInRounds` is required because the validators in a given slashing round must vote for _past_ offenses. Otherwise, if someone commits an offense near the end of a round, they can get away with their offense without the validators being able to collect enough votes to slash them. The offset needs to be big enough so that all offenses are discoverable, so this value should be strictly greater than the proof submission window in order to be able to slash for epoch prunes or data withholding.
+- The `slashingOffsetInRounds` is required because the validators in a given slashing round must vote for _past_ offenses. Otherwise, if someone commits an offense near the end of a round, they can get away with their offense without the validators being able to collect enough votes to slash them. The offset needs to be big enough so that all offenses are discoverable, so this value should be strictly greater than the data-withholding tolerance window so that there is time to detect missing data and vote.
 - The `slashingExecutionDelayInRounds` allows vetoers to stop an invalid slash. This should be large enough to give vetoers time to act, but strictly smaller than the validator exit window, so an offender cannot escape before they are slashed. It should also be small enough so that an offender that would be kicked out does not get picked up to be a committee member again before their slash is executed. In other words, if a validator commits a serious enough offense that we want them out of the validator set as soon as possible, the execution delay should not allow them to be chosen to participate in another committee.
 
 ### Local Node Configuration (SlasherConfig)
@@ -169,8 +163,8 @@ These settings are configured locally on each validator node:
 - `slashValidatorsNever`: Array of validator addresses that should never be slashed (own validator addresses are automatically added to this list)
 - `slashInactivityTargetPercentage`: Percentage of misses during an epoch to be slashed for INACTIVITY
 - `slashInactivityConsecutiveEpochThreshold`: How many consecutive inactive epochs are needed to trigger an INACTIVITY slash on a validator
-- `slashPrunePenalty`: Penalty for VALID_EPOCH_PRUNED
 - `slashDataWithholdingPenalty`: Penalty for DATA_WITHHOLDING
+- `slashDataWithholdingToleranceSlots`: Number of full L2 slots to wait after a checkpoint's slot before declaring its txs missing
 - `slashInactivityPenalty`: Penalty for INACTIVITY
 - `slashBroadcastedInvalidBlockPenalty`: Penalty for BROADCASTED_INVALID_BLOCK_PROPOSAL
 - `slashBroadcastedInvalidCheckpointProposalPenalty`: Penalty for BROADCASTED_INVALID_CHECKPOINT_PROPOSAL

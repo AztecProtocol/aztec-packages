@@ -24,6 +24,7 @@ import {
   type L2TipsStore,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
 import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
@@ -671,7 +672,16 @@ export class P2PClient extends WithTracer implements P2P {
             `Starting collection of ${missingTxHashes.length} missing txs for unproven mined block ${block.number}`,
             { missingTxHashes, blockNumber: block.number, blockHash: await block.hash().then(h => h.toString()) },
           );
-          const deadline = new Date(this._dateProvider.now() + this.config.p2pMissingTxCollectionDeadlineMs);
+          // Both `slashDataWithholdingToleranceSlots` and `p2pMissingTxCollectionDeadlineSlots`
+          // count *full slots after the block slot* — value N means collection runs until
+          // `slotStart(block.slot + N + 1)`. Take the larger of the two so collection never
+          // gives up before the data-withholding slash verdict is rendered.
+          const blockSlot = block.header.getSlot();
+          const toleranceSlots = this.config.slashDataWithholdingToleranceSlots;
+          const configuredSlots = this.config.p2pMissingTxCollectionDeadlineSlots ?? 0;
+          const deadlineSlot = SlotNumber(blockSlot + Math.max(toleranceSlots, configuredSlots) + 1);
+          const deadlineSeconds = getTimestampForSlot(deadlineSlot, this.epochCache.getL1Constants());
+          const deadline = new Date(Number(deadlineSeconds) * 1000);
           await this.txCollection.collectFastForBlock(block, missingTxHashes, { deadline });
         }
       }

@@ -21,6 +21,7 @@ import {
 } from '@aztec/slasher';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
+import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type {
   ITxProvider,
@@ -204,6 +205,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     txProvider: ITxProvider,
     keyStoreManager: KeystoreManager,
     blobClient: BlobClientInterface,
+    reexecutionTracker: CheckpointReexecutionTracker,
     dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     slashingProtectionDb?: SlashingProtectionDatabase,
@@ -229,6 +231,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       epochCache,
       config,
       blobClient,
+      reexecutionTracker,
       metrics,
       dateProvider,
       telemetry,
@@ -526,6 +529,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     // If escape hatch is open for this slot's epoch, do not attest.
     if (await this.epochCache.isEscapeHatchOpenAtSlot(proposalSlotNumber)) {
       this.log.warn(`Escape hatch open for slot ${proposalSlotNumber}, skipping checkpoint attestation handling`);
+      return undefined;
+    }
+
+    // Early-out for equivocation: refuses if we've already attested to a higher slot.
+    if (!this.shouldAttestToSlot(proposalSlotNumber)) {
       return undefined;
     }
 
