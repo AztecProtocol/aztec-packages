@@ -311,7 +311,7 @@ case "$cmd" in
     # against contract artifacts from prior stable releases.
     export CI_DASHBOARD="releases"
     export JOB_ID="x-compat-e2e"
-    export AWS_SHUTDOWN_TIME=300
+    export AWS_SHUTDOWN_TIME=60
     rc=0
     bootstrap_ec2 "./bootstrap.sh ci-compat-e2e" || rc=$?
     # On nightly tags compat-e2e is non-blocking (continue-on-error in ci3.yml), so
