@@ -1,0 +1,68 @@
+[1mdiff --git a/noir-projects/aztec-nr/aztec/src/keys/ecdh_shared_secret.nr b/noir-projects/aztec-nr/aztec/src/keys/ecdh_shared_secret.nr[m
+[1mindex 3fa67d1d8b..4770d3e7cc 100644[m
+[1m--- a/noir-projects/aztec-nr/aztec/src/keys/ecdh_shared_secret.nr[m
+[1m+++ b/noir-projects/aztec-nr/aztec/src/keys/ecdh_shared_secret.nr[m
+[36m@@ -27,9 +27,6 @@[m [mpub fn derive_ecdh_shared_secret(secret: Scalar, public_key: Point) -> Point {[m
+ /// Computes an app-siloed shared secret from a raw ECDH shared secret point and a contract address.[m
+ ///[m
+ /// `s_app = h(DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, S.x, S.y, contract_address)`[m
+[31m-///[m
+[31m-/// Public so that contracts holding a raw `Point` (e.g. the constrained-delivery handshake registry) can[m
+[31m-/// reuse the canonical silo formula rather than re-inlining it and risking drift.[m
+ pub fn compute_app_siloed_shared_secret(shared_secret: Point, contract_address: AztecAddress) -> Field {[m
+     poseidon2_hash_with_separator([m
+         [shared_secret.x, shared_secret.y, contract_address.to_field()],[m
+[1mdiff --git a/noir-projects/noir-contracts/contracts/message_discovery/handshake_registry_contract/src/main.nr b/noir-projects/noir-contracts/contracts/message_discovery/handshake_registry_contract/src/main.nr[m
+[1mindex 9c1badc20b..0b77191be6 100644[m
+[1m--- a/noir-projects/noir-contracts/contracts/message_discovery/handshake_registry_contract/src/main.nr[m
+[1m+++ b/noir-projects/noir-contracts/contracts/message_discovery/handshake_registry_contract/src/main.nr[m
+[36m@@ -88,16 +88,15 @@[m [mpub contract HandshakeRegistry {[m
+         note.siloed_for(self.msg_sender())[m
+     }[m
+ [m
+[31m-    /// Asserts that `app_siloed_secret` is the silo of a stored `NON_INTERACTIVE_HANDSHAKE` from `sender` to[m
+[31m-    /// `recipient`, bound to the caller (`msg_sender()`).[m
+[32m+[m[32m    /// Asserts that `app_siloed_secret` is the silo of a stored handshake from `sender` to `recipient`, for the[m
+[32m+[m[32m    /// caller (`msg_sender()`).[m
+     ///[m
+[31m-    /// Apps that receive an `app_siloed_secret` from an untrusted source  call this once to[m
+[31m-    /// bind that secret to the registry's stored handshake. Subsequent uses can rely on the prior-nullifier chain[m
+[31m-    /// instead of re-validating against the registry.[m
+[32m+[m[32m    /// Apps that receive an `app_siloed_secret` from an untrusted source call this once to validate that secret[m
+[32m+[m[32m    /// against the registry's stored handshake.[m
+     ///[m
+     /// # Panics[m
+[31m-    /// If no stored `NON_INTERACTIVE_HANDSHAKE` for `(sender, recipient)` silos to `app_siloed_secret` under the[m
+[31m-    /// calling contract's address.[m
+[32m+[m[32m    /// If no stored handshake for `(sender, recipient)` silos to `app_siloed_secret` under the calling contract's[m
+[32m+[m[32m    /// address.[m
+     #[external("private")][m
+     fn validate_handshake(sender: AztecAddress, recipient: AztecAddress, app_siloed_secret: Field) {[m
+         let caller = self.msg_sender();[m
+[36m@@ -106,19 +105,18 @@[m [mpub contract HandshakeRegistry {[m
+ [m
+         assert(note.siloed_for(caller) == app_siloed_secret, "no matching handshake");[m
+ [m
+[31m-        // `PrivateMutable::get_note` proves the current note by nullifying and recreating the note. Deliver the[m
+[31m-        // replacement[m
+[31m-        // to the sender so later validation calls can prove the same current handshake again.[m
+[32m+[m[32m        // `PrivateMutable::get_note` proves the current note by nullifying and recreating it. Deliver the[m
+[32m+[m[32m        // replacement to the sender so later validation calls can prove the same current handshake again.[m
+         replacement_note_message.deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);[m
+     }[m
+ [m
+[31m-    /// Returns the app-siloed shared secret for an existing non-interactive handshake.[m
+[32m+[m[32m    /// Returns the app-siloed shared secret for an existing handshake.[m
+     ///[m
+     /// This is the existing-handshake retrieval surface for constrained delivery. It returns only `silo(S, caller)`,[m
+[31m-    /// never raw `S`; a different caller receives a different app-siloed value for the same registry note. This is a[m
+[31m-    /// utility function because it is a local read helper. Contracts should still call[m
+[31m-    /// [HandshakeRegistry::validate_handshake] when they[m
+[31m-    /// need a constrained proof that a supplied app-siloed secret matches the current handshake.[m
+[32m+[m[32m    /// never raw `S`; a different caller receives a different app-siloed value for the same registry note. This is[m
+[32m+[m[32m    /// a utility function because it is a local read helper. Contracts should still call[m
+[32m+[m[32m    /// [HandshakeRegistry::validate_handshake] when they need a constrained proof that a supplied app-siloed secret[m
+[32m+[m[32m    /// matches the current handshake.[m
+     #[external("utility")][m
+     unconstrained fn get_app_siloed_secret([m
+         sender: AztecAddress,[m
