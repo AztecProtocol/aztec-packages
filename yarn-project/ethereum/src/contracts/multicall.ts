@@ -9,7 +9,6 @@ import {
   type RequiredBy,
   type StateOverride,
   type TransactionReceipt,
-  decodeErrorResult,
   decodeFunctionResult,
   encodeFunctionData,
   multicall3Abi,
@@ -17,6 +16,7 @@ import {
 
 import type { L1BlobInputs, L1TxConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils/index.js';
 import type { ExtendedViemWalletClient } from '../types.js';
+import { tryDecodeRevertReason } from '../utils.js';
 
 export const MULTI_CALL_3_ADDRESS = '0xcA11bde05977b3631167028862bE2a173976CA11' as const;
 
@@ -172,16 +172,8 @@ export class Multicall3 {
       if (entry.success) {
         return { success: true, returnData: entry.returnData };
       }
-      let revertReason: string | undefined;
       const abi = requests[i].abi;
-      if (abi && entry.returnData && entry.returnData !== '0x') {
-        try {
-          const decodedError = decodeErrorResult({ abi, data: entry.returnData });
-          revertReason = `${decodedError.errorName}(${decodedError.args?.join(', ') ?? ''})`;
-        } catch {
-          // Decoding failed; leave revertReason undefined so the caller can log the raw returnData.
-        }
-      }
+      const revertReason = abi ? tryDecodeRevertReason(entry.returnData, abi) : undefined;
       return { success: false, returnData: entry.returnData, revertReason };
     });
 

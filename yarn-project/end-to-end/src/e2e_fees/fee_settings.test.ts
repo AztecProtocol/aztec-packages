@@ -1,7 +1,7 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
-import type { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -24,7 +24,27 @@ describe('e2e_fees fee settings', () => {
   let gasSettings: Partial<GasSettings>;
   let testContract: TestContract;
   let testContractDeployBlock: BlockNumber;
-  const t = new FeesTest('fee_juice', 1);
+
+  // Run under proposer pipelining. `manaTarget` is set just above the largest setup tx
+  // (account deploy ~6.5M mana, so manaLimit = 2 * manaTarget = 8M covers it). `walletMinFeePadding: 30`
+  // matches PR #23150's pipelining-aware default — under pipelining the proposer's fee evolves up to ~20x
+  // between PXE snapshot and inclusion for setup txs, so the 5x default is no longer sufficient.
+  // (Test-body txs explicitly call `wallet.setMinFeePadding(...)` so they don't use the wallet default.)
+  const AZTEC_SLOT_DURATION = 12;
+  const t = new FeesTest('fee_juice', 1, {
+    enableProposerPipelining: true,
+    inboxLag: 2,
+    minTxsPerBlock: 0,
+    aztecSlotDuration: AZTEC_SLOT_DURATION,
+    ethereumSlotDuration: 4,
+    aztecProofSubmissionEpochs: 640,
+    walletMinFeePadding: 30,
+    manaTarget: 4_000_000n,
+  });
+
+  // FeesTest.setup chains many dependent txs which run at the pipelined cadence (one per L2 slot);
+  // the default 300s jest hook timeout is not enough.
+  jest.setTimeout(600_000);
 
   beforeAll(async () => {
     await t.setup();
@@ -43,12 +63,45 @@ describe('e2e_fees fee settings', () => {
   });
 
   describe('setting max fee per gas', () => {
-    const bumpL2Fees = async () => {
+    // Drive an organic L2 fee bump via an L1 base-fee spike. On mainnet, L1 base fees fluctuate
+    // organically with L1 demand and dominate `feePerL2Gas` (the rollup's L1 gas oracle samples
+    // L1 base fee into `post` at every successful rotation and the L2 manaMinFee is derived from
+    // it). We simulate that by setting the next L1 block's base fee to a multiple of the current
+    // one and forcing an oracle rotation via the cheatcode-callable `Rollup.updateL1GasFeeOracle`.
+    // Unlike `bumpProvingCostPerMana` (the only-owner governance write previously used here), this
+    // does NOT mutate `FeeStore.config`, so it does not trigger the `Rollup__InvalidManaMinFee`
+    // recovery race that pipelined proposers hit when governance config mutates between header
+    // build and L1 submission.
+    //
+    // Congestion via heavy L2 txs was considered: each `emit_nullifier_public` is only ~570k mana,
+    // and at `manaTarget=4M` the sequencer takes ~3 of those per checkpoint (~1.88M mana — well
+    // below target), so excessMana stays at zero and the congestion-multiplier channel never
+    // engages. The L1 base-fee channel is both more reliable here and a closer analogue to
+    // mainnet behaviour (L1 base fee swings happen routinely; sustained L2 congestion is rarer).
+    const inflateL2FeesViaL1BaseFee = async () => {
       const before = await aztecNode.getCurrentMinFees();
       t.logger.info(`Initial L2 min fees are ${inspect(before)}`, { minFees: before.toInspect() });
-      await cheatCodes.rollup.bumpProvingCostPerMana(current => (current * 120n) / 100n);
+
+      // Read current L1 base fee and bump to ~3x; this keeps the resulting L2 fee bump within the
+      // ~6x window the test assertions require (bump must be >1x to make the no-padding tx fail
+      // and <6x for `DEFAULT_MIN_FEE_PADDING=5` to still cover it). The oracle rotation deadband
+      // (`LIFETIME - LAG = 3` L2 slots between successful rotations, see FeeLib.sol:170) means
+      // our `updateL1GasFeeOracle` call may be rejected if a recent sequencer propose already
+      // rotated it; we retry on every iteration so eventually one of them lands.
+      const latestL1Block = await cheatCodes.eth.publicClient.getBlock();
+      const currentL1BaseFee = latestL1Block.baseFeePerGas ?? 1_000_000_000n;
+      const targetL1BaseFee = currentL1BaseFee * 3n;
+      t.logger.info(`Targeting L1 base fee ${targetL1BaseFee} (current ${currentL1BaseFee})`);
+
       return await retryUntil(
         async () => {
+          await cheatCodes.eth.setNextBlockBaseFeePerGas(targetL1BaseFee);
+          await cheatCodes.eth.mine();
+          try {
+            await cheatCodes.rollup.updateL1GasFeeOracle();
+          } catch {
+            // Rotation deadband closed — try again on the next iteration.
+          }
           const after = await aztecNode.getCurrentMinFees();
           t.logger.info(`L2 min fees are now ${inspect(after)}`, {
             minFeesBefore: before.toInspect(),
@@ -56,8 +109,8 @@ describe('e2e_fees fee settings', () => {
           });
           return after.feePerL2Gas > before.feePerL2Gas ? after : undefined;
         },
-        'L2 min fee increase',
-        5,
+        'L2 min fee organic increase (L1 base fee bump)',
+        60,
         1,
       );
     };
@@ -93,7 +146,8 @@ describe('e2e_fees fee settings', () => {
     };
 
     const prepareTxsWithMockedMinFees = async (noPaddingMinFees: GasFees, defaultPaddingMinFees: GasFees) => {
-      // Mock getPredictedMinFees (used by the wallet) and getCurrentMinFees (used by bumpL2Fees and other callers).
+      // Mock getPredictedMinFees (used by the wallet) and getCurrentMinFees (used by inflateL2FeesViaCongestion
+      // and other callers).
       const getPredictedMinFeesSpy = jest
         .spyOn(aztecNode, 'getPredictedMinFees')
         .mockResolvedValueOnce([noPaddingMinFees])
@@ -124,8 +178,8 @@ describe('e2e_fees fee settings', () => {
         ),
       ).toBe(true);
 
-      // Now bump the L2 fees before we actually send them
-      const bumpedMinFees = await bumpL2Fees();
+      // Now bump the L2 fees organically (L1 base fee spike) before we actually send them
+      const bumpedMinFees = await inflateL2FeesViaL1BaseFee();
       expect(stableMinFees.feePerL2Gas).toBeLessThan(bumpedMinFees.feePerL2Gas);
       expect(stableMinFees.mul(1 + DEFAULT_MIN_FEE_PADDING).feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
 
@@ -148,7 +202,7 @@ describe('e2e_fees fee settings', () => {
         ),
       ).toBe(true);
 
-      const bumpedMinFees = await bumpL2Fees();
+      const bumpedMinFees = await inflateL2FeesViaL1BaseFee();
       expect(lowerMinFees.feePerL2Gas).toBeLessThan(bumpedMinFees.feePerL2Gas);
       expect(higherMinFees.feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
       expect(lowerMinFees.mul(1 + DEFAULT_MIN_FEE_PADDING).feePerL2Gas).toBeGreaterThan(bumpedMinFees.feePerL2Gas);
@@ -157,6 +211,39 @@ describe('e2e_fees fee settings', () => {
       // accidentally prepared against an earlier, higher fee snapshot than the padded tx.
       await expect(txWithNoPadding.send()).resolves.toBeDefined();
       await expect(txWithDefaultPadding.send()).resolves.toBeDefined();
+    });
+
+    // Regression test for A-1057. Under pipelining, the proposer for slot N starts building the
+    // checkpoint header (and bakes `manaMinFee` into `gasFees.feePerL2Gas`) during slot N-1. If
+    // governance executes `setProvingCostPerMana` or `updateManaTarget` between that build and the
+    // L1 submission, L1 recomputes `manaMinFee` from the post-mutation `FeeStore.config` and the
+    // submitted header reverts with `Rollup__InvalidManaMinFee`. The chain should eat the
+    // in-flight checkpoint and the next pipelined proposer should produce a header that validates,
+    // resuming normal block production. This test exercises that path end-to-end: bump once, then
+    // verify the chain advances and a fresh tx still mines.
+    it('recovers after a governance fee-config bump invalidates a pipelined checkpoint', async () => {
+      // Take a fresh checkpoint baseline so we measure progress strictly post-bump.
+      const checkpointBefore = await aztecNode.getBlockNumber('checkpointed');
+
+      t.logger.info(`Bumping provingCostPerMana with checkpointed=${checkpointBefore}`);
+      await cheatCodes.rollup.bumpProvingCostPerMana(current => (current * 120n) / 100n);
+
+      // At most a couple of pipelined headers were built against the pre-bump config; allow up to
+      // 6 slot windows (i.e. 6 retry windows of one slot each) before insisting the chain has made
+      // forward progress past the bump. With pipelining + minTxsPerBlock=0 an idle chain still
+      // emits empty checkpoints, so the `checkpointed` tip must strictly advance.
+      const RECOVERY_TARGET = CheckpointNumber(checkpointBefore + 3);
+      const RECOVERY_BUDGET_SECONDS = AZTEC_SLOT_DURATION * 6;
+      await retryUntil(
+        async () => (await aztecNode.getBlockNumber('checkpointed')) >= RECOVERY_TARGET,
+        `chain advances at least ${RECOVERY_TARGET - checkpointBefore} checkpoints past governance bump`,
+        RECOVERY_BUDGET_SECONDS,
+        1,
+      );
+
+      // Fresh tx prepared against the post-bump fee snapshot still mines under default padding.
+      const tx = await proveTx(undefined);
+      await expect(tx.send()).resolves.toBeDefined();
     });
   });
 });
