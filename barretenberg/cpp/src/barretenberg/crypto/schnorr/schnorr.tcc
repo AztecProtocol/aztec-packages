@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string_view>
+
 #include "barretenberg/crypto/hmac/hmac.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 
@@ -8,9 +10,35 @@
 namespace bb::crypto {
 
 /**
+ * @brief Domain separation tag (DST) for the schnorr challenge hash.
+ *
+ * Defined as `poseidon2_hash_bytes("schnorr_grumpkin_poseidon2")`, where the byte-packing matches
+ * noir's `poseidon2_hash_bytes`: bytes are packed little-endian into a single 31-byte chunk
+ * (positions beyond the source length implicitly zero) and the resulting field element is hashed
+ * with Poseidon2 (length-1 input, IV = 1 << 64).
+ *
+ * The same constant is mirrored in noir-lang/schnorr (`SCHNORR_CHALLENGE_DST` in `src/lib.nr`) and
+ * verified there by a derivation test. Including it as the first input to the challenge hash binds
+ * every signature to the "schnorr over grumpkin with Poseidon2" scheme, preventing cross-protocol
+ * reinterpretation of a Poseidon2 output as a schnorr challenge.
+ */
+template <typename Fq> static inline Fq compute_schnorr_challenge_dst()
+{
+    constexpr std::string_view SRC = "schnorr_grumpkin_poseidon2";
+    static_assert(SRC.size() <= 31, "DST source string must fit in a single 31-byte chunk");
+    uint256_t packed = 0;
+    uint256_t mul = 1;
+    for (char c : SRC) {
+        packed += uint256_t(static_cast<uint8_t>(c)) * mul;
+        mul *= 256;
+    }
+    return Poseidon2<Poseidon2Bn254ScalarFieldParams>::hash({ Fq(packed) });
+}
+
+/**
  * @brief Generate the schnorr signature challenge parameter `e` given a message, signer pubkey and nonce.
  *
- * @details e = Poseidon2(R.x, pubkey.x, pubkey.y, message_field)
+ * @details e = Poseidon2(SCHNORR_CHALLENGE_DST, R.x, pubkey.x, pubkey.y, message_field)
  *
  * Poseidon2 operates over bb::fr (BN254 scalar field = grumpkin base field). The output is a bb::fr
  * element. Since bb::fr modulus < bb::fq modulus (grumpkin scalar field), the result can be converted
@@ -27,11 +55,12 @@ static typename G1::Fq schnorr_generate_challenge(const typename G1::Fq& message
                                                   const typename G1::affine_element& pubkey,
                                                   const typename G1::affine_element& R)
 {
-    return Poseidon2<Poseidon2Bn254ScalarFieldParams>::hash({ R.x, pubkey.x, pubkey.y, message_field });
+    static const typename G1::Fq dst = compute_schnorr_challenge_dst<typename G1::Fq>();
+    return Poseidon2<Poseidon2Bn254ScalarFieldParams>::hash({ dst, R.x, pubkey.x, pubkey.y, message_field });
 }
 
 /**
- * @brief Construct a Schnorr signature (s, e) where s = k - priv * e and e is the Fiat-Shamir challenge.
+ * @brief Construct a Schnorr signature (s, e) where s = k - priv * e and e is the challenge hash.
  *
  * @warning Signatures are not deterministic (nonce k is random).
  */

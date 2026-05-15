@@ -17,7 +17,7 @@ template <typename Fr, typename G1> struct schnorr_key_pair {
 // Short-Schnorr signature (s, e): include the challenge `e` instead of the group element R.
 //
 // `s` is the prover's response to the challenge, a scalar in the grumpkin scalar field.
-// `e` is the Fiat-Shamir challenge. Conceptually a Poseidon2 output (which lives in the grumpkin base
+// `e` is the challenge hash. Conceptually a Poseidon2 output (which lives in the grumpkin base
 // field = `bb::fr`); since `bb::fr modulus < bb::fq modulus`, every challenge value embeds losslessly
 // into the grumpkin scalar field, so we store it as the same scalar type as `s`.
 struct schnorr_signature {

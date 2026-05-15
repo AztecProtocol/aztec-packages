@@ -11,7 +11,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [bb.js / accounts / aztec.nr] Schnorr signatures switched to Poseidon2
 
-The Schnorr challenge hash function changed from `blake2s(pedersen(R.x, pubkey.x, pubkey.y) ‖ message)` to `Poseidon2(R.x, pubkey.x, pubkey.y, message)`, end-to-end across the native signer (`bb`), `@aztec/bb.js`, the noir verifier library (`noir-lang/schnorr` v0.2.0 → v0.3.0), and both standard Schnorr account contracts. The auth witness on-wire shape also changes from `[u8; 64]` (the serialized `(s, e)` bytes) to `[Field; 4]` (`[s.lo, s.hi, e.lo, e.hi]`, each scalar split into two 128-bit limbs).
+The Schnorr challenge hash function changed from `blake2s(pedersen(R.x, pubkey.x, pubkey.y) ‖ message)` to `Poseidon2(DST, R.x, pubkey.x, pubkey.y, message)`, where `DST = poseidon2_hash_bytes("schnorr_grumpkin_poseidon2")` is a domain separation tag binding signatures to this scheme. The change applies end-to-end across the native signer (`bb`), `@aztec/bb.js`, the noir verifier library (`noir-lang/schnorr` v0.2.0 → v0.4.0), and both standard Schnorr account contracts. The auth witness on-wire shape also changes from `[u8; 64]` (the serialized `(s, e)` bytes) to `[Field; 4]` (`[s.lo, s.hi, e.lo, e.hi]`, each scalar split into two 128-bit limbs).
 
 **Impact:** A previously-deployed Schnorr account cannot be controlled by the new TypeScript code. Both the signature scheme and the auth witness format change, so signatures produced by the new code will fail in-circuit verification against the old account contract, and old-style 64-byte auth witnesses will not decode in the new contract. Users with existing Schnorr accounts on testnet must deploy a fresh account contract and migrate funds. ECDSA accounts (`ecdsa_k`, `ecdsa_r`) are unaffected.
 
@@ -19,7 +19,7 @@ The Schnorr challenge hash function changed from `blake2s(pedersen(R.x, pubkey.x
 
 ```diff
 - schnorr = { tag = "v0.2.0", git = "https://github.com/noir-lang/schnorr" }
-+ schnorr = { tag = "v0.3.0", git = "https://github.com/noir-lang/schnorr" }
++ schnorr = { tag = "v0.4.0", git = "https://github.com/noir-lang/schnorr" }
 ```
 
 and update `is_valid_impl` to consume the auth witness as four `Field` limbs and pass `outer_hash` directly:
