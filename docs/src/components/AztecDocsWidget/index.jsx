@@ -47,6 +47,10 @@ export default function AztecDocsWidget({
   const [viewingShared, setViewingShared] = useState(false);
   const scrollRef = useRef(null);
   const abortRef = useRef(null);
+  // Flipped as soon as the user opens the panel, sends, or resets, so a
+  // slow share-decode resolving later can't clobber an in-progress local
+  // conversation.
+  const userInteractedRef = useRef(false);
 
   const tokens = React.useMemo(() => getTheme(theme, accent), [theme, accent]);
   const mdComponents = React.useMemo(
@@ -73,7 +77,8 @@ export default function AztecDocsWidget({
     if (!token) return;
     let cancelled = false;
     decodeShare(token).then((shared) => {
-      if (cancelled || !shared || shared.length === 0) return;
+      if (cancelled || userInteractedRef.current) return;
+      if (!shared || shared.length === 0) return;
       // The codec models messages as a flat sequence of {role, text}.
       // The widget models them as Q&A pairs ({prompt, response}). Pair
       // up user→bot adjacencies; orphan user messages still render as
@@ -107,6 +112,7 @@ export default function AztecDocsWidget({
   async function handleSend(text) {
     const question = (text ?? input).trim();
     if (!question || streaming) return;
+    userInteractedRef.current = true;
     setInput("");
     // Once the recipient continues the conversation it's no longer the
     // shared replay; drop the banner and scrub the hash so a refresh
@@ -181,6 +187,7 @@ export default function AztecDocsWidget({
   }
 
   function handleReset() {
+    userInteractedRef.current = true;
     abortRef.current?.abort();
     setMessages([]);
     setStreaming(false);
@@ -215,11 +222,15 @@ export default function AztecDocsWidget({
       const token = await encodeShare(shareable);
       const url = buildShareUrl(token);
       const ok = await copyToClipboard(url);
-      if (!ok && typeof window !== "undefined") {
-        window.prompt("Copy this share link:", url);
+      if (ok) {
         setShareState("ok");
+      } else if (typeof window !== "undefined") {
+        // window.prompt returns null only when the user cancels — treat
+        // that as a failed copy rather than reporting "Link copied".
+        const result = window.prompt("Copy this share link:", url);
+        setShareState(result === null ? "fail" : "ok");
       } else {
-        setShareState(ok ? "ok" : "fail");
+        setShareState("fail");
       }
     } catch {
       setShareState("fail");
@@ -261,7 +272,10 @@ export default function AztecDocsWidget({
         <LauncherButton
           buttonStyle={buttonStyle}
           position={position}
-          onOpen={() => setOpen(true)}
+          onOpen={() => {
+            userInteractedRef.current = true;
+            setOpen(true);
+          }}
         />
       )}
       {open && (

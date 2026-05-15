@@ -9,6 +9,36 @@
 
 const SHARE_HASH_PREFIX = "#share=";
 const MAX_ENCODED_BYTES = 32 * 1024;
+const MAX_DECODED_BYTES = 256 * 1024;
+
+// Reject `javascript:`, `data:`, `vbscript:`, `file:`, `blob:` and
+// protocol-relative `//host` URLs. Allow `http(s):` absolute URLs and any
+// same-origin relative path / fragment. Source hrefs in shared payloads
+// come from untrusted hash content, so this guards the click-to-XSS path
+// in Message.jsx where `s.source / s.url / s.link` are used as anchor hrefs.
+function isSafeHref(href) {
+  if (typeof href !== "string") return false;
+  const trimmed = href.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("//")) return false;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) {
+    return /^https?:/i.test(trimmed);
+  }
+  return true;
+}
+
+function sanitizeSource(s) {
+  if (!s || typeof s !== "object") return null;
+  const out = {};
+  for (const key of ["source", "url", "link"]) {
+    const v = s[key];
+    if (isSafeHref(v)) out[key] = v;
+  }
+  for (const key of ["title", "filename"]) {
+    if (typeof s[key] === "string") out[key] = s[key];
+  }
+  return out;
+}
 
 function toWire(messages) {
   return {
@@ -30,7 +60,9 @@ function fromWire(payload) {
     const { r, t, s } = raw;
     if ((r !== "u" && r !== "b") || typeof t !== "string") return null;
     const msg = { role: r === "u" ? "user" : "bot", text: t };
-    if (Array.isArray(s)) msg.sources = s;
+    if (Array.isArray(s)) {
+      msg.sources = s.map(sanitizeSource).filter(Boolean);
+    }
     out.push(msg);
   }
   return out;
@@ -57,10 +89,7 @@ function base64UrlToBytes(s) {
 
 async function gzipBytes(bytes) {
   if (typeof CompressionStream === "undefined") {
-    const out = new Uint8Array(bytes.length + 1);
-    out[0] = 0x75;
-    out.set(bytes, 1);
-    return out;
+    throw new Error("CompressionStream not supported");
   }
   const stream = new Blob([bytes])
     .stream()
@@ -69,17 +98,36 @@ async function gzipBytes(bytes) {
   return new Uint8Array(buf);
 }
 
-async function gunzipBytes(bytes) {
+// Inflate gzipped bytes while capping the running output size so a
+// crafted hash can't trigger an arbitrary-size allocation (gzip bomb).
+async function gunzipBytes(bytes, maxBytes) {
   if (bytes.length === 0) return bytes;
-  if (bytes[0] === 0x75) return bytes.subarray(1);
   if (typeof DecompressionStream === "undefined") {
     throw new Error("DecompressionStream not supported");
   }
   const stream = new Blob([bytes])
     .stream()
     .pipeThrough(new DecompressionStream("gzip"));
-  const buf = await new Response(stream).arrayBuffer();
-  return new Uint8Array(buf);
+  const reader = stream.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error("Decompressed payload exceeds maximum size");
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
 }
 
 export async function encodeShare(messages) {
@@ -95,8 +143,11 @@ export async function encodeShare(messages) {
 
 export async function decodeShare(token) {
   try {
+    if (typeof token !== "string" || token.length > MAX_ENCODED_BYTES) {
+      return null;
+    }
     const bytes = base64UrlToBytes(token);
-    const inflated = await gunzipBytes(bytes);
+    const inflated = await gunzipBytes(bytes, MAX_DECODED_BYTES);
     const json = new TextDecoder("utf-8").decode(inflated);
     return fromWire(JSON.parse(json));
   } catch {
@@ -133,18 +184,19 @@ export async function copyToClipboard(text) {
       /* fall through */
     }
   }
+  if (typeof document === "undefined") return false;
+  const ta = document.createElement("textarea");
   try {
-    const ta = document.createElement("textarea");
     ta.value = text;
     ta.setAttribute("readonly", "");
     ta.style.position = "fixed";
     ta.style.opacity = "0";
     document.body.appendChild(ta);
     ta.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    return ok;
+    return document.execCommand("copy");
   } catch {
     return false;
+  } finally {
+    if (ta.parentNode) ta.parentNode.removeChild(ta);
   }
 }

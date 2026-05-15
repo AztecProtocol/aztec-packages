@@ -216,7 +216,6 @@ export function AssistantBody({
             </div>
           </div>
         )}
-        {/* Feedback */}
         {showFeedback && (
           <div
             style={{
