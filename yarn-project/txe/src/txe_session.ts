@@ -5,7 +5,7 @@ import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
-  AnchorBlockStore,
+  CanonicalChainStore,
   CapsuleService,
   CapsuleStore,
   ContractStore,
@@ -245,7 +245,7 @@ export class TXESession implements TXESessionStateHandler {
     ]);
 
     const archiver = new TXEArchiver(store);
-    const anchorBlockStore = new AnchorBlockStore(store);
+    const anchorBlockStore = new CanonicalChainStore(store);
     const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));

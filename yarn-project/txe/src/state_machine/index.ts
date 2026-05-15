@@ -3,7 +3,7 @@ import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import { type AnchorBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
+import { type CanonicalChainStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
 import { MessageContextService } from '@aztec/pxe/simulator';
 import { L2Block, type L2TipsProvider } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -25,14 +25,14 @@ export class TXEStateMachine {
     public node: AztecNode,
     public synchronizer: TXESynchronizer,
     public archiver: TXEArchiver,
-    public anchorBlockStore: AnchorBlockStore,
+    public anchorBlockStore: CanonicalChainStore,
     public contractSyncService: ContractSyncService,
     public messageContextService: MessageContextService,
   ) {}
 
   public static async create(
     archiver: TXEArchiver,
-    anchorBlockStore: AnchorBlockStore,
+    anchorBlockStore: CanonicalChainStore,
     contractStore: ContractStore,
     noteStore: NoteStore,
   ) {
