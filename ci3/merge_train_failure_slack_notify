@@ -41,12 +41,72 @@ fi
 
 TOPDIR=$(git rev-parse --show-toplevel)
 
+get_dequeued_merge_queue_commit_sha() {
+  if [[ -z "${PR_NUMBER:-}" ]]; then
+    return 0
+  fi
+
+  local repository="${GITHUB_REPOSITORY:-AztecProtocol/aztec-packages}"
+  local owner="${repository%%/*}"
+  local repo="${repository#*/}"
+
+  gh api graphql \
+    -f owner="$owner" \
+    -f name="$repo" \
+    -F number="$PR_NUMBER" \
+    -f query='
+      query($owner: String!, $name: String!, $number: Int!) {
+        repository(owner: $owner, name: $name) {
+          pullRequest(number: $number) {
+            timelineItems(last: 20, itemTypes: [REMOVED_FROM_MERGE_QUEUE_EVENT]) {
+              nodes {
+                ... on RemovedFromMergeQueueEvent {
+                  reason
+                  beforeCommit {
+                    oid
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ' --jq '
+      .data.repository.pullRequest.timelineItems.nodes
+      | reverse
+      | map(select(.reason | test("failed status checks"; "i")))[0]
+      | .beforeCommit.oid // empty
+    ' 2>/dev/null | head -1 || true
+}
+
+get_failing_merge_queue_run_url() {
+  local dequeue_head_sha
+  dequeue_head_sha=$(get_dequeued_merge_queue_commit_sha)
+  if [[ -n "$dequeue_head_sha" ]]; then
+    gh api "repos/{owner}/{repo}/actions/runs?event=merge_group&head_sha=$dequeue_head_sha&per_page=10" 2>/dev/null | jq -r '
+      .workflow_runs[]
+        | select(.name == "CI3")
+        | select(.status == "completed")
+        | select(.conclusion as $conclusion | ["failure", "cancelled", "timed_out", "action_required"] | index($conclusion))
+        | .html_url' | head -1 || true
+  fi
+}
+
 set -x
 
 if [[ "$MODE" == "dequeued" ]]; then
+  ci_run_url=$(get_failing_merge_queue_run_url)
+  if [[ -n "$ci_run_url" ]]; then
+    slack_text=$(printf 'PR was removed from the merge queue: <%s|View PR> | <%s|View CI run>\n%s by %s (🤖)' "$PR_URL" "$ci_run_url" "$commit_title" "$commit_author")
+    claudebox_prompt="PR was dequeued from merge queue for $REF_NAME: $PR_URL — failing CI run: $ci_run_url — $commit_title by $commit_author. Investigate why the PR was dequeued (check CI logs, merge conflicts, etc.), fix the issue, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)."
+  else
+    slack_text=$(printf 'PR was removed from the merge queue: <%s|View PR>\n%s by %s (🤖)' "$PR_URL" "$commit_title" "$commit_author")
+    claudebox_prompt="PR was dequeued from merge queue for $REF_NAME: $PR_URL — $commit_title by $commit_author. Investigate why the PR was dequeued (check CI logs, merge conflicts, etc.), fix the issue, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)."
+  fi
+
   "$TOPDIR/ci3/slack_notify_with_claudebox_kickoff" "$channel" \
-    "$(printf 'PR was removed from the merge queue: <%s|View PR>\n%s by %s (🤖)' "$PR_URL" "$commit_title" "$commit_author")" \
-    "PR was dequeued from merge queue for $REF_NAME: $PR_URL — $commit_title by $commit_author. Investigate why the PR was dequeued (check CI logs, merge conflicts, etc.), fix the issue, and create a PR targeting $REF_NAME (the exact merge-train branch). Run ./bootstrap.sh ci to verify the fix locally and iterate until CI passes. Follow the merge-trains skill (.claude/skills/merge-trains/SKILL.md)." \
+    "$slack_text" \
+    "$claudebox_prompt" \
     --target-ref "origin/$REF_NAME"
 
 elif [[ "$MODE" == "merged" ]]; then
