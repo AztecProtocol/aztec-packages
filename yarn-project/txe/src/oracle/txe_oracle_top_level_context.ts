@@ -189,7 +189,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       return;
     }
 
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    const blockHeader = await this.stateMachine.canonicalChainStore.getBlockHeader();
     await this.stateMachine.contractSyncService.ensureContractSynced(
       contractAddress,
       null,
@@ -339,7 +339,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       await this.executeUtilityCall(call, execScopes, jobId);
     };
 
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    const blockHeader = await this.stateMachine.canonicalChainStore.getBlockHeader();
     await this.stateMachine.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
@@ -559,7 +559,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     const txContext = new TxContext(this.chainId, this.version, gasSettings);
 
-    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    const anchorBlockHeader = await this.stateMachine.canonicalChainStore.getBlockHeader();
 
     const calldataHash = await computeCalldataHash(calldata);
     const calldataHashedValues = new HashedValues(calldata, calldataHash);
@@ -707,7 +707,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
 
     // Sync notes before executing utility function to discover notes from previous transactions
-    const blockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    const blockHeader = await this.stateMachine.canonicalChainStore.getBlockHeader();
     await this.stateMachine.contractSyncService.ensureContractSynced(
       targetContractAddress,
       functionSelector,
@@ -750,7 +750,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     });
 
     try {
-      const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+      const anchorBlockHeader = await this.stateMachine.canonicalChainStore.getBlockHeader();
       const simulator = new WASMSimulator();
       const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
         await this.executeUtilityCall(syncCall, execScopes, jobId);

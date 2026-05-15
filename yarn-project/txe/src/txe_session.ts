@@ -245,8 +245,8 @@ export class TXESession implements TXESessionStateHandler {
     ]);
 
     const archiver = new TXEArchiver(store);
-    const anchorBlockStore = new CanonicalChainStore(store);
-    const stateMachine = await TXEStateMachine.create(archiver, anchorBlockStore, contractStore, noteStore);
+    const canonicalChainStore = new CanonicalChainStore(store);
+    const stateMachine = await TXEStateMachine.create(archiver, canonicalChainStore, contractStore, noteStore);
 
     const nextBlockTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
     const version = new Fr(await stateMachine.node.getVersion());
@@ -565,7 +565,7 @@ export class TXESession implements TXESessionStateHandler {
     this.exitTopLevelState();
     this.resetLastCall();
 
-    const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
+    const anchorBlockHeader = await this.stateMachine.canonicalChainStore.getBlockHeader();
 
     // There is no automatic message discovery and contract-driven syncing process in inlined private or utility
     // contexts, which means that known nullifiers are also not searched for, since it is during the tagging sync that

@@ -25,14 +25,14 @@ export class TXEStateMachine {
     public node: AztecNode,
     public synchronizer: TXESynchronizer,
     public archiver: TXEArchiver,
-    public anchorBlockStore: CanonicalChainStore,
+    public canonicalChainStore: CanonicalChainStore,
     public contractSyncService: ContractSyncService,
     public messageContextService: MessageContextService,
   ) {}
 
   public static async create(
     archiver: TXEArchiver,
-    anchorBlockStore: CanonicalChainStore,
+    canonicalChainStore: CanonicalChainStore,
     contractStore: ContractStore,
     noteStore: NoteStore,
   ) {
@@ -75,7 +75,7 @@ export class TXEStateMachine {
 
     const messageContextService = new MessageContextService(node);
 
-    return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService, messageContextService);
+    return new this(node, synchronizer, archiver, canonicalChainStore, contractSyncService, messageContextService);
   }
 
   /** Returns an {@link L2TipsProvider} backed by this node's chain tips. */
@@ -128,7 +128,7 @@ export class TXEStateMachine {
     await Promise.all([
       this.synchronizer.handleL2Block(block),
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
-      this.anchorBlockStore.setHeader(block.header),
+      this.canonicalChainStore.setHeader(block.header),
     ]);
   }
 }
