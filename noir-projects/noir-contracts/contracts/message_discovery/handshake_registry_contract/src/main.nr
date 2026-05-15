@@ -81,8 +81,6 @@ pub contract HandshakeRegistry {
             recipient.to_field(),
             DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         );
-        //
-        //
 
         // TODO(F-653): Encrypt `eph_pk.x` to keep the log private
         self.context.emit_private_log_vec_unsafe(log_tag, BoundedVec::from_array([eph_pk.x]));
@@ -125,13 +123,15 @@ pub contract HandshakeRegistry {
     unconstrained fn get_app_siloed_secret(
         sender: AztecAddress,
         recipient: AztecAddress,
+        // TODO(F-671): replace with `self.msg_sender()` once utility context exposes it. The
+        // explicit param forces hooks to also gate on `params[2]`; otherwise any contract that
+        // can authorize (target, selector) can read another caller's siloed secret.
         caller: AztecAddress,
     ) -> Option<Field> {
         let handshake = self.storage.handshakes.at(recipient).at(sender);
 
-        let siloed_secret = handshake.view_note().siloed_for(caller);
         if handshake.is_initialized() {
-            Option::some(siloed_secret)
+            Option::some(handshake.view_note().siloed_for(caller))
         } else {
             Option::none()
         }

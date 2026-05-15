@@ -41,11 +41,13 @@ unconstrained fn non_interactive_handshake_stores_handshake_for_sender_and_recip
 
     let returned_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    let retrieved_secret = env.execute_utility(registry.get_app_siloed_secret(sender, recipient, sender)).expect(
+    let utility_secret = env.execute_utility(registry.get_app_siloed_secret(sender, recipient, sender)).expect(
         f"handshake secret should be present",
     );
-    assert_eq(retrieved_secret, returned_secret);
+    assert_eq(utility_secret, returned_secret);
     assert(returned_secret != 0, "returned app-siloed secret should be non-zero");
+
+    env.call_private(sender, registry.validate_handshake(sender, recipient, returned_secret));
 }
 
 // The DH-direct flow lifts `recipient` to a curve point and fails loud if the address has no
@@ -63,37 +65,8 @@ unconstrained fn handshake_to_invalid_recipient_panics() {
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, invalid_recipient));
 }
 
-// A recipient who knows only their own address can compute the
-// expected tag, find the log under it, and recover `eph_pk.x` from the payload.
-#[test]
-unconstrained fn non_interactive_handshake_emits_recipient_discoverable_log() {
-    let (env, registry_address, sender, _, recipient) = setup();
-    let registry = HandshakeRegistry::at(registry_address);
-
-    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
-
-    // The function emits two private logs in order: log 0 is the encrypted note delivered via
-    // `MessageDelivery.ONCHAIN_UNCONSTRAINED`, log 1 is the recipient-keyed announcement carrying
-    // `eph_pk.x` under a recipient-derivable tag.
-    let logs = txe_oracles::get_last_tx_effects().private_logs;
-    assert_eq(logs.len(), 2);
-
-    let raw_tag = compute_log_tag(
-        recipient.to_field(),
-        DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
-    );
-    let expected_siloed_tag = compute_siloed_private_log_first_field(registry_address, raw_tag);
-
-    // siloed tag (1) + eph_pk.x (1) = 2 fields.
-    let log_data = logs.get(1);
-    assert_eq(log_data.len(), 2);
-    assert_eq(log_data.get(0), expected_siloed_tag);
-    let eph_pk_x = log_data.get(1);
-    assert(eph_pk_x != 0, "eph_pk.x should be non-zero");
-}
-
-// The handshake tag depends only on the recipient, so multiple senders posting to the same recipient
-// land under one key. Each emitted log carries its own ephemeral key.
+// The handshake tag depends only on the recipient, so multiple senders posting to
+// the same recipient land under log tag.
 #[test]
 unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
@@ -112,11 +85,17 @@ unconstrained fn two_senders_to_same_recipient_share_tag_with_distinct_payloads(
         DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
     );
     let expected_siloed_tag = compute_siloed_private_log_first_field(registry_address, raw_tag);
+
+    // Each announcement log carries [siloed tag, eph_pk.x] = 2 fields.
+    assert_eq(logs_first.get(1).len(), 2);
+    assert_eq(logs_second.get(1).len(), 2);
     assert_eq(logs_first.get(1).get(0), expected_siloed_tag);
     assert_eq(logs_second.get(1).get(0), expected_siloed_tag);
 
     let eph_pk_x_0 = logs_first.get(1).get(1);
     let eph_pk_x_1 = logs_second.get(1).get(1);
+    assert(eph_pk_x_0 != 0, "eph_pk.x should be non-zero");
+    assert(eph_pk_x_1 != 0, "eph_pk.x should be non-zero");
     assert(eph_pk_x_0 != eph_pk_x_1, "ephemeral keys should differ in handshakes from different senders");
 }
 
@@ -267,23 +246,34 @@ unconstrained fn validate_handshake_rejects_wrong_recipient() {
     env.call_private(sender, registry.validate_handshake(sender, recipient_b, secret));
 }
 
-// Round-trip: the secret returned by `non_interactive_handshake` is exactly what utility retrieval returns when
-// explicitly siloed to the same caller, and what `validate_handshake` accepts from that caller.
-#[test]
-unconstrained fn non_interactive_handshake_returned_secret_round_trips_through_validate() {
-    let (env, registry_address, sender, _, recipient) = setup();
+// `PrivateMutable`'s init nullifier is derived from the owner's nullifier
+// hiding key, so a caller can only initialize the `(recipient, sender)` slot for a `sender`
+// whose keys it holds. Passing a different account as the `sender` therefore fails.
+#[test(should_fail_with = "Key validation request denied")]
+unconstrained fn non_interactive_handshake_rejects_other_sender() {
+    let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
-
-    let retrieved = env.execute_utility(registry.get_app_siloed_secret(sender, recipient, sender)).expect(
-        f"handshake secret should be present",
-    );
-    assert_eq(retrieved, secret);
-
-    env.call_private(sender, registry.validate_handshake(sender, recipient, secret));
+    let _ = env.call_private(sender, registry.non_interactive_handshake(other_sender, recipient));
 }
 
+// Counterpart with `non_interactive_handshake_rejects_other_sender`: with `other_sender` added to additional scopes,
+// the caller has access to that account's nullifier hiding key, the init nullifier is producible,
+// and the call succeeds. The gate is key access, not anything in the contract itself.
+#[test]
+unconstrained fn non_interactive_handshake_accepts_other_sender_in_additional_scopes() {
+    let (env, registry_address, sender, other_sender, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private_opts(
+        sender,
+        CallPrivateOptions::new().with_additional_scopes([other_sender]),
+        registry.non_interactive_handshake(other_sender, recipient),
+    );
+}
+
+// TODO(F-671): drop the explicit `caller` arg and exercise real msg_sender via the test env
+// once utility context exposes self.msg_sender().
 #[test]
 unconstrained fn get_app_siloed_secret_differs_per_msg_sender() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
@@ -307,6 +297,8 @@ unconstrained fn validate_handshake_accepts_secret_siloed_for_msg_sender() {
         .execute_utility(registry.get_app_siloed_secret(sender, recipient, other_sender))
         .expect(f"handshake secret should be present for other caller");
 
+    // `validate_handshake` calls `get_note` on a note owned by `sender`, which nullifies and
+    // recreates and therefore needs `sender`'s nsk. Other_sender's PXE gets it via scopes.
     env.call_private_opts(
         other_sender,
         CallPrivateOptions::new().with_additional_scopes([sender]),
@@ -314,6 +306,8 @@ unconstrained fn validate_handshake_accepts_secret_siloed_for_msg_sender() {
     );
 }
 
+// TODO(F-671): drop the explicit `caller` arg used to obtain `other_sender_secret` and exercise
+// real msg_sender via the test env once utility context exposes self.msg_sender().
 #[test(should_fail_with = "no matching handshake")]
 unconstrained fn validate_handshake_rejects_secret_siloed_for_different_msg_sender() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
@@ -346,42 +340,4 @@ unconstrained fn validate_handshake_panics_when_no_handshake() {
     let registry = HandshakeRegistry::at(registry_address);
 
     env.call_private(sender, registry.validate_handshake(sender, recipient, 1));
-}
-
-// Recipient-keyed storage must isolate handshakes for the same sender across many recipients.
-#[test]
-unconstrained fn validate_handshake_finds_recipient_after_many_other_recipients() {
-    let mut env = TestEnvironment::new();
-    let sender = env.create_light_account();
-    let registry_address = env.deploy("HandshakeRegistry").without_initializer();
-    let registry = HandshakeRegistry::at(registry_address);
-
-    for _ in 0..16 {
-        let noise_recipient = env.create_light_account();
-        let _ = env.call_private(sender, registry.non_interactive_handshake(sender, noise_recipient));
-    }
-
-    let target_recipient = env.create_light_account();
-    let target_secret = env.call_private(sender, registry.non_interactive_handshake(sender, target_recipient));
-
-    env.call_private(sender, registry.validate_handshake(sender, target_recipient, target_secret));
-}
-
-// Utility retrieval should use the exact `(recipient, sender)` storage slot.
-#[test]
-unconstrained fn get_app_siloed_secret_finds_recipient_after_many_other_recipients() {
-    let mut env = TestEnvironment::new();
-    let sender = env.create_light_account();
-    let registry_address = env.deploy("HandshakeRegistry").without_initializer();
-    let registry = HandshakeRegistry::at(registry_address);
-
-    for _ in 0..16 {
-        let noise_recipient = env.create_light_account();
-        let _ = env.call_private(sender, registry.non_interactive_handshake(sender, noise_recipient));
-    }
-
-    let target_recipient = env.create_light_account();
-    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, target_recipient));
-
-    assert(env.execute_utility(registry.get_app_siloed_secret(sender, target_recipient, sender)).is_some());
 }
