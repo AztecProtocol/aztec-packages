@@ -8,7 +8,7 @@ import type { BlockSynchronizer } from '../block_synchronizer/block_synchronizer
 import type { ContractFunctionSimulator } from '../contract_function_simulator/contract_function_simulator.js';
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { NotesFilter } from '../notes_filter.js';
-import type { AnchorBlockStore } from '../storage/index.js';
+import type { CanonicalChainStore } from '../storage/index.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 
 /**
@@ -30,7 +30,7 @@ export class PXEDebugUtils {
     private contractSyncService: ContractSyncService,
     private noteStore: NoteStore,
     private blockStateSynchronizer: BlockSynchronizer,
-    private anchorBlockStore: AnchorBlockStore,
+    private canonicalChainStore: CanonicalChainStore,
   ) {}
 
   /** Not injected through constructor since they're are co-dependant */
@@ -65,7 +65,7 @@ export class PXEDebugUtils {
     return this.#putJobInQueue(async (jobId: string) => {
       await this.blockStateSynchronizer.sync();
 
-      const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+      const anchorBlockHeader = await this.canonicalChainStore.getBlockHeader();
 
       const contractFunctionSimulator = this.#getSimulatorForTx();
 
