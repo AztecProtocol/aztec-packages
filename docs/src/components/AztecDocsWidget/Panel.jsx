@@ -30,6 +30,9 @@ export default function Panel({
   feedbackErrorsByIndex,
   onFeedback,
   conversationId,
+  onShare,
+  shareState,
+  viewingShared,
 }) {
   const {
     isInk,
@@ -46,6 +49,14 @@ export default function Panel({
   const panelWidth = size === "compact" ? 380 : 420;
   const panelHeight = size === "compact" ? 540 : 620;
   const showHero = messages.length === 0 && !streaming;
+  const canShare =
+    !streaming && messages.some((m) => m.response && m.response.length > 0);
+  const shareLabel =
+    shareState === "ok"
+      ? "Link copied"
+      : shareState === "fail"
+        ? "Share failed"
+        : "Share";
 
   return (
     <div
@@ -137,7 +148,36 @@ export default function Panel({
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          {canShare && (
+            <button
+              onClick={onShare}
+              title="Copy a shareable link to this conversation"
+              aria-label="Copy share link"
+              className={
+                "azw-share-btn" +
+                (shareState === "ok"
+                  ? " is-ok"
+                  : shareState === "fail"
+                    ? " is-fail"
+                    : "")
+              }
+              style={{
+                height: 24,
+                padding: "0 10px",
+                border: `1px solid ${isInk ? "rgba(242,238,225,0.35)" : "var(--azw-ink-tint-1)"}`,
+                background: "transparent",
+                color: panelFg2,
+                cursor: "pointer",
+                fontFamily: "var(--azw-font-mono)",
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              {shareLabel}
+            </button>
+          )}
           {messages.length > 0 && (
             <button
               onClick={onReset}
@@ -198,6 +238,44 @@ export default function Panel({
           </button>
         </div>
       </div>
+
+      {viewingShared && (
+        <div
+          role="status"
+          style={{
+            padding: "8px 16px",
+            borderBottom: `1px solid ${softBorder}`,
+            background: "var(--azw-chartreuse-tint-2)",
+            color: "var(--azw-ink)",
+            fontFamily: "var(--azw-font-mono)",
+            fontSize: 10,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <span>Viewing a shared conversation.</span>
+          <button
+            type="button"
+            onClick={onReset}
+            style={{
+              font: "inherit",
+              letterSpacing: "inherit",
+              textTransform: "inherit",
+              color: "var(--azw-ink)",
+              background: "transparent",
+              border: 0,
+              padding: 0,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
+          >
+            Start a new one
+          </button>
+        </div>
+      )}
 
       {/* Body */}
       <div
