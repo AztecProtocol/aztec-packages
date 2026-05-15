@@ -1,8 +1,9 @@
 # Shplemini Masking
 
-This note states two masking lemmas for replacing the current full-size
-random `gemini_masking_poly` in Shplemini: Lemma 1 for the Gemini + Shplonk +
-KZG path, Lemma 2 for the Gemini + Shplonk + IPA path.
+This note states a masking lemma for replacing the current full-size random
+`gemini_masking_poly` in the Gemini + Shplonk + KZG path of Shplemini. It
+also records the analogous IPA support and the remaining proof obligation for
+that path.
 
 Let $N$ be the dyadic circuit size and $d = \log_2 N$. Write $E_j(X) = X^j$
 for the standard monomial basis of $\mathbb{F}[X]_{<N}$, so a polynomial
@@ -36,17 +37,26 @@ condition keeps it separate from the dyadic filtration pairs.
 
 Let $M = \sum_{j \in S} c_j\, E_j$ be the dedicated `gemini_masking_poly`
 sampled with $|S| = 2d$ independent random coefficients on this support.
-Assume the Shplemini Fiat-Shamir challenges avoid the usual
-denominator-zero bad events and the **tail-halving leakage matrix** $\Psi$
-defined below has rank $2d$. Then the Gemini + Shplonk + KZG part of
-Shplemini is zero-knowledge.
+Work in the algebraic group model for KZG, with a simulator that knows the
+KZG trapdoor $\tau$. Assume the Shplemini Fiat-Shamir challenges avoid the
+bad set consisting of:
+
+- denominator-zero events in Shplonk and KZG;
+- challenge collisions that make the selected evaluation points coincide;
+- vanishing multilinear Lagrange factors $L_b(u_0,\ldots,u_{t-1})$ used by
+  the local blocks below.
+
+The proof below shows that the Gemini projection of the tail-halving leakage
+matrix has full column rank $2d$. Therefore the Gemini + Shplonk + KZG part
+of Shplemini is zero-knowledge.
 
 ### Proof
 
 The proof has three steps.
 
-**1. The Shplemini transcript space and a first rank bound.** Work in the
-algebraic group model for KZG: a commitment $[P]$ is replaced by the scalar $P(\tau)$, where $\tau$ is the KZG trapdoor. The masking polynomial
+**1. The Shplemini transcript space and a first rank bound.** In the
+algebraic group model for KZG, a commitment $[P]$ is represented by the scalar
+$P(\tau)$. The simulator is allowed to know $\tau$. The masking polynomial
 $M$ contributes the following scalars to the transcript:
 
 | scalar | source |
@@ -93,16 +103,34 @@ $$
 The Shplonk claim opened by KZG is the hardcoded zero claim $Q(z)=0$, so the
 witness row is only a scalar multiple of $Q_M(\tau)$. Therefore both
 `Shplonk:Q` and `KZG:W` lie in the span of the Gemini scalars above, and
-$\mathrm{rank}(\Psi)$ equals the rank of its Gemini-only projection onto
+$\mathrm{rank}(\Psi)$ equals the rank of its Gemini projection onto
 $\mathbb{F}^{2d+1}$. The domain has dimension $|S|=2d$, so the rank is at
-most $2d$; the target is to show this bound is tight.
+most $2d$; the target is to show that this Gemini projection already has full
+column rank $2d$.
 
 **2. Show the layout achieves rank $2d$.** By the argument above it suffices
-to work with the Gemini-only projection of $\Psi$ onto $\mathbb{F}^{2d+1}$.
-Let $B$ be the matrix of this map in the basis $\{E_j : j \in S\}$.
+to work with the Gemini projection. In this section write
 
-The only formula we need is the effect of Gemini folding on one monomial.
-After $t$ folds,
+$$
+\mathcal{T}_{\mathrm{Gem}}=\mathbb{F}^{2d+1},\qquad
+V=\mathrm{span}\{E_j:j\in S\},
+$$
+
+and let
+
+$$
+\Psi:V\longrightarrow\mathcal{T}_{\mathrm{Gem}}
+$$
+
+be the Gemini leakage map with coordinates
+
+$$
+M(u),\quad M_0(\tau),\ldots,M_{d-1}(\tau),\quad
+M_0(-r_0),\ldots,M_{d-1}(-r_{d-1}).
+$$
+
+We prove that $\Psi$ has rank $2d$. The only formula we need is the effect of
+Gemini folding on one monomial. After $t$ folds,
 
 $$
 \mathrm{fold}_t(E_j) \;=\; L_{j \bmod 2^t}(u_0,\ldots,u_{t-1})\,
@@ -112,55 +140,43 @@ L_b(u_0,\ldots,u_{t-1}) \;=\; \prod_{a=0}^{t-1}
 \begin{cases} 1 - u_a & \text{if } \mathrm{bit}_a(b) = 0,\\ u_a & \text{otherwise.}\end{cases}
 $$
 
-Thus the Gemini-only matrix has one column per support monomial and one row
-for each selected evaluation of a folded monomial. We prove this matrix has
-full column rank by showing that its kernel is zero: if all Gemini transcript
-entries vanish for a sparse mask supported on $S$, then all mask coefficients
-are zero.
-
-We prove this with the same filtration that Gemini uses. Write the support as
-adjacent pairs
+Write the support as adjacent pairs indexed by their larger monomial index:
 
 $$
-P_k = \{2^k,\,2^k - 1\}\quad (1 \le k < d),\qquad
-P_d = \{E - 1,\,E - 2\}.
+A=\{E-1,\ 2^{d-1},\ 2^{d-2},\ \ldots,\ 2\},\qquad
+P_a=\{a,a-1\}\quad(a\in A).
 $$
 
-Order these pairs by decreasing value of their larger monomial index. Write
-the resulting ordered pairs as
+Order $A$ as $a_1>a_2>\cdots>a_d$, and define the filtration
 
 $$
-Q_1=\{a_1,a_1-1\},\ Q_2=\{a_2,a_2-1\},\ \ldots,\ Q_d=\{a_d,a_d-1\},
-\qquad a_1>a_2>\cdots>a_d.
-$$
-
-Define
-
-$$
-F_m \;=\; \mathrm{span}\{E_j : j\in Q_1\cup\cdots\cup Q_m\},
+V_m=\mathrm{span}\{E_{a_i},E_{a_i-1}:1\le i\le m\},
 \qquad 0\le m\le d,
 $$
 
-with $F_0=\{0\}$. We will show by induction on $m$ that the Gemini leakage is
-injective on each $F_m$.
+with $V_0=\{0\}$. Let $\Psi_m$ be the restriction of $\Psi$ to $V_m$. We show
+by induction that $\Psi_m$ has rank $2m$.
 
-The key local fact is that each new quotient $F_m/F_{m-1}$ is detected by two
-Gemini evaluations at the fold level assigned to the newly added pair. For
-the pair $\{E-1,E-2\}$, we use $M(\tau)$ and $M(-r_0)$. For the dyadic pair
-$\{2^k,2^k-1\}$, we use fold level $k$: after dividing the indices by $2^k$
-and taking floors, the two monomial indices become $1$ and $0$.
+The quotient $V_m/V_{m-1}$ is the two-dimensional span of the newest pair
+$P_{a_m}$. It is enough to show that the induced map
 
-For $k < d$, the pair $P_k = \{2^k,2^k-1\}$ becomes, after $k$ folds,
+$$
+\overline{\Psi}_m:\ V_m/V_{m-1}\longrightarrow
+\mathcal{T}_{\mathrm{Gem}}/\Psi(V_{m-1})
+$$
+
+has rank $2$.
+
+First consider a dyadic pair $P_{2^k}=\{2^k,2^k-1\}$ with $1\le k<d$. After
+$k$ folds,
 
 $$
 E_{2^k}\mapsto L_0(u_0,\ldots,u_{k-1}) X,\qquad
 E_{2^k-1}\mapsto L_{2^k-1}(u_0,\ldots,u_{k-1}).
 $$
 
-If $Q_m=P_k$, then $Q_i=\{a_i,a_i-1\}$ with $i<m$ satisfies
-$a_i>2^k$. The contribution from these pairs lies in $F_{m-1}$ and is
-quotiented out. Therefore, on the quotient $F_m/F_{m-1}$, the two transcript entries
-$M_k(\tau)$ and $M_k(-r_k)$ act on the new pair by the $2\times2$ matrix
+After quotienting the target by $\Psi(V_{m-1})$, the two coordinates
+$M_k(\tau)$ and $M_k(-r_k)$ give the matrix
 
 $$
 \begin{pmatrix}
@@ -175,13 +191,13 @@ $$
 L_0 L_{2^k-1}\,(\tau+r_k),
 $$
 
-which is non-zero away from the usual bad events: the Gemini weights are
-multilinear Lagrange evaluations, and the opening points are distinct from
-$\tau$. Here $L_0$ and $L_{2^k-1}$ are evaluated at
+which is non-zero outside the bad set defined in the lemma statement. Here
+$L_0$ and $L_{2^k-1}$ are evaluated at
 $(u_0,\ldots,u_{k-1})$.
 
-The data-tail pair $P_d=\{E-1,E-2\}$ is handled in the same way before any
-fold. On its quotient, the two evaluations $M(\tau)$ and $M(-r_0)$ act by
+For the top pair $P_{E-1}=\{E-1,E-2\}$, no Gemini fold is needed. After
+the same target quotient, the two coordinates $M(\tau)$ and $M(-r_0)$ give
+the matrix
 
 $$
 \begin{pmatrix}
@@ -196,73 +212,14 @@ $$
 \tau^{E-2}(-r_0)^{E-2}(\tau+r_0).
 $$
 
-This is again non-zero outside the same denominator-zero and collision bad
-events.
+This is again non-zero outside the bad set defined in the lemma statement.
 
-For example, when $N=8$ and $E=N$, the support is
+Thus each quotient $V_m/V_{m-1}$ contributes rank $2$. Since
+$\dim(V_m/V_{m-1})=2$, the induction gives
+$\mathrm{rank}(\Psi_m)=2m$ for all $m$, and in particular
+$\mathrm{rank}(\Psi)=2d$.
 
-$$
-\{7,6\}\ \cup\ \{4,3\}\ \cup\ \{2,1\}.
-$$
-
-Order the columns as $(7,6\mid4,3\mid2,1)$ and select the rows
-
-$$
-M_0(\tau), M_0(-r_0)\ \mid\ M_2(\tau), M_2(-r_2)\ \mid\
-M_1(\tau), M_1(-r_1).
-$$
-
-The literal selected matrix is not already triangular: for example,
-$M_2(\tau)$ also sees the $(7,6)$ columns. But once the first block is known
-to be invertible, we may quotient by the span it detects; equivalently,
-Gaussian elimination using that block gives the schematic form
-
-$$
-\begin{pmatrix}
-A_{7,6} & * & *\\
-0       & A_{4,3} & *\\
-0       & 0       & A_{2,1}
-\end{pmatrix},
-$$
-
-where
-
-$$
-A_{7,6} =
-\begin{pmatrix}
-\tau^7 & \tau^6\\
-(-r_0)^7 & (-r_0)^6
-\end{pmatrix},
-\qquad
-A_{4,3} =
-\begin{pmatrix}
-L_0(u_0,u_1)\tau & L_3(u_0,u_1)\\
-(-r_2)\,L_0(u_0,u_1) & L_3(u_0,u_1)
-\end{pmatrix},
-$$
-
-and
-
-$$
-A_{2,1} =
-\begin{pmatrix}
-L_0(u_0)\tau & L_1(u_0)\\
-(-r_1)\,L_0(u_0) & L_1(u_0)
-\end{pmatrix}.
-$$
-
-The diagonal blocks are exactly the local $2\times2$ systems above. This
-example is the whole argument: larger $d$ just inserts more dyadic blocks
-between the data-tail block and the final low-degree block.
-
-Now suppose an element of $F_m$ has zero Gemini leakage. Looking at the two
-rows assigned to the newest pair, modulo the already-injective subspace
-$F_{m-1}$, forces the two coefficients in that pair to be zero. The element
-therefore lies in $F_{m-1}$, and the induction hypothesis forces it to be
-zero. Peeling one adjacent pair at a time proves injectivity on
-$\mathrm{span}(E_j : j \in S)$.
-
-Equivalently, $B$ has full column rank $2d$ over
+Equivalently, the Gemini projection has full column rank $2d$ over
 $\mathbb{F}(u_0,\ldots,u_{d-1},r,\tau)$. After specializing the challenges in
 $\mathbb{F}$, rank can drop only on the zero locus of the product of the
 local determinants above, so the bad set has Schwartz-Zippel probability
@@ -291,174 +248,46 @@ $y \in \mathrm{image}(\Psi)$, solves $B\,c = y$ (uniquely, since $B$ has full
 column rank $2d$), and derives consistent `Shplonk:Q` and `KZG:W` from the
 same masked Gemini data. Therefore the verifier sees a transcript distributed
 independently of the unmasked witness contribution, except with negligible
-probability from bad challenge events.
+probability from the bad set defined above.
 
-## Lemma 2 (IPA)
+## IPA Variant
 
-The IPA setting has a different leakage model from KZG: there is no scalar
-trapdoor $\tau$. Instead, view every IPA group message algebraically in the
-basis $\{G_0, \ldots, G_{N-1}, U\}$ of CRS generators and the IPA auxiliary
-generator.
-
-Use the "four adjacent entries around every dyadic cut" support
+The analogous IPA support under consideration is
 
 $$
 S_{\mathrm{ipa}} \;=\; \{N - 4,\ N - 3,\ N - 2,\ N - 1\}
 \,\cup\, \bigcup_{q=1}^{d-1} \{2^q - 2,\ 2^q - 1,\ 2^q,\ 2^q + 1\},
 $$
 
-with entries outside $[0, N-1]$ and duplicates removed.
+with entries outside $[0,N-1]$ and duplicates removed. The intended leakage
+model views every IPA group message algebraically in the basis
+$\{G_0,\ldots,G_{N-1},U\}$ of CRS generators and the IPA auxiliary generator.
 
-Let $M = \sum_{s \in S_{\mathrm{ipa}}} c_s\, E_s$ be the dedicated Gemini
-masking polynomial, with the $c_s$ sampled independently and uniformly.
-Assume:
+The rank claim to prove is that the full Gemini + Shplonk + IPA leakage map
+from the coefficients $(c_s)_{s\in S_{\mathrm{ipa}}}$ has rank
+$|S_{\mathrm{ipa}}|$ outside a proper algebraic bad set of Fiat-Shamir
+challenges. The randomized test `shplemini_zk_mask_rank.test.cpp` checks this
+claim for representative dyadic sizes, but this note does not yet contain the
+complete analytical proof.
 
-1. Fiat-Shamir challenges avoid the usual denominator-zero bad events;
-2. the CRS generators and the IPA auxiliary generator are algebraically
-   independent for the rank argument.
-
-Then the Gemini + Shplonk + IPA transcript is zero-knowledge, except on a
-proper algebraic bad set of Fiat-Shamir challenges.
-
-### Proof
-
-All transcript entries contributed by $M$ are linear in the coefficients
-$(c_s)_{s \in S_{\mathrm{ipa}}}$ once the challenges are fixed. It is
-therefore enough to show that the linear leakage map has rank
-$|S_{\mathrm{ipa}}|$.
-
-The Gemini part is explicit. For a basis vector $E_j$, after $t$ Gemini folds,
+The first part of the proof is straightforward: Shplonk is triangular on
+coefficients. For $s>0$,
 
 $$
-\mathrm{fold}_t(E_j) \;=\; L_{j \bmod 2^t}(u_0,\ldots,u_{t-1})\,
-E_{\lfloor j / 2^t\rfloor},\qquad
-L_b(u_0,\ldots,u_{t-1}) \;=\; \prod_{a=0}^{t-1}
-\begin{cases} 1 - u_a & \text{if } \mathrm{bit}_a(b) = 0,\\ u_a & \text{otherwise.}\end{cases}
+\frac{X^s-z^s}{X-z}=\sum_{i=0}^{s-1}z^{s-1-i}X^i,
 $$
 
-**Shplonk batching preserves the sparse degrees.** Shplonk batches the Gemini
-opening claims at points $z_t \in \{r,\ -r_0,\ \ldots,\ -r_{d-1}\}$ with
-challenge $\nu$:
+so the $E_s$ column has a leading coefficient at degree $s-1$. This proves
+independence in the coefficient basis of the polynomial sent to IPA.
 
-$$
-A(X) \;=\; \sum_{t} \nu^{\,t}\, \frac{M_t(X) - M_t(z_t)}{X - z_t}.
-$$
-
-As a function of the mask coefficients, the coefficient vector of
-$A\in\mathbb{F}[X]_{<N}$ is linear. The important point is that Shplonk does
-not merge the sparse support directions before IPA begins.
-
-For $s>0$, isolate the summand using $M_0=M$. The identity
-
-$$
-\frac{X^s - z^s}{X-z} = \sum_{i=0}^{s-1} z^{\,s-1-i}X^i
-$$
-
-shows that the $E_s$ column has a non-zero coefficient at degree $X^{s-1}$,
-while every $E_{s'}$ with $s'<s$ has zero coefficient there. Folded summands
-$M_t$ have degree at most $\lfloor s/2^t\rfloor$, so they never create a
-higher-degree term than the one coming from $M_0$. Thus, after ordering
-non-zero support entries by decreasing $s$, the selected coefficient rows
-$X^{s-1}$ form a triangular matrix with non-zero diagonal. The possible
-$s=0$ entry is handled by the separate scalar $M(u)$, whose coefficient is
-$L_0(u_0,\ldots,u_{d-1})$.
-
-So Shplonk carries the support coefficients into the IPA opening vector with
-full rank, outside the usual algebraic bad set. More specifically, it is
-triangular for the decreasing-degree filtration: on each associated graded
-piece, the image of $E_s$ has a non-zero leading coordinate at $X^{s-1}$.
-The remaining question is whether the IPA transcript exposes a full-rank set
-of linear functionals on those leading coordinates for the chosen dyadic-cut
-support.
-
-**IPA cuts give a block-triangular leakage matrix.** If the current IPA vector
-has length $2^m$, one IPA round splits it as
-
-$$
-a = (a_{\mathrm{low}},\ a_{\mathrm{high}}),
-$$
-
-$$
-L = \langle a_{\mathrm{low}},\ G_{\mathrm{high}}\rangle
-    + \langle a_{\mathrm{low}},\ b_{\mathrm{high}}\rangle\, U,
-\qquad
-R = \langle a_{\mathrm{high}},\ G_{\mathrm{low}}\rangle
-    + \langle a_{\mathrm{high}},\ b_{\mathrm{low}}\rangle\, U,
-$$
-
-$$
-a' = a_{\mathrm{low}} + \rho\, a_{\mathrm{high}}.
-$$
-
-After $t$ IPA folds, a basis vector $E_j$ maps to
-
-$$
-\mathrm{ipa}_t(E_j) \;=\; \mu_t(j)\, E_{\,j \bmod 2^{d-t}},
-$$
-
-where $\mu_t(j)$ is the product of the IPA round challenges selected by the
-high bits of $j$.
-
-Use the filtration by IPA split size. At the cut $2^q$, the four support
-entries
-
-$$
-2^q-2,\quad 2^q-1,\quad 2^q,\quad 2^q+1
-$$
-
-are the last two coordinates below the cut and the first two coordinates
-above it. In the IPA round whose split separates this cut, the two lower-side
-entries appear in two distinct coordinates of the $L$ message, and the two
-upper-side entries appear in two distinct coordinates of the $R$ message. In
-the algebraic group model these are four independent CRS-generator
-coordinates. On the associated graded piece for this cut, the leakage block is
-diagonal up to non-zero IPA challenge factors.
-
-Order cuts from the largest split to the smallest split. Larger-cut support
-entries are peeled before smaller cuts are inspected; smaller-cut entries have
-not yet reached the selected generator coordinates of larger cuts. Therefore
-the selected IPA leakage matrix is block triangular, with one full-rank
-$4\times4$ block for each dyadic cut, after removing duplicates and
-out-of-range entries at the boundary. The top-tail block
-$\{N-4,N-3,N-2,N-1\}$ is the outermost split block.
-
-For a concrete picture, take $N=16$. Ignoring duplicate boundary entries, the
-support is organized as
-
-$$
-\{12,13,14,15\}\ \mid\ \{6,7,8,9\}\ \mid\ \{2,3,4,5\}\ \mid\ \{0,1\}.
-$$
-
-The selected IPA generator coordinates can be ordered so the matrix has the
-schematic form
-
-$$
-\begin{pmatrix}
-B_{12..15} & * & * & *\\
-0          & B_{6..9} & * & *\\
-0          & 0        & B_{2..5} & *\\
-0          & 0        & 0        & B_{0,1}
-\end{pmatrix}.
-$$
-
-The first three diagonal blocks are the four independent generator
-coordinates exposed at the corresponding split. The last block has size
-$2\times2$ because the cut near zero loses the out-of-range entries $-1$ and
-$-2$.
-
-Composing with the Shplonk map keeps this block-triangular form on the
-associated graded pieces: Shplonk only adds lower-degree terms, and those live
-in later blocks of the filtration. The diagonal blocks are multiplied by the
-non-zero Shplonk leading coefficients, so they remain full rank.
-
-Thus the IPA leakage matrix has rank $|S_{\mathrm{ipa}}|$ over the field of
-rational functions in the challenges. Specializing the challenges can lower
-rank only on the zero set of a non-zero determinant minor. The masking
-coefficients therefore induce a uniform mask over the full independent
-leakage subspace. A simulator samples that leakage, solves the full-rank
-linear system for the $c_s$, and derives the Gemini, Shplonk, and IPA
-messages from the same masked opening vector. This gives the claimed
-zero-knowledge statement.
+The remaining proof obligation is to compose this shifted coefficient basis
+with the IPA transcript leakage. The earlier dyadic-cut intuition applies to
+IPA coordinates, but after Shplonk the leading coordinate for $E_s$ is
+$s-1$, not $s$. A complete proof must therefore either shift the support
+definition accordingly or state the filtration directly in terms of the
+Shplonk image coordinates. Until that indexing is made explicit, the IPA
+argument should be treated as a rank claim supported by tests rather than as a
+proved lemma.
 
 ## Checks before implementation
 
