@@ -17,7 +17,7 @@ class AvmHardCodedVKAndHash {
     using FF = bb::curve::BN254::ScalarField;
 
     // Precomputed VK hash (hash of all commitments below).
-    static FF vk_hash() { return FF(uint256_t("0x0f0714f53e7fcf7ffb15cfb22b7a1614c65f01742706b0ca20eb80454eaf1e48")); }
+    static FF vk_hash() { return FF(uint256_t("0x00b6d67db723a570d7686fbcb5f3c4c39945378222f37e86fa9f511af4c036b5")); }
 
     static constexpr std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> get_all()
     {
@@ -71,9 +71,9 @@ class AvmHardCodedVKAndHash {
                 uint256_t(
                     "0x090dda25e7d64ab5cabe09fd80fbb731af2a98de7a608157dc10394b4fc022a4")), // precomputed_exec_opcode_dynamic_l2_gas
             Commitment(
-                uint256_t("0x26086b5fb31a24f236f0441d5b922b94ca141e861b9cc640184681c518cd68d3"),
+                uint256_t("0x1fbccee2ff656d845414c1a520adde56aa3625e29b6fff377044986493023e6d"),
                 uint256_t(
-                    "0x0bab134bb4e25ff33584c1094847e762ce6573054bae27715d0e4eb2b7278d80")), // precomputed_exec_opcode_opcode_gas
+                    "0x05c88802d3174f1c7b3c9aa1abf4754ebdaf6409d1aaf1dfa3f551da1c10fa93")), // precomputed_exec_opcode_opcode_gas
             Commitment(
                 uint256_t("0x296def9415d1c96b4d8ab91df5f59ad8522a726f98461b1ab5c4d4c5b22471a4"),
                 uint256_t(

@@ -1,11 +1,11 @@
 pub(crate) const MSM_ASSEMBLY: &str = "
                 ; We are passed three pointers and one usize.
-                ; d0 points to the points. Points are represented by (x: Field, y: Field). The point at infinity is (0, 0).
+                ; d0 points to the points. Points are represented by (x: Field, y: Field).
                 ; d1 points to the scalars. Scalars are represented by (lo: Field, hi: Field) both range checked to 128 bits.
                 ; d2 contains the number of points.
                 ; d3 points to the result. The result is a point.
                 ADD d3, /*the reserved register 'one_usize'*/ $2, d4; Compute the pointer to the result y.
-                ; Initialize the msm result: point at infinity (0, 0)
+                ; Initialize the msm result: point at infinity
                 SET i3, 0 ff
                 SET i4, 0 ff
                 ; Loop globals
