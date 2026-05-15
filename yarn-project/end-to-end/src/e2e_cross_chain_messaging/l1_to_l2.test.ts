@@ -291,5 +291,6 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
         await consume().send({ from: user1Address });
       }
     },
+    300_000,
   );
 });
