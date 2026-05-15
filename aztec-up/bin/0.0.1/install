@@ -55,11 +55,16 @@ function echo_yellow {
 }
 
 function timeout {
+  if [ "${CI:-0}" != "1" ] && [ "${CI:-0}" != "true" ]; then
+    shift
+    "$@"
+    return
+  fi
   if [ -x /usr/bin/timeout ]; then
     # Prefer coreutils `timeout` when available. Absolute path avoids re-entering this function.
     /usr/bin/timeout "$@"
   elif perl -e1 2>/dev/null; then
-    # Fall back to perl's `alarm` when /usr/bin/timeout is missing.
+    # Fall back to perl's `alarm` when /usr/bin/timeout is missing (e.g. stock macOS).
     local duration=$1
     shift
     perl -e "alarm $duration; exec @ARGV" -- "$@"
