@@ -19,10 +19,7 @@ use crate::{
         discovery::partial_notes::DeliveredPendingPartialNote,
         encoding::MESSAGE_CIPHERTEXT_LEN,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
-        processing::{
-            log_retrieval_request::{LogRetrievalRequest, LogSource},
-            log_retrieval_response::LogRetrievalResponse,
-        },
+        processing::log_retrieval_request::{LogRetrievalRequest, LogSource},
     },
     oracle::message_processing,
 };

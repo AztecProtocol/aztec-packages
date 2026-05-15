@@ -1,7 +1,6 @@
 use crate::ephemeral::EphemeralArray;
 use crate::messages::processing::{
-    log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse, MessageContext,
-    pending_tagged_log::PendingTaggedLog,
+    log_retrieval_request::LogRetrievalRequest, MessageContext, pending_tagged_log::PendingTaggedLog,
 };
 use crate::protocol::address::AztecAddress;
 use crate::protocol::blob_data::TxEffect;
