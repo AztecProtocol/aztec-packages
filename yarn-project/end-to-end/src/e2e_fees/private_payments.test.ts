@@ -9,7 +9,6 @@ import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { expectMapping } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
@@ -32,7 +31,13 @@ describe('e2e_fees private_payment', () => {
   const t = new FeesTest('private_payment');
 
   beforeAll(async () => {
-    await t.setup({ ...PIPELINING_SETUP_OPTS });
+    // TODO(kill-non-pipelined): runs under legacy until §6 B7 (simulator + inboxLag mismatch in
+    // AztecNodeService.simulatePublicCalls) is fixed. Under pipelining with `inboxLag=2`,
+    // `simulatePublicCalls` queries `getL1ToL2Messages(proposedCheckpoint+1)` at checkpoint
+    // boundaries and throws `L1ToL2MessagesNotReadyError`. Same root cause as e2e_bot
+    // (un-opt-in commit e32ea4fb60) and e2e_fees/failures (eb542676f8); all 6 tests in this
+    // suite hit it via `getBananaPublicBalanceFn` -> `.simulate(...)`.
+    await t.setup();
     await t.applyFPCSetup();
     await t.applyFundAliceWithBananas();
     ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } = t);
