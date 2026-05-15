@@ -312,7 +312,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.setState(SequencerState.PROPOSER_CHECK, slot);
       const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
       if (canPropose) {
-        await this.tryVoteWhenEscapeHatchOpen({ slot, proposer });
+        await this.tryVoteWhenEscapeHatchOpen({ slot, targetSlot, proposer });
       } else {
         this.log.trace(`Escape hatch open but we are not proposer, skipping vote-only actions`, {
           slot,
@@ -883,9 +883,10 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   @trackSpan('Sequencer.tryVoteWhenEscapeHatchOpen', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
   protected async tryVoteWhenEscapeHatchOpen(args: {
     slot: SlotNumber;
+    targetSlot: SlotNumber;
     proposer: EthAddress | undefined;
   }): Promise<void> {
-    const { slot, proposer } = args;
+    const { slot, targetSlot, proposer } = args;
 
     // Prevent duplicate attempts in the same slot
     if (this.lastSlotForFallbackVote === slot) {
@@ -898,10 +899,19 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
 
-    this.log.debug(`Escape hatch open for slot ${slot}, attempting vote-only actions`, { slot, attestorAddress });
-
-    const voter = new CheckpointVoter(
+    this.log.debug(`Escape hatch open for slot ${slot}, attempting vote-only actions`, {
       slot,
+      targetSlot,
+      attestorAddress,
+    });
+
+    // Under proposer pipelining, the multicall is expected to mine in `targetSlot` (slot + 1).
+    // Governance and slashing votes are EIP-712-signed against the slot they will mine in, and the
+    // L1 contract checks `msg.sender == getCurrentProposer()` using the mining slot. So we must
+    // sign for `targetSlot` and delay submission to the start of `targetSlot`. When pipelining is
+    // disabled `targetSlot == slot` and `sendRequestsAt` resolves with no extra sleep.
+    const voter = new CheckpointVoter(
+      targetSlot,
       publisher,
       attestorAddress,
       this.validatorClient,
@@ -920,13 +930,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return;
     }
 
-    this.log.info(`Voting in slot ${slot} (escape hatch open)`, { slot });
-    // Votes are EIP-712-signed for `slot` (the slot in which the multicall is expected to mine).
-    // Without threading the slot through, bundleSimulate would override block.timestamp to the
-    // wall-clock current slot, which can be one L2 slot earlier than `slot`. The L1 contract
-    // then reads `signaler = getCurrentProposer()` against the wrong slot, so signature
-    // verification fails inside Multicall3 and every governance/slashing entry is dropped.
-    await publisher.sendRequestsAt(slot);
+    this.log.info(`Voting in slot ${slot} (escape hatch open)`, { slot, targetSlot });
+    // Votes are EIP-712-signed for `targetSlot`. Delay submission to the start of `targetSlot` so
+    // the multicall mines in the slot the votes were signed for; otherwise the L1 contract reads
+    // `signaler = getCurrentProposer()` against the wrong slot and signature verification fails
+    // silently inside Multicall3. Fire-and-forget so we don't block the sequencer's work loop while
+    // waiting for the target slot to start, mirroring tryVoteWhenSyncFails.
+    void publisher.sendRequestsAt(targetSlot).catch(err => {
+      this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
+    });
   }
 
   /**
